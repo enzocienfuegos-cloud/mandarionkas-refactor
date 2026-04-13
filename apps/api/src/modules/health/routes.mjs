@@ -22,6 +22,8 @@ async function runReadinessChecks(env) {
     checks.databaseReachable = Boolean(result.rows[0]?.db_time);
     return { ok: checks.databaseReachable && checks.sessionSecretConfigured, checks };
   } catch (error) {
+    console.error('readyz database error:', error);
+
     return {
       ok: false,
       checks,
