@@ -3,17 +3,6 @@ import pg from 'pg';
 const { Pool } = pg;
 const pools = new Map();
 
-function resolveSsl(connectionString) {
-  try {
-    const url = new URL(connectionString);
-    const sslmode = (url.searchParams.get('sslmode') || '').toLowerCase();
-    if (!sslmode || sslmode === 'disable') return undefined;
-    return { rejectUnauthorized: false };
-  } catch {
-    return undefined;
-  }
-}
-
 export function createPool(connectionString) {
   if (!connectionString) {
     throw new Error('A PostgreSQL connection string is required.');
@@ -21,7 +10,9 @@ export function createPool(connectionString) {
 
   return new Pool({
     connectionString,
-    ssl: resolveSsl(connectionString),
+    ssl: {
+      rejectUnauthorized: false,
+    },
     max: 10,
     idleTimeoutMillis: 10000,
   });
