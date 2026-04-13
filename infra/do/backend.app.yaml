@@ -1,0 +1,126 @@
+# DigitalOcean App Platform spec for API + worker + predeploy migration job.
+# Replace github.repo, env values and secrets before applying.
+name: smx-studio-backend
+region: nyc
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+features:
+  - buildpack-stack=ubuntu-22
+services:
+  - name: api
+    github:
+      repo: your-org/your-repo
+      branch: main
+      deploy_on_push: true
+    source_dir: ./
+    environment_slug: node-js
+    run_command: npm run start:api
+    http_port: 8080
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+    health_check:
+      http_path: /healthz
+      initial_delay_seconds: 5
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    envs:
+      - key: APP_NAME
+        scope: RUN_TIME
+        type: GENERAL
+        value: smx-studio-api
+      - key: APP_ENV
+        scope: RUN_TIME
+        type: GENERAL
+        value: production
+      - key: APP_ORIGIN
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://app.example.com
+      - key: ASSETS_PUBLIC_BASE_URL
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://assets.example.com
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_ME
+      - key: DATABASE_POOL_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_ME
+      - key: SESSION_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_ME
+      - key: APP_GIT_SHA
+        scope: RUN_TIME
+        type: GENERAL
+        value: main
+      - key: APP_BUILD_TIME
+        scope: RUN_TIME
+        type: GENERAL
+        value: 2026-04-13T00:00:00Z
+      - key: R2_ENDPOINT
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://<accountid>.r2.cloudflarestorage.com
+      - key: R2_BUCKET
+        scope: RUN_TIME
+        type: GENERAL
+        value: smx-assets
+      - key: R2_ACCESS_KEY_ID
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_ME
+      - key: R2_SECRET_ACCESS_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_ME
+workers:
+  - name: worker
+    github:
+      repo: your-org/your-repo
+      branch: main
+      deploy_on_push: true
+    source_dir: ./
+    environment_slug: node-js
+    run_command: npm run start:worker
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    envs:
+      - key: APP_ENV
+        scope: RUN_TIME
+        type: GENERAL
+        value: production
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_ME
+      - key: DATABASE_POOL_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_ME
+      - key: DRAFT_RETENTION_DAYS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "30"
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    github:
+      repo: your-org/your-repo
+      branch: main
+      deploy_on_push: true
+    source_dir: ./
+    environment_slug: node-js
+    run_command: node packages/db/scripts/run-migrations.mjs
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_ME

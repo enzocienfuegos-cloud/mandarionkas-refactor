@@ -1,0 +1,13 @@
+{
+  "name": "@smx/worker",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/worker.mjs",
+    "start": "node src/worker.mjs"
+  },
+  "dependencies": {
+    "@smx/db": "1.0.0"
+  }
+}
