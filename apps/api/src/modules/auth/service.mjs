@@ -103,7 +103,8 @@ function buildSessionCookie(env, sessionId, persistenceMode) {
   return serializeCookie(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure,
-    sameSite: 'Lax',
+   sameSite: 'None',
+
     path: '/',
     ...(persistenceMode === 'local' ? { maxAge: REMEMBER_TTL_SECONDS } : {}),
   });
@@ -114,7 +115,8 @@ export function buildClearedSessionCookie(env) {
   return serializeCookie(SESSION_COOKIE_NAME, '', {
     httpOnly: true,
     secure,
-    sameSite: 'Lax',
+    sameSite: 'None',
+
     path: '/',
     maxAge: 0,
   });
