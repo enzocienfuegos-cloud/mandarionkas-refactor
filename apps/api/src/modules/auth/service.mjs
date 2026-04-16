@@ -57,7 +57,7 @@ function getClientIp(headers) {
 
 function toPublicUser(row) {
   return {
-    id: row.id,
+    id: row.user_id || row.id,
     name: row.display_name,
     email: row.email,
     role: row.global_role,
@@ -103,8 +103,7 @@ function buildSessionCookie(env, sessionId, persistenceMode) {
   return serializeCookie(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure,
-   sameSite: 'None',
-
+    sameSite: 'None',
     path: '/',
     ...(persistenceMode === 'local' ? { maxAge: REMEMBER_TTL_SECONDS } : {}),
   });
@@ -116,7 +115,6 @@ export function buildClearedSessionCookie(env) {
     httpOnly: true,
     secure,
     sameSite: 'None',
-
     path: '/',
     maxAge: 0,
   });
