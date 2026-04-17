@@ -77,3 +77,7 @@ Still to execute in the target environment:
 - validate login, workspace switch, project save/load, asset upload and manual/autosave flows
 - monitor audit events and worker maintenance logs for the first 24h
 - retire compatibility routes after the frontend no longer calls `clients`
+
+## Reality check - current repo baseline
+
+The checked-in frontend now resolves API origins from Vite env vars instead of browser storage, which is the first concrete cloud-baseline step. The backend and persistence layers in `server/` still need to catch up with the roadmap claims before this repository can be treated as production cloud-ready.
