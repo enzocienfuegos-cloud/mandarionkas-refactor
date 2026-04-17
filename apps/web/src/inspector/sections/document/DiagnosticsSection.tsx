@@ -39,10 +39,10 @@ export function DiagnosticsSection(): JSX.Element {
         ))}
       </div>
       <div className="field-stack">
-        <button onClick={() => triggerExportHtml(state)}>Export HTML</button>
+        <button onClick={() => { void triggerExportHtml(state); }}>Export HTML</button>
         <button onClick={() => triggerExportManifest(state)}>Export manifest</button>
         <button onClick={() => triggerExportDocumentJson(state)}>Export document JSON</button>
-        <button onClick={() => triggerExportPublishPackage(state)}>Export publish package</button>
+        <button onClick={() => { void triggerExportPublishPackage(state); }}>Export publish package</button>
         <button onClick={() => triggerExportReviewPackage(state)}>Export review package</button>
       </div>
       {issues.length ? (

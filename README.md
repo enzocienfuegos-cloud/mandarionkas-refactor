@@ -1,199 +1,159 @@
-# SMX Studio - DigitalOcean + PostgreSQL + Cloudflare R2 refactor
+# Dusk — Sprint 48
 
-This repository has been refactored away from the old `Cloudways + PHP proxy + local Node process + R2 JSON store` runtime.
+This is Dusk and  closes the second half of the refactors started in prior sprints.
 
-The target platform is now:
+## Included
+- Action side-effects extracted out of reducer execution (`src/actions/action-effects.ts`)
+- `EXECUTE_ACTION` now reduces state purely and runs browser effects after dispatch
+- `useStudioStore` now uses `useSyncExternalStoreWithSelector`
+- `shallowEqual` wired into production store selection
+- Stage uses stable selector composition from `src/core/store/selectors/stage-selectors.ts`
+- `StageWidget` memoized to reduce unnecessary rerenders
+- `structuredClone()` continues to be preferred for store snapshots/history
+- Expanded reducer test coverage for document/scene, timeline/ui and collaboration/metadata slices
 
-- `app.<domain>` -> DigitalOcean App Platform Static Site
-- `api.<domain>` -> DigitalOcean App Platform Web Service
-- background jobs -> DigitalOcean App Platform Worker + Deployment Job
-- transactional data -> DigitalOcean Managed PostgreSQL
-- binaries -> Cloudflare R2 behind `assets.<domain>`
-- edge, DNS, TLS, WAF, cache -> Cloudflare
+## Notes
+- This sprint focuses on store/effects/performance/testing hardening.
+- Interactive module renderer full extraction is still a follow-up pass; the plugin structure remains in place, but the larger shared module helper file has not been fully eliminated in this sprint.
 
-## Current status
 
-### Sprint 1 completed
+## Sprint 68 extensibility proof
 
-- monorepo split into `apps/*`, `packages/*`, `infra/*`
-- legacy Cloudways runtime isolated under `legacy/cloudways`
-- new API scaffold with `/healthz`, `/readyz`, `/version`
-- DigitalOcean App Platform specs added
-- initial PostgreSQL schema drafted
+This milestone validates real extensibility by adding a new `badge` widget plugin end to end:
+- widget type added to domain contracts
+- widget definition registered through the widget registry
+- dedicated stage renderer and export renderer
+- smoke coverage proving authoring flow still works after adding the new widget
 
-### Sprint 2 in place
+The goal is to prove that adding a new widget now touches a small, predictable surface instead of requiring cross-cutting edits across the whole editor.
 
-- real PostgreSQL migration runner in `packages/db/scripts/run-migrations.mjs`
-- session schema extended for active workspace + persistence mode
-- password hashing helpers and signed cookie helpers added
-- `GET /v1/auth/session`, `POST /v1/auth/login`, `POST /v1/auth/logout` now wired for PostgreSQL-backed sessions
-- `GET /v1/workspaces`, `POST /v1/workspaces` and temporary `/v1/clients*` compatibility routes now use PostgreSQL
-- frontend auth state no longer depends on browser-stored session ids
-- frontend now restores the session from the API on boot
-- demo seed script added for staging/dev bootstrapping
 
-### Sprint 3 in place
+## Sprint 75 — Widget plugin manifest
+- Widget registration now uses declarative discovery via `import.meta.glob` over `*.definition.ts` files.
+- Builtin widget registration no longer requires hand-maintaining a central array of definitions.
+- Plugin manifest entries keep source metadata so extensibility tests can assert uniqueness and registration coverage.
 
-- projects, project documents and project versions now persist in PostgreSQL
-- autosave/manual drafts are cloud-only in API mode
-- duplicate/archive/restore/delete/owner-change flows run against PostgreSQL
 
-### Sprint 4 in place
+## Source of truth
 
-- asset folders, upload sessions and asset metadata now persist in PostgreSQL
-- `GET/POST /v1/assets/folders`, `GET /v1/assets`, `GET /v1/assets/:id`, `DELETE /v1/assets/:id`, `POST /v1/assets/:id/rename`
-- `POST /v1/assets/upload-url` and `POST /v1/assets/complete-upload` now implement the direct-upload contract for Cloudflare R2
-- direct URL / remote asset saves are supported through `POST /v1/assets`
+- All active frontend source code lives under `src/`.
+- Root-level legacy mirrors were removed in Sprint 0 to avoid editing the wrong files.
+- Use `npm run typecheck` and `npm run build` as the baseline health checks.
 
-### Sprint 5 in place
 
-- one-shot legacy importer added in `packages/db/scripts/import-legacy-data.mjs`
-- importer can read either:
-  - a local exported split-data directory,
-  - a single legacy `store.json`, or
-  - the legacy R2 data layout directly when credentials are provided
-- importer builds JSON and Markdown reconciliation reports before writing to PostgreSQL
-- importer hashes legacy plaintext passwords during migration and skips legacy sessions
-- importer can optionally verify imported asset `storageKey` objects against R2
+## Runtime configuration
 
-### Sprint 6 in place
+- Frontend API origins are configured through Vite env vars, not browser storage.
+- Set `VITE_API_BASE_URL` when all API traffic shares one backend origin.
+- Use service-specific overrides only when cutover requires split origins:
+  - `VITE_PLATFORM_API_BASE_URL`
+  - `VITE_PROJECT_API_BASE_URL`
+  - `VITE_DOCUMENT_API_BASE_URL`
+  - `VITE_ASSET_API_BASE_URL`
+- See `.env.example` and [docs/sprint-01-cloud-baseline.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-01-cloud-baseline.md).
 
-- `/readyz` now performs a real database ping and returns `503` when the runtime is not actually ready
-- login and upload-sensitive asset routes are rate-limited in-memory per source IP
-- audit logging is written to `audit_events` for workspace, project, draft and asset mutations
-- `GET /v1/admin/audit-events` now exposes the latest audit entries to authorized admins
-- worker now performs maintenance: expiring stale upload sessions, revoking expired auth sessions and pruning old drafts
-- compatibility `/v1/clients*` routes now emit deprecation headers with a sunset date
-- post-deploy smoke check added at `npm run smoke:api`
+## Session model
 
-## Repo layout
+- Frontend API requests use `credentials: include`.
+- Session recovery happens through `GET /auth/session`, not through browser-stored bearer tokens.
+- Backend deployments should set `PLATFORM_ALLOWED_ORIGIN` and `PLATFORM_COOKIE_SECURE` appropriately for the target environment.
+- See [docs/sprint-02-auth-session-cloud.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-02-auth-session-cloud.md).
 
-```text
-apps/
-  web/      React + Vite editor
-  api/      Stateless Node API
-  worker/   Background worker scaffold
-packages/
-  config/   Runtime env readers + auth security helpers
-  contracts/ Shared DTO source-of-truth target
-  db/       SQL migrations, DB pool, migration + seed + import scripts
-infra/
-  do/       App Platform specs
-  cloudflare/ Setup notes for DNS/TLS/cache/R2
-legacy/
-  cloudways/ Previous PHP proxy + Node runtime kept only for migration reference
-```
+## Backend persistence
 
-## Setup
+- PostgreSQL is now the only supported metadata persistence driver.
+- Storage implementation details now live under `server/data/`.
+- See [docs/sprint-03-persistence-boundary.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-03-persistence-boundary.md).
+- `server/data/repository.mjs` is now the single persistence entrypoint for backend services.
+- `PLATFORM_REPOSITORY_DRIVER=postgres` is the only supported runtime mode.
+- `server/data/postgres-repository.mjs` now implements a transactional snapshot bridge for PostgreSQL-backed metadata.
+- `server/data/postgres-client.mjs` provides the database execution boundary and supports either:
+  - an installed `pg` dependency
+  - or an injected executor via `globalThis.__SMX_PLATFORM_PG_EXECUTE__`
+- `server/data/postgres-schema.sql` defines the initial metadata tables for users, sessions, clients, projects, versions, drafts and assets.
+- the schema file targets `public` by default; apply the same DDL to your target schema if `PLATFORM_POSTGRES_SCHEMA` is different.
+- `server/data/postgres-migrations/` now contains the ordered SQL migrations for PostgreSQL activation.
+- project persistence has started moving to explicit domain methods instead of full snapshot rewrites.
+- `server/services/project-service.mjs` now persists project CRUD/version flows through repository domain methods.
+- PostgreSQL-backed project writes now hit `projects`, `project_states`, `project_versions` and `project_version_states` directly.
+- auth/session writes now persist directly through repository domain methods instead of `writeDb(db)`.
+- client/workspace writes now persist directly through repository domain methods instead of `writeDb(db)`.
+- audit reads now resolve through repository domain methods.
+- document draft flows now persist through repository domain methods.
+- asset and asset-folder flows now persist through repository domain methods.
+- authenticated session resolution now hydrates a minimal session context instead of the full backend snapshot.
+- `server/server.mjs` now imports service modules directly; the old `server/store.mjs` facade has been removed.
+- Sprint 38 removed the remaining compatibility lane, the `object-store` runtime path and the compatibility admin routes.
+- `npm run db:postgres:migrate` applies pending PostgreSQL migrations.
+- `npm run db:postgres:ready` checks connectivity/readiness through the active repository driver.
+- `npm run db:postgres:smoke` validates the PostgreSQL adapter locally against an in-memory `pg-mem` instance.
+- `npm run db:postgres:preflight` checks whether a staging cutover env is complete before switching drivers.
+- `npm run platform:snapshot:export` exports the current repository snapshot for backup/comparison before or after a cutover.
+- `npm run platform:snapshot:compare` compares two exported snapshots and fails if summary counts or key identities drift.
+- `npm run platform:snapshot:smoke` validates the snapshot export/compare flow against an in-memory PostgreSQL adapter.
+- `npm run production:readiness:report` summarizes cutover config, automated coverage and known production gaps.
+- `npm run production:readiness:evaluate` turns the readiness report into an executive `go / conditional / no-go` evaluation with next actions.
+- `npm run staging:cutover:plan` prints the ordered cutover sequence for staging based on the current readiness state.
+- `npm run staging:cutover:checklist` prints a markdown-style operator checklist for the actual cutover window.
+- `npm run staging:env:check` validates that `.env.staging` no longer contains placeholders and has production-like values.
+- `npm run staging:acceptance:matrix` runs grouped domain acceptance checks for platform, auth, clients, projects, drafts, assets and admin endpoints.
+- `npm run staging:post-deploy:check` validates `/health`, `/readyz`, `/version` and `/observability` after deploy and asserts the active repository driver.
+- `npm run staging:upload-completion:rehearsal` validates signed upload, `/assets/complete-upload`, asset fetch and binary cleanup end-to-end.
+- `npm run staging:tenant-mutations:rehearsal` validates workspace creation, brand creation and invite flows in a smoke-only tenant configuration.
+- `npm run staging:platform:smoke` runs the first end-to-end staging smoke against the live API.
+- `npm run staging:maintenance:cleanup-sessions` removes expired sessions through the admin maintenance route.
+- `npm run staging:maintenance:cleanup-drafts` prunes stale document drafts through the admin maintenance route.
+- `npm run staging:maintenance:assets` inspects or cleans broken asset metadata through the admin asset housekeeping routes.
+- `GET /observability` exposes a lightweight JSON snapshot for post-cutover verification.
+- `GET /admin/audit-events` exposes backend audit history for admins.
+- `GET /admin/assets/housekeeping` exposes orphaned/misaligned asset metadata for admins.
+- See [docs/sprint-07-repository-contract.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-07-repository-contract.md).
+- See [docs/sprint-08-postgres-bridge.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-08-postgres-bridge.md).
+- See [docs/sprint-09-postgres-activation.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-09-postgres-activation.md).
+- See [docs/sprint-10-staging-cutover.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-10-staging-cutover.md).
+- See [docs/sprint-11-staging-smoke.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-11-staging-smoke.md).
+- See [docs/sprint-12-observability.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-12-observability.md).
+- See [docs/sprint-13-hardening.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-13-hardening.md).
+- See [docs/sprint-14-backend-audit.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-14-backend-audit.md).
+- See [docs/sprint-15-retention-housekeeping.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-15-retention-housekeeping.md).
+- See [docs/sprint-16-asset-housekeeping.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-16-asset-housekeeping.md).
+- See [docs/sprint-17-operational-cutover-pack.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-17-operational-cutover-pack.md).
+- See [docs/sprint-18-cutover-confidence.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-18-cutover-confidence.md).
+- See [docs/sprint-19-acceptance-matrix.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-19-acceptance-matrix.md).
+- See [docs/sprint-20-production-readiness-gaps.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-20-production-readiness-gaps.md).
+- See [docs/sprint-22-upload-completion-rehearsal.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-22-upload-completion-rehearsal.md).
+- See [docs/sprint-23-tenant-mutations-rehearsal.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-23-tenant-mutations-rehearsal.md).
+- See [docs/sprint-24-production-readiness-evaluation.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-24-production-readiness-evaluation.md).
+- See [docs/sprint-25-staging-cutover-plan.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-25-staging-cutover-plan.md).
+- See [docs/sprint-26-staging-cutover-checklist.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-26-staging-cutover-checklist.md).
+- See [docs/sprint-27-staging-env-readiness.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-27-staging-env-readiness.md).
+- See [docs/sprint-28-project-domain-repository.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-28-project-domain-repository.md).
+- See [docs/sprint-29-auth-client-domain-repository.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-29-auth-client-domain-repository.md).
+- See [docs/sprint-30-audit-documents-assets-domain-repository.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-30-audit-documents-assets-domain-repository.md).
+- See [docs/sprint-31-session-context-slimming.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-31-session-context-slimming.md).
+- See [docs/sprint-32-store-facade-collapse.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-32-store-facade-collapse.md).
+- See [docs/sprint-38-compatibility-removal.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-38-compatibility-removal.md).
 
-### Install
+## Backend services
 
-```bash
-npm install
-```
+- Auth/session logic now lives in `server/services/auth-service.mjs`.
+- Project/version logic now lives in `server/services/project-service.mjs`.
+- Asset logic now lives in `server/services/asset-service.mjs`.
+- Asset housekeeping/admin cleanup now lives in `server/services/asset-admin-service.mjs`.
+- Document draft/autosave logic now lives in `server/services/document-service.mjs`.
+- Workspace/client logic now lives in `server/services/client-service.mjs`.
+- Shared backend authorization helpers now live in `server/services/shared.mjs`.
+- See [docs/sprint-04-service-split.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-04-service-split.md).
+- See [docs/sprint-05-assets-documents-split.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-05-assets-documents-split.md).
+- See [docs/sprint-06-residual-monolith-closure.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-06-residual-monolith-closure.md).
 
-### Web
 
-```bash
-cp apps/web/.env.example apps/web/.env.local
-npm run dev:web
-```
-
-### API
-
-```bash
-cp apps/api/.env.example apps/api/.env.local
-npm run db:migrate
-npm run db:seed:demo
-npm run dev:api
-```
-
-### Worker
-
-```bash
-npm run dev:worker
-```
-
-## Environment variables
-
-### Web
-
-- `VITE_API_BASE_URL`
-- `VITE_ASSETS_BASE_URL`
-- `VITE_APP_ENV`
-
-### API / worker
-
-- `APP_NAME`
-- `APP_ENV`
-- `APP_ORIGIN`
-- `PORT`
-- `DATABASE_URL`
-- `DATABASE_POOL_URL`
-- `SESSION_SECRET`
-- `ASSETS_PUBLIC_BASE_URL`
-- `APP_GIT_SHA`
-- `APP_BUILD_TIME`
-- `R2_ENDPOINT`
-- `R2_BUCKET`
-- `R2_ACCESS_KEY_ID`
-- `R2_SECRET_ACCESS_KEY`
-- `DRAFT_RETENTION_DAYS`
-
-## Useful commands
-
-```bash
-npm run check:api
-npm run typecheck:web
-npm run build:web
-npm run db:migrate
-npm run db:seed:demo
-npm run db:import:legacy -- --source-dir ./legacy-export
-npm run smoke:api
-```
-
-## Legacy import
-
-Local file import:
-
-```bash
-npm run db:import:legacy -- --source-dir ./legacy-export --report-json ./artifacts/legacy-import.json --report-md ./artifacts/legacy-import.md
-```
-
-Single `store.json` import:
-
-```bash
-npm run db:import:legacy -- --source-file ./store.json
-```
-
-Apply into PostgreSQL:
-
-```bash
-DATABASE_URL=postgres://... npm run db:import:legacy -- --source-dir ./legacy-export --apply --reset-target
-```
-
-Direct legacy R2 import:
-
-```bash
-LEGACY_R2_ENDPOINT=...
-LEGACY_R2_BUCKET=...
-LEGACY_R2_ACCESS_KEY_ID=...
-LEGACY_R2_SECRET_ACCESS_KEY=...
-DATABASE_URL=postgres://...
-npm run db:import:legacy -- --apply
-```
-
-Optional asset verification:
-
-```bash
-R2_ENDPOINT=...
-R2_BUCKET=...
-R2_ACCESS_KEY_ID=...
-R2_SECRET_ACCESS_KEY=...
-npm run db:import:legacy -- --source-dir ./legacy-export --verify-assets
-```
-
-## Migration rule
-
-Nothing in `legacy/cloudways/` should be used as runtime code again.
-It stays only as a reference while the PostgreSQL + R2 migration is completed.
+## Sprint 8 — Release guardrails
+- GitHub Actions CI workflow added under `.github/workflows/ci.yml`
+- Clean source release packaging added under `scripts/package-release.mjs`
+- Baseline release verification script added under `scripts/run-release-checks.mjs`
+- Release docs added under `docs/release/README.md`
+- New commands:
+  - `npm run release:check`
+  - `npm run release:package`
+  - `npm run ci:verify`

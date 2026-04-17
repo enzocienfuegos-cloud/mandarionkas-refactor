@@ -1,4 +1,5 @@
-import { CANVAS_PRESETS } from '../../../domain/document/canvas-presets';
+import { CANVAS_PRESETS } from '../../../types/canvas-presets';
+import { brandingDefaults } from '../../../config/branding-defaults';
 import { ColorControl } from '../../../shared/ui/ColorControl';
 import type { TopBarController } from './use-top-bar-controller';
 
@@ -18,7 +19,7 @@ export function TopBarWorkspaceControls({ controller, compact = false }: { contr
         <input placeholder="New client" value={workspace.newClientName} onChange={(event) => workspace.setNewClientName(event.target.value)} />
         <button className="ghost" onClick={() => void workspace.handleCreateClient()} disabled={!workspace.canCreateClient}>Create client</button>
         <input placeholder="New brand kit" value={workspace.newBrandName} onChange={(event) => workspace.setNewBrandName(event.target.value)} />
-        <ColorControl label="Brand color" compact value={workspace.newBrandColor} fallback="#8b5cf6" onChange={workspace.setNewBrandColor} />
+        <ColorControl label="Brand color" compact value={workspace.newBrandColor} fallback={brandingDefaults.brandColor} onChange={workspace.setNewBrandColor} />
         <button className="ghost" onClick={() => void workspace.handleCreateBrand()} disabled={!workspace.canManageBrandkits || !workspace.activeClientId}>Add brand</button>
         <input placeholder="Invite email" value={workspace.inviteEmail} onChange={(event) => workspace.setInviteEmail(event.target.value)} />
         <select value={workspace.inviteRole} onChange={(event) => workspace.setInviteRole(event.target.value as 'editor' | 'reviewer')}>
@@ -31,7 +32,6 @@ export function TopBarWorkspaceControls({ controller, compact = false }: { contr
         </select>
         <input placeholder="New project name" value={projectSession.newProjectName} onChange={(event) => projectSession.setNewProjectName(event.target.value)} />
         <button className="ghost" onClick={projectSession.handleCreateProject} disabled={!workspace.canCreateProjects}>New project</button>
-        <span className="top-inline-pill">Cloud API</span>
         <select value={activeProjectId ?? ''} onChange={(event) => event.target.value ? void projectSession.handleLoadProject(event.target.value) : undefined}>
           <option value="">Load project…</option>
           {projectSession.projects.map((project) => <option key={project.id} value={project.id}>{project.name} · {project.accessScope ?? 'client'}</option>)}

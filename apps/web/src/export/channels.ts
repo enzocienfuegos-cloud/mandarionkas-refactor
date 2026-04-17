@@ -1,4 +1,5 @@
-import type { ReleaseTarget, StudioState } from '../domain/document/types';
+import type { StudioState } from '../domain/document/types';
+import type { ReleaseTarget } from '../types/release-targets';
 import type { ChannelRequirement } from './types';
 
 export function getChannelRequirements(target: ReleaseTarget, state: StudioState): ChannelRequirement[] {

@@ -34,7 +34,6 @@ export type TopBarStudioSnapshot = {
 
 export type ProjectSessionController = {
   projects: ProjectSummary[];
-  repositoryMode: 'local' | 'api';
   autosaveAvailable: boolean;
   versions: ProjectVersionSummary[];
   selectedVersionId: string;
@@ -55,7 +54,6 @@ export type ProjectSessionController = {
   handleRestoreVersion(versionId: string): Promise<void>;
   handleRecoverDraft(): Promise<void>;
   handleClearDraft(): Promise<void>;
-  handleRepositoryModeChange(mode: 'local' | 'api'): void;
   refreshProjects(): void;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   saveMessage?: string;
@@ -104,10 +102,10 @@ export type ExportReadinessController = {
   exportIssues: ExportValidationIssue[];
   readiness: ReturnType<typeof import('../../../export/engine').buildExportReadiness>;
   diagnostics: ReturnType<typeof import('../../../domain/document/diagnostics').buildDiagnosticSummary>;
-  triggerExportHtml(state: StudioState): void;
+  triggerExportHtml(state: StudioState): Promise<void>;
   triggerExportManifest(state: StudioState): void;
   triggerExportDocumentJson(state: StudioState): void;
-  triggerExportPublishPackage(state: StudioState): void;
+  triggerExportPublishPackage(state: StudioState): Promise<void>;
   triggerExportReviewPackage(state: StudioState): void;
 };
 

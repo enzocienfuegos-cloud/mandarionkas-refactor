@@ -8,10 +8,16 @@ export function useExportReadinessController(snapshot: TopBarStudioSnapshot): Ex
     exportIssues: validateExport(snapshot.state),
     readiness: buildExportReadiness(snapshot.state),
     diagnostics: buildDiagnosticSummary(snapshot.state),
-    triggerExportHtml,
-    triggerExportManifest,
+    async triggerExportHtml(state) {
+      await triggerExportHtml(state);
+    },
+    triggerExportManifest(state) {
+      triggerExportManifest(state);
+    },
     triggerExportDocumentJson,
-    triggerExportPublishPackage,
+    async triggerExportPublishPackage(state) {
+      await triggerExportPublishPackage(state);
+    },
     triggerExportReviewPackage,
   };
 }

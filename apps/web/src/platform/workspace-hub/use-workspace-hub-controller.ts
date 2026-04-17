@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CANVAS_PRESETS, getCanvasPresetById } from '../../domain/document/canvas-presets';
+import { CANVAS_PRESETS, getCanvasPresetById } from '../../types/canvas-presets';
 import { useTopBarController } from '../../app/shell/topbar/use-top-bar-controller';
 import type { ProjectSummary } from '../../repositories/types';
 

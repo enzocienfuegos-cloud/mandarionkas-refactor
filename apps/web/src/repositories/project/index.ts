@@ -1,9 +1,6 @@
 import type { StudioState } from '../../domain/document/types';
 import type { ProjectSummary } from '../types';
-import { setProjectRepositoryMode } from '../mode';
 import { getRepositoryServices } from '../services';
-
-export { setProjectRepositoryMode };
 
 export function getProjectRepository() {
   return getRepositoryServices().projects;

@@ -10,16 +10,35 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getServerEnv } from './env.mjs';
 
 const env = getServerEnv();
+let r2 = null;
 
-const r2 = new S3Client({
-  region: 'auto',
-  endpoint: env.endpoint,
-  forcePathStyle: true,
-  credentials: {
-    accessKeyId: env.accessKeyId,
-    secretAccessKey: env.secretAccessKey,
-  },
-});
+function requireR2Config() {
+  const requiredKeys = [
+    ['R2_ACCESS_KEY_ID', env.accessKeyId],
+    ['R2_SECRET_ACCESS_KEY', env.secretAccessKey],
+    ['R2_BUCKET', env.bucket],
+    ['R2_ENDPOINT', env.endpoint],
+  ];
+  const missing = requiredKeys.filter(([, value]) => !value).map(([name]) => name);
+  if (missing.length) {
+    throw new Error(`Missing required R2 env vars: ${missing.join(', ')}`);
+  }
+}
+
+function getR2Client() {
+  requireR2Config();
+  if (r2) return r2;
+  r2 = new S3Client({
+    region: 'auto',
+    endpoint: env.endpoint,
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: env.accessKeyId,
+      secretAccessKey: env.secretAccessKey,
+    },
+  });
+  return r2;
+}
 
 function sanitizeFileName(filename = 'asset') {
   return String(filename)
@@ -46,17 +65,19 @@ export function buildStorageKey({ assetId, clientId = 'client_default', filename
 }
 
 export async function createUploadUrl({ storageKey, mimeType }) {
+  const client = getR2Client();
   const command = new PutObjectCommand({
     Bucket: env.bucket,
     Key: storageKey,
     ContentType: mimeType,
   });
-  return getSignedUrl(r2, command, { expiresIn: env.signedUrlTtlSeconds });
+  return getSignedUrl(client, command, { expiresIn: env.signedUrlTtlSeconds });
 }
 
 export async function objectExists(storageKey) {
+  const client = getR2Client();
   try {
-    await r2.send(new HeadObjectCommand({ Bucket: env.bucket, Key: storageKey }));
+    await client.send(new HeadObjectCommand({ Bucket: env.bucket, Key: storageKey }));
     return true;
   } catch {
     return false;
@@ -64,6 +85,9 @@ export async function objectExists(storageKey) {
 }
 
 export function toPublicAssetUrl(storageKey) {
+  if (!env.publicBaseUrl) {
+    throw new Error('Missing required env var: R2_PUBLIC_BASE');
+  }
   return `${env.publicBaseUrl.replace(/\/$/, '')}/${String(storageKey).replace(/^\//, '')}`;
 }
 
@@ -78,8 +102,9 @@ function isMissingObjectError(error) {
 }
 
 export async function readJsonObject(storageKey) {
+  const client = getR2Client();
   try {
-    const response = await r2.send(new GetObjectCommand({
+    const response = await client.send(new GetObjectCommand({
       Bucket: env.bucket,
       Key: storageKey,
     }));
@@ -92,7 +117,8 @@ export async function readJsonObject(storageKey) {
 }
 
 export async function writeJsonObject(storageKey, value) {
-  await r2.send(new PutObjectCommand({
+  const client = getR2Client();
+  await client.send(new PutObjectCommand({
     Bucket: env.bucket,
     Key: storageKey,
     Body: JSON.stringify(value, null, 2),
@@ -101,17 +127,19 @@ export async function writeJsonObject(storageKey, value) {
 }
 
 export async function deleteObject(storageKey) {
-  await r2.send(new DeleteObjectCommand({
+  const client = getR2Client();
+  await client.send(new DeleteObjectCommand({
     Bucket: env.bucket,
     Key: storageKey,
   }));
 }
 
 export async function listObjectKeys(prefix) {
+  const client = getR2Client();
   const keys = [];
   let continuationToken = undefined;
   do {
-    const response = await r2.send(new ListObjectsV2Command({
+    const response = await client.send(new ListObjectsV2Command({
       Bucket: env.bucket,
       Prefix: prefix,
       ContinuationToken: continuationToken,

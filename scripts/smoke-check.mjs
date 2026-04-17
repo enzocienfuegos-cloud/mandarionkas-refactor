@@ -1,7 +1,10 @@
-const baseUrl = String(process.env.SMOKE_BASE_URL || 'http://127.0.0.1:8080').replace(/\/+$/, '');
+const baseUrl = String(process.env.SMOKE_BASE_URL || '').replace(/\/+$/, '');
 const endpoints = ['/', '/healthz', '/readyz', '/version', '/v1/auth/health', '/v1/assets/health'];
 
 async function main() {
+  if (!baseUrl) {
+    throw new Error('Missing SMOKE_BASE_URL for smoke-check.');
+  }
   const results = [];
   for (const path of endpoints) {
     const url = `${baseUrl}${path}`;

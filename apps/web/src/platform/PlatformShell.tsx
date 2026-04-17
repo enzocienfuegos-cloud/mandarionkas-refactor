@@ -14,16 +14,15 @@ export function PlatformShell(): JSX.Element {
   const snapshot = usePlatformSnapshot();
   const isAuthenticated = snapshot.session.isAuthenticated;
   const [route, setRoute] = useState<'hub' | 'editor'>(readRouteFromHash);
-  const [bootstrapping, setBootstrapping] = useState(true);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      await restoreSession();
-      if (!cancelled) setBootstrapping(false);
-    })();
+    let active = true;
+    void restoreSession().finally(() => {
+      if (active) setIsRestoringSession(false);
+    });
     return () => {
-      cancelled = true;
+      active = false;
     };
   }, []);
 
@@ -49,7 +48,7 @@ export function PlatformShell(): JSX.Element {
     }
   }, [route]);
 
-  if (bootstrapping) {
+  if (isRestoringSession) {
     return (
       <div className="platform-login-shell">
         <div className="platform-login-card">

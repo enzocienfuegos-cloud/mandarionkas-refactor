@@ -3,15 +3,15 @@ import { buildStandaloneHtml } from './html';
 import { buildExportManifest } from './manifest';
 import { buildExportReadiness } from './readiness';
 
-export function buildPublishPackage(state: StudioState): string {
+export function buildPublishPackage(state: StudioState, exportedState: StudioState = state): string {
   return JSON.stringify({
     version: 1,
     exportedAt: new Date().toISOString(),
-    manifest: buildExportManifest(state),
-    readiness: buildExportReadiness(state),
-    collaboration: state.document.collaboration,
-    document: state.document,
-    html: buildStandaloneHtml(state),
+    manifest: buildExportManifest(exportedState),
+    readiness: buildExportReadiness(exportedState),
+    collaboration: exportedState.document.collaboration,
+    document: exportedState.document,
+    html: buildStandaloneHtml(exportedState),
   }, null, 2);
 }
 

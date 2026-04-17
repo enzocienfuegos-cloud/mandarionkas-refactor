@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createInitialState } from '../../../domain/document/factories';
-import { localDocumentRepository } from '../../../repositories/document/local';
+import { browserStorageDocumentRepository } from '../../fakes/browser-storage-document-repository';
 
-describe('local document repository', () => {
+describe('browser storage document repository', () => {
   beforeEach(() => {
     globalThis.localStorage.clear();
   });
@@ -11,13 +11,13 @@ describe('local document repository', () => {
     const state = createInitialState();
     state.document.name = 'Autosave Test';
 
-    await localDocumentRepository.saveAutosave(state);
-    expect(await localDocumentRepository.hasAutosave()).toBe(true);
+    await browserStorageDocumentRepository.saveAutosave(state);
+    expect(await browserStorageDocumentRepository.hasAutosave()).toBe(true);
 
-    const loaded = await localDocumentRepository.loadAutosave();
+    const loaded = await browserStorageDocumentRepository.loadAutosave();
     expect(loaded?.document.name).toBe('Autosave Test');
 
-    await localDocumentRepository.clearAutosave();
-    expect(await localDocumentRepository.hasAutosave()).toBe(false);
+    await browserStorageDocumentRepository.clearAutosave();
+    expect(await browserStorageDocumentRepository.hasAutosave()).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import type { ExportValidationIssue } from '../domain/document/export-validation';
-import type { ReleaseTarget } from '../domain/document/types';
+import type { ReleaseTarget } from '../types/release-targets';
 
 export type ExportReadiness = {
   score: number;

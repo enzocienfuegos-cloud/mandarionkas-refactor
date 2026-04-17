@@ -1,4 +1,4 @@
-import type { AssetRecord } from '../../assets/types';
+import type { AssetFolder, AssetRecord } from '../../assets/types';
 import { normalizeStudioState } from '../../domain/document/normalize-state';
 import type { StudioState } from '../../domain/document/types';
 import type { RepositoryServices } from '../../repositories/services';
@@ -29,6 +29,7 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
   const projects = new Map<string, StudioState>();
   const projectSummaries = new Map<string, ProjectSummary>();
   const assets = new Map<string, AssetRecord>();
+  const assetFolders = new Map<string, AssetFolder>();
   const projectVersions = new Map<string, ProjectVersionSummary[]>();
   const projectVersionSnapshots = new Map<string, StudioState>();
   let assetCounter = 0;
@@ -37,7 +38,6 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
 
   return {
     documents: {
-      mode: 'local',
       async saveAutosave(state) {
         autosave = cloneState(state);
       },
@@ -53,6 +53,9 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
       async clearAutosave() {
         autosave = null;
       },
+      async clearManual() {
+        manual = null;
+      },
       async hasAutosave() {
         return Boolean(autosave);
       },
@@ -61,7 +64,6 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
       },
     },
     projects: {
-      mode: 'local',
       async list() {
         return [...projectSummaries.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
       },
@@ -83,7 +85,6 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
       },
     },
     projectVersions: {
-      mode: 'local',
       async list(projectId) {
         return [...(projectVersions.get(projectId) ?? [])].sort((a, b) => b.savedAt.localeCompare(a.savedAt));
       },
@@ -107,7 +108,6 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
       },
     },
     assets: {
-      mode: 'local',
       async list() {
         return [...assets.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       },
@@ -132,9 +132,56 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
         if (!current) return;
         assets.set(assetId, { ...current, name });
       },
+      async move(assetId, folderId) {
+        const current = assets.get(assetId);
+        if (!current) return;
+        assets.set(assetId, { ...current, folderId });
+      },
+      async updateQuality(assetId, qualityPreference) {
+        const current = assets.get(assetId);
+        if (!current) return;
+        assets.set(assetId, { ...current, qualityPreference });
+      },
+      async reprocess(assetId) {
+        const current = assets.get(assetId);
+        if (!current) return undefined;
+        const next = { ...current, processingStatus: 'queued' as const, processingMessage: undefined };
+        assets.set(assetId, next);
+        return { ...next };
+      },
       async get(assetId) {
         const record = assetId ? assets.get(assetId) : undefined;
         return record ? { ...record } : undefined;
+      },
+      async listFolders() {
+        return [...assetFolders.values()];
+      },
+      async createFolder(name, parentId) {
+        const folder: AssetFolder = {
+          id: `memory-folder-${++assetCounter}`,
+          name,
+          parentId,
+          createdAt: new Date().toISOString(),
+          clientId: 'memory-client',
+          ownerUserId: 'memory-user',
+        };
+        assetFolders.set(folder.id, folder);
+        return { ...folder };
+      },
+      async renameFolder(folderId, name) {
+        const current = assetFolders.get(folderId);
+        if (!current) return undefined;
+        const next = { ...current, name };
+        assetFolders.set(folderId, next);
+        return { ...next };
+      },
+      async deleteFolder(folderId) {
+        assetFolders.delete(folderId);
+        for (const [assetId, asset] of assets.entries()) {
+          if (asset.folderId === folderId) {
+            assets.set(assetId, { ...asset, folderId: undefined });
+          }
+        }
       },
     },
   };

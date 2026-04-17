@@ -1,15 +1,25 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { platformStore } from '../../../platform/store';
-import { localAssetRepository } from '../../../repositories/asset/local';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { browserStorageAssetRepository } from '../../fakes/browser-storage-asset-repository';
+import { configureRepositoryContextResolver, resetRepositoryContextResolver } from '../../../repositories/context';
 
-describe('local asset repository', () => {
+describe('browser storage asset repository', () => {
   beforeEach(() => {
     globalThis.localStorage.clear();
-    platformStore.login('admin@smx.studio', 'demo123');
+    configureRepositoryContextResolver(() => ({
+      clientId: 'client_default',
+      ownerUserId: 'user_admin',
+      can(permission: string) {
+        return ['assets:create', 'assets:view-client', 'assets:update', 'assets:delete', 'assets:manage-client'].includes(permission);
+      },
+    }));
+  });
+
+  afterEach(() => {
+    resetRepositoryContextResolver();
   });
 
   it('saves, renames and removes assets', async () => {
-    const asset = await localAssetRepository.save({
+    const asset = await browserStorageAssetRepository.save({
       name: 'Hero',
       kind: 'image',
       src: 'https://example.com/hero.png',
@@ -21,20 +31,20 @@ describe('local asset repository', () => {
       accessScope: 'private',
     });
 
-    const listed = await localAssetRepository.list();
+    const listed = await browserStorageAssetRepository.list();
     expect(listed.some((item) => item.id === asset.id)).toBe(true);
 
-    await localAssetRepository.rename(asset.id, 'Hero Updated');
-    const loaded = await localAssetRepository.get(asset.id);
+    await browserStorageAssetRepository.rename(asset.id, 'Hero Updated');
+    const loaded = await browserStorageAssetRepository.get(asset.id);
     expect(loaded?.name).toBe('Hero Updated');
 
-    await localAssetRepository.remove(asset.id);
-    const afterRemove = await localAssetRepository.get(asset.id);
+    await browserStorageAssetRepository.remove(asset.id);
+    const afterRemove = await browserStorageAssetRepository.get(asset.id);
     expect(afterRemove).toBeUndefined();
   });
 
   it('stores uploaded payloads outside the asset record while deduplicating fingerprints', async () => {
-    const first = await localAssetRepository.save({
+    const first = await browserStorageAssetRepository.save({
       name: 'Poster A',
       kind: 'image',
       src: '',
@@ -46,7 +56,7 @@ describe('local asset repository', () => {
       accessScope: 'client',
     });
 
-    const duplicate = await localAssetRepository.save({
+    const duplicate = await browserStorageAssetRepository.save({
       name: 'Poster B',
       kind: 'image',
       src: '',
@@ -60,10 +70,66 @@ describe('local asset repository', () => {
 
     expect(first.src).toContain('data:image/png');
     expect(duplicate.id).toBe(first.id);
-    expect(await localAssetRepository.list()).toHaveLength(1);
+    expect(await browserStorageAssetRepository.list()).toHaveLength(1);
 
     const persistedAssets = JSON.parse(localStorage.getItem('smx-studio-v4:asset-library') ?? '[]') as Array<Record<string, unknown>>;
     expect(String(persistedAssets[0]?.src ?? '')).toBe('');
     expect(localStorage.getItem('smx-studio-v4:asset-object-store')).toContain('data:image/png;base64,AAA');
+  });
+
+  it('supports folder CRUD and moving assets between folders', async () => {
+    const folder = await browserStorageAssetRepository.createFolder('Campaign assets');
+    expect((await browserStorageAssetRepository.listFolders())[0]?.name).toBe('Campaign assets');
+
+    const asset = await browserStorageAssetRepository.save({
+      name: 'Hero',
+      kind: 'image',
+      src: 'https://example.com/hero.png',
+      publicUrl: 'https://example.com/hero.png',
+      sourceType: 'url',
+      storageMode: 'remote-url',
+      accessScope: 'client',
+    });
+
+    await browserStorageAssetRepository.move(asset.id, folder.id);
+    expect((await browserStorageAssetRepository.get(asset.id))?.folderId).toBe(folder.id);
+
+    await browserStorageAssetRepository.renameFolder(folder.id, 'Campaign assets v2');
+    expect((await browserStorageAssetRepository.listFolders())[0]?.name).toBe('Campaign assets v2');
+
+    await browserStorageAssetRepository.deleteFolder(folder.id);
+    expect(await browserStorageAssetRepository.listFolders()).toHaveLength(0);
+    expect((await browserStorageAssetRepository.get(asset.id))?.folderId).toBeUndefined();
+  });
+
+  it('persists asset quality preference changes', async () => {
+    const asset = await browserStorageAssetRepository.save({
+      name: 'Quality Hero',
+      kind: 'image',
+      src: 'https://example.com/hero.png',
+      publicUrl: 'https://example.com/hero.png',
+      sourceType: 'url',
+      storageMode: 'remote-url',
+      accessScope: 'client',
+    });
+
+    await browserStorageAssetRepository.updateQuality(asset.id, 'low');
+    expect((await browserStorageAssetRepository.get(asset.id))?.qualityPreference).toBe('low');
+  });
+
+  it('prefers optimized asset URLs when available', async () => {
+    const asset = await browserStorageAssetRepository.save({
+      name: 'Optimized hero',
+      kind: 'image',
+      src: 'https://example.com/original.jpg',
+      publicUrl: 'https://example.com/original.jpg',
+      optimizedUrl: 'https://example.com/optimized.webp',
+      sourceType: 'url',
+      storageMode: 'remote-url',
+      accessScope: 'client',
+    });
+
+    expect(asset.src).toBe('https://example.com/optimized.webp');
+    expect(asset.optimizedUrl).toBe('https://example.com/optimized.webp');
   });
 });

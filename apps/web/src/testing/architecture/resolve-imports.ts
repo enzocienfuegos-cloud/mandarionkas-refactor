@@ -71,6 +71,7 @@ export function importedSpecifiers(content: string): string[] {
 }
 
 export function sourceLayer(relativePath: string): LayerName | null {
+  if (relativePath.endsWith('.inspector.tsx')) return 'inspector';
   const [root, layer] = relativePath.split('/');
   if (root !== 'src' || !layer) return null;
   return layerOrder.includes(layer as LayerName) ? (layer as LayerName) : null;

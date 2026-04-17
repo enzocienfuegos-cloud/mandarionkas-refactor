@@ -37,8 +37,6 @@ function unwrapState(response: LoadProjectResponseDto | StudioState | null): Stu
 }
 
 export const apiProjectRepository: ProjectRepository = {
-  mode: 'api',
-
   async list() {
     const response = await tryFetch<ListProjectsResponseDto | ProjectSummary[]>('/projects');
     return unwrapProjects(response);

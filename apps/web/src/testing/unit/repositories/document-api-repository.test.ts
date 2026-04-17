@@ -13,19 +13,18 @@ describe('api document repository', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
-  it('falls back to local autosave when no API base exists', async () => {
+  it('fails clearly when no document API base exists', async () => {
     const state = createInitialState();
-    state.document.name = 'Autosave Local';
-    await apiDocumentRepository.saveAutosave(state);
-    const loaded = await apiDocumentRepository.loadAutosave();
-    expect(loaded?.document.name).toBe('Autosave Local');
+    state.document.name = 'Autosave Remote';
+    await expect(apiDocumentRepository.saveAutosave(state)).rejects.toThrow('Document API unavailable');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('uses configured API base for autosave lookups', async () => {
-    localStorage.setItem('smx-studio-v4:document-api-base', 'https://docs.example.com');
+    vi.stubEnv('VITE_DOCUMENT_API_BASE_URL', 'https://docs.example.com');
     fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ document: { name: 'Remote Doc' }, ui: {} }) });
 
     const loaded = await apiDocumentRepository.loadAutosave();

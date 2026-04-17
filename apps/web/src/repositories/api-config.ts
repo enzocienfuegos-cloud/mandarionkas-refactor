@@ -1,14 +1,12 @@
-import { readStorageItem, writeStorageItem } from '../shared/browser/storage';
-import { getApiBaseUrl } from '../config/runtime';
+import { getRepositoryApiBaseUrl } from '../shared/runtime/api-base';
 
 export function getRepositoryApiBase(key: string): string {
-  const override = readStorageItem(key, '').trim().replace(/\/$/, '');
-  if (override) {
-    return override.endsWith('/v1') ? override : `${override}/v1`;
-  }
-  return getApiBaseUrl();
+  return getRepositoryApiBaseUrl(key);
 }
 
 export function setRepositoryApiBase(key: string, value: string): void {
-  writeStorageItem(key, value);
+  if (import.meta.env.DEV) {
+    console.warn(`setRepositoryApiBase("${key}") is deprecated. Configure API endpoints with Vite env vars instead.`);
+  }
+  void value;
 }

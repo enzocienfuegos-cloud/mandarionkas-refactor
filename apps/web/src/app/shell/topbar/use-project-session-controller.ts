@@ -1,20 +1,16 @@
 import { useEffect, useState } from 'react';
 import { clearAutosaveDraft, loadAutosaveDraft } from '../../../repositories/document';
-import { archiveProject, changeProjectOwner, duplicateProject, getProjectRepository, listProjects, loadProject, restoreProject, saveProject, setProjectRepositoryMode } from '../../../repositories/project';
+import { archiveProject, changeProjectOwner, duplicateProject, getProjectRepository, listProjects, loadProject, restoreProject, saveProject } from '../../../repositories/project';
 import { listProjectVersions, loadProjectVersion, saveProjectVersion } from '../../../repositories/project-versions';
 import type { ProjectSessionController, TopBarStudioSnapshot, WorkspaceController } from './top-bar-types';
 import { createInitialState } from '../../../domain/document/factories';
 import { useStudioSessionActions } from '../../../hooks/use-studio-actions';
-import { readStorageItem, writeStorageItem, removeStorageItem } from '../../../shared/browser/storage';
-
-const LAST_PROJECT_ID_KEY = 'smx-studio-v4:last-project-id';
 
 export function useProjectSessionController(snapshot: TopBarStudioSnapshot, workspace: Pick<WorkspaceController, 'activeClientId' | 'clients' | 'canCreateProjects'>): ProjectSessionController {
   const [projectTick, setProjectTick] = useState(0);
   const [newProjectName, setNewProjectName] = useState('');
   const [projects, setProjects] = useState<ProjectSessionController['projects']>([]);
   const [newProjectPresetId, setNewProjectPresetId] = useState('custom');
-  const repositoryMode: 'local' | 'api' = 'api';
   const [autosaveAvailable, setAutosaveAvailable] = useState(true);
   const [versions, setVersions] = useState<ProjectSessionController['versions']>([]);
   const [selectedVersionId, setSelectedVersionId] = useState('');
@@ -22,17 +18,9 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
   const [saveMessage, setSaveMessage] = useState<string | undefined>(undefined);
   const sessionActions = useStudioSessionActions();
 
-  function rememberProjectId(projectId?: string): void {
-    if (!projectId) {
-      removeStorageItem(LAST_PROJECT_ID_KEY);
-      return;
-    }
-    writeStorageItem(LAST_PROJECT_ID_KEY, projectId);
-  }
-
   useEffect(() => {
     listProjects().then(setProjects).catch(() => setProjects([]));
-  }, [projectTick, snapshot.activeProjectId, snapshot.lastSavedAt, repositoryMode, workspace.activeClientId]);
+  }, [projectTick, snapshot.activeProjectId, snapshot.lastSavedAt, workspace.activeClientId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,28 +45,7 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     return () => {
       cancelled = true;
     };
-  }, [projectTick, snapshot.activeProjectId, snapshot.lastSavedAt, repositoryMode]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (snapshot.activeProjectId) {
-      rememberProjectId(snapshot.activeProjectId);
-      return;
-    }
-    const rememberedProjectId = readStorageItem(LAST_PROJECT_ID_KEY, '').trim();
-    if (!rememberedProjectId) return;
-    loadProject(rememberedProjectId)
-      .then((loaded) => {
-        if (cancelled || !loaded) return;
-        sessionActions.replaceState({ ...loaded, ui: { ...loaded.ui, activeProjectId: rememberedProjectId } });
-      })
-      .catch(() => {
-        if (!cancelled) removeStorageItem(LAST_PROJECT_ID_KEY);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionActions, snapshot.activeProjectId]);
+  }, [projectTick, snapshot.activeProjectId, snapshot.lastSavedAt]);
 
   function refreshProjects(): void {
     setProjectTick((value) => value + 1);
@@ -101,7 +68,6 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
         ui: { ...snapshot.state.ui, activeProjectId: summary.id },
       };
       sessionActions.replaceState(nextState);
-      rememberProjectId(summary.id);
       setSaveStatus('saved');
       setSaveMessage(`Saved v${version.versionNumber}`);
       refreshProjects();
@@ -162,21 +128,18 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
       ui: { ...base.ui, activeProjectId: undefined },
     });
     setNewProjectName('');
-    rememberProjectId(undefined);
   }
 
   async function handleLoadProject(projectId: string): Promise<void> {
     const loaded = await loadProject(projectId);
     if (!loaded) return;
     sessionActions.replaceState({ ...loaded, ui: { ...loaded.ui, activeProjectId: projectId } });
-    rememberProjectId(projectId);
     refreshProjects();
   }
 
   async function handleDeleteProject(): Promise<void> {
     if (!snapshot.activeProjectId) return;
     await getProjectRepository().delete(snapshot.activeProjectId);
-    rememberProjectId(undefined);
     setVersions([]);
     setSelectedVersionId('');
     refreshProjects();
@@ -217,7 +180,6 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
       },
       ui: { ...restored.ui, activeProjectId: snapshot.activeProjectId },
     });
-    rememberProjectId(snapshot.activeProjectId);
     refreshProjects();
   }
 
@@ -236,14 +198,8 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     setAutosaveAvailable(false);
   }
 
-  function handleRepositoryModeChange(_mode: 'local' | 'api'): void {
-    setProjectRepositoryMode('api');
-    refreshProjects();
-  }
-
   return {
     projects,
-    repositoryMode,
     autosaveAvailable,
     versions,
     selectedVersionId,
@@ -264,7 +220,6 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     handleRestoreVersion,
     handleRecoverDraft,
     handleClearDraft,
-    handleRepositoryModeChange,
     refreshProjects,
     saveStatus,
     saveMessage,

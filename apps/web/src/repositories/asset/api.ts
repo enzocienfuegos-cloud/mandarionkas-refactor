@@ -8,9 +8,13 @@ import type {
   GetAssetResponseDto,
   ListAssetFoldersResponseDto,
   ListAssetsResponseDto,
+  MoveAssetRequestDto,
   RenameAssetRequestDto,
+  RenameAssetFolderRequestDto,
+  RenameAssetFolderResponseDto,
   SaveAssetRequestDto,
   SaveAssetResponseDto,
+  UpdateAssetQualityRequestDto,
 } from '../../types/contracts/assets';
 import { emitAssetLibraryChanged } from './events';
 
@@ -52,6 +56,9 @@ function buildCompleteUploadPayload(input: AssetDraft): Record<string, unknown> 
     storageMode: input.storageMode ?? 'object-storage',
     storageKey: input.storageKey,
     publicUrl: input.publicUrl ?? input.src,
+    optimizedUrl: input.optimizedUrl,
+    qualityPreference: input.qualityPreference,
+    derivatives: input.derivatives,
     accessScope: input.accessScope,
     tags: input.tags,
     folderId: input.folderId,
@@ -61,6 +68,7 @@ function buildCompleteUploadPayload(input: AssetDraft): Record<string, unknown> 
     durationMs: input.durationMs,
     fingerprint: input.fingerprint,
     fontFamily: input.fontFamily,
+    thumbnailUrl: input.thumbnailUrl,
     metadata: {
       width: input.width,
       height: input.height,
@@ -71,8 +79,6 @@ function buildCompleteUploadPayload(input: AssetDraft): Record<string, unknown> 
 }
 
 export const apiAssetRepository: AssetRepository = {
-  mode: 'api',
-
   async list() {
     const response = await tryFetch<ListAssetsResponseDto>('/assets');
     return unwrapRecords(response);
@@ -119,25 +125,90 @@ export const apiAssetRepository: AssetRepository = {
     emitAssetLibraryChanged('renamed');
   },
 
+  async move(assetId, folderId) {
+    const payload: MoveAssetRequestDto = { folderId };
+    await tryFetch(`/assets/${assetId}/move`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    emitAssetLibraryChanged('moved');
+  },
+
+  async updateQuality(assetId, qualityPreference) {
+    const payload: UpdateAssetQualityRequestDto = { qualityPreference };
+    await tryFetch(`/assets/${assetId}/quality`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    emitAssetLibraryChanged('saved');
+  },
+
+  async reprocess(assetId) {
+    const response = await tryFetch<SaveAssetResponseDto>(`/assets/${assetId}/reprocess`, {
+      method: 'POST',
+    });
+    const asset = unwrapRecord(response);
+    emitAssetLibraryChanged('saved');
+    return asset;
+  },
+
   async get(assetId) {
     if (!assetId) return undefined;
     const response = await tryFetch<GetAssetResponseDto>(`/assets/${assetId}`);
     return unwrapRecord(response);
   },
+
+  async listFolders() {
+    const response = await tryFetch<ListAssetFoldersResponseDto>('/assets/folders');
+    return unwrapFolders(response);
+  },
+
+  async createFolder(name, parentId) {
+    const response = await tryFetch<CreateAssetFolderResponseDto>('/assets/folders', {
+      method: 'POST',
+      body: JSON.stringify({ name, parentId }),
+    });
+    const folder = response?.folder ? mapAssetFolderDtoToDomain(response.folder) : undefined;
+    if (!folder) throw new Error('Asset folder create failed');
+    emitAssetLibraryChanged('saved');
+    return folder;
+  },
+
+  async renameFolder(folderId, name) {
+    const payload: RenameAssetFolderRequestDto = { name };
+    const response = await tryFetch<RenameAssetFolderResponseDto>(`/assets/folders/${folderId}/rename`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const folder = response?.folder ? mapAssetFolderDtoToDomain(response.folder) : undefined;
+    emitAssetLibraryChanged('renamed');
+    return folder;
+  },
+
+  async deleteFolder(folderId) {
+    const base = getBaseUrl().trim();
+    if (!base) throw new Error('Asset API unavailable');
+    await fetchJson<unknown>(`${base.replace(/\/$/, '')}/assets/folders/${folderId}`, { method: 'DELETE' });
+    emitAssetLibraryChanged('removed');
+  },
 };
 
 export async function listRemoteAssetFolders(): Promise<AssetFolder[]> {
-  const response = await tryFetch<ListAssetFoldersResponseDto>('/assets/folders');
-  return unwrapFolders(response);
+  return apiAssetRepository.listFolders();
 }
 
 export async function createRemoteAssetFolder(name: string, parentId?: string): Promise<AssetFolder> {
-  const response = await tryFetch<CreateAssetFolderResponseDto>('/assets/folders', {
-    method: 'POST',
-    body: JSON.stringify({ name, parentId }),
-  });
-  const folder = response?.folder ? mapAssetFolderDtoToDomain(response.folder) : undefined;
-  if (!folder) throw new Error('Asset folder create failed');
-  emitAssetLibraryChanged('saved');
-  return folder;
+  return apiAssetRepository.createFolder(name, parentId);
+}
+
+export async function renameRemoteAssetFolder(folderId: string, name: string): Promise<AssetFolder | undefined> {
+  return apiAssetRepository.renameFolder(folderId, name);
+}
+
+export async function deleteRemoteAssetFolder(folderId: string): Promise<void> {
+  return apiAssetRepository.deleteFolder(folderId);
+}
+
+export async function moveRemoteAssetToFolder(assetId: string, folderId?: string): Promise<void> {
+  return apiAssetRepository.move(assetId, folderId);
 }

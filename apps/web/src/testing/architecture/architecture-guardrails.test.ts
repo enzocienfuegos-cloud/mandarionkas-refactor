@@ -43,7 +43,7 @@ describe('architecture guardrails', () => {
   });
 
   it('keeps raw browser storage access inside approved adapters', () => {
-    const allowedFiles = new Set(['src/shared/browser/storage.ts', 'src/integrations/fetch-cache.ts', 'src/testing/setup.ts']);
+    const allowedFiles = new Set(['src/testing/browser/storage.ts', 'src/testing/setup.ts']);
     const offenders = files.flatMap((file) => {
       if (allowedFiles.has(file.relativePath)) return [];
       const hits = file.content.match(/\b(localStorage|sessionStorage)\b/g) ?? [];

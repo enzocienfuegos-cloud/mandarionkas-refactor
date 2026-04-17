@@ -12,28 +12,17 @@ import type {
   UpdateActiveClientRequestDto,
   UpdateActiveClientResponseDto,
 } from '../types/contracts';
-import type { PlatformStorageDiagnostics } from './types';
-import { getRepositoryApiBase } from '../repositories/api-config';
+import { getPlatformApiBaseUrl } from '../shared/runtime/api-base';
 import { fetchJson, fetchVoid, HttpError } from '../shared/net/http-json';
 
 function getBaseUrl(): string {
-  return getRepositoryApiBase('smx-studio-v4:platform-api-base');
+  return getPlatformApiBaseUrl();
 }
 
 function parseErrorBody<T>(error: unknown): T | null {
   if (!(error instanceof HttpError)) return null;
   try {
     return JSON.parse(error.body) as T;
-  } catch {
-    return null;
-  }
-}
-
-export async function requestPlatformSession(): Promise<SessionResponseDto | null> {
-  const base = getBaseUrl();
-  if (!base) return null;
-  try {
-    return await fetchJson<SessionResponseDto>(`${base}/auth/session`);
   } catch {
     return null;
   }
@@ -62,6 +51,17 @@ export async function requestPlatformLogout(): Promise<LogoutResponseDto | null>
     return { ok: true };
   } catch {
     return null;
+  }
+}
+
+export async function requestPlatformSession(): Promise<SessionResponseDto | null> {
+  const base = getBaseUrl();
+  if (!base) return null;
+  try {
+    return await fetchJson<SessionResponseDto>(`${base}/auth/session`);
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 401) return null;
+    throw error;
   }
 }
 
@@ -114,27 +114,5 @@ export async function requestInviteMember(clientId: string, payload: InviteMembe
     });
   } catch (error) {
     return parseErrorBody<InviteMemberResponseDto>(error) ?? null;
-  }
-}
-
-export async function requestStorageDiagnostics(): Promise<PlatformStorageDiagnostics | null> {
-  const base = getBaseUrl();
-  if (!base) return null;
-  try {
-    return await fetchJson<PlatformStorageDiagnostics>(`${base}/admin/storage/diagnostics`);
-  } catch {
-    return null;
-  }
-}
-
-export async function requestRebuildStorageIndexes(): Promise<PlatformStorageDiagnostics | null> {
-  const base = getBaseUrl();
-  if (!base) return null;
-  try {
-    return await fetchJson<PlatformStorageDiagnostics>(`${base}/admin/storage/rebuild`, {
-      method: 'POST',
-    });
-  } catch {
-    return null;
   }
 }

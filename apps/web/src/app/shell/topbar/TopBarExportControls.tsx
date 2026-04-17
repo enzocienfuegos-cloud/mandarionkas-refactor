@@ -9,10 +9,10 @@ export function TopBarExportControls({ controller, compact = false }: { controll
     <div className={`top-control-group ${compact ? 'top-control-group--compact' : ''}`}>
       <strong className="section-kicker">Export</strong>
       <div className="top-control-grid">
-        <button className="ghost" onClick={() => triggerExportHtml(state)}>HTML</button>
+        <button className="ghost" onClick={() => { void triggerExportHtml(state); }}>HTML</button>
         <button className="ghost" onClick={() => triggerExportManifest(state)}>Manifest</button>
         <button className="ghost" onClick={() => triggerExportDocumentJson(state)}>JSON</button>
-        <button className="ghost" onClick={() => triggerExportPublishPackage(state)}>Publish package</button>
+        <button className="ghost" onClick={() => { void triggerExportPublishPackage(state); }}>Publish package</button>
         <button className="ghost" onClick={() => triggerExportReviewPackage(state)}>Review package</button>
         <button className="ghost" onClick={handleLogout}>Logout</button>
         <button className="primary">{dirty ? `Unsaved · ${blockers} blockers` : 'Saved'}</button>
