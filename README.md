@@ -1,6 +1,6 @@
-# SMX Studio v4 — Sprint 48
+# Dusk — Sprint 48
 
-This sprint closes the second half of the refactors started in prior sprints.
+This is Dusk and  closes the second half of the refactors started in prior sprints.
 
 ## Included
 - Action side-effects extracted out of reducer execution (`src/actions/action-effects.ts`)
