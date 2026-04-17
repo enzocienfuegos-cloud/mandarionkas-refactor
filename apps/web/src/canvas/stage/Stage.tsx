@@ -29,10 +29,12 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const canvasQuickPanelRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
   const [workspaceViewport, setWorkspaceViewport] = useState({ width: 0, height: 0 });
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
+  const [showCanvasQuickPanel, setShowCanvasQuickPanel] = useState(false);
   const canCreateAssets = usePlatformPermission('assets:create');
   const documentActions = useDocumentActions();
   const {
@@ -66,7 +68,6 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
 
   const { canvas, scene, widgets, selectedIds, zoom, playheadMs, previewMode, hoveredWidgetId, activeWidgetId, stageBackdrop, showStageRulers, showWidgetBadges } = stageState;
   const selectedWidget = !previewMode && selectedIds.length === 1 ? widgets.find((widget) => widget.id === selectedIds[0]) : undefined;
-  const showCanvasQuickPanel = !previewMode && selectedIds.length === 0;
 
   useEffect(() => {
     const element = workspaceRef.current;
@@ -114,6 +115,12 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     const nextY = Math.max(24, workspaceViewport.height - 130);
     setToolbarPosition((current) => current.x === 0 && current.y === 0 ? { x: nextX, y: nextY } : current);
   }, [workspaceViewport.width, workspaceViewport.height]);
+
+  useEffect(() => {
+    if (previewMode || selectedIds.length > 0) {
+      setShowCanvasQuickPanel(false);
+    }
+  }, [previewMode, selectedIds.length]);
 
   const selectionToolbarPosition = useMemo(() => {
     const workspace = workspaceRef.current;
@@ -175,7 +182,15 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     <div
       className={`workspace-shell workspace-shell-backdrop-${stageBackdrop} ${showStageRulers ? 'has-workspace-rulers' : ''} ${panModeActive ? 'is-pan-mode' : ''} ${isPanning ? 'is-panning' : ''}`}
       ref={workspaceRef}
-      onPointerDownCapture={handleWorkspacePointerDownCapture}
+      onPointerDownCapture={(event) => {
+        handleWorkspacePointerDownCapture(event);
+        const target = event.target as HTMLElement | null;
+        const insidePanel = Boolean(target?.closest('.stage-canvas-quick-panel'));
+        const insideStage = Boolean(target?.closest('.stage-surface'));
+        if (!insidePanel && !insideStage) {
+          setShowCanvasQuickPanel(false);
+        }
+      }}
       onPointerMove={handleWorkspacePointerMove}
       onPointerUp={handleWorkspacePointerUp}
       onPointerCancel={handleWorkspacePointerCancel}
@@ -207,6 +222,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
               isWidgetVisible={isWidgetVisible}
               onStagePointerDown={(event) => {
                 if (event.target === event.currentTarget) {
+                  setShowCanvasQuickPanel(true);
                   beginMarqueeSelection(event.nativeEvent);
                 }
               }}
@@ -215,12 +231,14 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
               onStageDrop={handleStageDrop}
               onWidgetPointerDown={(event, widgetId, locked) => {
                 event.stopPropagation();
+                setShowCanvasQuickPanel(false);
                 const additive = event.shiftKey || event.metaKey || event.ctrlKey;
                 beginWidgetDrag(event.nativeEvent, widgetId, locked, additive);
               }}
               onResizePointerDown={(event, widgetId, locked, handle) => {
                 event.stopPropagation();
                 event.preventDefault();
+                setShowCanvasQuickPanel(false);
                 beginWidgetResize(event.nativeEvent, widgetId, locked, handle);
               }}
               onSetActiveWidget={widgetActions.setActiveWidget}
@@ -228,7 +246,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
               onExecuteAction={widgetActions.executeAction}
             />
             {showCanvasQuickPanel ? (
-              <div className="stage-canvas-quick-panel">
+              <div ref={canvasQuickPanelRef} className="stage-canvas-quick-panel">
                 <div className="stage-canvas-quick-panel__header">
                   <strong>Canvas background</strong>
                   <span>{canvas.width}×{canvas.height}</span>

@@ -336,12 +336,18 @@ function widgetHtml(node: PortableExportWidget, state: StudioState, assetPathMap
   return `<div class="widget widget-module" data-widget-id="${node.id}" style="${base};flex-direction:column;gap:6px;"><strong>${String(node.name)}</strong><span style="font-size:12px;opacity:.8;">${String(node.type)}</span></div>`;
 }
 
-function sceneHtml(scene: PortableExportScene, canvas: { width: number; height: number; backgroundColor: string }, state: StudioState, assetPathMap: Record<string, string>): string {
+function sceneHtml(
+  scene: PortableExportScene,
+  canvas: { width: number; height: number; backgroundColor: string },
+  state: StudioState,
+  assetPathMap: Record<string, string>,
+  visibleByDefault = false,
+): string {
   const widgets = scene.widgets
     .filter((widget) => !widget.hidden)
     .sort((a, b) => a.zIndex - b.zIndex);
   return `
-    <section class="scene" data-scene-id="${scene.id}" data-scene-order="${scene.order}" style="position:absolute;inset:0;width:${canvas.width}px;height:${canvas.height}px;background:${escapeHtml(canvas.backgroundColor)};overflow:hidden;">
+    <section class="scene" data-scene-id="${scene.id}" data-scene-order="${scene.order}" style="position:absolute;inset:0;width:${canvas.width}px;height:${canvas.height}px;background:${escapeHtml(canvas.backgroundColor)};overflow:hidden;display:${visibleByDefault ? 'block' : 'none'};">
       ${widgets.map((widget) => widgetHtml(widget, state, assetPathMap)).join('\n')}
     </section>
   `;
@@ -382,7 +388,7 @@ export function buildStandaloneHtml(state: StudioState): string {
       <div class="pill">Widgets ${Object.keys(state.document.widgets).length}</div>
     </div>
     <div class="deck">
-      ${orderedScenes.map((scene) => `<div class="scene-card"><div class="scene-title">${escapeHtml(scene.name)}</div>${sceneHtml(scene, portableProject.canvas, state, assetPathMap)}</div>`).join('\n')}
+      ${orderedScenes.map((scene, index) => `<div class="scene-card"><div class="scene-title">${escapeHtml(scene.name)}</div>${sceneHtml(scene, portableProject.canvas, state, assetPathMap, index === 0)}</div>`).join('\n')}
     </div>
   </div>
   <script type="application/json" id="smx-export-manifest">${escapeHtml(JSON.stringify(manifest, null, 2))}</script>
@@ -471,7 +477,7 @@ export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter)
 <body>
   <div class="banner-shell" data-document-name="${escapeHtml(documentName)}" data-active-variant="${escapeHtml(adapter.portableProject.activeVariant)}" data-active-feed="${escapeHtml(adapter.portableProject.activeFeedSource)}" data-active-record="${escapeHtml(activeRecord?.label ?? adapter.portableProject.activeFeedRecordId)}" data-adapter="${escapeHtml(adapter.adapter)}">
     <div class="banner-stage">
-      ${orderedScenes.map((scene) => sceneHtml(scene, canvas, state, assetPathMap)).join('\n')}
+      ${orderedScenes.map((scene, index) => sceneHtml(scene, canvas, state, assetPathMap, index === 0)).join('\n')}
     </div>
   </div>
   <script>
