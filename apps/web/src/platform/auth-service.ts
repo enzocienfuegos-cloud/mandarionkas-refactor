@@ -3,6 +3,23 @@ import { getPlatformState, updatePlatformState } from './state';
 import { requestPlatformLogin, requestPlatformLogout, requestPlatformSession } from './api';
 import type { LoginResponseDto, SessionResponseDto } from '../types/contracts';
 
+function clearSessionState() {
+  updatePlatformState((current) => ({
+    ...current,
+    clients: [],
+    session: {
+      currentUser: undefined,
+      activeClientId: undefined,
+      isAuthenticated: false,
+      permissions: [],
+      sessionId: undefined,
+      persistenceMode: undefined,
+      issuedAt: undefined,
+      expiresAt: undefined,
+    },
+  }));
+}
+
 function applySessionPayload(payload: Extract<LoginResponseDto | SessionResponseDto, { ok: true; authenticated: true }>, auditAction: 'session.login' | 'session.bootstrap') {
   updatePlatformState((current) =>
     appendAuditEntry(
@@ -36,23 +53,24 @@ function applySessionPayload(payload: Extract<LoginResponseDto | SessionResponse
 
 export async function restoreSession(): Promise<void> {
   const response = await requestPlatformSession();
-  if (!response) return;
 
-  if (!response.authenticated) {
-    updatePlatformState((current) => ({
-      ...current,
-      clients: [],
-      session: {
-        currentUser: undefined,
-        activeClientId: undefined,
-        isAuthenticated: false,
-        permissions: [],
-        sessionId: undefined,
-        persistenceMode: undefined,
-        issuedAt: undefined,
-        expiresAt: undefined,
-      },
-    }));
+  if (!response || !response.authenticated) {
+    updatePlatformState((current) => current.session.isAuthenticated
+      ? current
+      : {
+          ...current,
+          clients: [],
+          session: {
+            currentUser: undefined,
+            activeClientId: undefined,
+            isAuthenticated: false,
+            permissions: [],
+            sessionId: undefined,
+            persistenceMode: undefined,
+            issuedAt: undefined,
+            expiresAt: undefined,
+          },
+        });
     return;
   }
 
@@ -89,23 +107,11 @@ export async function logout(): Promise<void> {
   const actor = state.session.currentUser;
 
   clearPlatformSessionStorage();
+  clearSessionState();
 
   updatePlatformState((current) =>
     appendAuditEntry(
-      {
-        ...current,
-        clients: [],
-        session: {
-          currentUser: undefined,
-          activeClientId: undefined,
-          isAuthenticated: false,
-          permissions: [],
-          sessionId: undefined,
-          persistenceMode: undefined,
-          issuedAt: undefined,
-          expiresAt: undefined,
-        },
-      },
+      current,
       createAuditEntry({
         action: 'session.logout',
         target: 'session',
