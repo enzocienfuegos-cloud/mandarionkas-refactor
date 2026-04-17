@@ -1,0 +1,75 @@
+{
+<<<<<<< HEAD
+  "name": "smx-studio-v4",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "node node_modules/vite/dist/node/cli.js build",
+    "preview": "node node_modules/vite/dist/node/cli.js preview",
+    "test": "node node_modules/vitest/vitest.mjs run",
+    "test:watch": "node node_modules/vitest/vitest.mjs",
+    "typecheck": "node node_modules/typescript/lib/tsc.js --project tsconfig.app.json --noEmit",
+    "build:cli": "node node_modules/vite/dist/node/cli.js build",
+    "test:architecture": "node node_modules/vitest/vitest.mjs run src/testing/architecture/architecture-guardrails.test.ts",
+    "check": "npm run check:layers && npm run typecheck && npm run test && npm run build:cli",
+    "check:layers": "npm run test:architecture",
+    "inspect:layers": "node -e \"import('./src/testing/architecture/layer-rules.ts').then(() => console.log('Layer rules loaded'))\"",
+    "platform:api": "node --env-file=.env server/server.mjs",
+    "r2:test": "node --env-file=.env r2-test.mjs",
+    "release:check": "node scripts/run-release-checks.mjs",
+    "release:package": "node scripts/package-release.mjs",
+    "github:build-upload": "node scripts/prepare-github-build-upload.mjs",
+    "ci:verify": "npm run repo:policy && npm run release:check && npm run release:package",
+    "repo:policy": "node scripts/verify-repo-policy.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "use-sync-external-store": "^1.2.2",
+    "@aws-sdk/client-s3": "^3.1029.0",
+    "@aws-sdk/s3-request-presigner": "^3.1029.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.8"
+=======
+  "name": "smx-studio-platform",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "scripts": {
+    "dev:web": "npm run dev -w @smx/web",
+    "dev:api": "npm run dev -w @smx/api",
+    "dev:worker": "npm run dev -w @smx/worker",
+    "build:web": "npm run build -w @smx/web",
+    "typecheck:web": "npm run typecheck -w @smx/web",
+    "test:web": "npm run test -w @smx/web",
+    "check:web": "npm run check -w @smx/web",
+    "check": "npm run check:web",
+    "db:status": "node packages/db/scripts/print-migrations.mjs",
+    "start:api": "npm run start -w @smx/api",
+    "start:worker": "npm run start -w @smx/worker",
+    "db:migrate": "node packages/db/scripts/run-migrations.mjs",
+    "db:seed:demo": "node packages/db/scripts/seed-demo-data.mjs",
+    "db:import:legacy": "node packages/db/scripts/import-legacy-data.mjs",
+    "check:api": "bash -lc 'find apps/api/src packages/db/src apps/worker/src scripts -name \"*.mjs\" -print0 | xargs -0 -n1 node --check'",
+    "smoke:api": "node scripts/smoke-check.mjs"
+>>>>>>> ab02ee63cee32cf24d22046fd28aa77bc2d024ee
+  }
+}
