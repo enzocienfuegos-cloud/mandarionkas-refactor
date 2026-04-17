@@ -27,7 +27,7 @@ export function CanvasSection(): JSX.Element {
             <input type="number" value={document.canvas.height} onChange={(event) => updateCanvasSize(document.canvas.width, Number(event.target.value))} />
           </div>
         </div>
-        <ColorControl label="Background" value={document.canvas.backgroundColor} fallback="#111827" onChange={updateCanvasBackground} />
+        <ColorControl label="Background" value={document.canvas.backgroundColor} fallback="#111827" onChange={updateCanvasBackground} noneValue="transparent" noneLabel="None" />
         <small className="muted">Canvas presets stay as pure document configuration. The stage remains generic.</small>
       </div>
     </section>

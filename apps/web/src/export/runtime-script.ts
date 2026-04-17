@@ -174,6 +174,38 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     });
   });
 
+  function renderCountdown(root) {
+    const total = Math.max(0, Number(root?.getAttribute('data-countdown-seconds') || 0));
+    const startedAt = Date.now();
+
+    function applySegments(remaining) {
+      const days = Math.floor(remaining / 86400);
+      const hours = Math.floor((remaining % 86400) / 3600);
+      const minutes = Math.floor((remaining % 3600) / 60);
+      const seconds = remaining % 60;
+      const values = { DD: days, HH: hours, MM: minutes, SS: seconds };
+      Object.entries(values).forEach(([label, value]) => {
+        const node = root?.querySelector('[data-countdown-value="' + label + '"]');
+        if (node) node.textContent = String(value).padStart(2, '0');
+      });
+    }
+
+    function tick() {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const remaining = Math.max(0, total - elapsed);
+      applySegments(remaining);
+      if (remaining <= 0) return;
+      window.setTimeout(tick, 1000);
+    }
+
+    applySegments(total);
+    if (total > 0) window.setTimeout(tick, 1000);
+  }
+
+  document.querySelectorAll('.widget-countdown[data-widget-id]').forEach((node) => {
+    renderCountdown(node);
+  });
+
   showScene(0);
   window.smxRuntime = {
     showScene,

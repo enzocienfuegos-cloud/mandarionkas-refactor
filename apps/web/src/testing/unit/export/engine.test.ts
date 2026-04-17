@@ -319,6 +319,29 @@ describe('export engine', () => {
     expect(html).not.toContain('https://cdn.example.com/hero.png');
   });
 
+  it('renders countdown widgets as exportable countdown markup', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.widgets.countdown_1 = {
+      id: 'countdown_1',
+      type: 'countdown',
+      name: 'Countdown',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 240, height: 120, rotation: 0 },
+      style: { backgroundColor: '#1f2937', accentColor: '#f59e0b', color: '#ffffff' },
+      props: { title: 'Countdown', days: 1, hours: 2, minutes: 3, seconds: 4 },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('countdown_1');
+
+    const html = buildChannelHtml(state, buildGenericHtml5Adapter(state));
+
+    expect(html).toContain('widget-countdown');
+    expect(html).toContain('data-countdown-seconds');
+    expect(html).toContain('data-countdown-value="DD"');
+  });
+
   it('builds a file-oriented export bundle', () => {
     const state = createInitialState();
     const bundle = buildExportBundle(state);
