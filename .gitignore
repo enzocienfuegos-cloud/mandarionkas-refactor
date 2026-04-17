@@ -2,4 +2,9 @@ node_modules/
 dist/
 .DS_Store
 platform-api.log
-
+.env
+.env.local
+.env.staging
+.env.production
+!.env.example
+!.env.staging.example

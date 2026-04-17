@@ -9,17 +9,31 @@ function optional(name, fallback = '') {
 }
 
 export function getServerEnv() {
+  const repositoryDriver = optional('PLATFORM_REPOSITORY_DRIVER', 'postgres');
+  if (repositoryDriver !== 'postgres') {
+    throw new Error(`Unsupported PLATFORM_REPOSITORY_DRIVER: ${repositoryDriver}. PostgreSQL is the only supported backend.`);
+  }
   return {
-    accountId: required('R2_ACCOUNT_ID'),
-    accessKeyId: required('R2_ACCESS_KEY_ID'),
-    secretAccessKey: required('R2_SECRET_ACCESS_KEY'),
-    bucket: required('R2_BUCKET'),
-    endpoint: required('R2_ENDPOINT'),
-    publicBaseUrl: required('R2_PUBLIC_BASE'),
+    repositoryDriver,
+    postgresUrl: optional('PLATFORM_POSTGRES_URL', ''),
+    postgresSchema: optional('PLATFORM_POSTGRES_SCHEMA', 'public'),
+    postgresSslMode: optional('PLATFORM_POSTGRES_SSL_MODE', 'prefer'),
+    accountId: optional('R2_ACCOUNT_ID', ''),
+    accessKeyId: optional('R2_ACCESS_KEY_ID', ''),
+    secretAccessKey: optional('R2_SECRET_ACCESS_KEY', ''),
+    bucket: optional('R2_BUCKET', ''),
+    endpoint: optional('R2_ENDPOINT', ''),
+    publicBaseUrl: optional('R2_PUBLIC_BASE', ''),
     signedUrlTtlSeconds: Number(optional('ASSET_SIGNED_URL_TTL_SECONDS', '900')),
     host: optional('PLATFORM_API_HOST', '0.0.0.0'),
     port: Number(optional('PLATFORM_API_PORT', '8787')),
-    dataKey: optional('PLATFORM_API_DATA_KEY', 'platform-api/store.json'),
-    dataPrefix: optional('PLATFORM_API_DATA_PREFIX', ''),
+    allowedOrigin: optional('PLATFORM_ALLOWED_ORIGIN', ''),
+    cookieSecure: optional('PLATFORM_COOKIE_SECURE', 'false') === 'true',
+    observabilityEnabled: optional('PLATFORM_OBSERVABILITY_ENABLED', 'true') !== 'false',
+    loginRateLimitWindowMs: Number(optional('PLATFORM_LOGIN_RATE_LIMIT_WINDOW_MS', '60000')),
+    loginRateLimitMax: Number(optional('PLATFORM_LOGIN_RATE_LIMIT_MAX', '10')),
+    uploadRateLimitWindowMs: Number(optional('PLATFORM_UPLOAD_RATE_LIMIT_WINDOW_MS', '60000')),
+    uploadRateLimitMax: Number(optional('PLATFORM_UPLOAD_RATE_LIMIT_MAX', '20')),
+    draftRetentionDays: Number(optional('PLATFORM_DRAFT_RETENTION_DAYS', '14')),
   };
 }

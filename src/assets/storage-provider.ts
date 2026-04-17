@@ -30,7 +30,6 @@ export type PreparedAssetUpload = {
 };
 
 export interface AssetStorageProvider {
-  mode: 'demo' | 'api';
   prepareUpload(input: AssetUploadInput): Promise<PreparedAssetUpload>;
   completeUpload(input: {
     prepared: PreparedAssetUpload;

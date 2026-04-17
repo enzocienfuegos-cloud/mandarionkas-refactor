@@ -30,18 +30,17 @@ export type ProjectVersionSummary = {
 };
 
 export interface DocumentRepository {
-  mode: 'local' | 'api';
   saveAutosave(state: StudioState): Promise<void>;
   saveManual(state: StudioState): Promise<void>;
   loadAutosave(): Promise<StudioState | null>;
   loadManual(): Promise<StudioState | null>;
   clearAutosave(): Promise<void>;
+  clearManual(): Promise<void>;
   hasAutosave(): Promise<boolean>;
   hasManual(): Promise<boolean>;
 }
 
 export interface ProjectRepository {
-  mode: 'local' | 'api';
   list(): Promise<ProjectSummary[]>;
   save(state: StudioState, projectId?: string): Promise<ProjectSummary>;
   load(projectId: string): Promise<StudioState | null>;
@@ -54,14 +53,12 @@ export interface ProjectRepository {
 
 
 export interface ProjectVersionRepository {
-  mode: 'local' | 'api';
   list(projectId: string): Promise<ProjectVersionSummary[]>;
   save(projectId: string, state: StudioState, note?: string): Promise<ProjectVersionSummary>;
   load(projectId: string, versionId: string): Promise<StudioState | null>;
 }
 
 export interface AssetRepository {
-  mode: 'local' | 'api';
   list(): Promise<AssetRecord[]>;
   save(input: AssetDraft): Promise<AssetRecord>;
   remove(assetId: string): Promise<void>;

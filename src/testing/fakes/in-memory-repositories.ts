@@ -37,7 +37,6 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
 
   return {
     documents: {
-      mode: 'local',
       async saveAutosave(state) {
         autosave = cloneState(state);
       },
@@ -53,6 +52,9 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
       async clearAutosave() {
         autosave = null;
       },
+      async clearManual() {
+        manual = null;
+      },
       async hasAutosave() {
         return Boolean(autosave);
       },
@@ -61,7 +63,6 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
       },
     },
     projects: {
-      mode: 'local',
       async list() {
         return [...projectSummaries.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
       },
@@ -83,7 +84,6 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
       },
     },
     projectVersions: {
-      mode: 'local',
       async list(projectId) {
         return [...(projectVersions.get(projectId) ?? [])].sort((a, b) => b.savedAt.localeCompare(a.savedAt));
       },
@@ -107,7 +107,6 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
       },
     },
     assets: {
-      mode: 'local',
       async list() {
         return [...assets.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       },

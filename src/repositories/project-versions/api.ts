@@ -41,8 +41,6 @@ function unwrapState(
 }
 
 export const apiProjectVersionRepository: ProjectVersionRepository = {
-  mode: 'api',
-
   async list(projectId: string) {
     const response = await tryFetch<ListProjectVersionsResponseDto | ProjectVersionSummary[]>(
       `/projects/${projectId}/versions`,

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import brandingDefaults from '../../../../config/branding-defaults.json';
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
 import { usePlatformActions, usePlatformPermission } from '../../../platform/runtime';
 import type { TopBarStudioSnapshot, WorkspaceController } from './top-bar-types';
@@ -6,7 +7,7 @@ import type { TopBarStudioSnapshot, WorkspaceController } from './top-bar-types'
 export function useWorkspaceController(snapshot: TopBarStudioSnapshot): WorkspaceController {
   const [newClientName, setNewClientName] = useState('');
   const [newBrandName, setNewBrandName] = useState('');
-  const [newBrandColor, setNewBrandColor] = useState('#8b5cf6');
+  const [newBrandColor, setNewBrandColor] = useState(brandingDefaults.brandColor);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'editor' | 'reviewer'>('editor');
 

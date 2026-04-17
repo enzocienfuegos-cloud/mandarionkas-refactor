@@ -3,7 +3,6 @@ import { formatMs } from './use-top-bar-controller';
 
 export function TopBarStatus({ controller }: { controller: TopBarController }): JSX.Element {
   const { selectionCount, previewMode, playhead, zoom, canvasPresetId, release, lastAction, lastAutosavedAt, platformMeta, lastSavedAt } = controller.snapshot;
-  const { repositoryMode } = controller.projectSession;
   const { readiness, diagnostics } = controller.exportReadiness;
   const { openComments, pendingApprovals } = controller.collaboration;
   const { currentUser, activeClientId, clients, workspaceRole, activeClient, permissions, auditCount, sessionExpiresAt, sessionPersistenceMode } = controller.workspace;
@@ -16,7 +15,6 @@ export function TopBarStatus({ controller }: { controller: TopBarController }): 
       <span className="pill">Playhead {formatMs(playhead)}</span>
       <span className="pill">Zoom {Math.round(zoom * 100)}%</span>
       <span className="pill">Preset {canvasPresetId}</span>
-      <span className="pill">Repo {repositoryMode}</span>
       <span className="pill">Release {release.targetChannel}</span>
       <span className="pill">QA {release.qaStatus}</span>
       <span className="pill">Readiness {readiness.score}% · {readiness.grade}</span>

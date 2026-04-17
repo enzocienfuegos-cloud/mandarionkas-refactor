@@ -1,10 +1,7 @@
 import type { AssetDraft, AssetFolder, AssetRecord } from '../../assets/types';
-import { setAssetRepositoryMode } from '../mode';
 import { getRepositoryServices } from '../services';
 export { ingestAssetFile, ingestAssetUrl } from './ingest';
 export { createRemoteAssetFolder, listRemoteAssetFolders } from './api';
-
-export { setAssetRepositoryMode };
 
 export function getAssetRepository() {
   return getRepositoryServices().assets;

@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react';
-import { CANVAS_PRESETS, getCanvasPresetById } from '../../domain/document/canvas-presets';
+import { CANVAS_PRESETS, getCanvasPresetById } from '../../types/canvas-presets';
 import { useTopBarController } from '../../app/shell/topbar/use-top-bar-controller';
-import type { ProjectSummary } from '../../repositories/types';
-import { requestRebuildStorageIndexes, requestStorageDiagnostics } from '../api';
-import type { PlatformStorageDiagnostics } from '../types';
+import type { ProjectSummaryDto as ProjectSummary } from '../../types/contracts/projects';
 
 type ProjectFilter = 'all' | 'mine' | 'shared';
 type ProjectView = 'active' | 'archived' | 'all';
@@ -26,35 +24,12 @@ export function useWorkspaceHubController() {
   const [projectView, setProjectView] = useState<ProjectView>('active');
   const [sortMode, setSortMode] = useState<SortMode>('recent');
   const [page, setPage] = useState(1);
-  const [storageDiagnostics, setStorageDiagnostics] = useState<PlatformStorageDiagnostics | null>(null);
-  const [storageDiagnosticsLoading, setStorageDiagnosticsLoading] = useState(false);
-  const [storageDiagnosticsMessage, setStorageDiagnosticsMessage] = useState('');
   const pageSize = 8;
 
   const { workspace, projectSession, snapshot } = topBar;
   const { activeClientId, visibleClients, currentUser } = workspace;
   const activeClient = visibleClients.find((client) => client.id === activeClientId) ?? workspace.activeClient;
   const isAdmin = currentUser?.role === 'admin';
-
-  async function refreshStorageDiagnostics(): Promise<void> {
-    if (!isAdmin) return;
-    setStorageDiagnosticsLoading(true);
-    setStorageDiagnosticsMessage('');
-    const diagnostics = await requestStorageDiagnostics();
-    setStorageDiagnostics(diagnostics);
-    setStorageDiagnosticsLoading(false);
-    if (!diagnostics) setStorageDiagnosticsMessage('Could not load remote storage diagnostics.');
-  }
-
-  async function rebuildStorageDiagnostics(): Promise<void> {
-    if (!isAdmin) return;
-    setStorageDiagnosticsLoading(true);
-    setStorageDiagnosticsMessage('');
-    const diagnostics = await requestRebuildStorageIndexes();
-    setStorageDiagnostics(diagnostics);
-    setStorageDiagnosticsLoading(false);
-    setStorageDiagnosticsMessage(diagnostics ? 'Remote indexes rebuilt from entity sidecars.' : 'Rebuild failed.');
-  }
 
   const clientProjects = useMemo(
     () => projectSession.projects.filter((project) => !activeClientId || project.clientId === activeClientId),
@@ -198,10 +173,5 @@ export function useWorkspaceHubController() {
     ownerOptions,
     canvasPresets: CANVAS_PRESETS,
     currentPreset: getCanvasPresetById(snapshot.canvasPresetId),
-    storageDiagnostics,
-    storageDiagnosticsLoading,
-    storageDiagnosticsMessage,
-    refreshStorageDiagnostics,
-    rebuildStorageDiagnostics,
   };
 }

@@ -6,7 +6,7 @@ import { subscribeToAssetLibraryChanges } from '../../../repositories/asset/even
 import { usePlatformActions, usePlatformPermission } from '../../../platform/runtime';
 import { useSceneActions, useUiActions, useWidgetActions } from '../../../hooks/use-studio-actions';
 import type { AssetKind, AssetRecord } from '../../../assets/types';
-import { resolveFontAssetFamily } from '../../../assets/FontAssetRuntime';
+import { resolveFontAssetFamily } from '../../../assets/font-family';
 
 export const CATEGORY_ORDER = ['content', 'media', 'interactive', 'layout'] as const;
 export type CategoryFilter = 'all' | (typeof CATEGORY_ORDER)[number];

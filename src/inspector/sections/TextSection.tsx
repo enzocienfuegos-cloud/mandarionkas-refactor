@@ -5,7 +5,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import type { AssetRecord } from '../../assets/types';
-import { resolveFontAssetFamily } from '../../assets/FontAssetRuntime';
+import { resolveFontAssetFamily } from '../../assets/font-family';
 import { usePlatformSnapshot } from '../../platform/runtime';
 
 export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {

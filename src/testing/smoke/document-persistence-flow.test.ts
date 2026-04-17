@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createInitialState } from '../../domain/document/factories';
 import { reduceBySlices } from '../../core/store/reducers';
-import { localDocumentRepository } from '../../repositories/document/local';
+import { browserStorageDocumentRepository } from '../fakes/browser-storage-document-repository';
 
 
 describe('document persistence smoke path', () => {
   beforeEach(async () => {
     globalThis.localStorage.clear();
-    await localDocumentRepository.clearAutosave();
+    await browserStorageDocumentRepository.clearAutosave();
   });
 
   it('autosaves a document, reloads it, and clears the draft', async () => {
@@ -18,14 +18,14 @@ describe('document persistence smoke path', () => {
     const textId = state.document.selection.primaryWidgetId!;
     state = reduceBySlices(state, { type: 'UPDATE_WIDGET_PROPS', widgetId: textId, patch: { text: 'Draft text' } });
 
-    await localDocumentRepository.saveAutosave(state);
-    expect(await localDocumentRepository.hasAutosave()).toBe(true);
+    await browserStorageDocumentRepository.saveAutosave(state);
+    expect(await browserStorageDocumentRepository.hasAutosave()).toBe(true);
 
-    const loaded = await localDocumentRepository.loadAutosave();
+    const loaded = await browserStorageDocumentRepository.loadAutosave();
     expect(loaded?.document.name).toBe('Autosave Smoke');
     expect(Object.keys(loaded?.document.widgets ?? {})).toHaveLength(1);
 
-    await localDocumentRepository.clearAutosave();
-    expect(await localDocumentRepository.hasAutosave()).toBe(false);
+    await browserStorageDocumentRepository.clearAutosave();
+    expect(await browserStorageDocumentRepository.hasAutosave()).toBe(false);
   });
 });

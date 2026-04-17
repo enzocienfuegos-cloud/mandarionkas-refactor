@@ -13,16 +13,16 @@ import { StageFloatingToolbar } from './components/StageFloatingToolbar';
 import { StageSurface } from './components/StageSurface';
 import { StageSelectionToolbar } from './components/StageSelectionToolbar';
 import type { WidgetNode } from '../../domain/document/types';
-import { usePlatformPermission } from '../../platform/runtime';
 import { getLiveWidgetFrame } from '../../domain/document/timeline';
 
 const stageWrap: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '100%' };
 
 type StageProps = {
+  canCreateAssets: boolean;
   onOpenAssetLibrary(): void;
 };
 
-export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
+export function Stage({ canCreateAssets, onOpenAssetLibrary }: StageProps): JSX.Element {
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
@@ -30,7 +30,6 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
   const [workspaceViewport, setWorkspaceViewport] = useState({ width: 0, height: 0 });
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
-  const canCreateAssets = usePlatformPermission('assets:create');
   const {
     stageState,
     fullStateRef,

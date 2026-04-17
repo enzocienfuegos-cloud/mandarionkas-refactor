@@ -7,13 +7,11 @@ import type {
 import type { AssetRecord } from './types';
 import { mapAssetRecordDtoToDomain, mapPreparedUploadDtoToDomain } from './contracts';
 import type { PreparedAssetUpload } from './storage-provider';
-import { readStorageItem } from '../shared/browser/storage';
 import { fetchOptionalJson } from '../shared/net/http-json';
-
-const ASSET_API_BASE_KEY = 'smx-studio-v4:asset-api-base';
+import { getAssetApiBaseUrl } from '../shared/runtime/api-base';
 
 function getBaseUrl(): string {
-  return readStorageItem(ASSET_API_BASE_KEY, '').trim().replace(/\/$/, '');
+  return getAssetApiBaseUrl();
 }
 
 export async function requestAssetUploadPreparation(

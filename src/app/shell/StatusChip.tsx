@@ -14,7 +14,6 @@ export function StatusChip({ controller }: { controller: TopBarController }): JS
   const [open, setOpen] = useState(false);
   const { readiness, diagnostics } = controller.exportReadiness;
   const { openComments, pendingApprovals } = controller.collaboration;
-  const { repositoryMode } = controller.projectSession;
   const { release, lastAutosavedAt } = controller.snapshot;
   const tone = toneForGrade(readiness.grade);
 
@@ -43,7 +42,6 @@ export function StatusChip({ controller }: { controller: TopBarController }): JS
             <div className="status-metric"><span className="muted">Diagnostics</span><strong>{diagnostics.errors}E / {diagnostics.warnings}W</strong></div>
             <div className="status-metric"><span className="muted">Comments</span><strong>{openComments} open</strong></div>
             <div className="status-metric"><span className="muted">Approvals</span><strong>{pendingApprovals} pending</strong></div>
-            <div className="status-metric"><span className="muted">Repo</span><strong>{repositoryMode}</strong></div>
             <div className="status-metric"><span className="muted">Release</span><strong>{release.targetChannel}</strong></div>
             <div className="status-metric"><span className="muted">QA</span><strong>{release.qaStatus}</strong></div>
             <div className="status-metric"><span className="muted">Autosave</span><strong>{lastAutosavedAt ? new Date(lastAutosavedAt).toLocaleTimeString() : 'Not yet'}</strong></div>

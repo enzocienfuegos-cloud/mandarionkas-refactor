@@ -71,8 +71,6 @@ function buildCompleteUploadPayload(input: AssetDraft): Record<string, unknown> 
 }
 
 export const apiAssetRepository: AssetRepository = {
-  mode: 'api',
-
   async list() {
     const response = await tryFetch<ListAssetsResponseDto>('/assets');
     return unwrapRecords(response);

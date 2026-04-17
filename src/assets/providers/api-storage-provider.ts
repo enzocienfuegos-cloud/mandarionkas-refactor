@@ -38,8 +38,6 @@ async function uploadFileToSignedUrl(
 }
 
 export const apiAssetStorageProvider: AssetStorageProvider = {
-  mode: 'api',
-
   async prepareUpload(input) {
     const metadata = await createAssetUploadMetadataFromFile(input);
 

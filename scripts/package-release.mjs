@@ -14,7 +14,6 @@ const manifestPath = join(releaseRoot, 'release-manifest.json');
 const includePaths = [
   'README.md',
   'index.html',
-  'index.php',
   'package.json',
   'package-lock.json',
   'tsconfig.json',

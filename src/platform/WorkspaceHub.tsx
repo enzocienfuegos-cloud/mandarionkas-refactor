@@ -1,4 +1,4 @@
-import { getCanvasPresetById } from '../domain/document/canvas-presets';
+import { getCanvasPresetById } from '../types/canvas-presets';
 import { useWorkspaceHubController } from './workspace-hub/use-workspace-hub-controller';
 
 type WorkspaceHubProps = {
@@ -36,16 +36,7 @@ export function WorkspaceHub({ onEnterEditor }: WorkspaceHubProps): JSX.Element 
     clearSelection,
     selectAllVisible,
     ownerOptions,
-    storageDiagnostics,
-    storageDiagnosticsLoading,
-    storageDiagnosticsMessage,
-    refreshStorageDiagnostics,
-    rebuildStorageDiagnostics,
   } = controller;
-
-  const storageIssueCount = storageDiagnostics
-    ? Object.values(storageDiagnostics.issues).reduce((count, value) => count + (Array.isArray(value) ? value.length : 0), 0)
-    : 0;
 
   async function handleOpen(projectId: string): Promise<void> {
     await controller.openProject(projectId);
@@ -126,53 +117,6 @@ export function WorkspaceHub({ onEnterEditor }: WorkspaceHubProps): JSX.Element 
         </div>
       </section>
 
-      {isAdmin ? (
-        <section className="workspace-hub-storage panel">
-          <div className="workspace-hub-storage-header">
-            <div>
-              <div className="workspace-hub-kicker">Remote storage</div>
-              <h2>R2 diagnostics</h2>
-              <p>Inspect sidecars, indexes and object-storage consistency without SSH.</p>
-            </div>
-            <div className="workspace-hub-storage-actions">
-              <button className="ghost compact-action" type="button" onClick={() => void refreshStorageDiagnostics()} disabled={storageDiagnosticsLoading}>
-                Refresh
-              </button>
-              <button className="ghost compact-action" type="button" onClick={() => void rebuildStorageDiagnostics()} disabled={storageDiagnosticsLoading}>
-                Rebuild indexes
-              </button>
-            </div>
-          </div>
-          <div className="workspace-hub-storage-grid">
-            <div className="workspace-hub-stat-card">
-              <span className="workspace-hub-stat-label">Projects</span>
-              <strong>{storageDiagnostics?.totals.projects ?? '—'}</strong>
-              <small>{storageDiagnostics?.totals.projectSidecars ?? '—'} sidecars</small>
-            </div>
-            <div className="workspace-hub-stat-card">
-              <span className="workspace-hub-stat-label">Assets</span>
-              <strong>{storageDiagnostics?.totals.assets ?? '—'}</strong>
-              <small>{storageDiagnostics?.totals.assetSidecars ?? '—'} sidecars · {storageDiagnostics?.totals.binaryObjects ?? '—'} binaries</small>
-            </div>
-            <div className="workspace-hub-stat-card">
-              <span className="workspace-hub-stat-label">Clients</span>
-              <strong>{storageDiagnostics?.totals.clients ?? '—'}</strong>
-              <small>{storageDiagnostics?.totals.clientSidecars ?? '—'} sidecars</small>
-            </div>
-            <div className="workspace-hub-stat-card">
-              <span className="workspace-hub-stat-label">Issues</span>
-              <strong>{storageIssueCount}</strong>
-              <small>{storageDiagnostics?.legacyStorePresent ? 'Legacy mirror present' : 'No legacy mirror detected'}</small>
-            </div>
-          </div>
-          <div className="workspace-hub-storage-meta">
-            <div className="pill">Prefix {storageDiagnostics?.dataPrefix ?? 'loading...'}</div>
-            <div className="pill">Generated {storageDiagnostics ? formatDate(storageDiagnostics.generatedAt) : '—'}</div>
-            {storageDiagnosticsMessage ? <div className="pill">{storageDiagnosticsMessage}</div> : null}
-          </div>
-        </section>
-      ) : null}
-
       <section className="workspace-hub-toolbar">
         <div className="workspace-hub-toolbar-row">
           <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search by project, brand, campaign or owner" />
@@ -189,9 +133,6 @@ export function WorkspaceHub({ onEnterEditor }: WorkspaceHubProps): JSX.Element 
           <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)}>
             <option value="recent">Recently updated</option>
             <option value="name">A to Z</option>
-          </select>
-          <select value={projectSession.repositoryMode} onChange={(event) => projectSession.handleRepositoryModeChange(event.target.value as 'local' | 'api')}>
-            <option value="api">API repo</option>
           </select>
         </div>
         <div className="workspace-hub-toolbar-row workspace-hub-toolbar-row--actions">

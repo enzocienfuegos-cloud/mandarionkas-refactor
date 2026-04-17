@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { usePlatformActions } from './runtime';
 
 export function LoginScreen(): JSX.Element {
-  const [email, setEmail] = useState('admin@smx.studio');
-  const [password, setPassword] = useState('demo123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,7 +30,7 @@ export function LoginScreen(): JSX.Element {
         <div className="platform-login-copy">
           <span className="brand-mark">SMX Studio Platform</span>
           <h1>Login + clients, sin tocar el core del editor.</h1>
-          <p>Demo users: <strong>admin@smx.studio</strong> y <strong>editor@smx.studio</strong> · password <strong>demo123</strong>.</p>
+          <p>Conecta tu cuenta de plataforma para trabajar con clientes, proyectos y assets sobre la API cloud.</p>
           <p className="muted-copy">Remember session keeps auth for 30 days. Off keeps it only for the browser session.</p>
         </div>
         <form className="platform-login-form" onSubmit={(event) => void handleSubmit(event)}>

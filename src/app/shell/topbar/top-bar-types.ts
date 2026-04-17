@@ -35,7 +35,6 @@ export type TopBarStudioSnapshot = {
 
 export type ProjectSessionController = {
   projects: ProjectSummary[];
-  repositoryMode: 'local' | 'api';
   autosaveAvailable: boolean;
   versions: ProjectVersionSummary[];
   selectedVersionId: string;
@@ -56,7 +55,6 @@ export type ProjectSessionController = {
   handleRestoreVersion(versionId: string): Promise<void>;
   handleRecoverDraft(): Promise<void>;
   handleClearDraft(): Promise<void>;
-  handleRepositoryModeChange(mode: 'local' | 'api'): void;
   refreshProjects(): void;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   saveMessage?: string;

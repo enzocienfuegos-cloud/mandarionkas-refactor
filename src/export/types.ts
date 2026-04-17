@@ -51,8 +51,20 @@ export type ExportQualityProfile = {
   svgHint: 'source';
 };
 
+export type ExportLinkedAsset = {
+  id: string;
+  src: string;
+  publicUrl?: string;
+  originUrl?: string;
+  storageMode?: 'object-storage' | 'remote-url';
+  storageKey?: string;
+  mimeType?: string;
+  posterSrc?: string;
+};
+
 export type ExportBuildOptions = {
   qualityProfile?: ExportQualityProfileName;
+  linkedAssets?: ExportLinkedAsset[];
 };
 
 export type ExportAsset = {

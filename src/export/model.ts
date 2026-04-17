@@ -1,24 +1,9 @@
 import { getWidgetActionTargetOptions, getWidgetActionTargetRect } from '../domain/document/action-targets';
 import { resolveNextSceneId, sceneMatchesConditions, resolveWidgetSnapshot } from '../domain/document/resolvers';
 import type { ActionNode, StudioState, WidgetNode } from '../domain/document/types';
-import { canUseBrowserStorage, readStorageItem } from '../shared/browser/storage';
 import { resolveExportCapabilities } from './capabilities';
 import { resolveAssetQualityHint } from './quality-profile';
-import type { ExportAsset, ExportBuildOptions, ExportExit, ExportModel, ExportNode, ExportScene, ExportSceneAction, ExportTargetCoverage, ExportWidgetAction, ExportTextAction, ExportVisualStylePatch, ExportTargetVisualStates } from './types';
-
-const ASSET_LIBRARY_KEY = 'smx-studio-v4:asset-library';
-const ASSET_OBJECT_STORE_KEY = 'smx-studio-v4:asset-object-store';
-
-type StoredAssetRecord = {
-  id: string;
-  src: string;
-  publicUrl?: string;
-  originUrl?: string;
-  storageMode?: 'object-storage' | 'remote-url';
-  storageKey?: string;
-  mimeType?: string;
-  posterSrc?: string;
-};
+import type { ExportAsset, ExportBuildOptions, ExportExit, ExportLinkedAsset, ExportModel, ExportNode, ExportScene, ExportSceneAction, ExportTargetCoverage, ExportWidgetAction, ExportTextAction, ExportVisualStylePatch, ExportTargetVisualStates } from './types';
 
 function buildQrPattern(url: string): boolean[] {
   const seed = (url || 'dusk').split('').reduce((acc, value) => acc + value.charCodeAt(0), 0);
@@ -104,46 +89,18 @@ function packagePathForAsset(widgetId: string, kind: ExportAsset['kind'], src: s
   return `assets/${sanitizePathSegment(widgetId)}-${kind}.${extension}`;
 }
 
-function readStoredAssetLibrary(): StoredAssetRecord[] {
-  if (!canUseBrowserStorage()) return [];
-  const raw = readStorageItem(ASSET_LIBRARY_KEY, '');
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as StoredAssetRecord[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function readStoredAssetObjectStore(): Record<string, string> {
-  if (!canUseBrowserStorage()) return {};
-  const raw = readStorageItem(ASSET_OBJECT_STORE_KEY, '');
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw) as Record<string, string>;
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function resolveLinkedAsset(linkedAssetId?: string): StoredAssetRecord | undefined {
+function resolveLinkedAsset(linkedAssetId: string | undefined, options: ExportBuildOptions = {}): ExportLinkedAsset | undefined {
   if (!linkedAssetId) return undefined;
-  return readStoredAssetLibrary().find((asset) => asset.id === linkedAssetId);
+  return options.linkedAssets?.find((asset) => asset.id === linkedAssetId);
 }
 
 function chooseLinkedAssetCandidate(
-  linkedAsset: StoredAssetRecord,
+  linkedAsset: ExportLinkedAsset,
   explicitSrc: string,
   qualityProfile: ExportBuildOptions['qualityProfile'] = 'medium',
 ): { src: string; mime?: string } {
-  const objectStore = readStoredAssetObjectStore();
-  const payload = linkedAsset.storageMode === 'object-storage' && linkedAsset.storageKey
-    ? objectStore[linkedAsset.storageKey]
-    : undefined;
-  const highCandidates = [payload, linkedAsset.publicUrl, linkedAsset.src, explicitSrc];
-  const balancedCandidates = [linkedAsset.publicUrl, payload, linkedAsset.src, explicitSrc];
+  const highCandidates = [linkedAsset.originUrl, linkedAsset.publicUrl, linkedAsset.src, explicitSrc];
+  const balancedCandidates = [linkedAsset.publicUrl, linkedAsset.originUrl, linkedAsset.src, explicitSrc];
   const qualityCandidates = qualityProfile === 'high' ? highCandidates : balancedCandidates;
   const chosen = qualityCandidates.find((candidate) => Boolean(candidate && candidate.trim()));
   return {
@@ -153,7 +110,7 @@ function chooseLinkedAssetCandidate(
 }
 
 function resolveLinkedAssetSrc(linkedAssetId: string | undefined, explicitSrc: string, options: ExportBuildOptions = {}): { src: string; mime?: string } {
-  const linkedAsset = resolveLinkedAsset(linkedAssetId);
+  const linkedAsset = resolveLinkedAsset(linkedAssetId, options);
   if (!linkedAsset) return { src: explicitSrc };
   return chooseLinkedAssetCandidate(linkedAsset, explicitSrc, options.qualityProfile);
 }
@@ -586,7 +543,7 @@ export function buildExportModel(state: StudioState, options: ExportBuildOptions
           ...capabilitySummary.blockers,
         ].find((item) => item.widgetId === widget.id);
 
-        const widgetAssets = assetFromWidget(widget, { qualityProfile });
+        const widgetAssets = assetFromWidget(widget, options);
         const widgetBehaviorActions = Object.values(state.document.actions).filter((action) => action.widgetId === widget.id);
         const widgetExits = exitsFromActions(widget, widgetBehaviorActions);
         const widgetSceneActions = sceneActionsFromActions(widget, widgetBehaviorActions, state);

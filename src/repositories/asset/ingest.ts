@@ -30,11 +30,8 @@ export async function ingestAssetFile(input: {
   const prepared = await provider.prepareUpload(input);
   const uploaded = await provider.completeUpload({ prepared, file: input.file, onProgress: input.onProgress });
 
-  if (provider.mode === 'api') {
-    if ('id' in uploaded && 'createdAt' in uploaded && 'clientId' in uploaded && 'ownerUserId' in uploaded) {
-      return uploaded;
-    }
-    throw new Error('API asset upload completed without returning a persisted asset record.');
+  if ('id' in uploaded && 'createdAt' in uploaded && 'clientId' in uploaded && 'ownerUserId' in uploaded) {
+    return uploaded;
   }
 
   return getAssetRepository().save(uploaded);

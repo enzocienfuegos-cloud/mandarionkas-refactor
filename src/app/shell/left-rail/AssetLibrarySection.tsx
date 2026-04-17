@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type Dispatch, type DragEvent, type SetStateAction } from 'react';
 import { describeAssetSource } from '../../../assets/pipeline';
 import type { AssetRecord } from '../../../assets/types';
+import { resolveFontAssetFamily } from '../../../assets/font-family';
 import type { LeftRailController } from './use-left-rail-controller';
 import { clearAssetLibraryDragPayload, createAssetLibraryDragPayload, writeAssetLibraryDragPayload } from '../../../canvas/stage/asset-library-drag';
-import { resolveFontAssetFamily } from '../../../assets/FontAssetRuntime';
 
 function formatAssetMetaBytes(sizeBytes?: number): string | null {
   if (!sizeBytes || Number.isNaN(sizeBytes)) return null;

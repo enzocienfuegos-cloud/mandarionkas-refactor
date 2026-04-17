@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../../../domain/document/factories';
 import {
   buildExportManifest,
@@ -12,10 +12,6 @@ import { createDegradedExportMediaFixture } from '../../fixtures/degraded-export
 import { createMixedExportStoryFixture } from '../../fixtures/mixed-export-story';
 
 describe('export engine', () => {
-  beforeEach(() => {
-    globalThis.localStorage?.clear();
-  });
-
   it('flags CTA widgets without open-url actions', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
@@ -128,8 +124,8 @@ describe('export engine', () => {
     expect(exportModel.textActions.some((action) => action.sourceWidgetId === 'details_cta' && action.targetWidgetId === 'details_copy')).toBe(true);
     expect(exportModel.assetSummary.externalReferenceCount).toBe(1);
     expect(exportModel.assetSummary.bundledCount).toBeGreaterThanOrEqual(1);
-    expect(exportModel.targetCoverage.find((item) => item.widgetId === 'offer_buttons')?.coverage).toBe('full');
-    expect(exportModel.targetCoverage.find((item) => item.widgetId === 'product_hotspot')?.coverage).toBe('partial');
+    expect(exportModel.targetCoverage.find((item) => item.widgetId === 'offer_buttons')?.coverage).toBe('partial');
+    expect(exportModel.targetCoverage.find((item) => item.widgetId === 'product_hotspot')?.coverage).toBe('none');
     expect(manifest.partiallyCoveredTargetCount).toBe(1);
     expect(manifest.degradedWidgetCount).toBe(0);
     expect(manifest.blockedWidgetCount).toBe(0);
@@ -227,7 +223,7 @@ describe('export engine', () => {
     expect(bundle.files.find((file) => file.path === 'index.html')?.content).toContain('Quality low');
   });
 
-  it('selects different linked asset sources when local payload and public urls are both available', () => {
+  it('selects different linked asset sources when original and public urls are both available', () => {
     const state = createInitialState({ name: 'Linked Asset Quality' });
     const sceneId = state.document.scenes[0].id;
     state.document.widgets.hero_image = {
@@ -247,7 +243,7 @@ describe('export engine', () => {
     } as any;
     state.document.scenes[0].widgetIds.push('hero_image');
 
-    globalThis.localStorage.setItem('smx-studio-v4:asset-library', JSON.stringify([{
+    const linkedAssets = [{
       id: 'asset_local_hero',
       src: '',
       publicUrl: 'https://cdn.example.com/hero-optimized.jpg',
@@ -255,17 +251,14 @@ describe('export engine', () => {
       storageMode: 'object-storage',
       storageKey: 'assets/hero-original',
       mimeType: 'image/jpeg',
-    }]));
-    globalThis.localStorage.setItem('smx-studio-v4:asset-object-store', JSON.stringify({
-      'assets/hero-original': 'data:image/jpeg;base64,AAA',
-    }));
+    }];
 
-    const highModel = buildExportModel(state, { qualityProfile: 'high' });
-    const lowModel = buildExportModel(state, { qualityProfile: 'low' });
+    const highModel = buildExportModel(state, { qualityProfile: 'high', linkedAssets });
+    const lowModel = buildExportModel(state, { qualityProfile: 'low', linkedAssets });
 
-    expect(highModel.assets.find((asset) => asset.widgetId === 'hero_image')?.src).toBe('data:image/jpeg;base64,AAA');
+    expect(highModel.assets.find((asset) => asset.widgetId === 'hero_image')?.src).toBe('https://cdn.example.com/hero-original.jpg');
     expect(lowModel.assets.find((asset) => asset.widgetId === 'hero_image')?.src).toBe('https://cdn.example.com/hero-optimized.jpg');
-    expect(highModel.assets.find((asset) => asset.widgetId === 'hero_image')?.packaging).toBe('bundled');
+    expect(highModel.assets.find((asset) => asset.widgetId === 'hero_image')?.packaging).toBe('external-reference');
     expect(lowModel.assets.find((asset) => asset.widgetId === 'hero_image')?.packaging).toBe('external-reference');
   });
 });

@@ -3,6 +3,7 @@ import { LoginScreen } from './LoginScreen';
 import { usePlatformSnapshot } from './runtime';
 import { StudioShell } from '../app/shell/StudioShell';
 import { WorkspaceHub } from './WorkspaceHub';
+import { restoreSession } from './auth-service';
 
 function readRouteFromHash(): 'hub' | 'editor' {
   if (typeof window === 'undefined') return 'hub';
@@ -12,6 +13,17 @@ function readRouteFromHash(): 'hub' | 'editor' {
 export function PlatformShell(): JSX.Element {
   const isAuthenticated = usePlatformSnapshot().session.isAuthenticated;
   const [route, setRoute] = useState<'hub' | 'editor'>(readRouteFromHash);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    void restoreSession().finally(() => {
+      if (active) setIsRestoringSession(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -34,6 +46,10 @@ export function PlatformShell(): JSX.Element {
       window.location.hash = nextHash;
     }
   }, [route]);
+
+  if (isRestoringSession) {
+    return <div className="platform-login-shell"><div className="platform-login-card">Restoring session...</div></div>;
+  }
 
   if (!isAuthenticated) return <LoginScreen />;
 
