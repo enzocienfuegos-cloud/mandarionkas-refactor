@@ -272,12 +272,18 @@ function getWidgetTargetKeys(widget: WidgetNode): string[] {
   return getWidgetActionTargetOptions(widget).map((item) => item.value);
 }
 
+function resolveExportTrigger(trigger: ActionNode['trigger']): 'click' | 'tap' | 'timeline-enter' {
+  if (trigger === 'timeline-enter') return 'timeline-enter';
+  if (trigger === 'click') return 'click';
+  return 'tap';
+}
+
 function exitsFromActions(widget: WidgetNode, actions: ActionNode[]): ExportExit[] {
   const resolveBounds = (targetKey?: string) => {
     return getWidgetActionTargetRect(widget, targetKey ?? 'whole-widget');
   };
 
-  const exits = actions
+  const exits: ExportExit[] = actions
     .filter((action) => action.type === 'open-url' && action.url)
     .map((action, index) => ({
       id: action.id,
@@ -289,7 +295,7 @@ function exitsFromActions(widget: WidgetNode, actions: ActionNode[]): ExportExit
         ?? widget.props.title
         ?? widget.name
         ?? `Exit ${index + 1}`,
-      ),
+        ),
       sourceWidgetId: widget.id,
       trigger: action.trigger === 'click' ? 'click' : 'tap',
       bounds: resolveBounds(action.targetKey),
@@ -352,10 +358,10 @@ function coverageFromWidget(widget: WidgetNode, exits: ExportExit[]): ExportTarg
 function sceneActionsFromActions(widget: WidgetNode, actions: ActionNode[], state: StudioState): ExportSceneAction[] {
   return actions
     .filter((action) => action.type === 'go-to-scene')
-    .map((action, index) => {
+    .flatMap((action, index): ExportSceneAction[] => {
       const targetSceneId = action.targetSceneId || resolveNextSceneId(state, widget.sceneId);
-      if (!targetSceneId) return null;
-      return {
+      if (!targetSceneId) return [];
+      return [{
         id: action.id,
         label: String(
           action.label
@@ -367,7 +373,7 @@ function sceneActionsFromActions(widget: WidgetNode, actions: ActionNode[], stat
           ?? `Scene action ${index + 1}`,
         ),
         sourceWidgetId: widget.id,
-        trigger: action.trigger === 'timeline-enter' ? 'timeline-enter' : action.trigger === 'click' ? 'click' : 'tap',
+        trigger: resolveExportTrigger(action.trigger),
         targetSceneId,
         targetKey: action.targetKey,
         atMs: action.trigger === 'timeline-enter' ? widget.timeline.startMs : undefined,
@@ -376,15 +382,14 @@ function sceneActionsFromActions(widget: WidgetNode, actions: ActionNode[], stat
           widgetType: widget.type,
           trigger: action.trigger,
         },
-      } satisfies ExportSceneAction;
-    })
-    .filter((action): action is ExportSceneAction => Boolean(action));
+      }];
+    });
 }
 
 function widgetActionsFromActions(widget: WidgetNode, actions: ActionNode[], state: StudioState): ExportWidgetAction[] {
   return actions
     .filter((action) => (action.type === 'show-widget' || action.type === 'hide-widget' || action.type === 'toggle-widget') && action.targetWidgetId && state.document.widgets[action.targetWidgetId])
-    .map((action, index) => ({
+    .map((action, index): ExportWidgetAction => ({
       id: action.id,
       label: String(
         action.label
@@ -397,8 +402,8 @@ function widgetActionsFromActions(widget: WidgetNode, actions: ActionNode[], sta
       ),
       sourceWidgetId: widget.id,
       targetWidgetId: action.targetWidgetId as string,
-      trigger: action.trigger === 'timeline-enter' ? 'timeline-enter' : action.trigger === 'click' ? 'click' : 'tap',
-      actionType: action.type,
+      trigger: resolveExportTrigger(action.trigger),
+      actionType: action.type as ExportWidgetAction['actionType'],
       targetKey: action.targetKey,
       atMs: action.trigger === 'timeline-enter' ? widget.timeline.startMs : undefined,
       bounds: getWidgetActionTargetRect(widget, action.targetKey ?? 'whole-widget'),
@@ -412,7 +417,7 @@ function widgetActionsFromActions(widget: WidgetNode, actions: ActionNode[], sta
 function textActionsFromActions(widget: WidgetNode, actions: ActionNode[], state: StudioState): ExportTextAction[] {
   return actions
     .filter((action) => action.type === 'set-text' && action.targetWidgetId && state.document.widgets[action.targetWidgetId] && action.text)
-    .map((action, index) => ({
+    .map((action, index): ExportTextAction => ({
       id: action.id,
       label: String(
         action.label
@@ -425,7 +430,7 @@ function textActionsFromActions(widget: WidgetNode, actions: ActionNode[], state
       ),
       sourceWidgetId: widget.id,
       targetWidgetId: action.targetWidgetId as string,
-      trigger: action.trigger === 'timeline-enter' ? 'timeline-enter' : action.trigger === 'click' ? 'click' : 'tap',
+      trigger: resolveExportTrigger(action.trigger),
       text: String(action.text ?? ''),
       targetKey: action.targetKey,
       atMs: action.trigger === 'timeline-enter' ? widget.timeline.startMs : undefined,
