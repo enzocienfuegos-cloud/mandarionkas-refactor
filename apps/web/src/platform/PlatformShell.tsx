@@ -14,17 +14,9 @@ export function PlatformShell(): JSX.Element {
   const snapshot = usePlatformSnapshot();
   const isAuthenticated = snapshot.session.isAuthenticated;
   const [route, setRoute] = useState<'hub' | 'editor'>(readRouteFromHash);
-  const [bootstrapping, setBootstrapping] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      await restoreSession();
-      if (!cancelled) setBootstrapping(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    void restoreSession();
   }, []);
 
   useEffect(() => {
@@ -48,20 +40,6 @@ export function PlatformShell(): JSX.Element {
       window.location.hash = nextHash;
     }
   }, [route]);
-
-  if (bootstrapping) {
-    return (
-      <div className="platform-login-shell">
-        <div className="platform-login-card">
-          <div className="platform-login-copy">
-            <span className="brand-mark">SMX Studio Platform</span>
-            <h1>Restoring cloud session…</h1>
-            <p>Checking the cookie-backed session on the API.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (!isAuthenticated) return <LoginScreen />;
 

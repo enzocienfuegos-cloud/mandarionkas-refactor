@@ -55,7 +55,22 @@ export async function restoreSession(): Promise<void> {
   const response = await requestPlatformSession();
 
   if (!response || !response.authenticated) {
-    clearSessionState();
+    updatePlatformState((current) => current.session.isAuthenticated
+      ? current
+      : {
+          ...current,
+          clients: [],
+          session: {
+            currentUser: undefined,
+            activeClientId: undefined,
+            isAuthenticated: false,
+            permissions: [],
+            sessionId: undefined,
+            persistenceMode: undefined,
+            issuedAt: undefined,
+            expiresAt: undefined,
+          },
+        });
     return;
   }
 
