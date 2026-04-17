@@ -123,6 +123,7 @@ export function createInitialState(options: InitialDocumentOptions = {}): Studio
       activeLeftTab: 'widgets',
       stageBackdrop: 'dark',
       showStageRulers: true,
+      showWidgetBadges: true,
     },
   };
 }

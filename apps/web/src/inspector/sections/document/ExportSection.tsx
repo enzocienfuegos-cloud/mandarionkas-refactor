@@ -1,14 +1,23 @@
 import { useStudioStore } from '../../../core/store/use-studio-store';
-import { buildExportManifest, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPublishPackage, triggerExportReviewPackage } from '../../../export/engine';
+import { buildExportManifest, buildExportPreflight, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundle } from '../../../export/engine';
+import { ExportPreflightPanel } from '../../../export/ExportPreflightPanel';
 import { validateExport } from '../../../domain/document/export-validation';
+import { useExportReadinessController } from '../../../app/shell/topbar/use-export-readiness-controller';
+import { useTopBarStudioSnapshot } from '../../../app/shell/topbar/use-top-bar-studio-snapshot';
 
 export function ExportSection(): JSX.Element {
   const state = useStudioStore((value) => value);
+  const exportController = useExportReadinessController(useTopBarStudioSnapshot());
   const manifest = buildExportManifest(state);
   const readiness = buildExportReadiness(state);
+  const preflight = buildExportPreflight(state);
   const issues = validateExport(state);
   const errorCount = issues.filter((item) => item.level === 'error').length;
   const warningCount = issues.filter((item) => item.level === 'warning').length;
+  const packageErrors = preflight.compliance.filter((item) => item.level === 'error').length;
+  const packageWarnings = preflight.compliance.filter((item) => item.level === 'warning').length;
+  const bundleBlocked = !preflight.summary.readyForBundleZip;
+  const resolvedBlocked = !preflight.summary.readyForBundleZip || exportController.resolvedZipStatus === 'exporting';
 
   return (
     <div className="field-stack">
@@ -22,6 +31,18 @@ export function ExportSection(): JSX.Element {
         <span className="pill">Warnings {warningCount}</span>
         <span className="pill">Readiness {readiness.score}% · {readiness.grade}</span>
       </div>
+      <div className="meta-line">
+        <span className="pill">Pkg files {preflight.metrics.totalFiles}</span>
+        <span className="pill">Pkg size {Math.round(preflight.metrics.totalBytes / 1024)} KB</span>
+        <span className="pill">Pkg errors {packageErrors}</span>
+        <span className="pill">Pkg warnings {packageWarnings}</span>
+        <span className="pill">Pkg grade {preflight.summary.packageGrade} · {preflight.summary.packageScore}%</span>
+      </div>
+      <div className="meta-line">
+        <span className="pill">Channel blockers {preflight.summary.channelErrors}</span>
+        <span className="pill">Channel warnings {preflight.summary.channelWarnings}</span>
+        <span className="pill">Delivery {preflight.summary.deliveryMode}</span>
+      </div>
       <div className="field-stack">
         {readiness.checklist.map((item) => (
           <div key={item.label} className="pill" style={{ borderColor: item.passed ? 'rgba(34,197,94,.35)' : 'rgba(239,68,68,.35)' }}>
@@ -30,11 +51,26 @@ export function ExportSection(): JSX.Element {
         ))}
       </div>
       <div className="field-stack">
+        <small className="muted">Package preflight</small>
+        <ExportPreflightPanel
+          preflight={preflight}
+          resolvedZipStatus={exportController.resolvedZipStatus}
+          resolvedZipMessage={exportController.resolvedZipMessage}
+        />
+      </div>
+      <div className="field-stack">
         <button onClick={() => triggerExportHtml(state)}>Export HTML</button>
         <button onClick={() => triggerExportManifest(state)}>Export manifest</button>
+        <button onClick={() => triggerExportPreflight(state)}>Export preflight</button>
         <button onClick={() => triggerExportDocumentJson(state)}>Export document JSON</button>
         <button onClick={() => triggerExportPublishPackage(state)}>Export publish package</button>
         <button onClick={() => triggerExportReviewPackage(state)}>Export review package</button>
+        <button onClick={() => triggerExportZipBundle(state)} disabled={bundleBlocked} title={bundleBlocked ? preflight.summary.recommendedNextStep : undefined}>
+          Export ZIP bundle
+        </button>
+        <button onClick={() => void exportController.triggerExportZipBundleResolved(state)} disabled={resolvedBlocked} title={resolvedBlocked ? preflight.summary.recommendedNextStep : undefined}>
+          {exportController.resolvedZipStatus === 'exporting' ? 'Resolving ZIP…' : 'Export ZIP resolved'}
+        </button>
       </div>
       {issues.length ? (
         <div className="field-stack">

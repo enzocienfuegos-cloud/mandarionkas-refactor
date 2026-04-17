@@ -101,6 +101,7 @@ export function useUiActions() {
     setLeftTab: (tab: import('../domain/document/types').StudioState['ui']['activeLeftTab']) => dispatch({ type: 'SET_LEFT_TAB', tab }),
     setStageBackdrop: (stageBackdrop: import('../domain/document/types').StudioState['ui']['stageBackdrop']) => dispatch({ type: 'SET_STAGE_BACKDROP', stageBackdrop }),
     setStageRulers: (enabled: boolean) => dispatch({ type: 'SET_STAGE_RULERS', enabled }),
+    setWidgetBadgesVisibility: (enabled: boolean) => dispatch({ type: 'SET_WIDGET_BADGES_VISIBILITY', enabled }),
     undo: () => dispatch({ type: 'UNDO' }),
     redo: () => dispatch({ type: 'REDO' }),
   }), []);

@@ -8,6 +8,7 @@ type StageFloatingToolbarProps = {
   sceneName: string;
   stageBackdrop: 'light' | 'gray' | 'dark';
   showStageRulers: boolean;
+  showWidgetBadges: boolean;
   zoom: number;
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -17,6 +18,7 @@ type StageFloatingToolbarProps = {
   onPreviousScene: () => void;
   onNextScene: () => void;
   onToggleRulers: () => void;
+  onToggleWidgetBadges: () => void;
   onSetBackdrop: (tone: 'light' | 'gray' | 'dark') => void;
   onZoomOut: () => void;
   onZoomIn: () => void;
@@ -30,6 +32,7 @@ export function StageFloatingToolbar({
   sceneName,
   stageBackdrop,
   showStageRulers,
+  showWidgetBadges,
   zoom,
   onPointerDown,
   onPointerMove,
@@ -39,6 +42,7 @@ export function StageFloatingToolbar({
   onPreviousScene,
   onNextScene,
   onToggleRulers,
+  onToggleWidgetBadges,
   onSetBackdrop,
   onZoomOut,
   onZoomIn,
@@ -62,6 +66,7 @@ export function StageFloatingToolbar({
           <span className="pill">Scene: {sceneName}</span>
           <button className="ghost" onClick={onNextScene}>→</button>
           <button className={`ghost ${showStageRulers ? 'is-active' : ''}`} onClick={onToggleRulers}>Rulers</button>
+          <button className={`ghost ${showWidgetBadges ? 'is-active' : ''}`} onClick={onToggleWidgetBadges}>Badges</button>
           <div className="stage-backdrop-switch" aria-label="Canvas preview background">
             {(['light', 'gray', 'dark'] as const).map((tone) => (
               <button
@@ -84,6 +89,7 @@ export function StageFloatingToolbar({
         <>
           <span className="pill">Stage</span>
           <button className={`ghost ${showStageRulers ? 'is-active' : ''}`} onClick={onToggleRulers}>R</button>
+          <button className={`ghost ${showWidgetBadges ? 'is-active' : ''}`} onClick={onToggleWidgetBadges}>B</button>
         </>
       )}
     </div>

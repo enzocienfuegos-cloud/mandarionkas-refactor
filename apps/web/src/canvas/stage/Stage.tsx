@@ -15,6 +15,7 @@ import { StageSelectionToolbar } from './components/StageSelectionToolbar';
 import type { WidgetNode } from '../../domain/document/types';
 import { usePlatformPermission } from '../../platform/runtime';
 import { getLiveWidgetFrame } from '../../domain/document/timeline';
+import { useDocumentActions } from '../../hooks/use-studio-actions';
 
 const stageWrap: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '100%' };
 
@@ -23,6 +24,7 @@ type StageProps = {
 };
 
 export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
+  const BACKGROUND_SWATCHES = ['#111827', '#ffffff', '#0f172a', '#f59e0b', '#ef4444', '#2563eb'] as const;
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
@@ -31,6 +33,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const canCreateAssets = usePlatformPermission('assets:create');
+  const documentActions = useDocumentActions();
   const {
     stageState,
     fullStateRef,
@@ -60,8 +63,9 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     widgetActions,
   } = useStageController(workspaceRef, stageRef);
 
-  const { canvas, scene, widgets, selectedIds, zoom, playheadMs, previewMode, hoveredWidgetId, activeWidgetId, stageBackdrop, showStageRulers } = stageState;
+  const { canvas, scene, widgets, selectedIds, zoom, playheadMs, previewMode, hoveredWidgetId, activeWidgetId, stageBackdrop, showStageRulers, showWidgetBadges } = stageState;
   const selectedWidget = !previewMode && selectedIds.length === 1 ? widgets.find((widget) => widget.id === selectedIds[0]) : undefined;
+  const showCanvasQuickPanel = !previewMode && selectedIds.length === 0;
 
   useEffect(() => {
     const element = workspaceRef.current;
@@ -197,6 +201,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
               hoveredWidgetId={hoveredWidgetId}
               activeWidgetId={activeWidgetId}
               showStageRulers={showStageRulers}
+              showWidgetBadges={showWidgetBadges}
               stateRef={fullStateRef}
               isWidgetVisible={isWidgetVisible}
               onStagePointerDown={(event) => {
@@ -221,6 +226,35 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
               onSetHoveredWidget={widgetActions.setHoveredWidget}
               onExecuteAction={widgetActions.executeAction}
             />
+            {showCanvasQuickPanel ? (
+              <div className="stage-canvas-quick-panel">
+                <div className="stage-canvas-quick-panel__header">
+                  <strong>Canvas background</strong>
+                  <span>{canvas.width}×{canvas.height}</span>
+                </div>
+                <div className="stage-canvas-quick-panel__swatches">
+                  {BACKGROUND_SWATCHES.map((swatch) => (
+                    <button
+                      key={swatch}
+                      type="button"
+                      className={`stage-canvas-quick-panel__swatch ${canvas.backgroundColor.toLowerCase() === swatch.toLowerCase() ? 'is-active' : ''}`}
+                      style={{ background: swatch }}
+                      title={`Use ${swatch}`}
+                      onClick={() => documentActions.updateCanvasBackground(swatch)}
+                    />
+                  ))}
+                </div>
+                <label className="stage-canvas-quick-panel__field">
+                  <span>Custom</span>
+                  <input
+                    type="color"
+                    aria-label="Canvas background color"
+                    value={canvas.backgroundColor}
+                    onChange={(event) => documentActions.updateCanvasBackground(event.target.value)}
+                  />
+                </label>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -245,6 +279,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
         sceneName={scene.name}
         stageBackdrop={stageBackdrop}
         showStageRulers={showStageRulers}
+        showWidgetBadges={showWidgetBadges}
         zoom={zoom}
         onPointerDown={beginToolbarDrag}
         onPointerMove={onToolbarPointerMove}
@@ -254,6 +289,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
         onPreviousScene={() => sceneActions.previousScene()}
         onNextScene={() => sceneActions.nextScene()}
         onToggleRulers={() => uiActions.setStageRulers(!showStageRulers)}
+        onToggleWidgetBadges={() => uiActions.setWidgetBadgesVisibility(!showWidgetBadges)}
         onSetBackdrop={(tone) => uiActions.setStageBackdrop(tone)}
         onZoomOut={() => uiActions.setZoom(Math.max(ZOOM_MIN, zoom - 0.1))}
         onZoomIn={() => uiActions.setZoom(Math.min(ZOOM_MAX, zoom + 0.1))}

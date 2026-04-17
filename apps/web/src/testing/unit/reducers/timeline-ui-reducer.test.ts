@@ -59,4 +59,10 @@ describe('timelineUiReducer', () => {
     const next = timelineUiReducer(state, { type: 'UPDATE_KEYFRAME', widgetId: 'widget_1', keyframeId: 'kf_1', patch: { atMs: -250 } });
     expect(next.document.widgets.widget_1.timeline.keyframes?.[0].atMs).toBe(0);
   });
+
+  it('toggles widget badge visibility in editor ui state', () => {
+    const state = createInitialState();
+    const next = timelineUiReducer(state, { type: 'SET_WIDGET_BADGES_VISIBILITY', enabled: false });
+    expect(next.ui.showWidgetBadges).toBe(false);
+  });
 });

@@ -24,6 +24,7 @@ type StageSurfaceProps = {
   hoveredWidgetId?: string;
   activeWidgetId?: string;
   showStageRulers: boolean;
+  showWidgetBadges: boolean;
   stateRef: React.MutableRefObject<import('../../../domain/document/types').StudioState>;
   isWidgetVisible: (widgetId: string) => boolean;
   onStagePointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -55,6 +56,7 @@ export function StageSurface({
   hoveredWidgetId,
   activeWidgetId,
   showStageRulers,
+  showWidgetBadges,
   stateRef,
   isWidgetVisible,
   onStagePointerDown,
@@ -101,6 +103,7 @@ export function StageSurface({
             primary={selectedIds[0] === widget.id && !previewMode}
             frame={frame}
             opacity={getLiveWidgetOpacity(widget, playheadMs)}
+            showBadge={showWidgetBadges}
             previewMode={previewMode}
             playheadMs={playheadMs}
             hovered={hoveredWidgetId === widget.id}

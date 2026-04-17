@@ -28,5 +28,16 @@ export const heroImageDefinition: WidgetDefinition = {
   inspectorFields: [{ key: 'src', label: 'Source URL' }, { key: 'alt', label: 'Alt text' }, { key: 'focalX', label: 'Focal X', type: 'number' }, { key: 'focalY', label: 'Focal Y', type: 'number' }],
   renderStage: renderHeroImageWidget,
   renderExport: (node) => renderImageExport(node, 'hero-image'),
+  buildPortableExport: (node) => ({
+    props: {
+      ...node.props,
+      exportRole: 'hero-image',
+      src: String(node.props.src ?? ''),
+      alt: String(node.props.alt ?? ''),
+      focalX: Number(node.props.focalX ?? 50),
+      focalY: Number(node.props.focalY ?? 50),
+      fit: String(node.style.fit ?? 'cover'),
+    },
+  }),
   renderLabel: () => 'Hero Image',
 };

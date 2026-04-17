@@ -103,12 +103,18 @@ export type CollaborationController = {
 export type ExportReadinessController = {
   exportIssues: ExportValidationIssue[];
   readiness: ReturnType<typeof import('../../../export/engine').buildExportReadiness>;
+  preflight: ReturnType<typeof import('../../../export/engine').buildExportPreflight>;
   diagnostics: ReturnType<typeof import('../../../domain/document/diagnostics').buildDiagnosticSummary>;
+  resolvedZipStatus: 'idle' | 'exporting' | 'success' | 'error';
+  resolvedZipMessage?: string;
   triggerExportHtml(state: StudioState): void;
   triggerExportManifest(state: StudioState): void;
+  triggerExportPreflight(state: StudioState): void;
   triggerExportDocumentJson(state: StudioState): void;
   triggerExportPublishPackage(state: StudioState): void;
   triggerExportReviewPackage(state: StudioState): void;
+  triggerExportZipBundle(state: StudioState): void;
+  triggerExportZipBundleResolved(state: StudioState): Promise<void>;
 };
 
 export type DocumentController = {

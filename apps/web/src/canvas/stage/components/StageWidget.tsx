@@ -13,6 +13,7 @@ type StageWidgetProps = {
   selected: boolean;
   primary: boolean;
   opacity: number;
+  showBadge: boolean;
   onWidgetPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onResizePointerDown: (event: ReactPointerEvent<HTMLButtonElement>, handle: ResizeHandle) => void;
   previewMode: boolean;
@@ -31,6 +32,7 @@ export const StageWidget = memo(function StageWidget({
   selected,
   primary,
   opacity,
+  showBadge,
   onWidgetPointerDown,
   onResizePointerDown,
   previewMode,
@@ -78,7 +80,7 @@ export const StageWidget = memo(function StageWidget({
       }}
     >
       <div className="stage-widget-content">{renderWidgetContents(node, { previewMode, playheadMs, hovered, active, triggerWidgetAction })}</div>
-      {!previewMode ? <div className="edit-mode-label">{node.type} · {node.name}</div> : null}
+      {!previewMode && showBadge ? <div className="edit-mode-label">{node.type} · {node.name}</div> : null}
       {selected ? <SelectionOverlay primary={primary} onResizePointerDown={onResizePointerDown} /> : null}
     </div>
   );
@@ -91,6 +93,7 @@ function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProp
     && previous.selected === next.selected
     && previous.primary === next.primary
     && previous.opacity === next.opacity
+    && previous.showBadge === next.showBadge
     && previous.previewMode === next.previewMode
     && previous.playheadMs === next.playheadMs
     && previous.hovered === next.hovered
