@@ -25,6 +25,7 @@ type StageProps = {
 
 export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
   const BACKGROUND_SWATCHES = ['#111827', '#ffffff', '#0f172a', '#f59e0b', '#ef4444', '#2563eb'] as const;
+  const TRANSPARENT_BACKGROUND = 'transparent';
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
@@ -233,6 +234,14 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
                   <span>{canvas.width}×{canvas.height}</span>
                 </div>
                 <div className="stage-canvas-quick-panel__swatches">
+                  <button
+                    type="button"
+                    className={`stage-canvas-quick-panel__swatch stage-canvas-quick-panel__swatch--transparent ${canvas.backgroundColor === TRANSPARENT_BACKGROUND ? 'is-active' : ''}`}
+                    title="Hide canvas background"
+                    onClick={() => documentActions.updateCanvasBackground(TRANSPARENT_BACKGROUND)}
+                  >
+                    ∅
+                  </button>
                   {BACKGROUND_SWATCHES.map((swatch) => (
                     <button
                       key={swatch}
@@ -249,7 +258,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
                   <input
                     type="color"
                     aria-label="Canvas background color"
-                    value={canvas.backgroundColor}
+                    value={canvas.backgroundColor === TRANSPARENT_BACKGROUND ? '#ffffff' : canvas.backgroundColor}
                     onChange={(event) => documentActions.updateCanvasBackground(event.target.value)}
                   />
                 </label>

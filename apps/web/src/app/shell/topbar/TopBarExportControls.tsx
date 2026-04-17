@@ -6,13 +6,12 @@ export function TopBarExportControls({ controller, compact = false }: { controll
   const [showPreflight, setShowPreflight] = useState(false);
   const { state, dirty } = controller.snapshot;
   const { handleLogout } = controller.workspace;
-  const { exportIssues, preflight, resolvedZipStatus, resolvedZipMessage, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportDocumentJson, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundle, triggerExportZipBundleResolved } = controller.exportReadiness;
+  const { exportIssues, preflight, resolvedZipStatus, resolvedZipMessage, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportDocumentJson, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundleResolved } = controller.exportReadiness;
   const blockers = exportIssues.filter((item) => item.level === 'error').length;
   const packageWarnings = preflight.summary.warnings;
   const primaryLabel = dirty
     ? `Unsaved · ${blockers} blockers`
     : `Saved · ${preflight.summary.packageGrade} · ${packageWarnings} warnings`;
-  const bundleBlocked = !preflight.summary.readyForBundleZip;
   const resolvedBlocked = !preflight.summary.readyForBundleZip || resolvedZipStatus === 'exporting';
   return (
     <div className={`top-control-group ${compact ? 'top-control-group--compact' : ''}`}>
@@ -27,11 +26,8 @@ export function TopBarExportControls({ controller, compact = false }: { controll
         <button className="ghost" onClick={() => setShowPreflight((value) => !value)}>
           {showPreflight ? 'Hide preflight' : 'Show preflight'}
         </button>
-        <button className="ghost" onClick={() => triggerExportZipBundle(state)} disabled={bundleBlocked} title={bundleBlocked ? preflight.summary.recommendedNextStep : undefined}>
-          ZIP bundle
-        </button>
         <button className="ghost" onClick={() => void triggerExportZipBundleResolved(state)} disabled={resolvedBlocked} title={resolvedBlocked ? preflight.summary.recommendedNextStep : undefined}>
-          {resolvedZipStatus === 'exporting' ? 'Resolving ZIP…' : 'ZIP resolved'}
+          {resolvedZipStatus === 'exporting' ? 'Exporting banner…' : 'Export banner'}
         </button>
         <button className="ghost" onClick={handleLogout}>Logout</button>
         <button className="primary" title={preflight.summary.recommendedNextStep}>{primaryLabel}</button>

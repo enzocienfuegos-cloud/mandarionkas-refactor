@@ -1,6 +1,6 @@
 import { useStudioStore } from '../../../core/store/use-studio-store';
 import { buildDiagnosticSummary, collectDiagnostics } from '../../../domain/document/diagnostics';
-import { buildExportManifest, buildExportPreflight, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundle } from '../../../export/engine';
+import { buildExportManifest, buildExportPreflight, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage } from '../../../export/engine';
 import { ExportPreflightPanel } from '../../../export/ExportPreflightPanel';
 import { useExportReadinessController } from '../../../app/shell/topbar/use-export-readiness-controller';
 import { useTopBarStudioSnapshot } from '../../../app/shell/topbar/use-top-bar-studio-snapshot';
@@ -13,7 +13,6 @@ export function DiagnosticsSection(): JSX.Element {
   const readiness = buildExportReadiness(state);
   const manifest = buildExportManifest(state);
   const preflight = buildExportPreflight(state);
-  const bundleBlocked = !preflight.summary.readyForBundleZip;
   const resolvedBlocked = !preflight.summary.readyForBundleZip || exportController.resolvedZipStatus === 'exporting';
 
   return (
@@ -65,11 +64,8 @@ export function DiagnosticsSection(): JSX.Element {
         <button onClick={() => triggerExportDocumentJson(state)}>Export document JSON</button>
         <button onClick={() => triggerExportPublishPackage(state)}>Export publish package</button>
         <button onClick={() => triggerExportReviewPackage(state)}>Export review package</button>
-        <button onClick={() => triggerExportZipBundle(state)} disabled={bundleBlocked} title={bundleBlocked ? preflight.summary.recommendedNextStep : undefined}>
-          Export ZIP bundle
-        </button>
         <button onClick={() => void exportController.triggerExportZipBundleResolved(state)} disabled={resolvedBlocked} title={resolvedBlocked ? preflight.summary.recommendedNextStep : undefined}>
-          {exportController.resolvedZipStatus === 'exporting' ? 'Resolving ZIP…' : 'Export ZIP resolved'}
+          {exportController.resolvedZipStatus === 'exporting' ? 'Exporting banner…' : 'Export banner'}
         </button>
       </div>
       {issues.length ? (

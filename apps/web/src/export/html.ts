@@ -1,11 +1,12 @@
-import { getActiveFeedRecord, resolveWidgetSnapshot } from '../domain/document/resolvers';
-import type { SceneNode, StudioState, WidgetNode } from '../domain/document/types';
+import { getActiveFeedRecord } from '../domain/document/resolvers';
+import type { StudioState, WidgetNode } from '../domain/document/types';
 import { getWidgetDefinition } from '../widgets/registry/widget-registry';
 import type { GamHtml5AdapterResult, GenericHtml5AdapterResult, GoogleDisplayAdapterResult, PlayableExportAdapterResult } from './adapters';
 import { buildExportAssetPathMap, buildExportAssetPlan } from './assets';
 import { buildExportManifest } from './manifest';
 import { buildExportRuntimeModelFromPortable } from './runtime-model';
 import { buildExportExitConfig } from './packaging';
+import { buildPortableProjectExport, type PortableExportScene, type PortableExportWidget } from './portable';
 
 export function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -293,7 +294,7 @@ function renderInteractiveGalleryWidget(node: WidgetNode): string {
   </div>`;
 }
 
-function widgetHtml(node: WidgetNode, state: StudioState, assetPathMap: Record<string, string>): string {
+function widgetHtml(node: PortableExportWidget, state: StudioState, assetPathMap: Record<string, string>): string {
   if (node.type === 'image') return renderImageWidget(node, assetPathMap, 'image');
   if (node.type === 'hero-image') return renderImageWidget(node, assetPathMap, 'hero-image');
   if (node.type === 'video-hero') return renderVideoWidget(node, assetPathMap);
@@ -306,7 +307,7 @@ function widgetHtml(node: WidgetNode, state: StudioState, assetPathMap: Record<s
   if (node.type === 'scratch-reveal') return renderScratchRevealWidget(node);
   const definition = getWidgetDefinition(node.type);
   if (definition.renderExport) {
-    return definition.renderExport(node, state);
+    return definition.renderExport(node as unknown as WidgetNode, state);
   }
   const frame = node.frame;
   const style = node.style ?? {};
@@ -335,16 +336,12 @@ function widgetHtml(node: WidgetNode, state: StudioState, assetPathMap: Record<s
   return `<div class="widget widget-module" data-widget-id="${node.id}" style="${base};flex-direction:column;gap:6px;"><strong>${String(node.name)}</strong><span style="font-size:12px;opacity:.8;">${String(node.type)}</span></div>`;
 }
 
-function sceneHtml(scene: SceneNode, state: StudioState, assetPathMap: Record<string, string>): string {
-  const widgets = scene.widgetIds
-    .map((id) => state.document.widgets[id])
-    .filter(Boolean)
-    .map((widget) => resolveWidgetSnapshot(widget, state))
+function sceneHtml(scene: PortableExportScene, canvas: { width: number; height: number; backgroundColor: string }, state: StudioState, assetPathMap: Record<string, string>): string {
+  const widgets = scene.widgets
     .filter((widget) => !widget.hidden)
     .sort((a, b) => a.zIndex - b.zIndex);
-
   return `
-    <section class="scene" data-scene-id="${scene.id}" data-scene-order="${scene.order}" style="position:absolute;inset:0;width:${state.document.canvas.width}px;height:${state.document.canvas.height}px;background:${escapeHtml(state.document.canvas.backgroundColor)};overflow:hidden;">
+    <section class="scene" data-scene-id="${scene.id}" data-scene-order="${scene.order}" style="position:absolute;inset:0;width:${canvas.width}px;height:${canvas.height}px;background:${escapeHtml(canvas.backgroundColor)};overflow:hidden;">
       ${widgets.map((widget) => widgetHtml(widget, state, assetPathMap)).join('\n')}
     </section>
   `;
@@ -353,7 +350,9 @@ function sceneHtml(scene: SceneNode, state: StudioState, assetPathMap: Record<st
 export function buildStandaloneHtml(state: StudioState): string {
   const manifest = buildExportManifest(state);
   const activeRecord = getActiveFeedRecord(state);
-  const orderedScenes = [...state.document.scenes].sort((a, b) => a.order - b.order);
+  const portableProject = buildPortableProjectExport(state);
+  const assetPathMap = buildExportAssetPathMap(buildExportAssetPlan(portableProject));
+  const orderedScenes = [...portableProject.scenes].sort((a, b) => a.order - b.order);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -383,7 +382,7 @@ export function buildStandaloneHtml(state: StudioState): string {
       <div class="pill">Widgets ${Object.keys(state.document.widgets).length}</div>
     </div>
     <div class="deck">
-      ${orderedScenes.map((scene) => `<div class="scene-card"><div class="scene-title">${escapeHtml(scene.name)}</div>${sceneHtml(scene, state)}</div>`).join('\n')}
+      ${orderedScenes.map((scene) => `<div class="scene-card"><div class="scene-title">${escapeHtml(scene.name)}</div>${sceneHtml(scene, portableProject.canvas, state, assetPathMap)}</div>`).join('\n')}
     </div>
   </div>
   <script type="application/json" id="smx-export-manifest">${escapeHtml(JSON.stringify(manifest, null, 2))}</script>
@@ -401,7 +400,7 @@ function getPrimaryClickthroughUrl(adapter: ExportHtmlAdapter): string {
   if (adapter.adapter === 'playable-ad') {
     return adapter.bootstrap.clickthroughs[0]?.url ?? 'https://example.com';
   }
-  return adapter.portableProject.interactions.find((interaction) => interaction.kind === 'clickthrough')?.url ?? 'https://example.com';
+  return adapter.portableProject.interactions.find((interaction) => interaction.type === 'open-url')?.url ?? 'https://example.com';
 }
 
 function buildExitBootstrap(adapter: ExportHtmlAdapter): string {
@@ -448,29 +447,31 @@ export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter)
   const exitConfig = buildExportExitConfig(adapter);
   const activeRecord = getActiveFeedRecord(state);
   const assetPathMap = buildExportAssetPathMap(buildExportAssetPlan(adapter.portableProject));
-  const orderedScenes = [...state.document.scenes].sort((a, b) => a.order - b.order);
+  const orderedScenes = [...adapter.portableProject.scenes].sort((a, b) => a.order - b.order);
   const exitBootstrap = buildExitBootstrap(adapter);
+  const canvas = adapter.portableProject.canvas;
+  const documentName = adapter.portableProject.name || state.document.name || 'SMX Export';
 
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${escapeHtml(state.document.name || 'SMX Export')}</title>
+  <title>${escapeHtml(documentName)}</title>
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Inter, Arial, sans-serif; background: transparent; color: #e5e7eb; }
-    .banner-shell { width: ${state.document.canvas.width}px; height: ${state.document.canvas.height}px; position: relative; overflow: hidden; background: ${escapeHtml(state.document.canvas.backgroundColor)}; }
+    .banner-shell { width: ${canvas.width}px; height: ${canvas.height}px; position: relative; overflow: hidden; background: ${escapeHtml(canvas.backgroundColor)}; }
     .banner-stage { width: 100%; height: 100%; position: relative; overflow: hidden; }
     .scene { display: none; }
     button.widget-cta:hover { filter: brightness(1.05); }
   </style>
 </head>
 <body>
-  <div class="banner-shell" data-document-name="${escapeHtml(state.document.name)}" data-active-variant="${escapeHtml(state.ui.activeVariant)}" data-active-feed="${escapeHtml(state.ui.activeFeedSource)}" data-active-record="${escapeHtml(activeRecord?.label ?? state.ui.activeFeedRecordId)}" data-adapter="${escapeHtml(adapter.adapter)}">
+  <div class="banner-shell" data-document-name="${escapeHtml(documentName)}" data-active-variant="${escapeHtml(adapter.portableProject.activeVariant)}" data-active-feed="${escapeHtml(adapter.portableProject.activeFeedSource)}" data-active-record="${escapeHtml(activeRecord?.label ?? adapter.portableProject.activeFeedRecordId)}" data-adapter="${escapeHtml(adapter.adapter)}">
     <div class="banner-stage">
-      ${orderedScenes.map((scene) => sceneHtml(scene, state, assetPathMap)).join('\n')}
+      ${orderedScenes.map((scene) => sceneHtml(scene, canvas, state, assetPathMap)).join('\n')}
     </div>
   </div>
   <script>

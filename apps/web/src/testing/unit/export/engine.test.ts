@@ -290,6 +290,35 @@ describe('export engine', () => {
     expect(html).toContain('class="banner-shell"');
   });
 
+  it('renders localized asset paths in channel html when adapter project is localized', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.widgets.hero_1 = {
+      id: 'hero_1',
+      type: 'hero-image',
+      name: 'Hero',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 320, height: 180, rotation: 0 },
+      style: {},
+      props: { src: 'https://cdn.example.com/hero.png' },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('hero_1');
+
+    const adapter = buildGenericHtml5Adapter(state);
+    const assetPlan = buildExportAssetPlan(adapter.portableProject);
+    const localizedAdapter = {
+      ...adapter,
+      portableProject: buildLocalizedPortableProject(adapter.portableProject, assetPlan),
+    };
+
+    const html = buildChannelHtml(state, localizedAdapter);
+
+    expect(html).toContain('assets/image/hero_1/hero.png');
+    expect(html).not.toContain('https://cdn.example.com/hero.png');
+  });
+
   it('builds a file-oriented export bundle', () => {
     const state = createInitialState();
     const bundle = buildExportBundle(state);

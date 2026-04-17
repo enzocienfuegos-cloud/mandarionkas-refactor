@@ -35,6 +35,11 @@ export function ExportPreflightPanel({
         <span className="pill">Pending remote {preflight.summary.remoteAssetPendingCount}</span>
         {resolvedZipStatus ? <span className="pill">Resolved ZIP {resolvedZipStatus}</span> : null}
       </div>
+      {preflight.summary.blockers === 0 ? (
+        <div className="pill" style={{ borderColor: 'rgba(34,197,94,.35)' }}>
+          Export available · usa Export banner
+        </div>
+      ) : null}
       {preflight.summary.topBlocker ? (
         <div className="pill" style={{ borderColor: 'rgba(239,68,68,.45)' }}>
           blocker · {preflight.summary.topBlocker}
