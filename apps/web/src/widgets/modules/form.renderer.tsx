@@ -6,7 +6,8 @@ import { getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeed
 
 function FormModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
-  const scale = Math.max(0.5, Math.min(1.02, Math.min(node.frame.width / 250, node.frame.height / 184)));
+  const userScale = Math.max(45, Math.min(140, Number(node.props.formScale ?? 100))) / 100;
+  const scale = Math.max(0.38, Math.min(1.1, Math.min(node.frame.width / 250, node.frame.height / 184) * userScale));
   const compactGap = Math.max(4, Math.round(8 * scale));
   const compactPaddingY = Math.max(6, Math.round(8 * scale));
   const compactPaddingX = Math.max(8, Math.round(10 * scale));

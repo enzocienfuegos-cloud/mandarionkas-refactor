@@ -20,6 +20,7 @@ export const FormDefinition = createModuleDefinition({
     fallbackMode: 'success',
     consentRequired: true,
     consentLabel: 'I agree to share my data',
+    formScale: 100,
   },
   inspectorFields: [
     { key: 'title' },
@@ -30,6 +31,7 @@ export const FormDefinition = createModuleDefinition({
     { key: 'submitTargetType', label: 'Submit target' },
     { key: 'submitUrl', label: 'Submit URL' },
     { key: 'successMessage', label: 'Success message' },
+    { key: 'formScale', label: 'Form scale %', type: 'number' },
     { key: 'consentRequired', label: 'Consent required', type: 'checkbox' },
     { key: 'consentLabel', label: 'Consent label' },
   ],

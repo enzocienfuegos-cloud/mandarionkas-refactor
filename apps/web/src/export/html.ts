@@ -428,7 +428,8 @@ function renderFormWidget(node: WidgetNode): string {
   const consentRequired = Boolean(node.props.consentRequired ?? true);
   const consentLabel = String(node.props.consentLabel ?? 'I agree to share my data');
   const fieldThree = String(node.props.fieldThree ?? 'Phone');
-  const scale = Math.max(0.5, Math.min(1.02, Math.min(frame.width / 250, frame.height / 184)));
+  const userScale = Math.max(45, Math.min(140, Number(node.props.formScale ?? 100))) / 100;
+  const scale = Math.max(0.38, Math.min(1.1, Math.min(frame.width / 250, frame.height / 184) * userScale));
   const headerPaddingTop = Math.max(6, Math.round(8 * scale));
   const headerPaddingX = Math.max(8, Math.round(10 * scale));
   const bodyPaddingTop = Math.max(4, Math.round(6 * scale));
