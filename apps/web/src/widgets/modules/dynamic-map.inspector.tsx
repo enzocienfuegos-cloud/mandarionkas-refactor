@@ -152,6 +152,18 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
             </select>
           </div>
         </div>
+        <div>
+          <label>Map size %</label>
+          <input
+            type="range"
+            min="35"
+            max="85"
+            step="1"
+            value={String(widget.props.mapPaneRatio ?? 72)}
+            onChange={(event) => updateProps({ mapPaneRatio: Number(event.target.value) })}
+          />
+          <small className="muted">Controls how much space the map takes versus the cards.</small>
+        </div>
         {String(widget.props.renderMode ?? 'cards-map') === 'search-bar' ? (
           <>
             <div>

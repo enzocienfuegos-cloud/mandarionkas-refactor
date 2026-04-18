@@ -290,6 +290,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
   const mode = String(node.props.mode ?? 'street');
   const routeVisible = Boolean(node.props.showRoute ?? false);
   const renderMode = String(node.props.renderMode ?? 'cards-map');
+  const mapPaneRatio = Math.max(35, Math.min(85, Number(node.props.mapPaneRatio ?? 72)));
   const requestUserLocation = Boolean(node.props.requestUserLocation ?? false);
   const sortByDistance = Boolean(node.props.sortByDistance ?? true);
   const showOpenNow = Boolean(node.props.showOpenNow ?? true);
@@ -337,6 +338,16 @@ function renderDynamicMapWidget(node: WidgetNode): string {
   const searchBarMode = renderMode === 'search-bar';
   const isVertical = frame.height > frame.width;
   const stackedLayout = !cardsOnly && isVertical;
+  const mapShare = `${mapPaneRatio}fr`;
+  const cardsShare = `${Math.max(1, 100 - mapPaneRatio)}fr`;
+  const gridTemplateColumns = cardsOnly || stackedLayout
+    ? '1fr'
+    : mapFirst
+      ? `${mapShare} ${cardsShare}`
+      : `${cardsShare} ${mapShare}`;
+  const gridTemplateRows = stackedLayout
+    ? (mapFirst ? `${mapShare} ${cardsShare}` : `${cardsShare} ${mapShare}`)
+    : 'none';
   const mapBackground = mode === 'dark'
     ? 'linear-gradient(135deg,#0f172a,#1e293b)'
     : mode === 'satellite'
@@ -431,7 +442,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <span>${escapeHtml(String(node.props.title ?? node.name))}</span>
     </div>
-    <div style="padding:8px 12px 12px;flex:1;display:grid;grid-template-columns:${cardsOnly || stackedLayout ? '1fr' : mapFirst ? '1.45fr .55fr' : '1.55fr .45fr'};grid-template-rows:${stackedLayout ? (mapFirst ? '1.2fr .8fr' : '.8fr 1.2fr') : 'none'};gap:10px;min-height:0;">
+    <div style="padding:8px 12px 12px;flex:1;display:grid;grid-template-columns:${gridTemplateColumns};grid-template-rows:${gridTemplateRows};gap:10px;min-height:0;">
       ${cardsOnly ? '' : `<div style="position:relative;min-height:${stackedLayout ? 150 : 110}px;border-radius:12px;overflow:hidden;background:${mapBackground};">
         <div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 20%, rgba(255,255,255,.55), transparent 32%), radial-gradient(circle at 74% 32%, rgba(255,255,255,.2), transparent 24%), linear-gradient(135deg, transparent 0%, rgba(255,255,255,.12) 100%);"></div>
         ${routeVisible ? `<svg viewBox="0 0 100 60" style="position:absolute;inset:12% 10%;width:80%;height:76%;"><path d="M8 50 C 24 18, 56 16, 88 42" fill="none" stroke="${escapeHtml(accent)}" stroke-width="3" stroke-dasharray="7 6" stroke-linecap="round" /></svg>` : ''}

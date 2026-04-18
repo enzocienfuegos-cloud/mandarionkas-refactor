@@ -115,6 +115,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   const provider = String(node.props.provider ?? 'manual');
   const mode = String(node.props.mode ?? 'street');
   const renderMode = String(node.props.renderMode ?? 'cards-map');
+  const mapPaneRatio = Math.max(35, Math.min(85, Number(node.props.mapPaneRatio ?? 72)));
   const requestUserLocation = Boolean(node.props.requestUserLocation ?? false);
   const sortByDistance = Boolean(node.props.sortByDistance ?? true);
   const showOpenNow = Boolean(node.props.showOpenNow ?? true);
@@ -212,6 +213,16 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   const searchBarMode = renderMode === 'search-bar';
   const isVertical = node.frame.height > node.frame.width;
   const stackedLayout = !cardsOnly && isVertical;
+  const mapShare = `${mapPaneRatio}fr`;
+  const cardsShare = `${Math.max(1, 100 - mapPaneRatio)}fr`;
+  const gridTemplateColumns = cardsOnly || stackedLayout
+    ? '1fr'
+    : mapFirst
+      ? `${mapShare} ${cardsShare}`
+      : `${cardsShare} ${mapShare}`;
+  const gridTemplateRows = stackedLayout
+    ? (mapFirst ? `${mapShare} ${cardsShare}` : `${cardsShare} ${mapShare}`)
+    : undefined;
   const mapCenterLat = userPosition?.latitude ?? latitude;
   const mapCenterLng = userPosition?.longitude ?? longitude;
   const [panelOpen, setPanelOpen] = useState(false);
@@ -380,7 +391,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
         <span>{String(node.props.title ?? node.name)}</span>
       </div>
       <div style={moduleBody}>
-        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: cardsOnly || stackedLayout ? '1fr' : mapFirst ? '1.45fr .55fr' : '1.55fr .45fr', gridTemplateRows: stackedLayout ? (mapFirst ? '1.2fr .8fr' : '.8fr 1.2fr') : undefined, flex: 1, minHeight: 0 }}>
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: gridTemplateColumns, gridTemplateRows: gridTemplateRows, flex: 1, minHeight: 0 }}>
           {!cardsOnly ? (
             <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', minHeight: stackedLayout ? 150 : 110, background: mapBackground }}>
               <div ref={mapCanvasRef} style={{ position: 'absolute', inset: 0 }} />

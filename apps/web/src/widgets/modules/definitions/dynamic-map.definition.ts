@@ -18,6 +18,7 @@ export const DynamicMapDefinition = createModuleDefinition({
     zoom: 13,
     provider: 'manual',
     renderMode: 'cards-map',
+    mapPaneRatio: 72,
     requestUserLocation: false,
     sortByDistance: true,
     showOpenNow: true,
