@@ -137,6 +137,20 @@ function rewriteSlides(raw: unknown, map: ExportAssetPathMap): unknown {
     .join(';');
 }
 
+function rewriteProducts(raw: unknown, map: ExportAssetPathMap): unknown {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return raw;
+  return raw
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const [src, ...rest] = item.split('|');
+      const nextSrc = rewriteStringValue((src ?? '').trim(), map);
+      return [nextSrc, ...rest].join('|');
+    })
+    .join(';');
+}
+
 function rewriteWidgetProps(
   props: Record<string, unknown>,
   map: ExportAssetPathMap,
@@ -152,6 +166,7 @@ function rewriteWidgetProps(
     beforeImage: typeof props.beforeImage === 'string' ? rewriteStringValue(props.beforeImage, map) : props.beforeImage,
     afterImage: typeof props.afterImage === 'string' ? rewriteStringValue(props.afterImage, map) : props.afterImage,
     slides: rewriteSlides(props.slides, map),
+    products: rewriteProducts(props.products, map),
   };
 }
 

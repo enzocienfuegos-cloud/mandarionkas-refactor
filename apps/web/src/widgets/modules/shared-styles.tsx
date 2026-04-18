@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
+import { parseShoppableProducts } from './shoppable-sidebar.shared';
 
 export const resolveWidgetColor = (node: WidgetNode, ctx?: RenderContext): string => {
   if (ctx?.active && node.style.activeColor) return String(node.style.activeColor);
@@ -90,13 +91,14 @@ export function getFlagEmoji(flagCode: string): string {
 export function parseCarouselSlides(raw: string): Array<{ src: string; caption: string }> {
   return raw.split(';').map((item) => item.trim()).filter(Boolean).map((item, index) => { const [src, caption] = item.split('|'); return { src: (src ?? '').trim(), caption: (caption ?? `Slide ${index + 1}`).trim() }; }).filter((item) => item.src);
 }
-const COLLAPSIBLE_EDITOR_WIDGETS = new Set<WidgetNode['type']>(['countdown','add-to-calendar','shoppable-sidebar','speed-test','scratch-reveal','form','dynamic-map','image-carousel','weather-conditions','range-slider','interactive-hotspot','slider','qr-code','travel-deal','interactive-gallery','gen-ai-image','buttons']);
+const COLLAPSIBLE_EDITOR_WIDGETS = new Set<WidgetNode['type']>(['countdown','add-to-calendar','speed-test','scratch-reveal','form','dynamic-map','image-carousel','weather-conditions','range-slider','interactive-hotspot','slider','qr-code','travel-deal','interactive-gallery','gen-ai-image','buttons']);
 function editorSummary(node: WidgetNode): string[] {
   switch (node.type) {
     case 'dynamic-map': { const markers = parseCsvMarkers(String(node.props.markersCsv ?? '')); return [`${markers.length || 1} marker${markers.length === 1 ? '' : 's'}`, `Zoom ${clamp(Number(node.props.zoom ?? 13), 2, 18)}`, `Provider ${String(node.props.provider ?? 'osm')}`]; }
     case 'weather-conditions': return [`${String(node.props.location ?? 'Location')}`, `${String(node.props.condition ?? 'Condition')} · ${String(node.props.temperature ?? '--')}°`, String(node.props.liveWeather ? 'Live weather' : 'Static preview')];
     case 'form': return [`${String(node.props.fieldOne ?? 'Name')} + ${String(node.props.fieldTwo ?? 'Email')}`, `Submit ${String(node.props.submitTargetType ?? 'none')}`];
     case 'image-carousel': { const slides = parseCarouselSlides(String(node.props.slides ?? '')); return [`${slides.length} slides`, String(node.props.autoplay ? 'Autoplay on' : 'Autoplay off')]; }
+    case 'shoppable-sidebar': { const products = parseShoppableProducts(String(node.props.products ?? '')); return [`${products.length || 1} products`, `${String(node.props.orientation ?? 'horizontal')} layout`, String(node.props.autoscroll ? 'Autoscroll on' : 'Autoscroll off')]; }
     default: return [String(node.props.title ?? node.name)];
   }
 }

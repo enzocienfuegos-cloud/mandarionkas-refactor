@@ -41,3 +41,23 @@ export const baseTextStyle = (node: WidgetNode, ctx?: RenderContext): CSSPropert
   lineHeight: 1.1,
   opacity: resolveWidgetOpacity(node, ctx),
 });
+
+export const resolveTextHorizontalAlign = (node: WidgetNode): 'flex-start' | 'center' | 'flex-end' => {
+  const align = String(node.style.horizontalAlign ?? node.style.textAlign ?? 'center');
+  if (align === 'left') return 'flex-start';
+  if (align === 'right') return 'flex-end';
+  return 'center';
+};
+
+export const resolveTextVerticalAlign = (node: WidgetNode): 'flex-start' | 'center' | 'flex-end' => {
+  const align = String(node.style.verticalAlign ?? 'center');
+  if (align === 'top') return 'flex-start';
+  if (align === 'bottom') return 'flex-end';
+  return 'center';
+};
+
+export const resolveCssTextAlign = (node: WidgetNode): 'left' | 'center' | 'right' => {
+  const align = String(node.style.horizontalAlign ?? node.style.textAlign ?? 'center');
+  if (align === 'left' || align === 'right') return align;
+  return 'center';
+};

@@ -47,6 +47,24 @@ export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
           </div>
           <ColorControl label="Text color" value={String(widget.style.color ?? '#ffffff')} fallback="#ffffff" onChange={(value) => updateWidgetStyle(widget.id, { color: value })} />
         </div>
+        <div className="fields-grid">
+          <div>
+            <label>Horizontal align</label>
+            <select value={String(widget.style.horizontalAlign ?? widget.style.textAlign ?? 'center')} onChange={(event) => updateWidgetStyle(widget.id, { horizontalAlign: event.target.value, textAlign: event.target.value })}>
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+          <div>
+            <label>Vertical align</label>
+            <select value={String(widget.style.verticalAlign ?? 'center')} onChange={(event) => updateWidgetStyle(widget.id, { verticalAlign: event.target.value })}>
+              <option value="top">Top</option>
+              <option value="center">Center</option>
+              <option value="bottom">Bottom</option>
+            </select>
+          </div>
+        </div>
         <div>
           <label>Font family</label>
           <input value={String(widget.style.fontFamily ?? '')} onChange={(event) => updateWidgetStyle(widget.id, { fontFamily: event.target.value })} placeholder="System or custom font family" />

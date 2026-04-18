@@ -14,7 +14,7 @@ export const heroImageDefinition: WidgetDefinition = {
     sceneId,
     zIndex,
     frame: { x: 24, y: 24, width: 320, height: 168, rotation: 0 },
-    props: { src: '', alt: 'Hero image', focalX: 50, focalY: 50 },
+    props: { src: '', alt: 'Hero image', focalX: 50, focalY: 50, cornerStyle: 'rounded' },
     style: { backgroundColor: '#223142', fit: 'cover', borderRadius: 20 },
     timeline: { startMs: 0, endMs: 15000 },
   }),
@@ -25,7 +25,22 @@ export const heroImageDefinition: WidgetDefinition = {
     { id: 'data', label: 'Data', panels: ['data-bindings', 'variants'] },
   ]),
   inspectorTitle: 'Hero image',
-  inspectorFields: [{ key: 'src', label: 'Source URL' }, { key: 'alt', label: 'Alt text' }, { key: 'focalX', label: 'Focal X', type: 'number' }, { key: 'focalY', label: 'Focal Y', type: 'number' }],
+  inspectorFields: [
+    { key: 'src', label: 'Source URL' },
+    { key: 'alt', label: 'Alt text' },
+    { key: 'focalX', label: 'Focal X', type: 'number' },
+    { key: 'focalY', label: 'Focal Y', type: 'number' },
+    {
+      key: 'cornerStyle',
+      label: 'Corners',
+      type: 'select',
+      options: [
+        { label: 'Rounded', value: 'rounded' },
+        { label: 'Square', value: 'square' },
+        { label: 'Pill', value: 'pill' },
+      ],
+    },
+  ],
   renderStage: renderHeroImageWidget,
   renderExport: (node) => renderImageExport(node, 'hero-image'),
   buildPortableExport: (node) => ({

@@ -745,6 +745,179 @@ describe('export engine', () => {
     expect(html).toContain('data-gallery-card');
   });
 
+  it('renders qr code and dynamic map widgets as exportable html', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.widgets.qr_1 = {
+      id: 'qr_1',
+      type: 'qr-code',
+      name: 'QR Code',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 220, height: 116, rotation: 0 },
+      style: { accentColor: '#111827', color: '#111827', backgroundColor: '#ffffff' },
+      props: { title: 'QR Code', url: 'https://example.com', codeLabel: 'Scan me' },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.widgets.map_1 = {
+      id: 'map_1',
+      type: 'dynamic-map',
+      name: 'Dynamic Map',
+      sceneId,
+      zIndex: 2,
+      frame: { x: 0, y: 0, width: 220, height: 118, rotation: 0 },
+      style: { accentColor: '#ef4444', color: '#ffffff', backgroundColor: '#1f2937' },
+      props: {
+        title: 'Dynamic Map',
+        location: 'San Salvador',
+        latitude: 13.6929,
+        longitude: -89.2182,
+        zoom: 13,
+        provider: 'osm',
+        markersCsv: 'name,flag,lat,lng\nSan Salvador,SV,13.6929,-89.2182',
+      },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('qr_1', 'map_1');
+    const generic = buildGenericHtml5Adapter(state);
+
+    const html = buildChannelHtml(state, generic);
+
+    expect(html).toContain('class="widget widget-qr-code"');
+    expect(html).toContain('data-smx-action="qr-open"');
+    expect(html).toContain('class="widget widget-dynamic-map"');
+    expect(html).toContain('zoom 13');
+    expect(html).toContain('San Salvador');
+  });
+
+  it('renders speed test widgets as playable demo html', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.widgets.speed_1 = {
+      id: 'speed_1',
+      type: 'speed-test',
+      name: 'Speed Test',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 220, height: 116, rotation: 0 },
+      style: { accentColor: '#2dd4bf', color: '#ffffff', backgroundColor: '#0b3b7a' },
+      props: { title: 'Speed Test', min: 10, max: 100, current: 64, units: 'Mbps', durationMs: 1800, ctaLabel: 'Start test', resultMode: 'random' },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('speed_1');
+    const generic = buildGenericHtml5Adapter(state);
+
+    const html = buildChannelHtml(state, generic);
+
+    expect(html).toContain('class="widget widget-speed-test"');
+    expect(html).toContain('data-smx-action="speed-test-start"');
+    expect(html).toContain('data-speed-duration="1800"');
+    expect(html).toContain('data-speed-result-mode="random"');
+  });
+
+  it('renders scratch reveal widgets with canvas-based scratch interactions', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.widgets.scratch_1 = {
+      id: 'scratch_1',
+      type: 'scratch-reveal',
+      name: 'Scratch & Reveal',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 220, height: 116, rotation: 0 },
+      style: { accentColor: '#f97316', color: '#ffffff', backgroundColor: '#111827' },
+      props: {
+        title: 'Scratch & Reveal',
+        coverLabel: 'Scratch to reveal',
+        revealLabel: '20% off today',
+        beforeImage: 'https://cdn.example.com/cover.png',
+        afterImage: 'https://cdn.example.com/reveal.png',
+        coverBlur: 8,
+        scratchRadius: 24,
+      },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('scratch_1');
+    const generic = buildGenericHtml5Adapter(state);
+
+    const html = buildChannelHtml(state, generic);
+
+    expect(html).toContain('class="scratch-reveal-shell"');
+    expect(html).toContain('data-scratch-canvas');
+    expect(html).toContain('data-scratch-cover-image="https://cdn.example.com/cover.png"');
+    expect(html).not.toContain('data-smx-action="scratch-update"');
+    expect(html).not.toContain('type="range"');
+  });
+
+  it('renders shoppable sidebar widgets as product cards with export interactions', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.widgets.shop_1 = {
+      id: 'shop_1',
+      type: 'shoppable-sidebar',
+      name: 'Shoppable Sidebar',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 320, height: 180, rotation: 0 },
+      style: { accentColor: '#9a3412', color: '#1f2937', backgroundColor: '#f8fafc', borderRadius: 20 },
+      props: {
+        title: 'Shop the look',
+        orientation: 'horizontal',
+        cardShape: 'portrait',
+        autoscroll: true,
+        intervalMs: 2600,
+        products: 'https://cdn.example.com/bag.png|Bracelet Duo|Casuale Damier|250 €|4|Shop now|https://example.com/bag;https://cdn.example.com/shoes.png|House de Sac|Premium line|550 €|5|Buy now|https://example.com/shoes',
+      },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('shop_1');
+    const generic = buildGenericHtml5Adapter(state);
+
+    const html = buildChannelHtml(state, generic);
+
+    expect(html).toContain('class="widget widget-shoppable-sidebar"');
+    expect(html).toContain('data-shoppable-products=');
+    expect(html).toContain('data-smx-action="shoppable-cta"');
+    expect(html).toContain('Bracelet Duo');
+    expect(html).toContain('250 €');
+  });
+
+  it('renders weather widgets with live weather metadata for export', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.widgets.weather_1 = {
+      id: 'weather_1',
+      type: 'weather-conditions',
+      name: 'Weather',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 280, height: 150, rotation: 0 },
+      style: { accentColor: '#60a5fa', color: '#0f172a', backgroundColor: '#f8fafc' },
+      props: {
+        title: 'Weather',
+        location: 'San Salvador',
+        condition: 'Cloudy',
+        temperature: 24,
+        latitude: 13.6929,
+        longitude: -89.2182,
+        provider: 'open-meteo',
+        fetchPolicy: 'cache-first',
+        cacheTtlMs: 300000,
+        liveWeather: true,
+      },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('weather_1');
+    const generic = buildGenericHtml5Adapter(state);
+
+    const html = buildChannelHtml(state, generic);
+
+    expect(html).toContain('class="widget widget-weather-conditions"');
+    expect(html).toContain('data-weather-provider="open-meteo"');
+    expect(html).toContain('data-weather-live="true"');
+    expect(html).toContain('data-weather-location="San Salvador"');
+  });
+
   it('builds a runtime script that wires CTA exits and scene controls', () => {
     const state = createInitialState();
     state.document.metadata.release.targetChannel = 'gam-html5';
@@ -759,7 +932,15 @@ describe('export engine', () => {
     expect(script).toContain('updateGallery');
     expect(script).toContain('button-select');
     expect(script).toContain('hotspot-toggle');
-    expect(script).toContain('scratch-update');
+    expect(script).toContain('qr-open');
+    expect(script).toContain('speed-test-start');
+    expect(script).toContain('runSpeedTest');
+    expect(script).toContain('initScratchReveal');
+    expect(script).toContain('data-scratch-canvas');
+    expect(script).toContain('updateShoppable');
+    expect(script).toContain('shoppable-cta');
+    expect(script).toContain('initWeatherWidget');
+    expect(script).toContain('api.open-meteo.com');
   });
 
   it('builds a zip artifact from the export bundle', () => {

@@ -173,7 +173,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
   const toolbarStyle: CSSProperties = { left: toolbarPosition.x, top: toolbarPosition.y, transform: 'none' };
 
   const openAssetPicker = (widget: WidgetNode) => {
-    if (widget.type !== 'image' && widget.type !== 'hero-image' && widget.type !== 'video-hero') return;
+    if (widget.type !== 'image' && widget.type !== 'hero-image' && widget.type !== 'video-hero' && widget.type !== 'image-carousel' && widget.type !== 'interactive-gallery' && widget.type !== 'shoppable-sidebar') return;
     widgetActions.setActiveWidget(widget.id);
     onOpenAssetLibrary();
   };

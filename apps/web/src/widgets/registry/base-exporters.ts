@@ -1,13 +1,14 @@
 import type { WidgetNode } from '../../domain/document/types';
-import { escapeHtml, getBaseWidgetStyle, renderGenericExport } from './export-helpers';
+import { escapeHtml, getBaseWidgetStyle, renderGenericExport, resolveExportHorizontalAlign, resolveExportTextAlign, resolveExportVerticalAlign } from './export-helpers';
+import { resolveShapeKind } from '../shape/shape-shared';
 
 export function renderTextExport(node: WidgetNode): string {
-  const base = `${getBaseWidgetStyle(node)};background:transparent;border:none;justify-content:flex-start;align-items:flex-start;padding:0;`;
+  const base = `${getBaseWidgetStyle(node)};background:transparent;border:none;justify-content:${resolveExportVerticalAlign(node)};align-items:${resolveExportHorizontalAlign(node)};padding:0;text-align:${resolveExportTextAlign(node)};`;
   return `<div class="widget widget-text" data-widget-id="${node.id}" style="${base}">${escapeHtml(node.props.text ?? '')}</div>`;
 }
 
 export function renderCtaExport(node: WidgetNode): string {
-  const base = `${getBaseWidgetStyle(node)};cursor:pointer;`;
+  const base = `${getBaseWidgetStyle(node)};cursor:pointer;justify-content:${resolveExportVerticalAlign(node)};align-items:${resolveExportHorizontalAlign(node)};text-align:${resolveExportTextAlign(node)};`;
   return `<button class="widget widget-cta" data-widget-id="${node.id}" style="${base}">${escapeHtml(node.props.text ?? node.name)}</button>`;
 }
 
@@ -22,5 +23,19 @@ export function renderVideoExport(node: WidgetNode): string {
 
 export function renderShapeExport(node: WidgetNode): string {
   const base = getBaseWidgetStyle(node);
-  return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base};"></div>`;
+  const shape = resolveShapeKind(node);
+  const width = Number(node.frame.width ?? 0);
+  const height = Number(node.frame.height ?? 0);
+  const minSide = Math.max(0, Math.min(width, height));
+  const fill = escapeHtml(String(node.style.backgroundColor ?? '#f6a11c'));
+  const border = escapeHtml(String(node.style.borderColor ?? 'rgba(255,255,255,0.14)'));
+
+  let innerStyle = `width:100%;height:100%;background:${fill};border:1px solid ${border};box-sizing:border-box;`;
+  if (shape === 'square') innerStyle = `width:${minSide}px;height:${minSide}px;background:${fill};border:1px solid ${border};box-sizing:border-box;`;
+  if (shape === 'circle') innerStyle = `width:${minSide}px;height:${minSide}px;background:${fill};border-radius:50%;border:1px solid ${border};box-sizing:border-box;`;
+  if (shape === 'triangle') innerStyle = `width:100%;height:100%;background:${fill};clip-path:polygon(50% 0%, 0% 100%, 100% 100%);border:1px solid ${border};box-sizing:border-box;`;
+  if (shape === 'line') innerStyle = `width:100%;height:${Math.max(4, Math.min(10, height * 0.12))}px;background:${fill};border-radius:999px;border:1px solid ${border};box-sizing:border-box;`;
+  if (shape === 'arrow') innerStyle = `width:100%;height:100%;background:${fill};clip-path:polygon(0% 35%, 64% 35%, 64% 14%, 100% 50%, 64% 86%, 64% 65%, 0% 65%);border:1px solid ${border};box-sizing:border-box;`;
+
+  return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base};display:flex;align-items:center;justify-content:center;padding:0;"><div style="${innerStyle}"></div></div>`;
 }

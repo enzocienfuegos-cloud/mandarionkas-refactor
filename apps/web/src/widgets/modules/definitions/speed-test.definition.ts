@@ -6,7 +6,25 @@ export const SpeedTestDefinition = createModuleDefinition({
   label: 'Speed Test',
   category: 'interactive',
   frame: { x: 80, y: 60, width: 220, height: 116, rotation: 0 },
-  props: { title: 'Speed Test', min: 10, max: 100, current: 64, units: 'Mbps' },
+  props: { title: 'Speed Test', min: 10, max: 100, current: 64, units: 'Mbps', durationMs: 1800, ctaLabel: 'Start test', resultMode: 'random' },
+  inspectorFields: [
+    { key: 'title' },
+    { key: 'min', type: 'number' },
+    { key: 'max', type: 'number' },
+    { key: 'current', label: 'Fixed result', type: 'number' },
+    { key: 'units' },
+    { key: 'durationMs', label: 'Duration ms', type: 'number' },
+    { key: 'ctaLabel', label: 'Button label' },
+    {
+      key: 'resultMode',
+      label: 'Result mode',
+      type: 'select',
+      options: [
+        { label: 'Random', value: 'random' },
+        { label: 'Fixed', value: 'fixed' },
+      ],
+    },
+  ],
   style: { backgroundColor: '#0b3b7a', accentColor: '#2dd4bf', color: '#ffffff' },
   renderStage: renderSpeedTestStage,
 });

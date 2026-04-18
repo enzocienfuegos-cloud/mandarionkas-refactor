@@ -2,9 +2,10 @@ import type { CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
+import { resolveCornerRadius } from '../shared/corner-style';
 
 export function renderHeroImageWidget(node: WidgetNode, ctx: RenderContext): JSX.Element {
-  const borderRadius = Number(node.style.borderRadius ?? 20);
+  const borderRadius = resolveCornerRadius(node, 20);
   const src = String(node.props.src ?? '').trim();
   if (src) {
     return (

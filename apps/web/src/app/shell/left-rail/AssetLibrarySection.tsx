@@ -79,6 +79,7 @@ export function AssetLibrarySection({ controller }: { controller: LeftRailContro
   const compatibleWithSelection = useMemo(() => {
     if (!selectedAsset || !primaryWidget) return false;
     if (primaryWidget.type === 'video-hero') return selectedAsset.kind === 'video';
+    if (primaryWidget.type === 'image-carousel' || primaryWidget.type === 'interactive-gallery' || primaryWidget.type === 'shoppable-sidebar') return selectedAsset.kind === 'image';
     if (['text', 'cta', 'badge'].includes(primaryWidget.type)) return selectedAsset.kind === 'font';
     return selectedAsset.kind === 'image';
   }, [primaryWidget, selectedAsset]);
@@ -224,7 +225,7 @@ export function AssetLibrarySection({ controller }: { controller: LeftRailContro
                     {selectedAsset.originUrl ? <span className="pill">Remote source</span> : null}
                   </div>
                   <div className="rail-action-grid">
-                    <button className="left-button compact-action" disabled={!selectedWidgetAcceptsAsset || !compatibleWithSelection} onClick={() => assignAsset(selectedAsset)}>{primaryWidget?.type === 'video-hero' ? 'Use on selected video' : ['text', 'cta', 'badge'].includes(primaryWidget?.type ?? '') ? 'Use on selected text' : 'Use on selected image'}</button>
+                    <button className="left-button compact-action" disabled={!selectedWidgetAcceptsAsset || !compatibleWithSelection} onClick={() => assignAsset(selectedAsset)}>{primaryWidget?.type === 'video-hero' ? 'Use on selected video' : primaryWidget?.type === 'image-carousel' ? 'Add to carousel' : primaryWidget?.type === 'interactive-gallery' ? 'Add to gallery' : primaryWidget?.type === 'shoppable-sidebar' ? 'Add product' : ['text', 'cta', 'badge'].includes(primaryWidget?.type ?? '') ? 'Use on selected text' : 'Use on selected image'}</button>
                     <button className="left-button compact-action" disabled={!canDeleteAssets} onClick={() => { void deleteAsset(selectedAsset.id); }}>Delete</button>
                   </div>
                 </div>

@@ -39,7 +39,8 @@ export type WidgetInspectorTabSpec = {
 export type WidgetFieldSpec = {
   key: string;
   label?: string;
-  type?: 'text' | 'number' | 'textarea' | 'checkbox';
+  type?: 'text' | 'number' | 'textarea' | 'checkbox' | 'select';
+  options?: Array<{ label: string; value: string }>;
 };
 
 export type WidgetDefinition = {

@@ -9,6 +9,26 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#39;');
 }
 
+export function resolveExportHorizontalAlign(node: WidgetNode): 'flex-start' | 'center' | 'flex-end' {
+  const align = String(node.style.horizontalAlign ?? node.style.textAlign ?? 'center');
+  if (align === 'left') return 'flex-start';
+  if (align === 'right') return 'flex-end';
+  return 'center';
+}
+
+export function resolveExportVerticalAlign(node: WidgetNode): 'flex-start' | 'center' | 'flex-end' {
+  const align = String(node.style.verticalAlign ?? 'center');
+  if (align === 'top') return 'flex-start';
+  if (align === 'bottom') return 'flex-end';
+  return 'center';
+}
+
+export function resolveExportTextAlign(node: WidgetNode): 'left' | 'center' | 'right' {
+  const align = String(node.style.horizontalAlign ?? node.style.textAlign ?? 'center');
+  if (align === 'left' || align === 'right') return align;
+  return 'center';
+}
+
 export function getBaseWidgetStyle(node: WidgetNode): string {
   const frame = node.frame;
   const style = node.style ?? {};

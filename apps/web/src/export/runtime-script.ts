@@ -64,6 +64,13 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     });
   });
 
+  document.querySelectorAll('[data-smx-action="qr-open"]').forEach((node) => {
+    node.addEventListener('click', (event) => {
+      event.preventDefault();
+      performExit(node.getAttribute('data-qr-url') || '');
+    });
+  });
+
   function updateCarousel(widgetId, nextIndex) {
     const root = document.querySelector('[data-widget-id="' + widgetId + '"].widget-image-carousel');
     if (!root) return;
@@ -101,11 +108,22 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
   function updateGallery(widgetId, nextIndex) {
     const root = document.querySelector('[data-widget-id="' + widgetId + '"].widget-interactive-gallery');
     if (!root) return;
-    const total = Math.max(2, Number(root.getAttribute('data-gallery-count') || 4));
+    const slides = JSON.parse(root.getAttribute('data-gallery-slides') || '[]');
+    const total = Math.max(1, Array.isArray(slides) && slides.length ? slides.length : Number(root.getAttribute('data-gallery-count') || 4));
     const normalizedIndex = ((nextIndex % total) + total) % total;
     root.setAttribute('data-gallery-index', String(normalizedIndex));
     const card = root.querySelector('[data-gallery-card]');
-    if (card) card.textContent = String(normalizedIndex + 1) + ' / ' + String(total);
+    const image = root.querySelector('[data-gallery-image]');
+    const caption = root.querySelector('[data-gallery-caption]');
+    const count = root.querySelector('[data-gallery-count]');
+    const activeSlide = Array.isArray(slides) ? slides[normalizedIndex] : null;
+    if (image && activeSlide) {
+      image.setAttribute('src', activeSlide.src || '');
+      image.setAttribute('alt', activeSlide.caption || '');
+    }
+    if (caption && activeSlide) caption.textContent = activeSlide.caption || ('Image ' + String(normalizedIndex + 1));
+    if (count) count.textContent = String(normalizedIndex + 1) + ' / ' + String(total);
+    if (!image && card) card.textContent = String(normalizedIndex + 1) + ' / ' + String(total);
   }
 
   document.querySelectorAll('[data-smx-action="gallery-prev"], [data-smx-action="gallery-next"]').forEach((node) => {
@@ -117,6 +135,54 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       if (node.getAttribute('data-smx-action') === 'gallery-prev') updateGallery(widgetId, currentIndex - 1);
       if (node.getAttribute('data-smx-action') === 'gallery-next') updateGallery(widgetId, currentIndex + 1);
     });
+  });
+
+  function updateShoppable(widgetId, nextIndex) {
+    const root = document.querySelector('[data-widget-id="' + widgetId + '"].widget-shoppable-sidebar');
+    if (!root) return;
+    const products = JSON.parse(root.getAttribute('data-shoppable-products') || '[]');
+    if (!Array.isArray(products) || !products.length) return;
+    const orientation = root.getAttribute('data-shoppable-layout') || 'horizontal';
+    const cardWidth = Number(root.getAttribute('data-shoppable-card-width') || 124);
+    const cardHeight = Number(root.getAttribute('data-shoppable-card-height') || 164);
+    const normalizedIndex = ((nextIndex % products.length) + products.length) % products.length;
+    root.setAttribute('data-shoppable-index', String(normalizedIndex));
+    const track = root.querySelector('[data-shoppable-track]');
+    if (!track) return;
+    const gap = 12;
+    track.style.transform = orientation === 'vertical'
+      ? 'translateY(-' + String(normalizedIndex * (cardHeight + gap)) + 'px)'
+      : 'translateX(-' + String(normalizedIndex * (cardWidth + gap)) + 'px)';
+  }
+
+  document.querySelectorAll('[data-smx-action="shoppable-prev"], [data-smx-action="shoppable-next"]').forEach((node) => {
+    node.addEventListener('click', (event) => {
+      event.preventDefault();
+      const widgetId = node.getAttribute('data-widget-id') || '';
+      const root = document.querySelector('[data-widget-id="' + widgetId + '"].widget-shoppable-sidebar');
+      const currentIndex = Number(root?.getAttribute('data-shoppable-index') || 0);
+      if (node.getAttribute('data-smx-action') === 'shoppable-prev') updateShoppable(widgetId, currentIndex - 1);
+      if (node.getAttribute('data-smx-action') === 'shoppable-next') updateShoppable(widgetId, currentIndex + 1);
+    });
+  });
+
+  document.querySelectorAll('[data-smx-action="shoppable-cta"]').forEach((node) => {
+    node.addEventListener('click', (event) => {
+      event.preventDefault();
+      performExit(node.getAttribute('data-product-url') || '');
+    });
+  });
+
+  document.querySelectorAll('.widget-shoppable-sidebar[data-widget-id]').forEach((root) => {
+    const products = JSON.parse(root.getAttribute('data-shoppable-products') || '[]');
+    const autoscroll = root.getAttribute('data-shoppable-autoscroll') === 'true';
+    const interval = Math.max(1000, Number(root.getAttribute('data-shoppable-interval') || 2600));
+    if (!Array.isArray(products) || products.length <= 1 || !autoscroll) return;
+    window.setInterval(() => {
+      const widgetId = root.getAttribute('data-widget-id') || '';
+      const currentIndex = Number(root.getAttribute('data-shoppable-index') || 0);
+      updateShoppable(widgetId, currentIndex + 1);
+    }, interval);
   });
 
   document.querySelectorAll('[data-smx-action="button-select"]').forEach((node) => {
@@ -155,6 +221,58 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     });
   });
 
+  function runSpeedTest(widgetId) {
+    const root = document.querySelector('[data-widget-id="' + widgetId + '"].widget-speed-test');
+    if (!root || root.getAttribute('data-speed-running') === 'true') return;
+    const min = Number(root.getAttribute('data-speed-min') || 10);
+    const max = Number(root.getAttribute('data-speed-max') || 100);
+    const fixedValue = Number(root.getAttribute('data-speed-current') || 64);
+    const duration = Math.max(300, Number(root.getAttribute('data-speed-duration') || 1800));
+    const mode = root.getAttribute('data-speed-result-mode') || 'random';
+    const units = root.getAttribute('data-speed-units') || 'Mbps';
+    const button = root.querySelector('[data-smx-action="speed-test-start"]');
+    const value = root.querySelector('[data-speed-value]');
+    const bar = root.querySelector('[data-speed-bar]');
+    const target = mode === 'fixed'
+      ? Math.max(min, Math.min(max, fixedValue))
+      : Math.max(min, Math.min(max, Math.round(min + Math.random() * Math.max(1, max - min))));
+    const startedAt = performance.now();
+
+    root.setAttribute('data-speed-running', 'true');
+    if (button) button.textContent = 'Testing…';
+    if (bar) bar.style.width = '0%';
+    if (value) value.innerHTML = String(min) + '<span style="font-size:13px;opacity:.8;"> ' + units + '</span>';
+
+    function tick(now) {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(min + (target - min) * eased);
+      const pct = Math.max(0, Math.min(100, (current / Math.max(1, max)) * 100));
+      if (bar) bar.style.width = pct + '%';
+      if (value) value.innerHTML = String(current) + '<span style="font-size:13px;opacity:.8;"> ' + units + '</span>';
+      if (progress < 1) {
+        window.requestAnimationFrame(tick);
+        return;
+      }
+      root.setAttribute('data-speed-running', 'false');
+      root.setAttribute('data-speed-current', String(target));
+      if (button) button.textContent = button.getAttribute('data-original-label') || button.textContent || 'Start test';
+    }
+
+    window.requestAnimationFrame(tick);
+  }
+
+  document.querySelectorAll('[data-smx-action="speed-test-start"]').forEach((node) => {
+    if (!node.getAttribute('data-original-label')) {
+      node.setAttribute('data-original-label', node.textContent || 'Start test');
+    }
+    node.addEventListener('click', (event) => {
+      event.preventDefault();
+      const widgetId = node.getAttribute('data-widget-id') || '';
+      runSpeedTest(widgetId);
+    });
+  });
+
   document.querySelectorAll('[data-smx-action="range-update"]').forEach((node) => {
     node.addEventListener('input', () => {
       const root = node.closest('[data-widget-id]');
@@ -166,12 +284,239 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     });
   });
 
-  document.querySelectorAll('[data-smx-action="scratch-update"]').forEach((node) => {
-    node.addEventListener('input', () => {
-      const root = node.closest('[data-widget-id]');
-      const cover = root?.querySelector('[data-scratch-cover]');
-      if (cover) cover.style.clipPath = 'inset(0 ' + Math.max(0, 100 - Number(node.value || 0)) + '% 0 0)';
+  function resolveWeatherCondition(code) {
+    if (code === 0) return 'Clear';
+    if (code === 1 || code === 2) return 'Partly cloudy';
+    if (code === 3) return 'Cloudy';
+    if (code === 45 || code === 48) return 'Fog';
+    if (code === 51 || code === 53 || code === 55 || code === 56 || code === 57) return 'Drizzle';
+    if (code === 61 || code === 63 || code === 65 || code === 66 || code === 67 || code === 80 || code === 81 || code === 82) return 'Rain';
+    if (code === 71 || code === 73 || code === 75 || code === 77 || code === 85 || code === 86) return 'Snow';
+    if (code === 95 || code === 96 || code === 99) return 'Storm';
+    return 'Weather';
+  }
+
+  function resolveWeatherIcon(condition, isDay) {
+    const normalized = String(condition || '').toLowerCase();
+    if (normalized.includes('storm')) return '⛈️';
+    if (normalized.includes('snow')) return '❄️';
+    if (normalized.includes('rain') || normalized.includes('drizzle')) return '🌧️';
+    if (normalized.includes('fog')) return '🌫️';
+    if (normalized.includes('cloud')) return '☁️';
+    return isDay ? '☀️' : '🌙';
+  }
+
+  function buildWeatherCacheKey(provider, latitude, longitude) {
+    return 'smx-weather:' + provider + ':' + Number(latitude).toFixed(4) + ':' + Number(longitude).toFixed(4);
+  }
+
+  function readWeatherCache(key, cacheTtlMs) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return null;
+      const snapshot = JSON.parse(raw);
+      const age = Date.now() - Date.parse(snapshot.fetchedAt);
+      if (!Number.isFinite(age) || age > cacheTtlMs) return null;
+      return snapshot;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeWeatherCache(key, snapshot) {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(snapshot));
+    } catch {
+      // ignore cache write failures
+    }
+  }
+
+  function applyWeatherSnapshot(root, snapshot, statusText) {
+    const temperatureNode = root.querySelector('[data-weather-temperature-display]');
+    const locationNode = root.querySelector('[data-weather-location-display]');
+    const conditionNode = root.querySelector('[data-weather-condition-display]');
+    const iconNode = root.querySelector('[data-weather-icon]');
+    const statusNode = root.querySelector('[data-weather-status]');
+    if (temperatureNode) temperatureNode.textContent = String(snapshot.temperature) + '°';
+    if (locationNode) locationNode.textContent = snapshot.location || '';
+    if (conditionNode) conditionNode.textContent = snapshot.condition || '';
+    if (iconNode) iconNode.textContent = resolveWeatherIcon(snapshot.condition, Boolean(snapshot.isDay));
+    if (statusNode) statusNode.textContent = statusText;
+  }
+
+  async function initWeatherWidget(root) {
+    const live = root.getAttribute('data-weather-live') === 'true';
+    const provider = root.getAttribute('data-weather-provider') || 'open-meteo';
+    const fetchPolicy = root.getAttribute('data-weather-fetch-policy') || 'cache-first';
+    const cacheTtlMs = Math.max(1000, Number(root.getAttribute('data-weather-cache-ttl') || 300000));
+    const latitude = Number(root.getAttribute('data-weather-latitude') || 0);
+    const longitude = Number(root.getAttribute('data-weather-longitude') || 0);
+    const location = root.getAttribute('data-weather-location') || 'Location';
+    const fallbackSnapshot = {
+      location,
+      temperature: Number(root.getAttribute('data-weather-temperature') || 0),
+      condition: root.getAttribute('data-weather-condition') || 'Weather',
+      conditionCode: -1,
+      isDay: true,
+      fetchedAt: new Date().toISOString(),
+    };
+
+    applyWeatherSnapshot(root, fallbackSnapshot, live && provider === 'open-meteo' ? 'Fetching live weather' : 'Static preview');
+
+    if (!live || provider !== 'open-meteo' || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+    const cacheKey = buildWeatherCacheKey(provider, latitude, longitude);
+    const cached = readWeatherCache(cacheKey, cacheTtlMs);
+    if (fetchPolicy === 'cache-only') {
+      if (cached) applyWeatherSnapshot(root, cached, 'Live weather');
+      return;
+    }
+    if (fetchPolicy === 'cache-first' && cached) {
+      applyWeatherSnapshot(root, cached, 'Live weather');
+      return;
+    }
+
+    try {
+      const url = new URL('https://api.open-meteo.com/v1/forecast');
+      url.searchParams.set('latitude', String(latitude));
+      url.searchParams.set('longitude', String(longitude));
+      url.searchParams.set('current', 'temperature_2m,weather_code,is_day');
+      url.searchParams.set('timezone', 'auto');
+      const response = await fetch(url.toString());
+      if (!response.ok) throw new Error('weather-fetch-failed');
+      const payload = await response.json();
+      const current = payload && payload.current ? payload.current : null;
+      if (!current) throw new Error('weather-current-missing');
+      const snapshot = {
+        location,
+        temperature: Math.round(Number(current.temperature_2m || fallbackSnapshot.temperature)),
+        conditionCode: Number(current.weather_code || 0),
+        condition: resolveWeatherCondition(Number(current.weather_code || 0)),
+        isDay: Number(current.is_day || 1) === 1,
+        fetchedAt: new Date().toISOString(),
+      };
+      writeWeatherCache(cacheKey, snapshot);
+      applyWeatherSnapshot(root, snapshot, 'Live weather');
+    } catch {
+      if (cached) {
+        applyWeatherSnapshot(root, cached, 'Live weather');
+        return;
+      }
+      applyWeatherSnapshot(root, fallbackSnapshot, 'Static fallback');
+    }
+  }
+
+  document.querySelectorAll('.widget-weather-conditions[data-widget-id]').forEach((root) => {
+    void initWeatherWidget(root);
+  });
+
+  function paintScratchCover(canvas, coverImage, coverBlur, accent, onReady) {
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    const width = canvas.width;
+    const height = canvas.height;
+    ctx.clearRect(0, 0, width, height);
+
+    function fallback() {
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = '#d1d5db';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = accent + '22';
+      ctx.fillRect(0, 0, width, height);
+      if (onReady) onReady();
+    }
+
+    if (!coverImage) {
+      fallback();
+      return;
+    }
+
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => {
+      ctx.clearRect(0, 0, width, height);
+      ctx.filter = 'blur(' + Math.max(0, Number(coverBlur || 0)) + 'px)';
+      ctx.drawImage(image, 0, 0, width, height);
+      ctx.filter = 'none';
+      ctx.fillStyle = 'rgba(17,24,39,0.25)';
+      ctx.fillRect(0, 0, width, height);
+      if (onReady) onReady();
+    };
+    image.onerror = fallback;
+    image.src = coverImage;
+  }
+
+  function eraseScratch(canvas, x, y, radius) {
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function initScratchReveal(root) {
+    const canvas = root?.querySelector('[data-scratch-canvas]');
+    if (!canvas) return;
+    const accent = root.getAttribute('data-scratch-accent') || '#f97316';
+    const coverImage = root.getAttribute('data-scratch-cover-image') || '';
+    const coverBlur = Number(root.getAttribute('data-scratch-cover-blur') || 0);
+    const scratchRadius = Math.max(8, Number(root.getAttribute('data-scratch-radius') || 22));
+    const state = { pointerActive: false };
+
+    function syncCanvasSize() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.round(rect.width));
+      canvas.height = Math.max(1, Math.round(rect.height));
+      paintScratchCover(canvas, coverImage, coverBlur, accent, () => {
+        canvas.style.opacity = '1';
+      });
+    }
+
+    function scratchAtEvent(event) {
+      const rect = canvas.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width;
+      const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height;
+      eraseScratch(canvas, x, y, scratchRadius);
+    }
+
+    canvas.style.opacity = '0';
+    syncCanvasSize();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(() => syncCanvasSize());
+      observer.observe(canvas);
+    } else {
+      window.addEventListener('resize', syncCanvasSize);
+    }
+
+    canvas.addEventListener('pointerdown', (event) => {
+      state.pointerActive = true;
+      scratchAtEvent(event);
     });
+    canvas.addEventListener('pointermove', (event) => {
+      if (event.pointerType === 'mouse') {
+        scratchAtEvent(event);
+        return;
+      }
+      if (!state.pointerActive) return;
+      scratchAtEvent(event);
+    });
+    canvas.addEventListener('pointerenter', (event) => {
+      if (event.pointerType === 'mouse') scratchAtEvent(event);
+    });
+    canvas.addEventListener('pointerup', () => {
+      state.pointerActive = false;
+    });
+    canvas.addEventListener('pointercancel', () => {
+      state.pointerActive = false;
+    });
+  }
+
+  document.querySelectorAll('.scratch-reveal-shell[data-scratch-widget-id]').forEach((node) => {
+    initScratchReveal(node);
   });
 
   function renderCountdown(root) {

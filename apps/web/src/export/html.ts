@@ -7,6 +7,10 @@ import { buildExportManifest } from './manifest';
 import { buildExportRuntimeModelFromPortable } from './runtime-model';
 import { buildExportExitConfig } from './packaging';
 import { buildPortableProjectExport, type PortableExportScene, type PortableExportWidget } from './portable';
+import { resolveCornerRadius } from '../widgets/shared/corner-style';
+import { buildQrPattern, getFlagEmoji, parseCsvMarkers } from '../widgets/modules/shared-styles';
+import { parseShoppableProducts, renderRatingStars } from '../widgets/modules/shoppable-sidebar.shared';
+import { resolveWeatherIcon } from '../widgets/modules/weather-conditions.shared';
 
 export function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -41,6 +45,7 @@ function parseCarouselSlides(raw: unknown, assetPathMap: Record<string, string>)
 function renderImageWidget(node: WidgetNode, assetPathMap: Record<string, string>, kind: 'image' | 'hero-image'): string {
   const frame = node.frame;
   const style = node.style ?? {};
+  const borderRadius = resolveCornerRadius(node, kind === 'hero-image' ? 20 : 12);
   const src = resolveAssetPath(node.props.src, assetPathMap);
   const alt = escapeHtml(String(node.props.alt ?? (kind === 'hero-image' ? 'Hero image' : 'Image')));
   const fit = kind === 'hero-image' ? 'cover' : String(node.props.fit ?? 'cover');
@@ -54,7 +59,7 @@ function renderImageWidget(node: WidgetNode, assetPathMap: Record<string, string
     `opacity:${Number(style.opacity ?? 1)}`,
     `overflow:hidden`,
     `box-sizing:border-box`,
-    `border-radius:${Number(style.borderRadius ?? 12)}px`,
+    `border-radius:${borderRadius}px`,
     `background:${String(style.backgroundColor ?? 'transparent')}`,
   ].join(';');
 
@@ -86,6 +91,7 @@ function renderVideoWidget(node: WidgetNode, assetPathMap: Record<string, string
 function renderCarouselWidget(node: WidgetNode, assetPathMap: Record<string, string>): string {
   const frame = node.frame;
   const style = node.style ?? {};
+  const borderRadius = resolveCornerRadius(node, 20);
   const slides = parseCarouselSlides(node.props.slides, assetPathMap);
   const accent = String(style.accentColor ?? '#ffffff');
   const activeSlide = slides[0];
@@ -99,7 +105,7 @@ function renderCarouselWidget(node: WidgetNode, assetPathMap: Record<string, str
     `opacity:${Number(style.opacity ?? 1)}`,
     `overflow:hidden`,
     `box-sizing:border-box`,
-    `border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `border-radius:${borderRadius}px`,
     `background:${String(style.backgroundColor ?? '#111827')}`,
     `color:${String(style.color ?? '#ffffff')}`,
     `display:flex`,
@@ -189,9 +195,15 @@ function renderScratchRevealWidget(node: WidgetNode): string {
   const frame = node.frame;
   const style = node.style ?? {};
   const accent = String(style.accentColor ?? '#f97316');
-  const revealAmount = Number(node.props.revealAmount ?? 55);
   const coverLabel = String(node.props.coverLabel ?? 'Scratch to reveal');
   const revealLabel = String(node.props.revealLabel ?? '20% off today');
+  const beforeImage = String(node.props.beforeImage ?? '');
+  const afterImage = String(node.props.afterImage ?? '');
+  const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 6));
+  const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
+  const revealBackground = afterImage
+    ? '#111827'
+    : `linear-gradient(135deg, ${accent}22, rgba(255,255,255,.12))`;
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -212,13 +224,105 @@ function renderScratchRevealWidget(node: WidgetNode): string {
   return `<div class="widget widget-scratch-reveal" data-widget-id="${node.id}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;justify-content:center;gap:10px;">
-      <div style="position:relative;flex:1;border-radius:12px;overflow:hidden;background:linear-gradient(135deg, ${escapeHtml(accent)}22, rgba(255,255,255,.12));">
-        <div style="position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:22px;">${escapeHtml(revealLabel)}</div>
-        <div data-scratch-cover style="position:absolute;inset:0;background:linear-gradient(135deg, #e5e7eb, #9ca3af);clip-path:inset(0 ${Math.max(0, 100 - revealAmount)}% 0 0);"></div>
-        <div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px;">
+      <div class="scratch-reveal-shell" data-scratch-widget-id="${node.id}" data-scratch-cover-image="${escapeHtml(beforeImage)}" data-scratch-cover-blur="${coverBlur}" data-scratch-radius="${scratchRadius}" data-scratch-accent="${escapeHtml(accent)}" style="position:relative;flex:1;border-radius:12px;overflow:hidden;background:${escapeHtml(revealBackground)};">
+        ${afterImage ? `<img src="${escapeHtml(afterImage)}" alt="${escapeHtml(revealLabel)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" />` : ''}
+        <div style="position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:22px;text-align:center;padding:16px;">${escapeHtml(revealLabel)}</div>
+        <canvas data-scratch-canvas style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none;"></canvas>
+        <div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px;pointer-events:none;">
           <div style="font-size:12px;">${escapeHtml(coverLabel)}</div>
-          <input type="range" min="0" max="100" value="${revealAmount}" data-smx-action="scratch-update" data-widget-id="${node.id}" />
         </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderQrCodeWidget(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#111827');
+  const url = String(node.props.url ?? 'https://example.com');
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
+  const pattern = buildQrPattern(url);
+  const base = [
+    `position:absolute`,
+    `left:${frame.x}px`,
+    `top:${frame.y}px`,
+    `width:${frame.width}px`,
+    `height:${frame.height}px`,
+    `transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,
+    `overflow:hidden`,
+    `box-sizing:border-box`,
+    `border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#ffffff')}`,
+    `color:${String(style.color ?? '#111827')}`,
+    `display:flex`,
+    `flex-direction:column`,
+    `cursor:pointer`,
+  ].join(';');
+
+  return `<button type="button" class="widget widget-qr-code" data-widget-id="${node.id}" data-smx-action="qr-open" data-qr-url="${escapeHtml(url)}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+      <div style="width:108px;height:108px;border-radius:14px;background:#fff;padding:8px;display:grid;place-items:center;">
+        <img src="${escapeHtml(qrUrl)}" alt="${escapeHtml(String(node.props.codeLabel ?? 'QR code'))}" style="width:100%;height:100%;object-fit:contain;border-radius:8px;" onerror="this.replaceWith(this.nextElementSibling)" />
+        <div style="display:none;grid-template-columns:repeat(9,1fr);gap:2px;width:100%;height:100%;">
+          ${pattern.map((filled) => `<div style="background:${filled ? escapeHtml(accent) : '#fff'};"></div>`).join('')}
+        </div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:${escapeHtml(String(style.color ?? '#111827'))};">${escapeHtml(String(node.props.codeLabel ?? 'Scan me'))}</div>
+    </div>
+  </button>`;
+}
+
+function renderDynamicMapWidget(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#ef4444');
+  const markers = parseCsvMarkers(String(node.props.markersCsv ?? ''));
+  const latitude = Number(node.props.latitude ?? 13.6929);
+  const longitude = Number(node.props.longitude ?? -89.2182);
+  const zoom = Number(node.props.zoom ?? 13);
+  const provider = String(node.props.provider ?? 'osm');
+  const mode = String(node.props.mode ?? 'street');
+  const routeVisible = Boolean(node.props.showRoute ?? false);
+  const pins = (markers.length ? markers : [{ name: String(node.props.location ?? 'Main pin'), flag: '', lat: latitude, lng: longitude }]).slice(0, 5);
+  const mapBackground = mode === 'dark'
+    ? 'linear-gradient(135deg,#0f172a,#1e293b)'
+    : mode === 'satellite'
+      ? 'linear-gradient(135deg,#14532d,#365314)'
+      : 'linear-gradient(135deg,#dbeafe,#bfdbfe)';
+  const base = [
+    `position:absolute`,
+    `left:${frame.x}px`,
+    `top:${frame.y}px`,
+    `width:${frame.width}px`,
+    `height:${frame.height}px`,
+    `transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,
+    `overflow:hidden`,
+    `box-sizing:border-box`,
+    `border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#1f2937')}`,
+    `color:${String(style.color ?? '#ffffff')}`,
+    `display:flex`,
+    `flex-direction:column`,
+  ].join(';');
+
+  return `<div class="widget widget-dynamic-map" data-widget-id="${node.id}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <span>${escapeHtml(String(node.props.title ?? node.name))}</span>
+      <span style="font-size:10px;opacity:.78;color:${escapeHtml(String(style.color ?? '#ffffff'))};">${escapeHtml(provider)}</span>
+    </div>
+    <div style="padding:8px 12px 12px;flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;">
+      <div style="position:relative;flex:1;border-radius:12px;overflow:hidden;background:${mapBackground};">
+        <div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 20%, rgba(255,255,255,.55), transparent 32%), radial-gradient(circle at 74% 32%, rgba(255,255,255,.2), transparent 24%), linear-gradient(135deg, transparent 0%, rgba(255,255,255,.12) 100%);"></div>
+        ${routeVisible ? `<svg viewBox="0 0 100 60" style="position:absolute;inset:12% 10%;width:80%;height:76%;"><path d="M8 50 C 24 18, 56 16, 88 42" fill="none" stroke="${escapeHtml(accent)}" stroke-width="3" stroke-dasharray="7 6" stroke-linecap="round" /></svg>` : ''}
+        ${pins.map((marker, index) => `<div style="position:absolute;left:${18 + index * 16}%;top:${24 + (index % 2) * 20}%;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:4px;"><div style="min-width:30px;padding:4px 6px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font-size:10px;text-align:center;white-space:nowrap;">${marker.flag ? `${escapeHtml(getFlagEmoji(marker.flag))} ` : ''}${escapeHtml(marker.name)}</div><div style="width:18px;height:18px;border-radius:50%;background:${escapeHtml(accent)};border:2px solid rgba(255,255,255,.88);box-shadow:0 0 0 6px ${escapeHtml(accent)}22;"></div></div>`).join('')}
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;opacity:.78;">
+        <span>${pins.length} marker${pins.length === 1 ? '' : 's'} · zoom ${zoom}</span>
+        <span>${latitude.toFixed(3)}, ${longitude.toFixed(3)}</span>
       </div>
     </div>
   </div>`;
@@ -265,6 +369,47 @@ function renderCountdownWidget(node: WidgetNode): string {
   </div>`;
 }
 
+function renderSpeedTestWidget(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#2dd4bf');
+  const min = Number(node.props.min ?? 10);
+  const max = Number(node.props.max ?? 100);
+  const current = Math.max(min, Math.min(max, Number(node.props.current ?? 64)));
+  const durationMs = Math.max(300, Number(node.props.durationMs ?? 1800));
+  const units = String(node.props.units ?? 'Mbps');
+  const ctaLabel = String(node.props.ctaLabel ?? 'Start test');
+  const resultMode = String(node.props.resultMode ?? 'random');
+  const pct = Math.max(0, Math.min(100, (current / Math.max(1, max)) * 100));
+  const base = [
+    `position:absolute`,
+    `left:${frame.x}px`,
+    `top:${frame.y}px`,
+    `width:${frame.width}px`,
+    `height:${frame.height}px`,
+    `transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,
+    `overflow:hidden`,
+    `box-sizing:border-box`,
+    `border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#0b3b7a')}`,
+    `color:${String(style.color ?? '#ffffff')}`,
+    `display:flex`,
+    `flex-direction:column`,
+  ].join(';');
+
+  return `<div class="widget widget-speed-test" data-widget-id="${node.id}" data-speed-min="${min}" data-speed-max="${max}" data-speed-current="${current}" data-speed-duration="${durationMs}" data-speed-result-mode="${escapeHtml(resultMode)}" data-speed-units="${escapeHtml(units)}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;">
+      <div data-speed-value style="font-size:26px;font-weight:900;">${current}<span style="font-size:13px;opacity:.8;"> ${escapeHtml(units)}</span></div>
+      <div style="height:12px;border-radius:999px;background:rgba(255,255,255,0.12);overflow:hidden;">
+        <div data-speed-bar style="width:${pct}%;height:100%;background:${escapeHtml(accent)};"></div>
+      </div>
+      <button type="button" data-smx-action="speed-test-start" data-widget-id="${node.id}" style="margin-top:auto;padding:10px 12px;border-radius:12px;background:${escapeHtml(accent)};color:#111827;font-weight:800;border:none;cursor:pointer;">${escapeHtml(ctaLabel)}</button>
+    </div>
+  </div>`;
+}
+
 function renderButtonsWidget(node: WidgetNode): string {
   const frame = node.frame;
   const style = node.style ?? {};
@@ -304,8 +449,11 @@ function renderInteractiveGalleryWidget(node: WidgetNode): string {
   const frame = node.frame;
   const style = node.style ?? {};
   const accent = String(style.accentColor ?? '#111827');
-  const itemCount = Math.max(2, Math.min(6, Number(node.props.itemCount ?? 4)));
+  const slides = parseCarouselSlides(node.props.slides, {});
+  const itemCount = Math.max(1, slides.length || Number(node.props.itemCount ?? 4));
   const activeIndex = Math.max(0, Math.min(itemCount - 1, Number(node.props.activeIndex ?? 1) - 1));
+  const activeSlide = slides[activeIndex] ?? slides[0];
+  const slidesJson = escapeHtml(JSON.stringify(slides));
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -323,13 +471,136 @@ function renderInteractiveGalleryWidget(node: WidgetNode): string {
     `flex-direction:column`,
   ].join(';');
 
-  return `<div class="widget widget-interactive-gallery" data-widget-id="${node.id}" data-gallery-count="${itemCount}" data-gallery-index="${activeIndex}" style="${base}">
+  return `<div class="widget widget-interactive-gallery" data-widget-id="${node.id}" data-gallery-count="${itemCount}" data-gallery-index="${activeIndex}" data-gallery-slides="${slidesJson}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;">
-      <div data-gallery-card style="flex:1;border-radius:12px;background:linear-gradient(135deg, ${escapeHtml(accent)}55, rgba(255,255,255,.08));display:grid;place-items:center;font-size:26px;font-weight:900;">${activeIndex + 1} / ${itemCount}</div>
+      <div data-gallery-card style="flex:1;border-radius:12px;overflow:hidden;background:${activeSlide ? '#111827' : `linear-gradient(135deg, ${escapeHtml(accent)}55, rgba(255,255,255,.08))`};display:grid;place-items:center;font-size:26px;font-weight:900;position:relative;">
+        ${activeSlide ? `<img data-gallery-image src="${escapeHtml(activeSlide.src)}" alt="${escapeHtml(activeSlide.caption)}" style="width:100%;height:100%;display:block;object-fit:cover;" />` : `${activeIndex + 1} / ${itemCount}`}
+        ${activeSlide ? `<div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;align-items:end;gap:8px;"><div data-gallery-caption style="border-radius:10px;padding:8px 10px;background:rgba(15,23,42,.68);font-size:12px;color:#fff;">${escapeHtml(activeSlide.caption || `Image ${activeIndex + 1}`)}</div><div data-gallery-count style="border-radius:999px;padding:4px 8px;background:rgba(15,23,42,.68);font-size:12px;color:#fff;">${activeIndex + 1} / ${itemCount}</div></div>` : ''}
+      </div>
       <div style="display:flex;gap:8px;">
         <button type="button" data-smx-action="gallery-prev" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:1px solid ${escapeHtml(accent)};background:transparent;color:inherit;padding:8px 10px;">Prev</button>
         <button type="button" data-smx-action="gallery-next" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:none;background:${escapeHtml(accent)};color:${String(style.backgroundColor ?? '#ffffff')};padding:8px 10px;font-weight:800;">Next</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<string, string>): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#9a3412');
+  const orientation = String(node.props.orientation ?? 'horizontal');
+  const cardShape = String(node.props.cardShape ?? 'portrait');
+  const autoscroll = Boolean(node.props.autoscroll ?? true);
+  const intervalMs = Math.max(1000, Math.min(10000, Number(node.props.intervalMs ?? 2600)));
+  const products = parseShoppableProducts(String(node.props.products ?? '')).map((product) => ({
+    ...product,
+    src: assetPathMap[product.src] ?? product.src,
+  }));
+  const cardSize = cardShape === 'landscape'
+    ? { width: 168, height: 110 }
+    : cardShape === 'square'
+      ? { width: 132, height: 132 }
+      : { width: 124, height: 164 };
+  const activeProducts = products.length ? products : [{
+    src: '',
+    title: 'Product 1',
+    subtitle: 'Featured item',
+    price: '$0',
+    rating: 4,
+    ctaLabel: 'Shop now',
+    url: '',
+  }];
+  const productsJson = escapeHtml(JSON.stringify(activeProducts));
+  const base = [
+    `position:absolute`,
+    `left:${frame.x}px`,
+    `top:${frame.y}px`,
+    `width:${frame.width}px`,
+    `height:${frame.height}px`,
+    `transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,
+    `overflow:hidden`,
+    `box-sizing:border-box`,
+    `border-radius:${Number(style.borderRadius ?? 20)}px`,
+    `background:${String(style.backgroundColor ?? '#f8fafc')}`,
+    `color:${String(style.color ?? '#1f2937')}`,
+    `display:flex`,
+    `flex-direction:column`,
+  ].join(';');
+
+  const cards = activeProducts.map((product, index) => `<article data-shoppable-card="${index}" style="width:${cardSize.width}px;min-width:${cardSize.width}px;height:${cardSize.height}px;border-radius:18px;overflow:hidden;background:#ffffff;color:#1f2937;border:1px solid ${escapeHtml(accent)}22;box-shadow:0 10px 26px rgba(15,23,42,.12);display:flex;flex-direction:column;">
+      <div style="position:relative;height:${cardShape === 'landscape' ? 62 : 82}px;background:${product.src ? '#111827' : '#f8fafc'};">
+        ${product.src ? `<img src="${escapeHtml(product.src)}" alt="${escapeHtml(product.title)}" style="width:100%;height:100%;object-fit:cover;display:block;" />` : ''}
+      </div>
+      <div style="padding:10px 10px 12px;display:grid;gap:6px;">
+        <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">${escapeHtml(product.subtitle || 'Featured item')}</div>
+        <div style="font-size:13px;font-weight:800;line-height:1.2;">${escapeHtml(product.title)}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div style="font-size:12px;color:${escapeHtml(accent)};">${escapeHtml(renderRatingStars(product.rating))}</div>
+          <div style="font-size:15px;font-weight:900;">${escapeHtml(product.price || '$0')}</div>
+        </div>
+        <button type="button" data-smx-action="shoppable-cta" data-widget-id="${node.id}" data-product-url="${escapeHtml(product.url)}" style="border:none;border-radius:10px;background:${escapeHtml(accent)};color:#111827;font-weight:800;padding:8px 10px;cursor:pointer;">${escapeHtml(product.ctaLabel || 'Shop now')}</button>
+      </div>
+    </article>`).join('');
+
+  return `<div class="widget widget-shoppable-sidebar" data-widget-id="${node.id}" data-shoppable-products="${productsJson}" data-shoppable-index="0" data-shoppable-layout="${escapeHtml(orientation)}" data-shoppable-card-shape="${escapeHtml(cardShape)}" data-shoppable-autoscroll="${String(autoscroll)}" data-shoppable-interval="${intervalMs}" data-shoppable-card-width="${cardSize.width}" data-shoppable-card-height="${cardSize.height}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;min-height:0;">
+      <div style="position:relative;flex:1;overflow:hidden;">
+        <div data-shoppable-track style="display:flex;${orientation === 'vertical' ? 'flex-direction:column;' : ''}gap:12px;transition:transform .28s ease;">${cards}</div>
+        ${activeProducts.length > 1 ? `<button type="button" data-smx-action="shoppable-prev" data-widget-id="${node.id}" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:999px;border:none;background:rgba(255,255,255,.86);color:#111827;font-weight:900;cursor:pointer;">‹</button>
+        <button type="button" data-smx-action="shoppable-next" data-widget-id="${node.id}" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:999px;border:none;background:rgba(255,255,255,.86);color:#111827;font-weight:900;cursor:pointer;">›</button>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderWeatherConditionsWidget(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#60a5fa');
+  const condition = String(node.props.condition ?? 'Cloudy');
+  const temperature = Number(node.props.temperature ?? 24);
+  const location = String(node.props.location ?? 'San Salvador');
+  const latitude = Number(node.props.latitude ?? 13.6929);
+  const longitude = Number(node.props.longitude ?? -89.2182);
+  const provider = String(node.props.provider ?? 'open-meteo');
+  const fetchPolicy = String(node.props.fetchPolicy ?? 'cache-first');
+  const cacheTtlMs = Math.max(1000, Number(node.props.cacheTtlMs ?? 300000));
+  const liveWeather = Boolean(node.props.liveWeather ?? true);
+  const icon = resolveWeatherIcon(condition, true);
+  const base = [
+    `position:absolute`,
+    `left:${frame.x}px`,
+    `top:${frame.y}px`,
+    `width:${frame.width}px`,
+    `height:${frame.height}px`,
+    `transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,
+    `overflow:hidden`,
+    `box-sizing:border-box`,
+    `border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#f8fafc')}`,
+    `color:${String(style.color ?? '#0f172a')}`,
+    `display:flex`,
+    `flex-direction:column`,
+  ].join(';');
+
+  return `<div class="widget widget-weather-conditions" data-widget-id="${node.id}" data-weather-location="${escapeHtml(location)}" data-weather-temperature="${temperature}" data-weather-condition="${escapeHtml(condition)}" data-weather-latitude="${latitude}" data-weather-longitude="${longitude}" data-weather-provider="${escapeHtml(provider)}" data-weather-fetch-policy="${escapeHtml(fetchPolicy)}" data-weather-cache-ttl="${cacheTtlMs}" data-weather-live="${String(liveWeather)}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+          <div data-weather-temperature-display style="font-size:28px;font-weight:900;">${temperature}°</div>
+          <div data-weather-location-display style="font-size:12px;opacity:.78;">${escapeHtml(location)}</div>
+        </div>
+        <div data-weather-icon style="font-size:34px;">${icon}</div>
+      </div>
+      <div style="padding:8px 10px;border-radius:10px;background:${escapeHtml(accent)}22;font-size:12px;display:flex;justify-content:space-between;gap:8px;">
+        <span data-weather-condition-display>${escapeHtml(condition)}</span>
+        <span data-weather-status style="opacity:.74;">${liveWeather && provider === 'open-meteo' ? 'Fetching live weather' : 'Static preview'}</span>
       </div>
     </div>
   </div>`;
@@ -341,7 +612,12 @@ function widgetHtml(node: PortableExportWidget, state: StudioState, assetPathMap
   if (node.type === 'video-hero') return renderVideoWidget(node, assetPathMap);
   if (node.type === 'buttons') return renderButtonsWidget(node);
   if (node.type === 'interactive-gallery') return renderInteractiveGalleryWidget(node);
+  if (node.type === 'shoppable-sidebar') return renderShoppableSidebarWidget(node, assetPathMap);
   if (node.type === 'image-carousel') return renderCarouselWidget(node, assetPathMap);
+  if (node.type === 'qr-code') return renderQrCodeWidget(node);
+  if (node.type === 'dynamic-map') return renderDynamicMapWidget(node);
+  if (node.type === 'speed-test') return renderSpeedTestWidget(node);
+  if (node.type === 'weather-conditions') return renderWeatherConditionsWidget(node);
   if (node.type === 'interactive-hotspot') return renderHotspotWidget(node);
   if (node.type === 'countdown') return renderCountdownWidget(node);
   if (node.type === 'range-slider') return renderRangeLikeWidget(node, 'Range');

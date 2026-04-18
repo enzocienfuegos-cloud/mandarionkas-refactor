@@ -82,6 +82,16 @@ function parseSlideSources(raw: unknown): string[] {
     .filter(Boolean);
 }
 
+function parseShoppableSources(raw: unknown): string[] {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return [];
+  return raw
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => item.split('|')[0]?.trim() ?? '')
+    .filter(Boolean);
+}
+
 function collectAssetRefs(widget: WidgetNode): PortableExportAsset[] {
   const candidates = [
     widget.props.src,
@@ -93,6 +103,7 @@ function collectAssetRefs(widget: WidgetNode): PortableExportAsset[] {
     widget.props.beforeImage,
     widget.props.afterImage,
     ...parseSlideSources(widget.props.slides),
+    ...parseShoppableSources(widget.props.products),
   ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
 
   const seen = new Set<string>();
