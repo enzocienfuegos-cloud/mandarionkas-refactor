@@ -198,7 +198,19 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       return;
     }
     renderMapCards(root, null);
+    const inlineLocateButton = root.querySelector('[data-smx-action="map-request-location-inline"]');
     if (!requestUserLocation || typeof navigator === 'undefined' || !navigator.geolocation || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    if (inlineLocateButton) {
+      inlineLocateButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        navigator.geolocation.getCurrentPosition((position) => {
+          renderMapCards(root, { latitude: position.coords.latitude, longitude: position.coords.longitude });
+        }, () => {
+          renderMapCards(root, null);
+        }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
+      });
+      return;
+    }
     navigator.geolocation.getCurrentPosition((position) => {
       renderMapCards(root, { latitude: position.coords.latitude, longitude: position.coords.longitude });
     }, () => {
