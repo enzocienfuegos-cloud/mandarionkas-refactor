@@ -326,6 +326,10 @@ describe('export engine', () => {
     expect(mraid.mraid.standardSize).toBe(true);
     expect(mraid.mraid.placement).toBe('interstitial');
     expect(mraid.mraid.apiVersion).toBe('3.0');
+    expect(mraid.mraid.requiredHostFeatures.open).toBe(true);
+    expect(mraid.mraid.requiredHostFeatures.location).toBe(false);
+    expect(mraid.mraid.expectedHost.placementType).toBe('interstitial');
+    expect(mraid.mraid.expectedHost.maxSize).toEqual({ width: 320, height: 480 });
   });
 
   it('renders channel html with standard-size metadata for google display', () => {
@@ -733,6 +737,50 @@ describe('export engine', () => {
     expect(preflight.summary.topBlocker).toContain('speed test');
   });
 
+  it('warns when an mraid creative needs host location support', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+    state.document.widgets.map_1 = {
+      id: 'map_1',
+      type: 'dynamic-map',
+      name: 'Map',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 280, height: 180, rotation: 0 },
+      style: {},
+      props: { requestUserLocation: true },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.widgets.cta_1 = {
+      id: 'cta_1',
+      type: 'cta',
+      name: 'CTA',
+      sceneId,
+      zIndex: 2,
+      frame: { x: 0, y: 0, width: 160, height: 44, rotation: 0 },
+      style: {},
+      props: { text: 'Tap now', url: 'https://example.com' },
+      timeline: { startMs: 0, endMs: 1000 },
+      actions: [],
+    } as any;
+    state.document.actions.act_1 = {
+      id: 'act_1',
+      widgetId: 'cta_1',
+      trigger: 'click',
+      type: 'open-url',
+      url: 'https://example.com',
+      label: 'Exit',
+    };
+    state.document.scenes[0].widgetIds.push('map_1', 'cta_1');
+
+    const preflight = buildExportPreflight(state);
+
+    expect(preflight.channelWarnings.some((item) => item.id === 'mraid-location-host-support')).toBe(true);
+  });
+
   it('adds package compliance findings for blocked mraid widgets', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
@@ -846,6 +894,52 @@ describe('export engine', () => {
 
     expect(preflight.channelWarnings.some((item) => item.id === 'mraid-widget-shop_1')).toBe(true);
     expect(preflight.channelWarnings.some((item) => item.label.includes('Autoscrolling shoppable'))).toBe(true);
+  });
+
+  it('adds mraid host placement and location warnings to package compliance', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+    state.document.widgets.map_1 = {
+      id: 'map_1',
+      type: 'dynamic-map',
+      name: 'Map',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 280, height: 180, rotation: 0 },
+      style: {},
+      props: { requestUserLocation: true },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.widgets.cta_1 = {
+      id: 'cta_1',
+      type: 'cta',
+      name: 'CTA',
+      sceneId,
+      zIndex: 2,
+      frame: { x: 0, y: 0, width: 160, height: 44, rotation: 0 },
+      style: {},
+      props: { text: 'Tap now', url: 'https://example.com' },
+      timeline: { startMs: 0, endMs: 1000 },
+      actions: [],
+    } as any;
+    state.document.actions.act_1 = {
+      id: 'act_1',
+      widgetId: 'cta_1',
+      trigger: 'click',
+      type: 'open-url',
+      url: 'https://example.com',
+      label: 'Exit',
+    };
+    state.document.scenes[0].widgetIds.push('map_1', 'cta_1');
+
+    const bundle = buildExportBundle(state);
+    const compliance = JSON.parse(bundle.files.find((file) => file.path === 'package-compliance.json')?.content ?? '[]');
+
+    expect(compliance.some((item: { code?: string; targetId?: string }) => item.code === 'runtime.mraid-placement-review' && item.targetId === 'interstitial')).toBe(true);
+    expect(compliance.some((item: { code?: string; targetId?: string }) => item.code === 'runtime.mraid-location-host-required' && item.targetId === 'location')).toBe(true);
   });
 
   it('includes preflight in the publish package payload', () => {

@@ -4,6 +4,7 @@ import { buildExportPackageMetrics } from './package-metrics';
 import type { ExportExitConfig, ExportPackagingPlan } from './packaging';
 import type { PortableExportProject } from './portable';
 import { getMraidProjectCompatibility } from './mraid-compatibility';
+import type { MraidAdapterResult } from './adapters';
 
 export type ExportPackageComplianceIssue = {
   level: 'error' | 'warning';
@@ -28,6 +29,17 @@ function parsePortableProject(bundle: ExportBundle): PortableExportProject | nul
   }
 }
 
+function parseMraidAdapter(bundle: ExportBundle): MraidAdapterResult | null {
+  const content = bundle.files.find((file) => file.path === 'adapter.json')?.content;
+  if (!content) return null;
+  try {
+    const parsed = JSON.parse(content) as MraidAdapterResult;
+    return parsed.adapter === 'mraid' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export function validateExportPackage(
   bundle: ExportBundle,
   packagingPlan: ExportPackagingPlan,
@@ -46,6 +58,7 @@ export function validateExportPackage(
   const clickTagChannel = bundle.channel === 'google-display' || bundle.channel === 'gam-html5';
   const mraidChannel = bundle.channel === 'mraid';
   const portableProject = mraidChannel ? parsePortableProject(bundle) : null;
+  const mraidAdapter = mraidChannel ? parseMraidAdapter(bundle) : null;
 
   if (!bundle.files.length) {
     issues.push({
@@ -247,6 +260,24 @@ export function validateExportPackage(
   }
 
   if (mraidChannel && portableProject) {
+    if (mraidAdapter) {
+      issues.push({
+        level: 'warning',
+        code: 'runtime.mraid-placement-review',
+        scope: 'runtime',
+        targetId: mraidAdapter.mraid.expectedHost.placementType,
+        message: `MRAID package expects ${mraidAdapter.mraid.expectedHost.placementType} host placement.`,
+      });
+      if (mraidAdapter.mraid.requiredHostFeatures.location) {
+        issues.push({
+          level: 'warning',
+          code: 'runtime.mraid-location-host-required',
+          scope: 'runtime',
+          targetId: 'location',
+          message: 'MRAID package requires host support for location APIs.',
+        });
+      }
+    }
     getMraidProjectCompatibility(portableProject).forEach((item) => {
       issues.push({
         level: item.level === 'blocked' ? 'error' : 'warning',

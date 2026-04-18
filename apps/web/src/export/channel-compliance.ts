@@ -26,6 +26,10 @@ export function getPortableChannelRequirements(
   const sceneWithMediaCount = project.scenes.filter((scene) =>
     scene.widgets.some((widget) => widget.type === 'hero-image' || widget.type === 'image' || widget.type === 'video-hero'),
   ).length;
+  const requiresMraidLocation = project.scenes.some((scene) =>
+    scene.widgets.some((widget) => widget.type === 'dynamic-map' && Boolean(widget.props.requestUserLocation ?? false)),
+  );
+  const expectedMraidPlacement: 'inline' | 'interstitial' = canvas.width === 320 && canvas.height === 480 ? 'interstitial' : 'inline';
 
   switch (target) {
     case 'google-display':
@@ -118,6 +122,18 @@ export function getPortableChannelRequirements(
           id: 'mraid-mobile-orientation',
           label: 'MRAID portrait interstitials stay mobile-oriented',
           passed: canvas.height >= canvas.width,
+          severity: 'warning',
+        },
+        {
+          id: 'mraid-placement-fit',
+          label: `Creative is packaged for ${expectedMraidPlacement} MRAID placement`,
+          passed: true,
+          severity: 'warning',
+        },
+        {
+          id: 'mraid-location-host-support',
+          label: 'Creative requires host support for MRAID location APIs',
+          passed: !requiresMraidLocation,
           severity: 'warning',
         },
         ...getMraidProjectCompatibility(project).map((item) => ({

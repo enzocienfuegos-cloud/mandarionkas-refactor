@@ -19,7 +19,14 @@ export type MraidAdapterResult = {
     placement: 'inline' | 'interstitial';
     apiVersion: '3.0';
     requiresMraidOpen: true;
-    supportsLocation: true;
+    requiredHostFeatures: {
+      open: true;
+      location: boolean;
+    };
+    expectedHost: {
+      placementType: 'inline' | 'interstitial';
+      maxSize: { width: number; height: number };
+    };
   };
 };
 
@@ -29,6 +36,9 @@ export function buildMraidAdapter(state: StudioState): MraidAdapterResult {
   const sizeKey = `${portableProject.canvas.width}x${portableProject.canvas.height}`;
   const standardSize = sizeKey === '320x480' || sizeKey === '300x600';
   const placement = sizeKey === '320x480' ? 'interstitial' : 'inline';
+  const requiresLocation = portableProject.scenes.some((scene) =>
+    scene.widgets.some((widget) => widget.type === 'dynamic-map' && Boolean(widget.props.requestUserLocation ?? false)),
+  );
 
   return {
     adapter: 'mraid',
@@ -45,7 +55,17 @@ export function buildMraidAdapter(state: StudioState): MraidAdapterResult {
       placement,
       apiVersion: '3.0',
       requiresMraidOpen: true,
-      supportsLocation: true,
+      requiredHostFeatures: {
+        open: true,
+        location: requiresLocation,
+      },
+      expectedHost: {
+        placementType: placement,
+        maxSize: {
+          width: portableProject.canvas.width,
+          height: portableProject.canvas.height,
+        },
+      },
     },
   };
 }
