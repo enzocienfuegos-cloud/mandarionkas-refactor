@@ -1,8 +1,45 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../../../domain/document/factories';
 import { buildChannelHtml, buildExportAssetPlan, buildExportBundle, buildExportBundleWithRemoteAssets, buildExportExitConfig, buildExportManifest, buildExportPackagingPlan, buildExportPackageMetrics, buildExportPreflight, buildExportReadiness, buildExportRuntimeModel, buildExportRuntimeScript, buildGamHtml5Adapter, buildGenericHtml5Adapter, buildGoogleDisplayAdapter, buildPlayableExportAdapter, buildLocalizedPortableProject, buildPortableProjectExport, buildPublishPackage, buildRemoteAssetFetchPlan, buildReviewPackage, buildStandaloneHtml, buildZipFromBundle, getChannelRequirements, materializeExportAssetFiles, materializeRemoteExportAssetFiles, validateExport, validateExportPackage, validatePortableExport } from '../../../export/engine';
+import { buildNearbyPlacesCsv, parseNearbyPlaces } from '../../../widgets/modules/dynamic-map.shared';
 
 describe('export engine', () => {
+  it('round-trips nearby places csv with badges and custom ctas', () => {
+    const csv = buildNearbyPlacesCsv([
+      {
+        name: 'San Salvador',
+        flag: 'SV',
+        lat: 13.6929,
+        lng: -89.2182,
+        address: 'Centro Comercial',
+        badge: 'Open now',
+        openNow: true,
+        ctaLabel: 'Open in Maps',
+        ctaType: 'maps',
+        ctaUrl: '',
+      },
+      {
+        name: 'Santa Tecla',
+        flag: 'SV',
+        lat: 13.6769,
+        lng: -89.2797,
+        address: 'Plaza Merliot',
+        badge: 'Drive-thru',
+        openNow: false,
+        ctaLabel: 'Visit site',
+        ctaType: 'site',
+        ctaUrl: 'https://example.com/store',
+      },
+    ]);
+
+    const places = parseNearbyPlaces(csv);
+
+    expect(places).toHaveLength(2);
+    expect(places[0]?.badge).toBe('Open now');
+    expect(places[1]?.ctaType).toBe('site');
+    expect(places[1]?.ctaUrl).toBe('https://example.com/store');
+  });
+
   it('flags CTA widgets without open-url actions', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
@@ -773,8 +810,11 @@ describe('export engine', () => {
         latitude: 13.6929,
         longitude: -89.2182,
         zoom: 13,
-        provider: 'osm',
-        markersCsv: 'name,flag,lat,lng\nSan Salvador,SV,13.6929,-89.2182',
+        provider: 'manual',
+        requestUserLocation: true,
+        ctaType: 'maps',
+        ctaLabel: 'Open in Maps',
+        markersCsv: 'name,flag,lat,lng,address,badge,openNow,ctaLabel,ctaType,ctaUrl\nSan Salvador,SV,13.6929,-89.2182,Centro Comercial,Open now,true,Open in Maps,maps,',
       },
       timeline: { startMs: 0, endMs: 1000 },
     } as any;
@@ -786,6 +826,8 @@ describe('export engine', () => {
     expect(html).toContain('class="widget widget-qr-code"');
     expect(html).toContain('data-smx-action="qr-open"');
     expect(html).toContain('class="widget widget-dynamic-map"');
+    expect(html).toContain('data-map-places=');
+    expect(html).toContain('data-smx-action="map-place-cta"');
     expect(html).toContain('zoom 13');
     expect(html).toContain('San Salvador');
   });
@@ -801,7 +843,7 @@ describe('export engine', () => {
       zIndex: 1,
       frame: { x: 0, y: 0, width: 220, height: 116, rotation: 0 },
       style: { accentColor: '#2dd4bf', color: '#ffffff', backgroundColor: '#0b3b7a' },
-      props: { title: 'Speed Test', min: 10, max: 100, current: 64, units: 'Mbps', durationMs: 1800, ctaLabel: 'Start test', resultMode: 'random' },
+      props: { title: 'Speed Test', min: 10, max: 100, current: 64, units: 'Mbps', durationMs: 1800, ctaLabel: 'Start test', resultMode: 'random', fastThreshold: 70, fastMessage: 'WOW, very fast network', slowMessage: 'Slow connection' },
       timeline: { startMs: 0, endMs: 1000 },
     } as any;
     state.document.scenes[0].widgetIds.push('speed_1');
@@ -813,6 +855,8 @@ describe('export engine', () => {
     expect(html).toContain('data-smx-action="speed-test-start"');
     expect(html).toContain('data-speed-duration="1800"');
     expect(html).toContain('data-speed-result-mode="random"');
+    expect(html).toContain('data-speed-fast-threshold="70"');
+    expect(html).toContain('WOW, very fast network');
   });
 
   it('renders scratch reveal widgets with canvas-based scratch interactions', () => {
@@ -939,6 +983,8 @@ describe('export engine', () => {
     expect(script).toContain('data-scratch-canvas');
     expect(script).toContain('updateShoppable');
     expect(script).toContain('shoppable-cta');
+    expect(script).toContain('renderMapCards');
+    expect(script).toContain('map-place-cta');
     expect(script).toContain('initWeatherWidget');
     expect(script).toContain('api.open-meteo.com');
   });

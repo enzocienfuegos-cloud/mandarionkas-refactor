@@ -1,5 +1,6 @@
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderScratchRevealStage } from '../scratch-reveal.renderer';
+import { ScratchRevealInspector } from '../scratch-reveal.inspector';
 
 export const ScratchRevealDefinition = createModuleDefinition({
   type: 'scratch-reveal',
@@ -15,15 +16,7 @@ export const ScratchRevealDefinition = createModuleDefinition({
     coverBlur: 6,
     scratchRadius: 22,
   },
-  inspectorFields: [
-    { key: 'title' },
-    { key: 'coverLabel', label: 'Cover label' },
-    { key: 'revealLabel', label: 'Reveal label' },
-    { key: 'beforeImage', label: 'Cover image URL' },
-    { key: 'afterImage', label: 'Reveal image URL' },
-    { key: 'coverBlur', label: 'Cover blur', type: 'number' },
-    { key: 'scratchRadius', label: 'Scratch radius', type: 'number' },
-  ],
+  renderInspector: ScratchRevealInspector,
   style: { backgroundColor: '#111827', accentColor: '#f97316', color: '#ffffff' },
   renderStage: renderScratchRevealStage,
 });

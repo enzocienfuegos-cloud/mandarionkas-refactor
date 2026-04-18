@@ -79,7 +79,9 @@ export const StageWidget = memo(function StageWidget({
         transform: `rotate(${frame.rotation}deg)`,
       }}
     >
-      <div className="stage-widget-content">{renderWidgetContents(node, { previewMode, playheadMs, hovered, active, triggerWidgetAction })}</div>
+      <div className="stage-widget-content" style={{ pointerEvents: previewMode ? 'auto' : 'none' }}>
+        {renderWidgetContents(node, { previewMode, playheadMs, hovered, active, triggerWidgetAction })}
+      </div>
       {!previewMode && showBadge ? <div className="edit-mode-label">{node.type} · {node.name}</div> : null}
       {selected ? <SelectionOverlay primary={primary} onResizePointerDown={onResizePointerDown} /> : null}
     </div>

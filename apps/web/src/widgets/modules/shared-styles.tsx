@@ -32,15 +32,15 @@ export const resolveWidgetShadow = (node: WidgetNode, ctx?: RenderContext): stri
 export const moduleShellEdit = (node: WidgetNode): CSSProperties => ({
   width: '100%',
   height: '100%',
-  borderRadius: 10,
-  background: 'rgba(15,23,42,0.02)',
-  color: '#dbe4ee',
-  border: `1px dashed ${String(node.style.accentColor ?? '#94a3b8')}`,
+  borderRadius: Number(node.style.borderRadius ?? 14),
+  background: String(node.style.backgroundColor ?? '#1f2937'),
+  color: String(node.style.color ?? '#ffffff'),
+  border: `1px solid ${String(node.style.borderColor ?? `${String(node.style.accentColor ?? '#94a3b8')}33`)}`,
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
-  boxShadow: 'none',
-  opacity: 1,
+  boxShadow: '0 10px 20px rgba(0,0,0,0.08)',
+  opacity: Number(node.style.opacity ?? 1),
   transition: 'none',
 });
 export const moduleShell = (node: WidgetNode, ctx?: RenderContext): CSSProperties => (
@@ -91,7 +91,7 @@ export function getFlagEmoji(flagCode: string): string {
 export function parseCarouselSlides(raw: string): Array<{ src: string; caption: string }> {
   return raw.split(';').map((item) => item.trim()).filter(Boolean).map((item, index) => { const [src, caption] = item.split('|'); return { src: (src ?? '').trim(), caption: (caption ?? `Slide ${index + 1}`).trim() }; }).filter((item) => item.src);
 }
-const COLLAPSIBLE_EDITOR_WIDGETS = new Set<WidgetNode['type']>(['countdown','add-to-calendar','speed-test','scratch-reveal','form','dynamic-map','image-carousel','weather-conditions','range-slider','interactive-hotspot','slider','qr-code','travel-deal','interactive-gallery','gen-ai-image','buttons']);
+const COLLAPSIBLE_EDITOR_WIDGETS = new Set<WidgetNode['type']>([]);
 function editorSummary(node: WidgetNode): string[] {
   switch (node.type) {
     case 'dynamic-map': { const markers = parseCsvMarkers(String(node.props.markersCsv ?? '')); return [`${markers.length || 1} marker${markers.length === 1 ? '' : 's'}`, `Zoom ${clamp(Number(node.props.zoom ?? 13), 2, 18)}`, `Provider ${String(node.props.provider ?? 'osm')}`]; }

@@ -28,7 +28,7 @@ export function GalleryAssetsInspector({ widget, title }: { widget: WidgetNode; 
   const uiActions = useUiActions();
   const platform = usePlatformSnapshot();
   const [assets, setAssets] = useState<AssetRecord[]>([]);
-  const [selectedAssetId, setSelectedAssetId] = useState('');
+  const [pendingAssetIds, setPendingAssetIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!platform.session.isAuthenticated || !platform.session.sessionId) {
@@ -56,18 +56,21 @@ export function GalleryAssetsInspector({ widget, title }: { widget: WidgetNode; 
   const slides = useMemo(() => parseCarouselSlides(String(widget.props.slides ?? '')), [widget.props.slides]);
   const selectedAssetIds = useMemo(() => parseSelectedAssetIds(widget.props.assetIdsCsv), [widget.props.assetIdsCsv]);
 
-  const addSelectedAsset = () => {
-    const asset = assets.find((item) => item.id === selectedAssetId);
-    if (!asset) return;
-    const nextSlides = [...slides, { src: asset.src, caption: asset.name }];
-    const nextIds = [...selectedAssetIds, asset.id];
+  const addSelectedAssets = () => {
+    const pickedAssets = pendingAssetIds
+      .map((assetId) => assets.find((item) => item.id === assetId))
+      .filter((asset): asset is AssetRecord => Boolean(asset))
+      .filter((asset) => !selectedAssetIds.includes(asset.id));
+    if (!pickedAssets.length) return;
+    const nextSlides = [...slides, ...pickedAssets.map((asset) => ({ src: asset.src, caption: asset.name }))];
+    const nextIds = [...selectedAssetIds, ...pickedAssets.map((asset) => asset.id)];
     widgetActions.updateWidgetProps(widget.id, {
       slides: buildSlidesValue(nextSlides),
       assetIdsCsv: buildSelectedAssetIds(nextIds),
       itemCount: nextSlides.length,
       activeIndex: 1,
     });
-    setSelectedAssetId('');
+    setPendingAssetIds([]);
   };
 
   const removeSlide = (index: number) => {
@@ -103,13 +106,17 @@ export function GalleryAssetsInspector({ widget, title }: { widget: WidgetNode; 
         <div>
           <label>Project images</label>
           <div className="asset-inline-actions">
-            <select value={selectedAssetId} onChange={(event) => setSelectedAssetId(event.target.value)}>
-              <option value="">Select an image</option>
+            <select
+              multiple
+              size={5}
+              value={pendingAssetIds}
+              onChange={(event) => setPendingAssetIds(Array.from(event.target.selectedOptions).map((option) => option.value))}
+            >
               {assets.map((asset) => (
                 <option key={asset.id} value={asset.id}>{asset.name}</option>
               ))}
             </select>
-            <button type="button" className="left-button compact-action" onClick={addSelectedAsset} disabled={!selectedAssetId}>Add image</button>
+            <button type="button" className="left-button compact-action" onClick={addSelectedAssets} disabled={!pendingAssetIds.length}>Add images</button>
             <button type="button" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</button>
           </div>
         </div>

@@ -21,7 +21,7 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
   const uiActions = useUiActions();
   const platform = usePlatformSnapshot();
   const [assets, setAssets] = useState<AssetRecord[]>([]);
-  const [selectedAssetId, setSelectedAssetId] = useState('');
+  const [pendingAssetIds, setPendingAssetIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!platform.session.isAuthenticated || !platform.session.sessionId) {
@@ -58,20 +58,26 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
     });
   };
 
-  const addSelectedAsset = () => {
-    const asset = assets.find((item) => item.id === selectedAssetId);
-    if (!asset) return;
-    const nextProducts = [...products, {
-      src: asset.src,
-      title: asset.name,
-      subtitle: '',
-      price: '$0',
-      rating: 4,
-      ctaLabel: 'Shop now',
-      url: '',
-    }];
-    updateProducts(nextProducts, [...selectedAssetIds, asset.id]);
-    setSelectedAssetId('');
+  const addSelectedAssets = () => {
+    const pickedAssets = pendingAssetIds
+      .map((assetId) => assets.find((item) => item.id === assetId))
+      .filter((asset): asset is AssetRecord => Boolean(asset))
+      .filter((asset) => !selectedAssetIds.includes(asset.id));
+    if (!pickedAssets.length) return;
+    const nextProducts = [
+      ...products,
+      ...pickedAssets.map((asset) => ({
+        src: asset.src,
+        title: asset.name,
+        subtitle: '',
+        price: '$0',
+        rating: 4,
+        ctaLabel: 'Shop now',
+        url: '',
+      })),
+    ];
+    updateProducts(nextProducts, [...selectedAssetIds, ...pickedAssets.map((asset) => asset.id)]);
+    setPendingAssetIds([]);
   };
 
   const removeProduct = (index: number) => {
@@ -125,11 +131,15 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
         <div>
           <label>Project images</label>
           <div className="asset-inline-actions">
-            <select value={selectedAssetId} onChange={(event) => setSelectedAssetId(event.target.value)}>
-              <option value="">Select an image</option>
+            <select
+              multiple
+              size={5}
+              value={pendingAssetIds}
+              onChange={(event) => setPendingAssetIds(Array.from(event.target.selectedOptions).map((option) => option.value))}
+            >
               {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
             </select>
-            <button type="button" className="left-button compact-action" onClick={addSelectedAsset} disabled={!selectedAssetId}>Add product</button>
+            <button type="button" className="left-button compact-action" onClick={addSelectedAssets} disabled={!pendingAssetIds.length}>Add products</button>
             <button type="button" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</button>
           </div>
         </div>

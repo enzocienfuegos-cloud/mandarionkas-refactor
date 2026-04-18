@@ -19,7 +19,14 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
   const autoscroll = Boolean(node.props.autoscroll ?? true);
   const intervalMs = clamp(Number(node.props.intervalMs ?? 2600), 1000, 10000);
   const [activeIndex, setActiveIndex] = useState(clamp(Number(node.props.activeIndex ?? 1), 1, itemCount) - 1);
-  const cardSize = resolveCardSize(cardShape);
+  const fallbackCardSize = resolveCardSize(cardShape);
+  const visibleCount = orientation === 'vertical' ? 1 : Math.min(2, itemCount);
+  const cardSize = orientation === 'horizontal'
+    ? {
+        width: Math.max(110, Math.floor((node.frame.width - 24 - 12 * Math.max(0, visibleCount - 1)) / visibleCount)),
+        height: fallbackCardSize.height,
+      }
+    : fallbackCardSize;
 
   useEffect(() => {
     if (!autoscroll || itemCount <= 1 || !ctx.previewMode) return;
@@ -77,8 +84,8 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                   {product.src ? <img src={product.src} alt={product.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
                 </div>
                 <div style={{ padding: '10px 10px 12px', display: 'grid', gap: 6 }}>
-                  <div style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#64748b' }}>{product.subtitle || 'Featured item'}</div>
-                  <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.2 }}>{product.title}</div>
+                  <div style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.subtitle || 'Featured item'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.2, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 as any, overflow: 'hidden' }}>{product.title}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     <div style={{ fontSize: 12, color: accent }}>{renderRatingStars(product.rating)}</div>
                     <div style={{ fontSize: 15, fontWeight: 900 }}>{product.price || '$0'}</div>

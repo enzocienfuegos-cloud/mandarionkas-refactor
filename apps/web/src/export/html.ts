@@ -11,6 +11,7 @@ import { resolveCornerRadius } from '../widgets/shared/corner-style';
 import { buildQrPattern, getFlagEmoji, parseCsvMarkers } from '../widgets/modules/shared-styles';
 import { parseShoppableProducts, renderRatingStars } from '../widgets/modules/shoppable-sidebar.shared';
 import { resolveWeatherIcon } from '../widgets/modules/weather-conditions.shared';
+import { buildPlaceCtaUrl, parseNearbyPlaces } from '../widgets/modules/dynamic-map.shared';
 
 export function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -241,6 +242,9 @@ function renderQrCodeWidget(node: WidgetNode): string {
   const style = node.style ?? {};
   const accent = String(style.accentColor ?? '#111827');
   const url = String(node.props.url ?? 'https://example.com');
+  const qrScale = Math.max(0.3, Math.min(1, Number(node.props.qrScale ?? 0.72)));
+  const qrPadding = Math.max(0, Number(node.props.qrPadding ?? 8));
+  const qrSize = Math.max(72, Math.min(frame.width, frame.height - 24) * qrScale);
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
   const pattern = buildQrPattern(url);
   const base = [
@@ -264,7 +268,7 @@ function renderQrCodeWidget(node: WidgetNode): string {
   return `<button type="button" class="widget widget-qr-code" data-widget-id="${node.id}" data-smx-action="qr-open" data-qr-url="${escapeHtml(url)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
-      <div style="width:108px;height:108px;border-radius:14px;background:#fff;padding:8px;display:grid;place-items:center;">
+      <div style="width:${qrSize}px;height:${qrSize}px;border-radius:14px;background:#fff;padding:${qrPadding}px;display:grid;place-items:center;flex-shrink:0;">
         <img src="${escapeHtml(qrUrl)}" alt="${escapeHtml(String(node.props.codeLabel ?? 'QR code'))}" style="width:100%;height:100%;object-fit:contain;border-radius:8px;" onerror="this.replaceWith(this.nextElementSibling)" />
         <div style="display:none;grid-template-columns:repeat(9,1fr);gap:2px;width:100%;height:100%;">
           ${pattern.map((filled) => `<div style="background:${filled ? escapeHtml(accent) : '#fff'};"></div>`).join('')}
@@ -279,14 +283,39 @@ function renderDynamicMapWidget(node: WidgetNode): string {
   const frame = node.frame;
   const style = node.style ?? {};
   const accent = String(style.accentColor ?? '#ef4444');
-  const markers = parseCsvMarkers(String(node.props.markersCsv ?? ''));
   const latitude = Number(node.props.latitude ?? 13.6929);
   const longitude = Number(node.props.longitude ?? -89.2182);
   const zoom = Number(node.props.zoom ?? 13);
-  const provider = String(node.props.provider ?? 'osm');
+  const provider = String(node.props.provider ?? 'manual');
   const mode = String(node.props.mode ?? 'street');
   const routeVisible = Boolean(node.props.showRoute ?? false);
-  const pins = (markers.length ? markers : [{ name: String(node.props.location ?? 'Main pin'), flag: '', lat: latitude, lng: longitude }]).slice(0, 5);
+  const renderMode = String(node.props.renderMode ?? 'cards-map');
+  const requestUserLocation = Boolean(node.props.requestUserLocation ?? false);
+  const sortByDistance = Boolean(node.props.sortByDistance ?? true);
+  const showOpenNow = Boolean(node.props.showOpenNow ?? true);
+  const showDistance = Boolean(node.props.showDistance ?? true);
+  const defaultCtaType = String(node.props.ctaType ?? 'maps');
+  const defaultCtaLabel = String(node.props.ctaLabel ?? 'Open in Maps');
+  const places = (parseNearbyPlaces(String(node.props.markersCsv ?? '')).length
+    ? parseNearbyPlaces(String(node.props.markersCsv ?? ''))
+    : [{
+        name: String(node.props.location ?? 'Main location'),
+        flag: '',
+        lat: latitude,
+        lng: longitude,
+        address: '',
+        badge: String(node.props.pinLabel ?? 'Store'),
+        openNow: null,
+        ctaLabel: defaultCtaLabel,
+        ctaType: defaultCtaType as any,
+        ctaUrl: '',
+      }]).slice(0, 5);
+  const placesJson = escapeHtml(JSON.stringify(places.map((place) => ({
+    ...place,
+    resolvedUrl: buildPlaceCtaUrl(place, (place.ctaType || defaultCtaType) as any),
+  }))));
+  const cardsOnly = renderMode === 'cards-only';
+  const mapFirst = renderMode === 'map-first';
   const mapBackground = mode === 'dark'
     ? 'linear-gradient(135deg,#0f172a,#1e293b)'
     : mode === 'satellite'
@@ -309,21 +338,24 @@ function renderDynamicMapWidget(node: WidgetNode): string {
     `flex-direction:column`,
   ].join(';');
 
-  return `<div class="widget widget-dynamic-map" data-widget-id="${node.id}" style="${base}">
+  return `<div class="widget widget-dynamic-map" data-widget-id="${node.id}" data-map-places="${placesJson}" data-map-latitude="${latitude}" data-map-longitude="${longitude}" data-map-request-user-location="${String(requestUserLocation)}" data-map-sort-by-distance="${String(sortByDistance)}" data-map-show-open-now="${String(showOpenNow)}" data-map-show-distance="${String(showDistance)}" data-map-default-cta-type="${escapeHtml(defaultCtaType)}" data-map-default-cta-label="${escapeHtml(defaultCtaLabel)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <span>${escapeHtml(String(node.props.title ?? node.name))}</span>
       <span style="font-size:10px;opacity:.78;color:${escapeHtml(String(style.color ?? '#ffffff'))};">${escapeHtml(provider)}</span>
     </div>
-    <div style="padding:8px 12px 12px;flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;">
-      <div style="position:relative;flex:1;border-radius:12px;overflow:hidden;background:${mapBackground};">
+    <div style="padding:8px 12px 12px;flex:1;display:grid;grid-template-columns:${cardsOnly ? '1fr' : mapFirst ? '1.1fr .9fr' : '0.9fr 1.1fr'};gap:10px;min-height:0;">
+      ${cardsOnly ? '' : `<div style="position:relative;min-height:110px;border-radius:12px;overflow:hidden;background:${mapBackground};">
         <div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 20%, rgba(255,255,255,.55), transparent 32%), radial-gradient(circle at 74% 32%, rgba(255,255,255,.2), transparent 24%), linear-gradient(135deg, transparent 0%, rgba(255,255,255,.12) 100%);"></div>
         ${routeVisible ? `<svg viewBox="0 0 100 60" style="position:absolute;inset:12% 10%;width:80%;height:76%;"><path d="M8 50 C 24 18, 56 16, 88 42" fill="none" stroke="${escapeHtml(accent)}" stroke-width="3" stroke-dasharray="7 6" stroke-linecap="round" /></svg>` : ''}
-        ${pins.map((marker, index) => `<div style="position:absolute;left:${18 + index * 16}%;top:${24 + (index % 2) * 20}%;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:4px;"><div style="min-width:30px;padding:4px 6px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font-size:10px;text-align:center;white-space:nowrap;">${marker.flag ? `${escapeHtml(getFlagEmoji(marker.flag))} ` : ''}${escapeHtml(marker.name)}</div><div style="width:18px;height:18px;border-radius:50%;background:${escapeHtml(accent)};border:2px solid rgba(255,255,255,.88);box-shadow:0 0 0 6px ${escapeHtml(accent)}22;"></div></div>`).join('')}
+        ${places.map((place, index) => `<div style="position:absolute;left:${18 + index * 16}%;top:${24 + (index % 2) * 20}%;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:4px;"><div style="min-width:30px;padding:4px 6px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font-size:10px;text-align:center;white-space:nowrap;">${place.flag ? `${escapeHtml(getFlagEmoji(place.flag))} ` : ''}${escapeHtml(place.name)}</div><div style="width:18px;height:18px;border-radius:50%;background:${escapeHtml(accent)};border:2px solid rgba(255,255,255,.88);box-shadow:0 0 0 6px ${escapeHtml(accent)}22;"></div></div>`).join('')}
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;opacity:.78;">
-        <span>${pins.length} marker${pins.length === 1 ? '' : 's'} · zoom ${zoom}</span>
-        <span>${latitude.toFixed(3)}, ${longitude.toFixed(3)}</span>
-      </div>
+      <div style="position:absolute;left:10px;right:10px;bottom:8px;display:flex;justify-content:space-between;font-size:10px;color:#0f172a;opacity:.82;"><span>${places.length} locations · zoom ${zoom}</span><span>${requestUserLocation ? 'User location on' : 'Location fixed'}</span></div></div>`}
+      <div data-map-cards style="display:grid;gap:8px;overflow:hidden;">${places.slice(0, 3).map((place) => `<div data-map-card data-place-name="${escapeHtml(place.name)}" style="border-radius:12px;background:rgba(255,255,255,.78);border:1px solid ${escapeHtml(accent)}22;padding:10px;display:grid;gap:6px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:13px;">${escapeHtml(place.name)}</strong><span data-place-badge style="font-size:10px;border-radius:999px;padding:4px 6px;background:${escapeHtml(accent)}22;color:#0f172a;">${escapeHtml(place.badge || (place.openNow ? 'Open now' : 'Store'))}</span></div>
+        <div style="font-size:11px;opacity:.78;">${escapeHtml(place.address || `${place.lat.toFixed(3)}, ${place.lng.toFixed(3)}`)}</div>
+        <div data-place-meta style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;">${showOpenNow && place.openNow != null ? `<span data-place-open-now>${place.openNow ? 'Open now' : 'Closed'}</span>` : ''}</div>
+        <button type="button" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, (place.ctaType || defaultCtaType) as any))}" style="border:none;border-radius:10px;background:${escapeHtml(accent)};color:#111827;font-weight:800;padding:8px 10px;cursor:pointer;">${escapeHtml(place.ctaLabel || defaultCtaLabel)}</button>
+      </div>`).join('')}</div>
     </div>
   </div>`;
 }
@@ -380,6 +412,10 @@ function renderSpeedTestWidget(node: WidgetNode): string {
   const units = String(node.props.units ?? 'Mbps');
   const ctaLabel = String(node.props.ctaLabel ?? 'Start test');
   const resultMode = String(node.props.resultMode ?? 'random');
+  const fastThreshold = Number(node.props.fastThreshold ?? 70);
+  const fastMessage = String(node.props.fastMessage ?? 'WOW, very fast network');
+  const slowMessage = String(node.props.slowMessage ?? 'Slow connection');
+  const initialTone = current >= fastThreshold ? '#22c55e' : '#ef4444';
   const pct = Math.max(0, Math.min(100, (current / Math.max(1, max)) * 100));
   const base = [
     `position:absolute`,
@@ -398,12 +434,13 @@ function renderSpeedTestWidget(node: WidgetNode): string {
     `flex-direction:column`,
   ].join(';');
 
-  return `<div class="widget widget-speed-test" data-widget-id="${node.id}" data-speed-min="${min}" data-speed-max="${max}" data-speed-current="${current}" data-speed-duration="${durationMs}" data-speed-result-mode="${escapeHtml(resultMode)}" data-speed-units="${escapeHtml(units)}" style="${base}">
+  return `<div class="widget widget-speed-test" data-widget-id="${node.id}" data-speed-min="${min}" data-speed-max="${max}" data-speed-current="${current}" data-speed-duration="${durationMs}" data-speed-result-mode="${escapeHtml(resultMode)}" data-speed-units="${escapeHtml(units)}" data-speed-fast-threshold="${fastThreshold}" data-speed-fast-message="${escapeHtml(fastMessage)}" data-speed-slow-message="${escapeHtml(slowMessage)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;">
       <div data-speed-value style="font-size:26px;font-weight:900;">${current}<span style="font-size:13px;opacity:.8;"> ${escapeHtml(units)}</span></div>
+      <div data-speed-status style="font-size:12px;font-weight:800;color:${initialTone};">${escapeHtml(current >= fastThreshold ? fastMessage : slowMessage)}</div>
       <div style="height:12px;border-radius:999px;background:rgba(255,255,255,0.12);overflow:hidden;">
-        <div data-speed-bar style="width:${pct}%;height:100%;background:${escapeHtml(accent)};"></div>
+        <div data-speed-bar style="width:${pct}%;height:100%;background:${initialTone};"></div>
       </div>
       <button type="button" data-smx-action="speed-test-start" data-widget-id="${node.id}" style="margin-top:auto;padding:10px 12px;border-radius:12px;background:${escapeHtml(accent)};color:#111827;font-weight:800;border:none;cursor:pointer;">${escapeHtml(ctaLabel)}</button>
     </div>
@@ -512,6 +549,13 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
     ctaLabel: 'Shop now',
     url: '',
   }];
+  const visibleCount = orientation === 'vertical' ? 1 : Math.min(2, activeProducts.length || 1);
+  const effectiveCardSize = orientation === 'horizontal'
+    ? {
+        width: Math.max(110, Math.floor((frame.width - 24 - 12 * Math.max(0, visibleCount - 1)) / visibleCount)),
+        height: cardSize.height,
+      }
+    : cardSize;
   const productsJson = escapeHtml(JSON.stringify(activeProducts));
   const base = [
     `position:absolute`,
@@ -530,13 +574,13 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
     `flex-direction:column`,
   ].join(';');
 
-  const cards = activeProducts.map((product, index) => `<article data-shoppable-card="${index}" style="width:${cardSize.width}px;min-width:${cardSize.width}px;height:${cardSize.height}px;border-radius:18px;overflow:hidden;background:#ffffff;color:#1f2937;border:1px solid ${escapeHtml(accent)}22;box-shadow:0 10px 26px rgba(15,23,42,.12);display:flex;flex-direction:column;">
+  const cards = activeProducts.map((product, index) => `<article data-shoppable-card="${index}" style="width:${effectiveCardSize.width}px;min-width:${effectiveCardSize.width}px;height:${effectiveCardSize.height}px;border-radius:18px;overflow:hidden;background:#ffffff;color:#1f2937;border:1px solid ${escapeHtml(accent)}22;box-shadow:0 10px 26px rgba(15,23,42,.12);display:flex;flex-direction:column;">
       <div style="position:relative;height:${cardShape === 'landscape' ? 62 : 82}px;background:${product.src ? '#111827' : '#f8fafc'};">
         ${product.src ? `<img src="${escapeHtml(product.src)}" alt="${escapeHtml(product.title)}" style="width:100%;height:100%;object-fit:cover;display:block;" />` : ''}
       </div>
       <div style="padding:10px 10px 12px;display:grid;gap:6px;">
-        <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">${escapeHtml(product.subtitle || 'Featured item')}</div>
-        <div style="font-size:13px;font-weight:800;line-height:1.2;">${escapeHtml(product.title)}</div>
+        <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(product.subtitle || 'Featured item')}</div>
+        <div style="font-size:13px;font-weight:800;line-height:1.2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">${escapeHtml(product.title)}</div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
           <div style="font-size:12px;color:${escapeHtml(accent)};">${escapeHtml(renderRatingStars(product.rating))}</div>
           <div style="font-size:15px;font-weight:900;">${escapeHtml(product.price || '$0')}</div>
@@ -545,7 +589,7 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
       </div>
     </article>`).join('');
 
-  return `<div class="widget widget-shoppable-sidebar" data-widget-id="${node.id}" data-shoppable-products="${productsJson}" data-shoppable-index="0" data-shoppable-layout="${escapeHtml(orientation)}" data-shoppable-card-shape="${escapeHtml(cardShape)}" data-shoppable-autoscroll="${String(autoscroll)}" data-shoppable-interval="${intervalMs}" data-shoppable-card-width="${cardSize.width}" data-shoppable-card-height="${cardSize.height}" style="${base}">
+  return `<div class="widget widget-shoppable-sidebar" data-widget-id="${node.id}" data-shoppable-products="${productsJson}" data-shoppable-index="0" data-shoppable-layout="${escapeHtml(orientation)}" data-shoppable-card-shape="${escapeHtml(cardShape)}" data-shoppable-autoscroll="${String(autoscroll)}" data-shoppable-interval="${intervalMs}" data-shoppable-card-width="${effectiveCardSize.width}" data-shoppable-card-height="${effectiveCardSize.height}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;min-height:0;">
       <div style="position:relative;flex:1;overflow:hidden;">

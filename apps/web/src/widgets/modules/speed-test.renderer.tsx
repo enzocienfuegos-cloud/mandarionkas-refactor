@@ -9,6 +9,12 @@ function buildSpeedTestTarget(min: number, max: number, fixedValue: number, mode
   return clamp(Math.round(min + Math.random() * span), min, max);
 }
 
+function resolveSpeedState(current: number, threshold: number): { tone: string; message: string } {
+  return current >= threshold
+    ? { tone: '#22c55e', message: 'WOW, very fast network' }
+    : { tone: '#ef4444', message: 'Slow connection' };
+}
+
 function SpeedTestModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
   const min = Number(node.props.min ?? 10);
@@ -18,8 +24,12 @@ function SpeedTestModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderC
   const units = String(node.props.units ?? 'Mbps');
   const ctaLabel = String(node.props.ctaLabel ?? 'Start test');
   const resultMode = String(node.props.resultMode ?? 'random');
+  const fastThreshold = Number(node.props.fastThreshold ?? 70);
+  const fastMessage = String(node.props.fastMessage ?? 'WOW, very fast network');
+  const slowMessage = String(node.props.slowMessage ?? 'Slow connection');
   const [current, setCurrent] = useState(clamp(fixedValue, min, max));
   const [isTesting, setIsTesting] = useState(false);
+  const state = resolveSpeedState(current, fastThreshold);
   const pct = clamp((current / Math.max(1, max)) * 100, 0, 100);
 
   useEffect(() => {
@@ -61,8 +71,11 @@ function SpeedTestModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderC
           {current}
           <span style={{ fontSize: 13, opacity: 0.8 }}> {units}</span>
         </div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: state.tone }}>
+          {current >= fastThreshold ? fastMessage : slowMessage}
+        </div>
         <div style={{ height: 12, borderRadius: 999, background: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
-          <div style={{ width: `${pct}%`, height: '100%', background: accent }} />
+          <div style={{ width: `${pct}%`, height: '100%', background: isTesting ? accent : state.tone }} />
         </div>
         <button
           type="button"

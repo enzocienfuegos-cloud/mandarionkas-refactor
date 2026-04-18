@@ -71,6 +71,63 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     });
   });
 
+  function haversineKm(aLat, aLng, bLat, bLng) {
+    const toRad = (value) => (value * Math.PI) / 180;
+    const dLat = toRad(bLat - aLat);
+    const dLng = toRad(bLng - aLng);
+    const lat1 = toRad(aLat);
+    const lat2 = toRad(bLat);
+    const arc = Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+    return 6371 * 2 * Math.atan2(Math.sqrt(arc), Math.sqrt(1 - arc));
+  }
+
+  function renderMapCards(root, userPosition) {
+    const cardsRoot = root.querySelector('[data-map-cards]');
+    if (!cardsRoot) return;
+    const showOpenNow = root.getAttribute('data-map-show-open-now') === 'true';
+    const showDistance = root.getAttribute('data-map-show-distance') === 'true';
+    const sortByDistance = root.getAttribute('data-map-sort-by-distance') === 'true';
+    const defaultCtaLabel = root.getAttribute('data-map-default-cta-label') || 'Open in Maps';
+    const places = JSON.parse(root.getAttribute('data-map-places') || '[]');
+    if (!Array.isArray(places)) return;
+    const ranked = places.map((place) => ({
+      ...place,
+      distanceKm: userPosition ? haversineKm(userPosition.latitude, userPosition.longitude, Number(place.lat), Number(place.lng)) : null,
+    }));
+    if (sortByDistance && userPosition) ranked.sort((a, b) => (a.distanceKm ?? Number.MAX_SAFE_INTEGER) - (b.distanceKm ?? Number.MAX_SAFE_INTEGER));
+    cardsRoot.innerHTML = ranked.slice(0, 3).map((place) => {
+      const meta = [];
+      if (showOpenNow && place.openNow != null) meta.push('<span data-place-open-now>' + (place.openNow ? 'Open now' : 'Closed') + '</span>');
+      if (showDistance && place.distanceKm != null) meta.push('<span data-place-distance>' + Number(place.distanceKm).toFixed(1) + ' km</span>');
+      return '<div data-map-card data-place-name="' + String(place.name || '') + '" style="border-radius:12px;background:rgba(255,255,255,.78);border:1px solid rgba(239,68,68,.14);padding:10px;display:grid;gap:6px;">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:13px;">' + String(place.name || '') + '</strong><span data-place-badge style="font-size:10px;border-radius:999px;padding:4px 6px;background:rgba(239,68,68,.14);color:#0f172a;">' + String(place.badge || (place.openNow ? 'Open now' : 'Store')) + '</span></div>'
+        + '<div style="font-size:11px;opacity:.78;">' + String(place.address || '') + '</div>'
+        + '<div data-place-meta style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;">' + meta.join('') + '</div>'
+        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.resolvedUrl || '') + '" style="border:none;border-radius:10px;background:#ef4444;color:#111827;font-weight:800;padding:8px 10px;cursor:pointer;">' + String(place.ctaLabel || defaultCtaLabel) + '</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  document.querySelectorAll('.widget-dynamic-map[data-widget-id]').forEach((root) => {
+    const requestUserLocation = root.getAttribute('data-map-request-user-location') === 'true';
+    const lat = Number(root.getAttribute('data-map-latitude') || 0);
+    const lng = Number(root.getAttribute('data-map-longitude') || 0);
+    renderMapCards(root, null);
+    if (!requestUserLocation || typeof navigator === 'undefined' || !navigator.geolocation || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    navigator.geolocation.getCurrentPosition((position) => {
+      renderMapCards(root, { latitude: position.coords.latitude, longitude: position.coords.longitude });
+    }, () => {
+      renderMapCards(root, null);
+    }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
+  });
+
+  document.querySelectorAll('[data-smx-action="map-place-cta"]').forEach((node) => {
+    node.addEventListener('click', (event) => {
+      event.preventDefault();
+      performExit(node.getAttribute('data-place-url') || '');
+    });
+  });
+
   function updateCarousel(widgetId, nextIndex) {
     const root = document.querySelector('[data-widget-id="' + widgetId + '"].widget-image-carousel');
     if (!root) return;
@@ -230,9 +287,13 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     const duration = Math.max(300, Number(root.getAttribute('data-speed-duration') || 1800));
     const mode = root.getAttribute('data-speed-result-mode') || 'random';
     const units = root.getAttribute('data-speed-units') || 'Mbps';
+    const fastThreshold = Number(root.getAttribute('data-speed-fast-threshold') || 70);
+    const fastMessage = root.getAttribute('data-speed-fast-message') || 'WOW, very fast network';
+    const slowMessage = root.getAttribute('data-speed-slow-message') || 'Slow connection';
     const button = root.querySelector('[data-smx-action="speed-test-start"]');
     const value = root.querySelector('[data-speed-value]');
     const bar = root.querySelector('[data-speed-bar]');
+    const status = root.querySelector('[data-speed-status]');
     const target = mode === 'fixed'
       ? Math.max(min, Math.min(max, fixedValue))
       : Math.max(min, Math.min(max, Math.round(min + Math.random() * Math.max(1, max - min))));
@@ -248,8 +309,14 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       const eased = 1 - Math.pow(1 - progress, 3);
       const current = Math.round(min + (target - min) * eased);
       const pct = Math.max(0, Math.min(100, (current / Math.max(1, max)) * 100));
+      const isFast = current >= fastThreshold;
       if (bar) bar.style.width = pct + '%';
+      if (bar) bar.style.background = isFast ? '#22c55e' : '#ef4444';
       if (value) value.innerHTML = String(current) + '<span style="font-size:13px;opacity:.8;"> ' + units + '</span>';
+      if (status) {
+        status.textContent = isFast ? fastMessage : slowMessage;
+        status.style.color = isFast ? '#22c55e' : '#ef4444';
+      }
       if (progress < 1) {
         window.requestAnimationFrame(tick);
         return;
