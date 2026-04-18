@@ -71,6 +71,8 @@ function HotspotModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCon
           cursor: 'pointer',
           display: 'grid',
           placeItems: 'center',
+          aspectRatio: '1 / 1',
+          flexShrink: 0,
           appearance: 'none',
           WebkitAppearance: 'none',
           ...hotspotShapeStyle(shape),
@@ -81,10 +83,10 @@ function HotspotModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCon
         <span style={{ transform: innerTransform }}>{iconChar}</span>
       </button>
       {open ? (
-        <div style={{ position: 'absolute', left: 12, right: 12, bottom: 12, borderRadius: 14, background: 'rgba(17,24,39,.94)', padding: '10px 12px', display: 'grid', gap: 6 }}>
+        <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); }} style={{ position: 'absolute', left: 12, right: 12, bottom: 12, borderRadius: 14, background: 'rgba(17,24,39,.94)', padding: '10px 12px', display: 'grid', gap: 6, border: 'none', textAlign: 'left', color: 'inherit', cursor: 'pointer' }}>
           <div style={{ fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em', color: accent }}>{String(node.props.header ?? 'Interactive hotspot')}</div>
           <div style={{ fontSize: 12, lineHeight: 1.45 }}>{String(node.props.body ?? 'Add more context for this interactive point.')}</div>
-        </div>
+        </button>
       ) : (
         <div style={{ position: 'absolute', left: 12, bottom: 12, fontSize: 12, fontWeight: 700 }}>{String(node.props.label ?? 'Tap point')}</div>
       )}

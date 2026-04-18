@@ -51,7 +51,7 @@ export const StageWidget = memo(function StageWidget({
 
   return (
     <div
-      className={`stage-widget ${selected ? 'is-selected' : ''} ${primary ? 'is-primary' : ''} ${hovered ? 'is-hovered' : ''} ${active ? 'is-active' : ''} ${previewMode ? 'is-preview-mode' : 'is-edit-mode'}`}
+      className={`stage-widget stage-widget--${node.type} ${selected ? 'is-selected' : ''} ${primary ? 'is-primary' : ''} ${hovered ? 'is-hovered' : ''} ${active ? 'is-active' : ''} ${previewMode ? 'is-preview-mode' : 'is-edit-mode'}`}
       onPointerDown={(event) => {
         if (previewMode) {
           event.stopPropagation();

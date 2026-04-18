@@ -2271,6 +2271,15 @@
   background: rgba(124,92,255,.045);
   box-shadow: 0 0 0 1px rgba(124,92,255,.18), 0 10px 24px rgba(10,16,24,.12);
 }
+.stage-widget.stage-widget--interactive-hotspot.is-edit-mode.is-hovered .stage-widget-content,
+.stage-widget.stage-widget--interactive-hotspot.is-edit-mode.is-active .stage-widget-content,
+.stage-widget.stage-widget--interactive-hotspot.is-preview-mode.is-hovered .stage-widget-content,
+.stage-widget.stage-widget--interactive-hotspot.is-preview-mode.is-active .stage-widget-content {
+  background: transparent;
+  box-shadow: none;
+  border-color: transparent;
+  filter: none;
+}
 .stage-widget.is-edit-mode.is-active .stage-widget-content {
   border-color: rgba(245,165,36,.95);
   background: rgba(245,165,36,.05);
