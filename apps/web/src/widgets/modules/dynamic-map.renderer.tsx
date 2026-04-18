@@ -190,6 +190,8 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   const cardsOnly = renderMode === 'cards-only';
   const mapFirst = renderMode === 'map-first';
   const searchBarMode = renderMode === 'search-bar';
+  const isVertical = node.frame.height > node.frame.width;
+  const stackedLayout = !cardsOnly && isVertical;
   const mapCenterLat = userPosition?.latitude ?? latitude;
   const mapCenterLng = userPosition?.longitude ?? longitude;
   const [panelOpen, setPanelOpen] = useState(false);
@@ -257,11 +259,13 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   }, [panelOpen, cardsOnly, mapCenterLat, mapCenterLng, zoom, accent, places, selectedPlace]);
 
   if (searchBarMode) {
+    const heroHeight = isVertical ? '46%' : '60%';
+    const bottomHeight = isVertical ? '54%' : '40%';
     return (
       <div style={{ ...moduleShell(node, ctx), position: 'relative' }}>
         <style>{`.smx-map-label,.smx-map-label.leaflet-tooltip{background:#111827!important;border:none!important;border-radius:999px!important;color:#fff!important;padding:4px 8px!important;font-size:10px!important;font-weight:700!important;box-shadow:none!important;opacity:1!important}.smx-map-label:before,.smx-map-label.leaflet-tooltip:before{display:none!important}`}</style>
         <div style={{ position: 'absolute', inset: 0, background: '#000' }}>
-          <div style={{ position: 'absolute', inset: 0, height: '60%', overflow: 'hidden', background: heroImage ? '#111827' : 'linear-gradient(160deg,#0f172a,#1d4ed8)' }}>
+          <div style={{ position: 'absolute', inset: 0, height: heroHeight, overflow: 'hidden', background: heroImage ? '#111827' : 'linear-gradient(160deg,#0f172a,#1d4ed8)' }}>
             {heroImage ? <img src={heroImage} alt={headlineText} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
             <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom, rgba(0,0,0,.18), rgba(0,0,0,${heroOverlayOpacity}))` }} />
             {logoImage ? <img src={logoImage} alt={brandText} style={{ position: 'absolute', top: 12, left: 12, height: 28, maxWidth: 110, objectFit: 'contain' }} /> : null}
@@ -270,7 +274,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
               <div style={{ fontSize: 12, marginTop: 6, opacity: 0.92 }}>{subheadlineText}</div>
             </div>
           </div>
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '40%', background: bottomBackgroundColor, color: '#111827', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: bottomHeight, background: bottomBackgroundColor, color: '#111827', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: searchBackgroundColor, border: '1px solid rgba(0,0,0,.08)', borderRadius: 999, padding: '9px 12px' }}>
                 <span style={{ fontSize: 14, opacity: 0.6 }}>⌕</span>
@@ -350,12 +354,11 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
       <style>{`.smx-map-label,.smx-map-label.leaflet-tooltip{background:#111827!important;border:none!important;border-radius:999px!important;color:#fff!important;padding:4px 8px!important;font-size:10px!important;font-weight:700!important;box-shadow:none!important;opacity:1!important}.smx-map-label:before,.smx-map-label.leaflet-tooltip:before{display:none!important}`}</style>
       <div style={{ ...moduleHeader(node), display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span>{String(node.props.title ?? node.name)}</span>
-        <span style={{ fontSize: 10, opacity: 0.78 }}>{provider}</span>
       </div>
       <div style={moduleBody}>
-        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: cardsOnly ? '1fr' : mapFirst ? '1.1fr .9fr' : '0.9fr 1.1fr', flex: 1, minHeight: 0 }}>
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: cardsOnly || stackedLayout ? '1fr' : mapFirst ? '1.1fr .9fr' : '0.9fr 1.1fr', gridTemplateRows: stackedLayout ? (mapFirst ? '1.05fr .95fr' : '.95fr 1.05fr') : undefined, flex: 1, minHeight: 0 }}>
           {!cardsOnly ? (
-            <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', minHeight: 110, background: mapBackground }}>
+            <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', minHeight: stackedLayout ? 150 : 110, background: mapBackground }}>
               <div ref={mapCanvasRef} style={{ position: 'absolute', inset: 0 }} />
               {requestUserLocation ? (
                 <button
@@ -371,7 +374,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
               ) : null}
               <div style={{ position: 'absolute', left: 10, right: 10, bottom: 8, display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#0f172a', opacity: 0.82 }}>
                 <span>{places.length} locations · zoom {zoom}</span>
-                <span>{provider === 'google-places' ? (providerStatus === 'live' ? 'Places live' : providerStatus === 'loading' ? 'Loading places' : providerStatus === 'error' ? 'Places unavailable' : 'Places idle') : requestUserLocation ? 'User location on' : 'Location fixed'}</span>
+                <span>{providerStatus === 'loading' ? 'Syncing locations' : providerStatus === 'error' ? 'Places unavailable' : userPosition ? 'Location ready' : requestUserLocation ? 'Tap to locate' : 'Location fixed'}</span>
               </div>
             </div>
           ) : null}
