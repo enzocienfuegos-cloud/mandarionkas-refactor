@@ -121,7 +121,7 @@ export function getPortableChannelRequirements(
           severity: 'warning',
         },
         ...getMraidProjectCompatibility(project).map((item) => ({
-          id: `mraid-widget-${item.type}`,
+          id: `mraid-widget-${item.widgetId ?? item.type}`,
           label: item.message,
           passed: false,
           severity: item.level === 'blocked' ? 'error' as const : 'warning' as const,

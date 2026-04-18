@@ -729,7 +729,7 @@ describe('export engine', () => {
 
     const preflight = buildExportPreflight(state);
 
-    expect(preflight.channelBlockers.some((item) => item.id === 'mraid-widget-speed-test')).toBe(true);
+    expect(preflight.channelBlockers.some((item) => item.id === 'mraid-widget-speed_1')).toBe(true);
     expect(preflight.summary.topBlocker).toContain('speed test');
   });
 
@@ -755,7 +755,97 @@ describe('export engine', () => {
     const bundle = buildExportBundle(state);
     const compliance = JSON.parse(bundle.files.find((file) => file.path === 'package-compliance.json')?.content ?? '[]');
 
-    expect(compliance.some((item: { code?: string; targetId?: string }) => item.code === 'widget.mraid-blocked-module' && item.targetId === 'speed-test')).toBe(true);
+    expect(compliance.some((item: { code?: string; targetId?: string }) => item.code === 'widget.mraid-blocked-module' && item.targetId === 'speed_1')).toBe(true);
+  });
+
+  it('blocks mraid video autoplay with audio enabled', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+    state.document.widgets.video_1 = {
+      id: 'video_1',
+      type: 'video-hero',
+      name: 'Video Hero',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 260, height: 144, rotation: 0 },
+      style: {},
+      props: { src: 'https://cdn.example.com/video.mp4', posterSrc: 'https://cdn.example.com/poster.jpg', autoplay: true, muted: false, loop: true, controls: false },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.widgets.cta_1 = {
+      id: 'cta_1',
+      type: 'cta',
+      name: 'CTA',
+      sceneId,
+      zIndex: 2,
+      frame: { x: 0, y: 0, width: 160, height: 44, rotation: 0 },
+      style: {},
+      props: { text: 'Tap now', url: 'https://example.com' },
+      timeline: { startMs: 0, endMs: 1000 },
+      actions: [],
+    } as any;
+    state.document.actions.act_1 = {
+      id: 'act_1',
+      widgetId: 'cta_1',
+      trigger: 'click',
+      type: 'open-url',
+      url: 'https://example.com',
+      label: 'Exit',
+    };
+    state.document.scenes[0].widgetIds.push('video_1', 'cta_1');
+
+    const preflight = buildExportPreflight(state);
+
+    expect(preflight.channelBlockers.some((item) => item.id === 'mraid-widget-video_1')).toBe(true);
+    expect(preflight.channelBlockers.some((item) => item.label.includes('muted'))).toBe(true);
+  });
+
+  it('warns for autoscrolling shoppable units in mraid', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+    state.document.widgets.shop_1 = {
+      id: 'shop_1',
+      type: 'shoppable-sidebar',
+      name: 'Shoppable',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 300, height: 180, rotation: 0 },
+      style: {},
+      props: { title: 'Shop', products: 'https://cdn.example.com/a.jpg|One|10|Buy|https://example.com;https://cdn.example.com/b.jpg|Two|10|Buy|https://example.com', autoscroll: true, intervalMs: 2600 },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.widgets.cta_1 = {
+      id: 'cta_1',
+      type: 'cta',
+      name: 'CTA',
+      sceneId,
+      zIndex: 2,
+      frame: { x: 0, y: 0, width: 160, height: 44, rotation: 0 },
+      style: {},
+      props: { text: 'Tap now', url: 'https://example.com' },
+      timeline: { startMs: 0, endMs: 1000 },
+      actions: [],
+    } as any;
+    state.document.actions.act_1 = {
+      id: 'act_1',
+      widgetId: 'cta_1',
+      trigger: 'click',
+      type: 'open-url',
+      url: 'https://example.com',
+      label: 'Exit',
+    };
+    state.document.scenes[0].widgetIds.push('shop_1', 'cta_1');
+
+    const preflight = buildExportPreflight(state);
+
+    expect(preflight.channelWarnings.some((item) => item.id === 'mraid-widget-shop_1')).toBe(true);
+    expect(preflight.channelWarnings.some((item) => item.label.includes('Autoscrolling shoppable'))).toBe(true);
   });
 
   it('includes preflight in the publish package payload', () => {

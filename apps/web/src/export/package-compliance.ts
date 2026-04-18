@@ -252,7 +252,7 @@ export function validateExportPackage(
         level: item.level === 'blocked' ? 'error' : 'warning',
         code: item.level === 'blocked' ? 'widget.mraid-blocked-module' : 'widget.mraid-review-module',
         scope: 'runtime',
-        targetId: item.type,
+        targetId: item.widgetId ?? item.type,
         message: item.message,
       });
     });
