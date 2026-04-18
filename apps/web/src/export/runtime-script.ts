@@ -124,27 +124,42 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     if (!container || !enabled || container.dataset.autoscrollBound === 'true') return;
     container.dataset.autoscrollBound = 'true';
     let direction = 1;
-    let lastTime = 0;
     let frameId = 0;
-    const speed = Math.max(12, 2400 / Math.max(800, intervalMs));
-    const step = (now) => {
-      if (!container.isConnected) return;
-      if (!lastTime) lastTime = now;
-      const delta = Math.max(0, now - lastTime);
-      lastTime = now;
-      const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
-      if (maxScroll > 0) {
-        if (container.scrollTop >= maxScroll - 1) direction = -1;
-        if (container.scrollTop <= 1) direction = 1;
-        const nextScroll = container.scrollTop + direction * speed * (delta / 16.67);
-        container.scrollTop = Math.max(0, Math.min(maxScroll, nextScroll));
-      }
+    let intervalId = 0;
+    const animateStep = (targetTop) => {
+      const startTop = container.scrollTop;
+      const distance = targetTop - startTop;
+      const duration = 420;
+      const startedAt = performance.now();
+      const step = (now) => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        container.scrollTop = startTop + distance * eased;
+        if (progress < 1) frameId = window.requestAnimationFrame(step);
+      };
       frameId = window.requestAnimationFrame(step);
     };
-    frameId = window.requestAnimationFrame(step);
+    const runStep = () => {
+      if (!container.isConnected) return;
+      const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+      if (maxScroll <= 0) return;
+      const stepSize = Math.max(48, Math.floor(container.clientHeight * 0.68));
+      let targetTop = container.scrollTop + direction * stepSize;
+      if (targetTop >= maxScroll - 1) {
+        direction = -1;
+        targetTop = maxScroll;
+      } else if (targetTop <= 1) {
+        direction = 1;
+        targetTop = 0;
+      }
+      animateStep(Math.max(0, Math.min(maxScroll, targetTop)));
+    };
+    intervalId = window.setInterval(runStep, Math.max(900, intervalMs));
     const stop = () => {
       if (frameId) window.cancelAnimationFrame(frameId);
+      if (intervalId) window.clearInterval(intervalId);
       frameId = 0;
+      intervalId = 0;
     };
     container.addEventListener('pointerdown', stop, { once: true });
     container.addEventListener('wheel', stop, { once: true, passive: true });
@@ -521,7 +536,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       const root = document.querySelector('[data-widget-id="' + widgetId + '"].widget-interactive-hotspot');
       const panel = root?.querySelector('[data-hotspot-panel]');
       const label = root?.querySelector('[data-hotspot-label]');
-      const isOpen = panel?.style.display === 'block';
+      const isOpen = panel?.style.display === 'grid';
       if (panel) panel.style.display = isOpen ? 'none' : 'grid';
       if (label) label.style.display = isOpen ? 'block' : 'none';
     });

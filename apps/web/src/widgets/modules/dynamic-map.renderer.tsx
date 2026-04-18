@@ -14,26 +14,42 @@ type LeafletRuntime = {
 
 function bindAutoScroll(container: HTMLDivElement | null, enabled: boolean, intervalMs: number): (() => void) | undefined {
   if (!container || !enabled) return undefined;
-  let direction = 1;
-  let lastTime = 0;
+  let intervalId = 0;
   let frameId = 0;
-  const speed = Math.max(12, 2400 / Math.max(800, intervalMs));
-  const tick = (now: number) => {
-    if (!container.isConnected) return;
-    if (!lastTime) lastTime = now;
-    const delta = Math.max(0, now - lastTime);
-    lastTime = now;
-    const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
-    if (maxScroll > 0) {
-      if (container.scrollTop >= maxScroll - 1) direction = -1;
-      if (container.scrollTop <= 1) direction = 1;
-      const nextScroll = container.scrollTop + direction * speed * (delta / 16.67);
-      container.scrollTop = Math.max(0, Math.min(maxScroll, nextScroll));
-    }
+  let direction = 1;
+  const animateStep = (targetTop: number) => {
+    const startTop = container.scrollTop;
+    const distance = targetTop - startTop;
+    const duration = 420;
+    const startedAt = performance.now();
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      container.scrollTop = startTop + distance * eased;
+      if (progress < 1) frameId = window.requestAnimationFrame(tick);
+    };
     frameId = window.requestAnimationFrame(tick);
   };
-  frameId = window.requestAnimationFrame(tick);
-  return () => window.cancelAnimationFrame(frameId);
+  const stepOnce = () => {
+    if (!container.isConnected) return;
+    const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+    if (maxScroll <= 0) return;
+    const stepSize = Math.max(48, Math.floor(container.clientHeight * 0.68));
+    let targetTop = container.scrollTop + direction * stepSize;
+    if (targetTop >= maxScroll - 1) {
+      direction = -1;
+      targetTop = maxScroll;
+    } else if (targetTop <= 1) {
+      direction = 1;
+      targetTop = 0;
+    }
+    animateStep(Math.max(0, Math.min(maxScroll, targetTop)));
+  };
+  intervalId = window.setInterval(stepOnce, Math.max(900, intervalMs));
+  return () => {
+    if (intervalId) window.clearInterval(intervalId);
+    if (frameId) window.cancelAnimationFrame(frameId);
+  };
 }
 
 function LocateIcon({ size = 18, color = 'currentColor' }: { size?: number; color?: string }): JSX.Element {

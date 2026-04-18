@@ -12,7 +12,7 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   const showPrevButton = Boolean(node.props.showPrevButton ?? true);
   const showNextButton = Boolean(node.props.showNextButton ?? true);
   const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
-  const paginationDotSize = clamp(Number(node.props.paginationDotSize ?? 6), 3, 10);
+  const paginationDotSize = clamp(Number(node.props.paginationDotSize ?? 4), 2, 6);
   const [activeIndex, setActiveIndex] = useState(0);
   const swipeStartRef = useRef<number | null>(null);
   useEffect(() => {

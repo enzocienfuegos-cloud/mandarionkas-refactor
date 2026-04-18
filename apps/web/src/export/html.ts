@@ -254,7 +254,7 @@ function renderCarouselWidget(node: WidgetNode, assetPathMap: Record<string, str
   const showPrevButton = Boolean(node.props.showPrevButton ?? true);
   const showNextButton = Boolean(node.props.showNextButton ?? true);
   const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
-  const paginationDotSize = Math.max(3, Math.min(10, Number(node.props.paginationDotSize ?? 6)));
+  const paginationDotSize = Math.max(2, Math.min(6, Number(node.props.paginationDotSize ?? 4)));
 
   return `<div class="widget widget-image-carousel" data-widget-id="${node.id}" data-carousel-slides="${slidesJson}" data-carousel-index="0" data-carousel-accent="${escapeHtml(accent)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
@@ -291,7 +291,7 @@ function renderHotspotWidget(node: WidgetNode): string {
   ].join(';');
 
   return `<div class="widget widget-interactive-hotspot" data-widget-id="${node.id}" style="${base}">
-    <button type="button" data-smx-action="hotspot-toggle" data-widget-id="${node.id}" style="position:absolute;left:${hotspotX}%;top:${hotspotY}%;transform:translate(-50%,-50%);width:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '28px'};height:28px;border-radius:${String(node.props.hotspotShape ?? 'circle') === 'square' ? '12px' : String(node.props.hotspotShape ?? 'circle') === 'pill' ? '999px' : String(node.props.hotspotShape ?? 'circle') === 'diamond' ? '10px' : '50%'};border:none;background:${escapeHtml(accent)};box-shadow:${String(node.props.hotspotEffect ?? 'pulse') === 'none' ? 'none' : `0 0 0 6px ${escapeHtml(accent)}33,0 0 0 18px ${escapeHtml(accent)}11`};cursor:pointer;font-weight:900;font-size:15px;color:#111827;">${escapeHtml(String(node.props.hotspotIcon ?? 'plus') === 'arrow-up' ? '↑' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-down' ? '↓' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-left' ? '←' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-right' ? '→' : String(node.props.hotspotIcon ?? 'plus') === 'info' ? 'i' : '+')}</button>
+    <button type="button" data-smx-action="hotspot-toggle" data-widget-id="${node.id}" style="position:absolute;left:${hotspotX}%;top:${hotspotY}%;transform:translate(-50%,-50%)${String(node.props.hotspotShape ?? 'circle') === 'diamond' ? ' rotate(45deg)' : ''};width:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};min-width:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};height:30px;border-radius:${String(node.props.hotspotShape ?? 'circle') === 'square' ? '12px' : String(node.props.hotspotShape ?? 'circle') === 'pill' ? '999px' : String(node.props.hotspotShape ?? 'circle') === 'diamond' ? '10px' : '50%'};border:none;background:${escapeHtml(accent)};box-shadow:${String(node.props.hotspotEffect ?? 'pulse') === 'none' ? 'none' : `0 0 0 6px ${escapeHtml(accent)}33,0 0 0 18px ${escapeHtml(accent)}11`};cursor:pointer;font-weight:900;font-size:15px;line-height:1;padding:0;color:#111827;appearance:none;-webkit-appearance:none;display:grid;place-items:center;">${escapeHtml(String(node.props.hotspotIcon ?? 'plus') === 'arrow-up' ? '↑' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-down' ? '↓' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-left' ? '←' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-right' ? '→' : String(node.props.hotspotIcon ?? 'plus') === 'info' ? 'i' : '+')}</button>
     <div data-hotspot-panel style="position:absolute;left:12px;right:12px;bottom:12px;border-radius:14px;background:rgba(17,24,39,.94);padding:10px 12px;display:none;gap:6px;">
       <div style="font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.header ?? 'Interactive hotspot'))}</div>
       <div style="font-size:12px;line-height:1.45;">${escapeHtml(String(node.props.body ?? 'Add more context for this interactive point.'))}</div>
@@ -428,14 +428,14 @@ function renderFormWidget(node: WidgetNode): string {
   const consentRequired = Boolean(node.props.consentRequired ?? true);
   const consentLabel = String(node.props.consentLabel ?? 'I agree to share my data');
   const fieldThree = String(node.props.fieldThree ?? 'Phone');
-  const scale = Math.max(0.72, Math.min(1.08, Math.min(frame.width / 230, frame.height / 152)));
-  const headerPaddingTop = Math.max(8, Math.round(10 * scale));
-  const headerPaddingX = Math.max(10, Math.round(12 * scale));
-  const bodyPaddingTop = Math.max(6, Math.round(8 * scale));
-  const bodyPaddingBottom = Math.max(8, Math.round(12 * scale));
-  const inputPaddingY = Math.max(8, Math.round(10 * scale));
-  const inputPaddingX = Math.max(10, Math.round(12 * scale));
-  const compactFont = Math.max(11, Math.round(12 * scale));
+  const scale = Math.max(0.5, Math.min(1.02, Math.min(frame.width / 250, frame.height / 184)));
+  const headerPaddingTop = Math.max(6, Math.round(8 * scale));
+  const headerPaddingX = Math.max(8, Math.round(10 * scale));
+  const bodyPaddingTop = Math.max(4, Math.round(6 * scale));
+  const bodyPaddingBottom = Math.max(6, Math.round(8 * scale));
+  const inputPaddingY = Math.max(6, Math.round(8 * scale));
+  const inputPaddingX = Math.max(8, Math.round(10 * scale));
+  const compactFont = Math.max(10, Math.round(11 * scale));
   const checkboxSize = Math.max(14, Math.round(16 * scale));
   const base = [
     `position:absolute`,
@@ -456,7 +456,7 @@ function renderFormWidget(node: WidgetNode): string {
 
   return `<form class="widget widget-form" data-widget-id="${node.id}" data-form-target-type="${escapeHtml(String(node.props.submitTargetType ?? 'none'))}" data-form-submit-url="${escapeHtml(String(node.props.submitUrl ?? ''))}" data-form-method="${escapeHtml(String(node.props.method ?? 'POST').toUpperCase())}" data-form-success-message="${escapeHtml(String(node.props.successMessage ?? 'Submitted'))}" data-form-field-one="${escapeHtml(String(node.props.fieldOne ?? 'Name'))}" data-form-field-two="${escapeHtml(String(node.props.fieldTwo ?? 'Email'))}" data-form-field-three="${escapeHtml(fieldThree)}" data-form-consent-required="${String(consentRequired)}" style="${base}">
     <div style="padding:${headerPaddingTop}px ${headerPaddingX}px 0;font-size:${Math.max(10, Math.round(12 * scale))}px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
-    <div style="padding:${bodyPaddingTop}px ${headerPaddingX}px ${bodyPaddingBottom}px;display:flex;flex:1;flex-direction:column;gap:${Math.max(6, Math.round(8 * scale))}px;">
+    <div style="padding:${bodyPaddingTop}px ${headerPaddingX}px ${bodyPaddingBottom}px;display:flex;flex:1;flex-direction:column;gap:${Math.max(4, Math.round(6 * scale))}px;overflow-y:auto;">
       <input data-form-input="one" placeholder="${escapeHtml(String(node.props.fieldOne ?? 'Name'))}" style="border-radius:10px;padding:${inputPaddingY}px ${inputPaddingX}px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);font-size:${compactFont}px;" />
       <input data-form-input="two" placeholder="${escapeHtml(String(node.props.fieldTwo ?? 'Email'))}" style="border-radius:10px;padding:${inputPaddingY}px ${inputPaddingX}px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);font-size:${compactFont}px;" />
       <input data-form-input="three" placeholder="${escapeHtml(fieldThree)}" style="border-radius:10px;padding:${inputPaddingY}px ${inputPaddingX}px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);font-size:${compactFont}px;" />
@@ -824,7 +824,7 @@ function renderInteractiveGalleryWidget(node: WidgetNode): string {
   const showPrevButton = Boolean(node.props.showPrevButton ?? true);
   const showNextButton = Boolean(node.props.showNextButton ?? true);
   const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
-  const paginationDotSize = Math.max(3, Math.min(10, Number(node.props.paginationDotSize ?? 6)));
+  const paginationDotSize = Math.max(2, Math.min(6, Number(node.props.paginationDotSize ?? 4)));
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,

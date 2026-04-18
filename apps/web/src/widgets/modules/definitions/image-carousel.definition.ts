@@ -18,7 +18,7 @@ export const ImageCarouselDefinition = createModuleDefinition({
     showPrevButton: true,
     showNextButton: true,
     showPaginationDots: true,
-    paginationDotSize: 6,
+    paginationDotSize: 4,
   },
   renderInspector: (widget) => createElement(GalleryAssetsInspector, { widget, title: 'Image carousel' }),
   style: { backgroundColor: '#0f172a', accentColor: '#f8fafc', color: '#ffffff', borderRadius: 20 },

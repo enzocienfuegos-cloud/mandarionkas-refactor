@@ -6,8 +6,8 @@ import { getAccent, renderCollapsedIfNeeded } from './shared-styles';
 
 function hotspotShapeStyle(shape: string): CSSProperties {
   if (shape === 'square') return { borderRadius: 12 };
-  if (shape === 'pill') return { borderRadius: 999, width: 44 };
-  if (shape === 'diamond') return { borderRadius: 10, transform: 'translate(-50%,-50%) rotate(45deg)' };
+  if (shape === 'pill') return { borderRadius: 999, width: 44, minWidth: 44 };
+  if (shape === 'diamond') return { borderRadius: 10 };
   return { borderRadius: '50%' };
 }
 
@@ -38,14 +38,14 @@ function HotspotModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCon
   const icon = String(node.props.hotspotIcon ?? 'plus');
   const effect = String(node.props.hotspotEffect ?? 'pulse');
   const iconChar = useMemo(() => hotspotIcon(icon), [icon]);
-  const baseTransform = shape === 'diamond' ? 'translate(-50%,-50%) rotate(45deg)' : 'translate(-50%,-50%)';
+  const baseTransform = 'translate(-50%,-50%)';
   const innerTransform = shape === 'diamond' ? 'rotate(-45deg)' : undefined;
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', background: 'transparent', overflow: 'visible', color: String(node.style.color ?? '#ffffff') }}>
       <style>{`
-        @keyframes smxHotspotPulse { 0%,100% { transform:${baseTransform} scale(1); } 50% { transform:${baseTransform} scale(1.08); } }
-        @keyframes smxHotspotBounce { 0%,100% { transform:${baseTransform} translateY(0); } 50% { transform:${baseTransform} translateY(-6px); } }
+        @keyframes smxHotspotPulse { 0%,100% { transform:${baseTransform} ${shape === 'diamond' ? 'rotate(45deg)' : ''} scale(1); } 50% { transform:${baseTransform} ${shape === 'diamond' ? 'rotate(45deg)' : ''} scale(1.08); } }
+        @keyframes smxHotspotBounce { 0%,100% { transform:${baseTransform} ${shape === 'diamond' ? 'rotate(45deg)' : ''} translateY(0); } 50% { transform:${baseTransform} ${shape === 'diamond' ? 'rotate(45deg)' : ''} translateY(-6px); } }
         @keyframes smxHotspotPing { 0% { box-shadow:0 0 0 0 ${accent}55; } 70% { box-shadow:0 0 0 18px rgba(0,0,0,0); } 100% { box-shadow:0 0 0 0 rgba(0,0,0,0); } }
       `}</style>
       <button
@@ -59,18 +59,23 @@ function HotspotModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCon
           position: 'absolute',
           left: `${hotspotX}%`,
           top: `${hotspotY}%`,
-          width: shape === 'pill' ? 44 : 28,
-          height: 28,
+          width: shape === 'pill' ? 44 : 30,
+          height: 30,
           border: 'none',
           background: accent,
           color: '#111827',
           fontWeight: 900,
           fontSize: 15,
+          lineHeight: 1,
+          padding: 0,
           cursor: 'pointer',
           display: 'grid',
           placeItems: 'center',
+          appearance: 'none',
+          WebkitAppearance: 'none',
           ...hotspotShapeStyle(shape),
           ...hotspotAnimation(effect, accent, baseTransform),
+          transform: `${baseTransform}${shape === 'diamond' ? ' rotate(45deg)' : ''}`,
         }}
       >
         <span style={{ transform: innerTransform }}>{iconChar}</span>

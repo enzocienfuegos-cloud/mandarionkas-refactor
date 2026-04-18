@@ -6,11 +6,11 @@ import { getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeed
 
 function FormModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
-  const scale = Math.max(0.72, Math.min(1.08, Math.min(node.frame.width / 230, node.frame.height / 152)));
-  const compactGap = Math.max(6, Math.round(10 * scale));
-  const compactPaddingY = Math.max(8, Math.round(10 * scale));
-  const compactPaddingX = Math.max(10, Math.round(12 * scale));
-  const compactFont = Math.max(11, Math.round(12 * scale));
+  const scale = Math.max(0.5, Math.min(1.02, Math.min(node.frame.width / 250, node.frame.height / 184)));
+  const compactGap = Math.max(4, Math.round(8 * scale));
+  const compactPaddingY = Math.max(6, Math.round(8 * scale));
+  const compactPaddingX = Math.max(8, Math.round(10 * scale));
+  const compactFont = Math.max(10, Math.round(11 * scale));
   const [form, setForm] = useState({ one: '', two: '', three: '' });
   const [consentChecked, setConsentChecked] = useState(false);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'submitted' | 'error'>('idle');
@@ -84,7 +84,7 @@ function FormModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContex
     { key: 'three', label: String(node.props.fieldThree ?? 'Phone') },
   ];
 
-  return <div style={moduleShell(node, ctx)}><div style={{ ...moduleHeader(node), padding: `${Math.max(8, Math.round(10 * scale))}px ${compactPaddingX}px 0`, fontSize: Math.max(10, Math.round(12 * scale)) }}>{String(node.props.title ?? node.name)}</div><div style={{ ...moduleBody, padding: `${Math.max(6, Math.round(8 * scale))}px ${compactPaddingX}px ${Math.max(8, Math.round(12 * scale))}px`, gap: compactGap }}>{fields.map(({ key, label }) => <input key={key} value={form[key]} onChange={(e) => {
+  return <div style={{ ...moduleShell(node, ctx), overflow: 'hidden' }}><div style={{ ...moduleHeader(node), padding: `${Math.max(6, Math.round(8 * scale))}px ${compactPaddingX}px 0`, fontSize: Math.max(9, Math.round(11 * scale)) }}>{String(node.props.title ?? node.name)}</div><div style={{ ...moduleBody, padding: `${Math.max(4, Math.round(6 * scale))}px ${compactPaddingX}px ${Math.max(6, Math.round(8 * scale))}px`, gap: compactGap, overflowY: 'auto' }}>{fields.map(({ key, label }) => <input key={key} value={form[key]} onChange={(e) => {
     const nextForm = { ...form, [key]: e.target.value };
     setForm(nextForm);
     setStatus('idle');
