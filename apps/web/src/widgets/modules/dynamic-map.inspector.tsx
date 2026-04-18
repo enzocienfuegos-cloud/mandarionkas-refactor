@@ -313,8 +313,8 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
               <label>Cache TTL ms</label>
               <input type="number" step="1000" min="1000" value={String(widget.props.cacheTtlMs ?? 300000)} onChange={(event) => updateProps({ cacheTtlMs: Number(event.target.value) })} />
             </div>
-            <div className="asset-inline-actions">
-              <button type="button" className="left-button compact-action" onClick={() => void syncGooglePlaces()} disabled={syncState === 'syncing'}>
+            <div className="field-stack">
+              <button type="button" className="left-button compact-action" style={{ width: '100%', justifyContent: 'center' }} onClick={() => void syncGooglePlaces()} disabled={syncState === 'syncing'}>
                 {syncState === 'syncing' ? 'Syncing…' : 'Sync places to CSV'}
               </button>
               <small className="muted">{syncMessage || 'Sync live results into Places CSV so export stays stable.'}</small>
