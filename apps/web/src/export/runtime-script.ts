@@ -105,6 +105,10 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
   }
 
   function requestUserPosition(onSuccess, onError) {
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      if (typeof onError === 'function') onError('secure-context');
+      return;
+    }
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       if (typeof onError === 'function') onError();
       return;
@@ -116,12 +120,29 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 });
   }
 
+  function bindAutoScroll(container, enabled, intervalMs) {
+    if (!container || !enabled || container.dataset.autoscrollBound === 'true') return;
+    container.dataset.autoscrollBound = 'true';
+    let direction = 1;
+    const tick = Math.max(16, Math.floor(intervalMs / 40));
+    const timer = window.setInterval(() => {
+      const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+      if (maxScroll <= 0) return;
+      if (container.scrollTop >= maxScroll - 2) direction = -1;
+      if (container.scrollTop <= 2) direction = 1;
+      container.scrollTop = Math.max(0, Math.min(maxScroll, container.scrollTop + direction * 6));
+    }, tick);
+    container.addEventListener('pointerdown', () => window.clearInterval(timer), { once: true });
+  }
+
   function renderMapCards(root, userPosition) {
     const cardsRoot = root.querySelector('[data-map-cards]');
     if (!cardsRoot) return;
     const showOpenNow = root.getAttribute('data-map-show-open-now') === 'true';
     const showDistance = root.getAttribute('data-map-show-distance') === 'true';
     const accent = root.getAttribute('data-map-accent') || '#ef4444';
+    const autoscroll = root.getAttribute('data-map-autoscroll') === 'true';
+    const intervalMs = Number(root.getAttribute('data-map-autoscroll-interval') || 2200);
     const ranked = rankMapPlaces(root, userPosition);
     cardsRoot.innerHTML = ranked.map((place) => {
       const meta = [];
@@ -137,13 +158,17 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
         + '</div>'
         + '</div>';
     }).join('');
+    bindAutoScroll(cardsRoot, autoscroll, intervalMs);
   }
 
   function renderMapSearchBar(root, userPosition, statusMode) {
     const listRoot = root.querySelector('[data-map-search-list]');
     if (!listRoot) return;
+    const scrollRoot = root.querySelector('[data-map-search-scroll]');
     const showDistance = root.getAttribute('data-map-show-distance') === 'true';
     const accent = root.getAttribute('data-map-accent') || '#ef4444';
+    const autoscroll = root.getAttribute('data-map-autoscroll') === 'true';
+    const intervalMs = Number(root.getAttribute('data-map-autoscroll-interval') || 2200);
     const directionsLabel = root.getAttribute('data-map-directions-label') || root.getAttribute('data-map-default-cta-label') || 'Open in Maps';
     const infoLabel = root.getAttribute('data-map-info-label') || 'Nearby locations';
     const primaryAddress = root.getAttribute('data-map-primary-address') || '';
@@ -181,6 +206,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
         + '<a href="' + String(place.mapsUrl || place.resolvedUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.mapsUrl || place.resolvedUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:28px;border-radius:999px;padding:0 10px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</a>'
         + '</div></div>';
     }).join('');
+    bindAutoScroll(scrollRoot, autoscroll, intervalMs);
   }
 
   document.querySelectorAll('.widget-dynamic-map[data-widget-id]').forEach((root) => {
@@ -215,7 +241,8 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
           requestUserPosition((userPosition) => {
             renderMapSearchBar(root, userPosition, 'located');
             postUserPositionToMap(root, userPosition);
-          }, () => {
+          }, (reason) => {
+            if (reason === 'secure-context') renderMapSearchBar(root, null, 'default');
             renderMapSearchBar(root, null, 'default');
           });
         });

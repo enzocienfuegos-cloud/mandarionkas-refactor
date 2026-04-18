@@ -433,6 +433,10 @@ function renderDynamicMapWidget(node: WidgetNode): string {
   const sortByDistance = Boolean(node.props.sortByDistance ?? true);
   const showOpenNow = Boolean(node.props.showOpenNow ?? true);
   const showDistance = Boolean(node.props.showDistance ?? true);
+  const cardsAutoscroll = Boolean(node.props.cardsAutoscroll ?? false);
+  const cardsAutoscrollIntervalMs = Math.max(800, Number(node.props.cardsAutoscrollIntervalMs ?? 2200));
+  const scrollbarThumbColor = String(node.props.scrollbarThumbColor ?? '#ffffff');
+  const scrollbarTrackColor = String(node.props.scrollbarTrackColor ?? 'rgba(255,255,255,0.18)');
   const defaultCtaType = String(node.props.ctaType ?? 'maps');
   const defaultCtaLabel = String(node.props.ctaLabel ?? 'Open in Maps');
   const heroImage = String(node.props.heroImage ?? '');
@@ -530,7 +534,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
     const bottomHeight = isVertical ? '54%' : '40%';
     const panelWidth = isVertical ? 'calc(100% - 20px)' : 'min(78%,280px)';
     const panelMargin = isVertical ? 'margin:0 auto;' : 'margin-left:auto;';
-    return `<div class="widget widget-dynamic-map widget-dynamic-map-search" data-widget-id="${node.id}" data-map-render-mode="search-bar" data-map-places="${placesJson}" data-map-latitude="${latitude}" data-map-longitude="${longitude}" data-map-request-user-location="${String(requestUserLocation)}" data-map-sort-by-distance="${String(sortByDistance)}" data-map-show-open-now="${String(showOpenNow)}" data-map-show-distance="${String(showDistance)}" data-map-default-cta-type="${escapeHtml(defaultCtaType)}" data-map-default-cta-label="${escapeHtml(defaultCtaLabel)}" data-map-accent="${escapeHtml(accent)}" data-map-info-label="${escapeHtml(infoLabelText)}" data-map-primary-address="${escapeHtml(primaryAddressText)}" data-map-primary-hours="${escapeHtml(primaryHoursText)}" data-map-directions-label="${escapeHtml(directionsCtaLabel)}" data-map-locate-label="${escapeHtml(locateMeLabel)}" data-map-nearby-title="${escapeHtml(nearbyTitleText)}" data-map-locating-text="${escapeHtml(locatingText)}" data-map-location-found-text="${escapeHtml(locationFoundText)}" style="${base}">
+    return `<div class="widget widget-dynamic-map widget-dynamic-map-search" data-widget-id="${node.id}" data-map-render-mode="search-bar" data-map-places="${placesJson}" data-map-latitude="${latitude}" data-map-longitude="${longitude}" data-map-request-user-location="${String(requestUserLocation)}" data-map-sort-by-distance="${String(sortByDistance)}" data-map-show-open-now="${String(showOpenNow)}" data-map-show-distance="${String(showDistance)}" data-map-autoscroll="${String(cardsAutoscroll)}" data-map-autoscroll-interval="${cardsAutoscrollIntervalMs}" data-map-default-cta-type="${escapeHtml(defaultCtaType)}" data-map-default-cta-label="${escapeHtml(defaultCtaLabel)}" data-map-accent="${escapeHtml(accent)}" data-map-info-label="${escapeHtml(infoLabelText)}" data-map-primary-address="${escapeHtml(primaryAddressText)}" data-map-primary-hours="${escapeHtml(primaryHoursText)}" data-map-directions-label="${escapeHtml(directionsCtaLabel)}" data-map-locate-label="${escapeHtml(locateMeLabel)}" data-map-nearby-title="${escapeHtml(nearbyTitleText)}" data-map-locating-text="${escapeHtml(locatingText)}" data-map-location-found-text="${escapeHtml(locationFoundText)}" style="${base}">
       <div style="position:relative;width:100%;height:100%;overflow:hidden;background:#0f172a;">
         <div style="position:absolute;inset:0;height:${heroHeight};overflow:hidden;background:${heroImage ? '#111827' : 'linear-gradient(160deg,#0f172a,#1d4ed8)'};">
           ${heroImage ? `<img src="${escapeHtml(heroImage)}" alt="${escapeHtml(headlineText)}" style="width:100%;height:100%;object-fit:cover;display:block;" />` : ''}
@@ -579,7 +583,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
               </div>
               <a href="${escapeHtml(places[0] ? buildPlaceCtaUrl(places[0], 'maps') : '')}" target="_blank" rel="noopener noreferrer" data-smx-action="map-primary-directions" style="appearance:none;border:none;border-radius:12px;padding:10px 14px;background:${escapeHtml(accent)};color:#fff;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">${escapeHtml(directionsCtaLabel)}</a>
             </div>
-            <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:auto;flex:1;min-height:0;">
+            <div data-map-search-scroll style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:auto;flex:1;min-height:0;scrollbar-color:${escapeHtml(scrollbarThumbColor)} ${escapeHtml(scrollbarTrackColor)};scrollbar-width:thin;--map-scrollbar-thumb:${escapeHtml(scrollbarThumbColor)};--map-scrollbar-track:${escapeHtml(scrollbarTrackColor)};">
               <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:#555;">${escapeHtml(nearbyTitleText)}</div>
               <div data-map-search-list></div>
             </div>
@@ -589,7 +593,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
     </div>`;
   }
 
-  return `<div class="widget widget-dynamic-map" data-widget-id="${node.id}" data-map-places="${placesJson}" data-map-latitude="${latitude}" data-map-longitude="${longitude}" data-map-request-user-location="${String(requestUserLocation)}" data-map-sort-by-distance="${String(sortByDistance)}" data-map-show-open-now="${String(showOpenNow)}" data-map-show-distance="${String(showDistance)}" data-map-default-cta-type="${escapeHtml(defaultCtaType)}" data-map-default-cta-label="${escapeHtml(defaultCtaLabel)}" data-map-accent="${escapeHtml(accent)}" style="${base}">
+  return `<div class="widget widget-dynamic-map" data-widget-id="${node.id}" data-map-places="${placesJson}" data-map-latitude="${latitude}" data-map-longitude="${longitude}" data-map-request-user-location="${String(requestUserLocation)}" data-map-sort-by-distance="${String(sortByDistance)}" data-map-show-open-now="${String(showOpenNow)}" data-map-show-distance="${String(showDistance)}" data-map-autoscroll="${String(cardsAutoscroll)}" data-map-autoscroll-interval="${cardsAutoscrollIntervalMs}" data-map-default-cta-type="${escapeHtml(defaultCtaType)}" data-map-default-cta-label="${escapeHtml(defaultCtaLabel)}" data-map-accent="${escapeHtml(accent)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <span>${escapeHtml(String(node.props.title ?? node.name))}</span>
     </div>
@@ -598,7 +602,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
         <iframe title="Nearby locations map" srcdoc="${exportMapSrcdoc}" style="position:absolute;inset:0;width:100%;height:100%;border:0;background:${mapBackground};"></iframe>
         ${requestUserLocation ? `<button type="button" aria-label="${escapeHtml(locateMeLabel)}" title="${escapeHtml(locateMeLabel)}" data-smx-action="map-request-location-inline" style="position:absolute;right:10px;top:10px;width:40px;height:40px;border-radius:999px;border:none;background:#fff;color:${escapeHtml(accent)};box-shadow:0 3px 14px rgba(0,0,0,.2);cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;z-index:2;touch-action:manipulation;">${locateIconMarkup(accent)}</button>` : ''}
       <div style="position:absolute;left:10px;right:10px;bottom:8px;display:flex;justify-content:space-between;font-size:10px;color:#0f172a;opacity:.82;pointer-events:none;"><span>${places.length} locations · zoom ${zoom}</span><span>${requestUserLocation ? 'Location ready on tap' : 'Location fixed'}</span></div></div>`}
-      <div data-map-cards style="display:grid;gap:4px;overflow:auto;min-height:0;padding-right:2px;align-content:start;scrollbar-color:rgba(255,255,255,.92) rgba(255,255,255,.18);scrollbar-width:thin;">${places.map((place) => `<div data-map-card data-place-name="${escapeHtml(place.name)}" style="border-radius:10px;background:rgba(255,255,255,.78);border:1px solid ${escapeHtml(accent)}22;padding:7px 8px;display:grid;gap:3px;">
+      <div data-map-cards data-map-scroll-region style="display:grid;gap:4px;overflow:auto;min-height:0;padding-right:2px;align-content:start;scrollbar-color:${escapeHtml(scrollbarThumbColor)} ${escapeHtml(scrollbarTrackColor)};scrollbar-width:thin;--map-scrollbar-thumb:${escapeHtml(scrollbarThumbColor)};--map-scrollbar-track:${escapeHtml(scrollbarTrackColor)};">${places.map((place) => `<div data-map-card data-place-name="${escapeHtml(place.name)}" style="border-radius:10px;background:rgba(255,255,255,.78);border:1px solid ${escapeHtml(accent)}22;padding:7px 8px;display:grid;gap:3px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:11px;line-height:1.1;">${escapeHtml(place.name)}</strong><span data-place-badge style="font-size:8px;border-radius:999px;padding:2px 5px;background:${escapeHtml(accent)}22;color:#0f172a;white-space:nowrap;">${escapeHtml(place.badge || (place.openNow ? 'Open now' : 'Store'))}</span></div>
         <div style="font-size:9px;opacity:.78;line-height:1.15;">${escapeHtml(place.address || `${place.lat.toFixed(3)}, ${place.lng.toFixed(3)}`)}</div>
         <div data-place-meta style="display:flex;gap:5px;flex-wrap:wrap;font-size:9px;">${showOpenNow && place.openNow != null ? `<span data-place-open-now>${place.openNow ? 'Open now' : 'Closed'}</span>` : ''}</div>
@@ -989,9 +993,9 @@ export function buildStandaloneHtml(state: StudioState): string {
     .scene-card { display:grid; gap:10px; }
     .scene-title { font-weight:800; font-size:14px; letter-spacing:.04em; text-transform:uppercase; opacity:.8; }
     button.widget-cta:hover { filter: brightness(1.05); }
-    [data-map-cards]::-webkit-scrollbar { width: 10px; }
-    [data-map-cards]::-webkit-scrollbar-track { background: rgba(255,255,255,.18); border-radius: 999px; }
-    [data-map-cards]::-webkit-scrollbar-thumb { background: rgba(255,255,255,.92); border-radius: 999px; border: 2px solid rgba(0,0,0,0); }
+    [data-map-cards]::-webkit-scrollbar, [data-map-search-scroll]::-webkit-scrollbar { width: 10px; }
+    [data-map-cards]::-webkit-scrollbar-track, [data-map-search-scroll]::-webkit-scrollbar-track { background: var(--map-scrollbar-track, rgba(255,255,255,.18)); border-radius: 999px; }
+    [data-map-cards]::-webkit-scrollbar-thumb, [data-map-search-scroll]::-webkit-scrollbar-thumb { background: var(--map-scrollbar-thumb, rgba(255,255,255,.92)); border-radius: 999px; border: 2px solid rgba(0,0,0,0); }
   </style>
 </head>
 <body>

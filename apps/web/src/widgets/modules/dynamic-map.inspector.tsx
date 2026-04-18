@@ -265,9 +265,27 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
           Show distance
         </label>
         <label className="checkbox-row">
+          <input type="checkbox" checked={Boolean(widget.props.cardsAutoscroll ?? false)} onChange={(event) => updateProps({ cardsAutoscroll: event.target.checked })} />
+          Auto-scroll locations
+        </label>
+        <div>
+          <label>Auto-scroll interval ms</label>
+          <input type="number" step="100" min="800" value={String(widget.props.cardsAutoscrollIntervalMs ?? 2200)} onChange={(event) => updateProps({ cardsAutoscrollIntervalMs: Number(event.target.value) })} />
+        </div>
+        <label className="checkbox-row">
           <input type="checkbox" checked={Boolean(widget.props.showRoute ?? false)} onChange={(event) => updateProps({ showRoute: event.target.checked })} />
           Show route
         </label>
+        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <div>
+            <label>Scrollbar thumb</label>
+            <input type="color" value={String(widget.props.scrollbarThumbColor ?? '#ffffff')} onChange={(event) => updateProps({ scrollbarThumbColor: event.target.value })} />
+          </div>
+          <div>
+            <label>Scrollbar track</label>
+            <input type="color" value={String(widget.props.scrollbarTrackColor ?? '#dbeafe')} onChange={(event) => updateProps({ scrollbarTrackColor: event.target.value })} />
+          </div>
+        </div>
         <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
           <div>
             <label>Default CTA</label>

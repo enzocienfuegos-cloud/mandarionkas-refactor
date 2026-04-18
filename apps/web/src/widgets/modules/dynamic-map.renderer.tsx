@@ -12,6 +12,20 @@ type LeafletRuntime = {
   markers: any[];
 };
 
+function bindAutoScroll(container: HTMLDivElement | null, enabled: boolean, intervalMs: number): (() => void) | undefined {
+  if (!container || !enabled) return undefined;
+  let direction = 1;
+  const tick = Math.max(16, Math.floor(intervalMs / 40));
+  const timer = window.setInterval(() => {
+    const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+    if (maxScroll <= 0) return;
+    if (container.scrollTop >= maxScroll - 2) direction = -1;
+    if (container.scrollTop <= 2) direction = 1;
+    container.scrollTop = Math.max(0, Math.min(maxScroll, container.scrollTop + direction * 6));
+  }, tick);
+  return () => window.clearInterval(timer);
+}
+
 function LocateIcon({ size = 18, color = 'currentColor' }: { size?: number; color?: string }): JSX.Element {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -255,6 +269,12 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
 
   const nearestPlaces = places.slice(0, 3);
   const listedPlaces = places;
+  const cardsListRef = useRef<HTMLDivElement | null>(null);
+  const searchListScrollRef = useRef<HTMLDivElement | null>(null);
+  const cardsAutoscroll = Boolean(node.props.cardsAutoscroll ?? false);
+  const cardsAutoscrollIntervalMs = Math.max(800, Number(node.props.cardsAutoscrollIntervalMs ?? 2200));
+  const scrollbarThumbColor = String(node.props.scrollbarThumbColor ?? '#ffffff');
+  const scrollbarTrackColor = String(node.props.scrollbarTrackColor ?? 'rgba(255,255,255,0.18)');
   const openPrimaryCta = () => {
     setPanelOpen(true);
     ctx.triggerWidgetAction('click');
@@ -302,12 +322,15 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
     });
   }, [panelOpen, cardsOnly, mapCenterLat, mapCenterLng, zoom, accent, places, selectedPlace, userPosition]);
 
+  useEffect(() => bindAutoScroll(cardsListRef.current, cardsAutoscroll, cardsAutoscrollIntervalMs), [cardsAutoscroll, cardsAutoscrollIntervalMs, places.length, renderMode]);
+  useEffect(() => bindAutoScroll(searchListScrollRef.current, cardsAutoscroll, cardsAutoscrollIntervalMs), [cardsAutoscroll, cardsAutoscrollIntervalMs, listedPlaces.length, panelOpen, renderMode]);
+
   if (searchBarMode) {
     const heroHeight = isVertical ? '46%' : '60%';
     const bottomHeight = isVertical ? '54%' : '40%';
     return (
       <div style={{ ...moduleShell(node, ctx), position: 'relative' }}>
-        <style>{`.smx-map-label,.smx-map-label.leaflet-tooltip{background:#111827!important;border:none!important;border-radius:999px!important;color:#fff!important;padding:4px 8px!important;font-size:10px!important;font-weight:700!important;box-shadow:none!important;opacity:1!important}.smx-map-label:before,.smx-map-label.leaflet-tooltip:before{display:none!important}`}</style>
+        <style>{`.smx-map-label,.smx-map-label.leaflet-tooltip{background:#111827!important;border:none!important;border-radius:999px!important;color:#fff!important;padding:4px 8px!important;font-size:10px!important;font-weight:700!important;box-shadow:none!important;opacity:1!important}.smx-map-label:before,.smx-map-label.leaflet-tooltip:before{display:none!important}.smx-locator-scroll::-webkit-scrollbar{width:10px}.smx-locator-scroll::-webkit-scrollbar-track{background:var(--map-scrollbar-track,rgba(255,255,255,.18));border-radius:999px}.smx-locator-scroll::-webkit-scrollbar-thumb{background:var(--map-scrollbar-thumb,#fff);border-radius:999px;border:2px solid rgba(0,0,0,0)}`}</style>
         <div style={{ position: 'absolute', inset: 0, background: '#000' }}>
           <div style={{ position: 'absolute', inset: 0, height: heroHeight, overflow: 'hidden', background: heroImage ? '#111827' : 'linear-gradient(160deg,#0f172a,#1d4ed8)' }}>
             {heroImage ? <img src={heroImage} alt={headlineText} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
@@ -366,7 +389,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
                   </div>
                   <button type="button" onClick={(event) => { event.stopPropagation(); if (nearestPlaces[0]) window.open(buildPlaceCtaUrl(nearestPlaces[0], 'maps'), '_blank'); }} style={{ appearance: 'none', border: 'none', borderRadius: 12, padding: '10px 14px', background: accent, color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>{directionsCtaLabel}</button>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 2 }}>
+                <div ref={searchListScrollRef} className="smx-locator-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 2, scrollbarColor: `${scrollbarThumbColor} ${scrollbarTrackColor}`, scrollbarWidth: 'thin' as const, ['--map-scrollbar-thumb' as any]: scrollbarThumbColor, ['--map-scrollbar-track' as any]: scrollbarTrackColor }}>
                   <div style={{ fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.5px', color: '#555' }}>{nearbyTitleText}</div>
                   {listedPlaces.map((place, index) => (
                     <div key={`${place.name}-${index}-nearest`} onClick={() => setSelectedPlace(place)} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', border: selectedPlace?.name === place.name && selectedPlace?.lat === place.lat && selectedPlace?.lng === place.lng ? `1px solid ${accent}` : '1px solid rgba(0,0,0,.08)', borderRadius: 12, background: '#fff', cursor: 'pointer' }}>
@@ -395,7 +418,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
 
   return (
     <div style={moduleShell(node, ctx)}>
-      <style>{`.smx-map-label,.smx-map-label.leaflet-tooltip{background:#111827!important;border:none!important;border-radius:999px!important;color:#fff!important;padding:4px 8px!important;font-size:10px!important;font-weight:700!important;box-shadow:none!important;opacity:1!important}.smx-map-label:before,.smx-map-label.leaflet-tooltip:before{display:none!important}`}</style>
+      <style>{`.smx-map-label,.smx-map-label.leaflet-tooltip{background:#111827!important;border:none!important;border-radius:999px!important;color:#fff!important;padding:4px 8px!important;font-size:10px!important;font-weight:700!important;box-shadow:none!important;opacity:1!important}.smx-map-label:before,.smx-map-label.leaflet-tooltip:before{display:none!important}.smx-locator-scroll::-webkit-scrollbar{width:10px}.smx-locator-scroll::-webkit-scrollbar-track{background:var(--map-scrollbar-track,rgba(255,255,255,.18));border-radius:999px}.smx-locator-scroll::-webkit-scrollbar-thumb{background:var(--map-scrollbar-thumb,#fff);border-radius:999px;border:2px solid rgba(0,0,0,0)}`}</style>
       <div style={{ ...moduleHeader(node), display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span>{String(node.props.title ?? node.name)}</span>
       </div>
@@ -424,7 +447,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
               </div>
             </div>
           ) : null}
-          <div style={{ display: 'grid', gap: 4, overflowY: 'auto', minHeight: 0, paddingRight: 2, alignContent: 'start' }}>
+          <div ref={cardsListRef} className="smx-locator-scroll" style={{ display: 'grid', gap: 4, overflowY: 'auto', minHeight: 0, paddingRight: 2, alignContent: 'start', scrollbarColor: `${scrollbarThumbColor} ${scrollbarTrackColor}`, scrollbarWidth: 'thin' as const, ['--map-scrollbar-thumb' as any]: scrollbarThumbColor, ['--map-scrollbar-track' as any]: scrollbarTrackColor }}>
             {places.map((place, index) => {
               return (
                 <div key={`${place.name}-${index}-card`} onClick={() => setSelectedPlace(place)} style={{ borderRadius: 10, background: 'rgba(255,255,255,.78)', border: selectedPlace?.name === place.name && selectedPlace?.lat === place.lat && selectedPlace?.lng === place.lng ? `1px solid ${accent}` : `1px solid ${accent}22`, padding: '7px 8px', display: 'grid', gap: 3, cursor: 'pointer' }}>
