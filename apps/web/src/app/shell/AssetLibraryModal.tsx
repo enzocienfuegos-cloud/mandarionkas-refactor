@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AssetFolder, AssetRecord } from '../../assets/types';
 import { clearAssetLibraryDragPayload, createAssetLibraryDragPayload, writeAssetLibraryDragPayload } from '../../canvas/stage/asset-library-drag';
 import { createRemoteAssetFolder, listRemoteAssetFolders } from '../../repositories/asset/api';
@@ -38,6 +38,7 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
   const [folderBusy, setFolderBusy] = useState(false);
   const [folderError, setFolderError] = useState('');
   const [dragActive, setDragActive] = useState(false);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     void listRemoteAssetFolders().then(setFolders).catch(() => setFolders([]));
@@ -107,7 +108,15 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
 
   async function handleCreateFolder(): Promise<void> {
     const name = folderDraft.trim();
-    if (!name) return;
+    if (!assetController.canCreateAssets) {
+      setFolderError('You do not have permission to create folders.');
+      return;
+    }
+    if (!name) {
+      setFolderError('Enter a folder name first.');
+      folderInputRef.current?.focus();
+      return;
+    }
     setFolderBusy(true);
     setFolderError('');
     try {
@@ -275,11 +284,28 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
               <div className="asset-library-browser-section-head">Folders</div>
               <div className="asset-folder-create-row">
                 <input
+                  ref={folderInputRef}
                   placeholder={activeFolderId !== 'all' && !activeFolderId.startsWith('project:') ? 'New subfolder name' : 'New folder name'}
                   value={folderDraft}
-                  onChange={(event) => setFolderDraft(event.target.value)}
+                  onChange={(event) => {
+                    setFolderDraft(event.target.value);
+                    if (folderError) setFolderError('');
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void handleCreateFolder();
+                    }
+                  }}
                 />
-                <button className="ghost compact-action" type="button" onClick={() => void handleCreateFolder()} disabled={!folderDraft.trim() || folderBusy}>
+                <button
+                  className="ghost compact-action"
+                  type="button"
+                  onClick={() => void handleCreateFolder()}
+                  disabled={!assetController.canCreateAssets || folderBusy}
+                  aria-disabled={!assetController.canCreateAssets || folderBusy}
+                  title={!assetController.canCreateAssets ? 'You do not have permission to create folders.' : undefined}
+                >
                   {activeFolderId !== 'all' && !activeFolderId.startsWith('project:') ? 'Create subfolder' : 'Create folder'}
                 </button>
               </div>
