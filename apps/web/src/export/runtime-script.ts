@@ -104,7 +104,64 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     }, '*');
   }
 
+  function parseUserPositionPayload(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    const latitude = Number(
+      payload.latitude
+      ?? payload.lat
+      ?? payload.coords?.latitude
+      ?? payload.coords?.lat,
+    );
+    const longitude = Number(
+      payload.longitude
+      ?? payload.lng
+      ?? payload.lon
+      ?? payload.long
+      ?? payload.coords?.longitude
+      ?? payload.coords?.lng
+      ?? payload.coords?.lon
+      ?? payload.coords?.long,
+    );
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return { latitude, longitude };
+  }
+
+  function requestMraidUserPosition(onSuccess, onError) {
+    if (typeof window === 'undefined' || !window.mraid || typeof window.mraid.getLocation !== 'function') return false;
+    const mraidState = window.smxMraidState || {};
+    if (mraidState.supports && mraidState.supports.location === false) return false;
+    let settled = false;
+    const succeed = (payload) => {
+      if (settled) return;
+      const userPosition = parseUserPositionPayload(payload);
+      if (!userPosition) {
+        settled = true;
+        if (typeof onError === 'function') onError('mraid-location-invalid');
+        return;
+      }
+      settled = true;
+      onSuccess(userPosition);
+    };
+    const fail = (reason) => {
+      if (settled) return;
+      settled = true;
+      if (typeof onError === 'function') onError(reason || 'mraid-location-error');
+    };
+    try {
+      const result = window.mraid.getLocation(succeed, fail);
+      if (result && typeof result.then === 'function') {
+        result.then(succeed).catch(fail);
+      } else if (result && typeof result === 'object') {
+        window.setTimeout(() => succeed(result), 0);
+      }
+    } catch (error) {
+      fail(error && error.message ? error.message : 'mraid-location-error');
+    }
+    return true;
+  }
+
   function requestUserPosition(onSuccess, onError) {
+    if (requestMraidUserPosition(onSuccess, onError)) return;
     if (typeof window !== 'undefined' && !window.isSecureContext) {
       if (typeof onError === 'function') onError('secure-context');
       return;

@@ -1124,6 +1124,23 @@ describe('export engine', () => {
     expect(script).toContain('api.open-meteo.com');
   });
 
+  it('builds a runtime script that prefers mraid location for locator flows', () => {
+    const state = createInitialState();
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+    const mraid = buildMraidAdapter(state);
+
+    const script = buildExportRuntimeScript(mraid);
+
+    expect(script).toContain('function requestMraidUserPosition');
+    expect(script).toContain('window.mraid.getLocation');
+    expect(script).toContain('window.smxMraidState');
+    expect(script).toContain('supports.location');
+    expect(script).toContain('parseUserPositionPayload');
+    expect(script).toContain('if (requestMraidUserPosition(onSuccess, onError)) return;');
+  });
+
   it('builds a zip artifact from the export bundle', () => {
     const state = createInitialState();
     const bundle = buildExportBundle(state);
