@@ -954,6 +954,21 @@ describe('export engine', () => {
     expect(payload.preflight.packagingPlan).toBeTruthy();
   });
 
+  it('includes mraid handoff metadata in publish package payload', () => {
+    const state = createInitialState();
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+
+    const payload = JSON.parse(buildPublishPackage(state));
+
+    expect(payload.handoff.mraid).toBeTruthy();
+    expect(payload.handoff.mraid.apiVersion).toBe('3.0');
+    expect(payload.handoff.mraid.placementType).toBe('interstitial');
+    expect(payload.handoff.mraid.requiredHostFeatures.open).toBe(true);
+    expect(payload.handoff.mraid.expectedHost.maxSize).toEqual({ width: 320, height: 480 });
+  });
+
   it('includes preflight in the review package payload', () => {
     const state = createInitialState();
     const payload = JSON.parse(buildReviewPackage(state));
@@ -963,6 +978,19 @@ describe('export engine', () => {
     expect(typeof payload.summary.packageScore).toBe('number');
     expect(payload.summary.preferredArtifact).toMatch(/zip-bundle|zip-resolved/);
     expect(payload.handoff.recommendedNextStep).toBeTruthy();
+  });
+
+  it('includes mraid handoff metadata in review package payload', () => {
+    const state = createInitialState();
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+
+    const payload = JSON.parse(buildReviewPackage(state));
+
+    expect(payload.handoff.mraid).toBeTruthy();
+    expect(payload.handoff.mraid.placementType).toBe('interstitial');
+    expect(payload.handoff.mraid.standardSize).toBe(true);
   });
 
   it('materializes inline data-uri assets into bundle files', () => {

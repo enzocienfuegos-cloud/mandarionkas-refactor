@@ -15,6 +15,7 @@ import { buildGamHtml5Adapter } from './adapters/gam-html5';
 import { buildGoogleDisplayAdapter } from './adapters/google-display';
 import { buildMraidAdapter } from './adapters/mraid';
 import { buildPlayableExportAdapter } from './adapters/playable';
+import type { MraidAdapterResult } from './adapters';
 
 function buildChannelAdapter(state: StudioState) {
   switch (state.document.metadata.release.targetChannel) {
@@ -34,7 +35,32 @@ function buildChannelAdapter(state: StudioState) {
   }
 }
 
-function buildHandoffSummary(preflight: ReturnType<typeof buildExportPreflight>) {
+function buildMraidHandoffSummary(preflight: ReturnType<typeof buildExportPreflight>, channelAdapter: ReturnType<typeof buildChannelAdapter>) {
+  if (channelAdapter.adapter !== 'mraid') return undefined;
+  const mraidAdapter = channelAdapter as MraidAdapterResult;
+  const mraidWarnings = [
+    ...preflight.channelWarnings.filter((item) => item.id.startsWith('mraid-')).map((item) => item.label),
+    ...preflight.packageWarnings.filter((item) => item.code.startsWith('runtime.mraid') || item.code.startsWith('widget.mraid')).map((item) => item.message),
+  ];
+  const mraidBlockers = [
+    ...preflight.channelBlockers.filter((item) => item.id.startsWith('mraid-')).map((item) => item.label),
+    ...preflight.packageBlockers.filter((item) => item.code.startsWith('runtime.mraid') || item.code.startsWith('widget.mraid')).map((item) => item.message),
+  ];
+  return {
+    apiVersion: mraidAdapter.mraid.apiVersion,
+    placementType: mraidAdapter.mraid.expectedHost.placementType,
+    supportedSizes: mraidAdapter.mraid.supportedSizes,
+    standardSize: mraidAdapter.mraid.standardSize,
+    requiresMraidOpen: mraidAdapter.mraid.requiresMraidOpen,
+    requiredHostFeatures: mraidAdapter.mraid.requiredHostFeatures,
+    expectedHost: mraidAdapter.mraid.expectedHost,
+    readyForHostHandoff: preflight.summary.readyForResolvedZip && mraidBlockers.length === 0,
+    blockers: mraidBlockers,
+    warnings: mraidWarnings,
+  };
+}
+
+function buildHandoffSummary(preflight: ReturnType<typeof buildExportPreflight>, channelAdapter?: ReturnType<typeof buildChannelAdapter>) {
   return {
     preferredArtifact: preflight.summary.preferredArtifact,
     deliveryMode: preflight.summary.deliveryMode,
@@ -47,6 +73,7 @@ function buildHandoffSummary(preflight: ReturnType<typeof buildExportPreflight>)
     channelWarnings: preflight.channelWarnings.map((item) => item.label),
     packageBlockers: preflight.packageBlockers.map((item) => item.message),
     packageWarnings: preflight.packageWarnings.map((item) => item.message),
+    mraid: channelAdapter ? buildMraidHandoffSummary(preflight, channelAdapter) : undefined,
   };
 }
 
@@ -119,7 +146,7 @@ export function buildPublishPackage(state: StudioState): string {
     packageMetrics,
     packageCompliance: validateExportPackage(packageProbe as any, packagingPlan, exitConfig, assetPlan),
     preflight,
-    handoff: buildHandoffSummary(preflight),
+    handoff: buildHandoffSummary(preflight, localizedAdapter),
     collaboration: state.document.collaboration,
     document: state.document,
     html: buildChannelHtml(state, localizedAdapter),
@@ -146,7 +173,7 @@ export function buildReviewPackage(state: StudioState): string {
       preferredArtifact: preflight.summary.preferredArtifact,
       deliveryMode: preflight.summary.deliveryMode,
     },
-    handoff: buildHandoffSummary(preflight),
+    handoff: buildHandoffSummary(preflight, buildChannelAdapter(state)),
     collaboration: state.document.collaboration,
     readiness: buildExportReadiness(state),
     manifest: buildExportManifest(state),
