@@ -104,13 +104,13 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       const meta = [];
       if (showOpenNow && place.openNow != null) meta.push('<span data-place-open-now>' + (place.openNow ? 'Open now' : 'Closed') + '</span>');
       if (showDistance && place.distanceKm != null) meta.push('<span data-place-distance>' + Number(place.distanceKm).toFixed(1) + ' km</span>');
-      return '<div data-map-card data-place-name="' + String(place.name || '') + '" style="border-radius:12px;background:rgba(255,255,255,.78);border:1px solid ' + accent + '22;padding:10px;display:grid;gap:6px;">'
-        + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:13px;">' + String(place.name || '') + '</strong><span data-place-badge style="font-size:10px;border-radius:999px;padding:4px 6px;background:' + accent + '22;color:#0f172a;">' + String(place.badge || (place.openNow ? 'Open now' : 'Store')) + '</span></div>'
-        + '<div style="font-size:11px;opacity:.78;">' + String(place.address || '') + '</div>'
-        + '<div data-place-meta style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;">' + meta.join('') + '</div>'
+      return '<div data-map-card data-place-name="' + String(place.name || '') + '" style="border-radius:10px;background:rgba(255,255,255,.78);border:1px solid ' + accent + '22;padding:7px 8px;display:grid;gap:3px;">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:11px;line-height:1.1;">' + String(place.name || '') + '</strong><span data-place-badge style="font-size:8px;border-radius:999px;padding:2px 5px;background:' + accent + '22;color:#0f172a;white-space:nowrap;">' + String(place.badge || (place.openNow ? 'Open now' : 'Store')) + '</span></div>'
+        + '<div style="font-size:9px;opacity:.78;line-height:1.15;">' + String(place.address || '') + '</div>'
+        + '<div data-place-meta style="display:flex;gap:5px;flex-wrap:wrap;font-size:9px;">' + meta.join('') + '</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
-        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.wazeUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:32px;border-radius:999px;padding:0 12px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</button>'
-        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.mapsUrl || place.resolvedUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:32px;border-radius:999px;padding:0 12px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</button>'
+        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.wazeUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</button>'
+        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.mapsUrl || place.resolvedUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</button>'
         + '</div>'
         + '</div>';
     }).join('');
