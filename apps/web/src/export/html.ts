@@ -286,7 +286,7 @@ function renderHotspotWidget(node: WidgetNode): string {
     `overflow:hidden`,
     `box-sizing:border-box`,
     `border-radius:${Number(style.borderRadius ?? 14)}px`,
-    `background:${String(style.backgroundColor ?? '#172554')}`,
+    `background:transparent`,
     `color:${String(style.color ?? '#ffffff')}`,
   ].join(';');
 
@@ -428,6 +428,15 @@ function renderFormWidget(node: WidgetNode): string {
   const consentRequired = Boolean(node.props.consentRequired ?? true);
   const consentLabel = String(node.props.consentLabel ?? 'I agree to share my data');
   const fieldThree = String(node.props.fieldThree ?? 'Phone');
+  const scale = Math.max(0.72, Math.min(1.08, Math.min(frame.width / 230, frame.height / 152)));
+  const headerPaddingTop = Math.max(8, Math.round(10 * scale));
+  const headerPaddingX = Math.max(10, Math.round(12 * scale));
+  const bodyPaddingTop = Math.max(6, Math.round(8 * scale));
+  const bodyPaddingBottom = Math.max(8, Math.round(12 * scale));
+  const inputPaddingY = Math.max(8, Math.round(10 * scale));
+  const inputPaddingX = Math.max(10, Math.round(12 * scale));
+  const compactFont = Math.max(11, Math.round(12 * scale));
+  const checkboxSize = Math.max(14, Math.round(16 * scale));
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -446,14 +455,14 @@ function renderFormWidget(node: WidgetNode): string {
   ].join(';');
 
   return `<form class="widget widget-form" data-widget-id="${node.id}" data-form-target-type="${escapeHtml(String(node.props.submitTargetType ?? 'none'))}" data-form-submit-url="${escapeHtml(String(node.props.submitUrl ?? ''))}" data-form-method="${escapeHtml(String(node.props.method ?? 'POST').toUpperCase())}" data-form-success-message="${escapeHtml(String(node.props.successMessage ?? 'Submitted'))}" data-form-field-one="${escapeHtml(String(node.props.fieldOne ?? 'Name'))}" data-form-field-two="${escapeHtml(String(node.props.fieldTwo ?? 'Email'))}" data-form-field-three="${escapeHtml(fieldThree)}" data-form-consent-required="${String(consentRequired)}" style="${base}">
-    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
-    <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:8px;">
-      <input data-form-input="one" placeholder="${escapeHtml(String(node.props.fieldOne ?? 'Name'))}" style="border-radius:10px;padding:10px 12px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);" />
-      <input data-form-input="two" placeholder="${escapeHtml(String(node.props.fieldTwo ?? 'Email'))}" style="border-radius:10px;padding:10px 12px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);" />
-      <input data-form-input="three" placeholder="${escapeHtml(fieldThree)}" style="border-radius:10px;padding:10px 12px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);" />
-      ${consentRequired ? `<label style="display:flex;gap:10px;align-items:center;font-size:12px;line-height:1.35;color:#334155;"><input type="checkbox" data-form-consent style="margin:0;width:16px;height:16px;accent-color:${escapeHtml(accent)};flex:0 0 auto;" /><span>${escapeHtml(consentLabel)}</span></label>` : ''}
+    <div style="padding:${headerPaddingTop}px ${headerPaddingX}px 0;font-size:${Math.max(10, Math.round(12 * scale))}px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="padding:${bodyPaddingTop}px ${headerPaddingX}px ${bodyPaddingBottom}px;display:flex;flex:1;flex-direction:column;gap:${Math.max(6, Math.round(8 * scale))}px;">
+      <input data-form-input="one" placeholder="${escapeHtml(String(node.props.fieldOne ?? 'Name'))}" style="border-radius:10px;padding:${inputPaddingY}px ${inputPaddingX}px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);font-size:${compactFont}px;" />
+      <input data-form-input="two" placeholder="${escapeHtml(String(node.props.fieldTwo ?? 'Email'))}" style="border-radius:10px;padding:${inputPaddingY}px ${inputPaddingX}px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);font-size:${compactFont}px;" />
+      <input data-form-input="three" placeholder="${escapeHtml(fieldThree)}" style="border-radius:10px;padding:${inputPaddingY}px ${inputPaddingX}px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);font-size:${compactFont}px;" />
+      ${consentRequired ? `<label style="display:flex;gap:10px;align-items:center;font-size:${compactFont}px;line-height:1.35;color:#334155;"><input type="checkbox" data-form-consent style="margin:0;width:${checkboxSize}px;height:${checkboxSize}px;accent-color:${escapeHtml(accent)};flex:0 0 auto;" /><span>${escapeHtml(consentLabel)}</span></label>` : ''}
       <div data-form-status style="font-size:11px;opacity:.7;"></div>
-      <button type="submit" style="margin-top:auto;padding:10px 12px;border-radius:12px;background:${escapeHtml(accent)};color:#111827;font-weight:800;border:none;cursor:pointer;">${escapeHtml(String(node.props.ctaLabel ?? 'Submit'))}</button>
+      <button type="submit" style="margin-top:auto;padding:${inputPaddingY}px ${inputPaddingX}px;border-radius:12px;background:${escapeHtml(accent)};color:#111827;font-weight:800;border:none;cursor:pointer;font-size:${compactFont}px;">${escapeHtml(String(node.props.ctaLabel ?? 'Submit'))}</button>
     </div>
   </form>`;
 }
@@ -853,6 +862,8 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
   const cardShape = String(node.props.cardShape ?? 'portrait');
   const autoscroll = Boolean(node.props.autoscroll ?? true);
   const intervalMs = Math.max(1000, Math.min(10000, Number(node.props.intervalMs ?? 2600)));
+  const showPrevButton = Boolean(node.props.showPrevButton ?? true);
+  const showNextButton = Boolean(node.props.showNextButton ?? true);
   const products = parseShoppableProducts(String(node.props.products ?? '')).map((product) => ({
     ...product,
     src: assetPathMap[product.src] ?? product.src,
@@ -873,15 +884,15 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
   }];
   const visibleCount = orientation === 'vertical' ? 1 : Math.min(2, activeProducts.length || 1);
   const availableWidth = Math.max(120, frame.width - 24);
-  const availableHeight = Math.max(96, frame.height - 54);
+  const availableHeight = Math.max(88, frame.height - 58);
   const effectiveCardSize = orientation === 'horizontal'
     ? {
         width: Math.max(96, Math.floor((availableWidth - 24 * Math.max(0, visibleCount - 1)) / visibleCount)),
-        height: Math.max(104, Math.min(baseCardSize.height, availableHeight)),
+        height: Math.max(92, Math.min(Math.floor(availableHeight * 0.94), baseCardSize.height)),
       }
     : {
         width: Math.max(110, Math.min(availableWidth, baseCardSize.width)),
-        height: Math.max(104, Math.min(baseCardSize.height, availableHeight)),
+        height: Math.max(96, Math.min(Math.floor(availableHeight * 0.94), baseCardSize.height)),
       };
   const mediaHeight = Math.max(60, Math.min(cardShape === 'landscape' ? Math.floor(effectiveCardSize.height * 0.58) : Math.floor(effectiveCardSize.height * 0.68), effectiveCardSize.height - 44));
   const productsJson = escapeHtml(JSON.stringify(activeProducts));
@@ -918,8 +929,7 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
     <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;min-height:0;">
       <div style="position:relative;flex:1;overflow:hidden;">
         <div data-shoppable-track style="display:flex;${orientation === 'vertical' ? 'flex-direction:column;' : ''}gap:12px;transition:transform .28s ease;">${cards}</div>
-        ${activeProducts.length > 1 ? `<button type="button" data-smx-action="shoppable-prev" data-widget-id="${node.id}" style="position:absolute;left:4px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:none;background:rgba(255,255,255,.94);color:#111827;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.12);">‹</button>
-        <button type="button" data-smx-action="shoppable-next" data-widget-id="${node.id}" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:none;background:rgba(255,255,255,.94);color:#111827;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.12);">›</button>` : ''}
+        ${activeProducts.length > 1 ? `${showPrevButton ? `<button type="button" data-smx-action="shoppable-prev" data-widget-id="${node.id}" style="position:absolute;left:4px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:none;background:rgba(255,255,255,.94);color:#111827;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.12);">‹</button>` : ''}${showNextButton ? `<button type="button" data-smx-action="shoppable-next" data-widget-id="${node.id}" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:none;background:rgba(255,255,255,.94);color:#111827;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.12);">›</button>` : ''}` : ''}
       </div>
     </div>
   </div>`;

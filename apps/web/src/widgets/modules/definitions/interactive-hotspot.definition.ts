@@ -58,6 +58,6 @@ export const InteractiveHotspotDefinition = createModuleDefinition({
       ],
     },
   ],
-  style: { backgroundColor: '#172554', accentColor: '#f59e0b', color: '#ffffff' },
+  style: { backgroundColor: 'transparent', accentColor: '#f59e0b', color: '#ffffff' },
   renderStage: renderInteractiveHotspotStage,
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { clamp, getAccent, moduleBody, moduleHeader, moduleShell, parseCarouselSlides, renderCollapsedIfNeeded } from './shared-styles';
@@ -14,6 +14,7 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
   const paginationDotSize = clamp(Number(node.props.paginationDotSize ?? 6), 3, 10);
   const [activeIndex, setActiveIndex] = useState(0);
+  const swipeStartRef = useRef<number | null>(null);
   useEffect(() => {
     if (!autoplay || slides.length <= 1 || !ctx.previewMode) return;
     const timer = window.setInterval(() => setActiveIndex((value) => (value + 1) % slides.length), intervalMs);
@@ -21,6 +22,17 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   }, [autoplay, slides.length, intervalMs, ctx.previewMode]);
   const activeSlide = slides[activeIndex] ?? slides[0];
 
-  return <div style={moduleShell(node, ctx)}><div style={moduleHeader(node)}>{String(node.props.title ?? node.name)}</div><div style={moduleBody}><div style={{ position:'relative', flex:1, borderRadius, overflow:'hidden', background:'#111827' }}>{activeSlide ? <img src={activeSlide.src} alt={activeSlide.caption} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} /> : <div style={{ width:'100%', height:'100%', display:'grid', placeItems:'center', opacity:.7 }}>Add slides</div>}<div style={{ position:'absolute', insetInline:12, bottom:10, display:'flex', justifyContent:'space-between', alignItems:'end', gap:8 }}><div style={{ borderRadius:10, padding:'8px 10px', background:'rgba(15,23,42,.68)', fontSize:12 }}>{activeSlide?.caption ?? 'No slide'}</div>{showPaginationDots ? <div style={{ display:'flex', gap:6 }}>{slides.map((_, index) => <button key={index} type="button" onClick={(event)=>{ event.stopPropagation(); setActiveIndex(index); }} style={{ width:paginationDotSize, height:paginationDotSize, borderRadius:'50%', border:'none', background:index===activeIndex ? accent : 'rgba(255,255,255,.45)', cursor:'pointer' }} />)}</div> : null}</div></div>{showPrevButton || showNextButton ? <div style={{ display:'flex', gap:8 }}>{showPrevButton ? <button type="button" onClick={(event)=>{ event.stopPropagation(); setActiveIndex((value)=> slides.length ? (value - 1 + slides.length) % slides.length : 0); }} style={{ flex:1, borderRadius:10, border:`1px solid ${accent}`, background:'transparent', color:'inherit', padding:'8px 10px' }}>Prev</button> : null}{showNextButton ? <button type="button" onClick={(event)=>{ event.stopPropagation(); setActiveIndex((value)=> slides.length ? (value + 1) % slides.length : 0); ctx.triggerWidgetAction('click'); }} style={{ flex:1, borderRadius:10, border:'none', background:accent, color:'#111827', fontWeight:800, padding:'8px 10px' }}>Next</button> : null}</div> : null}</div></div>;
+  return <div style={moduleShell(node, ctx)}><div style={moduleHeader(node)}>{String(node.props.title ?? node.name)}</div><div style={moduleBody}><div style={{ position:'relative', flex:1, borderRadius, overflow:'hidden', background:'#111827', touchAction:'pan-y' }} onPointerDown={(event) => { swipeStartRef.current = event.clientX; }} onPointerUp={(event) => {
+    if (swipeStartRef.current == null || slides.length <= 1) return;
+    const delta = event.clientX - swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (Math.abs(delta) < 24) return;
+    if (delta < 0) {
+      setActiveIndex((value)=> slides.length ? (value + 1) % slides.length : 0);
+      ctx.triggerWidgetAction('click');
+    } else {
+      setActiveIndex((value)=> slides.length ? (value - 1 + slides.length) % slides.length : 0);
+    }
+  }} onPointerCancel={() => { swipeStartRef.current = null; }}>{activeSlide ? <img src={activeSlide.src} alt={activeSlide.caption} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} /> : <div style={{ width:'100%', height:'100%', display:'grid', placeItems:'center', opacity:.7 }}>Add slides</div>}<div style={{ position:'absolute', insetInline:12, bottom:10, display:'flex', justifyContent:'space-between', alignItems:'end', gap:8 }}><div style={{ borderRadius:10, padding:'8px 10px', background:'rgba(15,23,42,.68)', fontSize:12 }}>{activeSlide?.caption ?? 'No slide'}</div>{showPaginationDots ? <div style={{ display:'flex', gap:5 }}>{slides.map((_, index) => <button key={index} type="button" onClick={(event)=>{ event.stopPropagation(); setActiveIndex(index); }} style={{ width:paginationDotSize, height:paginationDotSize, borderRadius:'50%', border:'none', background:index===activeIndex ? accent : 'rgba(255,255,255,.45)', cursor:'pointer' }} />)}</div> : null}</div></div>{showPrevButton || showNextButton ? <div style={{ display:'flex', gap:8 }}>{showPrevButton ? <button type="button" onClick={(event)=>{ event.stopPropagation(); setActiveIndex((value)=> slides.length ? (value - 1 + slides.length) % slides.length : 0); }} style={{ flex:1, borderRadius:10, border:`1px solid ${accent}`, background:'transparent', color:'inherit', padding:'8px 10px' }}>Prev</button> : null}{showNextButton ? <button type="button" onClick={(event)=>{ event.stopPropagation(); setActiveIndex((value)=> slides.length ? (value + 1) % slides.length : 0); ctx.triggerWidgetAction('click'); }} style={{ flex:1, borderRadius:10, border:'none', background:accent, color:'#111827', fontWeight:800, padding:'8px 10px' }}>Next</button> : null}</div> : null}</div></div>;
 }
 export function renderImageCarouselStage(node: WidgetNode, ctx: RenderContext): JSX.Element { const collapsed=renderCollapsedIfNeeded(node,ctx); if(collapsed) return collapsed; return <ImageCarouselModuleRenderer node={node} ctx={ctx}/>; }

@@ -18,19 +18,21 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
   const cardShape = String(node.props.cardShape ?? 'portrait');
   const autoscroll = Boolean(node.props.autoscroll ?? true);
   const intervalMs = clamp(Number(node.props.intervalMs ?? 2600), 1000, 10000);
+  const showPrevButton = Boolean(node.props.showPrevButton ?? true);
+  const showNextButton = Boolean(node.props.showNextButton ?? true);
   const [activeIndex, setActiveIndex] = useState(clamp(Number(node.props.activeIndex ?? 1), 1, itemCount) - 1);
   const fallbackCardSize = resolveCardSize(cardShape);
   const visibleCount = orientation === 'vertical' ? 1 : Math.min(2, itemCount);
   const availableWidth = Math.max(120, node.frame.width - 24);
-  const availableHeight = Math.max(96, node.frame.height - 54);
+  const availableHeight = Math.max(88, node.frame.height - 58);
   const cardSize = orientation === 'horizontal'
     ? {
         width: Math.max(96, Math.floor((availableWidth - 12 * Math.max(0, visibleCount - 1)) / visibleCount)),
-        height: Math.max(104, Math.min(fallbackCardSize.height, availableHeight)),
+        height: Math.max(92, Math.min(Math.floor(availableHeight * 0.94), fallbackCardSize.height)),
       }
     : {
         width: Math.max(110, Math.min(availableWidth, fallbackCardSize.width)),
-        height: Math.max(104, Math.min(fallbackCardSize.height, availableHeight)),
+        height: Math.max(96, Math.min(Math.floor(availableHeight * 0.94), fallbackCardSize.height)),
       };
   const mediaHeight = Math.max(60, Math.min(cardShape === 'landscape' ? Math.floor(cardSize.height * 0.58) : Math.floor(cardSize.height * 0.68), cardSize.height - 44));
 
@@ -108,7 +110,7 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
           </div>
           {itemCount > 1 ? (
             <>
-              <button
+              {showPrevButton ? <button
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
@@ -117,8 +119,8 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                 style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,.94)', color: '#111827', fontWeight: 900, cursor: 'pointer', boxShadow: '0 2px 10px rgba(15,23,42,.12)' }}
               >
                 ‹
-              </button>
-              <button
+              </button> : null}
+              {showNextButton ? <button
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
@@ -128,7 +130,7 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                 style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,.94)', color: '#111827', fontWeight: 900, cursor: 'pointer', boxShadow: '0 2px 10px rgba(15,23,42,.12)' }}
               >
                 ›
-              </button>
+              </button> : null}
             </>
           ) : null}
         </div>

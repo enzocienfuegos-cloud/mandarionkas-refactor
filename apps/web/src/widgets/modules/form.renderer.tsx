@@ -6,6 +6,11 @@ import { getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeed
 
 function FormModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
+  const scale = Math.max(0.72, Math.min(1.08, Math.min(node.frame.width / 230, node.frame.height / 152)));
+  const compactGap = Math.max(6, Math.round(10 * scale));
+  const compactPaddingY = Math.max(8, Math.round(10 * scale));
+  const compactPaddingX = Math.max(10, Math.round(12 * scale));
+  const compactFont = Math.max(11, Math.round(12 * scale));
   const [form, setForm] = useState({ one: '', two: '', three: '' });
   const [consentChecked, setConsentChecked] = useState(false);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'submitted' | 'error'>('idle');
@@ -79,7 +84,7 @@ function FormModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContex
     { key: 'three', label: String(node.props.fieldThree ?? 'Phone') },
   ];
 
-  return <div style={moduleShell(node, ctx)}><div style={moduleHeader(node)}>{String(node.props.title ?? node.name)}</div><div style={moduleBody}>{fields.map(({ key, label }) => <input key={key} value={form[key]} onChange={(e) => {
+  return <div style={moduleShell(node, ctx)}><div style={{ ...moduleHeader(node), padding: `${Math.max(8, Math.round(10 * scale))}px ${compactPaddingX}px 0`, fontSize: Math.max(10, Math.round(12 * scale)) }}>{String(node.props.title ?? node.name)}</div><div style={{ ...moduleBody, padding: `${Math.max(6, Math.round(8 * scale))}px ${compactPaddingX}px ${Math.max(8, Math.round(12 * scale))}px`, gap: compactGap }}>{fields.map(({ key, label }) => <input key={key} value={form[key]} onChange={(e) => {
     const nextForm = { ...form, [key]: e.target.value };
     setForm(nextForm);
     setStatus('idle');
@@ -87,13 +92,13 @@ function FormModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContex
     autosaveTimerRef.current = window.setTimeout(() => {
       void sendDraft(nextForm);
     }, 650);
-  }} onPointerDown={(e) => e.stopPropagation()} placeholder={label} style={{ borderRadius: 12, padding: '10px 12px', background: '#f8fafc', color: '#0f172a', border: '1px solid rgba(15,23,42,.12)' }} />)}{consentRequired ? <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 12, lineHeight: 1.35, color: '#334155' }} onPointerDown={(e) => e.stopPropagation()}><input type="checkbox" checked={consentChecked} onChange={(e) => {
+  }} onPointerDown={(e) => e.stopPropagation()} placeholder={label} style={{ borderRadius: 12, padding: `${compactPaddingY}px ${compactPaddingX}px`, background: '#f8fafc', color: '#0f172a', border: '1px solid rgba(15,23,42,.12)', fontSize: compactFont }} />)}{consentRequired ? <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: compactFont, lineHeight: 1.35, color: '#334155' }} onPointerDown={(e) => e.stopPropagation()}><input type="checkbox" checked={consentChecked} onChange={(e) => {
     setConsentChecked(e.target.checked);
     if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
     autosaveTimerRef.current = window.setTimeout(() => {
       void sendDraft(form, e.target.checked);
     }, 200);
-  }} style={{ margin: 0, width: 16, height: 16, accentColor: accent, flex: '0 0 auto' }} /> <span>{consentLabel}</span></label> : null}<button type="button" onClick={onSubmit} style={{ marginTop: 'auto', padding: '10px 12px', borderRadius: 12, background: accent, color: '#111827', fontWeight: 800, border: 'none', cursor: 'pointer' }}>{status === 'submitting' ? 'Submitting…' : status === 'submitted' ? successMessage : status === 'error' ? (consentRequired && !consentChecked ? 'Accept consent' : 'Retry submit') : String(node.props.ctaLabel ?? 'Submit')}</button></div></div>;
+  }} style={{ margin: 0, width: Math.max(14, Math.round(16 * scale)), height: Math.max(14, Math.round(16 * scale)), accentColor: accent, flex: '0 0 auto' }} /> <span>{consentLabel}</span></label> : null}<button type="button" onClick={onSubmit} style={{ marginTop: 'auto', padding: `${compactPaddingY}px ${compactPaddingX}px`, borderRadius: 12, background: accent, color: '#111827', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: compactFont }}>{status === 'submitting' ? 'Submitting…' : status === 'submitted' ? successMessage : status === 'error' ? (consentRequired && !consentChecked ? 'Accept consent' : 'Retry submit') : String(node.props.ctaLabel ?? 'Submit')}</button></div></div>;
 }
 
 export function renderFormStage(node: WidgetNode, ctx: RenderContext): JSX.Element {

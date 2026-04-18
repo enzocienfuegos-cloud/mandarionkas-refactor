@@ -143,6 +143,22 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
           <label>Interval ms</label>
           <input type="number" step="1" value={String(widget.props.intervalMs ?? 2600)} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { intervalMs: Number(event.target.value) })} />
         </div>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={Boolean(widget.props.showPrevButton ?? true)}
+            onChange={(event) => widgetActions.updateWidgetProps(widget.id, { showPrevButton: event.target.checked })}
+          />
+          Show left arrow
+        </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={Boolean(widget.props.showNextButton ?? true)}
+            onChange={(event) => widgetActions.updateWidgetProps(widget.id, { showNextButton: event.target.checked })}
+          />
+          Show right arrow
+        </label>
         <div>
           <label>Project images</label>
           <div className="asset-inline-actions">

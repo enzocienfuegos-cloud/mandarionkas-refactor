@@ -18,6 +18,8 @@ export const ShoppableSidebarDefinition = createModuleDefinition({
     cardShape: 'portrait',
     autoscroll: true,
     intervalMs: 2600,
+    showPrevButton: true,
+    showNextButton: true,
   },
   renderInspector: (widget) => createElement(ShoppableSidebarInspector, { widget }),
   style: { backgroundColor: '#f8fafc', accentColor: '#9a3412', color: '#1f2937', borderRadius: 20 },
