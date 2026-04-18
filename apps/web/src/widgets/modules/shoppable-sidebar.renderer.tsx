@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { clamp, getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
-import { parseShoppableProducts, renderRatingStars } from './shoppable-sidebar.shared';
+import { parseShoppableProducts } from './shoppable-sidebar.shared';
 
 function resolveCardSize(cardShape: string): { width: number; height: number } {
   if (cardShape === 'landscape') return { width: 168, height: 110 };
@@ -32,7 +32,7 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
         width: Math.max(110, Math.min(availableWidth, fallbackCardSize.width)),
         height: Math.max(104, Math.min(fallbackCardSize.height, availableHeight)),
       };
-  const mediaHeight = Math.max(48, Math.min(cardShape === 'landscape' ? Math.floor(cardSize.height * 0.46) : Math.floor(cardSize.height * 0.52), cardSize.height - 56));
+  const mediaHeight = Math.max(60, Math.min(cardShape === 'landscape' ? Math.floor(cardSize.height * 0.58) : Math.floor(cardSize.height * 0.68), cardSize.height - 44));
 
   useEffect(() => {
     if (!autoscroll || itemCount <= 1 || !ctx.previewMode) return;
@@ -76,12 +76,12 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                   width: cardSize.width,
                   minWidth: cardSize.width,
                   height: cardSize.height,
-                  borderRadius: 18,
+                  borderRadius: 10,
                   overflow: 'hidden',
                   background: '#ffffff',
                   color: '#1f2937',
-                  border: `1px solid ${accent}22`,
-                  boxShadow: '0 10px 26px rgba(15,23,42,.12)',
+                  border: '1px solid rgba(15,23,42,.10)',
+                  boxShadow: '0 4px 14px rgba(15,23,42,.08)',
                   display: 'flex',
                   flexDirection: 'column',
                 }}
@@ -89,20 +89,16 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                 <div style={{ position: 'relative', height: mediaHeight, background: product.src ? '#111827' : '#f8fafc', flexShrink: 0 }}>
                   {product.src ? <img src={product.src} alt={product.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
                 </div>
-                <div style={{ padding: '8px 8px 10px', display: 'grid', gap: 4, minHeight: 0, flex: 1 }}>
-                  <div style={{ fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.subtitle || 'Featured item'}</div>
-                  <div style={{ fontSize: 12, fontWeight: 800, lineHeight: 1.15, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 as any, overflow: 'hidden' }}>{product.title}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <div style={{ fontSize: 11, color: accent }}>{renderRatingStars(product.rating)}</div>
-                    <div style={{ fontSize: 13, fontWeight: 900 }}>{product.price || '$0'}</div>
-                  </div>
+                <div style={{ padding: '8px 8px 10px', display: 'grid', gap: 3, minHeight: 0, flex: 1, alignContent: 'start' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#0f172a', lineHeight: 1.15, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 as any, overflow: 'hidden' }}>{product.title}</div>
+                  <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.15 }}>{product.price || '$0'}</div>
                   <button
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
                       ctx.triggerWidgetAction('click');
                     }}
-                    style={{ marginTop: 'auto', border: 'none', borderRadius: 10, background: accent, color: '#111827', fontWeight: 800, padding: '7px 9px', cursor: 'pointer', fontSize: 11 }}
+                    style={{ marginTop: 'auto', border: 'none', borderRadius: 10, background: accent, color: '#111827', fontWeight: 800, padding: '7px 9px', cursor: 'pointer', fontSize: 11, opacity: product.ctaLabel ? 1 : 0 }}
                   >
                     {product.ctaLabel || 'Shop now'}
                   </button>
@@ -118,7 +114,7 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                   event.stopPropagation();
                   setActiveIndex((value) => (value - 1 + itemCount) % itemCount);
                 }}
-                style={{ position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,.86)', color: '#111827', fontWeight: 900, cursor: 'pointer' }}
+                style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,.94)', color: '#111827', fontWeight: 900, cursor: 'pointer', boxShadow: '0 2px 10px rgba(15,23,42,.12)' }}
               >
                 ‹
               </button>
@@ -129,7 +125,7 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                   setActiveIndex((value) => (value + 1) % itemCount);
                   ctx.triggerWidgetAction('click');
                 }}
-                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,.86)', color: '#111827', fontWeight: 900, cursor: 'pointer' }}
+                style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,.94)', color: '#111827', fontWeight: 900, cursor: 'pointer', boxShadow: '0 2px 10px rgba(15,23,42,.12)' }}
               >
                 ›
               </button>

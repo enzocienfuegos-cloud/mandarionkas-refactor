@@ -167,9 +167,9 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
         + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:11px;line-height:1.1;">' + String(place.name || '') + '</strong><span data-place-badge style="font-size:8px;border-radius:999px;padding:2px 5px;background:' + accent + '22;color:#0f172a;white-space:nowrap;">' + String(place.badge || (place.openNow ? 'Open now' : 'Store')) + '</span></div>'
         + '<div style="font-size:9px;opacity:.78;line-height:1.15;">' + String(place.address || '') + '</div>'
         + '<div data-place-meta style="display:flex;gap:5px;flex-wrap:wrap;font-size:9px;">' + meta.join('') + '</div>'
-        + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
-        + '<a href="' + String(place.wazeUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.wazeUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</a>'
-        + '<a href="' + String(place.mapsUrl || place.resolvedUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.mapsUrl || place.resolvedUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</a>'
+        + '<div style="display:flex;gap:8px;">'
+        + '<a href="' + String(place.wazeUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.wazeUrl || '') + '" style="display:inline-flex;flex:1;align-items:center;justify-content:center;height:30px;border-radius:12px;padding:0 10px;color:#fff;font-size:9px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</a>'
+        + '<a href="' + String(place.mapsUrl || place.resolvedUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.mapsUrl || place.resolvedUrl || '') + '" style="display:inline-flex;flex:1;align-items:center;justify-content:center;height:30px;border-radius:12px;padding:0 10px;color:#fff;font-size:9px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</a>'
         + '</div>'
         + '</div>';
     }).join('');
@@ -216,9 +216,9 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
         + '<div style="width:20px;height:20px;border-radius:50%;background:' + accent + '22;color:' + accent + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex:0 0 20px;">' + String(index + 1) + '</div>'
         + '<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + String(place.name || '') + '</div>'
         + '<div style="font-size:10px;color:#666;line-height:1.2;margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;">' + meta.join('') + '</div></div>'
-        + '<div style="display:flex;gap:6px;">'
-        + '<a href="' + String(place.wazeUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.wazeUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:28px;border-radius:999px;padding:0 10px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</a>'
-        + '<a href="' + String(place.mapsUrl || place.resolvedUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.mapsUrl || place.resolvedUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:28px;border-radius:999px;padding:0 10px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</a>'
+        + '<div style="display:flex;gap:8px;width:116px;">'
+        + '<a href="' + String(place.wazeUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.wazeUrl || '') + '" style="display:inline-flex;flex:1;align-items:center;justify-content:center;height:32px;border-radius:12px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</a>'
+        + '<a href="' + String(place.mapsUrl || place.resolvedUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.mapsUrl || place.resolvedUrl || '') + '" style="display:inline-flex;flex:1;align-items:center;justify-content:center;height:32px;border-radius:12px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</a>'
         + '</div></div>';
     }).join('');
     bindAutoScroll(scrollRoot, autoscroll, intervalMs);
@@ -432,6 +432,48 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     });
   });
 
+  document.querySelectorAll('.widget-form[data-widget-id]').forEach((root) => {
+    root.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const submitTargetType = root.getAttribute('data-form-target-type') || 'none';
+      const submitUrl = root.getAttribute('data-form-submit-url') || '';
+      const method = root.getAttribute('data-form-method') || 'POST';
+      const successMessage = root.getAttribute('data-form-success-message') || 'Submitted';
+      const consentRequired = root.getAttribute('data-form-consent-required') === 'true';
+      const inputOne = root.querySelector('[data-form-input="one"]');
+      const inputTwo = root.querySelector('[data-form-input="two"]');
+      const consent = root.querySelector('[data-form-consent"]');
+      const status = root.querySelector('[data-form-status]');
+      const button = root.querySelector('[type="submit"]');
+      if (consentRequired && consent && !consent.checked) {
+        if (status) status.textContent = 'Accept consent to continue';
+        return;
+      }
+      if (button) button.textContent = 'Submitting…';
+      try {
+        if (submitTargetType === 'webhook' && submitUrl) {
+          await fetch(submitUrl, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fields: {
+                [root.getAttribute('data-form-field-one') || 'fieldOne']: inputOne ? inputOne.value : '',
+                [root.getAttribute('data-form-field-two') || 'fieldTwo']: inputTwo ? inputTwo.value : '',
+                consent: consentRequired ? String(Boolean(consent && consent.checked)) : 'not-required',
+              },
+              widgetId: root.getAttribute('data-widget-id') || '',
+            }),
+          });
+        }
+        if (status) status.textContent = successMessage;
+        if (button) button.textContent = successMessage;
+      } catch (_error) {
+        if (status) status.textContent = 'Retry submit';
+        if (button) button.textContent = 'Retry submit';
+      }
+    });
+  });
+
   document.querySelectorAll('[data-smx-action="hotspot-toggle"]').forEach((node) => {
     node.addEventListener('click', (event) => {
       event.preventDefault();
@@ -440,7 +482,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       const panel = root?.querySelector('[data-hotspot-panel]');
       const label = root?.querySelector('[data-hotspot-label]');
       const isOpen = panel?.style.display === 'block';
-      if (panel) panel.style.display = isOpen ? 'none' : 'block';
+      if (panel) panel.style.display = isOpen ? 'none' : 'grid';
       if (label) label.style.display = isOpen ? 'block' : 'none';
     });
   });
@@ -733,10 +775,12 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     }
 
     canvas.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
       state.pointerActive = true;
       scratchAtEvent(event);
     });
     canvas.addEventListener('pointermove', (event) => {
+      event.preventDefault();
       if (event.pointerType === 'mouse') {
         scratchAtEvent(event);
         return;
@@ -745,6 +789,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       scratchAtEvent(event);
     });
     canvas.addEventListener('pointerenter', (event) => {
+      event.preventDefault();
       if (event.pointerType === 'mouse') scratchAtEvent(event);
     });
     canvas.addEventListener('pointerup', () => {

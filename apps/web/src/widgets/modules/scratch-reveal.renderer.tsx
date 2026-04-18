@@ -104,13 +104,15 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
           <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 22, textAlign: 'center', padding: 16 }}>{revealLabel}</div>
           <canvas
             ref={canvasRef}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: 'crosshair', touchAction: 'none', opacity: coverReady ? 1 : 0 }}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: 'crosshair', touchAction: 'none', opacity: coverReady ? 1 : 0, outline: 'none', background: 'transparent', WebkitTapHighlightColor: 'transparent', userSelect: 'none' as const }}
             onPointerDown={(event) => {
+              event.preventDefault();
               event.stopPropagation();
               pointerActiveRef.current = true;
               scratchAtEvent(event);
             }}
             onPointerMove={(event) => {
+              event.preventDefault();
               if (event.pointerType === 'mouse') {
                 scratchAtEvent(event);
                 return;
@@ -119,6 +121,7 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
               scratchAtEvent(event);
             }}
             onPointerEnter={(event) => {
+              event.preventDefault();
               if (event.pointerType === 'mouse') scratchAtEvent(event);
             }}
             onPointerUp={() => {

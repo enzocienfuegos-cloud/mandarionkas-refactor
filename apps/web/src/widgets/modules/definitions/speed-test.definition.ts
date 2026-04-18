@@ -13,6 +13,8 @@ export const SpeedTestDefinition = createModuleDefinition({
     current: 64,
     units: 'Mbps',
     skin: 'ookla',
+    pingValue: 11,
+    uploadValue: 42,
     durationMs: 1800,
     ctaLabel: 'Start test',
     resultMode: 'random',
@@ -26,6 +28,8 @@ export const SpeedTestDefinition = createModuleDefinition({
     { key: 'max', type: 'number' },
     { key: 'current', label: 'Fixed result', type: 'number' },
     { key: 'units' },
+    { key: 'pingValue', label: 'Ping', type: 'number' },
+    { key: 'uploadValue', label: 'Upload', type: 'number' },
     {
       key: 'skin',
       type: 'select',

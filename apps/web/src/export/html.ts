@@ -9,7 +9,7 @@ import { buildExportExitConfig } from './packaging';
 import { buildPortableProjectExport, type PortableExportScene, type PortableExportWidget } from './portable';
 import { resolveCornerRadius } from '../widgets/shared/corner-style';
 import { buildQrPattern, getFlagEmoji, parseCsvMarkers } from '../widgets/modules/shared-styles';
-import { parseShoppableProducts, renderRatingStars } from '../widgets/modules/shoppable-sidebar.shared';
+import { parseShoppableProducts } from '../widgets/modules/shoppable-sidebar.shared';
 import { resolveWeatherIcon } from '../widgets/modules/weather-conditions.shared';
 import { buildPlaceCtaUrl, parseNearbyPlaces } from '../widgets/modules/dynamic-map.shared';
 
@@ -291,8 +291,11 @@ function renderHotspotWidget(node: WidgetNode): string {
   ].join(';');
 
   return `<div class="widget widget-interactive-hotspot" data-widget-id="${node.id}" style="${base}">
-    <button type="button" data-smx-action="hotspot-toggle" data-widget-id="${node.id}" style="position:absolute;left:${hotspotX}%;top:${hotspotY}%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;border:none;background:${escapeHtml(accent)};box-shadow:0 0 0 6px ${escapeHtml(accent)}33,0 0 0 18px ${escapeHtml(accent)}11;cursor:pointer;"></button>
-    <div data-hotspot-panel style="position:absolute;left:12px;right:12px;bottom:12px;border-radius:10px;background:rgba(17,24,39,.92);padding:8px 10px;font-size:12px;display:none;">${escapeHtml(String(node.props.label ?? 'Tap point'))}</div>
+    <button type="button" data-smx-action="hotspot-toggle" data-widget-id="${node.id}" style="position:absolute;left:${hotspotX}%;top:${hotspotY}%;transform:translate(-50%,-50%);width:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '28px'};height:28px;border-radius:${String(node.props.hotspotShape ?? 'circle') === 'square' ? '12px' : String(node.props.hotspotShape ?? 'circle') === 'pill' ? '999px' : String(node.props.hotspotShape ?? 'circle') === 'diamond' ? '10px' : '50%'};border:none;background:${escapeHtml(accent)};box-shadow:${String(node.props.hotspotEffect ?? 'pulse') === 'none' ? 'none' : `0 0 0 6px ${escapeHtml(accent)}33,0 0 0 18px ${escapeHtml(accent)}11`};cursor:pointer;font-weight:900;font-size:15px;color:#111827;">${escapeHtml(String(node.props.hotspotIcon ?? 'plus') === 'arrow-up' ? '↑' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-down' ? '↓' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-left' ? '←' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-right' ? '→' : String(node.props.hotspotIcon ?? 'plus') === 'info' ? 'i' : '+')}</button>
+    <div data-hotspot-panel style="position:absolute;left:12px;right:12px;bottom:12px;border-radius:14px;background:rgba(17,24,39,.94);padding:10px 12px;display:none;gap:6px;">
+      <div style="font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.header ?? 'Interactive hotspot'))}</div>
+      <div style="font-size:12px;line-height:1.45;">${escapeHtml(String(node.props.body ?? 'Add more context for this interactive point.'))}</div>
+    </div>
     <div data-hotspot-label style="position:absolute;left:12px;bottom:12px;font-size:12px;">${escapeHtml(String(node.props.label ?? 'Tap point'))}</div>
   </div>`;
 }
@@ -367,7 +370,7 @@ function renderScratchRevealWidget(node: WidgetNode): string {
       <div class="scratch-reveal-shell" data-scratch-widget-id="${node.id}" data-scratch-cover-image="${escapeHtml(beforeImage)}" data-scratch-cover-blur="${coverBlur}" data-scratch-radius="${scratchRadius}" data-scratch-accent="${escapeHtml(accent)}" style="position:relative;flex:1;border-radius:12px;overflow:hidden;background:${escapeHtml(revealBackground)};">
         ${afterImage ? `<img src="${escapeHtml(afterImage)}" alt="${escapeHtml(revealLabel)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" />` : ''}
         <div style="position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:22px;text-align:center;padding:16px;">${escapeHtml(revealLabel)}</div>
-        <canvas data-scratch-canvas style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none;"></canvas>
+        <canvas data-scratch-canvas style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none;outline:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"></canvas>
         <div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px;pointer-events:none;">
           <div style="font-size:12px;">${escapeHtml(coverLabel)}</div>
         </div>
@@ -416,6 +419,41 @@ function renderQrCodeWidget(node: WidgetNode): string {
       <div style="text-align:center;font-size:12px;color:${escapeHtml(String(style.color ?? '#111827'))};">${escapeHtml(String(node.props.codeLabel ?? 'Scan me'))}</div>
     </div>
   </button>`;
+}
+
+function renderFormWidget(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#ec4899');
+  const consentRequired = Boolean(node.props.consentRequired ?? true);
+  const consentLabel = String(node.props.consentLabel ?? 'I agree to share my data');
+  const base = [
+    `position:absolute`,
+    `left:${frame.x}px`,
+    `top:${frame.y}px`,
+    `width:${frame.width}px`,
+    `height:${frame.height}px`,
+    `transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,
+    `overflow:hidden`,
+    `box-sizing:border-box`,
+    `border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#ffffff')}`,
+    `color:${String(style.color ?? '#111827')}`,
+    `display:flex`,
+    `flex-direction:column`,
+  ].join(';');
+
+  return `<form class="widget widget-form" data-widget-id="${node.id}" data-form-target-type="${escapeHtml(String(node.props.submitTargetType ?? 'none'))}" data-form-submit-url="${escapeHtml(String(node.props.submitUrl ?? ''))}" data-form-method="${escapeHtml(String(node.props.method ?? 'POST').toUpperCase())}" data-form-success-message="${escapeHtml(String(node.props.successMessage ?? 'Submitted'))}" data-form-field-one="${escapeHtml(String(node.props.fieldOne ?? 'Name'))}" data-form-field-two="${escapeHtml(String(node.props.fieldTwo ?? 'Email'))}" data-form-consent-required="${String(consentRequired)}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:8px;">
+      <input data-form-input="one" placeholder="${escapeHtml(String(node.props.fieldOne ?? 'Name'))}" style="border-radius:10px;padding:10px 12px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);" />
+      <input data-form-input="two" placeholder="${escapeHtml(String(node.props.fieldTwo ?? 'Email'))}" style="border-radius:10px;padding:10px 12px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);" />
+      ${consentRequired ? `<label style="display:flex;gap:8px;align-items:flex-start;font-size:11px;line-height:1.35;color:#334155;"><input type="checkbox" data-form-consent style="margin-top:1px;" /><span>${escapeHtml(consentLabel)}</span></label>` : ''}
+      <div data-form-status style="font-size:11px;opacity:.7;">Target: ${escapeHtml(String(node.props.submitTargetType ?? 'none'))}${String(node.props.submitUrl ?? '').trim() ? ' · webhook ready' : ''}</div>
+      <button type="submit" style="margin-top:auto;padding:10px 12px;border-radius:12px;background:${escapeHtml(accent)};color:#111827;font-weight:800;border:none;cursor:pointer;">${escapeHtml(String(node.props.ctaLabel ?? 'Submit'))}</button>
+    </div>
+  </form>`;
 }
 
 function renderDynamicMapWidget(node: WidgetNode): string {
@@ -608,8 +646,8 @@ function renderDynamicMapWidget(node: WidgetNode): string {
         <div style="font-size:9px;opacity:.78;line-height:1.15;">${escapeHtml(place.address || `${place.lat.toFixed(3)}, ${place.lng.toFixed(3)}`)}</div>
         <div data-place-meta style="display:flex;gap:5px;flex-wrap:wrap;font-size:9px;">${showOpenNow && place.openNow != null ? `<span data-place-open-now>${place.openNow ? 'Open now' : 'Closed'}</span>` : ''}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <a href="${escapeHtml(buildPlaceCtaUrl(place, 'waze'))}" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, 'waze'))}" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</a>
-          <a href="${escapeHtml(buildPlaceCtaUrl(place, 'maps'))}" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, 'maps'))}" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</a>
+          <a href="${escapeHtml(buildPlaceCtaUrl(place, 'waze'))}" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, 'waze'))}" style="display:inline-flex;flex:1;align-items:center;justify-content:center;height:30px;border-radius:12px;padding:0 10px;color:#fff;font-size:9px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</a>
+          <a href="${escapeHtml(buildPlaceCtaUrl(place, 'maps'))}" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, 'maps'))}" style="display:inline-flex;flex:1;align-items:center;justify-content:center;height:30px;border-radius:12px;padding:0 10px;color:#fff;font-size:9px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</a>
         </div>
       </div>`).join('')}</div>
     </div>
@@ -667,6 +705,8 @@ function renderSpeedTestWidget(node: WidgetNode): string {
   const durationMs = Math.max(300, Number(node.props.durationMs ?? 1800));
   const units = String(node.props.units ?? 'Mbps');
   const skin = String(node.props.skin ?? 'ookla');
+  const pingValue = Number(node.props.pingValue ?? 11);
+  const uploadValue = Number(node.props.uploadValue ?? 42);
   const ctaLabel = String(node.props.ctaLabel ?? 'Start test');
   const resultMode = String(node.props.resultMode ?? 'random');
   const fastThreshold = Number(node.props.fastThreshold ?? 70);
@@ -696,14 +736,19 @@ function renderSpeedTestWidget(node: WidgetNode): string {
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     ${ooklaSkin ? `<div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:14px;">
       <div style="display:grid;gap:6px;">
-        <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.72;">Download speed</div>
-        <div data-speed-value style="display:flex;align-items:flex-end;gap:10px;font-size:36px;line-height:1;font-weight:900;">${current}<span style="font-size:13px;opacity:.8;padding-bottom:5px;">${escapeHtml(units)}</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;">
+          <div style="display:grid;gap:2px;"><span style="opacity:.74;">Ping <span style="opacity:.5">ms</span></span><strong style="font-size:15px;letter-spacing:normal;">${pingValue}</strong></div>
+          <div style="display:grid;gap:2px;"><span style="opacity:.74;">Download <span style="opacity:.5">${escapeHtml(units)}</span></span><strong style="font-size:15px;letter-spacing:normal;">${current}</strong></div>
+          <div style="display:grid;gap:2px;"><span style="opacity:.74;">Upload <span style="opacity:.5">${escapeHtml(units)}</span></span><strong style="font-size:15px;letter-spacing:normal;">${uploadValue}</strong></div>
+        </div>
       </div>
-      <div style="position:relative;height:72px;border-radius:999px;background:radial-gradient(circle at 50% 100%, rgba(45,212,191,.28), rgba(15,23,42,0) 68%);">
+      <div style="position:relative;height:156px;border-radius:999px;background:radial-gradient(circle at 50% 100%, rgba(45,212,191,.28), rgba(15,23,42,0) 68%);">
         <div style="position:absolute;inset:0;display:grid;place-items:center;">
-          <div style="width:100%;height:100%;border-radius:999px 999px 24px 24px / 100% 100% 18px 18px;border:8px solid rgba(255,255,255,.08);border-bottom:none;transform:scaleX(.94);"></div>
-          <div data-speed-needle style="position:absolute;left:50%;bottom:6px;width:4px;height:52px;border-radius:999px;background:${initialTone};transform-origin:bottom center;transform:translateX(-50%) rotate(${(-92 + pct * 1.84).toFixed(1)}deg);box-shadow:0 0 16px ${initialTone};"></div>
-          <div style="position:absolute;bottom:2px;width:14px;height:14px;border-radius:50%;background:#fff;"></div>
+          <div style="width:100%;height:100%;border-radius:999px 999px 36px 36px / 100% 100% 18px 18px;border:16px solid rgba(255,255,255,.08);border-bottom:none;transform:scaleX(.92);"></div>
+          <div style="position:absolute;top:18px;left:28px;right:28px;display:flex;justify-content:space-between;font-size:10px;font-weight:900;opacity:.82;"><span>0</span><span>5</span><span>10</span><span>20</span><span>30</span><span>50</span><span>75</span><span>100</span></div>
+          <div data-speed-needle style="position:absolute;left:50%;bottom:18px;width:6px;height:88px;border-radius:999px;background:${initialTone};transform-origin:bottom center;transform:translateX(-50%) rotate(${(-92 + pct * 1.84).toFixed(1)}deg);box-shadow:0 0 16px ${initialTone};"></div>
+          <div style="position:absolute;bottom:10px;width:16px;height:16px;border-radius:50%;background:#fff;"></div>
+          <div style="position:absolute;bottom:8px;display:grid;place-items:center;gap:2px;"><div data-speed-value style="font-size:34px;line-height:1;font-weight:300;">${current.toFixed(2)}</div><div style="font-size:13px;opacity:.82;">${escapeHtml(units)}</div></div>
         </div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
@@ -836,7 +881,7 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
         width: Math.max(110, Math.min(availableWidth, baseCardSize.width)),
         height: Math.max(104, Math.min(baseCardSize.height, availableHeight)),
       };
-  const mediaHeight = Math.max(48, Math.min(cardShape === 'landscape' ? Math.floor(effectiveCardSize.height * 0.46) : Math.floor(effectiveCardSize.height * 0.52), effectiveCardSize.height - 56));
+  const mediaHeight = Math.max(60, Math.min(cardShape === 'landscape' ? Math.floor(effectiveCardSize.height * 0.58) : Math.floor(effectiveCardSize.height * 0.68), effectiveCardSize.height - 44));
   const productsJson = escapeHtml(JSON.stringify(activeProducts));
   const base = [
     `position:absolute`,
@@ -855,18 +900,14 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
     `flex-direction:column`,
   ].join(';');
 
-  const cards = activeProducts.map((product, index) => `<article data-shoppable-card="${index}" style="width:${effectiveCardSize.width}px;min-width:${effectiveCardSize.width}px;height:${effectiveCardSize.height}px;border-radius:18px;overflow:hidden;background:#ffffff;color:#1f2937;border:1px solid ${escapeHtml(accent)}22;box-shadow:0 10px 26px rgba(15,23,42,.12);display:flex;flex-direction:column;">
+  const cards = activeProducts.map((product, index) => `<article data-shoppable-card="${index}" style="width:${effectiveCardSize.width}px;min-width:${effectiveCardSize.width}px;height:${effectiveCardSize.height}px;border-radius:10px;overflow:hidden;background:#ffffff;color:#1f2937;border:1px solid rgba(15,23,42,.10);box-shadow:0 4px 14px rgba(15,23,42,.08);display:flex;flex-direction:column;">
       <div style="position:relative;height:${mediaHeight}px;background:${product.src ? '#111827' : '#f8fafc'};flex-shrink:0;">
         ${product.src ? `<img src="${escapeHtml(product.src)}" alt="${escapeHtml(product.title)}" style="width:100%;height:100%;object-fit:cover;display:block;" />` : ''}
       </div>
-      <div style="padding:8px 8px 10px;display:grid;gap:4px;flex:1;min-height:0;">
-        <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(product.subtitle || 'Featured item')}</div>
-        <div style="font-size:12px;font-weight:800;line-height:1.15;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">${escapeHtml(product.title)}</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-          <div style="font-size:11px;color:${escapeHtml(accent)};">${escapeHtml(renderRatingStars(product.rating))}</div>
-          <div style="font-size:13px;font-weight:900;">${escapeHtml(product.price || '$0')}</div>
-        </div>
-        <button type="button" data-smx-action="shoppable-cta" data-widget-id="${node.id}" data-product-url="${escapeHtml(product.url)}" style="margin-top:auto;border:none;border-radius:10px;background:${escapeHtml(accent)};color:#111827;font-weight:800;padding:7px 9px;font-size:11px;cursor:pointer;">${escapeHtml(product.ctaLabel || 'Shop now')}</button>
+      <div style="padding:8px 8px 10px;display:grid;gap:3px;flex:1;min-height:0;align-content:start;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#0f172a;line-height:1.15;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">${escapeHtml(product.title)}</div>
+        <div style="font-size:12px;color:#475569;line-height:1.15;">${escapeHtml(product.price || '$0')}</div>
+        <button type="button" data-smx-action="shoppable-cta" data-widget-id="${node.id}" data-product-url="${escapeHtml(product.url)}" style="margin-top:auto;border:none;border-radius:10px;background:${escapeHtml(accent)};color:#111827;font-weight:800;padding:7px 9px;font-size:11px;cursor:pointer;opacity:${product.ctaLabel ? '1' : '0'};">${escapeHtml(product.ctaLabel || 'Shop now')}</button>
       </div>
     </article>`).join('');
 
@@ -875,8 +916,8 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
     <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;min-height:0;">
       <div style="position:relative;flex:1;overflow:hidden;">
         <div data-shoppable-track style="display:flex;${orientation === 'vertical' ? 'flex-direction:column;' : ''}gap:12px;transition:transform .28s ease;">${cards}</div>
-        ${activeProducts.length > 1 ? `<button type="button" data-smx-action="shoppable-prev" data-widget-id="${node.id}" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:999px;border:none;background:rgba(255,255,255,.86);color:#111827;font-weight:900;cursor:pointer;">‹</button>
-        <button type="button" data-smx-action="shoppable-next" data-widget-id="${node.id}" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:999px;border:none;background:rgba(255,255,255,.86);color:#111827;font-weight:900;cursor:pointer;">›</button>` : ''}
+        ${activeProducts.length > 1 ? `<button type="button" data-smx-action="shoppable-prev" data-widget-id="${node.id}" style="position:absolute;left:4px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:none;background:rgba(255,255,255,.94);color:#111827;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.12);">‹</button>
+        <button type="button" data-smx-action="shoppable-next" data-widget-id="${node.id}" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:none;background:rgba(255,255,255,.94);color:#111827;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.12);">›</button>` : ''}
       </div>
     </div>
   </div>`;
@@ -940,6 +981,7 @@ function widgetHtml(node: PortableExportWidget, state: StudioState, assetPathMap
   if (node.type === 'shoppable-sidebar') return renderShoppableSidebarWidget(node, assetPathMap);
   if (node.type === 'image-carousel') return renderCarouselWidget(node, assetPathMap);
   if (node.type === 'qr-code') return renderQrCodeWidget(node);
+  if (node.type === 'form') return renderFormWidget(node);
   if (node.type === 'dynamic-map') return renderDynamicMapWidget(node);
   if (node.type === 'speed-test') return renderSpeedTestWidget(node);
   if (node.type === 'weather-conditions') return renderWeatherConditionsWidget(node);

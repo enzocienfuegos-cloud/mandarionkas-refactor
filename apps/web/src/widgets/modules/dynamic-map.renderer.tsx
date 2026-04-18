@@ -63,9 +63,9 @@ function popupHtml(place: NearbyPlace, accent: string): string {
       <div style="font-size:14px;font-weight:900;line-height:1.2;">${place.name}</div>
       <div style="font-size:11px;color:#555;margin-top:4px;line-height:1.3;">${place.address || ''}</div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;">${badge}</div>
-      <div style="display:flex;gap:6px;margin-top:10px;">
-        <a href="${buildPlaceCtaUrl(place, 'waze')}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;background:#08d4ff;">Waze</a>
-        <a href="${buildPlaceCtaUrl(place, 'maps')}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;background:#4285f4;">Maps</a>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <a href="${buildPlaceCtaUrl(place, 'waze')}" target="_blank" rel="noreferrer" style="display:inline-flex;flex:1;align-items:center;justify-content:center;height:32px;border-radius:12px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;background:#08d4ff;">Waze</a>
+        <a href="${buildPlaceCtaUrl(place, 'maps')}" target="_blank" rel="noreferrer" style="display:inline-flex;flex:1;align-items:center;justify-content:center;height:32px;border-radius:12px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;background:#4285f4;">Maps</a>
       </div>
     </div>
   `;
@@ -411,9 +411,9 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
                           {place.badge ? <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 6px', borderRadius: 999, fontSize: 9, fontWeight: 800, color: '#fff', background: accent }}>{place.badge}</span> : null}
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button type="button" onClick={(event) => { event.stopPropagation(); window.open(buildPlaceCtaUrl(place, 'waze'), '_blank'); }} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 46, height: 28, borderRadius: 999, padding: '0 10px', color: '#fff', fontSize: 10, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#08d4ff', cursor: 'pointer' }}>Waze</button>
-                        <button type="button" onClick={(event) => { event.stopPropagation(); window.open(buildPlaceCtaUrl(place, 'maps'), '_blank'); }} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 46, height: 28, borderRadius: 999, padding: '0 10px', color: '#fff', fontSize: 10, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#4285f4', cursor: 'pointer' }}>Maps</button>
+                      <div style={{ display: 'flex', gap: 8, width: 116 }}>
+                        <button type="button" onClick={(event) => { event.stopPropagation(); window.open(buildPlaceCtaUrl(place, 'waze'), '_blank'); }} style={{ display: 'inline-flex', flex: 1, alignItems: 'center', justifyContent: 'center', height: 32, borderRadius: 12, color: '#fff', fontSize: 10, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#08d4ff', cursor: 'pointer' }}>Waze</button>
+                        <button type="button" onClick={(event) => { event.stopPropagation(); window.open(buildPlaceCtaUrl(place, 'maps'), '_blank'); }} style={{ display: 'inline-flex', flex: 1, alignItems: 'center', justifyContent: 'center', height: 32, borderRadius: 12, color: '#fff', fontSize: 10, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#4285f4', cursor: 'pointer' }}>Maps</button>
                       </div>
                     </div>
                   ))}
@@ -470,11 +470,11 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
                     {showOpenNow && place.openNow != null ? <span>{place.openNow ? 'Open now' : 'Closed'}</span> : null}
                     {showDistance && place.distanceKm != null ? <span>{place.distanceKm.toFixed(1)} km</span> : null}
                   </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <button type="button" onClick={(event) => { event.stopPropagation(); ctx.triggerWidgetAction('click'); if (ctx.previewMode) window.open(buildPlaceCtaUrl(place, 'waze'), '_blank'); }} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 40, height: 24, borderRadius: 999, padding: '0 9px', color: '#fff', fontSize: 8, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#08d4ff', cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); ctx.triggerWidgetAction('click'); if (ctx.previewMode) window.open(buildPlaceCtaUrl(place, 'waze'), '_blank'); }} style={{ display: 'inline-flex', flex: 1, alignItems: 'center', justifyContent: 'center', height: 30, borderRadius: 12, padding: '0 9px', color: '#fff', fontSize: 9, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#08d4ff', cursor: 'pointer' }}>
                       Waze
                     </button>
-                    <button type="button" onClick={(event) => { event.stopPropagation(); ctx.triggerWidgetAction('click'); if (ctx.previewMode) window.open(buildPlaceCtaUrl(place, 'maps'), '_blank'); }} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 40, height: 24, borderRadius: 999, padding: '0 9px', color: '#fff', fontSize: 8, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#4285f4', cursor: 'pointer' }}>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); ctx.triggerWidgetAction('click'); if (ctx.previewMode) window.open(buildPlaceCtaUrl(place, 'maps'), '_blank'); }} style={{ display: 'inline-flex', flex: 1, alignItems: 'center', justifyContent: 'center', height: 30, borderRadius: 12, padding: '0 9px', color: '#fff', fontSize: 9, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#4285f4', cursor: 'pointer' }}>
                       Maps
                     </button>
                   </div>
