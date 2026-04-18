@@ -16,6 +16,7 @@ import { buildGoogleDisplayAdapter } from './adapters/google-display';
 import { buildMraidAdapter } from './adapters/mraid';
 import { buildPlayableExportAdapter } from './adapters/playable';
 import type { MraidAdapterResult } from './adapters';
+import { getMraidProjectCompatibility } from './mraid-compatibility';
 
 function buildChannelAdapter(state: StudioState) {
   switch (state.document.metadata.release.targetChannel) {
@@ -38,6 +39,9 @@ function buildChannelAdapter(state: StudioState) {
 function buildMraidHandoffSummary(preflight: ReturnType<typeof buildExportPreflight>, channelAdapter: ReturnType<typeof buildChannelAdapter>) {
   if (channelAdapter.adapter !== 'mraid') return undefined;
   const mraidAdapter = channelAdapter as MraidAdapterResult;
+  const compatibility = getMraidProjectCompatibility(mraidAdapter.portableProject);
+  const blockedModules = compatibility.filter((item) => item.level === 'blocked');
+  const warningModules = compatibility.filter((item) => item.level === 'warning');
   const mraidWarnings = [
     ...preflight.channelWarnings.filter((item) => item.id.startsWith('mraid-')).map((item) => item.label),
     ...preflight.packageWarnings.filter((item) => item.code.startsWith('runtime.mraid') || item.code.startsWith('widget.mraid')).map((item) => item.message),
@@ -54,13 +58,22 @@ function buildMraidHandoffSummary(preflight: ReturnType<typeof buildExportPrefli
     requiresMraidOpen: mraidAdapter.mraid.requiresMraidOpen,
     requiredHostFeatures: mraidAdapter.mraid.requiredHostFeatures,
     expectedHost: mraidAdapter.mraid.expectedHost,
+    moduleCompatibility: {
+      supportedCount: Math.max(0, mraidAdapter.portableProject.scenes.reduce((count, scene) => count + scene.widgets.length, 0) - warningModules.length - blockedModules.length),
+      warningCount: warningModules.length,
+      blockedCount: blockedModules.length,
+      warnings: warningModules.map((item) => ({ widgetId: item.widgetId, widgetType: item.type, message: item.message })),
+      blocked: blockedModules.map((item) => ({ widgetId: item.widgetId, widgetType: item.type, message: item.message })),
+    },
     readyForHostHandoff: preflight.summary.readyForResolvedZip && mraidBlockers.length === 0,
     blockers: mraidBlockers,
     warnings: mraidWarnings,
   };
 }
 
-function buildHandoffSummary(preflight: ReturnType<typeof buildExportPreflight>, channelAdapter?: ReturnType<typeof buildChannelAdapter>) {
+export function buildExportHandoff(state: StudioState) {
+  const preflight = buildExportPreflight(state);
+  const channelAdapter = buildChannelAdapter(state);
   return {
     preferredArtifact: preflight.summary.preferredArtifact,
     deliveryMode: preflight.summary.deliveryMode,
@@ -73,7 +86,7 @@ function buildHandoffSummary(preflight: ReturnType<typeof buildExportPreflight>,
     channelWarnings: preflight.channelWarnings.map((item) => item.label),
     packageBlockers: preflight.packageBlockers.map((item) => item.message),
     packageWarnings: preflight.packageWarnings.map((item) => item.message),
-    mraid: channelAdapter ? buildMraidHandoffSummary(preflight, channelAdapter) : undefined,
+    mraid: buildMraidHandoffSummary(preflight, channelAdapter),
   };
 }
 
@@ -146,7 +159,7 @@ export function buildPublishPackage(state: StudioState): string {
     packageMetrics,
     packageCompliance: validateExportPackage(packageProbe as any, packagingPlan, exitConfig, assetPlan),
     preflight,
-    handoff: buildHandoffSummary(preflight, localizedAdapter),
+    handoff: buildExportHandoff(state),
     collaboration: state.document.collaboration,
     document: state.document,
     html: buildChannelHtml(state, localizedAdapter),
@@ -173,7 +186,7 @@ export function buildReviewPackage(state: StudioState): string {
       preferredArtifact: preflight.summary.preferredArtifact,
       deliveryMode: preflight.summary.deliveryMode,
     },
-    handoff: buildHandoffSummary(preflight, buildChannelAdapter(state)),
+    handoff: buildExportHandoff(state),
     collaboration: state.document.collaboration,
     readiness: buildExportReadiness(state),
     manifest: buildExportManifest(state),

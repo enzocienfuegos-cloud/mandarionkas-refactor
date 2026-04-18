@@ -61,7 +61,7 @@ export type {
 } from './adapters';
 export { buildExportReadiness } from './readiness';
 export { buildChannelHtml, buildStandaloneHtml, escapeHtml } from './html';
-export { buildPublishPackage, buildReviewPackage } from './packages';
+export { buildExportHandoff, buildPublishPackage, buildReviewPackage } from './packages';
 export {
   downloadBlob,
   downloadTextFile,

@@ -6,9 +6,10 @@ export function TopBarExportControls({ controller, compact = false }: { controll
   const [showPreflight, setShowPreflight] = useState(false);
   const { state, dirty } = controller.snapshot;
   const { handleLogout } = controller.workspace;
-  const { exportIssues, preflight, resolvedZipStatus, resolvedZipMessage, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportDocumentJson, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundleResolved } = controller.exportReadiness;
+  const { exportIssues, preflight, handoff, resolvedZipStatus, resolvedZipMessage, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportDocumentJson, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundleResolved } = controller.exportReadiness;
   const blockers = exportIssues.filter((item) => item.level === 'error').length;
   const packageWarnings = preflight.summary.warnings;
+  const mraidHandoff = state.document.metadata.release.targetChannel === 'mraid' ? handoff.mraid : undefined;
   const primaryLabel = dirty
     ? `Unsaved · ${blockers} blockers`
     : `Saved · ${preflight.summary.packageGrade} · ${packageWarnings} warnings`;
@@ -16,13 +17,21 @@ export function TopBarExportControls({ controller, compact = false }: { controll
   return (
     <div className={`top-control-group ${compact ? 'top-control-group--compact' : ''}`}>
       <strong className="section-kicker">Export</strong>
+      {mraidHandoff ? (
+        <div className="meta-line">
+          <span className="pill">MRAID</span>
+          <span className="pill">{mraidHandoff.placementType}</span>
+          <span className="pill">{mraidHandoff.moduleCompatibility.warningCount} warnings</span>
+          <span className="pill">{mraidHandoff.moduleCompatibility.blockedCount} blocked</span>
+        </div>
+      ) : null}
       <div className="top-control-grid">
         <button className="ghost" onClick={() => triggerExportHtml(state)}>HTML</button>
         <button className="ghost" onClick={() => triggerExportManifest(state)}>Manifest</button>
         <button className="ghost" onClick={() => triggerExportPreflight(state)}>Preflight</button>
         <button className="ghost" onClick={() => triggerExportDocumentJson(state)}>JSON</button>
-        <button className="ghost" onClick={() => triggerExportPublishPackage(state)}>Publish package</button>
-        <button className="ghost" onClick={() => triggerExportReviewPackage(state)}>Review package</button>
+        <button className="ghost" onClick={() => triggerExportPublishPackage(state)}>{mraidHandoff ? 'MRAID package' : 'Publish package'}</button>
+        <button className="ghost" onClick={() => triggerExportReviewPackage(state)}>{mraidHandoff ? 'MRAID review' : 'Review package'}</button>
         <button className="ghost" onClick={() => setShowPreflight((value) => !value)}>
           {showPreflight ? 'Hide preflight' : 'Show preflight'}
         </button>

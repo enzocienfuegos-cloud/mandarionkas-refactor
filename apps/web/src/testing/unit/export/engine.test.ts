@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../../../domain/document/factories';
-import { buildChannelHtml, buildExportAssetPlan, buildExportBundle, buildExportBundleWithRemoteAssets, buildExportExitConfig, buildExportManifest, buildExportPackagingPlan, buildExportPackageMetrics, buildExportPreflight, buildExportReadiness, buildExportRuntimeModel, buildExportRuntimeScript, buildGamHtml5Adapter, buildGenericHtml5Adapter, buildGoogleDisplayAdapter, buildMraidAdapter, buildPlayableExportAdapter, buildLocalizedPortableProject, buildPortableProjectExport, buildPublishPackage, buildRemoteAssetFetchPlan, buildReviewPackage, buildStandaloneHtml, buildZipFromBundle, getChannelRequirements, materializeExportAssetFiles, materializeRemoteExportAssetFiles, validateExport, validateExportPackage, validatePortableExport } from '../../../export/engine';
+import { buildChannelHtml, buildExportAssetPlan, buildExportBundle, buildExportBundleWithRemoteAssets, buildExportExitConfig, buildExportHandoff, buildExportManifest, buildExportPackagingPlan, buildExportPackageMetrics, buildExportPreflight, buildExportReadiness, buildExportRuntimeModel, buildExportRuntimeScript, buildGamHtml5Adapter, buildGenericHtml5Adapter, buildGoogleDisplayAdapter, buildMraidAdapter, buildPlayableExportAdapter, buildLocalizedPortableProject, buildPortableProjectExport, buildPublishPackage, buildRemoteAssetFetchPlan, buildReviewPackage, buildStandaloneHtml, buildZipFromBundle, getChannelRequirements, materializeExportAssetFiles, materializeRemoteExportAssetFiles, validateExport, validateExportPackage, validatePortableExport } from '../../../export/engine';
 import { buildNearbyPlacesCsv, parseNearbyPlaces } from '../../../widgets/modules/dynamic-map.shared';
 
 describe('export engine', () => {
@@ -1027,6 +1027,7 @@ describe('export engine', () => {
     expect(payload.handoff.mraid.placementType).toBe('interstitial');
     expect(payload.handoff.mraid.requiredHostFeatures.open).toBe(true);
     expect(payload.handoff.mraid.expectedHost.maxSize).toEqual({ width: 320, height: 480 });
+    expect(payload.handoff.mraid.moduleCompatibility).toBeTruthy();
   });
 
   it('includes preflight in the review package payload', () => {
@@ -1051,6 +1052,21 @@ describe('export engine', () => {
     expect(payload.handoff.mraid).toBeTruthy();
     expect(payload.handoff.mraid.placementType).toBe('interstitial');
     expect(payload.handoff.mraid.standardSize).toBe(true);
+  });
+
+  it('builds reusable export handoff with module compatibility summary', () => {
+    const state = createInitialState();
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+
+    const handoff = buildExportHandoff(state);
+
+    expect(handoff.mraid).toBeTruthy();
+    expect(handoff.mraid.moduleCompatibility).toBeTruthy();
+    expect(typeof handoff.mraid.moduleCompatibility.supportedCount).toBe('number');
+    expect(typeof handoff.mraid.moduleCompatibility.warningCount).toBe('number');
+    expect(typeof handoff.mraid.moduleCompatibility.blockedCount).toBe('number');
   });
 
   it('hardens a representative 320x480 mraid interstitial package', () => {
