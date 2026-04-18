@@ -19,7 +19,7 @@ export const InteractiveGalleryDefinition = createModuleDefinition({
     showPrevButton: true,
     showNextButton: true,
     showPaginationDots: true,
-    paginationDotSize: 8,
+    paginationDotSize: 6,
   },
   renderInspector: (widget) => createElement(GalleryAssetsInspector, { widget, title: 'Interactive gallery' }),
   style: { backgroundColor: '#ffffff', accentColor: '#111827', color: '#111827', borderRadius: 20 },

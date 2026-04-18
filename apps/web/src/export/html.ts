@@ -254,7 +254,7 @@ function renderCarouselWidget(node: WidgetNode, assetPathMap: Record<string, str
   const showPrevButton = Boolean(node.props.showPrevButton ?? true);
   const showNextButton = Boolean(node.props.showNextButton ?? true);
   const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
-  const paginationDotSize = Math.max(4, Math.min(18, Number(node.props.paginationDotSize ?? 8)));
+  const paginationDotSize = Math.max(3, Math.min(10, Number(node.props.paginationDotSize ?? 6)));
 
   return `<div class="widget widget-image-carousel" data-widget-id="${node.id}" data-carousel-slides="${slidesJson}" data-carousel-index="0" data-carousel-accent="${escapeHtml(accent)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
@@ -427,6 +427,7 @@ function renderFormWidget(node: WidgetNode): string {
   const accent = String(style.accentColor ?? '#ec4899');
   const consentRequired = Boolean(node.props.consentRequired ?? true);
   const consentLabel = String(node.props.consentLabel ?? 'I agree to share my data');
+  const fieldThree = String(node.props.fieldThree ?? 'Phone');
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -444,13 +445,14 @@ function renderFormWidget(node: WidgetNode): string {
     `flex-direction:column`,
   ].join(';');
 
-  return `<form class="widget widget-form" data-widget-id="${node.id}" data-form-target-type="${escapeHtml(String(node.props.submitTargetType ?? 'none'))}" data-form-submit-url="${escapeHtml(String(node.props.submitUrl ?? ''))}" data-form-method="${escapeHtml(String(node.props.method ?? 'POST').toUpperCase())}" data-form-success-message="${escapeHtml(String(node.props.successMessage ?? 'Submitted'))}" data-form-field-one="${escapeHtml(String(node.props.fieldOne ?? 'Name'))}" data-form-field-two="${escapeHtml(String(node.props.fieldTwo ?? 'Email'))}" data-form-consent-required="${String(consentRequired)}" style="${base}">
+  return `<form class="widget widget-form" data-widget-id="${node.id}" data-form-target-type="${escapeHtml(String(node.props.submitTargetType ?? 'none'))}" data-form-submit-url="${escapeHtml(String(node.props.submitUrl ?? ''))}" data-form-method="${escapeHtml(String(node.props.method ?? 'POST').toUpperCase())}" data-form-success-message="${escapeHtml(String(node.props.successMessage ?? 'Submitted'))}" data-form-field-one="${escapeHtml(String(node.props.fieldOne ?? 'Name'))}" data-form-field-two="${escapeHtml(String(node.props.fieldTwo ?? 'Email'))}" data-form-field-three="${escapeHtml(fieldThree)}" data-form-consent-required="${String(consentRequired)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:8px;">
       <input data-form-input="one" placeholder="${escapeHtml(String(node.props.fieldOne ?? 'Name'))}" style="border-radius:10px;padding:10px 12px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);" />
       <input data-form-input="two" placeholder="${escapeHtml(String(node.props.fieldTwo ?? 'Email'))}" style="border-radius:10px;padding:10px 12px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);" />
-      ${consentRequired ? `<label style="display:flex;gap:8px;align-items:flex-start;font-size:11px;line-height:1.35;color:#334155;"><input type="checkbox" data-form-consent style="margin-top:1px;" /><span>${escapeHtml(consentLabel)}</span></label>` : ''}
-      <div data-form-status style="font-size:11px;opacity:.7;">Target: ${escapeHtml(String(node.props.submitTargetType ?? 'none'))}${String(node.props.submitUrl ?? '').trim() ? ' · webhook ready' : ''}</div>
+      <input data-form-input="three" placeholder="${escapeHtml(fieldThree)}" style="border-radius:10px;padding:10px 12px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);" />
+      ${consentRequired ? `<label style="display:flex;gap:10px;align-items:center;font-size:12px;line-height:1.35;color:#334155;"><input type="checkbox" data-form-consent style="margin:0;width:16px;height:16px;accent-color:${escapeHtml(accent)};flex:0 0 auto;" /><span>${escapeHtml(consentLabel)}</span></label>` : ''}
+      <div data-form-status style="font-size:11px;opacity:.7;"></div>
       <button type="submit" style="margin-top:auto;padding:10px 12px;border-radius:12px;background:${escapeHtml(accent)};color:#111827;font-weight:800;border:none;cursor:pointer;">${escapeHtml(String(node.props.ctaLabel ?? 'Submit'))}</button>
     </div>
   </form>`;
@@ -813,7 +815,7 @@ function renderInteractiveGalleryWidget(node: WidgetNode): string {
   const showPrevButton = Boolean(node.props.showPrevButton ?? true);
   const showNextButton = Boolean(node.props.showNextButton ?? true);
   const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
-  const paginationDotSize = Math.max(4, Math.min(18, Number(node.props.paginationDotSize ?? 8)));
+  const paginationDotSize = Math.max(3, Math.min(10, Number(node.props.paginationDotSize ?? 6)));
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,

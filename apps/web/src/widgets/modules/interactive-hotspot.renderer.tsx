@@ -50,7 +50,7 @@ function HotspotModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCon
       `}</style>
       <div style={moduleHeader(node)}>{String(node.props.title ?? node.name)}</div>
       <div style={{ ...moduleBody, position: 'relative' }}>
-        <div style={{ flex: 1, borderRadius: 12, background: 'linear-gradient(135deg,#1e3a8a,#172554)', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ flex: 1, borderRadius: 12, background: 'transparent', position: 'relative', overflow: 'hidden' }}>
           <button
             type="button"
             onClick={(e) => {

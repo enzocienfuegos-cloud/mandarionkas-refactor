@@ -433,6 +433,44 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
   });
 
   document.querySelectorAll('.widget-form[data-widget-id]').forEach((root) => {
+    let draftTimer = null;
+    const submitDraft = async () => {
+      const submitTargetType = root.getAttribute('data-form-target-type') || 'none';
+      const submitUrl = root.getAttribute('data-form-submit-url') || '';
+      const method = root.getAttribute('data-form-method') || 'POST';
+      const consentRequired = root.getAttribute('data-form-consent-required') === 'true';
+      const inputOne = root.querySelector('[data-form-input="one"]');
+      const inputTwo = root.querySelector('[data-form-input="two"]');
+      const inputThree = root.querySelector('[data-form-input="three"]');
+      const consent = root.querySelector('[data-form-consent"]');
+      if (submitTargetType !== 'webhook' || !submitUrl) return;
+      try {
+        await fetch(submitUrl, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fields: {
+              [root.getAttribute('data-form-field-one') || 'fieldOne']: inputOne ? inputOne.value : '',
+              [root.getAttribute('data-form-field-two') || 'fieldTwo']: inputTwo ? inputTwo.value : '',
+              [root.getAttribute('data-form-field-three') || 'fieldThree']: inputThree ? inputThree.value : '',
+              consent: consentRequired ? String(Boolean(consent && consent.checked)) : 'not-required',
+            },
+            widgetId: root.getAttribute('data-widget-id') || '',
+            event: 'draft',
+          }),
+        });
+      } catch (_error) {}
+    };
+    root.querySelectorAll('[data-form-input], [data-form-consent]').forEach((field) => {
+      field.addEventListener('input', () => {
+        if (draftTimer) window.clearTimeout(draftTimer);
+        draftTimer = window.setTimeout(submitDraft, 650);
+      });
+      field.addEventListener('change', () => {
+        if (draftTimer) window.clearTimeout(draftTimer);
+        draftTimer = window.setTimeout(submitDraft, 200);
+      });
+    });
     root.addEventListener('submit', async (event) => {
       event.preventDefault();
       const submitTargetType = root.getAttribute('data-form-target-type') || 'none';
@@ -442,6 +480,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       const consentRequired = root.getAttribute('data-form-consent-required') === 'true';
       const inputOne = root.querySelector('[data-form-input="one"]');
       const inputTwo = root.querySelector('[data-form-input="two"]');
+      const inputThree = root.querySelector('[data-form-input="three"]');
       const consent = root.querySelector('[data-form-consent"]');
       const status = root.querySelector('[data-form-status]');
       const button = root.querySelector('[type="submit"]');
@@ -459,6 +498,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
               fields: {
                 [root.getAttribute('data-form-field-one') || 'fieldOne']: inputOne ? inputOne.value : '',
                 [root.getAttribute('data-form-field-two') || 'fieldTwo']: inputTwo ? inputTwo.value : '',
+                [root.getAttribute('data-form-field-three') || 'fieldThree']: inputThree ? inputThree.value : '',
                 consent: consentRequired ? String(Boolean(consent && consent.checked)) : 'not-required',
               },
               widgetId: root.getAttribute('data-widget-id') || '',

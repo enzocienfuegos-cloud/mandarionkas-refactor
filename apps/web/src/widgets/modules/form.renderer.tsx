@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { submitFormWebhook } from './form-submit-service';
@@ -6,7 +6,7 @@ import { getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeed
 
 function FormModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
-  const [form, setForm] = useState({ one: '', two: '' });
+  const [form, setForm] = useState({ one: '', two: '', three: '' });
   const [consentChecked, setConsentChecked] = useState(false);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'submitted' | 'error'>('idle');
   const submitTargetType = String(node.props.submitTargetType ?? 'none');
@@ -15,6 +15,32 @@ function FormModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContex
   const method = String(node.props.method ?? 'POST').toUpperCase();
   const consentRequired = Boolean(node.props.consentRequired ?? true);
   const consentLabel = String(node.props.consentLabel ?? 'I agree to share my data');
+  const autosaveTimerRef = useRef<number | null>(null);
+
+  const sendDraft = async (nextForm: typeof form, nextConsent = consentChecked) => {
+    if (!ctx.previewMode || submitTargetType !== 'webhook' || !submitUrl.trim()) return;
+    try {
+      await submitFormWebhook({
+        url: submitUrl,
+        method,
+        fields: {
+          [String(node.props.fieldOne ?? 'fieldOne')]: nextForm.one,
+          [String(node.props.fieldTwo ?? 'fieldTwo')]: nextForm.two,
+          [String(node.props.fieldThree ?? 'fieldThree')]: nextForm.three,
+          consent: consentRequired ? String(nextConsent) : 'not-required',
+        },
+        widgetId: node.id,
+        widgetName: node.name,
+      });
+      if (nextForm.one || nextForm.two || nextForm.three) setStatus('submitted');
+    } catch {
+      setStatus('error');
+    }
+  };
+
+  useEffect(() => () => {
+    if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
+  }, []);
 
   const onSubmit = async (event: { stopPropagation: () => void }) => {
     event.stopPropagation();
@@ -35,6 +61,7 @@ function FormModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContex
         fields: {
           [String(node.props.fieldOne ?? 'fieldOne')]: form.one,
           [String(node.props.fieldTwo ?? 'fieldTwo')]: form.two,
+          [String(node.props.fieldThree ?? 'fieldThree')]: form.three,
           consent: consentRequired ? String(consentChecked) : 'not-required',
         },
         widgetId: node.id,
@@ -46,7 +73,27 @@ function FormModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContex
     }
   };
 
-  return <div style={moduleShell(node, ctx)}><div style={moduleHeader(node)}>{String(node.props.title ?? node.name)}</div><div style={moduleBody}>{[['one', String(node.props.fieldOne ?? 'Name')], ['two', String(node.props.fieldTwo ?? 'Email')]].map(([key, label]) => <input key={key} value={form[key as 'one'|'two']} onChange={(e) => setForm((current) => ({ ...current, [key]: e.target.value }))} onPointerDown={(e) => e.stopPropagation()} placeholder={label} style={{ borderRadius: 10, padding: '10px 12px', background: '#f8fafc', color: '#0f172a', border: '1px solid rgba(15,23,42,.12)' }} />)}{consentRequired ? <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, lineHeight: 1.35, color: '#334155' }} onPointerDown={(e) => e.stopPropagation()}><input type="checkbox" checked={consentChecked} onChange={(e) => setConsentChecked(e.target.checked)} style={{ marginTop: 1 }} /> <span>{consentLabel}</span></label> : null}<div style={{ fontSize: 11, opacity: .7 }}>Target: {submitTargetType}{submitUrl ? ' · webhook ready' : ''}</div><button type="button" onClick={onSubmit} style={{ marginTop: 'auto', padding: '10px 12px', borderRadius: 12, background: accent, color: '#111827', fontWeight: 800, border: 'none', cursor: 'pointer' }}>{status === 'submitting' ? 'Submitting…' : status === 'submitted' ? successMessage : status === 'error' ? (consentRequired && !consentChecked ? 'Accept consent' : 'Retry submit') : String(node.props.ctaLabel ?? 'Submit')}</button></div></div>;
+  const fields: Array<{ key: 'one' | 'two' | 'three'; label: string }> = [
+    { key: 'one', label: String(node.props.fieldOne ?? 'Name') },
+    { key: 'two', label: String(node.props.fieldTwo ?? 'Email') },
+    { key: 'three', label: String(node.props.fieldThree ?? 'Phone') },
+  ];
+
+  return <div style={moduleShell(node, ctx)}><div style={moduleHeader(node)}>{String(node.props.title ?? node.name)}</div><div style={moduleBody}>{fields.map(({ key, label }) => <input key={key} value={form[key]} onChange={(e) => {
+    const nextForm = { ...form, [key]: e.target.value };
+    setForm(nextForm);
+    setStatus('idle');
+    if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = window.setTimeout(() => {
+      void sendDraft(nextForm);
+    }, 650);
+  }} onPointerDown={(e) => e.stopPropagation()} placeholder={label} style={{ borderRadius: 12, padding: '10px 12px', background: '#f8fafc', color: '#0f172a', border: '1px solid rgba(15,23,42,.12)' }} />)}{consentRequired ? <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 12, lineHeight: 1.35, color: '#334155' }} onPointerDown={(e) => e.stopPropagation()}><input type="checkbox" checked={consentChecked} onChange={(e) => {
+    setConsentChecked(e.target.checked);
+    if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = window.setTimeout(() => {
+      void sendDraft(form, e.target.checked);
+    }, 200);
+  }} style={{ margin: 0, width: 16, height: 16, accentColor: accent, flex: '0 0 auto' }} /> <span>{consentLabel}</span></label> : null}<button type="button" onClick={onSubmit} style={{ marginTop: 'auto', padding: '10px 12px', borderRadius: 12, background: accent, color: '#111827', fontWeight: 800, border: 'none', cursor: 'pointer' }}>{status === 'submitting' ? 'Submitting…' : status === 'submitted' ? successMessage : status === 'error' ? (consentRequired && !consentChecked ? 'Accept consent' : 'Retry submit') : String(node.props.ctaLabel ?? 'Submit')}</button></div></div>;
 }
 
 export function renderFormStage(node: WidgetNode, ctx: RenderContext): JSX.Element {
