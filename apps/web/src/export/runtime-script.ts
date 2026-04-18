@@ -109,8 +109,8 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
         + '<div style="font-size:9px;opacity:.78;line-height:1.15;">' + String(place.address || '') + '</div>'
         + '<div data-place-meta style="display:flex;gap:5px;flex-wrap:wrap;font-size:9px;">' + meta.join('') + '</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
-        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.wazeUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</button>'
-        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.mapsUrl || place.resolvedUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</button>'
+        + '<a href="' + String(place.wazeUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.wazeUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</a>'
+        + '<a href="' + String(place.mapsUrl || place.resolvedUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.mapsUrl || place.resolvedUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</a>'
         + '</div>'
         + '</div>';
     }).join('');
@@ -154,8 +154,8 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
         + '<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + String(place.name || '') + '</div>'
         + '<div style="font-size:10px;color:#666;line-height:1.2;margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;">' + meta.join('') + '</div></div>'
         + '<div style="display:flex;gap:6px;">'
-        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.wazeUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:28px;border-radius:999px;padding:0 10px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</button>'
-        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.mapsUrl || place.resolvedUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:28px;border-radius:999px;padding:0 10px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</button>'
+        + '<a href="' + String(place.wazeUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.wazeUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:28px;border-radius:999px;padding:0 10px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</a>'
+        + '<a href="' + String(place.mapsUrl || place.resolvedUrl || '') + '" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="' + String(place.mapsUrl || place.resolvedUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:28px;border-radius:999px;padding:0 10px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</a>'
         + '</div></div>';
     }).join('');
   }

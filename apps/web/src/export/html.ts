@@ -504,7 +504,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
                 <div data-map-search-status style="font-size:12px;font-weight:900;line-height:1.2;">${escapeHtml(infoLabelText)}</div>
                 <div data-map-search-substatus style="font-size:11px;color:#555;line-height:1.25;margin-top:2px;"><b>${escapeHtml(primaryAddressText)}</b><br />${escapeHtml(primaryHoursText)}</div>
               </div>
-              <button type="button" data-smx-action="map-primary-directions" style="appearance:none;border:none;border-radius:12px;padding:10px 14px;background:${escapeHtml(accent)};color:#fff;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;">${escapeHtml(directionsCtaLabel)}</button>
+              <a href="${escapeHtml(places[0] ? buildPlaceCtaUrl(places[0], 'maps') : '')}" target="_blank" rel="noopener noreferrer" data-smx-action="map-primary-directions" style="appearance:none;border:none;border-radius:12px;padding:10px 14px;background:${escapeHtml(accent)};color:#fff;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">${escapeHtml(directionsCtaLabel)}</a>
             </div>
             <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:auto;flex:1;min-height:0;">
               <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:#555;">${escapeHtml(nearbyTitleText)}</div>
@@ -530,8 +530,8 @@ function renderDynamicMapWidget(node: WidgetNode): string {
         <div style="font-size:9px;opacity:.78;line-height:1.15;">${escapeHtml(place.address || `${place.lat.toFixed(3)}, ${place.lng.toFixed(3)}`)}</div>
         <div data-place-meta style="display:flex;gap:5px;flex-wrap:wrap;font-size:9px;">${showOpenNow && place.openNow != null ? `<span data-place-open-now>${place.openNow ? 'Open now' : 'Closed'}</span>` : ''}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button type="button" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, 'waze'))}" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</button>
-          <button type="button" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, 'maps'))}" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</button>
+          <a href="${escapeHtml(buildPlaceCtaUrl(place, 'waze'))}" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, 'waze'))}" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</a>
+          <a href="${escapeHtml(buildPlaceCtaUrl(place, 'maps'))}" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, 'maps'))}" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:24px;border-radius:999px;padding:0 9px;color:#fff;font-size:8px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</a>
         </div>
       </div>`).join('')}</div>
     </div>
