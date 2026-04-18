@@ -1,10 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import 'leaflet/dist/leaflet.css';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
-import { getAccent, getFlagEmoji, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
+import { getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
 import { buildPlaceCtaUrl, haversineKm, loadNearbyPlacesSnapshot, parseNearbyPlaces, type NearbyPlace } from './dynamic-map.shared';
 
 type PlaceWithDistance = NearbyPlace & { distanceKm?: number };
+
+type LeafletRuntime = {
+  map: any;
+  markers: any[];
+};
 
 function rankPlaces(places: NearbyPlace[], userPosition: { latitude: number; longitude: number } | null, sortByDistance: boolean): PlaceWithDistance[] {
   const next = places.map((place) => ({
@@ -15,6 +21,72 @@ function rankPlaces(places: NearbyPlace[], userPosition: { latitude: number; lon
   return [...next].sort((a, b) => (a.distanceKm ?? Number.MAX_SAFE_INTEGER) - (b.distanceKm ?? Number.MAX_SAFE_INTEGER));
 }
 
+function popupHtml(place: NearbyPlace, accent: string): string {
+  const badge = place.badge
+    ? `<span style="display:inline-flex;align-items:center;padding:2px 6px;border-radius:999px;font-size:9px;font-weight:800;color:#fff;background:${accent};">${place.badge}</span>`
+    : '';
+  return `
+    <div style="min-width:190px;color:#111827;">
+      <div style="font-size:14px;font-weight:900;line-height:1.2;">${place.name}</div>
+      <div style="font-size:11px;color:#555;margin-top:4px;line-height:1.3;">${place.address || ''}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;">${badge}</div>
+      <div style="display:flex;gap:6px;margin-top:10px;">
+        <a href="${buildPlaceCtaUrl(place, 'waze')}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;background:#08d4ff;">Waze</a>
+        <a href="${buildPlaceCtaUrl(place, 'maps')}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;background:#4285f4;">Maps</a>
+      </div>
+    </div>
+  `;
+}
+
+async function mountLeafletMap(
+  container: HTMLDivElement,
+  runtimeRef: { current: LeafletRuntime | null },
+  config: {
+    latitude: number;
+    longitude: number;
+    zoom: number;
+    accent: string;
+    places: NearbyPlace[];
+    selectedPlace?: NearbyPlace | null;
+  },
+): Promise<void> {
+  const L = await import('leaflet');
+  if (!container.isConnected) return;
+
+  if (!runtimeRef.current) {
+    const map = L.map(container, { zoomControl: true, scrollWheelZoom: true }).setView([config.latitude, config.longitude], config.zoom);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '' }).addTo(map);
+    runtimeRef.current = { map, markers: [] };
+  }
+
+  const runtime = runtimeRef.current;
+  runtime.markers.forEach((marker) => marker.remove());
+  runtime.markers = [];
+
+  config.places.forEach((place) => {
+    const marker = L.circleMarker([place.lat, place.lng], {
+      radius: 7,
+      color: place.badge ? config.accent : config.accent,
+      weight: 3,
+      fillColor: '#111827',
+      fillOpacity: 1,
+    }).addTo(runtime.map);
+
+    marker.bindTooltip(place.name, {
+      permanent: true,
+      direction: 'top',
+      offset: [0, -10],
+      className: 'smx-map-label',
+    });
+    marker.bindPopup(popupHtml(place, config.accent), { closeButton: true, autoPan: true });
+    runtime.markers.push(marker);
+  });
+
+  const activePlace = config.selectedPlace ?? config.places[0];
+  if (activePlace) runtime.map.setView([activePlace.lat, activePlace.lng], Math.max(runtime.map.getZoom(), config.zoom));
+  requestAnimationFrame(() => runtime.map.invalidateSize());
+}
+
 function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
   const latitude = Number(node.props.latitude ?? 13.6929);
@@ -22,7 +94,6 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   const zoom = Number(node.props.zoom ?? 13);
   const provider = String(node.props.provider ?? 'manual');
   const mode = String(node.props.mode ?? 'street');
-  const routeVisible = Boolean(node.props.showRoute ?? false);
   const renderMode = String(node.props.renderMode ?? 'cards-map');
   const requestUserLocation = Boolean(node.props.requestUserLocation ?? false);
   const sortByDistance = Boolean(node.props.sortByDistance ?? true);
@@ -38,6 +109,11 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   const [userPosition, setUserPosition] = useState<{ latitude: number; longitude: number } | null>(null);
   const [providerPlaces, setProviderPlaces] = useState<NearbyPlace[]>([]);
   const [providerStatus, setProviderStatus] = useState<'idle' | 'loading' | 'live' | 'error'>('idle');
+  const [selectedPlace, setSelectedPlace] = useState<NearbyPlace | null>(null);
+  const mapCanvasRef = useRef<HTMLDivElement | null>(null);
+  const panelMapCanvasRef = useRef<HTMLDivElement | null>(null);
+  const mapRuntimeRef = useRef<LeafletRuntime | null>(null);
+  const panelMapRuntimeRef = useRef<LeafletRuntime | null>(null);
   const places = useMemo(() => {
     const parsed = parseNearbyPlaces(String(node.props.markersCsv ?? ''));
     const source = providerPlaces.length ? providerPlaces : parsed;
@@ -116,8 +192,6 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   const searchBarMode = renderMode === 'search-bar';
   const mapCenterLat = userPosition?.latitude ?? latitude;
   const mapCenterLng = userPosition?.longitude ?? longitude;
-  const liveEmbed = ctx.previewMode && !cardsOnly;
-  const embedSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${mapCenterLng - 0.03}%2C${mapCenterLat - 0.02}%2C${mapCenterLng + 0.03}%2C${mapCenterLat + 0.02}&layer=mapnik&marker=${mapCenterLat}%2C${mapCenterLng}`;
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelState, setPanelState] = useState<'default' | 'locating' | 'located'>('default');
   const headlineText = String(node.props.headlineText ?? 'Estamos cerca de ti');
@@ -154,9 +228,38 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
     }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
   };
 
+  useEffect(() => {
+    setSelectedPlace((current) => current && places.some((place) => place.name === current.name && place.lat === current.lat && place.lng === current.lng) ? current : (places[0] ?? null));
+  }, [places]);
+
+  useEffect(() => {
+    if (!mapCanvasRef.current || cardsOnly) return;
+    void mountLeafletMap(mapCanvasRef.current, mapRuntimeRef, {
+      latitude: mapCenterLat,
+      longitude: mapCenterLng,
+      zoom,
+      accent,
+      places,
+      selectedPlace,
+    });
+  }, [cardsOnly, mapCenterLat, mapCenterLng, zoom, accent, places, selectedPlace]);
+
+  useEffect(() => {
+    if (!panelOpen || !panelMapCanvasRef.current || cardsOnly) return;
+    void mountLeafletMap(panelMapCanvasRef.current, panelMapRuntimeRef, {
+      latitude: mapCenterLat,
+      longitude: mapCenterLng,
+      zoom,
+      accent,
+      places,
+      selectedPlace,
+    });
+  }, [panelOpen, cardsOnly, mapCenterLat, mapCenterLng, zoom, accent, places, selectedPlace]);
+
   if (searchBarMode) {
     return (
       <div style={{ ...moduleShell(node, ctx), position: 'relative' }}>
+        <style>{`.smx-map-label{background:#111827;border:none;border-radius:999px;color:#fff;padding:4px 8px;font-size:10px;font-weight:700;box-shadow:none}.smx-map-label:before{display:none}`}</style>
         <div style={{ position: 'absolute', inset: 0, background: '#000' }}>
           <div style={{ position: 'absolute', inset: 0, height: '60%', overflow: 'hidden', background: heroImage ? '#111827' : 'linear-gradient(160deg,#0f172a,#1d4ed8)' }}>
             {heroImage ? <img src={heroImage} alt={headlineText} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
@@ -197,19 +300,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
               <div style={{ position: 'relative', flex: 1, minHeight: 0, background: mapBackground }}>
                 {!cardsOnly ? (
                   <>
-                    {liveEmbed ? (
-                      <iframe title="search map preview" src={embedSrc} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} />
-                    ) : (
-                      <>
-                        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 20% 20%, rgba(255,255,255,.55), transparent 32%), radial-gradient(circle at 74% 32%, rgba(255,255,255,.2), transparent 24%), linear-gradient(135deg, transparent 0%, rgba(255,255,255,.12) 100%)' }} />
-                        {nearestPlaces.map((place, index) => (
-                          <div key={`${place.name}-${index}-search`} style={{ position: 'absolute', left: `${20 + index * 22}%`, top: `${28 + (index % 2) * 20}%`, transform: 'translate(-50%,-100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                            <div style={{ minWidth: 30, maxWidth: 120, padding: '4px 6px', borderRadius: 999, background: 'rgba(15,23,42,.82)', color: '#fff', fontSize: 10, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{place.name}</div>
-                            <div style={{ width: 18, height: 18, borderRadius: '50%', background: accent, border: '2px solid rgba(255,255,255,.88)', boxShadow: `0 0 0 6px ${accent}22` }} />
-                          </div>
-                        ))}
-                      </>
-                    )}
+                    <div ref={panelMapCanvasRef} style={{ position: 'absolute', inset: 0 }} />
                   </>
                 ) : null}
                 <button type="button" onClick={(event) => { event.stopPropagation(); requestUserPosition(); }} style={{ position: 'absolute', right: 10, top: 10, width: 40, height: 40, borderRadius: '50%', border: 'none', background: '#fff', color: accent, boxShadow: '0 3px 14px rgba(0,0,0,.2)', fontSize: 16, fontWeight: 900, cursor: 'pointer' }}>{locateMeLabel.slice(0, 1) || '◎'}</button>
@@ -230,7 +321,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 2 }}>
                   <div style={{ fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.5px', color: '#555' }}>{nearbyTitleText}</div>
                   {listedPlaces.map((place, index) => (
-                    <div key={`${place.name}-${index}-nearest`} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', border: '1px solid rgba(0,0,0,.08)', borderRadius: 12, background: '#fff' }}>
+                    <div key={`${place.name}-${index}-nearest`} onClick={() => setSelectedPlace(place)} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', border: selectedPlace?.name === place.name && selectedPlace?.lat === place.lat && selectedPlace?.lng === place.lng ? `1px solid ${accent}` : '1px solid rgba(0,0,0,.08)', borderRadius: 12, background: '#fff', cursor: 'pointer' }}>
                       <div style={{ width: 20, height: 20, borderRadius: '50%', background: `${accent}22`, color: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, flex: '0 0 20px' }}>{index + 1}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 800, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{place.name}</div>
@@ -264,20 +355,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
         <div style={{ display: 'grid', gap: 10, gridTemplateColumns: cardsOnly ? '1fr' : mapFirst ? '1.1fr .9fr' : '0.9fr 1.1fr', flex: 1, minHeight: 0 }}>
           {!cardsOnly ? (
             <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', minHeight: 110, background: mapBackground }}>
-              {liveEmbed ? <iframe title="map preview" src={embedSrc} style={{ width: '100%', height: '100%', border: 'none' }} /> : (
-                <>
-                  <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 20% 20%, rgba(255,255,255,.55), transparent 32%), radial-gradient(circle at 74% 32%, rgba(255,255,255,.2), transparent 24%), linear-gradient(135deg, transparent 0%, rgba(255,255,255,.12) 100%)' }} />
-                  {routeVisible ? <svg viewBox="0 0 100 60" style={{ position: 'absolute', inset: '12% 10%', width: '80%', height: '76%' }}><path d="M8 50 C 24 18, 56 16, 88 42" fill="none" stroke={accent} strokeWidth="3" strokeDasharray="7 6" strokeLinecap="round" /></svg> : null}
-                  {places.slice(0, 5).map((place, index) => (
-                    <div key={`${place.name}-${index}`} style={{ position: 'absolute', left: `${18 + index * 16}%`, top: `${24 + (index % 2) * 20}%`, transform: 'translate(-50%,-100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                      <div style={{ minWidth: 30, maxWidth: 96, padding: '4px 6px', borderRadius: 999, background: 'rgba(15,23,42,.82)', color: '#fff', fontSize: 10, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {place.flag ? `${getFlagEmoji(place.flag)} ` : ''}{place.name}
-                      </div>
-                      <div style={{ width: 18, height: 18, borderRadius: '50%', background: accent, border: '2px solid rgba(255,255,255,.88)', boxShadow: `0 0 0 6px ${accent}22` }} />
-                    </div>
-                  ))}
-                </>
-              )}
+              <div ref={mapCanvasRef} style={{ position: 'absolute', inset: 0 }} />
               <div style={{ position: 'absolute', left: 10, right: 10, bottom: 8, display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#0f172a', opacity: 0.82 }}>
                 <span>{places.length} locations · zoom {zoom}</span>
                 <span>{provider === 'google-places' ? (providerStatus === 'live' ? 'Places live' : providerStatus === 'loading' ? 'Loading places' : providerStatus === 'error' ? 'Places unavailable' : 'Places idle') : requestUserLocation ? 'User location on' : 'Location fixed'}</span>
@@ -287,7 +365,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
           <div style={{ display: 'grid', gap: 8, overflowY: 'auto', minHeight: 0, paddingRight: 2 }}>
             {places.map((place, index) => {
               return (
-                <div key={`${place.name}-${index}-card`} style={{ borderRadius: 12, background: 'rgba(255,255,255,.78)', border: `1px solid ${accent}22`, padding: 10, display: 'grid', gap: 6 }}>
+                <div key={`${place.name}-${index}-card`} onClick={() => setSelectedPlace(place)} style={{ borderRadius: 12, background: 'rgba(255,255,255,.78)', border: selectedPlace?.name === place.name && selectedPlace?.lat === place.lat && selectedPlace?.lng === place.lng ? `1px solid ${accent}` : `1px solid ${accent}22`, padding: 10, display: 'grid', gap: 6, cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     <strong style={{ fontSize: 13 }}>{place.name}</strong>
                     <span style={{ fontSize: 10, borderRadius: 999, padding: '4px 6px', background: `${accent}22`, color: '#0f172a' }}>{place.badge || (place.openNow ? 'Open now' : 'Store')}</span>
