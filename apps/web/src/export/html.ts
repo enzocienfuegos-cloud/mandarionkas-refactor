@@ -1,7 +1,7 @@
 import { getActiveFeedRecord } from '../domain/document/resolvers';
 import type { StudioState, WidgetNode } from '../domain/document/types';
 import { getWidgetDefinition } from '../widgets/registry/widget-registry';
-import type { GamHtml5AdapterResult, GenericHtml5AdapterResult, GoogleDisplayAdapterResult, PlayableExportAdapterResult } from './adapters';
+import type { GamHtml5AdapterResult, GenericHtml5AdapterResult, GoogleDisplayAdapterResult, MraidAdapterResult, PlayableExportAdapterResult } from './adapters';
 import { buildExportAssetPathMap, buildExportAssetPlan } from './assets';
 import { buildExportManifest } from './manifest';
 import { buildExportRuntimeModelFromPortable } from './runtime-model';
@@ -1124,6 +1124,7 @@ export type ExportHtmlAdapter =
   | GenericHtml5AdapterResult
   | GoogleDisplayAdapterResult
   | GamHtml5AdapterResult
+  | MraidAdapterResult
   | PlayableExportAdapterResult;
 
 function getPrimaryClickthroughUrl(adapter: ExportHtmlAdapter): string {
@@ -1159,6 +1160,39 @@ function buildExitBootstrap(adapter: ExportHtmlAdapter): string {
       if (!target) return;
       if (typeof window.open === 'function') window.open(target, '_blank');
     };`;
+    case 'mraid':
+      return `
+    window.smxMraidState = { ready: false, placementType: 'inline', version: null };
+    window.smxExit = function smxExit(url) {
+      var target = url || ${fallbackUrl};
+      if (!target) return;
+      if (window.mraid && typeof window.mraid.open === 'function') {
+        window.mraid.open(target);
+        return;
+      }
+      if (typeof window.open === 'function') window.open(target, '_blank');
+    };
+    (function initMraidBridge() {
+      if (!window.mraid) return;
+      function markReady() {
+        window.smxMraidState.ready = true;
+        try {
+          window.smxMraidState.version = typeof window.mraid.getVersion === 'function' ? window.mraid.getVersion() : null;
+          window.smxMraidState.placementType = typeof window.mraid.getPlacementType === 'function' ? window.mraid.getPlacementType() : 'inline';
+        } catch (_error) {}
+        document.documentElement.setAttribute('data-mraid-ready', 'true');
+        document.documentElement.setAttribute('data-mraid-placement', String(window.smxMraidState.placementType || 'inline'));
+      }
+      try {
+        if (typeof window.mraid.getState === 'function' && window.mraid.getState() === 'loading') {
+          window.mraid.addEventListener('ready', markReady);
+        } else {
+          markReady();
+        }
+      } catch (_error) {
+        markReady();
+      }
+    })();`;
     case 'playable-ad':
       return `
     window.smxPlayableExit = function smxPlayableExit(url) {
@@ -1193,6 +1227,7 @@ export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter)
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Inter, Arial, sans-serif; background: transparent; color: #e5e7eb; }
     .banner-shell { width: ${canvas.width}px; height: ${canvas.height}px; position: relative; overflow: hidden; background: ${escapeHtml(canvas.backgroundColor)}; }
+    html[data-mraid-ready="true"] .banner-shell[data-adapter="mraid"] { width: 100%; height: 100%; }
     .banner-stage { width: 100%; height: 100%; position: relative; overflow: hidden; }
     .scene { display: none; }
     button.widget-cta:hover { filter: brightness(1.05); }

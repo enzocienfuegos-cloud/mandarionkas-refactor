@@ -93,6 +93,33 @@ export function getPortableChannelRequirements(
           severity: 'warning',
         },
       ];
+    case 'mraid':
+      return [
+        {
+          id: 'mraid-size',
+          label: 'Canvas uses an MRAID profile size (320x480 or 300x600)',
+          passed: [[320, 480], [300, 600]].some(([w, h]) => w === canvas.width && h === canvas.height),
+          severity: 'warning',
+        },
+        {
+          id: 'mraid-exit',
+          label: 'Creative includes a clickthrough action for mraid.open()',
+          passed: hasClickthrough,
+          severity: 'error',
+        },
+        {
+          id: 'mraid-scene-budget',
+          label: 'MRAID creative keeps scene count compact (<= 3)',
+          passed: sceneCount <= 3,
+          severity: 'warning',
+        },
+        {
+          id: 'mraid-mobile-orientation',
+          label: 'MRAID portrait interstitials stay mobile-oriented',
+          passed: canvas.height >= canvas.width,
+          severity: 'warning',
+        },
+      ];
     case 'meta-story':
       return [
         {

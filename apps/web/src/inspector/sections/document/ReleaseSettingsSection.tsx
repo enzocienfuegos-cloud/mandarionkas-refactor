@@ -17,6 +17,7 @@ export function ReleaseSettingsSection(): JSX.Element {
             <option value="generic-html5">generic-html5</option>
             <option value="google-display">google-display</option>
             <option value="gam-html5">gam-html5</option>
+            <option value="mraid">mraid</option>
             <option value="meta-story">meta-story</option>
             <option value="tiktok-vertical">tiktok-vertical</option>
           </select>

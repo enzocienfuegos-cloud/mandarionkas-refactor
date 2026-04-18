@@ -1,4 +1,4 @@
-import type { GamHtml5AdapterResult, GenericHtml5AdapterResult, GoogleDisplayAdapterResult, PlayableExportAdapterResult } from './adapters';
+import type { GamHtml5AdapterResult, GenericHtml5AdapterResult, GoogleDisplayAdapterResult, MraidAdapterResult, PlayableExportAdapterResult } from './adapters';
 import type { ExportHtmlAdapter } from './html';
 
 export type ExportPackagingPlan = {
@@ -6,7 +6,7 @@ export type ExportPackagingPlan = {
   format: 'single-page-html' | 'playable-html';
   entryFile: 'index.html';
   bootstrapFile: 'inline';
-  exitStrategy: 'clickTag' | 'window-open' | 'playable-bridge';
+  exitStrategy: 'clickTag' | 'window-open' | 'playable-bridge' | 'mraid-open';
   requiresSingleRootDocument: boolean;
   politeLoad: boolean;
   sceneCount: number;
@@ -16,7 +16,7 @@ export type ExportPackagingPlan = {
 
 export type ExportExitConfig = {
   adapter: ExportHtmlAdapter['adapter'];
-  strategy: 'clickTag' | 'window-open' | 'playable-bridge';
+  strategy: 'clickTag' | 'window-open' | 'playable-bridge' | 'mraid-open';
   primaryUrl: string | null;
   urls: string[];
 };
@@ -75,6 +75,21 @@ function buildGamPackagingPlan(adapter: GamHtml5AdapterResult): ExportPackagingP
   };
 }
 
+function buildMraidPackagingPlan(adapter: MraidAdapterResult): ExportPackagingPlan {
+  return {
+    adapter: adapter.adapter,
+    format: 'single-page-html',
+    entryFile: adapter.mraid.entry,
+    bootstrapFile: 'inline',
+    exitStrategy: 'mraid-open',
+    requiresSingleRootDocument: true,
+    politeLoad: true,
+    sceneCount: adapter.portableProject.scenes.length,
+    externalAssetMode: 'localized-bundle',
+    emittedFiles: ['index.html', 'runtime.js', 'manifest.json', 'portable-project.json', 'portable-project.localized.json', 'runtime-model.json', 'adapter.json', 'packaging-plan.json', 'exit-config.json', 'asset-plan.json', 'remote-fetch-plan.json', 'readiness.json', 'package-metrics.json', 'package-compliance.json'],
+  };
+}
+
 function buildPlayablePackagingPlan(adapter: PlayableExportAdapterResult): ExportPackagingPlan {
   return {
     adapter: adapter.adapter,
@@ -98,6 +113,8 @@ export function buildExportPackagingPlan(adapter: ExportHtmlAdapter): ExportPack
       return buildGooglePackagingPlan(adapter);
     case 'gam-html5':
       return buildGamPackagingPlan(adapter);
+    case 'mraid':
+      return buildMraidPackagingPlan(adapter);
     case 'playable-ad':
       return buildPlayablePackagingPlan(adapter);
     default:
@@ -113,6 +130,8 @@ export function buildExportExitConfig(adapter: ExportHtmlAdapter): ExportExitCon
     case 'google-display':
     case 'gam-html5':
       return { adapter: adapter.adapter, strategy: 'clickTag', primaryUrl: urls[0] ?? null, urls };
+    case 'mraid':
+      return { adapter: adapter.adapter, strategy: 'mraid-open', primaryUrl: urls[0] ?? null, urls };
     case 'playable-ad':
       return { adapter: adapter.adapter, strategy: 'playable-bridge', primaryUrl: urls[0] ?? null, urls };
     default:

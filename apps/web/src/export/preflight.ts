@@ -72,7 +72,7 @@ function buildPreflightSummary(
   const deliveryMode: ExportPreflightSummary['deliveryMode'] =
     blockers > 0 ? 'blocked' : remoteAssetPendingCount > 0 ? 'bundle-only' : 'resolved-ready';
   const preferredArtifact: ExportPreflightSummary['preferredArtifact'] =
-    packagingPlan.adapter === 'google-display' || packagingPlan.adapter === 'gam-html5' || remoteFetchPlan.length > 0
+    packagingPlan.adapter === 'google-display' || packagingPlan.adapter === 'gam-html5' || packagingPlan.adapter === 'mraid' || remoteFetchPlan.length > 0
       ? 'zip-resolved'
       : 'zip-bundle';
 

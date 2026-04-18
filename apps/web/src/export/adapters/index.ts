@@ -4,5 +4,7 @@ export { buildGamHtml5Adapter } from './gam-html5';
 export type { GamHtml5AdapterResult } from './gam-html5';
 export { buildGoogleDisplayAdapter } from './google-display';
 export type { GoogleDisplayAdapterResult } from './google-display';
+export { buildMraidAdapter } from './mraid';
+export type { MraidAdapterResult } from './mraid';
 export { buildPlayableExportAdapter } from './playable';
 export type { PlayableExportAdapterResult } from './playable';

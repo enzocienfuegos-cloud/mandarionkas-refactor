@@ -27,6 +27,7 @@ export {
   buildGenericHtml5Adapter,
   buildGamHtml5Adapter,
   buildGoogleDisplayAdapter,
+  buildMraidAdapter,
   buildPlayableExportAdapter,
 } from './adapters';
 export type {
@@ -55,6 +56,7 @@ export type {
   GamHtml5AdapterResult,
   GenericHtml5AdapterResult,
   GoogleDisplayAdapterResult,
+  MraidAdapterResult,
   PlayableExportAdapterResult,
 } from './adapters';
 export { buildExportReadiness } from './readiness';

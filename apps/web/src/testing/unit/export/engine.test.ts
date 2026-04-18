@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../../../domain/document/factories';
-import { buildChannelHtml, buildExportAssetPlan, buildExportBundle, buildExportBundleWithRemoteAssets, buildExportExitConfig, buildExportManifest, buildExportPackagingPlan, buildExportPackageMetrics, buildExportPreflight, buildExportReadiness, buildExportRuntimeModel, buildExportRuntimeScript, buildGamHtml5Adapter, buildGenericHtml5Adapter, buildGoogleDisplayAdapter, buildPlayableExportAdapter, buildLocalizedPortableProject, buildPortableProjectExport, buildPublishPackage, buildRemoteAssetFetchPlan, buildReviewPackage, buildStandaloneHtml, buildZipFromBundle, getChannelRequirements, materializeExportAssetFiles, materializeRemoteExportAssetFiles, validateExport, validateExportPackage, validatePortableExport } from '../../../export/engine';
+import { buildChannelHtml, buildExportAssetPlan, buildExportBundle, buildExportBundleWithRemoteAssets, buildExportExitConfig, buildExportManifest, buildExportPackagingPlan, buildExportPackageMetrics, buildExportPreflight, buildExportReadiness, buildExportRuntimeModel, buildExportRuntimeScript, buildGamHtml5Adapter, buildGenericHtml5Adapter, buildGoogleDisplayAdapter, buildMraidAdapter, buildPlayableExportAdapter, buildLocalizedPortableProject, buildPortableProjectExport, buildPublishPackage, buildRemoteAssetFetchPlan, buildReviewPackage, buildStandaloneHtml, buildZipFromBundle, getChannelRequirements, materializeExportAssetFiles, materializeRemoteExportAssetFiles, validateExport, validateExportPackage, validatePortableExport } from '../../../export/engine';
 import { buildNearbyPlacesCsv, parseNearbyPlaces } from '../../../widgets/modules/dynamic-map.shared';
 
 describe('export engine', () => {
@@ -313,6 +313,21 @@ describe('export engine', () => {
     expect(google.display.standardSize).toBe(true);
   });
 
+  it('builds an mraid adapter payload with profile metadata', () => {
+    const state = createInitialState();
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+    state.document.metadata.release.targetChannel = 'mraid';
+
+    const mraid = buildMraidAdapter(state);
+
+    expect(mraid.adapter).toBe('mraid');
+    expect(mraid.mraid.entry).toBe('index.html');
+    expect(mraid.mraid.standardSize).toBe(true);
+    expect(mraid.mraid.placement).toBe('interstitial');
+    expect(mraid.mraid.apiVersion).toBe('3.0');
+  });
+
   it('renders channel html with standard-size metadata for google display', () => {
     const state = createInitialState();
     state.document.canvas.width = 300;
@@ -325,6 +340,21 @@ describe('export engine', () => {
     expect(html).toContain('data-adapter="google-display"');
     expect(html).toContain('window.clickTag = window.clickTag ||');
     expect(html).toContain('class="banner-shell"');
+  });
+
+  it('renders channel html with mraid bootstrap', () => {
+    const state = createInitialState();
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+    state.document.metadata.release.targetChannel = 'mraid';
+    const mraid = buildMraidAdapter(state);
+
+    const html = buildChannelHtml(state, mraid);
+
+    expect(html).toContain('data-adapter="mraid"');
+    expect(html).toContain('window.mraid');
+    expect(html).toContain('window.smxExit = function smxExit');
+    expect(html).toContain('data-mraid-ready');
   });
 
   it('renders localized asset paths in channel html when adapter project is localized', () => {
@@ -408,6 +438,20 @@ describe('export engine', () => {
     expect(plan.entryFile).toBe('index.html');
   });
 
+  it('builds a packaging plan with mraid open strategy for mraid exports', () => {
+    const state = createInitialState();
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+    state.document.metadata.release.targetChannel = 'mraid';
+    const mraid = buildMraidAdapter(state);
+
+    const plan = buildExportPackagingPlan(mraid);
+
+    expect(plan.adapter).toBe('mraid');
+    expect(plan.exitStrategy).toBe('mraid-open');
+    expect(plan.entryFile).toBe('index.html');
+  });
+
   it('builds an exit config with clickTag strategy for gam html5', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
@@ -439,6 +483,40 @@ describe('export engine', () => {
     expect(exitConfig.strategy).toBe('clickTag');
     expect(exitConfig.primaryUrl).toBe('https://example.com');
     expect(exitConfig.urls).toContain('https://example.com');
+  });
+
+  it('builds an exit config with mraid-open strategy for mraid', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.widgets.cta_1 = {
+      id: 'cta_1',
+      type: 'cta',
+      name: 'CTA',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 160, height: 44, rotation: 0 },
+      style: {},
+      props: { text: 'Tap now', url: 'https://example.com' },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.actions.act_1 = {
+      id: 'act_1',
+      widgetId: 'cta_1',
+      trigger: 'click',
+      type: 'open-url',
+      url: 'https://example.com',
+      label: 'Exit',
+    };
+    state.document.scenes[0].widgetIds.push('cta_1');
+    const mraid = buildMraidAdapter(state);
+
+    const exitConfig = buildExportExitConfig(mraid);
+
+    expect(exitConfig.strategy).toBe('mraid-open');
+    expect(exitConfig.primaryUrl).toBe('https://example.com');
   });
 
   it('collects asset plan entries for widget media and carousel slides', () => {

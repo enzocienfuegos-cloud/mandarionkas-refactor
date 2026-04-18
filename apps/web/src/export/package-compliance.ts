@@ -32,6 +32,7 @@ export function validateExportPackage(
   const materializedAssets = assetPlan.filter((asset) => filePaths.includes(asset.packagingPath));
   const packageMetrics = buildExportPackageMetrics(bundle, assetPlan);
   const clickTagChannel = bundle.channel === 'google-display' || bundle.channel === 'gam-html5';
+  const mraidChannel = bundle.channel === 'mraid';
 
   if (!bundle.files.length) {
     issues.push({
@@ -104,6 +105,15 @@ export function validateExportPackage(
         message: `${bundle.channel} package is missing the clickTag bootstrap in index.html.`,
       });
     }
+    if (mraidChannel && !html.includes('window.mraid') && !html.includes('window.smxMraidState')) {
+      issues.push({
+        level: 'error',
+        code: 'runtime.mraid-bootstrap-missing',
+        scope: 'runtime',
+        targetId: 'index.html',
+        message: 'mraid package is missing the MRAID bootstrap in index.html.',
+      });
+    }
   }
 
   if (packagingPlan.sceneCount > 1 && !filePaths.includes('runtime.js')) {
@@ -116,7 +126,7 @@ export function validateExportPackage(
     });
   }
 
-  if ((exitConfig.strategy === 'clickTag' || exitConfig.strategy === 'window-open') && !exitConfig.primaryUrl) {
+  if ((exitConfig.strategy === 'clickTag' || exitConfig.strategy === 'window-open' || exitConfig.strategy === 'mraid-open') && !exitConfig.primaryUrl) {
     issues.push({
       level: 'error',
       code: 'exit.missing-primary-url',
@@ -207,6 +217,7 @@ export function validateExportPackage(
   const recommendedBytesByChannel: Partial<Record<ExportBundle['channel'], number>> = {
     'google-display': 200 * 1024,
     'gam-html5': 200 * 1024,
+    'mraid': 500 * 1024,
     'meta-story': 5 * 1024 * 1024,
     'tiktok-vertical': 5 * 1024 * 1024,
     'generic-html5': 2 * 1024 * 1024,

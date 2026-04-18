@@ -13,6 +13,7 @@ import { buildExportReadiness } from './readiness';
 import { buildGenericHtml5Adapter } from './adapters/generic-html5';
 import { buildGamHtml5Adapter } from './adapters/gam-html5';
 import { buildGoogleDisplayAdapter } from './adapters/google-display';
+import { buildMraidAdapter } from './adapters/mraid';
 import { buildPlayableExportAdapter } from './adapters/playable';
 
 function buildChannelAdapter(state: StudioState) {
@@ -23,6 +24,8 @@ function buildChannelAdapter(state: StudioState) {
       return buildGoogleDisplayAdapter(state);
     case 'gam-html5':
       return buildGamHtml5Adapter(state);
+    case 'mraid':
+      return buildMraidAdapter(state);
     case 'meta-story':
     case 'tiktok-vertical':
       return buildPlayableExportAdapter(state);
