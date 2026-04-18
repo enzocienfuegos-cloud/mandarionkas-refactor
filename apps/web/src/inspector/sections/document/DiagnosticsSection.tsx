@@ -9,6 +9,7 @@ export function DiagnosticsSection(): JSX.Element {
   const readiness = buildExportReadiness(state);
   const manifest = buildExportManifest(state);
   const mraidHandoff = manifest.handoff?.mraid;
+  const compatibility = mraidHandoff?.moduleCompatibility;
 
   return (
     <div className="field-stack">
@@ -46,6 +47,12 @@ export function DiagnosticsSection(): JSX.Element {
             <span className="pill">API {mraidHandoff.apiVersion}</span>
             <span className="pill">Placement {mraidHandoff.placementType}</span>
             <span className="pill">Host features {mraidHandoff.requiredHostFeatures.join(', ')}</span>
+            <span className="pill">{mraidHandoff.readyForHostHandoff ? 'ready' : mraidHandoff.blockers.length ? 'blocked' : 'review needed'}</span>
+          </div>
+          <div className="meta-line">
+            <span className="pill">Supported {compatibility?.supported.length ?? 0}</span>
+            <span className="pill">Warnings {compatibility?.summary.warningCount ?? 0}</span>
+            <span className="pill">Blocked {compatibility?.summary.blockedCount ?? 0}</span>
           </div>
           {mraidHandoff.blockers.map((item) => (
             <div key={`handoff-blocker-${item}`} className="pill" style={{ borderColor: 'rgba(239,68,68,.45)' }}>
@@ -57,6 +64,26 @@ export function DiagnosticsSection(): JSX.Element {
               warning · {item}
             </div>
           ))}
+          {compatibility?.warning.length ? (
+            <div className="field-stack">
+              <small className="muted">Warning widgets</small>
+              {compatibility.warning.slice(0, 5).map((item) => (
+                <div key={`compat-warning-${item.widgetId}`} className="pill" style={{ borderColor: 'rgba(245,158,11,.45)' }}>
+                  {item.widgetType} · {item.reason}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {compatibility?.blocked.length ? (
+            <div className="field-stack">
+              <small className="muted">Blocked widgets</small>
+              {compatibility.blocked.slice(0, 5).map((item) => (
+                <div key={`compat-blocked-${item.widgetId}`} className="pill" style={{ borderColor: 'rgba(239,68,68,.45)' }}>
+                  {item.widgetType} · {item.reason}
+                </div>
+              ))}
+            </div>
+          ) : null}
           {!mraidHandoff.blockers.length && !mraidHandoff.warnings.length ? (
             <div className="pill" style={{ borderColor: 'rgba(34,197,94,.35)' }}>
               ✓ MRAID handoff clean
@@ -68,8 +95,8 @@ export function DiagnosticsSection(): JSX.Element {
         <button onClick={() => triggerExportHtml(state)}>Export HTML</button>
         <button onClick={() => triggerExportManifest(state)}>Export manifest</button>
         <button onClick={() => triggerExportDocumentJson(state)}>Export document JSON</button>
-        <button onClick={() => triggerExportPublishPackage(state)}>Export publish package</button>
-        <button onClick={() => triggerExportReviewPackage(state)}>Export review package</button>
+        <button onClick={() => triggerExportPublishPackage(state)}>{mraidHandoff ? 'Export MRAID package' : 'Export publish package'}</button>
+        <button onClick={() => triggerExportReviewPackage(state)}>{mraidHandoff ? 'Review MRAID package' : 'Export review package'}</button>
       </div>
       {issues.length ? (
         <div className="field-stack">
