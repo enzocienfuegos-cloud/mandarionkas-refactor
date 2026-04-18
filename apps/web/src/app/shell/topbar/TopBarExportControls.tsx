@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import type { TopBarController } from './use-top-bar-controller';
 import { ExportPreflightPanel } from '../../../export/ExportPreflightPanel';
+import { useDocumentActions } from '../../../hooks/use-studio-actions';
 
 export function TopBarExportControls({ controller, compact = false }: { controller: TopBarController; compact?: boolean }): JSX.Element {
   const [showPreflight, setShowPreflight] = useState(false);
+  const { updateReleaseSettings } = useDocumentActions();
   const { state, dirty } = controller.snapshot;
   const { handleLogout } = controller.workspace;
   const { exportIssues, preflight, handoff, resolvedZipStatus, resolvedZipMessage, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportDocumentJson, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundleResolved } = controller.exportReadiness;
   const blockers = exportIssues.filter((item) => item.level === 'error').length;
   const packageWarnings = preflight.summary.warnings;
   const mraidHandoff = state.document.metadata.release.targetChannel === 'mraid' ? handoff.mraid : undefined;
+  const targetChannel = state.document.metadata.release.targetChannel;
   const primaryLabel = dirty
     ? `Unsaved · ${blockers} blockers`
     : `Saved · ${preflight.summary.packageGrade} · ${packageWarnings} warnings`;
@@ -17,6 +20,22 @@ export function TopBarExportControls({ controller, compact = false }: { controll
   return (
     <div className={`top-control-group ${compact ? 'top-control-group--compact' : ''}`}>
       <strong className="section-kicker">Export</strong>
+      <div className="meta-line">
+        <span className="pill">Export target</span>
+        <select
+          value={targetChannel}
+          onChange={(event) => updateReleaseSettings({ targetChannel: event.target.value as typeof targetChannel })}
+          aria-label="Export target"
+          style={{ minWidth: 172 }}
+        >
+          <option value="generic-html5">IAB HTML5</option>
+          <option value="google-display">Google Display</option>
+          <option value="gam-html5">GAM HTML5</option>
+          <option value="mraid">MRAID</option>
+          <option value="meta-story">Meta Story</option>
+          <option value="tiktok-vertical">TikTok Vertical</option>
+        </select>
+      </div>
       {mraidHandoff ? (
         <div className="meta-line">
           <span className="pill">MRAID</span>
