@@ -43,6 +43,7 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [lastSelectedAssetId, setLastSelectedAssetId] = useState<string | null>(null);
   const [draggedAssetIds, setDraggedAssetIds] = useState<string[]>([]);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [folderDraft, setFolderDraft] = useState('');
   const [bulkTargetFolderId, setBulkTargetFolderId] = useState<string>('root');
   const [page, setPage] = useState(1);
@@ -271,6 +272,7 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
       assetController.refreshAssets();
       setSelectedAssetIds([]);
       setDraggedAssetIds([]);
+      setDragOverFolderId(null);
     } catch (error) {
       setFolderError(error instanceof Error ? error.message : 'Could not move selected assets.');
     } finally {
@@ -290,12 +292,16 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
             onDragOver={(event) => {
               if (!draggedAssetIds.length) return;
               event.preventDefault();
+              setDragOverFolderId(folder.id);
             }}
+            onDragLeave={() => setDragOverFolderId((current) => (current === folder.id ? null : current))}
             onDrop={(event) => {
               if (!draggedAssetIds.length) return;
               event.preventDefault();
+              setDragOverFolderId(null);
               void handleMoveAssetsToFolder(draggedAssetIds, folder.id);
             }}
+            data-drop-target={dragOverFolderId === folder.id ? 'true' : 'false'}
           >
             <span>{folder.children.length ? '▾' : '▸'}</span>
             <span>{folder.name}</span>
@@ -372,16 +378,39 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
               onDragOver={(event) => {
                 if (!draggedAssetIds.length) return;
                 event.preventDefault();
+                setDragOverFolderId('__root__');
               }}
+              onDragLeave={() => setDragOverFolderId((current) => (current === '__root__' ? null : current))}
               onDrop={(event) => {
                 if (!draggedAssetIds.length) return;
                 event.preventDefault();
+                setDragOverFolderId(null);
                 void handleMoveAssetsToFolder(draggedAssetIds, undefined);
               }}
+              data-drop-target={dragOverFolderId === '__root__' ? 'true' : 'false'}
             >
               <span>▾</span>
               <span>Assets</span>
             </button>
+            <div
+              className={`asset-root-dropzone ${dragOverFolderId === '__root__' ? 'is-active' : ''}`}
+              onDragOver={(event) => {
+                if (!draggedAssetIds.length) return;
+                event.preventDefault();
+                setDragOverFolderId('__root__');
+              }}
+              onDragLeave={() => setDragOverFolderId((current) => (current === '__root__' ? null : current))}
+              onDrop={(event) => {
+                if (!draggedAssetIds.length) return;
+                event.preventDefault();
+                setDragOverFolderId(null);
+                void handleMoveAssetsToFolder(draggedAssetIds, undefined);
+              }}
+            >
+              {draggedAssetIds.length
+                ? `Drop ${draggedAssetIds.length} asset${draggedAssetIds.length === 1 ? '' : 's'} here to move to root`
+                : 'Drag assets here to move them to root'}
+            </div>
             <div className="asset-tree-children">
               {projectFolders.map((project) => (
                 <button key={project.id} type="button" className={`asset-tree-item asset-tree-item--nested ${activeFolderId === `project:${project.id}` ? 'is-active' : ''}`} onClick={() => setActiveFolderId(`project:${project.id}`)}>
@@ -516,6 +545,12 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
 
             <div className="asset-library-browser-section">
               <div className="asset-library-browser-section-head">Folders</div>
+              {draggedAssetIds.length ? (
+                <div className="asset-browser-drop-hint">
+                  Dragging {draggedAssetIds.length} asset{draggedAssetIds.length === 1 ? '' : 's'}.
+                  Drop them on a folder card, the folder tree, or the root zone on the left.
+                </div>
+              ) : null}
               {activeFolder ? (
                 <div className="asset-folder-create-row">
                   <button className="ghost compact-action" type="button" disabled={!assetController.canUpdateAssets || folderBusy} onClick={() => void handleRenameActiveFolder()}>
@@ -565,12 +600,16 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
                     onDragOver={(event) => {
                       if (!draggedAssetIds.length || folder.id.startsWith('project:')) return;
                       event.preventDefault();
+                      setDragOverFolderId(folder.id);
                     }}
+                    onDragLeave={() => setDragOverFolderId((current) => (current === folder.id ? null : current))}
                     onDrop={(event) => {
                       if (!draggedAssetIds.length || folder.id.startsWith('project:')) return;
                       event.preventDefault();
+                      setDragOverFolderId(null);
                       void handleMoveAssetsToFolder(draggedAssetIds, folder.id);
                     }}
+                    data-drop-target={dragOverFolderId === folder.id ? 'true' : 'false'}
                   >
                     <span className="asset-folder-icon">▣</span>
                     <span className="asset-folder-name">{folder.name}</span>
@@ -631,6 +670,7 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
                       onDragEnd={() => {
                         clearAssetLibraryDragPayload();
                         setDraggedAssetIds([]);
+                        setDragOverFolderId(null);
                       }}
                     >
                       <div className="meta-line" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
