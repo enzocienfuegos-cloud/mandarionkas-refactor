@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../../../domain/document/factories';
-import { buildExportManifest, buildExportReadiness, buildMraidHandoff, buildReviewPackage, buildStandaloneHtml, getExportChannelProfile, validateExport } from '../../../export/engine';
+import { buildExportManifest, buildExportReadiness, buildMraidHandoff, buildReviewPackage, buildStandaloneHtml, evaluateMraidCompatibility, getExportChannelProfile, validateExport } from '../../../export/engine';
 import { registerBuiltins } from '../../../widgets/registry/register-builtins';
 
 registerBuiltins();
@@ -90,8 +90,54 @@ describe('export engine', () => {
     expect(handoff.apiVersion).toBe('3.0');
     expect(handoff.placementType).toBe('interstitial');
     expect(handoff.requiredHostFeatures).toContain('location');
+    expect(handoff.expectedHost.supportsLocation).toBe(true);
+    expect(handoff.moduleCompatibility.summary.totalWidgets).toBeGreaterThan(0);
     expect(manifest.handoff?.mraid?.requiredHostFeatures).toContain('location');
     expect(readiness.hostRequirements?.requiredFeatures).toContain('location');
+  });
+
+  it('flags blocked and warning widgets for mraid compatibility', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.widgets.speed_1 = {
+      id: 'speed_1',
+      type: 'speed-test',
+      name: 'Speed Test',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 220, height: 116, rotation: 0 },
+      style: {},
+      props: { title: 'Speed Test' },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.widgets.weather_1 = {
+      id: 'weather_1',
+      type: 'weather-conditions',
+      name: 'Weather',
+      sceneId,
+      zIndex: 2,
+      frame: { x: 0, y: 120, width: 220, height: 116, rotation: 0 },
+      style: {},
+      props: { title: 'Weather', liveWeather: true },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('speed_1', 'weather_1');
+
+    const issues = evaluateMraidCompatibility(state);
+    const handoff = buildMraidHandoff(state);
+    const readiness = buildExportReadiness(state);
+    const reviewPackage = JSON.parse(buildReviewPackage(state));
+
+    expect(issues.some((item) => item.widgetType === 'speed-test' && item.status === 'blocked')).toBe(true);
+    expect(issues.some((item) => item.widgetType === 'weather-conditions' && item.status === 'warning')).toBe(true);
+    expect(handoff.readyForHostHandoff).toBe(false);
+    expect(handoff.blockers.some((item) => item.includes('speed-test'))).toBe(true);
+    expect(handoff.warnings.some((item) => item.includes('live weather data'))).toBe(true);
+    expect(handoff.moduleCompatibility.summary.blockedCount).toBe(1);
+    expect(handoff.moduleCompatibility.summary.warningCount).toBe(1);
+    expect(reviewPackage.handoff.mraid.moduleCompatibility.summary.blockedCount).toBe(1);
+    expect(readiness.checklist.some((item) => item.label.includes('No blocked MRAID widgets') && !item.passed)).toBe(true);
   });
 
   it('injects mraid bridge into standalone html for mraid channel', () => {

@@ -3,6 +3,7 @@ export type { ExportValidationIssue } from '../domain/document/export-validation
 export type { ChannelRequirement, ExportManifest, ExportReadiness } from './types';
 export { getExportChannelProfile, listExportChannelProfiles } from './adapters';
 export { getChannelRequirements } from './channels';
+export { evaluateMraidCompatibility, summarizeMraidCompatibility } from './mraid-compatibility';
 export { buildMraidHandoff, getExpectedMraidPlacementType, getRequiredMraidHostFeatures, usesLocationAwareExperience } from './mraid-handoff';
 export { buildExportManifest } from './manifest';
 export { buildExportReadiness } from './readiness';
