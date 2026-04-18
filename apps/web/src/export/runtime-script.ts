@@ -98,7 +98,6 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     if (!cardsRoot) return;
     const showOpenNow = root.getAttribute('data-map-show-open-now') === 'true';
     const showDistance = root.getAttribute('data-map-show-distance') === 'true';
-    const defaultCtaLabel = root.getAttribute('data-map-default-cta-label') || 'Open in Maps';
     const accent = root.getAttribute('data-map-accent') || '#ef4444';
     const ranked = rankMapPlaces(root, userPosition);
     cardsRoot.innerHTML = ranked.map((place) => {
@@ -109,7 +108,10 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
         + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:13px;">' + String(place.name || '') + '</strong><span data-place-badge style="font-size:10px;border-radius:999px;padding:4px 6px;background:' + accent + '22;color:#0f172a;">' + String(place.badge || (place.openNow ? 'Open now' : 'Store')) + '</span></div>'
         + '<div style="font-size:11px;opacity:.78;">' + String(place.address || '') + '</div>'
         + '<div data-place-meta style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;">' + meta.join('') + '</div>'
-        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.resolvedUrl || '') + '" style="border:none;border-radius:10px;background:' + accent + ';color:#ffffff;font-weight:800;padding:8px 10px;cursor:pointer;">' + String(place.ctaLabel || defaultCtaLabel) + '</button>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        + '<button type="button" data-smx-action="map-place-cta" data-place-url="https://waze.com/ul?ll=' + String(place.lat) + '%2C' + String(place.lng) + '&navigate=yes" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:32px;border-radius:999px;padding:0 12px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</button>'
+        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.resolvedUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:32px;border-radius:999px;padding:0 12px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</button>'
+        + '</div>'
         + '</div>';
     }).join('');
   }

@@ -286,8 +286,6 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
           ) : null}
           <div style={{ display: 'grid', gap: 8, overflowY: 'auto', minHeight: 0, paddingRight: 2 }}>
             {places.map((place, index) => {
-              const ctaType = place.ctaType || defaultCtaType;
-              const ctaLabel = place.ctaLabel || defaultCtaLabel;
               return (
                 <div key={`${place.name}-${index}-card`} style={{ borderRadius: 12, background: 'rgba(255,255,255,.78)', border: `1px solid ${accent}22`, padding: 10, display: 'grid', gap: 6 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -299,9 +297,14 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
                     {showOpenNow && place.openNow != null ? <span>{place.openNow ? 'Open now' : 'Closed'}</span> : null}
                     {showDistance && place.distanceKm != null ? <span>{place.distanceKm.toFixed(1)} km</span> : null}
                   </div>
-                  <button type="button" onClick={(event) => { event.stopPropagation(); ctx.triggerWidgetAction('click'); if (ctx.previewMode) window.open(buildPlaceCtaUrl(place, ctaType), '_blank'); }} style={{ border: 'none', borderRadius: 10, background: accent, color: '#111827', fontWeight: 800, padding: '8px 10px', cursor: 'pointer' }}>
-                    {ctaLabel}
-                  </button>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); ctx.triggerWidgetAction('click'); if (ctx.previewMode) window.open(buildPlaceCtaUrl(place, 'waze'), '_blank'); }} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 46, height: 32, borderRadius: 999, padding: '0 12px', color: '#fff', fontSize: 10, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#08d4ff', cursor: 'pointer' }}>
+                      Waze
+                    </button>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); ctx.triggerWidgetAction('click'); if (ctx.previewMode) window.open(buildPlaceCtaUrl(place, 'maps'), '_blank'); }} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 46, height: 32, borderRadius: 999, padding: '0 12px', color: '#fff', fontSize: 10, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#4285f4', cursor: 'pointer' }}>
+                      Maps
+                    </button>
+                  </div>
                 </div>
               );
             })}

@@ -435,7 +435,10 @@ function renderDynamicMapWidget(node: WidgetNode): string {
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:13px;">${escapeHtml(place.name)}</strong><span data-place-badge style="font-size:10px;border-radius:999px;padding:4px 6px;background:${escapeHtml(accent)}22;color:#0f172a;">${escapeHtml(place.badge || (place.openNow ? 'Open now' : 'Store'))}</span></div>
         <div style="font-size:11px;opacity:.78;">${escapeHtml(place.address || `${place.lat.toFixed(3)}, ${place.lng.toFixed(3)}`)}</div>
         <div data-place-meta style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;">${showOpenNow && place.openNow != null ? `<span data-place-open-now>${place.openNow ? 'Open now' : 'Closed'}</span>` : ''}</div>
-        <button type="button" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, (place.ctaType || defaultCtaType) as any))}" style="border:none;border-radius:10px;background:${escapeHtml(accent)};color:#111827;font-weight:800;padding:8px 10px;cursor:pointer;">${escapeHtml(place.ctaLabel || defaultCtaLabel)}</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button type="button" data-smx-action="map-place-cta" data-place-url="https://waze.com/ul?ll=${place.lat}%2C${place.lng}&navigate=yes" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:32px;border-radius:999px;padding:0 12px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</button>
+          <button type="button" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, 'maps'))}" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:32px;border-radius:999px;padding:0 12px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</button>
+        </div>
       </div>`).join('')}</div>
     </div>
   </div>`;
