@@ -90,10 +90,10 @@ export function buildExportHandoff(state: StudioState) {
   };
 }
 
-export function buildPublishPackage(state: StudioState): string {
-  const preflight = buildExportPreflight(state);
-  const portableProject = buildPortableProjectExport(state);
-  const channelAdapter = buildChannelAdapter(state);
+export function buildPublishPackage(state: StudioState, exportedState: StudioState = state): string {
+  const preflight = buildExportPreflight(exportedState);
+  const portableProject = buildPortableProjectExport(exportedState);
+  const channelAdapter = buildChannelAdapter(exportedState);
   const runtimeModel = buildExportRuntimeModelFromPortable(portableProject);
   const assetPlan = buildExportAssetPlan(portableProject);
   const remoteFetchPlan = buildRemoteAssetFetchPlan(assetPlan);
@@ -104,11 +104,11 @@ export function buildPublishPackage(state: StudioState): string {
   const exitConfig = buildExportExitConfig(localizedAdapter);
   const runtimeScript = buildExportRuntimeScript(channelAdapter);
   const packageMetrics = buildExportPackageMetrics({
-    channel: state.document.metadata.release.targetChannel,
+    channel: exportedState.document.metadata.release.targetChannel,
     files: [
-      { path: 'index.html', mime: 'text/html;charset=utf-8', content: buildChannelHtml(state, localizedAdapter) },
+      { path: 'index.html', mime: 'text/html;charset=utf-8', content: buildChannelHtml(exportedState, localizedAdapter) },
       { path: 'runtime.js', mime: 'text/javascript;charset=utf-8', content: runtimeScript },
-      { path: 'manifest.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(buildExportManifest(state), null, 2) },
+      { path: 'manifest.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(buildExportManifest(exportedState), null, 2) },
       { path: 'portable-project.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(portableProject, null, 2) },
       { path: 'portable-project.localized.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(localizedPortableProject, null, 2) },
       { path: 'runtime-model.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(runtimeModel, null, 2) },
@@ -122,9 +122,9 @@ export function buildPublishPackage(state: StudioState): string {
     ],
   }, assetPlan);
   const packageProbe = {
-    channel: state.document.metadata.release.targetChannel,
+    channel: exportedState.document.metadata.release.targetChannel,
     files: [
-      { path: 'index.html', mime: 'text/html;charset=utf-8', content: buildChannelHtml(state, localizedAdapter) },
+      { path: 'index.html', mime: 'text/html;charset=utf-8', content: buildChannelHtml(exportedState, localizedAdapter) },
       { path: 'runtime.js', mime: 'text/javascript;charset=utf-8', content: runtimeScript },
       { path: 'manifest.json', mime: 'application/json;charset=utf-8', content: '' },
       { path: 'portable-project.json', mime: 'application/json;charset=utf-8', content: '' },
@@ -144,8 +144,8 @@ export function buildPublishPackage(state: StudioState): string {
   return JSON.stringify({
     version: 1,
     exportedAt: new Date().toISOString(),
-    manifest: buildExportManifest(state),
-    readiness: buildExportReadiness(state),
+    manifest: buildExportManifest(exportedState),
+    readiness: buildExportReadiness(exportedState),
     portableProject,
     localizedPortableProject,
     runtimeModel,
@@ -159,11 +159,11 @@ export function buildPublishPackage(state: StudioState): string {
     packageMetrics,
     packageCompliance: validateExportPackage(packageProbe as any, packagingPlan, exitConfig, assetPlan),
     preflight,
-    handoff: buildExportHandoff(state),
-    collaboration: state.document.collaboration,
-    document: state.document,
-    html: buildChannelHtml(state, localizedAdapter),
-    previewHtml: buildStandaloneHtml(state),
+    handoff: buildExportHandoff(exportedState),
+    collaboration: exportedState.document.collaboration,
+    document: exportedState.document,
+    html: buildChannelHtml(exportedState, localizedAdapter),
+    previewHtml: buildStandaloneHtml(exportedState),
   }, null, 2);
 }
 

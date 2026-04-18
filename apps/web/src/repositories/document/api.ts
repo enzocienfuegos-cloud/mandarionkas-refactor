@@ -45,6 +45,9 @@ export const apiDocumentRepository: DocumentRepository = {
   async clearAutosave() {
     await tryFetch<null>('/documents/autosave', { method: 'DELETE' });
   },
+  async clearManual() {
+    await tryFetch<null>('/documents/manual-save', { method: 'DELETE' });
+  },
   async hasAutosave() {
     const response = await tryFetch<{ exists?: boolean } | boolean>('/documents/autosave/exists');
     return unwrapExists(response);

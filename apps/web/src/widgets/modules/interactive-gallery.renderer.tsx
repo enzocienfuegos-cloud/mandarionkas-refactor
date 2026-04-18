@@ -1,20 +1,77 @@
 import { useState } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
-import { clamp, getAccent, isFilenameLikeCaption, moduleBody, moduleHeader, moduleShell, parseCarouselSlides, renderCollapsedIfNeeded } from './shared-styles';
-import { resolveCornerRadius } from '../shared/corner-style';
+import { escapeHtml, getBaseWidgetStyle } from '../registry/export-helpers';
+import { clamp, getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
+type GalleryItem = {
+  src: string;
+  title: string;
+  subtitle?: string;
+};
+
+function parseGalleryItems(raw: unknown, fallbackCount = 0): GalleryItem[] {
+  const value = String(raw ?? '').trim();
+  if (!value) {
+    return Array.from({ length: Math.max(0, fallbackCount) }, (_, index) => ({
+      src: '',
+      title: `Item ${index + 1}`,
+    }));
+  }
+  if (value.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item, index): GalleryItem | null => {
+            if (!item || typeof item !== 'object') return null;
+            const src = typeof (item as { src?: unknown }).src === 'string' ? (item as { src: string }).src.trim() : '';
+            const title = typeof (item as { title?: unknown }).title === 'string'
+              ? (item as { title: string }).title.trim()
+              : `Item ${index + 1}`;
+            const subtitle = typeof (item as { subtitle?: unknown }).subtitle === 'string'
+              ? (item as { subtitle: string }).subtitle.trim()
+              : undefined;
+            return src ? { src, title, subtitle } : null;
+          })
+          .filter((item): item is GalleryItem => Boolean(item));
+      }
+    } catch {
+      // Fall through to placeholders below.
+    }
+  }
+  return value
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item, index) => {
+      const [src, caption] = item.split('|');
+      return {
+        src: (src ?? '').trim(),
+        title: (caption ?? `Item ${index + 1}`).trim(),
+      };
+    })
+    .filter((item) => item.src);
+}
+
 function InteractiveGalleryModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
-  const borderRadius = resolveCornerRadius(node, 20);
-  const slides = parseCarouselSlides(String(node.props.slides ?? ''));
-  const itemCount = Math.max(1, slides.length || clamp(Number(node.props.itemCount ?? 4), 1, 12));
-  const showPrevButton = Boolean(node.props.showPrevButton ?? true);
-  const showNextButton = Boolean(node.props.showNextButton ?? true);
-  const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
-  const paginationDotSize = clamp(Number(node.props.paginationDotSize ?? 4), 2, 6);
+  const items = parseGalleryItems(node.props.items, clamp(Number(node.props.itemCount ?? 4), 2, 6));
+  const itemCount = items.length || clamp(Number(node.props.itemCount ?? 4), 2, 6);
   const [activeIndex, setActiveIndex] = useState(clamp(Number(node.props.activeIndex ?? 1), 1, itemCount) - 1);
-  const activeSlide = slides[activeIndex] ?? slides[0];
-  const visibleCaption = activeSlide?.caption && !isFilenameLikeCaption(activeSlide.caption) ? activeSlide.caption : '';
-  return <div style={moduleShell(node, ctx)}><div style={moduleHeader(node)}>{String(node.props.title ?? node.name)}</div><div style={moduleBody}><div style={{ flex: 1, borderRadius, overflow:'hidden', background: activeSlide ? '#111827' : `linear-gradient(135deg, ${accent}55, rgba(255,255,255,.08))`, display: 'grid', placeItems: 'center', fontSize: 26, fontWeight: 900, position:'relative' }}>{activeSlide ? <img src={activeSlide.src} alt={visibleCaption} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} /> : `${activeIndex + 1} / ${itemCount}`}{activeSlide ? <div style={{ position:'absolute', left:12, right:12, bottom:12, display:'flex', justifyContent:'space-between', alignItems:'end', gap:8 }}>{visibleCaption ? <div style={{ borderRadius:10, padding:'8px 10px', background:'rgba(15,23,42,.68)', fontSize:12, color:'#fff' }}>{visibleCaption}</div> : <div />}{showPaginationDots ? <div style={{ display:'flex', alignItems:'center', gap:8 }}>{Array.from({ length: itemCount }, (_, index) => <button key={index} type="button" onClick={(event)=>{ event.stopPropagation(); setActiveIndex(index); }} style={{ width:paginationDotSize, minWidth:paginationDotSize, height:paginationDotSize, minHeight:paginationDotSize, borderRadius:'50%', border:'none', padding:0, margin:0, background:index===activeIndex ? accent : 'rgba(255,255,255,.4)', cursor:'pointer', appearance:'none', WebkitAppearance:'none', display:'block', flex:'0 0 auto', lineHeight:1, boxSizing:'border-box' }} />)}<div style={{ borderRadius:999, padding:'4px 8px', background:'rgba(15,23,42,.68)', fontSize:12, color:'#fff' }}>{activeIndex + 1} / {itemCount}</div></div> : null}</div> : null}</div>{showPrevButton || showNextButton ? <div style={{ display: 'flex', gap: 8 }}>{showPrevButton ? <button type="button" onClick={(event) => { event.stopPropagation(); setActiveIndex((value) => (value - 1 + itemCount) % itemCount); }} style={{ flex: 1, borderRadius: 10, border: `1px solid ${accent}`, background: 'transparent', color: 'inherit', padding: '8px 10px' }}>Prev</button> : null}{showNextButton ? <button type="button" onClick={(event) => { event.stopPropagation(); setActiveIndex((value) => (value + 1) % itemCount); ctx.triggerWidgetAction('click'); }} style={{ flex: 1, borderRadius: 10, border: 'none', background: accent, color: '#111827', padding: '8px 10px', fontWeight: 800 }}>Next</button> : null}</div> : null}</div></div>;
+  const activeItem = items[activeIndex] ?? items[0];
+
+  return <div style={moduleShell(node, ctx)}><div style={moduleHeader(node)}>{String(node.props.title ?? node.name)}</div><div style={moduleBody}><div style={{ flex: 1, borderRadius: 12, overflow: 'hidden', background: `linear-gradient(135deg, ${accent}55, rgba(255,255,255,.08))`, display: 'grid' }}>{activeItem?.src ? <img src={activeItem.src} alt={activeItem.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : <div style={{ display: 'grid', placeItems: 'center', fontSize: 26, fontWeight: 900 }}>{activeIndex + 1} / {itemCount}</div>}</div><div style={{ display: 'grid', gap: 2 }}><strong>{activeItem?.title ?? `Item ${activeIndex + 1}`}</strong>{activeItem?.subtitle ? <small style={{ opacity: 0.72 }}>{activeItem.subtitle}</small> : null}</div><div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={(event) => { event.stopPropagation(); setActiveIndex((value) => (value - 1 + itemCount) % itemCount); }} style={{ flex: 1, borderRadius: 10, border: `1px solid ${accent}`, background: 'transparent', color: 'inherit', padding: '8px 10px' }}>Prev</button><button type="button" onClick={(event) => { event.stopPropagation(); setActiveIndex((value) => (value + 1) % itemCount); ctx.triggerWidgetAction('click'); }} style={{ flex: 1, borderRadius: 10, border: 'none', background: accent, color: '#111827', padding: '8px 10px', fontWeight: 800 }}>Next</button></div></div></div>;
 }
 export function renderInteractiveGalleryStage(node: WidgetNode, ctx: RenderContext): JSX.Element { const collapsed=renderCollapsedIfNeeded(node,ctx); if(collapsed) return collapsed; return <InteractiveGalleryModuleRenderer node={node} ctx={ctx}/>; }
+
+export function renderInteractiveGalleryExport(node: WidgetNode): string {
+  const items = parseGalleryItems(node.props.items, clamp(Number(node.props.itemCount ?? 4), 2, 6));
+  const activeIndex = clamp(Number(node.props.activeIndex ?? 1), 1, Math.max(1, items.length || 1)) - 1;
+  const activeItem = items[activeIndex] ?? items[0];
+  const base = `${getBaseWidgetStyle(node)};flex-direction:column;justify-content:flex-start;align-items:stretch;padding:10px;gap:10px;`;
+  const accent = escapeHtml(String(node.style.accentColor ?? '#111827'));
+  const background = activeItem?.src
+    ? `<img src="${escapeHtml(activeItem.src)}" alt="${escapeHtml(activeItem.title)}" style="width:100%;height:100%;object-fit:cover;display:block;" />`
+    : `<div style="width:100%;height:100%;display:grid;place-items:center;font-size:26px;font-weight:900;">${activeIndex + 1} / ${Math.max(1, items.length)}</div>`;
+  return `<div class="widget widget-interactive-gallery" data-widget-id="${node.id}" style="${base}"><div style="font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${accent};">${escapeHtml(String(node.props.title ?? node.name))}</div><div style="flex:1;min-height:0;border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.06);">${background}</div><div style="display:grid;gap:2px;"><strong>${escapeHtml(activeItem?.title ?? `Item ${activeIndex + 1}`)}</strong>${activeItem?.subtitle ? `<small style="opacity:.72;">${escapeHtml(activeItem.subtitle)}</small>` : ''}</div><div style="display:flex;gap:8px;"><button class="widget-cta" type="button" style="flex:1;border-radius:10px;border:1px solid ${accent};background:transparent;color:inherit;padding:8px 10px;">Prev</button><button class="widget-cta" type="button" style="flex:1;border-radius:10px;border:none;background:${accent};color:#111827;padding:8px 10px;font-weight:800;">Next</button></div></div>`;
+}

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { enqueueImageDerivativeJob, enqueueVideoTranscodeJob, patchAssetMetadata } from '../../../../../packages/db/src/asset-jobs.mjs';
 
 const R2_REGION = 'auto';
 const PREPARE_UPLOAD_TTL_SECONDS = 60 * 15;
@@ -32,6 +33,57 @@ function normalizeArray(value) {
   return Array.isArray(value)
     ? value.map((entry) => String(entry ?? '').trim()).filter(Boolean)
     : [];
+}
+
+function normalizeDerivativeEntry(value) {
+  if (!value || typeof value !== 'object') return undefined;
+  const src = normalizeOptionalText(value.src);
+  if (!src) return undefined;
+  return {
+    src,
+    mimeType: normalizeOptionalText(value.mimeType) || undefined,
+    sizeBytes: toBigIntNumber(value.sizeBytes) ?? undefined,
+    width: toInt(value.width) ?? undefined,
+    height: toInt(value.height) ?? undefined,
+    bitrateKbps: toInt(value.bitrateKbps) ?? undefined,
+    codec: normalizeOptionalText(value.codec) || undefined,
+  };
+}
+
+function normalizeDerivativeSet(value) {
+  if (!value || typeof value !== 'object') return undefined;
+  const mapped = {
+    original: normalizeDerivativeEntry(value.original),
+    low: normalizeDerivativeEntry(value.low),
+    mid: normalizeDerivativeEntry(value.mid),
+    high: normalizeDerivativeEntry(value.high),
+    thumbnail: normalizeDerivativeEntry(value.thumbnail),
+    poster: normalizeDerivativeEntry(value.poster),
+  };
+  return Object.values(mapped).some(Boolean) ? mapped : undefined;
+}
+
+function isOptimizableRasterImage(kind, mimeType) {
+  if (kind !== 'image') return false;
+  return ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(String(mimeType || '').trim().toLowerCase());
+}
+
+function buildAssetMetadataPayload(payload = {}, existingMetadata = {}) {
+  const derivatives = normalizeDerivativeSet(payload.derivatives) ?? normalizeDerivativeSet(existingMetadata.derivatives);
+  const qualityPreference = normalizeOptionalText(payload.qualityPreference) || normalizeOptionalText(existingMetadata.qualityPreference);
+  const optimizedUrl = normalizeOptionalText(payload.optimizedUrl) || normalizeOptionalText(existingMetadata.optimizedUrl);
+  const optimization = existingMetadata.optimization && typeof existingMetadata.optimization === 'object'
+    ? existingMetadata.optimization
+    : undefined;
+  const metadata = {
+    ...(payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : {}),
+    ...(existingMetadata && typeof existingMetadata === 'object' ? existingMetadata : {}),
+    ...(derivatives ? { derivatives } : {}),
+    ...(qualityPreference ? { qualityPreference } : {}),
+    ...(optimizedUrl ? { optimizedUrl } : {}),
+    ...(optimization ? { optimization } : {}),
+  };
+  return metadata;
 }
 
 function normalizeOptionalText(value) {
@@ -119,21 +171,46 @@ function mapFolderRow(row) {
 }
 
 function mapAssetRow(row) {
+  const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+  const derivatives = normalizeDerivativeSet(metadata.derivatives);
+  const optimizedUrl = normalizeOptionalText(metadata.optimizedUrl) || undefined;
+  const qualityPreference = normalizeOptionalText(metadata.qualityPreference) || undefined;
+  const optimizationState = metadata.optimization?.image && typeof metadata.optimization.image === 'object'
+    ? metadata.optimization.image
+    : metadata.optimization?.video && typeof metadata.optimization.video === 'object'
+      ? metadata.optimization.video
+      : {};
+  const processingStatus = normalizeOptionalText(optimizationState?.status)
+    || undefined;
+  const processingMessage = normalizeOptionalText(optimizationState?.reason)
+    || normalizeOptionalText(row.error_message)
+    || undefined;
+  const processingAttempts = toInt(optimizationState?.retryCount) ?? undefined;
+  const processingLastRetryAt = normalizeOptionalText(optimizationState?.lastRetryAt) || undefined;
+  const processingNextRetryAt = normalizeOptionalText(optimizationState?.nextRetryAt) || undefined;
   const src = row.public_url || row.origin_url || '';
   return {
     id: row.id,
     name: row.name,
     kind: row.kind,
-    src,
+    src: optimizedUrl || derivatives?.mid?.src || derivatives?.high?.src || derivatives?.low?.src || src,
     createdAt: row.created_at.toISOString(),
     mimeType: row.mime_type || undefined,
     sourceType: row.source_type || undefined,
     storageMode: row.storage_mode || undefined,
     storageKey: row.storage_key || undefined,
     publicUrl: row.public_url || undefined,
+    optimizedUrl,
+    qualityPreference,
+    processingStatus,
+    processingMessage,
+    processingAttempts,
+    processingLastRetryAt,
+    processingNextRetryAt,
+    derivatives,
     originUrl: row.origin_url || undefined,
-    posterSrc: row.poster_src || undefined,
-    thumbnailUrl: row.thumbnail_url || undefined,
+    posterSrc: row.poster_src || derivatives?.poster?.src || undefined,
+    thumbnailUrl: row.thumbnail_url || derivatives?.thumbnail?.src || undefined,
     accessScope: row.access_scope || undefined,
     tags: Array.isArray(row.tags) ? row.tags : [],
     folderId: row.folder_id || undefined,
@@ -270,6 +347,143 @@ export async function getAsset(client, { assetId, workspaceId }) {
   return result.rows[0] ? mapAssetRow(result.rows[0]) : null;
 }
 
+export async function reprocessAsset(client, { workspaceId, ownerUserId, assetId }) {
+  const asset = await getAsset(client, { assetId, workspaceId });
+  if (!asset) return null;
+
+  if (asset.storageMode !== 'object-storage') {
+    throw new Error('Only object storage assets can be reprocessed.');
+  }
+
+  if (asset.kind === 'video') {
+    if (!asset.storageKey || !asset.publicUrl) {
+      throw new Error('Video asset is missing storage metadata required for reprocessing.');
+    }
+    const outputPlan = {
+      low: {
+        storageKey: `${asset.storageKey.replace(/\.[^.]+$/, '')}-low.mp4`,
+        publicUrl: `${asset.publicUrl.replace(/\.[^.]+$/, '')}-low.mp4`,
+      },
+      mid: {
+        storageKey: `${asset.storageKey.replace(/\.[^.]+$/, '')}-mid.mp4`,
+        publicUrl: `${asset.publicUrl.replace(/\.[^.]+$/, '')}-mid.mp4`,
+      },
+      high: {
+        storageKey: `${asset.storageKey.replace(/\.[^.]+$/, '')}-high.mp4`,
+        publicUrl: `${asset.publicUrl.replace(/\.[^.]+$/, '')}-high.mp4`,
+      },
+      poster: {
+        storageKey: `${asset.storageKey.replace(/\.[^.]+$/, '')}-poster.jpg`,
+        publicUrl: `${asset.publicUrl.replace(/\.[^.]+$/, '')}-poster.jpg`,
+      },
+    };
+    const nextRetryCount = (asset.processingAttempts ?? 0) + 1;
+    const lastRetryAt = new Date().toISOString();
+    await enqueueVideoTranscodeJob(client, {
+      workspaceId,
+      ownerUserId,
+      assetId,
+      input: {
+        assetId,
+        workspaceId,
+        storageKey: asset.storageKey,
+        publicUrl: asset.publicUrl,
+        mimeType: asset.mimeType,
+        width: asset.width || null,
+        height: asset.height || null,
+        durationMs: asset.durationMs || null,
+        outputPlan,
+      },
+    });
+    await patchAssetMetadata(client, {
+      assetId,
+      workspaceId,
+      metadataPatch: {
+        optimization: {
+          video: {
+            status: 'queued',
+            outputs: outputPlan,
+            reason: null,
+            retryCount: nextRetryCount,
+            lastRetryAt,
+            nextRetryAt: null,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      },
+    });
+    return getAsset(client, { assetId, workspaceId });
+  }
+
+  if (isOptimizableRasterImage(asset.kind, asset.mimeType)) {
+    if (!asset.storageKey || !asset.publicUrl) {
+      throw new Error('Image asset is missing storage metadata required for reprocessing.');
+    }
+    const extension = asset.mimeType === 'image/png' ? 'png' : asset.mimeType === 'image/webp' ? 'webp' : 'jpg';
+    const baseStorageKey = asset.storageKey.replace(/\.[^.]+$/, '');
+    const basePublicUrl = asset.publicUrl.replace(/\.[^.]+$/, '');
+    const outputPlan = {
+      low: {
+        storageKey: `${baseStorageKey}-low.${extension}`,
+        publicUrl: `${basePublicUrl}-low.${extension}`,
+        maxWidth: 640,
+      },
+      mid: {
+        storageKey: `${baseStorageKey}-mid.${extension}`,
+        publicUrl: `${basePublicUrl}-mid.${extension}`,
+        maxWidth: 1280,
+      },
+      high: {
+        storageKey: `${baseStorageKey}-high.${extension}`,
+        publicUrl: `${basePublicUrl}-high.${extension}`,
+        maxWidth: 1920,
+      },
+      thumbnail: {
+        storageKey: `${baseStorageKey}-thumb.${extension}`,
+        publicUrl: `${basePublicUrl}-thumb.${extension}`,
+        maxWidth: 320,
+      },
+    };
+    const nextRetryCount = (asset.processingAttempts ?? 0) + 1;
+    const lastRetryAt = new Date().toISOString();
+    await enqueueImageDerivativeJob(client, {
+      workspaceId,
+      ownerUserId,
+      assetId,
+      input: {
+        assetId,
+        workspaceId,
+        storageKey: asset.storageKey,
+        publicUrl: asset.publicUrl,
+        mimeType: asset.mimeType,
+        width: asset.width || null,
+        height: asset.height || null,
+        outputPlan,
+      },
+    });
+    await patchAssetMetadata(client, {
+      assetId,
+      workspaceId,
+      metadataPatch: {
+        optimization: {
+          image: {
+            status: 'queued',
+            outputs: outputPlan,
+            reason: null,
+            retryCount: nextRetryCount,
+            lastRetryAt,
+            nextRetryAt: null,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      },
+    });
+    return getAsset(client, { assetId, workspaceId });
+  }
+
+  throw new Error('This asset type does not support reprocessing.');
+}
+
 export async function renameAsset(client, { assetId, workspaceId, name }) {
   const trimmedName = normalizeString(name);
   if (!trimmedName) {
@@ -301,10 +515,11 @@ export async function renameAsset(client, { assetId, workspaceId, name }) {
                 size_bytes,
                 width,
                 height,
-                duration_ms,
-                fingerprint,
-                font_family,
-                created_at
+            duration_ms,
+            fingerprint,
+            font_family,
+            metadata,
+            created_at
     `,
     [assetId, workspaceId, trimmedName],
   );
@@ -387,6 +602,7 @@ export async function saveRemoteAsset(client, { workspaceId, ownerUserId, payloa
                 duration_ms,
                 fingerprint,
                 font_family,
+                metadata,
                 created_at
     `,
     [
@@ -411,7 +627,7 @@ export async function saveRemoteAsset(client, { workspaceId, ownerUserId, payloa
       toInt(payload?.durationMs),
       normalizeOptionalText(payload?.fingerprint),
       normalizeOptionalText(payload?.fontFamily),
-      JSON.stringify(payload?.metadata || {}),
+      JSON.stringify(buildAssetMetadataPayload(payload)),
     ],
   );
 
@@ -551,6 +767,11 @@ export async function completeAssetUpload(client, { workspaceId, ownerUserId, pa
   const kind = normalizeKind(payload?.kind || upload.kind);
   const mimeType = normalizeOptionalText(payload?.mimeType) || upload.mime_type || null;
   const publicUrl = normalizeOptionalText(payload?.publicUrl) || buildPublicUrl(env, storageKey);
+  const metadataPayload = buildAssetMetadataPayload(payload);
+  const derivatives = normalizeDerivativeSet(metadataPayload.derivatives);
+  const posterSrc = normalizeOptionalText(payload?.posterSrc) || derivatives?.poster?.src || null;
+  const thumbnailUrl = normalizeOptionalText(payload?.thumbnailUrl) || derivatives?.thumbnail?.src || null;
+  const optimizedUrl = normalizeOptionalText(payload?.optimizedUrl) || derivatives?.high?.src || publicUrl;
   const result = await client.query(
     `
       insert into assets (
@@ -567,6 +788,8 @@ export async function completeAssetUpload(client, { workspaceId, ownerUserId, pa
         storage_key,
         public_url,
         origin_url,
+        poster_src,
+        thumbnail_url,
         access_scope,
         tags,
         size_bytes,
@@ -579,8 +802,8 @@ export async function completeAssetUpload(client, { workspaceId, ownerUserId, pa
       )
       values (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-        $11, $12, $13, $14, $15::text[], $16, $17, $18,
-        $19, $20, $21, $22::jsonb
+        $11, $12, $13, $14, $15, $16, $17::text[], $18, $19, $20,
+        $21, $22, $23, $24::jsonb
       )
       on conflict (id) do update
       set folder_id = excluded.folder_id,
@@ -592,6 +815,8 @@ export async function completeAssetUpload(client, { workspaceId, ownerUserId, pa
           storage_key = excluded.storage_key,
           public_url = excluded.public_url,
           origin_url = excluded.origin_url,
+          poster_src = excluded.poster_src,
+          thumbnail_url = excluded.thumbnail_url,
           access_scope = excluded.access_scope,
           tags = excluded.tags,
           size_bytes = excluded.size_bytes,
@@ -624,6 +849,7 @@ export async function completeAssetUpload(client, { workspaceId, ownerUserId, pa
                 duration_ms,
                 fingerprint,
                 font_family,
+                metadata,
                 created_at
     `,
     [
@@ -640,6 +866,8 @@ export async function completeAssetUpload(client, { workspaceId, ownerUserId, pa
       storageKey,
       publicUrl,
       null,
+      posterSrc,
+      thumbnailUrl,
       normalizeAccessScope(payload?.accessScope),
       normalizeArray(payload?.tags),
       toBigIntNumber(payload?.sizeBytes) ?? (upload.size_bytes === null || upload.size_bytes === undefined ? null : Number(upload.size_bytes)),
@@ -648,7 +876,10 @@ export async function completeAssetUpload(client, { workspaceId, ownerUserId, pa
       toInt(payload?.durationMs),
       normalizeOptionalText(payload?.fingerprint) || normalizeOptionalText(payload?.metadata?.fingerprint),
       normalizeOptionalText(payload?.fontFamily),
-      JSON.stringify(payload?.metadata || {}),
+      JSON.stringify({
+        ...metadataPayload,
+        optimizedUrl,
+      }),
     ],
   );
 
@@ -663,6 +894,113 @@ export async function completeAssetUpload(client, { workspaceId, ownerUserId, pa
     `,
     [assetId, folderId, toBigIntNumber(payload?.sizeBytes)],
   );
+
+  if (kind === 'video') {
+    const mappedAsset = mapAssetRow(result.rows[0]);
+    const outputPlan = {
+      low: {
+        storageKey: `${storageKey.replace(/\.[^.]+$/, '')}-low.mp4`,
+        publicUrl: `${publicUrl.replace(/\.[^.]+$/, '')}-low.mp4`,
+      },
+      mid: {
+        storageKey: `${storageKey.replace(/\.[^.]+$/, '')}-mid.mp4`,
+        publicUrl: `${publicUrl.replace(/\.[^.]+$/, '')}-mid.mp4`,
+      },
+      high: {
+        storageKey: `${storageKey.replace(/\.[^.]+$/, '')}-high.mp4`,
+        publicUrl: `${publicUrl.replace(/\.[^.]+$/, '')}-high.mp4`,
+      },
+      poster: {
+        storageKey: `${storageKey.replace(/\.[^.]+$/, '')}-poster.jpg`,
+        publicUrl: `${publicUrl.replace(/\.[^.]+$/, '')}-poster.jpg`,
+      },
+    };
+    await enqueueVideoTranscodeJob(client, {
+      workspaceId,
+      ownerUserId,
+      assetId,
+      input: {
+        assetId,
+        workspaceId,
+        storageKey,
+        publicUrl,
+        mimeType,
+        width: mappedAsset.width || null,
+        height: mappedAsset.height || null,
+        durationMs: mappedAsset.durationMs || null,
+        outputPlan,
+      },
+    });
+    await patchAssetMetadata(client, {
+      assetId,
+      workspaceId,
+      metadataPatch: {
+        optimization: {
+          video: {
+            status: 'queued',
+            outputs: outputPlan,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      },
+    });
+  }
+
+  if (isOptimizableRasterImage(kind, mimeType)) {
+    const extension = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+    const baseStorageKey = storageKey.replace(/\.[^.]+$/, '');
+    const basePublicUrl = publicUrl.replace(/\.[^.]+$/, '');
+    const outputPlan = {
+      low: {
+        storageKey: `${baseStorageKey}-low.${extension}`,
+        publicUrl: `${basePublicUrl}-low.${extension}`,
+        maxWidth: 640,
+      },
+      mid: {
+        storageKey: `${baseStorageKey}-mid.${extension}`,
+        publicUrl: `${basePublicUrl}-mid.${extension}`,
+        maxWidth: 1280,
+      },
+      high: {
+        storageKey: `${baseStorageKey}-high.${extension}`,
+        publicUrl: `${basePublicUrl}-high.${extension}`,
+        maxWidth: 1920,
+      },
+      thumbnail: {
+        storageKey: `${baseStorageKey}-thumb.${extension}`,
+        publicUrl: `${basePublicUrl}-thumb.${extension}`,
+        maxWidth: 320,
+      },
+    };
+    await enqueueImageDerivativeJob(client, {
+      workspaceId,
+      ownerUserId,
+      assetId,
+      input: {
+        assetId,
+        workspaceId,
+        storageKey,
+        publicUrl,
+        mimeType,
+        width: toInt(payload?.width),
+        height: toInt(payload?.height),
+        outputPlan,
+      },
+    });
+    await patchAssetMetadata(client, {
+      assetId,
+      workspaceId,
+      metadataPatch: {
+        optimization: {
+          image: {
+            status: 'queued',
+            outputs: outputPlan,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      },
+    });
+  }
 
   return mapAssetRow(result.rows[0]);
 }

@@ -1,6 +1,7 @@
 import type { StudioState } from '../domain/document/types';
 import { buildExportBundle, buildExportBundleWithRemoteAssets } from './bundle';
 import { buildExportPreflight } from './preflight';
+import { prepareExportStateWithResolvedAssets } from './asset-resolution';
 import { buildStandaloneHtml } from './html';
 import { buildExportManifest } from './manifest';
 import { buildPublishPackage, buildReviewPackage } from './packages';
@@ -20,8 +21,9 @@ export function downloadBlob(filename: string, blob: Blob): void {
   URL.revokeObjectURL(url);
 }
 
-export function triggerExportHtml(state: StudioState): void {
-  downloadTextFile(`${state.document.name || 'smx-export'}.html`, buildStandaloneHtml(state), 'text/html;charset=utf-8');
+export async function triggerExportHtml(state: StudioState): Promise<void> {
+  const preparedState = await prepareExportStateWithResolvedAssets(state);
+  downloadTextFile(`${state.document.name || 'smx-export'}.html`, buildStandaloneHtml(preparedState), 'text/html;charset=utf-8');
 }
 
 export function triggerExportManifest(state: StudioState): void {
@@ -36,8 +38,13 @@ export function triggerExportDocumentJson(state: StudioState): void {
   downloadTextFile(`${state.document.name || 'smx-export'}-document.json`, JSON.stringify(state.document, null, 2), 'application/json;charset=utf-8');
 }
 
-export function triggerExportPublishPackage(state: StudioState): void {
-  downloadTextFile(`${state.document.name || 'smx-export'}-publish-package.json`, buildPublishPackage(state), 'application/json;charset=utf-8');
+export async function triggerExportPublishPackage(state: StudioState): Promise<void> {
+  const preparedState = await prepareExportStateWithResolvedAssets(state);
+  downloadTextFile(
+    `${state.document.name || 'smx-export'}-publish-package.json`,
+    buildPublishPackage(state, preparedState),
+    'application/json;charset=utf-8',
+  );
 }
 
 export function triggerExportReviewPackage(state: StudioState): void {
@@ -45,13 +52,16 @@ export function triggerExportReviewPackage(state: StudioState): void {
 }
 
 export function triggerExportZipBundle(state: StudioState): void {
-  const bundle = buildExportBundle(state);
-  const zip = buildZipFromBundle(bundle, state.document.name || 'smx-export');
-  downloadBlob(zip.filename, new Blob([zip.bytes], { type: zip.mime }));
+  void prepareExportStateWithResolvedAssets(state).then((preparedState) => {
+    const bundle = buildExportBundle(preparedState);
+    const zip = buildZipFromBundle(bundle, state.document.name || 'smx-export');
+    downloadBlob(zip.filename, new Blob([zip.bytes], { type: zip.mime }));
+  });
 }
 
 export async function triggerExportZipBundleResolved(state: StudioState): Promise<string> {
-  const bundle = await buildExportBundleWithRemoteAssets(state);
+  const preparedState = await prepareExportStateWithResolvedAssets(state);
+  const bundle = await buildExportBundleWithRemoteAssets(preparedState);
   const zip = buildZipFromBundle(bundle, state.document.name || 'smx-export');
   downloadBlob(zip.filename, new Blob([zip.bytes], { type: zip.mime }));
   return zip.filename;
