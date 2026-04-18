@@ -1162,7 +1162,19 @@ function buildExitBootstrap(adapter: ExportHtmlAdapter): string {
     };`;
     case 'mraid':
       return `
-    window.smxMraidState = { ready: false, placementType: 'inline', version: null };
+    window.smxMraidState = {
+      ready: false,
+      state: 'loading',
+      placementType: 'inline',
+      version: null,
+      viewable: false,
+      maxSize: null,
+      screenSize: null,
+      currentPosition: null,
+      defaultPosition: null,
+      supports: {},
+      lastError: null
+    };
     window.smxExit = function smxExit(url) {
       var target = url || ${fallbackUrl};
       if (!target) return;
@@ -1174,20 +1186,78 @@ function buildExitBootstrap(adapter: ExportHtmlAdapter): string {
     };
     (function initMraidBridge() {
       if (!window.mraid) return;
-      function markReady() {
-        window.smxMraidState.ready = true;
+      function syncMraidAttributes() {
+        var state = window.smxMraidState || {};
+        document.documentElement.setAttribute('data-mraid-ready', String(Boolean(state.ready)));
+        document.documentElement.setAttribute('data-mraid-state', String(state.state || 'unknown'));
+        document.documentElement.setAttribute('data-mraid-placement', String(state.placementType || 'inline'));
+        document.documentElement.setAttribute('data-mraid-viewable', String(Boolean(state.viewable)));
+        if (state.maxSize && Number.isFinite(state.maxSize.width) && Number.isFinite(state.maxSize.height)) {
+          document.documentElement.setAttribute('data-mraid-max-size', String(state.maxSize.width) + 'x' + String(state.maxSize.height));
+        }
+        if (typeof window.CustomEvent === 'function') {
+          window.dispatchEvent(new CustomEvent('smx:mraid-change', { detail: state }));
+        }
+      }
+      function refreshMetrics() {
         try {
           window.smxMraidState.version = typeof window.mraid.getVersion === 'function' ? window.mraid.getVersion() : null;
           window.smxMraidState.placementType = typeof window.mraid.getPlacementType === 'function' ? window.mraid.getPlacementType() : 'inline';
-        } catch (_error) {}
-        document.documentElement.setAttribute('data-mraid-ready', 'true');
-        document.documentElement.setAttribute('data-mraid-placement', String(window.smxMraidState.placementType || 'inline'));
+          window.smxMraidState.viewable = typeof window.mraid.isViewable === 'function' ? Boolean(window.mraid.isViewable()) : Boolean(window.smxMraidState.viewable);
+          window.smxMraidState.maxSize = typeof window.mraid.getMaxSize === 'function' ? window.mraid.getMaxSize() : null;
+          window.smxMraidState.screenSize = typeof window.mraid.getScreenSize === 'function' ? window.mraid.getScreenSize() : null;
+          window.smxMraidState.currentPosition = typeof window.mraid.getCurrentPosition === 'function' ? window.mraid.getCurrentPosition() : null;
+          window.smxMraidState.defaultPosition = typeof window.mraid.getDefaultPosition === 'function' ? window.mraid.getDefaultPosition() : null;
+          window.smxMraidState.supports = {
+            sms: typeof window.mraid.supports === 'function' ? Boolean(window.mraid.supports('sms')) : false,
+            tel: typeof window.mraid.supports === 'function' ? Boolean(window.mraid.supports('tel')) : false,
+            calendar: typeof window.mraid.supports === 'function' ? Boolean(window.mraid.supports('calendar')) : false,
+            storePicture: typeof window.mraid.supports === 'function' ? Boolean(window.mraid.supports('storePicture')) : false,
+            inlineVideo: typeof window.mraid.supports === 'function' ? Boolean(window.mraid.supports('inlineVideo')) : false,
+            location: typeof window.mraid.supports === 'function' ? Boolean(window.mraid.supports('location')) : false,
+          };
+        } catch (_error) {
+          window.smxMraidState.lastError = 'metrics';
+        }
+      }
+      function markReady() {
+        window.smxMraidState.ready = true;
+        try {
+          window.smxMraidState.state = typeof window.mraid.getState === 'function' ? window.mraid.getState() : 'default';
+        } catch (_error) {
+          window.smxMraidState.state = 'default';
+        }
+        refreshMetrics();
+        syncMraidAttributes();
+      }
+      function handleStateChange(nextState) {
+        window.smxMraidState.state = nextState || 'unknown';
+        refreshMetrics();
+        syncMraidAttributes();
+      }
+      function handleViewableChange(nextViewable) {
+        window.smxMraidState.viewable = Boolean(nextViewable);
+        syncMraidAttributes();
+      }
+      function handleSizeChange() {
+        refreshMetrics();
+        syncMraidAttributes();
+      }
+      function handleError(message, action) {
+        window.smxMraidState.lastError = { message: message || null, action: action || null };
+        syncMraidAttributes();
       }
       try {
         if (typeof window.mraid.getState === 'function' && window.mraid.getState() === 'loading') {
           window.mraid.addEventListener('ready', markReady);
         } else {
           markReady();
+        }
+        if (typeof window.mraid.addEventListener === 'function') {
+          window.mraid.addEventListener('stateChange', handleStateChange);
+          window.mraid.addEventListener('viewableChange', handleViewableChange);
+          window.mraid.addEventListener('sizeChange', handleSizeChange);
+          window.mraid.addEventListener('error', handleError);
         }
       } catch (_error) {
         markReady();

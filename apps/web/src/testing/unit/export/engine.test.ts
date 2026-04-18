@@ -355,6 +355,16 @@ describe('export engine', () => {
     expect(html).toContain('window.mraid');
     expect(html).toContain('window.smxExit = function smxExit');
     expect(html).toContain('data-mraid-ready');
+    expect(html).toContain("window.smxMraidState = {");
+    expect(html).toContain("window.mraid.addEventListener('stateChange', handleStateChange);");
+    expect(html).toContain("window.mraid.addEventListener('viewableChange', handleViewableChange);");
+    expect(html).toContain("window.mraid.addEventListener('sizeChange', handleSizeChange);");
+    expect(html).toContain("window.mraid.addEventListener('error', handleError);");
+    expect(html).toContain("data-mraid-state");
+    expect(html).toContain("data-mraid-viewable");
+    expect(html).toContain("getMaxSize");
+    expect(html).toContain("getScreenSize");
+    expect(html).toContain("smx:mraid-change");
   });
 
   it('renders localized asset paths in channel html when adapter project is localized', () => {
