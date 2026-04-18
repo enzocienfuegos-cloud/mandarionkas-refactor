@@ -380,7 +380,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
         <span>{String(node.props.title ?? node.name)}</span>
       </div>
       <div style={moduleBody}>
-        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: cardsOnly || stackedLayout ? '1fr' : mapFirst ? '1.1fr .9fr' : '0.9fr 1.1fr', gridTemplateRows: stackedLayout ? (mapFirst ? '1.05fr .95fr' : '.95fr 1.05fr') : undefined, flex: 1, minHeight: 0 }}>
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: cardsOnly || stackedLayout ? '1fr' : mapFirst ? '1.35fr .65fr' : '.65fr 1.35fr', gridTemplateRows: stackedLayout ? (mapFirst ? '1.15fr .85fr' : '.85fr 1.15fr') : undefined, flex: 1, minHeight: 0 }}>
           {!cardsOnly ? (
             <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', minHeight: stackedLayout ? 150 : 110, background: mapBackground }}>
               <div ref={mapCanvasRef} style={{ position: 'absolute', inset: 0 }} />
@@ -402,24 +402,24 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
               </div>
             </div>
           ) : null}
-          <div style={{ display: 'grid', gap: 8, overflowY: 'auto', minHeight: 0, paddingRight: 2 }}>
+          <div style={{ display: 'grid', gap: 6, overflowY: 'auto', minHeight: 0, paddingRight: 2, alignContent: 'start' }}>
             {places.map((place, index) => {
               return (
-                <div key={`${place.name}-${index}-card`} onClick={() => setSelectedPlace(place)} style={{ borderRadius: 12, background: 'rgba(255,255,255,.78)', border: selectedPlace?.name === place.name && selectedPlace?.lat === place.lat && selectedPlace?.lng === place.lng ? `1px solid ${accent}` : `1px solid ${accent}22`, padding: 10, display: 'grid', gap: 6, cursor: 'pointer' }}>
+                <div key={`${place.name}-${index}-card`} onClick={() => setSelectedPlace(place)} style={{ borderRadius: 10, background: 'rgba(255,255,255,.78)', border: selectedPlace?.name === place.name && selectedPlace?.lat === place.lat && selectedPlace?.lng === place.lng ? `1px solid ${accent}` : `1px solid ${accent}22`, padding: '8px 9px', display: 'grid', gap: 4, cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <strong style={{ fontSize: 13 }}>{place.name}</strong>
-                    <span style={{ fontSize: 10, borderRadius: 999, padding: '4px 6px', background: `${accent}22`, color: '#0f172a' }}>{place.badge || (place.openNow ? 'Open now' : 'Store')}</span>
+                    <strong style={{ fontSize: 12, lineHeight: 1.15 }}>{place.name}</strong>
+                    <span style={{ fontSize: 9, borderRadius: 999, padding: '3px 6px', background: `${accent}22`, color: '#0f172a', whiteSpace: 'nowrap' }}>{place.badge || (place.openNow ? 'Open now' : 'Store')}</span>
                   </div>
-                  <div style={{ fontSize: 11, opacity: 0.78 }}>{place.address || `${place.lat.toFixed(3)}, ${place.lng.toFixed(3)}`}</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 11 }}>
+                  <div style={{ fontSize: 10, opacity: 0.78, lineHeight: 1.2 }}>{place.address || `${place.lat.toFixed(3)}, ${place.lng.toFixed(3)}`}</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 10 }}>
                     {showOpenNow && place.openNow != null ? <span>{place.openNow ? 'Open now' : 'Closed'}</span> : null}
                     {showDistance && place.distanceKm != null ? <span>{place.distanceKm.toFixed(1)} km</span> : null}
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <button type="button" onClick={(event) => { event.stopPropagation(); ctx.triggerWidgetAction('click'); if (ctx.previewMode) window.open(buildPlaceCtaUrl(place, 'waze'), '_blank'); }} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 46, height: 32, borderRadius: 999, padding: '0 12px', color: '#fff', fontSize: 10, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#08d4ff', cursor: 'pointer' }}>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); ctx.triggerWidgetAction('click'); if (ctx.previewMode) window.open(buildPlaceCtaUrl(place, 'waze'), '_blank'); }} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 42, height: 28, borderRadius: 999, padding: '0 10px', color: '#fff', fontSize: 9, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#08d4ff', cursor: 'pointer' }}>
                       Waze
                     </button>
-                    <button type="button" onClick={(event) => { event.stopPropagation(); ctx.triggerWidgetAction('click'); if (ctx.previewMode) window.open(buildPlaceCtaUrl(place, 'maps'), '_blank'); }} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 46, height: 32, borderRadius: 999, padding: '0 12px', color: '#fff', fontSize: 10, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#4285f4', cursor: 'pointer' }}>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); ctx.triggerWidgetAction('click'); if (ctx.previewMode) window.open(buildPlaceCtaUrl(place, 'maps'), '_blank'); }} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 42, height: 28, borderRadius: 999, padding: '0 10px', color: '#fff', fontSize: 9, fontWeight: 800, textDecoration: 'none', border: 'none', background: '#4285f4', cursor: 'pointer' }}>
                       Maps
                     </button>
                   </div>
