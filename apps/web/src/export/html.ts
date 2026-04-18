@@ -22,6 +22,79 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#39;');
 }
 
+function buildExportLeafletMapSrcdoc(input: {
+  places: Array<{ name: string; lat: number; lng: number }>;
+  latitude: number;
+  longitude: number;
+  zoom: number;
+  accent: string;
+  routeVisible: boolean;
+}): string {
+  const places = input.places.filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lng)).slice(0, 25);
+  const placesJson = JSON.stringify(places);
+  const routeScript = input.routeVisible
+    ? `
+      if (places.length > 1) {
+        const latlngs = places.map((place) => [place.lat, place.lng]);
+        L.polyline(latlngs, { color: '${input.accent}', weight: 3, dashArray: '7 6', opacity: 0.9 }).addTo(map);
+      }
+    `
+    : '';
+  return `
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body, #map { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #dbeafe; }
+    .leaflet-container { font-family: Inter, Arial, sans-serif; background: #dbeafe; }
+    .smx-export-map-label.leaflet-tooltip {
+      background: #111827;
+      border: none;
+      border-radius: 999px;
+      color: #fff;
+      padding: 4px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      box-shadow: none;
+    }
+    .smx-export-map-label.leaflet-tooltip:before { display: none; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const places = ${placesJson};
+    const map = L.map('map', { zoomControl: true, attributionControl: false, scrollWheelZoom: true }).setView([${input.latitude}, ${input.longitude}], ${input.zoom});
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+    places.forEach((place) => {
+      const marker = L.circleMarker([place.lat, place.lng], {
+        radius: 7,
+        color: '${input.accent}',
+        weight: 3,
+        fillColor: '#111827',
+        fillOpacity: 1
+      }).addTo(map);
+      marker.bindTooltip(place.name, {
+        permanent: true,
+        direction: 'top',
+        offset: [0, -10],
+        className: 'smx-export-map-label'
+      });
+    });
+    ${routeScript}
+    if (places.length) {
+      const bounds = L.latLngBounds(places.map((place) => [place.lat, place.lng]));
+      if (bounds.isValid()) map.fitBounds(bounds.pad(0.25));
+    }
+  </script>
+</body>
+</html>`.trim();
+}
+
 function resolveAssetPath(src: unknown, assetPathMap: Record<string, string>): string {
   if (typeof src !== 'string') return '';
   return assetPathMap[src] ?? src;
@@ -327,6 +400,15 @@ function renderDynamicMapWidget(node: WidgetNode): string {
         ctaType: defaultCtaType as any,
         ctaUrl: '',
       }]).slice(0, 5);
+  const mapFramePlaces = places.map((place) => ({ name: place.name, lat: place.lat, lng: place.lng }));
+  const exportMapSrcdoc = escapeHtml(buildExportLeafletMapSrcdoc({
+    places: mapFramePlaces,
+    latitude,
+    longitude,
+    zoom,
+    accent,
+    routeVisible,
+  }));
   const placesJson = escapeHtml(JSON.stringify(places.map((place) => ({
     ...place,
     resolvedUrl: buildPlaceCtaUrl(place, (place.ctaType || defaultCtaType) as any),
@@ -413,11 +495,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
               <button type="button" data-smx-action="map-close-panel" style="appearance:none;border:none;background:transparent;color:#334155;font-size:18px;line-height:1;cursor:pointer;">×</button>
             </div>
             <div style="position:relative;height:122px;background:${mapBackground};overflow:hidden;">
-              <div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 20%, rgba(255,255,255,.55), transparent 32%), radial-gradient(circle at 74% 32%, rgba(255,255,255,.2), transparent 24%), linear-gradient(135deg, transparent 0%, rgba(255,255,255,.12) 100%);"></div>
-              ${places.slice(0, 3).map((place, index) => `<div style="position:absolute;left:${22 + index * 20}%;top:${24 + (index % 2) * 20}%;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:4px;">
-                <div style="min-width:32px;max-width:96px;padding:4px 6px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font-size:10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(place.name)}</div>
-                <div style="width:18px;height:18px;border-radius:50%;background:${escapeHtml(accent)};border:2px solid rgba(255,255,255,.88);box-shadow:0 0 0 6px ${escapeHtml(accent)}22;"></div>
-              </div>`).join('')}
+              <iframe title="Nearby locations map" srcdoc="${exportMapSrcdoc}" style="position:absolute;inset:0;width:100%;height:100%;border:0;background:${mapBackground};" loading="lazy"></iframe>
               <button type="button" data-smx-action="map-request-location" style="position:absolute;right:10px;top:10px;min-width:40px;height:40px;border-radius:999px;border:none;background:#fff;color:${escapeHtml(accent)};box-shadow:0 3px 14px rgba(0,0,0,.2);font-size:11px;font-weight:900;cursor:pointer;padding:0 10px;">${escapeHtml(locateMeLabel)}</button>
             </div>
             <div style="padding:10px 12px;border-bottom:1px solid rgba(0,0,0,.08);display:flex;align-items:flex-start;gap:10px;">
@@ -444,10 +522,8 @@ function renderDynamicMapWidget(node: WidgetNode): string {
     </div>
     <div style="padding:8px 12px 12px;flex:1;display:grid;grid-template-columns:${gridTemplateColumns};grid-template-rows:${gridTemplateRows};gap:10px;min-height:0;">
       ${cardsOnly ? '' : `<div style="position:relative;min-height:${stackedLayout ? 150 : 110}px;border-radius:12px;overflow:hidden;background:${mapBackground};">
-        <div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 20%, rgba(255,255,255,.55), transparent 32%), radial-gradient(circle at 74% 32%, rgba(255,255,255,.2), transparent 24%), linear-gradient(135deg, transparent 0%, rgba(255,255,255,.12) 100%);"></div>
-        ${routeVisible ? `<svg viewBox="0 0 100 60" style="position:absolute;inset:12% 10%;width:80%;height:76%;"><path d="M8 50 C 24 18, 56 16, 88 42" fill="none" stroke="${escapeHtml(accent)}" stroke-width="3" stroke-dasharray="7 6" stroke-linecap="round" /></svg>` : ''}
-        ${places.map((place, index) => `<div style="position:absolute;left:${18 + index * 16}%;top:${24 + (index % 2) * 20}%;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:4px;"><div style="min-width:30px;padding:4px 6px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font-size:10px;text-align:center;white-space:nowrap;">${place.flag ? `${escapeHtml(getFlagEmoji(place.flag))} ` : ''}${escapeHtml(place.name)}</div><div style="width:18px;height:18px;border-radius:50%;background:${escapeHtml(accent)};border:2px solid rgba(255,255,255,.88);box-shadow:0 0 0 6px ${escapeHtml(accent)}22;"></div></div>`).join('')}
-      <div style="position:absolute;left:10px;right:10px;bottom:8px;display:flex;justify-content:space-between;font-size:10px;color:#0f172a;opacity:.82;"><span>${places.length} locations · zoom ${zoom}</span><span>${requestUserLocation ? 'Tap to locate' : 'Location fixed'}</span></div></div>`}
+        <iframe title="Nearby locations map" srcdoc="${exportMapSrcdoc}" style="position:absolute;inset:0;width:100%;height:100%;border:0;background:${mapBackground};"></iframe>
+      <div style="position:absolute;left:10px;right:10px;bottom:8px;display:flex;justify-content:space-between;font-size:10px;color:#0f172a;opacity:.82;pointer-events:none;"><span>${places.length} locations · zoom ${zoom}</span><span>${requestUserLocation ? 'Tap to locate' : 'Location fixed'}</span></div></div>`}
       <div data-map-cards style="display:grid;gap:4px;overflow:auto;min-height:0;padding-right:2px;align-content:start;">${places.map((place) => `<div data-map-card data-place-name="${escapeHtml(place.name)}" style="border-radius:10px;background:rgba(255,255,255,.78);border:1px solid ${escapeHtml(accent)}22;padding:7px 8px;display:grid;gap:3px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:11px;line-height:1.1;">${escapeHtml(place.name)}</strong><span data-place-badge style="font-size:8px;border-radius:999px;padding:2px 5px;background:${escapeHtml(accent)}22;color:#0f172a;white-space:nowrap;">${escapeHtml(place.badge || (place.openNow ? 'Open now' : 'Store'))}</span></div>
         <div style="font-size:9px;opacity:.78;line-height:1.15;">${escapeHtml(place.address || `${place.lat.toFixed(3)}, ${place.lng.toFixed(3)}`)}</div>
