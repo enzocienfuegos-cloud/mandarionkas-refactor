@@ -2919,6 +2919,18 @@
   justify-content: flex-end;
 }
 
+.top-target-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.top-target-switch .compact-action.is-active {
+  border-color: rgba(245,165,36,0.42);
+  background: rgba(245,165,36,0.14);
+  color: rgba(255,240,214,0.96);
+}
+
 .top-save-indicator {
   display: inline-flex;
   align-items: center;

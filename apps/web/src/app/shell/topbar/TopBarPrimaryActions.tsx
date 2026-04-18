@@ -43,6 +43,24 @@ export function TopBarPrimaryActions({ controller }: { controller: TopBarControl
 
   return (
     <div className="top-actions-cluster">
+      <div className="top-target-switch" role="group" aria-label="Primary export targets">
+        <button
+          type="button"
+          className={`ghost compact-action ${release.targetChannel === 'generic-html5' ? 'is-active' : ''}`}
+          onClick={() => updateReleaseSettings({ targetChannel: 'generic-html5' })}
+          title="Set export target to IAB HTML5"
+        >
+          IAB HTML5
+        </button>
+        <button
+          type="button"
+          className={`ghost compact-action ${release.targetChannel === 'mraid' ? 'is-active' : ''}`}
+          onClick={() => updateReleaseSettings({ targetChannel: 'mraid' })}
+          title="Set export target to MRAID"
+        >
+          MRAID
+        </button>
+      </div>
       <select
         className="ghost compact-action"
         value={release.targetChannel}
@@ -51,9 +69,9 @@ export function TopBarPrimaryActions({ controller }: { controller: TopBarControl
         title="Export target"
       >
         <option value="generic-html5">IAB HTML5</option>
+        <option value="mraid">MRAID</option>
         <option value="google-display">Google Display</option>
         <option value="gam-html5">GAM HTML5</option>
-        <option value="mraid">MRAID</option>
         <option value="meta-story">Meta Story</option>
         <option value="tiktok-vertical">TikTok Vertical</option>
       </select>
