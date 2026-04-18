@@ -44,6 +44,7 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
   const [lastSelectedAssetId, setLastSelectedAssetId] = useState<string | null>(null);
   const [draggedAssetIds, setDraggedAssetIds] = useState<string[]>([]);
   const [folderDraft, setFolderDraft] = useState('');
+  const [bulkTargetFolderId, setBulkTargetFolderId] = useState<string>('root');
   const [page, setPage] = useState(1);
   const [folderBusy, setFolderBusy] = useState(false);
   const [folderError, setFolderError] = useState('');
@@ -108,6 +109,10 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
   useEffect(() => {
     setPage(1);
   }, [activeFolderId, assetController.assetQuery, assetController.assetSort]);
+
+  useEffect(() => {
+    setBulkTargetFolderId(activeFolder ? activeFolder.id : 'root');
+  }, [activeFolder]);
 
   function getVisibleAssetRange(assetId: string): string[] {
     if (!lastSelectedAssetId) return [assetId];
@@ -239,6 +244,22 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
     }
   }
 
+  async function handleMoveSelectedToFolderChoice(): Promise<void> {
+    if (!selectedAssetIds.length) return;
+    const targetFolderId = bulkTargetFolderId === 'root' ? undefined : bulkTargetFolderId;
+    await handleMoveAssetsToFolder(selectedAssetIds, targetFolderId);
+  }
+
+  function handleToggleSelectAllVisible(checked: boolean): void {
+    if (checked) {
+      setSelectedAssetIds(visibleAssets.map((asset) => asset.id));
+      setLastSelectedAssetId(visibleAssets[0]?.id ?? null);
+      if (visibleAssets[0]) assetController.setSelectedAssetId(visibleAssets[0].id);
+      return;
+    }
+    setSelectedAssetIds([]);
+  }
+
   async function handleMoveAssetsToFolder(assetIds: string[], folderId?: string): Promise<void> {
     if (!assetIds.length) return;
     setFolderBusy(true);
@@ -312,6 +333,8 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
   const selectedReprocessableCount = visibleAssets.filter((asset) => selectedAssetIds.includes(asset.id) && canReprocessAsset(asset)).length;
   const visibleReprocessableCount = visibleAssets.filter(canReprocessAsset).length;
   const reprocessTargetCount = selectedReprocessableCount || visibleReprocessableCount;
+  const selectableFolders = folderCards.filter((folder) => !folder.id.startsWith('project:'));
+  const allVisibleSelected = visibleAssets.length > 0 && visibleAssets.every((asset) => selectedAssetIds.includes(asset.id));
 
   return (
     <div className="asset-library-modal-shell" role="dialog" aria-modal="true" aria-label="Assets" onClick={onClose}>
@@ -427,6 +450,54 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
                   ✕
                 </button>
               </div>
+            </div>
+
+            <div className="asset-library-browser-section">
+              <div className="meta-line" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <label className="checkbox-row" style={{ margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={(event) => handleToggleSelectAllVisible(event.target.checked)}
+                  />
+                  Select all in this view
+                </label>
+                <span className="pill">{selectedAssetIds.length} selected</span>
+              </div>
+              {selectedAssetIds.length ? (
+                <div className="asset-inline-actions" style={{ marginTop: 10, flexWrap: 'wrap' }}>
+                  <strong style={{ fontSize: 12 }}>Bulk actions</strong>
+                  <select value={bulkTargetFolderId} onChange={(event) => setBulkTargetFolderId(event.target.value)}>
+                    <option value="root">Move to root</option>
+                    {selectableFolders.map((folder) => (
+                      <option key={folder.id} value={folder.id}>
+                        {typeof folder.depth === 'number' && folder.depth > 0 ? `${'  '.repeat(folder.depth)}${folder.name}` : folder.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="ghost compact-action" type="button" disabled={folderBusy} onClick={() => void handleMoveSelectedToFolderChoice()}>
+                    Move selected
+                  </button>
+                  <button className="ghost compact-action" type="button" disabled={!assetController.canDeleteAssets} onClick={() => void handleDeleteSelected()}>
+                    Delete selected
+                  </button>
+                  <button
+                    className="ghost compact-action"
+                    type="button"
+                    disabled={selectedReprocessableCount === 0 || folderBusy || !assetController.canUpdateAssets}
+                    onClick={() => void handleReprocessFailed()}
+                  >
+                    Reprocess selected
+                  </button>
+                  <button className="ghost compact-action" type="button" onClick={() => setSelectedAssetIds([])}>
+                    Clear selection
+                  </button>
+                </div>
+              ) : (
+                <small className="muted" style={{ display: 'block', marginTop: 10 }}>
+                  Tip: use the checkboxes to select multiple assets, then move or delete them in bulk.
+                </small>
+              )}
             </div>
 
             <input
@@ -562,6 +633,27 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
                         setDraggedAssetIds([]);
                       }}
                     >
+                      <div className="meta-line" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                        <label className="checkbox-row" style={{ margin: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(event) => {
+                              event.stopPropagation();
+                              setSelectedAssetIds((current) => (
+                                event.target.checked
+                                  ? Array.from(new Set([...current, asset.id]))
+                                  : current.filter((id) => id !== asset.id)
+                              ));
+                              setLastSelectedAssetId(asset.id);
+                              assetController.setSelectedAssetId(asset.id);
+                            }}
+                            onClick={(event) => event.stopPropagation()}
+                          />
+                          <span className="muted" style={{ fontSize: 11 }}>Select</span>
+                        </label>
+                        {isSelected ? <span className="pill">Selected</span> : null}
+                      </div>
                       <div className="asset-browser-media">{renderAssetThumb(asset)}</div>
                       <div className="asset-browser-meta">
                         <strong title={asset.name}>{asset.name}</strong>
