@@ -41,6 +41,24 @@ export function WidgetFieldInspectorSection({ widget, title = 'Widget settings',
             );
           }
 
+          if (type === 'select') {
+            return (
+              <div key={field.key}>
+                <label>{label}</label>
+                <select
+                  value={String(value ?? '')}
+                  onChange={(event) => updateWidgetProps(widget.id, { [field.key]: event.target.value })}
+                >
+                  {(field.options ?? []).map((option) => (
+                    <option key={`${field.key}-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          }
+
           return (
             <div key={field.key}>
               <label>{label}</label>

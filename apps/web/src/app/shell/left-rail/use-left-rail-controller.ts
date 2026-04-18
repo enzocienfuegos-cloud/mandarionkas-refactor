@@ -241,6 +241,44 @@ export function useLeftRailController() {
       widgetActions.updateWidgetProps(primaryWidget.id, { src: asset.src, assetId: asset.id, posterSrc: asset.posterSrc ?? primaryWidget.props.posterSrc });
       return;
     }
+    if (primaryWidget.type === 'image-carousel' || primaryWidget.type === 'interactive-gallery') {
+      if (asset.kind !== 'image') return;
+      const currentSlides = String(primaryWidget.props.slides ?? '')
+        .split(';')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const nextSlides = [...currentSlides, `${asset.src}|${asset.name}`].join(';');
+      const currentAssetIds = String(primaryWidget.props.assetIdsCsv ?? '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      widgetActions.updateWidgetProps(primaryWidget.id, {
+        slides: nextSlides,
+        assetIdsCsv: [...currentAssetIds, asset.id].join(','),
+        itemCount: currentSlides.length + 1,
+        activeIndex: 1,
+      });
+      return;
+    }
+    if (primaryWidget.type === 'shoppable-sidebar') {
+      if (asset.kind !== 'image') return;
+      const currentProducts = String(primaryWidget.props.products ?? '')
+        .split(';')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const nextProducts = [...currentProducts, `${asset.src}|${asset.name}||$0|4|Shop now|`].join(';');
+      const currentAssetIds = String(primaryWidget.props.assetIdsCsv ?? '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      widgetActions.updateWidgetProps(primaryWidget.id, {
+        products: nextProducts,
+        assetIdsCsv: [...currentAssetIds, asset.id].join(','),
+        itemCount: currentProducts.length + 1,
+        activeIndex: 1,
+      });
+      return;
+    }
     if (['text', 'cta', 'badge'].includes(primaryWidget.type)) {
       if (asset.kind !== 'font') return;
       widgetActions.updateWidgetProps(primaryWidget.id, { fontAssetId: asset.id, fontAssetSrc: asset.src });
@@ -261,7 +299,7 @@ export function useLeftRailController() {
     refreshAssets();
   }
 
-  const selectedWidgetAcceptsAsset = primaryWidget && ['image', 'hero-image', 'video-hero', 'text', 'cta', 'badge'].includes(primaryWidget.type);
+  const selectedWidgetAcceptsAsset = primaryWidget && ['image', 'hero-image', 'video-hero', 'image-carousel', 'interactive-gallery', 'shoppable-sidebar', 'text', 'cta', 'badge'].includes(primaryWidget.type);
 
   return {
     query,

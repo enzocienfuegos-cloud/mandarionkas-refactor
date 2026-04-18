@@ -20,10 +20,26 @@ export const shapeDefinition: WidgetDefinition = {
   }),
   inspectorSections: ['position-size', 'fill', 'timing', 'states', 'data-bindings', 'variants'],
   inspectorTabs: createInspectorTabs([
-    { id: 'basics', label: 'Basics', panels: ['position-size', 'fill', 'timing'] },
+    { id: 'basics', label: 'Basics', panels: ['position-size', 'widget-fields', 'fill', 'timing'] },
     { id: 'behavior', label: 'Behavior', panels: ['conditions', 'actions', 'states', 'keyframes'] },
     { id: 'data', label: 'Data', panels: ['data-bindings', 'variants'] },
   ]),
+  inspectorTitle: 'Shape',
+  inspectorFields: [
+    {
+      key: 'shape',
+      label: 'Shape',
+      type: 'select',
+      options: [
+        { label: 'Rectangle', value: 'rectangle' },
+        { label: 'Square', value: 'square' },
+        { label: 'Circle', value: 'circle' },
+        { label: 'Triangle', value: 'triangle' },
+        { label: 'Line', value: 'line' },
+        { label: 'Arrow', value: 'arrow' },
+      ],
+    },
+  ],
   renderStage: renderShapeWidget,
   renderExport: (node) => renderShapeExport(node),
   renderLabel: () => 'Shape',

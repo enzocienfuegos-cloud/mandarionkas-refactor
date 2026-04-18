@@ -33,9 +33,9 @@ export const badgeDefinition: WidgetDefinition = {
     },
     timeline: { startMs: 0, endMs: 15000 },
   }),
-  inspectorSections: ['position-size', 'timing', 'states', 'data-bindings', 'variants'],
+  inspectorSections: ['position-size', 'text-content', 'timing', 'states', 'data-bindings', 'variants'],
   inspectorTabs: createInspectorTabs([
-    { id: 'basics', label: 'Basics', panels: ['position-size', 'widget-fields', 'timing'] },
+    { id: 'basics', label: 'Basics', panels: ['position-size', 'widget-fields', 'text-content', 'timing'] },
     { id: 'behavior', label: 'Behavior', panels: ['conditions', 'actions', 'states', 'keyframes'] },
     { id: 'data', label: 'Data', panels: ['data-bindings', 'variants'] },
   ]),

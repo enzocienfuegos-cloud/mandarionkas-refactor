@@ -28,5 +28,14 @@ export const imageDefinition: WidgetDefinition = {
   inspectorFields: [{ key: 'src', label: 'Source URL' }, { key: 'alt', label: 'Alt text' }],
   renderStage: renderImageWidget,
   renderExport: (node) => renderImageExport(node, 'image'),
+  buildPortableExport: (node) => ({
+    props: {
+      ...node.props,
+      exportRole: 'image',
+      src: String(node.props.src ?? ''),
+      alt: String(node.props.alt ?? ''),
+      fit: String(node.style.fit ?? 'cover'),
+    },
+  }),
   renderLabel: () => 'Image',
 };

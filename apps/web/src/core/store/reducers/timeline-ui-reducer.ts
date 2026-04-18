@@ -30,6 +30,8 @@ export function timelineUiReducer(state: StudioState, command: StudioCommand): S
       return { ...state, ui: { ...state.ui, stageBackdrop: command.stageBackdrop } };
     case 'SET_STAGE_RULERS':
       return { ...state, ui: { ...state.ui, showStageRulers: command.enabled } };
+    case 'SET_WIDGET_BADGES_VISIBILITY':
+      return { ...state, ui: { ...state.ui, showWidgetBadges: command.enabled } };
     case 'SET_HOVERED_WIDGET':
       return { ...state, ui: { ...state.ui, hoveredWidgetId: command.widgetId } };
     case 'SET_ACTIVE_WIDGET':

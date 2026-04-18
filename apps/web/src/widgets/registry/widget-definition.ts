@@ -1,5 +1,6 @@
 import type { StudioState, WidgetNode, WidgetType } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
+import type { PortableExportWidget } from '../../export/portable';
 
 export type InspectorSectionKey =
   | 'position-size'
@@ -38,7 +39,8 @@ export type WidgetInspectorTabSpec = {
 export type WidgetFieldSpec = {
   key: string;
   label?: string;
-  type?: 'text' | 'number' | 'textarea' | 'checkbox';
+  type?: 'text' | 'number' | 'textarea' | 'checkbox' | 'select';
+  options?: Array<{ label: string; value: string }>;
 };
 
 export type WidgetDefinition = {
@@ -54,6 +56,7 @@ export type WidgetDefinition = {
   renderStage?: (node: WidgetNode, ctx: RenderContext) => JSX.Element;
   renderInspector?: (node: WidgetNode) => JSX.Element;
   renderExport?: (node: WidgetNode, state: StudioState) => string;
+  buildPortableExport?: (node: WidgetNode, state: StudioState) => Partial<PortableExportWidget> | void;
 };
 
 export function createInspectorTabs(tabs: WidgetInspectorTabSpec[]): WidgetInspectorTabSpec[] {

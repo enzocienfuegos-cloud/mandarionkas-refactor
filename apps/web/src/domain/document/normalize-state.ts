@@ -51,6 +51,7 @@ export function normalizeStudioState(raw: StudioState): StudioState {
       activeLeftTab: raw.ui?.activeLeftTab ?? base.ui.activeLeftTab,
       stageBackdrop: raw.ui?.stageBackdrop ?? base.ui.stageBackdrop,
       showStageRulers: raw.ui?.showStageRulers ?? base.ui.showStageRulers,
+      showWidgetBadges: raw.ui?.showWidgetBadges ?? base.ui.showWidgetBadges,
     },
   };
 }

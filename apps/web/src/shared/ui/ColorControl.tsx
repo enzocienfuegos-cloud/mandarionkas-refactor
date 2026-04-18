@@ -44,6 +44,9 @@ export function ColorControl({
   onChange,
   placeholder,
   compact = false,
+  allowNone = true,
+  noneValue = '',
+  noneLabel = 'None',
 }: {
   label: string;
   value: string;
@@ -51,6 +54,9 @@ export function ColorControl({
   onChange: (value: string) => void;
   placeholder?: string;
   compact?: boolean;
+  allowNone?: boolean;
+  noneValue?: string;
+  noneLabel?: string;
 }): JSX.Element {
   const swatchValue = toHex(value, fallback);
   const rgbValue = toRgbLabel(value, fallback);
@@ -62,18 +68,31 @@ export function ColorControl({
     <div>
       <label>{label}</label>
       <div style={stackStyle}>
-        <input
-          type="color"
-          aria-label={`${label} picker`}
-          value={swatchValue}
-          onChange={(event) => onChange(event.target.value)}
-          className="color-swatch-input" style={{ width: 44, minWidth: 44 }}
-        />
+        <div style={{ display: 'grid', gap: 8 }}>
+          <input
+            type="color"
+            aria-label={`${label} picker`}
+            value={swatchValue}
+            onChange={(event) => onChange(event.target.value)}
+            className="color-swatch-input" style={{ width: 44, minWidth: 44 }}
+          />
+          {allowNone ? (
+            <button
+              type="button"
+              className="ghost compact-action"
+              style={{ minWidth: 44, padding: '0 8px' }}
+              onClick={() => onChange(noneValue)}
+              title={`Clear ${label.toLowerCase()}`}
+            >
+              {noneLabel}
+            </button>
+          ) : null}
+        </div>
         <div style={{ display: 'grid', gap: 8 }}>
           <input
             value={value}
             onChange={(event) => onChange(event.target.value)}
-            placeholder={placeholder ?? '#ffffff or rgb(255, 255, 255)'}
+            placeholder={placeholder ?? '#ffffff, rgb(255, 255, 255), transparent, or empty'}
           />
           <input className="color-rgb-readout" value={rgbValue} readOnly onFocus={(event) => event.currentTarget.select()} title="Selectable RGB value" />
         </div>

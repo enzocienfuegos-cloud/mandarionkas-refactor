@@ -26,5 +26,13 @@ export const ctaDefinition: WidgetDefinition = {
   ]),
   renderStage: renderCtaWidget,
   renderExport: (node) => renderCtaExport(node),
+  buildPortableExport: (node) => ({
+    props: {
+      ...node.props,
+      exportRole: 'cta',
+      ctaText: String(node.props.text ?? node.name),
+      clickthroughUrl: String(node.props.url ?? ''),
+    },
+  }),
   renderLabel: (node) => String(node.props.text ?? node.name),
 };

@@ -1,6 +1,158 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
-import { getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
-function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element { const accent = getAccent(node); const items = useMemo(() => [String(node.props.itemOne ?? 'Item 1'), String(node.props.itemTwo ?? 'Item 2'), String(node.props.itemThree ?? 'Item 3')].filter(Boolean), [node.props.itemOne, node.props.itemTwo, node.props.itemThree]); const [cartCount, setCartCount] = useState(0); return <div style={moduleShell(node, ctx)}><div style={moduleHeader(node)}>{String(node.props.title ?? node.name)}</div><div style={moduleBody}>{items.map((item, index) => <button key={index} type="button" onClick={(event) => { event.stopPropagation(); setCartCount((value) => value + 1); ctx.triggerWidgetAction('click'); }} style={{ borderRadius: 10, border: `1px solid ${accent}`, background: 'transparent', color: 'inherit', padding: '8px 10px', textAlign: 'left', cursor: 'pointer' }}>{item}</button>)}<div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', fontSize: 12 }}><span>Cart</span><strong>{cartCount} items</strong></div></div></div>; }
-export function renderShoppableSidebarStage(node: WidgetNode, ctx: RenderContext): JSX.Element { const collapsed=renderCollapsedIfNeeded(node,ctx); if(collapsed) return collapsed; return <ShoppableSidebarModuleRenderer node={node} ctx={ctx}/>; }
+import { clamp, getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
+import { parseShoppableProducts } from './shoppable-sidebar.shared';
+
+function resolveCardSize(cardShape: string): { width: number; height: number } {
+  if (cardShape === 'landscape') return { width: 168, height: 110 };
+  if (cardShape === 'square') return { width: 132, height: 132 };
+  return { width: 124, height: 164 };
+}
+
+function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
+  const accent = getAccent(node);
+  const ctaBackgroundColor = String((node.style as Record<string, unknown>).ctaBackgroundColor ?? accent);
+  const ctaTextColor = String((node.style as Record<string, unknown>).ctaTextColor ?? '#111827');
+  const products = useMemo(() => parseShoppableProducts(node.props.products), [node.props.products]);
+  const itemCount = Math.max(1, products.length || Number(node.props.itemCount ?? 1));
+  const orientation = String(node.props.orientation ?? 'horizontal');
+  const cardShape = String(node.props.cardShape ?? 'portrait');
+  const autoscroll = Boolean(node.props.autoscroll ?? true);
+  const intervalMs = clamp(Number(node.props.intervalMs ?? 2600), 1000, 10000);
+  const showPrevButton = Boolean(node.props.showPrevButton ?? true);
+  const showNextButton = Boolean(node.props.showNextButton ?? true);
+  const [activeIndex, setActiveIndex] = useState(clamp(Number(node.props.activeIndex ?? 1), 1, itemCount) - 1);
+  const fallbackCardSize = resolveCardSize(cardShape);
+  const visibleCount = orientation === 'vertical' ? 1 : Math.min(2, itemCount);
+  const availableWidth = Math.max(120, node.frame.width - 24);
+  const availableHeight = Math.max(88, node.frame.height - 58);
+  const cardSize = orientation === 'horizontal'
+    ? {
+        width: Math.max(96, Math.floor((availableWidth - 12 * Math.max(0, visibleCount - 1)) / visibleCount)),
+        height: Math.max(92, Math.min(Math.floor(availableHeight * 0.94), fallbackCardSize.height)),
+      }
+    : {
+        width: Math.max(110, Math.min(availableWidth, fallbackCardSize.width)),
+        height: Math.max(96, Math.min(Math.floor(availableHeight * 0.94), fallbackCardSize.height)),
+      };
+  const mediaHeight = Math.max(60, Math.min(cardShape === 'landscape' ? Math.floor(cardSize.height * 0.58) : Math.floor(cardSize.height * 0.68), cardSize.height - 44));
+  const gap = 12;
+  const cardBasis = orientation === 'horizontal'
+    ? `calc((100% - ${gap * Math.max(0, visibleCount - 1)}px) / ${visibleCount})`
+    : '100%';
+
+  useEffect(() => {
+    if (!autoscroll || itemCount <= 1 || !ctx.previewMode) return;
+    const timer = window.setInterval(() => setActiveIndex((value) => (value + 1) % itemCount), intervalMs);
+    return () => window.clearInterval(timer);
+  }, [autoscroll, itemCount, intervalMs, ctx.previewMode]);
+
+  const trackStyle = orientation === 'vertical'
+    ? {
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap,
+        height: '100%',
+        transform: `translateY(-${activeIndex * (cardSize.height + gap)}px)`,
+        transition: 'transform .28s ease',
+      }
+    : {
+        display: 'flex',
+        gap,
+        width: '100%',
+        height: '100%',
+        transform: `translateX(-${activeIndex * (cardSize.width + 12)}px)`,
+        transition: 'transform .28s ease',
+      };
+
+  return (
+    <div style={moduleShell(node, ctx)}>
+      <div style={moduleHeader(node)}>{String(node.props.title ?? node.name)}</div>
+      <div style={moduleBody}>
+        <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
+          <div style={trackStyle}>
+            {(products.length ? products : Array.from({ length: itemCount }, (_, index) => ({
+              src: '',
+              title: `Product ${index + 1}`,
+              subtitle: 'Product subtitle',
+              price: '$0',
+              rating: 4,
+              ctaLabel: 'Shop now',
+              url: '',
+            }))).map((product, index) => (
+              <article
+                key={`${node.id}-product-${index}`}
+                style={{
+                  width: orientation === 'horizontal' ? cardBasis : '100%',
+                  minWidth: orientation === 'horizontal' ? cardBasis : '100%',
+                  maxWidth: orientation === 'horizontal' ? cardBasis : '100%',
+                  flex: orientation === 'horizontal' ? `0 0 ${cardBasis}` : '0 0 auto',
+                  height: '100%',
+                  minHeight: 0,
+                  borderRadius: 10,
+                  overflow: 'hidden',
+                  background: '#ffffff',
+                  color: '#1f2937',
+                  border: '1px solid rgba(15,23,42,.10)',
+                  boxShadow: '0 4px 14px rgba(15,23,42,.08)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <div style={{ position: 'relative', height: mediaHeight, minHeight: mediaHeight, background: product.src ? '#111827' : '#f8fafc', flexShrink: 0 }}>
+                  {product.src ? <img src={product.src} alt={product.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
+                </div>
+                <div style={{ padding: '8px 8px 10px', display: 'grid', gap: 3, minHeight: 0, flex: 1, alignContent: 'start' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#0f172a', lineHeight: 1.15, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 as any, overflow: 'hidden' }}>{product.title}</div>
+                  <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.15 }}>{product.price || '$0'}</div>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      ctx.triggerWidgetAction('click');
+                    }}
+                    style={{ marginTop: 'auto', border: 'none', borderRadius: 10, background: ctaBackgroundColor, color: ctaTextColor, fontWeight: 800, padding: '7px 9px', cursor: 'pointer', fontSize: 11, opacity: product.ctaLabel ? 1 : 0 }}
+                  >
+                    {product.ctaLabel || 'Shop now'}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+          {itemCount > 1 ? (
+            <>
+              {showPrevButton ? <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveIndex((value) => (value - 1 + itemCount) % itemCount);
+                }}
+                style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,.94)', color: '#111827', fontWeight: 900, cursor: 'pointer', boxShadow: '0 2px 10px rgba(15,23,42,.12)' }}
+              >
+                ‹
+              </button> : null}
+              {showNextButton ? <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveIndex((value) => (value + 1) % itemCount);
+                  ctx.triggerWidgetAction('click');
+                }}
+                style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,.94)', color: '#111827', fontWeight: 900, cursor: 'pointer', boxShadow: '0 2px 10px rgba(15,23,42,.12)' }}
+              >
+                ›
+              </button> : null}
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function renderShoppableSidebarStage(node: WidgetNode, ctx: RenderContext): JSX.Element {
+  const collapsed = renderCollapsedIfNeeded(node, ctx);
+  if (collapsed) return collapsed;
+  return <ShoppableSidebarModuleRenderer node={node} ctx={ctx} />;
+}

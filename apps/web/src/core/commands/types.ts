@@ -30,6 +30,7 @@ export type StudioCommand =
   | { type: 'SET_LEFT_TAB'; tab: import('../../domain/document/types').StudioState['ui']['activeLeftTab'] }
   | { type: 'SET_STAGE_BACKDROP'; stageBackdrop: import('../../domain/document/types').StudioState['ui']['stageBackdrop'] }
   | { type: 'SET_STAGE_RULERS'; enabled: boolean }
+  | { type: 'SET_WIDGET_BADGES_VISIBILITY'; enabled: boolean }
   | { type: 'SET_ACTIVE_VARIANT'; variant: VariantName }
   | { type: 'SET_ACTIVE_FEED_SOURCE'; source: BindingSource }
   | { type: 'SET_ACTIVE_FEED_RECORD'; recordId: string }

@@ -28,5 +28,18 @@ export const videoHeroDefinition: WidgetDefinition = {
   inspectorFields: [{ key: 'src', label: 'Video URL' }, { key: 'posterSrc', label: 'Poster URL' }, { key: 'autoplay', type: 'checkbox' }, { key: 'muted', type: 'checkbox' }, { key: 'loop', type: 'checkbox' }, { key: 'controls', type: 'checkbox' }],
   renderStage: renderVideoHeroWidget,
   renderExport: (node) => renderVideoExport(node),
+  buildPortableExport: (node) => ({
+    props: {
+      ...node.props,
+      exportRole: 'video-hero',
+      src: String(node.props.src ?? ''),
+      posterSrc: String(node.props.posterSrc ?? ''),
+      autoplay: Boolean(node.props.autoplay ?? true),
+      muted: Boolean(node.props.muted ?? true),
+      loop: Boolean(node.props.loop ?? true),
+      controls: Boolean(node.props.controls ?? false),
+      fit: String(node.style.fit ?? 'cover'),
+    },
+  }),
   renderLabel: () => 'Video Hero',
 };

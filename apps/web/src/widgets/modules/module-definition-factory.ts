@@ -2,6 +2,7 @@ import { createId } from '../../domain/document/factories';
 import type { WidgetNode, WidgetType } from '../../domain/document/types';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
 import { createModuleExportRenderer } from './module-exporter';
+import type { PortableExportWidget } from '../../export/portable';
 
 export type ModuleSpec = {
   type: WidgetType;
@@ -11,8 +12,10 @@ export type ModuleSpec = {
   props: Record<string, unknown>;
   style: Record<string, unknown>;
   renderStage: WidgetDefinition['renderStage'];
+  renderInspector?: WidgetDefinition['renderInspector'];
   inspectorFields?: WidgetDefinition['inspectorFields'];
   exportDetail?: string;
+  buildPortableExport?: WidgetDefinition['buildPortableExport'];
 };
 
 export function createModuleDefinition(spec: ModuleSpec): WidgetDefinition {
@@ -38,9 +41,64 @@ export function createModuleDefinition(spec: ModuleSpec): WidgetDefinition {
       { id: 'data', label: 'Data', panels: ['data-bindings', 'variants'] },
     ]),
     renderStage: spec.renderStage,
+    renderInspector: spec.renderInspector,
     inspectorTitle: spec.label,
     inspectorFields: spec.inspectorFields,
     renderExport: createModuleExportRenderer(spec.exportDetail ?? spec.label),
+    buildPortableExport: spec.buildPortableExport ?? ((node) => buildModulePortableExport(node)),
     renderLabel: (node) => String(node.props.title ?? node.props.label ?? node.name),
   };
+}
+
+function buildModulePortableExport(node: WidgetNode): Partial<PortableExportWidget> {
+  const exportRole = node.type;
+  const patch: Partial<PortableExportWidget> = {
+    props: {
+      ...node.props,
+      exportRole,
+    },
+  };
+
+  switch (node.type) {
+    case 'buttons':
+      patch.props = {
+        ...patch.props,
+        primaryLabel: String(node.props.primaryLabel ?? ''),
+        secondaryLabel: String(node.props.secondaryLabel ?? ''),
+      };
+      break;
+    case 'interactive-gallery':
+    case 'image-carousel':
+      patch.props = {
+        ...patch.props,
+        galleryItems: String(node.props.slides ?? ''),
+      };
+      break;
+    case 'interactive-hotspot':
+      patch.props = {
+        ...patch.props,
+        hotspotX: Number(node.props.hotspotX ?? 50),
+        hotspotY: Number(node.props.hotspotY ?? 50),
+      };
+      break;
+    case 'range-slider':
+    case 'slider':
+      patch.props = {
+        ...patch.props,
+        min: Number(node.props.min ?? 0),
+        max: Number(node.props.max ?? 100),
+        value: Number(node.props.value ?? node.props.current ?? 0),
+      };
+      break;
+    case 'scratch-reveal':
+      patch.props = {
+        ...patch.props,
+        revealAmount: Number(node.props.revealAmount ?? 0),
+      };
+      break;
+    default:
+      break;
+  }
+
+  return patch;
 }

@@ -20,5 +20,6 @@ export function selectStageState(state: StudioState) {
     activeWidgetId: state.ui.activeWidgetId,
     stageBackdrop: state.ui.stageBackdrop,
     showStageRulers: state.ui.showStageRulers,
+    showWidgetBadges: state.ui.showWidgetBadges,
   };
 }

@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
+import { parseShoppableProducts } from './shoppable-sidebar.shared';
 
 export const resolveWidgetColor = (node: WidgetNode, ctx?: RenderContext): string => {
   if (ctx?.active && node.style.activeColor) return String(node.style.activeColor);
@@ -31,15 +32,15 @@ export const resolveWidgetShadow = (node: WidgetNode, ctx?: RenderContext): stri
 export const moduleShellEdit = (node: WidgetNode): CSSProperties => ({
   width: '100%',
   height: '100%',
-  borderRadius: 10,
-  background: 'rgba(15,23,42,0.02)',
-  color: '#dbe4ee',
-  border: `1px dashed ${String(node.style.accentColor ?? '#94a3b8')}`,
+  borderRadius: Number(node.style.borderRadius ?? 14),
+  background: String(node.style.backgroundColor ?? '#1f2937'),
+  color: String(node.style.color ?? '#ffffff'),
+  border: 'none',
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
   boxShadow: 'none',
-  opacity: 1,
+  opacity: Number(node.style.opacity ?? 1),
   transition: 'none',
 });
 export const moduleShell = (node: WidgetNode, ctx?: RenderContext): CSSProperties => (
@@ -51,14 +52,14 @@ export const moduleShell = (node: WidgetNode, ctx?: RenderContext): CSSPropertie
       borderRadius: 14,
       background: resolveWidgetBackground(node, '#1f2937', ctx),
       color: resolveWidgetColor(node, ctx),
-      border: `1px solid ${resolveWidgetBorder(node, ctx)}`,
+      border: 'none',
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
-      boxShadow: resolveWidgetShadow(node, ctx),
+      boxShadow: 'none',
       opacity: resolveWidgetOpacity(node, ctx),
-      transition: 'box-shadow .16s ease, border-color .16s ease, transform .16s ease, opacity .16s ease',
-      transform: ctx?.hovered ? 'translateY(-1px)' : 'none',
+      transition: 'opacity .16s ease',
+      transform: 'none',
     }
 );
 export const moduleHeader = (node: WidgetNode): CSSProperties => ({
@@ -88,15 +89,22 @@ export function getFlagEmoji(flagCode: string): string {
   const code = flagCode.trim().toUpperCase(); if (!/^[A-Z]{2}$/.test(code)) return '📍'; return String.fromCodePoint(...[...code].map((char) => 127397 + char.charCodeAt(0)));
 }
 export function parseCarouselSlides(raw: string): Array<{ src: string; caption: string }> {
-  return raw.split(';').map((item) => item.trim()).filter(Boolean).map((item, index) => { const [src, caption] = item.split('|'); return { src: (src ?? '').trim(), caption: (caption ?? `Slide ${index + 1}`).trim() }; }).filter((item) => item.src);
+  return raw.split(';').map((item) => item.trim()).filter(Boolean).map((item) => { const [src, caption] = item.split('|'); return { src: (src ?? '').trim(), caption: (caption ?? '').trim() }; }).filter((item) => item.src);
 }
-const COLLAPSIBLE_EDITOR_WIDGETS = new Set<WidgetNode['type']>(['countdown','add-to-calendar','shoppable-sidebar','speed-test','scratch-reveal','form','dynamic-map','image-carousel','weather-conditions','range-slider','interactive-hotspot','slider','qr-code','travel-deal','interactive-gallery','gen-ai-image','buttons']);
+
+export function isFilenameLikeCaption(caption: string): boolean {
+  const value = caption.trim();
+  if (!value) return false;
+  return /\.[a-z0-9]{2,5}$/i.test(value) || /[_-]/.test(value);
+}
+const COLLAPSIBLE_EDITOR_WIDGETS = new Set<WidgetNode['type']>([]);
 function editorSummary(node: WidgetNode): string[] {
   switch (node.type) {
     case 'dynamic-map': { const markers = parseCsvMarkers(String(node.props.markersCsv ?? '')); return [`${markers.length || 1} marker${markers.length === 1 ? '' : 's'}`, `Zoom ${clamp(Number(node.props.zoom ?? 13), 2, 18)}`, `Provider ${String(node.props.provider ?? 'osm')}`]; }
     case 'weather-conditions': return [`${String(node.props.location ?? 'Location')}`, `${String(node.props.condition ?? 'Condition')} · ${String(node.props.temperature ?? '--')}°`, String(node.props.liveWeather ? 'Live weather' : 'Static preview')];
     case 'form': return [`${String(node.props.fieldOne ?? 'Name')} + ${String(node.props.fieldTwo ?? 'Email')}`, `Submit ${String(node.props.submitTargetType ?? 'none')}`];
     case 'image-carousel': { const slides = parseCarouselSlides(String(node.props.slides ?? '')); return [`${slides.length} slides`, String(node.props.autoplay ? 'Autoplay on' : 'Autoplay off')]; }
+    case 'shoppable-sidebar': { const products = parseShoppableProducts(String(node.props.products ?? '')); return [`${products.length || 1} products`, `${String(node.props.orientation ?? 'horizontal')} layout`, String(node.props.autoscroll ? 'Autoscroll on' : 'Autoscroll off')]; }
     default: return [String(node.props.title ?? node.name)];
   }
 }

@@ -68,7 +68,7 @@ export type SceneFlow = {
 export type WidgetNode = { id: string; type: WidgetType; name: string; sceneId: string; zIndex: number; hidden?: boolean; locked?: boolean; parentId?: string; childIds?: string[]; frame: WidgetFrame; props: Record<string, unknown>; style: Record<string, unknown>; bindings?: Record<string, WidgetBinding>; variants?: Partial<Record<VariantName, VariantOverride>>; conditions?: WidgetConditions; timeline: WidgetTimeline; };
 export type SceneNode = { id: string; name: string; order: number; widgetIds: string[]; durationMs: number; conditions?: SceneConditions; flow?: SceneFlow; transition?: SceneTransition; };
 export type CanvasNode = { width: number; height: number; backgroundColor: string; presetId?: string; };
-export type ReleaseTarget = 'generic-html5' | 'google-display' | 'gam-html5' | 'meta-story' | 'tiktok-vertical';
+export type ReleaseTarget = 'generic-html5' | 'google-display' | 'gam-html5' | 'mraid' | 'meta-story' | 'tiktok-vertical';
 export type QaStatus = 'draft' | 'ready-for-qa' | 'qa-passed';
 export type ReleaseSettings = {
   targetChannel: ReleaseTarget;
@@ -84,4 +84,4 @@ export type ProjectPlatformMetadata = {
   accessScope?: import('../../types/contracts/access-scopes').ProjectAccessScope;
 };
 export type StudioDocument = { id: string; name: string; version: number; canvas: CanvasNode; scenes: SceneNode[]; widgets: Record<string, WidgetNode>; actions: Record<string, ActionNode>; feeds: FeedCatalog; collaboration: CollaborationState; selection: { widgetIds: string[]; activeSceneId: string; primaryWidgetId?: string }; metadata: { dirty: boolean; lastSavedAt?: string; lastAutosavedAt?: string; release: ReleaseSettings; platform?: ProjectPlatformMetadata; }; };
-export type StudioState = { document: StudioDocument; ui: { zoom: number; playheadMs: number; isPlaying: boolean; previewMode: boolean; hoveredWidgetId?: string; activeWidgetId?: string; lastTriggeredActionLabel?: string; activeVariant: VariantName; activeFeedSource: BindingSource; activeFeedRecordId: string; activeProjectId?: string; activeLeftTab: 'widgets' | 'layers' | 'assets' | 'flow'; stageBackdrop: 'dark' | 'gray' | 'light'; showStageRulers: boolean; }; };
+export type StudioState = { document: StudioDocument; ui: { zoom: number; playheadMs: number; isPlaying: boolean; previewMode: boolean; hoveredWidgetId?: string; activeWidgetId?: string; lastTriggeredActionLabel?: string; activeVariant: VariantName; activeFeedSource: BindingSource; activeFeedRecordId: string; activeProjectId?: string; activeLeftTab: 'widgets' | 'layers' | 'assets' | 'flow'; stageBackdrop: 'dark' | 'gray' | 'light'; showStageRulers: boolean; showWidgetBadges: boolean; }; };
