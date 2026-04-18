@@ -48,6 +48,8 @@ async function mountLeafletMap(
     accent: string;
     places: NearbyPlace[];
     selectedPlace?: NearbyPlace | null;
+    userPosition?: { latitude: number; longitude: number } | null;
+    userLocationLabel?: string;
   },
 ): Promise<void> {
   const L = await import('leaflet');
@@ -82,8 +84,26 @@ async function mountLeafletMap(
     runtime.markers.push(marker);
   });
 
-  const activePlace = config.selectedPlace ?? config.places[0];
-  if (activePlace) runtime.map.setView([activePlace.lat, activePlace.lng], Math.max(runtime.map.getZoom(), config.zoom));
+  if (config.userPosition) {
+    const userMarker = L.circleMarker([config.userPosition.latitude, config.userPosition.longitude], {
+      radius: 8,
+      color: '#2563eb',
+      weight: 3,
+      fillColor: '#ffffff',
+      fillOpacity: 1,
+    }).addTo(runtime.map);
+    userMarker.bindTooltip(config.userLocationLabel || '', {
+      permanent: true,
+      direction: 'top',
+      offset: [0, -10],
+      className: 'smx-map-label',
+    });
+    runtime.markers.push(userMarker);
+    runtime.map.setView([config.userPosition.latitude, config.userPosition.longitude], Math.max(runtime.map.getZoom(), config.zoom));
+  } else {
+    const activePlace = config.selectedPlace ?? config.places[0];
+    if (activePlace) runtime.map.setView([activePlace.lat, activePlace.lng], Math.max(runtime.map.getZoom(), config.zoom));
+  }
   requestAnimationFrame(() => runtime.map.invalidateSize());
 }
 
@@ -243,8 +263,10 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
       accent,
       places,
       selectedPlace,
+      userPosition,
+      userLocationLabel: locateMeLabel,
     });
-  }, [cardsOnly, mapCenterLat, mapCenterLng, zoom, accent, places, selectedPlace]);
+  }, [cardsOnly, mapCenterLat, mapCenterLng, zoom, accent, places, selectedPlace, userPosition]);
 
   useEffect(() => {
     if (!panelOpen || !panelMapCanvasRef.current || cardsOnly) return;
@@ -255,8 +277,10 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
       accent,
       places,
       selectedPlace,
+      userPosition,
+      userLocationLabel: locateMeLabel,
     });
-  }, [panelOpen, cardsOnly, mapCenterLat, mapCenterLng, zoom, accent, places, selectedPlace]);
+  }, [panelOpen, cardsOnly, mapCenterLat, mapCenterLng, zoom, accent, places, selectedPlace, userPosition]);
 
   if (searchBarMode) {
     const heroHeight = isVertical ? '46%' : '60%';
