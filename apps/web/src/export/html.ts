@@ -296,6 +296,22 @@ function renderDynamicMapWidget(node: WidgetNode): string {
   const showDistance = Boolean(node.props.showDistance ?? true);
   const defaultCtaType = String(node.props.ctaType ?? 'maps');
   const defaultCtaLabel = String(node.props.ctaLabel ?? 'Open in Maps');
+  const heroImage = String(node.props.heroImage ?? '');
+  const logoImage = String(node.props.logoImage ?? '');
+  const headlineText = String(node.props.headlineText ?? 'Estamos cerca de ti');
+  const subheadlineText = String(node.props.subheadlineText ?? 'Visitanos hoy');
+  const infoLabelText = String(node.props.infoLabelText ?? 'Encuentranos aqui');
+  const brandText = String(node.props.brandText ?? 'Mi marca');
+  const primaryAddressText = String(node.props.primaryAddressText ?? '123 Calle Principal');
+  const primaryHoursText = String(node.props.primaryHoursText ?? 'Lun-Vie 8am-6pm');
+  const directionsCtaLabel = String(node.props.directionsCtaLabel ?? 'Como llegar?');
+  const locateMeLabel = String(node.props.locateMeLabel ?? 'Mi ubicacion');
+  const nearbyTitleText = String(node.props.nearbyTitleText ?? 'Las 3 ubicaciones mas cercanas');
+  const locatingText = String(node.props.locatingText ?? 'Buscando cerca de ti');
+  const locationFoundText = String(node.props.locationFoundText ?? 'Ubicacion encontrada');
+  const bottomBackgroundColor = String(node.props.bottomBackgroundColor ?? '#ffffff');
+  const searchBackgroundColor = String(node.props.searchBackgroundColor ?? '#ffffff');
+  const heroOverlayOpacity = Math.max(0, Math.min(1, Number(node.props.heroOverlayOpacity ?? 0.45)));
   const places = (parseNearbyPlaces(String(node.props.markersCsv ?? '')).length
     ? parseNearbyPlaces(String(node.props.markersCsv ?? ''))
     : [{
@@ -316,6 +332,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
   }))));
   const cardsOnly = renderMode === 'cards-only';
   const mapFirst = renderMode === 'map-first';
+  const searchBarMode = renderMode === 'search-bar';
   const mapBackground = mode === 'dark'
     ? 'linear-gradient(135deg,#0f172a,#1e293b)'
     : mode === 'satellite'
@@ -338,7 +355,71 @@ function renderDynamicMapWidget(node: WidgetNode): string {
     `flex-direction:column`,
   ].join(';');
 
-  return `<div class="widget widget-dynamic-map" data-widget-id="${node.id}" data-map-places="${placesJson}" data-map-latitude="${latitude}" data-map-longitude="${longitude}" data-map-request-user-location="${String(requestUserLocation)}" data-map-sort-by-distance="${String(sortByDistance)}" data-map-show-open-now="${String(showOpenNow)}" data-map-show-distance="${String(showDistance)}" data-map-default-cta-type="${escapeHtml(defaultCtaType)}" data-map-default-cta-label="${escapeHtml(defaultCtaLabel)}" style="${base}">
+  if (searchBarMode) {
+    return `<div class="widget widget-dynamic-map widget-dynamic-map-search" data-widget-id="${node.id}" data-map-render-mode="search-bar" data-map-places="${placesJson}" data-map-latitude="${latitude}" data-map-longitude="${longitude}" data-map-request-user-location="${String(requestUserLocation)}" data-map-sort-by-distance="${String(sortByDistance)}" data-map-show-open-now="${String(showOpenNow)}" data-map-show-distance="${String(showDistance)}" data-map-default-cta-type="${escapeHtml(defaultCtaType)}" data-map-default-cta-label="${escapeHtml(defaultCtaLabel)}" data-map-accent="${escapeHtml(accent)}" data-map-info-label="${escapeHtml(infoLabelText)}" data-map-primary-address="${escapeHtml(primaryAddressText)}" data-map-primary-hours="${escapeHtml(primaryHoursText)}" data-map-directions-label="${escapeHtml(directionsCtaLabel)}" data-map-locate-label="${escapeHtml(locateMeLabel)}" data-map-nearby-title="${escapeHtml(nearbyTitleText)}" data-map-locating-text="${escapeHtml(locatingText)}" data-map-location-found-text="${escapeHtml(locationFoundText)}" style="${base}">
+      <div style="position:relative;width:100%;height:100%;overflow:hidden;background:#0f172a;">
+        <div style="position:absolute;inset:0;height:60%;overflow:hidden;background:${heroImage ? '#111827' : 'linear-gradient(160deg,#0f172a,#1d4ed8)'};">
+          ${heroImage ? `<img src="${escapeHtml(heroImage)}" alt="${escapeHtml(headlineText)}" style="width:100%;height:100%;object-fit:cover;display:block;" />` : ''}
+          <div style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,.18), rgba(0,0,0,${heroOverlayOpacity}));"></div>
+          ${logoImage ? `<img src="${escapeHtml(logoImage)}" alt="${escapeHtml(brandText)}" style="position:absolute;top:12px;left:12px;height:28px;max-width:110px;object-fit:contain;" />` : ''}
+          <div style="position:absolute;left:16px;right:16px;bottom:16px;color:#fff;">
+            <div style="font-size:24px;font-weight:900;line-height:1.05;text-transform:uppercase;">${escapeHtml(headlineText)}</div>
+            <div style="font-size:12px;margin-top:6px;opacity:.92;">${escapeHtml(subheadlineText)}</div>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:40%;background:${escapeHtml(bottomBackgroundColor)};color:#111827;padding:14px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="display:flex;align-items:center;gap:8px;background:${escapeHtml(searchBackgroundColor)};border:1px solid rgba(0,0,0,.08);border-radius:999px;padding:9px 12px;">
+              <span style="font-size:14px;opacity:.6;">⌕</span>
+              <span style="font-size:11px;">${escapeHtml(infoLabelText)}</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;">
+            <div style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${escapeHtml(accent)}22;color:${escapeHtml(accent)};font-size:16px;font-weight:900;flex:0 0 34px;">⌖</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:11px;font-weight:900;line-height:1.2;text-transform:uppercase;color:#555;">${escapeHtml(brandText)}</div>
+              <div style="font-size:13px;font-weight:900;line-height:1.2;margin-top:4px;">${escapeHtml(primaryAddressText)}</div>
+              <div style="font-size:11px;color:#666;line-height:1.25;margin-top:4px;">${escapeHtml(primaryHoursText)}</div>
+            </div>
+            <button type="button" data-smx-action="map-open-panel" style="appearance:none;border:none;border-radius:14px;padding:10px 14px;background:${escapeHtml(accent)};color:#fff;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;">${escapeHtml(defaultCtaLabel)}</button>
+          </div>
+        </div>
+        <div data-map-search-panel="true" style="position:absolute;inset:0;display:none;background:rgba(15,23,42,.24);backdrop-filter:blur(2px);padding:10px;">
+          <div style="margin-left:auto;width:min(78%,280px);height:100%;background:#fff;border-radius:18px;box-shadow:0 14px 42px rgba(0,0,0,.24);overflow:hidden;display:flex;flex-direction:column;">
+            <div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid rgba(0,0,0,.08);background:${escapeHtml(searchBackgroundColor)};">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                <span style="font-size:14px;opacity:.68;">⌕</span>
+                <span style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(infoLabelText)}</span>
+              </div>
+              <button type="button" data-smx-action="map-close-panel" style="appearance:none;border:none;background:transparent;color:#334155;font-size:18px;line-height:1;cursor:pointer;">×</button>
+            </div>
+            <div style="position:relative;height:122px;background:${mapBackground};overflow:hidden;">
+              <div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 20%, rgba(255,255,255,.55), transparent 32%), radial-gradient(circle at 74% 32%, rgba(255,255,255,.2), transparent 24%), linear-gradient(135deg, transparent 0%, rgba(255,255,255,.12) 100%);"></div>
+              ${places.slice(0, 3).map((place, index) => `<div style="position:absolute;left:${22 + index * 20}%;top:${24 + (index % 2) * 20}%;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:4px;">
+                <div style="min-width:32px;max-width:96px;padding:4px 6px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font-size:10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(place.name)}</div>
+                <div style="width:18px;height:18px;border-radius:50%;background:${escapeHtml(accent)};border:2px solid rgba(255,255,255,.88);box-shadow:0 0 0 6px ${escapeHtml(accent)}22;"></div>
+              </div>`).join('')}
+              <button type="button" data-smx-action="map-request-location" style="position:absolute;right:10px;top:10px;min-width:40px;height:40px;border-radius:999px;border:none;background:#fff;color:${escapeHtml(accent)};box-shadow:0 3px 14px rgba(0,0,0,.2);font-size:11px;font-weight:900;cursor:pointer;padding:0 10px;">${escapeHtml(locateMeLabel)}</button>
+            </div>
+            <div style="padding:10px 12px;border-bottom:1px solid rgba(0,0,0,.08);display:flex;align-items:flex-start;gap:10px;">
+              ${logoImage ? `<img src="${escapeHtml(logoImage)}" alt="${escapeHtml(brandText)}" style="height:22px;max-width:90px;object-fit:contain;" />` : `<div style="width:12px;height:12px;border-radius:50%;background:${escapeHtml(accent)};margin-top:4px;flex:0 0 12px;"></div>`}
+              <div style="flex:1;min-width:0;">
+                <div data-map-search-status style="font-size:12px;font-weight:900;line-height:1.2;">${escapeHtml(infoLabelText)}</div>
+                <div data-map-search-substatus style="font-size:11px;color:#555;line-height:1.25;margin-top:2px;"><b>${escapeHtml(primaryAddressText)}</b><br />${escapeHtml(primaryHoursText)}</div>
+              </div>
+              <button type="button" data-smx-action="map-primary-directions" style="appearance:none;border:none;border-radius:12px;padding:10px 14px;background:${escapeHtml(accent)};color:#fff;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;">${escapeHtml(directionsCtaLabel)}</button>
+            </div>
+            <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:auto;">
+              <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:#555;">${escapeHtml(nearbyTitleText)}</div>
+              <div data-map-search-list></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="widget widget-dynamic-map" data-widget-id="${node.id}" data-map-places="${placesJson}" data-map-latitude="${latitude}" data-map-longitude="${longitude}" data-map-request-user-location="${String(requestUserLocation)}" data-map-sort-by-distance="${String(sortByDistance)}" data-map-show-open-now="${String(showOpenNow)}" data-map-show-distance="${String(showDistance)}" data-map-default-cta-type="${escapeHtml(defaultCtaType)}" data-map-default-cta-label="${escapeHtml(defaultCtaLabel)}" data-map-accent="${escapeHtml(accent)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <span>${escapeHtml(String(node.props.title ?? node.name))}</span>
       <span style="font-size:10px;opacity:.78;color:${escapeHtml(String(style.color ?? '#ffffff'))};">${escapeHtml(provider)}</span>

@@ -161,6 +161,8 @@ function rewriteWidgetProps(
     posterSrc: typeof props.posterSrc === 'string' ? rewriteStringValue(props.posterSrc, map) : props.posterSrc,
     imageSrc: typeof props.imageSrc === 'string' ? rewriteStringValue(props.imageSrc, map) : props.imageSrc,
     backgroundImage: typeof props.backgroundImage === 'string' ? rewriteStringValue(props.backgroundImage, map) : props.backgroundImage,
+    heroImage: typeof props.heroImage === 'string' ? rewriteStringValue(props.heroImage, map) : props.heroImage,
+    logoImage: typeof props.logoImage === 'string' ? rewriteStringValue(props.logoImage, map) : props.logoImage,
     beforeSrc: typeof props.beforeSrc === 'string' ? rewriteStringValue(props.beforeSrc, map) : props.beforeSrc,
     afterSrc: typeof props.afterSrc === 'string' ? rewriteStringValue(props.afterSrc, map) : props.afterSrc,
     beforeImage: typeof props.beforeImage === 'string' ? rewriteStringValue(props.beforeImage, map) : props.beforeImage,

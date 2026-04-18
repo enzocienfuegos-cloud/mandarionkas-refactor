@@ -98,6 +98,8 @@ function collectAssetRefs(widget: WidgetNode): PortableExportAsset[] {
     widget.props.posterSrc,
     widget.props.imageSrc,
     widget.props.backgroundImage,
+    widget.props.heroImage,
+    widget.props.logoImage,
     widget.props.beforeSrc,
     widget.props.afterSrc,
     widget.props.beforeImage,

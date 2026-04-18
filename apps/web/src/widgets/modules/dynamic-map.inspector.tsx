@@ -115,9 +115,90 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
               <option value="cards-map">Cards + map</option>
               <option value="map-first">Map first</option>
               <option value="cards-only">Cards only</option>
+              <option value="search-bar">Search bar locator</option>
             </select>
           </div>
         </div>
+        {String(widget.props.renderMode ?? 'cards-map') === 'search-bar' ? (
+          <>
+            <div>
+              <label>Hero image</label>
+              <input value={String(widget.props.heroImage ?? '')} placeholder="https://..." onChange={(event) => updateProps({ heroImage: event.target.value })} />
+            </div>
+            <div>
+              <label>Logo image</label>
+              <input value={String(widget.props.logoImage ?? '')} placeholder="https://..." onChange={(event) => updateProps({ logoImage: event.target.value })} />
+            </div>
+            <div>
+              <label>Headline</label>
+              <input value={String(widget.props.headlineText ?? '')} onChange={(event) => updateProps({ headlineText: event.target.value })} />
+            </div>
+            <div>
+              <label>Subheadline</label>
+              <input value={String(widget.props.subheadlineText ?? '')} onChange={(event) => updateProps({ subheadlineText: event.target.value })} />
+            </div>
+            <div>
+              <label>Search/info label</label>
+              <input value={String(widget.props.infoLabelText ?? '')} onChange={(event) => updateProps({ infoLabelText: event.target.value })} />
+            </div>
+            <div>
+              <label>Brand text</label>
+              <input value={String(widget.props.brandText ?? '')} onChange={(event) => updateProps({ brandText: event.target.value })} />
+            </div>
+            <div>
+              <label>Primary address</label>
+              <input value={String(widget.props.primaryAddressText ?? '')} onChange={(event) => updateProps({ primaryAddressText: event.target.value })} />
+            </div>
+            <div>
+              <label>Primary hours</label>
+              <input value={String(widget.props.primaryHoursText ?? '')} onChange={(event) => updateProps({ primaryHoursText: event.target.value })} />
+            </div>
+            <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+              <div>
+                <label>Primary CTA</label>
+                <input value={String(widget.props.ctaLabel ?? '')} onChange={(event) => updateProps({ ctaLabel: event.target.value })} />
+              </div>
+              <div>
+                <label>Directions CTA</label>
+                <input value={String(widget.props.directionsCtaLabel ?? '')} onChange={(event) => updateProps({ directionsCtaLabel: event.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+              <div>
+                <label>Locate me label</label>
+                <input value={String(widget.props.locateMeLabel ?? '')} onChange={(event) => updateProps({ locateMeLabel: event.target.value })} />
+              </div>
+              <div>
+                <label>Nearby title</label>
+                <input value={String(widget.props.nearbyTitleText ?? '')} onChange={(event) => updateProps({ nearbyTitleText: event.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+              <div>
+                <label>Locating text</label>
+                <input value={String(widget.props.locatingText ?? '')} onChange={(event) => updateProps({ locatingText: event.target.value })} />
+              </div>
+              <div>
+                <label>Location found text</label>
+                <input value={String(widget.props.locationFoundText ?? '')} onChange={(event) => updateProps({ locationFoundText: event.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+              <div>
+                <label>Bottom background</label>
+                <input type="color" value={String(widget.props.bottomBackgroundColor ?? '#ffffff')} onChange={(event) => updateProps({ bottomBackgroundColor: event.target.value })} />
+              </div>
+              <div>
+                <label>Search background</label>
+                <input type="color" value={String(widget.props.searchBackgroundColor ?? '#ffffff')} onChange={(event) => updateProps({ searchBackgroundColor: event.target.value })} />
+              </div>
+            </div>
+            <div>
+              <label>Hero overlay opacity</label>
+              <input type="number" step="0.05" min="0" max="1" value={String(widget.props.heroOverlayOpacity ?? 0.45)} onChange={(event) => updateProps({ heroOverlayOpacity: Number(event.target.value) })} />
+            </div>
+          </>
+        ) : null}
         <div>
           <label>Map theme</label>
           <input value={String(widget.props.mode ?? '')} onChange={(event) => updateProps({ mode: event.target.value })} />

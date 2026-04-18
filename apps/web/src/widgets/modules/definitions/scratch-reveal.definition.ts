@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderScratchRevealStage } from '../scratch-reveal.renderer';
 import { ScratchRevealInspector } from '../scratch-reveal.inspector';
@@ -16,7 +17,7 @@ export const ScratchRevealDefinition = createModuleDefinition({
     coverBlur: 6,
     scratchRadius: 22,
   },
-  renderInspector: ScratchRevealInspector,
+  renderInspector: (widget) => createElement(ScratchRevealInspector, { widget }),
   style: { backgroundColor: '#111827', accentColor: '#f97316', color: '#ffffff' },
   renderStage: renderScratchRevealStage,
 });

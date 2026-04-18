@@ -81,37 +81,120 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     return 6371 * 2 * Math.atan2(Math.sqrt(arc), Math.sqrt(1 - arc));
   }
 
-  function renderMapCards(root, userPosition) {
-    const cardsRoot = root.querySelector('[data-map-cards]');
-    if (!cardsRoot) return;
-    const showOpenNow = root.getAttribute('data-map-show-open-now') === 'true';
-    const showDistance = root.getAttribute('data-map-show-distance') === 'true';
+  function rankMapPlaces(root, userPosition) {
     const sortByDistance = root.getAttribute('data-map-sort-by-distance') === 'true';
-    const defaultCtaLabel = root.getAttribute('data-map-default-cta-label') || 'Open in Maps';
     const places = JSON.parse(root.getAttribute('data-map-places') || '[]');
-    if (!Array.isArray(places)) return;
+    if (!Array.isArray(places)) return [];
     const ranked = places.map((place) => ({
       ...place,
       distanceKm: userPosition ? haversineKm(userPosition.latitude, userPosition.longitude, Number(place.lat), Number(place.lng)) : null,
     }));
     if (sortByDistance && userPosition) ranked.sort((a, b) => (a.distanceKm ?? Number.MAX_SAFE_INTEGER) - (b.distanceKm ?? Number.MAX_SAFE_INTEGER));
+    return ranked;
+  }
+
+  function renderMapCards(root, userPosition) {
+    const cardsRoot = root.querySelector('[data-map-cards]');
+    if (!cardsRoot) return;
+    const showOpenNow = root.getAttribute('data-map-show-open-now') === 'true';
+    const showDistance = root.getAttribute('data-map-show-distance') === 'true';
+    const defaultCtaLabel = root.getAttribute('data-map-default-cta-label') || 'Open in Maps';
+    const accent = root.getAttribute('data-map-accent') || '#ef4444';
+    const ranked = rankMapPlaces(root, userPosition);
     cardsRoot.innerHTML = ranked.slice(0, 3).map((place) => {
       const meta = [];
       if (showOpenNow && place.openNow != null) meta.push('<span data-place-open-now>' + (place.openNow ? 'Open now' : 'Closed') + '</span>');
       if (showDistance && place.distanceKm != null) meta.push('<span data-place-distance>' + Number(place.distanceKm).toFixed(1) + ' km</span>');
-      return '<div data-map-card data-place-name="' + String(place.name || '') + '" style="border-radius:12px;background:rgba(255,255,255,.78);border:1px solid rgba(239,68,68,.14);padding:10px;display:grid;gap:6px;">'
-        + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:13px;">' + String(place.name || '') + '</strong><span data-place-badge style="font-size:10px;border-radius:999px;padding:4px 6px;background:rgba(239,68,68,.14);color:#0f172a;">' + String(place.badge || (place.openNow ? 'Open now' : 'Store')) + '</span></div>'
+      return '<div data-map-card data-place-name="' + String(place.name || '') + '" style="border-radius:12px;background:rgba(255,255,255,.78);border:1px solid ' + accent + '22;padding:10px;display:grid;gap:6px;">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:13px;">' + String(place.name || '') + '</strong><span data-place-badge style="font-size:10px;border-radius:999px;padding:4px 6px;background:' + accent + '22;color:#0f172a;">' + String(place.badge || (place.openNow ? 'Open now' : 'Store')) + '</span></div>'
         + '<div style="font-size:11px;opacity:.78;">' + String(place.address || '') + '</div>'
         + '<div data-place-meta style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;">' + meta.join('') + '</div>'
-        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.resolvedUrl || '') + '" style="border:none;border-radius:10px;background:#ef4444;color:#111827;font-weight:800;padding:8px 10px;cursor:pointer;">' + String(place.ctaLabel || defaultCtaLabel) + '</button>'
+        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.resolvedUrl || '') + '" style="border:none;border-radius:10px;background:' + accent + ';color:#ffffff;font-weight:800;padding:8px 10px;cursor:pointer;">' + String(place.ctaLabel || defaultCtaLabel) + '</button>'
         + '</div>';
+    }).join('');
+  }
+
+  function renderMapSearchBar(root, userPosition, statusMode) {
+    const listRoot = root.querySelector('[data-map-search-list]');
+    if (!listRoot) return;
+    const showDistance = root.getAttribute('data-map-show-distance') === 'true';
+    const accent = root.getAttribute('data-map-accent') || '#ef4444';
+    const directionsLabel = root.getAttribute('data-map-directions-label') || root.getAttribute('data-map-default-cta-label') || 'Open in Maps';
+    const infoLabel = root.getAttribute('data-map-info-label') || 'Nearby locations';
+    const primaryAddress = root.getAttribute('data-map-primary-address') || '';
+    const primaryHours = root.getAttribute('data-map-primary-hours') || '';
+    const nearbyTitle = root.getAttribute('data-map-nearby-title') || 'Nearby';
+    const locatingText = root.getAttribute('data-map-locating-text') || 'Locating';
+    const locationFoundText = root.getAttribute('data-map-location-found-text') || 'Location found';
+    const ranked = rankMapPlaces(root, userPosition);
+    const nearest = ranked.slice(0, 3);
+    const statusNode = root.querySelector('[data-map-search-status]');
+    const substatusNode = root.querySelector('[data-map-search-substatus]');
+    const primaryDirections = root.querySelector('[data-smx-action="map-primary-directions"]');
+    const targetPlace = nearest[0] || null;
+    if (statusNode) statusNode.textContent = statusMode === 'locating' ? locatingText : statusMode === 'located' ? locationFoundText : infoLabel;
+    if (substatusNode) {
+      substatusNode.innerHTML = statusMode === 'located'
+        ? nearbyTitle
+        : '<b>' + primaryAddress + '</b><br />' + primaryHours;
+    }
+    if (primaryDirections) {
+      primaryDirections.textContent = directionsLabel;
+      primaryDirections.setAttribute('data-place-url', targetPlace ? String(targetPlace.resolvedUrl || '') : '');
+    }
+    listRoot.innerHTML = nearest.map((place, index) => {
+      const meta = [];
+      if (place.address) meta.push('<span>' + String(place.address) + '</span>');
+      if (place.badge) meta.push('<span style="display:inline-flex;align-items:center;padding:2px 6px;border-radius:999px;font-size:9px;font-weight:800;color:#fff;background:' + accent + ';">' + String(place.badge) + '</span>');
+      if (showDistance && place.distanceKm != null) meta.push('<span>' + Number(place.distanceKm).toFixed(1) + ' km</span>');
+      return '<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid rgba(0,0,0,.08);border-radius:12px;background:#fff;margin-top:' + (index === 0 ? '0' : '6px') + ';">'
+        + '<div style="width:20px;height:20px;border-radius:50%;background:' + accent + '22;color:' + accent + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex:0 0 20px;">' + String(index + 1) + '</div>'
+        + '<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + String(place.name || '') + '</div>'
+        + '<div style="font-size:10px;color:#666;line-height:1.2;margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;">' + meta.join('') + '</div></div>'
+        + '<div style="display:flex;gap:6px;">'
+        + '<button type="button" data-smx-action="map-place-cta" data-place-url="https://waze.com/ul?ll=' + String(place.lat) + '%2C' + String(place.lng) + '&navigate=yes" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:28px;border-radius:999px;padding:0 10px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</button>'
+        + '<button type="button" data-smx-action="map-place-cta" data-place-url="' + String(place.resolvedUrl || '') + '" style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:28px;border-radius:999px;padding:0 10px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</button>'
+        + '</div></div>';
     }).join('');
   }
 
   document.querySelectorAll('.widget-dynamic-map[data-widget-id]').forEach((root) => {
     const requestUserLocation = root.getAttribute('data-map-request-user-location') === 'true';
+    const searchBarMode = root.getAttribute('data-map-render-mode') === 'search-bar';
     const lat = Number(root.getAttribute('data-map-latitude') || 0);
     const lng = Number(root.getAttribute('data-map-longitude') || 0);
+    root.addEventListener('click', (event) => {
+      const target = event.target && event.target.closest ? event.target.closest('[data-smx-action="map-place-cta"]') : null;
+      if (!target) return;
+      event.preventDefault();
+      performExit(target.getAttribute('data-place-url') || '');
+    });
+    if (searchBarMode) {
+      renderMapSearchBar(root, null, 'default');
+      const openPanelButton = root.querySelector('[data-smx-action="map-open-panel"]');
+      const closePanelButton = root.querySelector('[data-smx-action="map-close-panel"]');
+      const locateButton = root.querySelector('[data-smx-action="map-request-location"]');
+      const panel = root.querySelector('[data-map-search-panel]');
+      const primaryDirections = root.querySelector('[data-smx-action="map-primary-directions"]');
+      if (openPanelButton && panel) openPanelButton.addEventListener('click', () => { panel.style.display = 'block'; });
+      if (closePanelButton && panel) closePanelButton.addEventListener('click', () => { panel.style.display = 'none'; });
+      if (primaryDirections) primaryDirections.addEventListener('click', (event) => {
+        event.preventDefault();
+        performExit(primaryDirections.getAttribute('data-place-url') || '');
+      });
+      if (locateButton && typeof navigator !== 'undefined' && navigator.geolocation) {
+        locateButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          renderMapSearchBar(root, null, 'locating');
+          navigator.geolocation.getCurrentPosition((position) => {
+            renderMapSearchBar(root, { latitude: position.coords.latitude, longitude: position.coords.longitude }, 'located');
+          }, () => {
+            renderMapSearchBar(root, null, 'default');
+          }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
+        });
+      }
+      return;
+    }
     renderMapCards(root, null);
     if (!requestUserLocation || typeof navigator === 'undefined' || !navigator.geolocation || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
     navigator.geolocation.getCurrentPosition((position) => {
@@ -119,13 +202,6 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     }, () => {
       renderMapCards(root, null);
     }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
-  });
-
-  document.querySelectorAll('[data-smx-action="map-place-cta"]').forEach((node) => {
-    node.addEventListener('click', (event) => {
-      event.preventDefault();
-      performExit(node.getAttribute('data-place-url') || '');
-    });
   });
 
   function updateCarousel(widgetId, nextIndex) {

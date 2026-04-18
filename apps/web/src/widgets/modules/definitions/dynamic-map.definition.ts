@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderDynamicMapStage } from '../dynamic-map.renderer';
 import { DynamicMapInspector } from '../dynamic-map.inspector';
@@ -29,8 +30,24 @@ export const DynamicMapDefinition = createModuleDefinition({
     providerResultLimit: 5,
     fetchPolicy: 'network-first',
     cacheTtlMs: 300000,
+    heroImage: '',
+    logoImage: '',
+    headlineText: 'Estamos cerca de ti',
+    subheadlineText: 'Visitanos hoy',
+    infoLabelText: 'Encuentranos aqui',
+    brandText: 'Mi marca',
+    primaryAddressText: '123 Calle Principal',
+    primaryHoursText: 'Lun-Vie 8am-6pm',
+    directionsCtaLabel: 'Como llegar?',
+    locateMeLabel: 'Mi ubicacion',
+    nearbyTitleText: 'Las 3 ubicaciones mas cercanas',
+    locatingText: 'Buscando cerca de ti',
+    locationFoundText: 'Ubicacion encontrada',
+    bottomBackgroundColor: '#ffffff',
+    searchBackgroundColor: 'rgba(255,255,255,0.7)',
+    heroOverlayOpacity: 0.45,
   },
   style: { backgroundColor: '#dbeafe', accentColor: '#ef4444', color: '#0f172a' },
   renderStage: renderDynamicMapStage,
-  renderInspector: DynamicMapInspector,
+  renderInspector: (widget) => createElement(DynamicMapInspector, { widget }),
 });

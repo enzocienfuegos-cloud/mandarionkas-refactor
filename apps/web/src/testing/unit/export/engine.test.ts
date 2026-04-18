@@ -832,6 +832,52 @@ describe('export engine', () => {
     expect(html).toContain('San Salvador');
   });
 
+  it('renders dynamic map search-bar locators with custom copy and localized assets', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.widgets.map_search_1 = {
+      id: 'map_search_1',
+      type: 'dynamic-map',
+      name: 'Nearby Search',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 320, height: 180, rotation: 0 },
+      style: { accentColor: '#ef4444', color: '#ffffff', backgroundColor: '#1f2937' },
+      props: {
+        title: 'Nearby Search',
+        renderMode: 'search-bar',
+        provider: 'manual',
+        requestUserLocation: true,
+        heroImage: 'https://cdn.example.com/hero-map.jpg',
+        logoImage: 'https://cdn.example.com/logo-map.png',
+        headlineText: 'Estamos cerca de ti',
+        infoLabelText: 'Busca una tienda',
+        locateMeLabel: 'Ubicame',
+        directionsCtaLabel: 'Como llegar',
+        nearbyTitleText: 'Mas cercanas',
+        markersCsv: 'name,flag,lat,lng,address,badge,openNow,ctaLabel,ctaType,ctaUrl\nSan Salvador,SV,13.6929,-89.2182,Centro Comercial,Open now,true,Open in Maps,maps,\nSanta Tecla,SV,13.6769,-89.2797,Plaza Merliot,Drive-thru,false,Open in Waze,waze,',
+      },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('map_search_1');
+
+    const generic = buildGenericHtml5Adapter(state);
+    const html = buildChannelHtml(state, generic);
+    const portable = buildPortableProjectExport(state);
+    const assetPlan = buildExportAssetPlan(portable);
+    const localized = buildLocalizedPortableProject(portable, assetPlan);
+
+    expect(html).toContain('widget-dynamic-map-search');
+    expect(html).toContain('data-map-render-mode="search-bar"');
+    expect(html).toContain('data-smx-action="map-open-panel"');
+    expect(html).toContain('data-smx-action="map-request-location"');
+    expect(html).toContain('Busca una tienda');
+    expect(assetPlan.some((entry) => entry.sourceUrl.includes('hero-map.jpg'))).toBe(true);
+    expect(assetPlan.some((entry) => entry.sourceUrl.includes('logo-map.png'))).toBe(true);
+    expect(String(localized.scenes[0].widgets[0].props.heroImage ?? '')).toContain('assets/image/map_search_1/');
+    expect(String(localized.scenes[0].widgets[0].props.logoImage ?? '')).toContain('assets/image/map_search_1/');
+  });
+
   it('renders speed test widgets as playable demo html', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
@@ -984,6 +1030,7 @@ describe('export engine', () => {
     expect(script).toContain('updateShoppable');
     expect(script).toContain('shoppable-cta');
     expect(script).toContain('renderMapCards');
+    expect(script).toContain('renderMapSearchBar');
     expect(script).toContain('map-place-cta');
     expect(script).toContain('initWeatherWidget');
     expect(script).toContain('api.open-meteo.com');
