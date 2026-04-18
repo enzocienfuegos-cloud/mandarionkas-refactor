@@ -7,6 +7,7 @@ type StageSelectionToolbarProps = {
   uploadDisabled: boolean;
   onToggleVisibility: () => void;
   onToggleLock: () => void;
+  onDuplicate: () => void;
   onMoveBackward: () => void;
   onMoveForward: () => void;
   onUploadAsset: () => void;
@@ -118,6 +119,15 @@ function DeleteIcon(): JSX.Element {
   );
 }
 
+function DuplicateIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="8" y="8" width="10" height="10" rx="2" />
+      <rect x="4" y="4" width="10" height="10" rx="2" />
+    </svg>
+  );
+}
+
 function PlaceholderIcon(): JSX.Element {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -136,6 +146,7 @@ export function StageSelectionToolbar({
   uploadDisabled,
   onToggleVisibility,
   onToggleLock,
+  onDuplicate,
   onMoveBackward,
   onMoveForward,
   onUploadAsset,
@@ -182,6 +193,9 @@ export function StageSelectionToolbar({
       )}
       <IconButton label="Send layer backward" onClick={onMoveBackward}>
         <LayerDownIcon />
+      </IconButton>
+      <IconButton label="Duplicate widget" onClick={onDuplicate}>
+        <DuplicateIcon />
       </IconButton>
       <IconButton label="Bring layer forward" onClick={onMoveForward}>
         <LayerUpIcon />

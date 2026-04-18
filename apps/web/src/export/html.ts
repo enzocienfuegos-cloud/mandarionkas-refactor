@@ -296,7 +296,7 @@ function renderHotspotWidget(node: WidgetNode): string {
     `color:${String(style.color ?? '#ffffff')}`,
   ].join(';');
 
-  return `<div class="widget widget-interactive-hotspot" data-widget-id="${node.id}" style="${base}">
+  return `<div class="widget widget-interactive-hotspot" data-widget-id="${node.id}" data-hotspot-auto-close-ms="${Math.max(0, Number(node.props.autoCloseMs ?? 2000))}" style="${base}">
     <button type="button" data-smx-action="hotspot-toggle" data-widget-id="${node.id}" style="position:absolute;left:${hotspotX}%;top:${hotspotY}%;transform:translate(-50%,-50%)${String(node.props.hotspotShape ?? 'circle') === 'diamond' ? ' rotate(45deg)' : ''};width:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};min-width:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};max-width:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};height:30px;min-height:30px;max-height:30px;inline-size:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};min-inline-size:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};max-inline-size:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};block-size:30px;min-block-size:30px;max-block-size:30px;border-radius:${String(node.props.hotspotShape ?? 'circle') === 'square' ? '12px' : String(node.props.hotspotShape ?? 'circle') === 'pill' ? '999px' : String(node.props.hotspotShape ?? 'circle') === 'diamond' ? '10px' : '999px'};${String(node.props.hotspotShape ?? 'circle') === 'circle' ? 'clip-path:circle(50% at 50% 50%);' : ''}border:none;background:${escapeHtml(accent)};box-shadow:${String(node.props.hotspotEffect ?? 'pulse') === 'none' ? 'none' : `0 0 0 6px ${escapeHtml(accent)}33,0 0 0 18px ${escapeHtml(accent)}11`};cursor:pointer;font-weight:900;font-size:15px;line-height:1;padding:0;color:#111827;appearance:none;-webkit-appearance:none;display:grid;place-items:center;aspect-ratio:1 / 1;flex-shrink:0;box-sizing:border-box;overflow:hidden;">${escapeHtml(String(node.props.hotspotIcon ?? 'plus') === 'arrow-up' ? '↑' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-down' ? '↓' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-left' ? '←' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-right' ? '→' : String(node.props.hotspotIcon ?? 'plus') === 'info' ? 'i' : '+')}</button>
     <button type="button" data-hotspot-panel data-smx-action="hotspot-toggle" data-widget-id="${node.id}" style="position:absolute;left:12px;right:12px;bottom:12px;border-radius:14px;background:rgba(17,24,39,.94);padding:10px 12px;display:none;gap:6px;border:none;text-align:left;color:inherit;cursor:pointer;">
       <div style="font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.header ?? 'Interactive hotspot'))}</div>
@@ -733,6 +733,17 @@ function renderSpeedTestWidget(node: WidgetNode): string {
   const initialTone = current >= fastThreshold ? '#22c55e' : '#ef4444';
   const pct = Math.max(0, Math.min(100, (current / Math.max(1, max)) * 100));
   const ooklaSkin = skin === 'ookla';
+  const fastSkin = skin === 'fast';
+  const compact = frame.width < 240 || frame.height < 150;
+  const statLabelFont = compact ? 9 : 11;
+  const statValueFont = compact ? 13 : 15;
+  const gaugeHeight = compact ? 132 : 156;
+  const gaugeBorder = compact ? 12 : 16;
+  const gaugeNeedleHeight = compact ? 72 : 88;
+  const gaugeNumberFont = compact ? 28 : 34;
+  const unitsFont = compact ? 11 : 13;
+  const topInset = compact ? 14 : 18;
+  const sideInset = compact ? 22 : 28;
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -752,25 +763,25 @@ function renderSpeedTestWidget(node: WidgetNode): string {
 
   return `<div class="widget widget-speed-test" data-widget-id="${node.id}" data-speed-min="${min}" data-speed-max="${max}" data-speed-current="${current}" data-speed-duration="${durationMs}" data-speed-result-mode="${escapeHtml(resultMode)}" data-speed-units="${escapeHtml(units)}" data-speed-fast-threshold="${fastThreshold}" data-speed-fast-message="${escapeHtml(fastMessage)}" data-speed-slow-message="${escapeHtml(slowMessage)}" data-speed-skin="${escapeHtml(skin)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
-    ${ooklaSkin ? `<div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:14px;">
+    ${(ooklaSkin || fastSkin) ? `<div style="padding:${compact ? '6px 10px 10px' : '8px 12px 12px'};display:flex;flex:1;flex-direction:column;gap:${compact ? 10 : 14}px;">
       <div style="display:grid;gap:6px;">
-        <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;">
-          <div style="display:grid;gap:2px;"><span style="opacity:.74;">Ping <span style="opacity:.5">ms</span></span><strong style="font-size:15px;letter-spacing:normal;">${pingValue}</strong></div>
-          <div style="display:grid;gap:2px;"><span style="opacity:.74;">Download <span style="opacity:.5">${escapeHtml(units)}</span></span><strong style="font-size:15px;letter-spacing:normal;">${current}</strong></div>
-          <div style="display:grid;gap:2px;"><span style="opacity:.74;">Upload <span style="opacity:.5">${escapeHtml(units)}</span></span><strong style="font-size:15px;letter-spacing:normal;">${uploadValue}</strong></div>
+        <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:${compact ? 8 : 10}px;font-size:${statLabelFont}px;letter-spacing:.08em;text-transform:uppercase;">
+          <div style="display:grid;gap:2px;"><span style="opacity:.74;">Ping <span style="opacity:.5">ms</span></span><strong style="font-size:${statValueFont}px;letter-spacing:normal;">${pingValue}</strong></div>
+          <div style="display:grid;gap:2px;"><span style="opacity:.74;">Download <span style="opacity:.5">${escapeHtml(units)}</span></span><strong style="font-size:${statValueFont}px;letter-spacing:normal;">${current}</strong></div>
+          <div style="display:grid;gap:2px;"><span style="opacity:.74;">Upload <span style="opacity:.5">${escapeHtml(units)}</span></span><strong style="font-size:${statValueFont}px;letter-spacing:normal;">${uploadValue}</strong></div>
         </div>
       </div>
-      <div style="position:relative;height:156px;border-radius:999px;background:radial-gradient(circle at 50% 100%, rgba(45,212,191,.28), rgba(15,23,42,0) 68%);">
+      <div style="position:relative;height:${gaugeHeight}px;border-radius:999px;background:${fastSkin ? 'radial-gradient(circle at 50% 100%, rgba(34,197,94,.20), rgba(15,23,42,0) 68%)' : 'radial-gradient(circle at 50% 100%, rgba(45,212,191,.28), rgba(15,23,42,0) 68%)'};">
         <div style="position:absolute;inset:0;display:grid;place-items:center;">
-          <div style="width:100%;height:100%;border-radius:999px 999px 36px 36px / 100% 100% 18px 18px;border:16px solid rgba(255,255,255,.08);border-bottom:none;transform:scaleX(.92);"></div>
-          <div style="position:absolute;top:18px;left:28px;right:28px;display:flex;justify-content:space-between;font-size:10px;font-weight:900;opacity:.82;"><span>0</span><span>5</span><span>10</span><span>20</span><span>30</span><span>50</span><span>75</span><span>100</span></div>
-          <div data-speed-needle style="position:absolute;left:50%;bottom:18px;width:6px;height:88px;border-radius:999px;background:${initialTone};transform-origin:bottom center;transform:translateX(-50%) rotate(${(-92 + pct * 1.84).toFixed(1)}deg);box-shadow:0 0 16px ${initialTone};"></div>
-          <div style="position:absolute;bottom:10px;width:16px;height:16px;border-radius:50%;background:#fff;"></div>
-          <div style="position:absolute;bottom:8px;display:grid;place-items:center;gap:2px;"><div data-speed-value style="font-size:34px;line-height:1;font-weight:300;">${current.toFixed(2)}</div><div style="font-size:13px;opacity:.82;">${escapeHtml(units)}</div></div>
+          <div style="width:100%;height:100%;border-radius:999px 999px 36px 36px / 100% 100% 18px 18px;border:${gaugeBorder}px solid ${fastSkin ? 'rgba(120,255,196,.24)' : 'rgba(255,255,255,.08)'};border-bottom:none;transform:scaleX(.92);"></div>
+          <div style="position:absolute;top:${topInset}px;left:${sideInset}px;right:${sideInset}px;display:flex;justify-content:space-between;font-size:${compact ? 8 : 10}px;font-weight:900;opacity:.82;"><span>0</span><span>5</span><span>10</span><span>20</span><span>30</span><span>50</span><span>75</span><span>100</span></div>
+          <div data-speed-needle style="position:absolute;left:50%;bottom:${compact ? 16 : 18}px;width:${compact ? 5 : 6}px;height:${gaugeNeedleHeight}px;border-radius:999px;background:${initialTone};transform-origin:bottom center;transform:translateX(-50%) rotate(${(-92 + pct * 1.84).toFixed(1)}deg);box-shadow:0 0 16px ${initialTone};"></div>
+          <div style="position:absolute;bottom:${compact ? 10 : 10}px;width:${compact ? 14 : 16}px;height:${compact ? 14 : 16}px;border-radius:50%;background:#fff;"></div>
+          <div style="position:absolute;bottom:${compact ? 8 : 8}px;display:grid;place-items:center;gap:2px;"><div data-speed-value style="font-size:${gaugeNumberFont}px;line-height:1;font-weight:300;">${current.toFixed(2)}</div><div style="font-size:${unitsFont}px;opacity:.82;">${escapeHtml(units)}</div></div>
         </div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div data-speed-status style="font-size:12px;font-weight:800;color:${initialTone};">${escapeHtml(current >= fastThreshold ? fastMessage : slowMessage)}</div>
+        <div data-speed-status style="font-size:${compact ? 11 : 12}px;font-weight:800;color:${initialTone};">${escapeHtml(current >= fastThreshold ? fastMessage : slowMessage)}</div>
         <button type="button" data-smx-action="speed-test-start" data-widget-id="${node.id}" style="padding:9px 14px;border-radius:999px;background:#ffffff;color:#111827;font-weight:900;border:none;cursor:pointer;white-space:nowrap;">${escapeHtml(ctaLabel)}</button>
       </div>
     </div>` : `<div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;">

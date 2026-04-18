@@ -35,6 +35,17 @@ function SpeedTestModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderC
   const state = resolveSpeedState(current, fastThreshold);
   const pct = clamp((current / Math.max(1, max)) * 100, 0, 100);
   const isOokla = skin === 'ookla';
+  const isFast = skin === 'fast';
+  const compact = node.frame.width < 240 || node.frame.height < 150;
+  const statLabelFont = compact ? 9 : 11;
+  const statValueFont = compact ? 13 : 15;
+  const gaugeHeight = compact ? 132 : 156;
+  const gaugeBorder = compact ? 12 : 16;
+  const gaugeNeedleHeight = compact ? 72 : 88;
+  const gaugeNumberFont = compact ? 28 : 34;
+  const unitsFont = compact ? 11 : 13;
+  const topInset = compact ? 14 : 18;
+  const sideInset = compact ? 22 : 28;
 
   useEffect(() => {
     setCurrent(clamp(fixedValue, min, max));
@@ -71,28 +82,28 @@ function SpeedTestModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderC
     <div style={moduleShell(node, ctx)}>
       <div style={moduleHeader(node)}>{String(node.props.title ?? node.name)}</div>
       <div style={{ ...moduleBody, gap: isOokla ? 14 : 10 }}>
-        {isOokla ? (
+        {(isOokla || isFast) ? (
           <>
             <div style={{ display: 'grid', gap: 6 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase' }}>
-                <div style={{ display: 'grid', gap: 2 }}><span style={{ opacity: 0.74 }}>Ping <span style={{ opacity: 0.5 }}>ms</span></span><strong style={{ fontSize: 15, letterSpacing: 'normal' }}>{pingValue}</strong></div>
-                <div style={{ display: 'grid', gap: 2 }}><span style={{ opacity: 0.74 }}>Download <span style={{ opacity: 0.5 }}>{units}</span></span><strong style={{ fontSize: 15, letterSpacing: 'normal' }}>{current}</strong></div>
-                <div style={{ display: 'grid', gap: 2 }}><span style={{ opacity: 0.74 }}>Upload <span style={{ opacity: 0.5 }}>{units}</span></span><strong style={{ fontSize: 15, letterSpacing: 'normal' }}>{uploadValue}</strong></div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: compact ? 8 : 10, fontSize: statLabelFont, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+                <div style={{ display: 'grid', gap: 2 }}><span style={{ opacity: 0.74 }}>Ping <span style={{ opacity: 0.5 }}>ms</span></span><strong style={{ fontSize: statValueFont, letterSpacing: 'normal' }}>{pingValue}</strong></div>
+                <div style={{ display: 'grid', gap: 2 }}><span style={{ opacity: 0.74 }}>Download <span style={{ opacity: 0.5 }}>{units}</span></span><strong style={{ fontSize: statValueFont, letterSpacing: 'normal' }}>{current}</strong></div>
+                <div style={{ display: 'grid', gap: 2 }}><span style={{ opacity: 0.74 }}>Upload <span style={{ opacity: 0.5 }}>{units}</span></span><strong style={{ fontSize: statValueFont, letterSpacing: 'normal' }}>{uploadValue}</strong></div>
               </div>
             </div>
-            <div style={{ position: 'relative', height: 156, borderRadius: 999, background: 'radial-gradient(circle at 50% 100%, rgba(45,212,191,.28), rgba(15,23,42,0) 68%)' }}>
+            <div style={{ position: 'relative', height: gaugeHeight, borderRadius: 999, background: isFast ? 'radial-gradient(circle at 50% 100%, rgba(34,197,94,.20), rgba(15,23,42,0) 68%)' : 'radial-gradient(circle at 50% 100%, rgba(45,212,191,.28), rgba(15,23,42,0) 68%)' }}>
               <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
-                <div style={{ width: '100%', height: '100%', borderRadius: '999px 999px 36px 36px / 100% 100% 18px 18px', border: '16px solid rgba(255,255,255,.08)', borderBottom: 'none', transform: 'scaleX(.92)' }} />
-                <div style={{ position: 'absolute', top: 18, left: 28, right: 28, display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 900, opacity: 0.82 }}>
+                <div style={{ width: '100%', height: '100%', borderRadius: '999px 999px 36px 36px / 100% 100% 18px 18px', border: `${gaugeBorder}px solid ${isFast ? 'rgba(120,255,196,.24)' : 'rgba(255,255,255,.08)'}`, borderBottom: 'none', transform: 'scaleX(.92)' }} />
+                <div style={{ position: 'absolute', top: topInset, left: sideInset, right: sideInset, display: 'flex', justifyContent: 'space-between', fontSize: compact ? 8 : 10, fontWeight: 900, opacity: 0.82 }}>
                   <span>0</span><span>5</span><span>10</span><span>20</span><span>30</span><span>50</span><span>75</span><span>100</span>
                 </div>
                 <div
                   style={{
                     position: 'absolute',
                     left: '50%',
-                    bottom: 18,
-                    width: 6,
-                    height: 88,
+                    bottom: compact ? 16 : 18,
+                    width: compact ? 5 : 6,
+                    height: gaugeNeedleHeight,
                     borderRadius: 999,
                     background: isTesting ? accent : state.tone,
                     transformOrigin: 'bottom center',
@@ -100,15 +111,15 @@ function SpeedTestModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderC
                     boxShadow: `0 0 16px ${isTesting ? accent : state.tone}`,
                   }}
                 />
-                <div style={{ position: 'absolute', bottom: 10, width: 16, height: 16, borderRadius: '50%', background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: 10, width: compact ? 14 : 16, height: compact ? 14 : 16, borderRadius: '50%', background: '#fff' }} />
                 <div style={{ position: 'absolute', bottom: 8, display: 'grid', placeItems: 'center', gap: 2 }}>
-                  <div style={{ fontSize: 34, lineHeight: 1, fontWeight: 300 }}>{current.toFixed(2)}</div>
-                  <div style={{ fontSize: 13, opacity: 0.82 }}>{units}</div>
+                  <div style={{ fontSize: gaugeNumberFont, lineHeight: 1, fontWeight: 300 }}>{current.toFixed(2)}</div>
+                  <div style={{ fontSize: unitsFont, opacity: 0.82 }}>{units}</div>
                 </div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: state.tone }}>{current >= fastThreshold ? fastMessage : slowMessage}</div>
+              <div style={{ fontSize: compact ? 11 : 12, fontWeight: 800, color: state.tone }}>{current >= fastThreshold ? fastMessage : slowMessage}</div>
               <button
                 type="button"
                 onClick={(event) => {

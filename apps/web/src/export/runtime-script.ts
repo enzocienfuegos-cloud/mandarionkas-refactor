@@ -549,8 +549,21 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       const panel = root?.querySelector('[data-hotspot-panel]');
       const label = root?.querySelector('[data-hotspot-label]');
       const isOpen = panel?.style.display === 'grid';
+      const autoCloseMs = Math.max(0, Number(root?.getAttribute('data-hotspot-auto-close-ms') || 0));
+      const existingTimer = root && root.__smxHotspotTimer;
+      if (existingTimer) {
+        window.clearTimeout(existingTimer);
+        root.__smxHotspotTimer = 0;
+      }
       if (panel) panel.style.display = isOpen ? 'none' : 'grid';
       if (label) label.style.display = isOpen ? 'block' : 'none';
+      if (!isOpen && autoCloseMs > 0 && root) {
+        root.__smxHotspotTimer = window.setTimeout(() => {
+          if (panel) panel.style.display = 'none';
+          if (label) label.style.display = 'block';
+          root.__smxHotspotTimer = 0;
+        }, autoCloseMs);
+      }
     });
   });
 

@@ -35,6 +35,7 @@ export const SpeedTestDefinition = createModuleDefinition({
       type: 'select',
       options: [
         { label: 'Ookla style', value: 'ookla' },
+        { label: 'Fast style', value: 'fast' },
         { label: 'Classic', value: 'classic' },
       ],
     },

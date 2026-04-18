@@ -17,6 +17,7 @@ export const InteractiveHotspotDefinition = createModuleDefinition({
     hotspotShape: 'circle',
     hotspotIcon: 'plus',
     hotspotEffect: 'pulse',
+    autoCloseMs: 2000,
   },
   inspectorFields: [
     { key: 'title' },
@@ -57,6 +58,7 @@ export const InteractiveHotspotDefinition = createModuleDefinition({
         { label: 'None', value: 'none' },
       ],
     },
+    { key: 'autoCloseMs', label: 'Auto-close ms', type: 'number' },
   ],
   style: { backgroundColor: 'transparent', accentColor: '#f59e0b', color: '#ffffff' },
   renderStage: renderInteractiveHotspotStage,

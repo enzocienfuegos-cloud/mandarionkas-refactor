@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
@@ -37,9 +37,16 @@ function HotspotModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCon
   const shape = String(node.props.hotspotShape ?? 'circle');
   const icon = String(node.props.hotspotIcon ?? 'plus');
   const effect = String(node.props.hotspotEffect ?? 'pulse');
+  const autoCloseMs = Math.max(0, Number(node.props.autoCloseMs ?? 2000));
   const iconChar = useMemo(() => hotspotIcon(icon), [icon]);
   const baseTransform = 'translate(-50%,-50%)';
   const innerTransform = shape === 'diamond' ? 'rotate(-45deg)' : undefined;
+
+  useEffect(() => {
+    if (!open || autoCloseMs <= 0) return;
+    const timeoutId = window.setTimeout(() => setOpen(false), autoCloseMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [autoCloseMs, open]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', background: 'transparent', overflow: 'visible', color: String(node.style.color ?? '#ffffff') }}>
