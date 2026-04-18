@@ -876,6 +876,8 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
   const frame = node.frame;
   const style = node.style ?? {};
   const accent = String(style.accentColor ?? '#9a3412');
+  const ctaBackgroundColor = String((style as Record<string, unknown>).ctaBackgroundColor ?? accent);
+  const ctaTextColor = String((style as Record<string, unknown>).ctaTextColor ?? '#111827');
   const orientation = String(node.props.orientation ?? 'horizontal');
   const cardShape = String(node.props.cardShape ?? 'portrait');
   const autoscroll = Boolean(node.props.autoscroll ?? true);
@@ -942,7 +944,7 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
       <div style="padding:8px 8px 10px;display:grid;gap:3px;flex:1;min-height:0;align-content:start;">
         <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#0f172a;line-height:1.15;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">${escapeHtml(product.title)}</div>
         <div style="font-size:12px;color:#475569;line-height:1.15;">${escapeHtml(product.price || '$0')}</div>
-        <button type="button" data-smx-action="shoppable-cta" data-widget-id="${node.id}" data-product-url="${escapeHtml(product.url)}" style="margin-top:auto;border:none;border-radius:10px;background:${escapeHtml(accent)};color:#111827;font-weight:800;padding:7px 9px;font-size:11px;cursor:pointer;opacity:${product.ctaLabel ? '1' : '0'};">${escapeHtml(product.ctaLabel || 'Shop now')}</button>
+        <button type="button" data-smx-action="shoppable-cta" data-widget-id="${node.id}" data-product-url="${escapeHtml(product.url)}" style="margin-top:auto;border:none;border-radius:10px;background:${escapeHtml(ctaBackgroundColor)};color:${escapeHtml(ctaTextColor)};font-weight:800;padding:7px 9px;font-size:11px;cursor:pointer;opacity:${product.ctaLabel ? '1' : '0'};">${escapeHtml(product.ctaLabel || 'Shop now')}</button>
       </div>
     </article>`).join('');
 

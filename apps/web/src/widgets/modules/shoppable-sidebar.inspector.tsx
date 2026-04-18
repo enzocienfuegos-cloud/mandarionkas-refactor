@@ -1,89 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
-import type { AssetRecord } from '../../assets/types';
-import { listAssets } from '../../repositories/asset';
-import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
-import { usePlatformSnapshot } from '../../platform/runtime';
 import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
 import { buildShoppableProductsValue, parseShoppableProducts, type ShoppableProduct } from './shoppable-sidebar.shared';
-
-function parseSelectedAssetIds(raw: unknown): string[] {
-  if (typeof raw !== 'string' || raw.trim().length === 0) return [];
-  return raw.split(',').map((item) => item.trim()).filter(Boolean);
-}
-
-function buildSelectedAssetIds(items: string[]): string {
-  return items.filter(Boolean).join(',');
-}
 
 export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): JSX.Element {
   const widgetActions = useWidgetActions();
   const uiActions = useUiActions();
-  const platform = usePlatformSnapshot();
-  const [assets, setAssets] = useState<AssetRecord[]>([]);
-  const [pendingAssetIds, setPendingAssetIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!platform.session.isAuthenticated || !platform.session.sessionId) {
-      setAssets([]);
-      return;
-    }
-    let cancelled = false;
-    const syncAssets = () => {
-      void listAssets()
-        .then((records) => {
-          if (!cancelled) setAssets(records.filter((asset) => asset.kind === 'image'));
-        })
-        .catch(() => {
-          if (!cancelled) setAssets([]);
-        });
-    };
-    syncAssets();
-    const unsubscribe = subscribeToAssetLibraryChanges(syncAssets);
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, [platform.session.isAuthenticated, platform.session.sessionId]);
 
   const products = useMemo(() => parseShoppableProducts(widget.props.products), [widget.props.products]);
-  const selectedAssetIds = useMemo(() => parseSelectedAssetIds(widget.props.assetIdsCsv), [widget.props.assetIdsCsv]);
+  const ctaBackgroundColor = String((widget.style as Record<string, unknown>).ctaBackgroundColor ?? widget.style.accentColor ?? '#9a3412');
+  const ctaTextColor = String((widget.style as Record<string, unknown>).ctaTextColor ?? '#111827');
 
-  const updateProducts = (nextProducts: ShoppableProduct[], nextAssetIds = selectedAssetIds) => {
+  const updateProducts = (nextProducts: ShoppableProduct[]) => {
     widgetActions.updateWidgetProps(widget.id, {
       products: buildShoppableProductsValue(nextProducts),
-      assetIdsCsv: buildSelectedAssetIds(nextAssetIds),
       itemCount: Math.max(1, nextProducts.length),
       activeIndex: Math.min(Math.max(1, Number(widget.props.activeIndex ?? 1)), Math.max(1, nextProducts.length)),
     });
   };
 
-  const addSelectedAssets = () => {
-    const pickedAssets = pendingAssetIds
-      .map((assetId) => assets.find((item) => item.id === assetId))
-      .filter((asset): asset is AssetRecord => Boolean(asset))
-      .filter((asset) => !selectedAssetIds.includes(asset.id));
-    if (!pickedAssets.length) return;
-    const nextProducts = [
-      ...products,
-      ...pickedAssets.map((asset) => ({
-        src: asset.src,
-        title: asset.name,
-        subtitle: '',
-        price: '$0',
-        rating: 4,
-        ctaLabel: 'Shop now',
-        url: '',
-      })),
-    ];
-    updateProducts(nextProducts, [...selectedAssetIds, ...pickedAssets.map((asset) => asset.id)]);
-    setPendingAssetIds([]);
-  };
-
   const removeProduct = (index: number) => {
     const nextProducts = products.filter((_, itemIndex) => itemIndex !== index);
-    const nextIds = selectedAssetIds.filter((_, itemIndex) => itemIndex !== index);
-    updateProducts(nextProducts, nextIds);
+    updateProducts(nextProducts);
   };
 
   const patchProduct = (index: number, patch: Partial<ShoppableProduct>) => {
@@ -160,19 +98,23 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
           Show right arrow
         </label>
         <div>
-          <label>Project images</label>
-          <div className="asset-inline-actions">
-            <select
-              multiple
-              size={5}
-              value={pendingAssetIds}
-              onChange={(event) => setPendingAssetIds(Array.from(event.target.selectedOptions).map((option) => option.value))}
-            >
-              {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
-            </select>
-            <button type="button" className="left-button compact-action" onClick={addSelectedAssets} disabled={!pendingAssetIds.length}>Add products</button>
-            <button type="button" className="left-button compact-action" onClick={addBlankProduct}>Add blank product</button>
-            <button type="button" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</button>
+          <label>Product source</label>
+          <div className="field-stack">
+            <small className="muted">Add product images from the asset library. This module no longer shows a preloaded image list here.</small>
+            <div className="rail-action-grid">
+              <button type="button" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</button>
+              <button type="button" className="left-button compact-action" onClick={addBlankProduct}>Add blank product</button>
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <div>
+            <label>CTA background</label>
+            <input type="color" value={ctaBackgroundColor} onChange={(event) => widgetActions.updateWidgetStyle(widget.id, { ctaBackgroundColor: event.target.value })} />
+          </div>
+          <div>
+            <label>CTA text</label>
+            <input type="color" value={ctaTextColor} onChange={(event) => widgetActions.updateWidgetStyle(widget.id, { ctaTextColor: event.target.value })} />
           </div>
         </div>
         <div>

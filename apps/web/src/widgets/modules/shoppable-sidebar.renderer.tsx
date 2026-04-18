@@ -12,6 +12,8 @@ function resolveCardSize(cardShape: string): { width: number; height: number } {
 
 function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
+  const ctaBackgroundColor = String((node.style as Record<string, unknown>).ctaBackgroundColor ?? accent);
+  const ctaTextColor = String((node.style as Record<string, unknown>).ctaTextColor ?? '#111827');
   const products = useMemo(() => parseShoppableProducts(node.props.products), [node.props.products]);
   const itemCount = Math.max(1, products.length || Number(node.props.itemCount ?? 1));
   const orientation = String(node.props.orientation ?? 'horizontal');
@@ -110,7 +112,7 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                       event.stopPropagation();
                       ctx.triggerWidgetAction('click');
                     }}
-                    style={{ marginTop: 'auto', border: 'none', borderRadius: 10, background: accent, color: '#111827', fontWeight: 800, padding: '7px 9px', cursor: 'pointer', fontSize: 11, opacity: product.ctaLabel ? 1 : 0 }}
+                    style={{ marginTop: 'auto', border: 'none', borderRadius: 10, background: ctaBackgroundColor, color: ctaTextColor, fontWeight: 800, padding: '7px 9px', cursor: 'pointer', fontSize: 11, opacity: product.ctaLabel ? 1 : 0 }}
                   >
                     {product.ctaLabel || 'Shop now'}
                   </button>

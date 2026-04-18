@@ -22,6 +22,13 @@ export const ShoppableSidebarDefinition = createModuleDefinition({
     showNextButton: true,
   },
   renderInspector: (widget) => createElement(ShoppableSidebarInspector, { widget }),
-  style: { backgroundColor: '#f8fafc', accentColor: '#9a3412', color: '#1f2937', borderRadius: 20 },
+  style: {
+    backgroundColor: '#f8fafc',
+    accentColor: '#9a3412',
+    color: '#1f2937',
+    borderRadius: 20,
+    ctaBackgroundColor: '#9a3412',
+    ctaTextColor: '#111827',
+  },
   renderStage: renderShoppableSidebarStage,
 });
