@@ -93,6 +93,17 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     return ranked;
   }
 
+  function postUserPositionToMap(root, userPosition) {
+    const frame = root.querySelector('iframe[title="Nearby locations map"]');
+    if (!frame || !frame.contentWindow || !userPosition) return;
+    frame.contentWindow.postMessage({
+      type: 'smx-map-center-user',
+      latitude: userPosition.latitude,
+      longitude: userPosition.longitude,
+      label: root.getAttribute('data-map-locate-label') || 'Your location',
+    }, '*');
+  }
+
   function renderMapCards(root, userPosition) {
     const cardsRoot = root.querySelector('[data-map-cards]');
     if (!cardsRoot) return;
@@ -189,7 +200,9 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
           event.preventDefault();
           renderMapSearchBar(root, null, 'locating');
           navigator.geolocation.getCurrentPosition((position) => {
-            renderMapSearchBar(root, { latitude: position.coords.latitude, longitude: position.coords.longitude }, 'located');
+            const userPosition = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+            renderMapSearchBar(root, userPosition, 'located');
+            postUserPositionToMap(root, userPosition);
           }, () => {
             renderMapSearchBar(root, null, 'default');
           }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
@@ -204,7 +217,9 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       inlineLocateButton.addEventListener('click', (event) => {
         event.preventDefault();
         navigator.geolocation.getCurrentPosition((position) => {
-          renderMapCards(root, { latitude: position.coords.latitude, longitude: position.coords.longitude });
+          const userPosition = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+          renderMapCards(root, userPosition);
+          postUserPositionToMap(root, userPosition);
         }, () => {
           renderMapCards(root, null);
         }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
@@ -212,7 +227,9 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       return;
     }
     navigator.geolocation.getCurrentPosition((position) => {
-      renderMapCards(root, { latitude: position.coords.latitude, longitude: position.coords.longitude });
+      const userPosition = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+      renderMapCards(root, userPosition);
+      postUserPositionToMap(root, userPosition);
     }, () => {
       renderMapCards(root, null);
     }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });

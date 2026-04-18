@@ -23,7 +23,7 @@ export function escapeHtml(value: unknown): string {
 }
 
 function buildExportLeafletMapSrcdoc(input: {
-  places: Array<{ name: string; lat: number; lng: number }>;
+  places: Array<{ name: string; lat: number; lng: number; address?: string; badge?: string; mapsUrl?: string; wazeUrl?: string }>;
   latitude: number;
   longitude: number;
   zoom: number;
@@ -61,6 +61,36 @@ function buildExportLeafletMapSrcdoc(input: {
       box-shadow: none;
     }
     .smx-export-map-label.leaflet-tooltip:before { display: none; }
+    .smx-export-map-popup { font-family: Inter, Arial, sans-serif; min-width: 150px; }
+    .smx-export-map-popup__title { font-size: 12px; font-weight: 800; color: #0f172a; line-height: 1.2; }
+    .smx-export-map-popup__meta { margin-top: 4px; font-size: 10px; color: #475569; line-height: 1.25; }
+    .smx-export-map-popup__badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 800;
+      color: #fff;
+      background: ${input.accent};
+      margin-top: 6px;
+    }
+    .smx-export-map-popup__actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .smx-export-map-popup__actions a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      height: 24px;
+      border-radius: 999px;
+      padding: 0 10px;
+      color: #fff;
+      text-decoration: none;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .smx-export-map-popup__actions a[data-kind="waze"] { background: #08d4ff; }
+    .smx-export-map-popup__actions a[data-kind="maps"] { background: #4285f4; }
   </style>
 </head>
 <body>
@@ -70,6 +100,18 @@ function buildExportLeafletMapSrcdoc(input: {
     const places = ${placesJson};
     const map = L.map('map', { zoomControl: true, attributionControl: false, scrollWheelZoom: true }).setView([${input.latitude}, ${input.longitude}], ${input.zoom});
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+    let userMarker = null;
+    function popupHtml(place) {
+      const address = place.address ? '<div class="smx-export-map-popup__meta">' + String(place.address) + '</div>' : '';
+      const badge = place.badge ? '<div class="smx-export-map-popup__badge">' + String(place.badge) + '</div>' : '';
+      const actions = (place.wazeUrl || place.mapsUrl)
+        ? '<div class="smx-export-map-popup__actions">'
+          + (place.wazeUrl ? '<a href="' + String(place.wazeUrl) + '" target="_blank" rel="noopener noreferrer" data-kind="waze">Waze</a>' : '')
+          + (place.mapsUrl ? '<a href="' + String(place.mapsUrl) + '" target="_blank" rel="noopener noreferrer" data-kind="maps">Maps</a>' : '')
+          + '</div>'
+        : '';
+      return '<div class="smx-export-map-popup"><div class="smx-export-map-popup__title">' + String(place.name || '') + '</div>' + address + badge + actions + '</div>';
+    }
     places.forEach((place) => {
       const marker = L.circleMarker([place.lat, place.lng], {
         radius: 7,
@@ -78,6 +120,7 @@ function buildExportLeafletMapSrcdoc(input: {
         fillColor: '#111827',
         fillOpacity: 1
       }).addTo(map);
+      marker.bindPopup(popupHtml(place), { closeButton: true, autoPan: true, maxWidth: 220 });
       marker.bindTooltip(place.name, {
         permanent: true,
         direction: 'top',
@@ -90,6 +133,24 @@ function buildExportLeafletMapSrcdoc(input: {
       const bounds = L.latLngBounds(places.map((place) => [place.lat, place.lng]));
       if (bounds.isValid()) map.fitBounds(bounds.pad(0.25));
     }
+    window.addEventListener('message', (event) => {
+      const data = event && event.data ? event.data : null;
+      if (!data || data.type !== 'smx-map-center-user') return;
+      const latitude = Number(data.latitude);
+      const longitude = Number(data.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+      if (userMarker) map.removeLayer(userMarker);
+      userMarker = L.circleMarker([latitude, longitude], {
+        radius: 7,
+        color: '#111827',
+        weight: 3,
+        fillColor: '#ffffff',
+        fillOpacity: 1
+      }).addTo(map);
+      userMarker.bindPopup('<div class="smx-export-map-popup"><div class="smx-export-map-popup__title">' + String(data.label || 'Your location') + '</div></div>');
+      map.setView([latitude, longitude], Math.max(map.getZoom(), ${input.zoom}));
+      userMarker.openPopup();
+    });
   </script>
 </body>
 </html>`.trim();
@@ -400,7 +461,15 @@ function renderDynamicMapWidget(node: WidgetNode): string {
         ctaType: defaultCtaType as any,
         ctaUrl: '',
       }]).slice(0, 5);
-  const mapFramePlaces = places.map((place) => ({ name: place.name, lat: place.lat, lng: place.lng }));
+  const mapFramePlaces = places.map((place) => ({
+    name: place.name,
+    lat: place.lat,
+    lng: place.lng,
+    address: place.address,
+    badge: place.badge,
+    mapsUrl: buildPlaceCtaUrl(place, 'maps'),
+    wazeUrl: buildPlaceCtaUrl(place, 'waze'),
+  }));
   const exportMapSrcdoc = escapeHtml(buildExportLeafletMapSrcdoc({
     places: mapFramePlaces,
     latitude,
