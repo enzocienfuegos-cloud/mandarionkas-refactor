@@ -35,11 +35,11 @@ export const moduleShellEdit = (node: WidgetNode): CSSProperties => ({
   borderRadius: Number(node.style.borderRadius ?? 14),
   background: String(node.style.backgroundColor ?? '#1f2937'),
   color: String(node.style.color ?? '#ffffff'),
-  border: `1px solid ${String(node.style.borderColor ?? `${String(node.style.accentColor ?? '#94a3b8')}33`)}`,
+  border: 'none',
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
-  boxShadow: '0 10px 20px rgba(0,0,0,0.08)',
+  boxShadow: 'none',
   opacity: Number(node.style.opacity ?? 1),
   transition: 'none',
 });
@@ -52,14 +52,14 @@ export const moduleShell = (node: WidgetNode, ctx?: RenderContext): CSSPropertie
       borderRadius: 14,
       background: resolveWidgetBackground(node, '#1f2937', ctx),
       color: resolveWidgetColor(node, ctx),
-      border: `1px solid ${resolveWidgetBorder(node, ctx)}`,
+      border: 'none',
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
-      boxShadow: resolveWidgetShadow(node, ctx),
+      boxShadow: 'none',
       opacity: resolveWidgetOpacity(node, ctx),
-      transition: 'box-shadow .16s ease, border-color .16s ease, transform .16s ease, opacity .16s ease',
-      transform: ctx?.hovered ? 'translateY(-1px)' : 'none',
+      transition: 'opacity .16s ease',
+      transform: 'none',
     }
 );
 export const moduleHeader = (node: WidgetNode): CSSProperties => ({
