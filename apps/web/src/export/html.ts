@@ -903,6 +903,7 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
   const visibleCount = orientation === 'vertical' ? 1 : Math.min(2, activeProducts.length || 1);
   const availableWidth = Math.max(120, frame.width - 24);
   const availableHeight = Math.max(88, frame.height - 58);
+  const gap = 12;
   const effectiveCardSize = orientation === 'horizontal'
     ? {
         width: Math.max(96, Math.floor((availableWidth - 24 * Math.max(0, visibleCount - 1)) / visibleCount)),
@@ -914,6 +915,9 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
       };
   const mediaHeight = Math.max(60, Math.min(cardShape === 'landscape' ? Math.floor(effectiveCardSize.height * 0.58) : Math.floor(effectiveCardSize.height * 0.68), effectiveCardSize.height - 44));
   const productsJson = escapeHtml(JSON.stringify(activeProducts));
+  const cardBasis = orientation === 'horizontal'
+    ? `calc((100% - ${gap * Math.max(0, visibleCount - 1)}px) / ${visibleCount})`
+    : '100%';
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -931,8 +935,8 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
     `flex-direction:column`,
   ].join(';');
 
-  const cards = activeProducts.map((product, index) => `<article data-shoppable-card="${index}" style="width:${effectiveCardSize.width}px;min-width:${effectiveCardSize.width}px;height:${effectiveCardSize.height}px;border-radius:10px;overflow:hidden;background:#ffffff;color:#1f2937;border:1px solid rgba(15,23,42,.10);box-shadow:0 4px 14px rgba(15,23,42,.08);display:flex;flex-direction:column;">
-      <div style="position:relative;height:${mediaHeight}px;background:${product.src ? '#111827' : '#f8fafc'};flex-shrink:0;">
+  const cards = activeProducts.map((product, index) => `<article data-shoppable-card="${index}" style="width:${orientation === 'horizontal' ? cardBasis : '100%'};min-width:${orientation === 'horizontal' ? cardBasis : '100%'};max-width:${orientation === 'horizontal' ? cardBasis : '100%'};flex:${orientation === 'horizontal' ? `0 0 ${cardBasis}` : '0 0 auto'};height:100%;min-height:0;border-radius:10px;overflow:hidden;background:#ffffff;color:#1f2937;border:1px solid rgba(15,23,42,.10);box-shadow:0 4px 14px rgba(15,23,42,.08);display:flex;flex-direction:column;">
+      <div style="position:relative;height:${mediaHeight}px;min-height:${mediaHeight}px;background:${product.src ? '#111827' : '#f8fafc'};flex-shrink:0;">
         ${product.src ? `<img src="${escapeHtml(product.src)}" alt="${escapeHtml(product.title)}" style="width:100%;height:100%;object-fit:cover;display:block;" />` : ''}
       </div>
       <div style="padding:8px 8px 10px;display:grid;gap:3px;flex:1;min-height:0;align-content:start;">
@@ -946,7 +950,7 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;min-height:0;">
       <div style="position:relative;flex:1;overflow:hidden;">
-        <div data-shoppable-track style="display:flex;${orientation === 'vertical' ? 'flex-direction:column;' : ''}gap:12px;transition:transform .28s ease;">${cards}</div>
+        <div data-shoppable-track style="display:flex;${orientation === 'vertical' ? 'flex-direction:column;' : ''}gap:${gap}px;${orientation === 'horizontal' ? 'width:100%;height:100%;' : 'height:100%;'}transition:transform .28s ease;">${cards}</div>
         ${activeProducts.length > 1 ? `${showPrevButton ? `<button type="button" data-smx-action="shoppable-prev" data-widget-id="${node.id}" style="position:absolute;left:4px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:none;background:rgba(255,255,255,.94);color:#111827;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.12);">‹</button>` : ''}${showNextButton ? `<button type="button" data-smx-action="shoppable-next" data-widget-id="${node.id}" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:none;background:rgba(255,255,255,.94);color:#111827;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.12);">›</button>` : ''}` : ''}
       </div>
     </div>

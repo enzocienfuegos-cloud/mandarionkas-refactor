@@ -35,6 +35,10 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
         height: Math.max(96, Math.min(Math.floor(availableHeight * 0.94), fallbackCardSize.height)),
       };
   const mediaHeight = Math.max(60, Math.min(cardShape === 'landscape' ? Math.floor(cardSize.height * 0.58) : Math.floor(cardSize.height * 0.68), cardSize.height - 44));
+  const gap = 12;
+  const cardBasis = orientation === 'horizontal'
+    ? `calc((100% - ${gap * Math.max(0, visibleCount - 1)}px) / ${visibleCount})`
+    : '100%';
 
   useEffect(() => {
     if (!autoscroll || itemCount <= 1 || !ctx.previewMode) return;
@@ -46,13 +50,16 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
     ? {
         display: 'flex',
         flexDirection: 'column' as const,
-        gap: 12,
-        transform: `translateY(-${activeIndex * (cardSize.height + 12)}px)`,
+        gap,
+        height: '100%',
+        transform: `translateY(-${activeIndex * (cardSize.height + gap)}px)`,
         transition: 'transform .28s ease',
       }
     : {
         display: 'flex',
-        gap: 12,
+        gap,
+        width: '100%',
+        height: '100%',
         transform: `translateX(-${activeIndex * (cardSize.width + 12)}px)`,
         transition: 'transform .28s ease',
       };
@@ -75,9 +82,12 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
               <article
                 key={`${node.id}-product-${index}`}
                 style={{
-                  width: cardSize.width,
-                  minWidth: cardSize.width,
-                  height: cardSize.height,
+                  width: orientation === 'horizontal' ? cardBasis : '100%',
+                  minWidth: orientation === 'horizontal' ? cardBasis : '100%',
+                  maxWidth: orientation === 'horizontal' ? cardBasis : '100%',
+                  flex: orientation === 'horizontal' ? `0 0 ${cardBasis}` : '0 0 auto',
+                  height: '100%',
+                  minHeight: 0,
                   borderRadius: 10,
                   overflow: 'hidden',
                   background: '#ffffff',
@@ -88,7 +98,7 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                   flexDirection: 'column',
                 }}
               >
-                <div style={{ position: 'relative', height: mediaHeight, background: product.src ? '#111827' : '#f8fafc', flexShrink: 0 }}>
+                <div style={{ position: 'relative', height: mediaHeight, minHeight: mediaHeight, background: product.src ? '#111827' : '#f8fafc', flexShrink: 0 }}>
                   {product.src ? <img src={product.src} alt={product.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
                 </div>
                 <div style={{ padding: '8px 8px 10px', display: 'grid', gap: 3, minHeight: 0, flex: 1, alignContent: 'start' }}>

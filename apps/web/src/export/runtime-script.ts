@@ -394,13 +394,14 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     const products = JSON.parse(root.getAttribute('data-shoppable-products') || '[]');
     if (!Array.isArray(products) || !products.length) return;
     const orientation = root.getAttribute('data-shoppable-layout') || 'horizontal';
-    const cardWidth = Number(root.getAttribute('data-shoppable-card-width') || 124);
-    const cardHeight = Number(root.getAttribute('data-shoppable-card-height') || 164);
     const normalizedIndex = ((nextIndex % products.length) + products.length) % products.length;
     root.setAttribute('data-shoppable-index', String(normalizedIndex));
     const track = root.querySelector('[data-shoppable-track]');
     if (!track) return;
     const gap = 12;
+    const firstCard = track.querySelector('[data-shoppable-card]');
+    const cardWidth = firstCard ? firstCard.getBoundingClientRect().width : Number(root.getAttribute('data-shoppable-card-width') || 124);
+    const cardHeight = firstCard ? firstCard.getBoundingClientRect().height : Number(root.getAttribute('data-shoppable-card-height') || 164);
     track.style.transform = orientation === 'vertical'
       ? 'translateY(-' + String(normalizedIndex * (cardHeight + gap)) + 'px)'
       : 'translateX(-' + String(normalizedIndex * (cardWidth + gap)) + 'px)';
