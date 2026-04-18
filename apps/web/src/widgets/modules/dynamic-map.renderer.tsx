@@ -259,7 +259,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   if (searchBarMode) {
     return (
       <div style={{ ...moduleShell(node, ctx), position: 'relative' }}>
-        <style>{`.smx-map-label{background:#111827;border:none;border-radius:999px;color:#fff;padding:4px 8px;font-size:10px;font-weight:700;box-shadow:none}.smx-map-label:before{display:none}`}</style>
+        <style>{`.smx-map-label,.smx-map-label.leaflet-tooltip{background:#111827!important;border:none!important;border-radius:999px!important;color:#fff!important;padding:4px 8px!important;font-size:10px!important;font-weight:700!important;box-shadow:none!important;opacity:1!important}.smx-map-label:before,.smx-map-label.leaflet-tooltip:before{display:none!important}`}</style>
         <div style={{ position: 'absolute', inset: 0, background: '#000' }}>
           <div style={{ position: 'absolute', inset: 0, height: '60%', overflow: 'hidden', background: heroImage ? '#111827' : 'linear-gradient(160deg,#0f172a,#1d4ed8)' }}>
             {heroImage ? <img src={heroImage} alt={headlineText} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
@@ -347,6 +347,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
 
   return (
     <div style={moduleShell(node, ctx)}>
+      <style>{`.smx-map-label,.smx-map-label.leaflet-tooltip{background:#111827!important;border:none!important;border-radius:999px!important;color:#fff!important;padding:4px 8px!important;font-size:10px!important;font-weight:700!important;box-shadow:none!important;opacity:1!important}.smx-map-label:before,.smx-map-label.leaflet-tooltip:before{display:none!important}`}</style>
       <div style={{ ...moduleHeader(node), display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span>{String(node.props.title ?? node.name)}</span>
         <span style={{ fontSize: 10, opacity: 0.78 }}>{provider}</span>
@@ -356,6 +357,18 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
           {!cardsOnly ? (
             <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', minHeight: 110, background: mapBackground }}>
               <div ref={mapCanvasRef} style={{ position: 'absolute', inset: 0 }} />
+              {requestUserLocation ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    requestUserPosition();
+                  }}
+                  style={{ position: 'absolute', right: 10, top: 10, minWidth: 40, height: 40, borderRadius: 999, border: 'none', background: '#fff', color: accent, boxShadow: '0 3px 14px rgba(0,0,0,.2)', fontSize: 11, fontWeight: 900, cursor: 'pointer', padding: '0 10px', zIndex: 500 }}
+                >
+                  {locateMeLabel}
+                </button>
+              ) : null}
               <div style={{ position: 'absolute', left: 10, right: 10, bottom: 8, display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#0f172a', opacity: 0.82 }}>
                 <span>{places.length} locations · zoom {zoom}</span>
                 <span>{provider === 'google-places' ? (providerStatus === 'live' ? 'Places live' : providerStatus === 'loading' ? 'Loading places' : providerStatus === 'error' ? 'Places unavailable' : 'Places idle') : requestUserLocation ? 'User location on' : 'Location fixed'}</span>

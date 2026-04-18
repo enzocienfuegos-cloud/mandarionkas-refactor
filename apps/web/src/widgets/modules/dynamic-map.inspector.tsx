@@ -38,7 +38,7 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
       return;
     }
     updateProps({
-      markersCsv: text,
+      markersCsv: buildNearbyPlacesCsv(normalizedPlaces),
       syncedPlaceCount: normalizedPlaces.length,
       syncedPlacesAt: new Date().toISOString(),
     });

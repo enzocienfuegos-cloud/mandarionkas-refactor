@@ -72,7 +72,7 @@ export function parseNearbyPlaces(csv: string): NearbyPlace[] {
   const nameIndex = indexOf('name');
   const flagIndex = indexOf('flag');
   const latIndex = indexOf('lat', 'latitude');
-  const lngIndex = indexOf('lng', 'lon', 'longitude');
+  const lngIndex = indexOf('lng', 'lon', 'long', 'longitude');
   const addressIndex = indexOf('address');
   const badgeIndex = indexOf('badge');
   const openNowIndex = indexOf('opennow', 'open_now', 'open-now');
