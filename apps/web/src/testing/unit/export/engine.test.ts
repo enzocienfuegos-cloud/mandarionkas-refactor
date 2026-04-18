@@ -688,6 +688,76 @@ describe('export engine', () => {
     expect(preflight.summary.deliveryMode).toBe('blocked');
   });
 
+  it('surfaces blocked mraid widgets in channel preflight', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+    state.document.widgets.speed_1 = {
+      id: 'speed_1',
+      type: 'speed-test',
+      name: 'Speed Test',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 240, height: 180, rotation: 0 },
+      style: {},
+      props: { title: 'Speed Test' },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.widgets.cta_1 = {
+      id: 'cta_1',
+      type: 'cta',
+      name: 'CTA',
+      sceneId,
+      zIndex: 2,
+      frame: { x: 0, y: 0, width: 160, height: 44, rotation: 0 },
+      style: {},
+      props: { text: 'Tap now', url: 'https://example.com' },
+      timeline: { startMs: 0, endMs: 1000 },
+      actions: [],
+    } as any;
+    state.document.actions.act_1 = {
+      id: 'act_1',
+      widgetId: 'cta_1',
+      trigger: 'click',
+      type: 'open-url',
+      url: 'https://example.com',
+      label: 'Exit',
+    };
+    state.document.scenes[0].widgetIds.push('speed_1', 'cta_1');
+
+    const preflight = buildExportPreflight(state);
+
+    expect(preflight.channelBlockers.some((item) => item.id === 'mraid-widget-speed-test')).toBe(true);
+    expect(preflight.summary.topBlocker).toContain('speed test');
+  });
+
+  it('adds package compliance findings for blocked mraid widgets', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+    state.document.widgets.speed_1 = {
+      id: 'speed_1',
+      type: 'speed-test',
+      name: 'Speed Test',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 240, height: 180, rotation: 0 },
+      style: {},
+      props: { title: 'Speed Test' },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('speed_1');
+
+    const bundle = buildExportBundle(state);
+    const compliance = JSON.parse(bundle.files.find((file) => file.path === 'package-compliance.json')?.content ?? '[]');
+
+    expect(compliance.some((item: { code?: string; targetId?: string }) => item.code === 'widget.mraid-blocked-module' && item.targetId === 'speed-test')).toBe(true);
+  });
+
   it('includes preflight in the publish package payload', () => {
     const state = createInitialState();
     const payload = JSON.parse(buildPublishPackage(state));

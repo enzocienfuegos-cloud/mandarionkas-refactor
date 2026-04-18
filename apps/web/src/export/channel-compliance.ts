@@ -2,6 +2,7 @@ import type { ReleaseTarget } from '../domain/document/types';
 import type { ChannelRequirement } from './types';
 import type { PortableExportProject } from './portable';
 import type { ExportRuntimeModel } from './runtime-model';
+import { getMraidProjectCompatibility } from './mraid-compatibility';
 
 export function getPortableChannelRequirements(
   target: ReleaseTarget,
@@ -119,6 +120,12 @@ export function getPortableChannelRequirements(
           passed: canvas.height >= canvas.width,
           severity: 'warning',
         },
+        ...getMraidProjectCompatibility(project).map((item) => ({
+          id: `mraid-widget-${item.type}`,
+          label: item.message,
+          passed: false,
+          severity: item.level === 'blocked' ? 'error' as const : 'warning' as const,
+        })),
       ];
     case 'meta-story':
       return [

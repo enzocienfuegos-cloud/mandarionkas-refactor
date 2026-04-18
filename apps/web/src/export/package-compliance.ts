@@ -2,6 +2,8 @@ import type { ExportAssetPlanEntry } from './assets';
 import type { ExportBundle } from './bundle';
 import { buildExportPackageMetrics } from './package-metrics';
 import type { ExportExitConfig, ExportPackagingPlan } from './packaging';
+import type { PortableExportProject } from './portable';
+import { getMraidProjectCompatibility } from './mraid-compatibility';
 
 export type ExportPackageComplianceIssue = {
   level: 'error' | 'warning';
@@ -14,6 +16,16 @@ export type ExportPackageComplianceIssue = {
 function getTotalBundleBytes(bundle: ExportBundle): number {
   const encoder = new TextEncoder();
   return bundle.files.reduce((sum, file) => sum + (file.bytes?.length ?? encoder.encode(file.content ?? '').length), 0);
+}
+
+function parsePortableProject(bundle: ExportBundle): PortableExportProject | null {
+  const content = bundle.files.find((file) => file.path === 'portable-project.json')?.content;
+  if (!content) return null;
+  try {
+    return JSON.parse(content) as PortableExportProject;
+  } catch {
+    return null;
+  }
 }
 
 export function validateExportPackage(
@@ -33,6 +45,7 @@ export function validateExportPackage(
   const packageMetrics = buildExportPackageMetrics(bundle, assetPlan);
   const clickTagChannel = bundle.channel === 'google-display' || bundle.channel === 'gam-html5';
   const mraidChannel = bundle.channel === 'mraid';
+  const portableProject = mraidChannel ? parsePortableProject(bundle) : null;
 
   if (!bundle.files.length) {
     issues.push({
@@ -230,6 +243,18 @@ export function validateExportPackage(
       code: 'bundle.channel-size-warning',
       scope: 'bundle',
       message: `${bundle.channel} package is ${Math.round(packageMetrics.totalBytes / 1024)} KB, above the current recommended budget of ${Math.round(recommendedBytes / 1024)} KB.`,
+    });
+  }
+
+  if (mraidChannel && portableProject) {
+    getMraidProjectCompatibility(portableProject).forEach((item) => {
+      issues.push({
+        level: item.level === 'blocked' ? 'error' : 'warning',
+        code: item.level === 'blocked' ? 'widget.mraid-blocked-module' : 'widget.mraid-review-module',
+        scope: 'runtime',
+        targetId: item.type,
+        message: item.message,
+      });
     });
   }
 
