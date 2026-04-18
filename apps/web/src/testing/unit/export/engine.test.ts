@@ -4,6 +4,66 @@ import { buildChannelHtml, buildExportAssetPlan, buildExportBundle, buildExportB
 import { buildNearbyPlacesCsv, parseNearbyPlaces } from '../../../widgets/modules/dynamic-map.shared';
 
 describe('export engine', () => {
+  function buildMraidFixtureState(size: '320x480' | '300x600') {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    const [width, height] = size.split('x').map(Number);
+    state.document.metadata.release.targetChannel = 'mraid';
+    state.document.metadata.release.qaStatus = 'ready-for-qa';
+    state.document.name = `MRAID ${size}`;
+    state.document.canvas.width = width;
+    state.document.canvas.height = height;
+    state.document.widgets.hero_1 = {
+      id: 'hero_1',
+      type: 'hero-image',
+      name: 'Hero',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width, height: Math.max(160, Math.floor(height * 0.42)), rotation: 0 },
+      style: {},
+      props: { src: 'https://cdn.example.com/hero.jpg', alt: 'Hero' },
+      timeline: { startMs: 0, endMs: 15000 },
+    } as any;
+    state.document.widgets.carousel_1 = {
+      id: 'carousel_1',
+      type: 'image-carousel',
+      name: 'Carousel',
+      sceneId,
+      zIndex: 2,
+      frame: { x: 12, y: Math.max(120, Math.floor(height * 0.46)), width: width - 24, height: Math.max(110, Math.floor(height * 0.26)), rotation: 0 },
+      style: {},
+      props: {
+        slides: 'https://cdn.example.com/slide-a.jpg|;https://cdn.example.com/slide-b.jpg|',
+        autoplay: false,
+        showPrevButton: true,
+        showNextButton: true,
+      },
+      timeline: { startMs: 0, endMs: 15000 },
+    } as any;
+    state.document.widgets.cta_1 = {
+      id: 'cta_1',
+      type: 'cta',
+      name: 'CTA',
+      sceneId,
+      zIndex: 3,
+      frame: { x: 20, y: height - 64, width: Math.max(120, width - 40), height: 44, rotation: 0 },
+      style: {},
+      props: { text: 'Open', url: 'https://example.com' },
+      timeline: { startMs: 0, endMs: 15000 },
+      actions: [],
+    } as any;
+    state.document.actions.act_1 = {
+      id: 'act_1',
+      widgetId: 'cta_1',
+      trigger: 'click',
+      type: 'open-url',
+      url: 'https://example.com',
+      label: 'Exit',
+    };
+    state.document.scenes[0].widgetIds.push('hero_1', 'carousel_1', 'cta_1');
+    return state;
+  }
+
   it('round-trips nearby places csv with badges and custom ctas', () => {
     const csv = buildNearbyPlacesCsv([
       {
@@ -991,6 +1051,40 @@ describe('export engine', () => {
     expect(payload.handoff.mraid).toBeTruthy();
     expect(payload.handoff.mraid.placementType).toBe('interstitial');
     expect(payload.handoff.mraid.standardSize).toBe(true);
+  });
+
+  it('hardens a representative 320x480 mraid interstitial package', () => {
+    const state = buildMraidFixtureState('320x480');
+
+    const adapter = buildMraidAdapter(state);
+    const bundle = buildExportBundle(state);
+    const preflight = buildExportPreflight(state);
+    const zip = buildZipFromBundle(bundle, 'MRAID-320x480');
+
+    expect(adapter.mraid.placement).toBe('interstitial');
+    expect(adapter.mraid.expectedHost.maxSize).toEqual({ width: 320, height: 480 });
+    expect(bundle.files.some((file) => file.path === 'index.html')).toBe(true);
+    expect(bundle.files.some((file) => file.path === 'adapter.json')).toBe(true);
+    expect(preflight.summary.preferredArtifact).toBe('zip-resolved');
+    expect(preflight.summary.blockers).toBe(0);
+    expect(preflight.summary.readyForBundleZip).toBe(true);
+    expect(zip.filename).toBe('MRAID-320x480.zip');
+  });
+
+  it('hardens a representative 300x600 mraid inline package', () => {
+    const state = buildMraidFixtureState('300x600');
+
+    const adapter = buildMraidAdapter(state);
+    const bundle = buildExportBundle(state);
+    const publishPayload = JSON.parse(buildPublishPackage(state));
+    const compliance = JSON.parse(bundle.files.find((file) => file.path === 'package-compliance.json')?.content ?? '[]');
+
+    expect(adapter.mraid.placement).toBe('inline');
+    expect(adapter.mraid.expectedHost.maxSize).toEqual({ width: 300, height: 600 });
+    expect(publishPayload.handoff.mraid).toBeTruthy();
+    expect(publishPayload.handoff.mraid.placementType).toBe('inline');
+    expect(compliance.some((item: { code?: string; targetId?: string }) => item.code === 'runtime.mraid-placement-review' && item.targetId === 'inline')).toBe(true);
+    expect(bundle.files.some((file) => file.path === 'remote-fetch-plan.json')).toBe(true);
   });
 
   it('materializes inline data-uri assets into bundle files', () => {
