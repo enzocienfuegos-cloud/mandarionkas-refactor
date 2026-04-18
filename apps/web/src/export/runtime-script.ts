@@ -165,6 +165,12 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     container.addEventListener('wheel', stop, { once: true, passive: true });
   }
 
+  function shouldShowMediaCaption(value) {
+    const caption = String(value || '').trim();
+    if (!caption) return false;
+    return !(/\.[a-z0-9]{2,5}$/i.test(caption) || /[_-]/.test(caption));
+  }
+
   function renderMapCards(root, userPosition) {
     const cardsRoot = root.querySelector('[data-map-cards]');
     if (!cardsRoot) return;
@@ -317,9 +323,12 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     const caption = root.querySelector('[data-carousel-caption]');
     if (image && activeSlide) {
       image.setAttribute('src', activeSlide.src || '');
-      image.setAttribute('alt', activeSlide.caption || '');
+      image.setAttribute('alt', shouldShowMediaCaption(activeSlide.caption) ? activeSlide.caption : '');
     }
-    if (caption && activeSlide) caption.textContent = activeSlide.caption || '';
+    if (caption && activeSlide) {
+      caption.textContent = shouldShowMediaCaption(activeSlide.caption) ? activeSlide.caption : '';
+      caption.style.display = shouldShowMediaCaption(activeSlide.caption) ? 'block' : 'none';
+    }
     root.querySelectorAll('[data-carousel-target]').forEach((dot) => {
       const target = Number(dot.getAttribute('data-carousel-target') || 0);
       dot.style.background = target === normalizedIndex ? accent : 'rgba(255,255,255,.45)';
@@ -353,9 +362,12 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     const activeSlide = Array.isArray(slides) ? slides[normalizedIndex] : null;
     if (image && activeSlide) {
       image.setAttribute('src', activeSlide.src || '');
-      image.setAttribute('alt', activeSlide.caption || '');
+      image.setAttribute('alt', shouldShowMediaCaption(activeSlide.caption) ? activeSlide.caption : '');
     }
-    if (caption && activeSlide) caption.textContent = activeSlide.caption || ('Image ' + String(normalizedIndex + 1));
+    if (caption && activeSlide) {
+      caption.textContent = shouldShowMediaCaption(activeSlide.caption) ? activeSlide.caption : '';
+      caption.style.display = shouldShowMediaCaption(activeSlide.caption) ? 'block' : 'none';
+    }
     if (count) count.textContent = String(normalizedIndex + 1) + ' / ' + String(total);
     if (!image && card) card.textContent = String(normalizedIndex + 1) + ' / ' + String(total);
     root.querySelectorAll('[data-gallery-target]').forEach((dot) => {

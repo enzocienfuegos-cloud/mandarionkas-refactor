@@ -89,7 +89,13 @@ export function getFlagEmoji(flagCode: string): string {
   const code = flagCode.trim().toUpperCase(); if (!/^[A-Z]{2}$/.test(code)) return '📍'; return String.fromCodePoint(...[...code].map((char) => 127397 + char.charCodeAt(0)));
 }
 export function parseCarouselSlides(raw: string): Array<{ src: string; caption: string }> {
-  return raw.split(';').map((item) => item.trim()).filter(Boolean).map((item, index) => { const [src, caption] = item.split('|'); return { src: (src ?? '').trim(), caption: (caption ?? `Slide ${index + 1}`).trim() }; }).filter((item) => item.src);
+  return raw.split(';').map((item) => item.trim()).filter(Boolean).map((item) => { const [src, caption] = item.split('|'); return { src: (src ?? '').trim(), caption: (caption ?? '').trim() }; }).filter((item) => item.src);
+}
+
+export function isFilenameLikeCaption(caption: string): boolean {
+  const value = caption.trim();
+  if (!value) return false;
+  return /\.[a-z0-9]{2,5}$/i.test(value) || /[_-]/.test(value);
 }
 const COLLAPSIBLE_EDITOR_WIDGETS = new Set<WidgetNode['type']>([]);
 function editorSummary(node: WidgetNode): string[] {

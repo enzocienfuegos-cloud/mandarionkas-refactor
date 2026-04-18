@@ -171,14 +171,20 @@ function parseCarouselSlides(raw: unknown, assetPathMap: Record<string, string>)
     .split(';')
     .map((item) => item.trim())
     .filter(Boolean)
-    .map((item, index) => {
+    .map((item) => {
       const [src, caption] = item.split('|');
       return {
         src: resolveAssetPath((src ?? '').trim(), assetPathMap),
-        caption: (caption ?? `Slide ${index + 1}`).trim(),
+        caption: (caption ?? '').trim(),
       };
     })
     .filter((item) => item.src);
+}
+
+function isFilenameLikeCaption(caption: string): boolean {
+  const value = caption.trim();
+  if (!value) return false;
+  return /\.[a-z0-9]{2,5}$/i.test(value) || /[_-]/.test(value);
 }
 
 function renderImageWidget(node: WidgetNode, assetPathMap: Record<string, string>, kind: 'image' | 'hero-image'): string {
@@ -259,9 +265,9 @@ function renderCarouselWidget(node: WidgetNode, assetPathMap: Record<string, str
   return `<div class="widget widget-image-carousel" data-widget-id="${node.id}" data-carousel-slides="${slidesJson}" data-carousel-index="0" data-carousel-accent="${escapeHtml(accent)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     <div style="position:relative;flex:1;margin:8px 12px 12px;border-radius:12px;overflow:hidden;background:#111827;">
-      ${activeSlide ? `<img data-carousel-image src="${escapeHtml(activeSlide.src)}" alt="${escapeHtml(activeSlide.caption)}" style="width:100%;height:100%;display:block;object-fit:cover;" />` : '<div style="width:100%;height:100%;display:grid;place-items:center;opacity:.7;">Add slides</div>'}
+      ${activeSlide ? `<img data-carousel-image src="${escapeHtml(activeSlide.src)}" alt="${escapeHtml(activeSlide.caption && !isFilenameLikeCaption(activeSlide.caption) ? activeSlide.caption : '')}" style="width:100%;height:100%;display:block;object-fit:cover;" />` : '<div style="width:100%;height:100%;display:grid;place-items:center;opacity:.7;">Add slides</div>'}
       <div style="position:absolute;inset-inline:12px;bottom:10px;display:flex;justify-content:space-between;align-items:end;gap:8px;">
-        <div data-carousel-caption style="border-radius:10px;padding:8px 10px;background:rgba(15,23,42,.68);font-size:12px;">${escapeHtml(activeSlide?.caption ?? 'No slide')}</div>
+        ${(activeSlide?.caption && !isFilenameLikeCaption(activeSlide.caption)) ? `<div data-carousel-caption style="border-radius:10px;padding:8px 10px;background:rgba(15,23,42,.68);font-size:12px;">${escapeHtml(activeSlide.caption)}</div>` : '<div data-carousel-caption style="display:none;"></div>'}
         ${showPaginationDots ? `<div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">${slides.map((_, index) => `<button type="button" data-smx-action="carousel-dot" data-widget-id="${node.id}" data-carousel-target="${index}" style="width:${paginationDotSize}px;min-width:${paginationDotSize}px;height:${paginationDotSize}px;min-height:${paginationDotSize}px;border-radius:50%;border:none;padding:0;margin:0;background:${index === 0 ? escapeHtml(accent) : 'rgba(255,255,255,.45)'};cursor:pointer;appearance:none;-webkit-appearance:none;display:block;flex:0 0 auto;line-height:1;box-sizing:border-box;"></button>`).join('')}</div>` : ''}
       </div>
     </div>
@@ -847,8 +853,8 @@ function renderInteractiveGalleryWidget(node: WidgetNode): string {
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;">
       <div data-gallery-card style="flex:1;border-radius:12px;overflow:hidden;background:${activeSlide ? '#111827' : `linear-gradient(135deg, ${escapeHtml(accent)}55, rgba(255,255,255,.08))`};display:grid;place-items:center;font-size:26px;font-weight:900;position:relative;">
-        ${activeSlide ? `<img data-gallery-image src="${escapeHtml(activeSlide.src)}" alt="${escapeHtml(activeSlide.caption)}" style="width:100%;height:100%;display:block;object-fit:cover;" />` : `${activeIndex + 1} / ${itemCount}`}
-        ${activeSlide ? `<div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;align-items:end;gap:8px;"><div data-gallery-caption style="border-radius:10px;padding:8px 10px;background:rgba(15,23,42,.68);font-size:12px;color:#fff;">${escapeHtml(activeSlide.caption || `Image ${activeIndex + 1}`)}</div><div style="display:flex;align-items:center;gap:8px;">${showPaginationDots ? `<div style="display:flex;gap:6px;">${Array.from({ length: itemCount }, (_, index) => `<button type="button" data-smx-action="gallery-dot" data-widget-id="${node.id}" data-gallery-target="${index}" style="width:${paginationDotSize}px;height:${paginationDotSize}px;border-radius:50%;border:none;background:${index === activeIndex ? escapeHtml(accent) : 'rgba(255,255,255,.4)'};cursor:pointer;"></button>`).join('')}</div>` : ''}<div data-gallery-count style="border-radius:999px;padding:4px 8px;background:rgba(15,23,42,.68);font-size:12px;color:#fff;">${activeIndex + 1} / ${itemCount}</div></div></div>` : ''}
+        ${activeSlide ? `<img data-gallery-image src="${escapeHtml(activeSlide.src)}" alt="${escapeHtml(activeSlide.caption && !isFilenameLikeCaption(activeSlide.caption) ? activeSlide.caption : '')}" style="width:100%;height:100%;display:block;object-fit:cover;" />` : `${activeIndex + 1} / ${itemCount}`}
+        ${activeSlide ? `<div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;align-items:end;gap:8px;">${(activeSlide.caption && !isFilenameLikeCaption(activeSlide.caption)) ? `<div data-gallery-caption style="border-radius:10px;padding:8px 10px;background:rgba(15,23,42,.68);font-size:12px;color:#fff;">${escapeHtml(activeSlide.caption)}</div>` : '<div data-gallery-caption style="display:none;"></div>'}<div style="display:flex;align-items:center;gap:8px;">${showPaginationDots ? `<div style="display:flex;gap:6px;">${Array.from({ length: itemCount }, (_, index) => `<button type="button" data-smx-action="gallery-dot" data-widget-id="${node.id}" data-gallery-target="${index}" style="width:${paginationDotSize}px;height:${paginationDotSize}px;border-radius:50%;border:none;background:${index === activeIndex ? escapeHtml(accent) : 'rgba(255,255,255,.4)'};cursor:pointer;"></button>`).join('')}</div>` : ''}<div data-gallery-count style="border-radius:999px;padding:4px 8px;background:rgba(15,23,42,.68);font-size:12px;color:#fff;">${activeIndex + 1} / ${itemCount}</div></div></div>` : ''}
       </div>
       ${showPrevButton || showNextButton ? `<div style="display:flex;gap:8px;">${showPrevButton ? `<button type="button" data-smx-action="gallery-prev" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:1px solid ${escapeHtml(accent)};background:transparent;color:inherit;padding:8px 10px;">Prev</button>` : ''}${showNextButton ? `<button type="button" data-smx-action="gallery-next" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:none;background:${escapeHtml(accent)};color:${String(style.backgroundColor ?? '#ffffff')};padding:8px 10px;font-weight:800;">Next</button>` : ''}</div>` : ''}
     </div>

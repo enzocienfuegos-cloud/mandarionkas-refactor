@@ -62,7 +62,7 @@ export function GalleryAssetsInspector({ widget, title }: { widget: WidgetNode; 
       .filter((asset): asset is AssetRecord => Boolean(asset))
       .filter((asset) => !selectedAssetIds.includes(asset.id));
     if (!pickedAssets.length) return;
-    const nextSlides = [...slides, ...pickedAssets.map((asset) => ({ src: asset.src, caption: asset.name }))];
+    const nextSlides = [...slides, ...pickedAssets.map((asset) => ({ src: asset.src, caption: '' }))];
     const nextIds = [...selectedAssetIds, ...pickedAssets.map((asset) => asset.id)];
     widgetActions.updateWidgetProps(widget.id, {
       slides: buildSlidesValue(nextSlides),
