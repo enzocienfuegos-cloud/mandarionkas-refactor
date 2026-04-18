@@ -8,6 +8,7 @@ export function DiagnosticsSection(): JSX.Element {
   const issues = collectDiagnostics(state);
   const readiness = buildExportReadiness(state);
   const manifest = buildExportManifest(state);
+  const mraidHandoff = manifest.handoff?.mraid;
 
   return (
     <div className="field-stack">
@@ -38,6 +39,31 @@ export function DiagnosticsSection(): JSX.Element {
           </div>
         ))}
       </div>
+      {mraidHandoff ? (
+        <div className="field-stack">
+          <small className="muted">MRAID handoff</small>
+          <div className="meta-line">
+            <span className="pill">API {mraidHandoff.apiVersion}</span>
+            <span className="pill">Placement {mraidHandoff.placementType}</span>
+            <span className="pill">Host features {mraidHandoff.requiredHostFeatures.join(', ')}</span>
+          </div>
+          {mraidHandoff.blockers.map((item) => (
+            <div key={`handoff-blocker-${item}`} className="pill" style={{ borderColor: 'rgba(239,68,68,.45)' }}>
+              blocker · {item}
+            </div>
+          ))}
+          {mraidHandoff.warnings.map((item) => (
+            <div key={`handoff-warning-${item}`} className="pill" style={{ borderColor: 'rgba(245,158,11,.45)' }}>
+              warning · {item}
+            </div>
+          ))}
+          {!mraidHandoff.blockers.length && !mraidHandoff.warnings.length ? (
+            <div className="pill" style={{ borderColor: 'rgba(34,197,94,.35)' }}>
+              ✓ MRAID handoff clean
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="field-stack">
         <button onClick={() => triggerExportHtml(state)}>Export HTML</button>
         <button onClick={() => triggerExportManifest(state)}>Export manifest</button>

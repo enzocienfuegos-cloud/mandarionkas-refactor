@@ -1,5 +1,7 @@
 import type { ExportValidationIssue } from '../domain/document/export-validation';
 import type { ReleaseTarget } from '../domain/document/types';
+import type { ExportChannelProfile } from './adapters';
+import type { MraidHandoff, MraidHostFeature } from './mraid-handoff';
 
 export type ExportReadiness = {
   score: number;
@@ -9,6 +11,11 @@ export type ExportReadiness = {
   checklist: Array<{ label: string; passed: boolean }>;
   targetChannel: ReleaseTarget;
   qaStatus: string;
+  channelProfile: Pick<ExportChannelProfile, 'id' | 'label' | 'family' | 'deliveryMode' | 'exitStrategy' | 'supportedSizes'>;
+  hostRequirements?: {
+    requiredFeatures: MraidHostFeature[];
+    expectedPlacementType: MraidHandoff['placementType'];
+  };
 };
 
 export type ChannelRequirement = {
@@ -30,7 +37,11 @@ export type ExportManifest = {
   widgetCount: number;
   actionCount: number;
   targetChannel: ReleaseTarget;
+  channelProfile: Pick<ExportChannelProfile, 'id' | 'label' | 'family' | 'deliveryMode' | 'exitStrategy' | 'supportedSizes'>;
   qaStatus: string;
   issues: ExportValidationIssue[];
   channelChecklist: ChannelRequirement[];
+  handoff?: {
+    mraid?: MraidHandoff;
+  };
 };

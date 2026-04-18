@@ -7,6 +7,7 @@ export function ExportSection(): JSX.Element {
   const manifest = buildExportManifest(state);
   const readiness = buildExportReadiness(state);
   const issues = validateExport(state);
+  const mraidHandoff = manifest.handoff?.mraid;
   const errorCount = issues.filter((item) => item.level === 'error').length;
   const warningCount = issues.filter((item) => item.level === 'warning').length;
 
@@ -22,6 +23,19 @@ export function ExportSection(): JSX.Element {
         <span className="pill">Warnings {warningCount}</span>
         <span className="pill">Readiness {readiness.score}% · {readiness.grade}</span>
       </div>
+      {mraidHandoff ? (
+        <div className="field-stack">
+          <div className="meta-line">
+            <span className="pill">MRAID {mraidHandoff.apiVersion}</span>
+            <span className="pill">Placement {mraidHandoff.placementType}</span>
+            <span className="pill">Host {mraidHandoff.readyForHostHandoff ? 'ready' : 'review needed'}</span>
+          </div>
+          <div className="meta-line">
+            <span className="pill">Requires {mraidHandoff.requiredHostFeatures.join(', ')}</span>
+            <span className="pill">Size {mraidHandoff.standardSize.width}×{mraidHandoff.standardSize.height}</span>
+          </div>
+        </div>
+      ) : null}
       <div className="field-stack">
         {readiness.checklist.map((item) => (
           <div key={item.label} className="pill" style={{ borderColor: item.passed ? 'rgba(34,197,94,.35)' : 'rgba(239,68,68,.35)' }}>
@@ -45,6 +59,20 @@ export function ExportSection(): JSX.Element {
           ))}
         </div>
       ) : <div className="pill">Export validation clean</div>}
+      {mraidHandoff && (mraidHandoff.blockers.length || mraidHandoff.warnings.length) ? (
+        <div className="field-stack">
+          {mraidHandoff.blockers.map((item) => (
+            <div key={`mraid-blocker-${item}`} className="pill" style={{ borderColor: 'rgba(239,68,68,.45)' }}>
+              blocker · {item}
+            </div>
+          ))}
+          {mraidHandoff.warnings.map((item) => (
+            <div key={`mraid-warning-${item}`} className="pill" style={{ borderColor: 'rgba(245,158,11,.45)' }}>
+              warning · {item}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

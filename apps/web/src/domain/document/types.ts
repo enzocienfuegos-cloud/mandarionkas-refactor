@@ -68,7 +68,7 @@ export type SceneFlow = {
 export type WidgetNode = { id: string; type: WidgetType; name: string; sceneId: string; zIndex: number; hidden?: boolean; locked?: boolean; parentId?: string; childIds?: string[]; frame: WidgetFrame; props: Record<string, unknown>; style: Record<string, unknown>; bindings?: Record<string, WidgetBinding>; variants?: Partial<Record<VariantName, VariantOverride>>; conditions?: WidgetConditions; timeline: WidgetTimeline; };
 export type SceneNode = { id: string; name: string; order: number; widgetIds: string[]; durationMs: number; conditions?: SceneConditions; flow?: SceneFlow; transition?: SceneTransition; };
 export type CanvasNode = { width: number; height: number; backgroundColor: string; presetId?: string; };
-export type ReleaseTarget = 'generic-html5' | 'google-display' | 'gam-html5' | 'meta-story' | 'tiktok-vertical';
+export type ReleaseTarget = 'generic-html5' | 'iab-html5' | 'mraid' | 'google-display' | 'gam-html5' | 'meta-story' | 'tiktok-vertical';
 export type QaStatus = 'draft' | 'ready-for-qa' | 'qa-passed';
 export type ReleaseSettings = {
   targetChannel: ReleaseTarget;

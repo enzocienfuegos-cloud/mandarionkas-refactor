@@ -1,6 +1,7 @@
 import { getActiveFeedRecord, resolveWidgetSnapshot } from '../domain/document/resolvers';
 import type { SceneNode, StudioState, WidgetNode } from '../domain/document/types';
 import { getWidgetDefinition } from '../widgets/registry/widget-registry';
+import { getExportChannelProfile } from './adapters';
 import { buildExportManifest } from './manifest';
 
 export function escapeHtml(value: unknown): string {
@@ -59,8 +60,227 @@ function sceneHtml(scene: SceneNode, state: StudioState): string {
   `;
 }
 
+function buildMraidBridgeScript(channelProfile: ReturnType<typeof getExportChannelProfile>): string {
+  return `
+    (function () {
+      var profile = ${JSON.stringify({
+        id: channelProfile.id,
+        label: channelProfile.label,
+        family: channelProfile.family,
+        deliveryMode: channelProfile.deliveryMode,
+        exitStrategy: channelProfile.exitStrategy,
+      })};
+      var root = document.documentElement;
+      var state = {
+        channel: profile.id,
+        ready: false,
+        state: 'loading',
+        viewable: undefined,
+        placementType: undefined,
+        version: undefined,
+        maxSize: undefined,
+        screenSize: undefined,
+        currentPosition: undefined,
+        defaultPosition: undefined,
+        supports: {},
+        lastError: undefined,
+      };
+
+      function syncDom() {
+        root.setAttribute('data-export-channel', String(profile.id || 'generic-html5'));
+        root.setAttribute('data-export-delivery', String(profile.deliveryMode || 'html5'));
+        root.setAttribute('data-export-exit', String(profile.exitStrategy || 'window-open'));
+        root.setAttribute('data-mraid-ready', state.ready ? 'true' : 'false');
+        root.setAttribute('data-mraid-state', String(state.state || 'unknown'));
+        root.setAttribute('data-mraid-placement', String(state.placementType || ''));
+        root.setAttribute('data-mraid-viewable', typeof state.viewable === 'boolean' ? String(state.viewable) : '');
+        if (state.maxSize && typeof state.maxSize.width === 'number' && typeof state.maxSize.height === 'number') {
+          root.setAttribute('data-mraid-max-size', state.maxSize.width + 'x' + state.maxSize.height);
+        } else {
+          root.removeAttribute('data-mraid-max-size');
+        }
+      }
+
+      function emitChange() {
+        syncDom();
+        window.smxMraidState = state;
+        window.dispatchEvent(new CustomEvent('smx:mraid-change', { detail: state }));
+      }
+
+      function normalizeLocation(raw, source) {
+        if (!raw || typeof raw !== 'object') return null;
+        var lat = typeof raw.lat === 'number' ? raw.lat : (typeof raw.latitude === 'number' ? raw.latitude : undefined);
+        var lng = typeof raw.lon === 'number' ? raw.lon : (typeof raw.lng === 'number' ? raw.lng : (typeof raw.longitude === 'number' ? raw.longitude : undefined));
+        if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+        return {
+          source: source,
+          lat: lat,
+          lng: lng,
+          accuracy: typeof raw.accuracy === 'number' ? raw.accuracy : undefined,
+          timestamp: typeof raw.lastfix === 'number' ? Date.now() - (raw.lastfix * 1000) : Date.now(),
+          raw: raw,
+        };
+      }
+
+      function captureHostMetrics(mraid) {
+        try { state.version = typeof mraid.getVersion === 'function' ? mraid.getVersion() : state.version; } catch {}
+        try { state.state = typeof mraid.getState === 'function' ? mraid.getState() : state.state; } catch {}
+        try { state.viewable = typeof mraid.isViewable === 'function' ? mraid.isViewable() : state.viewable; } catch {}
+        try { state.placementType = typeof mraid.getPlacementType === 'function' ? mraid.getPlacementType() : state.placementType; } catch {}
+        try { state.maxSize = typeof mraid.getMaxSize === 'function' ? mraid.getMaxSize() : state.maxSize; } catch {}
+        try { state.screenSize = typeof mraid.getScreenSize === 'function' ? mraid.getScreenSize() : state.screenSize; } catch {}
+        try { state.currentPosition = typeof mraid.getCurrentPosition === 'function' ? mraid.getCurrentPosition() : state.currentPosition; } catch {}
+        try { state.defaultPosition = typeof mraid.getDefaultPosition === 'function' ? mraid.getDefaultPosition() : state.defaultPosition; } catch {}
+        try {
+          state.supports = {
+            sms: typeof mraid.supports === 'function' ? !!mraid.supports('sms') : false,
+            tel: typeof mraid.supports === 'function' ? !!mraid.supports('tel') : false,
+            calendar: typeof mraid.supports === 'function' ? !!mraid.supports('calendar') : false,
+            storePicture: typeof mraid.supports === 'function' ? !!mraid.supports('storePicture') : false,
+            inlineVideo: typeof mraid.supports === 'function' ? !!mraid.supports('inlineVideo') : false,
+            location: typeof mraid.supports === 'function' ? !!mraid.supports('location') : false,
+          };
+        } catch {}
+      }
+
+      function attachMraidBridge(mraid) {
+        if (!mraid || typeof mraid.addEventListener !== 'function') return;
+
+        function markReady() {
+          state.ready = true;
+          captureHostMetrics(mraid);
+          emitChange();
+        }
+
+        try {
+          mraid.addEventListener('ready', markReady);
+          mraid.addEventListener('stateChange', function (nextState) {
+            state.state = nextState;
+            captureHostMetrics(mraid);
+            emitChange();
+          });
+          mraid.addEventListener('viewableChange', function (viewable) {
+            state.viewable = !!viewable;
+            emitChange();
+          });
+          mraid.addEventListener('sizeChange', function (width, height) {
+            state.maxSize = { width: width, height: height };
+            emitChange();
+          });
+          mraid.addEventListener('error', function (message, action) {
+            state.lastError = { message: message, action: action };
+            emitChange();
+          });
+        } catch {}
+
+        try {
+          if (typeof mraid.getState === 'function' && mraid.getState() === 'loading') {
+            captureHostMetrics(mraid);
+            emitChange();
+          } else {
+            markReady();
+          }
+        } catch {
+          markReady();
+        }
+      }
+
+      window.smxOpenUrl = function (url) {
+        if (!url) return;
+        try {
+          if (window.mraid && typeof window.mraid.open === 'function') {
+            window.mraid.open(url);
+            return;
+          }
+        } catch {}
+        window.open(url, '_blank', 'noopener,noreferrer');
+      };
+
+      window.smxGetRuntimeLocation = async function () {
+        try {
+          if (window.mraid && typeof window.mraid.supports === 'function' && window.mraid.supports('location') && typeof window.mraid.getLocation === 'function') {
+            var mraidLocation = normalizeLocation(window.mraid.getLocation(), 'mraid');
+            if (mraidLocation) return mraidLocation;
+          }
+        } catch {}
+
+        try {
+          if (navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === 'function') {
+            return await new Promise(function (resolve) {
+              navigator.geolocation.getCurrentPosition(function (position) {
+                resolve({
+                  source: 'browser',
+                  lat: position.coords.latitude,
+                  lng: position.coords.longitude,
+                  accuracy: position.coords.accuracy,
+                  timestamp: position.timestamp,
+                  raw: position,
+                });
+              }, function () {
+                resolve({ source: 'none' });
+              }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 });
+            });
+          }
+        } catch {}
+
+        return { source: 'none' };
+      };
+
+      syncDom();
+      attachMraidBridge(window.mraid);
+    })();
+  `;
+}
+
+function buildGenericHostBridgeScript(channelProfile: ReturnType<typeof getExportChannelProfile>): string {
+  return `
+    (function () {
+      var profile = ${JSON.stringify({
+        id: channelProfile.id,
+        label: channelProfile.label,
+        family: channelProfile.family,
+        deliveryMode: channelProfile.deliveryMode,
+        exitStrategy: channelProfile.exitStrategy,
+      })};
+      var root = document.documentElement;
+      root.setAttribute('data-export-channel', String(profile.id || 'generic-html5'));
+      root.setAttribute('data-export-delivery', String(profile.deliveryMode || 'html5'));
+      root.setAttribute('data-export-exit', String(profile.exitStrategy || 'window-open'));
+      window.smxOpenUrl = function (url) {
+        if (!url) return;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      };
+      window.smxGetRuntimeLocation = async function () {
+        try {
+          if (navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === 'function') {
+            return await new Promise(function (resolve) {
+              navigator.geolocation.getCurrentPosition(function (position) {
+                resolve({
+                  source: 'browser',
+                  lat: position.coords.latitude,
+                  lng: position.coords.longitude,
+                  accuracy: position.coords.accuracy,
+                  timestamp: position.timestamp,
+                  raw: position,
+                });
+              }, function () {
+                resolve({ source: 'none' });
+              }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 });
+            });
+          }
+        } catch {}
+        return { source: 'none' };
+      };
+    })();
+  `;
+}
+
 export function buildStandaloneHtml(state: StudioState): string {
   const manifest = buildExportManifest(state);
+  const channelProfile = getExportChannelProfile(state.document.metadata.release.targetChannel);
+  const hostBridgeScript = channelProfile.id === 'mraid'
+    ? buildMraidBridgeScript(channelProfile)
+    : buildGenericHostBridgeScript(channelProfile);
   const activeRecord = getActiveFeedRecord(state);
   const orderedScenes = [...state.document.scenes].sort((a, b) => a.order - b.order);
   return `<!doctype html>
@@ -69,6 +289,7 @@ export function buildStandaloneHtml(state: StudioState): string {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(state.document.name || 'SMX Export')}</title>
+  ${channelProfile.id === 'mraid' ? '<script>window.MRAID_ENV = window.MRAID_ENV || {};</script>' : ''}
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
@@ -96,6 +317,7 @@ export function buildStandaloneHtml(state: StudioState): string {
     </div>
   </div>
   <script type="application/json" id="smx-export-manifest">${escapeHtml(JSON.stringify(manifest, null, 2))}</script>
+  <script>${hostBridgeScript}</script>
 </body>
 </html>`;
 }
