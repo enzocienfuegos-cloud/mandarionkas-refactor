@@ -35,8 +35,6 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   const fetchPolicy = String(node.props.fetchPolicy ?? 'network-first') as 'cache-first' | 'network-first' | 'cache-only';
   const cacheTtlMs = Math.max(1000, Number(node.props.cacheTtlMs ?? 300000));
   const providerResultLimit = Math.max(1, Math.min(10, Number(node.props.providerResultLimit ?? 5)));
-  const liveEmbed = ctx.previewMode && provider === 'osm-embed';
-  const embedSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.03}%2C${latitude - 0.02}%2C${longitude + 0.03}%2C${latitude + 0.02}&layer=mapnik&marker=${latitude}%2C${longitude}`;
   const [userPosition, setUserPosition] = useState<{ latitude: number; longitude: number } | null>(null);
   const [providerPlaces, setProviderPlaces] = useState<NearbyPlace[]>([]);
   const [providerStatus, setProviderStatus] = useState<'idle' | 'loading' | 'live' | 'error'>('idle');
@@ -116,6 +114,10 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   const cardsOnly = renderMode === 'cards-only';
   const mapFirst = renderMode === 'map-first';
   const searchBarMode = renderMode === 'search-bar';
+  const mapCenterLat = userPosition?.latitude ?? latitude;
+  const mapCenterLng = userPosition?.longitude ?? longitude;
+  const liveEmbed = ctx.previewMode && !cardsOnly;
+  const embedSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${mapCenterLng - 0.03}%2C${mapCenterLat - 0.02}%2C${mapCenterLng + 0.03}%2C${mapCenterLat + 0.02}&layer=mapnik&marker=${mapCenterLat}%2C${mapCenterLng}`;
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelState, setPanelState] = useState<'default' | 'locating' | 'located'>('default');
   const headlineText = String(node.props.headlineText ?? 'Estamos cerca de ti');
@@ -194,13 +196,19 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
               <div style={{ position: 'relative', flex: 1, minHeight: 0, background: mapBackground }}>
                 {!cardsOnly ? (
                   <>
-                    <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 20% 20%, rgba(255,255,255,.55), transparent 32%), radial-gradient(circle at 74% 32%, rgba(255,255,255,.2), transparent 24%), linear-gradient(135deg, transparent 0%, rgba(255,255,255,.12) 100%)' }} />
-                    {nearestPlaces.map((place, index) => (
-                      <div key={`${place.name}-${index}-search`} style={{ position: 'absolute', left: `${20 + index * 22}%`, top: `${28 + (index % 2) * 20}%`, transform: 'translate(-50%,-100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                        <div style={{ minWidth: 30, maxWidth: 120, padding: '4px 6px', borderRadius: 999, background: 'rgba(15,23,42,.82)', color: '#fff', fontSize: 10, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{place.name}</div>
-                        <div style={{ width: 18, height: 18, borderRadius: '50%', background: accent, border: '2px solid rgba(255,255,255,.88)', boxShadow: `0 0 0 6px ${accent}22` }} />
-                      </div>
-                    ))}
+                    {liveEmbed ? (
+                      <iframe title="search map preview" src={embedSrc} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} />
+                    ) : (
+                      <>
+                        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 20% 20%, rgba(255,255,255,.55), transparent 32%), radial-gradient(circle at 74% 32%, rgba(255,255,255,.2), transparent 24%), linear-gradient(135deg, transparent 0%, rgba(255,255,255,.12) 100%)' }} />
+                        {nearestPlaces.map((place, index) => (
+                          <div key={`${place.name}-${index}-search`} style={{ position: 'absolute', left: `${20 + index * 22}%`, top: `${28 + (index % 2) * 20}%`, transform: 'translate(-50%,-100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                            <div style={{ minWidth: 30, maxWidth: 120, padding: '4px 6px', borderRadius: 999, background: 'rgba(15,23,42,.82)', color: '#fff', fontSize: 10, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{place.name}</div>
+                            <div style={{ width: 18, height: 18, borderRadius: '50%', background: accent, border: '2px solid rgba(255,255,255,.88)', boxShadow: `0 0 0 6px ${accent}22` }} />
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </>
                 ) : null}
                 <button type="button" onClick={(event) => { event.stopPropagation(); requestUserPosition(); }} style={{ position: 'absolute', right: 10, top: 10, width: 40, height: 40, borderRadius: '50%', border: 'none', background: '#fff', color: accent, boxShadow: '0 3px 14px rgba(0,0,0,.2)', fontSize: 16, fontWeight: 900, cursor: 'pointer' }}>{locateMeLabel.slice(0, 1) || '◎'}</button>
