@@ -324,8 +324,8 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
 
         <div>
           <label>Places file</label>
-          <div className="asset-inline-actions" style={{ marginTop: 8 }}>
-            <label className="left-button compact-action" style={{ cursor: 'pointer' }}>
+          <div className="field-stack" style={{ marginTop: 8 }}>
+            <label className="left-button compact-action" style={{ cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
               Upload Excel or CSV
               <input
                 type="file"
@@ -338,11 +338,11 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
                 }}
               />
             </label>
-            <button type="button" className="left-button compact-action" onClick={() => setShowRawPlaces((value) => !value)}>
+            <small className="muted">Upload a spreadsheet with columns like `name`, `lat`, `lng/long`, `address`, `badge`, `openNow`, `ctaLabel`, `ctaType`, `ctaUrl`.</small>
+            <button type="button" className="left-button compact-action" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setShowRawPlaces((value) => !value)}>
               {showRawPlaces ? 'Hide raw data' : 'Show raw data'}
             </button>
           </div>
-          <small className="muted">Preferred columns: `name, lat, lng/long, address, badge, openNow, ctaLabel, ctaType, ctaUrl`.</small>
           <small className="muted">{places.length} normalized place{places.length === 1 ? '' : 's'} ready for export.</small>
           {showRawPlaces ? (
             <>
