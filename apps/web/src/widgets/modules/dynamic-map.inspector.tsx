@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import * as XLSX from 'xlsx';
 import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import {
   buildNearbyPlacesCsv,
   loadNearbyPlacesSnapshot,
+  normalizeNearbyPlacesRows,
   parseNearbyPlaces,
   type NearbyPlace,
   type NearbyPlacesFetchPolicy,
@@ -28,13 +30,26 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
 
   const updateProps = (patch: Record<string, unknown>) => widgetActions.updateWidgetProps(widget.id, patch);
 
-  const importCsvFile = async (file: File | null) => {
+  const [showRawPlaces, setShowRawPlaces] = useState(false);
+
+  const importPlacesFile = async (file: File | null) => {
     if (!file) return;
-    const text = await file.text();
-    const normalizedPlaces = parseNearbyPlaces(text);
+    let normalizedPlaces: NearbyPlace[] = [];
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const firstSheet = firstSheetName ? workbook.Sheets[firstSheetName] : null;
+      const rows = firstSheet ? XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '' }) : [];
+      normalizedPlaces = normalizeNearbyPlacesRows(rows);
+    } else {
+      const text = await file.text();
+      normalizedPlaces = parseNearbyPlaces(text);
+    }
     if (!normalizedPlaces.length) {
       setSyncState('error');
-      setSyncMessage('That CSV did not contain valid places with lat/lng columns.');
+      setSyncMessage('That spreadsheet did not contain valid places with lat/lng columns.');
       return;
     }
     updateProps({
@@ -43,7 +58,7 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
       syncedPlacesAt: new Date().toISOString(),
     });
     setSyncState('success');
-    setSyncMessage(`Imported ${normalizedPlaces.length} places from CSV.`);
+    setSyncMessage(`Imported ${normalizedPlaces.length} places from spreadsheet.`);
   };
 
   const syncGooglePlaces = async () => {
@@ -296,25 +311,33 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
         ) : null}
 
         <div>
-          <label>Places CSV</label>
-          <textarea rows={7} value={String(widget.props.markersCsv ?? '')} onChange={(event) => updateProps({ markersCsv: event.target.value })} />
+          <label>Places file</label>
           <div className="asset-inline-actions" style={{ marginTop: 8 }}>
             <label className="left-button compact-action" style={{ cursor: 'pointer' }}>
-              Upload CSV
+              Upload Excel or CSV
               <input
                 type="file"
-                accept=".csv,text/csv"
+                accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 style={{ display: 'none' }}
                 onChange={(event) => {
                   const file = event.target.files?.[0] ?? null;
-                  void importCsvFile(file);
+                  void importPlacesFile(file);
                   event.currentTarget.value = '';
                 }}
               />
             </label>
-            <small className="muted">Use headers like `name,lat,lng,address,badge,openNow,ctaLabel,ctaType,ctaUrl`.</small>
+            <button type="button" className="left-button compact-action" onClick={() => setShowRawPlaces((value) => !value)}>
+              {showRawPlaces ? 'Hide raw data' : 'Show raw data'}
+            </button>
           </div>
+          <small className="muted">Preferred columns: `name, lat, lng/long, address, badge, openNow, ctaLabel, ctaType, ctaUrl`.</small>
           <small className="muted">{places.length} normalized place{places.length === 1 ? '' : 's'} ready for export.</small>
+          {showRawPlaces ? (
+            <>
+              <label style={{ marginTop: 10 }}>Raw places data</label>
+              <textarea rows={7} value={String(widget.props.markersCsv ?? '')} onChange={(event) => updateProps({ markersCsv: event.target.value })} />
+            </>
+          ) : null}
         </div>
       </div>
     </section>

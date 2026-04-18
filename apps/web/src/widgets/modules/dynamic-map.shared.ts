@@ -64,45 +64,49 @@ function parseCsvLine(line: string): string[] {
   return cols;
 }
 
+function normalizeOpenNow(value: unknown): boolean | null {
+  const normalizedOpenNow = String(value ?? '').trim().toLowerCase();
+  return normalizedOpenNow === 'true' || normalizedOpenNow === 'yes' || normalizedOpenNow === 'open'
+    ? true
+    : normalizedOpenNow === 'false' || normalizedOpenNow === 'no' || normalizedOpenNow === 'closed'
+      ? false
+      : null;
+}
+
+function normalizeCtaType(value: unknown): LocationCtaType {
+  const ctaType = String(value ?? 'maps').trim().toLowerCase();
+  return ['maps', 'waze', 'call', 'site', 'custom'].includes(ctaType) ? ctaType as LocationCtaType : 'maps';
+}
+
+export function normalizeNearbyPlacesRows(rows: Array<Record<string, unknown>>): NearbyPlace[] {
+  return rows.map((row) => {
+    const normalized = Object.fromEntries(
+      Object.entries(row).map(([key, value]) => [key.trim().toLowerCase(), value]),
+    );
+    return {
+      name: String(normalized.name ?? 'Store'),
+      flag: String(normalized.flag ?? ''),
+      lat: Number(normalized.lat ?? normalized.latitude),
+      lng: Number(normalized.lng ?? normalized.lon ?? normalized.long ?? normalized.longitude),
+      address: String(normalized.address ?? ''),
+      badge: String(normalized.badge ?? ''),
+      openNow: normalizeOpenNow(normalized.opennow ?? normalized.open_now ?? normalized['open-now']),
+      ctaLabel: String(normalized.ctalabel ?? normalized.cta_label ?? normalized['cta-label'] ?? 'Open in Maps'),
+      ctaType: normalizeCtaType(normalized.ctatype ?? normalized.cta_type ?? normalized['cta-type']),
+      ctaUrl: String(normalized.ctaurl ?? normalized.cta_url ?? normalized['cta-url'] ?? normalized.url ?? ''),
+    };
+  }).filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+}
+
 export function parseNearbyPlaces(csv: string): NearbyPlace[] {
   const lines = csv.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (lines.length <= 1) return [];
-  const header = parseCsvLine(lines[0]).map((item) => item.trim().toLowerCase());
-  const indexOf = (...keys: string[]) => header.findIndex((value) => keys.includes(value));
-  const nameIndex = indexOf('name');
-  const flagIndex = indexOf('flag');
-  const latIndex = indexOf('lat', 'latitude');
-  const lngIndex = indexOf('lng', 'lon', 'long', 'longitude');
-  const addressIndex = indexOf('address');
-  const badgeIndex = indexOf('badge');
-  const openNowIndex = indexOf('opennow', 'open_now', 'open-now');
-  const ctaLabelIndex = indexOf('ctalabel', 'cta_label', 'cta-label');
-  const ctaTypeIndex = indexOf('ctatype', 'cta_type', 'cta-type');
-  const ctaUrlIndex = indexOf('ctaurl', 'cta_url', 'cta-url', 'url');
-
-  return lines.slice(1).map((line) => {
+  const header = parseCsvLine(lines[0]).map((item) => item.trim());
+  const rows = lines.slice(1).map((line) => {
     const cols = parseCsvLine(line);
-    const openNowRaw = cols[openNowIndex] ?? '';
-    const normalizedOpenNow = openNowRaw.toLowerCase();
-    const openNow = normalizedOpenNow === 'true' || normalizedOpenNow === 'yes' || normalizedOpenNow === 'open'
-      ? true
-      : normalizedOpenNow === 'false' || normalizedOpenNow === 'no' || normalizedOpenNow === 'closed'
-        ? false
-        : null;
-    const ctaType = (cols[ctaTypeIndex] ?? 'maps').trim().toLowerCase();
-    return {
-      name: cols[nameIndex] ?? 'Store',
-      flag: cols[flagIndex] ?? '',
-      lat: Number(cols[latIndex]),
-      lng: Number(cols[lngIndex]),
-      address: cols[addressIndex] ?? '',
-      badge: cols[badgeIndex] ?? '',
-      openNow,
-      ctaLabel: cols[ctaLabelIndex] ?? 'Open in Maps',
-      ctaType: ['maps', 'waze', 'call', 'site', 'custom'].includes(ctaType) ? ctaType as LocationCtaType : 'maps',
-      ctaUrl: cols[ctaUrlIndex] ?? '',
-    };
-  }).filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+    return Object.fromEntries(header.map((key, index) => [key, cols[index] ?? '']));
+  });
+  return normalizeNearbyPlacesRows(rows);
 }
 
 export function buildNearbyPlacesCsv(places: NearbyPlace[]): string {
