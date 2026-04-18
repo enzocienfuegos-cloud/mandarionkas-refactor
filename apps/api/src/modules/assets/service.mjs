@@ -302,6 +302,7 @@ export async function listAssets(client, workspaceId) {
              duration_ms,
              fingerprint,
              font_family,
+             metadata,
              created_at
       from assets
       where workspace_id = $1
@@ -337,6 +338,7 @@ export async function getAsset(client, { assetId, workspaceId }) {
              duration_ms,
              fingerprint,
              font_family,
+             metadata,
              created_at
       from assets
       where id = $1 and workspace_id = $2
@@ -525,6 +527,139 @@ export async function renameAsset(client, { assetId, workspaceId, name }) {
   );
 
   return result.rows[0] ? mapAssetRow(result.rows[0]) : null;
+}
+
+export async function moveAsset(client, { assetId, workspaceId, folderId }) {
+  const normalizedFolderId = normalizeOptionalText(folderId);
+  if (normalizedFolderId) {
+    const folder = await ensureFolderBelongsToWorkspace(client, { folderId: normalizedFolderId, workspaceId });
+    if (!folder) {
+      throw new Error('Folder not found.');
+    }
+  }
+
+  const result = await client.query(
+    `
+      update assets
+      set folder_id = $3,
+          updated_at = now()
+      where id = $1 and workspace_id = $2
+      returning id,
+                workspace_id,
+                owner_user_id,
+                folder_id,
+                name,
+                kind,
+                mime_type,
+                source_type,
+                storage_mode,
+                storage_key,
+                public_url,
+                origin_url,
+                poster_src,
+                thumbnail_url,
+                access_scope,
+                tags,
+                size_bytes,
+                width,
+                height,
+                duration_ms,
+                fingerprint,
+                font_family,
+                metadata,
+                created_at
+    `,
+    [assetId, workspaceId, normalizedFolderId],
+  );
+
+  return result.rows[0] ? mapAssetRow(result.rows[0]) : null;
+}
+
+export async function updateAssetQuality(client, { assetId, workspaceId, qualityPreference }) {
+  const normalizedQuality = ['auto', 'low', 'mid', 'high'].includes(String(qualityPreference || '').trim())
+    ? String(qualityPreference).trim()
+    : null;
+  if (!normalizedQuality) {
+    throw new Error('Asset quality preference is required.');
+  }
+
+  await patchAssetMetadata(client, {
+    assetId,
+    workspaceId,
+    metadataPatch: {
+      qualityPreference: normalizedQuality,
+    },
+  });
+
+  return getAsset(client, { assetId, workspaceId });
+}
+
+export async function renameAssetFolder(client, { folderId, workspaceId, name }) {
+  const trimmedName = normalizeString(name);
+  if (!trimmedName) {
+    throw new Error('Folder name is required.');
+  }
+
+  const result = await client.query(
+    `
+      update asset_folders
+      set name = $3
+      where id = $1 and workspace_id = $2
+      returning id, workspace_id, owner_user_id, parent_id, name, created_at
+    `,
+    [folderId, workspaceId, trimmedName],
+  );
+
+  return result.rows[0] ? mapFolderRow(result.rows[0]) : null;
+}
+
+export async function deleteAssetFolder(client, { folderId, workspaceId }) {
+  const root = await ensureFolderBelongsToWorkspace(client, { folderId, workspaceId });
+  if (!root) return false;
+
+  const folderRows = await client.query(
+    `
+      select id, parent_id
+      from asset_folders
+      where workspace_id = $1
+    `,
+    [workspaceId],
+  );
+
+  const deletedIds = new Set([folderId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const row of folderRows.rows) {
+      if (row.parent_id && deletedIds.has(row.parent_id) && !deletedIds.has(row.id)) {
+        deletedIds.add(row.id);
+        changed = true;
+      }
+    }
+  }
+
+  const ids = [...deletedIds];
+  await client.query(
+    `
+      update assets
+      set folder_id = null,
+          updated_at = now()
+      where workspace_id = $1
+        and folder_id = any($2::uuid[])
+    `,
+    [workspaceId, ids],
+  );
+
+  const result = await client.query(
+    `
+      delete from asset_folders
+      where workspace_id = $1
+        and id = any($2::uuid[])
+    `,
+    [workspaceId, ids],
+  );
+
+  return result.rowCount > 0;
 }
 
 export async function deleteAsset(client, { assetId, workspaceId }) {
