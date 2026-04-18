@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStudioStore } from '../../core/store/use-studio-store';
-import { useWidgetActions } from '../../hooks/use-studio-actions';
+import { useDocumentActions, useWidgetActions } from '../../hooks/use-studio-actions';
 import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
 import { DocumentInspectorPanel } from './DocumentInspectorPanel';
 import { getWidgetBehaviorPanelCount, getWidgetInspectorTabs, renderWidgetInspectorTab } from '../../widgets/registry/widget-inspector-layout';
@@ -10,9 +10,11 @@ const EMPTY_TABS: ReturnType<typeof getWidgetInspectorTabs> = [];
 
 export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.Element {
   const widget = useStudioStore((state) => state.document.widgets[widgetId]);
+  const release = useStudioStore((state) => state.document.metadata.release);
   const playheadMs = useStudioStore((state) => state.ui.playheadMs);
   const actions = useStudioStore((state) => Object.values(state.document.actions).filter((action) => action.widgetId === widgetId));
   const { updateWidgetName } = useWidgetActions();
+  const { updateReleaseSettings } = useDocumentActions();
   const [tab, setTab] = useState<WidgetInspectorTabId>('basics');
 
   const definition = useMemo<WidgetDefinition | null>(() => (widget ? getWidgetDefinition(widget.type) : null), [widget]);
@@ -41,6 +43,17 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
         <div>
           <label>Name</label>
           <input value={widget.name} onChange={(event) => updateWidgetName(widget.id, event.target.value)} />
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <label>Export channel</label>
+          <select value={release.targetChannel} onChange={(event) => updateReleaseSettings({ targetChannel: event.target.value as typeof release.targetChannel })}>
+            <option value="generic-html5">generic-html5</option>
+            <option value="google-display">google-display</option>
+            <option value="gam-html5">gam-html5</option>
+            <option value="mraid">mraid</option>
+            <option value="meta-story">meta-story</option>
+            <option value="tiktok-vertical">tiktok-vertical</option>
+          </select>
         </div>
       </section>
 
