@@ -8,7 +8,7 @@ function hotspotShapeStyle(shape: string): CSSProperties {
   if (shape === 'square') return { borderRadius: 12 };
   if (shape === 'pill') return { borderRadius: 999, width: 44, minWidth: 44 };
   if (shape === 'diamond') return { borderRadius: 10 };
-  return { borderRadius: '50%' };
+  return { borderRadius: 999, clipPath: 'circle(50% at 50% 50%)' };
 }
 
 function hotspotIcon(icon: string): string {
@@ -60,7 +60,17 @@ function HotspotModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCon
           left: `${hotspotX}%`,
           top: `${hotspotY}%`,
           width: shape === 'pill' ? 44 : 30,
+          minWidth: shape === 'pill' ? 44 : 30,
+          maxWidth: shape === 'pill' ? 44 : 30,
           height: 30,
+          minHeight: 30,
+          maxHeight: 30,
+          inlineSize: `${shape === 'pill' ? 44 : 30}px`,
+          minInlineSize: `${shape === 'pill' ? 44 : 30}px`,
+          maxInlineSize: `${shape === 'pill' ? 44 : 30}px`,
+          blockSize: '30px',
+          minBlockSize: '30px',
+          maxBlockSize: '30px',
           border: 'none',
           background: accent,
           color: '#111827',
@@ -73,6 +83,8 @@ function HotspotModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCon
           placeItems: 'center',
           aspectRatio: '1 / 1',
           flexShrink: 0,
+          boxSizing: 'border-box',
+          overflow: 'hidden',
           appearance: 'none',
           WebkitAppearance: 'none',
           ...hotspotShapeStyle(shape),
