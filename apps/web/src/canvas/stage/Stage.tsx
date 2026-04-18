@@ -143,6 +143,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
   const beginToolbarDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     if (!target.closest('.workspace-toolbar-drag-handle')) return;
+    if (!event.isPrimary) return;
     dragStateRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -150,7 +151,9 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
       originX: toolbarPosition.x,
       originY: toolbarPosition.y,
     };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    if (event.currentTarget.setPointerCapture) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
   };
 
   const onToolbarPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -167,7 +170,9 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     const dragState = dragStateRef.current;
     if (!dragState || dragState.pointerId !== event.pointerId) return;
     dragStateRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   };
 
   const toolbarStyle: CSSProperties = { left: toolbarPosition.x, top: toolbarPosition.y, transform: 'none' };
@@ -223,7 +228,9 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
               onStagePointerDown={(event) => {
                 if (event.target === event.currentTarget) {
                   setShowCanvasQuickPanel(true);
-                  beginMarqueeSelection(event.nativeEvent);
+                  if (event.pointerType !== 'touch') {
+                    beginMarqueeSelection(event.nativeEvent);
+                  }
                 }
               }}
               onStageDragOver={handleStageDragOver}

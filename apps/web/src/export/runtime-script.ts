@@ -856,8 +856,10 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     }
 
     canvas.addEventListener('pointerdown', (event) => {
+      if (!event.isPrimary) return;
       event.preventDefault();
       state.pointerActive = true;
+      canvas.setPointerCapture?.(event.pointerId);
       scratchAtEvent(event);
     });
     canvas.addEventListener('pointermove', (event) => {
@@ -873,10 +875,15 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       event.preventDefault();
       if (event.pointerType === 'mouse') scratchAtEvent(event);
     });
-    canvas.addEventListener('pointerup', () => {
+    canvas.addEventListener('pointerup', (event) => {
       state.pointerActive = false;
+      canvas.releasePointerCapture?.(event.pointerId);
     });
-    canvas.addEventListener('pointercancel', () => {
+    canvas.addEventListener('pointercancel', (event) => {
+      state.pointerActive = false;
+      canvas.releasePointerCapture?.(event.pointerId);
+    });
+    canvas.addEventListener('lostpointercapture', () => {
       state.pointerActive = false;
     });
   }

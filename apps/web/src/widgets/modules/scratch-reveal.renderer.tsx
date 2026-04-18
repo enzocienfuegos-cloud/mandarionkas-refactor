@@ -106,9 +106,11 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
             ref={canvasRef}
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: 'crosshair', touchAction: 'none', opacity: coverReady ? 1 : 0, outline: 'none', background: 'transparent', WebkitTapHighlightColor: 'transparent', userSelect: 'none' as const }}
             onPointerDown={(event) => {
+              if (!event.isPrimary) return;
               event.preventDefault();
               event.stopPropagation();
               pointerActiveRef.current = true;
+              event.currentTarget.setPointerCapture?.(event.pointerId);
               scratchAtEvent(event);
             }}
             onPointerMove={(event) => {
@@ -124,10 +126,15 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
               event.preventDefault();
               if (event.pointerType === 'mouse') scratchAtEvent(event);
             }}
-            onPointerUp={() => {
+            onPointerUp={(event) => {
               pointerActiveRef.current = false;
+              event.currentTarget.releasePointerCapture?.(event.pointerId);
             }}
-            onPointerCancel={() => {
+            onPointerCancel={(event) => {
+              pointerActiveRef.current = false;
+              event.currentTarget.releasePointerCapture?.(event.pointerId);
+            }}
+            onLostPointerCapture={() => {
               pointerActiveRef.current = false;
             }}
           />
