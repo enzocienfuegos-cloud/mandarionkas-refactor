@@ -101,7 +101,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     const defaultCtaLabel = root.getAttribute('data-map-default-cta-label') || 'Open in Maps';
     const accent = root.getAttribute('data-map-accent') || '#ef4444';
     const ranked = rankMapPlaces(root, userPosition);
-    cardsRoot.innerHTML = ranked.slice(0, 3).map((place) => {
+    cardsRoot.innerHTML = ranked.map((place) => {
       const meta = [];
       if (showOpenNow && place.openNow != null) meta.push('<span data-place-open-now>' + (place.openNow ? 'Open now' : 'Closed') + '</span>');
       if (showDistance && place.distanceKm != null) meta.push('<span data-place-distance>' + Number(place.distanceKm).toFixed(1) + ' km</span>');
@@ -127,7 +127,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     const locatingText = root.getAttribute('data-map-locating-text') || 'Locating';
     const locationFoundText = root.getAttribute('data-map-location-found-text') || 'Location found';
     const ranked = rankMapPlaces(root, userPosition);
-    const nearest = ranked.slice(0, 3);
+    const nearest = ranked;
     const statusNode = root.querySelector('[data-map-search-status]');
     const substatusNode = root.querySelector('[data-map-search-substatus]');
     const primaryDirections = root.querySelector('[data-smx-action="map-primary-directions"]');

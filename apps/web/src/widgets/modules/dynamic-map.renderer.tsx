@@ -138,6 +138,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   const heroOverlayOpacity = Math.max(0, Math.min(1, Number(node.props.heroOverlayOpacity ?? 0.45)));
 
   const nearestPlaces = places.slice(0, 3);
+  const listedPlaces = places;
   const openPrimaryCta = () => {
     setPanelOpen(true);
     ctx.triggerWidgetAction('click');
@@ -213,7 +214,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
                 ) : null}
                 <button type="button" onClick={(event) => { event.stopPropagation(); requestUserPosition(); }} style={{ position: 'absolute', right: 10, top: 10, width: 40, height: 40, borderRadius: '50%', border: 'none', background: '#fff', color: accent, boxShadow: '0 3px 14px rgba(0,0,0,.2)', fontSize: 16, fontWeight: 900, cursor: 'pointer' }}>{locateMeLabel.slice(0, 1) || '◎'}</button>
               </div>
-              <div style={{ height: 150, background: '#fff', borderTop: '1px solid rgba(0,0,0,.08)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10, color: '#111' }}>
+              <div style={{ height: 150, background: '#fff', borderTop: '1px solid rgba(0,0,0,.08)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10, color: '#111', minHeight: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                   <div style={{ width: 12, height: 12, borderRadius: '50%', background: accent, marginTop: 4, flex: '0 0 12px' }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -226,9 +227,9 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
                   </div>
                   <button type="button" onClick={(event) => { event.stopPropagation(); if (nearestPlaces[0]) window.open(buildPlaceCtaUrl(nearestPlaces[0], 'maps'), '_blank'); }} style={{ appearance: 'none', border: 'none', borderRadius: 12, padding: '10px 14px', background: accent, color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>{directionsCtaLabel}</button>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 2 }}>
                   <div style={{ fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.5px', color: '#555' }}>{nearbyTitleText}</div>
-                  {nearestPlaces.map((place, index) => (
+                  {listedPlaces.map((place, index) => (
                     <div key={`${place.name}-${index}-nearest`} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', border: '1px solid rgba(0,0,0,.08)', borderRadius: 12, background: '#fff' }}>
                       <div style={{ width: 20, height: 20, borderRadius: '50%', background: `${accent}22`, color: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, flex: '0 0 20px' }}>{index + 1}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -283,8 +284,8 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
               </div>
             </div>
           ) : null}
-          <div style={{ display: 'grid', gap: 8, overflow: 'hidden' }}>
-            {places.slice(0, 3).map((place, index) => {
+          <div style={{ display: 'grid', gap: 8, overflowY: 'auto', minHeight: 0, paddingRight: 2 }}>
+            {places.map((place, index) => {
               const ctaType = place.ctaType || defaultCtaType;
               const ctaLabel = place.ctaLabel || defaultCtaLabel;
               return (

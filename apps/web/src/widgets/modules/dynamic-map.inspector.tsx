@@ -28,6 +28,24 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
 
   const updateProps = (patch: Record<string, unknown>) => widgetActions.updateWidgetProps(widget.id, patch);
 
+  const importCsvFile = async (file: File | null) => {
+    if (!file) return;
+    const text = await file.text();
+    const normalizedPlaces = parseNearbyPlaces(text);
+    if (!normalizedPlaces.length) {
+      setSyncState('error');
+      setSyncMessage('That CSV did not contain valid places with lat/lng columns.');
+      return;
+    }
+    updateProps({
+      markersCsv: text,
+      syncedPlaceCount: normalizedPlaces.length,
+      syncedPlacesAt: new Date().toISOString(),
+    });
+    setSyncState('success');
+    setSyncMessage(`Imported ${normalizedPlaces.length} places from CSV.`);
+  };
+
   const syncGooglePlaces = async () => {
     if (provider !== 'google-places') return;
     if (!apiKey.trim() || !query.trim()) {
@@ -280,6 +298,22 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
         <div>
           <label>Places CSV</label>
           <textarea rows={7} value={String(widget.props.markersCsv ?? '')} onChange={(event) => updateProps({ markersCsv: event.target.value })} />
+          <div className="asset-inline-actions" style={{ marginTop: 8 }}>
+            <label className="left-button compact-action" style={{ cursor: 'pointer' }}>
+              Upload CSV
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                style={{ display: 'none' }}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  void importCsvFile(file);
+                  event.currentTarget.value = '';
+                }}
+              />
+            </label>
+            <small className="muted">Use headers like `name,lat,lng,address,badge,openNow,ctaLabel,ctaType,ctaUrl`.</small>
+          </div>
           <small className="muted">{places.length} normalized place{places.length === 1 ? '' : 's'} ready for export.</small>
         </div>
       </div>

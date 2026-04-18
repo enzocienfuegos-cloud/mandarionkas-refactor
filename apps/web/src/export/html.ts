@@ -409,7 +409,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
               </div>
               <button type="button" data-smx-action="map-primary-directions" style="appearance:none;border:none;border-radius:12px;padding:10px 14px;background:${escapeHtml(accent)};color:#fff;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;">${escapeHtml(directionsCtaLabel)}</button>
             </div>
-            <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:auto;">
+            <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:auto;flex:1;min-height:0;">
               <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:#555;">${escapeHtml(nearbyTitleText)}</div>
               <div data-map-search-list></div>
             </div>
@@ -431,7 +431,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
         ${places.map((place, index) => `<div style="position:absolute;left:${18 + index * 16}%;top:${24 + (index % 2) * 20}%;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:4px;"><div style="min-width:30px;padding:4px 6px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font-size:10px;text-align:center;white-space:nowrap;">${place.flag ? `${escapeHtml(getFlagEmoji(place.flag))} ` : ''}${escapeHtml(place.name)}</div><div style="width:18px;height:18px;border-radius:50%;background:${escapeHtml(accent)};border:2px solid rgba(255,255,255,.88);box-shadow:0 0 0 6px ${escapeHtml(accent)}22;"></div></div>`).join('')}
       </div>
       <div style="position:absolute;left:10px;right:10px;bottom:8px;display:flex;justify-content:space-between;font-size:10px;color:#0f172a;opacity:.82;"><span>${places.length} locations · zoom ${zoom}</span><span>${requestUserLocation ? 'User location on' : 'Location fixed'}</span></div></div>`}
-      <div data-map-cards style="display:grid;gap:8px;overflow:hidden;">${places.slice(0, 3).map((place) => `<div data-map-card data-place-name="${escapeHtml(place.name)}" style="border-radius:12px;background:rgba(255,255,255,.78);border:1px solid ${escapeHtml(accent)}22;padding:10px;display:grid;gap:6px;">
+      <div data-map-cards style="display:grid;gap:8px;overflow:auto;min-height:0;padding-right:2px;">${places.map((place) => `<div data-map-card data-place-name="${escapeHtml(place.name)}" style="border-radius:12px;background:rgba(255,255,255,.78);border:1px solid ${escapeHtml(accent)}22;padding:10px;display:grid;gap:6px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:13px;">${escapeHtml(place.name)}</strong><span data-place-badge style="font-size:10px;border-radius:999px;padding:4px 6px;background:${escapeHtml(accent)}22;color:#0f172a;">${escapeHtml(place.badge || (place.openNow ? 'Open now' : 'Store'))}</span></div>
         <div style="font-size:11px;opacity:.78;">${escapeHtml(place.address || `${place.lat.toFixed(3)}, ${place.lng.toFixed(3)}`)}</div>
         <div data-place-meta style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;">${showOpenNow && place.openNow != null ? `<span data-place-open-now>${place.openNow ? 'Open now' : 'Closed'}</span>` : ''}</div>
