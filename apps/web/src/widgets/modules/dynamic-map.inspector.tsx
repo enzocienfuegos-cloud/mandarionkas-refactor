@@ -332,7 +332,7 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
               <input type="number" step="1000" min="1000" value={String(widget.props.cacheTtlMs ?? 300000)} onChange={(event) => updateProps({ cacheTtlMs: Number(event.target.value) })} />
             </div>
             <div className="field-stack">
-              <button type="button" className="left-button compact-action" style={{ width: '100%', justifyContent: 'center' }} onClick={() => void syncGooglePlaces()} disabled={syncState === 'syncing'}>
+              <button type="button" className="left-button compact-action" style={{ width: '100%', justifyContent: 'center', fontWeight: 800, boxShadow: '0 8px 24px rgba(15,23,42,.18)' }} onClick={() => void syncGooglePlaces()} disabled={syncState === 'syncing'}>
                 {syncState === 'syncing' ? 'Syncing…' : 'Sync places to CSV'}
               </button>
               <small className="muted">{syncMessage || 'Sync live results into Places CSV so export stays stable.'}</small>
@@ -343,7 +343,7 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
         <div>
           <label>Places file</label>
           <div className="field-stack" style={{ marginTop: 8 }}>
-            <label className="left-button compact-action" style={{ cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
+            <label className="left-button compact-action" style={{ cursor: 'pointer', width: '100%', justifyContent: 'center', fontWeight: 800, boxShadow: '0 8px 24px rgba(15,23,42,.18)', borderStyle: 'solid' }}>
               Upload Excel or CSV
               <input
                 type="file"

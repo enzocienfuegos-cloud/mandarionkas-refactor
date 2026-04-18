@@ -21,12 +21,18 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
   const [activeIndex, setActiveIndex] = useState(clamp(Number(node.props.activeIndex ?? 1), 1, itemCount) - 1);
   const fallbackCardSize = resolveCardSize(cardShape);
   const visibleCount = orientation === 'vertical' ? 1 : Math.min(2, itemCount);
+  const availableWidth = Math.max(120, node.frame.width - 24);
+  const availableHeight = Math.max(96, node.frame.height - 54);
   const cardSize = orientation === 'horizontal'
     ? {
-        width: Math.max(110, Math.floor((node.frame.width - 24 - 12 * Math.max(0, visibleCount - 1)) / visibleCount)),
-        height: fallbackCardSize.height,
+        width: Math.max(96, Math.floor((availableWidth - 12 * Math.max(0, visibleCount - 1)) / visibleCount)),
+        height: Math.max(104, Math.min(fallbackCardSize.height, availableHeight)),
       }
-    : fallbackCardSize;
+    : {
+        width: Math.max(110, Math.min(availableWidth, fallbackCardSize.width)),
+        height: Math.max(104, Math.min(fallbackCardSize.height, availableHeight)),
+      };
+  const mediaHeight = Math.max(48, Math.min(cardShape === 'landscape' ? Math.floor(cardSize.height * 0.46) : Math.floor(cardSize.height * 0.52), cardSize.height - 56));
 
   useEffect(() => {
     if (!autoscroll || itemCount <= 1 || !ctx.previewMode) return;
@@ -80,15 +86,15 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                   flexDirection: 'column',
                 }}
               >
-                <div style={{ position: 'relative', height: cardShape === 'landscape' ? 62 : 82, background: product.src ? '#111827' : '#f8fafc' }}>
+                <div style={{ position: 'relative', height: mediaHeight, background: product.src ? '#111827' : '#f8fafc', flexShrink: 0 }}>
                   {product.src ? <img src={product.src} alt={product.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
                 </div>
-                <div style={{ padding: '10px 10px 12px', display: 'grid', gap: 6 }}>
-                  <div style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.subtitle || 'Featured item'}</div>
-                  <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.2, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 as any, overflow: 'hidden' }}>{product.title}</div>
+                <div style={{ padding: '8px 8px 10px', display: 'grid', gap: 4, minHeight: 0, flex: 1 }}>
+                  <div style={{ fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.subtitle || 'Featured item'}</div>
+                  <div style={{ fontSize: 12, fontWeight: 800, lineHeight: 1.15, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 as any, overflow: 'hidden' }}>{product.title}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <div style={{ fontSize: 12, color: accent }}>{renderRatingStars(product.rating)}</div>
-                    <div style={{ fontSize: 15, fontWeight: 900 }}>{product.price || '$0'}</div>
+                    <div style={{ fontSize: 11, color: accent }}>{renderRatingStars(product.rating)}</div>
+                    <div style={{ fontSize: 13, fontWeight: 900 }}>{product.price || '$0'}</div>
                   </div>
                   <button
                     type="button"
@@ -96,7 +102,7 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                       event.stopPropagation();
                       ctx.triggerWidgetAction('click');
                     }}
-                    style={{ border: 'none', borderRadius: 10, background: accent, color: '#111827', fontWeight: 800, padding: '8px 10px', cursor: 'pointer' }}
+                    style={{ marginTop: 'auto', border: 'none', borderRadius: 10, background: accent, color: '#111827', fontWeight: 800, padding: '7px 9px', cursor: 'pointer', fontSize: 11 }}
                   >
                     {product.ctaLabel || 'Shop now'}
                   </button>

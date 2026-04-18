@@ -53,7 +53,7 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
     widgetActions.updateWidgetProps(widget.id, {
       products: buildShoppableProductsValue(nextProducts),
       assetIdsCsv: buildSelectedAssetIds(nextAssetIds),
-      itemCount: nextProducts.length,
+      itemCount: Math.max(1, nextProducts.length),
       activeIndex: Math.min(Math.max(1, Number(widget.props.activeIndex ?? 1)), Math.max(1, nextProducts.length)),
     });
   };
@@ -89,6 +89,21 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
   const patchProduct = (index: number, patch: Partial<ShoppableProduct>) => {
     const nextProducts = products.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
     updateProducts(nextProducts);
+  };
+
+  const addBlankProduct = () => {
+    updateProducts([
+      ...products,
+      {
+        src: '',
+        title: `Product ${products.length + 1}`,
+        subtitle: '',
+        price: '$0',
+        rating: 4,
+        ctaLabel: 'Shop now',
+        url: '',
+      },
+    ]);
   };
 
   return (
@@ -140,6 +155,7 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
               {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
             </select>
             <button type="button" className="left-button compact-action" onClick={addSelectedAssets} disabled={!pendingAssetIds.length}>Add products</button>
+            <button type="button" className="left-button compact-action" onClick={addBlankProduct}>Add blank product</button>
             <button type="button" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</button>
           </div>
         </div>

@@ -251,20 +251,21 @@ function renderCarouselWidget(node: WidgetNode, assetPathMap: Record<string, str
     `flex-direction:column`,
   ].join(';');
   const slidesJson = escapeHtml(JSON.stringify(slides));
+  const showPrevButton = Boolean(node.props.showPrevButton ?? true);
+  const showNextButton = Boolean(node.props.showNextButton ?? true);
+  const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
+  const paginationDotSize = Math.max(4, Math.min(18, Number(node.props.paginationDotSize ?? 8)));
 
-  return `<div class="widget widget-image-carousel" data-widget-id="${node.id}" data-carousel-slides="${slidesJson}" data-carousel-index="0" style="${base}">
+  return `<div class="widget widget-image-carousel" data-widget-id="${node.id}" data-carousel-slides="${slidesJson}" data-carousel-index="0" data-carousel-accent="${escapeHtml(accent)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     <div style="position:relative;flex:1;margin:8px 12px 12px;border-radius:12px;overflow:hidden;background:#111827;">
       ${activeSlide ? `<img data-carousel-image src="${escapeHtml(activeSlide.src)}" alt="${escapeHtml(activeSlide.caption)}" style="width:100%;height:100%;display:block;object-fit:cover;" />` : '<div style="width:100%;height:100%;display:grid;place-items:center;opacity:.7;">Add slides</div>'}
       <div style="position:absolute;inset-inline:12px;bottom:10px;display:flex;justify-content:space-between;align-items:end;gap:8px;">
         <div data-carousel-caption style="border-radius:10px;padding:8px 10px;background:rgba(15,23,42,.68);font-size:12px;">${escapeHtml(activeSlide?.caption ?? 'No slide')}</div>
-        <div style="display:flex;gap:6px;">${slides.map((_, index) => `<button type="button" data-smx-action="carousel-dot" data-widget-id="${node.id}" data-carousel-target="${index}" style="width:10px;height:10px;border-radius:50%;border:none;background:${index === 0 ? escapeHtml(accent) : 'rgba(255,255,255,.45)'};cursor:pointer;"></button>`).join('')}</div>
+        ${showPaginationDots ? `<div style="display:flex;gap:6px;">${slides.map((_, index) => `<button type="button" data-smx-action="carousel-dot" data-widget-id="${node.id}" data-carousel-target="${index}" style="width:${paginationDotSize}px;height:${paginationDotSize}px;border-radius:50%;border:none;background:${index === 0 ? escapeHtml(accent) : 'rgba(255,255,255,.45)'};cursor:pointer;"></button>`).join('')}</div>` : ''}
       </div>
     </div>
-    <div style="display:flex;gap:8px;padding:0 12px 12px;">
-      <button type="button" data-smx-action="carousel-prev" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:1px solid ${escapeHtml(accent)};background:transparent;color:inherit;padding:8px 10px;">Prev</button>
-      <button type="button" data-smx-action="carousel-next" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:none;background:${escapeHtml(accent)};color:#111827;font-weight:800;padding:8px 10px;">Next</button>
-    </div>
+    ${showPrevButton || showNextButton ? `<div style="display:flex;gap:8px;padding:0 12px 12px;">${showPrevButton ? `<button type="button" data-smx-action="carousel-prev" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:1px solid ${escapeHtml(accent)};background:transparent;color:inherit;padding:8px 10px;">Prev</button>` : ''}${showNextButton ? `<button type="button" data-smx-action="carousel-next" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:none;background:${escapeHtml(accent)};color:#111827;font-weight:800;padding:8px 10px;">Next</button>` : ''}</div>` : ''}
   </div>`;
 }
 
@@ -665,6 +666,7 @@ function renderSpeedTestWidget(node: WidgetNode): string {
   const current = Math.max(min, Math.min(max, Number(node.props.current ?? 64)));
   const durationMs = Math.max(300, Number(node.props.durationMs ?? 1800));
   const units = String(node.props.units ?? 'Mbps');
+  const skin = String(node.props.skin ?? 'ookla');
   const ctaLabel = String(node.props.ctaLabel ?? 'Start test');
   const resultMode = String(node.props.resultMode ?? 'random');
   const fastThreshold = Number(node.props.fastThreshold ?? 70);
@@ -672,6 +674,7 @@ function renderSpeedTestWidget(node: WidgetNode): string {
   const slowMessage = String(node.props.slowMessage ?? 'Slow connection');
   const initialTone = current >= fastThreshold ? '#22c55e' : '#ef4444';
   const pct = Math.max(0, Math.min(100, (current / Math.max(1, max)) * 100));
+  const ooklaSkin = skin === 'ookla';
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -689,16 +692,32 @@ function renderSpeedTestWidget(node: WidgetNode): string {
     `flex-direction:column`,
   ].join(';');
 
-  return `<div class="widget widget-speed-test" data-widget-id="${node.id}" data-speed-min="${min}" data-speed-max="${max}" data-speed-current="${current}" data-speed-duration="${durationMs}" data-speed-result-mode="${escapeHtml(resultMode)}" data-speed-units="${escapeHtml(units)}" data-speed-fast-threshold="${fastThreshold}" data-speed-fast-message="${escapeHtml(fastMessage)}" data-speed-slow-message="${escapeHtml(slowMessage)}" style="${base}">
+  return `<div class="widget widget-speed-test" data-widget-id="${node.id}" data-speed-min="${min}" data-speed-max="${max}" data-speed-current="${current}" data-speed-duration="${durationMs}" data-speed-result-mode="${escapeHtml(resultMode)}" data-speed-units="${escapeHtml(units)}" data-speed-fast-threshold="${fastThreshold}" data-speed-fast-message="${escapeHtml(fastMessage)}" data-speed-slow-message="${escapeHtml(slowMessage)}" data-speed-skin="${escapeHtml(skin)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
-    <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;">
+    ${ooklaSkin ? `<div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:14px;">
+      <div style="display:grid;gap:6px;">
+        <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.72;">Download speed</div>
+        <div data-speed-value style="display:flex;align-items:flex-end;gap:10px;font-size:36px;line-height:1;font-weight:900;">${current}<span style="font-size:13px;opacity:.8;padding-bottom:5px;">${escapeHtml(units)}</span></div>
+      </div>
+      <div style="position:relative;height:72px;border-radius:999px;background:radial-gradient(circle at 50% 100%, rgba(45,212,191,.28), rgba(15,23,42,0) 68%);">
+        <div style="position:absolute;inset:0;display:grid;place-items:center;">
+          <div style="width:100%;height:100%;border-radius:999px 999px 24px 24px / 100% 100% 18px 18px;border:8px solid rgba(255,255,255,.08);border-bottom:none;transform:scaleX(.94);"></div>
+          <div data-speed-needle style="position:absolute;left:50%;bottom:6px;width:4px;height:52px;border-radius:999px;background:${initialTone};transform-origin:bottom center;transform:translateX(-50%) rotate(${(-92 + pct * 1.84).toFixed(1)}deg);box-shadow:0 0 16px ${initialTone};"></div>
+          <div style="position:absolute;bottom:2px;width:14px;height:14px;border-radius:50%;background:#fff;"></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div data-speed-status style="font-size:12px;font-weight:800;color:${initialTone};">${escapeHtml(current >= fastThreshold ? fastMessage : slowMessage)}</div>
+        <button type="button" data-smx-action="speed-test-start" data-widget-id="${node.id}" style="padding:9px 14px;border-radius:999px;background:#ffffff;color:#111827;font-weight:900;border:none;cursor:pointer;white-space:nowrap;">${escapeHtml(ctaLabel)}</button>
+      </div>
+    </div>` : `<div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;">
       <div data-speed-value style="font-size:26px;font-weight:900;">${current}<span style="font-size:13px;opacity:.8;"> ${escapeHtml(units)}</span></div>
       <div data-speed-status style="font-size:12px;font-weight:800;color:${initialTone};">${escapeHtml(current >= fastThreshold ? fastMessage : slowMessage)}</div>
       <div style="height:12px;border-radius:999px;background:rgba(255,255,255,0.12);overflow:hidden;">
         <div data-speed-bar style="width:${pct}%;height:100%;background:${initialTone};"></div>
       </div>
       <button type="button" data-smx-action="speed-test-start" data-widget-id="${node.id}" style="margin-top:auto;padding:10px 12px;border-radius:12px;background:${escapeHtml(accent)};color:#111827;font-weight:800;border:none;cursor:pointer;">${escapeHtml(ctaLabel)}</button>
-    </div>
+    </div>`}
   </div>`;
 }
 
@@ -746,6 +765,10 @@ function renderInteractiveGalleryWidget(node: WidgetNode): string {
   const activeIndex = Math.max(0, Math.min(itemCount - 1, Number(node.props.activeIndex ?? 1) - 1));
   const activeSlide = slides[activeIndex] ?? slides[0];
   const slidesJson = escapeHtml(JSON.stringify(slides));
+  const showPrevButton = Boolean(node.props.showPrevButton ?? true);
+  const showNextButton = Boolean(node.props.showNextButton ?? true);
+  const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
+  const paginationDotSize = Math.max(4, Math.min(18, Number(node.props.paginationDotSize ?? 8)));
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -763,17 +786,14 @@ function renderInteractiveGalleryWidget(node: WidgetNode): string {
     `flex-direction:column`,
   ].join(';');
 
-  return `<div class="widget widget-interactive-gallery" data-widget-id="${node.id}" data-gallery-count="${itemCount}" data-gallery-index="${activeIndex}" data-gallery-slides="${slidesJson}" style="${base}">
+  return `<div class="widget widget-interactive-gallery" data-widget-id="${node.id}" data-gallery-count="${itemCount}" data-gallery-index="${activeIndex}" data-gallery-slides="${slidesJson}" data-gallery-accent="${escapeHtml(accent)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;">
       <div data-gallery-card style="flex:1;border-radius:12px;overflow:hidden;background:${activeSlide ? '#111827' : `linear-gradient(135deg, ${escapeHtml(accent)}55, rgba(255,255,255,.08))`};display:grid;place-items:center;font-size:26px;font-weight:900;position:relative;">
         ${activeSlide ? `<img data-gallery-image src="${escapeHtml(activeSlide.src)}" alt="${escapeHtml(activeSlide.caption)}" style="width:100%;height:100%;display:block;object-fit:cover;" />` : `${activeIndex + 1} / ${itemCount}`}
-        ${activeSlide ? `<div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;align-items:end;gap:8px;"><div data-gallery-caption style="border-radius:10px;padding:8px 10px;background:rgba(15,23,42,.68);font-size:12px;color:#fff;">${escapeHtml(activeSlide.caption || `Image ${activeIndex + 1}`)}</div><div data-gallery-count style="border-radius:999px;padding:4px 8px;background:rgba(15,23,42,.68);font-size:12px;color:#fff;">${activeIndex + 1} / ${itemCount}</div></div>` : ''}
+        ${activeSlide ? `<div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;align-items:end;gap:8px;"><div data-gallery-caption style="border-radius:10px;padding:8px 10px;background:rgba(15,23,42,.68);font-size:12px;color:#fff;">${escapeHtml(activeSlide.caption || `Image ${activeIndex + 1}`)}</div><div style="display:flex;align-items:center;gap:8px;">${showPaginationDots ? `<div style="display:flex;gap:6px;">${Array.from({ length: itemCount }, (_, index) => `<button type="button" data-smx-action="gallery-dot" data-widget-id="${node.id}" data-gallery-target="${index}" style="width:${paginationDotSize}px;height:${paginationDotSize}px;border-radius:50%;border:none;background:${index === activeIndex ? escapeHtml(accent) : 'rgba(255,255,255,.4)'};cursor:pointer;"></button>`).join('')}</div>` : ''}<div data-gallery-count style="border-radius:999px;padding:4px 8px;background:rgba(15,23,42,.68);font-size:12px;color:#fff;">${activeIndex + 1} / ${itemCount}</div></div></div>` : ''}
       </div>
-      <div style="display:flex;gap:8px;">
-        <button type="button" data-smx-action="gallery-prev" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:1px solid ${escapeHtml(accent)};background:transparent;color:inherit;padding:8px 10px;">Prev</button>
-        <button type="button" data-smx-action="gallery-next" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:none;background:${escapeHtml(accent)};color:${String(style.backgroundColor ?? '#ffffff')};padding:8px 10px;font-weight:800;">Next</button>
-      </div>
+      ${showPrevButton || showNextButton ? `<div style="display:flex;gap:8px;">${showPrevButton ? `<button type="button" data-smx-action="gallery-prev" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:1px solid ${escapeHtml(accent)};background:transparent;color:inherit;padding:8px 10px;">Prev</button>` : ''}${showNextButton ? `<button type="button" data-smx-action="gallery-next" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:none;background:${escapeHtml(accent)};color:${String(style.backgroundColor ?? '#ffffff')};padding:8px 10px;font-weight:800;">Next</button>` : ''}</div>` : ''}
     </div>
   </div>`;
 }
@@ -790,7 +810,7 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
     ...product,
     src: assetPathMap[product.src] ?? product.src,
   }));
-  const cardSize = cardShape === 'landscape'
+  const baseCardSize = cardShape === 'landscape'
     ? { width: 168, height: 110 }
     : cardShape === 'square'
       ? { width: 132, height: 132 }
@@ -805,12 +825,18 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
     url: '',
   }];
   const visibleCount = orientation === 'vertical' ? 1 : Math.min(2, activeProducts.length || 1);
+  const availableWidth = Math.max(120, frame.width - 24);
+  const availableHeight = Math.max(96, frame.height - 54);
   const effectiveCardSize = orientation === 'horizontal'
     ? {
-        width: Math.max(110, Math.floor((frame.width - 24 - 12 * Math.max(0, visibleCount - 1)) / visibleCount)),
-        height: cardSize.height,
+        width: Math.max(96, Math.floor((availableWidth - 24 * Math.max(0, visibleCount - 1)) / visibleCount)),
+        height: Math.max(104, Math.min(baseCardSize.height, availableHeight)),
       }
-    : cardSize;
+    : {
+        width: Math.max(110, Math.min(availableWidth, baseCardSize.width)),
+        height: Math.max(104, Math.min(baseCardSize.height, availableHeight)),
+      };
+  const mediaHeight = Math.max(48, Math.min(cardShape === 'landscape' ? Math.floor(effectiveCardSize.height * 0.46) : Math.floor(effectiveCardSize.height * 0.52), effectiveCardSize.height - 56));
   const productsJson = escapeHtml(JSON.stringify(activeProducts));
   const base = [
     `position:absolute`,
@@ -830,17 +856,17 @@ function renderShoppableSidebarWidget(node: WidgetNode, assetPathMap: Record<str
   ].join(';');
 
   const cards = activeProducts.map((product, index) => `<article data-shoppable-card="${index}" style="width:${effectiveCardSize.width}px;min-width:${effectiveCardSize.width}px;height:${effectiveCardSize.height}px;border-radius:18px;overflow:hidden;background:#ffffff;color:#1f2937;border:1px solid ${escapeHtml(accent)}22;box-shadow:0 10px 26px rgba(15,23,42,.12);display:flex;flex-direction:column;">
-      <div style="position:relative;height:${cardShape === 'landscape' ? 62 : 82}px;background:${product.src ? '#111827' : '#f8fafc'};">
+      <div style="position:relative;height:${mediaHeight}px;background:${product.src ? '#111827' : '#f8fafc'};flex-shrink:0;">
         ${product.src ? `<img src="${escapeHtml(product.src)}" alt="${escapeHtml(product.title)}" style="width:100%;height:100%;object-fit:cover;display:block;" />` : ''}
       </div>
-      <div style="padding:10px 10px 12px;display:grid;gap:6px;">
-        <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(product.subtitle || 'Featured item')}</div>
-        <div style="font-size:13px;font-weight:800;line-height:1.2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">${escapeHtml(product.title)}</div>
+      <div style="padding:8px 8px 10px;display:grid;gap:4px;flex:1;min-height:0;">
+        <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(product.subtitle || 'Featured item')}</div>
+        <div style="font-size:12px;font-weight:800;line-height:1.15;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">${escapeHtml(product.title)}</div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-          <div style="font-size:12px;color:${escapeHtml(accent)};">${escapeHtml(renderRatingStars(product.rating))}</div>
-          <div style="font-size:15px;font-weight:900;">${escapeHtml(product.price || '$0')}</div>
+          <div style="font-size:11px;color:${escapeHtml(accent)};">${escapeHtml(renderRatingStars(product.rating))}</div>
+          <div style="font-size:13px;font-weight:900;">${escapeHtml(product.price || '$0')}</div>
         </div>
-        <button type="button" data-smx-action="shoppable-cta" data-widget-id="${node.id}" data-product-url="${escapeHtml(product.url)}" style="border:none;border-radius:10px;background:${escapeHtml(accent)};color:#111827;font-weight:800;padding:8px 10px;cursor:pointer;">${escapeHtml(product.ctaLabel || 'Shop now')}</button>
+        <button type="button" data-smx-action="shoppable-cta" data-widget-id="${node.id}" data-product-url="${escapeHtml(product.url)}" style="margin-top:auto;border:none;border-radius:10px;background:${escapeHtml(accent)};color:#111827;font-weight:800;padding:7px 9px;font-size:11px;cursor:pointer;">${escapeHtml(product.ctaLabel || 'Shop now')}</button>
       </div>
     </article>`).join('');
 

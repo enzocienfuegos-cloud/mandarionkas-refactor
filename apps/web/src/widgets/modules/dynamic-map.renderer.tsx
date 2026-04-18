@@ -15,15 +15,25 @@ type LeafletRuntime = {
 function bindAutoScroll(container: HTMLDivElement | null, enabled: boolean, intervalMs: number): (() => void) | undefined {
   if (!container || !enabled) return undefined;
   let direction = 1;
-  const tick = Math.max(16, Math.floor(intervalMs / 40));
-  const timer = window.setInterval(() => {
+  let lastTime = 0;
+  let frameId = 0;
+  const speed = Math.max(12, 2400 / Math.max(800, intervalMs));
+  const tick = (now: number) => {
+    if (!container.isConnected) return;
+    if (!lastTime) lastTime = now;
+    const delta = Math.max(0, now - lastTime);
+    lastTime = now;
     const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
-    if (maxScroll <= 0) return;
-    if (container.scrollTop >= maxScroll - 2) direction = -1;
-    if (container.scrollTop <= 2) direction = 1;
-    container.scrollTop = Math.max(0, Math.min(maxScroll, container.scrollTop + direction * 6));
-  }, tick);
-  return () => window.clearInterval(timer);
+    if (maxScroll > 0) {
+      if (container.scrollTop >= maxScroll - 1) direction = -1;
+      if (container.scrollTop <= 1) direction = 1;
+      const nextScroll = container.scrollTop + direction * speed * (delta / 16.67);
+      container.scrollTop = Math.max(0, Math.min(maxScroll, nextScroll));
+    }
+    frameId = window.requestAnimationFrame(tick);
+  };
+  frameId = window.requestAnimationFrame(tick);
+  return () => window.cancelAnimationFrame(frameId);
 }
 
 function LocateIcon({ size = 18, color = 'currentColor' }: { size?: number; color?: string }): JSX.Element {

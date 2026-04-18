@@ -159,18 +159,90 @@ export function GalleryAssetsInspector({ widget, title }: { widget: WidgetNode; 
                 onChange={(event) => widgetActions.updateWidgetProps(widget.id, { intervalMs: Number(event.target.value) })}
               />
             </div>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={Boolean(widget.props.showPrevButton ?? true)}
+                onChange={(event) => widgetActions.updateWidgetProps(widget.id, { showPrevButton: event.target.checked })}
+              />
+              Show prev button
+            </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={Boolean(widget.props.showNextButton ?? true)}
+                onChange={(event) => widgetActions.updateWidgetProps(widget.id, { showNextButton: event.target.checked })}
+              />
+              Show next button
+            </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={Boolean(widget.props.showPaginationDots ?? true)}
+                onChange={(event) => widgetActions.updateWidgetProps(widget.id, { showPaginationDots: event.target.checked })}
+              />
+              Show pagination dots
+            </label>
+            <div>
+              <label>Dot size</label>
+              <input
+                type="number"
+                step="1"
+                min="4"
+                max="18"
+                value={String(widget.props.paginationDotSize ?? 8)}
+                onChange={(event) => widgetActions.updateWidgetProps(widget.id, { paginationDotSize: Number(event.target.value) })}
+              />
+            </div>
           </>
         ) : (
-          <div>
-            <label>Active image</label>
-            <input
-              type="number"
-              min="1"
-              max={String(Math.max(1, slides.length || Number(widget.props.itemCount ?? 1)))}
-              value={String(widget.props.activeIndex ?? 1)}
-              onChange={(event) => widgetActions.updateWidgetProps(widget.id, { activeIndex: Number(event.target.value), itemCount: Math.max(1, slides.length) })}
-            />
-          </div>
+          <>
+            <div>
+              <label>Active image</label>
+              <input
+                type="number"
+                min="1"
+                max={String(Math.max(1, slides.length || Number(widget.props.itemCount ?? 1)))}
+                value={String(widget.props.activeIndex ?? 1)}
+                onChange={(event) => widgetActions.updateWidgetProps(widget.id, { activeIndex: Number(event.target.value), itemCount: Math.max(1, slides.length) })}
+              />
+            </div>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={Boolean(widget.props.showPrevButton ?? true)}
+                onChange={(event) => widgetActions.updateWidgetProps(widget.id, { showPrevButton: event.target.checked })}
+              />
+              Show prev button
+            </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={Boolean(widget.props.showNextButton ?? true)}
+                onChange={(event) => widgetActions.updateWidgetProps(widget.id, { showNextButton: event.target.checked })}
+              />
+              Show next button
+            </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={Boolean(widget.props.showPaginationDots ?? true)}
+                onChange={(event) => widgetActions.updateWidgetProps(widget.id, { showPaginationDots: event.target.checked })}
+              />
+              Show pagination dots
+            </label>
+            <div>
+              <label>Dot size</label>
+              <input
+                type="number"
+                step="1"
+                min="4"
+                max="18"
+                value={String(widget.props.paginationDotSize ?? 8)}
+                onChange={(event) => widgetActions.updateWidgetProps(widget.id, { paginationDotSize: Number(event.target.value) })}
+              />
+            </div>
+          </>
         )}
         <div>
           <label>Advanced slides data</label>

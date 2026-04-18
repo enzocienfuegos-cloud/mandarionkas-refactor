@@ -12,6 +12,7 @@ export const SpeedTestDefinition = createModuleDefinition({
     max: 100,
     current: 64,
     units: 'Mbps',
+    skin: 'ookla',
     durationMs: 1800,
     ctaLabel: 'Start test',
     resultMode: 'random',
@@ -25,6 +26,14 @@ export const SpeedTestDefinition = createModuleDefinition({
     { key: 'max', type: 'number' },
     { key: 'current', label: 'Fixed result', type: 'number' },
     { key: 'units' },
+    {
+      key: 'skin',
+      type: 'select',
+      options: [
+        { label: 'Ookla style', value: 'ookla' },
+        { label: 'Classic', value: 'classic' },
+      ],
+    },
     { key: 'durationMs', label: 'Duration ms', type: 'number' },
     { key: 'ctaLabel', label: 'Button label' },
     { key: 'fastThreshold', label: 'Fast threshold', type: 'number' },

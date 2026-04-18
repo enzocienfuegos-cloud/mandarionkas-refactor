@@ -124,15 +124,30 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     if (!container || !enabled || container.dataset.autoscrollBound === 'true') return;
     container.dataset.autoscrollBound = 'true';
     let direction = 1;
-    const tick = Math.max(16, Math.floor(intervalMs / 40));
-    const timer = window.setInterval(() => {
+    let lastTime = 0;
+    let frameId = 0;
+    const speed = Math.max(12, 2400 / Math.max(800, intervalMs));
+    const step = (now) => {
+      if (!container.isConnected) return;
+      if (!lastTime) lastTime = now;
+      const delta = Math.max(0, now - lastTime);
+      lastTime = now;
       const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
-      if (maxScroll <= 0) return;
-      if (container.scrollTop >= maxScroll - 2) direction = -1;
-      if (container.scrollTop <= 2) direction = 1;
-      container.scrollTop = Math.max(0, Math.min(maxScroll, container.scrollTop + direction * 6));
-    }, tick);
-    container.addEventListener('pointerdown', () => window.clearInterval(timer), { once: true });
+      if (maxScroll > 0) {
+        if (container.scrollTop >= maxScroll - 1) direction = -1;
+        if (container.scrollTop <= 1) direction = 1;
+        const nextScroll = container.scrollTop + direction * speed * (delta / 16.67);
+        container.scrollTop = Math.max(0, Math.min(maxScroll, nextScroll));
+      }
+      frameId = window.requestAnimationFrame(step);
+    };
+    frameId = window.requestAnimationFrame(step);
+    const stop = () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      frameId = 0;
+    };
+    container.addEventListener('pointerdown', stop, { once: true });
+    container.addEventListener('wheel', stop, { once: true, passive: true });
   }
 
   function renderMapCards(root, userPosition) {
@@ -277,6 +292,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     const root = document.querySelector('[data-widget-id="' + widgetId + '"].widget-image-carousel');
     if (!root) return;
     const slides = JSON.parse(root.getAttribute('data-carousel-slides') || '[]');
+    const accent = root.getAttribute('data-carousel-accent') || '#ffffff';
     if (!Array.isArray(slides) || !slides.length) return;
     const length = slides.length;
     const normalizedIndex = ((nextIndex % length) + length) % length;
@@ -291,7 +307,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     if (caption && activeSlide) caption.textContent = activeSlide.caption || '';
     root.querySelectorAll('[data-carousel-target]').forEach((dot) => {
       const target = Number(dot.getAttribute('data-carousel-target') || 0);
-      dot.style.background = target === normalizedIndex ? 'currentColor' : 'rgba(255,255,255,.45)';
+      dot.style.background = target === normalizedIndex ? accent : 'rgba(255,255,255,.45)';
     });
   }
 
@@ -311,6 +327,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     const root = document.querySelector('[data-widget-id="' + widgetId + '"].widget-interactive-gallery');
     if (!root) return;
     const slides = JSON.parse(root.getAttribute('data-gallery-slides') || '[]');
+    const accent = root.getAttribute('data-gallery-accent') || '#111827';
     const total = Math.max(1, Array.isArray(slides) && slides.length ? slides.length : Number(root.getAttribute('data-gallery-count') || 4));
     const normalizedIndex = ((nextIndex % total) + total) % total;
     root.setAttribute('data-gallery-index', String(normalizedIndex));
@@ -326,9 +343,13 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     if (caption && activeSlide) caption.textContent = activeSlide.caption || ('Image ' + String(normalizedIndex + 1));
     if (count) count.textContent = String(normalizedIndex + 1) + ' / ' + String(total);
     if (!image && card) card.textContent = String(normalizedIndex + 1) + ' / ' + String(total);
+    root.querySelectorAll('[data-gallery-target]').forEach((dot) => {
+      const target = Number(dot.getAttribute('data-gallery-target') || 0);
+      dot.style.background = target === normalizedIndex ? accent : 'rgba(255,255,255,.4)';
+    });
   }
 
-  document.querySelectorAll('[data-smx-action="gallery-prev"], [data-smx-action="gallery-next"]').forEach((node) => {
+  document.querySelectorAll('[data-smx-action="gallery-prev"], [data-smx-action="gallery-next"], [data-smx-action="gallery-dot"]').forEach((node) => {
     node.addEventListener('click', (event) => {
       event.preventDefault();
       const widgetId = node.getAttribute('data-widget-id') || '';
@@ -336,6 +357,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       const currentIndex = Number(root?.getAttribute('data-gallery-index') || 0);
       if (node.getAttribute('data-smx-action') === 'gallery-prev') updateGallery(widgetId, currentIndex - 1);
       if (node.getAttribute('data-smx-action') === 'gallery-next') updateGallery(widgetId, currentIndex + 1);
+      if (node.getAttribute('data-smx-action') === 'gallery-dot') updateGallery(widgetId, Number(node.getAttribute('data-gallery-target') || 0));
     });
   });
 
@@ -439,6 +461,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     const value = root.querySelector('[data-speed-value]');
     const bar = root.querySelector('[data-speed-bar]');
     const status = root.querySelector('[data-speed-status]');
+    const needle = root.querySelector('[data-speed-needle]');
     const target = mode === 'fixed'
       ? Math.max(min, Math.min(max, fixedValue))
       : Math.max(min, Math.min(max, Math.round(min + Math.random() * Math.max(1, max - min))));
@@ -457,6 +480,11 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       const isFast = current >= fastThreshold;
       if (bar) bar.style.width = pct + '%';
       if (bar) bar.style.background = isFast ? '#22c55e' : '#ef4444';
+      if (needle) {
+        needle.style.background = isFast ? '#22c55e' : '#ef4444';
+        needle.style.boxShadow = '0 0 16px ' + (isFast ? '#22c55e' : '#ef4444');
+        needle.style.transform = 'translateX(-50%) rotate(' + String(-92 + pct * 1.84) + 'deg)';
+      }
       if (value) value.innerHTML = String(current) + '<span style="font-size:13px;opacity:.8;"> ' + units + '</span>';
       if (status) {
         status.textContent = isFast ? fastMessage : slowMessage;
