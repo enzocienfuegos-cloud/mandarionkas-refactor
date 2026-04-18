@@ -189,8 +189,8 @@ export function GalleryAssetsInspector({ widget, title }: { widget: WidgetNode; 
                 type="number"
                 step="1"
                 min="2"
-                max="6"
-                value={String(widget.props.paginationDotSize ?? 4)}
+                max="5"
+                value={String(widget.props.paginationDotSize ?? 3)}
                 onChange={(event) => widgetActions.updateWidgetProps(widget.id, { paginationDotSize: Number(event.target.value) })}
               />
             </div>

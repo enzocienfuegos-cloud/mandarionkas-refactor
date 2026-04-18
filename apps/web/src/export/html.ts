@@ -254,7 +254,7 @@ function renderCarouselWidget(node: WidgetNode, assetPathMap: Record<string, str
   const showPrevButton = Boolean(node.props.showPrevButton ?? true);
   const showNextButton = Boolean(node.props.showNextButton ?? true);
   const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
-  const paginationDotSize = Math.max(2, Math.min(6, Number(node.props.paginationDotSize ?? 4)));
+  const paginationDotSize = Math.max(2, Math.min(5, Number(node.props.paginationDotSize ?? 3)));
 
   return `<div class="widget widget-image-carousel" data-widget-id="${node.id}" data-carousel-slides="${slidesJson}" data-carousel-index="0" data-carousel-accent="${escapeHtml(accent)}" style="${base}">
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
@@ -262,7 +262,7 @@ function renderCarouselWidget(node: WidgetNode, assetPathMap: Record<string, str
       ${activeSlide ? `<img data-carousel-image src="${escapeHtml(activeSlide.src)}" alt="${escapeHtml(activeSlide.caption)}" style="width:100%;height:100%;display:block;object-fit:cover;" />` : '<div style="width:100%;height:100%;display:grid;place-items:center;opacity:.7;">Add slides</div>'}
       <div style="position:absolute;inset-inline:12px;bottom:10px;display:flex;justify-content:space-between;align-items:end;gap:8px;">
         <div data-carousel-caption style="border-radius:10px;padding:8px 10px;background:rgba(15,23,42,.68);font-size:12px;">${escapeHtml(activeSlide?.caption ?? 'No slide')}</div>
-        ${showPaginationDots ? `<div style="display:flex;gap:6px;">${slides.map((_, index) => `<button type="button" data-smx-action="carousel-dot" data-widget-id="${node.id}" data-carousel-target="${index}" style="width:${paginationDotSize}px;height:${paginationDotSize}px;border-radius:50%;border:none;background:${index === 0 ? escapeHtml(accent) : 'rgba(255,255,255,.45)'};cursor:pointer;"></button>`).join('')}</div>` : ''}
+        ${showPaginationDots ? `<div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">${slides.map((_, index) => `<button type="button" data-smx-action="carousel-dot" data-widget-id="${node.id}" data-carousel-target="${index}" style="width:${paginationDotSize}px;min-width:${paginationDotSize}px;height:${paginationDotSize}px;min-height:${paginationDotSize}px;border-radius:50%;border:none;padding:0;margin:0;background:${index === 0 ? escapeHtml(accent) : 'rgba(255,255,255,.45)'};cursor:pointer;appearance:none;-webkit-appearance:none;display:block;flex:0 0 auto;line-height:1;box-sizing:border-box;"></button>`).join('')}</div>` : ''}
       </div>
     </div>
     ${showPrevButton || showNextButton ? `<div style="display:flex;gap:8px;padding:0 12px 12px;">${showPrevButton ? `<button type="button" data-smx-action="carousel-prev" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:1px solid ${escapeHtml(accent)};background:transparent;color:inherit;padding:8px 10px;">Prev</button>` : ''}${showNextButton ? `<button type="button" data-smx-action="carousel-next" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:none;background:${escapeHtml(accent)};color:#111827;font-weight:800;padding:8px 10px;">Next</button>` : ''}</div>` : ''}
