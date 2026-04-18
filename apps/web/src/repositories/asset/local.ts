@@ -1,11 +1,12 @@
-import type { AssetDraft, AssetRecord } from '../../assets/types';
+import type { AssetDraft, AssetFolder, AssetQualityPreference, AssetRecord } from '../../assets/types';
 import { canUseBrowserStorage, readStorageItem, writeStorageItem } from '../../shared/browser/storage';
-import { getRepositoryContext } from '../context';
-import type { AssetRepository } from '../types';
-import { emitAssetLibraryChanged } from './events';
+import { getRepositoryContext } from '../../repositories/context';
+import type { AssetRepository } from '../../repositories/types';
+import { emitAssetLibraryChanged } from '../../repositories/asset/events';
 
 const ASSET_LIBRARY_KEY = 'smx-studio-v4:asset-library';
 const ASSET_OBJECT_STORE_KEY = 'smx-studio-v4:asset-object-store';
+const ASSET_FOLDER_LIBRARY_KEY = 'smx-studio-v4:asset-folders';
 
 function createId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -39,11 +40,13 @@ function hydrateAsset(asset: AssetRecord, objectStore: Record<string, string>): 
   const storageMode = normalizeStorageMode(asset);
   const resolvedPublicUrl = asset.publicUrl ?? (storageMode === 'remote-url' ? asset.src : undefined);
   const resolvedStoredObject = storageMode === 'object-storage' && asset.storageKey ? objectStore[asset.storageKey] : undefined;
+  const resolvedOptimizedUrl = asset.optimizedUrl ?? resolvedPublicUrl;
   return {
     ...asset,
     storageMode,
     publicUrl: resolvedPublicUrl,
-    src: resolvedPublicUrl ?? resolvedStoredObject ?? asset.src,
+    optimizedUrl: resolvedOptimizedUrl,
+    src: resolvedOptimizedUrl ?? resolvedStoredObject ?? asset.src,
     clientId: asset.clientId ?? 'client_default',
     ownerUserId: asset.ownerUserId ?? 'anonymous',
     accessScope: asset.accessScope ?? 'client',
@@ -69,6 +72,38 @@ function readAll(): AssetRecord[] {
 function writeAll(assets: AssetRecord[]): void {
   if (!canUseBrowserStorage()) return;
   writeStorageItem(ASSET_LIBRARY_KEY, JSON.stringify(assets));
+}
+
+function readAllFolders(): AssetFolder[] {
+  if (!canUseBrowserStorage()) return [];
+  const raw = readStorageItem(ASSET_FOLDER_LIBRARY_KEY, '');
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as AssetFolder[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeAllFolders(folders: AssetFolder[]): void {
+  if (!canUseBrowserStorage()) return;
+  writeStorageItem(ASSET_FOLDER_LIBRARY_KEY, JSON.stringify(folders));
+}
+
+function collectDescendantFolderIds(folders: AssetFolder[], rootId: string): Set<string> {
+  const descendants = new Set<string>([rootId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const folder of folders) {
+      if (folder.parentId && descendants.has(folder.parentId) && !descendants.has(folder.id)) {
+        descendants.add(folder.id);
+        changed = true;
+      }
+    }
+  }
+  return descendants;
 }
 
 function canViewAsset(asset: AssetRecord, clientId: string, ownerUserId: string, canViewClientAssets: boolean): boolean {
@@ -111,8 +146,7 @@ function stripTransientInput(input: AssetDraft): AssetDraft {
   return rest;
 }
 
-export const localAssetRepository: AssetRepository = {
-  mode: 'local',
+export const browserStorageAssetRepository: AssetRepository = {
   async list() {
     const ctx = getRepositoryContext();
     return readAll()
@@ -164,9 +198,89 @@ export const localAssetRepository: AssetRepository = {
     writeAll(readAll().map((asset) => asset.id === assetId && asset.clientId === ctx.clientId && canManageAsset(asset, ctx.ownerUserId, ctx.can('assets:manage-client')) ? { ...asset, name } : asset));
     emitAssetLibraryChanged('renamed');
   },
+  async move(assetId, folderId) {
+    const ctx = getRepositoryContext();
+    writeAll(readAll().map((asset) => asset.id === assetId && asset.clientId === ctx.clientId && canManageAsset(asset, ctx.ownerUserId, ctx.can('assets:manage-client')) ? { ...asset, folderId } : asset));
+    emitAssetLibraryChanged('moved');
+  },
+  async updateQuality(assetId, qualityPreference) {
+    const ctx = getRepositoryContext();
+    writeAll(readAll().map((asset) => (
+      asset.id === assetId
+      && asset.clientId === ctx.clientId
+      && canManageAsset(asset, ctx.ownerUserId, ctx.can('assets:manage-client'))
+        ? { ...asset, qualityPreference: qualityPreference as AssetQualityPreference }
+        : asset
+    )));
+    emitAssetLibraryChanged('saved');
+  },
+  async reprocess(assetId) {
+    const ctx = getRepositoryContext();
+    let updated: AssetRecord | undefined;
+    writeAll(readAll().map((asset) => {
+      const canManage = asset.id === assetId
+        && asset.clientId === ctx.clientId
+        && canManageAsset(asset, ctx.ownerUserId, ctx.can('assets:manage-client'));
+      if (!canManage) return asset;
+      if (asset.kind !== 'image' && asset.kind !== 'video') return asset;
+      if (asset.storageMode !== 'object-storage') return asset;
+      updated = {
+        ...asset,
+        processingStatus: 'queued',
+        processingMessage: 'Queued for reprocessing.',
+        processingAttempts: (asset.processingAttempts ?? 0) + 1,
+        processingLastRetryAt: new Date().toISOString(),
+      };
+      return updated;
+    }));
+    emitAssetLibraryChanged('saved');
+    return updated;
+  },
   async get(assetId) {
     if (!assetId) return undefined;
     const ctx = getRepositoryContext();
     return readAll().find((asset) => asset.id === assetId && canViewAsset(asset, ctx.clientId, ctx.ownerUserId, ctx.can('assets:view-client')));
+  },
+  async listFolders() {
+    const ctx = getRepositoryContext();
+    return readAllFolders().filter((folder) => folder.clientId === ctx.clientId);
+  },
+  async createFolder(name, parentId) {
+    const ctx = getRepositoryContext();
+    const folder: AssetFolder = {
+      id: createId('folder'),
+      name,
+      createdAt: new Date().toISOString(),
+      clientId: ctx.clientId,
+      ownerUserId: ctx.ownerUserId,
+      parentId,
+    };
+    writeAllFolders([folder, ...readAllFolders()]);
+    emitAssetLibraryChanged('saved');
+    return folder;
+  },
+  async renameFolder(folderId, name) {
+    const ctx = getRepositoryContext();
+    let renamed: AssetFolder | undefined;
+    const next = readAllFolders().map((folder) => {
+      if (folder.id !== folderId || folder.clientId !== ctx.clientId) return folder;
+      renamed = { ...folder, name };
+      return renamed;
+    });
+    writeAllFolders(next);
+    emitAssetLibraryChanged('renamed');
+    return renamed;
+  },
+  async deleteFolder(folderId) {
+    const ctx = getRepositoryContext();
+    const folders = readAllFolders();
+    const deletedIds = collectDescendantFolderIds(folders, folderId);
+    writeAllFolders(folders.filter((folder) => !(folder.clientId === ctx.clientId && deletedIds.has(folder.id))));
+    writeAll(readAll().map((asset) => (
+      asset.clientId === ctx.clientId && asset.folderId && deletedIds.has(asset.folderId)
+        ? { ...asset, folderId: undefined }
+        : asset
+    )));
+    emitAssetLibraryChanged('removed');
   },
 };

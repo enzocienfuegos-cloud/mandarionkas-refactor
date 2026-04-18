@@ -11,6 +11,8 @@ export type ModuleSpec = {
   props: Record<string, unknown>;
   style: Record<string, unknown>;
   renderStage: WidgetDefinition['renderStage'];
+  renderInspector?: WidgetDefinition['renderInspector'];
+  renderExport?: WidgetDefinition['renderExport'];
   inspectorFields?: WidgetDefinition['inspectorFields'];
   exportDetail?: string;
 };
@@ -38,9 +40,10 @@ export function createModuleDefinition(spec: ModuleSpec): WidgetDefinition {
       { id: 'data', label: 'Data', panels: ['data-bindings', 'variants'] },
     ]),
     renderStage: spec.renderStage,
+    renderInspector: spec.renderInspector,
     inspectorTitle: spec.label,
     inspectorFields: spec.inspectorFields,
-    renderExport: createModuleExportRenderer(spec.exportDetail ?? spec.label),
+    renderExport: spec.renderExport ?? createModuleExportRenderer(spec.exportDetail ?? spec.label),
     renderLabel: (node) => String(node.props.title ?? node.props.label ?? node.name),
   };
 }

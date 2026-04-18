@@ -1,4 +1,5 @@
 import type { StudioState } from '../domain/document/types';
+import { prepareExportStateWithResolvedAssets } from './asset-resolution';
 import { buildStandaloneHtml } from './html';
 import { buildExportManifest } from './manifest';
 import { buildPublishPackage, buildReviewPackage } from './packages';
@@ -13,8 +14,9 @@ export function downloadTextFile(filename: string, content: string, mime = 'text
   URL.revokeObjectURL(url);
 }
 
-export function triggerExportHtml(state: StudioState): void {
-  downloadTextFile(`${state.document.name || 'smx-export'}.html`, buildStandaloneHtml(state), 'text/html;charset=utf-8');
+export async function triggerExportHtml(state: StudioState): Promise<void> {
+  const preparedState = await prepareExportStateWithResolvedAssets(state);
+  downloadTextFile(`${state.document.name || 'smx-export'}.html`, buildStandaloneHtml(preparedState), 'text/html;charset=utf-8');
 }
 
 export function triggerExportManifest(state: StudioState): void {
@@ -25,8 +27,13 @@ export function triggerExportDocumentJson(state: StudioState): void {
   downloadTextFile(`${state.document.name || 'smx-export'}-document.json`, JSON.stringify(state.document, null, 2), 'application/json;charset=utf-8');
 }
 
-export function triggerExportPublishPackage(state: StudioState): void {
-  downloadTextFile(`${state.document.name || 'smx-export'}-publish-package.json`, buildPublishPackage(state), 'application/json;charset=utf-8');
+export async function triggerExportPublishPackage(state: StudioState): Promise<void> {
+  const preparedState = await prepareExportStateWithResolvedAssets(state);
+  downloadTextFile(
+    `${state.document.name || 'smx-export'}-publish-package.json`,
+    buildPublishPackage(state, preparedState),
+    'application/json;charset=utf-8',
+  );
 }
 
 export function triggerExportReviewPackage(state: StudioState): void {

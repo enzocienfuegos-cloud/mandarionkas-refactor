@@ -8,6 +8,7 @@ import {
   listAssetFolders,
   listAssets,
   prepareAssetUpload,
+  reprocessAsset,
   renameAsset,
   saveRemoteAsset,
 } from './service.mjs';
@@ -287,6 +288,43 @@ export async function handleAssetRoutes(ctx) {
         });
         return sendJson(res, 200, { asset, requestId });
       } catch (error) {
+        return badRequest(res, requestId, error.message);
+      }
+    });
+  }
+
+  if (method === 'POST' && /^\/v1\/assets\/[^/]+\/reprocess$/.test(pathname)) {
+    if (enforceRateLimit(res, requestId, req.headers, 'asset-reprocess', 30, 60_000)) return true;
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'assets:update')) {
+        return forbidden(res, requestId, 'You do not have permission to reprocess assets.');
+      }
+      const workspace = getActiveWorkspace(session);
+      if (!workspace) return badRequest(res, requestId, 'An active workspace is required to reprocess an asset.');
+      try {
+        await session.client.query('begin');
+        const assetId = pathname.split('/')[3];
+        const asset = await reprocessAsset(session.client, {
+          assetId,
+          workspaceId: workspace.id,
+          ownerUserId: session.user.id,
+        });
+        if (!asset) {
+          await session.client.query('rollback');
+          return sendJson(res, 404, { ok: false, requestId, code: 'asset_not_found', message: 'Asset not found.' });
+        }
+        await recordAuditEvent(session.client, {
+          workspaceId: workspace.id,
+          actorUserId: session.user.id,
+          action: 'asset.reprocessed',
+          targetType: 'asset',
+          targetId: asset.id,
+          payload: { kind: asset.kind, storageKey: asset.storageKey || null },
+        });
+        await session.client.query('commit');
+        return sendJson(res, 200, { asset, requestId });
+      } catch (error) {
+        await session.client.query('rollback');
         return badRequest(res, requestId, error.message);
       }
     });
