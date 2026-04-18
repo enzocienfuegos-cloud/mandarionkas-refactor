@@ -156,6 +156,10 @@ function buildExportLeafletMapSrcdoc(input: {
 </html>`.trim();
 }
 
+function locateIconMarkup(color: string): string {
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.2" stroke="${escapeHtml(color)}" stroke-width="2"></circle><path d="M12 2.5v3.2M12 18.3v3.2M2.5 12h3.2M18.3 12h3.2" stroke="${escapeHtml(color)}" stroke-width="2" stroke-linecap="round"></path></svg>`;
+}
+
 function resolveAssetPath(src: unknown, assetPathMap: Record<string, string>): string {
   if (typeof src !== 'string') return '';
   return assetPathMap[src] ?? src;
@@ -565,7 +569,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
             </div>
             <div style="position:relative;height:122px;background:${mapBackground};overflow:hidden;">
               <iframe title="Nearby locations map" srcdoc="${exportMapSrcdoc}" style="position:absolute;inset:0;width:100%;height:100%;border:0;background:${mapBackground};" loading="lazy"></iframe>
-              <button type="button" data-smx-action="map-request-location" style="position:absolute;right:10px;top:10px;min-width:40px;height:40px;border-radius:999px;border:none;background:#fff;color:${escapeHtml(accent)};box-shadow:0 3px 14px rgba(0,0,0,.2);font-size:11px;font-weight:900;cursor:pointer;padding:0 10px;">${escapeHtml(locateMeLabel)}</button>
+              <button type="button" aria-label="${escapeHtml(locateMeLabel)}" title="${escapeHtml(locateMeLabel)}" data-smx-action="map-request-location" style="position:absolute;right:10px;top:10px;width:40px;height:40px;border-radius:999px;border:none;background:#fff;color:${escapeHtml(accent)};box-shadow:0 3px 14px rgba(0,0,0,.2);cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;z-index:2;touch-action:manipulation;">${locateIconMarkup(accent)}</button>
             </div>
             <div style="padding:10px 12px;border-bottom:1px solid rgba(0,0,0,.08);display:flex;align-items:flex-start;gap:10px;">
               ${logoImage ? `<img src="${escapeHtml(logoImage)}" alt="${escapeHtml(brandText)}" style="height:22px;max-width:90px;object-fit:contain;" />` : `<div style="width:12px;height:12px;border-radius:50%;background:${escapeHtml(accent)};margin-top:4px;flex:0 0 12px;"></div>`}
@@ -592,7 +596,7 @@ function renderDynamicMapWidget(node: WidgetNode): string {
     <div style="padding:8px 12px 12px;flex:1;display:grid;grid-template-columns:${gridTemplateColumns};grid-template-rows:${gridTemplateRows};gap:10px;min-height:0;">
       ${cardsOnly ? '' : `<div style="position:relative;min-height:${stackedLayout ? 150 : 110}px;border-radius:12px;overflow:hidden;background:${mapBackground};">
         <iframe title="Nearby locations map" srcdoc="${exportMapSrcdoc}" style="position:absolute;inset:0;width:100%;height:100%;border:0;background:${mapBackground};"></iframe>
-        ${requestUserLocation ? `<button type="button" data-smx-action="map-request-location-inline" style="position:absolute;right:10px;top:10px;min-width:40px;height:40px;border-radius:999px;border:none;background:#fff;color:${escapeHtml(accent)};box-shadow:0 3px 14px rgba(0,0,0,.2);font-size:11px;font-weight:900;cursor:pointer;padding:0 10px;">${escapeHtml(locateMeLabel)}</button>` : ''}
+        ${requestUserLocation ? `<button type="button" aria-label="${escapeHtml(locateMeLabel)}" title="${escapeHtml(locateMeLabel)}" data-smx-action="map-request-location-inline" style="position:absolute;right:10px;top:10px;width:40px;height:40px;border-radius:999px;border:none;background:#fff;color:${escapeHtml(accent)};box-shadow:0 3px 14px rgba(0,0,0,.2);cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;z-index:2;touch-action:manipulation;">${locateIconMarkup(accent)}</button>` : ''}
       <div style="position:absolute;left:10px;right:10px;bottom:8px;display:flex;justify-content:space-between;font-size:10px;color:#0f172a;opacity:.82;pointer-events:none;"><span>${places.length} locations · zoom ${zoom}</span><span>${requestUserLocation ? 'Location ready on tap' : 'Location fixed'}</span></div></div>`}
       <div data-map-cards style="display:grid;gap:4px;overflow:auto;min-height:0;padding-right:2px;align-content:start;scrollbar-color:rgba(255,255,255,.92) rgba(255,255,255,.18);scrollbar-width:thin;">${places.map((place) => `<div data-map-card data-place-name="${escapeHtml(place.name)}" style="border-radius:10px;background:rgba(255,255,255,.78);border:1px solid ${escapeHtml(accent)}22;padding:7px 8px;display:grid;gap:3px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:11px;line-height:1.1;">${escapeHtml(place.name)}</strong><span data-place-badge style="font-size:8px;border-radius:999px;padding:2px 5px;background:${escapeHtml(accent)}22;color:#0f172a;white-space:nowrap;">${escapeHtml(place.badge || (place.openNow ? 'Open now' : 'Store'))}</span></div>

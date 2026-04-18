@@ -12,6 +12,15 @@ type LeafletRuntime = {
   markers: any[];
 };
 
+function LocateIcon({ size = 18, color = 'currentColor' }: { size?: number; color?: string }): JSX.Element {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.2" stroke={color} strokeWidth="2" />
+      <path d="M12 2.5v3.2M12 18.3v3.2M2.5 12h3.2M18.3 12h3.2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function rankPlaces(places: NearbyPlace[], userPosition: { latitude: number; longitude: number } | null, sortByDistance: boolean): PlaceWithDistance[] {
   const next = places.map((place) => ({
     ...place,
@@ -196,7 +205,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
       setUserPosition({ latitude: position.coords.latitude, longitude: position.coords.longitude });
     }, () => {
       if (!cancelled) setUserPosition(null);
-    }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
+    }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 });
     return () => {
       cancelled = true;
     };
@@ -258,7 +267,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
       setPanelState('located');
     }, () => {
       setPanelState('default');
-    }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
+    }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 });
   };
 
   useEffect(() => {
@@ -342,7 +351,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
                     <div ref={panelMapCanvasRef} style={{ position: 'absolute', inset: 0 }} />
                   </>
                 ) : null}
-                <button type="button" onClick={(event) => { event.stopPropagation(); requestUserPosition(); }} style={{ position: 'absolute', right: 10, top: 10, width: 40, height: 40, borderRadius: '50%', border: 'none', background: '#fff', color: accent, boxShadow: '0 3px 14px rgba(0,0,0,.2)', fontSize: 16, fontWeight: 900, cursor: 'pointer' }}>{locateMeLabel.slice(0, 1) || '◎'}</button>
+                <button type="button" aria-label={locateMeLabel} title={locateMeLabel} onClick={(event) => { event.stopPropagation(); requestUserPosition(); }} style={{ position: 'absolute', right: 10, top: 10, width: 40, height: 40, borderRadius: '50%', border: 'none', background: '#fff', color: accent, boxShadow: '0 3px 14px rgba(0,0,0,.2)', cursor: 'pointer', zIndex: 500, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation' }}><LocateIcon size={18} color={accent} /></button>
               </div>
               <div style={{ height: 150, background: '#fff', borderTop: '1px solid rgba(0,0,0,.08)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10, color: '#111', minHeight: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
@@ -398,13 +407,15 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
               {requestUserLocation ? (
                 <button
                   type="button"
+                  aria-label={locateMeLabel}
+                  title={locateMeLabel}
                   onClick={(event) => {
                     event.stopPropagation();
                     requestUserPosition();
                   }}
-                  style={{ position: 'absolute', right: 10, top: 10, minWidth: 40, height: 40, borderRadius: 999, border: 'none', background: '#fff', color: accent, boxShadow: '0 3px 14px rgba(0,0,0,.2)', fontSize: 11, fontWeight: 900, cursor: 'pointer', padding: '0 10px', zIndex: 500 }}
+                  style={{ position: 'absolute', right: 10, top: 10, width: 40, height: 40, borderRadius: 999, border: 'none', background: '#fff', color: accent, boxShadow: '0 3px 14px rgba(0,0,0,.2)', cursor: 'pointer', padding: 0, zIndex: 500, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation' }}
                 >
-                  {locateMeLabel}
+                  <LocateIcon size={18} color={accent} />
                 </button>
               ) : null}
               <div style={{ position: 'absolute', left: 10, right: 10, bottom: 8, display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#0f172a', opacity: 0.82 }}>

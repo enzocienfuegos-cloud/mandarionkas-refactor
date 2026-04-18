@@ -104,6 +104,18 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     }, '*');
   }
 
+  function requestUserPosition(onSuccess, onError) {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      if (typeof onError === 'function') onError();
+      return;
+    }
+    navigator.geolocation.getCurrentPosition((position) => {
+      onSuccess({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+    }, () => {
+      if (typeof onError === 'function') onError();
+    }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 });
+  }
+
   function renderMapCards(root, userPosition) {
     const cardsRoot = root.querySelector('[data-map-cards]');
     if (!cardsRoot) return;
@@ -198,14 +210,14 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       if (locateButton && typeof navigator !== 'undefined' && navigator.geolocation) {
         locateButton.addEventListener('click', (event) => {
           event.preventDefault();
+          event.stopPropagation();
           renderMapSearchBar(root, null, 'locating');
-          navigator.geolocation.getCurrentPosition((position) => {
-            const userPosition = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+          requestUserPosition((userPosition) => {
             renderMapSearchBar(root, userPosition, 'located');
             postUserPositionToMap(root, userPosition);
           }, () => {
             renderMapSearchBar(root, null, 'default');
-          }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
+          });
         });
       }
       return;
@@ -216,23 +228,22 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     if (inlineLocateButton) {
       inlineLocateButton.addEventListener('click', (event) => {
         event.preventDefault();
-        navigator.geolocation.getCurrentPosition((position) => {
-          const userPosition = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        event.stopPropagation();
+        requestUserPosition((userPosition) => {
           renderMapCards(root, userPosition);
           postUserPositionToMap(root, userPosition);
         }, () => {
           renderMapCards(root, null);
-        }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
+        });
       });
       return;
     }
-    navigator.geolocation.getCurrentPosition((position) => {
-      const userPosition = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+    requestUserPosition((userPosition) => {
       renderMapCards(root, userPosition);
       postUserPositionToMap(root, userPosition);
     }, () => {
       renderMapCards(root, null);
-    }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
+    });
   });
 
   function updateCarousel(widgetId, nextIndex) {
