@@ -55,6 +55,7 @@ function mapPreparedDerivatives(
 }
 
 export const apiAssetStorageProvider: AssetStorageProvider = {
+  mode: 'api',
   async prepareUpload(input) {
     const optimizedImage = await optimizeImageFileForUpload(input.file);
     const metadata = await createAssetUploadMetadataFromFile({ ...input, file: optimizedImage?.uploadFile ?? input.file });

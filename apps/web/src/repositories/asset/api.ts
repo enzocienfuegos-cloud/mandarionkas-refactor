@@ -1,7 +1,7 @@
 import type { AssetDraft, AssetFolder, AssetRecord } from '../../assets/types';
 import { mapAssetDraftToDto, mapAssetFolderDtoToDomain, mapAssetRecordDtoToDomain } from '../../assets/contracts';
 import { getRepositoryApiBase } from '../api-config';
-import { fetchJson, fetchOptionalJson } from '../../shared/net/http-json';
+import { fetchJson, fetchOptionalJson, fetchVoid } from '../../shared/net/http-json';
 import type { AssetRepository } from '../types';
 import type {
   CreateAssetFolderResponseDto,
@@ -112,7 +112,7 @@ export const apiAssetRepository: AssetRepository = {
     const base = getBaseUrl().trim();
     if (!base) throw new Error('Asset API unavailable');
 
-    await fetchJson<unknown>(`${base.replace(/\/$/, '')}/assets/${assetId}`, { method: 'DELETE' });
+    await fetchVoid(`${base.replace(/\/$/, '')}/assets/${assetId}`, { method: 'DELETE' });
     emitAssetLibraryChanged('removed');
   },
 
@@ -188,7 +188,7 @@ export const apiAssetRepository: AssetRepository = {
   async deleteFolder(folderId) {
     const base = getBaseUrl().trim();
     if (!base) throw new Error('Asset API unavailable');
-    await fetchJson<unknown>(`${base.replace(/\/$/, '')}/assets/folders/${folderId}`, { method: 'DELETE' });
+    await fetchVoid(`${base.replace(/\/$/, '')}/assets/folders/${folderId}`, { method: 'DELETE' });
     emitAssetLibraryChanged('removed');
   },
 };
