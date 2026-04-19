@@ -102,7 +102,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                 overflow: 'hidden',
                 border: `2px solid ${token.accentColor ?? 'rgba(255,255,255,0.35)'}`,
                 boxShadow: isDisabled ? 'none' : `0 0 14px ${token.accentColor ?? 'rgba(255,255,255,0.25)'}`,
-                opacity: isDisabled ? 0.35 : isDragging ? 0.55 : 1,
+                opacity: isDisabled ? 0.35 : 1,
                 cursor: isDisabled ? 'not-allowed' : 'grab',
                 display: 'flex',
                 alignItems: 'center',

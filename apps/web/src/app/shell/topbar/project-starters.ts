@@ -36,6 +36,27 @@ type StarterOptions = {
   campaignName?: string;
 };
 
+function buildTokenImage(label: string, accent: string, secondary: string): string {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="${secondary}" />
+          <stop offset="100%" stop-color="${accent}" />
+        </linearGradient>
+      </defs>
+      <rect x="8" y="6" width="112" height="116" rx="18" fill="url(#bg)" />
+      <rect x="16" y="14" width="96" height="100" rx="14" fill="rgba(8,15,28,.28)" stroke="rgba(255,255,255,.35)" stroke-width="2" />
+      <circle cx="64" cy="38" r="14" fill="rgba(255,255,255,.92)" />
+      <rect x="27" y="60" width="74" height="10" rx="5" fill="rgba(255,255,255,.96)" />
+      <rect x="34" y="76" width="60" height="9" rx="4.5" fill="rgba(255,255,255,.72)" />
+      <rect x="28" y="92" width="72" height="14" rx="7" fill="rgba(8,15,28,.36)" />
+      <text x="64" y="102" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#ffffff">${label}</text>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 type WidgetSeedPatch = Partial<Omit<WidgetNode, 'id' | 'type' | 'sceneId' | 'zIndex'>> & {
   frame?: Partial<WidgetNode['frame']>;
   props?: Record<string, unknown>;
@@ -169,7 +190,7 @@ function createBocadeliWorldCupState(options: StarterOptions): StudioState {
     seedWidget('image', gameScene.id, 8, {
       name: 'Pack Shot',
       frame: { x: 116, y: 212, width: 88, height: 88, rotation: 0 },
-      props: { src: '', alt: 'BocaDeli product pack' },
+      props: { src: buildTokenImage('Buenachos', '#ff7a59', '#65431f'), alt: 'BocaDeli product pack' },
       style: { backgroundColor: '#1c2b44', fit: 'cover', borderRadius: 20 },
     }),
     seedWidget('text', gameScene.id, 9, {
@@ -185,9 +206,9 @@ function createBocadeliWorldCupState(options: StarterOptions): StudioState {
         tokenSize: 68,
         gap: 14,
         tokens: JSON.stringify([
-          { id: 'buenachos', label: 'Buenachos', accentColor: '#ff7a59' },
-          { id: 'gustitos', label: 'Gustitos', accentColor: '#2ce6ff' },
-          { id: 'quesitrix', label: 'Quesitrix', accentColor: '#ffd54a' },
+          { id: 'buenachos', label: 'Buenachos', accentColor: '#ff7a59', src: buildTokenImage('Buenachos', '#ff7a59', '#65431f') },
+          { id: 'gustitos', label: 'Gustitos', accentColor: '#2ce6ff', src: buildTokenImage('Gustitos', '#2ce6ff', '#17405a') },
+          { id: 'quesitrix', label: 'Quesitrix', accentColor: '#ffd54a', src: buildTokenImage('Quesitrix', '#ffd54a', '#7a2d12') },
         ]),
       },
     }),
