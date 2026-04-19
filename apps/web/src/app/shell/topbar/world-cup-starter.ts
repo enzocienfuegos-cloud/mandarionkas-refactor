@@ -29,6 +29,8 @@ export type WorldCupStepConfig = {
   question: string;
   hint: string;
   durationMs: number;
+  successTargetStepId?: string;
+  timeoutTargetStepId?: string | 'end-card';
 };
 
 export type WorldCupEndCardConfig = {
@@ -164,6 +166,8 @@ export const DEFAULT_BOCADELI_WORLD_CUP_CONFIG: WorldCupStarterConfig = {
       question: '¿Qué sabor levanta la copa?',
       hint: 'Arrastra para jugar.',
       durationMs: 7000,
+      successTargetStepId: 'step-2',
+      timeoutTargetStepId: 'end-card',
     },
     {
       id: 'step-2',
@@ -175,6 +179,8 @@ export const DEFAULT_BOCADELI_WORLD_CUP_CONFIG: WorldCupStarterConfig = {
       question: '¿Qué token sigue en la alineación?',
       hint: 'Arrastra el siguiente sabor.',
       durationMs: 7000,
+      successTargetStepId: 'step-3',
+      timeoutTargetStepId: 'end-card',
     },
     {
       id: 'step-3',
@@ -186,6 +192,8 @@ export const DEFAULT_BOCADELI_WORLD_CUP_CONFIG: WorldCupStarterConfig = {
       question: '¿Qué sabor completa la final?',
       hint: 'Un arrastre más para desbloquear la end card.',
       durationMs: 7000,
+      successTargetStepId: 'end-card',
+      timeoutTargetStepId: 'end-card',
     },
   ],
   endCard: {
@@ -490,20 +498,25 @@ export function createWorldCupStarterState(options: StarterOptions, config: Worl
     label: 'World Cup replay',
   };
 
+  function resolveStepSceneId(stepId?: string | 'end-card'): string {
+    if (!stepId || stepId === 'end-card') return endCardSeed.scene.id;
+    return `${base.document.scenes[0].id}_${stepId}`;
+  }
+
   const stepSeeds = config.steps.map((step, index) => {
     const sceneId = `${base.document.scenes[0].id}_${step.id}`;
-    const nextSceneId = index === config.steps.length - 1
-      ? endCardSeed.scene.id
-      : `${base.document.scenes[0].id}_${config.steps[index + 1].id}`;
+    const defaultSuccessTargetStepId = index === config.steps.length - 1 ? 'end-card' : config.steps[index + 1].id;
+    const successSceneId = resolveStepSceneId(step.successTargetStepId ?? defaultSuccessTargetStepId);
+    const timeoutSceneId = resolveStepSceneId(step.timeoutTargetStepId ?? 'end-card');
     const actionId = `act_worldcup_step_${step.id}`;
-    const seed = createGameStepScene(sceneId, step, index + 1, config, tokenPoolJson, endCardSeed.scene.id, actionId);
+    const seed = createGameStepScene(sceneId, step, index + 1, config, tokenPoolJson, timeoutSceneId, actionId);
     const dropZoneWidgetId = seed.widgets.find((widget) => widget.type === 'drop-zone')?.id ?? '';
     actions[actionId] = {
       id: actionId,
       widgetId: dropZoneWidgetId,
       trigger: 'click',
       type: 'go-to-scene',
-      targetSceneId: nextSceneId,
+      targetSceneId: successSceneId,
       label: `Complete ${step.sceneName}`,
     };
     return seed;
