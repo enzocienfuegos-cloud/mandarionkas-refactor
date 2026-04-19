@@ -106,6 +106,7 @@ export function StageSurface({
             showBadge={showWidgetBadges}
             previewMode={previewMode}
             playheadMs={playheadMs}
+            sceneDurationMs={sceneDurationMs}
             hovered={hoveredWidgetId === widget.id}
             active={activeWidgetId === widget.id}
             onSetActiveWidget={onSetActiveWidget}

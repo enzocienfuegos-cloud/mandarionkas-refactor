@@ -3,8 +3,9 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
 
-function TimerBarRenderer({ node }: { node: WidgetNode; ctx: RenderContext }) {
-  const durationMs = Math.max(1000, Number(node.props.durationMs ?? 7000));
+function TimerBarRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }) {
+  const durationSource = String(node.props.durationSource ?? 'scene');
+  const durationMs = Math.max(1000, Number(durationSource === 'custom' ? (node.props.durationMs ?? 7000) : ctx.sceneDurationMs));
   const orientation = String(node.props.orientation ?? 'horizontal') === 'vertical' ? 'vertical' : 'horizontal';
   const fillColor = String(node.props.fillColor ?? '#00e5ff');
   const trackColor = String(node.props.trackColor ?? 'rgba(255,255,255,0.2)');

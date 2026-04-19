@@ -16,6 +16,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import { usePlatformPermission } from '../../platform/runtime';
 import { getLiveWidgetFrame } from '../../domain/document/timeline';
 import { useDocumentActions } from '../../hooks/use-studio-actions';
+import { buildWidgetClipboardPayload, getWidgetClipboardPayload, setWidgetClipboardPayload } from './widget-clipboard';
 
 const stageWrap: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '100%' };
 
@@ -97,11 +98,29 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.key !== 'Delete' && event.key !== 'Backspace') || !selectedIds.length) return;
       const target = event.target as HTMLElement | null;
       const tagName = target?.tagName?.toLowerCase();
       const isEditable = Boolean(target?.isContentEditable) || tagName === 'input' || tagName === 'textarea' || tagName === 'select';
       if (isEditable) return;
+      const isMeta = event.metaKey || event.ctrlKey;
+      const lowerKey = event.key.toLowerCase();
+
+      if (isMeta && lowerKey === 'c') {
+        if (!selectedIds.length) return;
+        event.preventDefault();
+        setWidgetClipboardPayload(buildWidgetClipboardPayload(fullStateRef.current));
+        return;
+      }
+
+      if (isMeta && lowerKey === 'v') {
+        const clipboard = getWidgetClipboardPayload();
+        if (!clipboard) return;
+        event.preventDefault();
+        widgetActions.pasteClipboard(clipboard);
+        return;
+      }
+
+      if ((event.key !== 'Delete' && event.key !== 'Backspace') || !selectedIds.length) return;
       event.preventDefault();
       widgetActions.deleteSelected();
     };

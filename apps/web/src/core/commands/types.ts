@@ -1,6 +1,7 @@
 import type { ActionNode, ActionTrigger, ActionType, BindingSource, KeyframeEasing, KeyframeProperty, VariantName, WidgetBinding, WidgetNode, WidgetType } from '../../domain/document/types';
 
 export type WidgetCreatePlacement = { x: number; y: number; anchor?: 'center' | 'top-left' };
+export type WidgetClipboardPayload = { widgets: WidgetNode[]; actions: ActionNode[] };
 
 export type StudioCommand =
   | { type: 'CREATE_WIDGET'; widgetType: WidgetType; placement?: WidgetCreatePlacement; initialProps?: Record<string, unknown>; initialStyle?: Record<string, unknown> }
@@ -18,6 +19,7 @@ export type StudioCommand =
   | { type: 'UPDATE_WIDGET_STYLE'; widgetId: string; patch: Record<string, unknown> }
   | { type: 'DELETE_SELECTED_WIDGETS' }
   | { type: 'DUPLICATE_SELECTED_WIDGETS' }
+  | { type: 'PASTE_WIDGET_CLIPBOARD'; clipboard: WidgetClipboardPayload }
   | { type: 'GROUP_SELECTED_WIDGETS' }
   | { type: 'UNGROUP_SELECTED_WIDGETS' }
   | { type: 'TOGGLE_WIDGET_HIDDEN'; widgetId: string }

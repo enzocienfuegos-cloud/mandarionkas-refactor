@@ -111,6 +111,37 @@ export function widgetStructureReducer(state: StudioState, command: StudioComman
         },
       });
     }
+    case 'PASTE_WIDGET_CLIPBOARD': {
+      const scene = currentScene(state);
+      if (!scene || !command.clipboard.widgets.length) return state;
+      const widgets = { ...state.document.widgets };
+      const idMap = new Map<string, string>();
+      const clones: WidgetNode[] = command.clipboard.widgets.map((source, index) => {
+        const clone = cloneWidget({ ...source, sceneId: scene.id }, source.name, { preserveFrame: true });
+        idMap.set(source.id, clone.id);
+        clone.zIndex = scene.widgetIds.length + index;
+        return clone;
+      });
+      clones.forEach((clone, index) => {
+        const source = command.clipboard.widgets[index];
+        if (source.parentId) clone.parentId = idMap.get(source.parentId);
+        if (source.childIds?.length) clone.childIds = source.childIds.map((childId) => idMap.get(childId) ?? childId);
+        widgets[clone.id] = clone;
+      });
+      const clipboardActionMap = Object.fromEntries(command.clipboard.actions.map((action) => [action.id, action]));
+      const clonedActions = cloneActionsForWidgetMap(clipboardActionMap, idMap);
+      const actions = { ...state.document.actions, ...Object.fromEntries(Object.entries(clonedActions).filter(([actionId]) => !clipboardActionMap[actionId])) };
+      return withDirty({
+        ...state,
+        document: {
+          ...state.document,
+          widgets,
+          actions,
+          scenes: state.document.scenes.map((item) => item.id === scene.id ? { ...item, widgetIds: [...item.widgetIds, ...clones.map((clone) => clone.id)] } : item),
+          selection: { ...state.document.selection, widgetIds: clones.map((clone) => clone.id), primaryWidgetId: clones[0]?.id },
+        },
+      });
+    }
     case 'REORDER_WIDGET': {
       const scene = currentScene(state);
       if (!scene) return state;

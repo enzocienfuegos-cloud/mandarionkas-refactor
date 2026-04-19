@@ -128,15 +128,18 @@ export function createInitialState(options: InitialDocumentOptions = {}): Studio
   };
 }
 
-export function cloneWidget(node: WidgetNode, name?: string): WidgetNode {
+export function cloneWidget(node: WidgetNode, name?: string, options?: { preserveFrame?: boolean; offset?: { x: number; y: number } }): WidgetNode {
+  const preserveFrame = Boolean(options?.preserveFrame);
+  const offsetX = preserveFrame ? 0 : (options?.offset?.x ?? 20);
+  const offsetY = preserveFrame ? 0 : (options?.offset?.y ?? 20);
   return {
     ...node,
     id: createId(node.type),
     name: name ?? `${node.name} Copy`,
     frame: {
       ...node.frame,
-      x: node.frame.x + 20,
-      y: node.frame.y + 20,
+      x: node.frame.x + offsetX,
+      y: node.frame.y + offsetY,
     },
     timeline: {
       ...node.timeline,

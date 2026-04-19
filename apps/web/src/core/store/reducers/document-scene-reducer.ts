@@ -61,7 +61,7 @@ export function documentSceneReducer(state: StudioState, command: StudioCommand)
       sceneClone.widgetIds = source.widgetIds.map((widgetId) => {
         const original = state.document.widgets[widgetId];
         if (!original) return '';
-        const clone = cloneWidget({ ...original, sceneId: sceneClone.id }, `${original.name} Copy`);
+        const clone = cloneWidget({ ...original, sceneId: sceneClone.id }, `${original.name} Copy`, { preserveFrame: true });
         idMap.set(original.id, clone.id);
         widgets[clone.id] = clone;
         return clone.id;
