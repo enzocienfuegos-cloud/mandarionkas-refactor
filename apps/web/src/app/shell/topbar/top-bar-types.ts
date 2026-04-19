@@ -43,7 +43,7 @@ export type ProjectSessionController = {
   setNewProjectName(value: string): void;
   newProjectPresetId: string;
   setNewProjectPresetId(value: string): void;
-  handleCreateProject(): void;
+  handleCreateProject(): Promise<void>;
   handleLoadProject(projectId: string): Promise<void>;
   handleSaveProject(): Promise<void>;
   handleSaveVersion(): Promise<void>;

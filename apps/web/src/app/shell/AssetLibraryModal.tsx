@@ -90,8 +90,6 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
   const topBar = useTopBarController();
   const lib = useAssetLibraryController(assetController, topBar);
 
-  const projectFolders = topBar.projectSession.projects;
-
   function folderDragHandlers(folderId: string) {
     return {
       onDragOver: (e: React.DragEvent) => {
@@ -161,18 +159,6 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
             </div>
 
             <div className="asset-tree-children">
-              {projectFolders.map((project) => (
-                <button
-                  key={project.id}
-                  type="button"
-                  className={`asset-tree-item asset-tree-item--nested ${lib.activeFolderId === `project:${project.id}` ? 'is-active' : ''}`}
-                  onClick={() => lib.setActiveFolderId(`project:${project.id}`)}
-                >
-                  <span>▸</span>
-                  <span>{project.name}</span>
-                </button>
-              ))}
-
               <FolderTreeItems
                 nodes={lib.folderTree}
                 depth={0}
@@ -188,7 +174,7 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
                 }}
               />
 
-              {!projectFolders.length && !lib.folders.length && (
+              {!lib.folders.length && (
                 <div className="asset-tree-empty">No projects or folders yet</div>
               )}
             </div>

@@ -113,7 +113,7 @@ const PAGE_SIZE = 10;
 
 export function useAssetLibraryController(
   assetController: ReturnType<typeof useLeftRailController>,
-  topBar: ReturnType<typeof useTopBarController>,
+  _topBar: ReturnType<typeof useTopBarController>,
 ): AssetLibraryController {
   const [folders, setFolders] = useState<AssetFolder[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<string>('all');
@@ -139,8 +139,6 @@ export function useAssetLibraryController(
     refreshFolders();
   }, [refreshFolders]);
 
-  const projectFolders = topBar.projectSession.projects;
-
   const folderTree = useMemo<FolderTreeNode[]>(() => {
     const nodes = new Map<string, FolderTreeNode>();
     for (const folder of folders) {
@@ -158,13 +156,7 @@ export function useAssetLibraryController(
   }, [folders]);
 
   const folderCards = useMemo<FolderCard[]>(() => {
-    const flat: FolderCard[] = [
-      ...projectFolders.map((project) => ({
-        id: `project:${project.id}`,
-        name: project.name,
-        depth: 0,
-      })),
-    ];
+    const flat: FolderCard[] = [];
     function visit(nodes: FolderTreeNode[], depth: number): void {
       for (const node of nodes) {
         flat.push({ id: node.id, name: node.name, depth });
@@ -173,7 +165,7 @@ export function useAssetLibraryController(
     }
     visit(folderTree, 0);
     return flat;
-  }, [folderTree, projectFolders]);
+  }, [folderTree]);
 
   const selectableFolders = useMemo(
     () => folderCards.filter((f) => !f.id.startsWith('project:')),
@@ -190,7 +182,6 @@ export function useAssetLibraryController(
   const visibleAssets = useMemo(() => {
     return assetController.filteredAssets.filter((asset) => {
       if (activeFolderId === 'all') return true;
-      if (activeFolderId.startsWith('project:')) return true;
       return asset.folderId === activeFolderId;
     });
   }, [activeFolderId, assetController.filteredAssets]);
@@ -269,7 +260,7 @@ export function useAssetLibraryController(
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   function getUploadFolderId(): string | undefined {
-    if (activeFolderId === 'all' || activeFolderId.startsWith('project:')) return undefined;
+    if (activeFolderId === 'all') return undefined;
     return activeFolderId;
   }
 
@@ -316,8 +307,8 @@ export function useAssetLibraryController(
     setFolderBusy(true);
     setFolderError('');
     try {
-      const parentId =
-        activeFolderId !== 'all' && !activeFolderId.startsWith('project:')
+        const parentId =
+        activeFolderId !== 'all'
           ? activeFolderId
           : undefined;
       const folder = await createAssetFolder(name, parentId);

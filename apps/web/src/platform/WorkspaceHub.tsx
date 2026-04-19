@@ -42,8 +42,8 @@ export function WorkspaceHub({ onEnterEditor }: WorkspaceHubProps): JSX.Element 
     onEnterEditor();
   }
 
-  function handleCreateAndEnter(): void {
-    controller.createProjectDraft();
+  async function handleCreateAndEnter(): Promise<void> {
+    await controller.createProjectDraft();
     onEnterEditor();
   }
 
@@ -112,7 +112,7 @@ export function WorkspaceHub({ onEnterEditor }: WorkspaceHubProps): JSX.Element 
               {controller.canvasPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
             </select>
           </label>
-          <button className="primary" type="button" onClick={handleCreateAndEnter} disabled={!workspace.canCreateProjects}>Create and open editor</button>
+          <button className="primary" type="button" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>Create and open editor</button>
         </div>
       </section>
 

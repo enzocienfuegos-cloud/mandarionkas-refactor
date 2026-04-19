@@ -112,8 +112,8 @@ export function useWorkspaceHubController() {
     await projectSession.handleChangeProjectOwner(projectId, ownerUserId, ownerName);
   }
 
-  function createProjectDraft(): void {
-    projectSession.handleCreateProject();
+  async function createProjectDraft(): Promise<void> {
+    await projectSession.handleCreateProject();
   }
 
   const stats = {

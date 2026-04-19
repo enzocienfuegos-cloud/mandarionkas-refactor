@@ -113,11 +113,11 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     }
   }
 
-  function handleCreateProject(): void {
+  async function handleCreateProject(): Promise<void> {
     if (!workspace.canCreateProjects) return;
     const projectName = newProjectName.trim() || 'Untitled Project';
     const base = createInitialState({ name: projectName, canvasPresetId: newProjectPresetId });
-    sessionActions.replaceState({
+    const initialState = {
       ...base,
       document: {
         ...base.document,
@@ -133,8 +133,39 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
         },
       },
       ui: { ...base.ui, activeProjectId: undefined },
-    });
+    };
+
+    sessionActions.replaceState(initialState);
     setNewProjectName('');
+
+    try {
+      setSaveStatus('saving');
+      setSaveMessage(undefined);
+      const summary = await saveProject(initialState);
+      const version = await saveProjectVersion(summary.id, initialState);
+      const nextState = {
+        ...initialState,
+        document: {
+          ...initialState.document,
+          id: summary.id,
+          version: version.versionNumber,
+          metadata: {
+            ...initialState.document.metadata,
+            dirty: false,
+            lastSavedAt: version.savedAt,
+          },
+        },
+        ui: { ...initialState.ui, activeProjectId: summary.id },
+      };
+      sessionActions.replaceState(nextState);
+      setSaveStatus('saved');
+      setSaveMessage(`Created ${summary.name}`);
+      refreshProjects();
+    } catch (error) {
+      setSaveStatus('error');
+      setSaveMessage(error instanceof Error ? error.message : 'Project creation failed');
+      throw error;
+    }
   }
 
   async function handleLoadProject(projectId: string): Promise<void> {
