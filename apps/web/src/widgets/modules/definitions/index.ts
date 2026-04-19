@@ -15,6 +15,9 @@ import { TravelDealDefinition } from './travel-deal.definition';
 import { InteractiveGalleryDefinition } from './interactive-gallery.definition';
 import { GenAiImageDefinition } from './gen-ai-image.definition';
 import { ButtonsDefinition } from './buttons.definition';
+import { MetaCarouselDefinition } from './meta-carousel.definition';
+import { TeadsLayout1Definition } from './teads-layout1.definition';
+import { TeadsLayout2Definition } from './teads-layout2.definition';
 
 export {
   CountdownDefinition,
@@ -34,6 +37,9 @@ export {
   InteractiveGalleryDefinition,
   GenAiImageDefinition,
   ButtonsDefinition,
+  MetaCarouselDefinition,
+  TeadsLayout1Definition,
+  TeadsLayout2Definition,
 };
 
 export const interactiveModuleDefinitions = [
@@ -54,4 +60,7 @@ export const interactiveModuleDefinitions = [
   InteractiveGalleryDefinition,
   GenAiImageDefinition,
   ButtonsDefinition,
+  MetaCarouselDefinition,
+  TeadsLayout1Definition,
+  TeadsLayout2Definition,
 ];

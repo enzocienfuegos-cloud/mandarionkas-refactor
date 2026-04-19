@@ -24,7 +24,10 @@ export type WidgetType =
   | 'interactive-gallery'
   | 'gen-ai-image'
   | 'buttons'
-  | 'instagram-story';
+  | 'instagram-story'
+  | 'meta-carousel'
+  | 'teads-layout1'
+  | 'teads-layout2';
 
 export type WidgetFrame = { x: number; y: number; width: number; height: number; rotation: number; };
 export type KeyframeProperty = 'x' | 'y' | 'width' | 'height' | 'opacity';

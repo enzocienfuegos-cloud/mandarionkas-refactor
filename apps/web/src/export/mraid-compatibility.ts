@@ -37,6 +37,9 @@ const BASE_MRAID_WIDGET_COMPATIBILITY: Record<WidgetType, MraidCompatibilityLeve
   'gen-ai-image': 'warning',
   buttons: 'supported',
   'instagram-story': 'warning',
+  'meta-carousel': 'warning',
+  'teads-layout1': 'warning',
+  'teads-layout2': 'warning',
 };
 
 function formatWidgetType(type: WidgetType): string {
