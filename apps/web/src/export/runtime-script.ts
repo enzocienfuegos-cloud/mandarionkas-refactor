@@ -12,6 +12,42 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
   const exitConfig = exitNode ? JSON.parse(exitNode.textContent || '{}') : { strategy: ${JSON.stringify(exitConfig.strategy)}, primaryUrl: ${fallbackUrl}, urls: [] };
   const scenes = Array.from(document.querySelectorAll('[data-scene-id]'));
   let activeSceneIndex = 0;
+  let sceneTimer = 0;
+
+  function getRuntimeScene(index) {
+    if (!runtime || !Array.isArray(runtime.scenes)) return null;
+    return runtime.scenes[index] || null;
+  }
+
+  function findSceneIndexById(sceneId) {
+    if (!sceneId) return -1;
+    return scenes.findIndex((scene) => scene.getAttribute('data-scene-id') === sceneId);
+  }
+
+  function clearSceneTimer() {
+    if (sceneTimer) {
+      window.clearTimeout(sceneTimer);
+      sceneTimer = 0;
+    }
+  }
+
+  function scheduleSceneAdvance() {
+    clearSceneTimer();
+    const sceneRuntime = getRuntimeScene(activeSceneIndex);
+    if (!sceneRuntime) return;
+    const durationMs = Math.max(0, Number(sceneRuntime.durationMs || 0));
+    if (!durationMs) return;
+    sceneTimer = window.setTimeout(() => {
+      const targetIndex = sceneRuntime.nextSceneId ? findSceneIndexById(sceneRuntime.nextSceneId) : -1;
+      if (targetIndex >= 0 && targetIndex !== activeSceneIndex) {
+        showScene(targetIndex);
+        return;
+      }
+      if (scenes.length > 1) {
+        nextScene();
+      }
+    }, durationMs);
+  }
 
   function resolveExitUrl(widgetId) {
     if (runtime && Array.isArray(runtime.interactions)) {
@@ -44,6 +80,7 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     scenes.forEach((scene, sceneIndex) => {
       scene.style.display = sceneIndex === activeSceneIndex ? 'block' : 'none';
     });
+    scheduleSceneAdvance();
   }
 
   function nextScene() {
