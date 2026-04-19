@@ -645,7 +645,7 @@ export async function deleteAssetFolder(client, { folderId, workspaceId }) {
       set folder_id = null,
           updated_at = now()
       where workspace_id = $1
-        and folder_id = any($2::uuid[])
+        and folder_id = any($2::text[])
     `,
     [workspaceId, ids],
   );
@@ -654,7 +654,7 @@ export async function deleteAssetFolder(client, { folderId, workspaceId }) {
     `
       delete from asset_folders
       where workspace_id = $1
-        and id = any($2::uuid[])
+        and id = any($2::text[])
     `,
     [workspaceId, ids],
   );
