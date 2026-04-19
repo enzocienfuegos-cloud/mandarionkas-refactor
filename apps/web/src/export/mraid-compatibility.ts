@@ -41,6 +41,7 @@ const BASE_MRAID_WIDGET_COMPATIBILITY: Record<WidgetType, MraidCompatibilityLeve
   'teads-layout1': 'warning',
   'teads-layout2': 'warning',
   'tiktok-video': 'warning',
+  'four-faces': 'warning',
   'vertical-accordion': 'warning',
   'particle-halo': 'warning',
   'step-indicator': 'supported',

@@ -29,6 +29,7 @@ export type WidgetType =
   | 'teads-layout1'
   | 'teads-layout2'
   | 'tiktok-video'
+  | 'four-faces'
   | 'vertical-accordion'
   | 'particle-halo'
   | 'step-indicator'
