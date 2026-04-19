@@ -18,6 +18,7 @@ import { ButtonsDefinition } from './buttons.definition';
 import { MetaCarouselDefinition } from './meta-carousel.definition';
 import { TeadsLayout1Definition } from './teads-layout1.definition';
 import { TeadsLayout2Definition } from './teads-layout2.definition';
+import { TikTokVideoDefinition } from './tiktok-video.definition';
 import { VerticalAccordionDefinition } from './vertical-accordion.definition';
 import { ParticleHaloDefinition } from './particle-halo.definition';
 import { StepIndicatorDefinition } from './step-indicator.definition';
@@ -46,6 +47,7 @@ export {
   MetaCarouselDefinition,
   TeadsLayout1Definition,
   TeadsLayout2Definition,
+  TikTokVideoDefinition,
   VerticalAccordionDefinition,
   ParticleHaloDefinition,
   StepIndicatorDefinition,
@@ -75,6 +77,7 @@ export const interactiveModuleDefinitions = [
   MetaCarouselDefinition,
   TeadsLayout1Definition,
   TeadsLayout2Definition,
+  TikTokVideoDefinition,
   VerticalAccordionDefinition,
   ParticleHaloDefinition,
   StepIndicatorDefinition,
