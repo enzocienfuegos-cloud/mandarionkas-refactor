@@ -3,19 +3,39 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
 
-function DropZoneRenderer({ node }: { node: WidgetNode; ctx: RenderContext }) {
+function parseActionMap(raw: unknown): Record<string, string> {
+  try {
+    const parsed = JSON.parse(String(raw ?? '{}'));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, string> : {};
+  } catch {
+    return {};
+  }
+}
+
+function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }) {
   const [isOver, setIsOver] = useState(false);
   const width = Math.max(20, Number(node.props.width ?? 120));
   const height = Math.max(20, Number(node.props.height ?? 120));
   const hitPadding = Math.max(0, Number(node.props.hitPadding ?? 16));
   const debugOutline = Boolean(node.props.debugOutline ?? true);
+  const matchActionMap = parseActionMap(node.props.matchActionMap);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
         onDragOver={(e) => { e.preventDefault(); setIsOver(true); }}
         onDragLeave={() => setIsOver(false)}
-        onDrop={(e) => { e.preventDefault(); setIsOver(false); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsOver(false);
+          const tokenId = e.dataTransfer.getData('text/smx-token-id') || e.dataTransfer.getData('text/plain');
+          const actionId = tokenId ? matchActionMap[tokenId] : undefined;
+          if (actionId) {
+            ctx.executeAction?.(actionId);
+            return;
+          }
+          ctx.triggerWidgetAction('click');
+        }}
         style={{
           width: width + hitPadding * 2,
           height: height + hitPadding * 2,

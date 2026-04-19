@@ -80,7 +80,7 @@ export const StageWidget = memo(function StageWidget({
       }}
     >
       <div className="stage-widget-content" style={{ pointerEvents: previewMode ? 'auto' : 'none' }}>
-        {renderWidgetContents(node, { previewMode, playheadMs, hovered, active, triggerWidgetAction })}
+        {renderWidgetContents(node, { previewMode, playheadMs, hovered, active, triggerWidgetAction, executeAction: onExecuteAction })}
       </div>
       {!previewMode && showBadge ? <div className="edit-mode-label">{node.type} · {node.name}</div> : null}
       {selected ? <SelectionOverlay primary={primary} onResizePointerDown={onResizePointerDown} /> : null}

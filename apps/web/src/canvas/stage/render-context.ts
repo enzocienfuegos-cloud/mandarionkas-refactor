@@ -4,4 +4,5 @@ export type RenderContext = {
   hovered: boolean;
   active: boolean;
   triggerWidgetAction: (trigger: 'click' | 'hover') => void;
+  executeAction?: (actionId: string) => void;
 };

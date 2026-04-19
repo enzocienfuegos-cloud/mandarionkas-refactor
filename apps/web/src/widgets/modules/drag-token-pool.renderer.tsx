@@ -37,7 +37,12 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
             <div
               key={token.id}
               draggable={!isDisabled}
-              onDragStart={() => setDraggingId(token.id)}
+              onDragStart={(event) => {
+                setDraggingId(token.id);
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/smx-token-id', token.id);
+                event.dataTransfer.setData('text/plain', token.id);
+              }}
               onDragEnd={() => setDraggingId(null)}
               style={{
                 width: tokenSize,
