@@ -27,7 +27,12 @@ export type WidgetType =
   | 'instagram-story'
   | 'meta-carousel'
   | 'teads-layout1'
-  | 'teads-layout2';
+  | 'teads-layout2'
+  | 'particle-halo'
+  | 'step-indicator'
+  | 'timer-bar'
+  | 'drag-token-pool'
+  | 'drop-zone';
 
 export type WidgetFrame = { x: number; y: number; width: number; height: number; rotation: number; };
 export type KeyframeProperty = 'x' | 'y' | 'width' | 'height' | 'opacity';

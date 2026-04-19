@@ -18,6 +18,11 @@ import { ButtonsDefinition } from './buttons.definition';
 import { MetaCarouselDefinition } from './meta-carousel.definition';
 import { TeadsLayout1Definition } from './teads-layout1.definition';
 import { TeadsLayout2Definition } from './teads-layout2.definition';
+import { ParticleHaloDefinition } from './particle-halo.definition';
+import { StepIndicatorDefinition } from './step-indicator.definition';
+import { TimerBarDefinition } from './timer-bar.definition';
+import { DragTokenPoolDefinition } from './drag-token-pool.definition';
+import { DropZoneDefinition } from './drop-zone.definition';
 
 export {
   CountdownDefinition,
@@ -40,6 +45,11 @@ export {
   MetaCarouselDefinition,
   TeadsLayout1Definition,
   TeadsLayout2Definition,
+  ParticleHaloDefinition,
+  StepIndicatorDefinition,
+  TimerBarDefinition,
+  DragTokenPoolDefinition,
+  DropZoneDefinition,
 };
 
 export const interactiveModuleDefinitions = [
@@ -63,4 +73,9 @@ export const interactiveModuleDefinitions = [
   MetaCarouselDefinition,
   TeadsLayout1Definition,
   TeadsLayout2Definition,
+  ParticleHaloDefinition,
+  StepIndicatorDefinition,
+  TimerBarDefinition,
+  DragTokenPoolDefinition,
+  DropZoneDefinition,
 ];
