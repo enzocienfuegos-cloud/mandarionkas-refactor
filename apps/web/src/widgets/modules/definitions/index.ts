@@ -18,6 +18,7 @@ import { ButtonsDefinition } from './buttons.definition';
 import { MetaCarouselDefinition } from './meta-carousel.definition';
 import { TeadsLayout1Definition } from './teads-layout1.definition';
 import { TeadsLayout2Definition } from './teads-layout2.definition';
+import { VerticalAccordionDefinition } from './vertical-accordion.definition';
 import { ParticleHaloDefinition } from './particle-halo.definition';
 import { StepIndicatorDefinition } from './step-indicator.definition';
 import { TimerBarDefinition } from './timer-bar.definition';
@@ -45,6 +46,7 @@ export {
   MetaCarouselDefinition,
   TeadsLayout1Definition,
   TeadsLayout2Definition,
+  VerticalAccordionDefinition,
   ParticleHaloDefinition,
   StepIndicatorDefinition,
   TimerBarDefinition,
@@ -73,6 +75,7 @@ export const interactiveModuleDefinitions = [
   MetaCarouselDefinition,
   TeadsLayout1Definition,
   TeadsLayout2Definition,
+  VerticalAccordionDefinition,
   ParticleHaloDefinition,
   StepIndicatorDefinition,
   TimerBarDefinition,

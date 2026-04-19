@@ -40,6 +40,7 @@ const BASE_MRAID_WIDGET_COMPATIBILITY: Record<WidgetType, MraidCompatibilityLeve
   'meta-carousel': 'warning',
   'teads-layout1': 'warning',
   'teads-layout2': 'warning',
+  'vertical-accordion': 'warning',
   'particle-halo': 'warning',
   'step-indicator': 'supported',
   'timer-bar': 'warning',

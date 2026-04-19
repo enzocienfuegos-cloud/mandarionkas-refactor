@@ -28,6 +28,7 @@ export type WidgetType =
   | 'meta-carousel'
   | 'teads-layout1'
   | 'teads-layout2'
+  | 'vertical-accordion'
   | 'particle-halo'
   | 'step-indicator'
   | 'timer-bar'
