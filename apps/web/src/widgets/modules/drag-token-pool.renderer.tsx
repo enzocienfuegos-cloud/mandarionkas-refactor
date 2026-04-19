@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
+import { emitTokenDrag } from './token-drag-runtime';
 
 type TokenItem = {
   id: string;
@@ -22,10 +23,50 @@ function parseTokens(raw: unknown): TokenItem[] {
 
 function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const pointerStateRef = useRef<{ pointerId: number; tokenId: string } | null>(null);
   const tokens = parseTokens(node.props.tokens);
   const tokenSize = Math.max(32, Number(node.props.tokenSize ?? 72));
   const gap = Math.max(4, Number(node.props.gap ?? 16));
   const disabled = new Set(String(node.props.disabledIds ?? '').split(',').map((value) => value.trim()).filter(Boolean));
+
+  useEffect(() => {
+    if (!draggingId) return;
+    const handlePointerMove = (event: PointerEvent) => {
+      const current = pointerStateRef.current;
+      if (!current || event.pointerId !== current.pointerId) return;
+      emitTokenDrag({
+        phase: 'move',
+        tokenId: current.tokenId,
+        sourceWidgetId: node.id,
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+    };
+    const finishDrag = (event: PointerEvent, phase: 'end' | 'cancel') => {
+      const current = pointerStateRef.current;
+      if (!current || event.pointerId !== current.pointerId) return;
+      emitTokenDrag({
+        phase,
+        tokenId: current.tokenId,
+        sourceWidgetId: node.id,
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+      pointerStateRef.current = null;
+      setDraggingId(null);
+    };
+    const handlePointerUp = (event: PointerEvent) => finishDrag(event, 'end');
+    const handlePointerCancel = (event: PointerEvent) => finishDrag(event, 'cancel');
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerCancel);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerCancel);
+    };
+  }, [draggingId, node.id]);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -36,21 +77,18 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
           return (
             <div
               key={token.id}
-              draggable={!isDisabled}
               onPointerDown={(event) => {
                 event.stopPropagation();
-              }}
-              onDragStart={(event) => {
-                event.stopPropagation();
+                if (isDisabled) return;
+                pointerStateRef.current = { pointerId: event.pointerId, tokenId: token.id };
                 setDraggingId(token.id);
-                event.dataTransfer.effectAllowed = 'move';
-                event.dataTransfer.setData('text/smx-token-id', token.id);
-                event.dataTransfer.setData('text/plain', token.id);
-                event.dataTransfer.setDragImage(event.currentTarget, tokenSize / 2, tokenSize / 2);
-              }}
-              onDragEnd={(event) => {
-                event.stopPropagation();
-                setDraggingId(null);
+                emitTokenDrag({
+                  phase: 'start',
+                  tokenId: token.id,
+                  sourceWidgetId: node.id,
+                  clientX: event.clientX,
+                  clientY: event.clientY,
+                });
               }}
               style={{
                 width: tokenSize,
@@ -73,6 +111,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
                 touchAction: 'none',
+                pointerEvents: 'auto',
               }}
             >
               {token.src ? <img src={token.src} alt={token.label} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : token.label}

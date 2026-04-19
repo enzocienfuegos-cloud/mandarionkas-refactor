@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
+import { subscribeTokenDrag } from './token-drag-runtime';
 
 function parseActionMap(raw: unknown): Record<string, string> {
   try {
@@ -14,31 +15,43 @@ function parseActionMap(raw: unknown): Record<string, string> {
 
 function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }) {
   const [isOver, setIsOver] = useState(false);
+  const zoneRef = useRef<HTMLDivElement | null>(null);
   const width = Math.max(20, Number(node.props.width ?? 120));
   const height = Math.max(20, Number(node.props.height ?? 120));
   const hitPadding = Math.max(0, Number(node.props.hitPadding ?? 16));
   const debugOutline = Boolean(node.props.debugOutline ?? true);
   const matchActionMap = parseActionMap(node.props.matchActionMap);
 
+  useEffect(() => {
+    return subscribeTokenDrag((detail) => {
+      const element = zoneRef.current;
+      if (!element) return;
+      const rect = element.getBoundingClientRect();
+      const inside = detail.clientX >= rect.left && detail.clientX <= rect.right && detail.clientY >= rect.top && detail.clientY <= rect.bottom;
+
+      if (detail.phase === 'start' || detail.phase === 'move') {
+        setIsOver(inside);
+        return;
+      }
+
+      if ((detail.phase === 'end' || detail.phase === 'cancel') && inside) {
+        const actionId = matchActionMap[detail.tokenId];
+        if (actionId) {
+          ctx.executeAction?.(actionId);
+        } else {
+          ctx.triggerWidgetAction('click');
+        }
+      }
+      setIsOver(false);
+    });
+  }, [ctx, matchActionMap]);
+
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
+        ref={zoneRef}
         onPointerDown={(event) => {
           event.stopPropagation();
-        }}
-        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(true); }}
-        onDragLeave={(e) => { e.stopPropagation(); setIsOver(false); }}
-        onDrop={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setIsOver(false);
-          const tokenId = e.dataTransfer.getData('text/smx-token-id') || e.dataTransfer.getData('text/plain');
-          const actionId = tokenId ? matchActionMap[tokenId] : undefined;
-          if (actionId) {
-            ctx.executeAction?.(actionId);
-            return;
-          }
-          ctx.triggerWidgetAction('click');
         }}
         style={{
           width: width + hitPadding * 2,
