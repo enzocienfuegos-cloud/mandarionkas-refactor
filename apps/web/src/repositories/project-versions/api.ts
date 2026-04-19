@@ -7,7 +7,7 @@ import type {
   LoadProjectVersionResponseDto,
   SaveProjectVersionRequestDto,
   SaveProjectVersionResponseDto,
-} from '../../types/contracts';
+} from '@smx/contracts';
 
 function getBaseUrl(): string {
   return getRepositoryApiBase('smx-studio-v4:project-api-base');

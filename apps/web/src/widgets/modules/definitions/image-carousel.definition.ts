@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderImageCarouselStage } from '../image-carousel.renderer';
-import { GalleryAssetsInspector } from '../gallery-assets-inspector';
+import { ImageCarouselInspector } from '../image-carousel.inspector';
 
 export const ImageCarouselDefinition = createModuleDefinition({
   type: 'image-carousel',
@@ -20,7 +20,7 @@ export const ImageCarouselDefinition = createModuleDefinition({
     showPaginationDots: true,
     paginationDotSize: 3,
   },
-  renderInspector: (widget) => createElement(GalleryAssetsInspector, { widget, title: 'Image carousel' }),
+  renderInspector: (widget) => createElement(ImageCarouselInspector, { widget }),
   style: { backgroundColor: '#0f172a', accentColor: '#f8fafc', color: '#ffffff', borderRadius: 20 },
   renderStage: renderImageCarouselStage,
 });

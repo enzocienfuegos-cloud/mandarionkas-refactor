@@ -2,5 +2,12 @@
   "name": "@smx/config",
   "private": true,
   "version": "1.0.0",
-  "type": "module"
+  "type": "module",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./env": "./src/env.mjs",
+    "./security": "./src/security.mjs",
+    "./logger": "./src/logger.mjs"
+  }
 }

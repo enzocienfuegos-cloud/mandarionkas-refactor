@@ -49,44 +49,69 @@ export type LoginRequestDto = {
   remember?: boolean;
 };
 
-export type LoginResponseDto = {
-  ok: boolean;
-  message?: string;
-  session: {
-    sessionId: string;
-    persistenceMode: SessionPersistenceMode;
-    issuedAt: string;
-    expiresAt: string;
-  };
+export type AuthSessionDto = {
+  sessionId: string;
+  persistenceMode: SessionPersistenceMode;
+  issuedAt: string;
+  expiresAt: string;
+};
+
+export type AuthSessionPayloadDto = {
+  ok: true;
+  authenticated: true;
+  session: AuthSessionDto;
   user: AuthUserDto;
   activeClientId?: string;
+  activeWorkspaceId?: string;
   permissions: PlatformPermission[];
   clients: AuthWorkspaceDto[];
+  workspaces: AuthWorkspaceDto[];
 };
 
-export type LogoutResponseDto = {
+export type AuthAnonymousSessionDto = {
   ok: true;
+  authenticated: false;
+  session: null;
+  user: null;
+  activeClientId?: undefined;
+  activeWorkspaceId?: undefined;
+  permissions: PlatformPermission[];
+  clients: AuthWorkspaceDto[];
+  workspaces: AuthWorkspaceDto[];
 };
 
-export type UpdateActiveClientRequestDto = {
-  clientId: string;
+export type SessionResponseDto = AuthSessionPayloadDto | AuthAnonymousSessionDto;
+
+export type LoginErrorDto = {
+  ok: false;
+  message?: string;
+  code?: string;
 };
+
+export type LoginResponseDto = AuthSessionPayloadDto | LoginErrorDto;
+
+export type LogoutResponseDto = { ok: true };
+
+export type UpdateActiveClientRequestDto = { clientId: string };
 
 export type UpdateActiveClientResponseDto = {
   ok: true;
   activeClientId: string;
+  activeWorkspaceId?: string;
   clients: AuthWorkspaceDto[];
+  workspaces?: AuthWorkspaceDto[];
 };
 
-export type CreateClientRequestDto = {
-  name: string;
-};
+export type CreateClientRequestDto = { name: string };
 
 export type CreateClientResponseDto = {
   ok: true;
   client: AuthWorkspaceDto;
+  workspace?: AuthWorkspaceDto;
   activeClientId: string;
+  activeWorkspaceId?: string;
   clients: AuthWorkspaceDto[];
+  workspaces?: AuthWorkspaceDto[];
 };
 
 export type CreateBrandRequestDto = {
@@ -97,7 +122,9 @@ export type CreateBrandRequestDto = {
 export type CreateBrandResponseDto = {
   ok: true;
   client: AuthWorkspaceDto;
+  workspace?: AuthWorkspaceDto;
   clients: AuthWorkspaceDto[];
+  workspaces?: AuthWorkspaceDto[];
 };
 
 export type InviteMemberRequestDto = {
@@ -109,5 +136,7 @@ export type InviteMemberResponseDto = {
   ok: boolean;
   message?: string;
   client?: AuthWorkspaceDto;
+  workspace?: AuthWorkspaceDto;
   clients?: AuthWorkspaceDto[];
+  workspaces?: AuthWorkspaceDto[];
 };

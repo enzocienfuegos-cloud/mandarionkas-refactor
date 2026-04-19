@@ -231,5 +231,5 @@ export async function materializeRemoteExportAssetFiles(
     }
   }));
 
-  return materialized.filter((file): file is ExportBundleFile => Boolean(file));
+  return materialized.flatMap((file) => (file !== null ? [file as ExportBundleFile] : []));
 }

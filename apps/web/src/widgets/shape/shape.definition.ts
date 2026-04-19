@@ -1,5 +1,5 @@
 import { createId } from '../../domain/document/factories';
-import { renderShapeWidget } from './shape.renderer';
+import { renderShapeWidget, renderShapeMaskInspector } from './shape.renderer';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
 import { renderShapeExport } from '../registry/base-exporters';
 
@@ -14,7 +14,7 @@ export const shapeDefinition: WidgetDefinition = {
     sceneId,
     zIndex,
     frame: { x: 320, y: 40, width: 180, height: 80, rotation: 0 },
-    props: { shape: 'rectangle' },
+    props: { shape: 'rectangle', maskSrc: '', maskAssetId: '', maskFit: 'cover', maskFocalX: 50, maskFocalY: 50 },
     style: { backgroundColor: '#f6a11c' },
     timeline: { startMs: 0, endMs: 15000 },
   }),
@@ -40,6 +40,7 @@ export const shapeDefinition: WidgetDefinition = {
       ],
     },
   ],
+  renderInspector: renderShapeMaskInspector,
   renderStage: renderShapeWidget,
   renderExport: (node) => renderShapeExport(node),
   renderLabel: () => 'Shape',

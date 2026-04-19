@@ -13,6 +13,7 @@ export type ModuleSpec = {
   style: Record<string, unknown>;
   renderStage: WidgetDefinition['renderStage'];
   renderInspector?: WidgetDefinition['renderInspector'];
+  renderExport?: WidgetDefinition['renderExport'];
   inspectorFields?: WidgetDefinition['inspectorFields'];
   exportDetail?: string;
   buildPortableExport?: WidgetDefinition['buildPortableExport'];
@@ -44,7 +45,7 @@ export function createModuleDefinition(spec: ModuleSpec): WidgetDefinition {
     renderInspector: spec.renderInspector,
     inspectorTitle: spec.label,
     inspectorFields: spec.inspectorFields,
-    renderExport: createModuleExportRenderer(spec.exportDetail ?? spec.label),
+    renderExport: spec.renderExport ?? createModuleExportRenderer(spec.exportDetail ?? spec.label),
     buildPortableExport: spec.buildPortableExport ?? ((node) => buildModulePortableExport(node)),
     renderLabel: (node) => String(node.props.title ?? node.props.label ?? node.name),
   };

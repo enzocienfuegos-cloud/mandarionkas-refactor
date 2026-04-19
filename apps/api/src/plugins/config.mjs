@@ -1,4 +1,4 @@
-import { readApiEnv, validateApiEnv } from '../../../../packages/config/src/env.mjs';
+import { readApiEnv, validateApiEnv } from '@smx/config/env';
 
 const env = readApiEnv();
 const warnings = validateApiEnv(env);

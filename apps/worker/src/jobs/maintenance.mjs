@@ -1,6 +1,6 @@
-import { getPool, closeAllPools } from '../../../../packages/db/src/pool.mjs';
-import { expirePendingUploadSessions, pruneOldDrafts, revokeExpiredSessions } from '../../../../packages/db/src/maintenance.mjs';
-import { logInfo } from '../../../api/src/lib/logger.mjs';
+import { getPool, closeAllPools } from '@smx/db/pool';
+import { expirePendingUploadSessions, pruneOldDrafts, revokeExpiredSessions } from '@smx/db/maintenance';
+import { logInfo } from '@smx/config/logger';
 
 function getConnectionString(source = process.env) {
   return String(source.DATABASE_POOL_URL || source.DATABASE_URL || '').trim();

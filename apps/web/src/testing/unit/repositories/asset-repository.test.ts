@@ -1,69 +1,58 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { platformStore } from '../../../platform/store';
-import { localAssetRepository } from '../../../repositories/asset/local';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { apiAssetRepository } from '../../../repositories/asset/api';
 
-describe('local asset repository', () => {
+const ASSET_API_BASE = 'https://api.example.com';
+
+const ASSET_FIXTURE = {
+  id: 'asset_1',
+  name: 'Hero',
+  kind: 'image',
+  src: 'https://cdn.example.com/hero.png',
+  clientId: 'client_1',
+  ownerUserId: 'user_1',
+  createdAt: new Date().toISOString(),
+};
+
+describe('api asset repository', () => {
   beforeEach(() => {
     globalThis.localStorage.clear();
-    platformStore.login('admin@smx.studio', 'demo123');
+    localStorage.setItem('smx-studio-v4:asset-api-base', ASSET_API_BASE);
   });
 
-  it('saves, renames and removes assets', async () => {
-    const asset = await localAssetRepository.save({
-      name: 'Hero',
-      kind: 'image',
-      src: 'https://example.com/hero.png',
-      publicUrl: 'https://example.com/hero.png',
-      originUrl: 'https://example.com/hero.png',
-      sourceType: 'url',
-      storageMode: 'remote-url',
-      fingerprint: 'hero-remote',
-      accessScope: 'private',
-    });
-
-    const listed = await localAssetRepository.list();
-    expect(listed.some((item) => item.id === asset.id)).toBe(true);
-
-    await localAssetRepository.rename(asset.id, 'Hero Updated');
-    const loaded = await localAssetRepository.get(asset.id);
-    expect(loaded?.name).toBe('Hero Updated');
-
-    await localAssetRepository.remove(asset.id);
-    const afterRemove = await localAssetRepository.get(asset.id);
-    expect(afterRemove).toBeUndefined();
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it('stores uploaded payloads outside the asset record while deduplicating fingerprints', async () => {
-    const first = await localAssetRepository.save({
-      name: 'Poster A',
-      kind: 'image',
-      src: '',
-      sourceType: 'upload',
-      storageMode: 'object-storage',
-      storageKey: 'demo/poster-a',
-      storagePayload: 'data:image/png;base64,AAA',
-      fingerprint: 'same-file',
-      accessScope: 'client',
+  it('lists assets via GET — expects {assets:[]} envelope', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ assets: [ASSET_FIXTURE] }),
     });
+    vi.stubGlobal('fetch', fetchMock);
 
-    const duplicate = await localAssetRepository.save({
-      name: 'Poster B',
-      kind: 'image',
-      src: '',
-      sourceType: 'upload',
-      storageMode: 'object-storage',
-      storageKey: 'demo/poster-b',
-      storagePayload: 'data:image/png;base64,BBB',
-      fingerprint: 'same-file',
-      accessScope: 'client',
+    const listed = await apiAssetRepository.list();
+    expect(listed.some((a) => a.id === 'asset_1')).toBe(true);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/v1/assets');
+  });
+
+  it('renames an asset via POST to /assets/:id/rename', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ asset: { ...ASSET_FIXTURE, name: 'Hero Updated' } }),
     });
+    vi.stubGlobal('fetch', fetchMock);
 
-    expect(first.src).toContain('data:image/png');
-    expect(duplicate.id).toBe(first.id);
-    expect(await localAssetRepository.list()).toHaveLength(1);
+    await apiAssetRepository.rename('asset_1', 'Hero Updated');
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/v1/assets/asset_1/rename');
+    expect(fetchMock.mock.calls[0][1]?.method).toBe('POST');
+  });
 
-    const persistedAssets = JSON.parse(localStorage.getItem('smx-studio-v4:asset-library') ?? '[]') as Array<Record<string, unknown>>;
-    expect(String(persistedAssets[0]?.src ?? '')).toBe('');
-    expect(localStorage.getItem('smx-studio-v4:asset-object-store')).toContain('data:image/png;base64,AAA');
+  it('removes an asset via DELETE to /assets/:id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204, json: async () => null });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await apiAssetRepository.remove('asset_1');
+    expect(fetchMock.mock.calls[0][1]?.method).toBe('DELETE');
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/v1/assets/asset_1');
   });
 });

@@ -104,6 +104,7 @@ export type ExportReadinessController = {
   exportIssues: ExportValidationIssue[];
   readiness: ReturnType<typeof import('../../../export/engine').buildExportReadiness>;
   preflight: ReturnType<typeof import('../../../export/engine').buildExportPreflight>;
+  handoff: ReturnType<typeof import('../../../export/engine').buildExportHandoff>;
   diagnostics: ReturnType<typeof import('../../../domain/document/diagnostics').buildDiagnosticSummary>;
   resolvedZipStatus: 'idle' | 'exporting' | 'success' | 'error';
   resolvedZipMessage?: string;

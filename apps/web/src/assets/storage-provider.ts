@@ -1,4 +1,4 @@
-import type { AssetAccessScope, AssetDraft, AssetKind, AssetRecord } from './types';
+import type { AssetAccessScope, AssetDerivativeSet, AssetDraft, AssetKind, AssetQualityPreference, AssetRecord } from './types';
 
 export type AssetUploadInput = {
   file: File;
@@ -27,10 +27,22 @@ export type PreparedAssetUpload = {
   storageKey: string;
   uploadUrl?: string;
   publicUrl?: string;
+  optimizedUrl?: string;
+  qualityPreference?: AssetQualityPreference;
+  derivatives?: AssetDerivativeSet;
+  localFiles?: {
+    upload?: File;
+    original?: File;
+    low?: File;
+    mid?: File;
+    high?: File;
+    thumbnail?: File;
+    poster?: File;
+  };
 };
 
 export interface AssetStorageProvider {
-  mode: 'demo' | 'api';
+  mode?: 'demo' | 'api';
   prepareUpload(input: AssetUploadInput): Promise<PreparedAssetUpload>;
   completeUpload(input: {
     prepared: PreparedAssetUpload;

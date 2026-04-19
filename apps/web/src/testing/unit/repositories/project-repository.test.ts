@@ -1,26 +1,52 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createInitialState } from '../../../domain/document/factories';
-import { platformStore } from '../../../platform/store';
-import { localProjectRepository } from '../../../repositories/project/local';
+import { apiProjectRepository } from '../../../repositories/project/api';
 
-const STORAGE_KEY_PREFIX = 'smx-studio-v4:';
+const PROJECT_API_BASE = 'https://api.example.com';
 
-describe('local project repository', () => {
+const PROJECT_SUMMARY = {
+  id: 'proj_1',
+  name: 'Project State',
+  clientId: 'client_1',
+  ownerUserId: 'user_1',
+  accessScope: 'client',
+  updatedAt: new Date().toISOString(),
+};
+
+describe('api project repository', () => {
   beforeEach(() => {
-    const keys = Object.keys(localStorage).filter((key) => key.startsWith(STORAGE_KEY_PREFIX));
-    keys.forEach((key) => localStorage.removeItem(key));
-    platformStore.login('admin@smx.studio', 'demo123');
+    globalThis.localStorage.clear();
+    localStorage.setItem('smx-studio-v4:project-api-base', PROJECT_API_BASE);
   });
 
-  it('saves and loads projects', async () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('saves a project via POST — expects {project:{}} envelope', async () => {
     const state = createInitialState();
     state.document.name = 'Project State';
 
-    const project = await localProjectRepository.save(state);
-    const loaded = await localProjectRepository.load(project.id);
-    expect(loaded?.document.name).toBe('Project State');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ project: PROJECT_SUMMARY }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
 
-    const listed = await localProjectRepository.list();
-    expect(listed.some((item) => item.id === project.id)).toBe(true);
+    const saved = await apiProjectRepository.save(state);
+    expect(saved.name).toBe('Project State');
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/v1/projects/save');
+  });
+
+  it('lists projects via GET — accepts array or {projects:[]} envelope', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => [PROJECT_SUMMARY],
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const listed = await apiProjectRepository.list();
+    expect(listed.some((item) => item.id === 'proj_1')).toBe(true);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/v1/projects');
   });
 });

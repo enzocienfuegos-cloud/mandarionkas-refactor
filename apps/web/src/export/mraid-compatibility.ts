@@ -36,6 +36,7 @@ const BASE_MRAID_WIDGET_COMPATIBILITY: Record<WidgetType, MraidCompatibilityLeve
   'interactive-gallery': 'supported',
   'gen-ai-image': 'warning',
   buttons: 'supported',
+  'instagram-story': 'warning',
 };
 
 function formatWidgetType(type: WidgetType): string {

@@ -1,6 +1,6 @@
 import { useStudioStore } from '../../../core/store/use-studio-store';
 import { buildDiagnosticSummary, collectDiagnostics } from '../../../domain/document/diagnostics';
-import { buildExportManifest, buildExportPreflight, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage } from '../../../export/engine';
+import { buildExportHandoff, buildExportManifest, buildExportPreflight, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage } from '../../../export/engine';
 import { ExportPreflightPanel } from '../../../export/ExportPreflightPanel';
 import { useExportReadinessController } from '../../../app/shell/topbar/use-export-readiness-controller';
 import { useTopBarStudioSnapshot } from '../../../app/shell/topbar/use-top-bar-studio-snapshot';
@@ -13,6 +13,8 @@ export function DiagnosticsSection(): JSX.Element {
   const readiness = buildExportReadiness(state);
   const manifest = buildExportManifest(state);
   const preflight = buildExportPreflight(state);
+  const handoff = buildExportHandoff(state);
+  const mraidHandoff = state.document.metadata.release.targetChannel === 'mraid' ? handoff.mraid : undefined;
   const resolvedBlocked = !preflight.summary.readyForBundleZip || exportController.resolvedZipStatus === 'exporting';
 
   return (
@@ -48,6 +50,28 @@ export function DiagnosticsSection(): JSX.Element {
           <span className="pill">Channel warnings {preflight.summary.channelWarnings}</span>
         </div>
       </div>
+      {mraidHandoff ? (
+        <div className="field-stack">
+          <small className="muted">MRAID handoff</small>
+          <div className="meta-line">
+            <span className="pill">API {mraidHandoff.apiVersion}</span>
+            <span className="pill">Placement {mraidHandoff.placementType}</span>
+            <span className="pill">Supported {mraidHandoff.moduleCompatibility.supportedCount}</span>
+            <span className="pill">Warnings {mraidHandoff.moduleCompatibility.warningCount}</span>
+            <span className="pill">Blocked {mraidHandoff.moduleCompatibility.blockedCount}</span>
+          </div>
+          {mraidHandoff.moduleCompatibility.blocked.slice(0, 5).map((item) => (
+            <div key={`diag-mraid-blocked-${item.widgetId ?? item.widgetType}`} className="pill" style={{ borderColor: 'rgba(239,68,68,.45)' }}>
+              blocker · {item.widgetType} · {item.message}
+            </div>
+          ))}
+          {mraidHandoff.moduleCompatibility.warnings.slice(0, 5).map((item) => (
+            <div key={`diag-mraid-warning-${item.widgetId ?? item.widgetType}`} className="pill" style={{ borderColor: 'rgba(245,158,11,.45)' }}>
+              warning · {item.widgetType} · {item.message}
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="field-stack">
         <small className="muted">Package checks</small>
         <ExportPreflightPanel
@@ -62,8 +86,8 @@ export function DiagnosticsSection(): JSX.Element {
         <button onClick={() => triggerExportManifest(state)}>Export manifest</button>
         <button onClick={() => triggerExportPreflight(state)}>Export preflight</button>
         <button onClick={() => triggerExportDocumentJson(state)}>Export document JSON</button>
-        <button onClick={() => triggerExportPublishPackage(state)}>Export publish package</button>
-        <button onClick={() => triggerExportReviewPackage(state)}>Export review package</button>
+        <button onClick={() => triggerExportPublishPackage(state)}>{mraidHandoff ? 'Export MRAID package' : 'Export publish package'}</button>
+        <button onClick={() => triggerExportReviewPackage(state)}>{mraidHandoff ? 'Review MRAID package' : 'Export review package'}</button>
         <button onClick={() => void exportController.triggerExportZipBundleResolved(state)} disabled={resolvedBlocked} title={resolvedBlocked ? preflight.summary.recommendedNextStep : undefined}>
           {exportController.resolvedZipStatus === 'exporting' ? 'Exporting banner…' : 'Export banner'}
         </button>

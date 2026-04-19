@@ -9,6 +9,19 @@ export function resolveShapeKind(node: WidgetNode): SupportedShape {
   return 'rectangle';
 }
 
+/**
+ * Returns a CSS clip-path string for shapes that support image masking,
+ * or null for shapes that can't be clipped (line, arrow use background directly).
+ */
+export function buildShapeClipPath(node: WidgetNode): string | null {
+  const shape = resolveShapeKind(node);
+  if (shape === 'circle') return 'circle(50% at 50% 50%)';
+  if (shape === 'triangle') return 'polygon(50% 0%, 0% 100%, 100% 100%)';
+  if (shape === 'rectangle') return 'inset(0 round 0px)';
+  if (shape === 'square') return 'inset(0 round 0px)';
+  return null; // line and arrow don't support image mask
+}
+
 export function buildShapeInnerStyle(node: WidgetNode, fill: string): CSSProperties {
   const width = Number(node.frame.width ?? 0);
   const height = Number(node.frame.height ?? 0);

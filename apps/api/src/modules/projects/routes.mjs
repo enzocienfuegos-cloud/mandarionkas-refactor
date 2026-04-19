@@ -17,7 +17,7 @@ import {
   setProjectOwner,
   deleteUserDraft,
 } from './service.mjs';
-import { recordAuditEvent } from '../../../../../packages/db/src/audit.mjs';
+import { recordAuditEvent } from '@smx/db/audit';
 
 function hasPermission(session, permission) {
   return session.permissions.includes(permission);

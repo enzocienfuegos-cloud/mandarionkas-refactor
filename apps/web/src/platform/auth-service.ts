@@ -1,7 +1,7 @@
 import { appendAuditEntry, clearPlatformSessionStorage, createAuditEntry } from './repository';
 import { getPlatformState, updatePlatformState } from './state';
 import { requestPlatformLogin, requestPlatformLogout, requestPlatformSession } from './api';
-import type { LoginResponseDto, SessionResponseDto } from '../types/contracts';
+import type { LoginResponseDto, SessionResponseDto } from '@smx/contracts';
 
 function clearSessionState() {
   updatePlatformState((current) => ({

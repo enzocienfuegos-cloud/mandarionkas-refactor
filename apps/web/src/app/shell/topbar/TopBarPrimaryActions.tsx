@@ -1,4 +1,23 @@
 import type { TopBarController } from './use-top-bar-controller';
+import { useDocumentActions } from '../../../hooks/use-studio-actions';
+
+function channelLabel(target: TopBarController['snapshot']['release']['targetChannel']): string {
+  switch (target) {
+    case 'mraid':
+      return 'MRAID';
+    case 'gam-html5':
+      return 'GAM HTML5';
+    case 'google-display':
+      return 'Google Display';
+    case 'meta-story':
+      return 'Meta Story';
+    case 'tiktok-vertical':
+      return 'TikTok Vertical';
+    case 'generic-html5':
+    default:
+      return 'IAB HTML5';
+  }
+}
 
 function statusLabel(controller: TopBarController): string {
   const { dirty, lastSavedAt } = controller.snapshot;
@@ -13,31 +32,65 @@ function statusLabel(controller: TopBarController): string {
 
 export function TopBarPrimaryActions({ controller }: { controller: TopBarController }): JSX.Element {
   const { canSaveProjects } = controller.workspace;
-  const { previewMode } = controller.snapshot;
+  const { previewMode, release } = controller.snapshot;
   const { uiActions } = controller.document;
+  const { updateReleaseSettings } = useDocumentActions();
   const { handleSaveProject, handleSaveVersion, saveStatus } = controller.projectSession;
   const { preflight, resolvedZipStatus, triggerExportPreflight, triggerExportZipBundleResolved } = controller.exportReadiness;
   const label = statusLabel(controller);
   const resolvedBlocked = !preflight.summary.readyForBundleZip || resolvedZipStatus === 'exporting';
+  const exportTargetLabel = channelLabel(release.targetChannel);
 
   return (
     <div className="top-actions-cluster">
+      <div className="top-target-switch" role="group" aria-label="Primary export targets">
+        <button
+          type="button"
+          className={`ghost compact-action ${release.targetChannel === 'generic-html5' ? 'is-active' : ''}`}
+          onClick={() => updateReleaseSettings({ targetChannel: 'generic-html5' })}
+          title="Set export target to IAB HTML5"
+        >
+          IAB HTML5
+        </button>
+        <button
+          type="button"
+          className={`ghost compact-action ${release.targetChannel === 'mraid' ? 'is-active' : ''}`}
+          onClick={() => updateReleaseSettings({ targetChannel: 'mraid' })}
+          title="Set export target to MRAID"
+        >
+          MRAID
+        </button>
+      </div>
+      <select
+        className="ghost compact-action"
+        value={release.targetChannel}
+        onChange={(event) => updateReleaseSettings({ targetChannel: event.target.value as typeof release.targetChannel })}
+        aria-label="Export target"
+        title="Export target"
+      >
+        <option value="generic-html5">IAB HTML5</option>
+        <option value="mraid">MRAID</option>
+        <option value="google-display">Google Display</option>
+        <option value="gam-html5">GAM HTML5</option>
+        <option value="meta-story">Meta Story</option>
+        <option value="tiktok-vertical">TikTok Vertical</option>
+      </select>
       <button
         className="ghost compact-action"
         type="button"
         onClick={() => triggerExportPreflight(controller.snapshot.state)}
         title={preflight.summary.recommendedNextStep}
       >
-        Preflight · {preflight.summary.packageGrade}
+        {exportTargetLabel} · {preflight.summary.packageGrade}
       </button>
       <button
         className="ghost compact-action"
         type="button"
         onClick={() => void triggerExportZipBundleResolved(controller.snapshot.state)}
         disabled={resolvedBlocked}
-        title={resolvedBlocked ? preflight.summary.recommendedNextStep : 'Export final banner ZIP'}
+        title={resolvedBlocked ? preflight.summary.recommendedNextStep : `Export ${exportTargetLabel} ZIP`}
       >
-        {resolvedZipStatus === 'exporting' ? 'Exporting banner…' : 'Export banner'}
+        {resolvedZipStatus === 'exporting' ? `Exporting ${exportTargetLabel}…` : `Export ${exportTargetLabel}`}
       </button>
       <div className={`top-save-indicator top-save-indicator--${saveStatus}`}>{label}</div>
       <button className="ghost compact-action" type="button" onClick={() => uiActions.setPreviewMode(!previewMode)}>

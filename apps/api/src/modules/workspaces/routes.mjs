@@ -7,7 +7,7 @@ import {
   listWorkspacesForUser,
   setSessionActiveWorkspace,
 } from './service.mjs';
-import { listRecentAuditEvents, recordAuditEvent } from '../../../../../packages/db/src/audit.mjs';
+import { listRecentAuditEvents, recordAuditEvent } from '@smx/db/audit';
 
 const COMPAT_HEADERS = {
   Deprecation: 'true',

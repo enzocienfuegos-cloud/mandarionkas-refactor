@@ -3,6 +3,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
+      "@smx/contracts": ["../../packages/contracts/src/index.ts"],
       "@actions/*": ["src/actions/*"],
       "@app/*": ["src/app/*"],
       "@assets/*": ["src/assets/*"],

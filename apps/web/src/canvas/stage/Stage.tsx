@@ -227,6 +227,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
               isWidgetVisible={isWidgetVisible}
               onStagePointerDown={(event) => {
                 if (event.target === event.currentTarget) {
+                  widgetActions.selectWidget(null);
                   setShowCanvasQuickPanel(true);
                   if (event.pointerType !== 'touch') {
                     beginMarqueeSelection(event.nativeEvent);

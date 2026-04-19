@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { getPool } from '../../../../../packages/db/src/pool.mjs';
-import { signOpaqueToken, verifyOpaqueToken, verifyPassword } from '../../../../../packages/config/src/security.mjs';
+import { getPool } from '@smx/db/pool';
+import { signOpaqueToken, verifyOpaqueToken, verifyPassword } from '@smx/config/security';
 import { parseCookies, serializeCookie } from '../../lib/cookies.mjs';
 import { listWorkspacesForUser, setSessionActiveWorkspace, userHasWorkspaceAccess } from '../workspaces/service.mjs';
 

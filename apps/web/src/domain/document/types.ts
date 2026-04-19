@@ -23,7 +23,8 @@ export type WidgetType =
   | 'travel-deal'
   | 'interactive-gallery'
   | 'gen-ai-image'
-  | 'buttons';
+  | 'buttons'
+  | 'instagram-story';
 
 export type WidgetFrame = { x: number; y: number; width: number; height: number; rotation: number; };
 export type KeyframeProperty = 'x' | 'y' | 'width' | 'height' | 'opacity';
@@ -81,7 +82,7 @@ export type ProjectPlatformMetadata = {
   brandId?: string;
   brandName?: string;
   campaignName?: string;
-  accessScope?: import('../../types/contracts/access-scopes').ProjectAccessScope;
+  accessScope?: import('@smx/contracts').ProjectAccessScope;
 };
 export type StudioDocument = { id: string; name: string; version: number; canvas: CanvasNode; scenes: SceneNode[]; widgets: Record<string, WidgetNode>; actions: Record<string, ActionNode>; feeds: FeedCatalog; collaboration: CollaborationState; selection: { widgetIds: string[]; activeSceneId: string; primaryWidgetId?: string }; metadata: { dirty: boolean; lastSavedAt?: string; lastAutosavedAt?: string; release: ReleaseSettings; platform?: ProjectPlatformMetadata; }; };
 export type StudioState = { document: StudioDocument; ui: { zoom: number; playheadMs: number; isPlaying: boolean; previewMode: boolean; hoveredWidgetId?: string; activeWidgetId?: string; lastTriggeredActionLabel?: string; activeVariant: VariantName; activeFeedSource: BindingSource; activeFeedRecordId: string; activeProjectId?: string; activeLeftTab: 'widgets' | 'layers' | 'assets' | 'flow'; stageBackdrop: 'dark' | 'gray' | 'light'; showStageRulers: boolean; showWidgetBadges: boolean; }; };

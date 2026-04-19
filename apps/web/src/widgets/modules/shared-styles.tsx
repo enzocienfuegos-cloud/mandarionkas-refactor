@@ -89,7 +89,55 @@ export function getFlagEmoji(flagCode: string): string {
   const code = flagCode.trim().toUpperCase(); if (!/^[A-Z]{2}$/.test(code)) return '📍'; return String.fromCodePoint(...[...code].map((char) => 127397 + char.charCodeAt(0)));
 }
 export function parseCarouselSlides(raw: string): Array<{ src: string; caption: string }> {
-  return raw.split(';').map((item) => item.trim()).filter(Boolean).map((item) => { const [src, caption] = item.split('|'); return { src: (src ?? '').trim(), caption: (caption ?? '').trim() }; }).filter((item) => item.src);
+  const value = String(raw ?? '').trim();
+  if (!value) return [];
+  if (value.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item, index): { src: string; caption: string } | null => {
+            if (!item || typeof item !== 'object') return null;
+            const src = typeof (item as { src?: unknown }).src === 'string' ? (item as { src: string }).src.trim() : '';
+            const caption = typeof (item as { caption?: unknown }).caption === 'string'
+              ? (item as { caption: string }).caption.trim()
+              : `Slide ${index + 1}`;
+            return src ? { src, caption } : null;
+          })
+          .filter((item): item is { src: string; caption: string } => Boolean(item));
+      }
+    } catch {
+      // Fall back to legacy parser below.
+    }
+  }
+  return value.split(';').map((item) => item.trim()).filter(Boolean).map((item, index) => { const [src, caption] = item.split('|'); return { src: (src ?? '').trim(), caption: (caption ?? `Slide ${index + 1}`).trim() }; }).filter((item) => item.src);
+}
+
+function parseInteractiveGalleryItems(raw: string, fallbackCount = 0): Array<{ src: string; title: string; subtitle?: string }> {
+  const value = String(raw ?? '').trim();
+  if (value.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item, index): { src: string; title: string; subtitle?: string } | null => {
+            if (!item || typeof item !== 'object') return null;
+            const src = typeof (item as { src?: unknown }).src === 'string' ? (item as { src: string }).src.trim() : '';
+            const title = typeof (item as { title?: unknown }).title === 'string'
+              ? (item as { title: string }).title.trim()
+              : `Item ${index + 1}`;
+            const subtitle = typeof (item as { subtitle?: unknown }).subtitle === 'string'
+              ? (item as { subtitle: string }).subtitle.trim()
+              : undefined;
+            return src ? { src, title, subtitle } : null;
+          })
+          .filter((item): item is { src: string; title: string; subtitle?: string } => Boolean(item));
+      }
+    } catch {
+      // Ignore malformed JSON and fall through.
+    }
+  }
+  return Array.from({ length: Math.max(0, fallbackCount) }, (_, index) => ({ src: '', title: `Item ${index + 1}` }));
 }
 
 export function isFilenameLikeCaption(caption: string): boolean {
@@ -105,6 +153,10 @@ function editorSummary(node: WidgetNode): string[] {
     case 'form': return [`${String(node.props.fieldOne ?? 'Name')} + ${String(node.props.fieldTwo ?? 'Email')}`, `Submit ${String(node.props.submitTargetType ?? 'none')}`];
     case 'image-carousel': { const slides = parseCarouselSlides(String(node.props.slides ?? '')); return [`${slides.length} slides`, String(node.props.autoplay ? 'Autoplay on' : 'Autoplay off')]; }
     case 'shoppable-sidebar': { const products = parseShoppableProducts(String(node.props.products ?? '')); return [`${products.length || 1} products`, `${String(node.props.orientation ?? 'horizontal')} layout`, String(node.props.autoscroll ? 'Autoscroll on' : 'Autoscroll off')]; }
+    case 'interactive-gallery': {
+      const items = parseInteractiveGalleryItems(String(node.props.items ?? ''), clamp(Number(node.props.itemCount ?? 4), 2, 6));
+      return [`${items.length || Number(node.props.itemCount ?? 4)} items`, `Active ${clamp(Number(node.props.activeIndex ?? 1), 1, Math.max(1, items.length || 1))}`];
+    }
     default: return [String(node.props.title ?? node.name)];
   }
 }
