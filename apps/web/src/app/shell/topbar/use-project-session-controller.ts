@@ -3,15 +3,16 @@ import { clearAutosaveDraft, loadAutosaveDraft } from '../../../repositories/doc
 import { archiveProject, changeProjectOwner, duplicateProject, getProjectRepository, listProjects, loadProject, restoreProject, saveProject } from '../../../repositories/project';
 import { listProjectVersions, loadProjectVersion, saveProjectVersion } from '../../../repositories/project-versions';
 import type { ProjectSessionController, TopBarStudioSnapshot, WorkspaceController } from './top-bar-types';
-import { createInitialState } from '../../../domain/document/factories';
 import { useStudioSessionActions } from '../../../hooks/use-studio-actions';
 import { getProjectRepositoryMode, setProjectRepositoryMode } from '../../../repositories/mode';
+import { createProjectStarterState } from './project-starters';
 
 export function useProjectSessionController(snapshot: TopBarStudioSnapshot, workspace: Pick<WorkspaceController, 'activeClientId' | 'clients' | 'canCreateProjects'>): ProjectSessionController {
   const [projectTick, setProjectTick] = useState(0);
   const [newProjectName, setNewProjectName] = useState('');
   const [projects, setProjects] = useState<ProjectSessionController['projects']>([]);
   const [newProjectPresetId, setNewProjectPresetId] = useState('custom');
+  const [newProjectStarterId, setNewProjectStarterId] = useState<ProjectSessionController['newProjectStarterId']>('blank');
   const [autosaveAvailable, setAutosaveAvailable] = useState(true);
   const [versions, setVersions] = useState<ProjectSessionController['versions']>([]);
   const [selectedVersionId, setSelectedVersionId] = useState('');
@@ -116,23 +117,18 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
   async function handleCreateProject(): Promise<void> {
     if (!workspace.canCreateProjects) return;
     const projectName = newProjectName.trim() || 'Untitled Project';
-    const base = createInitialState({ name: projectName, canvasPresetId: newProjectPresetId });
+    const seededState = createProjectStarterState({
+      starterId: newProjectStarterId,
+      name: projectName,
+      canvasPresetId: newProjectPresetId,
+      clientId: workspace.activeClientId,
+      clientName: workspace.clients.find((item) => item.id === workspace.activeClientId)?.name ?? '',
+      brandName: snapshot.platformMeta?.brandName ?? '',
+      campaignName: snapshot.platformMeta?.campaignName ?? '',
+    });
     const initialState = {
-      ...base,
-      document: {
-        ...base.document,
-        metadata: {
-          ...base.document.metadata,
-          platform: {
-            ...(base.document.metadata.platform ?? {}),
-            clientId: workspace.activeClientId,
-            clientName: workspace.clients.find((item) => item.id === workspace.activeClientId)?.name ?? '',
-            brandName: snapshot.platformMeta?.brandName ?? '',
-            campaignName: snapshot.platformMeta?.campaignName ?? '',
-          },
-        },
-      },
-      ui: { ...base.ui, activeProjectId: undefined },
+      ...seededState,
+      ui: { ...seededState.ui, activeProjectId: undefined },
     };
 
     sessionActions.replaceState(initialState);
@@ -247,6 +243,8 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     setNewProjectName,
     newProjectPresetId,
     setNewProjectPresetId,
+    newProjectStarterId,
+    setNewProjectStarterId,
     handleCreateProject,
     handleLoadProject,
     handleSaveProject,

@@ -1,5 +1,6 @@
 import { getCanvasPresetById } from '../domain/document/canvas-presets';
 import { useWorkspaceHubController } from './workspace-hub/use-workspace-hub-controller';
+import { PROJECT_STARTERS } from '../app/shell/topbar/project-starters';
 
 type WorkspaceHubProps = {
   onEnterEditor(): void;
@@ -107,11 +108,24 @@ export function WorkspaceHub({ onEnterEditor }: WorkspaceHubProps): JSX.Element 
             <input value={projectSession.newProjectName} onChange={(event) => projectSession.setNewProjectName(event.target.value)} placeholder="Campaign Spring launch" />
           </label>
           <label>
+            Starter
+            <select value={projectSession.newProjectStarterId} onChange={(event) => projectSession.setNewProjectStarterId(event.target.value as typeof projectSession.newProjectStarterId)}>
+              {PROJECT_STARTERS.map((starter) => <option key={starter.id} value={starter.id}>{starter.label}</option>)}
+            </select>
+          </label>
+          <label>
             Banner size
-            <select value={projectSession.newProjectPresetId} onChange={(event) => projectSession.setNewProjectPresetId(event.target.value)}>
+            <select
+              value={projectSession.newProjectPresetId}
+              onChange={(event) => projectSession.setNewProjectPresetId(event.target.value)}
+              disabled={projectSession.newProjectStarterId !== 'blank'}
+            >
               {controller.canvasPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
             </select>
           </label>
+          <small>
+            {PROJECT_STARTERS.find((starter) => starter.id === projectSession.newProjectStarterId)?.description}
+          </small>
           <button className="primary" type="button" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>Create and open editor</button>
         </div>
       </section>

@@ -3,6 +3,7 @@ import type { BindingSource, StudioState, VariantName } from '../../../domain/do
 import type { ExportValidationIssue } from '../../../domain/document/export-validation';
 import type { ClientWorkspace, PlatformPermission, PlatformSession, WorkspaceRole } from '../../../platform/types';
 import type { useDocumentActions, useSceneActions, useUiActions } from '../../../hooks/use-studio-actions';
+import type { ProjectStarterId } from './project-starters';
 
 export type DocumentActions = ReturnType<typeof useDocumentActions>;
 export type SceneActions = ReturnType<typeof useSceneActions>;
@@ -43,6 +44,8 @@ export type ProjectSessionController = {
   setNewProjectName(value: string): void;
   newProjectPresetId: string;
   setNewProjectPresetId(value: string): void;
+  newProjectStarterId: ProjectStarterId;
+  setNewProjectStarterId(value: ProjectStarterId): void;
   handleCreateProject(): Promise<void>;
   handleLoadProject(projectId: string): Promise<void>;
   handleSaveProject(): Promise<void>;
