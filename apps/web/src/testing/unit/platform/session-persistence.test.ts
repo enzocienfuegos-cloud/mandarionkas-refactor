@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { readPlatformState } from '../../../platform/repository';
-import { hydratePlatformState } from '../../../platform/state';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getPlatformState, hydratePlatformState } from '../../../platform/state';
 import { platformStore } from '../../../platform/store';
+import { setPlatformApiBase, buildLoginResponse, makeFetchMock } from '../../helpers/api-mocks';
 
 function resetPlatform(): void {
   globalThis.localStorage.clear();
@@ -12,23 +12,41 @@ function resetPlatform(): void {
 describe('platform session persistence', () => {
   beforeEach(() => {
     resetPlatform();
+    setPlatformApiBase();
   });
 
-  it('rehydrates remembered sessions from localStorage', () => {
-    const login = platformStore.login('admin@smx.studio', 'demo123', { remember: true });
-    expect(login.ok).toBe(true);
-
-    const persisted = readPlatformState();
-    expect(persisted.session.isAuthenticated).toBe(true);
-    expect(persisted.session.currentUser?.email).toBe('admin@smx.studio');
-    expect(globalThis.localStorage.getItem('smx-studio-v4:platform-session')).toContain('sessionId');
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it('stores ephemeral sessions in sessionStorage only', () => {
-    const login = platformStore.login('editor@smx.studio', 'demo123', { remember: false });
-    expect(login.ok).toBe(true);
+  it('login sets authenticated session in memory with sessionId', async () => {
+    vi.stubGlobal('fetch', makeFetchMock([buildLoginResponse('admin')]));
+    const result = await platformStore.login('admin@smx.studio', 'demo123', { remember: true });
+    expect(result.ok).toBe(true);
+    const state = getPlatformState();
+    expect(state.session.isAuthenticated).toBe(true);
+    expect(state.session.currentUser?.email).toBe('admin@smx.studio');
+    expect(state.session.sessionId).toBe('sess_admin_demo');
+  });
 
-    expect(globalThis.localStorage.getItem('smx-studio-v4:platform-session')).toBeNull();
-    expect(globalThis.sessionStorage.getItem('smx-studio-v4:platform-session')).toContain('sessionId');
+  it('editor login sets correct role and restricted permissions', async () => {
+    vi.stubGlobal('fetch', makeFetchMock([buildLoginResponse('editor')]));
+    await platformStore.login('editor@smx.studio', 'demo123', { remember: false });
+    const state = getPlatformState();
+    expect(state.session.isAuthenticated).toBe(true);
+    expect(state.session.currentUser?.role).toBe('editor');
+    expect(state.session.sessionId).toBe('sess_editor_demo');
+  });
+
+  it('logout clears the in-memory session', async () => {
+    vi.stubGlobal('fetch', makeFetchMock([
+      buildLoginResponse('admin'),
+      { ok: true }, // logout response
+    ]));
+    await platformStore.login('admin@smx.studio', 'demo123');
+    expect(getPlatformState().session.isAuthenticated).toBe(true);
+    await platformStore.logout();
+    expect(getPlatformState().session.isAuthenticated).toBe(false);
+    expect(getPlatformState().session.currentUser).toBeUndefined();
   });
 });

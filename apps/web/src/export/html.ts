@@ -1276,15 +1276,19 @@ function buildExitBootstrap(adapter: ExportHtmlAdapter): string {
 }
 
 export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter): string {
+  if (adapter.adapter === 'playable-ad') {
+    throw new Error('buildChannelHtml does not support playable-ad adapters. Use the playable export path instead.');
+  }
+  const nonPlayableAdapter = adapter as Exclude<ExportHtmlAdapter, PlayableExportAdapterResult>;
   const manifest = buildExportManifest(state);
-  const runtimeModel = buildExportRuntimeModelFromPortable(adapter.portableProject);
+  const runtimeModel = buildExportRuntimeModelFromPortable(nonPlayableAdapter.portableProject);
   const exitConfig = buildExportExitConfig(adapter);
   const activeRecord = getActiveFeedRecord(state);
-  const assetPathMap = buildExportAssetPathMap(buildExportAssetPlan(adapter.portableProject));
-  const orderedScenes = [...adapter.portableProject.scenes].sort((a, b) => a.order - b.order);
+  const assetPathMap = buildExportAssetPathMap(buildExportAssetPlan(nonPlayableAdapter.portableProject));
+  const orderedScenes = [...nonPlayableAdapter.portableProject.scenes].sort((a, b) => a.order - b.order);
   const exitBootstrap = buildExitBootstrap(adapter);
-  const canvas = adapter.portableProject.canvas;
-  const documentName = adapter.portableProject.name || state.document.name || 'SMX Export';
+  const canvas = nonPlayableAdapter.portableProject.canvas;
+  const documentName = nonPlayableAdapter.portableProject.name || state.document.name || 'SMX Export';
 
   return `<!doctype html>
 <html lang="en">
@@ -1304,7 +1308,7 @@ export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter)
   </style>
 </head>
 <body>
-  <div class="banner-shell" data-document-name="${escapeHtml(documentName)}" data-active-variant="${escapeHtml(adapter.portableProject.activeVariant)}" data-active-feed="${escapeHtml(adapter.portableProject.activeFeedSource)}" data-active-record="${escapeHtml(activeRecord?.label ?? adapter.portableProject.activeFeedRecordId)}" data-adapter="${escapeHtml(adapter.adapter)}">
+  <div class="banner-shell" data-document-name="${escapeHtml(documentName)}" data-active-variant="${escapeHtml(nonPlayableAdapter.portableProject.activeVariant)}" data-active-feed="${escapeHtml(nonPlayableAdapter.portableProject.activeFeedSource)}" data-active-record="${escapeHtml(activeRecord?.label ?? nonPlayableAdapter.portableProject.activeFeedRecordId)}" data-adapter="${escapeHtml(adapter.adapter)}">
     <div class="banner-stage">
       ${orderedScenes.map((scene, index) => sceneHtml(scene, canvas, state, assetPathMap, index === 0)).join('\n')}
     </div>

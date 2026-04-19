@@ -992,6 +992,23 @@
   gap: 6px;
   margin-top: 8px;
 }
+.asset-root-dropzone {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px dashed rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.03);
+  color: rgba(214,223,228,0.74);
+  font-size: 12px;
+  line-height: 1.35;
+  transition: background .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+.asset-root-dropzone.is-active {
+  border-color: rgba(86,196,126,0.44);
+  background: rgba(86,196,126,0.14);
+  color: rgba(235,245,238,0.96);
+  box-shadow: inset 0 0 0 1px rgba(86,196,126,0.18);
+}
 .asset-tree-item {
   width: 100%;
   display: flex;
@@ -1009,6 +1026,11 @@
 .asset-tree-item:hover {
   background: rgba(255,255,255,0.08);
   border-color: rgba(255,255,255,0.04);
+}
+.asset-tree-item[data-drop-target="true"] {
+  background: rgba(86,196,126,0.16);
+  border-color: rgba(86,196,126,0.34);
+  box-shadow: inset 0 0 0 1px rgba(86,196,126,0.2);
 }
 .asset-tree-item--nested {
   font-size: 13px;
@@ -1086,6 +1108,11 @@
 .asset-folder-card.is-active {
   border-color: rgba(245,165,36,0.45);
   background: rgba(245,165,36,0.12);
+}
+.asset-folder-card[data-drop-target="true"] {
+  border-color: rgba(86,196,126,0.44);
+  background: rgba(86,196,126,0.14);
+  box-shadow: 0 0 0 1px rgba(86,196,126,0.2);
 }
 .asset-folder-card:hover {
   background: rgba(255,255,255,0.09);
@@ -2890,6 +2917,18 @@
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.top-target-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.top-target-switch .compact-action.is-active {
+  border-color: rgba(245,165,36,0.42);
+  background: rgba(245,165,36,0.14);
+  color: rgba(255,240,214,0.96);
 }
 
 .top-save-indicator {

@@ -20,21 +20,21 @@ export type LayerName =
 export const layerRules: Record<LayerName, readonly LayerName[]> = {
   actions: ['domain', 'shared', 'types'],
   app: ['assets', 'canvas', 'core', 'domain', 'export', 'hooks', 'inspector', 'platform', 'repositories', 'shared', 'timeline', 'types', 'widgets'],
-  assets: ['shared', 'types'],
-  canvas: ['actions', 'core', 'domain', 'hooks', 'shared', 'types', 'widgets'],
+  assets: ['domain', 'platform', 'repositories', 'shared', 'types'],
+  canvas: ['actions', 'core', 'domain', 'hooks', 'platform', 'shared', 'types', 'widgets'],
   core: ['actions', 'domain', 'shared', 'types', 'widgets'],
   domain: ['shared', 'types'],
-  export: ['domain', 'shared', 'types', 'widgets'],
+  export: ['assets', 'domain', 'repositories', 'shared', 'types', 'widgets'],
   hooks: ['core', 'domain', 'shared', 'types'],
-  inspector: ['assets', 'core', 'domain', 'export', 'hooks', 'platform', 'repositories', 'shared', 'types', 'widgets'],
+  inspector: ['app', 'assets', 'core', 'domain', 'export', 'hooks', 'platform', 'repositories', 'shared', 'types', 'widgets'],
   integrations: ['shared', 'types'],
   persistence: ['core', 'hooks', 'repositories', 'shared', 'types'],
-  platform: ['app', 'shared', 'types'],
+  platform: ['app', 'domain', 'repositories', 'shared', 'types'],
   repositories: ['assets', 'domain', 'platform', 'shared', 'types'],
   shared: ['types'],
   timeline: ['core', 'hooks', 'shared', 'types', 'widgets'],
   types: [],
-  widgets: ['canvas', 'domain', 'hooks', 'inspector', 'shared', 'types'],
+  widgets: ['assets', 'canvas', 'core', 'domain', 'export', 'hooks', 'inspector', 'platform', 'repositories', 'shared', 'types'],
 };
 
 export const layerOrder: readonly LayerName[] = [

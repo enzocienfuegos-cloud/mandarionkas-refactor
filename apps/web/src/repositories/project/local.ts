@@ -1,6 +1,6 @@
 import type { StudioState } from '../../domain/document/types';
 import { normalizeStudioState } from '../../domain/document/normalize-state';
-import type { ProjectAccessScope } from '../../types/contracts/access-scopes';
+import type { ProjectAccessScope } from '@smx/contracts';
 import type { PlatformRepositoryContext } from '../../platform/runtime';
 import { getRepositoryContext } from '../context';
 import { canUseBrowserStorage, readStorageItem, removeStorageItem, writeStorageItem } from '../../shared/browser/storage';

@@ -1,17 +1,70 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStudioStore } from '../../../core/store/use-studio-store';
 import { getWidgetDefinition, listWidgetDefinitions } from '../../../widgets/registry/widget-registry';
-import { ingestAssetFile, ingestAssetUrl, listAssets, removeAsset, renameAsset } from '../../../repositories/asset';
+import { ingestAssetFile, ingestAssetUrl, listAssets, removeAsset, renameAsset, reprocessAsset, updateAssetQuality } from '../../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../../repositories/asset/events';
 import { usePlatformActions, usePlatformPermission } from '../../../platform/runtime';
 import { useSceneActions, useUiActions, useWidgetActions } from '../../../hooks/use-studio-actions';
-import type { AssetKind, AssetRecord } from '../../../assets/types';
-import { resolveFontAssetFamily } from '../../../assets/FontAssetRuntime';
+import { resolveAssetDeliveryUrl } from '../../../assets/policy';
+import type { AssetKind, AssetProcessingStatus, AssetQualityPreference, AssetRecord } from '../../../assets/types';
+import { resolveFontAssetFamily } from '../../../assets/font-family';
 
 export const CATEGORY_ORDER = ['content', 'media', 'interactive', 'layout'] as const;
 export type CategoryFilter = 'all' | (typeof CATEGORY_ORDER)[number];
 export type AssetFilter = 'all' | AssetKind;
 export type AssetSort = 'recent' | 'name' | 'size';
+// Shared processing states for both image-derivative and video-transcode jobs.
+const PROCESSING_STATUSES: AssetProcessingStatus[] = ['queued', 'processing', 'planned'];
+
+function parseLinkedCarouselSlides(raw: unknown): Array<{ src: string; caption: string; assetId?: string }> {
+  const value = String(raw ?? '').trim();
+  if (!value) return [];
+  if (value.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item): { src: string; caption: string; assetId?: string } | null => {
+            if (!item || typeof item !== 'object') return null;
+            const src = typeof (item as { src?: unknown }).src === 'string' ? (item as { src: string }).src.trim() : '';
+            const caption = typeof (item as { caption?: unknown }).caption === 'string' ? (item as { caption: string }).caption.trim() : '';
+            const assetId = typeof (item as { assetId?: unknown }).assetId === 'string' ? (item as { assetId: string }).assetId.trim() : undefined;
+            return src ? { src, caption, assetId: assetId || undefined } : null;
+          })
+          .filter((item): item is { src: string; caption: string; assetId?: string } => Boolean(item));
+      }
+    } catch {
+      // Fall through to legacy parser.
+    }
+  }
+  return value.split(';').map((item) => item.trim()).filter(Boolean).map((item) => {
+    const [src, caption] = item.split('|');
+    return { src: (src ?? '').trim(), caption: (caption ?? '').trim() };
+  }).filter((item) => item.src);
+}
+
+function parseInteractiveGalleryItems(raw: unknown): Array<{ src: string; title: string; subtitle?: string; assetId?: string }> {
+  const value = String(raw ?? '').trim();
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((item): { src: string; title: string; subtitle?: string; assetId?: string } | null => {
+          if (!item || typeof item !== 'object') return null;
+          const src = typeof (item as { src?: unknown }).src === 'string' ? (item as { src: string }).src.trim() : '';
+          const title = typeof (item as { title?: unknown }).title === 'string' ? (item as { title: string }).title.trim() : '';
+          const subtitle = typeof (item as { subtitle?: unknown }).subtitle === 'string' ? (item as { subtitle: string }).subtitle.trim() : undefined;
+          const assetId = typeof (item as { assetId?: unknown }).assetId === 'string' ? (item as { assetId: string }).assetId.trim() : undefined;
+          return src ? { src, title, subtitle, assetId: assetId || undefined } : null;
+        })
+        .filter((item): item is { src: string; title: string; subtitle?: string; assetId?: string } => Boolean(item));
+    }
+  } catch {
+    return [];
+  }
+  return [];
+}
 
 function sortAssets(assets: AssetRecord[], mode: AssetSort): AssetRecord[] {
   const sorted = [...assets];
@@ -49,7 +102,7 @@ export function useLeftRailController() {
   const sessionId = platform.state.session.sessionId;
   const activeClientId = platform.state.session.activeClientId;
   const activeClient = platform.state.clients.find((client) => client.id === activeClientId);
-  const { scene, scenes, layerIds, selectedIds, nodes, activeSceneId, openComments, pendingApprovals, activeLeftTab, primaryWidget } = useStudioStore((state) => {
+  const { scene, scenes, layerIds, selectedIds, nodes, activeSceneId, openComments, pendingApprovals, activeLeftTab, primaryWidget, targetChannel } = useStudioStore((state) => {
     const scene = state.document.scenes.find((item) => item.id === state.document.selection.activeSceneId)
       ?? state.document.scenes[0];
     return {
@@ -63,6 +116,7 @@ export function useLeftRailController() {
       openComments: state.document.collaboration.comments.filter((item) => item.status === 'open').length,
       pendingApprovals: state.document.collaboration.approvals.filter((item) => item.status === 'pending').length,
       activeLeftTab: state.ui.activeLeftTab,
+      targetChannel: state.document.metadata.release.targetChannel,
     };
   });
 
@@ -95,6 +149,21 @@ export function useLeftRailController() {
     };
   }, [assetTick, activeClientId, isAuthenticated, sessionId]);
 
+  const hasProcessingAssets = useMemo(
+    () => assets.some((asset) => asset.processingStatus && PROCESSING_STATUSES.includes(asset.processingStatus)),
+    [assets],
+  );
+
+  useEffect(() => {
+    if (!hasProcessingAssets || !isAuthenticated || !sessionId) return undefined;
+    const timer = window.setInterval(() => {
+      void listAssets()
+        .then((records) => setAssets(records))
+        .catch(() => undefined);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [hasProcessingAssets, isAuthenticated, sessionId]);
+
   const filteredWidgets = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return widgets.filter((widget) => {
@@ -119,6 +188,7 @@ export function useLeftRailController() {
     video: assets.filter((asset) => asset.kind === 'video').length,
     font: assets.filter((asset) => asset.kind === 'font').length,
     other: assets.filter((asset) => asset.kind === 'other').length,
+    processing: assets.filter((asset) => asset.processingStatus && PROCESSING_STATUSES.includes(asset.processingStatus)).length,
   }), [assets]);
 
   const selectedAsset = useMemo(() => {
@@ -129,6 +199,30 @@ export function useLeftRailController() {
   useEffect(() => {
     if (!selectedAssetId && selectedAsset?.id) setSelectedAssetId(selectedAsset.id);
   }, [selectedAssetId, selectedAsset]);
+
+  const selectedAssetQuality = selectedAsset?.qualityPreference ?? 'auto';
+
+  function getAssetQualityPreference(asset?: AssetRecord): AssetQualityPreference {
+    if (!asset) return 'auto';
+    return asset.qualityPreference ?? 'auto';
+  }
+
+  async function setAssetQualityPreference(assetId: string, qualityPreference: AssetQualityPreference): Promise<void> {
+    setAssets((current) => current.map((asset) => (
+      asset.id === assetId ? { ...asset, qualityPreference } : asset
+    )));
+    try {
+      await updateAssetQuality(assetId, qualityPreference);
+      refreshAssets();
+    } catch (error) {
+      setAssetError(error instanceof Error ? error.message : 'Could not update asset quality.');
+      refreshAssets();
+    }
+  }
+
+  function resolveAssetPreviewUrl(asset: AssetRecord): string {
+    return resolveAssetDeliveryUrl(asset, targetChannel, getAssetQualityPreference(asset));
+  }
 
   const counts = useMemo(() => CATEGORY_ORDER.reduce<Record<string, number>>((acc, item) => {
     acc[item] = widgets.filter((widget) => widget.category === item).length;
@@ -231,31 +325,43 @@ export function useLeftRailController() {
 
   function assignAsset(asset: AssetRecord): void {
     if (!primaryWidget) return;
+    const resolvedSrc = resolveAssetDeliveryUrl(asset, targetChannel, getAssetQualityPreference(asset));
     if (primaryWidget.type === 'image' || primaryWidget.type === 'hero-image') {
       if (asset.kind !== 'image') return;
-      widgetActions.updateWidgetProps(primaryWidget.id, { src: asset.src, assetId: asset.id, alt: asset.name });
+      widgetActions.updateWidgetProps(primaryWidget.id, {
+        src: resolvedSrc,
+        assetId: asset.id,
+        assetQualityPreference: getAssetQualityPreference(asset),
+        alt: asset.name,
+      });
       return;
     }
     if (primaryWidget.type === 'video-hero') {
       if (asset.kind !== 'video') return;
-      widgetActions.updateWidgetProps(primaryWidget.id, { src: asset.src, assetId: asset.id, posterSrc: asset.posterSrc ?? primaryWidget.props.posterSrc });
+      widgetActions.updateWidgetProps(primaryWidget.id, {
+        src: resolvedSrc,
+        assetId: asset.id,
+        assetQualityPreference: getAssetQualityPreference(asset),
+        posterSrc: asset.derivatives?.poster?.src ?? asset.posterSrc ?? primaryWidget.props.posterSrc,
+      });
       return;
     }
-    if (primaryWidget.type === 'image-carousel' || primaryWidget.type === 'interactive-gallery') {
+    if (primaryWidget.type === 'image-carousel') {
       if (asset.kind !== 'image') return;
-      const currentSlides = String(primaryWidget.props.slides ?? '')
-        .split(';')
-        .map((item) => item.trim())
-        .filter(Boolean);
-      const nextSlides = [...currentSlides, `${asset.src}|${asset.name}`].join(';');
-      const currentAssetIds = String(primaryWidget.props.assetIdsCsv ?? '')
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean);
+      const currentSlides = parseLinkedCarouselSlides(primaryWidget.props.slides);
       widgetActions.updateWidgetProps(primaryWidget.id, {
-        slides: nextSlides,
-        assetIdsCsv: [...currentAssetIds, asset.id].join(','),
+        slides: JSON.stringify([...currentSlides, { src: asset.src, caption: asset.name, assetId: asset.id }]),
         itemCount: currentSlides.length + 1,
+        activeIndex: 1,
+      });
+      return;
+    }
+    if (primaryWidget.type === 'interactive-gallery') {
+      if (asset.kind !== 'image') return;
+      const currentItems = parseInteractiveGalleryItems(primaryWidget.props.items);
+      widgetActions.updateWidgetProps(primaryWidget.id, {
+        items: JSON.stringify([...currentItems, { src: asset.src, title: asset.name, subtitle: '', assetId: asset.id }]),
+        itemCount: currentItems.length + 1,
         activeIndex: 1,
       });
       return;
@@ -299,6 +405,20 @@ export function useLeftRailController() {
     refreshAssets();
   }
 
+  async function reprocessSelectedAsset(): Promise<void> {
+    if (!selectedAsset?.id || !canUpdateAssets) return;
+    setAssetBusy(true);
+    setAssetError('');
+    try {
+      await reprocessAsset(selectedAsset.id);
+      refreshAssets();
+    } catch (error) {
+      setAssetError(error instanceof Error ? error.message : 'Could not retry asset processing.');
+    } finally {
+      setAssetBusy(false);
+    }
+  }
+
   const selectedWidgetAcceptsAsset = primaryWidget && ['image', 'hero-image', 'video-hero', 'image-carousel', 'interactive-gallery', 'shoppable-sidebar', 'text', 'cta', 'badge'].includes(primaryWidget.type);
 
   return {
@@ -326,6 +446,7 @@ export function useLeftRailController() {
     assetUploadProgress,
     filteredAssets,
     selectedAsset,
+    selectedAssetQuality,
     selectedAssetId,
     setSelectedAssetId,
     widgets,
@@ -354,10 +475,15 @@ export function useLeftRailController() {
     handleFileUpload,
     handleFilesUpload,
     assignAsset,
+    getAssetQualityPreference,
+    setAssetQualityPreference,
+    resolveAssetPreviewUrl,
     refreshAssets,
     deleteAsset,
     renameSelectedAsset,
+    reprocessSelectedAsset,
     getWidgetDefinition,
+    targetChannel,
     setActiveLeftTab: uiActions.setLeftTab,
   };
 }

@@ -16,6 +16,7 @@ import { buildGoogleDisplayAdapter } from './adapters/google-display';
 import { buildMraidAdapter } from './adapters/mraid';
 import { buildPlayableExportAdapter } from './adapters/playable';
 import type { MraidAdapterResult } from './adapters';
+import { getMraidProjectCompatibility } from './mraid-compatibility';
 
 function buildChannelAdapter(state: StudioState) {
   switch (state.document.metadata.release.targetChannel) {
@@ -38,6 +39,9 @@ function buildChannelAdapter(state: StudioState) {
 function buildMraidHandoffSummary(preflight: ReturnType<typeof buildExportPreflight>, channelAdapter: ReturnType<typeof buildChannelAdapter>) {
   if (channelAdapter.adapter !== 'mraid') return undefined;
   const mraidAdapter = channelAdapter as MraidAdapterResult;
+  const compatibility = getMraidProjectCompatibility(mraidAdapter.portableProject);
+  const blockedModules = compatibility.filter((item) => item.level === 'blocked');
+  const warningModules = compatibility.filter((item) => item.level === 'warning');
   const mraidWarnings = [
     ...preflight.channelWarnings.filter((item) => item.id.startsWith('mraid-')).map((item) => item.label),
     ...preflight.packageWarnings.filter((item) => item.code.startsWith('runtime.mraid') || item.code.startsWith('widget.mraid')).map((item) => item.message),
@@ -54,13 +58,22 @@ function buildMraidHandoffSummary(preflight: ReturnType<typeof buildExportPrefli
     requiresMraidOpen: mraidAdapter.mraid.requiresMraidOpen,
     requiredHostFeatures: mraidAdapter.mraid.requiredHostFeatures,
     expectedHost: mraidAdapter.mraid.expectedHost,
+    moduleCompatibility: {
+      supportedCount: Math.max(0, mraidAdapter.portableProject.scenes.reduce((count, scene) => count + scene.widgets.length, 0) - warningModules.length - blockedModules.length),
+      warningCount: warningModules.length,
+      blockedCount: blockedModules.length,
+      warnings: warningModules.map((item) => ({ widgetId: item.widgetId, widgetType: item.type, message: item.message })),
+      blocked: blockedModules.map((item) => ({ widgetId: item.widgetId, widgetType: item.type, message: item.message })),
+    },
     readyForHostHandoff: preflight.summary.readyForResolvedZip && mraidBlockers.length === 0,
     blockers: mraidBlockers,
     warnings: mraidWarnings,
   };
 }
 
-function buildHandoffSummary(preflight: ReturnType<typeof buildExportPreflight>, channelAdapter?: ReturnType<typeof buildChannelAdapter>) {
+export function buildExportHandoff(state: StudioState) {
+  const preflight = buildExportPreflight(state);
+  const channelAdapter = buildChannelAdapter(state);
   return {
     preferredArtifact: preflight.summary.preferredArtifact,
     deliveryMode: preflight.summary.deliveryMode,
@@ -73,14 +86,14 @@ function buildHandoffSummary(preflight: ReturnType<typeof buildExportPreflight>,
     channelWarnings: preflight.channelWarnings.map((item) => item.label),
     packageBlockers: preflight.packageBlockers.map((item) => item.message),
     packageWarnings: preflight.packageWarnings.map((item) => item.message),
-    mraid: channelAdapter ? buildMraidHandoffSummary(preflight, channelAdapter) : undefined,
+    mraid: buildMraidHandoffSummary(preflight, channelAdapter),
   };
 }
 
-export function buildPublishPackage(state: StudioState): string {
-  const preflight = buildExportPreflight(state);
-  const portableProject = buildPortableProjectExport(state);
-  const channelAdapter = buildChannelAdapter(state);
+export function buildPublishPackage(state: StudioState, exportedState: StudioState = state): string {
+  const preflight = buildExportPreflight(exportedState);
+  const portableProject = buildPortableProjectExport(exportedState);
+  const channelAdapter = buildChannelAdapter(exportedState);
   const runtimeModel = buildExportRuntimeModelFromPortable(portableProject);
   const assetPlan = buildExportAssetPlan(portableProject);
   const remoteFetchPlan = buildRemoteAssetFetchPlan(assetPlan);
@@ -91,11 +104,11 @@ export function buildPublishPackage(state: StudioState): string {
   const exitConfig = buildExportExitConfig(localizedAdapter);
   const runtimeScript = buildExportRuntimeScript(channelAdapter);
   const packageMetrics = buildExportPackageMetrics({
-    channel: state.document.metadata.release.targetChannel,
+    channel: exportedState.document.metadata.release.targetChannel,
     files: [
-      { path: 'index.html', mime: 'text/html;charset=utf-8', content: buildChannelHtml(state, localizedAdapter) },
+      { path: 'index.html', mime: 'text/html;charset=utf-8', content: buildChannelHtml(exportedState, localizedAdapter) },
       { path: 'runtime.js', mime: 'text/javascript;charset=utf-8', content: runtimeScript },
-      { path: 'manifest.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(buildExportManifest(state), null, 2) },
+      { path: 'manifest.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(buildExportManifest(exportedState), null, 2) },
       { path: 'portable-project.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(portableProject, null, 2) },
       { path: 'portable-project.localized.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(localizedPortableProject, null, 2) },
       { path: 'runtime-model.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(runtimeModel, null, 2) },
@@ -109,9 +122,9 @@ export function buildPublishPackage(state: StudioState): string {
     ],
   }, assetPlan);
   const packageProbe = {
-    channel: state.document.metadata.release.targetChannel,
+    channel: exportedState.document.metadata.release.targetChannel,
     files: [
-      { path: 'index.html', mime: 'text/html;charset=utf-8', content: buildChannelHtml(state, localizedAdapter) },
+      { path: 'index.html', mime: 'text/html;charset=utf-8', content: buildChannelHtml(exportedState, localizedAdapter) },
       { path: 'runtime.js', mime: 'text/javascript;charset=utf-8', content: runtimeScript },
       { path: 'manifest.json', mime: 'application/json;charset=utf-8', content: '' },
       { path: 'portable-project.json', mime: 'application/json;charset=utf-8', content: '' },
@@ -131,8 +144,8 @@ export function buildPublishPackage(state: StudioState): string {
   return JSON.stringify({
     version: 1,
     exportedAt: new Date().toISOString(),
-    manifest: buildExportManifest(state),
-    readiness: buildExportReadiness(state),
+    manifest: buildExportManifest(exportedState),
+    readiness: buildExportReadiness(exportedState),
     portableProject,
     localizedPortableProject,
     runtimeModel,
@@ -146,11 +159,11 @@ export function buildPublishPackage(state: StudioState): string {
     packageMetrics,
     packageCompliance: validateExportPackage(packageProbe as any, packagingPlan, exitConfig, assetPlan),
     preflight,
-    handoff: buildHandoffSummary(preflight, localizedAdapter),
-    collaboration: state.document.collaboration,
-    document: state.document,
-    html: buildChannelHtml(state, localizedAdapter),
-    previewHtml: buildStandaloneHtml(state),
+    handoff: buildExportHandoff(exportedState),
+    collaboration: exportedState.document.collaboration,
+    document: exportedState.document,
+    html: buildChannelHtml(exportedState, localizedAdapter),
+    previewHtml: buildStandaloneHtml(exportedState),
   }, null, 2);
 }
 
@@ -173,7 +186,7 @@ export function buildReviewPackage(state: StudioState): string {
       preferredArtifact: preflight.summary.preferredArtifact,
       deliveryMode: preflight.summary.deliveryMode,
     },
-    handoff: buildHandoffSummary(preflight, buildChannelAdapter(state)),
+    handoff: buildExportHandoff(state),
     collaboration: state.document.collaboration,
     readiness: buildExportReadiness(state),
     manifest: buildExportManifest(state),

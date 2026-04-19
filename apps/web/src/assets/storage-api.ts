@@ -3,7 +3,7 @@ import type {
   CompleteAssetUploadResponseDto,
   PrepareAssetUploadRequestDto,
   PrepareAssetUploadResponseDto,
-} from '../types/contracts';
+} from '@smx/contracts';
 import type { AssetRecord } from './types';
 import { mapAssetRecordDtoToDomain, mapPreparedUploadDtoToDomain } from './contracts';
 import type { PreparedAssetUpload } from './storage-provider';

@@ -5,6 +5,7 @@ import { listProjectVersions, loadProjectVersion, saveProjectVersion } from '../
 import type { ProjectSessionController, TopBarStudioSnapshot, WorkspaceController } from './top-bar-types';
 import { createInitialState } from '../../../domain/document/factories';
 import { useStudioSessionActions } from '../../../hooks/use-studio-actions';
+import { getProjectRepositoryMode, setProjectRepositoryMode } from '../../../repositories/mode';
 
 export function useProjectSessionController(snapshot: TopBarStudioSnapshot, workspace: Pick<WorkspaceController, 'activeClientId' | 'clients' | 'canCreateProjects'>): ProjectSessionController {
   const [projectTick, setProjectTick] = useState(0);
@@ -16,7 +17,13 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
   const [selectedVersionId, setSelectedVersionId] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string | undefined>(undefined);
+  const [repositoryMode, setRepositoryMode] = useState<'local' | 'api'>(getProjectRepositoryMode());
   const sessionActions = useStudioSessionActions();
+
+  function handleRepositoryModeChange(mode: 'local' | 'api'): void {
+    setProjectRepositoryMode(mode);
+    setRepositoryMode(mode);
+  }
 
   useEffect(() => {
     listProjects().then(setProjects).catch(() => setProjects([]));
@@ -200,6 +207,7 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
 
   return {
     projects,
+    repositoryMode,
     autosaveAvailable,
     versions,
     selectedVersionId,
@@ -221,6 +229,7 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     handleRecoverDraft,
     handleClearDraft,
     refreshProjects,
+    handleRepositoryModeChange,
     saveStatus,
     saveMessage,
   };

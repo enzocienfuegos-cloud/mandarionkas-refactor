@@ -12,14 +12,26 @@ export function getOrigin(headers) {
 
 export function applyCors(req, res, env) {
   const requestOrigin = getOrigin(req.headers);
-  const allowOrigin = requestOrigin && requestOrigin === env.appOrigin ? requestOrigin : env.appOrigin;
-  if (allowOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', allowOrigin);
-    res.setHeader('Vary', 'Origin');
-  }
+
+  // Always set Vary so downstream caches don't serve the wrong CORS headers.
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-Id');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+
+  // No origin header means a same-origin or non-browser request — allow it.
+  if (!requestOrigin) return;
+
+  const allowed = env.allowedOrigins ?? [env.appOrigin];
+  if (allowed.includes(requestOrigin)) {
+    // Reflect the exact origin so cookies with SameSite=None work correctly
+    // across prod/staging domains without a wildcard.
+    res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+    return;
+  }
+
+  // Origin is present but not in the whitelist — do not set Allow-Origin.
+  // The browser will block the response; the server returns no CORS grant.
 }
 
 export function sendJson(res, statusCode, payload, extraHeaders = {}) {

@@ -10,12 +10,23 @@ function parseInteger(value, fallback) {
 }
 
 export function readApiEnv(source = process.env) {
+  // APP_CORS_ORIGINS accepts a comma-separated list of allowed origins.
+  // APP_ORIGIN is always included. Example:
+  //   APP_CORS_ORIGINS=https://app.smx.studio,https://staging.smx.studio
+  const primaryOrigin = normalize(source.APP_ORIGIN) || 'http://localhost:5173';
+  const extraOrigins = normalize(source.APP_CORS_ORIGINS)
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  const allowedOrigins = Array.from(new Set([primaryOrigin, ...extraOrigins]));
+
   return Object.freeze({
     nodeEnv: normalize(source.NODE_ENV) || 'development',
     appName: normalize(source.APP_NAME) || 'smx-studio-api',
     appEnv: normalize(source.APP_ENV) || normalize(source.NODE_ENV) || 'development',
     port: parseInteger(source.PORT, 8080),
-    appOrigin: normalize(source.APP_ORIGIN) || 'http://localhost:5173',
+    appOrigin: primaryOrigin,
+    allowedOrigins,
     apiBaseUrl: normalize(source.API_BASE_URL) || '',
     assetsPublicBaseUrl: normalize(source.ASSETS_PUBLIC_BASE_URL) || '',
     databaseUrl: normalize(source.DATABASE_URL) || '',

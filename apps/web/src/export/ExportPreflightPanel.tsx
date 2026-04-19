@@ -1,6 +1,24 @@
 import type { buildExportPreflight } from './preflight';
+import type { ChannelRequirement } from './types';
+import type { ExportPackageComplianceIssue } from './package-compliance';
 
 type ExportPreflight = ReturnType<typeof buildExportPreflight>;
+
+function renderChannelIssue(issue: ChannelRequirement, index: number, color: string): JSX.Element {
+  return (
+    <div key={`${issue.id}-${index}`} className="pill" style={{ borderColor: color }}>
+      {issue.label}
+    </div>
+  );
+}
+
+function renderPackageIssue(issue: ExportPackageComplianceIssue, index: number, color: string): JSX.Element {
+  return (
+    <div key={`${issue.code}-${issue.targetId ?? index}`} className="pill" style={{ borderColor: color }}>
+      {issue.scope} · {issue.code} · {issue.message}
+    </div>
+  );
+}
 
 export function ExportPreflightPanel({
   preflight,
@@ -15,8 +33,10 @@ export function ExportPreflightPanel({
   maxIssues?: number;
   compact?: boolean;
 }): JSX.Element {
-  const blockers = [...preflight.channelBlockers, ...preflight.packageBlockers];
-  const warnings = [...preflight.channelWarnings, ...preflight.packageWarnings];
+  const channelBlockers = preflight.channelBlockers;
+  const channelWarnings = preflight.channelWarnings;
+  const packageBlockers = preflight.packageBlockers;
+  const packageWarnings = preflight.packageWarnings;
 
   return (
     <div className={`export-preflight-panel ${compact ? 'export-preflight-panel--compact' : ''}`}>
@@ -52,26 +72,28 @@ export function ExportPreflightPanel({
       ) : null}
       <div className="pill">Next step · {preflight.summary.recommendedNextStep}</div>
       {resolvedZipMessage ? <div className="pill">Resolved ZIP · {resolvedZipMessage}</div> : null}
-      {blockers.length ? (
+      {(channelBlockers.length > 0 || packageBlockers.length > 0) ? (
         <div className="field-stack">
           <small className="muted">Blockers</small>
-          {blockers.slice(0, maxIssues).map((issue, index) => (
-            <div key={`${issue.code}-${issue.targetId ?? index}`} className="pill" style={{ borderColor: 'rgba(239,68,68,.45)' }}>
-              {issue.scope} · {issue.code} · {issue.message}
-            </div>
-          ))}
+          {channelBlockers.slice(0, maxIssues).map((issue, index) =>
+            renderChannelIssue(issue, index, 'rgba(239,68,68,.45)')
+          )}
+          {packageBlockers.slice(0, Math.max(0, maxIssues - channelBlockers.length)).map((issue, index) =>
+            renderPackageIssue(issue, index, 'rgba(239,68,68,.45)')
+          )}
         </div>
       ) : (
         <div className="pill">No blockers</div>
       )}
-      {warnings.length ? (
+      {(channelWarnings.length > 0 || packageWarnings.length > 0) ? (
         <div className="field-stack">
           <small className="muted">Warnings</small>
-          {warnings.slice(0, maxIssues).map((issue, index) => (
-            <div key={`${issue.code}-${issue.targetId ?? index}`} className="pill" style={{ borderColor: 'rgba(245,158,11,.45)' }}>
-              {issue.scope} · {issue.code} · {issue.message}
-            </div>
-          ))}
+          {channelWarnings.slice(0, maxIssues).map((issue, index) =>
+            renderChannelIssue(issue, index, 'rgba(245,158,11,.45)')
+          )}
+          {packageWarnings.slice(0, Math.max(0, maxIssues - channelWarnings.length)).map((issue, index) =>
+            renderPackageIssue(issue, index, 'rgba(245,158,11,.45)')
+          )}
         </div>
       ) : (
         <div className="pill">No warnings</div>

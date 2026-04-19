@@ -134,7 +134,5 @@ export function buildExportExitConfig(adapter: ExportHtmlAdapter): ExportExitCon
       return { adapter: adapter.adapter, strategy: 'mraid-open', primaryUrl: urls[0] ?? null, urls };
     case 'playable-ad':
       return { adapter: adapter.adapter, strategy: 'playable-bridge', primaryUrl: urls[0] ?? null, urls };
-    default:
-      return { adapter: adapter.adapter, strategy: 'window-open', primaryUrl: urls[0] ?? null, urls };
   }
 }

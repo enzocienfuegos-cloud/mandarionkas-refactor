@@ -11,7 +11,7 @@ import type {
   SessionResponseDto,
   UpdateActiveClientRequestDto,
   UpdateActiveClientResponseDto,
-} from '../types/contracts';
+} from '@smx/contracts';
 import type { PlatformStorageDiagnostics } from './types';
 import { getRepositoryApiBase } from '../repositories/api-config';
 import { fetchJson, fetchVoid, HttpError } from '../shared/net/http-json';

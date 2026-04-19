@@ -1,5 +1,5 @@
 import { useStudioStore } from '../../../core/store/use-studio-store';
-import { buildExportReadiness } from '../../../export/engine';
+import { buildExportHandoff, buildExportReadiness } from '../../../export/engine';
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
 
 export function ReleaseSettingsSection(): JSX.Element {
@@ -7,6 +7,8 @@ export function ReleaseSettingsSection(): JSX.Element {
   const { updateReleaseSettings } = useDocumentActions();
   const release = state.document.metadata.release;
   const readiness = buildExportReadiness(state);
+  const handoff = buildExportHandoff(state);
+  const mraidHandoff = release.targetChannel === 'mraid' ? handoff.mraid : undefined;
 
   return (
     <div className="field-stack">
@@ -40,6 +42,19 @@ export function ReleaseSettingsSection(): JSX.Element {
         <span className="pill">QA {readiness.qaStatus}</span>
         <span className="pill">Readiness {readiness.score}% · {readiness.grade}</span>
       </div>
+      {mraidHandoff ? (
+        <div className="field-stack">
+          <div className="pill" style={{ borderColor: mraidHandoff.readyForHostHandoff ? 'rgba(34,197,94,.35)' : mraidHandoff.blockers.length ? 'rgba(239,68,68,.45)' : 'rgba(245,158,11,.45)' }}>
+            {mraidHandoff.readyForHostHandoff ? '✓' : '•'} MRAID {mraidHandoff.readyForHostHandoff ? 'ready' : mraidHandoff.blockers.length ? 'blocked' : 'needs review'}
+          </div>
+          <div className="meta-line">
+            <span className="pill">Placement {mraidHandoff.placementType}</span>
+            <span className="pill">Host features {Object.entries(mraidHandoff.requiredHostFeatures).filter(([, enabled]) => enabled).map(([key]) => key).join(', ')}</span>
+            <span className="pill">Warnings {mraidHandoff.moduleCompatibility.warningCount}</span>
+            <span className="pill">Blocked {mraidHandoff.moduleCompatibility.blockedCount}</span>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

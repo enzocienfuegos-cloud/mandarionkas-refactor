@@ -4,14 +4,19 @@ import {
   completeAssetUpload,
   createAssetFolder,
   deleteAsset,
+  deleteAssetFolder,
   getAsset,
   listAssetFolders,
   listAssets,
+  moveAsset,
   prepareAssetUpload,
+  reprocessAsset,
   renameAsset,
+  renameAssetFolder,
   saveRemoteAsset,
+  updateAssetQuality,
 } from './service.mjs';
-import { recordAuditEvent } from '../../../../../packages/db/src/audit.mjs';
+import { recordAuditEvent } from '@smx/db/audit';
 import { checkRateLimit } from '../../lib/rate-limit.mjs';
 
 function hasPermission(session, permission) {
@@ -110,6 +115,61 @@ export async function handleAssetRoutes(ctx) {
         await session.client.query('rollback');
         return badRequest(res, requestId, error.message);
       }
+    });
+  }
+
+  if (method === 'POST' && /^\/v1\/assets\/folders\/[^/]+\/rename$/.test(pathname)) {
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'assets:update')) {
+        return forbidden(res, requestId, 'You do not have permission to rename folders.');
+      }
+      const workspace = getActiveWorkspace(session);
+      if (!workspace) return badRequest(res, requestId, 'An active workspace is required to rename a folder.');
+      try {
+        const folderId = pathname.split('/')[4];
+        const folder = await renameAssetFolder(session.client, {
+          folderId,
+          workspaceId: workspace.id,
+          name: body?.name,
+        });
+        if (!folder) {
+          return sendJson(res, 404, { ok: false, requestId, code: 'folder_not_found', message: 'Folder not found.' });
+        }
+        await recordAuditEvent(session.client, {
+          workspaceId: workspace.id,
+          actorUserId: session.user.id,
+          action: 'asset.folder.renamed',
+          targetType: 'asset_folder',
+          targetId: folder.id,
+          payload: { name: folder.name },
+        });
+        return sendJson(res, 200, { folder, requestId });
+      } catch (error) {
+        return badRequest(res, requestId, error.message);
+      }
+    });
+  }
+
+  if (method === 'DELETE' && /^\/v1\/assets\/folders\/[^/]+$/.test(pathname)) {
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'assets:delete')) {
+        return forbidden(res, requestId, 'You do not have permission to delete folders.');
+      }
+      const workspace = getActiveWorkspace(session);
+      if (!workspace) return badRequest(res, requestId, 'An active workspace is required to delete a folder.');
+      const folderId = pathname.split('/')[4];
+      const deleted = await deleteAssetFolder(session.client, { folderId, workspaceId: workspace.id });
+      if (!deleted) {
+        return sendJson(res, 404, { ok: false, requestId, code: 'folder_not_found', message: 'Folder not found.' });
+      }
+      await recordAuditEvent(session.client, {
+        workspaceId: workspace.id,
+        actorUserId: session.user.id,
+        action: 'asset.folder.deleted',
+        targetType: 'asset_folder',
+        targetId: folderId,
+      });
+      return sendNoContent(res);
     });
   }
 
@@ -287,6 +347,107 @@ export async function handleAssetRoutes(ctx) {
         });
         return sendJson(res, 200, { asset, requestId });
       } catch (error) {
+        return badRequest(res, requestId, error.message);
+      }
+    });
+  }
+
+  if (method === 'POST' && /^\/v1\/assets\/[^/]+\/move$/.test(pathname)) {
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'assets:update')) {
+        return forbidden(res, requestId, 'You do not have permission to move assets.');
+      }
+      const workspace = getActiveWorkspace(session);
+      if (!workspace) return badRequest(res, requestId, 'An active workspace is required to move an asset.');
+      try {
+        const assetId = pathname.split('/')[3];
+        const asset = await moveAsset(session.client, {
+          assetId,
+          workspaceId: workspace.id,
+          folderId: body?.folderId,
+        });
+        if (!asset) {
+          return sendJson(res, 404, { ok: false, requestId, code: 'asset_not_found', message: 'Asset not found.' });
+        }
+        await recordAuditEvent(session.client, {
+          workspaceId: workspace.id,
+          actorUserId: session.user.id,
+          action: 'asset.moved',
+          targetType: 'asset',
+          targetId: asset.id,
+          payload: { folderId: asset.folderId || null },
+        });
+        return sendJson(res, 200, { asset, requestId });
+      } catch (error) {
+        return badRequest(res, requestId, error.message);
+      }
+    });
+  }
+
+  if (method === 'POST' && /^\/v1\/assets\/[^/]+\/quality$/.test(pathname)) {
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'assets:update')) {
+        return forbidden(res, requestId, 'You do not have permission to update asset quality.');
+      }
+      const workspace = getActiveWorkspace(session);
+      if (!workspace) return badRequest(res, requestId, 'An active workspace is required to update an asset.');
+      try {
+        const assetId = pathname.split('/')[3];
+        const asset = await updateAssetQuality(session.client, {
+          assetId,
+          workspaceId: workspace.id,
+          qualityPreference: body?.qualityPreference,
+        });
+        if (!asset) {
+          return sendJson(res, 404, { ok: false, requestId, code: 'asset_not_found', message: 'Asset not found.' });
+        }
+        await recordAuditEvent(session.client, {
+          workspaceId: workspace.id,
+          actorUserId: session.user.id,
+          action: 'asset.quality.updated',
+          targetType: 'asset',
+          targetId: asset.id,
+          payload: { qualityPreference: asset.qualityPreference || null },
+        });
+        return sendJson(res, 200, { asset, requestId });
+      } catch (error) {
+        return badRequest(res, requestId, error.message);
+      }
+    });
+  }
+
+  if (method === 'POST' && /^\/v1\/assets\/[^/]+\/reprocess$/.test(pathname)) {
+    if (enforceRateLimit(res, requestId, req.headers, 'asset-reprocess', 30, 60_000)) return true;
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'assets:update')) {
+        return forbidden(res, requestId, 'You do not have permission to reprocess assets.');
+      }
+      const workspace = getActiveWorkspace(session);
+      if (!workspace) return badRequest(res, requestId, 'An active workspace is required to reprocess an asset.');
+      try {
+        await session.client.query('begin');
+        const assetId = pathname.split('/')[3];
+        const asset = await reprocessAsset(session.client, {
+          assetId,
+          workspaceId: workspace.id,
+          ownerUserId: session.user.id,
+        });
+        if (!asset) {
+          await session.client.query('rollback');
+          return sendJson(res, 404, { ok: false, requestId, code: 'asset_not_found', message: 'Asset not found.' });
+        }
+        await recordAuditEvent(session.client, {
+          workspaceId: workspace.id,
+          actorUserId: session.user.id,
+          action: 'asset.reprocessed',
+          targetType: 'asset',
+          targetId: asset.id,
+          payload: { kind: asset.kind, storageKey: asset.storageKey || null },
+        });
+        await session.client.query('commit');
+        return sendJson(res, 200, { asset, requestId });
+      } catch (error) {
+        await session.client.query('rollback');
         return badRequest(res, requestId, error.message);
       }
     });

@@ -1,10 +1,10 @@
-import type { AssetAccessScope, ProjectAccessScope } from '../types/contracts/access-scopes';
+import type { AssetAccessScope, ProjectAccessScope } from '@smx/contracts';
 import type {
   PlatformPermission,
   SessionPersistenceMode,
   UserRole,
   WorkspaceRole,
-} from '../types/contracts/platform';
+} from '@smx/contracts';
 
 export type { ProjectAccessScope, AssetAccessScope, PlatformPermission, SessionPersistenceMode, UserRole, WorkspaceRole };
 

@@ -52,7 +52,7 @@ export function validateExportPackage(
   const htmlFiles = filePaths.filter((path) => path.endsWith('.html'));
   const totalBytes = getTotalBundleBytes(bundle);
   const bundledAssetCount = assetPlan.filter((asset) => asset.strategy === 'bundled-copy').length;
-  const remoteReferencedAssetCount = assetPlan.filter((asset) => asset.strategy === 'external-reference' && /^https?:\/\//i.test(asset.src)).length;
+  const remoteReferencedAssetCount = assetPlan.filter((asset) => asset.strategy === 'external-reference' && /^https?:\/\//i.test(asset.sourceUrl)).length;
   const materializedAssets = assetPlan.filter((asset) => filePaths.includes(asset.packagingPath));
   const packageMetrics = buildExportPackageMetrics(bundle, assetPlan);
   const clickTagChannel = bundle.channel === 'google-display' || bundle.channel === 'gam-html5';

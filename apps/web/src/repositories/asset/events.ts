@@ -1,6 +1,6 @@
 const ASSET_LIBRARY_EVENT_NAME = 'smx:asset-library-changed';
 
-export type AssetLibraryChangeReason = 'saved' | 'renamed' | 'removed' | 'unknown';
+export type AssetLibraryChangeReason = 'saved' | 'renamed' | 'removed' | 'moved' | 'unknown';
 
 export function emitAssetLibraryChanged(reason: AssetLibraryChangeReason = 'unknown'): void {
   if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return;

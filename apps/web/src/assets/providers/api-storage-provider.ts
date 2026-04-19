@@ -1,6 +1,9 @@
 import { completeAssetUpload, requestAssetUploadPreparation } from '../storage-api';
+import { optimizeImageFileForUpload } from '../image-optimization';
 import { createAssetUploadMetadataFromFile } from '../pipeline';
+import { optimizeVideoFileForUpload } from '../video-optimization';
 import type { AssetStorageProvider } from '../storage-provider';
+import type { AssetDerivativeSet } from '../types';
 
 async function uploadFileToSignedUrl(
   uploadUrl: string,
@@ -37,14 +40,57 @@ async function uploadFileToSignedUrl(
   });
 }
 
-export const apiAssetStorageProvider: AssetStorageProvider = {
-  mode: 'api',
+function mapPreparedDerivatives(
+  derivatives?: Partial<Record<'original' | 'low' | 'mid' | 'high' | 'thumbnail' | 'poster', { metadata: NonNullable<AssetDerivativeSet[keyof AssetDerivativeSet]> }>>,
+): AssetDerivativeSet | undefined {
+  if (!derivatives) return undefined;
+  return {
+    original: derivatives.original?.metadata,
+    low: derivatives.low?.metadata,
+    mid: derivatives.mid?.metadata,
+    high: derivatives.high?.metadata,
+    thumbnail: derivatives.thumbnail?.metadata,
+    poster: derivatives.poster?.metadata,
+  };
+}
 
+export const apiAssetStorageProvider: AssetStorageProvider = {
   async prepareUpload(input) {
-    const metadata = await createAssetUploadMetadataFromFile(input);
+    const optimizedImage = await optimizeImageFileForUpload(input.file);
+    const metadata = await createAssetUploadMetadataFromFile({ ...input, file: optimizedImage?.uploadFile ?? input.file });
+    const optimizedVideo = optimizedImage ? null : await optimizeVideoFileForUpload({
+      file: input.file,
+      width: metadata.width,
+      height: metadata.height,
+      durationMs: metadata.durationMs,
+    });
+    const optimized = optimizedImage ?? optimizedVideo;
+    const uploadFile = optimized?.uploadFile ?? input.file;
+    const localFiles = optimizedImage
+      ? {
+          upload: uploadFile,
+          original: optimizedImage.derivatives.original?.file,
+          low: optimizedImage.derivatives.low?.file,
+          mid: optimizedImage.derivatives.mid?.file,
+          high: optimizedImage.derivatives.high?.file,
+          thumbnail: optimizedImage.derivatives.thumbnail?.file,
+        }
+      : optimizedVideo
+        ? {
+            upload: uploadFile,
+            original: optimizedVideo.derivatives.original?.file,
+            low: optimizedVideo.derivatives.low?.file,
+            mid: optimizedVideo.derivatives.mid?.file,
+            high: optimizedVideo.derivatives.high?.file,
+            poster: optimizedVideo.derivatives.poster?.file,
+          }
+        : {
+            upload: input.file,
+            original: input.file,
+          };
 
     const prepared = await requestAssetUploadPreparation({
-      filename: input.file.name,
+      filename: uploadFile.name,
       mimeType: metadata.mimeType,
       sizeBytes: metadata.sizeBytes,
       kind: metadata.kind,
@@ -59,14 +105,20 @@ export const apiAssetStorageProvider: AssetStorageProvider = {
       throw new Error('Asset upload preparation failed');
     }
 
-    return prepared;
+    return {
+      ...prepared,
+      qualityPreference: optimized?.qualityPreference ?? prepared.qualityPreference,
+      derivatives: optimized ? mapPreparedDerivatives(optimized.derivatives) : prepared.derivatives,
+      localFiles,
+    };
   },
 
   async completeUpload(input) {
     const { prepared, file, onProgress } = input;
+    const uploadFile = prepared.localFiles?.upload ?? file;
 
     if (prepared.uploadUrl) {
-      await uploadFileToSignedUrl(prepared.uploadUrl, file, prepared.mimeType, onProgress);
+      await uploadFileToSignedUrl(prepared.uploadUrl, uploadFile, prepared.mimeType, onProgress);
     }
 
     const remoteAsset = await completeAssetUpload({
@@ -86,6 +138,8 @@ export const apiAssetStorageProvider: AssetStorageProvider = {
       storageMode: prepared.storageMode,
       storageKey: prepared.storageKey,
       publicUrl: prepared.publicUrl,
+      optimizedUrl: prepared.optimizedUrl,
+      qualityPreference: prepared.qualityPreference,
       sourceType: 'upload',
     });
 

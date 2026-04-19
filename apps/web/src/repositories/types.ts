@@ -1,6 +1,6 @@
 import type { StudioState } from '../domain/document/types';
-import type { AssetDraft, AssetRecord } from '../assets/types';
-import type { ProjectAccessScope } from '../types/contracts/access-scopes';
+import type { AssetDraft, AssetFolder, AssetQualityPreference, AssetRecord } from '../assets/types';
+import type { ProjectAccessScope } from '@smx/contracts';
 
 export type ProjectSummary = {
   id: string;
@@ -30,18 +30,19 @@ export type ProjectVersionSummary = {
 };
 
 export interface DocumentRepository {
-  mode: 'local' | 'api';
+  mode?: 'local' | 'api';
   saveAutosave(state: StudioState): Promise<void>;
   saveManual(state: StudioState): Promise<void>;
   loadAutosave(): Promise<StudioState | null>;
   loadManual(): Promise<StudioState | null>;
   clearAutosave(): Promise<void>;
+  clearManual(): Promise<void>;
   hasAutosave(): Promise<boolean>;
   hasManual(): Promise<boolean>;
 }
 
 export interface ProjectRepository {
-  mode: 'local' | 'api';
+  mode?: 'local' | 'api';
   list(): Promise<ProjectSummary[]>;
   save(state: StudioState, projectId?: string): Promise<ProjectSummary>;
   load(projectId: string): Promise<StudioState | null>;
@@ -54,17 +55,24 @@ export interface ProjectRepository {
 
 
 export interface ProjectVersionRepository {
-  mode: 'local' | 'api';
+  mode?: 'local' | 'api';
   list(projectId: string): Promise<ProjectVersionSummary[]>;
   save(projectId: string, state: StudioState, note?: string): Promise<ProjectVersionSummary>;
   load(projectId: string, versionId: string): Promise<StudioState | null>;
 }
 
 export interface AssetRepository {
-  mode: 'local' | 'api';
+  mode?: 'local' | 'api';
   list(): Promise<AssetRecord[]>;
   save(input: AssetDraft): Promise<AssetRecord>;
   remove(assetId: string): Promise<void>;
   rename(assetId: string, name: string): Promise<void>;
+  move(assetId: string, folderId?: string): Promise<void>;
+  updateQuality(assetId: string, qualityPreference: AssetQualityPreference): Promise<void>;
+  reprocess(assetId: string): Promise<AssetRecord | undefined>;
   get(assetId?: string): Promise<AssetRecord | undefined>;
+  listFolders(): Promise<AssetFolder[]>;
+  createFolder(name: string, parentId?: string): Promise<AssetFolder>;
+  renameFolder(folderId: string, name: string): Promise<AssetFolder | undefined>;
+  deleteFolder(folderId: string): Promise<void>;
 }
