@@ -220,7 +220,7 @@ function createBocadeliWorldCupState(options: StarterOptions): StudioState {
     }),
   ];
 
-  function createEndCardScene(sceneId: string, productName: string, accent: string, copy: string) {
+  function createEndCardScene(sceneId: string, productName: string, accent: string, secondary: string, copy: string) {
     const widgets = [
       seedWidget('shape', sceneId, 0, {
         name: 'Backdrop',
@@ -239,19 +239,25 @@ function createBocadeliWorldCupState(options: StarterOptions): StudioState {
         style: { backgroundColor: '#14233e' },
         props: { shape: 'circle' },
       }),
-      seedWidget('text', sceneId, 3, {
+      seedWidget('image', sceneId, 3, {
+        name: 'Pack Token',
+        frame: { x: 104, y: 100, width: 112, height: 112, rotation: 0 },
+        props: { src: buildTokenImage(productName, accent, secondary), alt: `${productName} token` },
+        style: { backgroundColor: 'transparent', fit: 'cover', borderRadius: 18 },
+      }),
+      seedWidget('text', sceneId, 4, {
         name: 'Headline',
         frame: { x: 24, y: 246, width: 272, height: 42, rotation: 0 },
         props: { text: `${productName} unlocked` },
         style: { color: '#ffffff', fontSize: 24, fontWeight: 800, textAlign: 'center', lineHeight: 1.1 },
       }),
-      seedWidget('text', sceneId, 4, {
+      seedWidget('text', sceneId, 5, {
         name: 'Copy',
         frame: { x: 34, y: 298, width: 252, height: 54, rotation: 0 },
         props: { text: copy },
         style: { color: 'rgba(255,255,255,0.82)', fontSize: 14, fontWeight: 500, textAlign: 'center', lineHeight: 1.35 },
       }),
-      seedWidget('cta', sceneId, 5, {
+      seedWidget('cta', sceneId, 6, {
         name: 'CTA',
         frame: { x: 58, y: 372, width: 204, height: 46, rotation: 0 },
         props: { text: 'Play again', url: '' },
@@ -261,9 +267,9 @@ function createBocadeliWorldCupState(options: StarterOptions): StudioState {
     return widgets;
   }
 
-  const buenachosWidgets = createEndCardScene(buenachosScene.id, 'Buenachos', '#ff7a59', 'Crispy, bold, and match-ready. This one wins the final play.');
-  const gustitosWidgets = createEndCardScene(gustitosScene.id, 'Gustitos', '#2ce6ff', 'Bright, playful and snackable. A quick burst of flavor after the drop.');
-  const quesitrixWidgets = createEndCardScene(quesitrixScene.id, 'Quesitrix', '#ffd54a', 'Cheesy energy for the closing moment. A bold finish for the end card.');
+  const buenachosWidgets = createEndCardScene(buenachosScene.id, 'Buenachos', '#ff7a59', '#65431f', 'Crispy, bold, and match-ready. This one wins the final play.');
+  const gustitosWidgets = createEndCardScene(gustitosScene.id, 'Gustitos', '#2ce6ff', '#17405a', 'Bright, playful and snackable. A quick burst of flavor after the drop.');
+  const quesitrixWidgets = createEndCardScene(quesitrixScene.id, 'Quesitrix', '#ffd54a', '#7a2d12', 'Cheesy energy for the closing moment. A bold finish for the end card.');
 
   gameScene.widgetIds = gameWidgets.map((widget) => widget.id);
   buenachosScene.widgetIds = buenachosWidgets.map((widget) => widget.id);
