@@ -168,15 +168,15 @@ function createBocadeliWorldCupState(options: StarterOptions): StudioState {
     }),
     seedWidget('particle-halo', gameScene.id, 6, {
       name: 'Halo',
-      frame: { x: 80, y: 176, width: 160, height: 160, rotation: 0 },
+      frame: { x: 72, y: 154, width: 176, height: 176, rotation: 0 },
       props: { size: 160, radius: 60, count: 12, colorA: '#ffffff', colorB: '#2ce6ff', pulseMs: 1800 },
     }),
     seedWidget('drop-zone', gameScene.id, 7, {
       name: 'Goal Zone',
-      frame: { x: 106, y: 202, width: 108, height: 108, rotation: 0 },
+      frame: { x: 100, y: 180, width: 120, height: 120, rotation: 0 },
       props: {
-        width: 92,
-        height: 92,
+        width: 104,
+        height: 104,
         hitPadding: 16,
         debugOutline: true,
         matchActionMap: JSON.stringify({
@@ -189,22 +189,22 @@ function createBocadeliWorldCupState(options: StarterOptions): StudioState {
     }),
     seedWidget('image', gameScene.id, 8, {
       name: 'Pack Shot',
-      frame: { x: 116, y: 212, width: 88, height: 88, rotation: 0 },
+      frame: { x: 104, y: 184, width: 112, height: 112, rotation: 0 },
       props: { src: buildTokenImage('Buenachos', '#ff7a59', '#65431f'), alt: 'BocaDeli product pack' },
       style: { backgroundColor: '#1c2b44', fit: 'cover', borderRadius: 20 },
     }),
     seedWidget('text', gameScene.id, 9, {
       name: 'Question',
-      frame: { x: 30, y: 338, width: 260, height: 48, rotation: 0 },
+      frame: { x: 30, y: 308, width: 260, height: 48, rotation: 0 },
       props: { text: 'Which token completes the BocaDeli move?' },
       style: { color: '#ffffff', fontSize: 16, fontWeight: 700, textAlign: 'center', lineHeight: 1.25 },
     }),
     seedWidget('drag-token-pool', gameScene.id, 10, {
       name: 'Token Pool',
-      frame: { x: 28, y: 388, width: 264, height: 78, rotation: 0 },
+      frame: { x: 20, y: 360, width: 280, height: 94, rotation: 0 },
       props: {
-        tokenSize: 68,
-        gap: 14,
+        tokenSize: 74,
+        gap: 10,
         tokens: JSON.stringify([
           { id: 'buenachos', label: 'Buenachos', accentColor: '#ff7a59', src: buildTokenImage('Buenachos', '#ff7a59', '#65431f') },
           { id: 'gustitos', label: 'Gustitos', accentColor: '#2ce6ff', src: buildTokenImage('Gustitos', '#2ce6ff', '#17405a') },
@@ -214,7 +214,7 @@ function createBocadeliWorldCupState(options: StarterOptions): StudioState {
     }),
     seedWidget('text', gameScene.id, 11, {
       name: 'Hint',
-      frame: { x: 46, y: 452, width: 228, height: 20, rotation: 0 },
+      frame: { x: 34, y: 454, width: 252, height: 20, rotation: 0 },
       props: { text: 'Drop any pack into the center target to reveal its end card.' },
       style: { color: 'rgba(255,255,255,0.72)', fontSize: 11, fontWeight: 500, textAlign: 'center' },
     }),
