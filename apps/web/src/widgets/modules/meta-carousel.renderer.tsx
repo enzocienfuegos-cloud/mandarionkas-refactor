@@ -34,9 +34,8 @@ function MetaHeader({ node }: { node: WidgetNode }) {
   const primaryText = String(node.props.primaryText ?? '');
 
   return (
-    <div style={{ padding: '10px 12px 6px', borderBottom: '1px solid #e4e6eb' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        {/* Avatar */}
+    <div style={{ padding: '10px 12px 6px', borderBottom: '1px solid #e4e6eb', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: primaryText ? 6 : 0 }}>
         <div style={{
           width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
           background: 'linear-gradient(135deg,#1877f2,#42b883)',
@@ -53,7 +52,6 @@ function MetaHeader({ node }: { node: WidgetNode }) {
           }}>{brandName}</div>
           <div style={{ fontSize: 11, color: '#65676b', fontFamily: 'sans-serif' }}>{sponsored} · 🌐</div>
         </div>
-        {/* More icon */}
         <span style={{ color: '#65676b', fontSize: 18, cursor: 'pointer', padding: '0 4px' }}>···</span>
       </div>
       {primaryText && (
@@ -70,44 +68,57 @@ function MetaHeader({ node }: { node: WidgetNode }) {
 
 // ─── Single card ──────────────────────────────────────────────────────────────
 
-function CarouselCard({ slide, ctaLabel, isActive }: {
+function CarouselCard({ slide, ctaLabel, isActive, cardW, imageH, cardRadius }: {
   slide: CarouselSlide;
   ctaLabel: string;
   isActive: boolean;
+  cardW: number;
+  imageH: number;
+  cardRadius: number;
 }) {
-  const CARD_W = 200;
-  const CARD_H = 200;
-
   return (
     <div style={{
       flexShrink: 0,
-      width: CARD_W,
-      borderRadius: 8,
+      width: cardW,
+      borderRadius: cardRadius,
       overflow: 'hidden',
       border: '1px solid #e4e6eb',
       background: '#fff',
-      opacity: isActive ? 1 : 0.7,
+      opacity: isActive ? 1 : 0.72,
       transition: 'opacity 0.2s',
+      display: 'flex',
+      flexDirection: 'column',
     }}>
-      {/* Media */}
-      <div style={{ width: CARD_W, height: CARD_H, background: '#e4e6eb', overflow: 'hidden', position: 'relative' }}>
+      {/* Media — height controlled by imageH prop */}
+      <div style={{
+        width: '100%', height: imageH,
+        background: '#e4e6eb', overflow: 'hidden',
+        position: 'relative', flexShrink: 0,
+      }}>
         {slide.src
           ? slide.kind === 'video'
             ? <video src={slide.src} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <img src={slide.src} alt={slide.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
+            : <img src={slide.src} alt={slide.title} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : (
             <div style={{
-              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
-              justifyContent: 'center', color: '#90959c', fontSize: 12, fontFamily: 'sans-serif',
+              position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              color: '#b0b8c1', fontSize: 11, fontFamily: 'sans-serif', gap: 4,
             }}>
-              {slide.kind === 'video' ? '▶ Video' : '◻ Image'}
+              <span style={{ fontSize: 20 }}>{slide.kind === 'video' ? '▶' : '◻'}</span>
+              <span>{slide.kind === 'video' ? 'Video' : 'Image'}</span>
             </div>
           )
         }
       </div>
 
-      {/* Footer */}
-      <div style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+      {/* Card footer — title + CTA */}
+      <div style={{
+        padding: '8px 10px',
+        display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between', gap: 6,
+        flex: 1,
+      }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontSize: 12, fontWeight: 600, color: '#050505',
@@ -141,12 +152,30 @@ function MetaCarouselRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const slides = getSlides(node);
   const ctaLabel = String(node.props.ctaLabel ?? 'Shop Now');
   const [activeIndex, setActiveIndex] = useState(0);
-  const trackRef = useRef<HTMLDivElement | null>(null);
   const swipeStartX = useRef<number | null>(null);
 
-  const CARD_W = 200;
-  const GAP = 10;
+  // ── Sizing from props — all adjustable from inspector ──────────────────────
+  // cardWidthPct: card width as % of the widget frame width (default 75%)
+  const cardWidthPct = Math.min(100, Math.max(30, Number(node.props.cardWidthPct ?? 75)));
+  // imageHeightPct: image area as % of the card area height (default 60%)
+  const imageHeightPct = Math.min(90, Math.max(20, Number(node.props.imageHeightPct ?? 60)));
+  // cardRadius: border-radius of cards
+  const cardRadius = Math.max(0, Number(node.props.cardRadius ?? 8));
+
+  // Derived pixel values from the frame
+  const frameW = node.frame.width;
   const SIDE_PAD = 12;
+  const GAP = Math.max(4, Number(node.props.cardGap ?? 10));
+  const cardW = Math.round((frameW - SIDE_PAD * 2) * (cardWidthPct / 100));
+
+  // Image height is a % of the available carousel track area.
+  // We estimate header (~80px) + dots (~22px) + footer (~34px) = ~136px reserved.
+  // The rest is the carousel zone. imageHeightPct applies to that zone minus card footer (~42px).
+  const RESERVED_PX = 136;
+  const carouselH = Math.max(80, node.frame.height - RESERVED_PX);
+  const CARD_FOOTER_H = 42;
+  const imageH = Math.round((carouselH - CARD_FOOTER_H) * (imageHeightPct / 100));
+
   const maxIndex = slides.length - 1;
 
   function goTo(idx: number) {
@@ -160,37 +189,57 @@ function MetaCarouselRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     if (swipeStartX.current === null) return;
     const delta = e.clientX - swipeStartX.current;
     swipeStartX.current = null;
-    if (Math.abs(delta) < 30) return;
+    if (Math.abs(delta) < 20) return;
     if (delta < 0) goTo(activeIndex + 1);
     else goTo(activeIndex - 1);
   }
 
-  const translateX = activeIndex * (CARD_W + GAP);
+  const translateX = activeIndex * (cardW + GAP);
 
   return (
-    <div style={{ background: '#fff', borderRadius: 8, overflow: 'hidden', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+    <div style={{
+      background: '#fff',
+      borderRadius: 8,
+      overflow: 'hidden',
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+    }}>
+      {/* Header */}
       <MetaHeader node={node} />
 
-      {/* Carousel track */}
+      {/* Carousel track — flex: 1 fills remaining space */}
       <div
-        style={{ flex: 1, overflow: 'hidden', position: 'relative', cursor: 'grab' }}
+        style={{ flex: 1, overflow: 'hidden', position: 'relative', cursor: 'grab', userSelect: 'none' }}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
       >
         <div
-          ref={trackRef}
           style={{
             display: 'flex',
             gap: GAP,
             paddingLeft: SIDE_PAD,
             paddingRight: SIDE_PAD,
-            paddingTop: 10,
+            paddingTop: 8,
+            paddingBottom: 8,
+            height: '100%',
+            boxSizing: 'border-box',
             transform: `translateX(-${translateX}px)`,
             transition: 'transform 0.3s cubic-bezier(.25,.46,.45,.94)',
           }}
         >
           {slides.map((slide, i) => (
-            <CarouselCard key={i} slide={slide} ctaLabel={ctaLabel} isActive={i === activeIndex} />
+            <CarouselCard
+              key={i}
+              slide={slide}
+              ctaLabel={ctaLabel}
+              isActive={i === activeIndex}
+              cardW={cardW}
+              imageH={imageH}
+              cardRadius={cardRadius}
+            />
           ))}
         </div>
 
@@ -204,7 +253,7 @@ function MetaCarouselRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
               width: 28, height: 28, borderRadius: '50%', border: '1px solid #e4e6eb',
               background: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, color: '#050505', zIndex: 2,
+              fontSize: 16, color: '#050505', zIndex: 2, lineHeight: 1,
             }}
           >‹</button>
         )}
@@ -219,14 +268,14 @@ function MetaCarouselRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
               width: 28, height: 28, borderRadius: '50%', border: '1px solid #e4e6eb',
               background: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, color: '#050505', zIndex: 2,
+              fontSize: 16, color: '#050505', zIndex: 2, lineHeight: 1,
             }}
           >›</button>
         )}
       </div>
 
       {/* Dot indicators */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 4, padding: '6px 0 8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 4, padding: '4px 0 6px', flexShrink: 0 }}>
         {slides.map((_, i) => (
           <div
             key={i}
@@ -240,10 +289,10 @@ function MetaCarouselRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
         ))}
       </div>
 
-      {/* Like/Comment/Share footer */}
+      {/* Like / Comment / Share */}
       <div style={{
         borderTop: '1px solid #e4e6eb', padding: '6px 12px',
-        display: 'flex', gap: 0,
+        display: 'flex', flexShrink: 0,
       }}>
         {['👍 Like', '💬 Comment', '↗ Share'].map((action) => (
           <div key={action} style={{

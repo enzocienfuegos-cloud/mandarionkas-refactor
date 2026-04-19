@@ -15,10 +15,15 @@ export const MetaCarouselDefinition = createModuleDefinition({
     brandAvatarAssetId: '',
     sponsoredLabel: 'Sponsored',
     primaryText: 'Check out our latest products.',
-    // Global CTA (same label for all cards)
+    // Global CTA
     ctaLabel: 'Shop Now',
     ctaUrl: '',
-    // Up to 5 slides — each has: src, assetId, kind, title, description
+    // Carousel sizing
+    cardWidthPct: 75,     // card width as % of widget width
+    imageHeightPct: 60,   // image area as % of carousel zone
+    cardGap: 10,          // gap between cards in px
+    cardRadius: 8,        // border-radius of cards in px
+    // Slides (up to 5)
     slideCount: 3,
     slide1Src: '', slide1AssetId: '', slide1Kind: 'image', slide1Title: 'Product 1', slide1Description: '',
     slide2Src: '', slide2AssetId: '', slide2Kind: 'image', slide2Title: 'Product 2', slide2Description: '',

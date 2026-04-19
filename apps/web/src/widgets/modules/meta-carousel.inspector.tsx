@@ -121,6 +121,46 @@ export function MetaCarouselInspector({ node }: { node: WidgetNode }): JSX.Eleme
       </section>
 
       <section className="section section-premium">
+        <h3>Card sizing</h3>
+        <div className="field-stack">
+          <div>
+            <label>Card width — {Number(node.props.cardWidthPct ?? 75)}% of frame</label>
+            <input
+              type="range" min={40} max={100} step={1}
+              value={Number(node.props.cardWidthPct ?? 75)}
+              onChange={(e) => updateWidgetProps(node.id, { cardWidthPct: Number(e.target.value) })}
+            />
+          </div>
+          <div>
+            <label>Image height — {Number(node.props.imageHeightPct ?? 60)}% of card zone</label>
+            <input
+              type="range" min={20} max={90} step={1}
+              value={Number(node.props.imageHeightPct ?? 60)}
+              onChange={(e) => updateWidgetProps(node.id, { imageHeightPct: Number(e.target.value) })}
+            />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div>
+              <label>Gap (px)</label>
+              <input
+                type="number" min={0} max={40} step={1}
+                value={Number(node.props.cardGap ?? 10)}
+                onChange={(e) => updateWidgetProps(node.id, { cardGap: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label>Corner radius (px)</label>
+              <input
+                type="number" min={0} max={24} step={1}
+                value={Number(node.props.cardRadius ?? 8)}
+                onChange={(e) => updateWidgetProps(node.id, { cardRadius: Number(e.target.value) })}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section section-premium">
         <h3>Slides</h3>
         <div className="field-stack">
           <div>
