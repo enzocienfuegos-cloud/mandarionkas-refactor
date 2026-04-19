@@ -43,6 +43,7 @@ export const StageWidget = memo(function StageWidget({
   onSetHoveredWidget,
   onExecuteAction,
 }: StageWidgetProps): JSX.Element {
+  const managesNativeDrag = node.type === 'drag-token-pool' || node.type === 'drop-zone';
   const triggerWidgetAction = (trigger: 'click' | 'hover') => {
     if (!previewMode) return;
     const actions = getWidgetActions(stateRef.current, node.id, trigger);
@@ -56,6 +57,7 @@ export const StageWidget = memo(function StageWidget({
         if (previewMode) {
           event.stopPropagation();
           onSetActiveWidget(node.id);
+          if (managesNativeDrag) return;
           triggerWidgetAction('click');
           return;
         }
@@ -63,7 +65,7 @@ export const StageWidget = memo(function StageWidget({
       }}
       onPointerEnter={() => {
         onSetHoveredWidget(node.id);
-        if (previewMode) triggerWidgetAction('hover');
+        if (previewMode && !managesNativeDrag) triggerWidgetAction('hover');
       }}
       onPointerLeave={() => {
         onSetHoveredWidget(undefined);
@@ -75,7 +77,7 @@ export const StageWidget = memo(function StageWidget({
         height: frame.height,
         opacity,
         zIndex: node.zIndex,
-        cursor: previewMode ? 'pointer' : 'default',
+        cursor: previewMode && !managesNativeDrag ? 'pointer' : 'default',
         transform: `rotate(${frame.rotation}deg)`,
       }}
     >

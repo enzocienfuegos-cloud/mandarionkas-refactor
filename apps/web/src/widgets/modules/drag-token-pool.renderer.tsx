@@ -37,13 +37,21 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
             <div
               key={token.id}
               draggable={!isDisabled}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
               onDragStart={(event) => {
+                event.stopPropagation();
                 setDraggingId(token.id);
                 event.dataTransfer.effectAllowed = 'move';
                 event.dataTransfer.setData('text/smx-token-id', token.id);
                 event.dataTransfer.setData('text/plain', token.id);
+                event.dataTransfer.setDragImage(event.currentTarget, tokenSize / 2, tokenSize / 2);
               }}
-              onDragEnd={() => setDraggingId(null)}
+              onDragEnd={(event) => {
+                event.stopPropagation();
+                setDraggingId(null);
+              }}
               style={{
                 width: tokenSize,
                 height: tokenSize,
@@ -62,6 +70,9 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                 fontWeight: 700,
                 textAlign: 'center',
                 padding: 6,
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                touchAction: 'none',
               }}
             >
               {token.src ? <img src={token.src} alt={token.label} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : token.label}

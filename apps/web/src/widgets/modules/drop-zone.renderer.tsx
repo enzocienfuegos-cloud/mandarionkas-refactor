@@ -23,10 +23,14 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
-        onDragOver={(e) => { e.preventDefault(); setIsOver(true); }}
-        onDragLeave={() => setIsOver(false)}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+        }}
+        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsOver(true); }}
+        onDragLeave={(e) => { e.stopPropagation(); setIsOver(false); }}
         onDrop={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           setIsOver(false);
           const tokenId = e.dataTransfer.getData('text/smx-token-id') || e.dataTransfer.getData('text/plain');
           const actionId = tokenId ? matchActionMap[tokenId] : undefined;
