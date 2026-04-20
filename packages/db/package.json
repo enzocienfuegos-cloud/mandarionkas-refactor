@@ -10,7 +10,8 @@
     "./audit": "./src/audit.mjs",
     "./asset-jobs": "./src/asset-jobs.mjs",
     "./maintenance": "./src/maintenance.mjs",
-    "./migrations": "./src/migrations.mjs"
+    "./migrations": "./src/migrations.mjs",
+    "./video-analytics": "./src/video-analytics.mjs"
   },
   "dependencies": {
     "pg": "^8.13.1",

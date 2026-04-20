@@ -7,6 +7,7 @@ import { RuntimeSection } from '../sections/document/RuntimeSection';
 import { FeedCatalogSection } from '../sections/document/FeedCatalogSection';
 import { RemoteJsonImportSection } from '../sections/document/RemoteJsonImportSection';
 import { DiagnosticsSection } from '../sections/document/DiagnosticsSection';
+import { VideoAnalyticsSection } from '../sections/document/VideoAnalyticsSection';
 import { ReleaseSettingsSection } from '../sections/document/ReleaseSettingsSection';
 import { ExportSection } from '../sections/document/ExportSection';
 import { CommentsSection } from '../sections/document/CommentsSection';
@@ -64,6 +65,10 @@ export function DocumentInspectorPanel(): JSX.Element {
               <section className="section section-premium">
                 <h3>Diagnostics</h3>
                 <DiagnosticsSection />
+              </section>
+              <section className="section section-premium">
+                <h3>Video analytics</h3>
+                <VideoAnalyticsSection />
               </section>
             </div>
           </details>

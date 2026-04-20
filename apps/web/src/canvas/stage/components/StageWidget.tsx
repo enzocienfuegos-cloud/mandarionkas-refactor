@@ -1,7 +1,7 @@
 import { memo, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { getWidgetActions } from '../../../actions/runtime';
 import { renderWidgetContents } from '../render-widget';
-import type { WidgetFrame, WidgetNode, StudioState } from '../../../domain/document/types';
+import type { ActionNode, WidgetFrame, WidgetNode, StudioState } from '../../../domain/document/types';
 import type { ResizeHandle } from '../use-stage-controller';
 
 const HANDLE_SIZE = 10;
@@ -46,7 +46,7 @@ export const StageWidget = memo(function StageWidget({
   onExecuteAction,
 }: StageWidgetProps): JSX.Element {
   const managesNativeDrag = node.type === 'drag-token-pool' || node.type === 'drop-zone';
-  const triggerWidgetAction = (trigger: 'click' | 'hover') => {
+  const triggerWidgetAction = (trigger: ActionNode['trigger'], _metadata?: Record<string, unknown>) => {
     if (!previewMode) return;
     const actions = getWidgetActions(stateRef.current, node.id, trigger);
     actions.forEach((action) => onExecuteAction(action.id));
@@ -67,10 +67,14 @@ export const StageWidget = memo(function StageWidget({
       }}
       onPointerEnter={() => {
         onSetHoveredWidget(node.id);
-        if (previewMode && !managesNativeDrag) triggerWidgetAction('hover');
+        if (previewMode && !managesNativeDrag) {
+          triggerWidgetAction('hover');
+          triggerWidgetAction('hover-enter');
+        }
       }}
       onPointerLeave={() => {
         onSetHoveredWidget(undefined);
+        if (previewMode && !managesNativeDrag) triggerWidgetAction('hover-exit');
       }}
       style={{
         left: frame.x,

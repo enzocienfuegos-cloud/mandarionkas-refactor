@@ -4,6 +4,7 @@ import type { StudioCommand } from '../commands/types';
 import { createInitialState } from '../../domain/document/factories';
 import type { StudioState } from '../../domain/document/types';
 import { runActionEffects } from '../../actions/action-effects';
+import { getVideoEffectContext } from '../../widgets/video/effect-registry';
 import { reduceBySlices } from './reducers';
 
 const history = createHistoryManager<StudioState>(80);
@@ -65,7 +66,8 @@ export const studioStore = createStore<StudioState, StudioCommand>({
     if (command.type !== 'EXECUTE_ACTION') return;
     const action = previousState.document.actions[command.actionId] ?? nextState.document.actions[command.actionId];
     if (!action) return;
-    runActionEffects(action);
+    const effectTargetWidgetId = action.targetWidgetId ?? action.widgetId;
+    runActionEffects(action, getVideoEffectContext(effectTargetWidgetId));
   },
 });
 

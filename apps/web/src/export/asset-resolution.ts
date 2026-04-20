@@ -94,7 +94,7 @@ function stringifyGalleryItems(items: Array<{ src: string; title: string; subtit
 function resolvePreparedWidgetProps(node: WidgetNode, asset: AssetRecord, targetChannel: StudioState['document']['metadata']['release']['targetChannel']): Record<string, unknown> {
   const qualityPreference = readWidgetAssetQualityPreference(node) ?? asset.qualityPreference ?? 'auto';
   const resolvedSrc = resolveAssetDeliveryUrl(asset, targetChannel, qualityPreference);
-  if (node.type === 'video-hero') {
+  if (node.type === 'video-hero' || node.type === 'interactive-video') {
     return {
       ...node.props,
       src: resolvedSrc,

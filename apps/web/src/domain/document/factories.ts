@@ -149,7 +149,7 @@ export function cloneWidget(node: WidgetNode, name?: string, options?: { preserv
 }
 
 export function isWidgetType(value: string): value is WidgetType {
-  return ['text', 'image', 'hero-image', 'video-hero', 'cta', 'shape', 'group', 'countdown', 'add-to-calendar', 'shoppable-sidebar', 'speed-test', 'scratch-reveal', 'form', 'dynamic-map', 'weather-conditions', 'range-slider', 'interactive-hotspot', 'slider', 'qr-code', 'travel-deal', 'interactive-gallery', 'gen-ai-image', 'buttons'].includes(value);
+  return ['text', 'image', 'hero-image', 'video-hero', 'interactive-video', 'cta', 'shape', 'group', 'countdown', 'add-to-calendar', 'shoppable-sidebar', 'speed-test', 'scratch-reveal', 'form', 'dynamic-map', 'weather-conditions', 'range-slider', 'interactive-hotspot', 'slider', 'qr-code', 'travel-deal', 'interactive-gallery', 'gen-ai-image', 'buttons'].includes(value);
 }
 
 export function defaultKeyframeValue(widget: WidgetNode, property: KeyframeProperty): number {

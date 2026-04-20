@@ -14,20 +14,25 @@
     "check": "npm run test:architecture && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
-    "@smx/contracts": "1.0.0",
     "@aws-sdk/client-s3": "^3.1029.0",
     "@aws-sdk/s3-request-presigner": "^3.1029.0",
+    "@smx/contracts": "1.0.0",
+    "@smx/vast": "1.0.0",
     "@types/leaflet": "^1.9.21",
     "leaflet": "^1.9.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "use-sync-external-store": "^1.2.2",
+    "video.js": "^8.23.4",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
+    "@types/react-test-renderer": "^18.3.1",
+    "@types/video.js": "^7.3.58",
     "@vitejs/plugin-react": "^4.3.1",
+    "react-test-renderer": "^18.3.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.10",
     "vitest": "^2.1.8"

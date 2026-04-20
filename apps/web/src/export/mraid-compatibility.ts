@@ -16,6 +16,7 @@ const BASE_MRAID_WIDGET_COMPATIBILITY: Record<WidgetType, MraidCompatibilityLeve
   image: 'supported',
   'hero-image': 'supported',
   'video-hero': 'warning',
+  'interactive-video': 'warning',
   'image-carousel': 'supported',
   cta: 'supported',
   shape: 'supported',

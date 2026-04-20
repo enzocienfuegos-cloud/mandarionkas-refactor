@@ -16,7 +16,7 @@ export type { ResizeHandle } from './stage-types';
 function isCompatibleAssetTarget(widgetType: string | undefined, assetKind: AssetLibraryDragPayload['assetKind']): boolean {
   if (!widgetType) return false;
   if (assetKind === 'image') return widgetType === 'image' || widgetType === 'hero-image';
-  if (assetKind === 'video') return widgetType === 'video-hero';
+  if (assetKind === 'video') return widgetType === 'video-hero' || widgetType === 'interactive-video';
   return false;
 }
 

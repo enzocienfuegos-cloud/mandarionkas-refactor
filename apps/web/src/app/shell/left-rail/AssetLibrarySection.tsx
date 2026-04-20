@@ -194,7 +194,7 @@ export function AssetLibrarySection({ controller }: { controller: LeftRailContro
 
   const compatibleWithSelection = useMemo(() => {
     if (!selectedAsset || !primaryWidget) return false;
-    if (primaryWidget.type === 'video-hero') return selectedAsset.kind === 'video';
+    if (primaryWidget.type === 'video-hero' || primaryWidget.type === 'interactive-video') return selectedAsset.kind === 'video';
     if (primaryWidget.type === 'image-carousel' || primaryWidget.type === 'interactive-gallery' || primaryWidget.type === 'shoppable-sidebar') return selectedAsset.kind === 'image';
     if (['text', 'cta', 'badge'].includes(primaryWidget.type)) return selectedAsset.kind === 'font';
     return selectedAsset.kind === 'image';

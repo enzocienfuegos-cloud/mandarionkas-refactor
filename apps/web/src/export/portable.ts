@@ -15,10 +15,17 @@ export type PortableExportInteraction = {
   type: ActionNode['type'];
   widgetId: string;
   label?: string;
+  disabled?: boolean;
   targetWidgetId?: string;
   targetSceneId?: string;
   url?: string;
+  target?: '_blank' | '_self';
   text?: string;
+  toSeconds?: number;
+  overlayId?: string;
+  urls?: string[];
+  eventName?: string;
+  metadata?: Record<string, unknown>;
 };
 
 export type PortableExportWidget = {
@@ -67,7 +74,7 @@ export type PortableExportProject = {
 
 function inferAssetKind(widget: WidgetNode, src: string): PortableExportAsset['kind'] {
   if (widget.type === 'image' || widget.type === 'hero-image' || src.match(/\.(png|jpe?g|gif|webp|svg)$/i)) return 'image';
-  if (widget.type === 'video-hero' || src.match(/\.(mp4|webm|mov)$/i)) return 'video';
+  if (widget.type === 'video-hero' || widget.type === 'interactive-video' || src.match(/\.(mp4|webm|mov|m3u8)$/i)) return 'video';
   if (src.match(/\.(woff2?|ttf|otf)$/i)) return 'font';
   return 'unknown';
 }
@@ -133,10 +140,17 @@ function collectInteractions(widget: WidgetNode, actions: Record<string, ActionN
       type: action.type,
       widgetId: widget.id,
       label: action.label,
+      disabled: action.disabled,
       targetWidgetId: action.targetWidgetId,
       targetSceneId: action.targetSceneId,
       url: action.url,
+      target: action.target,
       text: action.text,
+      toSeconds: action.toSeconds,
+      overlayId: action.overlayId,
+      urls: action.urls,
+      eventName: action.eventName,
+      metadata: action.metadata,
     }));
 }
 

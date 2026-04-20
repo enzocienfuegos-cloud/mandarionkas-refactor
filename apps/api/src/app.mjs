@@ -3,6 +3,8 @@ import { handleAuthRoutes } from './modules/auth/routes.mjs';
 import { handleWorkspaceRoutes } from './modules/workspaces/routes.mjs';
 import { handleProjectRoutes } from './modules/projects/routes.mjs';
 import { handleAssetRoutes } from './modules/assets/routes.mjs';
+import { handleVastRoutes } from './modules/vast/routes.mjs';
+import { handleVideoAnalyticsRoutes } from './modules/video-analytics/routes.mjs';
 import { applyCors, getRequestId, notFound, readJsonBody, sendJson } from './lib/http.mjs';
 import { getApiConfig } from './plugins/config.mjs';
 import { logError, logInfo } from './lib/logger.mjs';
@@ -14,6 +16,8 @@ const routeHandlers = [
   handleWorkspaceRoutes,
   handleProjectRoutes,
   handleAssetRoutes,
+  handleVastRoutes,
+  handleVideoAnalyticsRoutes,
 ];
 
 function logRequest({ requestId, method, pathname, statusCode, durationMs }) {

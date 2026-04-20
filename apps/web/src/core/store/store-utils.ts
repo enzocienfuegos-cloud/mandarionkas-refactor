@@ -167,6 +167,17 @@ export function reduceExecutedAction(state: StudioState, action: ActionNode): St
       }
       break;
     }
+    case 'play-video':
+    case 'pause-video':
+    case 'seek-video':
+    case 'mute-video':
+    case 'unmute-video':
+    case 'show-overlay':
+    case 'hide-overlay':
+    case 'fire-tracking-url':
+    case 'emit-analytics-event': {
+      break;
+    }
   }
 
   return {

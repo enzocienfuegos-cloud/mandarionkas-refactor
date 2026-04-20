@@ -3,3 +3,4 @@ export * from './audit.mjs';
 export * from './asset-jobs.mjs';
 export * from './maintenance.mjs';
 export * from './migrations.mjs';
+export * from './video-analytics.mjs';

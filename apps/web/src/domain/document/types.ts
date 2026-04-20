@@ -29,6 +29,7 @@ export type WidgetType =
   | 'teads-layout1'
   | 'teads-layout2'
   | 'tiktok-video'
+  | 'interactive-video'
   | 'four-faces'
   | 'vertical-accordion'
   | 'particle-halo'
@@ -42,9 +43,61 @@ export type KeyframeProperty = 'x' | 'y' | 'width' | 'height' | 'opacity';
 export type KeyframeEasing = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
 export type KeyframeNode = { id: string; atMs: number; property: KeyframeProperty; value: number; easing?: KeyframeEasing; };
 export type WidgetTimeline = { startMs: number; endMs: number; excluded?: boolean; keyframes?: KeyframeNode[]; };
-export type ActionTrigger = 'click' | 'hover' | 'load' | 'timeline-enter';
-export type ActionType = 'open-url' | 'show-widget' | 'hide-widget' | 'toggle-widget' | 'set-text' | 'go-to-scene';
-export type ActionNode = { id: string; widgetId: string; trigger: ActionTrigger; type: ActionType; targetWidgetId?: string; targetSceneId?: string; url?: string; text?: string; label?: string; };
+export type ActionTrigger =
+  | 'click'
+  | 'hover'
+  | 'hover-enter'
+  | 'hover-exit'
+  | 'load'
+  | 'timeline-enter'
+  | 'timeline-exit'
+  | 'video-play'
+  | 'video-pause'
+  | 'video-ended'
+  | 'video-mute'
+  | 'video-unmute'
+  | 'vast-impression'
+  | 'vast-quartile-25'
+  | 'vast-quartile-50'
+  | 'vast-quartile-75'
+  | 'vast-complete'
+  | 'vast-skip'
+  | 'vast-click'
+  | 'vast-error';
+export type ActionType =
+  | 'open-url'
+  | 'show-widget'
+  | 'hide-widget'
+  | 'toggle-widget'
+  | 'set-text'
+  | 'go-to-scene'
+  | 'play-video'
+  | 'pause-video'
+  | 'seek-video'
+  | 'mute-video'
+  | 'unmute-video'
+  | 'show-overlay'
+  | 'hide-overlay'
+  | 'fire-tracking-url'
+  | 'emit-analytics-event';
+export type ActionNode = {
+  id: string;
+  widgetId: string;
+  trigger: ActionTrigger;
+  type: ActionType;
+  targetWidgetId?: string;
+  targetSceneId?: string;
+  url?: string;
+  target?: '_blank' | '_self';
+  text?: string;
+  label?: string;
+  disabled?: boolean;
+  toSeconds?: number;
+  overlayId?: string;
+  urls?: string[];
+  eventName?: string;
+  metadata?: Record<string, unknown>;
+};
 export type VariantName = 'default' | 'promo' | 'alternate';
 export type BindingSource = 'product' | 'weather' | 'location' | 'custom';
 export type WidgetBinding = { source: BindingSource; field: string; fallback?: string; };

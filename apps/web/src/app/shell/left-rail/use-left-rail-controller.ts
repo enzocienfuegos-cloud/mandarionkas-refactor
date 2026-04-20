@@ -336,7 +336,7 @@ export function useLeftRailController() {
       });
       return;
     }
-    if (primaryWidget.type === 'video-hero') {
+    if (primaryWidget.type === 'video-hero' || primaryWidget.type === 'interactive-video') {
       if (asset.kind !== 'video') return;
       widgetActions.updateWidgetProps(primaryWidget.id, {
         src: resolvedSrc,
@@ -419,7 +419,7 @@ export function useLeftRailController() {
     }
   }
 
-  const selectedWidgetAcceptsAsset = primaryWidget && ['image', 'hero-image', 'video-hero', 'image-carousel', 'interactive-gallery', 'shoppable-sidebar', 'text', 'cta', 'badge'].includes(primaryWidget.type);
+  const selectedWidgetAcceptsAsset = primaryWidget && ['image', 'hero-image', 'video-hero', 'interactive-video', 'image-carousel', 'interactive-gallery', 'shoppable-sidebar', 'text', 'cta', 'badge'].includes(primaryWidget.type);
 
   return {
     query,

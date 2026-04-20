@@ -137,7 +137,7 @@ function PlaceholderIcon(): JSX.Element {
 }
 
 function isMediaWidget(widget: WidgetNode): boolean {
-  return widget.type === 'image' || widget.type === 'hero-image' || widget.type === 'video-hero';
+  return widget.type === 'image' || widget.type === 'hero-image' || widget.type === 'video-hero' || widget.type === 'interactive-video';
 }
 
 export function StageSelectionToolbar({
@@ -174,7 +174,7 @@ export function StageSelectionToolbar({
       </IconButton>
       {isMediaWidget(widget) ? (
         <>
-          <IconButton label={widget.type === 'video-hero' ? 'Replace video from library' : 'Replace image from library'} disabled={uploadDisabled} onClick={onUploadAsset}>
+          <IconButton label={widget.type === 'video-hero' || widget.type === 'interactive-video' ? 'Replace video from library' : 'Replace image from library'} disabled={uploadDisabled} onClick={onUploadAsset}>
             <UploadIcon />
           </IconButton>
           <IconButton label="Open asset library" onClick={onOpenAssetLibrary}>

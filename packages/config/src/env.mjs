@@ -38,6 +38,7 @@ export function readApiEnv(source = process.env) {
     r2Bucket: normalize(source.R2_BUCKET) || '',
     r2AccessKeyId: normalize(source.R2_ACCESS_KEY_ID) || '',
     r2SecretAccessKey: normalize(source.R2_SECRET_ACCESS_KEY) || '',
+    vastAllowedDomains: normalize(source.VAST_ALLOWED_DOMAINS) || '',
   });
 }
 
