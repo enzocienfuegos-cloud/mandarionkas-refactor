@@ -6,7 +6,7 @@ import {
 } from '@smx/db/audit-log';
 
 export function createAuditMiddleware(pool) {
-  return async function auditOnResponse(req, reply, done) {
+  return async function auditOnResponse(req, reply) {
     try {
       const meta = req._auditMeta;
       if (meta && meta.action) {
@@ -25,7 +25,6 @@ export function createAuditMiddleware(pool) {
     } catch {
       // Audit middleware must never throw
     }
-    done();
   };
 }
 
