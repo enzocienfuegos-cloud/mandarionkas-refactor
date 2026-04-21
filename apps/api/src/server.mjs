@@ -190,6 +190,10 @@ export async function buildApp(opts = {}) {
   handleWebhookRoutes(app, ctx);
   handleAbRoutes(app, ctx);
 
+  app.addHook('onClose', async () => {
+    await pool.end();
+  });
+
   return app;
 }
 
