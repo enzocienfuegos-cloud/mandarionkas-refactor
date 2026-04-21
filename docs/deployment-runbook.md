@@ -106,6 +106,23 @@ That authenticated smoke validates:
 - authenticated access to `/v1/projects`
 - authenticated access to `/v1/assets`
 
+For a write-path smoke in staging, add `STAGING_SMOKE_WRITE=true`:
+
+```bash
+STAGING_SMOKE_EMAIL=admin@smxstudio.io \
+STAGING_SMOKE_PASSWORD='Admin1234!' \
+STAGING_SMOKE_WRITE=true \
+npm run smoke:staging
+```
+
+That flow will:
+- create a smoke project
+- save a project version
+- create an asset folder
+- create a remote asset record
+- move the asset into the folder
+- clean up the asset, folder, and project
+
 Optional overrides:
 
 - `STAGING_WEB_URL`
