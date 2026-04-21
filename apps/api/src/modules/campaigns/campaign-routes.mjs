@@ -8,7 +8,6 @@ import {
   getAdvertiser,
   createAdvertiser,
   updateAdvertiser,
-  deleteAdvertiser,
 } from '@smx/db/campaigns';
 
 export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
