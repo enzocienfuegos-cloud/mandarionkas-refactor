@@ -4,8 +4,25 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
+function normalizePublicBasePath(value) {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed || trimmed === '/') return '/';
+
+  const withoutLeadingSlash = trimmed.replace(/^\/+/, '');
+  const withTrailingSlash = withoutLeadingSlash.endsWith('/')
+    ? withoutLeadingSlash
+    : `${withoutLeadingSlash}/`;
+
+  return `/${withTrailingSlash}`;
+}
+
 export default defineConfig(({ command }) => ({
-  base: command === 'serve' ? '/' : (process.env.VITE_PUBLIC_BASE_PATH || '/studio/'),
+  // Production defaults to root because the editor is intended to live on its
+  // own host (for example studio-staging.duskplatform.co). Path prefixes remain
+  // opt-in through VITE_PUBLIC_BASE_PATH for temporary compatibility modes.
+  base: command === 'serve'
+    ? '/'
+    : normalizePublicBasePath(process.env.VITE_PUBLIC_BASE_PATH ?? '/'),
   plugins: [react()],
   resolve: {
     alias: {

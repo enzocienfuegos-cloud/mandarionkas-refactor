@@ -10,6 +10,7 @@ import fastifyCors      from '@fastify/cors';
 import fastifyMultipart from '@fastify/multipart';
 
 import { createPool } from '@smx/db/pool';
+import { buildCorsOriginMatcher, buildSessionCookieOptions } from './config/http.mjs';
 
 import { handleAuthRoutes, buildRequireWorkspace } from './modules/auth/auth-routes.mjs';
 import { handleTagRoutes }             from './modules/tags/tag-routes.mjs';
@@ -48,8 +49,10 @@ export async function buildApp(opts = {}) {
   const pool = createPool();
 
   await app.register(fastifyCors, {
-    origin: process.env.CORS_ORIGIN ?? true,
+    origin: buildCorsOriginMatcher(),
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
   });
 
   await app.register(fastifyCookie);
@@ -57,12 +60,7 @@ export async function buildApp(opts = {}) {
   await app.register(fastifySession, {
     secret:     process.env.SESSION_SECRET ?? 'smx-dev-secret-change-in-production',
     cookieName: 'smx_session',
-    cookie: {
-      secure:   process.env.NODE_ENV === 'production',
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge:   7 * 24 * 60 * 60 * 1000,
-    },
+    cookie: buildSessionCookieOptions(),
   });
 
   await app.register(fastifyMultipart, {

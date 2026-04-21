@@ -10,7 +10,8 @@
     "build":   "node scripts/build-all.mjs",
     "migrate": "node scripts/migrate.mjs",
     "seed":    "node scripts/seed.mjs",
-    "test":    "node scripts/test-all.mjs"
+    "test":    "node scripts/test-all.mjs",
+    "smoke:staging": "node scripts/smoke-staging.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": ["esbuild"]

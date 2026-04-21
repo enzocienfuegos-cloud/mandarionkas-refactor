@@ -32,6 +32,24 @@ const SectionLabel = ({ label }: { label: string }) => (
   </div>
 );
 
+function getStudioUrl(): string {
+  const configured = import.meta.env.VITE_STUDIO_URL?.trim();
+  if (configured) return configured;
+
+  if (import.meta.env.DEV) {
+    return 'http://localhost:5174';
+  }
+
+  if (typeof window !== 'undefined') {
+    const { hostname, protocol } = window.location;
+    if (hostname.startsWith('app-')) {
+      return `${protocol}//${hostname.replace(/^app-/, 'studio-')}`;
+    }
+  }
+
+  return '/';
+}
+
 export default function Shell() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
@@ -108,7 +126,7 @@ export default function Shell() {
           <SectionLabel label="Creative Studio" />
           {/* Opens the canvas editor in a new tab — same session cookie, no second login */}
           <a
-            href={import.meta.env.VITE_STUDIO_URL ?? 'http://localhost:5174'}
+            href={getStudioUrl()}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
