@@ -745,6 +745,20 @@
     linear-gradient(180deg, #0b1020 0%, #121a2b 100%);
 }
 
+.platform-loading-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background:
+    radial-gradient(circle at top left, rgba(34, 197, 94, 0.14), transparent 32%),
+    linear-gradient(180deg, #0b1020 0%, #121a2b 100%);
+  color: rgba(255,255,255,0.9);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .platform-login-card {
   width: min(920px, 100%);
   display: grid;

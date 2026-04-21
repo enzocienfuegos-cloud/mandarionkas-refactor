@@ -1,9 +1,21 @@
-import { useEffect, useState } from 'react';
-import { LoginScreen } from './LoginScreen';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { restoreSession } from './auth-service';
 import { usePlatformSnapshot } from './runtime';
-import { StudioShell } from '../app/shell/StudioShell';
-import { WorkspaceHub } from './WorkspaceHub';
+
+const LoginScreen = lazy(async () => {
+  const module = await import('./LoginScreen');
+  return { default: module.LoginScreen };
+});
+
+const StudioShell = lazy(async () => {
+  const module = await import('../app/shell/StudioShell');
+  return { default: module.StudioShell };
+});
+
+const WorkspaceHub = lazy(async () => {
+  const module = await import('./WorkspaceHub');
+  return { default: module.WorkspaceHub };
+});
 
 function readRouteFromHash(): 'hub' | 'editor' {
   if (typeof window === 'undefined') return 'hub';
@@ -41,9 +53,13 @@ export function PlatformShell(): JSX.Element {
     }
   }, [route]);
 
-  if (!isAuthenticated) return <LoginScreen />;
-
-  return route === 'hub'
-    ? <WorkspaceHub onEnterEditor={() => setRoute('editor')} />
-    : <StudioShell onOpenWorkspaceHub={() => setRoute('hub')} />;
+  return (
+    <Suspense fallback={<div className="platform-loading-shell">Loading studio…</div>}>
+      {!isAuthenticated
+        ? <LoginScreen />
+        : route === 'hub'
+          ? <WorkspaceHub onEnterEditor={() => setRoute('editor')} />
+          : <StudioShell onOpenWorkspaceHub={() => setRoute('hub')} />}
+    </Suspense>
+  );
 }

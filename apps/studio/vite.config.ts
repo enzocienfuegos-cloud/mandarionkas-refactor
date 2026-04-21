@@ -43,6 +43,31 @@ export default defineConfig(({ command }) => ({
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/use-sync-external-store/')) {
+            return 'react-vendor';
+          }
+
+          if (id.includes('/leaflet/')) {
+            return 'map-vendor';
+          }
+
+          if (id.includes('/video.js/')) {
+            return 'video-vendor';
+          }
+
+          if (id.includes('/xlsx/')) {
+            return 'spreadsheet-vendor';
+          }
+
+          return undefined;
+        },
+      },
+    },
   },
   test: {
     environment: 'node',
