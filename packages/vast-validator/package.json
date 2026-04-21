@@ -1,0 +1,12 @@
+{
+  "name": "@smx/vast-validator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/validator.mjs"
+  }
+}

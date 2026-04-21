@@ -1,0 +1,137 @@
+const VALID_ROLES = ['owner', 'admin', 'member', 'viewer'];
+
+export async function getWorkspace(pool, workspaceId) {
+  const { rows } = await pool.query(
+    `SELECT id, name, slug, plan, settings, logo_url, created_at, updated_at
+     FROM workspaces WHERE id = $1`,
+    [workspaceId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function updateWorkspace(pool, workspaceId, data) {
+  const allowed = ['name', 'slug', 'plan', 'settings', 'logo_url'];
+  const setClauses = [];
+  const params = [workspaceId];
+
+  for (const key of allowed) {
+    if (key in data) {
+      params.push(key === 'settings' ? JSON.stringify(data[key]) : data[key]);
+      setClauses.push(`${key} = $${params.length}`);
+    }
+  }
+  if (setClauses.length === 0) return getWorkspace(pool, workspaceId);
+  setClauses.push(`updated_at = NOW()`);
+
+  const { rows } = await pool.query(
+    `UPDATE workspaces SET ${setClauses.join(', ')}
+     WHERE id = $1
+     RETURNING *`,
+    params,
+  );
+  return rows[0] ?? null;
+}
+
+export async function listMembers(pool, workspaceId) {
+  const { rows } = await pool.query(
+    `SELECT wm.id, wm.workspace_id, wm.user_id, wm.role, wm.status,
+            wm.invited_at, wm.joined_at, wm.updated_at,
+            u.email, u.display_name, u.avatar_url, u.email_verified, u.last_login_at
+     FROM workspace_members wm
+     JOIN users u ON u.id = wm.user_id
+     WHERE wm.workspace_id = $1
+     ORDER BY
+       CASE wm.role
+         WHEN 'owner'  THEN 1
+         WHEN 'admin'  THEN 2
+         WHEN 'member' THEN 3
+         WHEN 'viewer' THEN 4
+         ELSE 5
+       END,
+       u.display_name ASC`,
+    [workspaceId],
+  );
+  return rows;
+}
+
+export async function getMember(pool, workspaceId, userId) {
+  const { rows } = await pool.query(
+    `SELECT wm.id, wm.workspace_id, wm.user_id, wm.role, wm.status,
+            wm.invited_at, wm.joined_at, wm.updated_at,
+            u.email, u.display_name, u.avatar_url, u.email_verified, u.last_login_at
+     FROM workspace_members wm
+     JOIN users u ON u.id = wm.user_id
+     WHERE wm.workspace_id = $1 AND wm.user_id = $2`,
+    [workspaceId, userId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function inviteMember(pool, workspaceId, data) {
+  const { email, role = 'member', invited_by } = data;
+
+  if (!VALID_ROLES.includes(role)) {
+    throw new Error(`Invalid role: ${role}. Must be one of: ${VALID_ROLES.join(', ')}`);
+  }
+
+  // Upsert user by email
+  const { rows: userRows } = await pool.query(
+    `INSERT INTO users (email)
+     VALUES (lower($1))
+     ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
+     RETURNING id, email`,
+    [email],
+  );
+  const user = userRows[0];
+
+  // Add workspace member
+  const { rows } = await pool.query(
+    `INSERT INTO workspace_members (workspace_id, user_id, role, invited_by, invited_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT (workspace_id, user_id)
+     DO UPDATE SET role = EXCLUDED.role, updated_at = NOW()
+     RETURNING *`,
+    [workspaceId, user.id, role, invited_by ?? null],
+  );
+  return { ...rows[0], email: user.email };
+}
+
+export async function updateMemberRole(pool, workspaceId, userId, role) {
+  if (!VALID_ROLES.includes(role)) {
+    throw new Error(`Invalid role: ${role}. Must be one of: ${VALID_ROLES.join(', ')}`);
+  }
+
+  const { rows } = await pool.query(
+    `UPDATE workspace_members
+     SET role = $3, updated_at = NOW()
+     WHERE workspace_id = $1 AND user_id = $2
+     RETURNING *`,
+    [workspaceId, userId, role],
+  );
+  return rows[0] ?? null;
+}
+
+export async function removeMember(pool, workspaceId, userId) {
+  // Prevent removing the last owner
+  const { rows: ownerCheck } = await pool.query(
+    `SELECT COUNT(*) AS owner_count
+     FROM workspace_members
+     WHERE workspace_id = $1 AND role = 'owner' AND status = 'active'`,
+    [workspaceId],
+  );
+  const ownerCount = parseInt(ownerCheck[0]?.owner_count || 0, 10);
+
+  const { rows: memberRole } = await pool.query(
+    `SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+    [workspaceId, userId],
+  );
+  if (memberRole[0]?.role === 'owner' && ownerCount <= 1) {
+    throw new Error('Cannot remove the last owner of a workspace');
+  }
+
+  const { rowCount } = await pool.query(
+    `DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`,
+    [workspaceId, userId],
+  );
+  return rowCount > 0;
+}

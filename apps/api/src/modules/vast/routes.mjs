@@ -1,120 +1,211 @@
-import { badRequest, forbidden, sendJson, serviceUnavailable } from '../../lib/http.mjs';
-import { checkRateLimit } from '../../lib/rate-limit.mjs';
-import { logError, logInfo, logWarn } from '../../lib/logger.mjs';
+import { getTagWithCreatives } from '@smx/db/tags';
 
-const MAX_VAST_BYTES = 512 * 1024;
-const UPSTREAM_TIMEOUT_MS = 8000;
+const BASE_URL = process.env.BASE_URL ?? 'https://api.smxstudio.io';
 
-function getAllowedDomains(env) {
-  const raw = String(env.vastAllowedDomains ?? '').trim();
-  if (!raw) return null;
-  return new Set(raw.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean));
+function buildVastXml(tag, workspaceId, baseUrl) {
+  // Pick first approved creative with a video URL
+  const creative = tag.creatives?.find(
+    c => c.approval_status === 'approved' && (c.file_url || c.click_url),
+  ) ?? tag.creatives?.[0] ?? null;
+
+  const tagId = tag.id;
+  const creativeId = creative?.id ?? 'no-creative';
+  const videoUrl = creative?.file_url ?? '';
+  const clickUrl = tag.click_url ?? creative?.click_url ?? '';
+  const duration = creative?.duration_ms
+    ? formatDuration(creative.duration_ms)
+    : '00:00:30';
+  const width = creative?.width ?? 1920;
+  const height = creative?.height ?? 1080;
+  const impressionUrl = `${baseUrl}/track/impression/${tagId}?ws=${workspaceId}`;
+  const trackingBase = `${baseUrl}/track`;
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.0" xmlns="http://www.iab.com/VAST" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <Ad id="${tagId}">
+    <InLine>
+      <AdSystem><![CDATA[SMX Studio]]></AdSystem>
+      <AdTitle><![CDATA[${escapeXml(tag.name)}]]></AdTitle>
+      <Impression id="smx-imp"><![CDATA[${impressionUrl}]]></Impression>
+      <Creatives>
+        <Creative id="${creativeId}" sequence="1">
+          <Linear>
+            <Duration>${duration}</Duration>
+            <TrackingEvents>
+              <Tracking event="start"><![CDATA[${trackingBase}/viewability/${tagId}?ws=${workspaceId}&event=start]]></Tracking>
+              <Tracking event="firstQuartile"><![CDATA[${trackingBase}/viewability/${tagId}?ws=${workspaceId}&event=firstQuartile]]></Tracking>
+              <Tracking event="midpoint"><![CDATA[${trackingBase}/viewability/${tagId}?ws=${workspaceId}&event=midpoint]]></Tracking>
+              <Tracking event="thirdQuartile"><![CDATA[${trackingBase}/viewability/${tagId}?ws=${workspaceId}&event=thirdQuartile]]></Tracking>
+              <Tracking event="complete"><![CDATA[${trackingBase}/viewability/${tagId}?ws=${workspaceId}&event=complete]]></Tracking>
+            </TrackingEvents>
+            <VideoClicks>
+              <ClickThrough><![CDATA[${clickUrl}]]></ClickThrough>
+              <ClickTracking><![CDATA[${trackingBase}/click/${tagId}?ws=${workspaceId}]]></ClickTracking>
+            </VideoClicks>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="${width}" height="${height}">
+                <![CDATA[${videoUrl}]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>`;
 }
 
-function isDomainAllowed(url, allowedDomains) {
-  if (allowedDomains === null) return true;
-  try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    return [...allowedDomains].some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
-  } catch {
-    return false;
-  }
+function formatDuration(ms) {
+  const totalSeconds = Math.round(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [
+    String(hours).padStart(2, '0'),
+    String(minutes).padStart(2, '0'),
+    String(seconds).padStart(2, '0'),
+  ].join(':');
 }
 
-export async function handleVastRoutes({ method, pathname, body, res, req, env, requestId }) {
-  if (!(method === 'POST' && pathname === '/v1/vast/resolve')) return false;
+function escapeXml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
 
-  const limit = checkRateLimit({ headers: req.headers, key: 'vast-resolve', limit: 30, windowMs: 60_000 });
-  if (!limit.ok) {
-    return sendJson(res, 429, {
-      ok: false,
-      requestId,
-      code: 'rate_limited',
-      message: 'Too many VAST resolve requests. Please retry shortly.',
-      retryAfterSeconds: limit.retryAfterSeconds,
-    }, { 'Retry-After': String(limit.retryAfterSeconds) });
+function buildDisplaySnippet(tag, workspaceId, baseUrl) {
+  const tagId = tag.id;
+  const creative = tag.creatives?.find(c => c.approval_status === 'approved') ?? tag.creatives?.[0] ?? null;
+  const width = creative?.width ?? 300;
+  const height = creative?.height ?? 250;
+  const clickUrl = tag.click_url ?? creative?.click_url ?? '#';
+  const impressionUrl = `${baseUrl}/track/impression/${tagId}?ws=${workspaceId}`;
+  const clickTrackUrl = `${baseUrl}/track/click/${tagId}?ws=${workspaceId}&url=${encodeURIComponent(clickUrl)}`;
+  const creativeUrl = creative?.file_url ?? '';
+
+  return `(function() {
+  var ws = ${JSON.stringify(workspaceId)};
+  var tagId = ${JSON.stringify(tagId)};
+  var baseUrl = ${JSON.stringify(baseUrl)};
+  var w = ${width}, h = ${height};
+  var clickUrl = ${JSON.stringify(clickTrackUrl)};
+  var creativeUrl = ${JSON.stringify(creativeUrl)};
+  var impUrl = ${JSON.stringify(impressionUrl)};
+
+  // Record impression
+  (new Image()).src = impUrl;
+
+  // Build container
+  var div = document.createElement('div');
+  div.style.cssText = 'width:' + w + 'px;height:' + h + 'px;overflow:hidden;position:relative;display:inline-block;';
+
+  var link = document.createElement('a');
+  link.href = clickUrl;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+
+  if (creativeUrl) {
+    var img = document.createElement('img');
+    img.src = creativeUrl;
+    img.width = w;
+    img.height = h;
+    img.alt = '';
+    img.style.display = 'block';
+    link.appendChild(img);
+  } else {
+    var placeholder = document.createElement('div');
+    placeholder.style.cssText = 'width:' + w + 'px;height:' + h + 'px;background:#eee;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#999;font-size:12px;';
+    placeholder.textContent = 'Advertisement';
+    link.appendChild(placeholder);
   }
 
-  const tagUrl = body?.tagUrl;
-  if (typeof tagUrl !== 'string' || !/^https?:\/\//i.test(tagUrl)) {
-    return badRequest(res, requestId, 'tagUrl must be an absolute HTTP URL');
+  div.appendChild(link);
+
+  // Inject into current script's parent
+  var scripts = document.getElementsByTagName('script');
+  var currentScript = scripts[scripts.length - 1];
+  if (currentScript && currentScript.parentNode) {
+    currentScript.parentNode.insertBefore(div, currentScript);
   }
+})();`;
+}
 
-  const allowedDomains = getAllowedDomains(env);
-  if (!isDomainAllowed(tagUrl, allowedDomains)) {
-    logWarn({ requestId, tagUrl }, 'VAST proxy rejected domain outside allowlist');
-    return forbidden(res, requestId, 'This VAST tag domain is not permitted.');
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
-
-  let xml = '';
-  try {
-    const upstream = await fetch(tagUrl, {
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/xml, text/xml, */*',
-        'User-Agent': `SMX-Studio-VAST-Proxy/1.0 (+${env.appOrigin})`,
-      },
-    });
-
-    clearTimeout(timeout);
-
-    if (!upstream.ok) {
-      logWarn({ requestId, tagUrl, status: upstream.status }, 'VAST upstream returned non-200');
-      return serviceUnavailable(res, requestId, `Upstream VAST tag returned HTTP ${upstream.status}`);
+export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool }) {
+  // Middleware that accepts either session auth OR api key
+  async function flexibleAuth(req, reply) {
+    // Try session first
+    if (req.session?.userId && req.session?.workspaceId) {
+      await requireWorkspace(req, reply);
+      return;
     }
-
-    const contentLength = upstream.headers.get('content-length');
-    if (contentLength && Number.parseInt(contentLength, 10) > MAX_VAST_BYTES) {
-      return serviceUnavailable(res, requestId, 'VAST response exceeds maximum allowed size.');
-    }
-
-    const reader = upstream.body?.getReader();
-    if (!reader) {
-      return serviceUnavailable(res, requestId, 'VAST upstream returned no body.');
-    }
-
-    const chunks = [];
-    let totalBytes = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      totalBytes += value.byteLength;
-      if (totalBytes > MAX_VAST_BYTES) {
-        await reader.cancel();
-        return serviceUnavailable(res, requestId, 'VAST response exceeds maximum allowed size.');
+    // Fall back to API key
+    const authHeader = req.headers['authorization'] ?? '';
+    if (authHeader.startsWith('Bearer ')) {
+      await requireApiKey(req, reply);
+      if (req.apiKeyAuth) {
+        // Synthesize authSession for downstream handlers
+        req.authSession = {
+          userId: null,
+          workspaceId: req.apiKeyAuth.workspaceId,
+          role: 'member',
+          email: null,
+        };
       }
-      chunks.push(value);
+      return;
+    }
+    return reply.status(401).send({ error: 'Unauthorized', message: 'Session or API key required' });
+  }
+
+  // GET /v1/vast/tags/:tagId — serve VAST XML for a tag
+  app.get('/v1/vast/tags/:tagId', { preHandler: flexibleAuth }, async (req, reply) => {
+    const { workspaceId } = req.authSession ?? req.apiKeyAuth ?? {};
+    const { tagId } = req.params;
+
+    if (!workspaceId) {
+      return reply.status(401).send({ error: 'Unauthorized', message: 'Authentication required' });
     }
 
-    xml = new TextDecoder().decode(
-      chunks.reduce((acc, chunk) => {
-        const merged = new Uint8Array(acc.length + chunk.length);
-        merged.set(acc);
-        merged.set(chunk, acc.length);
-        return merged;
-      }, new Uint8Array(0)),
-    );
-  } catch (error) {
-    clearTimeout(timeout);
-    if (error instanceof Error && error.name === 'AbortError') {
-      return sendJson(res, 504, {
-        ok: false,
-        requestId,
-        code: 'upstream_timeout',
-        message: 'VAST tag request timed out.',
+    const tag = await getTagWithCreatives(pool, workspaceId, tagId);
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    if (tag.format !== 'vast' && tag.format !== 'vast_video') {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: `Tag format is "${tag.format}", not a VAST format`,
       });
     }
-    logError({ requestId, tagUrl, error }, 'VAST proxy fetch failed');
-    return serviceUnavailable(res, requestId, 'Failed to fetch VAST tag.');
-  }
 
-  logInfo({ requestId, tagUrl, bytes: xml.length }, 'VAST proxy resolved tag');
-  return sendJson(res, 200, {
-    ok: true,
-    requestId,
-    xml,
-  }, { 'Cache-Control': 'private, no-store' });
+    const xml = buildVastXml(tag, workspaceId, BASE_URL);
+
+    reply.header('Content-Type', 'application/xml; charset=utf-8');
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    reply.header('X-Content-Type-Options', 'nosniff');
+    return reply.send(xml);
+  });
+
+  // GET /v1/vast/display/:tagId — serve display tag snippet (JS)
+  app.get('/v1/vast/display/:tagId', { preHandler: flexibleAuth }, async (req, reply) => {
+    const { workspaceId } = req.authSession ?? req.apiKeyAuth ?? {};
+    const { tagId } = req.params;
+
+    if (!workspaceId) {
+      return reply.status(401).send({ error: 'Unauthorized', message: 'Authentication required' });
+    }
+
+    const tag = await getTagWithCreatives(pool, workspaceId, tagId);
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    const snippet = buildDisplaySnippet(tag, workspaceId, BASE_URL);
+
+    reply.header('Content-Type', 'application/javascript; charset=utf-8');
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    return reply.send(snippet);
+  });
 }

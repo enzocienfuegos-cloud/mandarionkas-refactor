@@ -1,13 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import './index.css';
 import App from './App';
-import { configureRuntimeDependencies } from './app/bootstrap/configure-runtime';
-import { registerBuiltins } from './widgets/registry/register-builtins';
 
-registerBuiltins();
-configureRuntimeDependencies();
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>,

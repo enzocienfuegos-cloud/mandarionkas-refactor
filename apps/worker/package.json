@@ -1,16 +1,16 @@
 {
   "name": "@smx/worker",
-  "private": true,
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/worker.mjs",
-    "start": "node src/worker.mjs"
+    "dev":   "node --watch src/server.mjs",
+    "start": "node src/server.mjs",
+    "test":  "node --test"
   },
   "dependencies": {
-    "@smx/config": "1.0.0",
-    "@smx/db": "1.0.0",
-    "@aws-sdk/client-s3": "^3.1029.0",
-    "sharp": "^0.34.5"
+    "@smx/db":       "workspace:*",
+    "dotenv":        "^16.4.5",
+    "fluent-ffmpeg": "^2.1.3"
   }
 }

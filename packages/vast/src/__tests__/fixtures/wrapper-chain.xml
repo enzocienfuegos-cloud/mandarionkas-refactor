@@ -1,9 +1,0 @@
-<VAST version="4.2">
-  <Ad id="wrapper-1">
-    <Wrapper followAdditionalWrappers="true">
-      <AdSystem>SMX Wrapper</AdSystem>
-      <VASTAdTagURI>https://ads.example.com/vast/inline</VASTAdTagURI>
-      <Impression>https://wrapper.example.com/impression</Impression>
-    </Wrapper>
-  </Ad>
-</VAST>

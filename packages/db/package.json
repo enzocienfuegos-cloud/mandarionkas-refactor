@@ -1,20 +1,33 @@
 {
   "name": "@smx/db",
-  "private": true,
   "version": "1.0.0",
+  "private": true,
   "type": "module",
-  "main": "./src/index.mjs",
+  "scripts": {
+    "test": "node --test"
+  },
   "exports": {
-    ".": "./src/index.mjs",
-    "./pool": "./src/pool.mjs",
-    "./audit": "./src/audit.mjs",
-    "./asset-jobs": "./src/asset-jobs.mjs",
-    "./maintenance": "./src/maintenance.mjs",
-    "./migrations": "./src/migrations.mjs",
-    "./video-analytics": "./src/video-analytics.mjs"
+    ".":              "./src/index.mjs",
+    "./pool":         "./src/pool.mjs",
+    "./auth":         "./src/auth.mjs",
+    "./tags":         "./src/tags.mjs",
+    "./campaigns":    "./src/campaigns.mjs",
+    "./creatives":    "./src/creatives.mjs",
+    "./tracking":     "./src/tracking.mjs",
+    "./reporting":    "./src/reporting.mjs",
+    "./pacing":       "./src/pacing.mjs",
+    "./search":       "./src/search.mjs",
+    "./audit-log":    "./src/audit-log.mjs",
+    "./api-keys":     "./src/api-keys.mjs",
+    "./discrepancies":"./src/discrepancies.mjs",
+    "./tag-health":   "./src/tag-health.mjs",
+    "./tag-reporting":"./src/tag-reporting.mjs",
+    "./team":         "./src/team.mjs",
+    "./webhooks":     "./src/webhooks.mjs",
+    "./ab-testing":   "./src/ab-testing.mjs"
   },
   "dependencies": {
-    "pg": "^8.13.1",
-    "@aws-sdk/client-s3": "^3.1029.0"
+    "bcryptjs": "^2.4.3",
+    "pg":       "^8.11.5"
   }
 }
