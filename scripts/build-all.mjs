@@ -31,6 +31,7 @@ const WORKSPACES = [
   'apps/api',
   'apps/worker',
   'apps/web',
+  'apps/studio',   // creative editor — built after platform web
 ];
 
 // Optional filter from CLI args  (e.g. "node build-all.mjs web")

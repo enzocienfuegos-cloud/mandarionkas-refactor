@@ -20,6 +20,7 @@ const APPS = [
   { name: 'api',    cwd: path.join(ROOT, 'apps/api') },
   { name: 'worker', cwd: path.join(ROOT, 'apps/worker') },
   { name: 'web',    cwd: path.join(ROOT, 'apps/web') },
+  { name: 'studio', cwd: path.join(ROOT, 'apps/studio') },
 ];
 
 // Colour prefixes for stdout interleaving

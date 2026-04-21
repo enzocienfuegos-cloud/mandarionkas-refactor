@@ -167,6 +167,58 @@ export function handleAuthRoutes(app, { pool }) {
     });
   });
 
+  // GET /v1/auth/session  (used by Creative Studio app to restore session)
+  // Returns a SessionResponseDto-compatible payload so the studio can bootstrap
+  // using the same cookie as the platform — no second login required.
+  app.get('/v1/auth/session', async (req, reply) => {
+    const userId      = req.session?.userId;
+    const workspaceId = req.session?.workspaceId;
+
+    if (!userId) {
+      return reply.send({ ok: true, authenticated: false });
+    }
+
+    const user = await getUserById(pool, userId);
+    if (!user) {
+      return reply.send({ ok: true, authenticated: false });
+    }
+
+    const workspaces = await listWorkspacesForUser(pool, user.id);
+    let activeWorkspace = workspaces.find(w => w.id === workspaceId) ?? workspaces[0] ?? null;
+    let role = null;
+    if (activeWorkspace) {
+      const member = await getMember(pool, activeWorkspace.id, userId);
+      role = member?.role ?? null;
+    }
+
+    // Shape matches what the studio's auth-service.applySessionPayload expects
+    return reply.send({
+      ok:             true,
+      authenticated:  true,
+      user: {
+        id:           user.id,
+        name:         user.display_name ?? user.email,
+        email:        user.email,
+        avatarUrl:    user.avatar_url ?? null,
+      },
+      activeClientId: activeWorkspace?.id ?? null,
+      clients:        workspaces.map(w => ({
+        id:      w.id,
+        name:    w.name,
+        slug:    w.slug,
+        plan:    w.plan,
+        logoUrl: w.logo_url ?? null,
+      })),
+      permissions: role ? [`role:${role}`] : [],
+      session: {
+        sessionId:       req.session.sessionId ?? req.session.id ?? null,
+        persistenceMode: 'cookie',
+        issuedAt:        new Date().toISOString(),
+        expiresAt:       null,
+      },
+    });
+  });
+
   // GET /v1/auth/workspaces
   app.get('/v1/auth/workspaces', async (req, reply) => {
     const userId = req.session?.userId;

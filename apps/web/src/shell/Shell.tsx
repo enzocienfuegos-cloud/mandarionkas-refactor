@@ -105,6 +105,18 @@ export default function Shell() {
             <span>🧪</span> Experiments
           </NavLink>
 
+          <SectionLabel label="Creative Studio" />
+          {/* Opens the canvas editor in a new tab — same session cookie, no second login */}
+          <a
+            href={import.meta.env.VITE_STUDIO_URL ?? 'http://localhost:5174'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+          >
+            <span>🎬</span> Open Studio
+            <span className="ml-auto text-slate-500 text-xs">↗</span>
+          </a>
+
           <SectionLabel label="Tools" />
           <button
             className="flex items-center justify-between gap-2 w-full px-3 py-2 rounded-md text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"

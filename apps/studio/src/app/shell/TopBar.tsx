@@ -1,0 +1,30 @@
+import { StatusChip } from './StatusChip';
+import { TopBarProjectName } from './topbar/TopBarProjectName';
+import { TopBarPrimaryActions } from './topbar/TopBarPrimaryActions';
+import { useTopBarController } from './topbar/use-top-bar-controller';
+
+type TopBarProps = {
+  onOpenWorkspaceHub(): void;
+  onOpenAssets(): void;
+};
+
+export function TopBar({ onOpenWorkspaceHub, onOpenAssets }: TopBarProps): JSX.Element {
+  const controller = useTopBarController();
+
+  return (
+    <header className="top-bar top-bar-ux">
+      <div className="top-bar-left-cluster">
+        <button className="ghost compact-action top-back-button" type="button" onClick={onOpenWorkspaceHub} aria-label="Go back to workspace">
+          ←
+        </button>
+        <TopBarProjectName controller={controller} />
+      </div>
+      <div className="top-bar-center top-bar-center--ux">
+        <button className="ghost compact-action" type="button" onClick={onOpenWorkspaceHub}>Projects</button>
+        <button className="ghost compact-action" type="button" onClick={onOpenAssets}>Elements</button>
+        <StatusChip controller={controller} />
+      </div>
+      <TopBarPrimaryActions controller={controller} />
+    </header>
+  );
+}
