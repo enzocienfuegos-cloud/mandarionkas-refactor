@@ -12,6 +12,7 @@ import {
   renameStudioAssetFolder,
   saveStudioAsset,
 } from '@smx/db';
+import { hasStudioPermission } from './shared.mjs';
 
 async function createSignedUpload({ key, contentType }) {
   const endpoint = process.env.R2_ENDPOINT ?? process.env.S3_ENDPOINT;
@@ -45,22 +46,43 @@ function buildPublicAssetUrl(storageKey) {
   return base ? `${base}/${storageKey}` : undefined;
 }
 
-export function handleStudioAssetRoutes(app, { requireWorkspace, pool }) {
+export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = {
+  createStudioAssetFolder,
+  deleteStudioAsset,
+  deleteStudioAssetFolder,
+  getStudioAsset,
+  listStudioAssetFolders,
+  listStudioAssets,
+  mapStudioAssetFolderRowToDto,
+  mapStudioAssetRowToDto,
+  patchStudioAsset,
+  renameStudioAssetFolder,
+  saveStudioAsset,
+}) {
   app.get('/v1/assets', { preHandler: requireWorkspace }, async (req, reply) => {
-    const rows = await listStudioAssets(pool, req.authSession.workspaceId);
-    return reply.send({ assets: rows.map(mapStudioAssetRowToDto) });
+    if (!hasStudioPermission(req.authSession, 'assets:view-client')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
+    const rows = await deps.listStudioAssets(pool, req.authSession.workspaceId);
+    return reply.send({ assets: rows.map(deps.mapStudioAssetRowToDto) });
   });
 
   app.post('/v1/assets', { preHandler: requireWorkspace }, async (req, reply) => {
-    const row = await saveStudioAsset(pool, {
+    if (!hasStudioPermission(req.authSession, 'assets:create')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
+    const row = await deps.saveStudioAsset(pool, {
       workspaceId: req.authSession.workspaceId,
       ownerUserId: req.authSession.userId,
       asset: req.body?.asset ?? {},
     });
-    return reply.send({ asset: mapStudioAssetRowToDto(row) });
+    return reply.send({ asset: deps.mapStudioAssetRowToDto(row) });
   });
 
   app.post('/v1/assets/upload-url', { preHandler: requireWorkspace }, async (req, reply) => {
+    if (!hasStudioPermission(req.authSession, 'assets:create')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
     const filename = String(req.body?.filename ?? 'upload.bin');
     const assetId = crypto.randomUUID();
     const storageKey = `${req.authSession.workspaceId}/${assetId}/${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
@@ -87,8 +109,11 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }) {
   });
 
   app.post('/v1/assets/complete-upload', { preHandler: requireWorkspace }, async (req, reply) => {
+    if (!hasStudioPermission(req.authSession, 'assets:create')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
     const body = req.body ?? {};
-    const row = await saveStudioAsset(pool, {
+    const row = await deps.saveStudioAsset(pool, {
       workspaceId: req.authSession.workspaceId,
       ownerUserId: req.authSession.userId,
       assetId: body.assetId,
@@ -116,64 +141,94 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }) {
         processingStatus: 'completed',
       },
     });
-    return reply.send({ asset: mapStudioAssetRowToDto(row) });
+    return reply.send({ asset: deps.mapStudioAssetRowToDto(row) });
   });
 
   app.get('/v1/assets/:assetId', { preHandler: requireWorkspace }, async (req, reply) => {
-    const row = await getStudioAsset(pool, req.authSession.workspaceId, req.params.assetId);
-    return reply.send({ asset: row ? mapStudioAssetRowToDto(row) : undefined });
+    if (!hasStudioPermission(req.authSession, 'assets:view-client')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
+    const row = await deps.getStudioAsset(pool, req.authSession.workspaceId, req.params.assetId);
+    return reply.send({ asset: row ? deps.mapStudioAssetRowToDto(row) : undefined });
   });
 
   app.delete('/v1/assets/:assetId', { preHandler: requireWorkspace }, async (req, reply) => {
-    await deleteStudioAsset(pool, req.authSession.workspaceId, req.params.assetId);
+    if (!hasStudioPermission(req.authSession, 'assets:delete')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
+    await deps.deleteStudioAsset(pool, req.authSession.workspaceId, req.params.assetId);
     return reply.status(204).send();
   });
 
   app.post('/v1/assets/:assetId/rename', { preHandler: requireWorkspace }, async (req, reply) => {
-    const row = await patchStudioAsset(pool, req.authSession.workspaceId, req.params.assetId, { name: req.body?.name });
-    return reply.send({ asset: row ? mapStudioAssetRowToDto(row) : undefined });
+    if (!hasStudioPermission(req.authSession, 'assets:update')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
+    const row = await deps.patchStudioAsset(pool, req.authSession.workspaceId, req.params.assetId, { name: req.body?.name });
+    return reply.send({ asset: row ? deps.mapStudioAssetRowToDto(row) : undefined });
   });
 
   app.post('/v1/assets/:assetId/move', { preHandler: requireWorkspace }, async (req, reply) => {
-    const row = await patchStudioAsset(pool, req.authSession.workspaceId, req.params.assetId, { folderId: req.body?.folderId });
-    return reply.send({ asset: row ? mapStudioAssetRowToDto(row) : undefined });
+    if (!hasStudioPermission(req.authSession, 'assets:update')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
+    const row = await deps.patchStudioAsset(pool, req.authSession.workspaceId, req.params.assetId, { folderId: req.body?.folderId });
+    return reply.send({ asset: row ? deps.mapStudioAssetRowToDto(row) : undefined });
   });
 
   app.post('/v1/assets/:assetId/quality', { preHandler: requireWorkspace }, async (req, reply) => {
-    const row = await patchStudioAsset(pool, req.authSession.workspaceId, req.params.assetId, { qualityPreference: req.body?.qualityPreference });
-    return reply.send({ asset: row ? mapStudioAssetRowToDto(row) : undefined });
+    if (!hasStudioPermission(req.authSession, 'assets:update')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
+    const row = await deps.patchStudioAsset(pool, req.authSession.workspaceId, req.params.assetId, { qualityPreference: req.body?.qualityPreference });
+    return reply.send({ asset: row ? deps.mapStudioAssetRowToDto(row) : undefined });
   });
 
   app.post('/v1/assets/:assetId/reprocess', { preHandler: requireWorkspace }, async (req, reply) => {
-    const row = await patchStudioAsset(pool, req.authSession.workspaceId, req.params.assetId, {
+    if (!hasStudioPermission(req.authSession, 'assets:update')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
+    const row = await deps.patchStudioAsset(pool, req.authSession.workspaceId, req.params.assetId, {
       processingStatus: 'completed',
       processingMessage: null,
     });
-    return reply.send({ asset: row ? mapStudioAssetRowToDto(row) : undefined });
+    return reply.send({ asset: row ? deps.mapStudioAssetRowToDto(row) : undefined });
   });
 
   app.get('/v1/assets/folders', { preHandler: requireWorkspace }, async (req, reply) => {
-    const rows = await listStudioAssetFolders(pool, req.authSession.workspaceId);
-    return reply.send({ folders: rows.map(mapStudioAssetFolderRowToDto) });
+    if (!hasStudioPermission(req.authSession, 'assets:view-client')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
+    const rows = await deps.listStudioAssetFolders(pool, req.authSession.workspaceId);
+    return reply.send({ folders: rows.map(deps.mapStudioAssetFolderRowToDto) });
   });
 
   app.post('/v1/assets/folders', { preHandler: requireWorkspace }, async (req, reply) => {
-    const row = await createStudioAssetFolder(pool, {
+    if (!hasStudioPermission(req.authSession, 'assets:create')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
+    const row = await deps.createStudioAssetFolder(pool, {
       workspaceId: req.authSession.workspaceId,
       ownerUserId: req.authSession.userId,
       name: req.body?.name ?? 'Untitled folder',
       parentId: req.body?.parentId,
     });
-    return reply.send({ folder: mapStudioAssetFolderRowToDto(row) });
+    return reply.send({ folder: deps.mapStudioAssetFolderRowToDto(row) });
   });
 
   app.post('/v1/assets/folders/:folderId/rename', { preHandler: requireWorkspace }, async (req, reply) => {
-    const row = await renameStudioAssetFolder(pool, req.authSession.workspaceId, req.params.folderId, req.body?.name ?? 'Untitled folder');
-    return reply.send({ folder: row ? mapStudioAssetFolderRowToDto(row) : undefined });
+    if (!hasStudioPermission(req.authSession, 'assets:update')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
+    const row = await deps.renameStudioAssetFolder(pool, req.authSession.workspaceId, req.params.folderId, req.body?.name ?? 'Untitled folder');
+    return reply.send({ folder: row ? deps.mapStudioAssetFolderRowToDto(row) : undefined });
   });
 
   app.delete('/v1/assets/folders/:folderId', { preHandler: requireWorkspace }, async (req, reply) => {
-    await deleteStudioAssetFolder(pool, req.authSession.workspaceId, req.params.folderId);
+    if (!hasStudioPermission(req.authSession, 'assets:delete')) {
+      return reply.status(403).send({ message: 'Insufficient permissions' });
+    }
+    await deps.deleteStudioAssetFolder(pool, req.authSession.workspaceId, req.params.folderId);
     return reply.status(204).send();
   });
 }

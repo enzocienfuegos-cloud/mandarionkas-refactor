@@ -1,4 +1,4 @@
-import { getUserById, inviteMember } from '@smx/db';
+import { getMember, getUserById, inviteMember } from '@smx/db';
 import {
   createStudioClient,
   createStudioBrand,
@@ -47,6 +47,54 @@ export function getStudioRolePermissions(role) {
 
 export function deriveStudioRole(dbRole) {
   return mapDbRoleToWorkspaceRole(dbRole);
+}
+
+export function getStudioRoleFromAuthSession(authSession) {
+  if (!authSession?.role) return 'reviewer';
+  return deriveStudioRole(authSession.role);
+}
+
+export function hasStudioPermission(authSession, permission, roleOverride = null) {
+  const role = roleOverride ?? getStudioRoleFromAuthSession(authSession);
+  return getStudioRolePermissions(role).includes(permission);
+}
+
+export async function resolveStudioClientAccess(pool, workspaceId, userId, deps = { getMember }) {
+  const member = await deps.getMember(pool, workspaceId, userId);
+  if (!member) return null;
+  const role = deriveStudioRole(member.role);
+  return {
+    member,
+    role,
+    permissions: getStudioRolePermissions(role),
+  };
+}
+
+export function canManageStudioClient(authSession) {
+  return getStudioRoleFromAuthSession(authSession) === 'owner';
+}
+
+export function canInviteStudioMembers(authSession) {
+  const role = getStudioRoleFromAuthSession(authSession);
+  return role === 'owner' || role === 'editor';
+}
+
+export function canWriteStudioProjects(authSession) {
+  const role = getStudioRoleFromAuthSession(authSession);
+  return role === 'owner' || role === 'editor';
+}
+
+export function canDeleteStudioProjects(authSession) {
+  return getStudioRoleFromAuthSession(authSession) === 'owner';
+}
+
+export function canWriteStudioAssets(authSession) {
+  const role = getStudioRoleFromAuthSession(authSession);
+  return role === 'owner' || role === 'editor';
+}
+
+export function canDeleteStudioAssets(authSession) {
+  return getStudioRoleFromAuthSession(authSession) === 'owner';
 }
 
 export async function buildStudioSessionPayload(pool, req, { user, workspaceId }) {

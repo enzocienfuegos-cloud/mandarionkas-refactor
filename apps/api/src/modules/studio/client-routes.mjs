@@ -1,12 +1,22 @@
 import {
   buildStudioSessionPayload,
+  canManageStudioClient,
   handleCreateStudioBrand,
   handleCreateStudioClient,
   handleInviteStudioMember,
+  hasStudioPermission,
+  resolveStudioClientAccess,
   resolveStudioCurrentUser,
 } from './shared.mjs';
 
-export function handleStudioClientRoutes(app, { requireWorkspace, pool }) {
+export function handleStudioClientRoutes(app, { requireWorkspace, pool }, deps = {
+  buildStudioSessionPayload,
+  handleCreateStudioBrand,
+  handleCreateStudioClient,
+  handleInviteStudioMember,
+  resolveStudioClientAccess,
+  resolveStudioCurrentUser,
+}) {
   app.post('/v1/clients/active', { preHandler: requireWorkspace }, async (req, reply) => {
     const { clientId } = req.body ?? {};
     const userId = req.authSession.userId;
@@ -14,13 +24,18 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }) {
       return reply.status(400).send({ ok: false, message: 'clientId is required' });
     }
 
+    const access = await deps.resolveStudioClientAccess(pool, clientId, userId);
+    if (!access) {
+      return reply.status(403).send({ ok: false, message: 'Not a member of this client' });
+    }
+
     req.session.workspaceId = clientId;
-    const user = await resolveStudioCurrentUser(pool, userId);
+    const user = await deps.resolveStudioCurrentUser(pool, userId);
     if (!user) {
       return reply.status(401).send({ ok: false, message: 'Unauthorized' });
     }
 
-    const payload = await buildStudioSessionPayload(pool, req, { user, workspaceId: clientId });
+    const payload = await deps.buildStudioSessionPayload(pool, req, { user, workspaceId: clientId });
     return reply.send({
       ok: true,
       activeClientId: payload.activeClientId,
@@ -33,20 +48,19 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }) {
   app.post('/v1/clients', { preHandler: requireWorkspace }, async (req, reply) => {
     const { name } = req.body ?? {};
     const userId = req.authSession.userId;
-    const role = req.authSession.role;
 
-    if (role !== 'owner') {
+    if (!canManageStudioClient(req.authSession)) {
       return reply.status(403).send({ ok: false, message: 'Only owners can create clients' });
     }
     if (!name || !String(name).trim()) {
       return reply.status(400).send({ ok: false, message: 'name is required' });
     }
 
-    const workspaceId = await handleCreateStudioClient(pool, userId, String(name).trim());
+    const workspaceId = await deps.handleCreateStudioClient(pool, userId, String(name).trim());
     req.session.workspaceId = workspaceId;
 
-    const user = await resolveStudioCurrentUser(pool, userId);
-    const payload = await buildStudioSessionPayload(pool, req, { user, workspaceId });
+    const user = await deps.resolveStudioCurrentUser(pool, userId);
+    const payload = await deps.buildStudioSessionPayload(pool, req, { user, workspaceId });
     const client = payload.clients.find((item) => item.id === workspaceId);
 
     return reply.send({
@@ -63,18 +77,18 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }) {
   app.post('/v1/clients/:clientId/brands', { preHandler: requireWorkspace }, async (req, reply) => {
     const { clientId } = req.params;
     const { name, primaryColor } = req.body ?? {};
-    const studioRole = req.authSession.role === 'viewer' ? 'reviewer' : req.authSession.role === 'owner' ? 'owner' : 'editor';
+    const access = await deps.resolveStudioClientAccess(pool, clientId, req.authSession.userId);
 
-    if (studioRole === 'reviewer') {
+    if (!access || !hasStudioPermission(req.authSession, 'brandkits:manage', access.role)) {
       return reply.status(403).send({ ok: false, message: 'Insufficient permissions' });
     }
     if (!name || !primaryColor) {
       return reply.status(400).send({ ok: false, message: 'name and primaryColor are required' });
     }
 
-    await handleCreateStudioBrand(pool, clientId, { name: String(name).trim(), primaryColor });
-    const user = await resolveStudioCurrentUser(pool, req.authSession.userId);
-    const payload = await buildStudioSessionPayload(pool, req, { user, workspaceId: req.session.workspaceId ?? clientId });
+    await deps.handleCreateStudioBrand(pool, clientId, { name: String(name).trim(), primaryColor });
+    const user = await deps.resolveStudioCurrentUser(pool, req.authSession.userId);
+    const payload = await deps.buildStudioSessionPayload(pool, req, { user, workspaceId: req.session.workspaceId ?? clientId });
     const client = payload.clients.find((item) => item.id === clientId);
     return reply.send({
       ok: true,
@@ -88,17 +102,18 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }) {
   app.post('/v1/clients/:clientId/invites', { preHandler: requireWorkspace }, async (req, reply) => {
     const { clientId } = req.params;
     const { email, role } = req.body ?? {};
-    const studioRole = req.authSession.role === 'viewer' ? 'reviewer' : req.authSession.role === 'owner' ? 'owner' : 'editor';
-    if (studioRole === 'reviewer') {
+    const access = await deps.resolveStudioClientAccess(pool, clientId, req.authSession.userId);
+
+    if (!access || !hasStudioPermission(req.authSession, 'clients:invite', access.role)) {
       return reply.status(403).send({ ok: false, message: 'Insufficient permissions' });
     }
     if (!email || !role) {
       return reply.status(400).send({ ok: false, message: 'email and role are required' });
     }
 
-    await handleInviteStudioMember(pool, clientId, req.authSession.userId, { email, role });
-    const user = await resolveStudioCurrentUser(pool, req.authSession.userId);
-    const payload = await buildStudioSessionPayload(pool, req, { user, workspaceId: req.session.workspaceId ?? clientId });
+    await deps.handleInviteStudioMember(pool, clientId, req.authSession.userId, { email, role });
+    const user = await deps.resolveStudioCurrentUser(pool, req.authSession.userId);
+    const payload = await deps.buildStudioSessionPayload(pool, req, { user, workspaceId: req.session.workspaceId ?? clientId });
     const client = payload.clients.find((item) => item.id === clientId);
     return reply.send({
       ok: true,
