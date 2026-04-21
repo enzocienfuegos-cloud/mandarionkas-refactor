@@ -33,6 +33,9 @@ import { handleTeamRoutes }            from './modules/team/team-routes.mjs';
 import { handlePixelRoutes }           from './modules/pixels/pixel-routes.mjs';
 import { handleVastRoutes }            from './modules/vast/routes.mjs';
 import { handleVastValidatorRoutes }   from './modules/vast/validator-routes.mjs';
+import { handleStudioClientRoutes }    from './modules/studio/client-routes.mjs';
+import { handleStudioProjectRoutes }   from './modules/studio/project-routes.mjs';
+import { handleStudioAssetRoutes }     from './modules/studio/asset-routes.mjs';
 
 export async function buildApp(opts = {}) {
   const app = Fastify({
@@ -88,6 +91,9 @@ export async function buildApp(opts = {}) {
   // Platform management
   handleWorkspaceRoutes(app, ctx);
   handleTeamRoutes(app, ctx);
+  handleStudioClientRoutes(app, ctx);
+  handleStudioProjectRoutes(app, ctx);
+  handleStudioAssetRoutes(app, ctx);
   handleApiKeyRoutes(app, { requireWorkspace, pool });
 
   // Core ad serving — public tracking, key-auth VAST

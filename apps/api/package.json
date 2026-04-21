@@ -9,6 +9,8 @@
     "test":  "node --test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1033.0",
+    "@aws-sdk/s3-request-presigner": "^3.1033.0",
     "fastify":            "^4.27.0",
     "@fastify/cookie":    "^9.3.1",
     "@fastify/session":   "^10.9.0",

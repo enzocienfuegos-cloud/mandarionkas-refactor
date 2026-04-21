@@ -16,3 +16,4 @@ export * from './tag-reporting.mjs';
 export * from './team.mjs';
 export * from './webhooks.mjs';
 export * from './ab-testing.mjs';
+export * from './studio.mjs';

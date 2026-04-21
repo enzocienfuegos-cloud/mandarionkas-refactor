@@ -6,6 +6,7 @@ import {
   listWorkspacesForUser,
 } from '@smx/db';
 import { getMember } from '@smx/db/team';
+import { buildStudioSessionPayload } from '../studio/shared.mjs';
 
 export function buildRequireWorkspace(pool) {
   return async function requireWorkspace(req, reply) {
@@ -120,10 +121,8 @@ export function handleAuthRoutes(app, { pool }) {
     // Update last_login_at
     await pool.query(`UPDATE users SET last_login_at = NOW() WHERE id = $1`, [user.id]);
 
-    return reply.send({
-      user: { id: user.id, email: user.email, display_name: user.display_name },
-      workspace,
-    });
+    const payload = await buildStudioSessionPayload(pool, req, { user, workspaceId: workspace?.id ?? null });
+    return reply.send(payload);
   });
 
   // POST /v1/auth/logout
@@ -191,32 +190,7 @@ export function handleAuthRoutes(app, { pool }) {
       role = member?.role ?? null;
     }
 
-    // Shape matches what the studio's auth-service.applySessionPayload expects
-    return reply.send({
-      ok:             true,
-      authenticated:  true,
-      user: {
-        id:           user.id,
-        name:         user.display_name ?? user.email,
-        email:        user.email,
-        avatarUrl:    user.avatar_url ?? null,
-      },
-      activeClientId: activeWorkspace?.id ?? null,
-      clients:        workspaces.map(w => ({
-        id:      w.id,
-        name:    w.name,
-        slug:    w.slug,
-        plan:    w.plan,
-        logoUrl: w.logo_url ?? null,
-      })),
-      permissions: role ? [`role:${role}`] : [],
-      session: {
-        sessionId:       req.session.sessionId ?? req.session.id ?? null,
-        persistenceMode: 'cookie',
-        issuedAt:        new Date().toISOString(),
-        expiresAt:       null,
-      },
-    });
+    return reply.send(await buildStudioSessionPayload(pool, req, { user, workspaceId: activeWorkspace?.id ?? null }));
   });
 
   // GET /v1/auth/workspaces
