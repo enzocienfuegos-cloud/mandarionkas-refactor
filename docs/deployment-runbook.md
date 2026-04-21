@@ -89,6 +89,23 @@ cd /tmp/sprint-51-final-git
 npm run smoke:staging
 ```
 
+For a full cross-app smoke that verifies login and studio session restore, run:
+
+```bash
+STAGING_SMOKE_EMAIL=admin@smxstudio.io \
+STAGING_SMOKE_PASSWORD='Admin1234!' \
+npm run smoke:staging
+```
+
+That authenticated smoke validates:
+- web HTML and assets
+- studio HTML and assets
+- API health
+- login against `/v1/auth/login`
+- studio bootstrap against `/v1/auth/session`
+- authenticated access to `/v1/projects`
+- authenticated access to `/v1/assets`
+
 Optional overrides:
 
 - `STAGING_WEB_URL`
