@@ -1,11 +1,12 @@
 import {
+  completeInvitedUserRegistration,
   createUser,
   getUserByEmail,
   getUserById,
-  verifyPassword,
   listWorkspacesForUser,
+  verifyPassword,
 } from '@smx/db';
-import { getMember } from '@smx/db/team';
+import { activatePendingMembershipsForUser, getMember } from '@smx/db/team';
 import { buildStudioSessionPayload } from '../studio/shared.mjs';
 
 export function buildRequireWorkspace(pool) {
@@ -18,7 +19,7 @@ export function buildRequireWorkspace(pool) {
     }
 
     const member = await getMember(pool, workspaceId, userId);
-    if (!member) {
+    if (!member || member.status !== 'active') {
       return reply.status(403).send({ error: 'Forbidden', message: 'Not a member of this workspace' });
     }
 
@@ -67,21 +68,43 @@ export function handleAuthRoutes(app, { pool }) {
   app.post('/v1/auth/register', async (req, reply) => {
     const { email, firstName, lastName, password, workspaceName } = req.body ?? {};
 
-    if (!email || !password || !workspaceName) {
-      return reply.status(400).send({ error: 'Bad Request', message: 'email, password, and workspaceName are required' });
+    if (!email || !password) {
+      return reply.status(400).send({ error: 'Bad Request', message: 'email and password are required' });
     }
 
-    const existingUser = await getUserByEmail(pool, email);
-    if (existingUser) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const existingUser = await getUserByEmail(pool, normalizedEmail);
+    const displayName = [firstName, lastName].filter(Boolean).join(' ') || null;
+
+    if (existingUser?.password_hash) {
       return reply.status(409).send({ error: 'Conflict', message: 'Email already registered' });
     }
 
-    const displayName = [firstName, lastName].filter(Boolean).join(' ') || null;
-    const user = await createUser(pool, { email, password, display_name: displayName });
-    const workspace = await createWorkspaceWithOwner(pool, user.id, workspaceName);
+    let user;
+    let workspace = null;
+
+    if (existingUser) {
+      user = await completeInvitedUserRegistration(pool, {
+        userId: existingUser.id,
+        password,
+        display_name: displayName,
+      });
+      await activatePendingMembershipsForUser(pool, user.id);
+      const workspaces = await listWorkspacesForUser(pool, user.id);
+      workspace = workspaces[0] ?? null;
+      if (!workspace && workspaceName) {
+        workspace = await createWorkspaceWithOwner(pool, user.id, workspaceName);
+      }
+    } else {
+      if (!workspaceName) {
+        return reply.status(400).send({ error: 'Bad Request', message: 'workspaceName is required for new accounts' });
+      }
+      user = await createUser(pool, { email: normalizedEmail, password, display_name: displayName });
+      workspace = await createWorkspaceWithOwner(pool, user.id, workspaceName);
+    }
 
     req.session.userId = user.id;
-    req.session.workspaceId = workspace.id;
+    req.session.workspaceId = workspace?.id ?? null;
 
     return reply.status(201).send({
       user: { id: user.id, email: user.email, display_name: user.display_name },
@@ -110,6 +133,8 @@ export function handleAuthRoutes(app, { pool }) {
     if (!valid) {
       return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid credentials' });
     }
+
+    await activatePendingMembershipsForUser(pool, user.id);
 
     // Get the first/default workspace for this user
     const workspaces = await listWorkspacesForUser(pool, user.id);
@@ -149,7 +174,7 @@ export function handleAuthRoutes(app, { pool }) {
     let role = null;
     if (workspaceId) {
       const member = await getMember(pool, workspaceId, userId);
-      if (member) {
+      if (member?.status === 'active') {
         const { rows } = await pool.query(
           `SELECT id, name, slug, plan, logo_url FROM workspaces WHERE id = $1`,
           [workspaceId],
@@ -184,12 +209,6 @@ export function handleAuthRoutes(app, { pool }) {
 
     const workspaces = await listWorkspacesForUser(pool, user.id);
     let activeWorkspace = workspaces.find(w => w.id === workspaceId) ?? workspaces[0] ?? null;
-    let role = null;
-    if (activeWorkspace) {
-      const member = await getMember(pool, activeWorkspace.id, userId);
-      role = member?.role ?? null;
-    }
-
     return reply.send(await buildStudioSessionPayload(pool, req, { user, workspaceId: activeWorkspace?.id ?? null }));
   });
 
@@ -217,7 +236,7 @@ export function handleAuthRoutes(app, { pool }) {
     }
 
     const member = await getMember(pool, workspaceId, userId);
-    if (!member) {
+    if (!member || member.status !== 'active') {
       return reply.status(403).send({ error: 'Forbidden', message: 'Not a member of this workspace' });
     }
 

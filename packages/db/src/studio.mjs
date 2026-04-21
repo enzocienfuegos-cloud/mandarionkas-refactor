@@ -79,6 +79,7 @@ export async function listStudioClientsForUser(pool, userId) {
      JOIN workspace_members wm
        ON wm.workspace_id = w.id
       AND wm.user_id = $1
+      AND wm.status = 'active'
      ORDER BY w.name ASC`,
     [userId],
   );
@@ -182,6 +183,19 @@ export async function createStudioInvite(pool, { workspaceId, email, role, invit
   const { rows } = await pool.query(
     `INSERT INTO studio_invites (workspace_id, email, role, status, invited_by, invited_at)
      VALUES ($1, lower($2), $3, 'pending', $4, NOW())
+     ON CONFLICT (workspace_id, email)
+     DO UPDATE SET
+       role = EXCLUDED.role,
+       status = CASE
+         WHEN studio_invites.status = 'accepted' THEN 'accepted'
+         ELSE 'pending'
+       END,
+       invited_by = EXCLUDED.invited_by,
+       invited_at = NOW(),
+       accepted_at = CASE
+         WHEN studio_invites.status = 'accepted' THEN studio_invites.accepted_at
+         ELSE NULL
+       END
      RETURNING *`,
     [workspaceId, email, role, invitedBy ?? null],
   );

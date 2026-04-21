@@ -86,14 +86,56 @@ export async function inviteMember(pool, workspaceId, data) {
 
   // Add workspace member
   const { rows } = await pool.query(
-    `INSERT INTO workspace_members (workspace_id, user_id, role, invited_by, invited_at)
-     VALUES ($1, $2, $3, $4, NOW())
+    `INSERT INTO workspace_members (workspace_id, user_id, role, status, invited_by, invited_at, joined_at)
+     VALUES ($1, $2, $3, 'pending', $4, NOW(), NULL)
      ON CONFLICT (workspace_id, user_id)
-     DO UPDATE SET role = EXCLUDED.role, updated_at = NOW()
+     DO UPDATE SET
+       role = EXCLUDED.role,
+       status = CASE
+         WHEN workspace_members.status = 'active' THEN 'active'
+         ELSE 'pending'
+       END,
+       invited_by = EXCLUDED.invited_by,
+       invited_at = NOW(),
+       joined_at = CASE
+         WHEN workspace_members.status = 'active' THEN workspace_members.joined_at
+         ELSE NULL
+       END,
+       updated_at = NOW()
      RETURNING *`,
     [workspaceId, user.id, role, invited_by ?? null],
   );
   return { ...rows[0], email: user.email };
+}
+
+export async function activatePendingMembershipsForUser(pool, userId) {
+  const { rows } = await pool.query(
+    `UPDATE workspace_members wm
+     SET status = 'active',
+         joined_at = COALESCE(wm.joined_at, NOW()),
+         updated_at = NOW()
+     WHERE wm.user_id = $1
+       AND wm.status = 'pending'
+     RETURNING wm.workspace_id`,
+    [userId],
+  );
+
+  await pool.query(
+    `UPDATE studio_invites si
+     SET status = 'accepted',
+         accepted_at = COALESCE(si.accepted_at, NOW())
+     FROM users u
+     JOIN workspace_members wm
+       ON wm.user_id = u.id
+      AND wm.workspace_id = si.workspace_id
+     WHERE u.id = $1
+       AND lower(si.email) = lower(u.email)
+       AND wm.status = 'active'
+       AND si.status <> 'accepted'`,
+    [userId],
+  );
+
+  return rows.map((row) => row.workspace_id);
 }
 
 export async function updateMemberRole(pool, workspaceId, userId, role) {

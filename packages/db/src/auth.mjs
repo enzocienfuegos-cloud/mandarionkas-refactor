@@ -43,6 +43,21 @@ export async function getUserById(pool, id) {
   return rows[0] ?? null;
 }
 
+export async function completeInvitedUserRegistration(pool, { userId, password, display_name, avatar_url }) {
+  const password_hash = await hashPassword(password);
+  const { rows } = await pool.query(
+    `UPDATE users
+     SET password_hash = $2,
+         display_name = COALESCE($3, display_name),
+         avatar_url = COALESCE($4, avatar_url),
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING id, email, display_name, avatar_url, email_verified, created_at`,
+    [userId, password_hash, display_name ?? null, avatar_url ?? null],
+  );
+  return rows[0] ?? null;
+}
+
 export async function createSession(pool, userId, workspaceId, expiresInMs = 7 * 24 * 60 * 60 * 1000) {
   const expiresAt = new Date(Date.now() + expiresInMs);
   const { rows } = await pool.query(
@@ -82,6 +97,7 @@ export async function listWorkspacesForUser(pool, userId) {
      FROM workspaces w
      JOIN workspace_members wm ON wm.workspace_id = w.id
      WHERE wm.user_id = $1
+       AND wm.status = 'active'
      ORDER BY w.name ASC`,
     [userId],
   );

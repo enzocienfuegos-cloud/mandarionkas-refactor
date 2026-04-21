@@ -1,10 +1,11 @@
 import {
   listMembers,
+  createStudioInvite,
   inviteMember,
   getMember,
   updateMemberRole,
   removeMember,
-} from '@smx/db/team';
+} from '@smx/db';
 
 const VALID_ROLES = ['owner', 'admin', 'member', 'viewer'];
 
@@ -49,6 +50,12 @@ export function handleTeamRoutes(app, { requireWorkspace, pool }) {
         email: email.trim(),
         role,
         invited_by: userId,
+      });
+      await createStudioInvite(pool, {
+        workspaceId,
+        email: email.trim(),
+        role: role === 'viewer' ? 'reviewer' : role === 'owner' ? 'owner' : 'editor',
+        invitedBy: userId,
       });
     } catch (err) {
       return reply.status(400).send({ error: 'Bad Request', message: err.message });
