@@ -9,6 +9,10 @@ import {
 import { activatePendingMembershipsForUser, getMember } from '@smx/db/team';
 import { buildStudioSessionPayload } from '../studio/shared.mjs';
 
+function safeLog(req, level, payload, message) {
+  req.log?.[level]?.(payload, message);
+}
+
 export function buildRequireWorkspace(pool) {
   return async function requireWorkspace(req, reply) {
     const userId = req.session?.userId;
@@ -69,6 +73,7 @@ export function handleAuthRoutes(app, { pool }) {
     const { email, firstName, lastName, password, workspaceName } = req.body ?? {};
 
     if (!email || !password) {
+      safeLog(req, 'warn', { requestId: req.id, route: '/v1/auth/register' }, 'registration rejected: missing credentials');
       return reply.status(400).send({ error: 'Bad Request', message: 'email and password are required' });
     }
 
@@ -77,6 +82,7 @@ export function handleAuthRoutes(app, { pool }) {
     const displayName = [firstName, lastName].filter(Boolean).join(' ') || null;
 
     if (existingUser?.password_hash) {
+      safeLog(req, 'warn', { requestId: req.id, route: '/v1/auth/register', email: normalizedEmail }, 'registration rejected: email already registered');
       return reply.status(409).send({ error: 'Conflict', message: 'Email already registered' });
     }
 
@@ -97,6 +103,7 @@ export function handleAuthRoutes(app, { pool }) {
       }
     } else {
       if (!workspaceName) {
+        safeLog(req, 'warn', { requestId: req.id, route: '/v1/auth/register', email: normalizedEmail }, 'registration rejected: missing workspace name');
         return reply.status(400).send({ error: 'Bad Request', message: 'workspaceName is required for new accounts' });
       }
       user = await createUser(pool, { email: normalizedEmail, password, display_name: displayName });
@@ -105,6 +112,15 @@ export function handleAuthRoutes(app, { pool }) {
 
     req.session.userId = user.id;
     req.session.workspaceId = workspace?.id ?? null;
+
+    safeLog(req, 'info', {
+      requestId: req.id,
+      route: '/v1/auth/register',
+      userId: user.id,
+      workspaceId: workspace?.id ?? null,
+      email: user.email,
+      invitedClaim: Boolean(existingUser),
+    }, 'registration completed');
 
     return reply.status(201).send({
       user: { id: user.id, email: user.email, display_name: user.display_name },
@@ -117,20 +133,24 @@ export function handleAuthRoutes(app, { pool }) {
     const { email, password } = req.body ?? {};
 
     if (!email || !password) {
+      safeLog(req, 'warn', { requestId: req.id, route: '/v1/auth/login' }, 'login rejected: missing credentials');
       return reply.status(400).send({ error: 'Bad Request', message: 'email and password are required' });
     }
 
     const user = await getUserByEmail(pool, email);
     if (!user) {
+      safeLog(req, 'warn', { requestId: req.id, route: '/v1/auth/login', email: String(email).toLowerCase().trim() }, 'login rejected: unknown email');
       return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid credentials' });
     }
 
     if (!user.password_hash) {
+      safeLog(req, 'warn', { requestId: req.id, route: '/v1/auth/login', userId: user.id }, 'login rejected: account has no password');
       return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid credentials' });
     }
 
     const valid = await verifyPassword(password, user.password_hash);
     if (!valid) {
+      safeLog(req, 'warn', { requestId: req.id, route: '/v1/auth/login', userId: user.id }, 'login rejected: invalid password');
       return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid credentials' });
     }
 
@@ -147,11 +167,25 @@ export function handleAuthRoutes(app, { pool }) {
     await pool.query(`UPDATE users SET last_login_at = NOW() WHERE id = $1`, [user.id]);
 
     const payload = await buildStudioSessionPayload(pool, req, { user, workspaceId: workspace?.id ?? null });
+    safeLog(req, 'info', {
+      requestId: req.id,
+      route: '/v1/auth/login',
+      userId: user.id,
+      workspaceId: workspace?.id ?? null,
+      email: user.email,
+      workspaceCount: workspaces.length,
+    }, 'login completed');
     return reply.send(payload);
   });
 
   // POST /v1/auth/logout
   app.post('/v1/auth/logout', async (req, reply) => {
+    safeLog(req, 'info', {
+      requestId: req.id,
+      route: '/v1/auth/logout',
+      userId: req.session?.userId ?? null,
+      workspaceId: req.session?.workspaceId ?? null,
+    }, 'logout completed');
     req.session.destroy();
     return reply.send({ ok: true });
   });
@@ -199,16 +233,25 @@ export function handleAuthRoutes(app, { pool }) {
     const workspaceId = req.session?.workspaceId;
 
     if (!userId) {
+      safeLog(req, 'info', { requestId: req.id, route: '/v1/auth/session' }, 'session restore: anonymous');
       return reply.send({ ok: true, authenticated: false });
     }
 
     const user = await getUserById(pool, userId);
     if (!user) {
+      safeLog(req, 'warn', { requestId: req.id, route: '/v1/auth/session', userId }, 'session restore: user missing');
       return reply.send({ ok: true, authenticated: false });
     }
 
     const workspaces = await listWorkspacesForUser(pool, user.id);
     let activeWorkspace = workspaces.find(w => w.id === workspaceId) ?? workspaces[0] ?? null;
+    safeLog(req, 'info', {
+      requestId: req.id,
+      route: '/v1/auth/session',
+      userId: user.id,
+      workspaceId: activeWorkspace?.id ?? null,
+      workspaceCount: workspaces.length,
+    }, 'session restore completed');
     return reply.send(await buildStudioSessionPayload(pool, req, { user, workspaceId: activeWorkspace?.id ?? null }));
   });
 

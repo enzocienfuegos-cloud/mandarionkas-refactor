@@ -73,9 +73,76 @@ export async function buildApp(opts = {}) {
   const requireWorkspace = buildRequireWorkspace(pool);
   const requireApiKey    = buildRequireApiKey(pool);
 
+  function buildRequestLogContext(req, reply) {
+    return {
+      requestId: req.id,
+      method: req.method,
+      url: req.url,
+      route: req.routeOptions?.url ?? null,
+      statusCode: reply.statusCode,
+      origin: req.headers.origin ?? null,
+      userId: req.session?.userId ?? null,
+      workspaceId: req.session?.workspaceId ?? null,
+    };
+  }
+
+  function isOperationallyInteresting(req, reply) {
+    const route = req.routeOptions?.url ?? req.url;
+    if (reply.statusCode >= 400) return true;
+    return route.startsWith('/v1/auth')
+      || route.startsWith('/v1/assets')
+      || route.startsWith('/v1/projects')
+      || route.startsWith('/v1/clients');
+  }
+
+  app.addHook('onRequest', async (req, reply) => {
+    reply.header('X-Request-Id', req.id);
+  });
+
   // Audit hook
   const auditMiddleware = createAuditMiddleware(pool);
   app.addHook('onResponse', auditMiddleware);
+  app.addHook('onResponse', async (req, reply) => {
+    if (!isOperationallyInteresting(req, reply)) return;
+    const ctx = buildRequestLogContext(req, reply);
+    if (reply.statusCode >= 500) {
+      req.log.error(ctx, 'request failed');
+      return;
+    }
+    if (reply.statusCode >= 400) {
+      req.log.warn(ctx, 'request rejected');
+      return;
+    }
+    req.log.info(ctx, 'request completed');
+  });
+
+  app.setErrorHandler((error, req, reply) => {
+    const statusCode = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
+    const logContext = {
+      ...buildRequestLogContext(req, reply),
+      statusCode,
+      error: {
+        name: error.name,
+        code: error.code ?? null,
+        message: error.message,
+      },
+    };
+
+    if (statusCode >= 500) {
+      req.log.error(logContext, 'unhandled request error');
+    } else {
+      req.log.warn(logContext, 'handled request error');
+    }
+
+    if (reply.sent) return;
+    reply
+      .code(statusCode)
+      .send({
+        error: statusCode >= 500 ? 'Internal Server Error' : (error.name ?? 'Request Error'),
+        message: statusCode >= 500 ? 'Request failed' : error.message,
+        requestId: req.id,
+      });
+  });
 
   // Health check
   app.get('/health', async () => {

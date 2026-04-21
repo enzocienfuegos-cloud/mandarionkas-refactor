@@ -46,6 +46,19 @@ function buildPublicAssetUrl(storageKey) {
   return base ? `${base}/${storageKey}` : undefined;
 }
 
+function safeLog(req, level, payload, message) {
+  req.log?.[level]?.(payload, message);
+}
+
+function hasUploadStorageConfig() {
+  return Boolean(
+    (process.env.R2_ENDPOINT ?? process.env.S3_ENDPOINT)
+    && (process.env.R2_BUCKET ?? process.env.S3_BUCKET)
+    && (process.env.R2_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY_ID)
+    && (process.env.R2_SECRET_ACCESS_KEY ?? process.env.AWS_SECRET_ACCESS_KEY),
+  );
+}
+
 export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = {
   createStudioAssetFolder,
   deleteStudioAsset,
@@ -89,11 +102,34 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = 
     if (!hasStudioPermission(req.authSession, 'assets:create')) {
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
+    if (!hasUploadStorageConfig()) {
+      safeLog(req, 'error', {
+        requestId: req.id,
+        route: '/v1/assets/upload-url',
+        userId: req.authSession.userId,
+        workspaceId: req.authSession.workspaceId,
+      }, 'asset upload requested without object storage configuration');
+      return reply.status(503).send({
+        error: 'Service Unavailable',
+        message: 'Asset uploads are not configured on this environment',
+      });
+    }
     const filename = String(req.body?.filename ?? 'upload.bin');
     const assetId = crypto.randomUUID();
     const storageKey = `${req.authSession.workspaceId}/${assetId}/${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
     const uploadUrl = await createSignedUpload({ key: storageKey, contentType: req.body?.mimeType });
     const publicUrl = buildPublicAssetUrl(storageKey);
+
+    safeLog(req, 'info', {
+      requestId: req.id,
+      route: '/v1/assets/upload-url',
+      userId: req.authSession.userId,
+      workspaceId: req.authSession.workspaceId,
+      assetId,
+      storageKey,
+      mimeType: req.body?.mimeType ?? null,
+      sizeBytes: req.body?.sizeBytes ?? null,
+    }, 'asset upload prepared');
 
     return reply.send({
       upload: {
@@ -153,6 +189,15 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = 
       resource_id: row.id,
       metadata: { name: row.name, kind: row.kind, storageKey: row.storage_key ?? null },
     };
+    safeLog(req, 'info', {
+      requestId: req.id,
+      route: '/v1/assets/complete-upload',
+      userId: req.authSession.userId,
+      workspaceId: req.authSession.workspaceId,
+      assetId: row.id,
+      storageKey: row.storage_key ?? null,
+      kind: row.kind,
+    }, 'asset upload completed');
     return reply.send({ asset: deps.mapStudioAssetRowToDto(row) });
   });
 
