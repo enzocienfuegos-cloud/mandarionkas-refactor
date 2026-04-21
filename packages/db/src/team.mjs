@@ -125,13 +125,16 @@ export async function activatePendingMembershipsForUser(pool, userId) {
      SET status = 'accepted',
          accepted_at = COALESCE(si.accepted_at, NOW())
      FROM users u
-     JOIN workspace_members wm
-       ON wm.user_id = u.id
-      AND wm.workspace_id = si.workspace_id
      WHERE u.id = $1
        AND lower(si.email) = lower(u.email)
-       AND wm.status = 'active'
-       AND si.status <> 'accepted'`,
+       AND si.status <> 'accepted'
+       AND EXISTS (
+         SELECT 1
+         FROM workspace_members wm
+         WHERE wm.user_id = u.id
+           AND wm.workspace_id = si.workspace_id
+           AND wm.status = 'active'
+       )`,
     [userId],
   );
 
