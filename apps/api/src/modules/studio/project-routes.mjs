@@ -48,6 +48,12 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
       projectId,
       state,
     });
+    req._auditMeta = {
+      action: 'studio.project.saved',
+      resource_type: 'studio_project',
+      resource_id: row.id,
+      metadata: { name: row.name, sceneCount: row.scene_count, widgetCount: row.widget_count },
+    };
     return reply.send({ project: deps.mapStudioProjectRowToDto(row) });
   });
 
@@ -64,6 +70,11 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     await deps.deleteStudioProject(pool, req.authSession.workspaceId, req.params.projectId);
+    req._auditMeta = {
+      action: 'studio.project.deleted',
+      resource_type: 'studio_project',
+      resource_id: req.params.projectId,
+    };
     return reply.status(204).send();
   });
 
@@ -73,6 +84,12 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
     }
     const row = await deps.duplicateStudioProject(pool, req.authSession.workspaceId, req.params.projectId, req.authSession.userId);
     if (!row) return reply.status(404).send({ message: 'Project not found' });
+    req._auditMeta = {
+      action: 'studio.project.duplicated',
+      resource_type: 'studio_project',
+      resource_id: row.id,
+      metadata: { sourceProjectId: req.params.projectId, name: row.name },
+    };
     return reply.send({ project: deps.mapStudioProjectRowToDto(row) });
   });
 
@@ -81,6 +98,11 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     await deps.updateStudioProjectArchiveState(pool, req.authSession.workspaceId, req.params.projectId, true);
+    req._auditMeta = {
+      action: 'studio.project.archived',
+      resource_type: 'studio_project',
+      resource_id: req.params.projectId,
+    };
     return reply.send({ ok: true });
   });
 
@@ -89,6 +111,11 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     await deps.updateStudioProjectArchiveState(pool, req.authSession.workspaceId, req.params.projectId, false);
+    req._auditMeta = {
+      action: 'studio.project.restored',
+      resource_type: 'studio_project',
+      resource_id: req.params.projectId,
+    };
     return reply.send({ ok: true });
   });
 
@@ -99,6 +126,12 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
     const { ownerUserId } = req.body ?? {};
     if (!ownerUserId) return reply.status(400).send({ message: 'ownerUserId is required' });
     await deps.changeStudioProjectOwner(pool, req.authSession.workspaceId, req.params.projectId, ownerUserId);
+    req._auditMeta = {
+      action: 'studio.project.owner_changed',
+      resource_type: 'studio_project',
+      resource_id: req.params.projectId,
+      metadata: { ownerUserId },
+    };
     return reply.send({ ok: true });
   });
 
@@ -135,6 +168,12 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
       createdBy: req.authSession.userId,
     });
     if (!row) return reply.status(404).send({ message: 'Project not found' });
+    req._auditMeta = {
+      action: 'studio.project.version_saved',
+      resource_type: 'studio_project_version',
+      resource_id: row.id,
+      metadata: { projectId: req.params.projectId, versionNumber: row.version_number, note: row.note ?? null },
+    };
     return reply.send({
       version: {
         id: row.id,

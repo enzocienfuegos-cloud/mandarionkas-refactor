@@ -58,6 +58,13 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }, deps =
 
     const workspaceId = await deps.handleCreateStudioClient(pool, userId, String(name).trim());
     req.session.workspaceId = workspaceId;
+    req._auditMeta = {
+      action: 'studio.client.created',
+      workspace_id: workspaceId,
+      resource_type: 'studio_client',
+      resource_id: workspaceId,
+      metadata: { name: String(name).trim() },
+    };
 
     const user = await deps.resolveStudioCurrentUser(pool, userId);
     const payload = await deps.buildStudioSessionPayload(pool, req, { user, workspaceId });
@@ -87,6 +94,13 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }, deps =
     }
 
     await deps.handleCreateStudioBrand(pool, clientId, { name: String(name).trim(), primaryColor });
+    req._auditMeta = {
+      action: 'studio.brand.created',
+      workspace_id: clientId,
+      resource_type: 'studio_brand',
+      resource_id: clientId,
+      metadata: { name: String(name).trim(), primaryColor },
+    };
     const user = await deps.resolveStudioCurrentUser(pool, req.authSession.userId);
     const payload = await deps.buildStudioSessionPayload(pool, req, { user, workspaceId: req.session.workspaceId ?? clientId });
     const client = payload.clients.find((item) => item.id === clientId);
@@ -112,6 +126,13 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }, deps =
     }
 
     await deps.handleInviteStudioMember(pool, clientId, req.authSession.userId, { email, role });
+    req._auditMeta = {
+      action: 'studio.invite.created',
+      workspace_id: clientId,
+      resource_type: 'user',
+      resource_id: email.toLowerCase(),
+      metadata: { email: email.toLowerCase(), role },
+    };
     const user = await deps.resolveStudioCurrentUser(pool, req.authSession.userId);
     const payload = await deps.buildStudioSessionPayload(pool, req, { user, workspaceId: req.session.workspaceId ?? clientId });
     const client = payload.clients.find((item) => item.id === clientId);

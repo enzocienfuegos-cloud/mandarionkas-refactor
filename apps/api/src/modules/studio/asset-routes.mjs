@@ -76,6 +76,12 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = 
       ownerUserId: req.authSession.userId,
       asset: req.body?.asset ?? {},
     });
+    req._auditMeta = {
+      action: 'studio.asset.created',
+      resource_type: 'studio_asset',
+      resource_id: row.id,
+      metadata: { name: row.name, kind: row.kind, accessScope: row.access_scope },
+    };
     return reply.send({ asset: deps.mapStudioAssetRowToDto(row) });
   });
 
@@ -141,6 +147,12 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = 
         processingStatus: 'completed',
       },
     });
+    req._auditMeta = {
+      action: 'studio.asset.created',
+      resource_type: 'studio_asset',
+      resource_id: row.id,
+      metadata: { name: row.name, kind: row.kind, storageKey: row.storage_key ?? null },
+    };
     return reply.send({ asset: deps.mapStudioAssetRowToDto(row) });
   });
 
@@ -157,6 +169,11 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     await deps.deleteStudioAsset(pool, req.authSession.workspaceId, req.params.assetId);
+    req._auditMeta = {
+      action: 'studio.asset.deleted',
+      resource_type: 'studio_asset',
+      resource_id: req.params.assetId,
+    };
     return reply.status(204).send();
   });
 
@@ -165,6 +182,12 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     const row = await deps.patchStudioAsset(pool, req.authSession.workspaceId, req.params.assetId, { name: req.body?.name });
+    req._auditMeta = {
+      action: 'studio.asset.updated',
+      resource_type: 'studio_asset',
+      resource_id: req.params.assetId,
+      metadata: { field: 'name', value: req.body?.name ?? null },
+    };
     return reply.send({ asset: row ? deps.mapStudioAssetRowToDto(row) : undefined });
   });
 
@@ -173,6 +196,12 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     const row = await deps.patchStudioAsset(pool, req.authSession.workspaceId, req.params.assetId, { folderId: req.body?.folderId });
+    req._auditMeta = {
+      action: 'studio.asset.updated',
+      resource_type: 'studio_asset',
+      resource_id: req.params.assetId,
+      metadata: { field: 'folderId', value: req.body?.folderId ?? null },
+    };
     return reply.send({ asset: row ? deps.mapStudioAssetRowToDto(row) : undefined });
   });
 
@@ -181,6 +210,12 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     const row = await deps.patchStudioAsset(pool, req.authSession.workspaceId, req.params.assetId, { qualityPreference: req.body?.qualityPreference });
+    req._auditMeta = {
+      action: 'studio.asset.updated',
+      resource_type: 'studio_asset',
+      resource_id: req.params.assetId,
+      metadata: { field: 'qualityPreference', value: req.body?.qualityPreference ?? null },
+    };
     return reply.send({ asset: row ? deps.mapStudioAssetRowToDto(row) : undefined });
   });
 
@@ -192,6 +227,12 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = 
       processingStatus: 'completed',
       processingMessage: null,
     });
+    req._auditMeta = {
+      action: 'studio.asset.updated',
+      resource_type: 'studio_asset',
+      resource_id: req.params.assetId,
+      metadata: { field: 'reprocess', value: 'completed' },
+    };
     return reply.send({ asset: row ? deps.mapStudioAssetRowToDto(row) : undefined });
   });
 
@@ -213,6 +254,12 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = 
       name: req.body?.name ?? 'Untitled folder',
       parentId: req.body?.parentId,
     });
+    req._auditMeta = {
+      action: 'studio.asset.folder_created',
+      resource_type: 'studio_asset_folder',
+      resource_id: row.id,
+      metadata: { name: row.name, parentId: row.parent_id ?? null },
+    };
     return reply.send({ folder: deps.mapStudioAssetFolderRowToDto(row) });
   });
 
@@ -221,6 +268,12 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     const row = await deps.renameStudioAssetFolder(pool, req.authSession.workspaceId, req.params.folderId, req.body?.name ?? 'Untitled folder');
+    req._auditMeta = {
+      action: 'studio.asset.folder_renamed',
+      resource_type: 'studio_asset_folder',
+      resource_id: req.params.folderId,
+      metadata: { name: req.body?.name ?? 'Untitled folder' },
+    };
     return reply.send({ folder: row ? deps.mapStudioAssetFolderRowToDto(row) : undefined });
   });
 
@@ -229,6 +282,11 @@ export function handleStudioAssetRoutes(app, { requireWorkspace, pool }, deps = 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     await deps.deleteStudioAssetFolder(pool, req.authSession.workspaceId, req.params.folderId);
+    req._auditMeta = {
+      action: 'studio.asset.folder_deleted',
+      resource_type: 'studio_asset_folder',
+      resource_id: req.params.folderId,
+    };
     return reply.status(204).send();
   });
 }
