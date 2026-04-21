@@ -39,7 +39,12 @@ async function run() {
     process.exit(1);
   }
 
-  const client = new Client({ connectionString: connStr });
+  const client = new Client({
+    connectionString: connStr,
+    ssl: process.env.DB_SSL === 'true'
+      ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
+      : false,
+  });
   await client.connect();
   console.log('Connected to database.\n');
 
