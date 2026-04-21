@@ -35,6 +35,42 @@ async function getWorkspaceOwnerId(pool, workspaceId) {
   return rows[0]?.user_id ?? null;
 }
 
+async function listStudioBrands(pool, workspaceId) {
+  const { rows } = await pool.query(
+    `SELECT id, name, primary_color, secondary_color, accent_color, logo_url, font_family
+     FROM studio_brands
+     WHERE workspace_id = $1
+     ORDER BY created_at ASC`,
+    [workspaceId],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    primaryColor: row.primary_color ?? undefined,
+    secondaryColor: row.secondary_color ?? undefined,
+    accentColor: row.accent_color ?? undefined,
+    logoUrl: row.logo_url ?? undefined,
+    fontFamily: row.font_family ?? undefined,
+  }));
+}
+
+async function listStudioInvites(pool, workspaceId) {
+  const { rows } = await pool.query(
+    `SELECT id, email, role, status, invited_at
+     FROM studio_invites
+     WHERE workspace_id = $1
+     ORDER BY invited_at DESC`,
+    [workspaceId],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    status: row.status,
+    invitedAt: row.invited_at instanceof Date ? row.invited_at.toISOString() : new Date(row.invited_at).toISOString(),
+  }));
+}
+
 export async function listStudioClientsForUser(pool, userId) {
   const { rows } = await pool.query(
     `SELECT w.id, w.name, w.slug, w.plan, w.logo_url, w.settings,
@@ -49,8 +85,11 @@ export async function listStudioClientsForUser(pool, userId) {
 
   const clients = [];
   for (const row of rows) {
-    const settings = normalizeWorkspaceSettings(row.settings);
     const ownerUserId = await getWorkspaceOwnerId(pool, row.id);
+    const [brands, invites] = await Promise.all([
+      listStudioBrands(pool, row.id),
+      listStudioInvites(pool, row.id),
+    ]);
     const { rows: members } = await pool.query(
       `SELECT user_id, role, COALESCE(joined_at, invited_at, NOW()) AS added_at
        FROM workspace_members
@@ -72,8 +111,8 @@ export async function listStudioClientsForUser(pool, userId) {
         role: mapDbRoleToWorkspaceRole(member.role),
         addedAt: member.added_at instanceof Date ? member.added_at.toISOString() : new Date(member.added_at).toISOString(),
       })),
-      invites: settings.invites,
-      brands: settings.brands,
+      invites,
+      brands,
       currentRole: mapDbRoleToWorkspaceRole(row.current_role),
     });
   }
@@ -127,6 +166,27 @@ export async function updateStudioClientSettings(pool, workspaceId, updater) {
 }
 
 export { mapDbRoleToWorkspaceRole, mapWorkspaceRoleToDbRole };
+
+export async function createStudioBrand(pool, { workspaceId, createdBy, name, primaryColor }) {
+  const { rows } = await pool.query(
+    `INSERT INTO studio_brands (
+       workspace_id, created_by, name, primary_color, secondary_color, accent_color, font_family
+     ) VALUES ($1, $2, $3, $4, '#0f172a', $4, 'Inter, system-ui, sans-serif')
+     RETURNING *`,
+    [workspaceId, createdBy ?? null, name, primaryColor ?? null],
+  );
+  return rows[0];
+}
+
+export async function createStudioInvite(pool, { workspaceId, email, role, invitedBy }) {
+  const { rows } = await pool.query(
+    `INSERT INTO studio_invites (workspace_id, email, role, status, invited_by, invited_at)
+     VALUES ($1, lower($2), $3, 'pending', $4, NOW())
+     RETURNING *`,
+    [workspaceId, email, role, invitedBy ?? null],
+  );
+  return rows[0];
+}
 
 export async function listStudioProjects(pool, workspaceId) {
   const { rows } = await pool.query(
@@ -258,6 +318,51 @@ export async function changeStudioProjectOwner(pool, workspaceId, projectId, own
      WHERE workspace_id = $1 AND id = $2
      RETURNING *`,
     [workspaceId, projectId, ownerUserId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function listStudioProjectVersions(pool, workspaceId, projectId) {
+  const project = await getStudioProject(pool, workspaceId, projectId);
+  if (!project) return [];
+  const { rows } = await pool.query(
+    `SELECT v.id, v.project_id, v.version_number, v.note, v.created_at, p.name AS project_name
+     FROM studio_project_versions v
+     JOIN studio_projects p ON p.id = v.project_id
+     WHERE v.project_id = $1
+     ORDER BY v.version_number DESC`,
+    [projectId],
+  );
+  return rows;
+}
+
+export async function saveStudioProjectVersion(pool, { workspaceId, projectId, state, note, createdBy }) {
+  const project = await getStudioProject(pool, workspaceId, projectId);
+  if (!project) return null;
+  const { rows: maxRows } = await pool.query(
+    `SELECT COALESCE(MAX(version_number), 0) AS current
+     FROM studio_project_versions
+     WHERE project_id = $1`,
+    [projectId],
+  );
+  const versionNumber = Number(maxRows[0]?.current ?? 0) + 1;
+  const { rows } = await pool.query(
+    `INSERT INTO studio_project_versions (project_id, version_number, note, state, created_by)
+     VALUES ($1, $2, $3, $4::jsonb, $5)
+     RETURNING *`,
+    [projectId, versionNumber, note ?? null, JSON.stringify(state ?? {}), createdBy ?? null],
+  );
+  return rows[0];
+}
+
+export async function loadStudioProjectVersion(pool, workspaceId, projectId, versionId) {
+  const project = await getStudioProject(pool, workspaceId, projectId);
+  if (!project) return null;
+  const { rows } = await pool.query(
+    `SELECT *
+     FROM studio_project_versions
+     WHERE project_id = $1 AND id = $2`,
+    [projectId, versionId],
   );
   return rows[0] ?? null;
 }

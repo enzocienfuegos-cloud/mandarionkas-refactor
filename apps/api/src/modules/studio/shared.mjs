@@ -1,10 +1,11 @@
 import { getUserById, inviteMember } from '@smx/db';
 import {
   createStudioClient,
+  createStudioBrand,
+  createStudioInvite,
   listStudioClientsForUser,
   mapDbRoleToWorkspaceRole,
   mapWorkspaceRoleToDbRole,
-  updateStudioClientSettings,
 } from '@smx/db';
 
 const ROLE_PERMISSIONS = {
@@ -86,20 +87,12 @@ export async function handleCreateStudioClient(pool, userId, name) {
 }
 
 export async function handleCreateStudioBrand(pool, workspaceId, { name, primaryColor }) {
-  await updateStudioClientSettings(pool, workspaceId, (current) => ({
-    ...current,
-    brands: [
-      ...current.brands,
-      {
-        id: `brand_${Math.random().toString(36).slice(2, 10)}`,
-        name,
-        primaryColor,
-        secondaryColor: '#0f172a',
-        accentColor: primaryColor,
-        fontFamily: 'Inter, system-ui, sans-serif',
-      },
-    ],
-  }));
+  await createStudioBrand(pool, {
+    workspaceId,
+    createdBy: null,
+    name,
+    primaryColor,
+  });
 }
 
 export async function handleInviteStudioMember(pool, workspaceId, actorUserId, { email, role }) {
@@ -108,21 +101,11 @@ export async function handleInviteStudioMember(pool, workspaceId, actorUserId, {
     role: mapWorkspaceRoleToDbRole(role),
     invited_by: actorUserId,
   });
-
-  await updateStudioClientSettings(pool, workspaceId, (current) => {
-    const invite = {
-      id: `invite_${Math.random().toString(36).slice(2, 10)}`,
-      email,
-      role,
-      status: 'pending',
-      invitedAt: new Date().toISOString(),
-    };
-
-    const remaining = current.invites.filter((item) => item.email.toLowerCase() !== email.toLowerCase());
-    return {
-      ...current,
-      invites: [...remaining, invite],
-    };
+  await createStudioInvite(pool, {
+    workspaceId,
+    email,
+    role,
+    invitedBy: actorUserId,
   });
 }
 
