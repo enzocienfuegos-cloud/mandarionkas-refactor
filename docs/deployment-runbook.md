@@ -20,6 +20,7 @@ Environment variables:
 - `VITE_ASSETS_BASE_URL=https://app-staging.duskplatform.co`
 - `VITE_APP_ENV=staging`
 - `VITE_STUDIO_URL=https://studio-staging.duskplatform.co`
+- `VITE_TAGS_BASE_URL=https://api-staging.duskplatform.co`
 
 Routing:
 
@@ -44,6 +45,11 @@ Environment variables:
 - `NODE_ENV=production`
 - `SESSION_COOKIE_DOMAIN=` (leave empty unless a cross-subdomain cookie override is explicitly required)
 - `SESSION_COOKIE_SAME_SITE=lax`
+- `R2_ENDPOINT` or `S3_ENDPOINT` (required for real asset uploads)
+- `R2_BUCKET` or `S3_BUCKET` (required for real asset uploads)
+- `R2_ACCESS_KEY_ID` or `AWS_ACCESS_KEY_ID` (required for real asset uploads)
+- `R2_SECRET_ACCESS_KEY` or `AWS_SECRET_ACCESS_KEY` (required for real asset uploads)
+- `ASSETS_PUBLIC_BASE_URL` (required for a public asset URL after upload)
 
 Post-deploy operations:
 
@@ -120,8 +126,21 @@ That flow will:
 - save a project version
 - create an asset folder
 - create a remote asset record
+- create and validate serving for smoke VAST and display tags
 - move the asset into the folder
 - clean up the asset, folder, and project
+
+To additionally require real signed-upload support, add `STAGING_EXPECT_UPLOADS=true`:
+
+```bash
+STAGING_SMOKE_EMAIL=admin@smxstudio.io \
+STAGING_SMOKE_PASSWORD='Admin1234!' \
+STAGING_SMOKE_WRITE=true \
+STAGING_EXPECT_UPLOADS=true \
+npm run smoke:staging
+```
+
+That flag makes the smoke fail unless `/v1/assets/upload-url` returns a signed upload payload instead of the expected `503` fallback for environments without object storage.
 
 Optional overrides:
 

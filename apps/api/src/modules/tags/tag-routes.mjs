@@ -7,6 +7,29 @@ import {
   getTagWithCreatives,
 } from '@smx/db/tags';
 
+function toApiTag(tag) {
+  if (!tag) return null;
+  return {
+    id: tag.id,
+    name: tag.name,
+    campaignId: tag.campaign_id ?? null,
+    campaign: tag.campaign_id ? { id: tag.campaign_id, name: tag.campaign_name ?? '' } : null,
+    format: tag.format === 'vast' ? 'VAST' : tag.format,
+    status: tag.status,
+    clickUrl: tag.click_url ?? '',
+    impressionUrl: tag.impression_url ?? '',
+    description: tag.description ?? '',
+    targeting: tag.targeting ?? {},
+    frequencyCap: tag.frequency_cap ?? null,
+    frequencyCapWindow: tag.frequency_cap_window ?? null,
+    geoTargets: tag.geo_targets ?? [],
+    deviceTargets: tag.device_targets ?? [],
+    createdAt: tag.created_at,
+    updatedAt: tag.updated_at,
+    creatives: Array.isArray(tag.creatives) ? tag.creatives : undefined,
+  };
+}
+
 export function handleTagRoutes(app, { requireWorkspace, pool }) {
   // GET /v1/tags
   app.get('/v1/tags', { preHandler: requireWorkspace }, async (req, reply) => {
@@ -22,7 +45,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       search,
     });
 
-    return reply.send({ tags });
+    return reply.send({ tags: tags.map(toApiTag) });
   });
 
   // POST /v1/tags
@@ -49,7 +72,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       device_targets: deviceTargets,
     });
 
-    return reply.status(201).send({ tag });
+    return reply.status(201).send({ tag: toApiTag(tag) });
   });
 
   // GET /v1/tags/:id
@@ -62,7 +85,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
 
-    return reply.send({ tag });
+    return reply.send({ tag: toApiTag(tag) });
   });
 
   // PUT /v1/tags/:id
@@ -97,7 +120,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
 
-    return reply.send({ tag });
+    return reply.send({ tag: toApiTag(tag) });
   });
 
   // DELETE /v1/tags/:id

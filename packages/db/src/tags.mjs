@@ -1,5 +1,18 @@
-const VALID_STATUSES = ['active', 'paused', 'archived'];
+const VALID_STATUSES = ['draft', 'active', 'paused', 'archived'];
 const VALID_FORMATS  = ['vast', 'display', 'native'];
+
+function normalizeTagFormat(format) {
+  if (!format) return null;
+  const normalized = String(format).trim().toLowerCase();
+  if (normalized === 'vast_video') return 'vast';
+  return VALID_FORMATS.includes(normalized) ? normalized : null;
+}
+
+function normalizeTagStatus(status) {
+  if (!status) return null;
+  const normalized = String(status).trim().toLowerCase();
+  return VALID_STATUSES.includes(normalized) ? normalized : null;
+}
 
 export async function listTags(pool, workspaceId, opts = {}) {
   const { status, format, campaignId, limit = 100, offset = 0, search } = opts;
@@ -7,11 +20,11 @@ export async function listTags(pool, workspaceId, opts = {}) {
   const conditions = ['t.workspace_id = $1'];
 
   if (status) {
-    params.push(status);
+    params.push(normalizeTagStatus(status) ?? status);
     conditions.push(`t.status = $${params.length}`);
   }
   if (format) {
-    params.push(format);
+    params.push(normalizeTagFormat(format) ?? format);
     conditions.push(`t.format = $${params.length}`);
   }
   if (campaignId) {
@@ -65,6 +78,9 @@ export async function createTag(pool, workspaceId, data) {
     frequency_cap_window = null, geo_targets = [], device_targets = [],
   } = data;
 
+  const normalizedFormat = normalizeTagFormat(format) ?? 'display';
+  const normalizedStatus = normalizeTagStatus(status) ?? 'active';
+
   const { rows } = await pool.query(
     `INSERT INTO ad_tags
        (workspace_id, campaign_id, name, format, status, click_url, impression_url,
@@ -72,7 +88,7 @@ export async function createTag(pool, workspaceId, data) {
         geo_targets, device_targets)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
      RETURNING *`,
-    [workspaceId, campaign_id, name, format, status, click_url, impression_url,
+    [workspaceId, campaign_id, name, normalizedFormat, normalizedStatus, click_url, impression_url,
      tag_code, description, JSON.stringify(targeting), frequency_cap,
      frequency_cap_window, geo_targets, device_targets],
   );
@@ -89,7 +105,11 @@ export async function updateTag(pool, workspaceId, tagId, data) {
   const params = [workspaceId, tagId];
   for (const key of allowed) {
     if (key in data) {
-      params.push(key === 'targeting' ? JSON.stringify(data[key]) : data[key]);
+      let value = data[key];
+      if (key === 'targeting') value = JSON.stringify(value);
+      if (key === 'format') value = normalizeTagFormat(value) ?? value;
+      if (key === 'status') value = normalizeTagStatus(value) ?? value;
+      params.push(value);
       setClauses.push(`${key} = $${params.length}`);
     }
   }

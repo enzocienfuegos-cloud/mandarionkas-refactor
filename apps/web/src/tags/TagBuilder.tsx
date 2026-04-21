@@ -29,15 +29,27 @@ const emptyForm: TagForm = {
 
 const STATUSES: TagStatus[] = ['draft', 'active', 'paused', 'archived'];
 
+function resolveTagServingBaseUrl() {
+  const candidates = [
+    import.meta.env.VITE_TAGS_BASE_URL,
+    import.meta.env.VITE_API_BASE_URL,
+    typeof window !== 'undefined' ? window.location.origin : '',
+  ];
+
+  return (candidates.find((candidate) => candidate?.trim()) ?? '').replace(/\/+$/, '');
+}
+
 function buildTagSnippet(tag: { id: string; format: TagFormat; name: string }): string {
+  const servingBaseUrl = resolveTagServingBaseUrl();
+
   if (tag.format === 'VAST') {
-    return `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <!-- VAST Wrapper Tag -->\n  <Ad id="${tag.id}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[https://tags.smxstudio.io/v1/vast/${tag.id}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
+    return `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <!-- VAST Wrapper Tag -->\n  <Ad id="${tag.id}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[${servingBaseUrl}/v1/vast/tags/${tag.id}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
   }
   if (tag.format === 'display') {
-    return `<script src="https://tags.smxstudio.io/v1/js/${tag.id}.js" async></script>\n<noscript>\n  <img src="https://tags.smxstudio.io/v1/px/${tag.id}" width="1" height="1" />\n</noscript>`;
+    return `<script src="${servingBaseUrl}/v1/vast/display/${tag.id}" async></script>\n<noscript>\n  <img src="${servingBaseUrl}/track/impression/${tag.id}" width="1" height="1" />\n</noscript>`;
   }
-  // native
-  return `<script>\n  window.SMX = window.SMX || {};\n  window.SMX.native = window.SMX.native || [];\n  window.SMX.native.push({ tagId: "${tag.id}", format: "native" });\n</script>\n<script src="https://tags.smxstudio.io/v1/native.js" async></script>`;
+  // native currently reuses the JS serving endpoint until a dedicated native renderer exists.
+  return `<script>\n  window.SMX = window.SMX || {};\n  window.SMX.native = window.SMX.native || [];\n  window.SMX.native.push({ tagId: "${tag.id}", format: "native" });\n</script>\n<script src="${servingBaseUrl}/v1/vast/display/${tag.id}" async></script>`;
 }
 
 export default function TagBuilder() {

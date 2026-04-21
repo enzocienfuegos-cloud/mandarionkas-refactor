@@ -4,6 +4,7 @@ const STUDIO_URL = (process.env.STAGING_STUDIO_URL ?? 'https://studio-staging.du
 const SMOKE_EMAIL = process.env.STAGING_SMOKE_EMAIL ?? '';
 const SMOKE_PASSWORD = process.env.STAGING_SMOKE_PASSWORD ?? '';
 const SMOKE_WRITE = process.env.STAGING_SMOKE_WRITE === 'true';
+const EXPECT_UPLOADS = process.env.STAGING_EXPECT_UPLOADS === 'true';
 
 async function fetchText(url, options = {}) {
   const response = await fetch(url, { redirect: 'follow', ...options });
@@ -122,6 +123,10 @@ function buildSmokeProjectState(label) {
   };
 }
 
+function buildSmokeTagName(stamp, format) {
+  return `Smoke ${format} Tag ${stamp}`;
+}
+
 async function main() {
   const web = await fetchText(`${WEB_URL}/`);
   assert(web.status === 200, `Expected ${WEB_URL}/ to return 200, got ${web.status}`);
@@ -180,6 +185,7 @@ async function main() {
       const projectName = `Smoke Project ${stamp}`;
       const folderName = `Smoke Folder ${stamp}`;
       const assetName = `Smoke Asset ${stamp}`;
+      const createdTagIds = [];
 
       const savedProject = await fetchJson(`${API_URL}/v1/projects/save`, {
         method: 'POST',
@@ -244,6 +250,66 @@ async function main() {
       });
       assert(assetMove.status === 200, `Expected asset move to return 200, got ${assetMove.status}: ${assetMove.body}`);
 
+      const uploadPrep = await fetchJson(`${API_URL}/v1/assets/upload-url`, {
+        method: 'POST',
+        headers: { Origin: STUDIO_URL },
+        body: {
+          filename: 'smoke-upload.png',
+          requestedName: 'Smoke Upload',
+          mimeType: 'image/png',
+          kind: 'image',
+          sizeBytes: 1024,
+          accessScope: 'client',
+        },
+        cookieJar,
+      });
+      if (EXPECT_UPLOADS) {
+        assert(uploadPrep.status === 200, `Expected upload-url to return 200 when uploads are required, got ${uploadPrep.status}: ${uploadPrep.body}`);
+        assert(uploadPrep.json?.upload?.uploadUrl, 'Expected upload-url response to include a signed uploadUrl.');
+        assert(uploadPrep.json?.upload?.publicUrl, 'Expected upload-url response to include a publicUrl.');
+      } else {
+        assert(
+          uploadPrep.status === 200 || uploadPrep.status === 503,
+          `Expected upload-url to return 200 or 503, got ${uploadPrep.status}: ${uploadPrep.body}`,
+        );
+      }
+
+      const createTag = async (format) => {
+        const response = await fetchJson(`${API_URL}/v1/tags`, {
+          method: 'POST',
+          headers: { Origin: WEB_URL },
+          body: {
+            name: buildSmokeTagName(stamp, format),
+            campaignId: null,
+            format,
+            status: 'active',
+          },
+          cookieJar,
+        });
+        assert(response.status === 201, `Expected tag create (${format}) to return 201, got ${response.status}: ${response.body}`);
+        const tagId = response.json?.tag?.id;
+        assert(tagId, `Expected tag create (${format}) to include an id.`);
+        createdTagIds.push(tagId);
+        return tagId;
+      };
+
+      const vastTagId = await createTag('VAST');
+      const displayTagId = await createTag('display');
+
+      const vastServe = await fetchText(`${API_URL}/v1/vast/tags/${vastTagId}`, {
+        headers: { Cookie: cookieJar.header() },
+      });
+      assert(vastServe.status === 200, `Expected VAST serve to return 200, got ${vastServe.status}: ${vastServe.body}`);
+      assert((vastServe.headers.get('content-type') ?? '').includes('application/xml'), 'Expected VAST serve content-type to be application/xml.');
+      assert(vastServe.body.includes(`/track/impression/${vastTagId}`), 'Expected VAST XML to include impression tracking.');
+
+      const displayServe = await fetchText(`${API_URL}/v1/vast/display/${displayTagId}`, {
+        headers: { Cookie: cookieJar.header() },
+      });
+      assert(displayServe.status === 200, `Expected display serve to return 200, got ${displayServe.status}: ${displayServe.body}`);
+      assert((displayServe.headers.get('content-type') ?? '').includes('application/javascript'), 'Expected display serve content-type to be JavaScript.');
+      assert(displayServe.body.includes(`/track/impression/${displayTagId}`), 'Expected display snippet to include impression tracking.');
+
       const assetDelete = await fetchJson(`${API_URL}/v1/assets/${assetId}`, {
         method: 'DELETE',
         headers: { Origin: STUDIO_URL },
@@ -264,6 +330,15 @@ async function main() {
         cookieJar,
       });
       assert(projectDelete.status === 204, `Expected project delete to return 204, got ${projectDelete.status}: ${projectDelete.body}`);
+
+      for (const tagId of createdTagIds) {
+        const tagDelete = await fetchJson(`${API_URL}/v1/tags/${tagId}`, {
+          method: 'DELETE',
+          headers: { Origin: WEB_URL },
+          cookieJar,
+        });
+        assert(tagDelete.status === 204, `Expected tag delete to return 204, got ${tagDelete.status}: ${tagDelete.body}`);
+      }
     }
   }
 
@@ -276,6 +351,9 @@ async function main() {
   }
   if (SMOKE_WRITE) {
     console.log('- write smoke: enabled');
+  }
+  if (EXPECT_UPLOADS) {
+    console.log('- upload smoke: required');
   }
 }
 
