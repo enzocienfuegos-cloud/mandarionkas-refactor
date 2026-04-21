@@ -16,26 +16,24 @@
  */
 
 import 'dotenv/config';
-import { createHash, randomBytes } from 'node:crypto';
 import pg from 'pg';
+import { hashPassword } from '@smx/db';
 
 const { Client } = pg;
 
-function sha256(s) {
-  return createHash('sha256').update(s).digest('hex');
-}
-
-// Minimal password hash — in production the app uses bcrypt via auth.mjs
-// Here we store a marker so the login route can detect and reject seed accounts
-// unless you replace with a real bcrypt hash.
-const ADMIN_PASSWORD_HASH = sha256('Admin1234!-seed-placeholder');
-
 async function run() {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DB_SSL === 'true'
+      ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
+      : false,
+  });
   await client.connect();
   console.log('Connected. Seeding…\n');
 
   try {
+    const adminPasswordHash = await hashPassword('Admin1234!');
+
     // ── Workspace ───────────────────────────────────────────────────────────
     const wsResult = await client.query(`
       INSERT INTO workspaces (id, name, slug, plan)
@@ -48,11 +46,13 @@ async function run() {
 
     // ── Admin user ──────────────────────────────────────────────────────────
     const userResult = await client.query(`
-      INSERT INTO users (id, email, password_hash, first_name, last_name)
-      VALUES (gen_random_uuid(), 'admin@smxstudio.io', $1, 'Admin', 'User')
-      ON CONFLICT (email) DO UPDATE SET first_name = EXCLUDED.first_name
+      INSERT INTO users (id, email, password_hash, display_name, avatar_url)
+      VALUES (gen_random_uuid(), 'admin@smxstudio.io', $1, 'Admin User', NULL)
+      ON CONFLICT (email) DO UPDATE
+        SET display_name = EXCLUDED.display_name,
+            password_hash = EXCLUDED.password_hash
       RETURNING id, email
-    `, [ADMIN_PASSWORD_HASH]);
+    `, [adminPasswordHash]);
     const user = userResult.rows[0];
     console.log(`  ✓  Admin user: ${user.email}  (${user.id})`);
 
@@ -134,12 +134,10 @@ async function run() {
 
     console.log('\n─────────────────────────────────────────────');
     console.log('  Seed complete. Login credentials:');
-    console.log('    URL:      http://localhost:5173');
+    console.log('    URL:      https://app-staging.duskplatform.co');
     console.log('    Email:    admin@smxstudio.io');
     console.log('    Password: Admin1234!');
-    console.log('\n  ⚠  Note: seed password uses a placeholder hash.');
-    console.log('     Run the app and use the login endpoint to create');
-    console.log('     a real bcrypt-hashed account for production.\n');
+    console.log('\n  ✓  Password stored with bcrypt hash.\n');
 
   } finally {
     await client.end();
