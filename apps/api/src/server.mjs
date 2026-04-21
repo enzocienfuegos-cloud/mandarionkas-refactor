@@ -35,6 +35,7 @@ import { handleVastValidatorRoutes }   from './modules/vast/validator-routes.mjs
 
 export async function buildApp(opts = {}) {
   const app = Fastify({
+    trustProxy: true,
     logger: {
       level: process.env.LOG_LEVEL ?? 'info',
       transport: process.env.NODE_ENV === 'development'
