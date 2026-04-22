@@ -1,12 +1,94 @@
+function metricsPatchForAction(action) {
+  switch (action) {
+    case 'opened':
+      return { opens: 1 };
+    case 'created':
+    case 'saved':
+      return { saves: 1 };
+    case 'version_saved':
+      return { versionSaves: 1 };
+    case 'duplicated':
+      return { duplicates: 1 };
+    case 'archived':
+      return { archives: 1 };
+    case 'restored':
+      return { restores: 1 };
+    case 'deleted':
+      return { deletes: 1 };
+    case 'owner_changed':
+      return { ownerChanges: 1 };
+    default:
+      return null;
+  }
+}
+
+export async function bumpStudioProjectMetricDay(pool, { workspaceId, projectId, actorUserId = null, action, createdAt = null }) {
+  const patch = metricsPatchForAction(action);
+  if (!workspaceId || !projectId || !actorUserId || !patch) return;
+  const metricDate = createdAt ? new Date(createdAt) : new Date();
+  const metricDateIso = Number.isNaN(metricDate.getTime())
+    ? new Date().toISOString().slice(0, 10)
+    : metricDate.toISOString().slice(0, 10);
+
+  try {
+    await pool.query(
+      `INSERT INTO studio_project_metrics_daily (
+         metric_date, workspace_id, project_id, actor_user_id,
+         opens_count, saves_count, version_saves_count,
+         duplicate_count, archive_count, restore_count,
+         delete_count, owner_change_count
+       ) VALUES (
+         $1::date, $2, $3, $4,
+         $5, $6, $7,
+         $8, $9, $10,
+         $11, $12
+       )
+       ON CONFLICT (metric_date, workspace_id, project_id, actor_user_id)
+       DO UPDATE SET
+         opens_count = studio_project_metrics_daily.opens_count + EXCLUDED.opens_count,
+         saves_count = studio_project_metrics_daily.saves_count + EXCLUDED.saves_count,
+         version_saves_count = studio_project_metrics_daily.version_saves_count + EXCLUDED.version_saves_count,
+         duplicate_count = studio_project_metrics_daily.duplicate_count + EXCLUDED.duplicate_count,
+         archive_count = studio_project_metrics_daily.archive_count + EXCLUDED.archive_count,
+         restore_count = studio_project_metrics_daily.restore_count + EXCLUDED.restore_count,
+         delete_count = studio_project_metrics_daily.delete_count + EXCLUDED.delete_count,
+         owner_change_count = studio_project_metrics_daily.owner_change_count + EXCLUDED.owner_change_count`,
+      [
+        metricDateIso,
+        workspaceId,
+        projectId,
+        actorUserId,
+        patch.opens ?? 0,
+        patch.saves ?? 0,
+        patch.versionSaves ?? 0,
+        patch.duplicates ?? 0,
+        patch.archives ?? 0,
+        patch.restores ?? 0,
+        patch.deletes ?? 0,
+        patch.ownerChanges ?? 0,
+      ],
+    );
+  } catch {
+    // metric materialization must not break request flow
+  }
+}
+
 export async function recordStudioProjectActivity(pool, { workspaceId, projectId, actorUserId = null, action, metadata = {} }) {
   if (!workspaceId || !projectId || !action) return;
   try {
-    await pool.query(
+    const result = await pool.query(
       `INSERT INTO studio_project_activity_events (
          workspace_id, project_id, actor_user_id, action, metadata
        ) VALUES ($1, $2, $3, $4, $5::jsonb)`,
       [workspaceId, projectId, actorUserId, action, JSON.stringify(metadata ?? {})],
     );
+    await bumpStudioProjectMetricDay(pool, {
+      workspaceId,
+      projectId,
+      actorUserId,
+      action,
+      createdAt: result.rows?.[0]?.created_at ?? null,
+    });
   } catch {
     // activity logging must never break primary request flow
   }
@@ -52,10 +134,10 @@ export async function getStudioHubOverview(pool, userId) {
      ),
      activity_counts AS (
        SELECT workspace_id,
-              COUNT(*) FILTER (WHERE action = 'opened')::int AS open_count,
-              COUNT(*) FILTER (WHERE action IN ('created', 'saved'))::int AS save_count,
-              COUNT(*) FILTER (WHERE action = 'version_saved')::int AS version_save_count
-       FROM studio_project_activity_events
+              SUM(opens_count)::int AS open_count,
+              SUM(saves_count)::int AS save_count,
+              SUM(version_saves_count)::int AS version_save_count
+       FROM studio_project_metrics_daily
        WHERE workspace_id = ANY($1::uuid[])
        GROUP BY workspace_id
      )
@@ -87,16 +169,16 @@ export async function getStudioHubOverview(pool, userId) {
             p.canvas_preset_id,
             p.scene_count,
             p.widget_count,
-            COUNT(*) FILTER (WHERE e.action = 'opened')::int AS open_count
+            COALESCE(SUM(m.opens_count), 0)::int AS open_count
      FROM studio_projects p
      JOIN workspaces w ON w.id = p.workspace_id
      LEFT JOIN users u ON u.id = p.owner_user_id
-     LEFT JOIN studio_project_activity_events e
-       ON e.project_id = p.id
-      AND e.workspace_id = p.workspace_id
+     LEFT JOIN studio_project_metrics_daily m
+       ON m.project_id = p.id
+      AND m.workspace_id = p.workspace_id
      WHERE p.workspace_id = ANY($1::uuid[])
      GROUP BY p.id, w.name, u.display_name
-     HAVING COUNT(*) FILTER (WHERE e.action = 'opened') > 0
+     HAVING COALESCE(SUM(m.opens_count), 0) > 0
      ORDER BY open_count DESC, p.updated_at DESC
      LIMIT 8`,
     [workspaceIds],
@@ -133,10 +215,10 @@ export async function getStudioHubOverview(pool, userId) {
      ),
      summary AS (
        SELECT
-         COUNT(*) FILTER (WHERE action = 'opened')::int AS total_open_events,
-         COUNT(*) FILTER (WHERE action IN ('created', 'saved'))::int AS total_save_events,
-         COUNT(*) FILTER (WHERE action = 'version_saved')::int AS total_version_save_events
-       FROM studio_project_activity_events
+         COALESCE(SUM(opens_count), 0)::int AS total_open_events,
+         COALESCE(SUM(saves_count), 0)::int AS total_save_events,
+         COALESCE(SUM(version_saves_count), 0)::int AS total_version_save_events
+       FROM studio_project_metrics_daily
        WHERE workspace_id = ANY($1::uuid[])
      )
      SELECT summary.total_open_events,
