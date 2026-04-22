@@ -2933,6 +2933,12 @@
   justify-content: flex-end;
 }
 
+.top-actions-cluster .compact-action.is-active {
+  border-color: rgba(245,165,36,0.42);
+  background: rgba(245,165,36,0.14);
+  color: rgba(255,240,214,0.96);
+}
+
 .top-target-switch {
   display: inline-flex;
   align-items: center;
@@ -2972,6 +2978,73 @@
 
 .top-save-button {
   min-width: 110px;
+}
+
+.top-export-menu {
+  position: relative;
+}
+
+.top-export-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 200;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(120,144,168,0.24);
+  background: rgba(12,18,28,0.98);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+  backdrop-filter: blur(12px);
+}
+
+.export-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.export-menu-item.is-active {
+  background: rgba(245,165,36,0.14);
+  color: rgba(255,240,214,0.96);
+}
+
+.export-menu-check {
+  opacity: 0.72;
+  font-weight: 700;
+}
+
+.top-save-dot {
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+
+.top-save-dot--saving {
+  background: var(--accent);
+  animation: top-save-pulse 1s infinite;
+}
+
+.top-save-dot--saved {
+  background: var(--accent-2);
+}
+
+.top-save-dot--error {
+  background: var(--danger);
+}
+
+@keyframes top-save-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.42; }
 }
 
 .status-chip-shell {

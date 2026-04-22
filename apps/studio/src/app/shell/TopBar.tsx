@@ -1,6 +1,6 @@
 import { StatusChip } from './StatusChip';
 import { TopBarProjectName } from './topbar/TopBarProjectName';
-import { TopBarPrimaryActions } from './topbar/TopBarPrimaryActions';
+import { TopBarActions } from './topbar/TopBarActions';
 import { useTopBarController } from './topbar/use-top-bar-controller';
 
 type TopBarProps = {
@@ -24,7 +24,7 @@ export function TopBar({ onOpenWorkspaceHub, onOpenAssets }: TopBarProps): JSX.E
         <button className="ghost compact-action" type="button" onClick={onOpenAssets}>Elements</button>
         <StatusChip controller={controller} />
       </div>
-      <TopBarPrimaryActions controller={controller} />
+      <TopBarActions controller={controller} />
     </header>
   );
 }

@@ -3,24 +3,7 @@ import { buildDiagnosticSummary } from '../../../domain/document/diagnostics';
 import { validateExport } from '../../../domain/document/export-validation';
 import { buildExportHandoff, buildExportPreflight, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundle, triggerExportZipBundleResolved } from '../../../export/engine';
 import type { ExportReadinessController, TopBarStudioSnapshot } from './top-bar-types';
-
-function channelExportLabel(target: TopBarStudioSnapshot['state']['document']['metadata']['release']['targetChannel']): string {
-  switch (target) {
-    case 'mraid':
-      return 'MRAID ZIP';
-    case 'google-display':
-      return 'Google Display ZIP';
-    case 'gam-html5':
-      return 'GAM HTML5 ZIP';
-    case 'meta-story':
-      return 'Meta Story ZIP';
-    case 'tiktok-vertical':
-      return 'TikTok Vertical ZIP';
-    case 'generic-html5':
-    default:
-      return 'IAB HTML5 ZIP';
-  }
-}
+import { channelExportLabel } from './export-channels';
 
 export function useExportReadinessController(snapshot: TopBarStudioSnapshot): ExportReadinessController {
   const [resolvedZipStatus, setResolvedZipStatus] = useState<ExportReadinessController['resolvedZipStatus']>('idle');
