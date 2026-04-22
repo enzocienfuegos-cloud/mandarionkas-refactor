@@ -76,14 +76,14 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
           <small>{stats.archivedProjects} archived · {stats.sharedProjects} shared</small>
         </article>
         <article className="workspace-hub-stat-card">
-          <span className="workspace-hub-stat-label">Avg widgets / banner</span>
-          <strong>{efficiency.averageWidgetsPerProject}</strong>
-          <small>Proxy signal until time-tracking lands</small>
+          <span className="workspace-hub-stat-label">Avg open → save</span>
+          <strong>{efficiency.averageOpenToSaveMinutes == null ? '—' : `${efficiency.averageOpenToSaveMinutes}m`}</strong>
+          <small>{efficiency.totalOpenEvents} opens · {efficiency.totalSaveEvents} saves</small>
         </article>
         <article className="workspace-hub-stat-card">
-          <span className="workspace-hub-stat-label">Avg scenes / project</span>
-          <strong>{efficiency.averageScenesPerProject}</strong>
-          <small>Busiest client: {efficiency.busiestClientName}</small>
+          <span className="workspace-hub-stat-label">Versions / throughput</span>
+          <strong>{efficiency.totalVersionSaveEvents}</strong>
+          <small>{efficiency.averageScenesPerProject} avg scenes · busiest client: {efficiency.busiestClientName}</small>
         </article>
       </section>
 

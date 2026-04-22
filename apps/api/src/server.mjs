@@ -34,6 +34,7 @@ import { handlePixelRoutes }           from './modules/pixels/pixel-routes.mjs';
 import { handleVastRoutes }            from './modules/vast/routes.mjs';
 import { handleVastValidatorRoutes }   from './modules/vast/validator-routes.mjs';
 import { handleStudioClientRoutes }    from './modules/studio/client-routes.mjs';
+import { handleStudioHubRoutes }       from './modules/studio/hub-routes.mjs';
 import { handleStudioProjectRoutes }   from './modules/studio/project-routes.mjs';
 import { handleStudioAssetRoutes }     from './modules/studio/asset-routes.mjs';
 
@@ -159,6 +160,7 @@ export async function buildApp(opts = {}) {
   handleWorkspaceRoutes(app, ctx);
   handleTeamRoutes(app, ctx);
   handleStudioClientRoutes(app, ctx);
+  handleStudioHubRoutes(app, ctx);
   handleStudioProjectRoutes(app, ctx);
   handleStudioAssetRoutes(app, ctx);
   handleApiKeyRoutes(app, { requireWorkspace, pool });

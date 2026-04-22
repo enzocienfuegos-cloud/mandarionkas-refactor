@@ -7,6 +7,7 @@ import {
   listStudioProjects,
   loadStudioProjectVersion,
   mapStudioProjectRowToDto,
+  recordStudioProjectActivity,
   saveStudioProject,
   saveStudioProjectVersion,
   updateStudioProjectArchiveState,
@@ -22,6 +23,7 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
   listStudioProjects,
   loadStudioProjectVersion,
   mapStudioProjectRowToDto,
+  recordStudioProjectActivity,
   saveStudioProject,
   saveStudioProjectVersion,
   updateStudioProjectArchiveState,
@@ -48,6 +50,13 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
       projectId,
       state,
     });
+    await deps.recordStudioProjectActivity(pool, {
+      workspaceId: req.authSession.workspaceId,
+      projectId: row.id,
+      actorUserId: req.authSession.userId,
+      action: projectId ? 'saved' : 'created',
+      metadata: { sceneCount: row.scene_count, widgetCount: row.widget_count },
+    });
     req._auditMeta = {
       action: 'studio.project.saved',
       resource_type: 'studio_project',
@@ -62,6 +71,14 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     const row = await deps.getStudioProject(pool, req.authSession.workspaceId, req.params.projectId);
+    if (row) {
+      await deps.recordStudioProjectActivity(pool, {
+        workspaceId: req.authSession.workspaceId,
+        projectId: req.params.projectId,
+        actorUserId: req.authSession.userId,
+        action: 'opened',
+      });
+    }
     return reply.send({ state: row?.state ?? null });
   });
 
@@ -70,6 +87,12 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     await deps.deleteStudioProject(pool, req.authSession.workspaceId, req.params.projectId);
+    await deps.recordStudioProjectActivity(pool, {
+      workspaceId: req.authSession.workspaceId,
+      projectId: req.params.projectId,
+      actorUserId: req.authSession.userId,
+      action: 'deleted',
+    });
     req._auditMeta = {
       action: 'studio.project.deleted',
       resource_type: 'studio_project',
@@ -84,6 +107,13 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
     }
     const row = await deps.duplicateStudioProject(pool, req.authSession.workspaceId, req.params.projectId, req.authSession.userId);
     if (!row) return reply.status(404).send({ message: 'Project not found' });
+    await deps.recordStudioProjectActivity(pool, {
+      workspaceId: req.authSession.workspaceId,
+      projectId: row.id,
+      actorUserId: req.authSession.userId,
+      action: 'duplicated',
+      metadata: { sourceProjectId: req.params.projectId },
+    });
     req._auditMeta = {
       action: 'studio.project.duplicated',
       resource_type: 'studio_project',
@@ -98,6 +128,12 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     await deps.updateStudioProjectArchiveState(pool, req.authSession.workspaceId, req.params.projectId, true);
+    await deps.recordStudioProjectActivity(pool, {
+      workspaceId: req.authSession.workspaceId,
+      projectId: req.params.projectId,
+      actorUserId: req.authSession.userId,
+      action: 'archived',
+    });
     req._auditMeta = {
       action: 'studio.project.archived',
       resource_type: 'studio_project',
@@ -111,6 +147,12 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
       return reply.status(403).send({ message: 'Insufficient permissions' });
     }
     await deps.updateStudioProjectArchiveState(pool, req.authSession.workspaceId, req.params.projectId, false);
+    await deps.recordStudioProjectActivity(pool, {
+      workspaceId: req.authSession.workspaceId,
+      projectId: req.params.projectId,
+      actorUserId: req.authSession.userId,
+      action: 'restored',
+    });
     req._auditMeta = {
       action: 'studio.project.restored',
       resource_type: 'studio_project',
@@ -126,6 +168,13 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
     const { ownerUserId } = req.body ?? {};
     if (!ownerUserId) return reply.status(400).send({ message: 'ownerUserId is required' });
     await deps.changeStudioProjectOwner(pool, req.authSession.workspaceId, req.params.projectId, ownerUserId);
+    await deps.recordStudioProjectActivity(pool, {
+      workspaceId: req.authSession.workspaceId,
+      projectId: req.params.projectId,
+      actorUserId: req.authSession.userId,
+      action: 'owner_changed',
+      metadata: { ownerUserId },
+    });
     req._auditMeta = {
       action: 'studio.project.owner_changed',
       resource_type: 'studio_project',
@@ -168,6 +217,13 @@ export function handleStudioProjectRoutes(app, { requireWorkspace, pool }, deps 
       createdBy: req.authSession.userId,
     });
     if (!row) return reply.status(404).send({ message: 'Project not found' });
+    await deps.recordStudioProjectActivity(pool, {
+      workspaceId: req.authSession.workspaceId,
+      projectId: req.params.projectId,
+      actorUserId: req.authSession.userId,
+      action: 'version_saved',
+      metadata: { versionNumber: row.version_number, note: row.note ?? null },
+    });
     req._auditMeta = {
       action: 'studio.project.version_saved',
       resource_type: 'studio_project_version',

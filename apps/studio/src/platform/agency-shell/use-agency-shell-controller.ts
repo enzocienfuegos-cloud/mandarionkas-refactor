@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTopBarController } from '../../app/shell/topbar/use-top-bar-controller';
 import { getProjectInsightMap, listFavoriteProjects, listMostVisitedProjects, listRecentProjects, recordProjectVisit, toggleFavoriteProject } from './project-insights-store';
 import { readAgencyShellPreferences, writeAgencyShellPreferences, type AgencyProjectFilter, type AgencySortMode } from './agency-shell-preferences';
+import { fetchAgencyHubOverview, type AgencyHubOverview } from './api';
 
 export function useAgencyShellController() {
   const topBar = useTopBarController();
@@ -10,6 +11,7 @@ export function useAgencyShellController() {
   const [insightTick, setInsightTick] = useState(0);
   const [preferences, setPreferences] = useState(() => readAgencyShellPreferences());
   const [page, setPage] = useState(1);
+  const [remoteOverview, setRemoteOverview] = useState<AgencyHubOverview | null>(null);
   const pageSize = 9;
 
   const projects = useMemo(
@@ -40,6 +42,20 @@ export function useAgencyShellController() {
   useEffect(() => {
     writeAgencyShellPreferences(preferences);
   }, [preferences]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAgencyHubOverview()
+      .then((overview) => {
+        if (!cancelled) setRemoteOverview(overview);
+      })
+      .catch(() => {
+        if (!cancelled) setRemoteOverview(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [insightTick, projectSession.projects.length]);
 
   const filteredProjects = useMemo(() => {
     const loweredSearch = preferences.search.trim().toLowerCase();
@@ -106,6 +122,10 @@ export function useAgencyShellController() {
       ? Number((projects.reduce((sum, project) => sum + (project.sceneCount ?? 1), 0) / projects.length).toFixed(1))
       : 0,
     busiestClientName: clientCards.slice().sort((a, b) => b.activeCount - a.activeCount)[0]?.client.name ?? 'No clients yet',
+    averageOpenToSaveMinutes: remoteOverview?.efficiency?.averageOpenToSaveMinutes ?? null,
+    totalOpenEvents: remoteOverview?.efficiency?.totalOpenEvents ?? 0,
+    totalSaveEvents: remoteOverview?.efficiency?.totalSaveEvents ?? 0,
+    totalVersionSaveEvents: remoteOverview?.efficiency?.totalVersionSaveEvents ?? 0,
   };
 
   function markProjectOpened(projectId: string): void {
@@ -149,6 +169,7 @@ export function useAgencyShellController() {
     filteredProjects,
     paginatedProjects,
     clientCards,
+    remoteOverview,
     stats,
     efficiency,
     preferences,
