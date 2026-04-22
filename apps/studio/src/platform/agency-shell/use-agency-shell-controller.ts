@@ -123,9 +123,12 @@ export function useAgencyShellController() {
       : 0,
     busiestClientName: clientCards.slice().sort((a, b) => b.activeCount - a.activeCount)[0]?.client.name ?? 'No clients yet',
     averageOpenToSaveMinutes: remoteOverview?.efficiency?.averageOpenToSaveMinutes ?? null,
+    averageOpenToExportMinutes: remoteOverview?.efficiency?.averageOpenToExportMinutes ?? null,
     totalOpenEvents: remoteOverview?.efficiency?.totalOpenEvents ?? 0,
     totalSaveEvents: remoteOverview?.efficiency?.totalSaveEvents ?? 0,
     totalVersionSaveEvents: remoteOverview?.efficiency?.totalVersionSaveEvents ?? 0,
+    totalExportEvents: remoteOverview?.efficiency?.totalExportEvents ?? 0,
+    totalShareEvents: remoteOverview?.efficiency?.totalShareEvents ?? 0,
   };
 
   function markProjectOpened(projectId: string): void {

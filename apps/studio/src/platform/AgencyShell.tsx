@@ -79,12 +79,12 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
         <article className="workspace-hub-stat-card">
           <span className="workspace-hub-stat-label">Avg open → save</span>
           <strong>{efficiency.averageOpenToSaveMinutes == null ? '—' : `${efficiency.averageOpenToSaveMinutes}m`}</strong>
-          <small>{efficiency.totalOpenEvents} opens · {efficiency.totalSaveEvents} saves</small>
+          <small>{efficiency.totalOpenEvents} opens · {efficiency.totalSaveEvents} saves · {efficiency.totalExportEvents} exports</small>
         </article>
         <article className="workspace-hub-stat-card">
-          <span className="workspace-hub-stat-label">Versions / throughput</span>
-          <strong>{efficiency.totalVersionSaveEvents}</strong>
-          <small>{efficiency.averageScenesPerProject} avg scenes · busiest client: {efficiency.busiestClientName}</small>
+          <span className="workspace-hub-stat-label">Export efficiency</span>
+          <strong>{efficiency.averageOpenToExportMinutes == null ? '—' : `${efficiency.averageOpenToExportMinutes}m`}</strong>
+          <small>{efficiency.totalVersionSaveEvents} versions · {efficiency.totalShareEvents} shares · busiest client: {efficiency.busiestClientName}</small>
         </article>
       </section>
 
@@ -293,6 +293,7 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
                     <p>{entry.projectCount} projects touched</p>
                   </div>
                   <div className="agency-project-index-meta">
+                    <div className="pill">{entry.exportCount} exports</div>
                     <div className="pill">{entry.versionSaveCount} versions</div>
                     <div className="pill">{entry.saveCount} saves</div>
                     <div className="pill">{entry.openCount} opens</div>
@@ -317,6 +318,7 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
                     <p>{entry.projectCount} projects active in metrics</p>
                   </div>
                   <div className="agency-project-index-meta">
+                    <div className="pill">{entry.exportCount} exports</div>
                     <div className="pill">{entry.versionSaveCount} versions</div>
                     <div className="pill">{entry.saveCount} saves</div>
                     <div className="pill">{entry.openCount} opens</div>

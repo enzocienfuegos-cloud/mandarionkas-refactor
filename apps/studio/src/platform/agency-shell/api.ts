@@ -9,6 +9,8 @@ export type AgencyHubOverview = {
     openCount: number;
     saveCount: number;
     versionSaveCount: number;
+    exportCount: number;
+    shareCount: number;
   }>;
   topProjects: Array<{
     id: string;
@@ -44,6 +46,8 @@ export type AgencyHubOverview = {
     openCount: number;
     saveCount: number;
     versionSaveCount: number;
+    exportCount: number;
+    shareCount: number;
   }>;
   clientLeaderboard: Array<{
     workspaceId: string;
@@ -52,12 +56,17 @@ export type AgencyHubOverview = {
     openCount: number;
     saveCount: number;
     versionSaveCount: number;
+    exportCount: number;
+    shareCount: number;
   }>;
   efficiency: {
     totalOpenEvents: number;
     totalSaveEvents: number;
     totalVersionSaveEvents: number;
+    totalExportEvents: number;
+    totalShareEvents: number;
     averageOpenToSaveMinutes: number | null;
+    averageOpenToExportMinutes: number | null;
   };
 };
 

@@ -7,6 +7,10 @@ function metricsPatchForAction(action) {
       return { saves: 1 };
     case 'version_saved':
       return { versionSaves: 1 };
+    case 'exported':
+      return { exports: 1 };
+    case 'shared':
+      return { shares: 1 };
     case 'duplicated':
       return { duplicates: 1 };
     case 'archived':
@@ -35,19 +39,23 @@ export async function bumpStudioProjectMetricDay(pool, { workspaceId, projectId,
       `INSERT INTO studio_project_metrics_daily (
          metric_date, workspace_id, project_id, actor_user_id,
          opens_count, saves_count, version_saves_count,
+         export_count, share_count,
          duplicate_count, archive_count, restore_count,
          delete_count, owner_change_count
        ) VALUES (
          $1::date, $2, $3, $4,
          $5, $6, $7,
-         $8, $9, $10,
-         $11, $12
+         $8, $9,
+         $10, $11, $12,
+         $13, $14
        )
        ON CONFLICT (metric_date, workspace_id, project_id, actor_user_id)
        DO UPDATE SET
          opens_count = studio_project_metrics_daily.opens_count + EXCLUDED.opens_count,
          saves_count = studio_project_metrics_daily.saves_count + EXCLUDED.saves_count,
          version_saves_count = studio_project_metrics_daily.version_saves_count + EXCLUDED.version_saves_count,
+         export_count = studio_project_metrics_daily.export_count + EXCLUDED.export_count,
+         share_count = studio_project_metrics_daily.share_count + EXCLUDED.share_count,
          duplicate_count = studio_project_metrics_daily.duplicate_count + EXCLUDED.duplicate_count,
          archive_count = studio_project_metrics_daily.archive_count + EXCLUDED.archive_count,
          restore_count = studio_project_metrics_daily.restore_count + EXCLUDED.restore_count,
@@ -61,6 +69,8 @@ export async function bumpStudioProjectMetricDay(pool, { workspaceId, projectId,
         patch.opens ?? 0,
         patch.saves ?? 0,
         patch.versionSaves ?? 0,
+        patch.exports ?? 0,
+        patch.shares ?? 0,
         patch.duplicates ?? 0,
         patch.archives ?? 0,
         patch.restores ?? 0,
@@ -136,9 +146,11 @@ export async function getStudioHubOverview(pool, userId) {
      ),
      activity_counts AS (
        SELECT workspace_id,
-              SUM(opens_count)::int AS open_count,
-              SUM(saves_count)::int AS save_count,
-              SUM(version_saves_count)::int AS version_save_count
+             SUM(opens_count)::int AS open_count,
+             SUM(saves_count)::int AS save_count,
+             SUM(version_saves_count)::int AS version_save_count,
+             SUM(export_count)::int AS export_count,
+             SUM(share_count)::int AS share_count
        FROM studio_project_metrics_daily
        WHERE workspace_id = ANY($1::uuid[])
        GROUP BY workspace_id
@@ -148,7 +160,9 @@ export async function getStudioHubOverview(pool, userId) {
             COALESCE(pc.project_count, 0) AS project_count,
             COALESCE(ac.open_count, 0) AS open_count,
             COALESCE(ac.save_count, 0) AS save_count,
-            COALESCE(ac.version_save_count, 0) AS version_save_count
+            COALESCE(ac.version_save_count, 0) AS version_save_count,
+            COALESCE(ac.export_count, 0) AS export_count,
+            COALESCE(ac.share_count, 0) AS share_count
      FROM workspaces w
      LEFT JOIN project_counts pc ON pc.workspace_id = w.id
      LEFT JOIN activity_counts ac ON ac.workspace_id = w.id
@@ -212,12 +226,14 @@ export async function getStudioHubOverview(pool, userId) {
             COUNT(DISTINCT m.project_id)::int AS project_count,
             COALESCE(SUM(m.opens_count), 0)::int AS open_count,
             COALESCE(SUM(m.saves_count), 0)::int AS save_count,
-            COALESCE(SUM(m.version_saves_count), 0)::int AS version_save_count
+            COALESCE(SUM(m.version_saves_count), 0)::int AS version_save_count,
+            COALESCE(SUM(m.export_count), 0)::int AS export_count,
+            COALESCE(SUM(m.share_count), 0)::int AS share_count
      FROM studio_project_metrics_daily m
      LEFT JOIN users u ON u.id = m.actor_user_id
      WHERE m.workspace_id = ANY($1::uuid[])
      GROUP BY m.actor_user_id, u.display_name
-     ORDER BY version_save_count DESC, save_count DESC, open_count DESC
+     ORDER BY export_count DESC, version_save_count DESC, save_count DESC, open_count DESC
      LIMIT 8`,
     [workspaceIds],
   );
@@ -228,12 +244,14 @@ export async function getStudioHubOverview(pool, userId) {
             COUNT(DISTINCT m.project_id)::int AS project_count,
             COALESCE(SUM(m.opens_count), 0)::int AS open_count,
             COALESCE(SUM(m.saves_count), 0)::int AS save_count,
-            COALESCE(SUM(m.version_saves_count), 0)::int AS version_save_count
+            COALESCE(SUM(m.version_saves_count), 0)::int AS version_save_count,
+            COALESCE(SUM(m.export_count), 0)::int AS export_count,
+            COALESCE(SUM(m.share_count), 0)::int AS share_count
      FROM studio_project_metrics_daily m
      JOIN workspaces w ON w.id = m.workspace_id
      WHERE m.workspace_id = ANY($1::uuid[])
      GROUP BY w.id, w.name
-     ORDER BY version_save_count DESC, save_count DESC, open_count DESC
+     ORDER BY export_count DESC, version_save_count DESC, save_count DESC, open_count DESC
      LIMIT 8`,
     [workspaceIds],
   );
@@ -242,7 +260,8 @@ export async function getStudioHubOverview(pool, userId) {
     `WITH project_activity AS (
        SELECT project_id,
               MIN(created_at) FILTER (WHERE action = 'opened') AS first_open,
-              MIN(created_at) FILTER (WHERE action IN ('created', 'saved', 'version_saved')) AS first_save
+              MIN(created_at) FILTER (WHERE action IN ('created', 'saved', 'version_saved')) AS first_save,
+              MIN(created_at) FILTER (WHERE action = 'exported') AS first_export
        FROM studio_project_activity_events
        WHERE workspace_id = ANY($1::uuid[])
        GROUP BY project_id
@@ -251,20 +270,28 @@ export async function getStudioHubOverview(pool, userId) {
        SELECT
          COALESCE(SUM(opens_count), 0)::int AS total_open_events,
          COALESCE(SUM(saves_count), 0)::int AS total_save_events,
-         COALESCE(SUM(version_saves_count), 0)::int AS total_version_save_events
+         COALESCE(SUM(version_saves_count), 0)::int AS total_version_save_events,
+         COALESCE(SUM(export_count), 0)::int AS total_export_events,
+         COALESCE(SUM(share_count), 0)::int AS total_share_events
        FROM studio_project_metrics_daily
        WHERE workspace_id = ANY($1::uuid[])
      )
      SELECT summary.total_open_events,
             summary.total_save_events,
             summary.total_version_save_events,
-            ROUND(AVG(EXTRACT(EPOCH FROM (project_activity.first_save - project_activity.first_open)) / 60.0)::numeric, 1) AS average_open_to_save_minutes
+            summary.total_export_events,
+            summary.total_share_events,
+            ROUND(AVG(EXTRACT(EPOCH FROM (project_activity.first_save - project_activity.first_open)) / 60.0)::numeric, 1) AS average_open_to_save_minutes,
+            ROUND(AVG(EXTRACT(EPOCH FROM (project_activity.first_export - project_activity.first_open)) / 60.0)::numeric, 1) AS average_open_to_export_minutes
      FROM summary
      LEFT JOIN project_activity
        ON project_activity.first_open IS NOT NULL
-      AND project_activity.first_save IS NOT NULL
-      AND project_activity.first_save >= project_activity.first_open
-     GROUP BY summary.total_open_events, summary.total_save_events, summary.total_version_save_events`,
+     GROUP BY
+       summary.total_open_events,
+       summary.total_save_events,
+       summary.total_version_save_events,
+       summary.total_export_events,
+       summary.total_share_events`,
     [workspaceIds],
   );
 
@@ -272,7 +299,10 @@ export async function getStudioHubOverview(pool, userId) {
     total_open_events: 0,
     total_save_events: 0,
     total_version_save_events: 0,
+    total_export_events: 0,
+    total_share_events: 0,
     average_open_to_save_minutes: null,
+    average_open_to_export_minutes: null,
   };
 
   return {
@@ -283,6 +313,8 @@ export async function getStudioHubOverview(pool, userId) {
       openCount: row.open_count,
       saveCount: row.save_count,
       versionSaveCount: row.version_save_count,
+      exportCount: row.export_count,
+      shareCount: row.share_count,
     })),
     topProjects: topProjects.map((row) => ({
       id: row.id,
@@ -318,6 +350,8 @@ export async function getStudioHubOverview(pool, userId) {
       openCount: row.open_count ?? 0,
       saveCount: row.save_count ?? 0,
       versionSaveCount: row.version_save_count ?? 0,
+      exportCount: row.export_count ?? 0,
+      shareCount: row.share_count ?? 0,
     })),
     clientLeaderboard: clientLeaderboard.map((row) => ({
       workspaceId: row.workspace_id,
@@ -326,12 +360,17 @@ export async function getStudioHubOverview(pool, userId) {
       openCount: row.open_count ?? 0,
       saveCount: row.save_count ?? 0,
       versionSaveCount: row.version_save_count ?? 0,
+      exportCount: row.export_count ?? 0,
+      shareCount: row.share_count ?? 0,
     })),
     efficiency: {
       totalOpenEvents: efficiency.total_open_events ?? 0,
       totalSaveEvents: efficiency.total_save_events ?? 0,
       totalVersionSaveEvents: efficiency.total_version_save_events ?? 0,
+      totalExportEvents: efficiency.total_export_events ?? 0,
+      totalShareEvents: efficiency.total_share_events ?? 0,
       averageOpenToSaveMinutes: efficiency.average_open_to_save_minutes == null ? null : Number(efficiency.average_open_to_save_minutes),
+      averageOpenToExportMinutes: efficiency.average_open_to_export_minutes == null ? null : Number(efficiency.average_open_to_export_minutes),
     },
   };
 }

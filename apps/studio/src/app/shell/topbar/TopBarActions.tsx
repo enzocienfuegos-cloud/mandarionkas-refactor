@@ -1,4 +1,5 @@
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
+import { recordHubProjectActivity } from '../../../platform/agency-shell/activity-api';
 import type { TopBarController } from './use-top-bar-controller';
 import { ExportMenu } from './ExportMenu';
 import type { ExportChannel } from './export-channels';
@@ -10,6 +11,7 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
   const { updateReleaseSettings } = useDocumentActions();
   const { resolvedZipStatus, triggerExportZipBundleResolved, triggerExportPublishPackage } = controller.exportReadiness;
   const { handleSaveProject, saveStatus, saveMessage } = controller.projectSession;
+  const activeProjectId = controller.snapshot.activeProjectId;
 
   async function handleExportAs(channel: ExportChannel): Promise<void> {
     const patchedState = {
@@ -28,10 +30,18 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
 
     updateReleaseSettings({ targetChannel: channel });
     await triggerExportZipBundleResolved(patchedState);
+    if (activeProjectId) {
+      await recordHubProjectActivity(activeProjectId, 'exported', { channel });
+    }
   }
 
-  function handleShare(): void {
-    triggerExportPublishPackage(state);
+  async function handleShare(): Promise<void> {
+    await triggerExportPublishPackage(state);
+    if (activeProjectId) {
+      await recordHubProjectActivity(activeProjectId, 'shared', {
+        channel: release.targetChannel,
+      });
+    }
   }
 
   const saveIndicatorClass = `top-save-dot top-save-dot--${saveStatus}`;
@@ -61,7 +71,7 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
         onExportAs={(channel) => void handleExportAs(channel)}
       />
 
-      <button type="button" className="ghost compact-action" onClick={handleShare}>
+      <button type="button" className="ghost compact-action" onClick={() => void handleShare()}>
         Share
       </button>
 
