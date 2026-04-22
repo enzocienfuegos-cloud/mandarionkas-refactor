@@ -24,6 +24,7 @@ import {
   isStageWidgetTarget,
   isWithinCanvasQuickPanelTarget,
   isWithinStageSurfaceTarget,
+  isWithinStageToolbarTarget,
   STAGE_INTERACTION,
 } from './stage-interaction-targets';
 
@@ -220,7 +221,9 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
         const target = event.target as HTMLElement | null;
         const insidePanel = isWithinCanvasQuickPanelTarget(target);
         const insideStage = isWithinStageSurfaceTarget(target);
-        if (!insidePanel && !insideStage) {
+        const insideToolbar = isWithinStageToolbarTarget(target);
+        if (!insidePanel && !insideStage && !insideToolbar) {
+          widgetActions.selectWidget(null);
           setShowCanvasQuickPanel(false);
         }
       }}

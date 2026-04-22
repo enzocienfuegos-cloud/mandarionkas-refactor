@@ -1,12 +1,38 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
 import { DocumentInspectorPanel } from './DocumentInspectorPanel';
-import { getWidgetBehaviorPanelCount, getWidgetInspectorTabs, renderWidgetInspectorTab } from '../../widgets/registry/widget-inspector-layout';
+import { getWidgetBehaviorPanelCount, getWidgetInspectorPanelMeta, getWidgetInspectorTabs, renderWidgetInspectorPanel } from '../../widgets/registry/widget-inspector-layout';
 import type { WidgetDefinition, WidgetInspectorTabId } from '../../widgets/registry/widget-definition';
 
 const EMPTY_TABS: ReturnType<typeof getWidgetInspectorTabs> = [];
+
+function WidgetInspectorAccordion({
+  title,
+  subtitle,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}): JSX.Element {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <details className="inspector-accordion" open={open} onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}>
+      <summary>
+        <span>{title}</span>
+        <small>{subtitle}</small>
+      </summary>
+      <div className="inspector-accordion-body">
+        {children}
+      </div>
+    </details>
+  );
+}
 
 export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.Element {
   const widget = useStudioStore((state) => state.document.widgets[widgetId]);
@@ -52,7 +78,21 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
         ))}
       </div>
 
-      {activeTab ? renderWidgetInspectorTab(activeTab, { widget, definition, playheadMs, actions }) : null}
+      {activeTab ? (
+        <>
+          {activeTab.panels.map((panelKey, index) => {
+            const panel = renderWidgetInspectorPanel(panelKey, { widget, definition, playheadMs, actions });
+            if (!panel) return null;
+            const meta = getWidgetInspectorPanelMeta(panelKey);
+            const shouldOpen = meta.defaultOpen ?? (activeTab.id === 'basics' && index === 0);
+            return (
+              <WidgetInspectorAccordion key={panelKey} title={meta.title} subtitle={meta.subtitle} defaultOpen={shouldOpen}>
+                  {panel}
+              </WidgetInspectorAccordion>
+            );
+          })}
+        </>
+      ) : null}
 
       {activeTab?.id === 'behavior' && !behaviorPanelCount ? (
         <section className="section section-premium inspector-empty-card">

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clampZoom, getCursorAnchoredScrollDelta, getNextZoomFromWheel, ZOOM_MIN } from './stage-viewport';
+import { isWithinStageSurfaceTarget, isWithinStageToolbarTarget } from '../stage-interaction-targets';
 
 function isEditableTarget(target: EventTarget | null): boolean {
   const node = target as HTMLElement | null;
@@ -65,8 +66,8 @@ export function useStageViewportController(args: {
 
   const handleWorkspaceWheel = useCallback((event: WheelEvent) => {
     const target = event.target as HTMLElement | null;
-    if (target?.closest('.workspace-toolbar')) return;
-    if (!target?.closest('.stage-size-shell') && !target?.closest('.stage-surface')) return;
+    if (isWithinStageToolbarTarget(target)) return;
+    if (!isWithinStageSurfaceTarget(target) && !target?.closest('.stage-size-shell')) return;
     const workspace = workspaceRef.current;
     const stage = stageRef.current;
     if (!workspace || !stage) return;
@@ -109,7 +110,7 @@ export function useStageViewportController(args: {
     if (!event.isPrimary) return;
     if (event.button !== 0 && event.button !== 1) return;
     const target = event.target as HTMLElement | null;
-    if (target?.closest('.workspace-toolbar')) return;
+    if (isWithinStageToolbarTarget(target)) return;
     const workspace = workspaceRef.current;
     if (!workspace) return;
     panStateRef.current = {

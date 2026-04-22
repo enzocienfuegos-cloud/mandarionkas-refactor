@@ -45,3 +45,10 @@ export function isStageInteractiveOverlayTarget(target: EventTarget | null): boo
 export function isStageWidgetTarget(target: EventTarget | null): boolean {
   return Boolean(findClosestStageInteraction(target, STAGE_INTERACTION.widget));
 }
+
+export function isWithinStageToolbarTarget(target: EventTarget | null): boolean {
+  return Boolean(
+    findClosestStageInteraction(target, STAGE_INTERACTION.floatingToolbar)
+    || findClosestStageInteraction(target, STAGE_INTERACTION.selectionToolbar),
+  );
+}

@@ -21,6 +21,12 @@ export type WidgetInspectorRenderContext = {
   actions: ActionNode[];
 };
 
+type WidgetInspectorPanelMeta = {
+  title: string;
+  subtitle: string;
+  defaultOpen?: boolean;
+};
+
 export function getWidgetInspectorTabs(definition: WidgetDefinition): WidgetInspectorTabSpec[] {
   return resolveInspectorTabs(definition);
 }
@@ -29,6 +35,37 @@ export function getWidgetBehaviorPanelCount(definition: WidgetDefinition): numbe
   return getWidgetInspectorTabs(definition)
     .find((tab) => tab.id === 'behavior')
     ?.panels.length ?? 0;
+}
+
+export function getWidgetInspectorPanelMeta(key: WidgetInspectorPanelKey): WidgetInspectorPanelMeta {
+  switch (key) {
+    case 'position-size':
+      return { title: 'Position and size', subtitle: 'Placement, dimensions and layout anchor', defaultOpen: true };
+    case 'text-content':
+      return { title: 'Text content', subtitle: 'Copy, labels and textual presentation' };
+    case 'widget-fields':
+      return { title: 'Module settings', subtitle: 'Widget-specific controls and configuration' };
+    case 'module-config':
+      return { title: 'Module config', subtitle: 'Dynamic props and module-level options' };
+    case 'fill':
+      return { title: 'Fill / colors', subtitle: 'Background, accent and media fill controls' };
+    case 'timing':
+      return { title: 'Timing', subtitle: 'Visibility windows and timeline defaults' };
+    case 'conditions':
+      return { title: 'Conditions', subtitle: 'Rules that control when this widget reacts' };
+    case 'actions':
+      return { title: 'Actions', subtitle: 'Interaction handlers and linked behaviors' };
+    case 'states':
+      return { title: 'States', subtitle: 'State variants and interaction-driven presentation' };
+    case 'keyframes':
+      return { title: 'Keyframes', subtitle: 'Timeline animation points for this widget' };
+    case 'data-bindings':
+      return { title: 'Data bindings', subtitle: 'Dynamic values mapped from feeds or data sources', defaultOpen: true };
+    case 'variants':
+      return { title: 'Variants', subtitle: 'Alternate content sets and branching options' };
+    default:
+      return { title: key, subtitle: 'Widget configuration' };
+  }
 }
 
 function renderWidgetFieldPanel({ widget, definition }: Pick<WidgetInspectorRenderContext, 'widget' | 'definition'>): JSX.Element | null {
