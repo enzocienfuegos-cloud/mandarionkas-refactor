@@ -37,6 +37,22 @@ export type AgencyHubOverview = {
     action: string;
     createdAt: string;
   }>;
+  contributorLeaderboard: Array<{
+    actorUserId: string;
+    actorName: string;
+    projectCount: number;
+    openCount: number;
+    saveCount: number;
+    versionSaveCount: number;
+  }>;
+  clientLeaderboard: Array<{
+    workspaceId: string;
+    workspaceName: string;
+    projectCount: number;
+    openCount: number;
+    saveCount: number;
+    versionSaveCount: number;
+  }>;
   efficiency: {
     totalOpenEvents: number;
     totalSaveEvents: number;

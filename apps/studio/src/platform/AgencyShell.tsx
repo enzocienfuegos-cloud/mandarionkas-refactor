@@ -37,6 +37,7 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
     setProjectFilter,
     setSortMode,
     markProjectOpened,
+    remoteOverview,
     toggleProjectFavorite,
   } = controller;
 
@@ -271,6 +272,65 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
               </div>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="agency-shell-section">
+        <div className="agency-shell-section-head">
+          <div>
+            <div className="workspace-hub-kicker">Efficiency signals</div>
+            <h2>Team and client leaderboard</h2>
+          </div>
+        </div>
+        <div className="agency-leaderboard-grid">
+          <article className="agency-leaderboard-card">
+            <h3>Designers by throughput</h3>
+            <div className="agency-leaderboard-list">
+              {(remoteOverview?.contributorLeaderboard ?? []).map((entry, index) => (
+                <div key={`${entry.actorUserId}-${index}`} className="agency-leaderboard-row">
+                  <div>
+                    <strong>{entry.actorName}</strong>
+                    <p>{entry.projectCount} projects touched</p>
+                  </div>
+                  <div className="agency-project-index-meta">
+                    <div className="pill">{entry.versionSaveCount} versions</div>
+                    <div className="pill">{entry.saveCount} saves</div>
+                    <div className="pill">{entry.openCount} opens</div>
+                  </div>
+                </div>
+              ))}
+              {(remoteOverview?.contributorLeaderboard?.length ?? 0) === 0 ? (
+                <div className="agency-empty-state">
+                  <h3>No contributor metrics yet</h3>
+                  <p>As projects are opened and saved, this leaderboard will start ranking active designers.</p>
+                </div>
+              ) : null}
+            </div>
+          </article>
+          <article className="agency-leaderboard-card">
+            <h3>Clients by throughput</h3>
+            <div className="agency-leaderboard-list">
+              {(remoteOverview?.clientLeaderboard ?? []).map((entry) => (
+                <div key={entry.workspaceId} className="agency-leaderboard-row">
+                  <div>
+                    <strong>{entry.workspaceName}</strong>
+                    <p>{entry.projectCount} projects active in metrics</p>
+                  </div>
+                  <div className="agency-project-index-meta">
+                    <div className="pill">{entry.versionSaveCount} versions</div>
+                    <div className="pill">{entry.saveCount} saves</div>
+                    <div className="pill">{entry.openCount} opens</div>
+                  </div>
+                </div>
+              ))}
+              {(remoteOverview?.clientLeaderboard?.length ?? 0) === 0 ? (
+                <div className="agency-empty-state">
+                  <h3>No client metrics yet</h3>
+                  <p>Once the team keeps working across client workspaces, this will highlight where the throughput is concentrating.</p>
+                </div>
+              ) : null}
+            </div>
+          </article>
         </div>
       </section>
 

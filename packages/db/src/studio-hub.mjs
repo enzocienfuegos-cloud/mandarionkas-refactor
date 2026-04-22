@@ -116,6 +116,8 @@ export async function getStudioHubOverview(pool, userId) {
       workspaceMetrics: [],
       topProjects: [],
       recentActivity: [],
+      contributorLeaderboard: [],
+      clientLeaderboard: [],
       efficiency: {
         totalOpenEvents: 0,
         totalSaveEvents: 0,
@@ -204,6 +206,38 @@ export async function getStudioHubOverview(pool, userId) {
     [workspaceIds],
   );
 
+  const { rows: contributorLeaderboard } = await pool.query(
+    `SELECT m.actor_user_id,
+            u.display_name AS actor_name,
+            COUNT(DISTINCT m.project_id)::int AS project_count,
+            COALESCE(SUM(m.opens_count), 0)::int AS open_count,
+            COALESCE(SUM(m.saves_count), 0)::int AS save_count,
+            COALESCE(SUM(m.version_saves_count), 0)::int AS version_save_count
+     FROM studio_project_metrics_daily m
+     LEFT JOIN users u ON u.id = m.actor_user_id
+     WHERE m.workspace_id = ANY($1::uuid[])
+     GROUP BY m.actor_user_id, u.display_name
+     ORDER BY version_save_count DESC, save_count DESC, open_count DESC
+     LIMIT 8`,
+    [workspaceIds],
+  );
+
+  const { rows: clientLeaderboard } = await pool.query(
+    `SELECT w.id AS workspace_id,
+            w.name AS workspace_name,
+            COUNT(DISTINCT m.project_id)::int AS project_count,
+            COALESCE(SUM(m.opens_count), 0)::int AS open_count,
+            COALESCE(SUM(m.saves_count), 0)::int AS save_count,
+            COALESCE(SUM(m.version_saves_count), 0)::int AS version_save_count
+     FROM studio_project_metrics_daily m
+     JOIN workspaces w ON w.id = m.workspace_id
+     WHERE m.workspace_id = ANY($1::uuid[])
+     GROUP BY w.id, w.name
+     ORDER BY version_save_count DESC, save_count DESC, open_count DESC
+     LIMIT 8`,
+    [workspaceIds],
+  );
+
   const { rows: efficiencyRows } = await pool.query(
     `WITH project_activity AS (
        SELECT project_id,
@@ -276,6 +310,22 @@ export async function getStudioHubOverview(pool, userId) {
       actorName: row.actor_name ?? null,
       action: row.action,
       createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : new Date(row.created_at).toISOString(),
+    })),
+    contributorLeaderboard: contributorLeaderboard.map((row) => ({
+      actorUserId: row.actor_user_id,
+      actorName: row.actor_name ?? row.actor_user_id,
+      projectCount: row.project_count ?? 0,
+      openCount: row.open_count ?? 0,
+      saveCount: row.save_count ?? 0,
+      versionSaveCount: row.version_save_count ?? 0,
+    })),
+    clientLeaderboard: clientLeaderboard.map((row) => ({
+      workspaceId: row.workspace_id,
+      workspaceName: row.workspace_name,
+      projectCount: row.project_count ?? 0,
+      openCount: row.open_count ?? 0,
+      saveCount: row.save_count ?? 0,
+      versionSaveCount: row.version_save_count ?? 0,
     })),
     efficiency: {
       totalOpenEvents: efficiency.total_open_events ?? 0,
