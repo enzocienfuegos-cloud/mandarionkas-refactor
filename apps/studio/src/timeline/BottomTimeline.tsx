@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStudioStore } from '../core/store/use-studio-store';
-import { useTimelineActions, useUiActions, useWidgetActions } from '../hooks/use-studio-actions';
+import { useSceneActions, useTimelineActions, useUiActions, useWidgetActions } from '../hooks/use-studio-actions';
 import { buildTimelineSnapTargets, getTimelineGridStepMs, snapTimelineMs } from '../shared/timeline-snapping';
 import { TimelineHeader } from './components/TimelineHeader';
 import { TimelineOverview } from './components/TimelineOverview';
@@ -18,6 +18,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
   const timelineActions = useTimelineActions();
   const widgetActions = useWidgetActions();
   const uiActions = useUiActions();
+  const { updateScene } = useSceneActions();
   const { scene, widgets, selectedIds, playheadMs, isPlaying } = useStudioStore((state) => {
     const scene = state.document.scenes.find((item) => item.id === state.document.selection.activeSceneId)
       ?? state.document.scenes[0];
@@ -212,6 +213,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
         onToggleSelectedOnly={() => setSelectedOnly((value) => !value)}
         onZoomOut={() => setTimelineZoom((value) => Math.max(0.5, Number((value - 0.25).toFixed(2))))}
         onZoomIn={() => setTimelineZoom((value) => Math.min(3, Number((value + 0.25).toFixed(2))))}
+        onChangeDuration={(ms) => updateScene(scene.id, { durationMs: ms })}
       />
 
       <TimelineOverview

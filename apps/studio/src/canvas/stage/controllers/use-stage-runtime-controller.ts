@@ -18,10 +18,23 @@ export function useStageRuntimeController(args: {
 
   useEffect(() => {
     if (!scene.durationMs || !isPlaying) return;
-    const tick = window.setInterval(() => {
+
+    let rafId = 0;
+    let lastTimestamp: number | null = null;
+
+    const tick = (timestamp: number) => {
+      if (lastTimestamp === null) {
+        lastTimestamp = timestamp;
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+
+      const elapsed = timestamp - lastTimestamp;
+      lastTimestamp = timestamp;
+
       const fullState = fullStateRef.current;
-      const nextTime = fullState.ui.playheadMs + 100;
-      if (nextTime > scene.durationMs) {
+      const nextTime = Math.round(fullState.ui.playheadMs + elapsed);
+      if (nextTime >= scene.durationMs) {
         const nextSceneId = resolveNextSceneId(fullState, fullState.document.selection.activeSceneId);
         if (nextSceneId && nextSceneId !== fullState.document.selection.activeSceneId) {
           sceneActions.selectScene(nextSceneId);
@@ -32,9 +45,13 @@ export function useStageRuntimeController(args: {
         timelineActions.setPlaying(false);
         return;
       }
+
       timelineActions.setPlayhead(nextTime);
-    }, 100);
-    return () => window.clearInterval(tick);
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
   }, [fullStateRef, isPlaying, scene.durationMs, sceneActions, timelineActions]);
 
   useEffect(() => {

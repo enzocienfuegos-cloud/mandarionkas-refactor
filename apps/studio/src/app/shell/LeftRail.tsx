@@ -7,7 +7,13 @@ import { StoryFlowSection } from './left-rail/StoryFlowSection';
 import { WidgetLibrarySection } from './left-rail/WidgetLibrarySection';
 import { useLeftRailController } from './left-rail/use-left-rail-controller';
 
-export function LeftRail({ onToggleCollapse }: { onToggleCollapse: () => void }): JSX.Element {
+export function LeftRail({
+  onToggleCollapse,
+  onResizeStart,
+}: {
+  onToggleCollapse: () => void;
+  onResizeStart: (startX: number) => void;
+}): JSX.Element {
   const controller = useLeftRailController();
   const [showMore, setShowMore] = useState(false);
 
@@ -39,6 +45,17 @@ export function LeftRail({ onToggleCollapse }: { onToggleCollapse: () => void })
           <CollaborationSection controller={controller} />
         </div>
       ) : null}
+      <div
+        className="left-rail-resize-handle"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          onResizeStart(event.clientX);
+        }}
+        title="Drag to resize panel"
+        aria-label="Resize panel"
+        role="separator"
+        aria-orientation="vertical"
+      />
     </aside>
   );
 }
