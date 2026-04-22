@@ -2925,6 +2925,13 @@
   flex: 1;
 }
 
+.inspector-empty-state {
+  padding: 12px 14px;
+  border: 1px dashed rgba(148,144,168,0.24);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+}
+
 .top-actions-cluster {
   display: inline-flex;
   align-items: center;

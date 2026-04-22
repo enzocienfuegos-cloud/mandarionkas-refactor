@@ -1,6 +1,4 @@
-import { usePlatformPermission } from '../../platform/runtime';
-import { ProjectContextSection } from '../sections/document/ProjectContextSection';
-import { StoryInfoSection } from '../sections/document/StoryInfoSection';
+import { useStudioStore } from '../../core/store/use-studio-store';
 import { CanvasSection } from '../sections/document/CanvasSection';
 import { ScenesSection } from '../sections/document/ScenesSection';
 import { RuntimeSection } from '../sections/document/RuntimeSection';
@@ -8,31 +6,36 @@ import { FeedCatalogSection } from '../sections/document/FeedCatalogSection';
 import { RemoteJsonImportSection } from '../sections/document/RemoteJsonImportSection';
 import { DiagnosticsSection } from '../sections/document/DiagnosticsSection';
 import { VideoAnalyticsSection } from '../sections/document/VideoAnalyticsSection';
-import { ReleaseSettingsSection } from '../sections/document/ReleaseSettingsSection';
-import { ExportSection } from '../sections/document/ExportSection';
 import { CommentsSection } from '../sections/document/CommentsSection';
 import { ApprovalsSection } from '../sections/document/ApprovalsSection';
 import { ShareHandoffSection } from '../sections/document/ShareHandoffSection';
 import { useDocumentInspectorTab } from '../sections/document/document-inspector-shared';
+import { channelSupportsFeedCatalog } from '../sections/document/channel-capabilities';
 
 export function DocumentInspectorPanel(): JSX.Element {
   const [tab, setTab] = useDocumentInspectorTab('overview');
-  const canManageRelease = usePlatformPermission('release:manage');
+  const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
+  const showFeedCatalog = channelSupportsFeedCatalog(targetChannel);
 
   return (
     <>
       <div className="inspector-tabs">
         <button className={tab === 'overview' ? 'primary' : 'ghost'} onClick={() => setTab('overview')}>Overview</button>
         <button className={tab === 'data' ? 'primary' : 'ghost'} onClick={() => setTab('data')}>Data</button>
-        <button className={tab === 'release' ? 'primary' : 'ghost'} onClick={() => setTab('release')}>Release</button>
         <button className={tab === 'collab' ? 'primary' : 'ghost'} onClick={() => setTab('collab')}>Collab</button>
       </div>
 
       {tab === 'overview' ? (
         <>
-          <ProjectContextSection />
-          <StoryInfoSection />
-          <ScenesSection />
+          <details className="inspector-accordion" open>
+            <summary>
+              <span>Scenes</span>
+              <small>Scene list and navigation</small>
+            </summary>
+            <div className="inspector-accordion-body">
+              <ScenesSection />
+            </div>
+          </details>
           <details className="inspector-accordion">
             <summary>
               <span>Canvas & runtime</span>
@@ -48,10 +51,25 @@ export function DocumentInspectorPanel(): JSX.Element {
 
       {tab === 'data' ? (
         <>
-          <section className="section section-premium">
-            <h3>Feed catalog</h3>
-            <FeedCatalogSection />
-          </section>
+          {showFeedCatalog ? (
+            <details className="inspector-accordion" open>
+              <summary>
+                <span>Feed catalog</span>
+                <small>Dynamic data sources and records</small>
+              </summary>
+              <div className="inspector-accordion-body">
+                <section className="section section-premium">
+                  <FeedCatalogSection />
+                </section>
+              </div>
+            </details>
+          ) : (
+            <div className="inspector-empty-state">
+              <small className="muted">
+                Feed catalog is not available for <strong>{targetChannel}</strong>. Switch to IAB HTML5, Google Display or GAM HTML5 to use dynamic data.
+              </small>
+            </div>
+          )}
           <details className="inspector-accordion">
             <summary>
               <span>Imports & diagnostics</span>
@@ -75,33 +93,19 @@ export function DocumentInspectorPanel(): JSX.Element {
         </>
       ) : null}
 
-      {tab === 'release' ? (
+      {tab === 'collab' ? (
         <>
-          <section className="section section-premium">
-            <h3>Export</h3>
-            <ExportSection />
-          </section>
-          <details className="inspector-accordion">
+          <details className="inspector-accordion" open>
             <summary>
-              <span>Release settings</span>
-              <small>Permissions, release channel and approvals</small>
+              <span>Comments</span>
+              <small>Feedback threads on this document</small>
             </summary>
             <div className="inspector-accordion-body">
               <section className="section section-premium">
-                <h3>Release settings</h3>
-                {canManageRelease ? <ReleaseSettingsSection /> : <small className="muted">Your current role cannot change release settings.</small>}
+                <CommentsSection />
               </section>
             </div>
           </details>
-        </>
-      ) : null}
-
-      {tab === 'collab' ? (
-        <>
-          <section className="section section-premium">
-            <h3>Comments</h3>
-            <CommentsSection />
-          </section>
           <details className="inspector-accordion">
             <summary>
               <span>Approvals & handoff</span>

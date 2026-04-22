@@ -4,7 +4,7 @@ import { resolveNextSceneId } from '../../../domain/document/resolvers';
 import type { ApprovalStatus, CommentStatus, StudioState } from '../../../domain/document/types';
 import { usePlatformSnapshot } from '../../../platform/runtime';
 
-export type DocumentInspectorTab = 'overview' | 'data' | 'release' | 'collab';
+export type DocumentInspectorTab = 'overview' | 'data' | 'collab';
 
 export function useDocumentInspectorTab(initial: DocumentInspectorTab = 'overview') {
   return useState<DocumentInspectorTab>(initial);
