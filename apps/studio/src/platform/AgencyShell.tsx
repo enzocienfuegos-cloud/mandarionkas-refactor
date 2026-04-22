@@ -23,6 +23,19 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
     clientCards,
     stats,
     efficiency,
+    search,
+    activeClientFilter,
+    projectFilter,
+    sortMode,
+    filteredProjects,
+    paginatedProjects,
+    page,
+    setPage,
+    pageCount,
+    setSearch,
+    setActiveClientId,
+    setProjectFilter,
+    setSortMode,
     markProjectOpened,
     toggleProjectFavorite,
   } = controller;
@@ -72,6 +85,79 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
           <strong>{efficiency.averageScenesPerProject}</strong>
           <small>Busiest client: {efficiency.busiestClientName}</small>
         </article>
+      </section>
+
+      <section className="agency-shell-section">
+        <div className="agency-shell-section-head">
+          <div>
+            <div className="workspace-hub-kicker">Cross-client project index</div>
+            <h2>Project explorer</h2>
+          </div>
+          <div className="pill">{filteredProjects.length} results</div>
+        </div>
+        <div className="agency-shell-toolbar">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by project, brand, campaign, owner or client"
+          />
+          <select value={activeClientFilter} onChange={(event) => setActiveClientId(event.target.value)}>
+            <option value="all">All clients</option>
+            {workspace.visibleClients.map((client) => (
+              <option key={client.id} value={client.id}>{client.name}</option>
+            ))}
+          </select>
+          <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value as typeof projectFilter)}>
+            <option value="all">All projects</option>
+            <option value="favorites">Favorites</option>
+            <option value="shared">Shared with me</option>
+            <option value="archived">Archived</option>
+          </select>
+          <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)}>
+            <option value="recent">Recently updated</option>
+            <option value="name">A to Z</option>
+            <option value="most-visited">Most visited</option>
+          </select>
+        </div>
+        <div className="agency-project-index">
+          {paginatedProjects.map((project) => {
+            const clientName = workspace.visibleClients.find((client) => client.id === project.clientId)?.name ?? project.clientId;
+            return (
+              <article key={project.id} className="agency-project-index-row">
+                <div>
+                  <h3>{project.name}</h3>
+                  <p>{clientName} · {project.brandName ?? 'No brand'} · {project.campaignName ?? 'No campaign'}</p>
+                </div>
+                <div className="agency-project-index-meta">
+                  <div className="pill">{project.archivedAt ? 'archived' : 'active'}</div>
+                  <div className="pill">{projectInsights[project.id]?.visitCount ?? 0} opens</div>
+                  <div className="pill">{project.ownerName ?? project.ownerUserId}</div>
+                </div>
+                <div className="agency-project-card__actions">
+                  <button className="ghost compact-action" type="button" onClick={() => toggleProjectFavorite(project.id)}>
+                    {projectInsights[project.id]?.isFavorite ? '★ Favorite' : '☆ Favorite'}
+                  </button>
+                  <button className="primary compact-action" type="button" onClick={() => void handleResumeProject(project.id, project.clientId)}>
+                    Open
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+          {paginatedProjects.length === 0 ? (
+            <div className="agency-empty-state">
+              <h3>No projects match this view</h3>
+              <p>Adjust client, favorites, or shared filters to widen the global project explorer.</p>
+            </div>
+          ) : null}
+        </div>
+        <footer className="workspace-hub-pagination">
+          <div className="pill">Page {page} / {pageCount}</div>
+          <div className="workspace-hub-pagination-actions">
+            <button className="ghost compact-action" type="button" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>Previous</button>
+            <button className="ghost compact-action" type="button" onClick={() => setPage(Math.min(pageCount, page + 1))} disabled={page >= pageCount}>Next</button>
+          </div>
+        </footer>
       </section>
 
       <section className="agency-shell-section">
