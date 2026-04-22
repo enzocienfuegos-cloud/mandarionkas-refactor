@@ -3491,6 +3491,11 @@
   color: rgba(255,255,255,0.9);
   background: rgba(255,255,255,0.08);
 }
+.timeline-layer-toggle svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
 .timeline-layer-toggle.is-off {
   color: rgba(255,255,255,0.25);
 }

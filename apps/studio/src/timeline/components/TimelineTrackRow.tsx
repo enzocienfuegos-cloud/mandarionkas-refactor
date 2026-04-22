@@ -3,6 +3,65 @@ import { TimelineRowNameEditor } from './TimelineRowNameEditor';
 import { formatTime } from '../timeline-utils';
 import type { TimelineDragState, TimelineDisplayRow } from '../types';
 
+function IconEye(): JSX.Element {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+      <path
+        d="M1 6.5C1 6.5 2.9 3 6.5 3C10.1 3 12 6.5 12 6.5C12 6.5 10.1 10 6.5 10C2.9 10 1 6.5 1 6.5Z"
+        stroke="currentColor"
+        strokeWidth="1.15"
+        strokeLinejoin="round"
+      />
+      <circle cx="6.5" cy="6.5" r="1.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+function IconEyeOff(): JSX.Element {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+      <path
+        d="M1 6.5C1 6.5 2.9 3 6.5 3C10.1 3 12 6.5 12 6.5"
+        stroke="currentColor"
+        strokeWidth="1.15"
+        strokeLinecap="round"
+      />
+      <path d="M2 11L11 2" stroke="currentColor" strokeWidth="1.15" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconLock(): JSX.Element {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+      <rect x="2.5" y="5.5" width="8" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.15" />
+      <path
+        d="M4.2 5.5V4.2C4.2 2.7 8.8 2.7 8.8 4.2V5.5"
+        stroke="currentColor"
+        strokeWidth="1.15"
+        strokeLinecap="round"
+      />
+      <circle cx="6.5" cy="8.2" r="0.9" fill="currentColor" />
+    </svg>
+  );
+}
+
+function IconUnlock(): JSX.Element {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+      <rect x="2.5" y="5.5" width="8" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.15" />
+      <path
+        d="M4.2 5.5V4.2C4.2 2.7 8.8 2.7 8.8 4.2"
+        stroke="currentColor"
+        strokeWidth="1.15"
+        strokeLinecap="round"
+        opacity="0.38"
+      />
+      <circle cx="6.5" cy="8.2" r="0.9" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function TimelineTrackRow({
   row,
   selected,
@@ -86,7 +145,7 @@ export function TimelineTrackRow({
               onToggleHidden();
             }}
           >
-            <span aria-hidden="true">{widget.hidden ? '○' : '●'}</span>
+            {widget.hidden ? <IconEyeOff /> : <IconEye />}
           </button>
 
           <button
@@ -100,7 +159,7 @@ export function TimelineTrackRow({
               onToggleLocked();
             }}
           >
-            <span aria-hidden="true">{widget.locked ? '⊠' : '⊡'}</span>
+            {widget.locked ? <IconLock /> : <IconUnlock />}
           </button>
 
           <div className="timeline-row-name-editor-shell">
