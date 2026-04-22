@@ -17,15 +17,42 @@ const WorkspaceHub = lazy(async () => {
   return { default: module.WorkspaceHub };
 });
 
-function readRouteFromHash(): 'hub' | 'editor' {
-  if (typeof window === 'undefined') return 'hub';
-  return window.location.hash === '#/editor' ? 'editor' : 'hub';
+const AgencyShell = lazy(async () => {
+  const module = await import('./AgencyShell');
+  return { default: module.AgencyShell };
+});
+
+type PlatformRoute =
+  | { kind: 'agency' }
+  | { kind: 'client-workspace'; clientId?: string }
+  | { kind: 'editor' };
+
+function readRouteFromHash(): PlatformRoute {
+  if (typeof window === 'undefined') return { kind: 'agency' };
+  const hash = window.location.hash.replace(/^#/, '');
+  if (hash === '/editor') return { kind: 'editor' };
+  if (hash.startsWith('/hub/client/')) {
+    return { kind: 'client-workspace', clientId: decodeURIComponent(hash.slice('/hub/client/'.length)) };
+  }
+  return { kind: 'agency' };
+}
+
+function routeToHash(route: PlatformRoute): string {
+  switch (route.kind) {
+    case 'editor':
+      return '#/editor';
+    case 'client-workspace':
+      return route.clientId ? `#/hub/client/${encodeURIComponent(route.clientId)}` : '#/hub/client';
+    case 'agency':
+    default:
+      return '#/hub';
+  }
 }
 
 export function PlatformShell(): JSX.Element {
   const snapshot = usePlatformSnapshot();
   const isAuthenticated = snapshot.session.isAuthenticated;
-  const [route, setRoute] = useState<'hub' | 'editor'>(readRouteFromHash);
+  const [route, setRoute] = useState<PlatformRoute>(readRouteFromHash);
 
   useEffect(() => {
     void restoreSession();
@@ -33,7 +60,7 @@ export function PlatformShell(): JSX.Element {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      setRoute('hub');
+      setRoute({ kind: 'agency' });
       if (typeof window !== 'undefined') window.location.hash = '#/hub';
     }
   }, [isAuthenticated]);
@@ -47,19 +74,36 @@ export function PlatformShell(): JSX.Element {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const nextHash = route === 'editor' ? '#/editor' : '#/hub';
+    const nextHash = routeToHash(route);
     if (window.location.hash !== nextHash) {
       window.location.hash = nextHash;
     }
   }, [route]);
 
+  useEffect(() => {
+    if (route.kind !== 'client-workspace' || !route.clientId || snapshot.session.activeClientId === route.clientId) return;
+    void import('./workspace-service').then((module) => module.setActiveClient(route.clientId!));
+  }, [route, snapshot.session.activeClientId]);
+
   return (
     <Suspense fallback={<div className="platform-loading-shell">Loading studio…</div>}>
       {!isAuthenticated
         ? <LoginScreen />
-        : route === 'hub'
-          ? <WorkspaceHub onEnterEditor={() => setRoute('editor')} />
-          : <StudioShell onOpenWorkspaceHub={() => setRoute('hub')} />}
+        : route.kind === 'agency'
+          ? (
+            <AgencyShell
+              onOpenClientWorkspace={(clientId) => setRoute({ kind: 'client-workspace', clientId })}
+              onEnterEditor={() => setRoute({ kind: 'editor' })}
+            />
+          )
+          : route.kind === 'client-workspace'
+            ? (
+              <WorkspaceHub
+                onBackToAgencyShell={() => setRoute({ kind: 'agency' })}
+                onEnterEditor={() => setRoute({ kind: 'editor' })}
+              />
+            )
+            : <StudioShell onOpenWorkspaceHub={() => setRoute({ kind: 'client-workspace', clientId: snapshot.session.activeClientId })} />}
     </Suspense>
   );
 }

@@ -3460,6 +3460,158 @@
   }
 }
 
+.agency-shell {
+  min-height: 100vh;
+  padding: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(245,165,36,0.10), transparent 24%),
+    radial-gradient(circle at 15% 12%, rgba(39,194,134,0.08), transparent 22%),
+    linear-gradient(180deg, #0c131b 0%, #0a1017 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.agency-shell-topbar,
+.agency-shell-hero,
+.agency-shell-section {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.agency-shell-topbar {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.agency-shell-topbar h1,
+.agency-shell-section-head h2 {
+  margin: 6px 0 8px;
+}
+
+.agency-shell-topbar p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 58ch;
+}
+
+.agency-shell-hero {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.agency-shell-section {
+  flex-direction: column;
+  padding: 18px;
+  border: 1px solid rgba(120,144,168,0.2);
+  background: linear-gradient(180deg, rgba(24,34,45,0.92), rgba(15,22,30,0.94));
+  border-radius: 18px;
+  box-shadow: 0 18px 36px rgba(0,0,0,0.18);
+}
+
+.agency-shell-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.agency-shell-slider,
+.agency-client-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.agency-shell-slider {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.agency-client-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.agency-project-card,
+.agency-client-card {
+  border: 1px solid rgba(120,144,168,0.2);
+  background: linear-gradient(180deg, rgba(19,28,37,0.96), rgba(13,19,27,0.98));
+  border-radius: 18px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.agency-project-card__preview {
+  padding: 0;
+  background: transparent;
+}
+
+.agency-project-card__body,
+.agency-client-card__header,
+.agency-client-card__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agency-project-card__body h3,
+.agency-client-card__header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.agency-project-card__body p,
+.agency-client-card__header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.agency-client-card__header {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.agency-client-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.agency-client-card__metrics strong,
+.agency-client-card__footer strong {
+  display: block;
+}
+
+.agency-client-card__footer {
+  margin-top: auto;
+}
+
+.agency-project-card--compact {
+  justify-content: space-between;
+}
+
+@media (max-width: 1180px) {
+  .agency-shell-hero {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .agency-shell {
+    padding: 18px;
+  }
+
+  .agency-shell-topbar,
+  .agency-shell-hero,
+  .agency-client-card__header,
+  .agency-client-card__metrics {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+}
+
 
 /* Sprint 3 — timeline-owned layer controls */
 .timeline-row {
