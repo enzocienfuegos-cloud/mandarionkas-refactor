@@ -19,3 +19,4 @@ export * from './ab-testing.mjs';
 export * from './studio.mjs';
 export * from './studio-hub.mjs';
 export * from './creative-catalog.mjs';
+export * from './creative-ingestions.mjs';
