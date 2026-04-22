@@ -1,3 +1,5 @@
+import { ensureLegacyCreativeVersion } from './creative-catalog.mjs';
+
 export async function listCreatives(pool, workspaceId, opts = {}) {
   const { approval_status, type, limit = 100, offset = 0, search } = opts;
   const params = [workspaceId];
@@ -63,7 +65,9 @@ export async function createCreative(pool, workspaceId, data) {
     [workspaceId, name, type, file_url, file_size, mime_type, width, height,
      duration_ms, click_url, JSON.stringify(metadata), approval_status, transcode_status],
   );
-  return rows[0];
+  const creative = rows[0];
+  await ensureLegacyCreativeVersion(pool, workspaceId, creative);
+  return creative;
 }
 
 export async function updateCreative(pool, workspaceId, id, data) {
@@ -88,7 +92,11 @@ export async function updateCreative(pool, workspaceId, id, data) {
      RETURNING *`,
     params,
   );
-  return rows[0] ?? null;
+  const creative = rows[0] ?? null;
+  if (creative) {
+    await ensureLegacyCreativeVersion(pool, workspaceId, creative);
+  }
+  return creative;
 }
 
 export async function deleteCreative(pool, workspaceId, id) {
