@@ -5,6 +5,7 @@ import type { ResizeHandle } from '../use-stage-controller';
 import { StageWidget } from './StageWidget';
 import { StageDropPreviewOverlay } from './StageDropPreviewOverlay';
 import { rectStyle, sceneTransitionOpacity, sceneTransitionTransform, toRect } from './stage-utils';
+import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 
 type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
@@ -76,6 +77,7 @@ export function StageSurface({
     <div
       className={`stage-surface ${previewMode ? 'is-preview-mode' : 'is-edit-mode'} ${stageDropActive ? 'is-drop-target' : ''} ${dropPreview && !dropPreview.inBounds ? 'is-drop-invalid' : ''}`}
       ref={stageRef}
+      {...createStageInteractionProps(STAGE_INTERACTION.surface)}
       onPointerDown={onStagePointerDown}
       onDragOver={onStageDragOver}
       onDragLeave={onStageDragLeave}
@@ -117,15 +119,15 @@ export function StageSurface({
           />
         );
       })}
-      {marquee ? <div className="marquee-rect" style={rectStyle(toRect(marquee.origin, marquee.current))} /> : null}
+      {marquee ? <div className="marquee-rect" {...createStageInteractionProps(STAGE_INTERACTION.systemOverlay)} style={rectStyle(toRect(marquee.origin, marquee.current))} /> : null}
       {dropPreview ? <StageDropPreviewOverlay preview={dropPreview} /> : null}
       {!previewMode && showStageRulers ? (
         <>
-          <div className="stage-guide stage-guide-horizontal" style={{ top: Math.round(canvas.height / 2) }} />
-          <div className="stage-guide stage-guide-vertical" style={{ left: Math.round(canvas.width / 2) }} />
+          <div className="stage-guide stage-guide-horizontal" {...createStageInteractionProps(STAGE_INTERACTION.systemOverlay)} style={{ top: Math.round(canvas.height / 2) }} />
+          <div className="stage-guide stage-guide-vertical" {...createStageInteractionProps(STAGE_INTERACTION.systemOverlay)} style={{ left: Math.round(canvas.width / 2) }} />
         </>
       ) : null}
-      <div className="playhead-overlay" style={{ left: Math.round((playheadMs / sceneDurationMs) * canvas.width) }} />
+      <div className="playhead-overlay" {...createStageInteractionProps(STAGE_INTERACTION.systemOverlay)} style={{ left: Math.round((playheadMs / sceneDurationMs) * canvas.width) }} />
     </div>
   );
 }

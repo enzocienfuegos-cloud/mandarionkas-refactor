@@ -17,6 +17,15 @@ import { usePlatformPermission } from '../../platform/runtime';
 import { getLiveWidgetFrame } from '../../domain/document/timeline';
 import { useDocumentActions } from '../../hooks/use-studio-actions';
 import { buildWidgetClipboardPayload, getWidgetClipboardPayload, setWidgetClipboardPayload } from './widget-clipboard';
+import {
+  createStageInteractionProps,
+  isStageInteractiveOverlayTarget,
+  isStageToolbarDragHandleTarget,
+  isStageWidgetTarget,
+  isWithinCanvasQuickPanelTarget,
+  isWithinStageSurfaceTarget,
+  STAGE_INTERACTION,
+} from './stage-interaction-targets';
 
 const stageWrap: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '100%' };
 
@@ -161,7 +170,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
 
   const beginToolbarDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
-    if (!target.closest('.workspace-toolbar-drag-handle')) return;
+    if (!isStageToolbarDragHandleTarget(target)) return;
     if (!event.isPrimary) return;
     dragStateRef.current = {
       pointerId: event.pointerId,
@@ -209,8 +218,8 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
       onPointerDownCapture={(event) => {
         handleWorkspacePointerDownCapture(event);
         const target = event.target as HTMLElement | null;
-        const insidePanel = Boolean(target?.closest('.stage-canvas-quick-panel'));
-        const insideStage = Boolean(target?.closest('.stage-surface'));
+        const insidePanel = isWithinCanvasQuickPanelTarget(target);
+        const insideStage = isWithinStageSurfaceTarget(target);
         if (!insidePanel && !insideStage) {
           setShowCanvasQuickPanel(false);
         }
@@ -245,12 +254,14 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
               stateRef={fullStateRef}
               isWidgetVisible={isWidgetVisible}
               onStagePointerDown={(event) => {
-                if (event.target === event.currentTarget) {
-                  widgetActions.selectWidget(null);
-                  setShowCanvasQuickPanel(true);
-                  if (event.pointerType !== 'touch') {
-                    beginMarqueeSelection(event.nativeEvent);
-                  }
+                const target = event.target as HTMLElement | null;
+                if (isStageWidgetTarget(target) || isStageInteractiveOverlayTarget(target)) {
+                  return;
+                }
+                widgetActions.selectWidget(null);
+                setShowCanvasQuickPanel(true);
+                if (event.pointerType !== 'touch') {
+                  beginMarqueeSelection(event.nativeEvent);
                 }
               }}
               onStageDragOver={handleStageDragOver}
@@ -273,7 +284,11 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
               onExecuteAction={widgetActions.executeAction}
             />
             {showCanvasQuickPanel ? (
-              <div ref={canvasQuickPanelRef} className="stage-canvas-quick-panel">
+              <div
+                ref={canvasQuickPanelRef}
+                className="stage-canvas-quick-panel"
+                {...createStageInteractionProps(STAGE_INTERACTION.quickPanel)}
+              >
                 <div className="stage-canvas-quick-panel__header">
                   <strong>Canvas background</strong>
                   <span>{canvas.width}×{canvas.height}</span>

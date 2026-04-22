@@ -1,5 +1,6 @@
 import type { CSSProperties, MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
 import { ZOOM_MAX, ZOOM_MIN } from '../controllers/stage-viewport';
+import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 
 type StageFloatingToolbarProps = {
   toolbarRef: MutableRefObject<HTMLDivElement | null>;
@@ -52,13 +53,20 @@ export function StageFloatingToolbar({
     <div
       ref={toolbarRef}
       className={`workspace-toolbar workspace-toolbar--ux workspace-toolbar--floating ${toolbarCollapsed ? 'is-collapsed' : ''}`}
+      {...createStageInteractionProps(STAGE_INTERACTION.floatingToolbar)}
       style={toolbarStyle}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
-      <div className="workspace-toolbar-drag-handle" title="Move stage controls">⋮⋮</div>
+      <div
+        className="workspace-toolbar-drag-handle"
+        title="Move stage controls"
+        {...createStageInteractionProps(STAGE_INTERACTION.toolbarDragHandle)}
+      >
+        ⋮⋮
+      </div>
       <button className="ghost" title={toolbarCollapsed ? 'Expand controls' : 'Collapse controls'} onClick={onToggleCollapsed}>{toolbarCollapsed ? '▣' : '—'}</button>
       {!toolbarCollapsed ? (
         <>

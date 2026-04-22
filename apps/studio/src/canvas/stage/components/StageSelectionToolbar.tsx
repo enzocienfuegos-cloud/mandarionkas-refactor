@@ -1,5 +1,6 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import type { WidgetNode } from '../../../domain/document/types';
+import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 
 type StageSelectionToolbarProps = {
   widget: WidgetNode;
@@ -164,7 +165,12 @@ export function StageSelectionToolbar({
   };
 
   return (
-    <div className="stage-selection-toolbar workspace-toolbar workspace-toolbar--ux selection-mini-toolbar" style={style} onPointerDown={stopPropagation}>
+    <div
+      className="stage-selection-toolbar workspace-toolbar workspace-toolbar--ux selection-mini-toolbar"
+      style={style}
+      onPointerDown={stopPropagation}
+      {...createStageInteractionProps(STAGE_INTERACTION.selectionToolbar)}
+    >
       <span className="pill stage-selection-pill">{widget.type}</span>
       <IconButton label={widget.hidden ? 'Show widget' : 'Hide widget'} onClick={onToggleVisibility}>
         <EyeIcon closed={Boolean(widget.hidden)} />

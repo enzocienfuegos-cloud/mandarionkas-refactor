@@ -1,4 +1,5 @@
 import type { useStageController } from '../use-stage-controller';
+import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 
 type DropPreview = NonNullable<ReturnType<typeof useStageController>['dropPreview']>;
 
@@ -15,10 +16,10 @@ export function StageDropPreviewOverlay({ preview }: { preview: DropPreview }): 
 
   return (
     <>
-      <div className="stage-drop-guide stage-drop-guide-vertical" style={{ left: point.x }} />
-      <div className="stage-drop-guide stage-drop-guide-horizontal" style={{ top: point.y }} />
-      <div className={`stage-drop-indicator ${preview.inBounds ? 'is-valid' : 'is-clamped'}`} style={{ left: point.x, top: point.y }} />
-      <div className={`stage-drop-pill ${preview.inBounds ? 'is-valid' : 'is-clamped'}`} style={{ left: Math.min(Math.max(point.x + 18, 12), 320), top: Math.max(point.y - 42, 12) }}>
+      <div className="stage-drop-guide stage-drop-guide-vertical" {...createStageInteractionProps(STAGE_INTERACTION.systemOverlay)} style={{ left: point.x }} />
+      <div className="stage-drop-guide stage-drop-guide-horizontal" {...createStageInteractionProps(STAGE_INTERACTION.systemOverlay)} style={{ top: point.y }} />
+      <div className={`stage-drop-indicator ${preview.inBounds ? 'is-valid' : 'is-clamped'}`} {...createStageInteractionProps(STAGE_INTERACTION.systemOverlay)} style={{ left: point.x, top: point.y }} />
+      <div className={`stage-drop-pill ${preview.inBounds ? 'is-valid' : 'is-clamped'}`} {...createStageInteractionProps(STAGE_INTERACTION.systemOverlay)} style={{ left: Math.min(Math.max(point.x + 18, 12), 320), top: Math.max(point.y - 42, 12) }}>
         <strong>{title}</strong>
         <span>{subtitle}</span>
       </div>
