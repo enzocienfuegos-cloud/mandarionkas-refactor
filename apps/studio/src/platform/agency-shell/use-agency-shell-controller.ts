@@ -1,20 +1,37 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTopBarController } from '../../app/shell/topbar/use-top-bar-controller';
+import { getProjectInsightMap, listFavoriteProjects, listMostVisitedProjects, listRecentProjects, recordProjectVisit, toggleFavoriteProject } from './project-insights-store';
 
 export function useAgencyShellController() {
   const topBar = useTopBarController();
   const { workspace, projectSession } = topBar;
   const { visibleClients, currentUser } = workspace;
+  const [insightTick, setInsightTick] = useState(0);
 
   const projects = useMemo(
     () => [...projectSession.projects].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [projectSession.projects],
   );
 
-  const recentProjects = projects.slice(0, 8);
-  const mostVisitedProjects = [...projects]
-    .sort((a, b) => (b.widgetCount ?? 0) + (b.sceneCount ?? 0) - ((a.widgetCount ?? 0) + (a.sceneCount ?? 0)))
-    .slice(0, 8);
+  const projectInsights = useMemo(
+    () => getProjectInsightMap(currentUser?.id),
+    [currentUser?.id, insightTick],
+  );
+
+  const recentProjects = useMemo(
+    () => listRecentProjects(projects, currentUser?.id, 8),
+    [currentUser?.id, insightTick, projects],
+  );
+
+  const favoriteProjects = useMemo(
+    () => listFavoriteProjects(projects, currentUser?.id, 6),
+    [currentUser?.id, insightTick, projects],
+  );
+
+  const mostVisitedProjects = useMemo(
+    () => listMostVisitedProjects(projects, currentUser?.id, 8),
+    [currentUser?.id, insightTick, projects],
+  );
 
   const clientCards = useMemo(() => (
     visibleClients.map((client) => {
@@ -51,15 +68,29 @@ export function useAgencyShellController() {
     busiestClientName: clientCards.slice().sort((a, b) => b.activeCount - a.activeCount)[0]?.client.name ?? 'No clients yet',
   };
 
+  function markProjectOpened(projectId: string): void {
+    recordProjectVisit(currentUser?.id, projectId);
+    setInsightTick((current) => current + 1);
+  }
+
+  function toggleProjectFavorite(projectId: string): void {
+    toggleFavoriteProject(currentUser?.id, projectId);
+    setInsightTick((current) => current + 1);
+  }
+
   return {
     topBar,
     workspace,
     projectSession,
     visibleClients,
+    projectInsights,
     recentProjects,
+    favoriteProjects,
     mostVisitedProjects,
     clientCards,
     stats,
     efficiency,
+    markProjectOpened,
+    toggleProjectFavorite,
   };
 }

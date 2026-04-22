@@ -3,6 +3,7 @@ import { CANVAS_PRESETS, getCanvasPresetById } from '../../domain/document/canva
 import { useTopBarController } from '../../app/shell/topbar/use-top-bar-controller';
 import type { ProjectSummary } from '../../repositories/types';
 import { assignProjectsToFolder, createProjectFolder, getProjectFolderAssignments, listProjectFolders, type ProjectFolderRecord } from '../client-workspace/project-folder-store';
+import { recordProjectVisit } from '../agency-shell/project-insights-store';
 
 type ProjectFilter = 'all' | 'mine' | 'shared';
 type ProjectView = 'active' | 'archived' | 'all';
@@ -129,6 +130,7 @@ export function useWorkspaceHubController() {
   }
 
   async function openProject(projectId: string): Promise<void> {
+    recordProjectVisit(currentUser?.id, projectId);
     await projectSession.handleLoadProject(projectId);
   }
 

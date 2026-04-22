@@ -16,17 +16,22 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
   const {
     workspace,
     projectSession,
+    projectInsights,
     recentProjects,
+    favoriteProjects,
     mostVisitedProjects,
     clientCards,
     stats,
     efficiency,
+    markProjectOpened,
+    toggleProjectFavorite,
   } = controller;
 
   async function handleResumeProject(projectId: string, clientId?: string): Promise<void> {
     if (clientId && workspace.activeClientId !== clientId) {
       await workspace.handleActiveClientChange(clientId);
     }
+    markProjectOpened(projectId);
     await projectSession.handleLoadProject(projectId);
     onEnterEditor();
   }
@@ -90,11 +95,50 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
                 <div className="agency-project-card__body">
                   <h3>{project.name}</h3>
                   <p>{project.brandName ?? 'No brand'} · {project.campaignName ?? 'No campaign'}</p>
-                  <small>{formatDate(project.updatedAt)}</small>
+                  <small>{formatDate(projectInsights[project.id]?.lastOpenedAt ?? project.updatedAt)}</small>
                 </div>
+                <button className="ghost compact-action" type="button" onClick={() => toggleProjectFavorite(project.id)}>
+                  {projectInsights[project.id]?.isFavorite ? '★ Favorite' : '☆ Favorite'}
+                </button>
               </article>
             );
           })}
+          {recentProjects.length === 0 ? (
+            <div className="agency-empty-state">
+              <h3>No recent work yet</h3>
+              <p>Open a project from any client workspace and it will start showing up here.</p>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="agency-shell-section">
+        <div className="agency-shell-section-head">
+          <div>
+            <div className="workspace-hub-kicker">Pinned across clients</div>
+            <h2>Favorite projects</h2>
+          </div>
+        </div>
+        <div className="agency-shell-slider">
+          {favoriteProjects.map((project) => (
+            <article key={project.id} className="agency-project-card agency-project-card--compact">
+              <div className="agency-project-card__body">
+                <h3>{project.name}</h3>
+                <p>{project.brandName ?? 'No brand'} · {project.campaignName ?? 'No campaign'}</p>
+                <small>{projectInsights[project.id]?.visitCount ?? 0} opens · {formatDate(projectInsights[project.id]?.lastOpenedAt ?? project.updatedAt)}</small>
+              </div>
+              <div className="agency-project-card__actions">
+                <button className="ghost compact-action" type="button" onClick={() => toggleProjectFavorite(project.id)}>Remove</button>
+                <button className="primary compact-action" type="button" onClick={() => void handleResumeProject(project.id, project.clientId)}>Resume</button>
+              </div>
+            </article>
+          ))}
+          {favoriteProjects.length === 0 ? (
+            <div className="agency-empty-state">
+              <h3>No favorites yet</h3>
+              <p>Star projects from the recent rail to keep your cross-client priority list visible here.</p>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -157,13 +201,24 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
               <div className="agency-project-card__body">
                 <h3>{project.name}</h3>
                 <p>{project.brandName ?? 'No brand'} · {project.ownerName ?? project.ownerUserId}</p>
-                <small>{project.widgetCount ?? 0} widgets · {project.sceneCount ?? 1} scenes</small>
+                <small>{projectInsights[project.id]?.visitCount ?? 0} opens · {project.widgetCount ?? 0} widgets · {project.sceneCount ?? 1} scenes</small>
               </div>
-              <button className="ghost compact-action" type="button" onClick={() => void handleResumeProject(project.id, project.clientId)}>
-                Resume
-              </button>
+              <div className="agency-project-card__actions">
+                <button className="ghost compact-action" type="button" onClick={() => toggleProjectFavorite(project.id)}>
+                  {projectInsights[project.id]?.isFavorite ? '★ Favorite' : '☆ Favorite'}
+                </button>
+                <button className="ghost compact-action" type="button" onClick={() => void handleResumeProject(project.id, project.clientId)}>
+                  Resume
+                </button>
+              </div>
             </article>
           ))}
+          {mostVisitedProjects.length === 0 ? (
+            <div className="agency-empty-state">
+              <h3>No visit data yet</h3>
+              <p>As people keep opening banners from this shell and the client workspace, this list will start surfacing the busiest work.</p>
+            </div>
+          ) : null}
         </div>
       </section>
     </div>

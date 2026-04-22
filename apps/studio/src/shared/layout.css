@@ -3629,6 +3629,17 @@
   gap: 6px;
 }
 
+.agency-project-card__actions,
+.agency-empty-state {
+  display: flex;
+  gap: 10px;
+}
+
+.agency-project-card__actions {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .agency-project-card__body h3,
 .agency-client-card__header h3 {
   margin: 0;
@@ -3664,6 +3675,25 @@
 
 .agency-project-card--compact {
   justify-content: space-between;
+}
+
+.agency-empty-state {
+  min-height: 180px;
+  padding: 20px;
+  border: 1px dashed rgba(120,144,168,0.24);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.02);
+  flex-direction: column;
+  justify-content: center;
+}
+
+.agency-empty-state h3,
+.agency-empty-state p {
+  margin: 0;
+}
+
+.agency-empty-state p {
+  color: var(--muted);
 }
 
 @media (max-width: 1180px) {
