@@ -32,6 +32,14 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
     setPage,
     pageCount,
     pageItems,
+    activeFolderId,
+    setActiveFolderId,
+    newFolderName,
+    setNewFolderName,
+    bulkTargetFolderId,
+    setBulkTargetFolderId,
+    folderCards,
+    folderAssignments,
     selectedProjectIds,
     toggleProjectSelection,
     clearSelection,
@@ -132,6 +140,39 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
       </section>
 
       <section className="workspace-hub-toolbar">
+        <div className="workspace-hub-folder-bar">
+          <div className="workspace-hub-folder-list">
+            {folderCards.map((folder) => (
+              <button
+                key={folder.id}
+                className={`workspace-folder-card ${activeFolderId === folder.id ? 'is-active' : ''}`}
+                type="button"
+                onClick={() => {
+                  setActiveFolderId(folder.id);
+                  setPage(1);
+                }}
+              >
+                <span>{folder.name}</span>
+                <strong>{folder.count}</strong>
+              </button>
+            ))}
+          </div>
+          <div className="workspace-hub-folder-create">
+            <input
+              value={newFolderName}
+              onChange={(event) => setNewFolderName(event.target.value)}
+              placeholder="Create a folder in this client workspace"
+            />
+            <button
+              className="ghost compact-action"
+              type="button"
+              onClick={() => void controller.createFolderDraft()}
+              disabled={!newFolderName.trim() || !activeClient?.id}
+            >
+              New folder
+            </button>
+          </div>
+        </div>
         <div className="workspace-hub-toolbar-row">
           <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search by project, brand, campaign or owner" />
           <select value={projectFilter} onChange={(event) => { setProjectFilter(event.target.value as typeof projectFilter); setPage(1); }}>
@@ -155,6 +196,24 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
           <div className="pill">{selectedProjectIds.length} selected</div>
           <button className="ghost compact-action" type="button" onClick={selectAllVisible}>Select page</button>
           <button className="ghost compact-action" type="button" onClick={clearSelection}>Clear</button>
+          <select
+            value={bulkTargetFolderId}
+            onChange={(event) => setBulkTargetFolderId(event.target.value)}
+            disabled={selectedProjectIds.length === 0}
+          >
+            <option value="root">Move to unfiled</option>
+            {folderCards.filter((folder) => folder.id !== 'all' && folder.id !== 'root').map((folder) => (
+              <option key={folder.id} value={folder.id}>{folder.name}</option>
+            ))}
+          </select>
+          <button
+            className="ghost compact-action"
+            type="button"
+            onClick={() => controller.moveSelectedProjectsToFolder(bulkTargetFolderId === 'root' ? undefined : bulkTargetFolderId)}
+            disabled={selectedProjectIds.length === 0}
+          >
+            Move selected
+          </button>
           <button className="ghost compact-action" type="button" onClick={() => void controller.archiveSelectedProjects()} disabled={selectedProjectIds.length === 0 || !workspace.canDeleteProjects}>Archive selected</button>
           <button className="ghost compact-action" type="button" onClick={() => void controller.restoreSelectedProjects()} disabled={selectedProjectIds.length === 0 || !workspace.canDeleteProjects}>Restore selected</button>
           <button className="ghost compact-action" type="button" onClick={() => void controller.deleteSelectedProjects()} disabled={selectedProjectIds.length === 0 || !workspace.canDeleteProjects}>Delete selected</button>
@@ -168,6 +227,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
           const isSelected = selectedProjectIds.includes(project.id);
           const brandColor = activeClient?.brands?.find((brand) => brand.id === project.brandId)?.primaryColor ?? activeClient?.brandColor ?? '#7c5cff';
           const aspectRatio = preset ? `${preset.width} / ${preset.height}` : '16 / 9';
+          const assignedFolderName = folderCards.find((folder) => folder.id === folderAssignments[project.id])?.name ?? 'Unfiled';
           return (
             <article key={project.id} className={`workspace-project-card ${isSelected ? 'is-selected' : ''} ${project.archivedAt ? 'is-archived' : ''}`}>
               <label className="workspace-project-select">
@@ -187,6 +247,10 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
                     <p>{project.brandName ?? 'No brand'} · {project.campaignName ?? 'No campaign'}</p>
                   </div>
                   <span className="pill">{project.archivedAt ? 'archived' : (project.accessScope ?? 'client')}</span>
+                </div>
+                <div className="workspace-project-folder-row">
+                  <span className="workspace-project-meta-label">Folder</span>
+                  <strong>{assignedFolderName}</strong>
                 </div>
                 <div className="workspace-project-meta-grid">
                   <div>

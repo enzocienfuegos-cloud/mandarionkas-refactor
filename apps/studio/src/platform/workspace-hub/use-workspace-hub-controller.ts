@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CANVAS_PRESETS, getCanvasPresetById } from '../../domain/document/canvas-presets';
 import { useTopBarController } from '../../app/shell/topbar/use-top-bar-controller';
 import type { ProjectSummary } from '../../repositories/types';
+import { assignProjectsToFolder, createProjectFolder, getProjectFolderAssignments, listProjectFolders, type ProjectFolderRecord } from '../client-workspace/project-folder-store';
 
 type ProjectFilter = 'all' | 'mine' | 'shared';
 type ProjectView = 'active' | 'archived' | 'all';
@@ -24,11 +25,30 @@ export function useWorkspaceHubController() {
   const [projectView, setProjectView] = useState<ProjectView>('active');
   const [sortMode, setSortMode] = useState<SortMode>('recent');
   const [page, setPage] = useState(1);
+  const [activeFolderId, setActiveFolderId] = useState<string>('all');
+  const [newFolderName, setNewFolderName] = useState('');
+  const [bulkTargetFolderId, setBulkTargetFolderId] = useState<string>('root');
+  const [folderTick, setFolderTick] = useState(0);
   const pageSize = 8;
 
   const { workspace, projectSession, snapshot } = topBar;
   const { activeClientId, visibleClients, currentUser } = workspace;
   const activeClient = visibleClients.find((client) => client.id === activeClientId) ?? workspace.activeClient;
+
+  useEffect(() => {
+    setActiveFolderId('all');
+    setBulkTargetFolderId('root');
+  }, [activeClientId]);
+
+  const projectFolders = useMemo<ProjectFolderRecord[]>(
+    () => (activeClientId ? listProjectFolders(activeClientId) : []),
+    [activeClientId, folderTick],
+  );
+
+  const folderAssignments = useMemo(
+    () => getProjectFolderAssignments(),
+    [folderTick],
+  );
 
   const clientProjects = useMemo(
     () => projectSession.projects.filter((project) => !activeClientId || project.clientId === activeClientId),
@@ -38,6 +58,9 @@ export function useWorkspaceHubController() {
   const filteredProjects = useMemo(() => {
     const next = clientProjects.filter((project) => {
       if (!matchesSearch(project, search)) return false;
+      const projectFolderId = folderAssignments[project.id];
+      if (activeFolderId === 'root' && projectFolderId) return false;
+      if (activeFolderId !== 'all' && activeFolderId !== 'root' && projectFolderId !== activeFolderId) return false;
       if (projectView === 'active' && project.archivedAt) return false;
       if (projectView === 'archived' && !project.archivedAt) return false;
       if (projectFilter === 'mine') return project.ownerUserId === currentUser?.id;
@@ -49,7 +72,7 @@ export function useWorkspaceHubController() {
       return b.updatedAt.localeCompare(a.updatedAt);
     });
     return next;
-  }, [clientProjects, currentUser?.id, projectFilter, projectView, search, sortMode]);
+  }, [activeFolderId, clientProjects, currentUser?.id, folderAssignments, projectFilter, projectView, search, sortMode]);
 
   const pageCount = Math.max(1, Math.ceil(filteredProjects.length / pageSize));
   const safePage = Math.min(page, pageCount);
@@ -66,6 +89,20 @@ export function useWorkspaceHubController() {
 
   function selectAllVisible(): void {
     setSelectedProjectIds(pageItems.map((project) => project.id));
+  }
+
+  async function createFolderDraft(): Promise<void> {
+    if (!activeClientId || !newFolderName.trim()) return;
+    createProjectFolder(activeClientId, newFolderName);
+    setNewFolderName('');
+    setFolderTick((current) => current + 1);
+  }
+
+  function moveSelectedProjectsToFolder(folderId?: string): void {
+    if (!selectedProjectIds.length) return;
+    assignProjectsToFolder(selectedProjectIds, folderId);
+    setFolderTick((current) => current + 1);
+    clearSelection();
   }
 
   async function deleteSelectedProjects(): Promise<void> {
@@ -132,6 +169,19 @@ export function useWorkspaceHubController() {
     }));
   }, [activeClient?.memberUserIds, currentUser?.id, currentUser?.name]);
 
+  const folderCards = useMemo(
+    () => [
+      { id: 'all', name: 'All projects', count: clientProjects.length },
+      { id: 'root', name: 'Unfiled', count: clientProjects.filter((project) => !folderAssignments[project.id]).length },
+      ...projectFolders.map((folder) => ({
+        id: folder.id,
+        name: folder.name,
+        count: clientProjects.filter((project) => folderAssignments[project.id] === folder.id).length,
+      })),
+    ],
+    [clientProjects, folderAssignments, projectFolders],
+  );
+
   return {
     topBar,
     workspace,
@@ -161,12 +211,23 @@ export function useWorkspaceHubController() {
     pageItems,
     filteredProjects,
     pageSize,
+    activeFolderId,
+    setActiveFolderId,
+    newFolderName,
+    setNewFolderName,
+    bulkTargetFolderId,
+    setBulkTargetFolderId,
+    projectFolders,
+    folderCards,
+    folderAssignments,
     openProject,
     duplicateProjectCard,
     archiveProjectCard,
     restoreProjectCard,
     changeProjectOwner,
     createProjectDraft,
+    createFolderDraft,
+    moveSelectedProjectsToFolder,
     stats,
     ownerOptions,
     canvasPresets: CANVAS_PRESETS,
