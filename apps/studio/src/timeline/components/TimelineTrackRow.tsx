@@ -40,67 +40,82 @@ export function TimelineTrackRow({
   const definition = getWidgetDefinition(widget.type);
   const barLeft = timing.startMs * rowMsToPx;
   const barWidth = Math.max(16, (timing.endMs - timing.startMs) * rowMsToPx);
-  const metaIndent = 12 + depth * 18;
+  const metaIndent = 8 + depth * 16;
 
   return (
     <div
-      className={`timeline-row ${selected ? 'is-selected' : ''} ${isActive ? 'is-active' : ''} ${keyframes.length ? 'has-keyframes' : ''} ${widget.hidden ? 'is-hidden' : ''} ${widget.locked ? 'is-locked' : ''} ${depth ? 'is-nested' : ''} ${isGroup ? 'is-group-row' : ''}`}
+      className={[
+        'timeline-row',
+        selected ? 'is-selected' : '',
+        isActive ? 'is-active' : '',
+        keyframes.length ? 'has-keyframes' : '',
+        widget.hidden ? 'is-hidden' : '',
+        widget.locked ? 'is-locked' : '',
+        depth ? 'is-nested' : '',
+        isGroup ? 'is-group-row' : '',
+      ].filter(Boolean).join(' ')}
       onClick={(event) => onSelect(event.shiftKey || event.metaKey || event.ctrlKey)}
     >
       <div className="timeline-row-meta" style={{ paddingLeft: metaIndent }}>
         <div className="timeline-row-meta-top">
-          <div className="timeline-row-hierarchy-controls">
-            {isGroup ? (
-              <button
-                type="button"
-                className="timeline-disclosure-button"
-                title={isCollapsed ? 'Expand group' : 'Collapse group'}
-                aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onToggleCollapse?.();
-                }}
-              >
-                {isCollapsed ? '▸' : '▾'}
-              </button>
-            ) : <span className="timeline-disclosure-spacer" />}
-            <div className="timeline-row-layer-controls">
-              <button
-                type="button"
-                className={`timeline-layer-toggle ${widget.hidden ? 'is-off' : ''}`}
-                title={widget.hidden ? 'Show layer' : 'Hide layer'}
-                aria-label={widget.hidden ? 'Show layer' : 'Hide layer'}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onToggleHidden();
-                }}
-              >
-                {widget.hidden ? '🙈' : '👁'}
-              </button>
-              <button
-                type="button"
-                className={`timeline-layer-toggle ${widget.locked ? 'is-off' : ''}`}
-                title={widget.locked ? 'Unlock layer' : 'Lock layer'}
-                aria-label={widget.locked ? 'Unlock layer' : 'Lock layer'}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onToggleLocked();
-                }}
-              >
-                {widget.locked ? '🔒' : '🔓'}
-              </button>
-            </div>
+          {isGroup ? (
+            <button
+              type="button"
+              className="timeline-disclosure-button"
+              title={isCollapsed ? 'Expand group' : 'Collapse group'}
+              aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleCollapse?.();
+              }}
+            >
+              {isCollapsed ? '▸' : '▾'}
+            </button>
+          ) : (
+            <span className="timeline-disclosure-spacer" />
+          )}
+
+          <button
+            type="button"
+            className={`timeline-layer-toggle${widget.hidden ? ' is-off' : ''}`}
+            title={widget.hidden ? 'Show layer' : 'Hide layer'}
+            aria-label={widget.hidden ? 'Show layer' : 'Hide layer'}
+            aria-pressed={!widget.hidden}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleHidden();
+            }}
+          >
+            <span aria-hidden="true">{widget.hidden ? '○' : '●'}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`timeline-layer-toggle${widget.locked ? ' is-off' : ''}`}
+            title={widget.locked ? 'Unlock layer' : 'Lock layer'}
+            aria-label={widget.locked ? 'Unlock layer' : 'Lock layer'}
+            aria-pressed={widget.locked}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleLocked();
+            }}
+          >
+            <span aria-hidden="true">{widget.locked ? '⊠' : '⊡'}</span>
+          </button>
+
+          <div className="timeline-row-name-editor-shell">
+            <TimelineRowNameEditor widgetId={widget.id} value={widget.name} onCommit={onRename} />
           </div>
-          <TimelineRowNameEditor widgetId={widget.id} value={widget.name} onCommit={onRename} />
         </div>
+
         <div className="timeline-row-meta-bottom">
-          <small className="muted">
-            <span>{definition.label}</span>
-            <span>Layer {widget.zIndex + 1}</span>
-            {isGroup ? <span>{childCount} child{childCount === 1 ? '' : 'ren'}</span> : null}
-            {depth ? <span>Level {depth + 1}</span> : null}
+          <small className="muted timeline-row-type-label">
+            {definition.label}
+            {isGroup && childCount > 0 ? ` · ${childCount}` : null}
+            {depth ? ` · L${depth + 1}` : null}
           </small>
-          <div className="timeline-row-order-actions">
+
+          <div className="timeline-row-order-actions" onClick={(event) => event.stopPropagation()}>
             <button
               type="button"
               className="timeline-order-button"
@@ -128,6 +143,7 @@ export function TimelineTrackRow({
           </div>
         </div>
       </div>
+
       <div className="timeline-track" style={{ width: trackWidth }}>
         <div className="timeline-row-playhead" style={{ left: playheadLeft }} />
         {snapGuideMs !== undefined ? <div className="timeline-snap-guide" style={{ left: snapGuideMs * rowMsToPx }} /> : null}
@@ -142,17 +158,38 @@ export function TimelineTrackRow({
               event.stopPropagation();
               onSelect(false);
               if (widget.locked) return;
-              onDragStart({ mode: 'move-keyframe', widgetId: widget.id, keyframeId: keyframe.id, originX: event.clientX, startAtMs: keyframe.atMs, draftAtMs: keyframe.atMs });
+              onDragStart({
+                mode: 'move-keyframe',
+                widgetId: widget.id,
+                keyframeId: keyframe.id,
+                originX: event.clientX,
+                startAtMs: keyframe.atMs,
+                draftAtMs: keyframe.atMs,
+              });
             }}
           />
         ))}
         <div
-          className={`timeline-bar ${isActive ? 'is-active' : ''} ${widget.hidden ? 'is-muted' : ''} ${widget.locked ? 'is-locked' : ''} ${isGroup ? 'is-group-bar' : ''}`}
+          className={[
+            'timeline-bar',
+            isActive ? 'is-active' : '',
+            widget.hidden ? 'is-muted' : '',
+            widget.locked ? 'is-locked' : '',
+            isGroup ? 'is-group-bar' : '',
+          ].filter(Boolean).join(' ')}
           style={{ left: barLeft, width: barWidth }}
           onPointerDown={(event) => {
             if (widget.locked) return;
             event.stopPropagation();
-            onDragStart({ mode: 'move-bar', widgetId: widget.id, originX: event.clientX, startStartMs: timing.startMs, startEndMs: timing.endMs, draftStartMs: timing.startMs, draftEndMs: timing.endMs });
+            onDragStart({
+              mode: 'move-bar',
+              widgetId: widget.id,
+              originX: event.clientX,
+              startStartMs: timing.startMs,
+              startEndMs: timing.endMs,
+              draftStartMs: timing.startMs,
+              draftEndMs: timing.endMs,
+            });
           }}
         >
           <button
@@ -160,7 +197,15 @@ export function TimelineTrackRow({
             onPointerDown={(event) => {
               if (widget.locked) return;
               event.stopPropagation();
-              onDragStart({ mode: 'trim-start', widgetId: widget.id, originX: event.clientX, startStartMs: timing.startMs, startEndMs: timing.endMs, draftStartMs: timing.startMs, draftEndMs: timing.endMs });
+              onDragStart({
+                mode: 'trim-start',
+                widgetId: widget.id,
+                originX: event.clientX,
+                startStartMs: timing.startMs,
+                startEndMs: timing.endMs,
+                draftStartMs: timing.startMs,
+                draftEndMs: timing.endMs,
+              });
             }}
           />
           <span>{widget.name} · {formatTime(timing.startMs)} → {formatTime(timing.endMs)}</span>
@@ -169,11 +214,23 @@ export function TimelineTrackRow({
             onPointerDown={(event) => {
               if (widget.locked) return;
               event.stopPropagation();
-              onDragStart({ mode: 'trim-end', widgetId: widget.id, originX: event.clientX, startStartMs: timing.startMs, startEndMs: timing.endMs, draftStartMs: timing.startMs, draftEndMs: timing.endMs });
+              onDragStart({
+                mode: 'trim-end',
+                widgetId: widget.id,
+                originX: event.clientX,
+                startStartMs: timing.startMs,
+                startEndMs: timing.endMs,
+                draftStartMs: timing.startMs,
+                draftEndMs: timing.endMs,
+              });
             }}
           />
         </div>
-        {isGroup && isCollapsed && childCount > 0 ? <div className="timeline-group-collapsed-badge" style={{ left: barLeft + Math.min(barWidth + 10, 140) }}>+{childCount}</div> : null}
+        {isGroup && isCollapsed && childCount > 0 ? (
+          <div className="timeline-group-collapsed-badge" style={{ left: barLeft + Math.min(barWidth + 10, 140) }}>
+            +{childCount}
+          </div>
+        ) : null}
       </div>
     </div>
   );
