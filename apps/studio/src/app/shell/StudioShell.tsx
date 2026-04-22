@@ -26,10 +26,15 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
   const [timelineHeight, setTimelineHeight] = useState(260);
   const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
 
-  const handleLeftRailResizeStart = useCallback((startX: number) => {
+  const handleLeftRailResizeStart = useCallback((startX: number, edge: 'left' | 'right') => {
     const startWidth = leftRailWidth;
-    const onMove = (event: PointerEvent) =>
-      setLeftRailWidth(clamp(startWidth + (event.clientX - startX), LEFT_RAIL_MIN_WIDTH, LEFT_RAIL_MAX_WIDTH));
+    const onMove = (event: PointerEvent) => {
+      const delta = event.clientX - startX;
+      const nextWidth = edge === 'right'
+        ? startWidth + delta
+        : startWidth - delta;
+      setLeftRailWidth(clamp(nextWidth, LEFT_RAIL_MIN_WIDTH, LEFT_RAIL_MAX_WIDTH));
+    };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);

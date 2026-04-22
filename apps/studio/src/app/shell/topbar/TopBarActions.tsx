@@ -6,9 +6,10 @@ import type { ExportChannel } from './export-channels';
 export function TopBarActions({ controller }: { controller: TopBarController }): JSX.Element {
   const { previewMode, release, state } = controller.snapshot;
   const { uiActions } = controller.document;
+  const { canSaveProjects } = controller.workspace;
   const { updateReleaseSettings } = useDocumentActions();
   const { resolvedZipStatus, triggerExportZipBundleResolved, triggerExportPublishPackage } = controller.exportReadiness;
-  const { saveStatus, saveMessage } = controller.projectSession;
+  const { handleSaveProject, saveStatus, saveMessage } = controller.projectSession;
 
   async function handleExportAs(channel: ExportChannel): Promise<void> {
     const patchedState = {
@@ -64,9 +65,16 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
         Share
       </button>
 
-      {saveStatus !== 'idle' ? (
-        <span className={saveIndicatorClass} title={saveTitle} aria-label={saveTitle} aria-live="polite" />
-      ) : null}
+      <button
+        type="button"
+        className="primary compact-action top-save-button"
+        onClick={() => void handleSaveProject()}
+        disabled={!canSaveProjects || saveStatus === 'saving'}
+      >
+        {saveStatus === 'saving' ? 'Saving…' : 'Save'}
+      </button>
+
+      <span className={saveIndicatorClass} title={saveTitle} aria-label={saveTitle} aria-live="polite" />
     </div>
   );
 }

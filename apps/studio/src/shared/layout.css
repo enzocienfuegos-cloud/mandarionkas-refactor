@@ -2472,7 +2472,7 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 5px;
+  width: 8px;
   height: 100%;
   cursor: col-resize;
   z-index: 10;
@@ -2480,9 +2480,33 @@
   transition: background 120ms ease;
 }
 
+.left-rail-resize-handle-left {
+  left: 60px;
+  right: auto;
+}
+
 .left-rail-resize-handle:hover,
 .left-rail-resize-handle:active {
   background: rgba(245,165,36,0.28);
+}
+
+.left-rail-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(245,165,36,0.28);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.left-rail-resize-handle:hover::after,
+.left-rail-resize-handle:active::after {
+  opacity: 1;
 }
 
 
@@ -3100,6 +3124,7 @@
   display: inline-block;
   flex-shrink: 0;
   border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
 }
 
 .top-save-dot--saving {

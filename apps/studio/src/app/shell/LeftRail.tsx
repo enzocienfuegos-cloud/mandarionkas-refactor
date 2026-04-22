@@ -12,7 +12,7 @@ export function LeftRail({
   onResizeStart,
 }: {
   onToggleCollapse: () => void;
-  onResizeStart: (startX: number) => void;
+  onResizeStart: (startX: number, edge: 'left' | 'right') => void;
 }): JSX.Element {
   const controller = useLeftRailController();
   const [showMore, setShowMore] = useState(false);
@@ -46,13 +46,24 @@ export function LeftRail({
         </div>
       ) : null}
       <div
+        className="left-rail-resize-handle left-rail-resize-handle-left"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          onResizeStart(event.clientX, 'left');
+        }}
+        title="Drag left or right to resize panel"
+        aria-label="Resize panel from left edge"
+        role="separator"
+        aria-orientation="vertical"
+      />
+      <div
         className="left-rail-resize-handle"
         onPointerDown={(event) => {
           event.preventDefault();
-          onResizeStart(event.clientX);
+          onResizeStart(event.clientX, 'right');
         }}
-        title="Drag to resize panel"
-        aria-label="Resize panel"
+        title="Drag left or right to resize panel"
+        aria-label="Resize panel from right edge"
         role="separator"
         aria-orientation="vertical"
       />
