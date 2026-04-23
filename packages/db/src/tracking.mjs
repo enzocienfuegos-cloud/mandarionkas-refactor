@@ -17,9 +17,12 @@ function appendIdentityScopeExistsCondition(params, conditions, opts = {}, profi
     tagId = '',
     creativeId = '',
     variantId = '',
+    siteDomain = '',
+    region = '',
+    city = '',
   } = opts;
 
-  if (!campaignId && !tagId && !creativeId && !variantId) return;
+  if (!campaignId && !tagId && !creativeId && !variantId && !siteDomain && !region && !city) return;
 
   const scopeConditions = [
     'e.workspace_id = $1',
@@ -49,6 +52,18 @@ function appendIdentityScopeExistsCondition(params, conditions, opts = {}, profi
   if (variantId) {
     params.push(variantId);
     scopeConditions.push(`COALESCE(ie.creative_size_variant_id, ce.creative_size_variant_id, ge.creative_size_variant_id) = $${params.length}`);
+  }
+  if (siteDomain) {
+    params.push(siteDomain);
+    scopeConditions.push(`COALESCE(ie.site_domain, ce.site_domain, ge.site_domain) = $${params.length}`);
+  }
+  if (region) {
+    params.push(region);
+    scopeConditions.push(`COALESCE(ie.region, ce.region, ge.region) = $${params.length}`);
+  }
+  if (city) {
+    params.push(city);
+    scopeConditions.push(`COALESCE(ie.city, ce.city, ge.city) = $${params.length}`);
   }
 
   conditions.push(`EXISTS (
@@ -464,6 +479,9 @@ export async function listSavedAudiences(pool, workspaceId) {
        country,
        segment_preset,
        activation_template,
+       site_domain,
+       region,
+       city,
        campaign_id,
         tag_id,
         creative_id,
@@ -492,6 +510,9 @@ export async function createSavedAudience(pool, workspaceId, payload = {}) {
   const country = payload.country ? String(payload.country).trim().toUpperCase() : null;
   const segmentPreset = payload.segmentPreset ? String(payload.segmentPreset) : null;
   const activationTemplate = payload.activationTemplate ? String(payload.activationTemplate) : 'full';
+  const siteDomain = payload.siteDomain ? String(payload.siteDomain).trim().toLowerCase() : null;
+  const region = payload.region ? String(payload.region).trim() : null;
+  const city = payload.city ? String(payload.city).trim() : null;
   const campaignId = payload.campaignId ? String(payload.campaignId) : null;
   const tagId = payload.tagId ? String(payload.tagId) : null;
   const creativeId = payload.creativeId ? String(payload.creativeId) : null;
@@ -501,14 +522,17 @@ export async function createSavedAudience(pool, workspaceId, payload = {}) {
 
   const { rows } = await pool.query(
     `INSERT INTO saved_audiences
-       (workspace_id, name, canonical_type, country, segment_preset, activation_template, campaign_id, tag_id, creative_id, creative_size_variant_id, min_impressions, min_clicks)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       (workspace_id, name, canonical_type, country, segment_preset, activation_template, site_domain, region, city, campaign_id, tag_id, creative_id, creative_size_variant_id, min_impressions, min_clicks)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      ON CONFLICT (workspace_id, name)
      DO UPDATE SET
        canonical_type = EXCLUDED.canonical_type,
        country = EXCLUDED.country,
        segment_preset = EXCLUDED.segment_preset,
        activation_template = EXCLUDED.activation_template,
+       site_domain = EXCLUDED.site_domain,
+       region = EXCLUDED.region,
+       city = EXCLUDED.city,
        campaign_id = EXCLUDED.campaign_id,
        tag_id = EXCLUDED.tag_id,
        creative_id = EXCLUDED.creative_id,
@@ -524,6 +548,9 @@ export async function createSavedAudience(pool, workspaceId, payload = {}) {
        country,
        segment_preset,
        activation_template,
+       site_domain,
+       region,
+       city,
        campaign_id,
        tag_id,
        creative_id,
@@ -533,7 +560,7 @@ export async function createSavedAudience(pool, workspaceId, payload = {}) {
        status,
        created_at,
        updated_at`,
-    [workspaceId, name, canonicalType, country, segmentPreset, activationTemplate, campaignId, tagId, creativeId, variantId, minImpressions, minClicks],
+    [workspaceId, name, canonicalType, country, segmentPreset, activationTemplate, siteDomain, region, city, campaignId, tagId, creativeId, variantId, minImpressions, minClicks],
   );
 
   return rows[0] ?? null;
@@ -550,7 +577,7 @@ export async function deleteSavedAudience(pool, workspaceId, audienceId) {
 }
 
 export async function getWorkspaceIdentityKeyBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, canonicalType = '', campaignId = '', tagId = '', creativeId = '', variantId = '', limit = 25 } = opts;
+  const { dateFrom, dateTo, canonicalType = '', campaignId = '', tagId = '', creativeId = '', variantId = '', siteDomain = '', region = '', city = '', limit = 25 } = opts;
   const params = [workspaceId];
   const conditions = ['e.workspace_id = $1'];
 
@@ -609,6 +636,30 @@ export async function getWorkspaceIdentityKeyBreakdown(pool, workspaceId, opts =
       OR (e.event_type = 'engagement' AND EXISTS (SELECT 1 FROM engagement_events ge WHERE ge.id = e.event_id AND ge.creative_size_variant_id = $${params.length}))
     )`);
   }
+  if (siteDomain) {
+    params.push(siteDomain);
+    conditions.push(`(
+      (e.event_type = 'impression' AND EXISTS (SELECT 1 FROM impression_events ie WHERE ie.id = e.event_id AND ie.site_domain = $${params.length}))
+      OR (e.event_type = 'click' AND EXISTS (SELECT 1 FROM click_events ce WHERE ce.id = e.event_id AND ce.site_domain = $${params.length}))
+      OR (e.event_type = 'engagement' AND EXISTS (SELECT 1 FROM engagement_events ge WHERE ge.id = e.event_id AND ge.site_domain = $${params.length}))
+    )`);
+  }
+  if (region) {
+    params.push(region);
+    conditions.push(`(
+      (e.event_type = 'impression' AND EXISTS (SELECT 1 FROM impression_events ie WHERE ie.id = e.event_id AND ie.region = $${params.length}))
+      OR (e.event_type = 'click' AND EXISTS (SELECT 1 FROM click_events ce WHERE ce.id = e.event_id AND ce.region = $${params.length}))
+      OR (e.event_type = 'engagement' AND EXISTS (SELECT 1 FROM engagement_events ge WHERE ge.id = e.event_id AND ge.region = $${params.length}))
+    )`);
+  }
+  if (city) {
+    params.push(city);
+    conditions.push(`(
+      (e.event_type = 'impression' AND EXISTS (SELECT 1 FROM impression_events ie WHERE ie.id = e.event_id AND ie.city = $${params.length}))
+      OR (e.event_type = 'click' AND EXISTS (SELECT 1 FROM click_events ce WHERE ce.id = e.event_id AND ce.city = $${params.length}))
+      OR (e.event_type = 'engagement' AND EXISTS (SELECT 1 FROM engagement_events ge WHERE ge.id = e.event_id AND ge.city = $${params.length}))
+    )`);
+  }
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
@@ -630,7 +681,7 @@ export async function getWorkspaceIdentityKeyBreakdown(pool, workspaceId, opts =
 }
 
 export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, canonicalType = '', campaignId = '', tagId = '', creativeId = '', variantId = '' } = opts;
+  const { dateFrom, dateTo, canonicalType = '', campaignId = '', tagId = '', creativeId = '', variantId = '', siteDomain = '', region = '', city = '' } = opts;
   const params = [workspaceId];
   const conditions = ['e.workspace_id = $1', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
 
@@ -661,6 +712,18 @@ export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, 
   if (variantId) {
     params.push(variantId);
     conditions.push(`ie.creative_size_variant_id = $${params.length}`);
+  }
+  if (siteDomain) {
+    params.push(siteDomain);
+    conditions.push(`ie.site_domain = $${params.length}`);
+  }
+  if (region) {
+    params.push(region);
+    conditions.push(`ie.region = $${params.length}`);
+  }
+  if (city) {
+    params.push(city);
+    conditions.push(`ie.city = $${params.length}`);
   }
 
   const { rows } = await pool.query(

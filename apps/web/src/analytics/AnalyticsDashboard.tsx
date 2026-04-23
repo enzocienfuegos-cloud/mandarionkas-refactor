@@ -53,6 +53,9 @@ interface SavedAudience {
   name: string;
   canonicalType: IdentityTypeFilter | '';
   country: string;
+  siteDomain: string;
+  region: string;
+  city: string;
   segmentPreset: IdentitySegmentPreset | '';
   activationTemplate: IdentityExportFormat;
   campaignId: string;
@@ -305,6 +308,9 @@ function normalizeWorkspaceAnalytics(
       name: String(item?.name ?? 'Untitled audience'),
       canonicalType: String(item?.canonical_type ?? '') as IdentityTypeFilter | '',
       country: String(item?.country ?? ''),
+      siteDomain: String(item?.site_domain ?? ''),
+      region: String(item?.region ?? ''),
+      city: String(item?.city ?? ''),
       segmentPreset: String(item?.segment_preset ?? '') as IdentitySegmentPreset | '',
       activationTemplate: String(item?.activation_template ?? 'full') as IdentityExportFormat,
       campaignId: String(item?.campaign_id ?? ''),
@@ -456,6 +462,9 @@ export default function AnalyticsDashboard() {
   const [customEndDate, setCustomEndDate] = useState(() => getToday());
   const [identityTypeFilter, setIdentityTypeFilter] = useState<IdentityTypeFilter>('');
   const [identityCountryFilter, setIdentityCountryFilter] = useState('');
+  const [identitySiteDomainFilter, setIdentitySiteDomainFilter] = useState('');
+  const [identityRegionFilter, setIdentityRegionFilter] = useState('');
+  const [identityCityFilter, setIdentityCityFilter] = useState('');
   const [identityMinImpressions, setIdentityMinImpressions] = useState('1');
   const [identityMinClicks, setIdentityMinClicks] = useState('0');
   const [identitySegmentPreset, setIdentitySegmentPreset] = useState<IdentitySegmentPreset>('');
@@ -479,13 +488,19 @@ export default function AnalyticsDashboard() {
     if (identityTagFilter) params.set('tagId', identityTagFilter);
     if (identityCreativeFilter) params.set('creativeId', identityCreativeFilter);
     if (identityVariantFilter) params.set('variantId', identityVariantFilter);
+    if (identitySiteDomainFilter) params.set('siteDomain', identitySiteDomainFilter);
+    if (identityRegionFilter) params.set('region', identityRegionFilter);
+    if (identityCityFilter) params.set('city', identityCityFilter);
     return `?${params.toString()}`;
-  }, [query, identityTypeFilter, identityCampaignFilter, identityTagFilter, identityCreativeFilter, identityVariantFilter]);
+  }, [query, identityTypeFilter, identityCampaignFilter, identityTagFilter, identityCreativeFilter, identityVariantFilter, identitySiteDomainFilter, identityRegionFilter, identityCityFilter]);
   const customDatesValid = Boolean(customStartDate && customEndDate && customStartDate <= customEndDate);
   const campaignOptions = data?.campaigns ?? [];
   const tagOptions = data?.tags ?? [];
   const creativeOptions = data?.creatives ?? [];
   const variantOptions = data?.variants ?? [];
+  const siteOptions = data?.topSites ?? [];
+  const regionOptions = data?.topRegions ?? [];
+  const cityOptions = data?.topCities ?? [];
 
   const buildIdentityAudienceQuery = (overrides?: Partial<SavedAudience>, exportFormat?: IdentityExportFormat) => {
     const params = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
@@ -497,6 +512,9 @@ export default function AnalyticsDashboard() {
     const tagId = overrides?.tagId ?? identityTagFilter;
     const creativeId = overrides?.creativeId ?? identityCreativeFilter;
     const variantId = overrides?.variantId ?? identityVariantFilter;
+    const siteDomain = overrides?.siteDomain ?? identitySiteDomainFilter;
+    const region = overrides?.region ?? identityRegionFilter;
+    const city = overrides?.city ?? identityCityFilter;
     const minImpressions = overrides?.minImpressions ?? Number(identityMinImpressions.trim() || '0');
     const minClicks = overrides?.minClicks ?? Number(identityMinClicks.trim() || '0');
     if (canonicalType) params.set('canonicalType', canonicalType);
@@ -506,6 +524,9 @@ export default function AnalyticsDashboard() {
     if (tagId) params.set('tagId', tagId);
     if (creativeId) params.set('creativeId', creativeId);
     if (variantId) params.set('variantId', variantId);
+    if (siteDomain) params.set('siteDomain', siteDomain);
+    if (region) params.set('region', region);
+    if (city) params.set('city', city);
     params.set('minImpressions', String(Math.max(minImpressions, 0)));
     params.set('minClicks', String(Math.max(minClicks, 0)));
     params.set('format', exportFormat ?? audienceTemplate);
@@ -655,6 +676,9 @@ export default function AnalyticsDashboard() {
           name: name.trim(),
           canonicalType: identityTypeFilter || null,
           country: identityCountryFilter.trim().toUpperCase() || null,
+          siteDomain: identitySiteDomainFilter || null,
+          region: identityRegionFilter || null,
+          city: identityCityFilter || null,
           segmentPreset: identitySegmentPreset || null,
           activationTemplate: identityExportFormat,
           campaignId: identityCampaignFilter || null,
@@ -677,6 +701,9 @@ export default function AnalyticsDashboard() {
   const applySavedAudience = (audience: SavedAudience) => {
     setIdentityTypeFilter(audience.canonicalType);
     setIdentityCountryFilter(audience.country);
+    setIdentitySiteDomainFilter(audience.siteDomain);
+    setIdentityRegionFilter(audience.region);
+    setIdentityCityFilter(audience.city);
     setIdentitySegmentPreset(audience.segmentPreset);
     setIdentityExportFormat(audience.activationTemplate);
     setIdentityCampaignFilter(audience.campaignId);
@@ -864,6 +891,42 @@ export default function AnalyticsDashboard() {
               className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
             />
             <select
+              value={identitySiteDomainFilter}
+              onChange={(event) => setIdentitySiteDomainFilter(event.target.value)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+            >
+              <option value="">All sites</option>
+              {siteOptions.map((item) => (
+                <option key={item.label} value={item.label}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={identityRegionFilter}
+              onChange={(event) => setIdentityRegionFilter(event.target.value)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+            >
+              <option value="">All regions</option>
+              {regionOptions.map((item) => (
+                <option key={item.label} value={item.label}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={identityCityFilter}
+              onChange={(event) => setIdentityCityFilter(event.target.value)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+            >
+              <option value="">All cities</option>
+              {cityOptions.map((item) => (
+                <option key={item.label} value={item.label}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <select
               value={identitySegmentPreset}
               onChange={(event) => setIdentitySegmentPreset(event.target.value as IdentitySegmentPreset)}
               className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
@@ -997,6 +1060,9 @@ export default function AnalyticsDashboard() {
                 const summary = [
                   audience.canonicalType ? IDENTITY_FILTERS.find((option) => option.value === audience.canonicalType)?.label : null,
                   audience.country || null,
+                  audience.siteDomain || null,
+                  audience.region || null,
+                  audience.city || null,
                   audience.segmentPreset ? IDENTITY_SEGMENT_PRESETS.find((option) => option.value === audience.segmentPreset)?.label : null,
                   IDENTITY_EXPORT_FORMATS.find((option) => option.value === audience.activationTemplate)?.label ?? 'Template',
                   audience.campaignId ? campaignOptions.find((item) => item.id === audience.campaignId)?.label ?? 'Campaign scoped' : null,
