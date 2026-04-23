@@ -656,11 +656,11 @@ export async function createTagBinding(pool, workspaceId, data) {
        WHERE workspace_id = $1
          AND tag_id = $2
          AND (
-           creative_size_variant_id = $3
-           OR (creative_version_id = $4 AND creative_size_variant_id IS NULL)
+           creative_size_variant_id = $3::uuid
+           OR (creative_version_id = $4::uuid AND creative_size_variant_id IS NULL)
          )
        ORDER BY
-         CASE WHEN creative_size_variant_id = $3 THEN 0 ELSE 1 END,
+         CASE WHEN creative_size_variant_id = $3::uuid THEN 0 ELSE 1 END,
          created_at ASC
        LIMIT 1`,
       [workspaceId, tag_id, creative_size_variant_id, creative_version_id],
