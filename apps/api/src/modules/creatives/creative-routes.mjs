@@ -5,7 +5,9 @@ import {
   listCreativeSizeVariants,
   getCreativeSizeVariant,
   createCreativeSizeVariant,
+  createCreativeSizeVariantsBulk,
   updateCreativeSizeVariant,
+  updateCreativeSizeVariantsBulkStatus,
   listCreativeArtifacts,
   getCreative,
   getCreativeVersion,
@@ -228,6 +230,55 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
     return reply.status(201).send({ variant: toApiCreativeSizeVariant(variant) });
   });
 
+  app.post('/v1/creative-versions/:id/variants/bulk', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId, userId } = req.authSession;
+    const { id } = req.params;
+    const version = await getCreativeVersion(pool, workspaceId, id);
+    if (!version) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Creative version not found' });
+    }
+
+    const requestedVariants = Array.isArray(req.body?.variants) ? req.body.variants : [];
+    if (!requestedVariants.length) {
+      return reply.status(400).send({ error: 'Bad Request', message: 'variants must be a non-empty array' });
+    }
+
+    const existing = await listCreativeSizeVariants(pool, workspaceId, id);
+    const existingKeys = new Set(existing.map(variant => `${variant.width}x${variant.height}`));
+    const normalizedVariants = [];
+    for (const variant of requestedVariants) {
+      const width = Number(variant?.width);
+      const height = Number(variant?.height);
+      if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+        return reply.status(400).send({ error: 'Bad Request', message: 'Every variant must include positive width and height' });
+      }
+      const key = `${width}x${height}`;
+      if (existingKeys.has(key)) continue;
+      existingKeys.add(key);
+      normalizedVariants.push({
+        label: variant?.label,
+        width,
+        height,
+        status: variant?.status ?? req.body?.status ?? 'draft',
+        public_url: variant?.publicUrl ?? req.body?.publicUrl ?? version.public_url ?? null,
+        artifact_id: variant?.artifactId ?? null,
+        metadata: variant?.metadata ?? {},
+      });
+    }
+
+    const created = await createCreativeSizeVariantsBulk(pool, workspaceId, id, normalizedVariants, {
+      status: req.body?.status ?? 'draft',
+      public_url: req.body?.publicUrl ?? version.public_url ?? null,
+      created_by: userId,
+    });
+    const variants = await listCreativeSizeVariants(pool, workspaceId, id);
+    return reply.status(201).send({
+      created: created.map(toApiCreativeSizeVariant),
+      variants: variants.map(toApiCreativeSizeVariant),
+      skippedCount: requestedVariants.length - normalizedVariants.length,
+    });
+  });
+
   app.patch('/v1/creative-variants/:id', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
     const { id } = req.params;
@@ -248,6 +299,24 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
     });
 
     return reply.send({ variant: toApiCreativeSizeVariant(variant) });
+  });
+
+  app.patch('/v1/creative-versions/:id/variants/status', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id } = req.params;
+    const version = await getCreativeVersion(pool, workspaceId, id);
+    if (!version) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Creative version not found' });
+    }
+
+    const variantIds = Array.isArray(req.body?.variantIds) ? req.body.variantIds.filter(Boolean) : [];
+    if (!variantIds.length) {
+      return reply.status(400).send({ error: 'Bad Request', message: 'variantIds must be a non-empty array' });
+    }
+
+    await updateCreativeSizeVariantsBulkStatus(pool, workspaceId, variantIds, req.body?.status ?? 'draft');
+    const variants = await listCreativeSizeVariants(pool, workspaceId, id);
+    return reply.send({ variants: variants.map(toApiCreativeSizeVariant) });
   });
 
   // PUT /v1/creatives/:id

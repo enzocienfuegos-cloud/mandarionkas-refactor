@@ -306,6 +306,33 @@ export async function createCreativeSizeVariant(input: {
   });
 }
 
+export async function createCreativeSizeVariantsBulk(input: {
+  creativeVersionId: string;
+  variants: Array<{
+    label?: string;
+    width: number;
+    height: number;
+    status?: 'draft' | 'active' | 'paused' | 'archived';
+    publicUrl?: string;
+    artifactId?: string | null;
+    metadata?: Record<string, unknown>;
+  }>;
+  status?: 'draft' | 'active' | 'paused' | 'archived';
+  publicUrl?: string;
+}) {
+  return fetchJson<{ created: CreativeSizeVariant[]; variants: CreativeSizeVariant[]; skippedCount: number }>(
+    `/v1/creative-versions/${input.creativeVersionId}/variants/bulk`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        variants: input.variants,
+        status: input.status,
+        publicUrl: input.publicUrl,
+      }),
+    },
+  );
+}
+
 export async function updateCreativeSizeVariant(input: {
   variantId: string;
   label?: string;
@@ -326,6 +353,20 @@ export async function updateCreativeSizeVariant(input: {
       publicUrl: input.publicUrl,
       artifactId: input.artifactId,
       metadata: input.metadata,
+    }),
+  });
+}
+
+export async function updateCreativeSizeVariantsBulkStatus(input: {
+  creativeVersionId: string;
+  variantIds: string[];
+  status: 'draft' | 'active' | 'paused' | 'archived';
+}) {
+  return fetchJson<{ variants: CreativeSizeVariant[] }>(`/v1/creative-versions/${input.creativeVersionId}/variants/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      variantIds: input.variantIds,
+      status: input.status,
     }),
   });
 }

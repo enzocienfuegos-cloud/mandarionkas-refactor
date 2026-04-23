@@ -9,12 +9,14 @@ import {
   type TagBinding,
   assignCreativeVersionToTag,
   createCreativeSizeVariant,
+  createCreativeSizeVariantsBulk,
   loadCreativesWithLatestVersion,
   loadCreativeIngestions,
   loadCreativeSizeVariants,
   loadTagBindings,
   loadTags,
   updateCreativeSizeVariant,
+  updateCreativeSizeVariantsBulkStatus,
   submitCreativeVersion,
   updateTagBinding,
 } from './catalog';
@@ -67,6 +69,17 @@ function statusBadge(status?: string) {
 
 type LatestVersionMap = Record<string, CreativeVersion | null>;
 
+const VARIANT_PRESETS = [
+  { label: '300x250', width: 300, height: 250 },
+  { label: '320x50', width: 320, height: 50 },
+  { label: '320x100', width: 320, height: 100 },
+  { label: '336x280', width: 336, height: 280 },
+  { label: '728x90', width: 728, height: 90 },
+  { label: '970x250', width: 970, height: 250 },
+  { label: '160x600', width: 160, height: 600 },
+  { label: '300x600', width: 300, height: 600 },
+];
+
 interface BindingState {
   creativeId: string;
   versionId: string;
@@ -84,6 +97,7 @@ interface VariantState {
   loading: boolean;
   error: string;
   variants: CreativeSizeVariant[];
+  selectedVariantIds: string[];
   form: {
     label: string;
     width: string;
@@ -196,6 +210,7 @@ export default function CreativeLibrary() {
       loading: true,
       error: '',
       variants: [],
+      selectedVariantIds: [],
       form: {
         label: version.width && version.height ? `${version.width}x${version.height}` : '',
         width: version.width ? String(version.width) : '',
@@ -204,12 +219,13 @@ export default function CreativeLibrary() {
     });
     try {
       const variants = await loadCreativeSizeVariants(version.id);
-      setVariantState(current => current ? { ...current, loading: false, variants } : current);
+      setVariantState(current => current ? { ...current, loading: false, variants, selectedVariantIds: [] } : current);
     } catch (loadError: any) {
       setVariantState(current => current ? {
         ...current,
         loading: false,
         error: loadError.message ?? 'Failed to load size variants',
+        selectedVariantIds: [],
       } : current);
     }
   };
@@ -223,6 +239,27 @@ export default function CreativeLibrary() {
     } catch (updateError: any) {
       setVariantState(current => current ? { ...current, loading: false, error: updateError.message ?? 'Failed to update variant' } : current);
     }
+  };
+
+  const toggleVariantSelection = (variantId: string) => {
+    setVariantState(current => {
+      if (!current) return current;
+      const selected = current.selectedVariantIds.includes(variantId)
+        ? current.selectedVariantIds.filter(id => id !== variantId)
+        : [...current.selectedVariantIds, variantId];
+      return { ...current, selectedVariantIds: selected };
+    });
+  };
+
+  const toggleSelectAllVariants = () => {
+    setVariantState(current => {
+      if (!current) return current;
+      const selectableIds = current.variants.map(variant => variant.id);
+      const selectedVariantIds = current.selectedVariantIds.length === selectableIds.length
+        ? []
+        : selectableIds;
+      return { ...current, selectedVariantIds };
+    });
   };
 
   const handleCreateVariant = async () => {
@@ -248,10 +285,59 @@ export default function CreativeLibrary() {
         ...current,
         loading: false,
         variants,
+        selectedVariantIds: [],
         form: { ...current.form, label: '', width: '', height: '' },
       } : current);
     } catch (createError: any) {
       setVariantState(current => current ? { ...current, loading: false, error: createError.message ?? 'Failed to create variant' } : current);
+    }
+  };
+
+  const handleCreatePresetVariants = async (presets: typeof VARIANT_PRESETS) => {
+    if (!variantState || presets.length === 0) return;
+    setVariantState(current => current ? { ...current, loading: true, error: '' } : current);
+    try {
+      const response = await createCreativeSizeVariantsBulk({
+        creativeVersionId: variantState.versionId,
+        variants: presets.map(preset => ({
+          label: preset.label,
+          width: preset.width,
+          height: preset.height,
+          status: 'draft',
+        })),
+      });
+      setVariantState(current => current ? {
+        ...current,
+        loading: false,
+        variants: response.variants,
+        selectedVariantIds: [],
+        error: response.skippedCount > 0 ? `${response.skippedCount} duplicate size(s) skipped.` : '',
+      } : current);
+    } catch (createError: any) {
+      setVariantState(current => current ? { ...current, loading: false, error: createError.message ?? 'Failed to create preset sizes' } : current);
+    }
+  };
+
+  const handleBulkVariantStatusChange = async (status: 'active' | 'paused') => {
+    if (!variantState || variantState.selectedVariantIds.length === 0) {
+      setVariantState(current => current ? { ...current, error: 'Select at least one size first.' } : current);
+      return;
+    }
+    setVariantState(current => current ? { ...current, loading: true, error: '' } : current);
+    try {
+      const response = await updateCreativeSizeVariantsBulkStatus({
+        creativeVersionId: variantState.versionId,
+        variantIds: variantState.selectedVariantIds,
+        status,
+      });
+      setVariantState(current => current ? {
+        ...current,
+        loading: false,
+        variants: response.variants,
+        selectedVariantIds: [],
+      } : current);
+    } catch (updateError: any) {
+      setVariantState(current => current ? { ...current, loading: false, error: updateError.message ?? 'Failed to update selected sizes' } : current);
     }
   };
 
@@ -588,6 +674,34 @@ export default function CreativeLibrary() {
             </div>
 
             <div className="space-y-4 p-6">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800">Preset sizes</h3>
+                    <p className="mt-1 text-xs text-slate-500">Seed the matrix with common display resolutions in one action.</p>
+                  </div>
+                  <button
+                    onClick={() => void handleCreatePresetVariants(VARIANT_PRESETS)}
+                    disabled={variantState.loading}
+                    className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+                  >
+                    Add standard set
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {VARIANT_PRESETS.map(preset => (
+                    <button
+                      key={preset.label}
+                      onClick={() => void handleCreatePresetVariants([preset])}
+                      disabled={variantState.loading}
+                      className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-[minmax(0,1fr)_120px_120px_auto]">
                 <input
                   value={variantState.form.label}
@@ -623,9 +737,44 @@ export default function CreativeLibrary() {
               )}
 
               <div className="overflow-hidden rounded-xl border border-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={variantState.variants.length > 0 && variantState.selectedVariantIds.length === variantState.variants.length}
+                        onChange={toggleSelectAllVariants}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      Select all
+                    </label>
+                    <span className="text-xs text-slate-500">
+                      {variantState.selectedVariantIds.length} selected
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => void handleBulkVariantStatusChange('active')}
+                      disabled={variantState.loading || variantState.selectedVariantIds.length === 0}
+                      className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                    >
+                      Activate selected
+                    </button>
+                    <button
+                      onClick={() => void handleBulkVariantStatusChange('paused')}
+                      disabled={variantState.loading || variantState.selectedVariantIds.length === 0}
+                      className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-60"
+                    >
+                      Pause selected
+                    </button>
+                  </div>
+                </div>
                 <table className="min-w-full divide-y divide-slate-200 text-sm">
                   <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
+                      <th className="px-4 py-3">
+                        <span className="sr-only">Select</span>
+                      </th>
                       <th className="px-4 py-3">Variant</th>
                       <th className="px-4 py-3">Size</th>
                       <th className="px-4 py-3">Status</th>
@@ -636,6 +785,14 @@ export default function CreativeLibrary() {
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {variantState.variants.map(variant => (
                       <tr key={variant.id}>
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={variantState.selectedVariantIds.includes(variant.id)}
+                            onChange={() => toggleVariantSelection(variant.id)}
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                        </td>
                         <td className="px-4 py-3 font-medium text-slate-800">{variant.label}</td>
                         <td className="px-4 py-3 text-slate-600">{variant.width}×{variant.height}</td>
                         <td className="px-4 py-3">{statusBadge(variant.status)}</td>
@@ -671,7 +828,7 @@ export default function CreativeLibrary() {
                     ))}
                     {!variantState.loading && variantState.variants.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-500">
+                        <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500">
                           No size variants yet.
                         </td>
                       </tr>

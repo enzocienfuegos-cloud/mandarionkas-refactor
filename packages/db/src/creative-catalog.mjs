@@ -410,6 +410,31 @@ export async function createCreativeSizeVariant(pool, workspaceId, data) {
   return rows[0] ?? null;
 }
 
+export async function createCreativeSizeVariantsBulk(pool, workspaceId, creativeVersionId, variants = [], options = {}) {
+  if (!Array.isArray(variants) || variants.length === 0) {
+    return [];
+  }
+
+  const created = [];
+  for (const variant of variants) {
+    const createdVariant = await createCreativeSizeVariant(pool, workspaceId, {
+      creative_version_id: creativeVersionId,
+      label: variant.label,
+      width: variant.width,
+      height: variant.height,
+      status: variant.status ?? options.status ?? 'draft',
+      public_url: variant.public_url ?? options.public_url ?? null,
+      artifact_id: variant.artifact_id ?? null,
+      metadata: variant.metadata ?? {},
+      created_by: options.created_by ?? null,
+    });
+    if (createdVariant) {
+      created.push(createdVariant);
+    }
+  }
+  return created;
+}
+
 export async function updateCreativeSizeVariant(pool, workspaceId, variantId, patch = {}) {
   const fieldMap = {
     label: 'label',
@@ -457,6 +482,22 @@ export async function updateCreativeSizeVariant(pool, workspaceId, variantId, pa
     params,
   );
   return rows[0] ?? null;
+}
+
+export async function updateCreativeSizeVariantsBulkStatus(pool, workspaceId, variantIds = [], status = 'draft') {
+  const ids = Array.from(new Set((variantIds ?? []).filter(Boolean)));
+  if (!ids.length) return [];
+
+  const { rows } = await pool.query(
+    `UPDATE creative_size_variants
+     SET status = $3,
+         updated_at = NOW()
+     WHERE workspace_id = $1
+       AND id = ANY($2::uuid[])
+     RETURNING *`,
+    [workspaceId, ids, normalizeVariantStatus(status)],
+  );
+  return rows;
 }
 
 export async function createCreativeArtifact(pool, workspaceId, data) {
