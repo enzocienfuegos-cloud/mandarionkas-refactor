@@ -48,13 +48,14 @@ export async function getCreative(pool, workspaceId, id) {
   return rows[0] ?? null;
 }
 
-export async function createCreative(pool, workspaceId, data) {
+export async function createCreative(pool, workspaceId, data, options = {}) {
   const {
     name, type = 'image', file_url = null, file_size = null,
     mime_type = null, width = null, height = null, duration_ms = null,
     click_url = null, metadata = {},
     approval_status = 'draft', transcode_status = 'pending',
   } = data;
+  const { ensureLegacyVersion = true } = options;
 
   const { rows } = await pool.query(
     `INSERT INTO creatives
@@ -66,7 +67,9 @@ export async function createCreative(pool, workspaceId, data) {
      duration_ms, click_url, JSON.stringify(metadata), approval_status, transcode_status],
   );
   const creative = rows[0];
-  await ensureLegacyCreativeVersion(pool, workspaceId, creative);
+  if (ensureLegacyVersion) {
+    await ensureLegacyCreativeVersion(pool, workspaceId, creative);
+  }
   return creative;
 }
 
