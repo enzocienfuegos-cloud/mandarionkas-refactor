@@ -32,6 +32,20 @@ export interface CreativeVersion {
   creativeName?: string;
 }
 
+export interface CreativeArtifact {
+  id: string;
+  creativeVersionId: string;
+  kind: string;
+  storageKey?: string;
+  publicUrl?: string;
+  mimeType?: string;
+  sizeBytes?: number | null;
+  checksum?: string;
+  metadata?: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface TagOption {
   id: string;
   name: string;
@@ -96,6 +110,17 @@ export async function loadCreatives(): Promise<Creative[]> {
 export async function loadCreativeVersions(creativeId: string): Promise<CreativeVersion[]> {
   const payload = await fetchJson<{ versions: CreativeVersion[] }>(`/v1/creatives/${creativeId}/versions`);
   return payload.versions ?? [];
+}
+
+export async function loadCreativeVersionDetail(versionId: string): Promise<{
+  creativeVersion: CreativeVersion;
+  artifacts: CreativeArtifact[];
+}> {
+  const payload = await fetchJson<{ creativeVersion: CreativeVersion; artifacts: CreativeArtifact[] }>(`/v1/creative-versions/${versionId}`);
+  return {
+    creativeVersion: payload.creativeVersion,
+    artifacts: payload.artifacts ?? [],
+  };
 }
 
 export async function loadCreativesWithLatestVersion() {

@@ -2,6 +2,7 @@ import {
   createTagBinding,
   listCreatives,
   listCreativeVersions,
+  listCreativeArtifacts,
   getCreative,
   getCreativeVersion,
   createCreative,
@@ -36,6 +37,23 @@ function toApiCreativeVersion(version) {
     reviewNotes: version.review_notes ?? '',
     createdAt: version.created_at,
     updatedAt: version.updated_at,
+  };
+}
+
+function toApiCreativeArtifact(artifact) {
+  if (!artifact) return null;
+  return {
+    id: artifact.id,
+    creativeVersionId: artifact.creative_version_id,
+    kind: artifact.kind,
+    storageKey: artifact.storage_key ?? '',
+    publicUrl: artifact.public_url ?? '',
+    mimeType: artifact.mime_type ?? '',
+    sizeBytes: artifact.size_bytes ?? null,
+    checksum: artifact.checksum ?? '',
+    metadata: artifact.metadata ?? {},
+    createdAt: artifact.created_at,
+    updatedAt: artifact.updated_at,
   };
 }
 
@@ -136,7 +154,12 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
       return reply.status(404).send({ error: 'Not Found', message: 'Creative version not found' });
     }
 
-    return reply.send({ creativeVersion: toApiCreativeVersion(version) });
+    const artifacts = await listCreativeArtifacts(pool, workspaceId, id);
+
+    return reply.send({
+      creativeVersion: toApiCreativeVersion(version),
+      artifacts: artifacts.map(toApiCreativeArtifact),
+    });
   });
 
   // PUT /v1/creatives/:id
