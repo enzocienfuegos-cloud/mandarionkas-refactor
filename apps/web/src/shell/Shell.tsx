@@ -91,7 +91,10 @@ export default function Shell() {
   }, [navigate]);
 
   const showClientSwitcher = useMemo(
-    () => !location.pathname.startsWith('/overview') && !location.pathname.startsWith('/clients'),
+    () =>
+      !location.pathname.startsWith('/overview')
+      && !location.pathname.startsWith('/clients')
+      && !location.pathname.startsWith('/campaigns'),
     [location.pathname],
   );
   const toolsOpen = location.pathname.startsWith('/tools');

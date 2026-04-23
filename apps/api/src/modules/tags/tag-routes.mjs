@@ -10,6 +10,8 @@ import { listTagBindings, updateTagBinding } from '@smx/db';
 
 function toApiTag(tag) {
   if (!tag) return null;
+  const servingWidth = Number(tag.serving_width ?? 0) || null;
+  const servingHeight = Number(tag.serving_height ?? 0) || null;
   return {
     id: tag.id,
     name: tag.name,
@@ -25,6 +27,9 @@ function toApiTag(tag) {
     frequencyCapWindow: tag.frequency_cap_window ?? null,
     geoTargets: tag.geo_targets ?? [],
     deviceTargets: tag.device_targets ?? [],
+    servingWidth,
+    servingHeight,
+    sizeLabel: servingWidth && servingHeight ? `${servingWidth}x${servingHeight}` : '',
     createdAt: tag.created_at,
     updatedAt: tag.updated_at,
     creatives: Array.isArray(tag.creatives) ? tag.creatives : undefined,

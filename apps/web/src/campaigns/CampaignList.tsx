@@ -100,6 +100,26 @@ export default function CampaignList() {
     }
   };
 
+  const handleExportTagsCsv = async (campaign: Campaign) => {
+    try {
+      const res = await fetch(`/v1/campaigns/${campaign.id}/tags-export`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${campaign.name.replace(/[^a-z0-9-_]+/gi, '_').toLowerCase()}-tags.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Failed to export campaign tags.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -209,6 +229,12 @@ export default function CampaignList() {
                           className="text-xs text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors"
                         >
                           Edit
+                        </button>
+                        <button
+                          onClick={() => void handleExportTagsCsv(c)}
+                          className="text-xs text-slate-700 hover:text-slate-900 font-medium px-2 py-1 rounded hover:bg-slate-100 transition-colors"
+                        >
+                          Export tags CSV
                         </button>
                         <button
                           onClick={() => handleDelete(c)}

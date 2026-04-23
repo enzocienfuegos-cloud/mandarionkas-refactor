@@ -7,6 +7,7 @@ interface Tag {
   campaign: { id: string; name: string } | null;
   format: 'VAST' | 'display' | 'native';
   status: 'active' | 'paused' | 'archived' | 'draft';
+  sizeLabel?: string;
   createdAt: string;
 }
 
@@ -36,14 +37,6 @@ const statusBadge = (status: Tag['status']) => {
     </span>
   );
 };
-
-function escapeCsv(value: unknown) {
-  const text = String(value ?? '');
-  if (/[",\n]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-  return text;
-}
 
 export default function TagList() {
   const navigate = useNavigate();
@@ -129,30 +122,6 @@ export default function TagList() {
     }
   };
 
-  const handleExportCsv = () => {
-    const rows = [
-      ['id', 'name', 'campaign', 'format', 'status', 'created_at'],
-      ...tags.map(tag => [
-        tag.id,
-        tag.name,
-        tag.campaign?.name ?? '',
-        tag.format,
-        tag.status,
-        tag.createdAt,
-      ]),
-    ];
-    const csv = rows.map(row => row.map(escapeCsv).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `tags-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -179,13 +148,6 @@ export default function TagList() {
           <p className="text-sm text-slate-500 mt-1">{tags.length} tag{tags.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={handleExportCsv}
-            disabled={tags.length === 0}
-            className="inline-flex items-center gap-2 border border-slate-300 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm hover:bg-slate-50 transition-colors disabled:opacity-50"
-          >
-            Export CSV
-          </button>
           <Link
             to="/tags/bindings"
             className="inline-flex items-center gap-2 border border-slate-300 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm hover:bg-slate-50 transition-colors"
@@ -222,7 +184,7 @@ export default function TagList() {
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  {['Name', 'Campaign', 'Format', 'Status', 'Created At', 'Actions'].map(h => (
+                  {['Name', 'Campaign', 'Format', 'Size', 'Status', 'Created At', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       {h}
                     </th>
@@ -235,6 +197,7 @@ export default function TagList() {
                     <td className="px-4 py-3 text-sm font-medium text-slate-800">{t.name}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{t.campaign?.name ?? '—'}</td>
                     <td className="px-4 py-3">{formatBadge(t.format)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{t.sizeLabel || '—'}</td>
                     <td className="px-4 py-3">{statusBadge(t.status)}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">
                       {new Date(t.createdAt).toLocaleDateString()}

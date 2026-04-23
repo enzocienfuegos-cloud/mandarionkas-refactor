@@ -22,6 +22,7 @@ interface SavedTag {
   name: string;
   width?: number | null;
   height?: number | null;
+  sizeLabel?: string;
 }
 
 type SnippetVariant =
@@ -89,8 +90,9 @@ function normalizeTagRecord(payload: unknown): SavedTag | null {
     id: String(source.id ?? ''),
     format,
     name: String(source.name ?? ''),
-    width: Number(firstCreative?.width ?? 0) || null,
-    height: Number(firstCreative?.height ?? 0) || null,
+    width: Number(source.servingWidth ?? firstCreative?.width ?? 0) || null,
+    height: Number(source.servingHeight ?? firstCreative?.height ?? 0) || null,
+    sizeLabel: String(source.sizeLabel ?? ''),
   };
 }
 

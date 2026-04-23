@@ -21,6 +21,28 @@ import {
 } from '@smx/db';
 import { getTag } from '@smx/db/tags';
 
+function getTagServingSize(tag, bindings = []) {
+  const activeBinding = bindings.find(binding =>
+    ['active', 'draft'].includes(String(binding.status ?? '').toLowerCase()),
+  ) ?? bindings[0] ?? null;
+  const width = Number(
+    activeBinding?.variant_width
+    ?? activeBinding?.variantWidth
+    ?? tag?.serving_width
+    ?? tag?.servingWidth
+    ?? 0,
+  ) || null;
+  const height = Number(
+    activeBinding?.variant_height
+    ?? activeBinding?.variantHeight
+    ?? tag?.serving_height
+    ?? tag?.servingHeight
+    ?? 0,
+  ) || null;
+  if (!width || !height) return null;
+  return { width, height };
+}
+
 function toApiCreativeVersion(version) {
   if (!version) return null;
   return {
@@ -434,11 +456,26 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
 
+    const existingBindings = await listTagBindings(pool, workspaceId, tagId);
     const variants = await listCreativeSizeVariants(pool, workspaceId, id);
     const defaultVariant = variants.find((variant) =>
       Number(variant.width ?? 0) === Number(version.width ?? 0)
       && Number(variant.height ?? 0) === Number(version.height ?? 0),
     ) ?? variants[0] ?? null;
+
+    if (String(tag.format ?? '').toLowerCase() === 'display') {
+      const tagServingSize = getTagServingSize(tag, existingBindings);
+      const candidateWidth = Number(defaultVariant?.width ?? version.width ?? 0) || null;
+      const candidateHeight = Number(defaultVariant?.height ?? version.height ?? 0) || null;
+      if (tagServingSize && candidateWidth && candidateHeight) {
+        if (tagServingSize.width !== candidateWidth || tagServingSize.height !== candidateHeight) {
+          return reply.status(400).send({
+            error: 'Bad Request',
+            message: `Display tags are fixed-size. This tag serves ${tagServingSize.width}x${tagServingSize.height} and only creatives of that same size can be assigned.`,
+          });
+        }
+      }
+    }
 
     const binding = await createTagBinding(pool, workspaceId, {
       tag_id: tagId,
@@ -467,6 +504,17 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
     const tag = await getTag(pool, workspaceId, tagId);
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    if (String(tag.format ?? '').toLowerCase() === 'display') {
+      const existingBindings = await listTagBindings(pool, workspaceId, tagId);
+      const tagServingSize = getTagServingSize(tag, existingBindings);
+      if (tagServingSize && (tagServingSize.width !== Number(variant.width) || tagServingSize.height !== Number(variant.height))) {
+        return reply.status(400).send({
+          error: 'Bad Request',
+          message: `Display tags are fixed-size. This tag serves ${tagServingSize.width}x${tagServingSize.height} and only creatives of that same size can be assigned.`,
+        });
+      }
     }
 
     const binding = await createTagBinding(pool, workspaceId, {

@@ -44,9 +44,34 @@ export async function listTags(pool, workspaceId, opts = {}) {
             t.click_url, t.impression_url, t.tag_code, t.description,
             t.targeting, t.frequency_cap, t.frequency_cap_window,
             t.geo_targets, t.device_targets, t.created_at, t.updated_at,
-            c.name AS campaign_name
+            c.name AS campaign_name,
+            COALESCE(bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
+            COALESCE(bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height
      FROM ad_tags t
      LEFT JOIN campaigns c ON c.id = t.campaign_id
+     LEFT JOIN LATERAL (
+       SELECT
+         COALESCE(csv.width, cv.width) AS serving_width,
+         COALESCE(csv.height, cv.height) AS serving_height
+       FROM tag_bindings tb
+       JOIN creative_versions cv ON cv.id = tb.creative_version_id
+       LEFT JOIN creative_size_variants csv ON csv.id = tb.creative_size_variant_id
+       WHERE tb.workspace_id = t.workspace_id
+         AND tb.tag_id = t.id
+         AND tb.status IN ('active', 'draft')
+       ORDER BY tb.weight DESC, tb.created_at ASC
+       LIMIT 1
+     ) bound_sizes ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT
+         c.width AS serving_width,
+         c.height AS serving_height
+       FROM tag_creatives tc
+       JOIN creatives c ON c.id = tc.creative_id
+       WHERE tc.tag_id = t.id
+       ORDER BY tc.weight DESC, tc.created_at ASC
+       LIMIT 1
+     ) legacy_sizes ON TRUE
      WHERE ${conditions.join(' AND ')}
      ORDER BY t.created_at DESC
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -60,10 +85,34 @@ export async function getTag(pool, workspaceId, tagId) {
     `SELECT t.id, t.workspace_id, t.campaign_id, t.name, t.format, t.status,
             t.click_url, t.impression_url, t.tag_code, t.description,
             t.targeting, t.frequency_cap, t.frequency_cap_window,
-            t.geo_targets, t.device_targets, t.created_at, t.updated_at,
-            c.name AS campaign_name
+            t.geo_targets, t.device_targets, t.created_at, t.updated_at, c.name AS campaign_name,
+            COALESCE(bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
+            COALESCE(bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height
      FROM ad_tags t
      LEFT JOIN campaigns c ON c.id = t.campaign_id
+     LEFT JOIN LATERAL (
+       SELECT
+         COALESCE(csv.width, cv.width) AS serving_width,
+         COALESCE(csv.height, cv.height) AS serving_height
+       FROM tag_bindings tb
+       JOIN creative_versions cv ON cv.id = tb.creative_version_id
+       LEFT JOIN creative_size_variants csv ON csv.id = tb.creative_size_variant_id
+       WHERE tb.workspace_id = t.workspace_id
+         AND tb.tag_id = t.id
+         AND tb.status IN ('active', 'draft')
+       ORDER BY tb.weight DESC, tb.created_at ASC
+       LIMIT 1
+     ) bound_sizes ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT
+         c.width AS serving_width,
+         c.height AS serving_height
+       FROM tag_creatives tc
+       JOIN creatives c ON c.id = tc.creative_id
+       WHERE tc.tag_id = t.id
+       ORDER BY tc.weight DESC, tc.created_at ASC
+       LIMIT 1
+     ) legacy_sizes ON TRUE
      WHERE t.workspace_id = $1 AND t.id = $2`,
     [workspaceId, tagId],
   );
@@ -75,10 +124,34 @@ export async function getTagById(pool, tagId) {
     `SELECT t.id, t.workspace_id, t.campaign_id, t.name, t.format, t.status,
             t.click_url, t.impression_url, t.tag_code, t.description,
             t.targeting, t.frequency_cap, t.frequency_cap_window,
-            t.geo_targets, t.device_targets, t.created_at, t.updated_at,
-            c.name AS campaign_name
+            t.geo_targets, t.device_targets, t.created_at, t.updated_at, c.name AS campaign_name,
+            COALESCE(bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
+            COALESCE(bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height
      FROM ad_tags t
      LEFT JOIN campaigns c ON c.id = t.campaign_id
+     LEFT JOIN LATERAL (
+       SELECT
+         COALESCE(csv.width, cv.width) AS serving_width,
+         COALESCE(csv.height, cv.height) AS serving_height
+       FROM tag_bindings tb
+       JOIN creative_versions cv ON cv.id = tb.creative_version_id
+       LEFT JOIN creative_size_variants csv ON csv.id = tb.creative_size_variant_id
+       WHERE tb.workspace_id = t.workspace_id
+         AND tb.tag_id = t.id
+         AND tb.status IN ('active', 'draft')
+       ORDER BY tb.weight DESC, tb.created_at ASC
+       LIMIT 1
+     ) bound_sizes ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT
+         c.width AS serving_width,
+         c.height AS serving_height
+       FROM tag_creatives tc
+       JOIN creatives c ON c.id = tc.creative_id
+       WHERE tc.tag_id = t.id
+       ORDER BY tc.weight DESC, tc.created_at ASC
+       LIMIT 1
+     ) legacy_sizes ON TRUE
      WHERE t.id = $1`,
     [tagId],
   );
