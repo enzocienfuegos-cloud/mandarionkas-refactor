@@ -1,5 +1,5 @@
 const VALID_STATUSES = ['draft', 'active', 'paused', 'archived'];
-const VALID_FORMATS  = ['vast', 'display', 'native'];
+const VALID_FORMATS  = ['vast', 'display', 'native', 'tracker'];
 
 function normalizeTagFormat(format) {
   if (!format) return null;
@@ -46,7 +46,8 @@ export async function listTags(pool, workspaceId, opts = {}) {
             t.geo_targets, t.device_targets, t.created_at, t.updated_at,
             c.name AS campaign_name,
             COALESCE(tfc.display_width, bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
-            COALESCE(tfc.display_height, bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height
+            COALESCE(tfc.display_height, bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height,
+            tfc.tracker_type
      FROM ad_tags t
      LEFT JOIN campaigns c ON c.id = t.campaign_id
      LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
@@ -88,7 +89,8 @@ export async function getTag(pool, workspaceId, tagId) {
             t.targeting, t.frequency_cap, t.frequency_cap_window,
             t.geo_targets, t.device_targets, t.created_at, t.updated_at, c.name AS campaign_name,
             COALESCE(tfc.display_width, bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
-            COALESCE(tfc.display_height, bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height
+            COALESCE(tfc.display_height, bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height,
+            tfc.tracker_type
      FROM ad_tags t
      LEFT JOIN campaigns c ON c.id = t.campaign_id
      LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
@@ -128,7 +130,8 @@ export async function getTagById(pool, tagId) {
             t.targeting, t.frequency_cap, t.frequency_cap_window,
             t.geo_targets, t.device_targets, t.created_at, t.updated_at, c.name AS campaign_name,
             COALESCE(tfc.display_width, bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
-            COALESCE(tfc.display_height, bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height
+            COALESCE(tfc.display_height, bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height,
+            tfc.tracker_type
      FROM ad_tags t
      LEFT JOIN campaigns c ON c.id = t.campaign_id
      LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
@@ -167,7 +170,7 @@ export async function createTag(pool, workspaceId, data) {
     click_url = null, impression_url = null, tag_code = null,
     description = null, targeting = {}, frequency_cap = null,
     frequency_cap_window = null, geo_targets = [], device_targets = [],
-    serving_width = null, serving_height = null,
+    serving_width = null, serving_height = null, tracker_type = null,
   } = data;
 
   const normalizedFormat = normalizeTagFormat(format) ?? 'display';
@@ -188,14 +191,28 @@ export async function createTag(pool, workspaceId, data) {
 
   if (normalizedFormat === 'display' && (serving_width || serving_height)) {
     await pool.query(
-      `INSERT INTO tag_format_configs (tag_id, display_width, display_height)
-       VALUES ($1, $2, $3)
+      `INSERT INTO tag_format_configs (tag_id, display_width, display_height, tracker_type)
+       VALUES ($1, $2, $3, NULL)
        ON CONFLICT (tag_id)
        DO UPDATE SET
          display_width = EXCLUDED.display_width,
          display_height = EXCLUDED.display_height,
          updated_at = NOW()`,
       [tag.id, serving_width ?? null, serving_height ?? null],
+    );
+  }
+
+  if (normalizedFormat === 'tracker' && tracker_type) {
+    await pool.query(
+      `INSERT INTO tag_format_configs (tag_id, display_width, display_height, tracker_type)
+       VALUES ($1, NULL, NULL, $2)
+       ON CONFLICT (tag_id)
+       DO UPDATE SET
+         display_width = NULL,
+         display_height = NULL,
+         tracker_type = EXCLUDED.tracker_type,
+         updated_at = NOW()`,
+      [tag.id, tracker_type],
     );
   }
 
@@ -232,12 +249,12 @@ export async function updateTag(pool, workspaceId, tagId, data) {
   const tag = rows[0] ?? null;
   if (!tag) return null;
 
-  if ('serving_width' in data || 'serving_height' in data || 'format' in data) {
+  if ('serving_width' in data || 'serving_height' in data || 'format' in data || 'tracker_type' in data) {
     const nextFormat = normalizeTagFormat(data.format ?? tag.format) ?? tag.format;
     if (nextFormat === 'display') {
       await pool.query(
-        `INSERT INTO tag_format_configs (tag_id, display_width, display_height)
-         VALUES ($1, $2, $3)
+        `INSERT INTO tag_format_configs (tag_id, display_width, display_height, tracker_type)
+         VALUES ($1, $2, $3, NULL)
          ON CONFLICT (tag_id)
          DO UPDATE SET
            display_width = COALESCE(EXCLUDED.display_width, tag_format_configs.display_width),
@@ -247,6 +264,21 @@ export async function updateTag(pool, workspaceId, tagId, data) {
           tagId,
           'serving_width' in data ? (data.serving_width ?? null) : null,
           'serving_height' in data ? (data.serving_height ?? null) : null,
+        ],
+      );
+    } else if (nextFormat === 'tracker') {
+      await pool.query(
+        `INSERT INTO tag_format_configs (tag_id, display_width, display_height, tracker_type)
+         VALUES ($1, NULL, NULL, $2)
+         ON CONFLICT (tag_id)
+         DO UPDATE SET
+           display_width = NULL,
+           display_height = NULL,
+           tracker_type = COALESCE(EXCLUDED.tracker_type, tag_format_configs.tracker_type),
+           updated_at = NOW()`,
+        [
+          tagId,
+          'tracker_type' in data ? (data.tracker_type ?? null) : null,
         ],
       );
     }

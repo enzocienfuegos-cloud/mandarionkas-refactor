@@ -5,9 +5,10 @@ interface Tag {
   id: string;
   name: string;
   campaign: { id: string; name: string } | null;
-  format: 'VAST' | 'display' | 'native';
+  format: 'VAST' | 'display' | 'native' | 'tracker';
   status: 'active' | 'paused' | 'archived' | 'draft';
   sizeLabel?: string;
+  trackerType?: 'click' | 'impression' | null;
   createdAt: string;
 }
 
@@ -27,6 +28,7 @@ const formatBadge = (format: Tag['format']) => {
     VAST: 'bg-purple-100 text-purple-800',
     display: 'bg-blue-100 text-blue-800',
     native: 'bg-orange-100 text-orange-800',
+    tracker: 'bg-emerald-100 text-emerald-800',
   };
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls[format]}`}>
@@ -65,6 +67,8 @@ export default function TagList() {
     status: 'draft' as Tag['status'],
     servingWidth: '',
     servingHeight: '',
+    trackerType: 'click' as 'click' | 'impression',
+    clickUrl: '',
   });
 
   const load = () => {
@@ -120,7 +124,7 @@ export default function TagList() {
   const closeCreate = () => {
     setCreating(false);
     setCreateError('');
-    setCreateForm({ name: '', campaignId: '', format: 'display', status: 'draft', servingWidth: '', servingHeight: '' });
+    setCreateForm({ name: '', campaignId: '', format: 'display', status: 'draft', servingWidth: '', servingHeight: '', trackerType: 'click', clickUrl: '' });
     if (searchParams.get('create') === '1') {
       setSearchParams({});
     }
@@ -137,6 +141,10 @@ export default function TagList() {
         return;
       }
     }
+    if (createForm.format === 'tracker' && createForm.trackerType === 'click' && !createForm.clickUrl.trim()) {
+      setCreateError('Click trackers require a destination URL.');
+      return;
+    }
     setCreateError('');
     try {
       const res = await fetch('/v1/tags', {
@@ -150,6 +158,8 @@ export default function TagList() {
           status: createForm.status,
           servingWidth: createForm.format === 'display' ? Number(createForm.servingWidth) || null : null,
           servingHeight: createForm.format === 'display' ? Number(createForm.servingHeight) || null : null,
+          trackerType: createForm.format === 'tracker' ? createForm.trackerType : null,
+          clickUrl: createForm.format === 'tracker' && createForm.trackerType === 'click' ? createForm.clickUrl.trim() || null : null,
         }),
       });
       const payload = await res.json().catch(() => ({}));
@@ -295,7 +305,7 @@ export default function TagList() {
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Format</label>
                 <div className="flex gap-2">
-                  {(['VAST', 'display', 'native'] as Tag['format'][]).map(format => (
+                  {(['VAST', 'display', 'native', 'tracker'] as Tag['format'][]).map(format => (
                     <button
                       key={format}
                       type="button"
@@ -304,6 +314,7 @@ export default function TagList() {
                         format,
                         servingWidth: format === 'display' ? current.servingWidth : '',
                         servingHeight: format === 'display' ? current.servingHeight : '',
+                        trackerType: format === 'tracker' ? current.trackerType : 'click',
                       }))}
                       className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                         createForm.format === format
@@ -341,6 +352,32 @@ export default function TagList() {
                     </select>
                   </div>
                 </div>
+              )}
+              {createForm.format === 'tracker' && (
+                <>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Tracker Type</label>
+                    <select
+                      value={createForm.trackerType}
+                      onChange={event => setCreateForm(current => ({ ...current, trackerType: event.target.value as 'click' | 'impression' }))}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="click">Click tracker</option>
+                      <option value="impression">Impression tracker</option>
+                    </select>
+                  </div>
+                  {createForm.trackerType === 'click' && (
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700">Destination URL</label>
+                      <input
+                        value={createForm.clickUrl}
+                        onChange={event => setCreateForm(current => ({ ...current, clickUrl: event.target.value }))}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                        placeholder="https://example.com/landing"
+                      />
+                    </div>
+                  )}
+                </>
               )}
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Status</label>

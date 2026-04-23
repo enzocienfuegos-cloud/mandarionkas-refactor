@@ -44,6 +44,8 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     const displayJsUrl = `${baseUrl}/v1/tags/display/${tag.id}.js`;
     const displayHtmlUrl = `${baseUrl}/v1/tags/display/${tag.id}.html`;
     const vastUrl = `${baseUrl}/v1/vast/tags/${tag.id}`;
+    const trackerClickUrl = `${baseUrl}/v1/tags/tracker/${tag.id}/click`;
+    const trackerImpressionUrl = `${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`;
     switch (variant) {
       case 'display-js':
         return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
@@ -53,6 +55,10 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
         return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
       case 'vast-url':
         return vastUrl;
+      case 'tracker-click':
+        return trackerClickUrl;
+      case 'tracker-impression':
+        return trackerImpressionUrl;
       default:
         return '';
     }
@@ -96,10 +102,11 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     }
 
     const { rows: tags } = await pool.query(
-      `SELECT t.id, t.name, t.format, t.status,
+      `SELECT t.id, t.name, t.format, t.status, tfc.tracker_type,
               COALESCE(bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
               COALESCE(bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height
        FROM ad_tags t
+       LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
        LEFT JOIN LATERAL (
          SELECT
            COALESCE(csv.width, cv.width) AS serving_width,
@@ -129,9 +136,11 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
 
     const baseUrl = getRequestBaseUrl(req);
     const rows = [
-      ['campaign', 'client', 'tag_name', 'format', 'size', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url'],
+      ['campaign', 'client', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'tracker_click_url', 'tracker_impression_url'],
       ...tags.map(tag => {
-        const size = tag.serving_width && tag.serving_height ? `${tag.serving_width}x${tag.serving_height}` : '';
+        const size = tag.format === 'tracker'
+          ? (tag.tracker_type === 'impression' ? '1x1' : '')
+          : (tag.serving_width && tag.serving_height ? `${tag.serving_width}x${tag.serving_height}` : '');
         const format = String(tag.format ?? '').toLowerCase();
         return [
           campaign.name,
@@ -139,10 +148,13 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
           tag.name,
           format === 'vast' ? 'VAST' : format,
           size,
+          tag.tracker_type ?? '',
           format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-js') : '',
           format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-ins') : '',
           format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-iframe') : '',
           format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url') : '',
+          format === 'tracker' && tag.tracker_type === 'click' ? buildTagSnippet(baseUrl, tag, 'tracker-click') : '',
+          format === 'tracker' && tag.tracker_type === 'impression' ? buildTagSnippet(baseUrl, tag, 'tracker-impression') : '',
         ];
       }),
     ];

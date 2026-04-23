@@ -29,6 +29,8 @@ function buildTagSnippet(baseUrl, tag, variant) {
   const displayJsUrl = `${baseUrl}/v1/tags/display/${tag.id}.js`;
   const displayHtmlUrl = `${baseUrl}/v1/tags/display/${tag.id}.html`;
   const vastUrl = `${baseUrl}/v1/vast/tags/${tag.id}`;
+  const trackerClickUrl = `${baseUrl}/v1/tags/tracker/${tag.id}/click`;
+  const trackerImpressionUrl = `${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`;
   switch (variant) {
     case 'display-js':
       return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
@@ -38,6 +40,10 @@ function buildTagSnippet(baseUrl, tag, variant) {
       return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
     case 'vast-url':
       return vastUrl;
+    case 'tracker-click':
+      return trackerClickUrl;
+    case 'tracker-impression':
+      return trackerImpressionUrl;
     default:
       return '';
   }
@@ -64,7 +70,10 @@ function toApiTag(tag) {
     deviceTargets: tag.device_targets ?? [],
     servingWidth,
     servingHeight,
-    sizeLabel: servingWidth && servingHeight ? `${servingWidth}x${servingHeight}` : '',
+    sizeLabel: tag.format === 'tracker'
+      ? (tag.tracker_type === 'impression' ? '1x1' : '')
+      : (servingWidth && servingHeight ? `${servingWidth}x${servingHeight}` : ''),
+    trackerType: tag.tracker_type ?? null,
     createdAt: tag.created_at,
     updatedAt: tag.updated_at,
     creatives: Array.isArray(tag.creatives) ? tag.creatives : undefined,
@@ -107,6 +116,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       deviceTargets,
       servingWidth,
       servingHeight,
+      trackerType,
     } = req.body ?? {};
 
     if (!name) {
@@ -128,6 +138,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       device_targets: deviceTargets,
       serving_width: servingWidth ?? null,
       serving_height: servingHeight ?? null,
+      tracker_type: trackerType ?? null,
     });
 
     return reply.status(201).send({ tag: toApiTag(tag) });
@@ -139,7 +150,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     const { id } = req.params;
 
     const { rows } = await pool.query(
-      `SELECT t.id, t.name, t.format, t.status,
+      `SELECT t.id, t.name, t.format, t.status, tfc.tracker_type,
               w.name AS workspace_name,
               c.name AS campaign_name,
               COALESCE(tfc.display_width, bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
@@ -185,17 +196,20 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     const format = String(tag.format ?? '').toLowerCase();
     const baseUrl = getRequestBaseUrl(req);
     const csvRows = [
-      ['client', 'campaign', 'tag_name', 'format', 'size', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url'],
+      ['client', 'campaign', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'tracker_click_url', 'tracker_impression_url'],
       [
         tag.workspace_name ?? '',
         tag.campaign_name ?? '',
         tag.name,
         format === 'vast' ? 'VAST' : format,
         size,
+        tag.tracker_type ?? '',
         format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-js') : '',
         format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-ins') : '',
         format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-iframe') : '',
         format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url') : '',
+        format === 'tracker' && tag.tracker_type === 'click' ? buildTagSnippet(baseUrl, tag, 'tracker-click') : '',
+        format === 'tracker' && tag.tracker_type === 'impression' ? buildTagSnippet(baseUrl, tag, 'tracker-impression') : '',
       ],
     ];
 
@@ -320,6 +334,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       deviceTargets: 'device_targets',
       servingWidth: 'serving_width',
       servingHeight: 'serving_height',
+      trackerType: 'tracker_type',
     };
 
     for (const [camel, snake] of Object.entries(fieldMap)) {

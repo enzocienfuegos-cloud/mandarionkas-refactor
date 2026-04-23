@@ -4,6 +4,7 @@ import {
   recordViewability,
   recordEngagementEvent,
 } from '@smx/db/tracking';
+import { getTagById } from '@smx/db/tags';
 import { extractIp, resolveIp } from '@smx/geo';
 
 const PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
@@ -129,6 +130,76 @@ async function collectTrackingContext(req, query = {}) {
 }
 
 export function handleTrackingRoutes(app, { pool }) {
+  app.get('/v1/tags/tracker/:tagId/impression.gif', async (req, reply) => {
+    const { tagId } = req.params;
+    const tag = await getTagById(pool, tagId);
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+    if (tag.format !== 'tracker' || tag.tracker_type !== 'impression') {
+      return reply.status(400).send({ error: 'Bad Request', message: 'Tag is not an impression tracker' });
+    }
+
+    const context = await collectTrackingContext(req, req.query);
+    recordImpression(pool, {
+      impression_id: normalizeUuid(req.query?.imp) ?? null,
+      tag_id: tagId,
+      workspace_id: tag.workspace_id,
+      creative_id: normalizeUuid(req.query?.c) ?? null,
+      creative_size_variant_id: normalizeUuid(req.query?.csv) ?? null,
+      ...context,
+    }).catch((error) => {
+      req.log?.warn?.({ err: error, tagId, workspaceId: tag.workspace_id }, 'failed to record tracker impression');
+    });
+
+    reply.header('Content-Type', 'image/gif');
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    reply.header('Pragma', 'no-cache');
+    reply.header('Expires', '0');
+    return reply.send(PIXEL_GIF);
+  });
+
+  app.get('/v1/tags/tracker/:tagId/click', async (req, reply) => {
+    const { tagId } = req.params;
+    const tag = await getTagById(pool, tagId);
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+    if (tag.format !== 'tracker' || tag.tracker_type !== 'click') {
+      return reply.status(400).send({ error: 'Bad Request', message: 'Tag is not a click tracker' });
+    }
+
+    const context = await collectTrackingContext(req, req.query);
+    const destinationUrl = tag.click_url ?? req.query?.url ?? null;
+
+    try {
+      await recordClick(pool, {
+        tag_id: tagId,
+        workspace_id: tag.workspace_id,
+        creative_id: normalizeUuid(req.query?.c) ?? null,
+        creative_size_variant_id: normalizeUuid(req.query?.csv) ?? null,
+        impression_id: normalizeUuid(req.query?.imp) ?? null,
+        redirect_url: destinationUrl,
+        ...context,
+      });
+    } catch (error) {
+      req.log?.error?.({ err: error, tagId, workspaceId: tag.workspace_id, destinationUrl }, 'failed to record tracker click');
+    }
+
+    if (!destinationUrl) {
+      return reply.status(204).send();
+    }
+    try {
+      const safeUrl = new URL(destinationUrl);
+      if (safeUrl.protocol !== 'http:' && safeUrl.protocol !== 'https:') {
+        return reply.status(204).send();
+      }
+      return reply.redirect(302, safeUrl.toString());
+    } catch {
+      return reply.status(204).send();
+    }
+  });
+
   // GET /track/impression/:tagId — records impression, returns 1x1 transparent GIF
   app.get('/track/impression/:tagId', async (req, reply) => {
     const { tagId } = req.params;

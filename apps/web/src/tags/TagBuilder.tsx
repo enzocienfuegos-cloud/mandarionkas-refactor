@@ -6,8 +6,9 @@ interface Campaign {
   name: string;
 }
 
-type TagFormat = 'VAST' | 'display' | 'native';
+type TagFormat = 'VAST' | 'display' | 'native' | 'tracker';
 type TagStatus = 'draft' | 'active' | 'paused' | 'archived';
+type TrackerType = 'click' | 'impression';
 
 interface TagForm {
   name: string;
@@ -17,6 +18,7 @@ interface TagForm {
   clickUrl: string;
   servingWidth: string;
   servingHeight: string;
+  trackerType: TrackerType;
 }
 
 interface SavedTag {
@@ -26,6 +28,7 @@ interface SavedTag {
   width?: number | null;
   height?: number | null;
   sizeLabel?: string;
+  trackerType?: TrackerType | null;
 }
 
 type SnippetVariant =
@@ -34,7 +37,9 @@ type SnippetVariant =
   | 'display-js'
   | 'display-iframe'
   | 'display-ins'
-  | 'native-js';
+  | 'native-js'
+  | 'tracker-click'
+  | 'tracker-impression';
 
 const DISPLAY_SIZE_PRESETS = [
   { label: '300x250', width: 300, height: 250 },
@@ -55,6 +60,7 @@ const emptyForm: TagForm = {
   clickUrl: '',
   servingWidth: '',
   servingHeight: '',
+  trackerType: 'click',
 };
 
 const STATUSES: TagStatus[] = ['draft', 'active', 'paused', 'archived'];
@@ -69,13 +75,14 @@ function resolveTagServingBaseUrl() {
   return (candidates.find((candidate) => candidate?.trim()) ?? '').replace(/\/+$/, '');
 }
 
-function getDefaultSnippetVariant(format: TagFormat): SnippetVariant {
+function getDefaultSnippetVariant(format: TagFormat, trackerType: TrackerType | null = null): SnippetVariant {
   if (format === 'VAST') return 'vast-url';
   if (format === 'display') return 'display-js';
+  if (format === 'tracker') return trackerType === 'impression' ? 'tracker-impression' : 'tracker-click';
   return 'native-js';
 }
 
-function getSnippetOptions(format: TagFormat): Array<{ value: SnippetVariant; label: string }> {
+function getSnippetOptions(format: TagFormat, trackerType: TrackerType | null = null): Array<{ value: SnippetVariant; label: string }> {
   if (format === 'VAST') {
     return [
       { value: 'vast-url', label: 'VAST URL' },
@@ -89,6 +96,11 @@ function getSnippetOptions(format: TagFormat): Array<{ value: SnippetVariant; la
       { value: 'display-ins', label: 'Ins Tag' },
     ];
   }
+  if (format === 'tracker') {
+    return trackerType === 'impression'
+      ? [{ value: 'tracker-impression', label: 'Impression Pixel URL' }]
+      : [{ value: 'tracker-click', label: 'Click Tracker URL' }];
+  }
   return [{ value: 'native-js', label: 'JS Tag' }];
 }
 
@@ -97,7 +109,7 @@ function normalizeTagRecord(payload: unknown): SavedTag | null {
     ?? (payload as Record<string, unknown> | null);
   if (!source || typeof source !== 'object') return null;
 
-  const format = source.format === 'display' || source.format === 'native' || source.format === 'VAST'
+  const format = source.format === 'display' || source.format === 'native' || source.format === 'VAST' || source.format === 'tracker'
     ? source.format
     : 'display';
   const creatives = Array.isArray(source.creatives) ? source.creatives : [];
@@ -110,6 +122,7 @@ function normalizeTagRecord(payload: unknown): SavedTag | null {
     width: Number(source.servingWidth ?? firstCreative?.width ?? 0) || null,
     height: Number(source.servingHeight ?? firstCreative?.height ?? 0) || null,
     sizeLabel: String(source.sizeLabel ?? ''),
+    trackerType: (source.trackerType === 'click' || source.trackerType === 'impression') ? source.trackerType : null,
   };
 }
 
@@ -119,6 +132,8 @@ function buildTagSnippet(tag: SavedTag, variant: SnippetVariant): string {
   const displayHtmlUrl = `${servingBaseUrl}/v1/tags/display/${tag.id}.html`;
   const nativeJsUrl = `${servingBaseUrl}/v1/tags/native/${tag.id}.js`;
   const vastUrl = `${servingBaseUrl}/v1/vast/tags/${tag.id}`;
+  const trackerClickUrl = `${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`;
+  const trackerImpressionUrl = `${servingBaseUrl}/v1/tags/tracker/${tag.id}/impression.gif`;
   const width = tag.width ?? 300;
   const height = tag.height ?? 250;
 
@@ -133,6 +148,10 @@ function buildTagSnippet(tag: SavedTag, variant: SnippetVariant): string {
       return `<ins id="smx-ad-slot-${tag.id}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    var iframe = document.createElement('iframe');\n    iframe.src = ${JSON.stringify(displayHtmlUrl)};\n    iframe.width = ${JSON.stringify(String(width))};\n    iframe.height = ${JSON.stringify(String(height))};\n    iframe.scrolling = 'no';\n    iframe.frameBorder = '0';\n    iframe.style.border = '0';\n    iframe.style.overflow = 'hidden';\n    slot.replaceWith(iframe);\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tag.id}`)}));\n</script>`;
     case 'native-js':
       return `<script>\n  window.SMX = window.SMX || {};\n  window.SMX.native = window.SMX.native || [];\n  window.SMX.native.push({ tagId: "${tag.id}", format: "native" });\n</script>\n<script src="${nativeJsUrl}" async></script>`;
+    case 'tracker-impression':
+      return trackerImpressionUrl;
+    case 'tracker-click':
+      return trackerClickUrl;
     case 'display-js':
     default:
       return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
@@ -154,6 +173,11 @@ function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant): string {
     }
     return 'Use the JavaScript tag for standard display placements. This is not a VAST tag.';
   }
+  if (tag.format === 'tracker') {
+    return variant === 'tracker-impression'
+      ? 'Use this 1x1 GIF URL as a pure impression tracker in external platforms.'
+      : 'Use this click tracker URL in Meta or other platforms when you only need click measurement.';
+  }
   return 'Use the JavaScript tag to initialize the native placement loader.';
 }
 
@@ -174,7 +198,7 @@ export default function TagBuilder() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [savedTag, setSavedTag] = useState<SavedTag | null>(null);
-  const [snippetVariant, setSnippetVariant] = useState<SnippetVariant>(getDefaultSnippetVariant(emptyForm.format));
+  const [snippetVariant, setSnippetVariant] = useState<SnippetVariant>(getDefaultSnippetVariant(emptyForm.format, emptyForm.trackerType));
   const [copied, setCopied] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -200,10 +224,11 @@ export default function TagBuilder() {
           clickUrl: String(data.clickUrl ?? ''),
           servingWidth: String(data.servingWidth ?? data.width ?? ''),
           servingHeight: String(data.servingHeight ?? data.height ?? ''),
+          trackerType: data.trackerType === 'impression' ? 'impression' : 'click',
         });
         const normalized = normalizeTagRecord(payload);
         setSavedTag(normalized);
-        setSnippetVariant(getDefaultSnippetVariant(((data.format as TagFormat | undefined) ?? 'VAST')));
+        setSnippetVariant(getDefaultSnippetVariant(((data.format as TagFormat | undefined) ?? 'VAST'), data.trackerType === 'impression' ? 'impression' : data.trackerType === 'click' ? 'click' : null));
         setSuccessMessage('');
       })
       .catch(() => setGeneralError('Failed to load tag.'))
@@ -224,8 +249,9 @@ export default function TagBuilder() {
       format: f,
       servingWidth: f === 'display' ? prev.servingWidth : '',
       servingHeight: f === 'display' ? prev.servingHeight : '',
+      trackerType: f === 'tracker' ? prev.trackerType : 'click',
     }));
-    setSnippetVariant(getDefaultSnippetVariant(f));
+    setSnippetVariant(getDefaultSnippetVariant(f, f === 'tracker' ? form.trackerType : null));
     setErrors(er => ({ ...er, format: undefined }));
     setSuccessMessage('');
   };
@@ -251,6 +277,9 @@ export default function TagBuilder() {
       if (!Number.isFinite(width) || width <= 0) errs.servingWidth = 'Width is required for display tags.';
       if (!Number.isFinite(height) || height <= 0) errs.servingHeight = 'Height is required for display tags.';
     }
+    if (form.format === 'tracker' && form.trackerType === 'click' && !form.clickUrl.trim()) {
+      errs.clickUrl = 'Click URL is required for click trackers.';
+    }
     return errs;
   };
 
@@ -269,6 +298,7 @@ export default function TagBuilder() {
       clickUrl: form.clickUrl.trim() || null,
       servingWidth: form.format === 'display' ? Number(form.servingWidth) || null : null,
       servingHeight: form.format === 'display' ? Number(form.servingHeight) || null : null,
+      trackerType: form.format === 'tracker' ? form.trackerType : null,
     };
 
     try {
@@ -285,7 +315,7 @@ export default function TagBuilder() {
         const payload = await res.json();
         const normalized = normalizeTagRecord(payload);
         setSavedTag(normalized);
-        setSnippetVariant(getDefaultSnippetVariant(normalized?.format ?? form.format));
+        setSnippetVariant(getDefaultSnippetVariant(normalized?.format ?? form.format, normalized?.trackerType ?? null));
         setSuccessMessage(isEdit ? 'Tag updated successfully.' : 'Tag created successfully.');
       } else {
         const data = await res.json().catch(() => ({}));
@@ -368,7 +398,7 @@ export default function TagBuilder() {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Format</label>
             <div className="flex gap-3">
-              {(['VAST', 'display', 'native'] as TagFormat[]).map(f => (
+              {(['VAST', 'display', 'native', 'tracker'] as TagFormat[]).map(f => (
                 <label
                   key={f}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors ${
@@ -440,6 +470,27 @@ export default function TagBuilder() {
             </div>
           )}
 
+          {form.format === 'tracker' && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tracker Type</label>
+                <select value={form.trackerType} onChange={set('trackerType')} className={inputClass()}>
+                  <option value="click">Click tracker</option>
+                  <option value="impression">Impression tracker</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tracker Size</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={form.trackerType === 'impression' ? '1x1' : 'N/A'}
+                  className={`${inputClass()} bg-slate-50 text-slate-500`}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Status */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
@@ -450,23 +501,27 @@ export default function TagBuilder() {
             </select>
           </div>
 
-          <details className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+          <details className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3" open={form.format === 'tracker'}>
             <summary className="cursor-pointer text-sm font-medium text-slate-700">
-              Click Override
+              {form.format === 'tracker' ? 'Tracker Destination' : 'Click Override'}
             </summary>
             <p className="mt-2 text-xs text-slate-500">
-              HTML5 banners keep their own <code>clickTag</code> or <code>exit</code> by default.
-              Set this only when the ad server must override that destination.
+              {form.format === 'tracker'
+                ? 'Click trackers need a destination URL. Impression trackers ignore this field and only return a 1x1 measurement pixel.'
+                : <>HTML5 banners keep their own <code>clickTag</code> or <code>exit</code> by default. Set this only when the ad server must override that destination.</>}
             </p>
             <div className="mt-3">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Click URL Override (optional)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                {form.format === 'tracker' ? 'Destination URL' : 'Click URL Override (optional)'}
+              </label>
               <input
                 type="url"
                 value={form.clickUrl}
                 onChange={set('clickUrl')}
-                className={inputClass()}
+                className={inputClass(errors.clickUrl)}
                 placeholder="https://example.com/landing"
               />
+              {errors.clickUrl && <p className="mt-1 text-xs text-red-600">{errors.clickUrl}</p>}
             </div>
           </details>
 
@@ -512,7 +567,7 @@ export default function TagBuilder() {
             </button>
           </div>
           <div className="mb-3 flex flex-wrap gap-2">
-            {getSnippetOptions(savedTag.format).map(option => (
+            {getSnippetOptions(savedTag.format, savedTag.trackerType ?? null).map(option => (
               <button
                 key={option.value}
                 type="button"
