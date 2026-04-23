@@ -1,4 +1,5 @@
 import { getTagServingSnapshot, getTagServingSnapshotById } from '@smx/db/tags';
+import { wrapTrackedClickUrlWithDspMacro } from '../tags/dsp-macros.mjs';
 
 const BASE_URL = (process.env.BASE_URL ?? '').trim();
 
@@ -49,7 +50,7 @@ function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedC
   }
 }
 
-function buildVastXml(tag, workspaceId, baseUrl) {
+function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
   const creativeId = servingCandidate?.creativeId ?? 'no-creative';
@@ -67,6 +68,7 @@ function buildVastXml(tag, workspaceId, baseUrl) {
   const impressionUrl = `${baseUrl}/track/impression/${tagId}?${trackingParams.toString()}`;
   const trackingBase = `${baseUrl}/track`;
   const clickTrackingParams = new URLSearchParams(trackingParams);
+  const wrappedClickTrackUrl = wrapTrackedClickUrlWithDspMacro(`${trackingBase}/click/${tagId}?${clickTrackingParams.toString()}`, query);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <VAST version="4.0" xmlns="http://www.iab.com/VAST" xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -88,7 +90,7 @@ function buildVastXml(tag, workspaceId, baseUrl) {
             </TrackingEvents>
             <VideoClicks>
               <ClickThrough><![CDATA[${clickUrl}]]></ClickThrough>
-              <ClickTracking><![CDATA[${trackingBase}/click/${tagId}?${clickTrackingParams.toString()}]]></ClickTracking>
+              <ClickTracking><![CDATA[${wrappedClickTrackUrl}]]></ClickTracking>
             </VideoClicks>
             <MediaFiles>
               <MediaFile delivery="progressive" type="video/mp4" width="${width}" height="${height}">
@@ -124,7 +126,7 @@ function escapeXml(str) {
     .replace(/'/g, '&apos;');
 }
 
-function buildDisplaySnippet(tag, workspaceId, baseUrl) {
+function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
   const servingFormat = servingCandidate?.servingFormat ?? '';
@@ -138,7 +140,9 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   const viewabilityUrl = `${baseUrl}/track/viewability/${tagId}?${trackingParams.toString()}`;
   const clickTrackParams = new URLSearchParams(trackingParams);
   clickTrackParams.set('url', clickUrl);
-  const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
+  const rawClickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
+  const clickTrackUrl = wrapTrackedClickUrlWithDspMacro(rawClickTrackUrl, query);
+  const dspClickMacro = String(query?.dsp_click ?? query?.clickMacroEnc ?? query?.click_macro_enc ?? '');
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
   const internalClickSignals = Array.isArray(servingCandidate?.internalClickSignals)
@@ -164,7 +168,8 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   var baseUrl = ${JSON.stringify(baseUrl)};
   var w = ${width}, h = ${height};
   var servingFormat = ${JSON.stringify(servingFormat)};
-  var clickUrl = ${JSON.stringify(clickTrackUrl)};
+  var clickUrl = ${JSON.stringify(rawClickTrackUrl)};
+  var dspClickMacro = ${JSON.stringify(dspClickMacro)};
   var creativeUrl = ${JSON.stringify(creativeIframeUrl)};
   var impUrl = ${JSON.stringify(impressionUrl)};
   var viewabilityUrl = ${JSON.stringify(viewabilityUrl)};
@@ -246,6 +251,16 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
     return nextUrl;
   }
 
+  function resolveClickHref(url) {
+    var trackedUrl = appendIdentity(url);
+    if (!dspClickMacro) return trackedUrl;
+    try {
+      return decodeURIComponent(dspClickMacro) + encodeURIComponent(trackedUrl);
+    } catch (_error) {
+      return dspClickMacro + encodeURIComponent(trackedUrl);
+    }
+  }
+
   function buildEngagementUrl(eventType, extra) {
     var params = [];
     params.push('event=' + encodeURIComponent(eventType));
@@ -291,7 +306,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   var link = null;
   if (${useTrackedClickWrapper ? 'true' : 'false'}) {
     link = document.createElement('a');
-    link.href = appendIdentity(clickUrl);
+    link.href = resolveClickHref(clickUrl);
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     link.addEventListener('click', function() {
@@ -370,7 +385,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
 })();`;
 }
 
-function buildDisplayDocument(tag, workspaceId, baseUrl) {
+function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
   const servingFormat = servingCandidate?.servingFormat ?? '';
@@ -384,7 +399,9 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
   const viewabilityUrl = `${baseUrl}/track/viewability/${tagId}?${trackingParams.toString()}`;
   const clickTrackParams = new URLSearchParams(trackingParams);
   clickTrackParams.set('url', clickUrl);
-  const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
+  const rawClickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
+  const clickTrackUrl = wrapTrackedClickUrlWithDspMacro(rawClickTrackUrl, query);
+  const dspClickMacro = String(query?.dsp_click ?? query?.clickMacroEnc ?? query?.click_macro_enc ?? '');
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
   const internalClickSignals = Array.isArray(servingCandidate?.internalClickSignals)
@@ -406,15 +423,15 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
 
   const body = creativeUrl && servingFormat === 'display_html'
     ? useTrackedClickWrapper
-      ? `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
+      ? `<a href="${escapeXml(rawClickTrackUrl)}" data-smx-click="${escapeXml(rawClickTrackUrl)}" data-smx-dsp-click="${escapeXml(dspClickMacro)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
   <iframe src="${escapeXml(creativeIframeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;pointer-events:none;"></iframe>
 </a>`
       : `<iframe src="${escapeXml(creativeIframeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;"></iframe>`
     : creativeUrl
-    ? `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
+    ? `<a href="${escapeXml(rawClickTrackUrl)}" data-smx-click="${escapeXml(rawClickTrackUrl)}" data-smx-dsp-click="${escapeXml(dspClickMacro)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
   <img src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" alt="" style="display:block;border:0;width:100%;height:100%;" />
 </a>`
-    : `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#eee;color:#999;font:12px sans-serif;text-decoration:none;">
+    : `<a href="${escapeXml(rawClickTrackUrl)}" data-smx-click="${escapeXml(rawClickTrackUrl)}" data-smx-dsp-click="${escapeXml(dspClickMacro)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#eee;color:#999;font:12px sans-serif;text-decoration:none;">
   Advertisement
 </a>`;
 
@@ -520,8 +537,20 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
           viewabilityTracked = true;
           fire(appendIdentity(${JSON.stringify(viewabilityUrl)} + '&state=viewable&vp=1&fmt=display&method=intersection_observer&ms=1000' + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
         }
+        function resolveClickHref(url, macroOverride) {
+          var trackedUrl = appendIdentity(url);
+          var macroValue = macroOverride || search.get('dsp_click') || '';
+          if (!macroValue) return trackedUrl;
+          try {
+            return decodeURIComponent(macroValue) + encodeURIComponent(trackedUrl);
+          } catch (_error) {
+            return macroValue + encodeURIComponent(trackedUrl);
+          }
+        }
         Array.prototype.forEach.call(document.querySelectorAll('a[href]'), function(anchor) {
-          anchor.href = appendIdentity(anchor.href);
+          var baseClick = anchor.getAttribute('data-smx-click') || anchor.href;
+          var macroOverride = anchor.getAttribute('data-smx-dsp-click') || '';
+          anchor.href = resolveClickHref(baseClick, macroOverride);
         });
         function engagementUrl(eventType, hoverDurationMs) {
           var params = ['event=' + encodeURIComponent(eventType)];
@@ -643,7 +672,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       });
     }
 
-    const xml = buildVastXml(tag, tag.workspace_id ?? workspaceId, baseUrl);
+    const xml = buildVastXml(tag, tag.workspace_id ?? workspaceId, baseUrl, req.query);
 
     reply.header('Content-Type', 'application/xml; charset=utf-8');
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -656,7 +685,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
     const loaded = await loadDisplayTag(req, reply, pool);
     if (!loaded) return;
 
-    const snippet = buildDisplaySnippet(loaded.tag, loaded.workspaceId, baseUrl);
+    const snippet = buildDisplaySnippet(loaded.tag, loaded.workspaceId, baseUrl, req.query);
     reply.header('Content-Type', 'application/javascript; charset=utf-8');
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
     return reply.send(snippet);
@@ -667,7 +696,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
     const loaded = await loadDisplayTag(req, reply, pool);
     if (!loaded) return;
 
-    const html = buildDisplayDocument(loaded.tag, loaded.workspaceId, baseUrl);
+    const html = buildDisplayDocument(loaded.tag, loaded.workspaceId, baseUrl, req.query);
     reply.header('Content-Type', 'text/html; charset=utf-8');
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
     reply.removeHeader('X-Frame-Options');

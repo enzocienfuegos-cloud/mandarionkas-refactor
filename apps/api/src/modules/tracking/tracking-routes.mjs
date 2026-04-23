@@ -121,10 +121,12 @@ function buildIdentityKeys({ query = {}, headers = {}, cookies = {} }) {
   pushKey('device_id', query.did, 'query', true);
   pushKey('device_id', headers['x-device-id'], 'header', true);
   pushKey('device_id', cookies.smx_device_id ?? cookies.device_id, 'cookie', true);
+  pushKey('device_id', query.ifa ?? query.googleAdvertisingId ?? query.idfa, 'query', false, { provider: 'basis' });
 
   pushKey('cookie_id', query.cid, 'query', true);
   pushKey('cookie_id', headers['x-cookie-id'], 'header', true);
   pushKey('cookie_id', cookies.smx_cookie_id ?? cookies.cookie_id, 'cookie', true);
+  pushKey('cookie_id', query.basis_uid ?? query.internalUserId, 'query', false, { provider: 'basis' });
 
   pushKey('external_user_id', query.euid, 'query', true);
   pushKey('external_user_id', headers['x-external-user-id'], 'header', true);
@@ -175,13 +177,17 @@ async function collectTrackingContext(req, query = {}) {
   const referer = req.headers['referer'] ?? req.headers['referrer'] ?? null;
   const pageContext = parseSiteContext(query.pu);
   const refererContext = parseSiteContext(referer);
+  const macroDomain = readTrackingValue(query.sd, query.domain, query.inventoryUnitReportingName);
   const requestHost = resolveRequestHost(req);
   const selectedContext =
     (pageContext?.siteDomain && pageContext.siteDomain !== requestHost ? pageContext : null)
     ?? (refererContext?.siteDomain && refererContext.siteDomain !== requestHost ? refererContext : null)
     ?? pageContext
     ?? refererContext
-    ?? { pageUrl: null, siteDomain: null };
+    ?? { pageUrl: null, siteDomain: macroDomain ? String(macroDomain).toLowerCase() : null };
+  if (!selectedContext.siteDomain && macroDomain) {
+    selectedContext.siteDomain = String(macroDomain).toLowerCase();
+  }
   const geo = await inferGeo(req, query);
   const country = geo.country ?? null;
   const region = geo.region ?? null;

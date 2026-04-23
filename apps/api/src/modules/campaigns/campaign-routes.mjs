@@ -10,6 +10,7 @@ import {
   createAdvertiser,
   updateAdvertiser,
 } from '@smx/db/campaigns';
+import { applyDspMacrosToUrl, readCampaignDsp } from '../tags/dsp-macros.mjs';
 
 export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
   function getRequestBaseUrl(req) {
@@ -38,14 +39,14 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     }
   }
 
-  function buildTagSnippet(baseUrl, tag, variant) {
+  function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
     const width = Number(tag.serving_width ?? 0) || 300;
     const height = Number(tag.serving_height ?? 0) || 250;
-    const displayJsUrl = `${baseUrl}/v1/tags/display/${tag.id}.js`;
-    const displayHtmlUrl = `${baseUrl}/v1/tags/display/${tag.id}.html`;
-    const vastUrl = `${baseUrl}/v1/vast/tags/${tag.id}`;
-    const trackerClickUrl = `${baseUrl}/v1/tags/tracker/${tag.id}/click`;
-    const trackerImpressionUrl = `${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`;
+    const displayJsUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, { includeClickMacro: true });
+    const displayHtmlUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, { includeClickMacro: true });
+    const vastUrl = applyDspMacrosToUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp);
+    const trackerClickUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp);
+    const trackerImpressionUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp);
     switch (variant) {
       case 'display-js':
         return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
@@ -86,7 +87,7 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     const { userId } = req.authSession;
     const { id } = req.params;
     const { rows: campaignRows } = await pool.query(
-      `SELECT c.id, c.workspace_id, c.name, w.name AS workspace_name
+      `SELECT c.id, c.workspace_id, c.name, c.metadata, w.name AS workspace_name
        FROM campaigns c
        JOIN workspace_members wm ON wm.workspace_id = c.workspace_id
        JOIN workspaces w ON w.id = c.workspace_id
@@ -135,6 +136,7 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     );
 
     const baseUrl = getRequestBaseUrl(req);
+    const campaignDsp = readCampaignDsp(campaign.metadata);
     const rows = [
       ['campaign', 'client', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'tracker_click_url', 'tracker_impression_url'],
       ...tags.map(tag => {
@@ -149,12 +151,12 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
           format === 'vast' ? 'VAST' : format,
           size,
           tag.tracker_type ?? '',
-          format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-js') : '',
-          format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-ins') : '',
-          format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-iframe') : '',
-          format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url') : '',
-          format === 'tracker' && tag.tracker_type === 'click' ? buildTagSnippet(baseUrl, tag, 'tracker-click') : '',
-          format === 'tracker' && tag.tracker_type === 'impression' ? buildTagSnippet(baseUrl, tag, 'tracker-impression') : '',
+          format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-js', campaignDsp) : '',
+          format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-ins', campaignDsp) : '',
+          format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-iframe', campaignDsp) : '',
+          format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url', campaignDsp) : '',
+          format === 'tracker' && tag.tracker_type === 'click' ? buildTagSnippet(baseUrl, tag, 'tracker-click', campaignDsp) : '',
+          format === 'tracker' && tag.tracker_type === 'impression' ? buildTagSnippet(baseUrl, tag, 'tracker-impression', campaignDsp) : '',
         ];
       }),
     ];

@@ -1,9 +1,11 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { applyDspMacrosToUrl, readCampaignDsp } from './dspMacros';
 
 interface Campaign {
   id: string;
   name: string;
+  metadata?: { dsp?: string | null } | null;
 }
 
 type TagFormat = 'VAST' | 'display' | 'native' | 'tracker';
@@ -126,14 +128,14 @@ function normalizeTagRecord(payload: unknown): SavedTag | null {
   };
 }
 
-function buildTagSnippet(tag: SavedTag, variant: SnippetVariant): string {
+function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = ''): string {
   const servingBaseUrl = resolveTagServingBaseUrl();
-  const displayJsUrl = `${servingBaseUrl}/v1/tags/display/${tag.id}.js`;
-  const displayHtmlUrl = `${servingBaseUrl}/v1/tags/display/${tag.id}.html`;
-  const nativeJsUrl = `${servingBaseUrl}/v1/tags/native/${tag.id}.js`;
-  const vastUrl = `${servingBaseUrl}/v1/vast/tags/${tag.id}`;
-  const trackerClickUrl = `${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`;
-  const trackerImpressionUrl = `${servingBaseUrl}/v1/tags/tracker/${tag.id}/impression.gif`;
+  const displayJsUrl = applyDspMacrosToUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, { includeClickMacro: true });
+  const displayHtmlUrl = applyDspMacrosToUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, { includeClickMacro: true });
+  const nativeJsUrl = applyDspMacrosToUrl(`${servingBaseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, { includeClickMacro: true });
+  const vastUrl = applyDspMacrosToUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, campaignDsp);
+  const trackerClickUrl = applyDspMacrosToUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp);
+  const trackerImpressionUrl = applyDspMacrosToUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp);
   const width = tag.width ?? 300;
   const height = tag.height ?? 250;
 
@@ -158,27 +160,30 @@ function buildTagSnippet(tag: SavedTag, variant: SnippetVariant): string {
   }
 }
 
-function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant): string {
+function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp = ''): string {
+  const basisNote = readCampaignDsp({ dsp: campaignDsp }) === 'basis'
+    ? ' Basis macros are auto-injected for delivery context and click passthrough.'
+    : '';
   if (tag.format === 'VAST') {
     return variant === 'vast-url'
-      ? 'Use this VAST tag URL in a video player, SSP, or DSP that expects VAST XML.'
-      : 'Use this XML wrapper only if your integration explicitly requires inline VAST XML.';
+      ? `Use this VAST tag URL in a video player, SSP, or DSP that expects VAST XML.${basisNote}`
+      : `Use this XML wrapper only if your integration explicitly requires inline VAST XML.${basisNote}`;
   }
   if (tag.format === 'display') {
     if (variant === 'display-iframe') {
-      return 'Use the iframe tag for sandboxed display placements or when a publisher requests iframe delivery.';
+      return `Use the iframe tag for sandboxed display placements or when a publisher requests iframe delivery.${basisNote}`;
     }
     if (variant === 'display-ins') {
-      return 'Use the ins tag when the publisher expects a slot placeholder plus inline bootstrap code.';
+      return `Use the ins tag when the publisher expects a slot placeholder plus inline bootstrap code.${basisNote}`;
     }
-    return 'Use the JavaScript tag for standard display placements. This is not a VAST tag.';
+    return `Use the JavaScript tag for standard display placements. This is not a VAST tag.${basisNote}`;
   }
   if (tag.format === 'tracker') {
     return variant === 'tracker-impression'
-      ? 'Use this 1x1 GIF URL as a pure impression tracker in external platforms.'
-      : 'Use this click tracker URL in Meta or other platforms when you only need click measurement.';
+      ? `Use this 1x1 GIF URL as a pure impression tracker in external platforms.${basisNote}`
+      : `Use this click tracker URL in Meta or other platforms when you only need click measurement.${basisNote}`;
   }
-  return 'Use the JavaScript tag to initialize the native placement loader.';
+  return `Use the JavaScript tag to initialize the native placement loader.${basisNote}`;
 }
 
 function getDisplaySizePreset(width?: string, height?: string): string {
@@ -201,6 +206,7 @@ export default function TagBuilder() {
   const [snippetVariant, setSnippetVariant] = useState<SnippetVariant>(getDefaultSnippetVariant(emptyForm.format, emptyForm.trackerType));
   const [copied, setCopied] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const selectedCampaignDsp = readCampaignDsp(campaigns.find((campaign) => campaign.id === form.campaignId)?.metadata ?? null);
 
   useEffect(() => {
     fetch('/v1/campaigns', { credentials: 'include' })
@@ -330,7 +336,7 @@ export default function TagBuilder() {
 
   const handleCopy = () => {
     if (!savedTag) return;
-    navigator.clipboard.writeText(buildTagSnippet(savedTag, snippetVariant)).then(() => {
+    navigator.clipboard.writeText(buildTagSnippet(savedTag, snippetVariant, selectedCampaignDsp)).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -393,6 +399,12 @@ export default function TagBuilder() {
               ))}
             </select>
           </div>
+
+          {selectedCampaignDsp === 'basis' && (
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs text-indigo-700">
+              Basis selected on this campaign. Generated tag URLs will auto-inject Basis macros like <code>{'{pageUrlEnc}'}</code>, <code>{'{domain}'}</code>, <code>{'{clickMacroEnc}'}</code>, privacy strings, and mobile IDs where applicable.
+            </div>
+          )}
 
           {/* Format */}
           <div>
@@ -583,10 +595,10 @@ export default function TagBuilder() {
             ))}
           </div>
           <p className="text-xs text-slate-500 mb-3">
-            {getSnippetHelpText(savedTag, snippetVariant)}
+            {getSnippetHelpText(savedTag, snippetVariant, selectedCampaignDsp)}
           </p>
           <pre className="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">
-            {buildTagSnippet(savedTag, snippetVariant)}
+            {buildTagSnippet(savedTag, snippetVariant, selectedCampaignDsp)}
           </pre>
         </div>
       )}

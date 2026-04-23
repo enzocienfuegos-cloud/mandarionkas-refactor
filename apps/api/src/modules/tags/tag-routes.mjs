@@ -7,6 +7,7 @@ import {
   getTagWithCreatives,
 } from '@smx/db/tags';
 import { listTagBindings, updateTagBinding } from '@smx/db';
+import { applyDspMacrosToUrl, readCampaignDsp } from './dsp-macros.mjs';
 
 function getRequestBaseUrl(req) {
   const forwardedProto = req.headers['x-forwarded-proto'];
@@ -23,14 +24,14 @@ function escapeCsv(value) {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-function buildTagSnippet(baseUrl, tag, variant) {
+function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
   const width = Number(tag.serving_width ?? 0) || 300;
   const height = Number(tag.serving_height ?? 0) || 250;
-  const displayJsUrl = `${baseUrl}/v1/tags/display/${tag.id}.js`;
-  const displayHtmlUrl = `${baseUrl}/v1/tags/display/${tag.id}.html`;
-  const vastUrl = `${baseUrl}/v1/vast/tags/${tag.id}`;
-  const trackerClickUrl = `${baseUrl}/v1/tags/tracker/${tag.id}/click`;
-  const trackerImpressionUrl = `${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`;
+  const displayJsUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, { includeClickMacro: true });
+  const displayHtmlUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, { includeClickMacro: true });
+  const vastUrl = applyDspMacrosToUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp);
+  const trackerClickUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp);
+  const trackerImpressionUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp);
   switch (variant) {
     case 'display-js':
       return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
@@ -153,6 +154,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       `SELECT t.id, t.name, t.format, t.status, tfc.tracker_type,
               w.name AS workspace_name,
               c.name AS campaign_name,
+              c.metadata AS campaign_metadata,
               COALESCE(tfc.display_width, bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
               COALESCE(tfc.display_height, bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height
        FROM ad_tags t
@@ -195,6 +197,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     const size = tag.serving_width && tag.serving_height ? `${tag.serving_width}x${tag.serving_height}` : '';
     const format = String(tag.format ?? '').toLowerCase();
     const baseUrl = getRequestBaseUrl(req);
+    const campaignDsp = readCampaignDsp(tag.campaign_metadata);
     const csvRows = [
       ['client', 'campaign', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'tracker_click_url', 'tracker_impression_url'],
       [
@@ -204,12 +207,12 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
         format === 'vast' ? 'VAST' : format,
         size,
         tag.tracker_type ?? '',
-        format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-js') : '',
-        format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-ins') : '',
-        format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-iframe') : '',
-        format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url') : '',
-        format === 'tracker' && tag.tracker_type === 'click' ? buildTagSnippet(baseUrl, tag, 'tracker-click') : '',
-        format === 'tracker' && tag.tracker_type === 'impression' ? buildTagSnippet(baseUrl, tag, 'tracker-impression') : '',
+        format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-js', campaignDsp) : '',
+        format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-ins', campaignDsp) : '',
+        format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-iframe', campaignDsp) : '',
+        format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url', campaignDsp) : '',
+        format === 'tracker' && tag.tracker_type === 'click' ? buildTagSnippet(baseUrl, tag, 'tracker-click', campaignDsp) : '',
+        format === 'tracker' && tag.tracker_type === 'impression' ? buildTagSnippet(baseUrl, tag, 'tracker-impression', campaignDsp) : '',
       ],
     ];
 
