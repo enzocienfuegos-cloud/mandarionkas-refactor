@@ -160,9 +160,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
        FROM ad_tags t
        JOIN workspaces w ON w.id = t.workspace_id
        LEFT JOIN campaigns c ON c.id = t.campaign_id
-       LEFT JOIN tag_format_configs tfc
-         ON tfc.workspace_id = t.workspace_id
-        AND tfc.tag_id = t.id
+       LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
        LEFT JOIN LATERAL (
          SELECT
            COALESCE(csv.width, cv.width) AS serving_width,
