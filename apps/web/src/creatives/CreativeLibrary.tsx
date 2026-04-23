@@ -4,8 +4,11 @@ import {
   type Creative,
   type CreativeVersion,
   type CreativeIngestion,
+  type TagOption,
+  assignCreativeVersionToTag,
   loadCreativesWithLatestVersion,
   loadCreativeIngestions,
+  loadTags,
   submitCreativeVersion,
 } from './catalog';
 
@@ -57,26 +60,38 @@ function statusBadge(status?: string) {
 
 type LatestVersionMap = Record<string, CreativeVersion | null>;
 
+interface BindingState {
+  creativeId: string;
+  versionId: string;
+  tagId: string;
+  loading: boolean;
+  error: string;
+}
+
 export default function CreativeLibrary() {
   const navigate = useNavigate();
   const [creatives, setCreatives] = useState<Creative[]>([]);
   const [latestVersions, setLatestVersions] = useState<LatestVersionMap>({});
   const [ingestions, setIngestions] = useState<CreativeIngestion[]>([]);
+  const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState<string | null>(null);
+  const [bindingState, setBindingState] = useState<BindingState | null>(null);
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const [{ creatives, latestVersions }, ingestions] = await Promise.all([
+      const [{ creatives, latestVersions }, ingestions, tags] = await Promise.all([
         loadCreativesWithLatestVersion(),
         loadCreativeIngestions(),
+        loadTags(),
       ]);
       setCreatives(creatives);
       setLatestVersions(latestVersions);
       setIngestions(ingestions);
+      setTags(tags);
     } catch (loadError: any) {
       setError(loadError.message ?? 'Failed to load creative catalog');
     } finally {
@@ -112,6 +127,23 @@ export default function CreativeLibrary() {
       alert('Failed to submit creative version for review.');
     } finally {
       setSubmitting(null);
+    }
+  };
+
+  const handleAssign = async () => {
+    if (!bindingState?.tagId) {
+      setBindingState(current => current ? { ...current, error: 'Select a tag.' } : current);
+      return;
+    }
+    setBindingState(current => current ? { ...current, loading: true, error: '' } : current);
+    try {
+      await assignCreativeVersionToTag({
+        creativeVersionId: bindingState.versionId,
+        tagId: bindingState.tagId,
+      });
+      setBindingState(null);
+    } catch (assignError: any) {
+      setBindingState(current => current ? { ...current, loading: false, error: assignError.message ?? 'Binding failed' } : current);
     }
   };
 
@@ -223,17 +255,32 @@ export default function CreativeLibrary() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {version && (version.status === 'draft' || version.status === 'rejected') ? (
-                        <button
-                          onClick={() => void handleSubmit(creative.id)}
-                          disabled={submitting === version.id}
-                          className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-slate-800 disabled:bg-slate-400"
-                        >
-                          {submitting === version.id ? 'Submitting…' : 'Submit for review'}
-                        </button>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {version && (version.status === 'draft' || version.status === 'rejected') && (
+                          <button
+                            onClick={() => void handleSubmit(creative.id)}
+                            disabled={submitting === version.id}
+                            className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-slate-800 disabled:bg-slate-400"
+                          >
+                            {submitting === version.id ? 'Submitting…' : 'Submit for review'}
+                          </button>
+                        )}
+                        {version && version.status === 'approved' && (
+                          <button
+                            onClick={() => setBindingState({
+                              creativeId: creative.id,
+                              versionId: version.id,
+                              tagId: '',
+                              loading: false,
+                              error: '',
+                            })}
+                            className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                          >
+                            Assign to tag
+                          </button>
+                        )}
+                        {!version && <span className="text-xs text-slate-400">—</span>}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -273,6 +320,52 @@ export default function CreativeLibrary() {
           )}
         </div>
       </section>
+
+      {bindingState && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-slate-800">Assign creative version to tag</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Bind the approved version to a delivery tag using the new versioned serving path.
+            </p>
+            {bindingState.error && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {bindingState.error}
+              </div>
+            )}
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-medium text-slate-700">Tag</label>
+              <select
+                value={bindingState.tagId}
+                onChange={event => setBindingState(current => current ? { ...current, tagId: event.target.value } : current)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Select a tag</option>
+                {tags.map(tag => (
+                  <option key={tag.id} value={tag.id}>
+                    {tag.name} · {tag.format} · {tag.status}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setBindingState(null)}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void handleAssign()}
+                disabled={bindingState.loading}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
+              >
+                {bindingState.loading ? 'Assigning…' : 'Assign'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

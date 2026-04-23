@@ -32,6 +32,13 @@ export interface CreativeVersion {
   creativeName?: string;
 }
 
+export interface TagOption {
+  id: string;
+  name: string;
+  format: 'VAST' | 'display' | 'native';
+  status: 'active' | 'paused' | 'archived' | 'draft';
+}
+
 export interface CreativeIngestion {
   id: string;
   sourceKind: 'html5_zip' | 'video_mp4';
@@ -90,6 +97,11 @@ export async function loadCreativesWithLatestVersion() {
 export async function loadCreativeIngestions(): Promise<CreativeIngestion[]> {
   const payload = await fetchJson<{ ingestions: CreativeIngestion[] }>('/v1/creative-ingestions');
   return payload.ingestions ?? [];
+}
+
+export async function loadTags(): Promise<TagOption[]> {
+  const payload = await fetchJson<{ tags: TagOption[] }>('/v1/tags');
+  return payload.tags ?? [];
 }
 
 export async function submitCreativeVersion(versionId: string) {
@@ -177,5 +189,20 @@ export async function publishCreativeIngestion(ingestionId: string, input: {
   }>(`/v1/creative-ingestions/${ingestionId}/publish`, {
     method: 'POST',
     body: JSON.stringify({ name: input.name }),
+  });
+}
+
+export async function assignCreativeVersionToTag(input: {
+  creativeVersionId: string;
+  tagId: string;
+  weight?: number;
+  status?: 'draft' | 'active' | 'paused' | 'archived';
+}) {
+  return fetchJson<{ binding: { id: string } }>(`/v1/creative-versions/${input.creativeVersionId}/assign/${input.tagId}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      weight: input.weight ?? 1,
+      status: input.status ?? 'active',
+    }),
   });
 }
