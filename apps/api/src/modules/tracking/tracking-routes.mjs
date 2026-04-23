@@ -65,6 +65,57 @@ function inferDeviceInfo(userAgent = '') {
   return { deviceType, browser, os };
 }
 
+function readTrackingValue(...values) {
+  for (const value of values) {
+    const candidate = Array.isArray(value) ? value[0] : value;
+    const text = String(candidate ?? '').trim();
+    if (text) return text;
+  }
+  return null;
+}
+
+function buildIdentityKeys({ query = {}, headers = {}, cookies = {} }) {
+  const consentStatus = readTrackingValue(
+    query.cs,
+    headers['x-consent-status'],
+    cookies.smx_consent_status,
+    cookies.consent_status,
+  ) ?? 'unknown';
+
+  const keys = [];
+  const pushKey = (keyType, keyValue, source, isFirstParty, metadata = {}) => {
+    const value = readTrackingValue(keyValue);
+    if (!value) return;
+    keys.push({
+      key_type: keyType,
+      key_value: value,
+      source,
+      is_first_party: isFirstParty,
+      consent_status: consentStatus,
+      metadata,
+    });
+  };
+
+  pushKey('device_id', query.did, 'query', true);
+  pushKey('device_id', headers['x-device-id'], 'header', true);
+  pushKey('device_id', cookies.smx_device_id ?? cookies.device_id, 'cookie', true);
+
+  pushKey('cookie_id', query.cid, 'query', true);
+  pushKey('cookie_id', headers['x-cookie-id'], 'header', true);
+  pushKey('cookie_id', cookies.smx_cookie_id ?? cookies.cookie_id, 'cookie', true);
+
+  pushKey('external_user_id', query.euid, 'query', true);
+  pushKey('external_user_id', headers['x-external-user-id'], 'header', true);
+
+  pushKey('gclid', query.gclid, 'query', false, { provider: 'google' });
+  pushKey('fbclid', query.fbclid, 'query', false, { provider: 'meta' });
+  pushKey('ttclid', query.ttclid, 'query', false, { provider: 'tiktok' });
+  pushKey('msclkid', query.msclkid, 'query', false, { provider: 'microsoft' });
+
+  return keys.filter((item, index, arr) =>
+    arr.findIndex((candidate) => candidate.key_type === item.key_type && candidate.key_value === item.key_value) === index);
+}
+
 async function inferGeo(req, query = {}) {
   const header = (name) => {
     const value = req.headers[name];
@@ -113,6 +164,7 @@ async function collectTrackingContext(req, query = {}) {
   const { deviceType, browser, os } = inferDeviceInfo(userAgent);
   const cookieDeviceId = req.cookies?.smx_device_id ?? req.cookies?.device_id ?? null;
   const cookieCookieId = req.cookies?.smx_cookie_id ?? req.cookies?.cookie_id ?? null;
+  const identityKeys = buildIdentityKeys({ query, headers: req.headers, cookies: req.cookies ?? {} });
   return {
     ip,
     user_agent: userAgent,
@@ -126,6 +178,7 @@ async function collectTrackingContext(req, query = {}) {
     os,
     device_id: String(query.did ?? req.headers['x-device-id'] ?? cookieDeviceId ?? '').trim() || null,
     cookie_id: String(query.cid ?? req.headers['x-cookie-id'] ?? cookieCookieId ?? '').trim() || null,
+    identity_keys: identityKeys,
   };
 }
 

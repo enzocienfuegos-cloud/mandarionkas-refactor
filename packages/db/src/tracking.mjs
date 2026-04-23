@@ -1,3 +1,43 @@
+async function recordEventIdentityKeys(pool, {
+  workspace_id,
+  event_type,
+  event_id,
+  identity_keys = [],
+}) {
+  const keys = Array.isArray(identity_keys)
+    ? identity_keys.filter((item) => item && item.key_type && item.key_value)
+    : [];
+  if (!workspace_id || !event_type || !event_id || !keys.length) return;
+
+  for (const item of keys) {
+    await pool.query(
+      `INSERT INTO event_identity_keys
+         (workspace_id, event_type, event_id, key_type, key_value, source, is_first_party, consent_status, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+       ON CONFLICT (event_type, event_id, key_type, key_value)
+       DO UPDATE SET
+         source = COALESCE(EXCLUDED.source, event_identity_keys.source),
+         is_first_party = EXCLUDED.is_first_party,
+         consent_status = COALESCE(EXCLUDED.consent_status, event_identity_keys.consent_status),
+         metadata = CASE
+           WHEN event_identity_keys.metadata = '{}'::jsonb THEN EXCLUDED.metadata
+           ELSE event_identity_keys.metadata || EXCLUDED.metadata
+         END`,
+      [
+        workspace_id,
+        event_type,
+        event_id,
+        item.key_type,
+        item.key_value,
+        item.source ?? null,
+        Boolean(item.is_first_party),
+        item.consent_status ?? 'unknown',
+        JSON.stringify(item.metadata ?? {}),
+      ],
+    );
+  }
+}
+
 export async function recordImpression(pool, data) {
   const {
     impression_id = null,
@@ -10,6 +50,7 @@ export async function recordImpression(pool, data) {
     viewability_duration_ms = null,
     site_domain = null, page_url = null, device_type = null, browser = null, os = null,
     device_id = null, cookie_id = null,
+    identity_keys = [],
     timestamp = new Date(),
   } = data;
 
@@ -21,6 +62,13 @@ export async function recordImpression(pool, data) {
     [impression_id, tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region,
      referer, viewable, viewability_status, viewability_method, viewability_duration_ms, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id],
   );
+  const event = rows[0];
+  await recordEventIdentityKeys(pool, {
+    workspace_id,
+    event_type: 'impression',
+    event_id: event.id,
+    identity_keys,
+  });
 
   const date = new Date(timestamp).toISOString().slice(0, 10);
 
@@ -61,7 +109,7 @@ export async function recordImpression(pool, data) {
       [creative_size_variant_id, date],
     );
   }
-  return rows[0];
+  return event;
 }
 
 export async function recordClick(pool, data) {
@@ -72,6 +120,7 @@ export async function recordClick(pool, data) {
     referer = null, redirect_url = null,
     site_domain = null, page_url = null, device_type = null, browser = null, os = null,
     device_id = null, cookie_id = null,
+    identity_keys = [],
     timestamp = new Date(),
   } = data;
 
@@ -84,6 +133,13 @@ export async function recordClick(pool, data) {
     [tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, ip, user_agent,
      country, region, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id],
   );
+  const event = rows[0];
+  await recordEventIdentityKeys(pool, {
+    workspace_id,
+    event_type: 'click',
+    event_id: event.id,
+    identity_keys,
+  });
 
   const date = new Date(timestamp).toISOString().slice(0, 10);
 
@@ -124,7 +180,7 @@ export async function recordClick(pool, data) {
       [creative_size_variant_id, date],
     );
   }
-  return rows[0];
+  return event;
 }
 
 export async function recordViewability(pool, data) {
@@ -321,6 +377,7 @@ export async function recordEngagementEvent(pool, data) {
     os = null,
     device_id = null,
     cookie_id = null,
+    identity_keys = [],
     hover_duration_ms = null,
     metadata = {},
     timestamp = new Date(),
@@ -361,6 +418,13 @@ export async function recordEngagementEvent(pool, data) {
       timestamp,
     ],
   );
+  const event = rows[0];
+  await recordEventIdentityKeys(pool, {
+    workspace_id,
+    event_type: 'engagement',
+    event_id: event.id,
+    identity_keys,
+  });
 
   const date = new Date(timestamp).toISOString().slice(0, 10);
   await pool.query(
@@ -374,7 +438,7 @@ export async function recordEngagementEvent(pool, data) {
     [tag_id, date, event_type, Math.max(0, Number(hover_duration_ms) || 0)],
   );
 
-  return rows[0];
+  return event;
 }
 
 export async function getImpressionStats(pool, tagId, opts = {}) {
