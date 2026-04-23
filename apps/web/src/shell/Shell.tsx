@@ -112,7 +112,6 @@ export default function Shell() {
       const normalized = normalizeUserPayload(authMe);
       if (normalized) setUser(normalized);
       setWorkspaces(workspaceList);
-      navigate('/overview');
     } catch (error: any) {
       setClientError(error.message ?? 'Failed to switch client');
     } finally {
@@ -297,7 +296,7 @@ export default function Shell() {
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6 bg-slate-50">
-          <Outlet context={{ user }} />
+          <Outlet key={user?.workspace?.id ?? 'workspace-shell'} context={{ user }} />
         </main>
       </div>
 

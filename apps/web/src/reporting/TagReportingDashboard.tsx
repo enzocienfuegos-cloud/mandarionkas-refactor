@@ -122,11 +122,17 @@ export default function TagReportingDashboard() {
     const from = dateFrom.toISOString().slice(0, 10);
 
     Promise.all([
-      fetch(`/v1/tags/${tag.id}/summary`, { credentials: 'include' }).then(r => r.json()),
-      fetch(`/v1/tags/${tag.id}/stats?dateFrom=${from}`, { credentials: 'include' }).then(r => r.json()),
+      fetch(`/v1/tags/${tag.id}/summary`, { credentials: 'include' }).then(r => {
+        if (!r.ok) throw new Error('Failed to load summary');
+        return r.json();
+      }),
+      fetch(`/v1/tags/${tag.id}/stats?dateFrom=${from}`, { credentials: 'include' }).then(r => {
+        if (!r.ok) throw new Error('Failed to load stats');
+        return r.json();
+      }),
     ])
       .then(([sumData, statData]) => {
-        setSummary(sumData);
+        setSummary(sumData?.summary ?? sumData ?? null);
         setStats(statData?.stats ?? statData ?? []);
       })
       .catch(() => setStatsError('Failed to load tag statistics.'))

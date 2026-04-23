@@ -87,9 +87,9 @@ export default function DiscrepancyDashboard() {
       fetch('/v1/discrepancies/thresholds', { credentials: 'include' }).then(r => r.json()).catch(() => null),
     ])
       .then(([discData, summData, thrData]) => {
-        setDiscrepancies(discData?.discrepancies ?? discData ?? []);
-        if (summData) setSummary(summData);
-        if (thrData) setThresholds(thrData);
+        setDiscrepancies(discData?.reports ?? discData?.discrepancies ?? discData ?? []);
+        if (summData) setSummary(summData?.summary ?? summData);
+        if (thrData) setThresholds(thrData?.thresholds ?? thrData);
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));

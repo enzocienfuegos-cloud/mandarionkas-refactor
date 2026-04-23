@@ -297,7 +297,15 @@ export default function PacingDashboard() {
       fetch('/v1/pacing/alerts', { credentials: 'include' }).then(r => r.json()).catch(() => []),
     ])
       .then(([pacingData, alertData]) => {
-        setData(pacingData);
+        const campaigns = pacingData?.campaigns ?? [];
+        const summary = {
+          total: campaigns.length,
+          active: campaigns.filter((campaign: any) => ['on_track', 'behind', 'ahead'].includes(campaign.status)).length,
+          onTrack: campaigns.filter((campaign: any) => campaign.status === 'on_track').length,
+          behind: campaigns.filter((campaign: any) => campaign.status === 'behind').length,
+          totalServed: campaigns.reduce((sum: number, campaign: any) => sum + Number(campaign.impressionsServed ?? 0), 0),
+        };
+        setData({ campaigns, summary });
         setAlerts(alertData?.alerts ?? alertData ?? []);
       })
       .catch(e => setError(e.message))

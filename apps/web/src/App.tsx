@@ -75,7 +75,7 @@ export default function App() {
             <Route path="creatives/upload"   element={<CreativeUpload />} />
 
             {/* Analytics */}
-            <Route path="reporting"      element={<TagReportingDashboard />} />
+            <Route path="reporting"      element={<AnalyticsDashboard />} />
             <Route path="analytics"      element={<AnalyticsDashboard />} />
             <Route path="pacing"         element={<PacingDashboard />} />
             <Route path="discrepancies"  element={<DiscrepancyDashboard />} />

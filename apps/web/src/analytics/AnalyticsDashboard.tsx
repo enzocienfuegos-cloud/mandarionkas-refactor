@@ -55,7 +55,7 @@ export default function AnalyticsDashboard() {
     setError('');
     fetch('/v1/reporting/workspace', { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Failed to load analytics'); return r.json(); })
-      .then(d => setData(d))
+      .then(d => setData(d?.stats ?? d ?? null))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   };
