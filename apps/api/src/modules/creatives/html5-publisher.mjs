@@ -147,6 +147,36 @@ function detectInternalClickBehavior(htmlSource) {
   };
 }
 
+function extractClickDestinationFromHtml(htmlSource) {
+  if (!htmlSource) return null;
+
+  const patterns = [
+    /processedVars\s*:\s*\{[^}]*bsClickTAG\s*:\s*"([^"]+)"/i,
+    /processedVars\s*:\s*\{[^}]*clickTag\s*:\s*"([^"]+)"/i,
+    /var\s+bsClickTAG\s*=\s*["'](https?:\/\/[^"']+)["']/i,
+    /bsClickTAG\s*===\s*['"]{2}\)\s*\{bsClickTAG\s*=\s*"([^"]+)"/i,
+    /window\.bannerURL\s*=\s*["'](https?:\/\/[^"']+)["']/i,
+    /window\.clickTag\s*=\s*["'](https?:\/\/[^"']+)["']/i,
+    /window\.clickTAG\s*=\s*["'](https?:\/\/[^"']+)["']/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = htmlSource.match(pattern);
+    const value = match?.[1]?.trim();
+    if (!value) continue;
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return parsed.toString();
+      }
+    } catch (_) {
+      // ignore invalid URL candidate
+    }
+  }
+
+  return null;
+}
+
 function buildClickTrackingBootstrap() {
   return `<script>
 (function() {
@@ -342,6 +372,7 @@ export async function expandAndPublishHtml5Archive({
     const entryHtmlSource = await readFile(entryFile.absolutePath, 'utf8');
     const detectedDimensions = extractHtml5Dimensions(entryHtmlSource);
     const clickBehavior = detectInternalClickBehavior(entryHtmlSource);
+    const clickDestinationUrl = extractClickDestinationFromHtml(entryHtmlSource);
 
     const publishedPrefix = `${workspaceId}/creative-published/${creativeVersionId}`;
     const publishedArtifacts = [];
@@ -384,6 +415,7 @@ export async function expandAndPublishHtml5Archive({
       dimensionSource: detectedDimensions?.source ?? null,
       hasInternalClickTag: clickBehavior.hasInternalClickTag,
       internalClickSignals: clickBehavior.signals,
+      clickDestinationUrl,
       artifacts: publishedArtifacts,
     };
   } finally {

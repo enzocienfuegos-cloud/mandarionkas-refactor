@@ -381,6 +381,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
             dimensionSource: htmlPublication.dimensionSource ?? null,
             hasInternalClickTag: htmlPublication.hasInternalClickTag,
             internalClickSignals: htmlPublication.internalClickSignals ?? [],
+            clickDestinationUrl: htmlPublication.clickDestinationUrl ?? null,
           },
         });
         await deps.ensureCreativeVersionDefaultVariant(client, req.authSession.workspaceId, publishedVersion, {
@@ -392,6 +393,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
           mime_type: 'text/html; charset=utf-8',
           width: htmlPublication.width ?? req.body?.width ?? null,
           height: htmlPublication.height ?? req.body?.height ?? null,
+          click_url: htmlPublication.clickDestinationUrl ?? creative.click_url ?? null,
           transcode_status: 'done',
           metadata: {
             ...(creative.metadata ?? {}),
@@ -402,6 +404,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
             dimensionSource: htmlPublication.dimensionSource ?? null,
             hasInternalClickTag: htmlPublication.hasInternalClickTag,
             internalClickSignals: htmlPublication.internalClickSignals ?? [],
+            clickDestinationUrl: htmlPublication.clickDestinationUrl ?? null,
           },
         });
       } else if (row.source_kind === 'video_mp4') {
