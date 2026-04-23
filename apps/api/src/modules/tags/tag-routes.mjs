@@ -133,19 +133,6 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     return reply.status(201).send({ tag: toApiTag(tag) });
   });
 
-  // GET /v1/tags/:id
-  app.get('/v1/tags/:id', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
-    const { id } = req.params;
-
-    const tag = await getTagWithCreatives(pool, workspaceId, id);
-    if (!tag) {
-      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
-    }
-
-    return reply.send({ tag: toApiTag(tag) });
-  });
-
   // GET /v1/tags/:id/export
   app.get('/v1/tags/:id/export', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
@@ -217,6 +204,19 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       .header('content-type', 'text/csv; charset=utf-8')
       .header('content-disposition', `attachment; filename=\"${tag.name.replace(/[^a-z0-9-_]+/gi, '_').toLowerCase()}-tag.csv\"`)
       .send(csv);
+  });
+
+  // GET /v1/tags/:id
+  app.get('/v1/tags/:id', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id } = req.params;
+
+    const tag = await getTagWithCreatives(pool, workspaceId, id);
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    return reply.send({ tag: toApiTag(tag) });
   });
 
   // GET /v1/tags/:id/bindings
