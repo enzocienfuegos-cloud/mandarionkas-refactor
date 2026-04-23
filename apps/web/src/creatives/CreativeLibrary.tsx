@@ -8,6 +8,7 @@ import {
   type TagOption,
   type TagBinding,
   assignCreativeVersionToTag,
+  createTag,
   createCreativeSizeVariant,
   createCreativeSizeVariantsBulk,
   loadCreativesWithLatestVersion,
@@ -94,7 +95,9 @@ const VARIANT_PRESETS = [
 
 interface BindingState {
   creativeId: string;
+  creativeName: string;
   versionId: string;
+  servingFormat: string;
   tagId: string;
   loading: boolean;
   error: string;
@@ -231,6 +234,45 @@ export default function CreativeLibrary() {
       setBindingState(current => current ? { ...current, loading: false, bindings } : current);
     } catch (assignError: any) {
       setBindingState(current => current ? { ...current, loading: false, error: assignError.message ?? 'Binding failed' } : current);
+    }
+  };
+
+  const handleQuickCreateTag = async () => {
+    if (!bindingState) return;
+    const suggestedFormat =
+      bindingState.servingFormat === 'vast_video'
+        ? 'VAST'
+        : bindingState.servingFormat === 'native'
+          ? 'native'
+          : 'display';
+    const suggestedName = `${bindingState.creativeName} ${suggestedFormat}`.trim();
+    const name = window.prompt('Tag name', suggestedName);
+    if (!name?.trim()) return;
+
+    setBindingState(current => current ? { ...current, loading: true, error: '' } : current);
+    try {
+      const createdTag = await createTag({
+        name: name.trim(),
+        format: suggestedFormat,
+        status: 'draft',
+      });
+      const [nextTags, bindings] = await Promise.all([
+        loadTags(),
+        createdTag?.id ? loadTagBindings(createdTag.id) : Promise.resolve([]),
+      ]);
+      setTags(nextTags);
+      setBindingState(current => current ? {
+        ...current,
+        loading: false,
+        tagId: createdTag?.id ?? '',
+        bindings,
+      } : current);
+    } catch (createError: any) {
+      setBindingState(current => current ? {
+        ...current,
+        loading: false,
+        error: createError.message ?? 'Failed to create tag',
+      } : current);
     }
   };
 
@@ -561,7 +603,9 @@ export default function CreativeLibrary() {
                             <button
                               onClick={() => setBindingState({
                                 creativeId: creative.id,
+                                creativeName: creative.name,
                                 versionId: version.id,
+                                servingFormat: version.servingFormat,
                                 tagId: '',
                                 loading: false,
                                 error: '',
@@ -642,6 +686,28 @@ export default function CreativeLibrary() {
                   </option>
                 ))}
               </select>
+              {tags.length === 0 && (
+                <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
+                  <p>No tags exist yet for this client.</p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleQuickCreateTag()}
+                      disabled={bindingState.loading}
+                      className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+                    >
+                      Quick create tag
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/tags/new')}
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Open tag builder
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             {bindingState.tagId && (
               <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">

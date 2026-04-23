@@ -182,6 +182,24 @@ export async function loadTags(): Promise<TagOption[]> {
   return payload.tags ?? [];
 }
 
+export async function createTag(input: {
+  name: string;
+  format: 'VAST' | 'display' | 'native';
+  status?: 'active' | 'paused' | 'archived' | 'draft';
+  campaignId?: string | null;
+}): Promise<TagOption | null> {
+  const payload = await fetchJson<{ tag?: TagOption }>('/v1/tags', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: input.name,
+      format: input.format,
+      status: input.status ?? 'draft',
+      campaignId: input.campaignId ?? null,
+    }),
+  });
+  return payload.tag ?? null;
+}
+
 export async function loadTagBindings(tagId: string): Promise<TagBinding[]> {
   const payload = await fetchJson<{ bindings: TagBinding[] }>(`/v1/tags/${tagId}/bindings`);
   return payload.bindings ?? [];
