@@ -9,6 +9,59 @@ function normalizeAudienceName(value = '') {
   return String(value ?? '').trim();
 }
 
+function appendIdentityScopeExistsCondition(params, conditions, opts = {}, profileAlias = 'p') {
+  const {
+    dateFrom,
+    dateTo,
+    campaignId = '',
+    tagId = '',
+    creativeId = '',
+    variantId = '',
+  } = opts;
+
+  if (!campaignId && !tagId && !creativeId && !variantId) return;
+
+  const scopeConditions = [
+    'e.workspace_id = $1',
+    `e.identity_profile_id = ${profileAlias}.id`,
+  ];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    scopeConditions.push(`COALESCE(ie.timestamp, ce.timestamp, ge.timestamp) >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(`${dateTo}T23:59:59.999Z`);
+    scopeConditions.push(`COALESCE(ie.timestamp, ce.timestamp, ge.timestamp) <= $${params.length}`);
+  }
+  if (campaignId) {
+    params.push(campaignId);
+    scopeConditions.push(`at.campaign_id = $${params.length}`);
+  }
+  if (tagId) {
+    params.push(tagId);
+    scopeConditions.push(`COALESCE(ie.tag_id, ce.tag_id, ge.tag_id) = $${params.length}`);
+  }
+  if (creativeId) {
+    params.push(creativeId);
+    scopeConditions.push(`COALESCE(ie.creative_id, ce.creative_id, ge.creative_id) = $${params.length}`);
+  }
+  if (variantId) {
+    params.push(variantId);
+    scopeConditions.push(`COALESCE(ie.creative_size_variant_id, ce.creative_size_variant_id, ge.creative_size_variant_id) = $${params.length}`);
+  }
+
+  conditions.push(`EXISTS (
+    SELECT 1
+    FROM event_identity_keys e
+    LEFT JOIN impression_events ie ON e.event_type = 'impression' AND ie.id = e.event_id
+    LEFT JOIN click_events ce ON e.event_type = 'click' AND ce.id = e.event_id
+    LEFT JOIN engagement_events ge ON e.event_type = 'engagement' AND ge.id = e.event_id
+    LEFT JOIN ad_tags at ON at.id = COALESCE(ie.tag_id, ce.tag_id, ge.tag_id)
+    WHERE ${scopeConditions.join(' AND ')}
+  )`);
+}
+
 async function findIdentityProfileByKey(pool, workspace_id, key_type, key_value) {
   const { rows } = await pool.query(
     `SELECT p.id, p.workspace_id, p.canonical_type, p.canonical_value
@@ -232,6 +285,7 @@ export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}
     params.push(canonicalType);
     conditions.push(`p.canonical_type = $${params.length}`);
   }
+  appendIdentityScopeExistsCondition(params, conditions, opts);
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
@@ -277,6 +331,7 @@ export async function getWorkspaceIdentityExport(pool, workspaceId, opts = {}) {
     params.push(canonicalType);
     conditions.push(`p.canonical_type = $${params.length}`);
   }
+  appendIdentityScopeExistsCondition(params, conditions, opts);
 
   const { rows } = await pool.query(
     `SELECT
@@ -346,6 +401,7 @@ export async function getWorkspaceIdentityAudienceExport(pool, workspaceId, opts
     params.push(country);
     conditions.push(`p.last_country = $${params.length}`);
   }
+  appendIdentityScopeExistsCondition(params, conditions, opts);
 
   params.push(Math.max(Number(minImpressions) || 0, 0));
   const minImpressionsParam = params.length;
@@ -407,6 +463,10 @@ export async function listSavedAudiences(pool, workspaceId) {
        canonical_type,
        country,
        segment_preset,
+       campaign_id,
+        tag_id,
+        creative_id,
+        creative_size_variant_id,
        min_impressions,
        min_clicks,
        status,
@@ -430,18 +490,26 @@ export async function createSavedAudience(pool, workspaceId, payload = {}) {
   const canonicalType = payload.canonicalType ? String(payload.canonicalType) : null;
   const country = payload.country ? String(payload.country).trim().toUpperCase() : null;
   const segmentPreset = payload.segmentPreset ? String(payload.segmentPreset) : null;
+  const campaignId = payload.campaignId ? String(payload.campaignId) : null;
+  const tagId = payload.tagId ? String(payload.tagId) : null;
+  const creativeId = payload.creativeId ? String(payload.creativeId) : null;
+  const variantId = payload.variantId ? String(payload.variantId) : null;
   const minImpressions = Math.max(Number(payload.minImpressions) || 0, 0);
   const minClicks = Math.max(Number(payload.minClicks) || 0, 0);
 
   const { rows } = await pool.query(
     `INSERT INTO saved_audiences
-       (workspace_id, name, canonical_type, country, segment_preset, min_impressions, min_clicks)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+       (workspace_id, name, canonical_type, country, segment_preset, campaign_id, tag_id, creative_id, creative_size_variant_id, min_impressions, min_clicks)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      ON CONFLICT (workspace_id, name)
      DO UPDATE SET
        canonical_type = EXCLUDED.canonical_type,
        country = EXCLUDED.country,
        segment_preset = EXCLUDED.segment_preset,
+       campaign_id = EXCLUDED.campaign_id,
+       tag_id = EXCLUDED.tag_id,
+       creative_id = EXCLUDED.creative_id,
+       creative_size_variant_id = EXCLUDED.creative_size_variant_id,
        min_impressions = EXCLUDED.min_impressions,
        min_clicks = EXCLUDED.min_clicks,
        status = 'active',
@@ -452,12 +520,16 @@ export async function createSavedAudience(pool, workspaceId, payload = {}) {
        canonical_type,
        country,
        segment_preset,
+       campaign_id,
+       tag_id,
+       creative_id,
+       creative_size_variant_id,
        min_impressions,
        min_clicks,
        status,
        created_at,
        updated_at`,
-    [workspaceId, name, canonicalType, country, segmentPreset, minImpressions, minClicks],
+    [workspaceId, name, canonicalType, country, segmentPreset, campaignId, tagId, creativeId, variantId, minImpressions, minClicks],
   );
 
   return rows[0] ?? null;
@@ -474,7 +546,7 @@ export async function deleteSavedAudience(pool, workspaceId, audienceId) {
 }
 
 export async function getWorkspaceIdentityKeyBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, canonicalType = '', limit = 25 } = opts;
+  const { dateFrom, dateTo, canonicalType = '', campaignId = '', tagId = '', creativeId = '', variantId = '', limit = 25 } = opts;
   const params = [workspaceId];
   const conditions = ['e.workspace_id = $1'];
 
@@ -489,6 +561,49 @@ export async function getWorkspaceIdentityKeyBreakdown(pool, workspaceId, opts =
   if (canonicalType) {
     params.push(canonicalType);
     conditions.push(`p.canonical_type = $${params.length}`);
+  }
+  if (campaignId) {
+    params.push(campaignId);
+    conditions.push(`EXISTS (
+      SELECT 1
+      FROM impression_events ie
+      LEFT JOIN ad_tags at ON at.id = ie.tag_id
+      WHERE e.event_type = 'impression' AND ie.id = e.event_id AND at.campaign_id = $${params.length}
+      UNION ALL
+      SELECT 1
+      FROM click_events ce
+      LEFT JOIN ad_tags at ON at.id = ce.tag_id
+      WHERE e.event_type = 'click' AND ce.id = e.event_id AND at.campaign_id = $${params.length}
+      UNION ALL
+      SELECT 1
+      FROM engagement_events ge
+      LEFT JOIN ad_tags at ON at.id = ge.tag_id
+      WHERE e.event_type = 'engagement' AND ge.id = e.event_id AND at.campaign_id = $${params.length}
+    )`);
+  }
+  if (tagId) {
+    params.push(tagId);
+    conditions.push(`(
+      (e.event_type = 'impression' AND EXISTS (SELECT 1 FROM impression_events ie WHERE ie.id = e.event_id AND ie.tag_id = $${params.length}))
+      OR (e.event_type = 'click' AND EXISTS (SELECT 1 FROM click_events ce WHERE ce.id = e.event_id AND ce.tag_id = $${params.length}))
+      OR (e.event_type = 'engagement' AND EXISTS (SELECT 1 FROM engagement_events ge WHERE ge.id = e.event_id AND ge.tag_id = $${params.length}))
+    )`);
+  }
+  if (creativeId) {
+    params.push(creativeId);
+    conditions.push(`(
+      (e.event_type = 'impression' AND EXISTS (SELECT 1 FROM impression_events ie WHERE ie.id = e.event_id AND ie.creative_id = $${params.length}))
+      OR (e.event_type = 'click' AND EXISTS (SELECT 1 FROM click_events ce WHERE ce.id = e.event_id AND ce.creative_id = $${params.length}))
+      OR (e.event_type = 'engagement' AND EXISTS (SELECT 1 FROM engagement_events ge WHERE ge.id = e.event_id AND ge.creative_id = $${params.length}))
+    )`);
+  }
+  if (variantId) {
+    params.push(variantId);
+    conditions.push(`(
+      (e.event_type = 'impression' AND EXISTS (SELECT 1 FROM impression_events ie WHERE ie.id = e.event_id AND ie.creative_size_variant_id = $${params.length}))
+      OR (e.event_type = 'click' AND EXISTS (SELECT 1 FROM click_events ce WHERE ce.id = e.event_id AND ce.creative_size_variant_id = $${params.length}))
+      OR (e.event_type = 'engagement' AND EXISTS (SELECT 1 FROM engagement_events ge WHERE ge.id = e.event_id AND ge.creative_size_variant_id = $${params.length}))
+    )`);
   }
   params.push(Math.min(Number(limit) || 25, 100));
 
@@ -511,7 +626,7 @@ export async function getWorkspaceIdentityKeyBreakdown(pool, workspaceId, opts =
 }
 
 export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, canonicalType = '' } = opts;
+  const { dateFrom, dateTo, canonicalType = '', campaignId = '', tagId = '', creativeId = '', variantId = '' } = opts;
   const params = [workspaceId];
   const conditions = ['e.workspace_id = $1', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
 
@@ -527,6 +642,22 @@ export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, 
     params.push(canonicalType);
     conditions.push(`p.canonical_type = $${params.length}`);
   }
+  if (campaignId) {
+    params.push(campaignId);
+    conditions.push(`at.campaign_id = $${params.length}`);
+  }
+  if (tagId) {
+    params.push(tagId);
+    conditions.push(`ie.tag_id = $${params.length}`);
+  }
+  if (creativeId) {
+    params.push(creativeId);
+    conditions.push(`ie.creative_id = $${params.length}`);
+  }
+  if (variantId) {
+    params.push(variantId);
+    conditions.push(`ie.creative_size_variant_id = $${params.length}`);
+  }
 
   const { rows } = await pool.query(
     `WITH impression_identities AS (
@@ -535,6 +666,7 @@ export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, 
          MIN(ie.timestamp) AS first_impression_at
        FROM event_identity_keys e
        JOIN impression_events ie ON ie.id = e.event_id
+       LEFT JOIN ad_tags at ON at.id = ie.tag_id
        JOIN identity_profiles p ON p.id = e.identity_profile_id
        WHERE ${conditions.join(' AND ')}
        GROUP BY e.identity_profile_id
@@ -636,6 +768,7 @@ export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts
     params.push(canonicalType);
     conditions.push(`p.canonical_type = $${params.length}`);
   }
+  appendIdentityScopeExistsCondition(params, conditions, opts);
 
   const { rows } = await pool.query(
     `WITH identity_totals AS (
@@ -706,6 +839,7 @@ export async function getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, op
     params.push(canonicalType);
     conditions.push(`p.canonical_type = $${params.length}`);
   }
+  appendIdentityScopeExistsCondition(params, conditions, opts);
 
   const { rows } = await pool.query(
     `WITH identity_totals AS (

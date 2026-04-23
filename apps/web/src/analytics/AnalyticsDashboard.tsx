@@ -47,6 +47,10 @@ interface SavedAudience {
   canonicalType: IdentityTypeFilter | '';
   country: string;
   segmentPreset: IdentitySegmentPreset | '';
+  campaignId: string;
+  tagId: string;
+  creativeId: string;
+  variantId: string;
   minImpressions: number;
   minClicks: number;
 }
@@ -290,6 +294,10 @@ function normalizeWorkspaceAnalytics(
       canonicalType: String(item?.canonical_type ?? '') as IdentityTypeFilter | '',
       country: String(item?.country ?? ''),
       segmentPreset: String(item?.segment_preset ?? '') as IdentitySegmentPreset | '',
+      campaignId: String(item?.campaign_id ?? ''),
+      tagId: String(item?.tag_id ?? ''),
+      creativeId: String(item?.creative_id ?? ''),
+      variantId: String(item?.creative_size_variant_id ?? ''),
       minImpressions: toNumber(item?.min_impressions),
       minClicks: toNumber(item?.min_clicks),
     })),
@@ -438,6 +446,10 @@ export default function AnalyticsDashboard() {
   const [identityMinImpressions, setIdentityMinImpressions] = useState('1');
   const [identityMinClicks, setIdentityMinClicks] = useState('0');
   const [identitySegmentPreset, setIdentitySegmentPreset] = useState<IdentitySegmentPreset>('');
+  const [identityCampaignFilter, setIdentityCampaignFilter] = useState('');
+  const [identityTagFilter, setIdentityTagFilter] = useState('');
+  const [identityCreativeFilter, setIdentityCreativeFilter] = useState('');
+  const [identityVariantFilter, setIdentityVariantFilter] = useState('');
   const [identityExportFormat, setIdentityExportFormat] = useState<IdentityExportFormat>('full');
   const [savingAudience, setSavingAudience] = useState(false);
 
@@ -450,20 +462,36 @@ export default function AnalyticsDashboard() {
   const identityQuery = useMemo(() => {
     const params = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
     if (identityTypeFilter) params.set('canonicalType', identityTypeFilter);
+    if (identityCampaignFilter) params.set('campaignId', identityCampaignFilter);
+    if (identityTagFilter) params.set('tagId', identityTagFilter);
+    if (identityCreativeFilter) params.set('creativeId', identityCreativeFilter);
+    if (identityVariantFilter) params.set('variantId', identityVariantFilter);
     return `?${params.toString()}`;
-  }, [query, identityTypeFilter]);
+  }, [query, identityTypeFilter, identityCampaignFilter, identityTagFilter, identityCreativeFilter, identityVariantFilter]);
   const customDatesValid = Boolean(customStartDate && customEndDate && customStartDate <= customEndDate);
+  const campaignOptions = data?.campaigns ?? [];
+  const tagOptions = data?.tags ?? [];
+  const creativeOptions = data?.creatives ?? [];
+  const variantOptions = data?.variants ?? [];
 
   const buildIdentityAudienceQuery = (overrides?: Partial<SavedAudience>, exportFormat?: IdentityExportFormat) => {
     const params = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
     const canonicalType = overrides?.canonicalType ?? identityTypeFilter;
     const country = overrides?.country ?? identityCountryFilter.trim().toUpperCase();
     const segmentPreset = overrides?.segmentPreset ?? identitySegmentPreset;
+    const campaignId = overrides?.campaignId ?? identityCampaignFilter;
+    const tagId = overrides?.tagId ?? identityTagFilter;
+    const creativeId = overrides?.creativeId ?? identityCreativeFilter;
+    const variantId = overrides?.variantId ?? identityVariantFilter;
     const minImpressions = overrides?.minImpressions ?? Number(identityMinImpressions.trim() || '0');
     const minClicks = overrides?.minClicks ?? Number(identityMinClicks.trim() || '0');
     if (canonicalType) params.set('canonicalType', canonicalType);
     if (country) params.set('country', country);
     if (segmentPreset) params.set('segmentPreset', segmentPreset);
+    if (campaignId) params.set('campaignId', campaignId);
+    if (tagId) params.set('tagId', tagId);
+    if (creativeId) params.set('creativeId', creativeId);
+    if (variantId) params.set('variantId', variantId);
     params.set('minImpressions', String(Math.max(minImpressions, 0)));
     params.set('minClicks', String(Math.max(minClicks, 0)));
     params.set('format', exportFormat ?? identityExportFormat);
@@ -614,6 +642,10 @@ export default function AnalyticsDashboard() {
           canonicalType: identityTypeFilter || null,
           country: identityCountryFilter.trim().toUpperCase() || null,
           segmentPreset: identitySegmentPreset || null,
+          campaignId: identityCampaignFilter || null,
+          tagId: identityTagFilter || null,
+          creativeId: identityCreativeFilter || null,
+          variantId: identityVariantFilter || null,
           minImpressions: identityMinImpressions.trim() || '0',
           minClicks: identityMinClicks.trim() || '0',
         }),
@@ -631,6 +663,10 @@ export default function AnalyticsDashboard() {
     setIdentityTypeFilter(audience.canonicalType);
     setIdentityCountryFilter(audience.country);
     setIdentitySegmentPreset(audience.segmentPreset);
+    setIdentityCampaignFilter(audience.campaignId);
+    setIdentityTagFilter(audience.tagId);
+    setIdentityCreativeFilter(audience.creativeId);
+    setIdentityVariantFilter(audience.variantId);
     setIdentityMinImpressions(String(audience.minImpressions));
     setIdentityMinClicks(String(audience.minClicks));
   };
@@ -822,6 +858,54 @@ export default function AnalyticsDashboard() {
                 </option>
               ))}
             </select>
+            <select
+              value={identityCampaignFilter}
+              onChange={(event) => setIdentityCampaignFilter(event.target.value)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+            >
+              <option value="">All campaigns</option>
+              {campaignOptions.map((item) => (
+                <option key={item.id ?? item.label} value={item.id ?? ''}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={identityTagFilter}
+              onChange={(event) => setIdentityTagFilter(event.target.value)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+            >
+              <option value="">All tags</option>
+              {tagOptions.map((item) => (
+                <option key={item.id ?? item.label} value={item.id ?? ''}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={identityCreativeFilter}
+              onChange={(event) => setIdentityCreativeFilter(event.target.value)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+            >
+              <option value="">All creatives</option>
+              {creativeOptions.map((item) => (
+                <option key={item.id ?? item.label} value={item.id ?? ''}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={identityVariantFilter}
+              onChange={(event) => setIdentityVariantFilter(event.target.value)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+            >
+              <option value="">All variants</option>
+              {variantOptions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.creativeName} · {item.label}
+                </option>
+              ))}
+            </select>
             <input
               value={identityMinImpressions}
               onChange={(event) => setIdentityMinImpressions(event.target.value)}
@@ -898,6 +982,10 @@ export default function AnalyticsDashboard() {
                   audience.canonicalType ? IDENTITY_FILTERS.find((option) => option.value === audience.canonicalType)?.label : null,
                   audience.country || null,
                   audience.segmentPreset ? IDENTITY_SEGMENT_PRESETS.find((option) => option.value === audience.segmentPreset)?.label : null,
+                  audience.campaignId ? campaignOptions.find((item) => item.id === audience.campaignId)?.label ?? 'Campaign scoped' : null,
+                  audience.tagId ? tagOptions.find((item) => item.id === audience.tagId)?.label ?? 'Tag scoped' : null,
+                  audience.creativeId ? creativeOptions.find((item) => item.id === audience.creativeId)?.label ?? 'Creative scoped' : null,
+                  audience.variantId ? variantOptions.find((item) => item.id === audience.variantId)?.label ?? 'Variant scoped' : null,
                   `Min ${audience.minImpressions} imps`,
                   `Min ${audience.minClicks} clicks`,
                 ].filter(Boolean).join(' · ');

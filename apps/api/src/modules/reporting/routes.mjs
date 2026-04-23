@@ -188,15 +188,15 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
 
   app.get('/v1/reporting/workspace/identity-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, canonicalType, limit } = req.query;
-    const breakdown = await getWorkspaceIdentityBreakdown(pool, workspaceId, { dateFrom, dateTo, canonicalType, limit });
+    const { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId, limit } = req.query;
+    const breakdown = await getWorkspaceIdentityBreakdown(pool, workspaceId, { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId, limit });
     return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/identity-export', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, canonicalType } = req.query;
-    const rows = await getWorkspaceIdentityExport(pool, workspaceId, { dateFrom, dateTo, canonicalType });
+    const { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId } = req.query;
+    const rows = await getWorkspaceIdentityExport(pool, workspaceId, { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId });
     const csvRows = [
       [
         'identity_profile_id',
@@ -260,13 +260,17 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
 
   app.get('/v1/reporting/workspace/identity-audience-export', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, canonicalType, country, segmentPreset, minImpressions, minClicks, format = 'full' } = req.query;
+    const { dateFrom, dateTo, canonicalType, country, segmentPreset, campaignId, tagId, creativeId, variantId, minImpressions, minClicks, format = 'full' } = req.query;
     const rows = await getWorkspaceIdentityAudienceExport(pool, workspaceId, {
       dateFrom,
       dateTo,
       canonicalType,
       country,
       segmentPreset,
+      campaignId,
+      tagId,
+      creativeId,
+      variantId,
       minImpressions,
       minClicks,
     });
@@ -301,29 +305,29 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
 
   app.get('/v1/reporting/workspace/identity-segment-presets', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, canonicalType } = req.query;
-    const breakdown = await getWorkspaceIdentitySegmentPresets(pool, workspaceId, { dateFrom, dateTo, canonicalType });
+    const { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId } = req.query;
+    const breakdown = await getWorkspaceIdentitySegmentPresets(pool, workspaceId, { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId });
     return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/identity-frequency-buckets', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, canonicalType } = req.query;
-    const breakdown = await getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, { dateFrom, dateTo, canonicalType });
+    const { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId } = req.query;
+    const breakdown = await getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId });
     return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/identity-key-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, canonicalType, limit } = req.query;
-    const breakdown = await getWorkspaceIdentityKeyBreakdown(pool, workspaceId, { dateFrom, dateTo, canonicalType, limit });
+    const { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId, limit } = req.query;
+    const breakdown = await getWorkspaceIdentityKeyBreakdown(pool, workspaceId, { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId, limit });
     return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/identity-attribution-windows', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, canonicalType } = req.query;
-    const breakdown = await getWorkspaceIdentityAttributionWindows(pool, workspaceId, { dateFrom, dateTo, canonicalType });
+    const { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId } = req.query;
+    const breakdown = await getWorkspaceIdentityAttributionWindows(pool, workspaceId, { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId });
     return reply.send({ breakdown });
   });
 
