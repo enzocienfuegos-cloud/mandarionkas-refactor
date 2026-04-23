@@ -20,10 +20,54 @@ interface WorkspaceAnalytics {
   }>;
 }
 
-function fmtNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toLocaleString();
+function toNumber(value: unknown): number {
+  const numeric = Number(value ?? 0);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function fmtNum(n: unknown): string {
+  const value = toNumber(n);
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return value.toLocaleString();
+}
+
+function normalizeWorkspaceAnalytics(payload: any): WorkspaceAnalytics {
+  const source = payload?.stats ?? payload ?? {};
+  const topCampaigns = Array.isArray(source?.topCampaigns ?? source?.top_campaigns)
+    ? (source.topCampaigns ?? source.top_campaigns)
+    : [];
+  const topTags = Array.isArray(source?.topTags ?? source?.top_tags)
+    ? (source.topTags ?? source.top_tags)
+    : [];
+
+  return {
+    totalImpressions: toNumber(source?.totalImpressions ?? source?.total_impressions),
+    totalClicks: toNumber(source?.totalClicks ?? source?.total_clicks),
+    avgCtr: toNumber(source?.avgCtr ?? source?.avg_ctr),
+    activeCampaigns: toNumber(source?.activeCampaigns ?? source?.active_campaigns),
+    topCampaigns: topCampaigns.map((campaign: any) => ({
+      id: String(campaign?.id ?? ''),
+      name: String(campaign?.name ?? 'Untitled campaign'),
+      impressions: toNumber(campaign?.impressions),
+      clicks: toNumber(campaign?.clicks),
+      ctr: toNumber(campaign?.ctr),
+    })),
+    topTags: topTags.map((tag: any) => ({
+      id: String(tag?.id ?? ''),
+      name: String(tag?.name ?? 'Untitled tag'),
+      impressions: toNumber(tag?.impressions),
+      clicks: toNumber(tag?.clicks),
+    })),
+  };
+}
+
+function fmtCtr(value: unknown): string {
+  return `${toNumber(value).toFixed(2)}%`;
+}
+
+function fmtMaybeNumber(value: unknown): string {
+  return String(toNumber(value));
 }
 
 interface KpiCardProps {
@@ -55,7 +99,7 @@ export default function AnalyticsDashboard() {
     setError('');
     fetch('/v1/reporting/workspace', { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Failed to load analytics'); return r.json(); })
-      .then(d => setData(d?.stats ?? d ?? null))
+      .then(d => setData(normalizeWorkspaceAnalytics(d)))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   };
@@ -111,13 +155,13 @@ export default function AnalyticsDashboard() {
         />
         <KpiCard
           label="Avg CTR"
-          value={data ? `${data.avgCtr.toFixed(2)}%` : '—'}
+          value={data ? fmtCtr(data.avgCtr) : '—'}
           icon="📈"
           color="text-indigo-700"
         />
         <KpiCard
           label="Active Campaigns"
-          value={data ? String(data.activeCampaigns) : '—'}
+          value={data ? fmtMaybeNumber(data.activeCampaigns) : '—'}
           icon="📋"
           color="text-green-700"
         />
@@ -148,7 +192,7 @@ export default function AnalyticsDashboard() {
                     <td className="px-4 py-3 text-sm font-medium text-slate-800 max-w-[150px] truncate">{c.name}</td>
                     <td className="px-4 py-3 text-sm text-slate-700">{fmtNum(c.impressions)}</td>
                     <td className="px-4 py-3 text-sm text-slate-700">{fmtNum(c.clicks)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{c.ctr.toFixed(2)}%</td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{fmtCtr(c.ctr)}</td>
                   </tr>
                 ))}
               </tbody>
