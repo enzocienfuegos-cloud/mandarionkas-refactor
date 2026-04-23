@@ -1519,21 +1519,25 @@ export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.workspace_id = $1', 'ie.site_domain IS NOT DISTINCT FROM ds.site_domain', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
-  const identityParams = [];
 
   if (dateFrom) {
     params.push(dateFrom);
     conditions.push(`ds.date >= $${params.length}`);
-    identityParams.push(dateFrom);
-    identityConditions.push(`ie.timestamp >= $${params.length + identityParams.length}`);
   }
   if (dateTo) {
     params.push(dateTo);
     conditions.push(`ds.date <= $${params.length}`);
-    identityParams.push(`${dateTo}T23:59:59.999Z`);
-    identityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
   }
-  params.push(...identityParams);
+
+  const identityDateParamStart = params.length + 1;
+  if (dateFrom) {
+    params.push(dateFrom);
+    identityConditions.push(`ie.timestamp >= $${identityDateParamStart}::timestamptz`);
+  }
+  if (dateTo) {
+    params.push(`${dateTo}T23:59:59.999Z`);
+    identityConditions.push(`ie.timestamp <= $${dateFrom ? identityDateParamStart + 1 : identityDateParamStart}::timestamptz`);
+  }
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
