@@ -97,6 +97,26 @@ export default function TagList() {
     }
   };
 
+  const handleExportTagCsv = async (tag: Tag) => {
+    try {
+      const res = await fetch(`/v1/tags/${tag.id}/export`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${tag.name.replace(/[^a-z0-9-_]+/gi, '_').toLowerCase()}-tag.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Failed to export tag.');
+    }
+  };
+
   const closeCreate = () => {
     setCreating(false);
     setCreateError('');
@@ -225,6 +245,12 @@ export default function TagList() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleExportTagCsv(t)}
+                          className="text-xs text-slate-600 hover:text-slate-700 font-medium px-2 py-1 rounded hover:bg-slate-100 transition-colors"
+                        >
+                          Export CSV
+                        </button>
                         <button
                           onClick={() => navigate(`/tags/${t.id}`)}
                           className="text-xs text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors"

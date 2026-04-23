@@ -8,6 +8,41 @@ import {
 } from '@smx/db/tags';
 import { listTagBindings, updateTagBinding } from '@smx/db';
 
+function getRequestBaseUrl(req) {
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const forwardedHost = req.headers['x-forwarded-host'];
+  const proto = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
+  const host = Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost;
+  if (proto && host) return `${proto}://${host}`.replace(/\/+$/, '');
+  if (process.env.BASE_URL) return process.env.BASE_URL.replace(/\/+$/, '');
+  return `https://${req.hostname}`.replace(/\/+$/, '');
+}
+
+function escapeCsv(value) {
+  const text = String(value ?? '');
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function buildTagSnippet(baseUrl, tag, variant) {
+  const width = Number(tag.serving_width ?? 0) || 300;
+  const height = Number(tag.serving_height ?? 0) || 250;
+  const displayJsUrl = `${baseUrl}/v1/tags/display/${tag.id}.js`;
+  const displayHtmlUrl = `${baseUrl}/v1/tags/display/${tag.id}.html`;
+  const vastUrl = `${baseUrl}/v1/vast/tags/${tag.id}`;
+  switch (variant) {
+    case 'display-js':
+      return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
+    case 'display-ins':
+      return `<ins id="smx-ad-slot-${tag.id}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    var iframe = document.createElement('iframe');\n    iframe.src = ${JSON.stringify(displayHtmlUrl)};\n    iframe.width = ${JSON.stringify(String(width))};\n    iframe.height = ${JSON.stringify(String(height))};\n    iframe.scrolling = 'no';\n    iframe.frameBorder = '0';\n    iframe.style.border = '0';\n    iframe.style.overflow = 'hidden';\n    slot.replaceWith(iframe);\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tag.id}`)}));\n</script>`;
+    case 'display-iframe':
+      return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
+    case 'vast-url':
+      return vastUrl;
+    default:
+      return '';
+  }
+}
+
 function toApiTag(tag) {
   if (!tag) return null;
   const servingWidth = Number(tag.serving_width ?? 0) || null;
@@ -109,6 +144,79 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     }
 
     return reply.send({ tag: toApiTag(tag) });
+  });
+
+  // GET /v1/tags/:id/export
+  app.get('/v1/tags/:id/export', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id } = req.params;
+
+    const { rows } = await pool.query(
+      `SELECT t.id, t.name, t.format, t.status,
+              w.name AS workspace_name,
+              c.name AS campaign_name,
+              COALESCE(tfc.display_width, bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
+              COALESCE(tfc.display_height, bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height
+       FROM ad_tags t
+       JOIN workspaces w ON w.id = t.workspace_id
+       LEFT JOIN campaigns c ON c.id = t.campaign_id
+       LEFT JOIN tag_format_configs tfc
+         ON tfc.workspace_id = t.workspace_id
+        AND tfc.tag_id = t.id
+       LEFT JOIN LATERAL (
+         SELECT
+           COALESCE(csv.width, cv.width) AS serving_width,
+           COALESCE(csv.height, cv.height) AS serving_height
+         FROM tag_bindings tb
+         JOIN creative_versions cv ON cv.id = tb.creative_version_id
+         LEFT JOIN creative_size_variants csv ON csv.id = tb.creative_size_variant_id
+         WHERE tb.workspace_id = t.workspace_id
+           AND tb.tag_id = t.id
+           AND tb.status IN ('active', 'draft')
+         ORDER BY tb.weight DESC, tb.created_at ASC
+         LIMIT 1
+       ) bound_sizes ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT cr.width AS serving_width, cr.height AS serving_height
+         FROM tag_creatives tc
+         JOIN creatives cr ON cr.id = tc.creative_id
+         WHERE tc.tag_id = t.id
+         ORDER BY tc.weight DESC, tc.created_at ASC
+         LIMIT 1
+       ) legacy_sizes ON TRUE
+       WHERE t.workspace_id = $1
+         AND t.id = $2
+       LIMIT 1`,
+      [workspaceId, id],
+    );
+    const tag = rows[0];
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    const size = tag.serving_width && tag.serving_height ? `${tag.serving_width}x${tag.serving_height}` : '';
+    const format = String(tag.format ?? '').toLowerCase();
+    const baseUrl = getRequestBaseUrl(req);
+    const csvRows = [
+      ['client', 'campaign', 'tag_name', 'format', 'size', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url'],
+      [
+        tag.workspace_name ?? '',
+        tag.campaign_name ?? '',
+        tag.name,
+        format === 'vast' ? 'VAST' : format,
+        size,
+        format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-js') : '',
+        format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-ins') : '',
+        format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-iframe') : '',
+        format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url') : '',
+      ],
+    ];
+
+    const csv = csvRows.map(row => row.map(escapeCsv).join(',')).join('\n');
+    reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', `attachment; filename=\"${tag.name.replace(/[^a-z0-9-_]+/gi, '_').toLowerCase()}-tag.csv\"`)
+      .send(csv);
   });
 
   // GET /v1/tags/:id/bindings
