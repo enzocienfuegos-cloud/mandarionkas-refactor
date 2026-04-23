@@ -70,6 +70,21 @@ export async function getTag(pool, workspaceId, tagId) {
   return rows[0] ?? null;
 }
 
+export async function getTagById(pool, tagId) {
+  const { rows } = await pool.query(
+    `SELECT t.id, t.workspace_id, t.campaign_id, t.name, t.format, t.status,
+            t.click_url, t.impression_url, t.tag_code, t.description,
+            t.targeting, t.frequency_cap, t.frequency_cap_window,
+            t.geo_targets, t.device_targets, t.created_at, t.updated_at,
+            c.name AS campaign_name
+     FROM ad_tags t
+     LEFT JOIN campaigns c ON c.id = t.campaign_id
+     WHERE t.id = $1`,
+    [tagId],
+  );
+  return rows[0] ?? null;
+}
+
 export async function createTag(pool, workspaceId, data) {
   const {
     campaign_id = null, name, format = 'display', status = 'active',
@@ -135,6 +150,23 @@ export async function deleteTag(pool, workspaceId, tagId) {
 
 export async function getTagWithCreatives(pool, workspaceId, tagId) {
   const tag = await getTag(pool, workspaceId, tagId);
+  if (!tag) return null;
+
+  const { rows: creatives } = await pool.query(
+    `SELECT c.id, c.name, c.type, c.file_url, c.width, c.height, c.duration_ms,
+            c.approval_status, c.transcode_status, c.click_url,
+            tc.weight, tc.created_at AS assigned_at
+     FROM tag_creatives tc
+     JOIN creatives c ON c.id = tc.creative_id
+     WHERE tc.tag_id = $1
+     ORDER BY tc.weight DESC, tc.created_at ASC`,
+    [tagId],
+  );
+  return { ...tag, creatives };
+}
+
+export async function getTagWithCreativesById(pool, tagId) {
+  const tag = await getTagById(pool, tagId);
   if (!tag) return null;
 
   const { rows: creatives } = await pool.query(
@@ -384,6 +416,38 @@ export async function getTagServingSnapshot(pool, workspaceId, tagId, options = 
   const [bindings, legacyTag] = await Promise.all([
     listTagVersionBindings(pool, workspaceId, tagId),
     getTagWithCreatives(pool, workspaceId, tagId),
+  ]);
+
+  const activeBinding = selectServingBinding(bindings, options.requestedSize);
+  const servingCandidate = activeBinding
+    ? toServingCandidateFromBinding(activeBinding, tag)
+    : null;
+
+  if (servingCandidate) {
+    return { ...tag, creatives: legacyTag?.creatives ?? [], bindings, servingCandidate };
+  }
+
+  const legacyCreative =
+    legacyTag?.creatives?.find(c => c.approval_status === 'approved' && (c.file_url || c.click_url))
+    ?? legacyTag?.creatives?.[0]
+    ?? null;
+
+  return {
+    ...tag,
+    creatives: legacyTag?.creatives ?? [],
+    bindings,
+    servingCandidate: toServingCandidateFromLegacy(legacyCreative, tag),
+  };
+}
+
+export async function getTagServingSnapshotById(pool, tagId, options = {}) {
+  const tag = await getTagById(pool, tagId);
+  if (!tag) return null;
+
+  const workspaceId = tag.workspace_id;
+  const [bindings, legacyTag] = await Promise.all([
+    listTagVersionBindings(pool, workspaceId, tagId),
+    getTagWithCreativesById(pool, tagId),
   ]);
 
   const activeBinding = selectServingBinding(bindings, options.requestedSize);

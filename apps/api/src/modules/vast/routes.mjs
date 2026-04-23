@@ -1,4 +1,4 @@
-import { getTagServingSnapshot } from '@smx/db/tags';
+import { getTagServingSnapshot, getTagServingSnapshotById } from '@smx/db/tags';
 
 const BASE_URL = process.env.BASE_URL ?? 'https://api.smxstudio.io';
 
@@ -188,15 +188,13 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
 async function loadDisplayTag(req, reply, pool) {
   const { workspaceId } = req.authSession ?? req.apiKeyAuth ?? {};
   const { tagId } = req.params;
-
-  if (!workspaceId) {
-    reply.status(401).send({ error: 'Unauthorized', message: 'Authentication required' });
-    return null;
-  }
-
-  const tag = await getTagServingSnapshot(pool, workspaceId, tagId, {
-    requestedSize: readRequestedSize(req.query),
-  });
+  const tag = workspaceId
+    ? await getTagServingSnapshot(pool, workspaceId, tagId, {
+        requestedSize: readRequestedSize(req.query),
+      })
+    : await getTagServingSnapshotById(pool, tagId, {
+        requestedSize: readRequestedSize(req.query),
+      });
   if (!tag) {
     reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     return null;
@@ -210,12 +208,12 @@ async function loadDisplayTag(req, reply, pool) {
     return null;
   }
 
-  return { tag, workspaceId };
+  return { tag, workspaceId: tag.workspace_id ?? workspaceId };
 }
 
 export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool }) {
-  // Middleware that accepts either session auth OR api key
-  async function flexibleAuth(req, reply) {
+  // Middleware that accepts session or api key when present, but does not require either.
+  async function optionalAuth(req, reply) {
     // Try session first
     if (req.session?.userId && req.session?.workspaceId) {
       await requireWorkspace(req, reply);
@@ -236,21 +234,20 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       }
       return;
     }
-    return reply.status(401).send({ error: 'Unauthorized', message: 'Session or API key required' });
   }
 
   // GET /v1/vast/tags/:tagId — serve VAST XML for a tag
-  app.get('/v1/vast/tags/:tagId', { preHandler: flexibleAuth }, async (req, reply) => {
+  app.get('/v1/vast/tags/:tagId', { preHandler: optionalAuth }, async (req, reply) => {
     const { workspaceId } = req.authSession ?? req.apiKeyAuth ?? {};
     const { tagId } = req.params;
 
-    if (!workspaceId) {
-      return reply.status(401).send({ error: 'Unauthorized', message: 'Authentication required' });
-    }
-
-    const tag = await getTagServingSnapshot(pool, workspaceId, tagId, {
-      requestedSize: readRequestedSize(req.query),
-    });
+    const tag = workspaceId
+      ? await getTagServingSnapshot(pool, workspaceId, tagId, {
+          requestedSize: readRequestedSize(req.query),
+        })
+      : await getTagServingSnapshotById(pool, tagId, {
+          requestedSize: readRequestedSize(req.query),
+        });
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
@@ -262,7 +259,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       });
     }
 
-    const xml = buildVastXml(tag, workspaceId, BASE_URL);
+    const xml = buildVastXml(tag, tag.workspace_id ?? workspaceId, BASE_URL);
 
     reply.header('Content-Type', 'application/xml; charset=utf-8');
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -292,10 +289,10 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
   }
 
   // Legacy JS endpoint kept for compatibility.
-  app.get('/v1/vast/display/:tagId', { preHandler: flexibleAuth }, serveDisplayJavascript);
+  app.get('/v1/vast/display/:tagId', { preHandler: optionalAuth }, serveDisplayJavascript);
   // Semantically clearer display endpoints for embed snippets.
-  app.get('/v1/tags/display/:tagId.js', { preHandler: flexibleAuth }, serveDisplayJavascript);
-  app.get('/v1/tags/display/:tagId.html', { preHandler: flexibleAuth }, serveDisplayDocument);
+  app.get('/v1/tags/display/:tagId.js', { preHandler: optionalAuth }, serveDisplayJavascript);
+  app.get('/v1/tags/display/:tagId.html', { preHandler: optionalAuth }, serveDisplayDocument);
   // Native currently reuses the display JS renderer until a dedicated native renderer exists.
-  app.get('/v1/tags/native/:tagId.js', { preHandler: flexibleAuth }, serveDisplayJavascript);
+  app.get('/v1/tags/native/:tagId.js', { preHandler: optionalAuth }, serveDisplayJavascript);
 }
