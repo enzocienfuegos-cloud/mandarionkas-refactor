@@ -6,6 +6,7 @@ import {
   deleteTag,
   getTagWithCreatives,
 } from '@smx/db/tags';
+import { listTagBindings } from '@smx/db';
 
 function toApiTag(tag) {
   if (!tag) return null;
@@ -86,6 +87,42 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     }
 
     return reply.send({ tag: toApiTag(tag) });
+  });
+
+  // GET /v1/tags/:id/bindings
+  app.get('/v1/tags/:id/bindings', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id } = req.params;
+
+    const tag = await getTag(pool, workspaceId, id);
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    const bindings = await listTagBindings(pool, workspaceId, id, {
+      status: req.query?.status,
+    });
+
+    return reply.send({
+      bindings: bindings.map(binding => ({
+        id: binding.id,
+        tagId: binding.tag_id,
+        creativeVersionId: binding.creative_version_id,
+        status: binding.status,
+        weight: binding.weight,
+        startAt: binding.start_at ?? null,
+        endAt: binding.end_at ?? null,
+        createdBy: binding.created_by ?? null,
+        createdAt: binding.created_at,
+        updatedAt: binding.updated_at,
+        creativeName: binding.creative_name ?? '',
+        creativeVersionStatus: binding.creative_version_status ?? '',
+        sourceKind: binding.source_kind ?? '',
+        servingFormat: binding.serving_format ?? '',
+        publicUrl: binding.public_url ?? '',
+        entryPath: binding.entry_path ?? '',
+      })),
+    });
   });
 
   // PUT /v1/tags/:id

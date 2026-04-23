@@ -1,12 +1,43 @@
 import {
+  createTagBinding,
   listCreatives,
+  listCreativeVersions,
   getCreative,
+  getCreativeVersion,
   createCreative,
   updateCreative,
   deleteCreative,
   assignCreativeToTag,
   removeCreativeFromTag,
-} from '@smx/db/creatives';
+} from '@smx/db';
+import { getTag } from '@smx/db/tags';
+
+function toApiCreativeVersion(version) {
+  if (!version) return null;
+  return {
+    id: version.id,
+    workspaceId: version.workspace_id,
+    creativeId: version.creative_id,
+    versionNumber: version.version_number,
+    sourceKind: version.source_kind,
+    servingFormat: version.serving_format,
+    status: version.status,
+    publicUrl: version.public_url ?? '',
+    entryPath: version.entry_path ?? '',
+    mimeType: version.mime_type ?? '',
+    width: version.width ?? null,
+    height: version.height ?? null,
+    durationMs: version.duration_ms ?? null,
+    fileSize: version.file_size ?? null,
+    metadata: version.metadata ?? {},
+    createdBy: version.created_by ?? null,
+    reviewedBy: version.reviewed_by ?? null,
+    reviewedAt: version.reviewed_at ?? null,
+    reviewNotes: version.review_notes ?? '',
+    createdAt: version.created_at,
+    updatedAt: version.updated_at,
+  };
+}
 
 export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
   // GET /v1/creatives
@@ -81,6 +112,33 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
     return reply.send({ creative });
   });
 
+  // GET /v1/creatives/:id/versions
+  app.get('/v1/creatives/:id/versions', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id } = req.params;
+
+    const creative = await getCreative(pool, workspaceId, id);
+    if (!creative) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Creative not found' });
+    }
+
+    const versions = await listCreativeVersions(pool, workspaceId, id);
+    return reply.send({ versions: versions.map(toApiCreativeVersion) });
+  });
+
+  // GET /v1/creative-versions/:id
+  app.get('/v1/creative-versions/:id', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id } = req.params;
+
+    const version = await getCreativeVersion(pool, workspaceId, id);
+    if (!version) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Creative version not found' });
+    }
+
+    return reply.send({ creativeVersion: toApiCreativeVersion(version) });
+  });
+
   // PUT /v1/creatives/:id
   app.put('/v1/creatives/:id', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
@@ -149,6 +207,35 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
 
     const assignment = await assignCreativeToTag(pool, tagId, id, weight);
     return reply.status(201).send({ assignment });
+  });
+
+  // POST /v1/creative-versions/:id/assign/:tagId
+  app.post('/v1/creative-versions/:id/assign/:tagId', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId, userId } = req.authSession;
+    const { id, tagId } = req.params;
+    const { weight = 1, status = 'active', startAt = null, endAt = null } = req.body ?? {};
+
+    const version = await getCreativeVersion(pool, workspaceId, id);
+    if (!version) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Creative version not found' });
+    }
+
+    const tag = await getTag(pool, workspaceId, tagId);
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    const binding = await createTagBinding(pool, workspaceId, {
+      tag_id: tagId,
+      creative_version_id: id,
+      status,
+      weight,
+      start_at: startAt,
+      end_at: endAt,
+      created_by: userId,
+    });
+
+    return reply.status(201).send({ binding });
   });
 
   // DELETE /v1/creatives/:id/assign/:tagId
