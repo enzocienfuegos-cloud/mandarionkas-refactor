@@ -154,12 +154,41 @@ function buildClickTrackingBootstrap() {
     var trackedClickUrl = params.get('smx_click');
     if (!trackedClickUrl) return;
     var originalOpen = typeof window.open === 'function' ? window.open.bind(window) : null;
+    var parsedTrackedBase = null;
 
-    function navigateTracked(target, features) {
-      if (originalOpen) {
-        return originalOpen(trackedClickUrl, target || '_blank', features);
+    try {
+      parsedTrackedBase = new URL(trackedClickUrl, window.location.href);
+    } catch (_) {}
+
+    function isHttpUrl(value) {
+      if (!value) return false;
+      try {
+        var parsed = new URL(String(value), window.location.href);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      } catch (_) {
+        return false;
       }
-      window.location.href = trackedClickUrl;
+    }
+
+    function buildTrackedUrl(destination) {
+      if (!parsedTrackedBase) return trackedClickUrl;
+      try {
+        var nextUrl = new URL(parsedTrackedBase.toString());
+        if (isHttpUrl(destination)) {
+          nextUrl.searchParams.set('url', new URL(String(destination), window.location.href).toString());
+        }
+        return nextUrl.toString();
+      } catch (_) {
+        return trackedClickUrl;
+      }
+    }
+
+    function navigateTracked(target, features, destination) {
+      var nextTrackedUrl = buildTrackedUrl(destination);
+      if (originalOpen) {
+        return originalOpen(nextTrackedUrl, target || '_blank', features);
+      }
+      window.location.href = nextTrackedUrl;
       return null;
     }
 
@@ -182,15 +211,15 @@ function buildClickTrackingBootstrap() {
       defineTrackedProperty('clickTag');
       defineTrackedProperty('clicktag');
       window.open = function(url, target, features) {
-        return navigateTracked(target, features);
+        return navigateTracked(target, features, url);
       };
 
       if (window.Enabler && typeof window.Enabler === 'object') {
-        window.Enabler.exit = function() {
-          return navigateTracked('_blank');
+        window.Enabler.exit = function(name, url) {
+          return navigateTracked('_blank', undefined, url);
         };
-        window.Enabler.exitOverride = function() {
-          return navigateTracked('_blank');
+        window.Enabler.exitOverride = function(name, url) {
+          return navigateTracked('_blank', undefined, url);
         };
       }
 
@@ -199,11 +228,25 @@ function buildClickTrackingBootstrap() {
       }
 
       if (window.EB && typeof window.EB === 'object') {
-        window.EB.clickthrough = function() {
-          return navigateTracked('_blank');
+        window.EB.clickthrough = function(url) {
+          return navigateTracked('_blank', undefined, url);
         };
       }
     }
+
+    document.addEventListener('click', function(event) {
+      try {
+        var node = event.target;
+        if (!node || typeof node.closest !== 'function') return;
+        var anchor = node.closest('a[href]');
+        if (!anchor) return;
+        var href = anchor.getAttribute('href') || anchor.href || '';
+        if (!isHttpUrl(href)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        navigateTracked(anchor.target || '_blank', undefined, href);
+      } catch (_) {}
+    }, true);
 
     enforceTrackedBindings();
     document.addEventListener('DOMContentLoaded', enforceTrackedBindings, { once: true });
