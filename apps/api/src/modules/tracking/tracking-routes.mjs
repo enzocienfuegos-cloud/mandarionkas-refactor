@@ -4,6 +4,7 @@ import {
   recordViewability,
   recordEngagementEvent,
 } from '@smx/db/tracking';
+import { extractIp, resolveIp } from '@smx/geo';
 
 const PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
 
@@ -56,29 +57,37 @@ function inferDeviceInfo(userAgent = '') {
   return { deviceType, browser, os };
 }
 
-function inferGeo(req, query = {}) {
+async function inferGeo(req, query = {}) {
   const header = (name) => {
     const value = req.headers[name];
     return Array.isArray(value) ? value[0] : value;
   };
-  const country = String(
-    query.ct
-    || header('cf-ipcountry')
+  const overrideCountry = String(query.ct || '').trim().toUpperCase().slice(0, 2) || null;
+  const overrideRegion = String(query.rg || '').trim() || null;
+  if (overrideCountry || overrideRegion) {
+    return { country: overrideCountry, region: overrideRegion };
+  }
+
+  const resolvedIp = extractIp(req);
+  const resolvedGeo = await resolveIp(resolvedIp);
+  const headerCountry = String(
+    header('cf-ipcountry')
     || header('x-vercel-ip-country')
     || header('x-appengine-country')
     || '',
   ).trim().toUpperCase().slice(0, 2) || null;
-  const region = String(
-    query.rg
-    || header('x-vercel-ip-country-region')
+  const headerRegion = String(
+    header('x-vercel-ip-country-region')
     || header('x-appengine-region')
     || '',
   ).trim() || null;
+  const country = resolvedGeo.country ?? headerCountry;
+  const region = resolvedGeo.region ?? headerRegion;
   return { country, region };
 }
 
-function collectTrackingContext(req, query = {}) {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? req.ip ?? null;
+async function collectTrackingContext(req, query = {}) {
+  const ip = extractIp(req) ?? null;
   const userAgent = req.headers['user-agent'] ?? null;
   const referer = req.headers['referer'] ?? req.headers['referrer'] ?? null;
   const pageContext = parseSiteContext(query.pu);
@@ -90,7 +99,7 @@ function collectTrackingContext(req, query = {}) {
     ?? pageContext
     ?? refererContext
     ?? { pageUrl: null, siteDomain: null };
-  const geo = inferGeo(req, query);
+  const geo = await inferGeo(req, query);
   const country = geo.country ?? null;
   const region = geo.region ?? null;
   const { deviceType, browser, os } = inferDeviceInfo(userAgent);
@@ -127,7 +136,7 @@ export function handleTrackingRoutes(app, { pool }) {
       return reply.send(PIXEL_GIF);
     }
 
-    const context = collectTrackingContext(req, req.query);
+    const context = await collectTrackingContext(req, req.query);
 
     // Fire-and-forget — don't block pixel response
       recordImpression(pool, {
@@ -151,7 +160,7 @@ export function handleTrackingRoutes(app, { pool }) {
     const { tagId } = req.params;
     const { ws: workspaceId, url: destinationUrl, imp: impressionId, c: creativeId, csv: creativeSizeVariantId, pu: pageUrl } = req.query;
 
-    const context = collectTrackingContext(req, req.query);
+    const context = await collectTrackingContext(req, req.query);
 
     if (workspaceId) {
       // Fire-and-forget
@@ -191,7 +200,7 @@ export function handleTrackingRoutes(app, { pool }) {
 
     if (workspaceId) {
       const viewable = vp !== '0' && vp !== 'false';
-      const context = collectTrackingContext(req, req.query);
+      const context = await collectTrackingContext(req, req.query);
       recordViewability(pool, {
         tag_id: tagId,
         workspace_id: workspaceId,
@@ -233,7 +242,7 @@ export function handleTrackingRoutes(app, { pool }) {
     } = req.query;
 
     if (workspaceId && event) {
-      const context = collectTrackingContext(req, req.query);
+      const context = await collectTrackingContext(req, req.query);
       recordEngagementEvent(pool, {
         tag_id: tagId,
         workspace_id: workspaceId,

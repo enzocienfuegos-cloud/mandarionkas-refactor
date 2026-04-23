@@ -8,9 +8,12 @@
  */
 
 import fs   from 'node:fs';
+import https from 'node:https';
 import path from 'node:path';
 
 let Reader = null; // lazy import of @maxmind/geoip2-node
+const REMOTE_GEO_CACHE = new Map();
+const REMOTE_GEO_TTL_MS = 1000 * 60 * 30;
 
 async function getReader() {
   if (Reader) return Reader;
@@ -52,7 +55,7 @@ export async function resolveIp(ip) {
   if (isPrivateIp(ip)) return fallback;
 
   const reader = await getReader();
-  if (!reader) return fallback;
+  if (!reader) return lookupRemote(ip, fallback);
 
   try {
     const response = reader.city(ip);
@@ -65,7 +68,7 @@ export async function resolveIp(ip) {
       longitude: response.location?.longitude ?? null,
     };
   } catch {
-    return fallback;
+    return lookupRemote(ip, fallback);
   }
 }
 
@@ -98,4 +101,57 @@ const PRIVATE_RANGES = [
 
 function isPrivateIp(ip) {
   return PRIVATE_RANGES.some(re => re.test(ip));
+}
+
+async function lookupRemote(ip, fallback) {
+  const cached = REMOTE_GEO_CACHE.get(ip);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) {
+    return cached.result;
+  }
+
+  try {
+    const payload = await new Promise((resolve, reject) => {
+      const request = https.get(`https://ipwho.is/${encodeURIComponent(ip)}`, {
+        headers: {
+          accept: 'application/json',
+          'user-agent': 'smx-geo/1.0',
+        },
+      }, (response) => {
+        if (response.statusCode !== 200) {
+          response.resume();
+          reject(new Error(`ipwho.is responded with ${response.statusCode}`));
+          return;
+        }
+        let data = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          data += chunk;
+        });
+        response.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+      request.setTimeout(1500, () => {
+        request.destroy(new Error('ipwho.is timed out'));
+      });
+      request.on('error', reject);
+    });
+    const result = {
+      ip,
+      country: typeof payload?.country_code === 'string' ? payload.country_code.toUpperCase() : null,
+      region: typeof payload?.region === 'string' ? payload.region : null,
+      city: typeof payload?.city === 'string' ? payload.city : null,
+      latitude: Number.isFinite(Number(payload?.latitude)) ? Number(payload.latitude) : null,
+      longitude: Number.isFinite(Number(payload?.longitude)) ? Number(payload.longitude) : null,
+    };
+    REMOTE_GEO_CACHE.set(ip, { result, expiresAt: now + REMOTE_GEO_TTL_MS });
+    return result;
+  } catch {
+    return fallback;
+  }
 }
