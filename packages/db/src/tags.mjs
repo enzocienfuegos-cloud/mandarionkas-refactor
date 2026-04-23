@@ -149,3 +149,185 @@ export async function getTagWithCreatives(pool, workspaceId, tagId) {
   );
   return { ...tag, creatives };
 }
+
+function isServingVersionEligible(version) {
+  return ['approved', 'draft'].includes(String(version?.status ?? '').toLowerCase());
+}
+
+function isBindingActive(binding) {
+  const status = String(binding?.status ?? '').toLowerCase();
+  if (!['active', 'draft'].includes(status)) return false;
+
+  const now = Date.now();
+  const startAt = binding?.start_at ? new Date(binding.start_at).getTime() : null;
+  const endAt = binding?.end_at ? new Date(binding.end_at).getTime() : null;
+  if (startAt && startAt > now) return false;
+  if (endAt && endAt < now) return false;
+  return true;
+}
+
+function scoreArtifactForServing(servingFormat, artifact) {
+  const kind = String(artifact?.kind ?? '').toLowerCase();
+  if (servingFormat === 'vast_video') {
+    if (kind === 'video_mp4') return 100;
+    if (kind === 'published_asset') return 80;
+    if (kind === 'legacy_asset') return 60;
+  }
+  if (servingFormat === 'display_html') {
+    if (kind === 'published_html') return 100;
+    if (kind === 'published_asset') return 70;
+    if (kind === 'legacy_asset') return 50;
+  }
+  if (servingFormat === 'display_image') {
+    if (kind === 'published_asset') return 100;
+    if (kind === 'legacy_asset') return 80;
+    if (kind === 'thumbnail') return 40;
+  }
+  return 0;
+}
+
+function pickArtifactForBinding(binding) {
+  const artifacts = Array.isArray(binding?.artifacts) ? binding.artifacts : [];
+  const servingFormat = String(binding?.serving_format ?? '').toLowerCase();
+  const viable = artifacts
+    .filter(artifact => artifact?.public_url)
+    .map(artifact => ({ artifact, score: scoreArtifactForServing(servingFormat, artifact) }))
+    .filter(entry => entry.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return viable[0]?.artifact ?? null;
+}
+
+function toServingCandidateFromBinding(binding, tag) {
+  const artifact = pickArtifactForBinding(binding);
+  const publicUrl = artifact?.public_url ?? binding.public_url ?? null;
+  const clickUrl = tag.click_url ?? binding.creative_click_url ?? null;
+  if (!publicUrl && binding.serving_format !== 'display_html') {
+    return null;
+  }
+
+  return {
+    source: 'binding',
+    creativeId: binding.creative_id,
+    creativeVersionId: binding.creative_version_id,
+    creativeName: binding.creative_name ?? '',
+    servingFormat: binding.serving_format,
+    width: binding.width ?? null,
+    height: binding.height ?? null,
+    durationMs: binding.duration_ms ?? null,
+    mimeType: artifact?.mime_type ?? binding.mime_type ?? null,
+    clickUrl,
+    publicUrl,
+    entryPath: binding.entry_path ?? null,
+    artifactKind: artifact?.kind ?? null,
+    sourceKind: binding.source_kind ?? null,
+    status: binding.creative_version_status ?? null,
+  };
+}
+
+function toServingCandidateFromLegacy(creative, tag) {
+  if (!creative) return null;
+  return {
+    source: 'legacy',
+    creativeId: creative.id,
+    creativeVersionId: null,
+    creativeName: creative.name ?? '',
+    servingFormat: creative.type === 'video' || creative.type === 'vast' ? 'vast_video' : 'display_image',
+    width: creative.width ?? null,
+    height: creative.height ?? null,
+    durationMs: creative.duration_ms ?? null,
+    mimeType: null,
+    clickUrl: tag.click_url ?? creative.click_url ?? null,
+    publicUrl: creative.file_url ?? null,
+    entryPath: null,
+    artifactKind: 'legacy_asset',
+    sourceKind: 'legacy',
+    status: creative.approval_status ?? null,
+  };
+}
+
+async function listTagVersionBindings(pool, workspaceId, tagId) {
+  const { rows } = await pool.query(
+    `SELECT
+        tb.id,
+        tb.tag_id,
+        tb.creative_version_id,
+        tb.status,
+        tb.weight,
+        tb.start_at,
+        tb.end_at,
+        tb.created_at,
+        cv.id AS version_id,
+        cv.creative_id,
+        cv.source_kind,
+        cv.serving_format,
+        cv.status AS creative_version_status,
+        cv.public_url,
+        cv.entry_path,
+        cv.mime_type,
+        cv.width,
+        cv.height,
+        cv.duration_ms,
+        c.name AS creative_name,
+        c.click_url AS creative_click_url,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', ca.id,
+              'kind', ca.kind,
+              'public_url', ca.public_url,
+              'mime_type', ca.mime_type,
+              'size_bytes', ca.size_bytes,
+              'checksum', ca.checksum,
+              'metadata', ca.metadata
+            )
+            ORDER BY ca.created_at DESC
+          ) FILTER (WHERE ca.id IS NOT NULL),
+          '[]'::json
+        ) AS artifacts
+     FROM tag_bindings tb
+     JOIN creative_versions cv ON cv.id = tb.creative_version_id
+     JOIN creatives c ON c.id = cv.creative_id
+     LEFT JOIN creative_artifacts ca ON ca.creative_version_id = cv.id
+     WHERE tb.workspace_id = $1
+       AND tb.tag_id = $2
+     GROUP BY
+       tb.id, tb.tag_id, tb.creative_version_id, tb.status, tb.weight, tb.start_at, tb.end_at, tb.created_at,
+       cv.id, cv.creative_id, cv.source_kind, cv.serving_format, cv.status, cv.public_url, cv.entry_path,
+       cv.mime_type, cv.width, cv.height, cv.duration_ms,
+       c.name, c.click_url
+     ORDER BY tb.weight DESC, tb.created_at ASC`,
+    [workspaceId, tagId],
+  );
+  return rows;
+}
+
+export async function getTagServingSnapshot(pool, workspaceId, tagId) {
+  const tag = await getTag(pool, workspaceId, tagId);
+  if (!tag) return null;
+
+  const [bindings, legacyTag] = await Promise.all([
+    listTagVersionBindings(pool, workspaceId, tagId),
+    getTagWithCreatives(pool, workspaceId, tagId),
+  ]);
+
+  const activeBinding = bindings.find(binding => isBindingActive(binding) && isServingVersionEligible({ status: binding.creative_version_status }));
+  const servingCandidate = activeBinding
+    ? toServingCandidateFromBinding(activeBinding, tag)
+    : null;
+
+  if (servingCandidate) {
+    return { ...tag, creatives: legacyTag?.creatives ?? [], bindings, servingCandidate };
+  }
+
+  const legacyCreative =
+    legacyTag?.creatives?.find(c => c.approval_status === 'approved' && (c.file_url || c.click_url))
+    ?? legacyTag?.creatives?.[0]
+    ?? null;
+
+  return {
+    ...tag,
+    creatives: legacyTag?.creatives ?? [],
+    bindings,
+    servingCandidate: toServingCandidateFromLegacy(legacyCreative, tag),
+  };
+}

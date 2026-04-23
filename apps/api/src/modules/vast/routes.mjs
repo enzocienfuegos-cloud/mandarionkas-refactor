@@ -1,22 +1,18 @@
-import { getTagWithCreatives } from '@smx/db/tags';
+import { getTagServingSnapshot } from '@smx/db/tags';
 
 const BASE_URL = process.env.BASE_URL ?? 'https://api.smxstudio.io';
 
 function buildVastXml(tag, workspaceId, baseUrl) {
-  // Pick first approved creative with a video URL
-  const creative = tag.creatives?.find(
-    c => c.approval_status === 'approved' && (c.file_url || c.click_url),
-  ) ?? tag.creatives?.[0] ?? null;
-
   const tagId = tag.id;
-  const creativeId = creative?.id ?? 'no-creative';
-  const videoUrl = creative?.file_url ?? '';
-  const clickUrl = tag.click_url ?? creative?.click_url ?? '';
-  const duration = creative?.duration_ms
-    ? formatDuration(creative.duration_ms)
+  const servingCandidate = tag.servingCandidate ?? null;
+  const creativeId = servingCandidate?.creativeVersionId ?? servingCandidate?.creativeId ?? 'no-creative';
+  const videoUrl = servingCandidate?.publicUrl ?? '';
+  const clickUrl = servingCandidate?.clickUrl ?? '';
+  const duration = servingCandidate?.durationMs
+    ? formatDuration(servingCandidate.durationMs)
     : '00:00:30';
-  const width = creative?.width ?? 1920;
-  const height = creative?.height ?? 1080;
+  const width = servingCandidate?.width ?? 1920;
+  const height = servingCandidate?.height ?? 1080;
   const impressionUrl = `${baseUrl}/track/impression/${tagId}?ws=${workspaceId}`;
   const trackingBase = `${baseUrl}/track`;
 
@@ -78,13 +74,13 @@ function escapeXml(str) {
 
 function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   const tagId = tag.id;
-  const creative = tag.creatives?.find(c => c.approval_status === 'approved') ?? tag.creatives?.[0] ?? null;
-  const width = creative?.width ?? 300;
-  const height = creative?.height ?? 250;
-  const clickUrl = tag.click_url ?? creative?.click_url ?? '#';
+  const servingCandidate = tag.servingCandidate ?? null;
+  const width = servingCandidate?.width ?? 300;
+  const height = servingCandidate?.height ?? 250;
+  const clickUrl = servingCandidate?.clickUrl ?? '#';
   const impressionUrl = `${baseUrl}/track/impression/${tagId}?ws=${workspaceId}`;
   const clickTrackUrl = `${baseUrl}/track/click/${tagId}?ws=${workspaceId}&url=${encodeURIComponent(clickUrl)}`;
-  const creativeUrl = creative?.file_url ?? '';
+  const creativeUrl = servingCandidate?.publicUrl ?? '';
 
   return `(function() {
   var ws = ${JSON.stringify(workspaceId)};
@@ -168,7 +164,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       return reply.status(401).send({ error: 'Unauthorized', message: 'Authentication required' });
     }
 
-    const tag = await getTagWithCreatives(pool, workspaceId, tagId);
+    const tag = await getTagServingSnapshot(pool, workspaceId, tagId);
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
@@ -197,7 +193,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       return reply.status(401).send({ error: 'Unauthorized', message: 'Authentication required' });
     }
 
-    const tag = await getTagWithCreatives(pool, workspaceId, tagId);
+    const tag = await getTagServingSnapshot(pool, workspaceId, tagId);
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
