@@ -151,7 +151,7 @@ export default function TagList() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => navigate(`/tags/${t.id}/edit`)}
+                          onClick={() => navigate(`/tags/${t.id}`)}
                           className="text-xs text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors"
                         >
                           Edit

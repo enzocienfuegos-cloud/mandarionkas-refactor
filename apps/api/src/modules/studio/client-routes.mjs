@@ -8,6 +8,7 @@ import {
   resolveStudioClientAccess,
   resolveStudioCurrentUser,
 } from './shared.mjs';
+import { updateWorkspace } from '@smx/db/team';
 
 export function handleStudioClientRoutes(app, { requireWorkspace, pool }, deps = {
   buildStudioSessionPayload,
@@ -46,7 +47,7 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }, deps =
   });
 
   app.post('/v1/clients', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { name } = req.body ?? {};
+    const { name, website = '', dsp = '' } = req.body ?? {};
     const userId = req.authSession.userId;
 
     if (!canManageStudioClient(req.authSession)) {
@@ -57,13 +58,33 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }, deps =
     }
 
     const workspaceId = await deps.handleCreateStudioClient(pool, userId, String(name).trim());
+    const settingsPatch = {
+      website: String(website ?? '').trim() || null,
+      dsp: String(dsp ?? '').trim() || null,
+    };
+    if (settingsPatch.website || settingsPatch.dsp) {
+      const currentWorkspace = await updateWorkspace(pool, workspaceId, {
+        settings: settingsPatch,
+      });
+      req._auditMeta = {
+        action: 'studio.client.created',
+        workspace_id: workspaceId,
+        resource_type: 'studio_client',
+        resource_id: workspaceId,
+        metadata: {
+          name: String(name).trim(),
+          website: currentWorkspace?.settings?.website ?? settingsPatch.website,
+          dsp: currentWorkspace?.settings?.dsp ?? settingsPatch.dsp,
+        },
+      };
+    }
     req.session.workspaceId = workspaceId;
     req._auditMeta = {
       action: 'studio.client.created',
       workspace_id: workspaceId,
       resource_type: 'studio_client',
       resource_id: workspaceId,
-      metadata: { name: String(name).trim() },
+      metadata: { name: String(name).trim(), website: settingsPatch.website, dsp: settingsPatch.dsp },
     };
 
     const user = await deps.resolveStudioCurrentUser(pool, userId);

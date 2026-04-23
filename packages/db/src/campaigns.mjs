@@ -35,6 +35,46 @@ export async function listCampaigns(pool, workspaceId, opts = {}) {
   return rows;
 }
 
+export async function listCampaignsForUser(pool, userId, opts = {}) {
+  const { status, workspaceId, limit = 250, offset = 0, search } = opts;
+  const params = [userId];
+  const conditions = ["wm.user_id = $1", "wm.status = 'active'"];
+
+  if (status) {
+    params.push(status);
+    conditions.push(`c.status = $${params.length}`);
+  }
+  if (workspaceId) {
+    params.push(workspaceId);
+    conditions.push(`c.workspace_id = $${params.length}`);
+  }
+  if (search && search.trim().length >= 2) {
+    params.push(search.trim());
+    conditions.push(`c.search_vec @@ websearch_to_tsquery('english', $${params.length})`);
+  }
+
+  params.push(Math.min(Number(limit) || 250, 500));
+  params.push(Number(offset) || 0);
+
+  const { rows } = await pool.query(
+    `SELECT c.id, c.workspace_id, c.advertiser_id, c.name, c.status,
+            c.start_date, c.end_date, c.budget, c.impression_goal, c.daily_budget,
+            c.flight_type, c.kpi, c.kpi_goal, c.currency, c.timezone,
+            c.notes, c.metadata, c.created_at, c.updated_at,
+            adv.name AS advertiser_name,
+            w.name AS workspace_name
+     FROM campaigns c
+     JOIN workspace_members wm ON wm.workspace_id = c.workspace_id
+     JOIN workspaces w ON w.id = c.workspace_id
+     LEFT JOIN advertisers adv ON adv.id = c.advertiser_id
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY c.created_at DESC
+     LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
 export async function getCampaign(pool, workspaceId, id) {
   const { rows } = await pool.query(
     `SELECT c.id, c.workspace_id, c.advertiser_id, c.name, c.status,

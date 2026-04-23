@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { createClientWorkspace, loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 
 interface User {
   id: string;
@@ -52,6 +52,7 @@ function getStudioUrl(): string {
 }
 
 export default function Shell() {
+  const location = useLocation();
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
@@ -60,7 +61,6 @@ export default function Shell() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
-  const [creatingClient, setCreatingClient] = useState(false);
   const [clientError, setClientError] = useState('');
 
   function normalizeUserPayload(payload: any): User | null {
@@ -92,6 +92,10 @@ export default function Shell() {
       .finally(() => setLoading(false));
   }, [navigate]);
 
+  const showClientSwitcher = useMemo(() => {
+    return !location.pathname.startsWith('/overview') && !location.pathname.startsWith('/clients');
+  }, [location.pathname]);
+
   const handleLogout = async () => {
     await fetch('/v1/auth/logout', { method: 'POST', credentials: 'include' });
     navigate('/login');
@@ -112,25 +116,6 @@ export default function Shell() {
       setClientError(error.message ?? 'Failed to switch client');
     } finally {
       setWorkspaceBusy(false);
-    }
-  };
-
-  const handleCreateClient = async () => {
-    const name = window.prompt('New client name');
-    if (!name?.trim()) return;
-    setCreatingClient(true);
-    setClientError('');
-    try {
-      await createClientWorkspace(name.trim());
-      const [authMe, workspaceList] = await Promise.all([loadAuthMe(), loadWorkspaces()]);
-      const normalized = normalizeUserPayload(authMe);
-      if (normalized) setUser(normalized);
-      setWorkspaces(workspaceList);
-      navigate('/overview');
-    } catch (error: any) {
-      setClientError(error.message ?? 'Failed to create client');
-    } finally {
-      setCreatingClient(false);
     }
   };
 
@@ -232,30 +217,39 @@ export default function Shell() {
         {/* Top bar */}
         <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Client</label>
-              <select
-                value={user?.workspace?.id ?? ''}
-                onChange={event => void handleWorkspaceSwitch(event.target.value)}
-                disabled={workspaceBusy || creatingClient}
-                className="min-w-[220px] rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700"
-              >
-                {workspaces.map(workspace => (
-                  <option key={workspace.id} value={workspace.id}>
-                    {workspace.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => void handleCreateClient()}
-                disabled={workspaceBusy || creatingClient}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-              >
-                {creatingClient ? 'Creating…' : 'New client'}
-              </button>
-            </div>
-            {clientError && (
-              <span className="text-xs text-red-600">{clientError}</span>
+            {showClientSwitcher ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Client</label>
+                  <select
+                    value={user?.workspace?.id ?? ''}
+                    onChange={event => void handleWorkspaceSwitch(event.target.value)}
+                    disabled={workspaceBusy}
+                    className="min-w-[220px] rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700"
+                  >
+                    {workspaces.map(workspace => (
+                      <option key={workspace.id} value={workspace.id}>
+                        {workspace.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => navigate('/clients')}
+                    disabled={workspaceBusy}
+                    className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    Manage clients
+                  </button>
+                </div>
+                {clientError && (
+                  <span className="text-xs text-red-600">{clientError}</span>
+                )}
+              </>
+            ) : (
+              <div>
+                <p className="text-sm font-medium text-slate-700">{user?.workspace?.name ?? 'Client overview'}</p>
+                <p className="text-xs text-slate-500">Use the dedicated client panel when you need to add or switch accounts.</p>
+              </div>
             )}
           </div>
 

@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { loadAuthMe, switchWorkspace } from '../shared/workspaces';
 
 interface Campaign {
   id: string;
+  workspace_id?: string;
+  workspace_name?: string;
   name: string;
   advertiser?: { id: string; name: string };
   metadata?: { dsp?: string | null };
@@ -33,25 +36,48 @@ const fmtNum = (val: number | null) => val != null ? val.toLocaleString() : '—
 export default function CampaignList() {
   const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
-    fetch('/v1/campaigns', { credentials: 'include' })
-      .then(r => { if (!r.ok) throw new Error('Failed to load campaigns'); return r.json(); })
-      .then(data => setCampaigns(data?.campaigns ?? data ?? []))
+    Promise.all([
+      fetch('/v1/campaigns?scope=all', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Failed to load campaigns'); return r.json(); }),
+      fetch('/v1/auth/workspaces', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Failed to load clients'); return r.json(); }),
+      loadAuthMe(),
+    ])
+      .then(([campaignData, workspaceData, authMe]) => {
+        setCampaigns(campaignData?.campaigns ?? campaignData ?? []);
+        setClients(workspaceData?.workspaces ?? []);
+        setActiveWorkspaceId(authMe.workspace?.id ?? '');
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   };
 
   useEffect(load, []);
 
+  const filteredCampaigns = campaigns.filter(campaign => {
+    const clientMatch = !selectedClientId || campaign.workspace_id === selectedClientId;
+    const searchMatch = !search.trim()
+      || campaign.name.toLowerCase().includes(search.trim().toLowerCase())
+      || (campaign.workspace_name ?? '').toLowerCase().includes(search.trim().toLowerCase());
+    return clientMatch && searchMatch;
+  });
+
   const handleDelete = async (campaign: Campaign) => {
     if (!window.confirm(`Delete campaign "${campaign.name}"? This cannot be undone.`)) return;
     setDeletingId(campaign.id);
     try {
+      if (campaign.workspace_id && campaign.workspace_id !== activeWorkspaceId) {
+        await switchWorkspace(campaign.workspace_id);
+        setActiveWorkspaceId(campaign.workspace_id);
+      }
       const res = await fetch(`/v1/campaigns/${campaign.id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error('Delete failed');
       setCampaigns(cs => cs.filter(c => c.id !== campaign.id));
@@ -59,6 +85,18 @@ export default function CampaignList() {
       alert('Failed to delete campaign.');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleEdit = async (campaign: Campaign) => {
+    try {
+      if (campaign.workspace_id && campaign.workspace_id !== activeWorkspaceId) {
+        await switchWorkspace(campaign.workspace_id);
+        setActiveWorkspaceId(campaign.workspace_id);
+      }
+      navigate(`/campaigns/${campaign.id}`);
+    } catch {
+      alert('Failed to open campaign in its client workspace.');
     }
   };
 
@@ -85,21 +123,54 @@ export default function CampaignList() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Campaigns</h1>
-          <p className="text-sm text-slate-500 mt-1">{campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-slate-500 mt-1">{filteredCampaigns.length} campaign{filteredCampaigns.length !== 1 ? 's' : ''}</p>
         </div>
-        <Link
-          to="/campaigns/new"
-          className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
-        >
-          + New Campaign
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to="/clients"
+            className="inline-flex items-center gap-2 border border-slate-300 px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            + Add Client
+          </Link>
+          <Link
+            to="/campaigns/new"
+            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
+          >
+            + New Campaign
+          </Link>
+        </div>
       </div>
 
-      {campaigns.length === 0 ? (
+      <div className="mb-6 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-[240px_minmax(0,1fr)]">
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Client</label>
+          <select
+            value={selectedClientId}
+            onChange={event => setSelectedClientId(event.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="">All clients</option>
+            {clients.map(client => (
+              <option key={client.id} value={client.id}>{client.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Campaign name</label>
+          <input
+            value={search}
+            onChange={event => setSearch(event.target.value)}
+            placeholder="Filter by campaign or client name"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+
+      {filteredCampaigns.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
           <p className="text-4xl mb-3">📋</p>
-          <h3 className="text-lg font-medium text-slate-700">No campaigns yet</h3>
-          <p className="text-sm text-slate-500 mt-1 mb-4">Create your first campaign to get started.</p>
+          <h3 className="text-lg font-medium text-slate-700">No campaigns match this view</h3>
+          <p className="text-sm text-slate-500 mt-1 mb-4">Try another client filter or create a new campaign.</p>
           <Link to="/campaigns/new" className="inline-flex items-center gap-2 bg-indigo-600 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition-colors">
             + New Campaign
           </Link>
@@ -118,10 +189,13 @@ export default function CampaignList() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {campaigns.map(c => (
+                {filteredCampaigns.map(c => (
                   <tr key={c.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3">
-                      <span className="text-sm font-medium text-slate-800">{c.name}</span>
+                      <div>
+                        <span className="text-sm font-medium text-slate-800">{c.name}</span>
+                        <div className="mt-1 text-xs text-slate-500">{c.workspace_name ?? 'Client unavailable'}</div>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-600">{c.metadata?.dsp ?? c.advertiser?.name ?? '—'}</td>
                     <td className="px-4 py-3">{statusBadge(c.status)}</td>
@@ -131,7 +205,7 @@ export default function CampaignList() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => navigate(`/campaigns/${c.id}/edit`)}
+                          onClick={() => void handleEdit(c)}
                           className="text-xs text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors"
                         >
                           Edit

@@ -21,7 +21,7 @@ import {
   submitCreativeVersion,
   updateTagBinding,
 } from './catalog';
-import { createClientWorkspace, loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
+import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 
 function formatBytes(value?: number | null) {
   if (!value) return '—';
@@ -182,21 +182,6 @@ export default function CreativeLibrary() {
       await load();
     } catch (workspaceError: any) {
       setError(workspaceError.message ?? 'Failed to switch client');
-    } finally {
-      setWorkspaceBusy(false);
-    }
-  };
-
-  const handleCreateClient = async () => {
-    const name = window.prompt('New client name');
-    if (!name?.trim()) return;
-    setWorkspaceBusy(true);
-    setError('');
-    try {
-      await createClientWorkspace(name.trim());
-      await load();
-    } catch (workspaceError: any) {
-      setError(workspaceError.message ?? 'Failed to create client');
     } finally {
       setWorkspaceBusy(false);
     }
@@ -497,7 +482,7 @@ export default function CreativeLibrary() {
             ))}
           </select>
           <button
-            onClick={() => void handleCreateClient()}
+            onClick={() => navigate('/clients')}
             disabled={workspaceBusy}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
           >

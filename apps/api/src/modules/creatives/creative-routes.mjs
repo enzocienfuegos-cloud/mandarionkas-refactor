@@ -434,9 +434,16 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
 
+    const variants = await listCreativeSizeVariants(pool, workspaceId, id);
+    const defaultVariant = variants.find((variant) =>
+      Number(variant.width ?? 0) === Number(version.width ?? 0)
+      && Number(variant.height ?? 0) === Number(version.height ?? 0),
+    ) ?? variants[0] ?? null;
+
     const binding = await createTagBinding(pool, workspaceId, {
       tag_id: tagId,
       creative_version_id: id,
+      creative_size_variant_id: defaultVariant?.id ?? null,
       status,
       weight,
       start_at: startAt,

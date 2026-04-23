@@ -6,7 +6,7 @@ import {
   publishCreativeIngestion,
   uploadFileToSignedUrl,
 } from './catalog';
-import { createClientWorkspace, loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
+import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 
 type SourceKind = 'html5_zip' | 'video_mp4';
 
@@ -48,23 +48,6 @@ export default function CreativeUpload() {
       setWorkspaceId(nextWorkspaceId);
     } catch (workspaceError: any) {
       setError(workspaceError.message ?? 'Failed to switch client');
-    } finally {
-      setWorkspaceBusy(false);
-    }
-  };
-
-  const handleCreateClient = async () => {
-    const clientName = window.prompt('New client name');
-    if (!clientName?.trim()) return;
-    setWorkspaceBusy(true);
-    setError('');
-    try {
-      const response = await createClientWorkspace(clientName.trim());
-      const workspaceList = await loadWorkspaces();
-      setWorkspaces(workspaceList);
-      setWorkspaceId(response.activeWorkspaceId ?? response.client?.id ?? workspaceList[0]?.id ?? '');
-    } catch (workspaceError: any) {
-      setError(workspaceError.message ?? 'Failed to create client');
     } finally {
       setWorkspaceBusy(false);
     }
@@ -143,7 +126,7 @@ export default function CreativeUpload() {
               </select>
               <button
                 type="button"
-                onClick={() => void handleCreateClient()}
+                onClick={() => navigate('/clients')}
                 disabled={loading || workspaceBusy}
                 className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
               >

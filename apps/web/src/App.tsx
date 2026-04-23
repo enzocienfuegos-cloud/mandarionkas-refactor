@@ -8,6 +8,7 @@ import Register from './auth/Register';
 const CampaignList       = lazy(() => import('./campaigns/CampaignList'));
 const CampaignEditor     = lazy(() => import('./campaigns/CampaignEditor'));
 const AdOpsOverview      = lazy(() => import('./overview/AdOpsOverview'));
+const ClientManager      = lazy(() => import('./clients/ClientManager'));
 const TagList            = lazy(() => import('./tags/TagList'));
 const TagBuilder         = lazy(() => import('./tags/TagBuilder'));
 const TagBindingDashboard = lazy(() => import('./tags/TagBindingDashboard'));
@@ -54,6 +55,9 @@ export default function App() {
             <Route path="campaigns"        element={<CampaignList />} />
             <Route path="campaigns/new"    element={<CampaignEditor />} />
             <Route path="campaigns/:id"    element={<CampaignEditor />} />
+
+            {/* Clients */}
+            <Route path="clients"          element={<ClientManager />} />
 
             {/* Tags */}
             <Route path="tags"                      element={<TagList />} />

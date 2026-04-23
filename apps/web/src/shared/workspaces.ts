@@ -51,7 +51,14 @@ export async function switchWorkspace(workspaceId: string) {
   });
 }
 
-export async function createClientWorkspace(name: string) {
+export async function createClientWorkspace(input: { name: string; website?: string; dsp?: string } | string) {
+  const payload = typeof input === 'string'
+    ? { name: input }
+    : {
+      name: input.name,
+      website: input.website ?? '',
+      dsp: input.dsp ?? '',
+    };
   return fetchJson<{
     ok: boolean;
     client?: WorkspaceOption | null;
@@ -60,6 +67,6 @@ export async function createClientWorkspace(name: string) {
     workspaces?: WorkspaceOption[];
   }>('/v1/clients', {
     method: 'POST',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(payload),
   });
 }

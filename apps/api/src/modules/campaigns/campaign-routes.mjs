@@ -1,5 +1,6 @@
 import {
   listCampaigns,
+  listCampaignsForUser,
   getCampaign,
   createCampaign,
   updateCampaign,
@@ -15,10 +16,18 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
 
   // GET /v1/campaigns
   app.get('/v1/campaigns', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
-    const { status, advertiserId, limit, offset, search } = req.query;
+    const { workspaceId, userId } = req.authSession;
+    const { status, advertiserId, limit, offset, search, scope, workspaceId: filterWorkspaceId } = req.query;
 
-    const campaigns = await listCampaigns(pool, workspaceId, { status, advertiserId, limit, offset, search });
+    const campaigns = scope === 'all'
+      ? await listCampaignsForUser(pool, userId, {
+        status,
+        workspaceId: filterWorkspaceId,
+        limit,
+        offset,
+        search,
+      })
+      : await listCampaigns(pool, workspaceId, { status, advertiserId, limit, offset, search });
     return reply.send({ campaigns });
   });
 
