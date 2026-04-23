@@ -432,6 +432,115 @@ export async function getWorkspaceIdentityKeyBreakdown(pool, workspaceId, opts =
   return rows;
 }
 
+export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, canonicalType = '' } = opts;
+  const params = [workspaceId];
+  const conditions = ['e.workspace_id = $1', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`ie.timestamp >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(`${dateTo}T23:59:59.999Z`);
+    conditions.push(`ie.timestamp <= $${params.length}`);
+  }
+  if (canonicalType) {
+    params.push(canonicalType);
+    conditions.push(`p.canonical_type = $${params.length}`);
+  }
+
+  const { rows } = await pool.query(
+    `WITH impression_identities AS (
+       SELECT
+         e.identity_profile_id,
+         MIN(ie.timestamp) AS first_impression_at
+       FROM event_identity_keys e
+       JOIN impression_events ie ON ie.id = e.event_id
+       JOIN identity_profiles p ON p.id = e.identity_profile_id
+       WHERE ${conditions.join(' AND ')}
+       GROUP BY e.identity_profile_id
+     ),
+     windows AS (
+       SELECT 'same_day'::text AS window_key, 'Same day'::text AS label, INTERVAL '1 day' AS window_size, 1 AS sort_order
+       UNION ALL
+       SELECT '7d'::text AS window_key, '7 days'::text AS label, INTERVAL '7 days' AS window_size, 2 AS sort_order
+       UNION ALL
+       SELECT '30d'::text AS window_key, '30 days'::text AS label, INTERVAL '30 days' AS window_size, 3 AS sort_order
+     )
+     SELECT
+       w.window_key,
+       w.label,
+       COUNT(*)::bigint AS exposed_identities,
+       COUNT(*) FILTER (
+         WHERE EXISTS (
+           SELECT 1
+           FROM event_identity_keys ec
+           JOIN click_events ce ON ce.id = ec.event_id
+           WHERE ec.workspace_id = $1
+             AND ec.event_type = 'click'
+             AND ec.identity_profile_id = ii.identity_profile_id
+             AND ce.timestamp >= ii.first_impression_at
+             AND ce.timestamp < ii.first_impression_at + w.window_size
+         )
+       )::bigint AS clicked_identities,
+       COUNT(*) FILTER (
+         WHERE EXISTS (
+           SELECT 1
+           FROM event_identity_keys ee
+           JOIN engagement_events ge ON ge.id = ee.event_id
+           WHERE ee.workspace_id = $1
+             AND ee.event_type = 'engagement'
+             AND ee.identity_profile_id = ii.identity_profile_id
+             AND ge.timestamp >= ii.first_impression_at
+             AND ge.timestamp < ii.first_impression_at + w.window_size
+         )
+       )::bigint AS engaged_identities,
+       CASE WHEN COUNT(*) > 0
+            THEN ROUND(
+              COUNT(*) FILTER (
+                WHERE EXISTS (
+                  SELECT 1
+                  FROM event_identity_keys ec
+                  JOIN click_events ce ON ce.id = ec.event_id
+                  WHERE ec.workspace_id = $1
+                    AND ec.event_type = 'click'
+                    AND ec.identity_profile_id = ii.identity_profile_id
+                    AND ce.timestamp >= ii.first_impression_at
+                    AND ce.timestamp < ii.first_impression_at + w.window_size
+                )
+              )::NUMERIC / COUNT(*) * 100,
+              4
+            )
+            ELSE 0
+       END AS click_through_rate,
+       CASE WHEN COUNT(*) > 0
+            THEN ROUND(
+              COUNT(*) FILTER (
+                WHERE EXISTS (
+                  SELECT 1
+                  FROM event_identity_keys ee
+                  JOIN engagement_events ge ON ge.id = ee.event_id
+                  WHERE ee.workspace_id = $1
+                    AND ee.event_type = 'engagement'
+                    AND ee.identity_profile_id = ii.identity_profile_id
+                    AND ge.timestamp >= ii.first_impression_at
+                    AND ge.timestamp < ii.first_impression_at + w.window_size
+                )
+              )::NUMERIC / COUNT(*) * 100,
+              4
+            )
+            ELSE 0
+       END AS engagement_through_rate
+     FROM impression_identities ii
+     CROSS JOIN windows w
+     GROUP BY w.window_key, w.label, w.sort_order
+     ORDER BY w.sort_order ASC`,
+    params,
+  );
+  return rows;
+}
+
 export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, canonicalType = '' } = opts;
   const params = [workspaceId];

@@ -70,6 +70,7 @@ interface WorkspaceAnalytics {
   identityFrequency: RankedMetric[];
   identitySegments: RankedMetric[];
   identityKeyBreakdown: RankedMetric[];
+  identityAttribution: RankedMetric[];
   engagements: RankedMetric[];
 }
 
@@ -187,6 +188,7 @@ function normalizeWorkspaceAnalytics(
   identityFrequencyPayload: any,
   identitySegmentsPayload: any,
   identityKeyPayload: any,
+  identityAttributionPayload: any,
   creativePayload: any,
   variantPayload: any,
 ): WorkspaceAnalytics {
@@ -253,6 +255,9 @@ function normalizeWorkspaceAnalytics(
     }),
     identityKeyBreakdown: normalizeRankedMetricList(identityKeyPayload?.breakdown ?? [], 'key_type', 'key_observations', (item) => {
       return `${String(item?.event_type ?? 'unknown')} · ${fmtNum(toNumber(item?.unique_values))} unique values · ${fmtNum(toNumber(item?.identity_count))} identities`;
+    }),
+    identityAttribution: normalizeRankedMetricList(identityAttributionPayload?.breakdown ?? [], 'label', 'exposed_identities', (item) => {
+      return `${fmtNum(toNumber(item?.clicked_identities))} clicked · ${fmtNum(toNumber(item?.engaged_identities))} engaged · ${fmtCtr(toNumber(item?.click_through_rate))} click-through · ${fmtCtr(toNumber(item?.engagement_through_rate))} engagement-through`;
     }),
     engagements: normalizeRankedMetricList(engagementPayload?.breakdown ?? [], 'event_type', 'event_count', (item) => {
       const duration = toNumber(item?.total_duration_ms);
@@ -478,6 +483,10 @@ export default function AnalyticsDashboard() {
         if (!r.ok) throw new Error('Failed to load identity key breakdown');
         return r.json();
       }),
+      fetch(`/v1/reporting/workspace/identity-attribution-windows${identityQuery}`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load identity attribution windows');
+        return r.json();
+      }),
       fetch(`/v1/reporting/workspace/creative-breakdown${query}`, { credentials: 'include' }).then((r) => {
         if (!r.ok) throw new Error('Failed to load creative breakdown');
         return r.json();
@@ -487,8 +496,8 @@ export default function AnalyticsDashboard() {
         return r.json();
       }),
     ])
-      .then(([workspace, campaigns, tags, sites, countries, regions, cities, engagements, identities, identityFrequency, identitySegments, identityKeys, creatives, variants]) => {
-        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, regions, cities, engagements, identities, identityFrequency, identitySegments, identityKeys, creatives, variants));
+      .then(([workspace, campaigns, tags, sites, countries, regions, cities, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, creatives, variants]) => {
+        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, regions, cities, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, creatives, variants));
       })
       .catch((loadError: any) => setError(loadError.message ?? 'Failed to load analytics'))
       .finally(() => setLoading(false));
@@ -763,6 +772,10 @@ export default function AnalyticsDashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
         <RankedList title="Identity Frequency Buckets" emptyLabel="No identity frequency data available" items={data?.identityFrequency ?? []} />
         <RankedList title="Identity Segment Presets" emptyLabel="No identity segment data available" items={data?.identitySegments ?? []} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 mb-6">
+        <RankedList title="Identity Attribution Windows" emptyLabel="No identity attribution data available" items={data?.identityAttribution ?? []} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 mb-6">

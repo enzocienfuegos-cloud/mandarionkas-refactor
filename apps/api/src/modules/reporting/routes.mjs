@@ -20,6 +20,7 @@ import {
   getWorkspaceIdentityFrequencyBuckets,
   getWorkspaceIdentitySegmentPresets,
   getWorkspaceIdentityKeyBreakdown,
+  getWorkspaceIdentityAttributionWindows,
 } from '@smx/db/tracking';
 
 export function handleReportingRoutes(app, { requireWorkspace, pool }) {
@@ -246,6 +247,13 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
     const { workspaceId } = req.authSession;
     const { dateFrom, dateTo, canonicalType, limit } = req.query;
     const breakdown = await getWorkspaceIdentityKeyBreakdown(pool, workspaceId, { dateFrom, dateTo, canonicalType, limit });
+    return reply.send({ breakdown });
+  });
+
+  app.get('/v1/reporting/workspace/identity-attribution-windows', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, canonicalType } = req.query;
+    const breakdown = await getWorkspaceIdentityAttributionWindows(pool, workspaceId, { dateFrom, dateTo, canonicalType });
     return reply.send({ breakdown });
   });
 
