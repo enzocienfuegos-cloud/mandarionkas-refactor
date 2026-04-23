@@ -2,6 +2,15 @@ import { getTagServingSnapshot } from '@smx/db/tags';
 
 const BASE_URL = process.env.BASE_URL ?? 'https://api.smxstudio.io';
 
+function readRequestedSize(query = {}) {
+  const width = Number(query?.width ?? query?.w ?? 0);
+  const height = Number(query?.height ?? query?.h ?? 0);
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    return null;
+  }
+  return { width, height };
+}
+
 function buildVastXml(tag, workspaceId, baseUrl) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
@@ -164,7 +173,9 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       return reply.status(401).send({ error: 'Unauthorized', message: 'Authentication required' });
     }
 
-    const tag = await getTagServingSnapshot(pool, workspaceId, tagId);
+    const tag = await getTagServingSnapshot(pool, workspaceId, tagId, {
+      requestedSize: readRequestedSize(req.query),
+    });
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
@@ -193,7 +204,9 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       return reply.status(401).send({ error: 'Unauthorized', message: 'Authentication required' });
     }
 
-    const tag = await getTagServingSnapshot(pool, workspaceId, tagId);
+    const tag = await getTagServingSnapshot(pool, workspaceId, tagId, {
+      requestedSize: readRequestedSize(req.query),
+    });
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }

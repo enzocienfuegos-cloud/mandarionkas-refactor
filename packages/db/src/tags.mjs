@@ -166,6 +166,45 @@ function isBindingActive(binding) {
   return true;
 }
 
+function normalizeRequestedSize(requestedSize = {}) {
+  const width = Number(requestedSize.width);
+  const height = Number(requestedSize.height);
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    return null;
+  }
+  return { width, height };
+}
+
+function scoreBindingForRequestedSize(binding, requestedSize) {
+  const requested = normalizeRequestedSize(requestedSize);
+  if (!requested) return 0;
+
+  const width = Number(binding.variant_width ?? binding.width ?? 0);
+  const height = Number(binding.variant_height ?? binding.height ?? 0);
+  if (!width || !height) return 25;
+
+  if (width === requested.width && height === requested.height) {
+    return 1000;
+  }
+
+  const requestedAspect = requested.width / requested.height;
+  const candidateAspect = width / height;
+  const aspectDelta = Math.abs(requestedAspect - candidateAspect);
+  const areaDelta = Math.abs((requested.width * requested.height) - (width * height));
+  const orientationBonus =
+    (requested.width >= requested.height) === (width >= height)
+      ? 40
+      : 0;
+
+  return Math.max(
+    0,
+    700
+      - Math.round(aspectDelta * 200)
+      - Math.round(areaDelta / 5000)
+      + orientationBonus,
+  );
+}
+
 function scoreArtifactForServing(servingFormat, artifact) {
   const kind = String(artifact?.kind ?? '').toLowerCase();
   if (servingFormat === 'vast_video') {
@@ -309,7 +348,36 @@ async function listTagVersionBindings(pool, workspaceId, tagId) {
   return rows;
 }
 
-export async function getTagServingSnapshot(pool, workspaceId, tagId) {
+function selectServingBinding(bindings, requestedSize) {
+  const eligibleBindings = bindings.filter(binding =>
+    isBindingActive(binding)
+    && isServingVersionEligible({ status: binding.creative_version_status }),
+  );
+
+  if (!eligibleBindings.length) return null;
+  const requested = normalizeRequestedSize(requestedSize);
+  if (!requested) {
+    return eligibleBindings[0];
+  }
+
+  const ranked = eligibleBindings
+    .map(binding => ({
+      binding,
+      sizeScore: scoreBindingForRequestedSize(binding, requested),
+      weightScore: Math.max(1, Number(binding.weight) || 1),
+      hasVariant: Boolean(binding.creative_size_variant_id),
+    }))
+    .sort((a, b) => {
+      if (b.sizeScore !== a.sizeScore) return b.sizeScore - a.sizeScore;
+      if (b.hasVariant !== a.hasVariant) return Number(b.hasVariant) - Number(a.hasVariant);
+      if (b.weightScore !== a.weightScore) return b.weightScore - a.weightScore;
+      return new Date(a.binding.created_at).getTime() - new Date(b.binding.created_at).getTime();
+    });
+
+  return ranked[0]?.binding ?? null;
+}
+
+export async function getTagServingSnapshot(pool, workspaceId, tagId, options = {}) {
   const tag = await getTag(pool, workspaceId, tagId);
   if (!tag) return null;
 
@@ -318,7 +386,7 @@ export async function getTagServingSnapshot(pool, workspaceId, tagId) {
     getTagWithCreatives(pool, workspaceId, tagId),
   ]);
 
-  const activeBinding = bindings.find(binding => isBindingActive(binding) && isServingVersionEligible({ status: binding.creative_version_status }));
+  const activeBinding = selectServingBinding(bindings, options.requestedSize);
   const servingCandidate = activeBinding
     ? toServingCandidateFromBinding(activeBinding, tag)
     : null;
