@@ -199,6 +199,9 @@ function isBindingActive(binding) {
 }
 
 function normalizeRequestedSize(requestedSize = {}) {
+  if (!requestedSize || typeof requestedSize !== 'object') {
+    return null;
+  }
   const width = Number(requestedSize.width);
   const height = Number(requestedSize.height);
   if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
