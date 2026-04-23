@@ -141,14 +141,21 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
+  const internalClickSignals = Array.isArray(servingCandidate?.internalClickSignals)
+    ? servingCandidate.internalClickSignals
+    : [];
+  const shouldPreferInternalClickRuntime = Boolean(
+    servingCandidate?.hasInternalClickTag
+    && !internalClickSignals.includes('creatopy.runtime'),
+  );
   const useTrackedClickWrapper = Boolean(
     isTrackableDestinationUrl(clickUrl)
-    && (servingCandidate?.clickOverrideEnabled || !servingCandidate?.hasInternalClickTag),
+    && (servingCandidate?.clickOverrideEnabled || !shouldPreferInternalClickRuntime),
   );
   const creativeIframeUrl = buildCreativeIframeUrl(
     creativeUrl,
     clickTrackUrl,
-    !useTrackedClickWrapper && Boolean(servingCandidate?.hasInternalClickTag),
+    !useTrackedClickWrapper && shouldPreferInternalClickRuntime,
   );
 
   return `(function() {
@@ -332,14 +339,21 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
   const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
+  const internalClickSignals = Array.isArray(servingCandidate?.internalClickSignals)
+    ? servingCandidate.internalClickSignals
+    : [];
+  const shouldPreferInternalClickRuntime = Boolean(
+    servingCandidate?.hasInternalClickTag
+    && !internalClickSignals.includes('creatopy.runtime'),
+  );
   const useTrackedClickWrapper = Boolean(
     isTrackableDestinationUrl(clickUrl)
-    && (servingCandidate?.clickOverrideEnabled || !servingCandidate?.hasInternalClickTag),
+    && (servingCandidate?.clickOverrideEnabled || !shouldPreferInternalClickRuntime),
   );
   const creativeIframeUrl = buildCreativeIframeUrl(
     creativeUrl,
     clickTrackUrl,
-    !useTrackedClickWrapper && Boolean(servingCandidate?.hasInternalClickTag),
+    !useTrackedClickWrapper && shouldPreferInternalClickRuntime,
   );
 
   const body = creativeUrl && servingFormat === 'display_html'

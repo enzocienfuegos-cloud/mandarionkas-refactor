@@ -394,6 +394,9 @@ function toServingCandidateFromBinding(binding, tag) {
     : {};
   const clickOverrideEnabled = Boolean(tag.click_url);
   const clickUrl = tag.click_url ?? binding.creative_click_url ?? null;
+  const internalClickSignals = Array.isArray(versionMetadata.internalClickSignals)
+    ? versionMetadata.internalClickSignals.filter(Boolean)
+    : [];
   const hasInternalClickTag = Boolean(
     versionMetadata.hasInternalClickTag
     || versionMetadata.hasEmbeddedClickTag,
@@ -416,6 +419,7 @@ function toServingCandidateFromBinding(binding, tag) {
     clickUrl,
     clickOverrideEnabled,
     hasInternalClickTag,
+    internalClickSignals,
     publicUrl,
     entryPath: binding.entry_path ?? null,
     artifactKind: artifact?.kind ?? null,

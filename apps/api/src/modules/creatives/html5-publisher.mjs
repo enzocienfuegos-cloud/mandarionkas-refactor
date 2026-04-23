@@ -134,6 +134,7 @@ function detectInternalClickBehavior(htmlSource) {
     { name: 'enabler.exit', pattern: /\bEnabler\.exit\b/i },
     { name: 'adform.clicktag', pattern: /\bAdform\.clickTag\b/i },
     { name: 'sizmek.clickthrough', pattern: /\bEB\.clickthrough\b/i },
+    { name: 'creatopy.runtime', pattern: /\bcreatopyEmbed\b|\bbsClickTAG\b|\bbsOpenURL\b|\bbsClickFunc\b|\bbannerURL\b/i },
   ];
 
   const signals = checks
