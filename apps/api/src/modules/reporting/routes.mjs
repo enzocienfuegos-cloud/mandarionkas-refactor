@@ -33,6 +33,91 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 
+  function buildIdentityAudienceCsv(rows, format = 'full') {
+    if (format === 'activation') {
+      return [
+        ['identity_profile_id', 'canonical_type', 'canonical_value', 'country', 'region', 'city', 'device_ids', 'cookie_ids', 'external_user_ids'],
+        ...rows.map((row) => ([
+          row.id,
+          row.canonical_type,
+          row.canonical_value,
+          row.last_country,
+          row.last_region,
+          row.last_city,
+          row.device_ids,
+          row.cookie_ids,
+          row.external_user_ids,
+        ])),
+      ];
+    }
+
+    if (format === 'click_ids') {
+      return [
+        ['identity_profile_id', 'canonical_type', 'canonical_value', 'gclids', 'fbclids', 'ttclids', 'msclkids', 'clicks', 'engagements'],
+        ...rows.map((row) => ([
+          row.id,
+          row.canonical_type,
+          row.canonical_value,
+          row.gclids,
+          row.fbclids,
+          row.ttclids,
+          row.msclkids,
+          row.clicks,
+          row.engagements,
+        ])),
+      ];
+    }
+
+    return [
+      [
+        'identity_profile_id',
+        'canonical_type',
+        'canonical_value',
+        'first_seen_at',
+        'last_seen_at',
+        'last_country',
+        'last_region',
+        'last_city',
+        'confidence',
+        'impressions',
+        'clicks',
+        'engagements',
+        'ctr',
+        'key_types',
+        'device_ids',
+        'cookie_ids',
+        'external_user_ids',
+        'gclids',
+        'fbclids',
+        'ttclids',
+        'msclkids',
+      ],
+      ...rows.map((row) => ([
+        row.id,
+        row.canonical_type,
+        row.canonical_value,
+        row.first_seen_at,
+        row.last_seen_at,
+        row.last_country,
+        row.last_region,
+        row.last_city,
+        row.confidence,
+        row.impressions,
+        row.clicks,
+        row.engagements,
+        row.ctr,
+        row.key_types,
+        row.device_ids,
+        row.cookie_ids,
+        row.external_user_ids,
+        row.gclids,
+        row.fbclids,
+        row.ttclids,
+        row.msclkids,
+      ])),
+    ];
+  }
+
   // GET /v1/reporting/workspace — workspace-level aggregate stats
   app.get('/v1/reporting/workspace', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
@@ -175,7 +260,7 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
 
   app.get('/v1/reporting/workspace/identity-audience-export', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, canonicalType, country, segmentPreset, minImpressions, minClicks } = req.query;
+    const { dateFrom, dateTo, canonicalType, country, segmentPreset, minImpressions, minClicks, format = 'full' } = req.query;
     const rows = await getWorkspaceIdentityAudienceExport(pool, workspaceId, {
       dateFrom,
       dateTo,
@@ -185,58 +270,11 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
       minImpressions,
       minClicks,
     });
-    const csvRows = [
-      [
-        'identity_profile_id',
-        'canonical_type',
-        'canonical_value',
-        'first_seen_at',
-        'last_seen_at',
-        'last_country',
-        'last_region',
-        'last_city',
-        'confidence',
-        'impressions',
-        'clicks',
-        'engagements',
-        'ctr',
-        'key_types',
-        'device_ids',
-        'cookie_ids',
-        'external_user_ids',
-        'gclids',
-        'fbclids',
-        'ttclids',
-        'msclkids',
-      ],
-      ...rows.map((row) => ([
-        row.id,
-        row.canonical_type,
-        row.canonical_value,
-        row.first_seen_at,
-        row.last_seen_at,
-        row.last_country,
-        row.last_region,
-        row.last_city,
-        row.confidence,
-        row.impressions,
-        row.clicks,
-        row.engagements,
-        row.ctr,
-        row.key_types,
-        row.device_ids,
-        row.cookie_ids,
-        row.external_user_ids,
-        row.gclids,
-        row.fbclids,
-        row.ttclids,
-        row.msclkids,
-      ])),
-    ];
+    const csvRows = buildIdentityAudienceCsv(rows, String(format));
     const csv = csvRows.map((row) => row.map(escapeCsv).join(',')).join('\n');
     reply
       .header('content-type', 'text/csv; charset=utf-8')
-      .header('content-disposition', `attachment; filename="identity-audience.csv"`)
+      .header('content-disposition', `attachment; filename="identity-audience-${String(format)}.csv"`)
       .send(csv);
   });
 

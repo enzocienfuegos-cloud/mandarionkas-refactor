@@ -4,6 +4,7 @@ type DateRange = 7 | 30 | 90;
 type RangeMode = 'preset' | 'custom';
 type IdentityTypeFilter = '' | 'external_user_id' | 'device_id' | 'cookie_id';
 type IdentitySegmentPreset = '' | 'high_frequency_exposed' | 'clicked_users' | 'engaged_non_clickers';
+type IdentityExportFormat = 'full' | 'activation' | 'click_ids';
 
 interface RankedMetric {
   label: string;
@@ -98,6 +99,11 @@ const IDENTITY_SEGMENT_PRESETS: Array<{ value: IdentitySegmentPreset; label: str
   { value: 'high_frequency_exposed', label: 'High-frequency exposed' },
   { value: 'clicked_users', label: 'Clicked users' },
   { value: 'engaged_non_clickers', label: 'Engaged non-clickers' },
+];
+const IDENTITY_EXPORT_FORMATS: Array<{ value: IdentityExportFormat; label: string }> = [
+  { value: 'full', label: 'Full export' },
+  { value: 'activation', label: 'Activation export' },
+  { value: 'click_ids', label: 'Click IDs only' },
 ];
 
 function toNumber(value: unknown): number {
@@ -432,6 +438,7 @@ export default function AnalyticsDashboard() {
   const [identityMinImpressions, setIdentityMinImpressions] = useState('1');
   const [identityMinClicks, setIdentityMinClicks] = useState('0');
   const [identitySegmentPreset, setIdentitySegmentPreset] = useState<IdentitySegmentPreset>('');
+  const [identityExportFormat, setIdentityExportFormat] = useState<IdentityExportFormat>('full');
   const [savingAudience, setSavingAudience] = useState(false);
 
   const query = useMemo(() => makeQuery({
@@ -447,7 +454,7 @@ export default function AnalyticsDashboard() {
   }, [query, identityTypeFilter]);
   const customDatesValid = Boolean(customStartDate && customEndDate && customStartDate <= customEndDate);
 
-  const buildIdentityAudienceQuery = (overrides?: Partial<SavedAudience>) => {
+  const buildIdentityAudienceQuery = (overrides?: Partial<SavedAudience>, exportFormat?: IdentityExportFormat) => {
     const params = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
     const canonicalType = overrides?.canonicalType ?? identityTypeFilter;
     const country = overrides?.country ?? identityCountryFilter.trim().toUpperCase();
@@ -459,6 +466,7 @@ export default function AnalyticsDashboard() {
     if (segmentPreset) params.set('segmentPreset', segmentPreset);
     params.set('minImpressions', String(Math.max(minImpressions, 0)));
     params.set('minClicks', String(Math.max(minClicks, 0)));
+    params.set('format', exportFormat ?? identityExportFormat);
     return `?${params.toString()}`;
   };
 
@@ -578,7 +586,7 @@ export default function AnalyticsDashboard() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `identity-audience${identityTypeFilter ? `-${identityTypeFilter}` : ''}.csv`;
+      link.download = `identity-audience-${identityExportFormat}${identityTypeFilter ? `-${identityTypeFilter}` : ''}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -828,6 +836,17 @@ export default function AnalyticsDashboard() {
               inputMode="numeric"
               className="w-24 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
             />
+            <select
+              value={identityExportFormat}
+              onChange={(event) => setIdentityExportFormat(event.target.value as IdentityExportFormat)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+            >
+              {IDENTITY_EXPORT_FORMATS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             <button
               onClick={() => void handleExportIdentityAudienceCsv()}
               className="px-3 py-2 text-xs border border-indigo-300 text-indigo-700 rounded-md hover:bg-indigo-50 transition-colors"
