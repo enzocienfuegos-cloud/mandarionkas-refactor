@@ -123,8 +123,9 @@ async function inferGeo(req, query = {}) {
   };
   const overrideCountry = String(query.ct || '').trim().toUpperCase().slice(0, 2) || null;
   const overrideRegion = String(query.rg || '').trim() || null;
-  if (overrideCountry || overrideRegion) {
-    return { country: overrideCountry, region: overrideRegion };
+  const overrideCity = String(query.city || '').trim() || null;
+  if (overrideCountry || overrideRegion || overrideCity) {
+    return { country: overrideCountry, region: overrideRegion, city: overrideCity };
   }
 
   const resolvedIp = extractIp(req);
@@ -142,7 +143,8 @@ async function inferGeo(req, query = {}) {
   ).trim() || null;
   const country = resolvedGeo.country ?? headerCountry;
   const region = resolvedGeo.region ?? headerRegion;
-  return { country, region };
+  const city = resolvedGeo.city ?? null;
+  return { country, region, city };
 }
 
 async function collectTrackingContext(req, query = {}) {
@@ -161,6 +163,7 @@ async function collectTrackingContext(req, query = {}) {
   const geo = await inferGeo(req, query);
   const country = geo.country ?? null;
   const region = geo.region ?? null;
+  const city = geo.city ?? null;
   const { deviceType, browser, os } = inferDeviceInfo(userAgent);
   const cookieDeviceId = req.cookies?.smx_device_id ?? req.cookies?.device_id ?? null;
   const cookieCookieId = req.cookies?.smx_cookie_id ?? req.cookies?.cookie_id ?? null;
@@ -173,6 +176,7 @@ async function collectTrackingContext(req, query = {}) {
     site_domain: selectedContext.siteDomain,
     country,
     region,
+    city,
     device_type: deviceType,
     browser,
     os,

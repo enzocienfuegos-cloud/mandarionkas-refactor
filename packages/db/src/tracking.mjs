@@ -526,7 +526,7 @@ export async function recordImpression(pool, data) {
     impression_id = null,
     tag_id, workspace_id, creative_id = null,
     creative_size_variant_id = null,
-    ip = null, user_agent = null, country = null, region = null,
+    ip = null, user_agent = null, country = null, region = null, city = null,
     referer = null, viewable = null,
     viewability_status = 'unmeasured',
     viewability_method = null,
@@ -539,10 +539,10 @@ export async function recordImpression(pool, data) {
 
   const { rows } = await pool.query(
     `INSERT INTO impression_events
-       (id, tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region, referer, viewable, viewability_status, viewability_method, viewability_duration_ms, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id)
-     VALUES (COALESCE($1::uuid, gen_random_uuid()),$2,$3,$4,$5,$6::inet,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+       (id, tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region, city, referer, viewable, viewability_status, viewability_method, viewability_duration_ms, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id)
+     VALUES (COALESCE($1::uuid, gen_random_uuid()),$2,$3,$4,$5,$6::inet,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
      RETURNING id, tag_id, workspace_id, timestamp`,
-    [impression_id, tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region,
+    [impression_id, tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region, city,
      referer, viewable, viewability_status, viewability_method, viewability_duration_ms, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id],
   );
   const event = rows[0];
@@ -553,7 +553,7 @@ export async function recordImpression(pool, data) {
     identity_keys,
     country,
     region,
-    city: null,
+    city,
     timestamp,
   });
 
@@ -587,6 +587,26 @@ export async function recordImpression(pool, data) {
     );
   }
 
+  if (region) {
+    await pool.query(
+      `INSERT INTO tag_region_daily_stats (tag_id, date, region, impressions)
+       VALUES ($1, $2, $3, 1)
+       ON CONFLICT (tag_id, date, region)
+       DO UPDATE SET impressions = tag_region_daily_stats.impressions + 1, updated_at = NOW()`,
+      [tag_id, date, region],
+    );
+  }
+
+  if (city) {
+    await pool.query(
+      `INSERT INTO tag_city_daily_stats (tag_id, date, city, impressions)
+       VALUES ($1, $2, $3, 1)
+       ON CONFLICT (tag_id, date, city)
+       DO UPDATE SET impressions = tag_city_daily_stats.impressions + 1, updated_at = NOW()`,
+      [tag_id, date, city],
+    );
+  }
+
   if (creative_size_variant_id) {
     await pool.query(
       `INSERT INTO creative_variant_daily_stats (creative_size_variant_id, date, impressions)
@@ -603,7 +623,7 @@ export async function recordClick(pool, data) {
   const {
     tag_id, workspace_id, creative_id = null, impression_id = null,
     creative_size_variant_id = null,
-    ip = null, user_agent = null, country = null, region = null,
+    ip = null, user_agent = null, country = null, region = null, city = null,
     referer = null, redirect_url = null,
     site_domain = null, page_url = null, device_type = null, browser = null, os = null,
     device_id = null, cookie_id = null,
@@ -614,11 +634,11 @@ export async function recordClick(pool, data) {
   const { rows } = await pool.query(
     `INSERT INTO click_events
        (tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, ip, user_agent,
-        country, region, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id)
-     VALUES ($1,$2,$3,$4,$5,$6::inet,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+        country, region, city, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id)
+     VALUES ($1,$2,$3,$4,$5,$6::inet,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
      RETURNING id, tag_id, workspace_id, timestamp`,
     [tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, ip, user_agent,
-     country, region, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id],
+     country, region, city, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id],
   );
   const event = rows[0];
   await recordEventIdentityKeys(pool, {
@@ -628,7 +648,7 @@ export async function recordClick(pool, data) {
     identity_keys,
     country,
     region,
-    city: null,
+    city,
     timestamp,
   });
 
@@ -662,6 +682,26 @@ export async function recordClick(pool, data) {
     );
   }
 
+  if (region) {
+    await pool.query(
+      `INSERT INTO tag_region_daily_stats (tag_id, date, region, clicks)
+       VALUES ($1, $2, $3, 1)
+       ON CONFLICT (tag_id, date, region)
+       DO UPDATE SET clicks = tag_region_daily_stats.clicks + 1, updated_at = NOW()`,
+      [tag_id, date, region],
+    );
+  }
+
+  if (city) {
+    await pool.query(
+      `INSERT INTO tag_city_daily_stats (tag_id, date, city, clicks)
+       VALUES ($1, $2, $3, 1)
+       ON CONFLICT (tag_id, date, city)
+       DO UPDATE SET clicks = tag_city_daily_stats.clicks + 1, updated_at = NOW()`,
+      [tag_id, date, city],
+    );
+  }
+
   if (creative_size_variant_id) {
     await pool.query(
       `INSERT INTO creative_variant_daily_stats (creative_size_variant_id, date, clicks)
@@ -689,7 +729,7 @@ export async function recordViewability(pool, data) {
   let previousStatus = null;
   if (impression_id) {
     const { rows } = await pool.query(
-      `SELECT id, site_domain, country, timestamp, creative_size_variant_id, viewability_status
+      `SELECT id, site_domain, country, region, city, timestamp, creative_size_variant_id, viewability_status
        FROM impression_events
        WHERE id = $1 AND tag_id = $2
        LIMIT 1`,
@@ -723,6 +763,8 @@ export async function recordViewability(pool, data) {
   const date = new Date(impression?.timestamp ?? new Date()).toISOString().slice(0, 10);
   const siteDomain = impression?.site_domain ?? null;
   const country = impression?.country ?? null;
+  const region = impression?.region ?? null;
+  const city = impression?.city ?? null;
   const variantId = impression?.creative_size_variant_id ?? null;
 
   if (shouldCountMeasured) {
@@ -751,6 +793,26 @@ export async function recordViewability(pool, data) {
          ON CONFLICT (tag_id, date, country)
          DO UPDATE SET measured_imps = tag_country_daily_stats.measured_imps + 1, updated_at = NOW()`,
         [tag_id, date, country],
+      );
+    }
+
+    if (region) {
+      await pool.query(
+        `INSERT INTO tag_region_daily_stats (tag_id, date, region, measured_imps)
+         VALUES ($1, $2, $3, 1)
+         ON CONFLICT (tag_id, date, region)
+         DO UPDATE SET measured_imps = tag_region_daily_stats.measured_imps + 1, updated_at = NOW()`,
+        [tag_id, date, region],
+      );
+    }
+
+    if (city) {
+      await pool.query(
+        `INSERT INTO tag_city_daily_stats (tag_id, date, city, measured_imps)
+         VALUES ($1, $2, $3, 1)
+         ON CONFLICT (tag_id, date, city)
+         DO UPDATE SET measured_imps = tag_city_daily_stats.measured_imps + 1, updated_at = NOW()`,
+        [tag_id, date, city],
       );
     }
 
@@ -794,6 +856,26 @@ export async function recordViewability(pool, data) {
       );
     }
 
+    if (region) {
+      await pool.query(
+        `INSERT INTO tag_region_daily_stats (tag_id, date, region, undetermined_imps)
+         VALUES ($1, $2, $3, 1)
+         ON CONFLICT (tag_id, date, region)
+         DO UPDATE SET undetermined_imps = tag_region_daily_stats.undetermined_imps + 1, updated_at = NOW()`,
+        [tag_id, date, region],
+      );
+    }
+
+    if (city) {
+      await pool.query(
+        `INSERT INTO tag_city_daily_stats (tag_id, date, city, undetermined_imps)
+         VALUES ($1, $2, $3, 1)
+         ON CONFLICT (tag_id, date, city)
+         DO UPDATE SET undetermined_imps = tag_city_daily_stats.undetermined_imps + 1, updated_at = NOW()`,
+        [tag_id, date, city],
+      );
+    }
+
     if (variantId) {
       await pool.query(
         `INSERT INTO creative_variant_daily_stats (creative_size_variant_id, date, undetermined_imps)
@@ -834,6 +916,26 @@ export async function recordViewability(pool, data) {
       );
     }
 
+    if (region) {
+      await pool.query(
+        `INSERT INTO tag_region_daily_stats (tag_id, date, region, viewable_imps)
+         VALUES ($1, $2, $3, 1)
+         ON CONFLICT (tag_id, date, region)
+         DO UPDATE SET viewable_imps = tag_region_daily_stats.viewable_imps + 1, updated_at = NOW()`,
+        [tag_id, date, region],
+      );
+    }
+
+    if (city) {
+      await pool.query(
+        `INSERT INTO tag_city_daily_stats (tag_id, date, city, viewable_imps)
+         VALUES ($1, $2, $3, 1)
+         ON CONFLICT (tag_id, date, city)
+         DO UPDATE SET viewable_imps = tag_city_daily_stats.viewable_imps + 1, updated_at = NOW()`,
+        [tag_id, date, city],
+      );
+    }
+
     if (variantId) {
       await pool.query(
         `INSERT INTO creative_variant_daily_stats (creative_size_variant_id, date, viewable_imps)
@@ -860,6 +962,7 @@ export async function recordEngagementEvent(pool, data) {
     user_agent = null,
     country = null,
     region = null,
+    city = null,
     referer = null,
     site_domain = null,
     page_url = null,
@@ -881,9 +984,9 @@ export async function recordEngagementEvent(pool, data) {
   const { rows } = await pool.query(
     `INSERT INTO engagement_events
        (tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, event_type,
-        ip, user_agent, country, region, referer, site_domain, page_url, device_type, browser, os,
+        ip, user_agent, country, region, city, referer, site_domain, page_url, device_type, browser, os,
         device_id, cookie_id, hover_duration_ms, metadata, timestamp)
-     VALUES ($1,$2,$3,$4,$5,$6,$7::inet,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::inet,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
      RETURNING id, tag_id, workspace_id, event_type, timestamp`,
     [
       tag_id,
@@ -896,6 +999,7 @@ export async function recordEngagementEvent(pool, data) {
       user_agent,
       country,
       region,
+      city,
       referer,
       site_domain,
       page_url,
@@ -917,7 +1021,7 @@ export async function recordEngagementEvent(pool, data) {
     identity_keys,
     country,
     region,
-    city: null,
+    city,
     timestamp,
   });
 
@@ -1049,6 +1153,90 @@ export async function getWorkspaceCountryBreakdown(pool, workspaceId, opts = {})
      WHERE ${conditions.join(' AND ')}
      GROUP BY ds.country
      ORDER BY SUM(ds.impressions) DESC, ds.country ASC
+     LIMIT $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
+export async function getWorkspaceRegionBreakdown(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, limit = 25 } = opts;
+  const params = [workspaceId];
+  const conditions = ['t.workspace_id = $1'];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`ds.date >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    conditions.push(`ds.date <= $${params.length}`);
+  }
+  params.push(Math.min(Number(limit) || 25, 100));
+
+  const { rows } = await pool.query(
+    `SELECT ds.region,
+            SUM(ds.impressions) AS impressions,
+            SUM(ds.clicks) AS clicks,
+            SUM(ds.viewable_imps) AS viewable_imps,
+            SUM(ds.measured_imps) AS measured_imps,
+            SUM(ds.undetermined_imps) AS undetermined_imps,
+            CASE WHEN SUM(ds.impressions) > 0
+                 THEN ROUND(SUM(ds.clicks)::NUMERIC / SUM(ds.impressions) * 100, 4)
+                 ELSE 0 END AS ctr,
+            CASE WHEN SUM(ds.impressions) > 0
+                 THEN ROUND(SUM(ds.measured_imps)::NUMERIC / SUM(ds.impressions) * 100, 4)
+                 ELSE 0 END AS measurable_rate,
+            CASE WHEN SUM(ds.measured_imps) > 0
+                 THEN ROUND(SUM(ds.viewable_imps)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
+                 ELSE 0 END AS viewability_rate
+     FROM tag_region_daily_stats ds
+     JOIN ad_tags t ON t.id = ds.tag_id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY ds.region
+     ORDER BY SUM(ds.impressions) DESC, ds.region ASC
+     LIMIT $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
+export async function getWorkspaceCityBreakdown(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, limit = 25 } = opts;
+  const params = [workspaceId];
+  const conditions = ['t.workspace_id = $1'];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`ds.date >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    conditions.push(`ds.date <= $${params.length}`);
+  }
+  params.push(Math.min(Number(limit) || 25, 100));
+
+  const { rows } = await pool.query(
+    `SELECT ds.city,
+            SUM(ds.impressions) AS impressions,
+            SUM(ds.clicks) AS clicks,
+            SUM(ds.viewable_imps) AS viewable_imps,
+            SUM(ds.measured_imps) AS measured_imps,
+            SUM(ds.undetermined_imps) AS undetermined_imps,
+            CASE WHEN SUM(ds.impressions) > 0
+                 THEN ROUND(SUM(ds.clicks)::NUMERIC / SUM(ds.impressions) * 100, 4)
+                 ELSE 0 END AS ctr,
+            CASE WHEN SUM(ds.impressions) > 0
+                 THEN ROUND(SUM(ds.measured_imps)::NUMERIC / SUM(ds.impressions) * 100, 4)
+                 ELSE 0 END AS measurable_rate,
+            CASE WHEN SUM(ds.measured_imps) > 0
+                 THEN ROUND(SUM(ds.viewable_imps)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
+                 ELSE 0 END AS viewability_rate
+     FROM tag_city_daily_stats ds
+     JOIN ad_tags t ON t.id = ds.tag_id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY ds.city
+     ORDER BY SUM(ds.impressions) DESC, ds.city ASC
      LIMIT $${params.length}`,
     params,
   );

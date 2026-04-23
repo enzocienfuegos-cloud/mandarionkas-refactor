@@ -60,6 +60,8 @@ interface WorkspaceAnalytics {
   variants: VariantItem[];
   topSites: RankedMetric[];
   topCountries: RankedMetric[];
+  topRegions: RankedMetric[];
+  topCities: RankedMetric[];
   topIdentities: RankedMetric[];
   identityFrequency: RankedMetric[];
   identitySegments: RankedMetric[];
@@ -171,6 +173,8 @@ function normalizeWorkspaceAnalytics(
   tagPayload: any,
   sitePayload: any,
   countryPayload: any,
+  regionPayload: any,
+  cityPayload: any,
   engagementPayload: any,
   identityPayload: any,
   identityFrequencyPayload: any,
@@ -225,6 +229,8 @@ function normalizeWorkspaceAnalytics(
     })),
     topSites: normalizeRankedMetricList(sitePayload?.breakdown ?? [], 'site_domain', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured`),
     topCountries: normalizeRankedMetricList(countryPayload?.breakdown ?? [], 'country', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured`),
+    topRegions: normalizeRankedMetricList(regionPayload?.breakdown ?? [], 'region', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured`),
+    topCities: normalizeRankedMetricList(cityPayload?.breakdown ?? [], 'city', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured`),
     topIdentities: normalizeRankedMetricList(identityPayload?.breakdown ?? [], 'canonical_value', 'impressions', (item) => {
       const location = [item?.last_city, item?.last_region, item?.last_country].filter(Boolean).join(', ');
       return `${String(item?.canonical_type ?? 'identity')} · ${fmtCtr(toNumber(item?.ctr))} CTR${location ? ` · ${location}` : ''}`;
@@ -426,6 +432,14 @@ export default function AnalyticsDashboard() {
         if (!r.ok) throw new Error('Failed to load country breakdown');
         return r.json();
       }),
+      fetch(`/v1/reporting/workspace/region-breakdown${query}`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load region breakdown');
+        return r.json();
+      }),
+      fetch(`/v1/reporting/workspace/city-breakdown${query}`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load city breakdown');
+        return r.json();
+      }),
       fetch(`/v1/reporting/workspace/engagement-breakdown${query}`, { credentials: 'include' }).then((r) => {
         if (!r.ok) throw new Error('Failed to load engagement breakdown');
         return r.json();
@@ -451,8 +465,8 @@ export default function AnalyticsDashboard() {
         return r.json();
       }),
     ])
-      .then(([workspace, campaigns, tags, sites, countries, engagements, identities, identityFrequency, identitySegments, creatives, variants]) => {
-        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, engagements, identities, identityFrequency, identitySegments, creatives, variants));
+      .then(([workspace, campaigns, tags, sites, countries, regions, cities, engagements, identities, identityFrequency, identitySegments, creatives, variants]) => {
+        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, regions, cities, engagements, identities, identityFrequency, identitySegments, creatives, variants));
       })
       .catch((loadError: any) => setError(loadError.message ?? 'Failed to load analytics'))
       .finally(() => setLoading(false));
@@ -717,6 +731,11 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
         <RankedList title="Engagement Mix" emptyLabel="No engagement data available" items={data?.engagements ?? []} />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+        <RankedList title="Top Regions" emptyLabel="No region data available" items={data?.topRegions ?? []} />
+        <RankedList title="Top Cities" emptyLabel="No city data available" items={data?.topCities ?? []} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
