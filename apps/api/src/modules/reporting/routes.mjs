@@ -12,6 +12,7 @@ import {
   getWorkspaceSiteBreakdown,
   getWorkspaceCountryBreakdown,
   getWorkspaceEngagementBreakdown,
+  getWorkspaceIdentityBreakdown,
 } from '@smx/db/tracking';
 
 export function handleReportingRoutes(app, { requireWorkspace, pool }) {
@@ -59,6 +60,13 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
     const { workspaceId } = req.authSession;
     const { dateFrom, dateTo, limit } = req.query;
     const breakdown = await getWorkspaceEngagementBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    return reply.send({ breakdown });
+  });
+
+  app.get('/v1/reporting/workspace/identity-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, limit } = req.query;
+    const breakdown = await getWorkspaceIdentityBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
     return reply.send({ breakdown });
   });
 

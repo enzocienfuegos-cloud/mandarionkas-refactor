@@ -46,6 +46,9 @@ interface WorkspaceAnalytics {
   avgCtr: number;
   totalEngagements: number;
   totalHoverDurationMs: number;
+  totalIdentities: number;
+  avgIdentityFrequency: number;
+  avgIdentityClicks: number;
   activeCampaigns: number;
   activeTags: number;
   totalCreatives: number;
@@ -55,6 +58,7 @@ interface WorkspaceAnalytics {
   variants: VariantItem[];
   topSites: RankedMetric[];
   topCountries: RankedMetric[];
+  topIdentities: RankedMetric[];
   engagements: RankedMetric[];
 }
 
@@ -152,6 +156,7 @@ function normalizeWorkspaceAnalytics(
   sitePayload: any,
   countryPayload: any,
   engagementPayload: any,
+  identityPayload: any,
   creativePayload: any,
   variantPayload: any,
 ): WorkspaceAnalytics {
@@ -169,6 +174,9 @@ function normalizeWorkspaceAnalytics(
     avgCtr: toNumber(source?.avgCtr ?? source?.avg_ctr),
     totalEngagements: toNumber(source?.totalEngagements ?? source?.total_engagements),
     totalHoverDurationMs: toNumber(source?.totalHoverDurationMs ?? source?.total_hover_duration_ms),
+    totalIdentities: toNumber(source?.totalIdentities ?? source?.total_identities),
+    avgIdentityFrequency: toNumber(source?.avgIdentityFrequency ?? source?.avg_identity_frequency),
+    avgIdentityClicks: toNumber(source?.avgIdentityClicks ?? source?.avg_identity_clicks),
     activeCampaigns: toNumber(source?.activeCampaigns ?? source?.active_campaigns),
     activeTags: toNumber(source?.activeTags ?? source?.active_tags),
     totalCreatives: toNumber(source?.totalCreatives ?? source?.total_creatives),
@@ -199,6 +207,10 @@ function normalizeWorkspaceAnalytics(
     })),
     topSites: normalizeRankedMetricList(sitePayload?.breakdown ?? [], 'site_domain', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured`),
     topCountries: normalizeRankedMetricList(countryPayload?.breakdown ?? [], 'country', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured`),
+    topIdentities: normalizeRankedMetricList(identityPayload?.breakdown ?? [], 'canonical_value', 'impressions', (item) => {
+      const location = [item?.last_city, item?.last_region, item?.last_country].filter(Boolean).join(', ');
+      return `${String(item?.canonical_type ?? 'identity')} · ${fmtCtr(toNumber(item?.ctr))} CTR${location ? ` · ${location}` : ''}`;
+    }),
     engagements: normalizeRankedMetricList(engagementPayload?.breakdown ?? [], 'event_type', 'event_count', (item) => {
       const duration = toNumber(item?.total_duration_ms);
       return duration > 0 ? `${fmtNum(duration)} ms total` : undefined;
@@ -376,6 +388,10 @@ export default function AnalyticsDashboard() {
         if (!r.ok) throw new Error('Failed to load engagement breakdown');
         return r.json();
       }),
+      fetch(`/v1/reporting/workspace/identity-breakdown${query}`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load identity breakdown');
+        return r.json();
+      }),
       fetch(`/v1/reporting/workspace/creative-breakdown${query}`, { credentials: 'include' }).then((r) => {
         if (!r.ok) throw new Error('Failed to load creative breakdown');
         return r.json();
@@ -385,8 +401,8 @@ export default function AnalyticsDashboard() {
         return r.json();
       }),
     ])
-      .then(([workspace, campaigns, tags, sites, countries, engagements, creatives, variants]) => {
-        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, engagements, creatives, variants));
+      .then(([workspace, campaigns, tags, sites, countries, engagements, identities, creatives, variants]) => {
+        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, engagements, identities, creatives, variants));
       })
       .catch((loadError: any) => setError(loadError.message ?? 'Failed to load analytics'))
       .finally(() => setLoading(false));
@@ -514,11 +530,19 @@ export default function AnalyticsDashboard() {
           color="text-slate-800"
           sub={`${fmtNum(data?.totalUndeterminedImpressions ?? 0)} undetermined impressions`}
         />
+        <KpiCard
+          label="Identities"
+          value={fmtNum(data?.totalIdentities ?? 0)}
+          icon="🪪"
+          color="text-slate-800"
+          sub={`${(data?.avgIdentityFrequency ?? 0).toFixed(2)} avg impressions · ${(data?.avgIdentityClicks ?? 0).toFixed(2)} avg clicks`}
+        />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
         <RankedList title="Top Sites" emptyLabel="No site data available" items={data?.topSites ?? []} />
         <RankedList title="Top Countries" emptyLabel="No country data available" items={data?.topCountries ?? []} />
+        <RankedList title="Top Identities" emptyLabel="No identity data available" items={data?.topIdentities ?? []} />
         <RankedList title="Engagement Mix" emptyLabel="No engagement data available" items={data?.engagements ?? []} />
       </div>
 

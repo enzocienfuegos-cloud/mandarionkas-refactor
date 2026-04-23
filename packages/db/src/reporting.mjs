@@ -142,6 +142,18 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
      WHERE workspace_id = $1`,
     [workspaceId],
   );
+  const identitySummaryParams = [workspaceId];
+  const identitySummaryConditions = ['ds.workspace_id = $1'];
+  addDateFilters(identitySummaryParams, identitySummaryConditions, 'ds', dateFrom, dateTo);
+  const identitySummaryQuery = pool.query(
+    `SELECT
+       COUNT(DISTINCT ds.identity_profile_id)::bigint AS total_identities,
+       COALESCE(SUM(ds.impressions), 0)::bigint AS identity_impressions,
+       COALESCE(SUM(ds.clicks), 0)::bigint AS identity_clicks
+     FROM identity_profile_daily_stats ds
+     WHERE ${identitySummaryConditions.join(' AND ')}`,
+    identitySummaryParams,
+  );
 
   const topCampaignParams = [workspaceId];
   const topCampaignJoinFilter = addDateJoinFilters(topCampaignParams, 'ds', dateFrom, dateTo);
@@ -206,19 +218,24 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     topTagParams,
   );
 
-  const [summaryRes, engagementRes, activeCampaignsRes, activeTagsRes, creativesRes, topCampaignsRes, topTagsRes] =
+  const [summaryRes, engagementRes, activeCampaignsRes, activeTagsRes, creativesRes, identitySummaryRes, topCampaignsRes, topTagsRes] =
     await Promise.all([
       summaryQuery,
       engagementQuery,
       activeCampaignsQuery,
       activeTagsQuery,
       creativesQuery,
+      identitySummaryQuery,
       topCampaignsQuery,
       topTagsQuery,
     ]);
 
   const summary = summaryRes.rows[0] ?? {};
   const engagement = engagementRes.rows[0] ?? {};
+  const identitySummary = identitySummaryRes.rows[0] ?? {};
+  const totalIdentities = Number(identitySummary.total_identities ?? 0);
+  const identityImpressions = Number(identitySummary.identity_impressions ?? 0);
+  const identityClicks = Number(identitySummary.identity_clicks ?? 0);
 
   return {
     total_impressions: summary.total_impressions ?? 0,
@@ -232,6 +249,9 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     viewability_rate: summary.viewability_rate ?? 0,
     total_engagements: engagement.total_engagements ?? 0,
     total_hover_duration_ms: engagement.total_hover_duration_ms ?? 0,
+    total_identities: totalIdentities,
+    avg_identity_frequency: totalIdentities > 0 ? Number((identityImpressions / totalIdentities).toFixed(4)) : 0,
+    avg_identity_clicks: totalIdentities > 0 ? Number((identityClicks / totalIdentities).toFixed(4)) : 0,
     active_campaigns: activeCampaignsRes.rows[0]?.active_campaigns ?? 0,
     active_tags: activeTagsRes.rows[0]?.active_tags ?? 0,
     total_creatives: creativesRes.rows[0]?.total_creatives ?? 0,

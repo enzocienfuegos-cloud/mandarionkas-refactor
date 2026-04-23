@@ -121,6 +121,30 @@ async function resolveIdentityProfile(pool, {
   return profile.id;
 }
 
+async function upsertIdentityProfileDailyStats(pool, {
+  identity_profile_id,
+  workspace_id,
+  timestamp = new Date(),
+  impressions = 0,
+  clicks = 0,
+  engagements = 0,
+}) {
+  if (!identity_profile_id || !workspace_id) return;
+  const date = new Date(timestamp).toISOString().slice(0, 10);
+  await pool.query(
+    `INSERT INTO identity_profile_daily_stats
+       (identity_profile_id, workspace_id, date, impressions, clicks, engagements)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (identity_profile_id, date)
+     DO UPDATE SET
+       impressions = identity_profile_daily_stats.impressions + EXCLUDED.impressions,
+       clicks = identity_profile_daily_stats.clicks + EXCLUDED.clicks,
+       engagements = identity_profile_daily_stats.engagements + EXCLUDED.engagements,
+       updated_at = NOW()`,
+    [identity_profile_id, workspace_id, date, impressions, clicks, engagements],
+  );
+}
+
 async function recordEventIdentityKeys(pool, {
   workspace_id,
   event_type,
@@ -144,6 +168,17 @@ async function recordEventIdentityKeys(pool, {
     city,
     timestamp,
   });
+
+  if (identityProfileId) {
+    await upsertIdentityProfileDailyStats(pool, {
+      identity_profile_id: identityProfileId,
+      workspace_id,
+      timestamp,
+      impressions: event_type === 'impression' ? 1 : 0,
+      clicks: event_type === 'click' ? 1 : 0,
+      engagements: event_type === 'engagement' ? 1 : 0,
+    });
+  }
 
   for (const item of keys) {
     await pool.query(
@@ -174,6 +209,47 @@ async function recordEventIdentityKeys(pool, {
       ],
     );
   }
+}
+
+export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, limit = 25 } = opts;
+  const params = [workspaceId];
+  const conditions = ['ds.workspace_id = $1'];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`ds.date >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    conditions.push(`ds.date <= $${params.length}`);
+  }
+  params.push(Math.min(Number(limit) || 25, 100));
+
+  const { rows } = await pool.query(
+    `SELECT
+       p.id,
+       p.canonical_type,
+       p.canonical_value,
+       p.last_country,
+       p.last_region,
+       p.last_city,
+       p.confidence,
+       COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
+       COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
+       COALESCE(SUM(ds.engagements), 0)::bigint AS engagements,
+       CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
+            THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
+            ELSE 0 END AS ctr
+     FROM identity_profile_daily_stats ds
+     JOIN identity_profiles p ON p.id = ds.identity_profile_id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY p.id, p.canonical_type, p.canonical_value, p.last_country, p.last_region, p.last_city, p.confidence
+     ORDER BY COALESCE(SUM(ds.impressions), 0) DESC, p.last_seen_at DESC
+     LIMIT $${params.length}`,
+    params,
+  );
+  return rows;
 }
 
 export async function recordImpression(pool, data) {
