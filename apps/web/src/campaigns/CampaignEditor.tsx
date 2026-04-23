@@ -1,14 +1,11 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-interface Advertiser {
-  id: string;
-  name: string;
-}
+const DSP_OPTIONS = ['Basis', 'Illumin', 'Criteo'] as const;
 
 interface CampaignForm {
   name: string;
-  advertiserId: string;
+  dsp: string;
   status: string;
   startDate: string;
   endDate: string;
@@ -20,7 +17,7 @@ const STATUSES = ['draft', 'active', 'paused', 'archived'];
 
 const emptyForm: CampaignForm = {
   name: '',
-  advertiserId: '',
+  dsp: '',
   status: 'draft',
   startDate: '',
   endDate: '',
@@ -34,18 +31,10 @@ export default function CampaignEditor() {
   const isEdit = Boolean(id && id !== 'new');
 
   const [form, setForm] = useState<CampaignForm>(emptyForm);
-  const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
   const [errors, setErrors] = useState<Partial<CampaignForm>>({});
   const [generalError, setGeneralError] = useState('');
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetch('/v1/advertisers', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => setAdvertisers(d?.advertisers ?? d ?? []))
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -55,7 +44,7 @@ export default function CampaignEditor() {
       .then(data => {
         setForm({
           name: data.name ?? '',
-          advertiserId: data.advertiser?.id ?? data.advertiserId ?? '',
+          dsp: data.metadata?.dsp ?? '',
           status: data.status ?? 'draft',
           startDate: data.startDate ? data.startDate.slice(0, 10) : '',
           endDate: data.endDate ? data.endDate.slice(0, 10) : '',
@@ -94,12 +83,14 @@ export default function CampaignEditor() {
     setSaving(true);
     const body = {
       name: form.name.trim(),
-      advertiserId: form.advertiserId || undefined,
       status: form.status,
       startDate: form.startDate || null,
       endDate: form.endDate || null,
       impressionGoal: form.impressionGoal ? Number(form.impressionGoal) : null,
       dailyBudget: form.dailyBudget ? Number(form.dailyBudget) : null,
+      metadata: {
+        dsp: form.dsp || null,
+      },
     };
 
     try {
@@ -167,13 +158,13 @@ export default function CampaignEditor() {
             {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
           </div>
 
-          {/* Advertiser */}
+          {/* DSP */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Advertiser</label>
-            <select value={form.advertiserId} onChange={set('advertiserId')} className={inputClass()}>
-              <option value="">— Select advertiser —</option>
-              {advertisers.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
+            <label className="block text-sm font-medium text-slate-700 mb-1">DSP</label>
+            <select value={form.dsp} onChange={set('dsp')} className={inputClass()}>
+              <option value="">— Select DSP —</option>
+              {DSP_OPTIONS.map(option => (
+                <option key={option} value={option}>{option}</option>
               ))}
             </select>
           </div>

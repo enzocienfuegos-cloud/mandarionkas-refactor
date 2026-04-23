@@ -4,7 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 interface Campaign {
   id: string;
   name: string;
-  advertiser: { id: string; name: string };
+  advertiser?: { id: string; name: string };
+  metadata?: { dsp?: string | null };
   status: 'active' | 'paused' | 'archived' | 'draft';
   startDate: string | null;
   endDate: string | null;
@@ -109,7 +110,7 @@ export default function CampaignList() {
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  {['Name', 'Advertiser', 'Status', 'Start Date', 'End Date', 'Imp. Goal', 'Actions'].map(h => (
+                  {['Name', 'DSP', 'Status', 'Start Date', 'End Date', 'Imp. Goal', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       {h}
                     </th>
@@ -122,7 +123,7 @@ export default function CampaignList() {
                     <td className="px-4 py-3">
                       <span className="text-sm font-medium text-slate-800">{c.name}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{c.advertiser?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{c.metadata?.dsp ?? c.advertiser?.name ?? '—'}</td>
                     <td className="px-4 py-3">{statusBadge(c.status)}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{fmt(c.startDate)}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{fmt(c.endDate)}</td>

@@ -107,7 +107,7 @@ export default function Shell() {
       const normalized = normalizeUserPayload(authMe);
       if (normalized) setUser(normalized);
       setWorkspaces(workspaceList);
-      window.location.reload();
+      navigate('/campaigns');
     } catch (error: any) {
       setClientError(error.message ?? 'Failed to switch client');
     } finally {
@@ -126,7 +126,7 @@ export default function Shell() {
       const normalized = normalizeUserPayload(authMe);
       if (normalized) setUser(normalized);
       setWorkspaces(workspaceList);
-      window.location.reload();
+      navigate('/campaigns');
     } catch (error: any) {
       setClientError(error.message ?? 'Failed to create client');
     } finally {
