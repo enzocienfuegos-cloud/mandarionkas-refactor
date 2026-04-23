@@ -212,7 +212,7 @@ async function recordEventIdentityKeys(pool, {
 }
 
 export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25 } = opts;
+  const { dateFrom, dateTo, canonicalType = '', limit = 25 } = opts;
   const params = [workspaceId];
   const conditions = ['ds.workspace_id = $1'];
 
@@ -223,6 +223,10 @@ export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}
   if (dateTo) {
     params.push(dateTo);
     conditions.push(`ds.date <= $${params.length}`);
+  }
+  if (canonicalType) {
+    params.push(canonicalType);
+    conditions.push(`p.canonical_type = $${params.length}`);
   }
   params.push(Math.min(Number(limit) || 25, 100));
 
@@ -247,6 +251,56 @@ export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}
      GROUP BY p.id, p.canonical_type, p.canonical_value, p.last_country, p.last_region, p.last_city, p.confidence
      ORDER BY COALESCE(SUM(ds.impressions), 0) DESC, p.last_seen_at DESC
      LIMIT $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
+export async function getWorkspaceIdentityExport(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, canonicalType = '' } = opts;
+  const params = [workspaceId];
+  const conditions = ['ds.workspace_id = $1'];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`ds.date >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    conditions.push(`ds.date <= $${params.length}`);
+  }
+  if (canonicalType) {
+    params.push(canonicalType);
+    conditions.push(`p.canonical_type = $${params.length}`);
+  }
+
+  const { rows } = await pool.query(
+    `SELECT
+       p.id,
+       p.canonical_type,
+       p.canonical_value,
+       p.last_country,
+       p.last_region,
+       p.last_city,
+       p.confidence,
+       p.first_seen_at,
+       p.last_seen_at,
+       COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
+       COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
+       COALESCE(SUM(ds.engagements), 0)::bigint AS engagements,
+       CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
+            THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
+            ELSE 0 END AS ctr,
+       COALESCE(COUNT(DISTINCT k.key_type), 0)::int AS key_type_count,
+       COALESCE(COUNT(DISTINCT k.key_value), 0)::int AS key_count,
+       COALESCE(string_agg(DISTINCT k.key_type, '|' ORDER BY k.key_type), '') AS key_types,
+       COALESCE(string_agg(DISTINCT COALESCE(k.source, 'unknown'), '|' ORDER BY COALESCE(k.source, 'unknown')), '') AS sources
+     FROM identity_profile_daily_stats ds
+     JOIN identity_profiles p ON p.id = ds.identity_profile_id
+     LEFT JOIN identity_profile_keys k ON k.identity_profile_id = p.id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY p.id, p.canonical_type, p.canonical_value, p.last_country, p.last_region, p.last_city, p.confidence, p.first_seen_at, p.last_seen_at
+     ORDER BY COALESCE(SUM(ds.impressions), 0) DESC, p.last_seen_at DESC`,
     params,
   );
   return rows;

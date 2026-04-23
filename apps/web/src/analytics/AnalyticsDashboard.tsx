@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 type DateRange = 7 | 30 | 90;
 type RangeMode = 'preset' | 'custom';
+type IdentityTypeFilter = '' | 'external_user_id' | 'device_id' | 'cookie_id';
 
 interface RankedMetric {
   label: string;
@@ -63,6 +64,12 @@ interface WorkspaceAnalytics {
 }
 
 const DATE_RANGES: DateRange[] = [7, 30, 90];
+const IDENTITY_FILTERS: Array<{ value: IdentityTypeFilter; label: string }> = [
+  { value: '', label: 'All identities' },
+  { value: 'external_user_id', label: 'External user ID' },
+  { value: 'device_id', label: 'Device ID' },
+  { value: 'cookie_id', label: 'Cookie ID' },
+];
 
 function toNumber(value: unknown): number {
   const numeric = Number(value ?? 0);
@@ -350,6 +357,7 @@ export default function AnalyticsDashboard() {
   const [rangeMode, setRangeMode] = useState<RangeMode>('preset');
   const [customStartDate, setCustomStartDate] = useState(() => getDateFrom(30));
   const [customEndDate, setCustomEndDate] = useState(() => getToday());
+  const [identityTypeFilter, setIdentityTypeFilter] = useState<IdentityTypeFilter>('');
 
   const query = useMemo(() => makeQuery({
     dateRange,
@@ -357,6 +365,11 @@ export default function AnalyticsDashboard() {
     customStartDate,
     customEndDate,
   }), [dateRange, rangeMode, customStartDate, customEndDate]);
+  const identityQuery = useMemo(() => {
+    const params = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
+    if (identityTypeFilter) params.set('canonicalType', identityTypeFilter);
+    return `?${params.toString()}`;
+  }, [query, identityTypeFilter]);
   const customDatesValid = Boolean(customStartDate && customEndDate && customStartDate <= customEndDate);
 
   const load = () => {
@@ -388,7 +401,7 @@ export default function AnalyticsDashboard() {
         if (!r.ok) throw new Error('Failed to load engagement breakdown');
         return r.json();
       }),
-      fetch(`/v1/reporting/workspace/identity-breakdown${query}`, { credentials: 'include' }).then((r) => {
+      fetch(`/v1/reporting/workspace/identity-breakdown${identityQuery}`, { credentials: 'include' }).then((r) => {
         if (!r.ok) throw new Error('Failed to load identity breakdown');
         return r.json();
       }),
@@ -411,7 +424,27 @@ export default function AnalyticsDashboard() {
   useEffect(() => {
     if (rangeMode === 'custom' && !customDatesValid) return;
     load();
-  }, [query]);
+  }, [query, identityQuery]);
+
+  const handleExportIdentityCsv = async () => {
+    try {
+      const response = await fetch(`/v1/reporting/workspace/identity-export${identityQuery}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to export identity report');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `identity-report${identityTypeFilter ? `-${identityTypeFilter}` : ''}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.alert('Failed to export identity CSV.');
+    }
+  };
 
   if (loading) {
     return (
@@ -542,7 +575,51 @@ export default function AnalyticsDashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
         <RankedList title="Top Sites" emptyLabel="No site data available" items={data?.topSites ?? []} />
         <RankedList title="Top Countries" emptyLabel="No country data available" items={data?.topCountries ?? []} />
-        <RankedList title="Top Identities" emptyLabel="No identity data available" items={data?.topIdentities ?? []} />
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-slate-800">Top Identities</h2>
+              <p className="text-xs text-slate-500 mt-1">Filter by canonical identity type and export the current reach/frequency cut.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={identityTypeFilter}
+                onChange={(event) => setIdentityTypeFilter(event.target.value as IdentityTypeFilter)}
+                className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+              >
+                {IDENTITY_FILTERS.map((option) => (
+                  <option key={option.value || 'all'} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => void handleExportIdentityCsv()}
+                className="px-3 py-2 text-xs border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors"
+              >
+                Export CSV
+              </button>
+            </div>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {(data?.topIdentities ?? []).length === 0 ? (
+              <div className="px-5 py-10 text-center text-sm text-slate-400">No identity data available</div>
+            ) : (
+              (data?.topIdentities ?? []).map((item) => (
+                <div key={`identity-${item.label}`} className="flex items-center justify-between gap-4 px-5 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-800">{item.label}</p>
+                    {item.secondary ? <p className="mt-0.5 text-xs text-slate-500">{item.secondary}</p> : null}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-slate-700">{fmtNum(item.value)}</p>
+                    <p className="text-xs text-slate-400">impressions</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
         <RankedList title="Engagement Mix" emptyLabel="No engagement data available" items={data?.engagements ?? []} />
       </div>
 

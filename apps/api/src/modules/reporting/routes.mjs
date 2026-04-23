@@ -13,9 +13,15 @@ import {
   getWorkspaceCountryBreakdown,
   getWorkspaceEngagementBreakdown,
   getWorkspaceIdentityBreakdown,
+  getWorkspaceIdentityExport,
 } from '@smx/db/tracking';
 
 export function handleReportingRoutes(app, { requireWorkspace, pool }) {
+  function escapeCsv(value) {
+    const text = String(value ?? '');
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
   // GET /v1/reporting/workspace — workspace-level aggregate stats
   app.get('/v1/reporting/workspace', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
@@ -65,9 +71,60 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
 
   app.get('/v1/reporting/workspace/identity-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, limit } = req.query;
-    const breakdown = await getWorkspaceIdentityBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    const { dateFrom, dateTo, canonicalType, limit } = req.query;
+    const breakdown = await getWorkspaceIdentityBreakdown(pool, workspaceId, { dateFrom, dateTo, canonicalType, limit });
     return reply.send({ breakdown });
+  });
+
+  app.get('/v1/reporting/workspace/identity-export', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, canonicalType } = req.query;
+    const rows = await getWorkspaceIdentityExport(pool, workspaceId, { dateFrom, dateTo, canonicalType });
+    const csvRows = [
+      [
+        'identity_profile_id',
+        'canonical_type',
+        'canonical_value',
+        'first_seen_at',
+        'last_seen_at',
+        'last_country',
+        'last_region',
+        'last_city',
+        'confidence',
+        'impressions',
+        'clicks',
+        'engagements',
+        'ctr',
+        'key_type_count',
+        'key_count',
+        'key_types',
+        'sources',
+      ],
+      ...rows.map((row) => ([
+        row.id,
+        row.canonical_type,
+        row.canonical_value,
+        row.first_seen_at,
+        row.last_seen_at,
+        row.last_country,
+        row.last_region,
+        row.last_city,
+        row.confidence,
+        row.impressions,
+        row.clicks,
+        row.engagements,
+        row.ctr,
+        row.key_type_count,
+        row.key_count,
+        row.key_types,
+        row.sources,
+      ])),
+    ];
+    const csv = csvRows.map((row) => row.map(escapeCsv).join(',')).join('\n');
+    reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', `attachment; filename="identity-report.csv"`)
+      .send(csv);
   });
 
   app.get('/v1/reporting/workspace/creative-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
