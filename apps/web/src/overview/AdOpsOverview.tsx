@@ -2,15 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
 
-interface ReportingStat {
-  date: string;
-  impressions: number | string;
-  clicks: number | string;
-  viewable_imps?: number | string;
-  spend?: number | string;
-  ctr?: number | string;
-}
-
 interface CampaignRecord {
   id: string;
   name: string;
@@ -49,6 +40,21 @@ interface AdOpsSnapshot {
 function toNumber(value: unknown): number {
   const numeric = Number(value ?? 0);
   return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function getReportingStats(payload: any) {
+  const stats = payload?.stats ?? payload ?? {};
+  return {
+    totalImpressions: toNumber(stats?.totalImpressions ?? stats?.total_impressions),
+    totalClicks: toNumber(stats?.totalClicks ?? stats?.total_clicks),
+    totalSpend: toNumber(stats?.totalSpend ?? stats?.total_spend),
+    totalViewableImpressions: toNumber(stats?.totalViewableImpressions ?? stats?.total_viewable_impressions),
+    avgCtr: toNumber(stats?.avgCtr ?? stats?.avg_ctr),
+    totalEngagements: toNumber(stats?.totalEngagements ?? stats?.total_engagements),
+    activeCampaigns: toNumber(stats?.activeCampaigns ?? stats?.active_campaigns),
+    activeTags: toNumber(stats?.activeTags ?? stats?.active_tags),
+    totalCreatives: toNumber(stats?.totalCreatives ?? stats?.total_creatives),
+  };
 }
 
 function fmtCompact(value: number, opts?: Intl.NumberFormatOptions) {
@@ -106,29 +112,21 @@ export default function AdOpsOverview() {
         }),
       ]);
 
-      const reportingStats: ReportingStat[] = reportingRes?.stats ?? [];
       const campaigns: CampaignRecord[] = campaignsRes?.campaigns ?? campaignsRes ?? [];
       const tags: TagRecord[] = tagsRes?.tags ?? tagsRes ?? [];
       const creatives: CreativeRecord[] = creativesRes?.creatives ?? creativesRes ?? [];
-
-      const totals = reportingStats.reduce((acc, stat) => {
-        acc.impressions += toNumber(stat.impressions);
-        acc.clicks += toNumber(stat.clicks);
-        acc.spend += toNumber(stat.spend);
-        acc.viewable += toNumber(stat.viewable_imps);
-        return acc;
-      }, { impressions: 0, clicks: 0, spend: 0, viewable: 0 });
+      const reportingStats = getReportingStats(reportingRes);
 
       setSnapshot({
-        totalImpressions: totals.impressions,
-        totalClicks: totals.clicks,
-        totalSpend: totals.spend,
-        totalViewableImpressions: totals.viewable,
-        avgCtr: totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0,
-        engagements: totals.clicks,
-        activeCampaigns: campaigns.filter(c => c.status === 'active').length,
-        activeTags: tags.filter(t => t.status === 'active').length,
-        creatives: creatives.length,
+        totalImpressions: reportingStats.totalImpressions,
+        totalClicks: reportingStats.totalClicks,
+        totalSpend: reportingStats.totalSpend,
+        totalViewableImpressions: reportingStats.totalViewableImpressions,
+        avgCtr: reportingStats.avgCtr,
+        engagements: reportingStats.totalEngagements,
+        activeCampaigns: reportingStats.activeCampaigns || campaigns.filter(c => c.status === 'active').length,
+        activeTags: reportingStats.activeTags || tags.filter(t => t.status === 'active').length,
+        creatives: reportingStats.totalCreatives || creatives.length,
         recentCampaigns: campaigns.slice(0, 5),
         topTags: tags.slice(0, 5),
         clients: workspaces,

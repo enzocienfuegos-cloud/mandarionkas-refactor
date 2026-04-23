@@ -1,5 +1,10 @@
 import {
+  getWorkspaceOverview,
   getWorkspaceStats,
+  getWorkspaceCampaignBreakdown,
+  getWorkspaceTagBreakdown,
+  getWorkspaceCreativeBreakdown,
+  getWorkspaceVariantBreakdown,
   getCampaignStats,
   getTagStats,
 } from '@smx/db/reporting';
@@ -15,8 +20,25 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
     const { workspaceId } = req.authSession;
     const { dateFrom, dateTo } = req.query;
 
-    const stats = await getWorkspaceStats(pool, workspaceId, { dateFrom, dateTo });
-    return reply.send({ stats });
+    const [stats, timeline] = await Promise.all([
+      getWorkspaceOverview(pool, workspaceId, { dateFrom, dateTo }),
+      getWorkspaceStats(pool, workspaceId, { dateFrom, dateTo }),
+    ]);
+    return reply.send({ stats, timeline });
+  });
+
+  app.get('/v1/reporting/workspace/campaign-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, limit } = req.query;
+    const breakdown = await getWorkspaceCampaignBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    return reply.send({ breakdown });
+  });
+
+  app.get('/v1/reporting/workspace/tag-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, limit } = req.query;
+    const breakdown = await getWorkspaceTagBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/site-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
@@ -37,6 +59,20 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
     const { workspaceId } = req.authSession;
     const { dateFrom, dateTo, limit } = req.query;
     const breakdown = await getWorkspaceEngagementBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    return reply.send({ breakdown });
+  });
+
+  app.get('/v1/reporting/workspace/creative-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, limit } = req.query;
+    const breakdown = await getWorkspaceCreativeBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    return reply.send({ breakdown });
+  });
+
+  app.get('/v1/reporting/workspace/variant-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, limit } = req.query;
+    const breakdown = await getWorkspaceVariantBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
     return reply.send({ breakdown });
   });
 
