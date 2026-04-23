@@ -1495,6 +1495,92 @@ export async function getWorkspaceCityBreakdown(pool, workspaceId, opts = {}) {
   return rows;
 }
 
+export async function getWorkspaceTrackerBreakdown(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, limit = 25 } = opts;
+  const params = [workspaceId];
+  const conditions = ["t.workspace_id = $1", "t.format = 'tracker'", 'tfc.tracker_type IS NOT NULL'];
+  const impressionIdentityConditions = ['ie.workspace_id = t.workspace_id', 'ie.tag_id = t.id', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
+  const clickIdentityConditions = ['ce.workspace_id = t.workspace_id', 'ce.tag_id = t.id', "e.event_type = 'click'", 'e.identity_profile_id IS NOT NULL'];
+  const identityParams = [];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`ds.date >= $${params.length}`);
+    identityParams.push(dateFrom);
+    impressionIdentityConditions.push(`ie.timestamp >= $${params.length + identityParams.length}`);
+    clickIdentityConditions.push(`ce.timestamp >= $${params.length + identityParams.length}`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    conditions.push(`ds.date <= $${params.length}`);
+    identityParams.push(`${dateTo}T23:59:59.999Z`);
+    impressionIdentityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
+    clickIdentityConditions.push(`ce.timestamp <= $${params.length + identityParams.length}`);
+  }
+  params.push(...identityParams);
+  params.push(Math.min(Number(limit) || 25, 100));
+
+  const { rows } = await pool.query(
+    `SELECT
+       t.id,
+       t.name,
+       t.status,
+       c.name AS campaign_name,
+       tfc.tracker_type,
+       COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
+       COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
+       CASE
+         WHEN tfc.tracker_type = 'impression' THEN (
+           SELECT COUNT(DISTINCT e.identity_profile_id)::bigint
+           FROM impression_events ie
+           JOIN event_identity_keys e ON e.event_id = ie.id
+           WHERE ${impressionIdentityConditions.join(' AND ')}
+         )
+         ELSE (
+           SELECT COUNT(DISTINCT e.identity_profile_id)::bigint
+           FROM click_events ce
+           JOIN event_identity_keys e ON e.event_id = ce.id
+           WHERE ${clickIdentityConditions.join(' AND ')}
+         )
+       END AS unique_identities,
+       CASE
+         WHEN tfc.tracker_type = 'impression' THEN (
+           SELECT CASE
+             WHEN COUNT(DISTINCT e.identity_profile_id) > 0
+               THEN ROUND(COUNT(DISTINCT ie.id)::NUMERIC / COUNT(DISTINCT e.identity_profile_id), 4)
+             ELSE 0
+           END
+           FROM impression_events ie
+           JOIN event_identity_keys e ON e.event_id = ie.id
+           WHERE ${impressionIdentityConditions.join(' AND ')}
+         )
+         ELSE (
+           SELECT CASE
+             WHEN COUNT(DISTINCT e.identity_profile_id) > 0
+               THEN ROUND(COUNT(DISTINCT ce.id)::NUMERIC / COUNT(DISTINCT e.identity_profile_id), 4)
+             ELSE 0
+           END
+           FROM click_events ce
+           JOIN event_identity_keys e ON e.event_id = ce.id
+           WHERE ${clickIdentityConditions.join(' AND ')}
+         )
+       END AS avg_frequency,
+       CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
+            THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
+            ELSE 0 END AS ctr
+     FROM ad_tags t
+     JOIN tag_format_configs tfc ON tfc.tag_id = t.id
+     LEFT JOIN campaigns c ON c.id = t.campaign_id
+     LEFT JOIN tag_daily_stats ds ON ds.tag_id = t.id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY t.id, t.name, t.status, c.name, tfc.tracker_type
+     ORDER BY COALESCE(SUM(ds.clicks), 0) DESC, COALESCE(SUM(ds.impressions), 0) DESC, t.name ASC
+     LIMIT $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
 export async function getWorkspaceEngagementBreakdown(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, limit = 25 } = opts;
   const params = [workspaceId];

@@ -66,6 +66,7 @@ interface WorkspaceAnalytics {
   topCountries: RankedMetric[];
   topRegions: RankedMetric[];
   topCities: RankedMetric[];
+  trackerPerformance: RankedMetric[];
   topIdentities: RankedMetric[];
   identityFrequency: RankedMetric[];
   identitySegments: RankedMetric[];
@@ -183,6 +184,7 @@ function normalizeWorkspaceAnalytics(
   countryPayload: any,
   regionPayload: any,
   cityPayload: any,
+  trackerPayload: any,
   engagementPayload: any,
   identityPayload: any,
   identityFrequencyPayload: any,
@@ -243,6 +245,7 @@ function normalizeWorkspaceAnalytics(
     topCountries: normalizeRankedMetricList(countryPayload?.breakdown ?? [], 'country', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured · ${fmtNum(toNumber(item?.unique_identities))} unique identities · ${toNumber(item?.avg_frequency).toFixed(2)} avg frequency`),
     topRegions: normalizeRankedMetricList(regionPayload?.breakdown ?? [], 'region', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured · ${fmtNum(toNumber(item?.unique_identities))} unique identities · ${toNumber(item?.avg_frequency).toFixed(2)} avg frequency`),
     topCities: normalizeRankedMetricList(cityPayload?.breakdown ?? [], 'city', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured · ${fmtNum(toNumber(item?.unique_identities))} unique identities · ${toNumber(item?.avg_frequency).toFixed(2)} avg frequency`),
+    trackerPerformance: normalizeRankedMetricList(trackerPayload?.breakdown ?? [], 'name', 'clicks', (item) => `${String(item?.tracker_type ?? 'tracker')} tracker · ${fmtNum(toNumber(item?.impressions))} imps · ${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtNum(toNumber(item?.unique_identities))} unique identities · ${toNumber(item?.avg_frequency).toFixed(2)} avg frequency${item?.campaign_name ? ` · ${String(item.campaign_name)}` : ''}`),
     topIdentities: normalizeRankedMetricList(identityPayload?.breakdown ?? [], 'canonical_value', 'impressions', (item) => {
       const location = [item?.last_city, item?.last_region, item?.last_country].filter(Boolean).join(', ');
       return `${String(item?.canonical_type ?? 'identity')} · ${fmtCtr(toNumber(item?.ctr))} CTR${location ? ` · ${location}` : ''}`;
@@ -463,6 +466,10 @@ export default function AnalyticsDashboard() {
         if (!r.ok) throw new Error('Failed to load city breakdown');
         return r.json();
       }),
+      fetch(`/v1/reporting/workspace/tracker-breakdown${query}`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load tracker breakdown');
+        return r.json();
+      }),
       fetch(`/v1/reporting/workspace/engagement-breakdown${query}`, { credentials: 'include' }).then((r) => {
         if (!r.ok) throw new Error('Failed to load engagement breakdown');
         return r.json();
@@ -496,8 +503,8 @@ export default function AnalyticsDashboard() {
         return r.json();
       }),
     ])
-      .then(([workspace, campaigns, tags, sites, countries, regions, cities, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, creatives, variants]) => {
-        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, regions, cities, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, creatives, variants));
+      .then(([workspace, campaigns, tags, sites, countries, regions, cities, trackers, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, creatives, variants]) => {
+        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, regions, cities, trackers, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, creatives, variants));
       })
       .catch((loadError: any) => setError(loadError.message ?? 'Failed to load analytics'))
       .finally(() => setLoading(false));
@@ -767,6 +774,10 @@ export default function AnalyticsDashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
         <RankedList title="Top Regions" emptyLabel="No region data available" items={data?.topRegions ?? []} />
         <RankedList title="Top Cities" emptyLabel="No city data available" items={data?.topCities ?? []} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 mb-6">
+        <RankedList title="Tracker Performance" emptyLabel="No tracker data available" items={data?.trackerPerformance ?? []} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">

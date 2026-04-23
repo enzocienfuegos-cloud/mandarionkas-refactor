@@ -13,6 +13,7 @@ import {
   getWorkspaceCountryBreakdown,
   getWorkspaceRegionBreakdown,
   getWorkspaceCityBreakdown,
+  getWorkspaceTrackerBreakdown,
   getWorkspaceEngagementBreakdown,
   getWorkspaceIdentityBreakdown,
   getWorkspaceIdentityExport,
@@ -80,6 +81,13 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
     const { workspaceId } = req.authSession;
     const { dateFrom, dateTo, limit } = req.query;
     const breakdown = await getWorkspaceCityBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    return reply.send({ breakdown });
+  });
+
+  app.get('/v1/reporting/workspace/tracker-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, limit } = req.query;
+    const breakdown = await getWorkspaceTrackerBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
     return reply.send({ breakdown });
   });
 
