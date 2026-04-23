@@ -18,6 +18,22 @@ interface TagForm {
   impressionUrl: string;
 }
 
+interface SavedTag {
+  id: string;
+  format: TagFormat;
+  name: string;
+  width?: number | null;
+  height?: number | null;
+}
+
+type SnippetVariant =
+  | 'vast-url'
+  | 'vast-xml'
+  | 'display-js'
+  | 'display-iframe'
+  | 'display-ins'
+  | 'native-js';
+
 const emptyForm: TagForm = {
   name: '',
   campaignId: '',
@@ -39,17 +55,91 @@ function resolveTagServingBaseUrl() {
   return (candidates.find((candidate) => candidate?.trim()) ?? '').replace(/\/+$/, '');
 }
 
-function buildTagSnippet(tag: { id: string; format: TagFormat; name: string }): string {
-  const servingBaseUrl = resolveTagServingBaseUrl();
+function getDefaultSnippetVariant(format: TagFormat): SnippetVariant {
+  if (format === 'VAST') return 'vast-url';
+  if (format === 'display') return 'display-js';
+  return 'native-js';
+}
 
+function getSnippetOptions(format: TagFormat): Array<{ value: SnippetVariant; label: string }> {
+  if (format === 'VAST') {
+    return [
+      { value: 'vast-url', label: 'VAST URL' },
+      { value: 'vast-xml', label: 'XML Wrapper' },
+    ];
+  }
+  if (format === 'display') {
+    return [
+      { value: 'display-js', label: 'JS Tag' },
+      { value: 'display-iframe', label: 'Iframe Tag' },
+      { value: 'display-ins', label: 'Ins Tag' },
+    ];
+  }
+  return [{ value: 'native-js', label: 'JS Tag' }];
+}
+
+function normalizeTagRecord(payload: unknown): SavedTag | null {
+  const source = (payload as { tag?: Record<string, unknown> } | null)?.tag
+    ?? (payload as Record<string, unknown> | null);
+  if (!source || typeof source !== 'object') return null;
+
+  const format = source.format === 'display' || source.format === 'native' || source.format === 'VAST'
+    ? source.format
+    : 'display';
+  const creatives = Array.isArray(source.creatives) ? source.creatives : [];
+  const firstCreative = creatives[0] as Record<string, unknown> | undefined;
+
+  return {
+    id: String(source.id ?? ''),
+    format,
+    name: String(source.name ?? ''),
+    width: Number(firstCreative?.width ?? 0) || null,
+    height: Number(firstCreative?.height ?? 0) || null,
+  };
+}
+
+function buildTagSnippet(tag: SavedTag, variant: SnippetVariant): string {
+  const servingBaseUrl = resolveTagServingBaseUrl();
+  const displayJsUrl = `${servingBaseUrl}/v1/tags/display/${tag.id}.js`;
+  const displayHtmlUrl = `${servingBaseUrl}/v1/tags/display/${tag.id}.html`;
+  const nativeJsUrl = `${servingBaseUrl}/v1/tags/native/${tag.id}.js`;
+  const vastUrl = `${servingBaseUrl}/v1/vast/tags/${tag.id}`;
+  const width = tag.width ?? 300;
+  const height = tag.height ?? 250;
+
+  switch (variant) {
+    case 'vast-url':
+      return vastUrl;
+    case 'vast-xml':
+      return `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <Ad id="${tag.id}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[${vastUrl}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
+    case 'display-iframe':
+      return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
+    case 'display-ins':
+      return `<ins id="smx-ad-slot-${tag.id}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    var iframe = document.createElement('iframe');\n    iframe.src = ${JSON.stringify(displayHtmlUrl)};\n    iframe.width = ${JSON.stringify(String(width))};\n    iframe.height = ${JSON.stringify(String(height))};\n    iframe.scrolling = 'no';\n    iframe.frameBorder = '0';\n    iframe.style.border = '0';\n    iframe.style.overflow = 'hidden';\n    slot.replaceWith(iframe);\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tag.id}`)}));\n</script>`;
+    case 'native-js':
+      return `<script>\n  window.SMX = window.SMX || {};\n  window.SMX.native = window.SMX.native || [];\n  window.SMX.native.push({ tagId: "${tag.id}", format: "native" });\n</script>\n<script src="${nativeJsUrl}" async></script>`;
+    case 'display-js':
+    default:
+      return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
+  }
+}
+
+function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant): string {
   if (tag.format === 'VAST') {
-    return `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <!-- VAST Wrapper Tag -->\n  <Ad id="${tag.id}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[${servingBaseUrl}/v1/vast/tags/${tag.id}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
+    return variant === 'vast-url'
+      ? 'Use this VAST tag URL in a video player, SSP, or DSP that expects VAST XML.'
+      : 'Use this XML wrapper only if your integration explicitly requires inline VAST XML.';
   }
   if (tag.format === 'display') {
-    return `<script src="${servingBaseUrl}/v1/vast/display/${tag.id}" async></script>\n<noscript>\n  <img src="${servingBaseUrl}/track/impression/${tag.id}" width="1" height="1" />\n</noscript>`;
+    if (variant === 'display-iframe') {
+      return 'Use the iframe tag for sandboxed display placements or when a publisher requests iframe delivery.';
+    }
+    if (variant === 'display-ins') {
+      return 'Use the ins tag when the publisher expects a slot placeholder plus inline bootstrap code.';
+    }
+    return 'Use the JavaScript tag for standard display placements. This is not a VAST tag.';
   }
-  // native currently reuses the JS serving endpoint until a dedicated native renderer exists.
-  return `<script>\n  window.SMX = window.SMX || {};\n  window.SMX.native = window.SMX.native || [];\n  window.SMX.native.push({ tagId: "${tag.id}", format: "native" });\n</script>\n<script src="${servingBaseUrl}/v1/vast/display/${tag.id}" async></script>`;
+  return 'Use the JavaScript tag to initialize the native placement loader.';
 }
 
 export default function TagBuilder() {
@@ -63,7 +153,8 @@ export default function TagBuilder() {
   const [generalError, setGeneralError] = useState('');
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
-  const [savedTag, setSavedTag] = useState<{ id: string; format: TagFormat; name: string } | null>(null);
+  const [savedTag, setSavedTag] = useState<SavedTag | null>(null);
+  const [snippetVariant, setSnippetVariant] = useState<SnippetVariant>(getDefaultSnippetVariant(emptyForm.format));
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -78,16 +169,19 @@ export default function TagBuilder() {
     setLoading(true);
     fetch(`/v1/tags/${id}`, { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
-      .then(data => {
+      .then(payload => {
+        const data = (payload?.tag ?? payload) as Record<string, unknown>;
         setForm({
-          name: data.name ?? '',
-          campaignId: data.campaign?.id ?? data.campaignId ?? '',
-          format: data.format ?? 'VAST',
-          status: data.status ?? 'draft',
-          clickUrl: data.clickUrl ?? '',
-          impressionUrl: data.impressionUrl ?? '',
+          name: String(data.name ?? ''),
+          campaignId: String((data.campaign as { id?: string } | undefined)?.id ?? data.campaignId ?? ''),
+          format: (data.format as TagFormat | undefined) ?? 'VAST',
+          status: (data.status as TagStatus | undefined) ?? 'draft',
+          clickUrl: (data.clickUrl as string | undefined) ?? '',
+          impressionUrl: (data.impressionUrl as string | undefined) ?? '',
         });
-        setSavedTag({ id: data.id, format: data.format, name: data.name });
+        const normalized = normalizeTagRecord(payload);
+        setSavedTag(normalized);
+        setSnippetVariant(getDefaultSnippetVariant(((data.format as TagFormat | undefined) ?? 'VAST')));
       })
       .catch(() => setGeneralError('Failed to load tag.'))
       .finally(() => setLoading(false));
@@ -102,6 +196,7 @@ export default function TagBuilder() {
 
   const setFormat = (f: TagFormat) => {
     setForm(prev => ({ ...prev, format: f }));
+    setSnippetVariant(getDefaultSnippetVariant(f));
     setErrors(er => ({ ...er, format: undefined }));
   };
 
@@ -138,8 +233,10 @@ export default function TagBuilder() {
       });
 
       if (res.ok) {
-        const data = await res.json();
-        setSavedTag({ id: data.id, format: data.format, name: data.name });
+        const payload = await res.json();
+        const normalized = normalizeTagRecord(payload);
+        setSavedTag(normalized);
+        setSnippetVariant(getDefaultSnippetVariant(normalized?.format ?? form.format));
       } else {
         const data = await res.json().catch(() => ({}));
         setGeneralError(data?.message ?? 'Failed to save tag.');
@@ -153,7 +250,7 @@ export default function TagBuilder() {
 
   const handleCopy = () => {
     if (!savedTag) return;
-    navigator.clipboard.writeText(buildTagSnippet(savedTag)).then(() => {
+    navigator.clipboard.writeText(buildTagSnippet(savedTag, snippetVariant)).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -314,15 +411,27 @@ export default function TagBuilder() {
               {copied ? '✓ Copied!' : '📋 Copy'}
             </button>
           </div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {getSnippetOptions(savedTag.format).map(option => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setSnippetVariant(option.value)}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  snippetVariant === option.value
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <p className="text-xs text-slate-500 mb-3">
-            {savedTag.format === 'VAST'
-              ? 'Paste this VAST tag URL into your video player or SSP.'
-              : savedTag.format === 'display'
-              ? 'Paste this JavaScript snippet into your page <head> or ad slot.'
-              : 'Initialize this snippet to load native ad units.'}
+            {getSnippetHelpText(savedTag, snippetVariant)}
           </p>
           <pre className="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">
-            {buildTagSnippet(savedTag)}
+            {buildTagSnippet(savedTag, snippetVariant)}
           </pre>
         </div>
       )}

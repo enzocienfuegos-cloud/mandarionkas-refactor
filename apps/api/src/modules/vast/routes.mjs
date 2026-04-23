@@ -148,6 +148,71 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
 })();`;
 }
 
+function buildDisplayDocument(tag, workspaceId, baseUrl) {
+  const tagId = tag.id;
+  const servingCandidate = tag.servingCandidate ?? null;
+  const width = servingCandidate?.width ?? 300;
+  const height = servingCandidate?.height ?? 250;
+  const clickUrl = servingCandidate?.clickUrl ?? '#';
+  const trackingParams = new URLSearchParams({ ws: String(workspaceId) });
+  if (servingCandidate?.creativeId) trackingParams.set('c', String(servingCandidate.creativeId));
+  if (servingCandidate?.creativeSizeVariantId) trackingParams.set('csv', String(servingCandidate.creativeSizeVariantId));
+  const impressionUrl = `${baseUrl}/track/impression/${tagId}?${trackingParams.toString()}`;
+  const clickTrackParams = new URLSearchParams(trackingParams);
+  clickTrackParams.set('url', clickUrl);
+  const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
+  const creativeUrl = servingCandidate?.publicUrl ?? '';
+
+  const body = creativeUrl
+    ? `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
+  <img src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" alt="" style="display:block;border:0;width:100%;height:100%;" />
+</a>`
+    : `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#eee;color:#999;font:12px sans-serif;text-decoration:none;">
+  Advertisement
+</a>`;
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeXml(tag.name)}</title>
+  </head>
+  <body style="margin:0;padding:0;overflow:hidden;width:${width}px;height:${height}px;">
+    ${body}
+    <img src="${escapeXml(impressionUrl)}" alt="" width="1" height="1" style="position:absolute;left:-9999px;top:-9999px;" />
+  </body>
+</html>`;
+}
+
+async function loadDisplayTag(req, reply, pool) {
+  const { workspaceId } = req.authSession ?? req.apiKeyAuth ?? {};
+  const { tagId } = req.params;
+
+  if (!workspaceId) {
+    reply.status(401).send({ error: 'Unauthorized', message: 'Authentication required' });
+    return null;
+  }
+
+  const tag = await getTagServingSnapshot(pool, workspaceId, tagId, {
+    requestedSize: readRequestedSize(req.query),
+  });
+  if (!tag) {
+    reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    return null;
+  }
+
+  if (tag.format === 'vast' || tag.format === 'vast_video') {
+    reply.status(400).send({
+      error: 'Bad Request',
+      message: 'Display endpoints cannot serve VAST tags',
+    });
+    return null;
+  }
+
+  return { tag, workspaceId };
+}
+
 export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool }) {
   // Middleware that accepts either session auth OR api key
   async function flexibleAuth(req, reply) {
@@ -205,26 +270,32 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
     return reply.send(xml);
   });
 
-  // GET /v1/vast/display/:tagId — serve display tag snippet (JS)
-  app.get('/v1/vast/display/:tagId', { preHandler: flexibleAuth }, async (req, reply) => {
-    const { workspaceId } = req.authSession ?? req.apiKeyAuth ?? {};
-    const { tagId } = req.params;
+  async function serveDisplayJavascript(req, reply) {
+    const loaded = await loadDisplayTag(req, reply, pool);
+    if (!loaded) return;
 
-    if (!workspaceId) {
-      return reply.status(401).send({ error: 'Unauthorized', message: 'Authentication required' });
-    }
-
-    const tag = await getTagServingSnapshot(pool, workspaceId, tagId, {
-      requestedSize: readRequestedSize(req.query),
-    });
-    if (!tag) {
-      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
-    }
-
-    const snippet = buildDisplaySnippet(tag, workspaceId, BASE_URL);
-
+    const snippet = buildDisplaySnippet(loaded.tag, loaded.workspaceId, BASE_URL);
     reply.header('Content-Type', 'application/javascript; charset=utf-8');
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
     return reply.send(snippet);
-  });
+  }
+
+  async function serveDisplayDocument(req, reply) {
+    const loaded = await loadDisplayTag(req, reply, pool);
+    if (!loaded) return;
+
+    const html = buildDisplayDocument(loaded.tag, loaded.workspaceId, BASE_URL);
+    reply.header('Content-Type', 'text/html; charset=utf-8');
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    reply.header('X-Frame-Options', 'SAMEORIGIN');
+    return reply.send(html);
+  }
+
+  // Legacy JS endpoint kept for compatibility.
+  app.get('/v1/vast/display/:tagId', { preHandler: flexibleAuth }, serveDisplayJavascript);
+  // Semantically clearer display endpoints for embed snippets.
+  app.get('/v1/tags/display/:tagId.js', { preHandler: flexibleAuth }, serveDisplayJavascript);
+  app.get('/v1/tags/display/:tagId.html', { preHandler: flexibleAuth }, serveDisplayDocument);
+  // Native currently reuses the display JS renderer until a dedicated native renderer exists.
+  app.get('/v1/tags/native/:tagId.js', { preHandler: flexibleAuth }, serveDisplayJavascript);
 }
