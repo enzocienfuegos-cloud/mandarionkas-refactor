@@ -270,7 +270,7 @@ function pickArtifactForBinding(binding) {
 
 function toServingCandidateFromBinding(binding, tag) {
   const artifact = pickArtifactForBinding(binding);
-  const publicUrl = artifact?.public_url ?? binding.public_url ?? null;
+  const publicUrl = artifact?.public_url ?? binding.variant_public_url ?? binding.public_url ?? null;
   const clickUrl = tag.click_url ?? binding.creative_click_url ?? null;
   if (!publicUrl && binding.serving_format !== 'display_html') {
     return null;
@@ -346,6 +346,7 @@ async function listTagVersionBindings(pool, workspaceId, tagId) {
         csv.width AS variant_width,
         csv.height AS variant_height,
         csv.status AS variant_status,
+        csv.public_url AS variant_public_url,
         COALESCE(
           json_agg(
             json_build_object(
@@ -373,7 +374,7 @@ async function listTagVersionBindings(pool, workspaceId, tagId) {
        cv.id, cv.creative_id, cv.source_kind, cv.serving_format, cv.status, cv.public_url, cv.entry_path,
        cv.mime_type, cv.width, cv.height, cv.duration_ms,
        c.name, c.click_url,
-       csv.label, csv.width, csv.height, csv.status
+       csv.label, csv.width, csv.height, csv.status, csv.public_url
      ORDER BY tb.weight DESC, tb.created_at ASC`,
     [workspaceId, tagId],
   );

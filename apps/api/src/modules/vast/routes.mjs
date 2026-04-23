@@ -101,6 +101,7 @@ function escapeXml(str) {
 function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
+  const servingFormat = servingCandidate?.servingFormat ?? '';
   const width = servingCandidate?.width ?? 300;
   const height = servingCandidate?.height ?? 250;
   const clickUrl = servingCandidate?.clickUrl ?? '#';
@@ -134,7 +135,17 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
 
-  if (creativeUrl) {
+  if (creativeUrl && servingFormat === 'display_html') {
+    var iframe = document.createElement('iframe');
+    iframe.src = creativeUrl;
+    iframe.width = String(w);
+    iframe.height = String(h);
+    iframe.scrolling = 'no';
+    iframe.frameBorder = '0';
+    iframe.style.border = '0';
+    iframe.style.overflow = 'hidden';
+    div.appendChild(iframe);
+  } else if (creativeUrl) {
     var img = document.createElement('img');
     img.src = creativeUrl;
     img.width = w;
@@ -163,6 +174,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
 function buildDisplayDocument(tag, workspaceId, baseUrl) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
+  const servingFormat = servingCandidate?.servingFormat ?? '';
   const width = servingCandidate?.width ?? 300;
   const height = servingCandidate?.height ?? 250;
   const clickUrl = servingCandidate?.clickUrl ?? '#';
@@ -175,7 +187,9 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
   const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
 
-  const body = creativeUrl
+  const body = creativeUrl && servingFormat === 'display_html'
+    ? `<iframe src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;"></iframe>`
+    : creativeUrl
     ? `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
   <img src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" alt="" style="display:block;border:0;width:100%;height:100%;" />
 </a>`
