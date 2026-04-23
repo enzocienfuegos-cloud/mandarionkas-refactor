@@ -20,6 +20,7 @@ import {
   submitCreativeVersion,
   updateTagBinding,
 } from './catalog';
+import { createClientWorkspace, loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 
 function formatBytes(value?: number | null) {
   if (!value) return '—';
@@ -122,8 +123,11 @@ export default function CreativeLibrary() {
   const [latestVersions, setLatestVersions] = useState<LatestVersionMap>({});
   const [ingestions, setIngestions] = useState<CreativeIngestion[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [bindingState, setBindingState] = useState<BindingState | null>(null);
   const [variantState, setVariantState] = useState<VariantState | null>(null);
@@ -132,15 +136,19 @@ export default function CreativeLibrary() {
     setLoading(true);
     setError('');
     try {
-      const [{ creatives, latestVersions }, ingestions, tags] = await Promise.all([
+      const [{ creatives, latestVersions }, ingestions, tags, authMe, workspaceList] = await Promise.all([
         loadCreativesWithLatestVersion(),
         loadCreativeIngestions(),
         loadTags(),
+        loadAuthMe(),
+        loadWorkspaces(),
       ]);
       setCreatives(creatives);
       setLatestVersions(latestVersions);
       setIngestions(ingestions);
       setTags(tags);
+      setWorkspaces(workspaceList);
+      setActiveWorkspaceId(authMe.workspace?.id ?? workspaceList[0]?.id ?? '');
     } catch (loadError: any) {
       setError(loadError.message ?? 'Failed to load creative catalog');
     } finally {
@@ -161,6 +169,35 @@ export default function CreativeLibrary() {
       ingestions: ingestions.length,
     };
   }, [creatives, latestVersions, ingestions]);
+
+  const handleWorkspaceChange = async (workspaceId: string) => {
+    if (!workspaceId || workspaceId === activeWorkspaceId) return;
+    setWorkspaceBusy(true);
+    setError('');
+    try {
+      await switchWorkspace(workspaceId);
+      await load();
+    } catch (workspaceError: any) {
+      setError(workspaceError.message ?? 'Failed to switch client');
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
+
+  const handleCreateClient = async () => {
+    const name = window.prompt('New client name');
+    if (!name?.trim()) return;
+    setWorkspaceBusy(true);
+    setError('');
+    try {
+      await createClientWorkspace(name.trim());
+      await load();
+    } catch (workspaceError: any) {
+      setError(workspaceError.message ?? 'Failed to create client');
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
 
   const handleSubmit = async (creativeId: string) => {
     const version = latestVersions[creativeId];
@@ -400,10 +437,29 @@ export default function CreativeLibrary() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Creative Catalog</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Versioned creatives, external ingestions, and review lifecycle in one place.
+            Upload to a specific client, auto-publish technically valid creatives, and bind them to tags.
           </p>
         </div>
         <div className="flex gap-2">
+          <select
+            value={activeWorkspaceId}
+            onChange={event => void handleWorkspaceChange(event.target.value)}
+            disabled={workspaceBusy}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          >
+            {workspaces.map(workspace => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => void handleCreateClient()}
+            disabled={workspaceBusy}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+          >
+            New client
+          </button>
           <button
             onClick={() => navigate('/creatives/approval')}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
@@ -425,11 +481,11 @@ export default function CreativeLibrary() {
           <p className="mt-2 text-2xl font-semibold text-slate-900">{summary.totalCreatives}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Pending Review</p>
+          <p className="text-sm text-slate-500">Manual Review</p>
           <p className="mt-2 text-2xl font-semibold text-yellow-700">{summary.pendingReview}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Approved</p>
+          <p className="text-sm text-slate-500">Ready to Tag</p>
           <p className="mt-2 text-2xl font-semibold text-green-700">{summary.approved}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">

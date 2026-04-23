@@ -3,7 +3,7 @@ import {
   createCreative,
   createCreativeArtifact,
   createCreativeVersion,
-  submitCreativeVersionForReview,
+  ensureCreativeVersionDefaultVariant,
   updateCreative,
   updateCreativeVersion,
 } from '@smx/db';
@@ -53,7 +53,7 @@ function normalizePayload(body = {}) {
   const projectId = body.projectId ? String(body.projectId).trim() : null;
   const projectName = body.projectName ? String(body.projectName).trim() : null;
   const channel = String(body.channel ?? body.bundle?.channel ?? 'generic-html5').trim();
-  const autoSubmitForReview = body.autoSubmitForReview !== false;
+  const requireReview = body.requireReview === true || body.autoSubmitForReview === true;
   const files = Array.isArray(body.bundle?.files) ? body.bundle.files : [];
   const metadata = body.metadata && typeof body.metadata === 'object' ? body.metadata : {};
 
@@ -62,7 +62,7 @@ function normalizePayload(body = {}) {
     projectId,
     projectName,
     channel,
-    autoSubmitForReview,
+    requireReview,
     files,
     metadata,
   };
@@ -72,7 +72,7 @@ export function handleStudioPublicationRoutes(app, { requireWorkspace, pool }, d
   createCreative,
   createCreativeArtifact,
   createCreativeVersion,
-  submitCreativeVersionForReview,
+  ensureCreativeVersionDefaultVariant,
   updateCreative,
   updateCreativeVersion,
 }) {
@@ -138,7 +138,7 @@ export function handleStudioPublicationRoutes(app, { requireWorkspace, pool }, d
           channel: payload.channel,
           ...payload.metadata,
         },
-        approval_status: payload.autoSubmitForReview ? 'pending_review' : 'draft',
+        approval_status: payload.requireReview ? 'pending_review' : 'approved',
         transcode_status: 'done',
       }, { ensureLegacyVersion: false });
 
@@ -146,7 +146,7 @@ export function handleStudioPublicationRoutes(app, { requireWorkspace, pool }, d
         creativeId: creative.id,
         source_kind: 'studio_export',
         serving_format: 'display_html',
-        status: 'draft',
+        status: payload.requireReview ? 'pending_review' : 'approved',
         public_url: null,
         entry_path: 'index.html',
         mime_type: 'text/html; charset=utf-8',
@@ -203,6 +203,9 @@ export function handleStudioPublicationRoutes(app, { requireWorkspace, pool }, d
           totalBytes,
         },
       });
+      await deps.ensureCreativeVersionDefaultVariant(client, req.authSession.workspaceId, creativeVersion, {
+        forceStatusSync: true,
+      });
 
       creative = await deps.updateCreative(client, req.authSession.workspaceId, creative.id, {
         file_url: entryPublicUrl,
@@ -214,10 +217,6 @@ export function handleStudioPublicationRoutes(app, { requireWorkspace, pool }, d
           totalBytes,
         },
       });
-
-      if (payload.autoSubmitForReview) {
-        creativeVersion = await deps.submitCreativeVersionForReview(client, req.authSession.workspaceId, creativeVersion.id);
-      }
 
       await client.query('COMMIT');
 

@@ -52,7 +52,6 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
     try {
       const publication = await publishStudioProjectToAdServer(state, {
         projectId: activeProjectId,
-        autoSubmitForReview: true,
       });
       setPublishStatus('success');
       if (activeProjectId) {

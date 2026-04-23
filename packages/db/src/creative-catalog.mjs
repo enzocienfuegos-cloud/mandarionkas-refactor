@@ -225,23 +225,7 @@ export async function createCreativeVersion(pool, workspaceId, data) {
   );
   const version = rows[0] ?? null;
   if (version?.width && version?.height) {
-    await createCreativeSizeVariant(pool, workspaceId, {
-      creative_version_id: version.id,
-      label: `${version.width}x${version.height}`,
-      width: version.width,
-      height: version.height,
-      status: version.status === 'approved'
-        ? 'active'
-        : version.status === 'archived'
-          ? 'archived'
-          : 'draft',
-      public_url: version.public_url ?? null,
-      metadata: {
-        defaultVariant: true,
-        source: 'creative_version',
-      },
-      created_by: version.created_by ?? null,
-    });
+    await ensureCreativeVersionDefaultVariant(pool, workspaceId, version);
   }
   return version;
 }
@@ -453,6 +437,52 @@ export async function createCreativeSizeVariant(pool, workspaceId, data) {
     ],
   );
   return rows[0] ?? null;
+}
+
+export async function ensureCreativeVersionDefaultVariant(pool, workspaceId, creativeVersion, options = {}) {
+  if (!creativeVersion?.id || !creativeVersion?.width || !creativeVersion?.height) {
+    return null;
+  }
+
+  const existingVariants = await listCreativeSizeVariants(pool, workspaceId, creativeVersion.id);
+  const matchingVariant = existingVariants.find((variant) =>
+    Number(variant.width) === Number(creativeVersion.width)
+    && Number(variant.height) === Number(creativeVersion.height),
+  );
+
+  const desiredStatus = creativeVersion.status === 'approved'
+    ? 'active'
+    : creativeVersion.status === 'archived'
+      ? 'archived'
+      : options.defaultStatus ?? 'draft';
+
+  if (matchingVariant) {
+    const patch = {};
+    if (!matchingVariant.public_url && creativeVersion.public_url) {
+      patch.publicUrl = creativeVersion.public_url;
+    }
+    if (matchingVariant.status !== desiredStatus && (matchingVariant.metadata?.defaultVariant || options.forceStatusSync)) {
+      patch.status = desiredStatus;
+    }
+    if (Object.keys(patch).length > 0) {
+      return updateCreativeSizeVariant(pool, workspaceId, matchingVariant.id, patch);
+    }
+    return matchingVariant;
+  }
+
+  return createCreativeSizeVariant(pool, workspaceId, {
+    creative_version_id: creativeVersion.id,
+    label: `${creativeVersion.width}x${creativeVersion.height}`,
+    width: creativeVersion.width,
+    height: creativeVersion.height,
+    status: desiredStatus,
+    public_url: creativeVersion.public_url ?? null,
+    metadata: {
+      defaultVariant: true,
+      source: 'creative_version',
+    },
+    created_by: creativeVersion.created_by ?? null,
+  });
 }
 
 export async function createCreativeSizeVariantsBulk(pool, workspaceId, creativeVersionId, variants = [], options = {}) {

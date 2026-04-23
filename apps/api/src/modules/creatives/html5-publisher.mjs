@@ -65,6 +65,63 @@ function pickEntryHtml(files) {
   return htmlFiles[0] ?? null;
 }
 
+function parseStyleDimensions(styleValue) {
+  if (!styleValue) return null;
+  const widthMatch = styleValue.match(/width\s*:\s*(\d+)(?:px)?/i);
+  const heightMatch = styleValue.match(/height\s*:\s*(\d+)(?:px)?/i);
+  if (!widthMatch || !heightMatch) return null;
+  return {
+    width: Number(widthMatch[1]),
+    height: Number(heightMatch[1]),
+    source: 'inline_style',
+  };
+}
+
+function extractHtml5Dimensions(htmlSource) {
+  if (!htmlSource) return null;
+
+  const metaTags = htmlSource.match(/<meta\b[^>]*>/gi) ?? [];
+  for (const metaTag of metaTags) {
+    if (!/name\s*=\s*["']ad\.size["']/i.test(metaTag)) continue;
+    const contentMatch = metaTag.match(/content\s*=\s*["']([^"']+)["']/i);
+    const sizeMatch = contentMatch?.[1]?.match(/width\s*=\s*(\d+)\s*,\s*height\s*=\s*(\d+)/i);
+    if (sizeMatch) {
+      return {
+        width: Number(sizeMatch[1]),
+        height: Number(sizeMatch[2]),
+        source: 'meta_ad_size',
+      };
+    }
+  }
+
+  const attributeMatch = htmlSource.match(/<(?:body|div|canvas|iframe|img|svg)\b[^>]*\bwidth=["']?(\d{2,4})["']?[^>]*\bheight=["']?(\d{2,4})["']?[^>]*>/i)
+    ?? htmlSource.match(/<(?:body|div|canvas|iframe|img|svg)\b[^>]*\bheight=["']?(\d{2,4})["']?[^>]*\bwidth=["']?(\d{2,4})["']?[^>]*>/i);
+  if (attributeMatch) {
+    const [first, second] = attributeMatch.slice(1, 3).map(Number);
+    const width = /width=["']?/.test(attributeMatch[0]) && attributeMatch.indexOf('width') < attributeMatch.indexOf('height') ? first : second;
+    const height = width === first ? second : first;
+    return { width, height, source: 'html_attributes' };
+  }
+
+  const styleTags = htmlSource.match(/<(?:body|div|canvas|iframe)\b[^>]*\bstyle=["'][^"']+["'][^>]*>/gi) ?? [];
+  for (const styleTag of styleTags) {
+    const styleMatch = styleTag.match(/style\s*=\s*["']([^"']+)["']/i);
+    const dimensions = parseStyleDimensions(styleMatch?.[1] ?? '');
+    if (dimensions) return dimensions;
+  }
+
+  const genericMatch = htmlSource.match(/width\s*=\s*(\d+)\s*,\s*height\s*=\s*(\d+)/i);
+  if (genericMatch) {
+    return {
+      width: Number(genericMatch[1]),
+      height: Number(genericMatch[2]),
+      source: 'generic_assignment',
+    };
+  }
+
+  return null;
+}
+
 export async function expandAndPublishHtml5Archive({
   sourceStorageKey,
   workspaceId,
@@ -106,6 +163,8 @@ export async function expandAndPublishHtml5Archive({
     if (!entryFile) {
       throw new Error('HTML5 archive must contain an index.html entrypoint');
     }
+    const entryHtmlSource = await readFile(entryFile.absolutePath, 'utf8');
+    const detectedDimensions = extractHtml5Dimensions(entryHtmlSource);
 
     const publishedPrefix = `${workspaceId}/creative-published/${creativeVersionId}`;
     const publishedArtifacts = [];
@@ -138,6 +197,9 @@ export async function expandAndPublishHtml5Archive({
       entryPublicUrl: entryArtifact?.publicUrl ?? null,
       filesPublished: publishedArtifacts.length,
       totalBytes,
+      width: detectedDimensions?.width ?? null,
+      height: detectedDimensions?.height ?? null,
+      dimensionSource: detectedDimensions?.source ?? null,
       artifacts: publishedArtifacts,
     };
   } finally {

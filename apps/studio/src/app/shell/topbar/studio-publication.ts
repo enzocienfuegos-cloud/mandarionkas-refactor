@@ -74,7 +74,7 @@ function serializeBundle(bundle: ExportBundle) {
 
 export async function publishStudioProjectToAdServer(state: StudioState, options: {
   projectId?: string;
-  autoSubmitForReview?: boolean;
+  requireReview?: boolean;
 } = {}): Promise<CreativePublicationResponse> {
   const preparedState = await prepareExportStateWithResolvedAssets(state);
   const bundle = await buildExportBundleWithRemoteAssets(preparedState);
@@ -87,7 +87,7 @@ export async function publishStudioProjectToAdServer(state: StudioState, options
       projectId: options.projectId,
       projectName: preparedState.document.name || 'Untitled Project',
       channel: bundle.channel,
-      autoSubmitForReview: options.autoSubmitForReview !== false,
+      requireReview: options.requireReview === true,
       metadata: {
         documentId: preparedState.document.id,
         canvas: {

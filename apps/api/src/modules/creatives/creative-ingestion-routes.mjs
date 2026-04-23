@@ -4,6 +4,7 @@ import {
   createCreativeArtifact,
   createCreativeIngestion,
   createCreativeVersion,
+  ensureCreativeVersionDefaultVariant,
   getCreative,
   getCreativeIngestion,
   getCreativeVersion,
@@ -139,11 +140,16 @@ function getCatalogDraftForIngestion(row) {
   };
 }
 
+function shouldRequireManualReview(body = {}) {
+  return body?.requireReview === true;
+}
+
 export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, deps = {
   createCreative,
   createCreativeArtifact,
   createCreativeIngestion,
   createCreativeVersion,
+  ensureCreativeVersionDefaultVariant,
   getCreative,
   getCreativeIngestion,
   getCreativeVersion,
@@ -275,6 +281,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
 
     const creativeName = deriveCreativeName(row, req.body?.name);
     const catalogDraft = getCatalogDraftForIngestion(row);
+    const requireManualReview = shouldRequireManualReview(req.body);
 
     const client = await pool.connect();
     try {
@@ -297,7 +304,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
           ...(row.metadata ?? {}),
           ...(req.body?.metadata ?? {}),
         },
-        approval_status: 'draft',
+        approval_status: requireManualReview ? 'pending_review' : 'approved',
         transcode_status: catalogDraft.transcodeStatus,
       }, { ensureLegacyVersion: false });
 
@@ -305,7 +312,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
         creativeId: creative.id,
         source_kind: row.source_kind,
         serving_format: catalogDraft.servingFormat,
-        status: 'draft',
+        status: requireManualReview ? 'pending_review' : 'approved',
         public_url: catalogDraft.publicUrl,
         entry_path: catalogDraft.entryPath,
         mime_type: catalogDraft.mimeType,
@@ -363,18 +370,26 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
           publicUrl: htmlPublication.entryPublicUrl,
           entryPath: htmlPublication.entryPath,
           mimeType: 'text/html; charset=utf-8',
+          width: htmlPublication.width ?? creativeVersion.width ?? req.body?.width ?? null,
+          height: htmlPublication.height ?? creativeVersion.height ?? req.body?.height ?? null,
           metadata: {
             ...(creativeVersion.metadata ?? {}),
             publishedFrom: 'external_ingestion',
             html5Published: true,
             filesPublished: htmlPublication.filesPublished,
             publishedBytes: htmlPublication.totalBytes,
+            dimensionSource: htmlPublication.dimensionSource ?? null,
           },
+        });
+        await deps.ensureCreativeVersionDefaultVariant(client, req.authSession.workspaceId, publishedVersion, {
+          forceStatusSync: true,
         });
 
         creative = await deps.updateCreative(client, req.authSession.workspaceId, creative.id, {
           file_url: htmlPublication.entryPublicUrl,
           mime_type: 'text/html; charset=utf-8',
+          width: htmlPublication.width ?? req.body?.width ?? null,
+          height: htmlPublication.height ?? req.body?.height ?? null,
           transcode_status: 'done',
           metadata: {
             ...(creative.metadata ?? {}),
@@ -382,6 +397,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
             entryPath: htmlPublication.entryPath,
             publishedFrom: 'external_ingestion',
             filesPublished: htmlPublication.filesPublished,
+            dimensionSource: htmlPublication.dimensionSource ?? null,
           },
         });
       } else if (row.source_kind === 'video_mp4') {
@@ -416,6 +432,9 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
             bitRate: videoPublication.metadata?.bitRate ?? null,
             posterGenerated: videoPublication.posterArtifacts.length > 0,
           },
+        });
+        await deps.ensureCreativeVersionDefaultVariant(client, req.authSession.workspaceId, publishedVersion, {
+          forceStatusSync: true,
         });
 
         const posterArtifact = videoPublication.posterArtifacts[0] ?? null;

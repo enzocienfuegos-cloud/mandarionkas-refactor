@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   completeCreativeIngestion,
@@ -6,6 +6,7 @@ import {
   publishCreativeIngestion,
   uploadFileToSignedUrl,
 } from './catalog';
+import { createClientWorkspace, loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 
 type SourceKind = 'html5_zip' | 'video_mp4';
 
@@ -22,11 +23,61 @@ export default function CreativeUpload() {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
+  const [workspaceId, setWorkspaceId] = useState('');
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
+
+  useEffect(() => {
+    Promise.all([loadAuthMe(), loadWorkspaces()])
+      .then(([authMe, workspaceList]) => {
+        setWorkspaces(workspaceList);
+        setWorkspaceId(authMe.workspace?.id ?? workspaceList[0]?.id ?? '');
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleWorkspaceChange = async (nextWorkspaceId: string) => {
+    if (!nextWorkspaceId || nextWorkspaceId === workspaceId) {
+      setWorkspaceId(nextWorkspaceId);
+      return;
+    }
+    setWorkspaceBusy(true);
+    setError('');
+    try {
+      await switchWorkspace(nextWorkspaceId);
+      setWorkspaceId(nextWorkspaceId);
+    } catch (workspaceError: any) {
+      setError(workspaceError.message ?? 'Failed to switch client');
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
+
+  const handleCreateClient = async () => {
+    const clientName = window.prompt('New client name');
+    if (!clientName?.trim()) return;
+    setWorkspaceBusy(true);
+    setError('');
+    try {
+      const response = await createClientWorkspace(clientName.trim());
+      const workspaceList = await loadWorkspaces();
+      setWorkspaces(workspaceList);
+      setWorkspaceId(response.activeWorkspaceId ?? response.client?.id ?? workspaceList[0]?.id ?? '');
+    } catch (workspaceError: any) {
+      setError(workspaceError.message ?? 'Failed to create client');
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!file) {
       setError('Select a file first.');
+      return;
+    }
+    if (!workspaceId) {
+      setError('Select a client before uploading.');
       return;
     }
 
@@ -35,6 +86,7 @@ export default function CreativeUpload() {
     setStatus('Preparing upload…');
 
     try {
+      await handleWorkspaceChange(workspaceId);
       const upload = await createCreativeIngestionUpload({ sourceKind, file, name: name.trim() || undefined });
       setStatus('Uploading file…');
       await uploadFileToSignedUrl(upload.upload.uploadUrl, file);
@@ -74,6 +126,30 @@ export default function CreativeUpload() {
       <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6">
         <div className="grid gap-6 md:grid-cols-2">
           <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Client</label>
+            <div className="mb-4 flex items-center gap-2">
+              <select
+                value={workspaceId}
+                onChange={event => void handleWorkspaceChange(event.target.value)}
+                disabled={loading || workspaceBusy}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Select a client</option>
+                {workspaces.map(workspace => (
+                  <option key={workspace.id} value={workspace.id}>
+                    {workspace.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => void handleCreateClient()}
+                disabled={loading || workspaceBusy}
+                className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                New client
+              </button>
+            </div>
             <label className="mb-2 block text-sm font-medium text-slate-700">Source Type</label>
             <div className="grid gap-3">
               <button

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { createClientWorkspace, loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 
 interface User {
   id: string;
@@ -53,22 +54,39 @@ function getStudioUrl(): string {
 export default function Shell() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
+  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [creatingClient, setCreatingClient] = useState(false);
+  const [clientError, setClientError] = useState('');
+
+  function normalizeUserPayload(payload: any): User | null {
+    if (!payload?.user) return null;
+    const displayName = String(payload.user.display_name ?? '').trim() || String(payload.user.email ?? '').split('@')[0];
+    const [firstName = '', ...rest] = displayName.split(/\s+/).filter(Boolean);
+    const lastName = rest.join(' ');
+    return {
+      id: payload.user.id,
+      email: payload.user.email,
+      firstName,
+      lastName,
+      role: payload.role ?? 'member',
+      workspace: {
+        id: payload.workspace?.id ?? '',
+        name: payload.workspace?.name ?? 'Workspace',
+      },
+    };
+  }
 
   useEffect(() => {
-    fetch('/v1/auth/me', { credentials: 'include' })
-      .then(res => {
-        if (res.status === 401) {
-          navigate('/login');
-          return null;
-        }
-        return res.json();
-      })
-      .then(data => {
-        if (data) setUser(data);
+    Promise.all([loadAuthMe(), loadWorkspaces()])
+      .then(([authMe, workspaceList]) => {
+        const normalized = normalizeUserPayload(authMe);
+        if (normalized) setUser(normalized);
+        setWorkspaces(workspaceList);
       })
       .catch(() => navigate('/login'))
       .finally(() => setLoading(false));
@@ -77,6 +95,43 @@ export default function Shell() {
   const handleLogout = async () => {
     await fetch('/v1/auth/logout', { method: 'POST', credentials: 'include' });
     navigate('/login');
+  };
+
+  const handleWorkspaceSwitch = async (workspaceId: string) => {
+    if (!workspaceId || workspaceId === user?.workspace?.id) return;
+    setWorkspaceBusy(true);
+    setClientError('');
+    try {
+      await switchWorkspace(workspaceId);
+      const [authMe, workspaceList] = await Promise.all([loadAuthMe(), loadWorkspaces()]);
+      const normalized = normalizeUserPayload(authMe);
+      if (normalized) setUser(normalized);
+      setWorkspaces(workspaceList);
+      window.location.reload();
+    } catch (error: any) {
+      setClientError(error.message ?? 'Failed to switch client');
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
+
+  const handleCreateClient = async () => {
+    const name = window.prompt('New client name');
+    if (!name?.trim()) return;
+    setCreatingClient(true);
+    setClientError('');
+    try {
+      await createClientWorkspace(name.trim());
+      const [authMe, workspaceList] = await Promise.all([loadAuthMe(), loadWorkspaces()]);
+      const normalized = normalizeUserPayload(authMe);
+      if (normalized) setUser(normalized);
+      setWorkspaces(workspaceList);
+      window.location.reload();
+    } catch (error: any) {
+      setClientError(error.message ?? 'Failed to create client');
+    } finally {
+      setCreatingClient(false);
+    }
   };
 
   if (loading) {
@@ -174,9 +229,31 @@ export default function Shell() {
         {/* Top bar */}
         <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-700">
-              {user?.workspace?.name ?? 'Workspace'}
-            </span>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Client</label>
+              <select
+                value={user?.workspace?.id ?? ''}
+                onChange={event => void handleWorkspaceSwitch(event.target.value)}
+                disabled={workspaceBusy || creatingClient}
+                className="min-w-[220px] rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700"
+              >
+                {workspaces.map(workspace => (
+                  <option key={workspace.id} value={workspace.id}>
+                    {workspace.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => void handleCreateClient()}
+                disabled={workspaceBusy || creatingClient}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {creatingClient ? 'Creating…' : 'New client'}
+              </button>
+            </div>
+            {clientError && (
+              <span className="text-xs text-red-600">{clientError}</span>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
