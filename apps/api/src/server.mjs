@@ -20,6 +20,7 @@ import { handleCampaignRoutes }        from './modules/campaigns/campaign-routes
 import { handleCreativeRoutes }        from './modules/creatives/creative-routes.mjs';
 import { handleCreativeApprovalRoutes } from './modules/creatives/creative-approval-routes.mjs';
 import { handleCreativeIngestionRoutes } from './modules/creatives/creative-ingestion-routes.mjs';
+import { handleStudioPublicationRoutes } from './modules/creatives/studio-publication-routes.mjs';
 import { handleTrackingRoutes }        from './modules/tracking/tracking-routes.mjs';
 import { handleReportingRoutes }       from './modules/reporting/routes.mjs';
 import { handlePacingRoutes }          from './modules/pacing/pacing-routes.mjs';
@@ -176,6 +177,7 @@ export async function buildApp(opts = {}) {
   handleCreativeRoutes(app, ctx);
   handleCreativeApprovalRoutes(app, ctx);
   handleCreativeIngestionRoutes(app, ctx);
+  handleStudioPublicationRoutes(app, ctx);
 
   // Tags
   handleTagRoutes(app, ctx);

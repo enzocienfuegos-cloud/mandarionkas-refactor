@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
 import { recordHubProjectActivity } from '../../../platform/agency-shell/activity-api';
 import type { TopBarController } from './use-top-bar-controller';
 import { ExportMenu } from './ExportMenu';
 import type { ExportChannel } from './export-channels';
+import { publishStudioProjectToAdServer } from './studio-publication';
 
 export function TopBarActions({ controller }: { controller: TopBarController }): JSX.Element {
   const { previewMode, release, state } = controller.snapshot;
+  const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'success' | 'error'>('idle');
   const { uiActions } = controller.document;
   const { canSaveProjects } = controller.workspace;
   const { updateReleaseSettings } = useDocumentActions();
@@ -44,6 +47,28 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
     }
   }
 
+  async function handlePublishToAdServer(): Promise<void> {
+    setPublishStatus('publishing');
+    try {
+      const publication = await publishStudioProjectToAdServer(state, {
+        projectId: activeProjectId,
+        autoSubmitForReview: true,
+      });
+      setPublishStatus('success');
+      if (activeProjectId) {
+        await recordHubProjectActivity(activeProjectId, 'shared', {
+          channel: release.targetChannel,
+          publishTarget: 'ad_server',
+          creativeId: publication.creative.id,
+          creativeVersionId: publication.creativeVersion.id,
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      setPublishStatus('error');
+    }
+  }
+
   const saveIndicatorClass = `top-save-dot top-save-dot--${saveStatus}`;
   const saveTitle =
     saveStatus === 'error'
@@ -53,6 +78,11 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
         : saveStatus === 'saved'
           ? (saveMessage ?? 'Saved')
           : 'Changes not saved';
+  const publishLabel = publishStatus === 'publishing'
+    ? 'Publishing…'
+    : publishStatus === 'success'
+      ? 'Published'
+      : 'Publish';
 
   return (
     <div className="top-actions-cluster">
@@ -73,6 +103,15 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
 
       <button type="button" className="ghost compact-action" onClick={() => void handleShare()}>
         Share
+      </button>
+
+      <button
+        type="button"
+        className="ghost compact-action"
+        onClick={() => void handlePublishToAdServer()}
+        disabled={publishStatus === 'publishing'}
+      >
+        {publishLabel}
       </button>
 
       <button
