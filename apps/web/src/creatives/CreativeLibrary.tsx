@@ -130,6 +130,7 @@ export default function CreativeLibrary() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [bindingState, setBindingState] = useState<BindingState | null>(null);
   const [variantState, setVariantState] = useState<VariantState | null>(null);
 
@@ -190,14 +191,16 @@ export default function CreativeLibrary() {
       setBindingState(current => current ? { ...current, error: 'Select a tag.' } : current);
       return;
     }
+    const selectedTag = tags.find(tag => tag.id === bindingState.tagId);
     setBindingState(current => current ? { ...current, loading: true, error: '' } : current);
     try {
       await assignCreativeVersionToTag({
         creativeVersionId: bindingState.versionId,
         tagId: bindingState.tagId,
       });
-      const bindings = await loadTagBindings(bindingState.tagId);
-      setBindingState(current => current ? { ...current, loading: false, bindings } : current);
+      setBindingState(null);
+      setSuccessMessage(selectedTag ? `Assigned to tag "${selectedTag.name}".` : 'Creative assigned to tag.');
+      window.setTimeout(() => setSuccessMessage(''), 3500);
     } catch (assignError: any) {
       const message = assignError?.message ?? 'Assignment failed';
       setBindingState(current => current ? { ...current, loading: false, error: message } : current);
@@ -477,6 +480,12 @@ export default function CreativeLibrary() {
           </button>
         </div>
       </div>
+
+      {successMessage && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {successMessage}
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4">

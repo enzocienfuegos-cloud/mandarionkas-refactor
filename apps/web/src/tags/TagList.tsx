@@ -37,6 +37,14 @@ const statusBadge = (status: Tag['status']) => {
   );
 };
 
+function escapeCsv(value: unknown) {
+  const text = String(value ?? '');
+  if (/[",\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
 export default function TagList() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -121,6 +129,30 @@ export default function TagList() {
     }
   };
 
+  const handleExportCsv = () => {
+    const rows = [
+      ['id', 'name', 'campaign', 'format', 'status', 'created_at'],
+      ...tags.map(tag => [
+        tag.id,
+        tag.name,
+        tag.campaign?.name ?? '',
+        tag.format,
+        tag.status,
+        tag.createdAt,
+      ]),
+    ];
+    const csv = rows.map(row => row.map(escapeCsv).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tags-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -147,6 +179,13 @@ export default function TagList() {
           <p className="text-sm text-slate-500 mt-1">{tags.length} tag{tags.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={handleExportCsv}
+            disabled={tags.length === 0}
+            className="inline-flex items-center gap-2 border border-slate-300 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            Export CSV
+          </button>
           <Link
             to="/tags/bindings"
             className="inline-flex items-center gap-2 border border-slate-300 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm hover:bg-slate-50 transition-colors"
