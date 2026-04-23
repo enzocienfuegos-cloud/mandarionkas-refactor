@@ -41,6 +41,7 @@ interface WorkspaceAnalytics {
   totalViewableImpressions: number;
   totalMeasuredImpressions: number;
   totalUndeterminedImpressions: number;
+  measurableRate: number;
   viewabilityRate: number;
   avgCtr: number;
   totalEngagements: number;
@@ -163,6 +164,7 @@ function normalizeWorkspaceAnalytics(
     totalViewableImpressions: toNumber(source?.totalViewableImpressions ?? source?.total_viewable_impressions),
     totalMeasuredImpressions: toNumber(source?.totalMeasuredImpressions ?? source?.total_measured_impressions),
     totalUndeterminedImpressions: toNumber(source?.totalUndeterminedImpressions ?? source?.total_undetermined_impressions),
+    measurableRate: toNumber(source?.measurableRate ?? source?.measurable_rate),
     viewabilityRate: toNumber(source?.viewabilityRate ?? source?.viewability_rate),
     avgCtr: toNumber(source?.avgCtr ?? source?.avg_ctr),
     totalEngagements: toNumber(source?.totalEngagements ?? source?.total_engagements),
@@ -496,7 +498,7 @@ export default function AnalyticsDashboard() {
           value={fmtCtr(data?.viewabilityRate ?? 0)}
           icon="🎯"
           color="text-fuchsia-700"
-          sub={`${fmtNum(data?.totalViewableImpressions ?? 0)} viewable of ${fmtNum(data?.totalMeasuredImpressions ?? 0)} measured · ${fmtNum(data?.totalUndeterminedImpressions ?? 0)} undetermined`}
+          sub={`${fmtNum(data?.totalViewableImpressions ?? 0)} viewable of ${fmtNum(data?.totalMeasuredImpressions ?? 0)} measured · ${fmtCtr(data?.measurableRate ?? 0)} measurable`}
         />
         <KpiCard label="Engagements" value={fmtNum(data?.totalEngagements ?? 0)} icon="✨" color="text-amber-700" sub={`${fmtNum(data?.totalHoverDurationMs ?? 0)} ms hover time`} />
       </div>
@@ -506,10 +508,11 @@ export default function AnalyticsDashboard() {
         <KpiCard label="Active Tags" value={String(data?.activeTags ?? 0)} icon="🏷️" color="text-slate-800" />
         <KpiCard label="Creatives" value={String(data?.totalCreatives ?? 0)} icon="🧩" color="text-slate-800" />
         <KpiCard
-          label="Avg Hover Time"
-          value={`${Math.round((data?.totalHoverDurationMs ?? 0) / Math.max(data?.totalEngagements ?? 1, 1)).toLocaleString()} ms`}
-          icon="🖐️"
+          label="Measurable Rate"
+          value={fmtCtr(data?.measurableRate ?? 0)}
+          icon="🧪"
           color="text-slate-800"
+          sub={`${fmtNum(data?.totalUndeterminedImpressions ?? 0)} undetermined impressions`}
         />
       </div>
 

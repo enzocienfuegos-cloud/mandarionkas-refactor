@@ -156,8 +156,9 @@ export async function recordViewability(pool, data) {
     state === 'undetermined' ? 'undetermined'
       : state === 'measured' ? 'measured'
         : 'viewable';
-  const shouldCountMeasured = previousStatus === 'unmeasured' || previousStatus === null;
-  const shouldCountUndetermined = nextStatus === 'undetermined' && shouldCountMeasured;
+  const wasUnseen = previousStatus === 'unmeasured' || previousStatus === null;
+  const shouldCountMeasured = nextStatus !== 'undetermined' && wasUnseen;
+  const shouldCountUndetermined = nextStatus === 'undetermined' && previousStatus !== 'undetermined';
   const shouldCountViewable = nextStatus === 'viewable' && previousStatus !== 'viewable';
 
   if (impression_id) {
@@ -436,6 +437,9 @@ export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
             CASE WHEN SUM(ds.impressions) > 0
                  THEN ROUND(SUM(ds.clicks)::NUMERIC / SUM(ds.impressions) * 100, 4)
                  ELSE 0 END AS ctr,
+            CASE WHEN SUM(ds.impressions) > 0
+                 THEN ROUND(SUM(ds.measured_imps)::NUMERIC / SUM(ds.impressions) * 100, 4)
+                 ELSE 0 END AS measurable_rate,
             CASE WHEN SUM(ds.measured_imps) > 0
                  THEN ROUND(SUM(ds.viewable_imps)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
                  ELSE 0 END AS viewability_rate
@@ -475,6 +479,9 @@ export async function getWorkspaceCountryBreakdown(pool, workspaceId, opts = {})
             CASE WHEN SUM(ds.impressions) > 0
                  THEN ROUND(SUM(ds.clicks)::NUMERIC / SUM(ds.impressions) * 100, 4)
                  ELSE 0 END AS ctr,
+            CASE WHEN SUM(ds.impressions) > 0
+                 THEN ROUND(SUM(ds.measured_imps)::NUMERIC / SUM(ds.impressions) * 100, 4)
+                 ELSE 0 END AS measurable_rate,
             CASE WHEN SUM(ds.measured_imps) > 0
                  THEN ROUND(SUM(ds.viewable_imps)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
                  ELSE 0 END AS viewability_rate

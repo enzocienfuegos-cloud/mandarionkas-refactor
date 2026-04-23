@@ -99,6 +99,9 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
        CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
             THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
             ELSE 0 END AS avg_ctr,
+       CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
+            THEN ROUND(COALESCE(SUM(ds.measured_imps), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
+            ELSE 0 END AS measurable_rate,
        CASE WHEN COALESCE(SUM(ds.measured_imps), 0) > 0
             THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
             ELSE 0 END AS viewability_rate
@@ -225,6 +228,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     total_undetermined_impressions: summary.total_undetermined_impressions ?? 0,
     total_spend: summary.total_spend ?? 0,
     avg_ctr: summary.avg_ctr ?? 0,
+    measurable_rate: summary.measurable_rate ?? 0,
     viewability_rate: summary.viewability_rate ?? 0,
     total_engagements: engagement.total_engagements ?? 0,
     total_hover_duration_ms: engagement.total_hover_duration_ms ?? 0,

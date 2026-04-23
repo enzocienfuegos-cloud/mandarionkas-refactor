@@ -29,6 +29,7 @@ interface AdOpsSnapshot {
   totalViewableImpressions: number;
   totalMeasuredImpressions: number;
   totalUndeterminedImpressions: number;
+  measurableRate: number;
   viewabilityRate: number;
   avgCtr: number;
   engagements: number;
@@ -54,6 +55,7 @@ function getReportingStats(payload: any) {
     totalViewableImpressions: toNumber(stats?.totalViewableImpressions ?? stats?.total_viewable_impressions),
     totalMeasuredImpressions: toNumber(stats?.totalMeasuredImpressions ?? stats?.total_measured_impressions),
     totalUndeterminedImpressions: toNumber(stats?.totalUndeterminedImpressions ?? stats?.total_undetermined_impressions),
+    measurableRate: toNumber(stats?.measurableRate ?? stats?.measurable_rate),
     viewabilityRate: toNumber(stats?.viewabilityRate ?? stats?.viewability_rate),
     avgCtr: toNumber(stats?.avgCtr ?? stats?.avg_ctr),
     totalEngagements: toNumber(stats?.totalEngagements ?? stats?.total_engagements),
@@ -130,6 +132,7 @@ export default function AdOpsOverview() {
         totalViewableImpressions: reportingStats.totalViewableImpressions,
         totalMeasuredImpressions: reportingStats.totalMeasuredImpressions,
         totalUndeterminedImpressions: reportingStats.totalUndeterminedImpressions,
+        measurableRate: reportingStats.measurableRate,
         viewabilityRate: reportingStats.viewabilityRate,
         avgCtr: reportingStats.avgCtr,
         engagements: reportingStats.totalEngagements,
@@ -232,7 +235,7 @@ export default function AdOpsOverview() {
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Viewable Imps</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{fmtCompact(snapshot?.totalViewableImpressions ?? 0)}</p>
               <p className="mt-1 text-xs text-slate-500">
-                {(snapshot?.viewabilityRate ?? 0).toFixed(2)}% of {fmtCompact(snapshot?.totalMeasuredImpressions ?? 0)} measured
+                {(snapshot?.viewabilityRate ?? 0).toFixed(2)}% of {fmtCompact(snapshot?.totalMeasuredImpressions ?? 0)} measured · {(snapshot?.measurableRate ?? 0).toFixed(2)}% measurable
               </p>
             </div>
           </div>
