@@ -124,6 +124,24 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     engagementParams,
   );
 
+  const durationParams = [workspaceId];
+  const durationConditions = ['ie.workspace_id = $1'];
+  if (dateFrom) {
+    durationParams.push(dateFrom);
+    durationConditions.push(`ie.timestamp >= $${durationParams.length}::timestamptz`);
+  }
+  if (dateTo) {
+    durationParams.push(`${dateTo}T23:59:59.999Z`);
+    durationConditions.push(`ie.timestamp <= $${durationParams.length}::timestamptz`);
+  }
+  const durationQuery = pool.query(
+    `SELECT
+       COALESCE(SUM(COALESCE(ie.viewability_duration_ms, 0)), 0)::bigint AS total_in_view_duration_ms
+     FROM impression_events ie
+     WHERE ${durationConditions.join(' AND ')}`,
+    durationParams,
+  );
+
   const activeCampaignsQuery = pool.query(
     `SELECT COUNT(*)::int AS active_campaigns
      FROM campaigns
@@ -218,10 +236,11 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     topTagParams,
   );
 
-  const [summaryRes, engagementRes, activeCampaignsRes, activeTagsRes, creativesRes, identitySummaryRes, topCampaignsRes, topTagsRes] =
+  const [summaryRes, engagementRes, durationRes, activeCampaignsRes, activeTagsRes, creativesRes, identitySummaryRes, topCampaignsRes, topTagsRes] =
     await Promise.all([
       summaryQuery,
       engagementQuery,
+      durationQuery,
       activeCampaignsQuery,
       activeTagsQuery,
       creativesQuery,
@@ -232,13 +251,16 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 
   const summary = summaryRes.rows[0] ?? {};
   const engagement = engagementRes.rows[0] ?? {};
+  const duration = durationRes.rows[0] ?? {};
   const identitySummary = identitySummaryRes.rows[0] ?? {};
   const totalIdentities = Number(identitySummary.total_identities ?? 0);
   const identityImpressions = Number(identitySummary.identity_impressions ?? 0);
   const identityClicks = Number(identitySummary.identity_clicks ?? 0);
+  const totalImpressions = Number(summary.total_impressions ?? 0);
+  const totalEngagements = Number(engagement.total_engagements ?? 0);
 
   return {
-    total_impressions: summary.total_impressions ?? 0,
+    total_impressions: totalImpressions,
     total_clicks: summary.total_clicks ?? 0,
     total_viewable_impressions: summary.total_viewable_impressions ?? 0,
     total_measured_impressions: summary.total_measured_impressions ?? 0,
@@ -247,8 +269,10 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     avg_ctr: summary.avg_ctr ?? 0,
     measurable_rate: summary.measurable_rate ?? 0,
     viewability_rate: summary.viewability_rate ?? 0,
-    total_engagements: engagement.total_engagements ?? 0,
+    total_engagements: totalEngagements,
+    engagement_rate: totalImpressions > 0 ? Number(((totalEngagements / totalImpressions) * 100).toFixed(4)) : 0,
     total_hover_duration_ms: engagement.total_hover_duration_ms ?? 0,
+    total_in_view_duration_ms: duration.total_in_view_duration_ms ?? 0,
     total_identities: totalIdentities,
     avg_identity_frequency: totalIdentities > 0 ? Number((identityImpressions / totalIdentities).toFixed(4)) : 0,
     avg_identity_clicks: totalIdentities > 0 ? Number((identityClicks / totalIdentities).toFixed(4)) : 0,

@@ -77,7 +77,9 @@ interface WorkspaceAnalytics {
   viewabilityRate: number;
   avgCtr: number;
   totalEngagements: number;
+  engagementRate: number;
   totalHoverDurationMs: number;
+  totalInViewDurationMs: number;
   totalIdentities: number;
   avgIdentityFrequency: number;
   avgIdentityClicks: number;
@@ -146,6 +148,13 @@ function fmtCurrency(value: number): string {
 
 function fmtCtr(value: number): string {
   return `${toNumber(value).toFixed(2)}%`;
+}
+
+function fmtSecondsFromMs(value: number): string {
+  const seconds = toNumber(value) / 1000;
+  if (seconds >= 3600) return `${(seconds / 3600).toFixed(2)}h`;
+  if (seconds >= 60) return `${(seconds / 60).toFixed(1)}m`;
+  return `${seconds.toFixed(1)}s`;
 }
 
 function formatRange(days: DateRange): string {
@@ -244,7 +253,9 @@ function normalizeWorkspaceAnalytics(
     viewabilityRate: toNumber(source?.viewabilityRate ?? source?.viewability_rate),
     avgCtr: toNumber(source?.avgCtr ?? source?.avg_ctr),
     totalEngagements: toNumber(source?.totalEngagements ?? source?.total_engagements),
+    engagementRate: toNumber(source?.engagementRate ?? source?.engagement_rate),
     totalHoverDurationMs: toNumber(source?.totalHoverDurationMs ?? source?.total_hover_duration_ms),
+    totalInViewDurationMs: toNumber(source?.totalInViewDurationMs ?? source?.total_in_view_duration_ms),
     totalIdentities: toNumber(source?.totalIdentities ?? source?.total_identities),
     avgIdentityFrequency: toNumber(source?.avgIdentityFrequency ?? source?.avg_identity_frequency),
     avgIdentityClicks: toNumber(source?.avgIdentityClicks ?? source?.avg_identity_clicks),
@@ -819,7 +830,7 @@ export default function AnalyticsDashboard() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         <KpiCard label="Impressions" value={fmtNum(data?.totalImpressions ?? 0)} icon="👁️" color="text-slate-800" />
         <KpiCard label="Clicks" value={fmtNum(data?.totalClicks ?? 0)} icon="🖱️" color="text-blue-700" />
         <KpiCard label="Spend" value={fmtCurrency(data?.totalSpend ?? 0)} icon="💸" color="text-emerald-700" />
@@ -831,7 +842,27 @@ export default function AnalyticsDashboard() {
           color="text-fuchsia-700"
           sub={`${fmtNum(data?.totalViewableImpressions ?? 0)} viewable of ${fmtNum(data?.totalMeasuredImpressions ?? 0)} measured · ${fmtCtr(data?.measurableRate ?? 0)} measurable`}
         />
-        <KpiCard label="Engagements" value={fmtNum(data?.totalEngagements ?? 0)} icon="✨" color="text-amber-700" sub={`${fmtNum(data?.totalHoverDurationMs ?? 0)} ms hover time`} />
+        <KpiCard
+          label="Engagements"
+          value={fmtNum(data?.totalEngagements ?? 0)}
+          icon="✨"
+          color="text-amber-700"
+          sub={`${fmtSecondsFromMs(data?.totalHoverDurationMs ?? 0)} attention time`}
+        />
+        <KpiCard
+          label="Engagement Rate"
+          value={fmtCtr(data?.engagementRate ?? 0)}
+          icon="⚡"
+          color="text-orange-700"
+          sub={`${fmtNum(data?.totalEngagements ?? 0)} engagements on ${fmtNum(data?.totalImpressions ?? 0)} impressions`}
+        />
+        <KpiCard
+          label="In-View Time"
+          value={fmtSecondsFromMs(data?.totalInViewDurationMs ?? 0)}
+          icon="⏱️"
+          color="text-cyan-700"
+          sub={`${fmtSecondsFromMs(data?.totalHoverDurationMs ?? 0)} attention time`}
+        />
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
