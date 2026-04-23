@@ -52,6 +52,8 @@ export default function TagList() {
     campaignId: '',
     format: 'display' as Tag['format'],
     status: 'draft' as Tag['status'],
+    servingWidth: '',
+    servingHeight: '',
   });
 
   const load = () => {
@@ -87,7 +89,7 @@ export default function TagList() {
   const closeCreate = () => {
     setCreating(false);
     setCreateError('');
-    setCreateForm({ name: '', campaignId: '', format: 'display', status: 'draft' });
+    setCreateForm({ name: '', campaignId: '', format: 'display', status: 'draft', servingWidth: '', servingHeight: '' });
     if (searchParams.get('create') === '1') {
       setSearchParams({});
     }
@@ -97,6 +99,14 @@ export default function TagList() {
     if (!createForm.name.trim()) {
       setCreateError('Tag name is required.');
       return;
+    }
+    if (createForm.format === 'display') {
+      const width = Number(createForm.servingWidth);
+      const height = Number(createForm.servingHeight);
+      if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+        setCreateError('Display tags require width and height.');
+        return;
+      }
     }
     setCreateError('');
     try {
@@ -109,6 +119,8 @@ export default function TagList() {
           campaignId: createForm.campaignId || null,
           format: createForm.format,
           status: createForm.status,
+          servingWidth: createForm.format === 'display' ? Number(createForm.servingWidth) || null : null,
+          servingHeight: createForm.format === 'display' ? Number(createForm.servingHeight) || null : null,
         }),
       });
       const payload = await res.json().catch(() => ({}));
@@ -264,6 +276,32 @@ export default function TagList() {
                   ))}
                 </div>
               </div>
+              {createForm.format === 'display' && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Width</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={createForm.servingWidth}
+                      onChange={event => setCreateForm(current => ({ ...current, servingWidth: event.target.value }))}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      placeholder="300"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Height</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={createForm.servingHeight}
+                      onChange={event => setCreateForm(current => ({ ...current, servingHeight: event.target.value }))}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      placeholder="250"
+                    />
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Status</label>
                 <select

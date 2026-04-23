@@ -57,7 +57,22 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
   // POST /v1/tags
   app.post('/v1/tags', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { name, campaignId, format, status, clickUrl, impressionUrl, description, targeting, frequencyCap, frequencyCapWindow, geoTargets, deviceTargets } = req.body ?? {};
+    const {
+      name,
+      campaignId,
+      format,
+      status,
+      clickUrl,
+      impressionUrl,
+      description,
+      targeting,
+      frequencyCap,
+      frequencyCapWindow,
+      geoTargets,
+      deviceTargets,
+      servingWidth,
+      servingHeight,
+    } = req.body ?? {};
 
     if (!name) {
       return reply.status(400).send({ error: 'Bad Request', message: 'name is required' });
@@ -76,6 +91,8 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       frequency_cap_window: frequencyCapWindow,
       geo_targets: geoTargets,
       device_targets: deviceTargets,
+      serving_width: servingWidth ?? null,
+      serving_height: servingHeight ?? null,
     });
 
     return reply.status(201).send({ tag: toApiTag(tag) });
@@ -193,6 +210,8 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       frequencyCapWindow: 'frequency_cap_window',
       geoTargets: 'geo_targets',
       deviceTargets: 'device_targets',
+      servingWidth: 'serving_width',
+      servingHeight: 'serving_height',
     };
 
     for (const [camel, snake] of Object.entries(fieldMap)) {

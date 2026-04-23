@@ -15,6 +15,8 @@ interface TagForm {
   format: TagFormat;
   status: TagStatus;
   clickUrl: string;
+  servingWidth: string;
+  servingHeight: string;
 }
 
 interface SavedTag {
@@ -40,6 +42,8 @@ const emptyForm: TagForm = {
   format: 'VAST',
   status: 'draft',
   clickUrl: '',
+  servingWidth: '',
+  servingHeight: '',
 };
 
 const STATUSES: TagStatus[] = ['draft', 'active', 'paused', 'archived'];
@@ -177,6 +181,8 @@ export default function TagBuilder() {
           format: (data.format as TagFormat | undefined) ?? 'VAST',
           status: (data.status as TagStatus | undefined) ?? 'draft',
           clickUrl: String(data.clickUrl ?? ''),
+          servingWidth: String(data.servingWidth ?? data.width ?? ''),
+          servingHeight: String(data.servingHeight ?? data.height ?? ''),
         });
         const normalized = normalizeTagRecord(payload);
         setSavedTag(normalized);
@@ -202,6 +208,12 @@ export default function TagBuilder() {
   const validate = () => {
     const errs: Partial<Record<keyof TagForm, string>> = {};
     if (!form.name.trim()) errs.name = 'Name is required.';
+    if (form.format === 'display') {
+      const width = Number(form.servingWidth);
+      const height = Number(form.servingHeight);
+      if (!Number.isFinite(width) || width <= 0) errs.servingWidth = 'Width is required for display tags.';
+      if (!Number.isFinite(height) || height <= 0) errs.servingHeight = 'Height is required for display tags.';
+    }
     return errs;
   };
 
@@ -218,6 +230,8 @@ export default function TagBuilder() {
       format: form.format,
       status: form.status,
       clickUrl: form.clickUrl.trim() || null,
+      servingWidth: form.format === 'display' ? Number(form.servingWidth) || null : null,
+      servingHeight: form.format === 'display' ? Number(form.servingHeight) || null : null,
     };
 
     try {
@@ -333,6 +347,39 @@ export default function TagBuilder() {
               ))}
             </div>
           </div>
+
+          {form.format === 'display' && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Width <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={form.servingWidth}
+                  onChange={set('servingWidth')}
+                  className={inputClass(errors.servingWidth)}
+                  placeholder="300"
+                />
+                {errors.servingWidth && <p className="mt-1 text-xs text-red-600">{errors.servingWidth}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Height <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={form.servingHeight}
+                  onChange={set('servingHeight')}
+                  className={inputClass(errors.servingHeight)}
+                  placeholder="250"
+                />
+                {errors.servingHeight && <p className="mt-1 text-xs text-red-600">{errors.servingHeight}</p>}
+              </div>
+            </div>
+          )}
 
           {/* Status */}
           <div>
