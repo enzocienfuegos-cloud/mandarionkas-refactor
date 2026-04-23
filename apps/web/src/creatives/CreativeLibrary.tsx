@@ -5,11 +5,14 @@ import {
   type CreativeVersion,
   type CreativeIngestion,
   type TagOption,
+  type TagBinding,
   assignCreativeVersionToTag,
   loadCreativesWithLatestVersion,
   loadCreativeIngestions,
+  loadTagBindings,
   loadTags,
   submitCreativeVersion,
+  updateTagBinding,
 } from './catalog';
 
 function formatBytes(value?: number | null) {
@@ -66,6 +69,8 @@ interface BindingState {
   tagId: string;
   loading: boolean;
   error: string;
+  bindingsLoading: boolean;
+  bindings: TagBinding[];
 }
 
 export default function CreativeLibrary() {
@@ -141,11 +146,52 @@ export default function CreativeLibrary() {
         creativeVersionId: bindingState.versionId,
         tagId: bindingState.tagId,
       });
-      setBindingState(null);
+      const bindings = await loadTagBindings(bindingState.tagId);
+      setBindingState(current => current ? { ...current, loading: false, bindings } : current);
     } catch (assignError: any) {
       setBindingState(current => current ? { ...current, loading: false, error: assignError.message ?? 'Binding failed' } : current);
     }
   };
+
+  const handleBindingStatusChange = async (bindingId: string, status: 'active' | 'paused') => {
+    if (!bindingState?.tagId) return;
+    setBindingState(current => current ? { ...current, loading: true, error: '' } : current);
+    try {
+      await updateTagBinding({
+        tagId: bindingState.tagId,
+        bindingId,
+        status,
+      });
+      const bindings = await loadTagBindings(bindingState.tagId);
+      setBindingState(current => current ? { ...current, loading: false, bindings } : current);
+    } catch (updateError: any) {
+      setBindingState(current => current ? { ...current, loading: false, error: updateError.message ?? 'Binding update failed' } : current);
+    }
+  };
+
+  useEffect(() => {
+    if (!bindingState?.tagId) return;
+
+    let cancelled = false;
+    setBindingState(current => current ? { ...current, bindingsLoading: true, error: '' } : current);
+    void loadTagBindings(bindingState.tagId)
+      .then(bindings => {
+        if (cancelled) return;
+        setBindingState(current => current ? { ...current, bindingsLoading: false, bindings } : current);
+      })
+      .catch(loadError => {
+        if (cancelled) return;
+        setBindingState(current => current ? {
+          ...current,
+          bindingsLoading: false,
+          error: loadError.message ?? 'Failed to load tag bindings',
+        } : current);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bindingState?.tagId]);
 
   if (loading) {
     return (
@@ -273,6 +319,8 @@ export default function CreativeLibrary() {
                               tagId: '',
                               loading: false,
                               error: '',
+                              bindingsLoading: false,
+                              bindings: [],
                             })}
                             className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
                           >
@@ -348,6 +396,68 @@ export default function CreativeLibrary() {
                 ))}
               </select>
             </div>
+            {bindingState.tagId && (
+              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-medium text-slate-800">Current bindings</h3>
+                    <p className="text-xs text-slate-500">Review what this tag is already serving before you change it.</p>
+                  </div>
+                  {bindingState.bindingsLoading && (
+                    <span className="text-xs text-slate-500">Loading…</span>
+                  )}
+                </div>
+                <div className="mt-3 space-y-2">
+                  {bindingState.bindings.map(binding => {
+                    const isCurrentVersion = binding.creativeVersionId === bindingState.versionId;
+                    return (
+                      <div key={binding.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="truncate text-sm font-medium text-slate-800">{binding.creativeName}</span>
+                              {statusBadge(binding.status)}
+                              {isCurrentVersion && (
+                                <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                                  Selected version
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500">
+                              {binding.sourceKind} · {binding.servingFormat} · weight {binding.weight}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            {binding.status === 'active' ? (
+                              <button
+                                onClick={() => void handleBindingStatusChange(binding.id, 'paused')}
+                                disabled={bindingState.loading}
+                                className="rounded-lg border border-amber-200 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-60"
+                              >
+                                Pause
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => void handleBindingStatusChange(binding.id, 'active')}
+                                disabled={bindingState.loading}
+                                className="rounded-lg border border-emerald-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                              >
+                                Activate
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {!bindingState.bindingsLoading && bindingState.bindings.length === 0 && (
+                    <div className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-sm text-slate-500">
+                      This tag has no bindings yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="mt-5 flex justify-end gap-3">
               <button
                 onClick={() => setBindingState(null)}

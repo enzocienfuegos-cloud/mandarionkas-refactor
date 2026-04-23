@@ -6,7 +6,7 @@ import {
   deleteTag,
   getTagWithCreatives,
 } from '@smx/db/tags';
-import { listTagBindings } from '@smx/db';
+import { listTagBindings, updateTagBinding } from '@smx/db';
 
 function toApiTag(tag) {
   if (!tag) return null;
@@ -122,6 +122,42 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
         publicUrl: binding.public_url ?? '',
         entryPath: binding.entry_path ?? '',
       })),
+    });
+  });
+
+  // PATCH /v1/tags/:id/bindings/:bindingId
+  app.patch('/v1/tags/:id/bindings/:bindingId', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id, bindingId } = req.params;
+    const tag = await getTag(pool, workspaceId, id);
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    const binding = await updateTagBinding(pool, workspaceId, bindingId, {
+      status: req.body?.status,
+      weight: req.body?.weight,
+      start_at: req.body?.startAt,
+      end_at: req.body?.endAt,
+    });
+
+    if (!binding || binding.tag_id !== id) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Binding not found' });
+    }
+
+    return reply.send({
+      binding: {
+        id: binding.id,
+        tagId: binding.tag_id,
+        creativeVersionId: binding.creative_version_id,
+        status: binding.status,
+        weight: binding.weight,
+        startAt: binding.start_at ?? null,
+        endAt: binding.end_at ?? null,
+        createdBy: binding.created_by ?? null,
+        createdAt: binding.created_at,
+        updatedAt: binding.updated_at,
+      },
     });
   });
 

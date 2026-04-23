@@ -420,6 +420,53 @@ export async function createTagBinding(pool, workspaceId, data) {
   return rows[0] ?? null;
 }
 
+export async function updateTagBinding(pool, workspaceId, bindingId, data = {}) {
+  const updates = [];
+  const params = [workspaceId, bindingId];
+
+  if (data.status !== undefined) {
+    params.push(normalizeBindingStatus(data.status));
+    updates.push(`status = $${params.length}`);
+  }
+
+  if (data.weight !== undefined) {
+    params.push(Math.max(1, Number(data.weight) || 1));
+    updates.push(`weight = $${params.length}`);
+  }
+
+  if (data.start_at !== undefined) {
+    params.push(data.start_at);
+    updates.push(`start_at = $${params.length}`);
+  }
+
+  if (data.end_at !== undefined) {
+    params.push(data.end_at);
+    updates.push(`end_at = $${params.length}`);
+  }
+
+  if (updates.length === 0) {
+    const { rows } = await pool.query(
+      `SELECT *
+       FROM tag_bindings
+       WHERE workspace_id = $1
+         AND id = $2`,
+      params,
+    );
+    return rows[0] ?? null;
+  }
+
+  const { rows } = await pool.query(
+    `UPDATE tag_bindings
+     SET ${updates.join(', ')},
+         updated_at = NOW()
+     WHERE workspace_id = $1
+       AND id = $2
+     RETURNING *`,
+    params,
+  );
+  return rows[0] ?? null;
+}
+
 export async function getActiveTagBinding(pool, workspaceId, tagId, at = new Date()) {
   const { rows } = await pool.query(
     `SELECT tb.*, cv.version_number, cv.source_kind, cv.serving_format,

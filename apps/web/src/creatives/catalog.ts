@@ -39,6 +39,24 @@ export interface TagOption {
   status: 'active' | 'paused' | 'archived' | 'draft';
 }
 
+export interface TagBinding {
+  id: string;
+  tagId: string;
+  creativeVersionId: string;
+  status: 'draft' | 'active' | 'paused' | 'archived';
+  weight: number;
+  startAt?: string | null;
+  endAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  creativeName: string;
+  creativeVersionStatus: string;
+  sourceKind: SourceKind | string;
+  servingFormat: string;
+  publicUrl?: string;
+  entryPath?: string;
+}
+
 export interface CreativeIngestion {
   id: string;
   sourceKind: 'html5_zip' | 'video_mp4';
@@ -102,6 +120,11 @@ export async function loadCreativeIngestions(): Promise<CreativeIngestion[]> {
 export async function loadTags(): Promise<TagOption[]> {
   const payload = await fetchJson<{ tags: TagOption[] }>('/v1/tags');
   return payload.tags ?? [];
+}
+
+export async function loadTagBindings(tagId: string): Promise<TagBinding[]> {
+  const payload = await fetchJson<{ bindings: TagBinding[] }>(`/v1/tags/${tagId}/bindings`);
+  return payload.bindings ?? [];
 }
 
 export async function submitCreativeVersion(versionId: string) {
@@ -203,6 +226,21 @@ export async function assignCreativeVersionToTag(input: {
     body: JSON.stringify({
       weight: input.weight ?? 1,
       status: input.status ?? 'active',
+    }),
+  });
+}
+
+export async function updateTagBinding(input: {
+  tagId: string;
+  bindingId: string;
+  status?: 'draft' | 'active' | 'paused' | 'archived';
+  weight?: number;
+}) {
+  return fetchJson<{ binding: TagBinding }>(`/v1/tags/${input.tagId}/bindings/${input.bindingId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      status: input.status,
+      weight: input.weight,
     }),
   });
 }
