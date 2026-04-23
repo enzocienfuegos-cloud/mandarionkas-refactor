@@ -40,6 +40,16 @@ interface VariantItem {
   avgFrequency?: number;
 }
 
+interface SavedAudience {
+  id: string;
+  name: string;
+  canonicalType: IdentityTypeFilter | '';
+  country: string;
+  segmentPreset: IdentitySegmentPreset | '';
+  minImpressions: number;
+  minClicks: number;
+}
+
 interface WorkspaceAnalytics {
   totalImpressions: number;
   totalClicks: number;
@@ -73,6 +83,7 @@ interface WorkspaceAnalytics {
   identityKeyBreakdown: RankedMetric[];
   identityAttribution: RankedMetric[];
   engagements: RankedMetric[];
+  savedAudiences: SavedAudience[];
 }
 
 const DATE_RANGES: DateRange[] = [7, 30, 90];
@@ -191,6 +202,7 @@ function normalizeWorkspaceAnalytics(
   identitySegmentsPayload: any,
   identityKeyPayload: any,
   identityAttributionPayload: any,
+  savedAudiencePayload: any,
   creativePayload: any,
   variantPayload: any,
 ): WorkspaceAnalytics {
@@ -266,6 +278,15 @@ function normalizeWorkspaceAnalytics(
       const duration = toNumber(item?.total_duration_ms);
       return duration > 0 ? `${fmtNum(duration)} ms total` : undefined;
     }),
+    savedAudiences: (Array.isArray(savedAudiencePayload?.audiences) ? savedAudiencePayload.audiences : []).map((item: any) => ({
+      id: String(item?.id ?? ''),
+      name: String(item?.name ?? 'Untitled audience'),
+      canonicalType: String(item?.canonical_type ?? '') as IdentityTypeFilter | '',
+      country: String(item?.country ?? ''),
+      segmentPreset: String(item?.segment_preset ?? '') as IdentitySegmentPreset | '',
+      minImpressions: toNumber(item?.min_impressions),
+      minClicks: toNumber(item?.min_clicks),
+    })),
   };
 }
 
@@ -411,6 +432,7 @@ export default function AnalyticsDashboard() {
   const [identityMinImpressions, setIdentityMinImpressions] = useState('1');
   const [identityMinClicks, setIdentityMinClicks] = useState('0');
   const [identitySegmentPreset, setIdentitySegmentPreset] = useState<IdentitySegmentPreset>('');
+  const [savingAudience, setSavingAudience] = useState(false);
 
   const query = useMemo(() => makeQuery({
     dateRange,
@@ -423,15 +445,22 @@ export default function AnalyticsDashboard() {
     if (identityTypeFilter) params.set('canonicalType', identityTypeFilter);
     return `?${params.toString()}`;
   }, [query, identityTypeFilter]);
-  const identityAudienceQuery = useMemo(() => {
-    const params = new URLSearchParams(identityQuery.startsWith('?') ? identityQuery.slice(1) : identityQuery);
-    if (identityCountryFilter.trim()) params.set('country', identityCountryFilter.trim().toUpperCase());
-    if (identitySegmentPreset) params.set('segmentPreset', identitySegmentPreset);
-    if (identityMinImpressions.trim()) params.set('minImpressions', identityMinImpressions.trim());
-    if (identityMinClicks.trim()) params.set('minClicks', identityMinClicks.trim());
-    return `?${params.toString()}`;
-  }, [identityQuery, identityCountryFilter, identitySegmentPreset, identityMinImpressions, identityMinClicks]);
   const customDatesValid = Boolean(customStartDate && customEndDate && customStartDate <= customEndDate);
+
+  const buildIdentityAudienceQuery = (overrides?: Partial<SavedAudience>) => {
+    const params = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
+    const canonicalType = overrides?.canonicalType ?? identityTypeFilter;
+    const country = overrides?.country ?? identityCountryFilter.trim().toUpperCase();
+    const segmentPreset = overrides?.segmentPreset ?? identitySegmentPreset;
+    const minImpressions = overrides?.minImpressions ?? Number(identityMinImpressions.trim() || '0');
+    const minClicks = overrides?.minClicks ?? Number(identityMinClicks.trim() || '0');
+    if (canonicalType) params.set('canonicalType', canonicalType);
+    if (country) params.set('country', country);
+    if (segmentPreset) params.set('segmentPreset', segmentPreset);
+    params.set('minImpressions', String(Math.max(minImpressions, 0)));
+    params.set('minClicks', String(Math.max(minClicks, 0)));
+    return `?${params.toString()}`;
+  };
 
   const load = () => {
     setLoading(true);
@@ -494,6 +523,10 @@ export default function AnalyticsDashboard() {
         if (!r.ok) throw new Error('Failed to load identity attribution windows');
         return r.json();
       }),
+      fetch(`/v1/reporting/workspace/saved-audiences`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load saved audiences');
+        return r.json();
+      }),
       fetch(`/v1/reporting/workspace/creative-breakdown${query}`, { credentials: 'include' }).then((r) => {
         if (!r.ok) throw new Error('Failed to load creative breakdown');
         return r.json();
@@ -503,8 +536,8 @@ export default function AnalyticsDashboard() {
         return r.json();
       }),
     ])
-      .then(([workspace, campaigns, tags, sites, countries, regions, cities, trackers, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, creatives, variants]) => {
-        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, regions, cities, trackers, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, creatives, variants));
+      .then(([workspace, campaigns, tags, sites, countries, regions, cities, trackers, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, savedAudiences, creatives, variants]) => {
+        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, regions, cities, trackers, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, savedAudiences, creatives, variants));
       })
       .catch((loadError: any) => setError(loadError.message ?? 'Failed to load analytics'))
       .finally(() => setLoading(false));
@@ -535,9 +568,9 @@ export default function AnalyticsDashboard() {
     }
   };
 
-  const handleExportIdentityAudienceCsv = async () => {
+  const handleExportIdentityAudienceCsv = async (overrides?: Partial<SavedAudience>) => {
     try {
-      const response = await fetch(`/v1/reporting/workspace/identity-audience-export${identityAudienceQuery}`, {
+      const response = await fetch(`/v1/reporting/workspace/identity-audience-export${buildIdentityAudienceQuery(overrides)}`, {
         credentials: 'include',
       });
       if (!response.ok) throw new Error('Failed to export identity audience');
@@ -552,6 +585,59 @@ export default function AnalyticsDashboard() {
       URL.revokeObjectURL(url);
     } catch {
       window.alert('Failed to export audience CSV.');
+    }
+  };
+
+  const handleSaveAudience = async () => {
+    const suggestedName = identitySegmentPreset
+      ? IDENTITY_SEGMENT_PRESETS.find((option) => option.value === identitySegmentPreset)?.label ?? 'Saved audience'
+      : `Audience ${identityCountryFilter.trim().toUpperCase() || identityTypeFilter || 'all'}`;
+    const name = window.prompt('Name this saved audience', suggestedName);
+    if (!name || !name.trim()) return;
+
+    setSavingAudience(true);
+    try {
+      const response = await fetch('/v1/reporting/workspace/saved-audiences', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          canonicalType: identityTypeFilter || null,
+          country: identityCountryFilter.trim().toUpperCase() || null,
+          segmentPreset: identitySegmentPreset || null,
+          minImpressions: identityMinImpressions.trim() || '0',
+          minClicks: identityMinClicks.trim() || '0',
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to save audience');
+      load();
+    } catch {
+      window.alert('Failed to save audience.');
+    } finally {
+      setSavingAudience(false);
+    }
+  };
+
+  const applySavedAudience = (audience: SavedAudience) => {
+    setIdentityTypeFilter(audience.canonicalType);
+    setIdentityCountryFilter(audience.country);
+    setIdentitySegmentPreset(audience.segmentPreset);
+    setIdentityMinImpressions(String(audience.minImpressions));
+    setIdentityMinClicks(String(audience.minClicks));
+  };
+
+  const handleDeleteSavedAudience = async (audience: SavedAudience) => {
+    if (!window.confirm(`Delete saved audience "${audience.name}"?`)) return;
+    try {
+      const response = await fetch(`/v1/reporting/workspace/saved-audiences/${audience.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to delete saved audience');
+      load();
+    } catch {
+      window.alert('Failed to delete saved audience.');
     }
   };
 
@@ -748,6 +834,13 @@ export default function AnalyticsDashboard() {
             >
               Export Audience
             </button>
+            <button
+              onClick={() => void handleSaveAudience()}
+              disabled={savingAudience}
+              className="px-3 py-2 text-xs border border-emerald-300 text-emerald-700 rounded-md hover:bg-emerald-50 transition-colors disabled:opacity-60"
+            >
+              {savingAudience ? 'Saving...' : 'Save Audience'}
+            </button>
           </div>
           <div className="divide-y divide-slate-100">
             {(data?.topIdentities ?? []).length === 0 ? (
@@ -769,6 +862,61 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
         <RankedList title="Engagement Mix" emptyLabel="No engagement data available" items={data?.engagements ?? []} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 mb-6">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h2 className="text-base font-semibold text-slate-800">Saved Audiences</h2>
+            <p className="text-xs text-slate-500 mt-1">Reusable identity filters for exports and activation workflows.</p>
+          </div>
+          {!(data?.savedAudiences ?? []).length ? (
+            <div className="px-5 py-10 text-center text-sm text-slate-400">No saved audiences yet</div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {(data?.savedAudiences ?? []).map((audience) => {
+                const summary = [
+                  audience.canonicalType ? IDENTITY_FILTERS.find((option) => option.value === audience.canonicalType)?.label : null,
+                  audience.country || null,
+                  audience.segmentPreset ? IDENTITY_SEGMENT_PRESETS.find((option) => option.value === audience.segmentPreset)?.label : null,
+                  `Min ${audience.minImpressions} imps`,
+                  `Min ${audience.minClicks} clicks`,
+                ].filter(Boolean).join(' · ');
+
+                return (
+                  <div key={audience.id} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-800">{audience.name}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">{summary}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => applySavedAudience(audience)}
+                        className="px-3 py-2 text-xs border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors"
+                      >
+                        Apply
+                      </button>
+                      <button
+                        onClick={() => {
+                          void handleExportIdentityAudienceCsv(audience);
+                        }}
+                        className="px-3 py-2 text-xs border border-indigo-300 text-indigo-700 rounded-md hover:bg-indigo-50 transition-colors"
+                      >
+                        Export
+                      </button>
+                      <button
+                        onClick={() => void handleDeleteSavedAudience(audience)}
+                        className="px-3 py-2 text-xs border border-rose-300 text-rose-700 rounded-md hover:bg-rose-50 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">

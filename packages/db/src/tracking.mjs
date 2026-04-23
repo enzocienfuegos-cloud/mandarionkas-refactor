@@ -5,6 +5,10 @@ const IDENTITY_CONFIDENCE = {
   cookie_id: 0.65,
 };
 
+function normalizeAudienceName(value = '') {
+  return String(value ?? '').trim();
+}
+
 async function findIdentityProfileByKey(pool, workspace_id, key_type, key_value) {
   const { rows } = await pool.query(
     `SELECT p.id, p.workspace_id, p.canonical_type, p.canonical_value
@@ -393,6 +397,80 @@ export async function getWorkspaceIdentityAudienceExport(pool, workspaceId, opts
     params,
   );
   return rows;
+}
+
+export async function listSavedAudiences(pool, workspaceId) {
+  const { rows } = await pool.query(
+    `SELECT
+       id,
+       name,
+       canonical_type,
+       country,
+       segment_preset,
+       min_impressions,
+       min_clicks,
+       status,
+       created_at,
+       updated_at
+     FROM saved_audiences
+     WHERE workspace_id = $1
+       AND status = 'active'
+     ORDER BY created_at DESC, name ASC`,
+    [workspaceId],
+  );
+  return rows;
+}
+
+export async function createSavedAudience(pool, workspaceId, payload = {}) {
+  const name = normalizeAudienceName(payload.name);
+  if (!name) {
+    throw new Error('Audience name is required');
+  }
+
+  const canonicalType = payload.canonicalType ? String(payload.canonicalType) : null;
+  const country = payload.country ? String(payload.country).trim().toUpperCase() : null;
+  const segmentPreset = payload.segmentPreset ? String(payload.segmentPreset) : null;
+  const minImpressions = Math.max(Number(payload.minImpressions) || 0, 0);
+  const minClicks = Math.max(Number(payload.minClicks) || 0, 0);
+
+  const { rows } = await pool.query(
+    `INSERT INTO saved_audiences
+       (workspace_id, name, canonical_type, country, segment_preset, min_impressions, min_clicks)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (workspace_id, name)
+     DO UPDATE SET
+       canonical_type = EXCLUDED.canonical_type,
+       country = EXCLUDED.country,
+       segment_preset = EXCLUDED.segment_preset,
+       min_impressions = EXCLUDED.min_impressions,
+       min_clicks = EXCLUDED.min_clicks,
+       status = 'active',
+       updated_at = NOW()
+     RETURNING
+       id,
+       name,
+       canonical_type,
+       country,
+       segment_preset,
+       min_impressions,
+       min_clicks,
+       status,
+       created_at,
+       updated_at`,
+    [workspaceId, name, canonicalType, country, segmentPreset, minImpressions, minClicks],
+  );
+
+  return rows[0] ?? null;
+}
+
+export async function deleteSavedAudience(pool, workspaceId, audienceId) {
+  const { rowCount } = await pool.query(
+    `DELETE FROM saved_audiences
+     WHERE workspace_id = $1
+       AND id = $2`,
+    [workspaceId, audienceId],
+  );
+  return rowCount > 0;
 }
 
 export async function getWorkspaceIdentityKeyBreakdown(pool, workspaceId, opts = {}) {

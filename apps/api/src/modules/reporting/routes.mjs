@@ -22,6 +22,9 @@ import {
   getWorkspaceIdentitySegmentPresets,
   getWorkspaceIdentityKeyBreakdown,
   getWorkspaceIdentityAttributionWindows,
+  listSavedAudiences,
+  createSavedAudience,
+  deleteSavedAudience,
 } from '@smx/db/tracking';
 
 export function handleReportingRoutes(app, { requireWorkspace, pool }) {
@@ -235,6 +238,27 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
       .header('content-type', 'text/csv; charset=utf-8')
       .header('content-disposition', `attachment; filename="identity-audience.csv"`)
       .send(csv);
+  });
+
+  app.get('/v1/reporting/workspace/saved-audiences', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const audiences = await listSavedAudiences(pool, workspaceId);
+    return reply.send({ audiences });
+  });
+
+  app.post('/v1/reporting/workspace/saved-audiences', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const audience = await createSavedAudience(pool, workspaceId, req.body ?? {});
+    return reply.status(201).send({ audience });
+  });
+
+  app.delete('/v1/reporting/workspace/saved-audiences/:id', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const deleted = await deleteSavedAudience(pool, workspaceId, req.params.id);
+    if (!deleted) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Saved audience not found' });
+    }
+    return reply.status(204).send();
   });
 
   app.get('/v1/reporting/workspace/identity-segment-presets', { preHandler: requireWorkspace }, async (req, reply) => {
