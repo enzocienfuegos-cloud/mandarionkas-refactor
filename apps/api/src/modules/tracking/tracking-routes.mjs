@@ -77,13 +77,6 @@ function inferGeo(req, query = {}) {
   return { country, region };
 }
 
-function inferCountryFromLocale(localeValue = '') {
-  const normalized = String(localeValue ?? '').trim();
-  if (!normalized) return null;
-  const match = normalized.match(/[-_](?<country>[A-Za-z]{2})\b/);
-  return match?.groups?.country ? match.groups.country.toUpperCase() : null;
-}
-
 function collectTrackingContext(req, query = {}) {
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? req.ip ?? null;
   const userAgent = req.headers['user-agent'] ?? null;
@@ -97,13 +90,8 @@ function collectTrackingContext(req, query = {}) {
     ?? pageContext
     ?? refererContext
     ?? { pageUrl: null, siteDomain: null };
-  const localeHint =
-    query.hl
-    ?? req.headers['x-user-locale']
-    ?? req.headers['accept-language']
-    ?? '';
   const geo = inferGeo(req, query);
-  const country = geo.country ?? inferCountryFromLocale(localeHint);
+  const country = geo.country ?? null;
   const region = geo.region ?? null;
   const { deviceType, browser, os } = inferDeviceInfo(userAgent);
   const cookieDeviceId = req.cookies?.smx_device_id ?? req.cookies?.device_id ?? null;
@@ -183,10 +171,10 @@ export function handleTrackingRoutes(app, { pool }) {
       try {
         safeUrl = new URL(destinationUrl);
         if (safeUrl.protocol !== 'http:' && safeUrl.protocol !== 'https:') {
-          return reply.status(400).send({ error: 'Bad Request', message: 'Invalid destination URL' });
+          return reply.status(204).send();
         }
       } catch {
-        return reply.status(400).send({ error: 'Bad Request', message: 'Invalid destination URL' });
+        return reply.status(204).send();
       }
       return reply.redirect(302, safeUrl.toString());
     }

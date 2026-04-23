@@ -23,21 +23,14 @@ function readRequestedSize(query = {}) {
   return { width, height };
 }
 
-function inferLocaleCountryExpression() {
-  return `(function() {
-    if (typeof navigator === 'undefined') return '';
-    var candidates = [];
-    if (navigator.language) candidates.push(navigator.language);
-    if (Array.isArray(navigator.languages)) {
-      for (var i = 0; i < navigator.languages.length; i += 1) candidates.push(navigator.languages[i]);
-    }
-    for (var index = 0; index < candidates.length; index += 1) {
-      var value = String(candidates[index] || '');
-      var match = value.match(/[-_]([A-Za-z]{2})\\b/);
-      if (match && match[1]) return match[1].toUpperCase();
-    }
-    return '';
-  })()`;
+function isTrackableDestinationUrl(value) {
+  if (!value) return false;
+  try {
+    const parsed = new URL(String(value));
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 function buildVastXml(tag, workspaceId, baseUrl) {
@@ -132,9 +125,8 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
-  const localeCountryExpression = inferLocaleCountryExpression();
   const useTrackedClickWrapper = Boolean(
-    clickUrl
+    isTrackableDestinationUrl(clickUrl)
     && (servingCandidate?.clickOverrideEnabled || !servingCandidate?.hasInternalClickTag),
   );
 
@@ -150,7 +142,6 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   var viewabilityUrl = ${JSON.stringify(viewabilityUrl)};
   var engagementBase = ${JSON.stringify(engagementBase)};
   var pageUrl = (typeof window !== 'undefined' && window.location && window.location.href) ? window.location.href : '';
-  var localeCountry = ${localeCountryExpression};
   var hoverStartedAt = null;
   var currentScript = document.currentScript || (function() {
     var scripts = document.getElementsByTagName('script');
@@ -172,7 +163,6 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
     var nextUrl = url;
     if (resolvedDeviceId) nextUrl += '&did=' + encodeURIComponent(String(resolvedDeviceId));
     if (resolvedCookieId) nextUrl += '&cid=' + encodeURIComponent(String(resolvedCookieId));
-    if (localeCountry) nextUrl += '&ct=' + encodeURIComponent(String(localeCountry));
     return nextUrl;
   }
 
@@ -299,7 +289,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
   const useTrackedClickWrapper = Boolean(
-    clickUrl
+    isTrackableDestinationUrl(clickUrl)
     && (servingCandidate?.clickOverrideEnabled || !servingCandidate?.hasInternalClickTag),
   );
 
@@ -330,7 +320,6 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
     <script>
       (function() {
         var pageUrl = document.referrer || ((window.location && window.location.href) ? window.location.href : '');
-        var localeCountry = ${inferLocaleCountryExpression()};
         var search = new URLSearchParams(window.location.search);
         var resolvedDeviceId = search.get('did') || '';
         var resolvedCookieId = search.get('cid') || '';
@@ -343,7 +332,6 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
           var nextUrl = url;
           if (resolvedDeviceId) nextUrl += '&did=' + encodeURIComponent(String(resolvedDeviceId));
           if (resolvedCookieId) nextUrl += '&cid=' + encodeURIComponent(String(resolvedCookieId));
-          if (localeCountry) nextUrl += '&ct=' + encodeURIComponent(String(localeCountry));
           return nextUrl;
         }
         var impPixel = document.getElementById('smx-imp-pixel');
