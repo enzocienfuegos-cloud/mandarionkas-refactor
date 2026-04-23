@@ -294,7 +294,14 @@ export async function getWorkspaceIdentityExport(pool, workspaceId, opts = {}) {
        COALESCE(COUNT(DISTINCT k.key_type), 0)::int AS key_type_count,
        COALESCE(COUNT(DISTINCT k.key_value), 0)::int AS key_count,
        COALESCE(string_agg(DISTINCT k.key_type, '|' ORDER BY k.key_type), '') AS key_types,
-       COALESCE(string_agg(DISTINCT COALESCE(k.source, 'unknown'), '|' ORDER BY COALESCE(k.source, 'unknown')), '') AS sources
+       COALESCE(string_agg(DISTINCT COALESCE(k.source, 'unknown'), '|' ORDER BY COALESCE(k.source, 'unknown')), '') AS sources,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'device_id'), '') AS device_ids,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'cookie_id'), '') AS cookie_ids,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'external_user_id'), '') AS external_user_ids,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'gclid'), '') AS gclids,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'fbclid'), '') AS fbclids,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'ttclid'), '') AS ttclids,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'msclkid'), '') AS msclkids
      FROM identity_profile_daily_stats ds
      JOIN identity_profiles p ON p.id = ds.identity_profile_id
      LEFT JOIN identity_profile_keys k ON k.identity_profile_id = p.id
@@ -366,7 +373,14 @@ export async function getWorkspaceIdentityAudienceExport(pool, workspaceId, opts
        CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
             THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
             ELSE 0 END AS ctr,
-       COALESCE(string_agg(DISTINCT k.key_type, '|' ORDER BY k.key_type), '') AS key_types
+       COALESCE(string_agg(DISTINCT k.key_type, '|' ORDER BY k.key_type), '') AS key_types,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'device_id'), '') AS device_ids,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'cookie_id'), '') AS cookie_ids,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'external_user_id'), '') AS external_user_ids,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'gclid'), '') AS gclids,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'fbclid'), '') AS fbclids,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'ttclid'), '') AS ttclids,
+       COALESCE(string_agg(DISTINCT k.key_value, '|' ORDER BY k.key_value) FILTER (WHERE k.key_type = 'msclkid'), '') AS msclkids
      FROM identity_profile_daily_stats ds
      JOIN identity_profiles p ON p.id = ds.identity_profile_id
      LEFT JOIN identity_profile_keys k ON k.identity_profile_id = p.id
@@ -376,6 +390,43 @@ export async function getWorkspaceIdentityAudienceExport(pool, workspaceId, opts
         AND COALESCE(SUM(ds.clicks), 0) >= $${minClicksParam}
         ${presetHavingClause}
      ORDER BY COALESCE(SUM(ds.impressions), 0) DESC, p.last_seen_at DESC`,
+    params,
+  );
+  return rows;
+}
+
+export async function getWorkspaceIdentityKeyBreakdown(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, canonicalType = '', limit = 25 } = opts;
+  const params = [workspaceId];
+  const conditions = ['e.workspace_id = $1'];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`e.created_at >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(`${dateTo}T23:59:59.999Z`);
+    conditions.push(`e.created_at <= $${params.length}`);
+  }
+  if (canonicalType) {
+    params.push(canonicalType);
+    conditions.push(`p.canonical_type = $${params.length}`);
+  }
+  params.push(Math.min(Number(limit) || 25, 100));
+
+  const { rows } = await pool.query(
+    `SELECT
+       e.key_type,
+       e.event_type,
+       COUNT(*)::bigint AS key_observations,
+       COUNT(DISTINCT e.key_value)::bigint AS unique_values,
+       COUNT(DISTINCT e.identity_profile_id)::bigint AS identity_count
+     FROM event_identity_keys e
+     LEFT JOIN identity_profiles p ON p.id = e.identity_profile_id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY e.key_type, e.event_type
+     ORDER BY COUNT(*) DESC, e.key_type ASC, e.event_type ASC
+     LIMIT $${params.length}`,
     params,
   );
   return rows;

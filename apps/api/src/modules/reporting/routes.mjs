@@ -19,6 +19,7 @@ import {
   getWorkspaceIdentityAudienceExport,
   getWorkspaceIdentityFrequencyBuckets,
   getWorkspaceIdentitySegmentPresets,
+  getWorkspaceIdentityKeyBreakdown,
 } from '@smx/db/tracking';
 
 export function handleReportingRoutes(app, { requireWorkspace, pool }) {
@@ -118,6 +119,13 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
         'key_count',
         'key_types',
         'sources',
+        'device_ids',
+        'cookie_ids',
+        'external_user_ids',
+        'gclids',
+        'fbclids',
+        'ttclids',
+        'msclkids',
       ],
       ...rows.map((row) => ([
         row.id,
@@ -137,6 +145,13 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
         row.key_count,
         row.key_types,
         row.sources,
+        row.device_ids,
+        row.cookie_ids,
+        row.external_user_ids,
+        row.gclids,
+        row.fbclids,
+        row.ttclids,
+        row.msclkids,
       ])),
     ];
     const csv = csvRows.map((row) => row.map(escapeCsv).join(',')).join('\n');
@@ -174,6 +189,13 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
         'engagements',
         'ctr',
         'key_types',
+        'device_ids',
+        'cookie_ids',
+        'external_user_ids',
+        'gclids',
+        'fbclids',
+        'ttclids',
+        'msclkids',
       ],
       ...rows.map((row) => ([
         row.id,
@@ -190,6 +212,13 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
         row.engagements,
         row.ctr,
         row.key_types,
+        row.device_ids,
+        row.cookie_ids,
+        row.external_user_ids,
+        row.gclids,
+        row.fbclids,
+        row.ttclids,
+        row.msclkids,
       ])),
     ];
     const csv = csvRows.map((row) => row.map(escapeCsv).join(',')).join('\n');
@@ -210,6 +239,13 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
     const { workspaceId } = req.authSession;
     const { dateFrom, dateTo, canonicalType } = req.query;
     const breakdown = await getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, { dateFrom, dateTo, canonicalType });
+    return reply.send({ breakdown });
+  });
+
+  app.get('/v1/reporting/workspace/identity-key-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, canonicalType, limit } = req.query;
+    const breakdown = await getWorkspaceIdentityKeyBreakdown(pool, workspaceId, { dateFrom, dateTo, canonicalType, limit });
     return reply.send({ breakdown });
   });
 
