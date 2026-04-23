@@ -233,7 +233,8 @@ export default function CreativeLibrary() {
       const bindings = await loadTagBindings(bindingState.tagId);
       setBindingState(current => current ? { ...current, loading: false, bindings } : current);
     } catch (assignError: any) {
-      setBindingState(current => current ? { ...current, loading: false, error: assignError.message ?? 'Binding failed' } : current);
+      const message = assignError?.message ?? 'Assignment failed';
+      setBindingState(current => current ? { ...current, loading: false, error: message } : current);
     }
   };
 
@@ -665,7 +666,7 @@ export default function CreativeLibrary() {
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-slate-800">Assign creative version to tag</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Bind the approved version to a delivery tag using the new versioned serving path.
+              Assign the approved version to a delivery tag using the new versioned serving path.
             </p>
             {bindingState.error && (
               <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -713,7 +714,7 @@ export default function CreativeLibrary() {
               <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-medium text-slate-800">Current bindings</h3>
+                    <h3 className="text-sm font-medium text-slate-800">Current assignments</h3>
                     <p className="text-xs text-slate-500">Review what this tag is already serving before you change it.</p>
                   </div>
                   {bindingState.bindingsLoading && (
@@ -765,7 +766,7 @@ export default function CreativeLibrary() {
                   })}
                   {!bindingState.bindingsLoading && bindingState.bindings.length === 0 && (
                     <div className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-sm text-slate-500">
-                      This tag has no bindings yet.
+                      This tag has no assignments yet.
                     </div>
                   )}
                 </div>

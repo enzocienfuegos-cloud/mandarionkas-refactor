@@ -99,7 +99,7 @@ export default function TagList() {
             to="/tags/bindings"
             className="inline-flex items-center gap-2 border border-slate-300 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm hover:bg-slate-50 transition-colors"
           >
-            🔗 Bindings
+            🔗 Assignments
           </Link>
           <Link
             to="/tags/health"

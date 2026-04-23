@@ -37,7 +37,7 @@ export default function TagBindingDashboard() {
         setTags(loadedTags);
         setSelectedTagId(current => current || loadedTags[0]?.id || '');
       } catch (loadError: any) {
-        setError(loadError.message ?? 'Failed to load tag bindings');
+        setError(loadError.message ?? 'Failed to load tag assignments');
       } finally {
         setLoading(false);
       }
@@ -62,7 +62,7 @@ export default function TagBindingDashboard() {
       })
       .catch(loadError => {
         if (cancelled) return;
-        setError(loadError.message ?? 'Failed to load bindings');
+        setError(loadError.message ?? 'Failed to load assignments');
         setBindingsLoading(false);
       });
 
@@ -89,7 +89,7 @@ export default function TagBindingDashboard() {
       const nextBindings = await loadTagBindings(binding.tagId);
       setBindings(nextBindings);
     } catch {
-      alert('Failed to update binding status.');
+      alert('Failed to update assignment status.');
     } finally {
       setUpdatingBindingId(null);
     }
@@ -107,9 +107,9 @@ export default function TagBindingDashboard() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Tag Bindings</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Tag Assignments</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Operate versioned serving bindings by tag without going through the creative catalog.
+            Operate versioned serving assignments by tag without going through the creative catalog.
           </p>
         </div>
         <Link
@@ -122,7 +122,7 @@ export default function TagBindingDashboard() {
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-          <p className="font-medium">Error loading bindings</p>
+          <p className="font-medium">Error loading assignments</p>
           <p className="mt-1 text-sm">{error}</p>
         </div>
       )}
@@ -143,7 +143,7 @@ export default function TagBindingDashboard() {
           </select>
 
           <div className="mt-4">
-            <label className="mb-2 block text-sm font-medium text-slate-700">Binding Status</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Assignment Status</label>
             <div className="flex flex-wrap gap-2">
               {(['all', 'active', 'paused', 'draft', 'archived'] as BindingFilter[]).map(status => (
                 <button
@@ -174,9 +174,9 @@ export default function TagBindingDashboard() {
         <div className="rounded-xl border border-slate-200 bg-white">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
-              <h2 className="text-sm font-semibold text-slate-800">Bindings</h2>
+              <h2 className="text-sm font-semibold text-slate-800">Assignments</h2>
               <p className="text-xs text-slate-500">
-                {bindingsLoading ? 'Loading…' : `${filteredBindings.length} binding${filteredBindings.length !== 1 ? 's' : ''}`}
+                {bindingsLoading ? 'Loading…' : `${filteredBindings.length} assignment${filteredBindings.length !== 1 ? 's' : ''}`}
               </p>
             </div>
           </div>
@@ -189,7 +189,7 @@ export default function TagBindingDashboard() {
                   <th className="px-4 py-3">Source</th>
                   <th className="px-4 py-3">Version Status</th>
                   <th className="px-4 py-3">Variant</th>
-                  <th className="px-4 py-3">Binding Status</th>
+                  <th className="px-4 py-3">Assignment Status</th>
                   <th className="px-4 py-3">Weight</th>
                   <th className="px-4 py-3">Preview</th>
                   <th className="px-4 py-3">Actions</th>
@@ -251,7 +251,7 @@ export default function TagBindingDashboard() {
 
             {!bindingsLoading && filteredBindings.length === 0 && (
               <div className="px-6 py-12 text-center text-sm text-slate-500">
-                No bindings match this view yet.
+                No assignments match this view yet.
               </div>
             )}
           </div>

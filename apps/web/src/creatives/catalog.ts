@@ -124,8 +124,13 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(payload?.message ?? `Request failed (${response.status})`);
+    const payload = await response.json().catch(() => null);
+    const requestId = payload && typeof payload === 'object' ? payload.requestId ?? payload.request_id ?? null : null;
+    const message = payload && typeof payload === 'object'
+      ? payload.message ?? payload.error ?? null
+      : null;
+    const suffix = requestId ? ` (ref ${requestId})` : '';
+    throw new Error(message ? `${message}${suffix}` : `Request failed (${response.status})${suffix}`);
   }
   return response.json() as Promise<T>;
 }
