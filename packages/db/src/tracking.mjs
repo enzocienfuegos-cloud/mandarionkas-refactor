@@ -306,6 +306,76 @@ export async function getWorkspaceIdentityExport(pool, workspaceId, opts = {}) {
   return rows;
 }
 
+export async function getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, canonicalType = '' } = opts;
+  const params = [workspaceId];
+  const conditions = ['ds.workspace_id = $1'];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`ds.date >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    conditions.push(`ds.date <= $${params.length}`);
+  }
+  if (canonicalType) {
+    params.push(canonicalType);
+    conditions.push(`p.canonical_type = $${params.length}`);
+  }
+
+  const { rows } = await pool.query(
+    `WITH identity_totals AS (
+       SELECT
+         p.id,
+         p.canonical_type,
+         COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
+         COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
+         COALESCE(SUM(ds.engagements), 0)::bigint AS engagements
+       FROM identity_profile_daily_stats ds
+       JOIN identity_profiles p ON p.id = ds.identity_profile_id
+       WHERE ${conditions.join(' AND ')}
+       GROUP BY p.id, p.canonical_type
+     )
+     SELECT
+       bucket_label,
+       MIN(bucket_order)::int AS bucket_order,
+       COUNT(*)::bigint AS identity_count,
+       COALESCE(SUM(impressions), 0)::bigint AS impressions,
+       COALESCE(SUM(clicks), 0)::bigint AS clicks,
+       COALESCE(SUM(engagements), 0)::bigint AS engagements,
+       CASE WHEN COALESCE(SUM(impressions), 0) > 0
+            THEN ROUND(COALESCE(SUM(clicks), 0)::NUMERIC / SUM(impressions) * 100, 4)
+            ELSE 0 END AS ctr
+     FROM (
+       SELECT
+         id,
+         impressions,
+         clicks,
+         engagements,
+         CASE
+           WHEN impressions <= 1 THEN '1'
+           WHEN impressions BETWEEN 2 AND 3 THEN '2-3'
+           WHEN impressions BETWEEN 4 AND 5 THEN '4-5'
+           WHEN impressions BETWEEN 6 AND 10 THEN '6-10'
+           ELSE '11+'
+         END AS bucket_label,
+         CASE
+           WHEN impressions <= 1 THEN 1
+           WHEN impressions BETWEEN 2 AND 3 THEN 2
+           WHEN impressions BETWEEN 4 AND 5 THEN 3
+           WHEN impressions BETWEEN 6 AND 10 THEN 4
+           ELSE 5
+         END AS bucket_order
+       FROM identity_totals
+     ) bucketed
+     GROUP BY bucket_label
+     ORDER BY bucket_order ASC`,
+    params,
+  );
+  return rows;
+}
+
 export async function recordImpression(pool, data) {
   const {
     impression_id = null,

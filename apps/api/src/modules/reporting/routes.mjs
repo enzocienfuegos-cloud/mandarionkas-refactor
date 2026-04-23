@@ -14,6 +14,7 @@ import {
   getWorkspaceEngagementBreakdown,
   getWorkspaceIdentityBreakdown,
   getWorkspaceIdentityExport,
+  getWorkspaceIdentityFrequencyBuckets,
 } from '@smx/db/tracking';
 
 export function handleReportingRoutes(app, { requireWorkspace, pool }) {
@@ -125,6 +126,13 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
       .header('content-type', 'text/csv; charset=utf-8')
       .header('content-disposition', `attachment; filename="identity-report.csv"`)
       .send(csv);
+  });
+
+  app.get('/v1/reporting/workspace/identity-frequency-buckets', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, canonicalType } = req.query;
+    const breakdown = await getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, { dateFrom, dateTo, canonicalType });
+    return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/creative-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {

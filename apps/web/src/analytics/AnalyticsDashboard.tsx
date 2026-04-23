@@ -60,6 +60,7 @@ interface WorkspaceAnalytics {
   topSites: RankedMetric[];
   topCountries: RankedMetric[];
   topIdentities: RankedMetric[];
+  identityFrequency: RankedMetric[];
   engagements: RankedMetric[];
 }
 
@@ -164,6 +165,7 @@ function normalizeWorkspaceAnalytics(
   countryPayload: any,
   engagementPayload: any,
   identityPayload: any,
+  identityFrequencyPayload: any,
   creativePayload: any,
   variantPayload: any,
 ): WorkspaceAnalytics {
@@ -217,6 +219,9 @@ function normalizeWorkspaceAnalytics(
     topIdentities: normalizeRankedMetricList(identityPayload?.breakdown ?? [], 'canonical_value', 'impressions', (item) => {
       const location = [item?.last_city, item?.last_region, item?.last_country].filter(Boolean).join(', ');
       return `${String(item?.canonical_type ?? 'identity')} · ${fmtCtr(toNumber(item?.ctr))} CTR${location ? ` · ${location}` : ''}`;
+    }),
+    identityFrequency: normalizeRankedMetricList(identityFrequencyPayload?.breakdown ?? [], 'bucket_label', 'identity_count', (item) => {
+      return `${fmtNum(toNumber(item?.impressions))} imps · ${fmtNum(toNumber(item?.clicks))} clicks · ${fmtCtr(toNumber(item?.ctr))} CTR`;
     }),
     engagements: normalizeRankedMetricList(engagementPayload?.breakdown ?? [], 'event_type', 'event_count', (item) => {
       const duration = toNumber(item?.total_duration_ms);
@@ -405,6 +410,10 @@ export default function AnalyticsDashboard() {
         if (!r.ok) throw new Error('Failed to load identity breakdown');
         return r.json();
       }),
+      fetch(`/v1/reporting/workspace/identity-frequency-buckets${identityQuery}`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load identity frequency');
+        return r.json();
+      }),
       fetch(`/v1/reporting/workspace/creative-breakdown${query}`, { credentials: 'include' }).then((r) => {
         if (!r.ok) throw new Error('Failed to load creative breakdown');
         return r.json();
@@ -414,8 +423,8 @@ export default function AnalyticsDashboard() {
         return r.json();
       }),
     ])
-      .then(([workspace, campaigns, tags, sites, countries, engagements, identities, creatives, variants]) => {
-        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, engagements, identities, creatives, variants));
+      .then(([workspace, campaigns, tags, sites, countries, engagements, identities, identityFrequency, creatives, variants]) => {
+        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, engagements, identities, identityFrequency, creatives, variants));
       })
       .catch((loadError: any) => setError(loadError.message ?? 'Failed to load analytics'))
       .finally(() => setLoading(false));
@@ -621,6 +630,10 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
         <RankedList title="Engagement Mix" emptyLabel="No engagement data available" items={data?.engagements ?? []} />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+        <RankedList title="Identity Frequency Buckets" emptyLabel="No identity frequency data available" items={data?.identityFrequency ?? []} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
