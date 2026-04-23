@@ -7,6 +7,7 @@ import Register from './auth/Register';
 
 const CampaignList       = lazy(() => import('./campaigns/CampaignList'));
 const CampaignEditor     = lazy(() => import('./campaigns/CampaignEditor'));
+const AdOpsOverview      = lazy(() => import('./overview/AdOpsOverview'));
 const TagList            = lazy(() => import('./tags/TagList'));
 const TagBuilder         = lazy(() => import('./tags/TagBuilder'));
 const TagBindingDashboard = lazy(() => import('./tags/TagBindingDashboard'));
@@ -44,7 +45,10 @@ export default function App() {
 
           {/* Protected — Shell provides sidebar + topbar via Outlet */}
           <Route path="/" element={<Shell />}>
-            <Route index element={<Navigate to="/campaigns" replace />} />
+            <Route index element={<Navigate to="/overview" replace />} />
+
+            {/* Overview */}
+            <Route path="overview" element={<AdOpsOverview />} />
 
             {/* Campaigns */}
             <Route path="campaigns"        element={<CampaignList />} />
@@ -85,7 +89,7 @@ export default function App() {
             <Route path="settings/webhooks"   element={<WebhookManager />} />
 
             {/* Catch-all */}
-            <Route path="*" element={<Navigate to="/campaigns" replace />} />
+            <Route path="*" element={<Navigate to="/overview" replace />} />
           </Route>
         </Routes>
       </Suspense>

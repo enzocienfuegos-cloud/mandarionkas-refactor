@@ -107,7 +107,7 @@ export default function Shell() {
       const normalized = normalizeUserPayload(authMe);
       if (normalized) setUser(normalized);
       setWorkspaces(workspaceList);
-      navigate('/campaigns');
+      navigate('/overview');
     } catch (error: any) {
       setClientError(error.message ?? 'Failed to switch client');
     } finally {
@@ -126,7 +126,7 @@ export default function Shell() {
       const normalized = normalizeUserPayload(authMe);
       if (normalized) setUser(normalized);
       setWorkspaces(workspaceList);
-      navigate('/campaigns');
+      navigate('/overview');
     } catch (error: any) {
       setClientError(error.message ?? 'Failed to create client');
     } finally {
@@ -154,6 +154,9 @@ export default function Shell() {
         {/* Navigation */}
         <nav className="flex-1 px-2 py-3 space-y-0.5">
           <SectionLabel label="Ad Ops" />
+          <NavLink to="/overview" className={navLinkClass}>
+            <span>🛰️</span> Overview
+          </NavLink>
           <NavLink to="/campaigns" className={navLinkClass}>
             <span>📋</span> Campaigns
           </NavLink>
