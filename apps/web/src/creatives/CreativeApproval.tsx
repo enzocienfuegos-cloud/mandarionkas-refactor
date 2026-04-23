@@ -52,6 +52,17 @@ function formatDuration(durationMs?: number | null) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+function formatBitRate(bitRate?: number | null) {
+  if (!bitRate) return '—';
+  if (bitRate >= 1_000_000) {
+    return `${(bitRate / 1_000_000).toFixed(2)} Mbps`;
+  }
+  if (bitRate >= 1_000) {
+    return `${(bitRate / 1_000).toFixed(0)} Kbps`;
+  }
+  return `${bitRate} bps`;
+}
+
 function readinessChecks(version: CreativeVersion | null, artifacts: CreativeArtifact[]) {
   return [
     {
@@ -67,6 +78,25 @@ function readinessChecks(version: CreativeVersion | null, artifacts: CreativeArt
       ok: Boolean(version?.mimeType || version?.width || version?.durationMs),
     },
   ];
+}
+
+function getPosterArtifact(artifacts: CreativeArtifact[]) {
+  return artifacts.find(artifact => artifact.kind === 'poster' && artifact.publicUrl) ?? null;
+}
+
+function getVideoProcessingState(version: CreativeVersion | null) {
+  const processing = (version?.metadata as Record<string, any> | undefined)?.videoProcessing;
+  if (!processing || typeof processing !== 'object') return null;
+  return processing;
+}
+
+function getVideoMetadata(version: CreativeVersion | null) {
+  const metadata = (version?.metadata as Record<string, any> | undefined) ?? {};
+  return {
+    codec: typeof metadata.codec === 'string' ? metadata.codec : null,
+    bitRate: typeof metadata.bitRate === 'number' ? metadata.bitRate : null,
+    posterGenerated: Boolean(metadata.posterGenerated),
+  };
 }
 
 export default function CreativeApproval() {
@@ -306,11 +336,21 @@ export default function CreativeApproval() {
                   <div className="p-6 text-sm text-red-300">{qaState.error}</div>
                 ) : qaState.version?.servingFormat === 'vast_video' ? (
                   <div className="flex h-full min-h-[420px] items-center justify-center p-6">
-                    <video
-                      controls
-                      className="max-h-[60vh] max-w-full rounded-lg bg-black shadow-lg"
-                      src={qaState.version.publicUrl}
-                    />
+                    <div className="w-full max-w-3xl space-y-4">
+                      {getPosterArtifact(qaState.artifacts)?.publicUrl && (
+                        <img
+                          src={getPosterArtifact(qaState.artifacts)?.publicUrl}
+                          alt="Generated poster preview"
+                          className="max-h-52 w-full rounded-lg object-contain"
+                        />
+                      )}
+                      <video
+                        controls
+                        poster={getPosterArtifact(qaState.artifacts)?.publicUrl || undefined}
+                        className="max-h-[60vh] max-w-full rounded-lg bg-black shadow-lg"
+                        src={qaState.version.publicUrl}
+                      />
+                    </div>
                   </div>
                 ) : qaState.version?.publicUrl ? (
                   <iframe
@@ -329,6 +369,31 @@ export default function CreativeApproval() {
               <div className="max-h-[70vh] overflow-y-auto p-6">
                 {qaState.version && (
                   <>
+                    {qaState.version.servingFormat === 'vast_video' && getVideoProcessingState(qaState.version) && (
+                      <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <h4 className="text-sm font-semibold text-slate-800">Video processing</h4>
+                        <div className="mt-3 space-y-2 text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-600">ffprobe</span>
+                            <span className={getVideoProcessingState(qaState.version)?.ffprobeAvailable ? 'text-emerald-600' : 'text-amber-700'}>
+                              {getVideoProcessingState(qaState.version)?.ffprobeAvailable ? 'Available' : (getVideoProcessingState(qaState.version)?.ffprobeReason ?? 'Unavailable')}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-600">ffmpeg</span>
+                            <span className={getVideoProcessingState(qaState.version)?.ffmpegAvailable ? 'text-emerald-600' : 'text-amber-700'}>
+                              {getVideoProcessingState(qaState.version)?.ffmpegAvailable ? 'Available' : (getVideoProcessingState(qaState.version)?.ffmpegReason ?? 'Unavailable')}
+                            </span>
+                          </div>
+                        </div>
+                        {(!getVideoProcessingState(qaState.version)?.ffprobeAvailable || !getVideoProcessingState(qaState.version)?.ffmpegAvailable) && (
+                          <p className="mt-3 text-xs text-slate-500">
+                            This creative is still publishable. The environment just could not extract all video diagnostics automatically.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     <div>
                       <h3 className="text-base font-semibold text-slate-800">
                         {qaState.version.creativeName ?? qaState.version.creativeId}
@@ -360,6 +425,18 @@ export default function CreativeApproval() {
                           <p className="text-xs uppercase tracking-wide text-slate-500">File size</p>
                           <p className="mt-1 text-sm font-medium text-slate-800">{formatBytes(qaState.version.fileSize)}</p>
                         </div>
+                        {qaState.version.servingFormat === 'vast_video' && (
+                          <>
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                              <p className="text-xs uppercase tracking-wide text-slate-500">Codec</p>
+                              <p className="mt-1 text-sm font-medium text-slate-800">{getVideoMetadata(qaState.version).codec || '—'}</p>
+                            </div>
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                              <p className="text-xs uppercase tracking-wide text-slate-500">Bitrate</p>
+                              <p className="mt-1 text-sm font-medium text-slate-800">{formatBitRate(getVideoMetadata(qaState.version).bitRate)}</p>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
 
