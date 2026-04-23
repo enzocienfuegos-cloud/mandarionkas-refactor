@@ -9,6 +9,7 @@ const CampaignList       = lazy(() => import('./campaigns/CampaignList'));
 const CampaignEditor     = lazy(() => import('./campaigns/CampaignEditor'));
 const TagList            = lazy(() => import('./tags/TagList'));
 const TagBuilder         = lazy(() => import('./tags/TagBuilder'));
+const TagBindingDashboard = lazy(() => import('./tags/TagBindingDashboard'));
 const TagHealthDashboard = lazy(() => import('./tags/TagHealthDashboard'));
 const TagReportingDashboard = lazy(() => import('./reporting/TagReportingDashboard'));
 const CreativeLibrary    = lazy(() => import('./creatives/CreativeLibrary'));
@@ -52,6 +53,7 @@ export default function App() {
 
             {/* Tags */}
             <Route path="tags"                      element={<TagList />} />
+            <Route path="tags/bindings"             element={<TagBindingDashboard />} />
             <Route path="tags/new"                  element={<TagBuilder />} />
             <Route path="tags/:id"                  element={<TagBuilder />} />
             <Route path="tags/:id/health"           element={<TagHealthDashboard />} />
