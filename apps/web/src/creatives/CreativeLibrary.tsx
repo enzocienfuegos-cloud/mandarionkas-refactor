@@ -67,6 +67,17 @@ function statusBadge(status?: string) {
   );
 }
 
+function readinessBadge(variant: CreativeSizeVariant) {
+  const ready = Boolean(variant.publicUrl) && (variant.status === 'active' || variant.status === 'draft' || variant.status === 'paused');
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+      ready ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+    }`}>
+      {ready ? 'Ready' : 'Needs artifact'}
+    </span>
+  );
+}
+
 type LatestVersionMap = Record<string, CreativeVersion | null>;
 
 const VARIANT_PRESETS = [
@@ -778,6 +789,8 @@ export default function CreativeLibrary() {
                       <th className="px-4 py-3">Variant</th>
                       <th className="px-4 py-3">Size</th>
                       <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Readiness</th>
+                      <th className="px-4 py-3">Bindings</th>
                       <th className="px-4 py-3">Preview</th>
                       <th className="px-4 py-3">Actions</th>
                     </tr>
@@ -796,6 +809,18 @@ export default function CreativeLibrary() {
                         <td className="px-4 py-3 font-medium text-slate-800">{variant.label}</td>
                         <td className="px-4 py-3 text-slate-600">{variant.width}×{variant.height}</td>
                         <td className="px-4 py-3">{statusBadge(variant.status)}</td>
+                        <td className="px-4 py-3">{readinessBadge(variant)}</td>
+                        <td className="px-4 py-3">
+                          <div className="text-xs text-slate-600">
+                            <div>{variant.activeBindingCount ?? 0} active / {variant.bindingCount ?? 0} total</div>
+                            {variant.tagNames && variant.tagNames.length > 0 && (
+                              <div className="mt-1 truncate text-slate-500" title={variant.tagNames.join(', ')}>
+                                {variant.tagNames.slice(0, 3).join(', ')}
+                                {variant.tagNames.length > 3 ? ` +${variant.tagNames.length - 3}` : ''}
+                              </div>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3">
                           {variant.publicUrl ? (
                             <a href={variant.publicUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-700">
@@ -828,7 +853,7 @@ export default function CreativeLibrary() {
                     ))}
                     {!variantState.loading && variantState.variants.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500">
+                        <td colSpan={8} className="px-6 py-12 text-center text-sm text-slate-500">
                           No size variants yet.
                         </td>
                       </tr>

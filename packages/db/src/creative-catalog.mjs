@@ -363,6 +363,29 @@ export async function listCreativeSizeVariants(pool, workspaceId, creativeVersio
   return rows;
 }
 
+export async function listCreativeSizeVariantBindingSummaries(pool, workspaceId, creativeVersionId) {
+  const { rows } = await pool.query(
+    `SELECT
+       csv.id AS creative_size_variant_id,
+       COUNT(tb.id)::int AS binding_count,
+       COUNT(*) FILTER (WHERE tb.status = 'active')::int AS active_binding_count,
+       ARRAY_REMOVE(ARRAY_AGG(DISTINCT at.name), NULL) AS tag_names
+     FROM creative_size_variants csv
+     LEFT JOIN tag_bindings tb
+       ON tb.creative_size_variant_id = csv.id
+      AND tb.workspace_id = csv.workspace_id
+      AND tb.status <> 'archived'
+     LEFT JOIN ad_tags at
+       ON at.id = tb.tag_id
+      AND at.workspace_id = tb.workspace_id
+     WHERE csv.workspace_id = $1
+       AND csv.creative_version_id = $2
+     GROUP BY csv.id`,
+    [workspaceId, creativeVersionId],
+  );
+  return rows;
+}
+
 export async function getCreativeSizeVariant(pool, workspaceId, variantId) {
   const { rows } = await pool.query(
     `SELECT *

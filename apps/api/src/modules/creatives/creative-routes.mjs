@@ -3,6 +3,7 @@ import {
   listCreatives,
   listCreativeVersions,
   listCreativeSizeVariants,
+  listCreativeSizeVariantBindingSummaries,
   getCreativeSizeVariant,
   createCreativeSizeVariant,
   createCreativeSizeVariantsBulk,
@@ -75,10 +76,27 @@ function toApiCreativeSizeVariant(variant) {
     publicUrl: variant.public_url ?? '',
     artifactId: variant.artifact_id ?? null,
     metadata: variant.metadata ?? {},
+    bindingCount: variant.binding_count ?? 0,
+    activeBindingCount: variant.active_binding_count ?? 0,
+    tagNames: Array.isArray(variant.tag_names) ? variant.tag_names : [],
     createdBy: variant.created_by ?? null,
     createdAt: variant.created_at,
     updatedAt: variant.updated_at,
   };
+}
+
+async function listCreativeSizeVariantsWithSummaries(pool, workspaceId, creativeVersionId) {
+  const [variants, summaries] = await Promise.all([
+    listCreativeSizeVariants(pool, workspaceId, creativeVersionId),
+    listCreativeSizeVariantBindingSummaries(pool, workspaceId, creativeVersionId),
+  ]);
+  const summaryByVariantId = new Map(
+    summaries.map(summary => [summary.creative_size_variant_id, summary]),
+  );
+  return variants.map(variant => ({
+    ...variant,
+    ...(summaryByVariantId.get(variant.id) ?? {}),
+  }));
 }
 
 export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
@@ -179,7 +197,7 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
     }
 
     const artifacts = await listCreativeArtifacts(pool, workspaceId, id);
-    const variants = await listCreativeSizeVariants(pool, workspaceId, id);
+    const variants = await listCreativeSizeVariantsWithSummaries(pool, workspaceId, id);
 
     return reply.send({
       creativeVersion: toApiCreativeVersion(version),
@@ -197,7 +215,7 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
       return reply.status(404).send({ error: 'Not Found', message: 'Creative version not found' });
     }
 
-    const variants = await listCreativeSizeVariants(pool, workspaceId, id);
+    const variants = await listCreativeSizeVariantsWithSummaries(pool, workspaceId, id);
     return reply.send({ variants: variants.map(toApiCreativeSizeVariant) });
   });
 
@@ -271,7 +289,7 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
       public_url: req.body?.publicUrl ?? version.public_url ?? null,
       created_by: userId,
     });
-    const variants = await listCreativeSizeVariants(pool, workspaceId, id);
+    const variants = await listCreativeSizeVariantsWithSummaries(pool, workspaceId, id);
     return reply.status(201).send({
       created: created.map(toApiCreativeSizeVariant),
       variants: variants.map(toApiCreativeSizeVariant),
@@ -315,7 +333,7 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
     }
 
     await updateCreativeSizeVariantsBulkStatus(pool, workspaceId, variantIds, req.body?.status ?? 'draft');
-    const variants = await listCreativeSizeVariants(pool, workspaceId, id);
+    const variants = await listCreativeSizeVariantsWithSummaries(pool, workspaceId, id);
     return reply.send({ variants: variants.map(toApiCreativeSizeVariant) });
   });
 

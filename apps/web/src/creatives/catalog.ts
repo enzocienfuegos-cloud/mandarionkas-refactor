@@ -56,6 +56,9 @@ export interface CreativeSizeVariant {
   publicUrl?: string;
   artifactId?: string | null;
   metadata?: Record<string, unknown>;
+  bindingCount?: number;
+  activeBindingCount?: number;
+  tagNames?: string[];
   createdBy?: string | null;
   createdAt?: string;
   updatedAt?: string;
