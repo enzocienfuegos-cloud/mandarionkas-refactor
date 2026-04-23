@@ -14,6 +14,7 @@ import {
   getWorkspaceEngagementBreakdown,
   getWorkspaceIdentityBreakdown,
   getWorkspaceIdentityExport,
+  getWorkspaceIdentityAudienceExport,
   getWorkspaceIdentityFrequencyBuckets,
 } from '@smx/db/tracking';
 
@@ -125,6 +126,58 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
     reply
       .header('content-type', 'text/csv; charset=utf-8')
       .header('content-disposition', `attachment; filename="identity-report.csv"`)
+      .send(csv);
+  });
+
+  app.get('/v1/reporting/workspace/identity-audience-export', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, canonicalType, country, minImpressions, minClicks } = req.query;
+    const rows = await getWorkspaceIdentityAudienceExport(pool, workspaceId, {
+      dateFrom,
+      dateTo,
+      canonicalType,
+      country,
+      minImpressions,
+      minClicks,
+    });
+    const csvRows = [
+      [
+        'identity_profile_id',
+        'canonical_type',
+        'canonical_value',
+        'first_seen_at',
+        'last_seen_at',
+        'last_country',
+        'last_region',
+        'last_city',
+        'confidence',
+        'impressions',
+        'clicks',
+        'engagements',
+        'ctr',
+        'key_types',
+      ],
+      ...rows.map((row) => ([
+        row.id,
+        row.canonical_type,
+        row.canonical_value,
+        row.first_seen_at,
+        row.last_seen_at,
+        row.last_country,
+        row.last_region,
+        row.last_city,
+        row.confidence,
+        row.impressions,
+        row.clicks,
+        row.engagements,
+        row.ctr,
+        row.key_types,
+      ])),
+    ];
+    const csv = csvRows.map((row) => row.map(escapeCsv).join(',')).join('\n');
+    reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', `attachment; filename="identity-audience.csv"`)
       .send(csv);
   });
 

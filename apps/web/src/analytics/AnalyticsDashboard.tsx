@@ -363,6 +363,9 @@ export default function AnalyticsDashboard() {
   const [customStartDate, setCustomStartDate] = useState(() => getDateFrom(30));
   const [customEndDate, setCustomEndDate] = useState(() => getToday());
   const [identityTypeFilter, setIdentityTypeFilter] = useState<IdentityTypeFilter>('');
+  const [identityCountryFilter, setIdentityCountryFilter] = useState('');
+  const [identityMinImpressions, setIdentityMinImpressions] = useState('1');
+  const [identityMinClicks, setIdentityMinClicks] = useState('0');
 
   const query = useMemo(() => makeQuery({
     dateRange,
@@ -375,6 +378,13 @@ export default function AnalyticsDashboard() {
     if (identityTypeFilter) params.set('canonicalType', identityTypeFilter);
     return `?${params.toString()}`;
   }, [query, identityTypeFilter]);
+  const identityAudienceQuery = useMemo(() => {
+    const params = new URLSearchParams(identityQuery.startsWith('?') ? identityQuery.slice(1) : identityQuery);
+    if (identityCountryFilter.trim()) params.set('country', identityCountryFilter.trim().toUpperCase());
+    if (identityMinImpressions.trim()) params.set('minImpressions', identityMinImpressions.trim());
+    if (identityMinClicks.trim()) params.set('minClicks', identityMinClicks.trim());
+    return `?${params.toString()}`;
+  }, [identityQuery, identityCountryFilter, identityMinImpressions, identityMinClicks]);
   const customDatesValid = Boolean(customStartDate && customEndDate && customStartDate <= customEndDate);
 
   const load = () => {
@@ -452,6 +462,26 @@ export default function AnalyticsDashboard() {
       URL.revokeObjectURL(url);
     } catch {
       window.alert('Failed to export identity CSV.');
+    }
+  };
+
+  const handleExportIdentityAudienceCsv = async () => {
+    try {
+      const response = await fetch(`/v1/reporting/workspace/identity-audience-export${identityAudienceQuery}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to export identity audience');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `identity-audience${identityTypeFilter ? `-${identityTypeFilter}` : ''}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.alert('Failed to export audience CSV.');
     }
   };
 
@@ -609,6 +639,34 @@ export default function AnalyticsDashboard() {
                 Export CSV
               </button>
             </div>
+          </div>
+          <div className="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 bg-slate-50/60">
+            <input
+              value={identityCountryFilter}
+              onChange={(event) => setIdentityCountryFilter(event.target.value)}
+              placeholder="Country (e.g. SV)"
+              className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+            />
+            <input
+              value={identityMinImpressions}
+              onChange={(event) => setIdentityMinImpressions(event.target.value)}
+              placeholder="Min impressions"
+              inputMode="numeric"
+              className="w-28 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+            />
+            <input
+              value={identityMinClicks}
+              onChange={(event) => setIdentityMinClicks(event.target.value)}
+              placeholder="Min clicks"
+              inputMode="numeric"
+              className="w-24 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+            />
+            <button
+              onClick={() => void handleExportIdentityAudienceCsv()}
+              className="px-3 py-2 text-xs border border-indigo-300 text-indigo-700 rounded-md hover:bg-indigo-50 transition-colors"
+            >
+              Export Audience
+            </button>
           </div>
           <div className="divide-y divide-slate-100">
             {(data?.topIdentities ?? []).length === 0 ? (

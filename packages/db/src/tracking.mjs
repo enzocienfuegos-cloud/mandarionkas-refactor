@@ -306,6 +306,71 @@ export async function getWorkspaceIdentityExport(pool, workspaceId, opts = {}) {
   return rows;
 }
 
+export async function getWorkspaceIdentityAudienceExport(pool, workspaceId, opts = {}) {
+  const {
+    dateFrom,
+    dateTo,
+    canonicalType = '',
+    country = '',
+    minImpressions = 0,
+    minClicks = 0,
+  } = opts;
+  const params = [workspaceId];
+  const conditions = ['ds.workspace_id = $1'];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`ds.date >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    conditions.push(`ds.date <= $${params.length}`);
+  }
+  if (canonicalType) {
+    params.push(canonicalType);
+    conditions.push(`p.canonical_type = $${params.length}`);
+  }
+  if (country) {
+    params.push(country);
+    conditions.push(`p.last_country = $${params.length}`);
+  }
+
+  params.push(Math.max(Number(minImpressions) || 0, 0));
+  const minImpressionsParam = params.length;
+  params.push(Math.max(Number(minClicks) || 0, 0));
+  const minClicksParam = params.length;
+
+  const { rows } = await pool.query(
+    `SELECT
+       p.id,
+       p.canonical_type,
+       p.canonical_value,
+       p.last_country,
+       p.last_region,
+       p.last_city,
+       p.confidence,
+       p.first_seen_at,
+       p.last_seen_at,
+       COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
+       COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
+       COALESCE(SUM(ds.engagements), 0)::bigint AS engagements,
+       CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
+            THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
+            ELSE 0 END AS ctr,
+       COALESCE(string_agg(DISTINCT k.key_type, '|' ORDER BY k.key_type), '') AS key_types
+     FROM identity_profile_daily_stats ds
+     JOIN identity_profiles p ON p.id = ds.identity_profile_id
+     LEFT JOIN identity_profile_keys k ON k.identity_profile_id = p.id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY p.id, p.canonical_type, p.canonical_value, p.last_country, p.last_region, p.last_city, p.confidence, p.first_seen_at, p.last_seen_at
+     HAVING COALESCE(SUM(ds.impressions), 0) >= $${minImpressionsParam}
+        AND COALESCE(SUM(ds.clicks), 0) >= $${minClicksParam}
+     ORDER BY COALESCE(SUM(ds.impressions), 0) DESC, p.last_seen_at DESC`,
+    params,
+  );
+  return rows;
+}
+
 export async function getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, canonicalType = '' } = opts;
   const params = [workspaceId];
