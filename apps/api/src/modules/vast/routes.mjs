@@ -1,6 +1,18 @@
 import { getTagServingSnapshot, getTagServingSnapshotById } from '@smx/db/tags';
 
-const BASE_URL = process.env.BASE_URL ?? 'https://api.smxstudio.io';
+const BASE_URL = (process.env.BASE_URL ?? '').trim();
+
+function resolveBaseUrl(req) {
+  const forwardedProto = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim();
+  const forwardedHost = String(req.headers['x-forwarded-host'] ?? '').split(',')[0].trim();
+  const host = String(req.headers.host ?? '').trim();
+  const proto = forwardedProto || (host.includes('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https');
+  const authority = forwardedHost || host;
+
+  if (authority) return `${proto}://${authority}`;
+  if (BASE_URL) return BASE_URL.replace(/\/$/, '');
+  return 'http://localhost:4000';
+}
 
 function readRequestedSize(query = {}) {
   const width = Number(query?.width ?? query?.w ?? 0);
@@ -238,6 +250,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
 
   // GET /v1/vast/tags/:tagId — serve VAST XML for a tag
   app.get('/v1/vast/tags/:tagId', { preHandler: optionalAuth }, async (req, reply) => {
+    const baseUrl = resolveBaseUrl(req);
     const { workspaceId } = req.authSession ?? req.apiKeyAuth ?? {};
     const { tagId } = req.params;
 
@@ -259,7 +272,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       });
     }
 
-    const xml = buildVastXml(tag, tag.workspace_id ?? workspaceId, BASE_URL);
+    const xml = buildVastXml(tag, tag.workspace_id ?? workspaceId, baseUrl);
 
     reply.header('Content-Type', 'application/xml; charset=utf-8');
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -268,20 +281,22 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
   });
 
   async function serveDisplayJavascript(req, reply) {
+    const baseUrl = resolveBaseUrl(req);
     const loaded = await loadDisplayTag(req, reply, pool);
     if (!loaded) return;
 
-    const snippet = buildDisplaySnippet(loaded.tag, loaded.workspaceId, BASE_URL);
+    const snippet = buildDisplaySnippet(loaded.tag, loaded.workspaceId, baseUrl);
     reply.header('Content-Type', 'application/javascript; charset=utf-8');
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
     return reply.send(snippet);
   }
 
   async function serveDisplayDocument(req, reply) {
+    const baseUrl = resolveBaseUrl(req);
     const loaded = await loadDisplayTag(req, reply, pool);
     if (!loaded) return;
 
-    const html = buildDisplayDocument(loaded.tag, loaded.workspaceId, BASE_URL);
+    const html = buildDisplayDocument(loaded.tag, loaded.workspaceId, baseUrl);
     reply.header('Content-Type', 'text/html; charset=utf-8');
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
     reply.header('X-Frame-Options', 'SAMEORIGIN');
