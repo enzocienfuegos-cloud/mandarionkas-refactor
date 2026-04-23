@@ -14,7 +14,8 @@ function readRequestedSize(query = {}) {
 function buildVastXml(tag, workspaceId, baseUrl) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
-  const creativeId = servingCandidate?.creativeVersionId ?? servingCandidate?.creativeId ?? 'no-creative';
+  const creativeId = servingCandidate?.creativeId ?? 'no-creative';
+  const creativeSizeVariantId = servingCandidate?.creativeSizeVariantId ?? null;
   const videoUrl = servingCandidate?.publicUrl ?? '';
   const clickUrl = servingCandidate?.clickUrl ?? '';
   const duration = servingCandidate?.durationMs
@@ -22,8 +23,12 @@ function buildVastXml(tag, workspaceId, baseUrl) {
     : '00:00:30';
   const width = servingCandidate?.width ?? 1920;
   const height = servingCandidate?.height ?? 1080;
-  const impressionUrl = `${baseUrl}/track/impression/${tagId}?ws=${workspaceId}`;
+  const trackingParams = new URLSearchParams({ ws: String(workspaceId) });
+  if (creativeId) trackingParams.set('c', String(creativeId));
+  if (creativeSizeVariantId) trackingParams.set('csv', String(creativeSizeVariantId));
+  const impressionUrl = `${baseUrl}/track/impression/${tagId}?${trackingParams.toString()}`;
   const trackingBase = `${baseUrl}/track`;
+  const clickTrackingParams = new URLSearchParams(trackingParams);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <VAST version="4.0" xmlns="http://www.iab.com/VAST" xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -37,15 +42,15 @@ function buildVastXml(tag, workspaceId, baseUrl) {
           <Linear>
             <Duration>${duration}</Duration>
             <TrackingEvents>
-              <Tracking event="start"><![CDATA[${trackingBase}/viewability/${tagId}?ws=${workspaceId}&event=start]]></Tracking>
-              <Tracking event="firstQuartile"><![CDATA[${trackingBase}/viewability/${tagId}?ws=${workspaceId}&event=firstQuartile]]></Tracking>
-              <Tracking event="midpoint"><![CDATA[${trackingBase}/viewability/${tagId}?ws=${workspaceId}&event=midpoint]]></Tracking>
-              <Tracking event="thirdQuartile"><![CDATA[${trackingBase}/viewability/${tagId}?ws=${workspaceId}&event=thirdQuartile]]></Tracking>
-              <Tracking event="complete"><![CDATA[${trackingBase}/viewability/${tagId}?ws=${workspaceId}&event=complete]]></Tracking>
+              <Tracking event="start"><![CDATA[${trackingBase}/viewability/${tagId}?${trackingParams.toString()}&event=start]]></Tracking>
+              <Tracking event="firstQuartile"><![CDATA[${trackingBase}/viewability/${tagId}?${trackingParams.toString()}&event=firstQuartile]]></Tracking>
+              <Tracking event="midpoint"><![CDATA[${trackingBase}/viewability/${tagId}?${trackingParams.toString()}&event=midpoint]]></Tracking>
+              <Tracking event="thirdQuartile"><![CDATA[${trackingBase}/viewability/${tagId}?${trackingParams.toString()}&event=thirdQuartile]]></Tracking>
+              <Tracking event="complete"><![CDATA[${trackingBase}/viewability/${tagId}?${trackingParams.toString()}&event=complete]]></Tracking>
             </TrackingEvents>
             <VideoClicks>
               <ClickThrough><![CDATA[${clickUrl}]]></ClickThrough>
-              <ClickTracking><![CDATA[${trackingBase}/click/${tagId}?ws=${workspaceId}]]></ClickTracking>
+              <ClickTracking><![CDATA[${trackingBase}/click/${tagId}?${clickTrackingParams.toString()}]]></ClickTracking>
             </VideoClicks>
             <MediaFiles>
               <MediaFile delivery="progressive" type="video/mp4" width="${width}" height="${height}">
@@ -87,8 +92,13 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   const width = servingCandidate?.width ?? 300;
   const height = servingCandidate?.height ?? 250;
   const clickUrl = servingCandidate?.clickUrl ?? '#';
-  const impressionUrl = `${baseUrl}/track/impression/${tagId}?ws=${workspaceId}`;
-  const clickTrackUrl = `${baseUrl}/track/click/${tagId}?ws=${workspaceId}&url=${encodeURIComponent(clickUrl)}`;
+  const trackingParams = new URLSearchParams({ ws: String(workspaceId) });
+  if (servingCandidate?.creativeId) trackingParams.set('c', String(servingCandidate.creativeId));
+  if (servingCandidate?.creativeSizeVariantId) trackingParams.set('csv', String(servingCandidate.creativeSizeVariantId));
+  const impressionUrl = `${baseUrl}/track/impression/${tagId}?${trackingParams.toString()}`;
+  const clickTrackParams = new URLSearchParams(trackingParams);
+  clickTrackParams.set('url', clickUrl);
+  const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
 
   return `(function() {

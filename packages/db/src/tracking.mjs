@@ -1,6 +1,7 @@
 export async function recordImpression(pool, data) {
   const {
     tag_id, workspace_id, creative_id = null,
+    creative_size_variant_id = null,
     ip = null, user_agent = null, country = null, region = null,
     referer = null, viewable = null,
     timestamp = new Date(),
@@ -8,18 +9,30 @@ export async function recordImpression(pool, data) {
 
   const { rows } = await pool.query(
     `INSERT INTO impression_events
-       (tag_id, workspace_id, creative_id, ip, user_agent, country, region, referer, viewable, timestamp)
-     VALUES ($1,$2,$3,$4::inet,$5,$6,$7,$8,$9,$10)
+       (tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region, referer, viewable, timestamp)
+     VALUES ($1,$2,$3,$4,$5::inet,$6,$7,$8,$9,$10,$11)
      RETURNING id, tag_id, workspace_id, timestamp`,
-    [tag_id, workspace_id, creative_id, ip, user_agent, country, region,
+    [tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region,
      referer, viewable, timestamp],
   );
+
+  if (creative_size_variant_id) {
+    const date = new Date(timestamp).toISOString().slice(0, 10);
+    await pool.query(
+      `INSERT INTO creative_variant_daily_stats (creative_size_variant_id, date, impressions)
+       VALUES ($1, $2, 1)
+       ON CONFLICT (creative_size_variant_id, date)
+       DO UPDATE SET impressions = creative_variant_daily_stats.impressions + 1, updated_at = NOW()`,
+      [creative_size_variant_id, date],
+    );
+  }
   return rows[0];
 }
 
 export async function recordClick(pool, data) {
   const {
     tag_id, workspace_id, creative_id = null, impression_id = null,
+    creative_size_variant_id = null,
     ip = null, user_agent = null, country = null, region = null,
     referer = null, redirect_url = null,
     timestamp = new Date(),
@@ -27,13 +40,24 @@ export async function recordClick(pool, data) {
 
   const { rows } = await pool.query(
     `INSERT INTO click_events
-       (tag_id, workspace_id, creative_id, impression_id, ip, user_agent,
+       (tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, ip, user_agent,
         country, region, referer, redirect_url, timestamp)
-     VALUES ($1,$2,$3,$4,$5,$6::inet,$7,$8,$9,$10,$11)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::inet,$8,$9,$10,$11,$12)
      RETURNING id, tag_id, workspace_id, timestamp`,
-    [tag_id, workspace_id, creative_id, impression_id, ip, user_agent,
+    [tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, ip, user_agent,
      country, region, referer, redirect_url, timestamp],
   );
+
+  if (creative_size_variant_id) {
+    const date = new Date(timestamp).toISOString().slice(0, 10);
+    await pool.query(
+      `INSERT INTO creative_variant_daily_stats (creative_size_variant_id, date, clicks)
+       VALUES ($1, $2, 1)
+       ON CONFLICT (creative_size_variant_id, date)
+       DO UPDATE SET clicks = creative_variant_daily_stats.clicks + 1, updated_at = NOW()`,
+      [creative_size_variant_id, date],
+    );
+  }
   return rows[0];
 }
 

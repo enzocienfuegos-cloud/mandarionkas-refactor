@@ -4,6 +4,7 @@ import {
   listCreativeVersions,
   listCreativeSizeVariants,
   listCreativeSizeVariantBindingSummaries,
+  listCreativeSizeVariantPerformanceSummaries,
   getCreativeSizeVariant,
   createCreativeSizeVariant,
   createCreativeSizeVariantsBulk,
@@ -79,6 +80,11 @@ function toApiCreativeSizeVariant(variant) {
     bindingCount: variant.binding_count ?? 0,
     activeBindingCount: variant.active_binding_count ?? 0,
     tagNames: Array.isArray(variant.tag_names) ? variant.tag_names : [],
+    totalImpressions: Number(variant.total_impressions ?? 0),
+    totalClicks: Number(variant.total_clicks ?? 0),
+    impressions7d: Number(variant.impressions_7d ?? 0),
+    clicks7d: Number(variant.clicks_7d ?? 0),
+    ctr: Number(variant.ctr ?? 0),
     createdBy: variant.created_by ?? null,
     createdAt: variant.created_at,
     updatedAt: variant.updated_at,
@@ -86,16 +92,21 @@ function toApiCreativeSizeVariant(variant) {
 }
 
 async function listCreativeSizeVariantsWithSummaries(pool, workspaceId, creativeVersionId) {
-  const [variants, summaries] = await Promise.all([
+  const [variants, summaries, performance] = await Promise.all([
     listCreativeSizeVariants(pool, workspaceId, creativeVersionId),
     listCreativeSizeVariantBindingSummaries(pool, workspaceId, creativeVersionId),
+    listCreativeSizeVariantPerformanceSummaries(pool, workspaceId, creativeVersionId),
   ]);
   const summaryByVariantId = new Map(
     summaries.map(summary => [summary.creative_size_variant_id, summary]),
   );
+  const performanceByVariantId = new Map(
+    performance.map(summary => [summary.creative_size_variant_id, summary]),
+  );
   return variants.map(variant => ({
     ...variant,
     ...(summaryByVariantId.get(variant.id) ?? {}),
+    ...(performanceByVariantId.get(variant.id) ?? {}),
   }));
 }
 

@@ -10,7 +10,7 @@ export function handleTrackingRoutes(app, { pool }) {
   // GET /track/impression/:tagId — records impression, returns 1x1 transparent GIF
   app.get('/track/impression/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, imp: impressionId, c: creativeId } = req.query;
+    const { ws: workspaceId, imp: impressionId, c: creativeId, csv: creativeSizeVariantId } = req.query;
 
     if (!workspaceId) {
       // Still return pixel, just don't record
@@ -26,13 +26,14 @@ export function handleTrackingRoutes(app, { pool }) {
     const referer = req.headers['referer'] ?? req.headers['referrer'] ?? null;
 
     // Fire-and-forget — don't block pixel response
-    recordImpression(pool, {
-      tag_id: tagId,
-      workspace_id: workspaceId,
-      creative_id: creativeId ?? null,
-      ip,
-      user_agent: userAgent,
-      referer,
+      recordImpression(pool, {
+        tag_id: tagId,
+        workspace_id: workspaceId,
+        creative_id: creativeId ?? null,
+        creative_size_variant_id: creativeSizeVariantId ?? null,
+        ip,
+        user_agent: userAgent,
+        referer,
     }).catch(() => {});
 
     reply.header('Content-Type', 'image/gif');
@@ -45,7 +46,7 @@ export function handleTrackingRoutes(app, { pool }) {
   // GET /track/click/:tagId — records click, redirects to clickUrl
   app.get('/track/click/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, url: destinationUrl, imp: impressionId, c: creativeId } = req.query;
+    const { ws: workspaceId, url: destinationUrl, imp: impressionId, c: creativeId, csv: creativeSizeVariantId } = req.query;
 
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? req.ip ?? null;
     const userAgent = req.headers['user-agent'] ?? null;
@@ -57,6 +58,7 @@ export function handleTrackingRoutes(app, { pool }) {
         tag_id: tagId,
         workspace_id: workspaceId,
         creative_id: creativeId ?? null,
+        creative_size_variant_id: creativeSizeVariantId ?? null,
         impression_id: impressionId ?? null,
         ip,
         user_agent: userAgent,

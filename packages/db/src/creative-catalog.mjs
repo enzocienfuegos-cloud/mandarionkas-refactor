@@ -386,6 +386,28 @@ export async function listCreativeSizeVariantBindingSummaries(pool, workspaceId,
   return rows;
 }
 
+export async function listCreativeSizeVariantPerformanceSummaries(pool, workspaceId, creativeVersionId) {
+  const { rows } = await pool.query(
+    `SELECT
+       csv.id AS creative_size_variant_id,
+       COALESCE(SUM(cvds.impressions), 0)::bigint AS total_impressions,
+       COALESCE(SUM(cvds.clicks), 0)::bigint AS total_clicks,
+       COALESCE(SUM(CASE WHEN cvds.date >= CURRENT_DATE - 6 THEN cvds.impressions ELSE 0 END), 0)::bigint AS impressions_7d,
+       COALESCE(SUM(CASE WHEN cvds.date >= CURRENT_DATE - 6 THEN cvds.clicks ELSE 0 END), 0)::bigint AS clicks_7d,
+       CASE WHEN COALESCE(SUM(cvds.impressions), 0) > 0
+            THEN ROUND(COALESCE(SUM(cvds.clicks), 0)::numeric / SUM(cvds.impressions) * 100, 4)
+            ELSE 0 END AS ctr
+     FROM creative_size_variants csv
+     LEFT JOIN creative_variant_daily_stats cvds
+       ON cvds.creative_size_variant_id = csv.id
+     WHERE csv.workspace_id = $1
+       AND csv.creative_version_id = $2
+     GROUP BY csv.id`,
+    [workspaceId, creativeVersionId],
+  );
+  return rows;
+}
+
 export async function getCreativeSizeVariant(pool, workspaceId, variantId) {
   const { rows } = await pool.query(
     `SELECT *

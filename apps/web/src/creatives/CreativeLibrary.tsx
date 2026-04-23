@@ -822,13 +822,21 @@ export default function CreativeLibrary() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          {variant.publicUrl ? (
-                            <a href={variant.publicUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-700">
-                              Open
-                            </a>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
+                          <div className="space-y-1 text-xs">
+                            {variant.publicUrl ? (
+                              <a href={variant.publicUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-indigo-600 hover:text-indigo-700">
+                                Open
+                              </a>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                            <div className="text-slate-500">
+                              {variant.totalImpressions ?? 0} imps / {variant.totalClicks ?? 0} clicks
+                            </div>
+                            <div className="text-slate-500">
+                              CTR {(variant.ctr ?? 0).toFixed(2)}% · 7d {(variant.impressions7d ?? 0)} imps
+                            </div>
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           {variant.status === 'active' ? (

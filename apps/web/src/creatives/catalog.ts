@@ -59,6 +59,11 @@ export interface CreativeSizeVariant {
   bindingCount?: number;
   activeBindingCount?: number;
   tagNames?: string[];
+  totalImpressions?: number;
+  totalClicks?: number;
+  impressions7d?: number;
+  clicks7d?: number;
+  ctr?: number;
   createdBy?: string | null;
   createdAt?: string;
   updatedAt?: string;
