@@ -13,6 +13,7 @@ const TagHealthDashboard = lazy(() => import('./tags/TagHealthDashboard'));
 const TagReportingDashboard = lazy(() => import('./reporting/TagReportingDashboard'));
 const CreativeLibrary    = lazy(() => import('./creatives/CreativeLibrary'));
 const CreativeApproval   = lazy(() => import('./creatives/CreativeApproval'));
+const CreativeUpload     = lazy(() => import('./creatives/CreativeUpload'));
 const AnalyticsDashboard = lazy(() => import('./analytics/AnalyticsDashboard'));
 const PacingDashboard    = lazy(() => import('./pacing/PacingDashboard'));
 const DiscrepancyDashboard = lazy(() => import('./discrepancies/DiscrepancyDashboard'));
@@ -59,6 +60,7 @@ export default function App() {
             {/* Creatives */}
             <Route path="creatives"          element={<CreativeLibrary />} />
             <Route path="creatives/approval" element={<CreativeApproval />} />
+            <Route path="creatives/upload"   element={<CreativeUpload />} />
 
             {/* Analytics */}
             <Route path="reporting"      element={<TagReportingDashboard />} />

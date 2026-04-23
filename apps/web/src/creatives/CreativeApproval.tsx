@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import {
+  type CreativeVersion,
+  approveCreativeVersion,
+  loadPendingReviewVersions,
+  rejectCreativeVersion,
+} from './catalog';
 
 interface User {
   id: string;
@@ -7,17 +13,8 @@ interface User {
   role: string;
 }
 
-interface Creative {
-  id: string;
-  name: string;
-  format: string;
-  submittedAt: string;
-  previewUrl?: string;
-  submittedBy?: { email: string };
-}
-
 interface ActionState {
-  creativeId: string;
+  versionId: string;
   type: 'approve' | 'reject';
   notes: string;
   reason: string;
@@ -25,15 +22,9 @@ interface ActionState {
   error: string;
 }
 
-const formatLabel: Record<string, string> = {
-  vast_video: 'VAST Video',
-  display: 'Display',
-  native: 'Native',
-};
-
 export default function CreativeApproval() {
   const { user } = useOutletContext<{ user: User }>();
-  const [creatives, setCreatives] = useState<Creative[]>([]);
+  const [versions, setVersions] = useState<CreativeVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionState, setActionState] = useState<ActionState | null>(null);
@@ -41,151 +32,115 @@ export default function CreativeApproval() {
 
   const canAct = user?.role === 'admin' || user?.role === 'owner';
 
-  const load = () => {
+  const load = async () => {
     setLoading(true);
-    fetch('/v1/creatives?approvalStatus=pending_review', { credentials: 'include' })
-      .then(r => { if (!r.ok) throw new Error('Failed to load review queue'); return r.json(); })
-      .then(d => setCreatives(d?.creatives ?? d ?? []))
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(load, []);
-
-  const pending = creatives.filter(c => !processed.has(c.id));
-
-  const openAction = (creative: Creative, type: 'approve' | 'reject') => {
-    setActionState({ creativeId: creative.id, type, notes: '', reason: '', loading: false, error: '' });
-  };
-
-  const closeAction = () => setActionState(null);
-
-  const handleSubmitAction = async () => {
-    if (!actionState) return;
-    const { creativeId, type, notes, reason } = actionState;
-
-    if (type === 'reject' && !reason.trim()) {
-      setActionState(s => s ? { ...s, error: 'Rejection reason is required.' } : s);
-      return;
-    }
-
-    setActionState(s => s ? { ...s, loading: true, error: '' } : s);
-
-    const url = `/v1/creatives/${creativeId}/${type}`;
-    const body = type === 'approve' ? { notes: notes.trim() || undefined } : { reason: reason.trim() };
-
+    setError('');
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(body),
-      });
+      setVersions(await loadPendingReviewVersions());
+    } catch (loadError: any) {
+      setError(loadError.message ?? 'Failed to load review queue');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.message ?? 'Action failed');
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const pending = versions.filter(version => !processed.has(version.id));
+
+  const handleAction = async () => {
+    if (!actionState) return;
+    setActionState(current => current ? { ...current, loading: true, error: '' } : current);
+    try {
+      if (actionState.type === 'approve') {
+        await approveCreativeVersion(actionState.versionId, actionState.notes.trim() || undefined);
+      } else {
+        if (!actionState.reason.trim()) {
+          throw new Error('Rejection reason is required.');
+        }
+        await rejectCreativeVersion(actionState.versionId, actionState.reason.trim());
       }
-
-      setProcessed(p => new Set([...p, creativeId]));
+      setProcessed(current => new Set([...current, actionState.versionId]));
       setActionState(null);
-    } catch (e: any) {
-      setActionState(s => s ? { ...s, loading: false, error: e.message } : s);
+    } catch (actionError: any) {
+      setActionState(current => current ? { ...current, loading: false, error: actionError.message ?? 'Action failed' } : current);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-indigo-500" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
         <p className="font-medium">Error loading review queue</p>
-        <p className="text-sm mt-1">{error}</p>
-        <button onClick={load} className="mt-3 text-sm text-red-600 underline">Retry</button>
+        <p className="mt-1 text-sm">{error}</p>
+        <button onClick={() => void load()} className="mt-3 text-sm text-red-600 underline">Retry</button>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Creative Review Queue</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            {pending.length} creative{pending.length !== 1 ? 's' : ''} awaiting review
-          </p>
+          <h1 className="text-2xl font-bold text-slate-800">Creative Version Review</h1>
+          <p className="mt-1 text-sm text-slate-500">{pending.length} version{pending.length !== 1 ? 's' : ''} awaiting review</p>
         </div>
-        <button
-          onClick={load}
-          className="px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-        >
-          🔄 Refresh
+        <button onClick={() => void load()} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Refresh
         </button>
       </div>
 
       {!canAct && (
-        <div className="mb-6 px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-          ⚠️ You have read-only access. Only admins and owners can approve or reject creatives.
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+          You have read-only access. Only admins and owners can approve or reject versions.
         </div>
       )}
 
       {pending.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
-          <p className="text-4xl mb-3">✅</p>
-          <h3 className="text-lg font-medium text-slate-700">Queue is empty</h3>
-          <p className="text-sm text-slate-500 mt-1">All submitted creatives have been reviewed.</p>
+        <div className="rounded-xl border border-slate-200 bg-white py-20 text-center">
+          <div className="text-4xl">✅</div>
+          <h3 className="mt-3 text-lg font-medium text-slate-700">Queue is empty</h3>
+          <p className="mt-1 text-sm text-slate-500">All submitted versions have been reviewed.</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {pending.map(c => (
-            <div key={c.id} className="bg-white rounded-xl border border-slate-200 p-6">
+          {pending.map(version => (
+            <div key={version.id} className="rounded-xl border border-slate-200 bg-white p-5">
               <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="text-base font-semibold text-slate-800">{c.name}</h3>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                      In Review
-                    </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h3 className="text-base font-semibold text-slate-800">{version.creativeName ?? version.creativeId}</h3>
+                    <span className="rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">In review</span>
                   </div>
-                  <div className="flex flex-wrap gap-4 text-sm text-slate-500">
-                    <span>Format: <strong className="text-slate-700">{formatLabel[c.format] ?? c.format}</strong></span>
-                    <span>Submitted: <strong className="text-slate-700">{new Date(c.submittedAt).toLocaleDateString()}</strong></span>
-                    {c.submittedBy && (
-                      <span>By: <strong className="text-slate-700">{c.submittedBy.email}</strong></span>
-                    )}
+                  <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-500">
+                    <span>Version: <strong className="text-slate-700">v{version.versionNumber}</strong></span>
+                    <span>Source: <strong className="text-slate-700">{version.sourceKind}</strong></span>
+                    <span>Format: <strong className="text-slate-700">{version.servingFormat}</strong></span>
+                    <span>Created: <strong className="text-slate-700">{version.createdAt ? new Date(version.createdAt).toLocaleString() : '—'}</strong></span>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {c.previewUrl && (
-                    <a
-                      href={c.previewUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors font-medium"
-                    >
+                <div className="flex gap-2">
+                  {version.publicUrl && (
+                    <a href={version.publicUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-indigo-200 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50">
                       Preview
                     </a>
                   )}
                   {canAct && (
                     <>
-                      <button
-                        onClick={() => openAction(c, 'approve')}
-                        className="text-sm font-medium text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        ✓ Approve
+                      <button onClick={() => setActionState({ versionId: version.id, type: 'approve', notes: '', reason: '', loading: false, error: '' })} className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700">
+                        Approve
                       </button>
-                      <button
-                        onClick={() => openAction(c, 'reject')}
-                        className="text-sm font-medium text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        ✕ Reject
+                      <button onClick={() => setActionState({ versionId: version.id, type: 'reject', notes: '', reason: '', loading: false, error: '' })} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
+                        Reject
                       </button>
                     </>
                   )}
@@ -196,71 +151,48 @@ export default function CreativeApproval() {
         </div>
       )}
 
-      {/* Action modal */}
       {actionState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">
-              {actionState.type === 'approve' ? '✓ Approve Creative' : '✕ Reject Creative'}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-slate-800">
+              {actionState.type === 'approve' ? 'Approve creative version' : 'Reject creative version'}
             </h2>
-
             {actionState.error && (
-              <div className="mb-4 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {actionState.error}
               </div>
             )}
-
             {actionState.type === 'approve' ? (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Notes <span className="text-slate-400">(optional)</span>
-                </label>
+              <div className="mt-4">
+                <label className="mb-1 block text-sm font-medium text-slate-700">Notes</label>
                 <textarea
                   value={actionState.notes}
-                  onChange={e => setActionState(s => s ? { ...s, notes: e.target.value } : s)}
+                  onChange={event => setActionState(current => current ? { ...current, notes: event.target.value } : current)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-                  placeholder="Any notes for the submitter..."
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
             ) : (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Rejection Reason <span className="text-red-500">*</span>
-                </label>
+              <div className="mt-4">
+                <label className="mb-1 block text-sm font-medium text-slate-700">Reason</label>
                 <textarea
                   value={actionState.reason}
-                  onChange={e => setActionState(s => s ? { ...s, reason: e.target.value } : s)}
+                  onChange={event => setActionState(current => current ? { ...current, reason: event.target.value } : current)}
                   rows={4}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
-                  placeholder="Explain why this creative was rejected..."
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
             )}
-
-            <div className="flex justify-end gap-3 mt-5">
-              <button
-                onClick={closeAction}
-                className="px-4 py-2 text-sm text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-              >
+            <div className="mt-5 flex justify-end gap-3">
+              <button onClick={() => setActionState(null)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                 Cancel
               </button>
               <button
-                onClick={handleSubmitAction}
+                onClick={() => void handleAction()}
                 disabled={actionState.loading}
-                className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
-                  actionState.type === 'approve'
-                    ? 'bg-green-600 hover:bg-green-700'
-                    : 'bg-red-600 hover:bg-red-700'
-                }`}
+                className={`rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${actionState.type === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
               >
-                {actionState.loading && (
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                  </svg>
-                )}
-                {actionState.type === 'approve' ? 'Approve' : 'Reject'}
+                {actionState.loading ? 'Saving…' : actionState.type === 'approve' ? 'Approve' : 'Reject'}
               </button>
             </div>
           </div>
