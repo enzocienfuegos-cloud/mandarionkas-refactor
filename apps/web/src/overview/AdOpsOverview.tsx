@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { loadAuthMe, loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
+import { loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
 
 interface ReportingStat {
   date: string;
@@ -32,8 +32,6 @@ interface CreativeRecord {
 }
 
 interface AdOpsSnapshot {
-  workspaceName: string;
-  workspaceCount: number;
   totalImpressions: number;
   totalClicks: number;
   totalSpend: number;
@@ -88,8 +86,7 @@ export default function AdOpsOverview() {
     setLoading(true);
     setError('');
     try {
-      const [authMe, workspaces, reportingRes, campaignsRes, tagsRes, creativesRes] = await Promise.all([
-        loadAuthMe(),
+      const [workspaces, reportingRes, campaignsRes, tagsRes, creativesRes] = await Promise.all([
         loadWorkspaces(),
         fetch('/v1/reporting/workspace', { credentials: 'include' }).then(r => {
           if (!r.ok) throw new Error('Failed to load reporting overview');
@@ -123,8 +120,6 @@ export default function AdOpsOverview() {
       }, { impressions: 0, clicks: 0, spend: 0, viewable: 0 });
 
       setSnapshot({
-        workspaceName: authMe?.workspace?.name ?? 'Current client',
-        workspaceCount: workspaces.length,
         totalImpressions: totals.impressions,
         totalClicks: totals.clicks,
         totalSpend: totals.spend,
@@ -148,13 +143,6 @@ export default function AdOpsOverview() {
   useEffect(() => {
     void load();
   }, []);
-
-  const clientHeadline = useMemo(() => {
-    if (!snapshot) return '';
-    return snapshot.workspaceCount > 1
-      ? `${snapshot.workspaceName} active · ${snapshot.workspaceCount} clients available`
-      : `${snapshot.workspaceName} active`;
-  }, [snapshot]);
 
   if (loading) {
     return (
@@ -182,7 +170,7 @@ export default function AdOpsOverview() {
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-200">Ad Ops Overview</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight">Start from the control room, not a client subpage.</h1>
             <p className="mt-4 text-sm leading-6 text-slate-200">
-              {clientHeadline}. Use this as the first stop for active campaigns, delivery signals, spend, CTR, and quick links into tags, creatives, and trafficking work.
+              Use this as the first stop for active campaigns, delivery signals, spend, CTR, and quick links into tags, creatives, and trafficking work.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -213,7 +201,7 @@ export default function AdOpsOverview() {
         />
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
+      <section className="grid gap-6 xl:grid-cols-1">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -251,32 +239,6 @@ export default function AdOpsOverview() {
             <Link to="/reporting" className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
               Go to reporting
             </Link>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">Clients in scope</h2>
-              <p className="mt-1 text-sm text-slate-500">Keep orientation before dropping into a single client workflow.</p>
-            </div>
-          </div>
-          <div className="mt-5 space-y-3">
-            {snapshot?.clients.map(client => (
-              <div key={client.id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{client.name}</p>
-                    <p className="text-xs text-slate-500">{client.id === snapshot?.clients[0]?.id ? 'Available in switcher' : 'Available in switcher'}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {!snapshot?.clients.length && (
-              <div className="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-                No clients yet. Create one from the top bar to start trafficking.
-              </div>
-            )}
           </div>
         </div>
       </section>

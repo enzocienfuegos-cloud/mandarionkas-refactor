@@ -18,7 +18,6 @@ import {
   loadTags,
   updateCreativeSizeVariant,
   updateCreativeSizeVariantsBulkStatus,
-  submitCreativeVersion,
   updateTagBinding,
 } from './catalog';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
@@ -131,7 +130,6 @@ export default function CreativeLibrary() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
-  const [submitting, setSubmitting] = useState<string | null>(null);
   const [bindingState, setBindingState] = useState<BindingState | null>(null);
   const [variantState, setVariantState] = useState<VariantState | null>(null);
 
@@ -167,8 +165,8 @@ export default function CreativeLibrary() {
     const versions = Object.values(latestVersions).filter(Boolean) as CreativeVersion[];
     return {
       totalCreatives: creatives.length,
-      pendingReview: versions.filter(version => version.status === 'pending_review').length,
-      approved: versions.filter(version => version.status === 'approved').length,
+      pendingReview: versions.filter(version => version.status === 'rejected').length,
+      approved: versions.filter(version => ['approved', 'draft'].includes(version.status)).length,
       ingestions: ingestions.length,
     };
   }, [creatives, latestVersions, ingestions]);
@@ -184,23 +182,6 @@ export default function CreativeLibrary() {
       setError(workspaceError.message ?? 'Failed to switch client');
     } finally {
       setWorkspaceBusy(false);
-    }
-  };
-
-  const handleSubmit = async (creativeId: string) => {
-    const version = latestVersions[creativeId];
-    if (!version) return;
-    setSubmitting(version.id);
-    try {
-      const response = await submitCreativeVersion(version.id);
-      setLatestVersions(current => ({
-        ...current,
-        [creativeId]: response.creativeVersion,
-      }));
-    } catch {
-      alert('Failed to submit creative version for review.');
-    } finally {
-      setSubmitting(null);
     }
   };
 
@@ -465,7 +446,7 @@ export default function CreativeLibrary() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Creative Catalog</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Upload to a specific client, auto-publish technically valid creatives, and bind them to tags.
+            Upload to a specific client, publish technically valid creatives, and assign them to tags.
           </p>
         </div>
         <div className="flex gap-2">
@@ -486,13 +467,7 @@ export default function CreativeLibrary() {
             disabled={workspaceBusy}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
           >
-            New client
-          </button>
-          <button
-            onClick={() => navigate('/creatives/approval')}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            Review Queue
+            Manage clients
           </button>
           <button
             onClick={() => navigate('/creatives/upload')}
@@ -509,7 +484,7 @@ export default function CreativeLibrary() {
           <p className="mt-2 text-2xl font-semibold text-slate-900">{summary.totalCreatives}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Manual Review</p>
+          <p className="text-sm text-slate-500">Needs attention</p>
           <p className="mt-2 text-2xl font-semibold text-yellow-700">{summary.pendingReview}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -569,16 +544,7 @@ export default function CreativeLibrary() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
-                        {version && (version.status === 'draft' || version.status === 'rejected') && (
-                          <button
-                            onClick={() => void handleSubmit(creative.id)}
-                            disabled={submitting === version.id}
-                            className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-slate-800 disabled:bg-slate-400"
-                          >
-                            {submitting === version.id ? 'Submitting…' : 'Submit for review'}
-                          </button>
-                        )}
-                        {version && version.status === 'approved' && (
+                        {version && version.status !== 'rejected' && (
                           <>
                             <button
                               onClick={() => void openVariantManager(creative, version)}
@@ -651,7 +617,7 @@ export default function CreativeLibrary() {
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-slate-800">Assign creative version to tag</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Assign the approved version to a delivery tag using the new versioned serving path.
+              Assign this creative version to one or more delivery tags.
             </p>
             {bindingState.error && (
               <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -686,10 +652,10 @@ export default function CreativeLibrary() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => navigate('/tags/new')}
+                      onClick={() => navigate('/tags?create=1')}
                       className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                     >
-                      Open tag builder
+                      Open tags
                     </button>
                   </div>
                 </div>

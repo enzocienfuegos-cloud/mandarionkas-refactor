@@ -14,8 +14,6 @@ interface TagForm {
   campaignId: string;
   format: TagFormat;
   status: TagStatus;
-  clickUrl: string;
-  impressionUrl: string;
 }
 
 interface SavedTag {
@@ -39,8 +37,6 @@ const emptyForm: TagForm = {
   campaignId: '',
   format: 'VAST',
   status: 'draft',
-  clickUrl: '',
-  impressionUrl: '',
 };
 
 const STATUSES: TagStatus[] = ['draft', 'active', 'paused', 'archived'];
@@ -176,8 +172,6 @@ export default function TagBuilder() {
           campaignId: String((data.campaign as { id?: string } | undefined)?.id ?? data.campaignId ?? ''),
           format: (data.format as TagFormat | undefined) ?? 'VAST',
           status: (data.status as TagStatus | undefined) ?? 'draft',
-          clickUrl: (data.clickUrl as string | undefined) ?? '',
-          impressionUrl: (data.impressionUrl as string | undefined) ?? '',
         });
         const normalized = normalizeTagRecord(payload);
         setSavedTag(normalized);
@@ -218,8 +212,6 @@ export default function TagBuilder() {
       campaignId: form.campaignId || null,
       format: form.format,
       status: form.status,
-      clickUrl: form.clickUrl || null,
-      impressionUrl: form.impressionUrl || null,
     };
 
     try {
@@ -344,30 +336,6 @@ export default function TagBuilder() {
                 <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
               ))}
             </select>
-          </div>
-
-          {/* Click URL */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Click URL</label>
-            <input
-              type="url"
-              value={form.clickUrl}
-              onChange={set('clickUrl')}
-              className={inputClass()}
-              placeholder="https://example.com/landing"
-            />
-          </div>
-
-          {/* Impression URL */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Impression Tracking URL</label>
-            <input
-              type="url"
-              value={form.impressionUrl}
-              onChange={set('impressionUrl')}
-              className={inputClass()}
-              placeholder="https://tracker.example.com/imp?id=..."
-            />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">

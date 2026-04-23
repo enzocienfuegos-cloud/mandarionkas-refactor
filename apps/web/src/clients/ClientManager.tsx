@@ -135,7 +135,7 @@ export default function ClientManager() {
                     <div>
                       <p className="text-sm font-medium text-slate-900">{workspace.name}</p>
                       <p className="mt-1 text-xs text-slate-500">
-                        {workspace.id === activeWorkspaceId ? 'Active client' : 'Available in campaign filters'}
+                        {workspace.id === activeWorkspaceId ? 'Active client' : 'Available for trafficking filters'}
                       </p>
                     </div>
                     {workspace.id === activeWorkspaceId && (

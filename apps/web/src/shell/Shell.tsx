@@ -58,8 +58,6 @@ export default function Shell() {
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [toolsOpen, setToolsOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [clientError, setClientError] = useState('');
 
@@ -92,9 +90,12 @@ export default function Shell() {
       .finally(() => setLoading(false));
   }, [navigate]);
 
-  const showClientSwitcher = useMemo(() => {
-    return !location.pathname.startsWith('/overview') && !location.pathname.startsWith('/clients');
-  }, [location.pathname]);
+  const showClientSwitcher = useMemo(
+    () => !location.pathname.startsWith('/overview') && !location.pathname.startsWith('/clients'),
+    [location.pathname],
+  );
+  const toolsOpen = location.pathname.startsWith('/tools');
+  const settingsOpen = location.pathname.startsWith('/settings');
 
   const handleLogout = async () => {
     await fetch('/v1/auth/logout', { method: 'POST', credentials: 'include' });
@@ -179,13 +180,10 @@ export default function Shell() {
           </a>
 
           <SectionLabel label="Tools" />
-          <button
-            className="flex items-center justify-between gap-2 w-full px-3 py-2 rounded-md text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
-            onClick={() => setToolsOpen(o => !o)}
-          >
+          <NavLink to="/tools" className={navLinkClass}>
             <span className="flex items-center gap-2"><span>🔧</span> Tools</span>
             <span className={`transition-transform ${toolsOpen ? 'rotate-180' : ''}`}><ChevronDownIcon /></span>
-          </button>
+          </NavLink>
           {toolsOpen && (
             <div className="pl-4 space-y-0.5">
               <NavLink to="/tools/vast-validator" className={navLinkClass}>VAST Validator</NavLink>
@@ -194,13 +192,10 @@ export default function Shell() {
           )}
 
           <SectionLabel label="Settings" />
-          <button
-            className="flex items-center justify-between gap-2 w-full px-3 py-2 rounded-md text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
-            onClick={() => setSettingsOpen(o => !o)}
-          >
+          <NavLink to="/settings" className={navLinkClass}>
             <span className="flex items-center gap-2"><span>⚙️</span> Settings</span>
             <span className={`transition-transform ${settingsOpen ? 'rotate-180' : ''}`}><ChevronDownIcon /></span>
-          </button>
+          </NavLink>
           {settingsOpen && (
             <div className="pl-4 space-y-0.5">
               <NavLink to="/settings/api-keys" className={navLinkClass}>API Keys</NavLink>
@@ -245,12 +240,7 @@ export default function Shell() {
                   <span className="text-xs text-red-600">{clientError}</span>
                 )}
               </>
-            ) : (
-              <div>
-                <p className="text-sm font-medium text-slate-700">{user?.workspace?.name ?? 'Client overview'}</p>
-                <p className="text-xs text-slate-500">Use the dedicated client panel when you need to add or switch accounts.</p>
-              </div>
-            )}
+            ) : null}
           </div>
 
           <div className="flex items-center gap-3">

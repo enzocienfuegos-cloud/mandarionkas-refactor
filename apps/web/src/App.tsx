@@ -28,6 +28,8 @@ const WorkspaceSettings  = lazy(() => import('./team/WorkspaceSettings'));
 const WebhookManager     = lazy(() => import('./webhooks/WebhookManager'));
 const VastValidator      = lazy(() => import('./vast/VastValidator'));
 const VastChainValidator = lazy(() => import('./vast/VastChainValidator'));
+const ToolsHome         = lazy(() => import('./tools/ToolsHome'));
+const SettingsHome      = lazy(() => import('./settings/SettingsHome'));
 
 const Spinner = () => (
   <div className="flex h-full items-center justify-center">
@@ -62,7 +64,7 @@ export default function App() {
             {/* Tags */}
             <Route path="tags"                      element={<TagList />} />
             <Route path="tags/bindings"             element={<TagBindingDashboard />} />
-            <Route path="tags/new"                  element={<TagBuilder />} />
+            <Route path="tags/new"                  element={<Navigate to="/tags?create=1" replace />} />
             <Route path="tags/:id"                  element={<TagBuilder />} />
             <Route path="tags/:id/health"           element={<TagHealthDashboard />} />
             <Route path="tags/:id/reporting"        element={<TagReportingDashboard />} />
@@ -80,6 +82,7 @@ export default function App() {
             <Route path="experiments"    element={<AbExperimentEditor />} />
 
             {/* Tools */}
+            <Route path="tools"                 element={<ToolsHome />} />
             <Route path="tools/vast-validator"  element={<VastValidator />} />
             <Route path="tools/chain-validator" element={<VastChainValidator />} />
 
@@ -87,6 +90,7 @@ export default function App() {
             <Route path="search" element={<GlobalSearch />} />
 
             {/* Settings */}
+            <Route path="settings"            element={<SettingsHome />} />
             <Route path="settings/api-keys"   element={<ApiKeys />} />
             <Route path="settings/audit-log"  element={<AuditLog />} />
             <Route path="settings/workspace"  element={<WorkspaceSettings />} />

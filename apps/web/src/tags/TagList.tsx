@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 interface Tag {
   id: string;
@@ -39,10 +39,19 @@ const statusBadge = (status: Tag['status']) => {
 
 export default function TagList() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    campaignId: '',
+    format: 'display' as Tag['format'],
+    status: 'draft' as Tag['status'],
+  });
 
   const load = () => {
     setLoading(true);
@@ -54,6 +63,11 @@ export default function TagList() {
   };
 
   useEffect(load, []);
+  useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      setCreating(true);
+    }
+  }, [searchParams]);
 
   const handleDelete = async (tag: Tag) => {
     if (!window.confirm(`Delete tag "${tag.name}"? This cannot be undone.`)) return;
@@ -66,6 +80,44 @@ export default function TagList() {
       alert('Failed to delete tag.');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const closeCreate = () => {
+    setCreating(false);
+    setCreateError('');
+    setCreateForm({ name: '', campaignId: '', format: 'display', status: 'draft' });
+    if (searchParams.get('create') === '1') {
+      setSearchParams({});
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!createForm.name.trim()) {
+      setCreateError('Tag name is required.');
+      return;
+    }
+    setCreateError('');
+    try {
+      const res = await fetch('/v1/tags', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: createForm.name.trim(),
+          campaignId: createForm.campaignId || null,
+          format: createForm.format,
+          status: createForm.status,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message ?? 'Failed to create tag');
+      closeCreate();
+      await load();
+      const createdId = payload?.tag?.id ?? payload?.id;
+      if (createdId) navigate(`/tags/${createdId}`);
+    } catch (createErr: any) {
+      setCreateError(createErr.message ?? 'Failed to create tag');
     }
   };
 
@@ -107,12 +159,12 @@ export default function TagList() {
           >
             🩺 Health
           </Link>
-          <Link
-            to="/tags/new"
+          <button
+            onClick={() => setCreating(true)}
             className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
           >
             + New Tag
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -121,9 +173,9 @@ export default function TagList() {
           <p className="text-4xl mb-3">🏷️</p>
           <h3 className="text-lg font-medium text-slate-700">No tags yet</h3>
           <p className="text-sm text-slate-500 mt-1 mb-4">Create your first ad tag to start serving ads.</p>
-          <Link to="/tags/new" className="inline-flex items-center gap-2 bg-indigo-600 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition-colors">
+          <button onClick={() => setCreating(true)} className="inline-flex items-center gap-2 bg-indigo-600 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition-colors">
             + New Tag
-          </Link>
+          </button>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -169,6 +221,69 @@ export default function TagList() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {creating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-slate-800">Create Tag</h2>
+            <p className="mt-1 text-sm text-slate-500">Create the tag first, then configure snippet variants and assignments from the tag workspace.</p>
+            {createError && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{createError}</div>
+            )}
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Tag Name</label>
+                <input
+                  value={createForm.name}
+                  onChange={event => setCreateForm(current => ({ ...current, name: event.target.value }))}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Homepage 300x250 display"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Format</label>
+                <div className="flex gap-2">
+                  {(['VAST', 'display', 'native'] as Tag['format'][]).map(format => (
+                    <button
+                      key={format}
+                      type="button"
+                      onClick={() => setCreateForm(current => ({ ...current, format }))}
+                      className={`rounded-lg border px-3 py-2 text-sm font-medium ${
+                        createForm.format === format
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                          : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {format}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Status</label>
+                <select
+                  value={createForm.status}
+                  onChange={event => setCreateForm(current => ({ ...current, status: event.target.value as Tag['status'] }))}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={closeCreate} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                Cancel
+              </button>
+              <button onClick={() => void handleCreate()} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+                Create Tag
+              </button>
+            </div>
           </div>
         </div>
       )}
