@@ -830,7 +830,7 @@ export default function AnalyticsDashboard() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
         <KpiCard label="Impressions" value={fmtNum(data?.totalImpressions ?? 0)} icon="👁️" color="text-slate-800" />
         <KpiCard label="Clicks" value={fmtNum(data?.totalClicks ?? 0)} icon="🖱️" color="text-blue-700" />
         <KpiCard label="Spend" value={fmtCurrency(data?.totalSpend ?? 0)} icon="💸" color="text-emerald-700" />
@@ -847,7 +847,7 @@ export default function AnalyticsDashboard() {
           value={fmtNum(data?.totalEngagements ?? 0)}
           icon="✨"
           color="text-amber-700"
-          sub={`${fmtSecondsFromMs(data?.totalHoverDurationMs ?? 0)} attention time`}
+          sub={`${fmtCtr(data?.engagementRate ?? 0)} engagement rate`}
         />
         <KpiCard
           label="Engagement Rate"
@@ -857,11 +857,18 @@ export default function AnalyticsDashboard() {
           sub={`${fmtNum(data?.totalEngagements ?? 0)} engagements on ${fmtNum(data?.totalImpressions ?? 0)} impressions`}
         />
         <KpiCard
+          label="Attention Time"
+          value={fmtSecondsFromMs(data?.totalHoverDurationMs ?? 0)}
+          icon="⏳"
+          color="text-amber-700"
+          sub="Total hover duration"
+        />
+        <KpiCard
           label="In-View Time"
           value={fmtSecondsFromMs(data?.totalInViewDurationMs ?? 0)}
           icon="⏱️"
           color="text-cyan-700"
-          sub={`${fmtSecondsFromMs(data?.totalHoverDurationMs ?? 0)} attention time`}
+          sub="Total measured visible duration"
         />
       </div>
 
