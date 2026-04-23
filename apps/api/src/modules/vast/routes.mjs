@@ -314,7 +314,8 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
     const html = buildDisplayDocument(loaded.tag, loaded.workspaceId, baseUrl);
     reply.header('Content-Type', 'text/html; charset=utf-8');
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-    reply.header('X-Frame-Options', 'SAMEORIGIN');
+    reply.removeHeader('X-Frame-Options');
+    reply.header('Content-Security-Policy', "default-src 'self' data: blob: https:; img-src * data: blob:; media-src * data: blob:; script-src 'unsafe-inline' https:; style-src 'unsafe-inline' https:;");
     return reply.send(html);
   }
 
