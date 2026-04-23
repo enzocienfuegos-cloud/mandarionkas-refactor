@@ -1588,21 +1588,25 @@ export async function getWorkspaceCountryBreakdown(pool, workspaceId, opts = {})
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.workspace_id = $1', 'ie.country IS NOT DISTINCT FROM ds.country', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
-  const identityParams = [];
 
   if (dateFrom) {
     params.push(dateFrom);
     conditions.push(`ds.date >= $${params.length}`);
-    identityParams.push(dateFrom);
-    identityConditions.push(`ie.timestamp >= $${params.length + identityParams.length}`);
   }
   if (dateTo) {
     params.push(dateTo);
     conditions.push(`ds.date <= $${params.length}`);
-    identityParams.push(`${dateTo}T23:59:59.999Z`);
-    identityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
   }
-  params.push(...identityParams);
+
+  const identityDateParamStart = params.length + 1;
+  if (dateFrom) {
+    params.push(dateFrom);
+    identityConditions.push(`ie.timestamp >= $${identityDateParamStart}::timestamptz`);
+  }
+  if (dateTo) {
+    params.push(`${dateTo}T23:59:59.999Z`);
+    identityConditions.push(`ie.timestamp <= $${dateFrom ? identityDateParamStart + 1 : identityDateParamStart}::timestamptz`);
+  }
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
@@ -1653,21 +1657,25 @@ export async function getWorkspaceRegionBreakdown(pool, workspaceId, opts = {}) 
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.workspace_id = $1', 'ie.region IS NOT DISTINCT FROM ds.region', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
-  const identityParams = [];
 
   if (dateFrom) {
     params.push(dateFrom);
     conditions.push(`ds.date >= $${params.length}`);
-    identityParams.push(dateFrom);
-    identityConditions.push(`ie.timestamp >= $${params.length + identityParams.length}`);
   }
   if (dateTo) {
     params.push(dateTo);
     conditions.push(`ds.date <= $${params.length}`);
-    identityParams.push(`${dateTo}T23:59:59.999Z`);
-    identityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
   }
-  params.push(...identityParams);
+
+  const identityDateParamStart = params.length + 1;
+  if (dateFrom) {
+    params.push(dateFrom);
+    identityConditions.push(`ie.timestamp >= $${identityDateParamStart}::timestamptz`);
+  }
+  if (dateTo) {
+    params.push(`${dateTo}T23:59:59.999Z`);
+    identityConditions.push(`ie.timestamp <= $${dateFrom ? identityDateParamStart + 1 : identityDateParamStart}::timestamptz`);
+  }
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
@@ -1718,21 +1726,25 @@ export async function getWorkspaceCityBreakdown(pool, workspaceId, opts = {}) {
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.workspace_id = $1', 'ie.city IS NOT DISTINCT FROM ds.city', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
-  const identityParams = [];
 
   if (dateFrom) {
     params.push(dateFrom);
     conditions.push(`ds.date >= $${params.length}`);
-    identityParams.push(dateFrom);
-    identityConditions.push(`ie.timestamp >= $${params.length + identityParams.length}`);
   }
   if (dateTo) {
     params.push(dateTo);
     conditions.push(`ds.date <= $${params.length}`);
-    identityParams.push(`${dateTo}T23:59:59.999Z`);
-    identityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
   }
-  params.push(...identityParams);
+
+  const identityDateParamStart = params.length + 1;
+  if (dateFrom) {
+    params.push(dateFrom);
+    identityConditions.push(`ie.timestamp >= $${identityDateParamStart}::timestamptz`);
+  }
+  if (dateTo) {
+    params.push(`${dateTo}T23:59:59.999Z`);
+    identityConditions.push(`ie.timestamp <= $${dateFrom ? identityDateParamStart + 1 : identityDateParamStart}::timestamptz`);
+  }
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
@@ -1784,23 +1796,28 @@ export async function getWorkspaceTrackerBreakdown(pool, workspaceId, opts = {})
   const conditions = ["t.workspace_id = $1", "t.format = 'tracker'", 'tfc.tracker_type IS NOT NULL'];
   const impressionIdentityConditions = ['ie.workspace_id = t.workspace_id', 'ie.tag_id = t.id', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
   const clickIdentityConditions = ['ce.workspace_id = t.workspace_id', 'ce.tag_id = t.id', "e.event_type = 'click'", 'e.identity_profile_id IS NOT NULL'];
-  const identityParams = [];
 
   if (dateFrom) {
     params.push(dateFrom);
     conditions.push(`ds.date >= $${params.length}`);
-    identityParams.push(dateFrom);
-    impressionIdentityConditions.push(`ie.timestamp >= $${params.length + identityParams.length}`);
-    clickIdentityConditions.push(`ce.timestamp >= $${params.length + identityParams.length}`);
   }
   if (dateTo) {
     params.push(dateTo);
     conditions.push(`ds.date <= $${params.length}`);
-    identityParams.push(`${dateTo}T23:59:59.999Z`);
-    impressionIdentityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
-    clickIdentityConditions.push(`ce.timestamp <= $${params.length + identityParams.length}`);
   }
-  params.push(...identityParams);
+
+  const identityDateParamStart = params.length + 1;
+  if (dateFrom) {
+    params.push(dateFrom);
+    impressionIdentityConditions.push(`ie.timestamp >= $${identityDateParamStart}::timestamptz`);
+    clickIdentityConditions.push(`ce.timestamp >= $${identityDateParamStart}::timestamptz`);
+  }
+  if (dateTo) {
+    params.push(`${dateTo}T23:59:59.999Z`);
+    const dateToIndex = dateFrom ? identityDateParamStart + 1 : identityDateParamStart;
+    impressionIdentityConditions.push(`ie.timestamp <= $${dateToIndex}::timestamptz`);
+    clickIdentityConditions.push(`ce.timestamp <= $${dateToIndex}::timestamptz`);
+  }
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
