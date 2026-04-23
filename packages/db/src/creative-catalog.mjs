@@ -34,6 +34,20 @@ function normalizeBindingStatus(status) {
     : 'active';
 }
 
+async function syncCreativeApprovalStatus(pool, workspaceId, creativeId, status, reviewerId = null, notes = null) {
+  await pool.query(
+    `UPDATE creatives
+     SET approval_status = $3,
+         reviewed_by = CASE WHEN $4::uuid IS NULL THEN reviewed_by ELSE $4 END,
+         reviewed_at = CASE WHEN $4::uuid IS NULL THEN reviewed_at ELSE NOW() END,
+         review_notes = CASE WHEN $5::text IS NULL THEN review_notes ELSE $5 END,
+         updated_at = NOW()
+     WHERE workspace_id = $1
+       AND id = $2`,
+    [workspaceId, creativeId, status, reviewerId, notes],
+  );
+}
+
 export function inferServingFormatFromCreative(creative = {}) {
   if (creative.type === 'html') return 'display_html';
   if (creative.type === 'native') return 'native';
@@ -71,6 +85,19 @@ export async function getCreativeVersion(pool, workspaceId, versionId) {
     [workspaceId, versionId],
   );
   return rows[0] ?? null;
+}
+
+export async function listCreativeVersionsForReview(pool, workspaceId, status = 'pending_review') {
+  const { rows } = await pool.query(
+    `SELECT cv.*, c.name AS creative_name
+     FROM creative_versions cv
+     JOIN creatives c ON c.id = cv.creative_id
+     WHERE cv.workspace_id = $1
+       AND cv.status = $2
+     ORDER BY cv.created_at DESC`,
+    [workspaceId, normalizeVersionStatus(status, 'pending_review')],
+  );
+  return rows;
 }
 
 export async function createCreativeVersion(pool, workspaceId, data) {
@@ -172,6 +199,66 @@ export async function ensureLegacyCreativeVersion(pool, workspaceId, creative) {
       legacyType: creative.type ?? null,
     },
   });
+}
+
+export async function submitCreativeVersionForReview(pool, workspaceId, versionId) {
+  const { rows } = await pool.query(
+    `UPDATE creative_versions
+     SET status = 'pending_review',
+         updated_at = NOW()
+     WHERE workspace_id = $1
+       AND id = $2
+       AND status IN ('draft', 'rejected')
+     RETURNING *`,
+    [workspaceId, versionId],
+  );
+  const version = rows[0] ?? null;
+  if (version) {
+    await syncCreativeApprovalStatus(pool, workspaceId, version.creative_id, 'pending_review');
+  }
+  return version;
+}
+
+export async function approveCreativeVersion(pool, workspaceId, versionId, reviewerId, notes = null) {
+  const { rows } = await pool.query(
+    `UPDATE creative_versions
+     SET status = 'approved',
+         reviewed_by = $3,
+         reviewed_at = NOW(),
+         review_notes = $4,
+         updated_at = NOW()
+     WHERE workspace_id = $1
+       AND id = $2
+       AND status = 'pending_review'
+     RETURNING *`,
+    [workspaceId, versionId, reviewerId, notes],
+  );
+  const version = rows[0] ?? null;
+  if (version) {
+    await syncCreativeApprovalStatus(pool, workspaceId, version.creative_id, 'approved', reviewerId, notes);
+  }
+  return version;
+}
+
+export async function rejectCreativeVersion(pool, workspaceId, versionId, reviewerId, reason) {
+  const { rows } = await pool.query(
+    `UPDATE creative_versions
+     SET status = 'rejected',
+         reviewed_by = $3,
+         reviewed_at = NOW(),
+         review_notes = $4,
+         updated_at = NOW()
+     WHERE workspace_id = $1
+       AND id = $2
+       AND status = 'pending_review'
+     RETURNING *`,
+    [workspaceId, versionId, reviewerId, reason],
+  );
+  const version = rows[0] ?? null;
+  if (version) {
+    await syncCreativeApprovalStatus(pool, workspaceId, version.creative_id, 'rejected', reviewerId, reason);
+  }
+  return version;
 }
 
 export async function listCreativeArtifacts(pool, workspaceId, creativeVersionId) {
