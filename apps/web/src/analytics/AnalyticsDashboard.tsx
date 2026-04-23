@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 type DateRange = 7 | 30 | 90;
+type RangeMode = 'preset' | 'custom';
 
 interface RankedMetric {
   label: string;
@@ -85,8 +86,28 @@ function getDateFrom(days: DateRange): string {
   return date.toISOString().slice(0, 10);
 }
 
-function makeQuery(days: DateRange): string {
-  return `?dateFrom=${encodeURIComponent(getDateFrom(days))}&limit=10`;
+function getToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function makeQuery({
+  dateRange,
+  rangeMode,
+  customStartDate,
+  customEndDate,
+}: {
+  dateRange: DateRange;
+  rangeMode: RangeMode;
+  customStartDate: string;
+  customEndDate: string;
+}): string {
+  const params = new URLSearchParams();
+  const dateFrom = rangeMode === 'custom' ? customStartDate : getDateFrom(dateRange);
+  const dateTo = rangeMode === 'custom' ? customEndDate : getToday();
+  if (dateFrom) params.set('dateFrom', dateFrom);
+  if (dateTo) params.set('dateTo', dateTo);
+  params.set('limit', '10');
+  return `?${params.toString()}`;
 }
 
 function normalizeRankedMetricList(items: any[], labelKey: string, valueKey: string, secondary?: (item: any) => string | undefined): RankedMetric[] {
@@ -299,8 +320,17 @@ export default function AnalyticsDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [dateRange, setDateRange] = useState<DateRange>(30);
+  const [rangeMode, setRangeMode] = useState<RangeMode>('preset');
+  const [customStartDate, setCustomStartDate] = useState(() => getDateFrom(30));
+  const [customEndDate, setCustomEndDate] = useState(() => getToday());
 
-  const query = useMemo(() => makeQuery(dateRange), [dateRange]);
+  const query = useMemo(() => makeQuery({
+    dateRange,
+    rangeMode,
+    customStartDate,
+    customEndDate,
+  }), [dateRange, rangeMode, customStartDate, customEndDate]);
+  const customDatesValid = Boolean(customStartDate && customEndDate && customStartDate <= customEndDate);
 
   const load = () => {
     setLoading(true);
@@ -347,7 +377,10 @@ export default function AnalyticsDashboard() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [query]);
+  useEffect(() => {
+    if (rangeMode === 'custom' && !customDatesValid) return;
+    load();
+  }, [query]);
 
   if (loading) {
     return (
@@ -376,14 +409,17 @@ export default function AnalyticsDashboard() {
             Workspace-level performance with site, country, tag, creative, variant, and rich media signals.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <div className="flex rounded-lg border border-slate-200 bg-white p-1">
             {DATE_RANGES.map((range) => (
               <button
                 key={range}
-                onClick={() => setDateRange(range)}
+                onClick={() => {
+                  setRangeMode('preset');
+                  setDateRange(range);
+                }}
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  dateRange === range
+                  rangeMode === 'preset' && dateRange === range
                     ? 'bg-indigo-600 text-white'
                     : 'text-slate-600 hover:bg-slate-50'
                 }`}
@@ -392,14 +428,50 @@ export default function AnalyticsDashboard() {
               </button>
             ))}
           </div>
+          <div className={`flex items-center gap-2 rounded-lg border p-2 ${rangeMode === 'custom' ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200 bg-white'}`}>
+            <button
+              onClick={() => setRangeMode('custom')}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                rangeMode === 'custom' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              Custom
+            </button>
+            <input
+              type="date"
+              value={customStartDate}
+              onChange={(event) => {
+                setRangeMode('custom');
+                setCustomStartDate(event.target.value);
+              }}
+              className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700"
+            />
+            <span className="text-xs text-slate-400">to</span>
+            <input
+              type="date"
+              value={customEndDate}
+              onChange={(event) => {
+                setRangeMode('custom');
+                setCustomEndDate(event.target.value);
+              }}
+              className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700"
+            />
+          </div>
           <button
             onClick={load}
+            disabled={rangeMode === 'custom' && !customDatesValid}
             className="px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
           >
             Refresh
           </button>
         </div>
       </div>
+
+      {rangeMode === 'custom' && !customDatesValid ? (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Choose a valid custom range. The start date needs to be before or equal to the end date.
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
         <KpiCard label="Impressions" value={fmtNum(data?.totalImpressions ?? 0)} icon="👁️" color="text-slate-800" />

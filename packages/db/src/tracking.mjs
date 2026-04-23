@@ -5,16 +5,17 @@ export async function recordImpression(pool, data) {
     ip = null, user_agent = null, country = null, region = null,
     referer = null, viewable = null,
     site_domain = null, page_url = null, device_type = null, browser = null, os = null,
+    device_id = null, cookie_id = null,
     timestamp = new Date(),
   } = data;
 
   const { rows } = await pool.query(
     `INSERT INTO impression_events
-       (tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region, referer, viewable, timestamp, site_domain, page_url, device_type, browser, os)
-     VALUES ($1,$2,$3,$4,$5::inet,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+       (tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region, referer, viewable, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id)
+     VALUES ($1,$2,$3,$4,$5::inet,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
      RETURNING id, tag_id, workspace_id, timestamp`,
     [tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region,
-     referer, viewable, timestamp, site_domain, page_url, device_type, browser, os],
+     referer, viewable, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id],
   );
 
   const date = new Date(timestamp).toISOString().slice(0, 10);
@@ -66,17 +67,18 @@ export async function recordClick(pool, data) {
     ip = null, user_agent = null, country = null, region = null,
     referer = null, redirect_url = null,
     site_domain = null, page_url = null, device_type = null, browser = null, os = null,
+    device_id = null, cookie_id = null,
     timestamp = new Date(),
   } = data;
 
   const { rows } = await pool.query(
     `INSERT INTO click_events
        (tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, ip, user_agent,
-        country, region, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os)
-     VALUES ($1,$2,$3,$4,$5,$6,$7::inet,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+        country, region, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::inet,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
      RETURNING id, tag_id, workspace_id, timestamp`,
     [tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, ip, user_agent,
-     country, region, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os],
+     country, region, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id],
   );
 
   const date = new Date(timestamp).toISOString().slice(0, 10);
@@ -191,6 +193,8 @@ export async function recordEngagementEvent(pool, data) {
     device_type = null,
     browser = null,
     os = null,
+    device_id = null,
+    cookie_id = null,
     hover_duration_ms = null,
     metadata = {},
     timestamp = new Date(),
@@ -204,8 +208,8 @@ export async function recordEngagementEvent(pool, data) {
     `INSERT INTO engagement_events
        (tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, event_type,
         ip, user_agent, country, region, referer, site_domain, page_url, device_type, browser, os,
-        hover_duration_ms, metadata, timestamp)
-     VALUES ($1,$2,$3,$4,$5,$6,$7::inet,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+        device_id, cookie_id, hover_duration_ms, metadata, timestamp)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::inet,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
      RETURNING id, tag_id, workspace_id, event_type, timestamp`,
     [
       tag_id,
@@ -224,6 +228,8 @@ export async function recordEngagementEvent(pool, data) {
       device_type,
       browser,
       os,
+      device_id,
+      cookie_id,
       hover_duration_ms,
       JSON.stringify(metadata ?? {}),
       timestamp,

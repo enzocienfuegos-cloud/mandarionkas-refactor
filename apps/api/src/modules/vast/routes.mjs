@@ -127,10 +127,27 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   var engagementBase = ${JSON.stringify(engagementBase)};
   var pageUrl = (typeof window !== 'undefined' && window.location && window.location.href) ? window.location.href : '';
   var hoverStartedAt = null;
+  var currentScript = document.currentScript || (function() {
+    var scripts = document.getElementsByTagName('script');
+    return scripts[scripts.length - 1];
+  })();
+  var resolvedDeviceId = (currentScript && currentScript.getAttribute && currentScript.getAttribute('data-device-id'))
+    || (typeof window !== 'undefined' && (window.SMX_DEVICE_ID || window.smxDeviceId))
+    || '';
+  var resolvedCookieId = (currentScript && currentScript.getAttribute && currentScript.getAttribute('data-cookie-id'))
+    || (typeof window !== 'undefined' && (window.SMX_COOKIE_ID || window.smxCookieId))
+    || '';
 
   function firePixel(url) {
     var img = new Image();
     img.src = url;
+  }
+
+  function appendIdentity(url) {
+    var nextUrl = url;
+    if (resolvedDeviceId) nextUrl += '&did=' + encodeURIComponent(String(resolvedDeviceId));
+    if (resolvedCookieId) nextUrl += '&cid=' + encodeURIComponent(String(resolvedCookieId));
+    return nextUrl;
   }
 
   function buildEngagementUrl(eventType, extra) {
@@ -138,11 +155,11 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
     params.push('event=' + encodeURIComponent(eventType));
     if (pageUrl) params.push('pu=' + encodeURIComponent(pageUrl));
     if (extra && extra.hd != null) params.push('hd=' + encodeURIComponent(String(extra.hd)));
-    return engagementBase + '&' + params.join('&');
+    return appendIdentity(engagementBase + '&' + params.join('&'));
   }
 
   // Record impression
-  firePixel(impUrl + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : ''));
+  firePixel(appendIdentity(impUrl + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
 
   // Build container
   var div = document.createElement('div');
@@ -158,7 +175,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   });
 
   var link = document.createElement('a');
-  link.href = clickUrl;
+  link.href = appendIdentity(clickUrl);
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
   link.addEventListener('click', function() {
@@ -193,8 +210,6 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   div.appendChild(link);
 
   // Inject into current script's parent
-  var scripts = document.getElementsByTagName('script');
-  var currentScript = scripts[scripts.length - 1];
   if (currentScript && currentScript.parentNode) {
     currentScript.parentNode.insertBefore(div, currentScript);
   }
@@ -241,20 +256,34 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
     <script>
       (function() {
         var pageUrl = (window.location && window.location.href) ? window.location.href : '';
+        var search = new URLSearchParams(window.location.search);
+        var resolvedDeviceId = search.get('did') || '';
+        var resolvedCookieId = search.get('cid') || '';
         var hoverStartedAt = null;
         function fire(url) {
           var img = new Image();
           img.src = url;
         }
+        function appendIdentity(url) {
+          var nextUrl = url;
+          if (resolvedDeviceId) nextUrl += '&did=' + encodeURIComponent(String(resolvedDeviceId));
+          if (resolvedCookieId) nextUrl += '&cid=' + encodeURIComponent(String(resolvedCookieId));
+          return nextUrl;
+        }
         var impPixel = document.getElementById('smx-imp-pixel');
         if (impPixel && pageUrl) {
-          impPixel.src = ${JSON.stringify(impressionUrl)} + '&pu=' + encodeURIComponent(pageUrl);
+          impPixel.src = appendIdentity(${JSON.stringify(impressionUrl)} + '&pu=' + encodeURIComponent(pageUrl));
+        } else if (impPixel) {
+          impPixel.src = appendIdentity(${JSON.stringify(impressionUrl)});
         }
+        Array.prototype.forEach.call(document.querySelectorAll('a[href]'), function(anchor) {
+          anchor.href = appendIdentity(anchor.href);
+        });
         function engagementUrl(eventType, hoverDurationMs) {
           var params = ['event=' + encodeURIComponent(eventType)];
           if (pageUrl) params.push('pu=' + encodeURIComponent(pageUrl));
           if (hoverDurationMs != null) params.push('hd=' + encodeURIComponent(String(hoverDurationMs)));
-          return ${JSON.stringify(engagementBase)} + '&' + params.join('&');
+          return appendIdentity(${JSON.stringify(engagementBase)} + '&' + params.join('&'));
         }
         document.body.addEventListener('mouseenter', function() {
           hoverStartedAt = Date.now();

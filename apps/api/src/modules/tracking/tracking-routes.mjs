@@ -78,6 +78,8 @@ function collectTrackingContext(req, query = {}) {
   const { pageUrl: normalizedPageUrl, siteDomain } = parseSiteContext({ pageUrl: query.pu, referer });
   const { country, region } = inferGeo(req, query);
   const { deviceType, browser, os } = inferDeviceInfo(userAgent);
+  const cookieDeviceId = req.cookies?.smx_device_id ?? req.cookies?.device_id ?? null;
+  const cookieCookieId = req.cookies?.smx_cookie_id ?? req.cookies?.cookie_id ?? null;
   return {
     ip,
     user_agent: userAgent,
@@ -89,6 +91,8 @@ function collectTrackingContext(req, query = {}) {
     device_type: deviceType,
     browser,
     os,
+    device_id: String(query.did ?? req.headers['x-device-id'] ?? cookieDeviceId ?? '').trim() || null,
+    cookie_id: String(query.cid ?? req.headers['x-cookie-id'] ?? cookieCookieId ?? '').trim() || null,
   };
 }
 
