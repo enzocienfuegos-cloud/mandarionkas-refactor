@@ -178,12 +178,60 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
     var scripts = document.getElementsByTagName('script');
     return scripts[scripts.length - 1];
   })();
-  var resolvedDeviceId = (currentScript && currentScript.getAttribute && currentScript.getAttribute('data-device-id'))
-    || (typeof window !== 'undefined' && (window.SMX_DEVICE_ID || window.smxDeviceId))
-    || '';
-  var resolvedCookieId = (currentScript && currentScript.getAttribute && currentScript.getAttribute('data-cookie-id'))
-    || (typeof window !== 'undefined' && (window.SMX_COOKIE_ID || window.smxCookieId))
-    || '';
+  function generateId(prefix) {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return prefix + '-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+  }
+  function readCookie(name) {
+    try {
+      var match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.$?*|{}()\\[\\]\\\\/+^]/g, '\\\\$&') + '=([^;]*)'));
+      return match ? decodeURIComponent(match[1]) : '';
+    } catch (_error) {
+      return '';
+    }
+  }
+  function writeCookie(name, value, maxAgeDays) {
+    try {
+      var expires = '';
+      if (maxAgeDays) {
+        expires = '; max-age=' + String(Math.floor(maxAgeDays * 24 * 60 * 60));
+      }
+      document.cookie = name + '=' + encodeURIComponent(value) + expires + '; path=/; SameSite=Lax';
+    } catch (_error) {}
+  }
+  function readStorage(key) {
+    try {
+      return window.localStorage ? String(window.localStorage.getItem(key) || '') : '';
+    } catch (_error) {
+      return '';
+    }
+  }
+  function writeStorage(key, value) {
+    try {
+      if (window.localStorage) window.localStorage.setItem(key, value);
+    } catch (_error) {}
+  }
+  function resolveIdentity(kind) {
+    var attrName = kind === 'device' ? 'data-device-id' : 'data-cookie-id';
+    var globalName = kind === 'device' ? (window.SMX_DEVICE_ID || window.smxDeviceId) : (window.SMX_COOKIE_ID || window.smxCookieId);
+    var storageKey = kind === 'device' ? 'smx_device_id' : 'smx_cookie_id';
+    var cookieKey = storageKey;
+    var explicit = (currentScript && currentScript.getAttribute && currentScript.getAttribute(attrName)) || globalName || '';
+    var existing = explicit || readStorage(storageKey) || readCookie(cookieKey);
+    if (existing) {
+      writeStorage(storageKey, existing);
+      writeCookie(cookieKey, existing, kind === 'device' ? 365 : 30);
+      return existing;
+    }
+    var created = generateId(kind === 'device' ? 'dev' : 'cid');
+    writeStorage(storageKey, created);
+    writeCookie(cookieKey, created, kind === 'device' ? 365 : 30);
+    return created;
+  }
+  var resolvedDeviceId = resolveIdentity('device');
+  var resolvedCookieId = resolveIdentity('cookie');
 
   function firePixel(url) {
     var img = new Image();
@@ -388,8 +436,55 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
           || ((typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
             ? crypto.randomUUID()
             : 'imp-' + Date.now() + '-' + Math.random().toString(16).slice(2));
-        var resolvedDeviceId = search.get('did') || '';
-        var resolvedCookieId = search.get('cid') || '';
+        function generateId(prefix) {
+          if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+            return crypto.randomUUID();
+          }
+          return prefix + '-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+        }
+        function readCookie(name) {
+          try {
+            var match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.$?*|{}()\\[\\]\\\\/+^]/g, '\\\\$&') + '=([^;]*)'));
+            return match ? decodeURIComponent(match[1]) : '';
+          } catch (_error) {
+            return '';
+          }
+        }
+        function writeCookie(name, value, maxAgeDays) {
+          try {
+            var expires = '';
+            if (maxAgeDays) expires = '; max-age=' + String(Math.floor(maxAgeDays * 24 * 60 * 60));
+            document.cookie = name + '=' + encodeURIComponent(value) + expires + '; path=/; SameSite=None; Secure';
+          } catch (_error) {}
+        }
+        function readStorage(key) {
+          try {
+            return window.localStorage ? String(window.localStorage.getItem(key) || '') : '';
+          } catch (_error) {
+            return '';
+          }
+        }
+        function writeStorage(key, value) {
+          try {
+            if (window.localStorage) window.localStorage.setItem(key, value);
+          } catch (_error) {}
+        }
+        function resolveIdentity(kind) {
+          var queryKey = kind === 'device' ? 'did' : 'cid';
+          var storageKey = kind === 'device' ? 'smx_device_id' : 'smx_cookie_id';
+          var existing = search.get(queryKey) || readStorage(storageKey) || readCookie(storageKey);
+          if (existing) {
+            writeStorage(storageKey, existing);
+            writeCookie(storageKey, existing, kind === 'device' ? 365 : 30);
+            return existing;
+          }
+          var created = generateId(kind === 'device' ? 'dev' : 'cid');
+          writeStorage(storageKey, created);
+          writeCookie(storageKey, created, kind === 'device' ? 365 : 30);
+          return created;
+        }
+        var resolvedDeviceId = resolveIdentity('device');
+        var resolvedCookieId = resolveIdentity('cookie');
         var hoverStartedAt = null;
         function fire(url) {
           var img = new Image();

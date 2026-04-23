@@ -74,6 +74,28 @@ function readTrackingValue(...values) {
   return null;
 }
 
+function setTrackingIdentityCookies(reply, context = {}) {
+  const secure = process.env.NODE_ENV === 'production';
+  if (context.device_id) {
+    reply.setCookie('smx_device_id', String(context.device_id), {
+      path: '/',
+      httpOnly: false,
+      sameSite: secure ? 'none' : 'lax',
+      secure,
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  }
+  if (context.cookie_id) {
+    reply.setCookie('smx_cookie_id', String(context.cookie_id), {
+      path: '/',
+      httpOnly: false,
+      sameSite: secure ? 'none' : 'lax',
+      secure,
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
+}
+
 function buildIdentityKeys({ query = {}, headers = {}, cookies = {} }) {
   const consentStatus = readTrackingValue(
     query.cs,
@@ -198,6 +220,7 @@ export function handleTrackingRoutes(app, { pool }) {
     }
 
     const context = await collectTrackingContext(req, req.query);
+    setTrackingIdentityCookies(reply, context);
     recordImpression(pool, {
       impression_id: normalizeUuid(req.query?.imp) ?? null,
       tag_id: tagId,
@@ -227,6 +250,7 @@ export function handleTrackingRoutes(app, { pool }) {
     }
 
     const context = await collectTrackingContext(req, req.query);
+    setTrackingIdentityCookies(reply, context);
     const destinationUrl = tag.click_url ?? req.query?.url ?? null;
 
     try {
@@ -275,6 +299,7 @@ export function handleTrackingRoutes(app, { pool }) {
     }
 
     const context = await collectTrackingContext(req, req.query);
+    setTrackingIdentityCookies(reply, context);
 
     // Fire-and-forget — don't block pixel response
       recordImpression(pool, {
@@ -361,6 +386,7 @@ export function handleTrackingRoutes(app, { pool }) {
     if (workspaceId) {
       const viewable = vp !== '0' && vp !== 'false';
       const context = await collectTrackingContext(req, req.query);
+      setTrackingIdentityCookies(reply, context);
       recordViewability(pool, {
         tag_id: tagId,
         workspace_id: workspaceId,
@@ -410,6 +436,7 @@ export function handleTrackingRoutes(app, { pool }) {
 
     if (workspaceId && event) {
       const context = await collectTrackingContext(req, req.query);
+      setTrackingIdentityCookies(reply, context);
       recordEngagementEvent(pool, {
         tag_id: tagId,
         workspace_id: workspaceId,
