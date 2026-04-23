@@ -312,6 +312,7 @@ export async function getWorkspaceIdentityAudienceExport(pool, workspaceId, opts
     dateTo,
     canonicalType = '',
     country = '',
+    segmentPreset = '',
     minImpressions = 0,
     minClicks = 0,
   } = opts;
@@ -339,6 +340,14 @@ export async function getWorkspaceIdentityAudienceExport(pool, workspaceId, opts
   const minImpressionsParam = params.length;
   params.push(Math.max(Number(minClicks) || 0, 0));
   const minClicksParam = params.length;
+  let presetHavingClause = '';
+  if (segmentPreset === 'high_frequency_exposed') {
+    presetHavingClause = ' AND COALESCE(SUM(ds.impressions), 0) >= 6';
+  } else if (segmentPreset === 'clicked_users') {
+    presetHavingClause = ' AND COALESCE(SUM(ds.clicks), 0) >= 1';
+  } else if (segmentPreset === 'engaged_non_clickers') {
+    presetHavingClause = ' AND COALESCE(SUM(ds.engagements), 0) >= 1 AND COALESCE(SUM(ds.clicks), 0) = 0';
+  }
 
   const { rows } = await pool.query(
     `SELECT
@@ -365,7 +374,78 @@ export async function getWorkspaceIdentityAudienceExport(pool, workspaceId, opts
      GROUP BY p.id, p.canonical_type, p.canonical_value, p.last_country, p.last_region, p.last_city, p.confidence, p.first_seen_at, p.last_seen_at
      HAVING COALESCE(SUM(ds.impressions), 0) >= $${minImpressionsParam}
         AND COALESCE(SUM(ds.clicks), 0) >= $${minClicksParam}
+        ${presetHavingClause}
      ORDER BY COALESCE(SUM(ds.impressions), 0) DESC, p.last_seen_at DESC`,
+    params,
+  );
+  return rows;
+}
+
+export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, canonicalType = '' } = opts;
+  const params = [workspaceId];
+  const conditions = ['ds.workspace_id = $1'];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`ds.date >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    conditions.push(`ds.date <= $${params.length}`);
+  }
+  if (canonicalType) {
+    params.push(canonicalType);
+    conditions.push(`p.canonical_type = $${params.length}`);
+  }
+
+  const { rows } = await pool.query(
+    `WITH identity_totals AS (
+       SELECT
+         p.id,
+         COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
+         COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
+         COALESCE(SUM(ds.engagements), 0)::bigint AS engagements
+       FROM identity_profile_daily_stats ds
+       JOIN identity_profiles p ON p.id = ds.identity_profile_id
+       WHERE ${conditions.join(' AND ')}
+       GROUP BY p.id
+     )
+     SELECT
+       preset,
+       label,
+       identity_count,
+       impressions,
+       clicks,
+       engagements
+     FROM (
+       SELECT
+         'high_frequency_exposed'::text AS preset,
+         'High-frequency exposed'::text AS label,
+         COUNT(*) FILTER (WHERE impressions >= 6)::bigint AS identity_count,
+         COALESCE(SUM(impressions) FILTER (WHERE impressions >= 6), 0)::bigint AS impressions,
+         COALESCE(SUM(clicks) FILTER (WHERE impressions >= 6), 0)::bigint AS clicks,
+         COALESCE(SUM(engagements) FILTER (WHERE impressions >= 6), 0)::bigint AS engagements
+       FROM identity_totals
+       UNION ALL
+       SELECT
+         'clicked_users'::text AS preset,
+         'Clicked users'::text AS label,
+         COUNT(*) FILTER (WHERE clicks >= 1)::bigint AS identity_count,
+         COALESCE(SUM(impressions) FILTER (WHERE clicks >= 1), 0)::bigint AS impressions,
+         COALESCE(SUM(clicks) FILTER (WHERE clicks >= 1), 0)::bigint AS clicks,
+         COALESCE(SUM(engagements) FILTER (WHERE clicks >= 1), 0)::bigint AS engagements
+       FROM identity_totals
+       UNION ALL
+       SELECT
+         'engaged_non_clickers'::text AS preset,
+         'Engaged non-clickers'::text AS label,
+         COUNT(*) FILTER (WHERE engagements >= 1 AND clicks = 0)::bigint AS identity_count,
+         COALESCE(SUM(impressions) FILTER (WHERE engagements >= 1 AND clicks = 0), 0)::bigint AS impressions,
+         COALESCE(SUM(clicks) FILTER (WHERE engagements >= 1 AND clicks = 0), 0)::bigint AS clicks,
+         COALESCE(SUM(engagements) FILTER (WHERE engagements >= 1 AND clicks = 0), 0)::bigint AS engagements
+       FROM identity_totals
+     ) presets`,
     params,
   );
   return rows;

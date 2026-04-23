@@ -16,6 +16,7 @@ import {
   getWorkspaceIdentityExport,
   getWorkspaceIdentityAudienceExport,
   getWorkspaceIdentityFrequencyBuckets,
+  getWorkspaceIdentitySegmentPresets,
 } from '@smx/db/tracking';
 
 export function handleReportingRoutes(app, { requireWorkspace, pool }) {
@@ -131,12 +132,13 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
 
   app.get('/v1/reporting/workspace/identity-audience-export', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, canonicalType, country, minImpressions, minClicks } = req.query;
+    const { dateFrom, dateTo, canonicalType, country, segmentPreset, minImpressions, minClicks } = req.query;
     const rows = await getWorkspaceIdentityAudienceExport(pool, workspaceId, {
       dateFrom,
       dateTo,
       canonicalType,
       country,
+      segmentPreset,
       minImpressions,
       minClicks,
     });
@@ -179,6 +181,13 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
       .header('content-type', 'text/csv; charset=utf-8')
       .header('content-disposition', `attachment; filename="identity-audience.csv"`)
       .send(csv);
+  });
+
+  app.get('/v1/reporting/workspace/identity-segment-presets', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, canonicalType } = req.query;
+    const breakdown = await getWorkspaceIdentitySegmentPresets(pool, workspaceId, { dateFrom, dateTo, canonicalType });
+    return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/identity-frequency-buckets', { preHandler: requireWorkspace }, async (req, reply) => {

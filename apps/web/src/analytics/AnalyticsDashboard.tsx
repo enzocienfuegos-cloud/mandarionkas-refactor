@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 type DateRange = 7 | 30 | 90;
 type RangeMode = 'preset' | 'custom';
 type IdentityTypeFilter = '' | 'external_user_id' | 'device_id' | 'cookie_id';
+type IdentitySegmentPreset = '' | 'high_frequency_exposed' | 'clicked_users' | 'engaged_non_clickers';
 
 interface RankedMetric {
   label: string;
@@ -61,6 +62,7 @@ interface WorkspaceAnalytics {
   topCountries: RankedMetric[];
   topIdentities: RankedMetric[];
   identityFrequency: RankedMetric[];
+  identitySegments: RankedMetric[];
   engagements: RankedMetric[];
 }
 
@@ -70,6 +72,12 @@ const IDENTITY_FILTERS: Array<{ value: IdentityTypeFilter; label: string }> = [
   { value: 'external_user_id', label: 'External user ID' },
   { value: 'device_id', label: 'Device ID' },
   { value: 'cookie_id', label: 'Cookie ID' },
+];
+const IDENTITY_SEGMENT_PRESETS: Array<{ value: IdentitySegmentPreset; label: string }> = [
+  { value: '', label: 'Custom audience' },
+  { value: 'high_frequency_exposed', label: 'High-frequency exposed' },
+  { value: 'clicked_users', label: 'Clicked users' },
+  { value: 'engaged_non_clickers', label: 'Engaged non-clickers' },
 ];
 
 function toNumber(value: unknown): number {
@@ -166,6 +174,7 @@ function normalizeWorkspaceAnalytics(
   engagementPayload: any,
   identityPayload: any,
   identityFrequencyPayload: any,
+  identitySegmentsPayload: any,
   creativePayload: any,
   variantPayload: any,
 ): WorkspaceAnalytics {
@@ -222,6 +231,9 @@ function normalizeWorkspaceAnalytics(
     }),
     identityFrequency: normalizeRankedMetricList(identityFrequencyPayload?.breakdown ?? [], 'bucket_label', 'identity_count', (item) => {
       return `${fmtNum(toNumber(item?.impressions))} imps · ${fmtNum(toNumber(item?.clicks))} clicks · ${fmtCtr(toNumber(item?.ctr))} CTR`;
+    }),
+    identitySegments: normalizeRankedMetricList(identitySegmentsPayload?.breakdown ?? [], 'label', 'identity_count', (item) => {
+      return `${fmtNum(toNumber(item?.impressions))} imps · ${fmtNum(toNumber(item?.clicks))} clicks · ${fmtNum(toNumber(item?.engagements))} engagements`;
     }),
     engagements: normalizeRankedMetricList(engagementPayload?.breakdown ?? [], 'event_type', 'event_count', (item) => {
       const duration = toNumber(item?.total_duration_ms);
@@ -366,6 +378,7 @@ export default function AnalyticsDashboard() {
   const [identityCountryFilter, setIdentityCountryFilter] = useState('');
   const [identityMinImpressions, setIdentityMinImpressions] = useState('1');
   const [identityMinClicks, setIdentityMinClicks] = useState('0');
+  const [identitySegmentPreset, setIdentitySegmentPreset] = useState<IdentitySegmentPreset>('');
 
   const query = useMemo(() => makeQuery({
     dateRange,
@@ -381,10 +394,11 @@ export default function AnalyticsDashboard() {
   const identityAudienceQuery = useMemo(() => {
     const params = new URLSearchParams(identityQuery.startsWith('?') ? identityQuery.slice(1) : identityQuery);
     if (identityCountryFilter.trim()) params.set('country', identityCountryFilter.trim().toUpperCase());
+    if (identitySegmentPreset) params.set('segmentPreset', identitySegmentPreset);
     if (identityMinImpressions.trim()) params.set('minImpressions', identityMinImpressions.trim());
     if (identityMinClicks.trim()) params.set('minClicks', identityMinClicks.trim());
     return `?${params.toString()}`;
-  }, [identityQuery, identityCountryFilter, identityMinImpressions, identityMinClicks]);
+  }, [identityQuery, identityCountryFilter, identitySegmentPreset, identityMinImpressions, identityMinClicks]);
   const customDatesValid = Boolean(customStartDate && customEndDate && customStartDate <= customEndDate);
 
   const load = () => {
@@ -424,6 +438,10 @@ export default function AnalyticsDashboard() {
         if (!r.ok) throw new Error('Failed to load identity frequency');
         return r.json();
       }),
+      fetch(`/v1/reporting/workspace/identity-segment-presets${identityQuery}`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load identity segments');
+        return r.json();
+      }),
       fetch(`/v1/reporting/workspace/creative-breakdown${query}`, { credentials: 'include' }).then((r) => {
         if (!r.ok) throw new Error('Failed to load creative breakdown');
         return r.json();
@@ -433,8 +451,8 @@ export default function AnalyticsDashboard() {
         return r.json();
       }),
     ])
-      .then(([workspace, campaigns, tags, sites, countries, engagements, identities, identityFrequency, creatives, variants]) => {
-        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, engagements, identities, identityFrequency, creatives, variants));
+      .then(([workspace, campaigns, tags, sites, countries, engagements, identities, identityFrequency, identitySegments, creatives, variants]) => {
+        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, engagements, identities, identityFrequency, identitySegments, creatives, variants));
       })
       .catch((loadError: any) => setError(loadError.message ?? 'Failed to load analytics'))
       .finally(() => setLoading(false));
@@ -647,6 +665,17 @@ export default function AnalyticsDashboard() {
               placeholder="Country (e.g. SV)"
               className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
             />
+            <select
+              value={identitySegmentPreset}
+              onChange={(event) => setIdentitySegmentPreset(event.target.value as IdentitySegmentPreset)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+            >
+              {IDENTITY_SEGMENT_PRESETS.map((option) => (
+                <option key={option.value || 'custom'} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             <input
               value={identityMinImpressions}
               onChange={(event) => setIdentityMinImpressions(event.target.value)}
@@ -692,6 +721,7 @@ export default function AnalyticsDashboard() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
         <RankedList title="Identity Frequency Buckets" emptyLabel="No identity frequency data available" items={data?.identityFrequency ?? []} />
+        <RankedList title="Identity Segment Presets" emptyLabel="No identity segment data available" items={data?.identitySegments ?? []} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
