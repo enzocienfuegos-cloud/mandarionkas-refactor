@@ -36,6 +36,17 @@ type SnippetVariant =
   | 'display-ins'
   | 'native-js';
 
+const DISPLAY_SIZE_PRESETS = [
+  { label: '300x250', width: 300, height: 250 },
+  { label: '320x50', width: 320, height: 50 },
+  { label: '320x100', width: 320, height: 100 },
+  { label: '336x280', width: 336, height: 280 },
+  { label: '728x90', width: 728, height: 90 },
+  { label: '970x250', width: 970, height: 250 },
+  { label: '160x600', width: 160, height: 600 },
+  { label: '300x600', width: 300, height: 600 },
+];
+
 const emptyForm: TagForm = {
   name: '',
   campaignId: '',
@@ -146,6 +157,11 @@ function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant): string {
   return 'Use the JavaScript tag to initialize the native placement loader.';
 }
 
+function getDisplaySizePreset(width?: string, height?: string): string {
+  const normalized = `${Number(width) || 0}x${Number(height) || 0}`;
+  return DISPLAY_SIZE_PRESETS.some((preset) => preset.label === normalized) ? normalized : '';
+}
+
 export default function TagBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -160,6 +176,7 @@ export default function TagBuilder() {
   const [savedTag, setSavedTag] = useState<SavedTag | null>(null);
   const [snippetVariant, setSnippetVariant] = useState<SnippetVariant>(getDefaultSnippetVariant(emptyForm.format));
   const [copied, setCopied] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetch('/v1/campaigns', { credentials: 'include' })
@@ -187,6 +204,7 @@ export default function TagBuilder() {
         const normalized = normalizeTagRecord(payload);
         setSavedTag(normalized);
         setSnippetVariant(getDefaultSnippetVariant(((data.format as TagFormat | undefined) ?? 'VAST')));
+        setSuccessMessage('');
       })
       .catch(() => setGeneralError('Failed to load tag.'))
       .finally(() => setLoading(false));
@@ -197,12 +215,31 @@ export default function TagBuilder() {
   ) => {
     setForm(f => ({ ...f, [field]: e.target.value }));
     setErrors(er => ({ ...er, [field]: undefined }));
+    if (field !== 'name') setSuccessMessage('');
   };
 
   const setFormat = (f: TagFormat) => {
-    setForm(prev => ({ ...prev, format: f }));
+    setForm(prev => ({
+      ...prev,
+      format: f,
+      servingWidth: f === 'display' ? prev.servingWidth : '',
+      servingHeight: f === 'display' ? prev.servingHeight : '',
+    }));
     setSnippetVariant(getDefaultSnippetVariant(f));
     setErrors(er => ({ ...er, format: undefined }));
+    setSuccessMessage('');
+  };
+
+  const handleDisplaySizePresetChange = (value: string) => {
+    const preset = DISPLAY_SIZE_PRESETS.find((entry) => entry.label === value);
+    if (!preset) return;
+    setForm(prev => ({
+      ...prev,
+      servingWidth: String(preset.width),
+      servingHeight: String(preset.height),
+    }));
+    setErrors(er => ({ ...er, servingWidth: undefined, servingHeight: undefined }));
+    setSuccessMessage('');
   };
 
   const validate = () => {
@@ -249,6 +286,7 @@ export default function TagBuilder() {
         const normalized = normalizeTagRecord(payload);
         setSavedTag(normalized);
         setSnippetVariant(getDefaultSnippetVariant(normalized?.format ?? form.format));
+        setSuccessMessage(isEdit ? 'Tag updated successfully.' : 'Tag created successfully.');
       } else {
         const data = await res.json().catch(() => ({}));
         setGeneralError(data?.message ?? 'Failed to save tag.');
@@ -291,6 +329,11 @@ export default function TagBuilder() {
         {generalError && (
           <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
             {generalError}
+          </div>
+        )}
+        {successMessage && (
+          <div className="mb-4 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700">
+            {successMessage}
           </div>
         )}
 
@@ -350,33 +393,49 @@ export default function TagBuilder() {
 
           {form.format === 'display' && (
             <div className="grid gap-4 md:grid-cols-2">
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Width <span className="text-red-500">*</span>
+                  Display Size Preset <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={form.servingWidth}
-                  onChange={set('servingWidth')}
-                  className={inputClass(errors.servingWidth)}
-                  placeholder="300"
-                />
-                {errors.servingWidth && <p className="mt-1 text-xs text-red-600">{errors.servingWidth}</p>}
+                <select
+                  value={getDisplaySizePreset(form.servingWidth, form.servingHeight)}
+                  onChange={event => handleDisplaySizePresetChange(event.target.value)}
+                  className={inputClass(errors.servingWidth || errors.servingHeight)}
+                >
+                  <option value="">Select a size</option>
+                  {DISPLAY_SIZE_PRESETS.map((preset) => (
+                    <option key={preset.label} value={preset.label}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
+                {(errors.servingWidth || errors.servingHeight) && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.servingWidth ?? errors.servingHeight}
+                  </p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Height <span className="text-red-500">*</span>
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Width</label>
                 <input
                   type="number"
                   min="1"
+                  readOnly
+                  value={form.servingWidth}
+                  className={`${inputClass()} bg-slate-50 text-slate-500`}
+                  placeholder="300"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Height</label>
+                <input
+                  type="number"
+                  min="1"
+                  readOnly
                   value={form.servingHeight}
-                  onChange={set('servingHeight')}
-                  className={inputClass(errors.servingHeight)}
+                  className={`${inputClass()} bg-slate-50 text-slate-500`}
                   placeholder="250"
                 />
-                {errors.servingHeight && <p className="mt-1 text-xs text-red-600">{errors.servingHeight}</p>}
               </div>
             </div>
           )}

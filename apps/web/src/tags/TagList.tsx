@@ -11,6 +11,17 @@ interface Tag {
   createdAt: string;
 }
 
+const DISPLAY_SIZE_PRESETS = [
+  { label: '300x250', width: 300, height: 250 },
+  { label: '320x50', width: 320, height: 50 },
+  { label: '320x100', width: 320, height: 100 },
+  { label: '336x280', width: 336, height: 280 },
+  { label: '728x90', width: 728, height: 90 },
+  { label: '970x250', width: 970, height: 250 },
+  { label: '160x600', width: 160, height: 600 },
+  { label: '300x600', width: 300, height: 600 },
+];
+
 const formatBadge = (format: Tag['format']) => {
   const cls: Record<Tag['format'], string> = {
     VAST: 'bg-purple-100 text-purple-800',
@@ -101,9 +112,7 @@ export default function TagList() {
       return;
     }
     if (createForm.format === 'display') {
-      const width = Number(createForm.servingWidth);
-      const height = Number(createForm.servingHeight);
-      if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+      if (!createForm.servingWidth || !createForm.servingHeight) {
         setCreateError('Display tags require width and height.');
         return;
       }
@@ -264,7 +273,12 @@ export default function TagList() {
                     <button
                       key={format}
                       type="button"
-                      onClick={() => setCreateForm(current => ({ ...current, format }))}
+                      onClick={() => setCreateForm(current => ({
+                        ...current,
+                        format,
+                        servingWidth: format === 'display' ? current.servingWidth : '',
+                        servingHeight: format === 'display' ? current.servingHeight : '',
+                      }))}
                       className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                         createForm.format === format
                           ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
@@ -278,27 +292,27 @@ export default function TagList() {
               </div>
               {createForm.format === 'display' && (
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">Width</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={createForm.servingWidth}
-                      onChange={event => setCreateForm(current => ({ ...current, servingWidth: event.target.value }))}
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Display Size</label>
+                    <select
+                      value={createForm.servingWidth && createForm.servingHeight ? `${createForm.servingWidth}x${createForm.servingHeight}` : ''}
+                      onChange={event => {
+                        const preset = DISPLAY_SIZE_PRESETS.find((entry) => entry.label === event.target.value);
+                        setCreateForm(current => ({
+                          ...current,
+                          servingWidth: preset ? String(preset.width) : '',
+                          servingHeight: preset ? String(preset.height) : '',
+                        }));
+                      }}
                       className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                      placeholder="300"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">Height</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={createForm.servingHeight}
-                      onChange={event => setCreateForm(current => ({ ...current, servingHeight: event.target.value }))}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                      placeholder="250"
-                    />
+                    >
+                      <option value="">Select a size</option>
+                      {DISPLAY_SIZE_PRESETS.map((preset) => (
+                        <option key={preset.label} value={preset.label}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               )}
