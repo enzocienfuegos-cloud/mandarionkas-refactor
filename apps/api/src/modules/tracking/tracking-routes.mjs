@@ -6,11 +6,75 @@ import {
 
 const PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
 
+function parseSiteContext({ pageUrl, referer }) {
+  const rawUrl = pageUrl || referer || null;
+  if (!rawUrl) return { pageUrl: null, siteDomain: null };
+  try {
+    const parsed = new URL(rawUrl);
+    return { pageUrl: parsed.toString(), siteDomain: parsed.hostname.toLowerCase() };
+  } catch {
+    return { pageUrl: rawUrl, siteDomain: null };
+  }
+}
+
+function inferDeviceInfo(userAgent = '') {
+  const ua = String(userAgent || '');
+  const lower = ua.toLowerCase();
+  const deviceType = /mobile|iphone|android(?!.*tablet)/i.test(ua)
+    ? 'mobile'
+    : /ipad|tablet/i.test(ua)
+      ? 'tablet'
+      : /smarttv|roku|appletv|hbbtv|googletv|tizen|webos/i.test(ua)
+        ? 'tv'
+        : 'desktop';
+
+  const browser =
+    /edg\//i.test(ua) ? 'edge'
+      : /chrome\//i.test(ua) && !/edg\//i.test(ua) ? 'chrome'
+        : /safari\//i.test(ua) && !/chrome\//i.test(ua) ? 'safari'
+          : /firefox\//i.test(ua) ? 'firefox'
+            : /opr\//i.test(ua) || /opera/i.test(ua) ? 'opera'
+              : /msie|trident/i.test(ua) ? 'ie'
+                : 'unknown';
+
+  const os =
+    /windows/i.test(lower) ? 'windows'
+      : /android/i.test(lower) ? 'android'
+        : /iphone|ipad|ios/i.test(lower) ? 'ios'
+          : /mac os|macintosh/i.test(lower) ? 'macos'
+            : /linux/i.test(lower) ? 'linux'
+              : /cros/i.test(lower) ? 'chromeos'
+                : 'unknown';
+
+  return { deviceType, browser, os };
+}
+
+function inferGeo(req, query = {}) {
+  const header = (name) => {
+    const value = req.headers[name];
+    return Array.isArray(value) ? value[0] : value;
+  };
+  const country = String(
+    query.ct
+    || header('cf-ipcountry')
+    || header('x-vercel-ip-country')
+    || header('x-appengine-country')
+    || '',
+  ).trim().toUpperCase().slice(0, 2) || null;
+  const region = String(
+    query.rg
+    || header('x-vercel-ip-country-region')
+    || header('x-appengine-region')
+    || '',
+  ).trim() || null;
+  return { country, region };
+}
+
 export function handleTrackingRoutes(app, { pool }) {
   // GET /track/impression/:tagId — records impression, returns 1x1 transparent GIF
   app.get('/track/impression/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, imp: impressionId, c: creativeId, csv: creativeSizeVariantId } = req.query;
+    const { ws: workspaceId, imp: impressionId, c: creativeId, csv: creativeSizeVariantId, pu: pageUrl } = req.query;
 
     if (!workspaceId) {
       // Still return pixel, just don't record
@@ -24,6 +88,9 @@ export function handleTrackingRoutes(app, { pool }) {
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? req.ip ?? null;
     const userAgent = req.headers['user-agent'] ?? null;
     const referer = req.headers['referer'] ?? req.headers['referrer'] ?? null;
+    const { pageUrl: normalizedPageUrl, siteDomain } = parseSiteContext({ pageUrl, referer });
+    const { country, region } = inferGeo(req, req.query);
+    const { deviceType, browser, os } = inferDeviceInfo(userAgent);
 
     // Fire-and-forget — don't block pixel response
       recordImpression(pool, {
@@ -33,7 +100,14 @@ export function handleTrackingRoutes(app, { pool }) {
         creative_size_variant_id: creativeSizeVariantId ?? null,
         ip,
         user_agent: userAgent,
+        country,
+        region,
         referer,
+        page_url: normalizedPageUrl,
+        site_domain: siteDomain,
+        device_type: deviceType,
+        browser,
+        os,
     }).catch(() => {});
 
     reply.header('Content-Type', 'image/gif');
@@ -46,11 +120,14 @@ export function handleTrackingRoutes(app, { pool }) {
   // GET /track/click/:tagId — records click, redirects to clickUrl
   app.get('/track/click/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, url: destinationUrl, imp: impressionId, c: creativeId, csv: creativeSizeVariantId } = req.query;
+    const { ws: workspaceId, url: destinationUrl, imp: impressionId, c: creativeId, csv: creativeSizeVariantId, pu: pageUrl } = req.query;
 
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? req.ip ?? null;
     const userAgent = req.headers['user-agent'] ?? null;
     const referer = req.headers['referer'] ?? req.headers['referrer'] ?? null;
+    const { pageUrl: normalizedPageUrl, siteDomain } = parseSiteContext({ pageUrl, referer });
+    const { country, region } = inferGeo(req, req.query);
+    const { deviceType, browser, os } = inferDeviceInfo(userAgent);
 
     if (workspaceId) {
       // Fire-and-forget
@@ -62,8 +139,15 @@ export function handleTrackingRoutes(app, { pool }) {
         impression_id: impressionId ?? null,
         ip,
         user_agent: userAgent,
+        country,
+        region,
         referer,
         redirect_url: destinationUrl ?? null,
+        page_url: normalizedPageUrl,
+        site_domain: siteDomain,
+        device_type: deviceType,
+        browser,
+        os,
       }).catch(() => {});
     }
 

@@ -3,6 +3,10 @@ import {
   getCampaignStats,
   getTagStats,
 } from '@smx/db/reporting';
+import {
+  getWorkspaceSiteBreakdown,
+  getWorkspaceCountryBreakdown,
+} from '@smx/db/tracking';
 
 export function handleReportingRoutes(app, { requireWorkspace, pool }) {
   // GET /v1/reporting/workspace — workspace-level aggregate stats
@@ -12,6 +16,20 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
 
     const stats = await getWorkspaceStats(pool, workspaceId, { dateFrom, dateTo });
     return reply.send({ stats });
+  });
+
+  app.get('/v1/reporting/workspace/site-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, limit } = req.query;
+    const breakdown = await getWorkspaceSiteBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    return reply.send({ breakdown });
+  });
+
+  app.get('/v1/reporting/workspace/country-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, limit } = req.query;
+    const breakdown = await getWorkspaceCountryBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    return reply.send({ breakdown });
   });
 
   // GET /v1/reporting/campaigns/:id — campaign-level stats
