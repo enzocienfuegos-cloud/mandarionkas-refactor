@@ -1,21 +1,158 @@
+const IDENTITY_PRIORITY = ['external_user_id', 'device_id', 'cookie_id'];
+const IDENTITY_CONFIDENCE = {
+  external_user_id: 1,
+  device_id: 0.8,
+  cookie_id: 0.65,
+};
+
+async function findIdentityProfileByKey(pool, workspace_id, key_type, key_value) {
+  const { rows } = await pool.query(
+    `SELECT p.id, p.workspace_id, p.canonical_type, p.canonical_value
+     FROM identity_profile_keys k
+     JOIN identity_profiles p ON p.id = k.identity_profile_id
+     WHERE k.workspace_id = $1
+       AND k.key_type = $2
+       AND k.key_value = $3
+     ORDER BY p.last_seen_at DESC
+     LIMIT 1`,
+    [workspace_id, key_type, key_value],
+  );
+  return rows[0] ?? null;
+}
+
+async function resolveIdentityProfile(pool, {
+  workspace_id,
+  identity_keys = [],
+  country = null,
+  region = null,
+  city = null,
+  timestamp = new Date(),
+}) {
+  if (!workspace_id || !Array.isArray(identity_keys) || !identity_keys.length) return null;
+
+  const normalizedKeys = identity_keys.filter((item) => item && item.key_type && item.key_value);
+  if (!normalizedKeys.length) return null;
+
+  let profile = null;
+  for (const keyType of IDENTITY_PRIORITY) {
+    const matchingKeys = normalizedKeys.filter((item) => item.key_type === keyType);
+    for (const item of matchingKeys) {
+      profile = await findIdentityProfileByKey(pool, workspace_id, item.key_type, item.key_value);
+      if (profile) break;
+    }
+    if (profile) break;
+  }
+
+  const canonicalKey = IDENTITY_PRIORITY
+    .map((keyType) => normalizedKeys.find((item) => item.key_type === keyType))
+    .find(Boolean) ?? null;
+
+  if (!profile && canonicalKey) {
+    const { rows } = await pool.query(
+      `INSERT INTO identity_profiles
+         (workspace_id, canonical_type, canonical_value, first_seen_at, last_seen_at, last_country, last_region, last_city, confidence)
+       VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8)
+       ON CONFLICT (workspace_id, canonical_type, canonical_value)
+       DO UPDATE SET
+         last_seen_at = GREATEST(identity_profiles.last_seen_at, EXCLUDED.last_seen_at),
+         last_country = COALESCE(EXCLUDED.last_country, identity_profiles.last_country),
+         last_region = COALESCE(EXCLUDED.last_region, identity_profiles.last_region),
+         last_city = COALESCE(EXCLUDED.last_city, identity_profiles.last_city),
+         confidence = GREATEST(identity_profiles.confidence, EXCLUDED.confidence),
+         updated_at = NOW()
+       RETURNING id, workspace_id, canonical_type, canonical_value`,
+      [
+        workspace_id,
+        canonicalKey.key_type,
+        canonicalKey.key_value,
+        timestamp,
+        country,
+        region,
+        city,
+        IDENTITY_CONFIDENCE[canonicalKey.key_type] ?? 0.5,
+      ],
+    );
+    profile = rows[0] ?? null;
+  }
+
+  if (!profile) return null;
+
+  await pool.query(
+    `UPDATE identity_profiles
+     SET last_seen_at = GREATEST(last_seen_at, $2),
+         last_country = COALESCE($3, last_country),
+         last_region = COALESCE($4, last_region),
+         last_city = COALESCE($5, last_city),
+         updated_at = NOW()
+     WHERE id = $1`,
+    [profile.id, timestamp, country, region, city],
+  );
+
+  for (const item of normalizedKeys) {
+    await pool.query(
+      `INSERT INTO identity_profile_keys
+         (identity_profile_id, workspace_id, key_type, key_value, source, is_first_party, consent_status, metadata, first_seen_at, last_seen_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $9)
+       ON CONFLICT (identity_profile_id, key_type, key_value)
+       DO UPDATE SET
+         source = COALESCE(EXCLUDED.source, identity_profile_keys.source),
+         is_first_party = EXCLUDED.is_first_party,
+         consent_status = COALESCE(EXCLUDED.consent_status, identity_profile_keys.consent_status),
+         metadata = CASE
+           WHEN identity_profile_keys.metadata = '{}'::jsonb THEN EXCLUDED.metadata
+           ELSE identity_profile_keys.metadata || EXCLUDED.metadata
+         END,
+         last_seen_at = GREATEST(identity_profile_keys.last_seen_at, EXCLUDED.last_seen_at),
+         updated_at = NOW()`,
+      [
+        profile.id,
+        workspace_id,
+        item.key_type,
+        item.key_value,
+        item.source ?? null,
+        Boolean(item.is_first_party),
+        item.consent_status ?? 'unknown',
+        JSON.stringify(item.metadata ?? {}),
+        timestamp,
+      ],
+    );
+  }
+
+  return profile.id;
+}
+
 async function recordEventIdentityKeys(pool, {
   workspace_id,
   event_type,
   event_id,
   identity_keys = [],
+  country = null,
+  region = null,
+  city = null,
+  timestamp = new Date(),
 }) {
   const keys = Array.isArray(identity_keys)
     ? identity_keys.filter((item) => item && item.key_type && item.key_value)
     : [];
   if (!workspace_id || !event_type || !event_id || !keys.length) return;
 
+  const identityProfileId = await resolveIdentityProfile(pool, {
+    workspace_id,
+    identity_keys: keys,
+    country,
+    region,
+    city,
+    timestamp,
+  });
+
   for (const item of keys) {
     await pool.query(
       `INSERT INTO event_identity_keys
-         (workspace_id, event_type, event_id, key_type, key_value, source, is_first_party, consent_status, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+         (workspace_id, event_type, event_id, identity_profile_id, key_type, key_value, source, is_first_party, consent_status, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
        ON CONFLICT (event_type, event_id, key_type, key_value)
        DO UPDATE SET
+         identity_profile_id = COALESCE(EXCLUDED.identity_profile_id, event_identity_keys.identity_profile_id),
          source = COALESCE(EXCLUDED.source, event_identity_keys.source),
          is_first_party = EXCLUDED.is_first_party,
          consent_status = COALESCE(EXCLUDED.consent_status, event_identity_keys.consent_status),
@@ -27,6 +164,7 @@ async function recordEventIdentityKeys(pool, {
         workspace_id,
         event_type,
         event_id,
+        identityProfileId,
         item.key_type,
         item.key_value,
         item.source ?? null,
@@ -68,6 +206,10 @@ export async function recordImpression(pool, data) {
     event_type: 'impression',
     event_id: event.id,
     identity_keys,
+    country,
+    region,
+    city: null,
+    timestamp,
   });
 
   const date = new Date(timestamp).toISOString().slice(0, 10);
@@ -139,6 +281,10 @@ export async function recordClick(pool, data) {
     event_type: 'click',
     event_id: event.id,
     identity_keys,
+    country,
+    region,
+    city: null,
+    timestamp,
   });
 
   const date = new Date(timestamp).toISOString().slice(0, 10);
@@ -424,6 +570,10 @@ export async function recordEngagementEvent(pool, data) {
     event_type: 'engagement',
     event_id: event.id,
     identity_keys,
+    country,
+    region,
+    city: null,
+    timestamp,
   });
 
   const date = new Date(timestamp).toISOString().slice(0, 10);
