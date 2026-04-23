@@ -35,6 +35,9 @@ importers:
       '@smx/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@smx/geo':
+        specifier: workspace:*
+        version: link:../../packages/geo
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
