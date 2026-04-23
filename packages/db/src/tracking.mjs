@@ -173,6 +173,78 @@ export async function recordViewability(pool, data) {
   return { tag_id, workspace_id, impression_id, viewable };
 }
 
+export async function recordEngagementEvent(pool, data) {
+  const {
+    tag_id,
+    workspace_id,
+    creative_id = null,
+    creative_size_variant_id = null,
+    impression_id = null,
+    event_type,
+    ip = null,
+    user_agent = null,
+    country = null,
+    region = null,
+    referer = null,
+    site_domain = null,
+    page_url = null,
+    device_type = null,
+    browser = null,
+    os = null,
+    hover_duration_ms = null,
+    metadata = {},
+    timestamp = new Date(),
+  } = data;
+
+  if (!event_type) {
+    throw new Error('event_type is required');
+  }
+
+  const { rows } = await pool.query(
+    `INSERT INTO engagement_events
+       (tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, event_type,
+        ip, user_agent, country, region, referer, site_domain, page_url, device_type, browser, os,
+        hover_duration_ms, metadata, timestamp)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::inet,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+     RETURNING id, tag_id, workspace_id, event_type, timestamp`,
+    [
+      tag_id,
+      workspace_id,
+      creative_id,
+      creative_size_variant_id,
+      impression_id,
+      event_type,
+      ip,
+      user_agent,
+      country,
+      region,
+      referer,
+      site_domain,
+      page_url,
+      device_type,
+      browser,
+      os,
+      hover_duration_ms,
+      JSON.stringify(metadata ?? {}),
+      timestamp,
+    ],
+  );
+
+  const date = new Date(timestamp).toISOString().slice(0, 10);
+  await pool.query(
+    `INSERT INTO tag_engagement_daily_stats (tag_id, date, event_type, event_count, total_duration_ms)
+     VALUES ($1, $2, $3, 1, $4)
+     ON CONFLICT (tag_id, date, event_type)
+     DO UPDATE SET
+       event_count = tag_engagement_daily_stats.event_count + 1,
+       total_duration_ms = tag_engagement_daily_stats.total_duration_ms + EXCLUDED.total_duration_ms,
+       updated_at = NOW()`,
+    [tag_id, date, event_type, Math.max(0, Number(hover_duration_ms) || 0)],
+  );
+
+  return rows[0];
+}
+
 export async function getImpressionStats(pool, tagId, opts = {}) {
   const {
     dateFrom, dateTo, groupBy = 'day', limit = 30,
@@ -276,6 +348,36 @@ export async function getWorkspaceCountryBreakdown(pool, workspaceId, opts = {})
      WHERE ${conditions.join(' AND ')}
      GROUP BY ds.country
      ORDER BY SUM(ds.impressions) DESC, ds.country ASC
+     LIMIT $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
+export async function getWorkspaceEngagementBreakdown(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, limit = 25 } = opts;
+  const params = [workspaceId];
+  const conditions = ['t.workspace_id = $1'];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`ds.date >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    conditions.push(`ds.date <= $${params.length}`);
+  }
+  params.push(Math.min(Number(limit) || 25, 100));
+
+  const { rows } = await pool.query(
+    `SELECT ds.event_type,
+            SUM(ds.event_count) AS event_count,
+            SUM(ds.total_duration_ms) AS total_duration_ms
+     FROM tag_engagement_daily_stats ds
+     JOIN ad_tags t ON t.id = ds.tag_id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY ds.event_type
+     ORDER BY SUM(ds.event_count) DESC, ds.event_type ASC
      LIMIT $${params.length}`,
     params,
   );

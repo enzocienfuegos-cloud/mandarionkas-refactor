@@ -2,6 +2,7 @@ import {
   recordImpression,
   recordClick,
   recordViewability,
+  recordEngagementEvent,
 } from '@smx/db/tracking';
 
 const PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
@@ -70,6 +71,27 @@ function inferGeo(req, query = {}) {
   return { country, region };
 }
 
+function collectTrackingContext(req, query = {}) {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? req.ip ?? null;
+  const userAgent = req.headers['user-agent'] ?? null;
+  const referer = req.headers['referer'] ?? req.headers['referrer'] ?? null;
+  const { pageUrl: normalizedPageUrl, siteDomain } = parseSiteContext({ pageUrl: query.pu, referer });
+  const { country, region } = inferGeo(req, query);
+  const { deviceType, browser, os } = inferDeviceInfo(userAgent);
+  return {
+    ip,
+    user_agent: userAgent,
+    referer,
+    page_url: normalizedPageUrl,
+    site_domain: siteDomain,
+    country,
+    region,
+    device_type: deviceType,
+    browser,
+    os,
+  };
+}
+
 export function handleTrackingRoutes(app, { pool }) {
   // GET /track/impression/:tagId — records impression, returns 1x1 transparent GIF
   app.get('/track/impression/:tagId', async (req, reply) => {
@@ -85,12 +107,7 @@ export function handleTrackingRoutes(app, { pool }) {
       return reply.send(PIXEL_GIF);
     }
 
-    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? req.ip ?? null;
-    const userAgent = req.headers['user-agent'] ?? null;
-    const referer = req.headers['referer'] ?? req.headers['referrer'] ?? null;
-    const { pageUrl: normalizedPageUrl, siteDomain } = parseSiteContext({ pageUrl, referer });
-    const { country, region } = inferGeo(req, req.query);
-    const { deviceType, browser, os } = inferDeviceInfo(userAgent);
+    const context = collectTrackingContext(req, req.query);
 
     // Fire-and-forget — don't block pixel response
       recordImpression(pool, {
@@ -98,16 +115,7 @@ export function handleTrackingRoutes(app, { pool }) {
         workspace_id: workspaceId,
         creative_id: creativeId ?? null,
         creative_size_variant_id: creativeSizeVariantId ?? null,
-        ip,
-        user_agent: userAgent,
-        country,
-        region,
-        referer,
-        page_url: normalizedPageUrl,
-        site_domain: siteDomain,
-        device_type: deviceType,
-        browser,
-        os,
+        ...context,
     }).catch(() => {});
 
     reply.header('Content-Type', 'image/gif');
@@ -122,12 +130,7 @@ export function handleTrackingRoutes(app, { pool }) {
     const { tagId } = req.params;
     const { ws: workspaceId, url: destinationUrl, imp: impressionId, c: creativeId, csv: creativeSizeVariantId, pu: pageUrl } = req.query;
 
-    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? req.ip ?? null;
-    const userAgent = req.headers['user-agent'] ?? null;
-    const referer = req.headers['referer'] ?? req.headers['referrer'] ?? null;
-    const { pageUrl: normalizedPageUrl, siteDomain } = parseSiteContext({ pageUrl, referer });
-    const { country, region } = inferGeo(req, req.query);
-    const { deviceType, browser, os } = inferDeviceInfo(userAgent);
+    const context = collectTrackingContext(req, req.query);
 
     if (workspaceId) {
       // Fire-and-forget
@@ -137,17 +140,8 @@ export function handleTrackingRoutes(app, { pool }) {
         creative_id: creativeId ?? null,
         creative_size_variant_id: creativeSizeVariantId ?? null,
         impression_id: impressionId ?? null,
-        ip,
-        user_agent: userAgent,
-        country,
-        region,
-        referer,
         redirect_url: destinationUrl ?? null,
-        page_url: normalizedPageUrl,
-        site_domain: siteDomain,
-        device_type: deviceType,
-        browser,
-        os,
+        ...context,
       }).catch(() => {});
     }
 
@@ -172,15 +166,59 @@ export function handleTrackingRoutes(app, { pool }) {
   // GET /track/viewability/:tagId — records viewability event
   app.get('/track/viewability/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, vp, imp: impressionId } = req.query;
+    const { ws: workspaceId, vp, imp: impressionId, c: creativeId, csv: creativeSizeVariantId, event } = req.query;
 
     if (workspaceId) {
       const viewable = vp !== '0' && vp !== 'false';
+      const context = collectTrackingContext(req, req.query);
       recordViewability(pool, {
         tag_id: tagId,
         workspace_id: workspaceId,
         impression_id: impressionId ?? null,
         viewable,
+      }).catch(() => {});
+      if (event) {
+        recordEngagementEvent(pool, {
+          tag_id: tagId,
+          workspace_id: workspaceId,
+          creative_id: creativeId ?? null,
+          creative_size_variant_id: creativeSizeVariantId ?? null,
+          impression_id: impressionId ?? null,
+          event_type: String(event),
+          ...context,
+        }).catch(() => {});
+      }
+    }
+
+    reply.header('Content-Type', 'image/gif');
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    reply.header('Pragma', 'no-cache');
+    reply.header('Expires', '0');
+    return reply.send(PIXEL_GIF);
+  });
+
+  app.get('/track/engagement/:tagId', async (req, reply) => {
+    const { tagId } = req.params;
+    const {
+      ws: workspaceId,
+      imp: impressionId,
+      c: creativeId,
+      csv: creativeSizeVariantId,
+      event,
+      hd: hoverDurationMs,
+    } = req.query;
+
+    if (workspaceId && event) {
+      const context = collectTrackingContext(req, req.query);
+      recordEngagementEvent(pool, {
+        tag_id: tagId,
+        workspace_id: workspaceId,
+        creative_id: creativeId ?? null,
+        creative_size_variant_id: creativeSizeVariantId ?? null,
+        impression_id: impressionId ?? null,
+        event_type: String(event),
+        hover_duration_ms: hoverDurationMs ?? null,
+        ...context,
       }).catch(() => {});
     }
 

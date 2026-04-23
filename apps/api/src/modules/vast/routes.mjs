@@ -112,6 +112,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   const clickTrackParams = new URLSearchParams(trackingParams);
   clickTrackParams.set('url', clickUrl);
   const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
+  const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
 
   return `(function() {
@@ -123,18 +124,46 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   var clickUrl = ${JSON.stringify(clickTrackUrl)};
   var creativeUrl = ${JSON.stringify(creativeUrl)};
   var impUrl = ${JSON.stringify(impressionUrl)};
+  var engagementBase = ${JSON.stringify(engagementBase)};
+  var pageUrl = (typeof window !== 'undefined' && window.location && window.location.href) ? window.location.href : '';
+  var hoverStartedAt = null;
+
+  function firePixel(url) {
+    var img = new Image();
+    img.src = url;
+  }
+
+  function buildEngagementUrl(eventType, extra) {
+    var params = [];
+    params.push('event=' + encodeURIComponent(eventType));
+    if (pageUrl) params.push('pu=' + encodeURIComponent(pageUrl));
+    if (extra && extra.hd != null) params.push('hd=' + encodeURIComponent(String(extra.hd)));
+    return engagementBase + '&' + params.join('&');
+  }
 
   // Record impression
-  (new Image()).src = impUrl;
+  firePixel(impUrl + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : ''));
 
   // Build container
   var div = document.createElement('div');
   div.style.cssText = 'width:' + w + 'px;height:' + h + 'px;overflow:hidden;position:relative;display:inline-block;';
+  div.addEventListener('mouseenter', function() {
+    hoverStartedAt = Date.now();
+    firePixel(buildEngagementUrl('hover_start'));
+  });
+  div.addEventListener('mouseleave', function() {
+    var duration = hoverStartedAt ? Math.max(0, Date.now() - hoverStartedAt) : 0;
+    hoverStartedAt = null;
+    firePixel(buildEngagementUrl('hover_end', { hd: duration }));
+  });
 
   var link = document.createElement('a');
   link.href = clickUrl;
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
+  link.addEventListener('click', function() {
+    firePixel(buildEngagementUrl('interaction'));
+  });
 
   if (creativeUrl && servingFormat === 'display_html') {
     var iframe = document.createElement('iframe');
@@ -186,6 +215,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
   const clickTrackParams = new URLSearchParams(trackingParams);
   clickTrackParams.set('url', clickUrl);
   const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
+  const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
 
   const body = creativeUrl && servingFormat === 'display_html'
@@ -207,7 +237,39 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
   </head>
   <body style="margin:0;padding:0;overflow:hidden;width:${width}px;height:${height}px;">
     ${body}
-    <img src="${escapeXml(impressionUrl)}" alt="" width="1" height="1" style="position:absolute;left:-9999px;top:-9999px;" />
+    <img id="smx-imp-pixel" src="${escapeXml(impressionUrl)}" alt="" width="1" height="1" style="position:absolute;left:-9999px;top:-9999px;" />
+    <script>
+      (function() {
+        var pageUrl = (window.location && window.location.href) ? window.location.href : '';
+        var hoverStartedAt = null;
+        function fire(url) {
+          var img = new Image();
+          img.src = url;
+        }
+        var impPixel = document.getElementById('smx-imp-pixel');
+        if (impPixel && pageUrl) {
+          impPixel.src = ${JSON.stringify(impressionUrl)} + '&pu=' + encodeURIComponent(pageUrl);
+        }
+        function engagementUrl(eventType, hoverDurationMs) {
+          var params = ['event=' + encodeURIComponent(eventType)];
+          if (pageUrl) params.push('pu=' + encodeURIComponent(pageUrl));
+          if (hoverDurationMs != null) params.push('hd=' + encodeURIComponent(String(hoverDurationMs)));
+          return ${JSON.stringify(engagementBase)} + '&' + params.join('&');
+        }
+        document.body.addEventListener('mouseenter', function() {
+          hoverStartedAt = Date.now();
+          fire(engagementUrl('hover_start'));
+        });
+        document.body.addEventListener('mouseleave', function() {
+          var duration = hoverStartedAt ? Math.max(0, Date.now() - hoverStartedAt) : 0;
+          hoverStartedAt = null;
+          fire(engagementUrl('hover_end', duration));
+        });
+        document.body.addEventListener('click', function() {
+          fire(engagementUrl('interaction'));
+        });
+      })();
+    </script>
   </body>
 </html>`;
 }
