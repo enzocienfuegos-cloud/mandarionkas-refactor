@@ -188,6 +188,7 @@ export default function TagBindingDashboard() {
                   <th className="px-4 py-3">Creative</th>
                   <th className="px-4 py-3">Source</th>
                   <th className="px-4 py-3">Version Status</th>
+                  <th className="px-4 py-3">Variant</th>
                   <th className="px-4 py-3">Binding Status</th>
                   <th className="px-4 py-3">Weight</th>
                   <th className="px-4 py-3">Preview</th>
@@ -203,6 +204,11 @@ export default function TagBindingDashboard() {
                     </td>
                     <td className="px-4 py-3 text-slate-600">{binding.sourceKind}</td>
                     <td className="px-4 py-3 text-slate-600">{binding.creativeVersionStatus}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {binding.variantLabel
+                        ? `${binding.variantLabel}${binding.variantWidth && binding.variantHeight ? ` · ${binding.variantWidth}×${binding.variantHeight}` : ''}`
+                        : 'Version default'}
+                    </td>
                     <td className="px-4 py-3">{statusBadge(binding.status)}</td>
                     <td className="px-4 py-3 text-slate-600">{binding.weight}</td>
                     <td className="px-4 py-3">

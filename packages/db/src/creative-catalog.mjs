@@ -34,6 +34,13 @@ function normalizeBindingStatus(status) {
     : 'active';
 }
 
+function normalizeVariantStatus(status) {
+  const normalized = String(status ?? '').trim().toLowerCase();
+  return ['draft', 'active', 'paused', 'archived'].includes(normalized)
+    ? normalized
+    : 'draft';
+}
+
 async function syncCreativeApprovalStatus(pool, workspaceId, creativeId, status, reviewerId = null, notes = null) {
   await pool.query(
     `UPDATE creatives
@@ -216,7 +223,27 @@ export async function createCreativeVersion(pool, workspaceId, data) {
       review_notes,
     ],
   );
-  return rows[0] ?? null;
+  const version = rows[0] ?? null;
+  if (version?.width && version?.height) {
+    await createCreativeSizeVariant(pool, workspaceId, {
+      creative_version_id: version.id,
+      label: `${version.width}x${version.height}`,
+      width: version.width,
+      height: version.height,
+      status: version.status === 'approved'
+        ? 'active'
+        : version.status === 'archived'
+          ? 'archived'
+          : 'draft',
+      public_url: version.public_url ?? null,
+      metadata: {
+        defaultVariant: true,
+        source: 'creative_version',
+      },
+      created_by: version.created_by ?? null,
+    });
+  }
+  return version;
 }
 
 export async function ensureLegacyCreativeVersion(pool, workspaceId, creative) {
@@ -324,6 +351,114 @@ export async function listCreativeArtifacts(pool, workspaceId, creativeVersionId
   return rows;
 }
 
+export async function listCreativeSizeVariants(pool, workspaceId, creativeVersionId) {
+  const { rows } = await pool.query(
+    `SELECT *
+     FROM creative_size_variants
+     WHERE workspace_id = $1
+       AND creative_version_id = $2
+     ORDER BY width ASC, height ASC, created_at ASC`,
+    [workspaceId, creativeVersionId],
+  );
+  return rows;
+}
+
+export async function getCreativeSizeVariant(pool, workspaceId, variantId) {
+  const { rows } = await pool.query(
+    `SELECT *
+     FROM creative_size_variants
+     WHERE workspace_id = $1
+       AND id = $2`,
+    [workspaceId, variantId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function createCreativeSizeVariant(pool, workspaceId, data) {
+  const {
+    creative_version_id,
+    label,
+    width,
+    height,
+    status = 'draft',
+    public_url = null,
+    artifact_id = null,
+    metadata = {},
+    created_by = null,
+  } = data;
+
+  const variantLabel = String(label ?? '').trim() || `${width}x${height}`;
+  const { rows } = await pool.query(
+    `INSERT INTO creative_size_variants (
+       workspace_id, creative_version_id, label, width, height,
+       status, public_url, artifact_id, metadata, created_by
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)
+     RETURNING *`,
+    [
+      workspaceId,
+      creative_version_id,
+      variantLabel,
+      Math.max(1, Number(width) || 1),
+      Math.max(1, Number(height) || 1),
+      normalizeVariantStatus(status),
+      public_url,
+      artifact_id,
+      JSON.stringify(metadata ?? {}),
+      created_by,
+    ],
+  );
+  return rows[0] ?? null;
+}
+
+export async function updateCreativeSizeVariant(pool, workspaceId, variantId, patch = {}) {
+  const fieldMap = {
+    label: 'label',
+    width: 'width',
+    height: 'height',
+    status: 'status',
+    publicUrl: 'public_url',
+    artifactId: 'artifact_id',
+    metadata: 'metadata',
+  };
+
+  const params = [workspaceId, variantId];
+  const setClauses = [];
+
+  for (const [camel, column] of Object.entries(fieldMap)) {
+    if (!(camel in patch)) continue;
+    const value = patch[camel];
+    if (column === 'metadata') {
+      params.push(JSON.stringify(value ?? {}));
+      setClauses.push(`${column} = $${params.length}::jsonb`);
+    } else if (column === 'status') {
+      params.push(normalizeVariantStatus(value));
+      setClauses.push(`${column} = $${params.length}`);
+    } else if (column === 'width' || column === 'height') {
+      params.push(Math.max(1, Number(value) || 1));
+      setClauses.push(`${column} = $${params.length}`);
+    } else {
+      params.push(value);
+      setClauses.push(`${column} = $${params.length}`);
+    }
+  }
+
+  if (!setClauses.length) {
+    return getCreativeSizeVariant(pool, workspaceId, variantId);
+  }
+
+  setClauses.push('updated_at = NOW()');
+
+  const { rows } = await pool.query(
+    `UPDATE creative_size_variants
+     SET ${setClauses.join(', ')}
+     WHERE workspace_id = $1
+       AND id = $2
+     RETURNING *`,
+    params,
+  );
+  return rows[0] ?? null;
+}
+
 export async function createCreativeArtifact(pool, workspaceId, data) {
   const {
     creative_version_id,
@@ -370,10 +505,15 @@ export async function listTagBindings(pool, workspaceId, tagId, opts = {}) {
   const { rows } = await pool.query(
     `SELECT tb.*, cv.version_number, cv.source_kind, cv.serving_format,
             cv.status AS creative_version_status, cv.public_url, cv.entry_path,
-            c.name AS creative_name
+            c.name AS creative_name,
+            csv.label AS variant_label,
+            csv.width AS variant_width,
+            csv.height AS variant_height,
+            csv.status AS variant_status
      FROM tag_bindings tb
      JOIN creative_versions cv ON cv.id = tb.creative_version_id
      JOIN creatives c ON c.id = cv.creative_id
+     LEFT JOIN creative_size_variants csv ON csv.id = tb.creative_size_variant_id
      WHERE ${conditions.join(' AND ')}
      ORDER BY tb.weight DESC, tb.created_at ASC`,
     params,
@@ -385,6 +525,7 @@ export async function createTagBinding(pool, workspaceId, data) {
   const {
     tag_id,
     creative_version_id,
+    creative_size_variant_id = null,
     status = 'active',
     weight = 1,
     start_at = null,
@@ -392,24 +533,66 @@ export async function createTagBinding(pool, workspaceId, data) {
     created_by = null,
   } = data;
 
+  const existing = creative_size_variant_id
+    ? await pool.query(
+      `SELECT *
+       FROM tag_bindings
+       WHERE workspace_id = $1
+         AND tag_id = $2
+         AND creative_size_variant_id = $3`,
+      [workspaceId, tag_id, creative_size_variant_id],
+    )
+    : await pool.query(
+      `SELECT *
+       FROM tag_bindings
+       WHERE workspace_id = $1
+         AND tag_id = $2
+         AND creative_version_id = $3
+         AND creative_size_variant_id IS NULL`,
+      [workspaceId, tag_id, creative_version_id],
+    );
+
+  if (existing.rows[0]) {
+    const { rows } = await pool.query(
+      `UPDATE tag_bindings
+       SET status = $4,
+           weight = $5,
+           start_at = $6,
+           end_at = $7,
+           created_by = COALESCE($8, created_by),
+           creative_version_id = $9,
+           creative_size_variant_id = $10,
+           updated_at = NOW()
+       WHERE workspace_id = $1
+         AND id = $2
+       RETURNING *`,
+      [
+        workspaceId,
+        existing.rows[0].id,
+        tag_id,
+        normalizeBindingStatus(status),
+        Math.max(1, Number(weight) || 1),
+        start_at,
+        end_at,
+        created_by,
+        creative_version_id,
+        creative_size_variant_id,
+      ],
+    );
+    return rows[0] ?? null;
+  }
+
   const { rows } = await pool.query(
     `INSERT INTO tag_bindings (
-       workspace_id, tag_id, creative_version_id,
+       workspace_id, tag_id, creative_version_id, creative_size_variant_id,
        status, weight, start_at, end_at, created_by
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-     ON CONFLICT (tag_id, creative_version_id)
-     DO UPDATE SET
-       status = EXCLUDED.status,
-       weight = EXCLUDED.weight,
-       start_at = EXCLUDED.start_at,
-       end_at = EXCLUDED.end_at,
-       created_by = COALESCE(EXCLUDED.created_by, tag_bindings.created_by),
-       updated_at = NOW()
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      RETURNING *`,
     [
       workspaceId,
       tag_id,
       creative_version_id,
+      creative_size_variant_id,
       normalizeBindingStatus(status),
       Math.max(1, Number(weight) || 1),
       start_at,

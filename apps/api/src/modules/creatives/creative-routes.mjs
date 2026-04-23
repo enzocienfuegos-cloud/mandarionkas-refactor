@@ -2,6 +2,10 @@ import {
   createTagBinding,
   listCreatives,
   listCreativeVersions,
+  listCreativeSizeVariants,
+  getCreativeSizeVariant,
+  createCreativeSizeVariant,
+  updateCreativeSizeVariant,
   listCreativeArtifacts,
   getCreative,
   getCreativeVersion,
@@ -54,6 +58,24 @@ function toApiCreativeArtifact(artifact) {
     metadata: artifact.metadata ?? {},
     createdAt: artifact.created_at,
     updatedAt: artifact.updated_at,
+  };
+}
+
+function toApiCreativeSizeVariant(variant) {
+  if (!variant) return null;
+  return {
+    id: variant.id,
+    creativeVersionId: variant.creative_version_id,
+    label: variant.label,
+    width: variant.width,
+    height: variant.height,
+    status: variant.status,
+    publicUrl: variant.public_url ?? '',
+    artifactId: variant.artifact_id ?? null,
+    metadata: variant.metadata ?? {},
+    createdBy: variant.created_by ?? null,
+    createdAt: variant.created_at,
+    updatedAt: variant.updated_at,
   };
 }
 
@@ -155,11 +177,77 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
     }
 
     const artifacts = await listCreativeArtifacts(pool, workspaceId, id);
+    const variants = await listCreativeSizeVariants(pool, workspaceId, id);
 
     return reply.send({
       creativeVersion: toApiCreativeVersion(version),
       artifacts: artifacts.map(toApiCreativeArtifact),
+      variants: variants.map(toApiCreativeSizeVariant),
     });
+  });
+
+  app.get('/v1/creative-versions/:id/variants', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id } = req.params;
+
+    const version = await getCreativeVersion(pool, workspaceId, id);
+    if (!version) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Creative version not found' });
+    }
+
+    const variants = await listCreativeSizeVariants(pool, workspaceId, id);
+    return reply.send({ variants: variants.map(toApiCreativeSizeVariant) });
+  });
+
+  app.post('/v1/creative-versions/:id/variants', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId, userId } = req.authSession;
+    const { id } = req.params;
+    const version = await getCreativeVersion(pool, workspaceId, id);
+    if (!version) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Creative version not found' });
+    }
+
+    const width = Number(req.body?.width);
+    const height = Number(req.body?.height);
+    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+      return reply.status(400).send({ error: 'Bad Request', message: 'width and height must be positive numbers' });
+    }
+
+    const variant = await createCreativeSizeVariant(pool, workspaceId, {
+      creative_version_id: id,
+      label: req.body?.label,
+      width,
+      height,
+      status: req.body?.status ?? 'draft',
+      public_url: req.body?.publicUrl ?? version.public_url ?? null,
+      artifact_id: req.body?.artifactId ?? null,
+      metadata: req.body?.metadata ?? {},
+      created_by: userId,
+    });
+
+    return reply.status(201).send({ variant: toApiCreativeSizeVariant(variant) });
+  });
+
+  app.patch('/v1/creative-variants/:id', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id } = req.params;
+
+    const current = await getCreativeSizeVariant(pool, workspaceId, id);
+    if (!current) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Creative size variant not found' });
+    }
+
+    const variant = await updateCreativeSizeVariant(pool, workspaceId, id, {
+      label: req.body?.label,
+      width: req.body?.width,
+      height: req.body?.height,
+      status: req.body?.status,
+      publicUrl: req.body?.publicUrl,
+      artifactId: req.body?.artifactId,
+      metadata: req.body?.metadata,
+    });
+
+    return reply.send({ variant: toApiCreativeSizeVariant(variant) });
   });
 
   // PUT /v1/creatives/:id
@@ -251,6 +339,35 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
     const binding = await createTagBinding(pool, workspaceId, {
       tag_id: tagId,
       creative_version_id: id,
+      status,
+      weight,
+      start_at: startAt,
+      end_at: endAt,
+      created_by: userId,
+    });
+
+    return reply.status(201).send({ binding });
+  });
+
+  app.post('/v1/creative-variants/:id/assign/:tagId', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId, userId } = req.authSession;
+    const { id, tagId } = req.params;
+    const { weight = 1, status = 'active', startAt = null, endAt = null } = req.body ?? {};
+
+    const variant = await getCreativeSizeVariant(pool, workspaceId, id);
+    if (!variant) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Creative size variant not found' });
+    }
+
+    const tag = await getTag(pool, workspaceId, tagId);
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    const binding = await createTagBinding(pool, workspaceId, {
+      tag_id: tagId,
+      creative_version_id: variant.creative_version_id,
+      creative_size_variant_id: variant.id,
       status,
       weight,
       start_at: startAt,

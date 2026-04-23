@@ -108,6 +108,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
         id: binding.id,
         tagId: binding.tag_id,
         creativeVersionId: binding.creative_version_id,
+        creativeSizeVariantId: binding.creative_size_variant_id ?? null,
         status: binding.status,
         weight: binding.weight,
         startAt: binding.start_at ?? null,
@@ -121,6 +122,10 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
         servingFormat: binding.serving_format ?? '',
         publicUrl: binding.public_url ?? '',
         entryPath: binding.entry_path ?? '',
+        variantLabel: binding.variant_label ?? '',
+        variantWidth: binding.variant_width ?? null,
+        variantHeight: binding.variant_height ?? null,
+        variantStatus: binding.variant_status ?? '',
       })),
     });
   });
@@ -150,6 +155,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
         id: binding.id,
         tagId: binding.tag_id,
         creativeVersionId: binding.creative_version_id,
+        creativeSizeVariantId: binding.creative_size_variant_id ?? null,
         status: binding.status,
         weight: binding.weight,
         startAt: binding.start_at ?? null,

@@ -4,13 +4,17 @@ import {
   type Creative,
   type CreativeVersion,
   type CreativeIngestion,
+  type CreativeSizeVariant,
   type TagOption,
   type TagBinding,
   assignCreativeVersionToTag,
+  createCreativeSizeVariant,
   loadCreativesWithLatestVersion,
   loadCreativeIngestions,
+  loadCreativeSizeVariants,
   loadTagBindings,
   loadTags,
+  updateCreativeSizeVariant,
   submitCreativeVersion,
   updateTagBinding,
 } from './catalog';
@@ -73,6 +77,20 @@ interface BindingState {
   bindings: TagBinding[];
 }
 
+interface VariantState {
+  creativeId: string;
+  creativeName: string;
+  versionId: string;
+  loading: boolean;
+  error: string;
+  variants: CreativeSizeVariant[];
+  form: {
+    label: string;
+    width: string;
+    height: string;
+  };
+}
+
 export default function CreativeLibrary() {
   const navigate = useNavigate();
   const [creatives, setCreatives] = useState<Creative[]>([]);
@@ -83,6 +101,7 @@ export default function CreativeLibrary() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [bindingState, setBindingState] = useState<BindingState | null>(null);
+  const [variantState, setVariantState] = useState<VariantState | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -166,6 +185,73 @@ export default function CreativeLibrary() {
       setBindingState(current => current ? { ...current, loading: false, bindings } : current);
     } catch (updateError: any) {
       setBindingState(current => current ? { ...current, loading: false, error: updateError.message ?? 'Binding update failed' } : current);
+    }
+  };
+
+  const openVariantManager = async (creative: Creative, version: CreativeVersion) => {
+    setVariantState({
+      creativeId: creative.id,
+      creativeName: creative.name,
+      versionId: version.id,
+      loading: true,
+      error: '',
+      variants: [],
+      form: {
+        label: version.width && version.height ? `${version.width}x${version.height}` : '',
+        width: version.width ? String(version.width) : '',
+        height: version.height ? String(version.height) : '',
+      },
+    });
+    try {
+      const variants = await loadCreativeSizeVariants(version.id);
+      setVariantState(current => current ? { ...current, loading: false, variants } : current);
+    } catch (loadError: any) {
+      setVariantState(current => current ? {
+        ...current,
+        loading: false,
+        error: loadError.message ?? 'Failed to load size variants',
+      } : current);
+    }
+  };
+
+  const handleVariantStatusChange = async (variantId: string, status: 'active' | 'paused') => {
+    setVariantState(current => current ? { ...current, loading: true, error: '' } : current);
+    try {
+      await updateCreativeSizeVariant({ variantId, status });
+      const variants = await loadCreativeSizeVariants(variantState?.versionId ?? '');
+      setVariantState(current => current ? { ...current, loading: false, variants } : current);
+    } catch (updateError: any) {
+      setVariantState(current => current ? { ...current, loading: false, error: updateError.message ?? 'Failed to update variant' } : current);
+    }
+  };
+
+  const handleCreateVariant = async () => {
+    if (!variantState) return;
+    const width = Number(variantState.form.width);
+    const height = Number(variantState.form.height);
+    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+      setVariantState(current => current ? { ...current, error: 'Width and height must be positive numbers.' } : current);
+      return;
+    }
+
+    setVariantState(current => current ? { ...current, loading: true, error: '' } : current);
+    try {
+      await createCreativeSizeVariant({
+        creativeVersionId: variantState.versionId,
+        label: variantState.form.label.trim() || `${width}x${height}`,
+        width,
+        height,
+        status: 'draft',
+      });
+      const variants = await loadCreativeSizeVariants(variantState.versionId);
+      setVariantState(current => current ? {
+        ...current,
+        loading: false,
+        variants,
+        form: { ...current.form, label: '', width: '', height: '' },
+      } : current);
+    } catch (createError: any) {
+      setVariantState(current => current ? { ...current, loading: false, error: createError.message ?? 'Failed to create variant' } : current);
     }
   };
 
@@ -312,20 +398,28 @@ export default function CreativeLibrary() {
                           </button>
                         )}
                         {version && version.status === 'approved' && (
-                          <button
-                            onClick={() => setBindingState({
-                              creativeId: creative.id,
-                              versionId: version.id,
-                              tagId: '',
-                              loading: false,
-                              error: '',
-                              bindingsLoading: false,
-                              bindings: [],
-                            })}
-                            className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
-                          >
-                            Assign to tag
-                          </button>
+                          <>
+                            <button
+                              onClick={() => void openVariantManager(creative, version)}
+                              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                              Manage sizes
+                            </button>
+                            <button
+                              onClick={() => setBindingState({
+                                creativeId: creative.id,
+                                versionId: version.id,
+                                tagId: '',
+                                loading: false,
+                                error: '',
+                                bindingsLoading: false,
+                                bindings: [],
+                              })}
+                              className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                            >
+                              Assign to tag
+                            </button>
+                          </>
                         )}
                         {!version && <span className="text-xs text-slate-400">—</span>}
                       </div>
@@ -472,6 +566,119 @@ export default function CreativeLibrary() {
               >
                 {bindingState.loading ? 'Assigning…' : 'Assign'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {variantState && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800">Resolution management</h2>
+                <p className="mt-1 text-sm text-slate-500">{variantState.creativeName}</p>
+              </div>
+              <button
+                onClick={() => setVariantState(null)}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-4 p-6">
+              <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-[minmax(0,1fr)_120px_120px_auto]">
+                <input
+                  value={variantState.form.label}
+                  onChange={event => setVariantState(current => current ? { ...current, form: { ...current.form, label: event.target.value } } : current)}
+                  placeholder="300x250 · Mobile"
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+                <input
+                  value={variantState.form.width}
+                  onChange={event => setVariantState(current => current ? { ...current, form: { ...current.form, width: event.target.value } } : current)}
+                  placeholder="Width"
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+                <input
+                  value={variantState.form.height}
+                  onChange={event => setVariantState(current => current ? { ...current, form: { ...current.form, height: event.target.value } } : current)}
+                  placeholder="Height"
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+                <button
+                  onClick={() => void handleCreateVariant()}
+                  disabled={variantState.loading}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
+                >
+                  Add size
+                </button>
+              </div>
+
+              {variantState.error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {variantState.error}
+                </div>
+              )}
+
+              <div className="overflow-hidden rounded-xl border border-slate-200">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Variant</th>
+                      <th className="px-4 py-3">Size</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Preview</th>
+                      <th className="px-4 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {variantState.variants.map(variant => (
+                      <tr key={variant.id}>
+                        <td className="px-4 py-3 font-medium text-slate-800">{variant.label}</td>
+                        <td className="px-4 py-3 text-slate-600">{variant.width}×{variant.height}</td>
+                        <td className="px-4 py-3">{statusBadge(variant.status)}</td>
+                        <td className="px-4 py-3">
+                          {variant.publicUrl ? (
+                            <a href={variant.publicUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-700">
+                              Open
+                            </a>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {variant.status === 'active' ? (
+                            <button
+                              onClick={() => void handleVariantStatusChange(variant.id, 'paused')}
+                              disabled={variantState.loading}
+                              className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                            >
+                              Pause
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => void handleVariantStatusChange(variant.id, 'active')}
+                              disabled={variantState.loading}
+                              className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+                            >
+                              Activate
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {!variantState.loading && variantState.variants.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-500">
+                          No size variants yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>

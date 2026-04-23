@@ -209,10 +209,11 @@ function toServingCandidateFromBinding(binding, tag) {
     source: 'binding',
     creativeId: binding.creative_id,
     creativeVersionId: binding.creative_version_id,
+    creativeSizeVariantId: binding.creative_size_variant_id ?? null,
     creativeName: binding.creative_name ?? '',
     servingFormat: binding.serving_format,
-    width: binding.width ?? null,
-    height: binding.height ?? null,
+    width: binding.variant_width ?? binding.width ?? null,
+    height: binding.variant_height ?? binding.height ?? null,
     durationMs: binding.duration_ms ?? null,
     mimeType: artifact?.mime_type ?? binding.mime_type ?? null,
     clickUrl,
@@ -251,6 +252,7 @@ async function listTagVersionBindings(pool, workspaceId, tagId) {
         tb.id,
         tb.tag_id,
         tb.creative_version_id,
+        tb.creative_size_variant_id,
         tb.status,
         tb.weight,
         tb.start_at,
@@ -269,6 +271,10 @@ async function listTagVersionBindings(pool, workspaceId, tagId) {
         cv.duration_ms,
         c.name AS creative_name,
         c.click_url AS creative_click_url,
+        csv.label AS variant_label,
+        csv.width AS variant_width,
+        csv.height AS variant_height,
+        csv.status AS variant_status,
         COALESCE(
           json_agg(
             json_build_object(
@@ -287,14 +293,16 @@ async function listTagVersionBindings(pool, workspaceId, tagId) {
      FROM tag_bindings tb
      JOIN creative_versions cv ON cv.id = tb.creative_version_id
      JOIN creatives c ON c.id = cv.creative_id
+     LEFT JOIN creative_size_variants csv ON csv.id = tb.creative_size_variant_id
      LEFT JOIN creative_artifacts ca ON ca.creative_version_id = cv.id
      WHERE tb.workspace_id = $1
        AND tb.tag_id = $2
      GROUP BY
-       tb.id, tb.tag_id, tb.creative_version_id, tb.status, tb.weight, tb.start_at, tb.end_at, tb.created_at,
+       tb.id, tb.tag_id, tb.creative_version_id, tb.creative_size_variant_id, tb.status, tb.weight, tb.start_at, tb.end_at, tb.created_at,
        cv.id, cv.creative_id, cv.source_kind, cv.serving_format, cv.status, cv.public_url, cv.entry_path,
        cv.mime_type, cv.width, cv.height, cv.duration_ms,
-       c.name, c.click_url
+       c.name, c.click_url,
+       csv.label, csv.width, csv.height, csv.status
      ORDER BY tb.weight DESC, tb.created_at ASC`,
     [workspaceId, tagId],
   );

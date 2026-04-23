@@ -46,6 +46,21 @@ export interface CreativeArtifact {
   updatedAt?: string;
 }
 
+export interface CreativeSizeVariant {
+  id: string;
+  creativeVersionId: string;
+  label: string;
+  width: number;
+  height: number;
+  status: 'draft' | 'active' | 'paused' | 'archived';
+  publicUrl?: string;
+  artifactId?: string | null;
+  metadata?: Record<string, unknown>;
+  createdBy?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface TagOption {
   id: string;
   name: string;
@@ -57,6 +72,7 @@ export interface TagBinding {
   id: string;
   tagId: string;
   creativeVersionId: string;
+  creativeSizeVariantId?: string | null;
   status: 'draft' | 'active' | 'paused' | 'archived';
   weight: number;
   startAt?: string | null;
@@ -69,6 +85,10 @@ export interface TagBinding {
   servingFormat: string;
   publicUrl?: string;
   entryPath?: string;
+  variantLabel?: string;
+  variantWidth?: number | null;
+  variantHeight?: number | null;
+  variantStatus?: string;
 }
 
 export interface CreativeIngestion {
@@ -115,12 +135,19 @@ export async function loadCreativeVersions(creativeId: string): Promise<Creative
 export async function loadCreativeVersionDetail(versionId: string): Promise<{
   creativeVersion: CreativeVersion;
   artifacts: CreativeArtifact[];
+  variants: CreativeSizeVariant[];
 }> {
-  const payload = await fetchJson<{ creativeVersion: CreativeVersion; artifacts: CreativeArtifact[] }>(`/v1/creative-versions/${versionId}`);
+  const payload = await fetchJson<{ creativeVersion: CreativeVersion; artifacts: CreativeArtifact[]; variants: CreativeSizeVariant[] }>(`/v1/creative-versions/${versionId}`);
   return {
     creativeVersion: payload.creativeVersion,
     artifacts: payload.artifacts ?? [],
+    variants: payload.variants ?? [],
   };
+}
+
+export async function loadCreativeSizeVariants(versionId: string): Promise<CreativeSizeVariant[]> {
+  const payload = await fetchJson<{ variants: CreativeSizeVariant[] }>(`/v1/creative-versions/${versionId}/variants`);
+  return payload.variants ?? [];
 }
 
 export async function loadCreativesWithLatestVersion() {
@@ -247,6 +274,69 @@ export async function assignCreativeVersionToTag(input: {
   status?: 'draft' | 'active' | 'paused' | 'archived';
 }) {
   return fetchJson<{ binding: { id: string } }>(`/v1/creative-versions/${input.creativeVersionId}/assign/${input.tagId}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      weight: input.weight ?? 1,
+      status: input.status ?? 'active',
+    }),
+  });
+}
+
+export async function createCreativeSizeVariant(input: {
+  creativeVersionId: string;
+  label?: string;
+  width: number;
+  height: number;
+  status?: 'draft' | 'active' | 'paused' | 'archived';
+  publicUrl?: string;
+  artifactId?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  return fetchJson<{ variant: CreativeSizeVariant }>(`/v1/creative-versions/${input.creativeVersionId}/variants`, {
+    method: 'POST',
+    body: JSON.stringify({
+      label: input.label,
+      width: input.width,
+      height: input.height,
+      status: input.status,
+      publicUrl: input.publicUrl,
+      artifactId: input.artifactId,
+      metadata: input.metadata,
+    }),
+  });
+}
+
+export async function updateCreativeSizeVariant(input: {
+  variantId: string;
+  label?: string;
+  width?: number;
+  height?: number;
+  status?: 'draft' | 'active' | 'paused' | 'archived';
+  publicUrl?: string;
+  artifactId?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  return fetchJson<{ variant: CreativeSizeVariant }>(`/v1/creative-variants/${input.variantId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      label: input.label,
+      width: input.width,
+      height: input.height,
+      status: input.status,
+      publicUrl: input.publicUrl,
+      artifactId: input.artifactId,
+      metadata: input.metadata,
+    }),
+  });
+}
+
+export async function assignCreativeSizeVariantToTag(input: {
+  creativeSizeVariantId: string;
+  tagId: string;
+  weight?: number;
+  status?: 'draft' | 'active' | 'paused' | 'archived';
+}) {
+  return fetchJson<{ binding: { id: string } }>(`/v1/creative-variants/${input.creativeSizeVariantId}/assign/${input.tagId}`, {
     method: 'POST',
     body: JSON.stringify({
       weight: input.weight ?? 1,
