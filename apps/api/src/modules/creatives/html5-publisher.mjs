@@ -207,9 +207,30 @@ function buildClickTrackingBootstrap() {
       }
     }
 
+    function resolveCreatopyDestination(urlOrKey) {
+      if (!urlOrKey) return null;
+      try {
+        var candidate = String(urlOrKey);
+        if (window.creatopyEmbed && window.creatopyEmbed.designData && window.creatopyEmbed.designData.processedVars) {
+          var processedVars = window.creatopyEmbed.designData.processedVars;
+          if (processedVars && typeof processedVars === 'object' && processedVars[candidate]) {
+            return processedVars[candidate];
+          }
+        }
+        if (window.processedVars && typeof window.processedVars === 'object' && window.processedVars[candidate]) {
+          return window.processedVars[candidate];
+        }
+        return candidate;
+      } catch (_) {
+        return null;
+      }
+    }
+
     function enforceTrackedBindings() {
       defineTrackedProperty('clickTag');
       defineTrackedProperty('clicktag');
+      defineTrackedProperty('bsClickTAG');
+      defineTrackedProperty('bannerURL');
       window.open = function(url, target, features) {
         return navigateTracked(target, features, url);
       };
@@ -232,6 +253,14 @@ function buildClickTrackingBootstrap() {
           return navigateTracked('_blank', undefined, url);
         };
       }
+
+      window.bsOpenURL = function(url, target) {
+        return navigateTracked(target || '_blank', undefined, resolveCreatopyDestination(url));
+      };
+
+      window.bsClickFunc = function(url, target, urlKey) {
+        return navigateTracked(target || '_blank', undefined, resolveCreatopyDestination(url || urlKey));
+      };
     }
 
     document.addEventListener('click', function(event) {
