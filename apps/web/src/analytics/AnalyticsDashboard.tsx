@@ -1,9 +1,32 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+
+type DateRange = 7 | 30 | 90;
 
 interface RankedMetric {
   label: string;
   value: number;
   secondary?: string;
+}
+
+interface BreakdownItem {
+  id?: string;
+  label: string;
+  secondary?: string;
+  tertiary?: string;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+}
+
+interface VariantItem {
+  id: string;
+  creativeName: string;
+  label: string;
+  size: string;
+  status: string;
+  impressions: number;
+  clicks: number;
+  ctr: number;
 }
 
 interface WorkspaceAnalytics {
@@ -18,26 +41,16 @@ interface WorkspaceAnalytics {
   activeCampaigns: number;
   activeTags: number;
   totalCreatives: number;
-  topCampaigns: Array<{
-    id: string;
-    name: string;
-    status: string;
-    impressions: number;
-    clicks: number;
-    ctr: number;
-  }>;
-  topTags: Array<{
-    id: string;
-    name: string;
-    format: string;
-    impressions: number;
-    clicks: number;
-    ctr: number;
-  }>;
+  campaigns: BreakdownItem[];
+  tags: BreakdownItem[];
+  creatives: BreakdownItem[];
+  variants: VariantItem[];
   topSites: RankedMetric[];
   topCountries: RankedMetric[];
   engagements: RankedMetric[];
 }
+
+const DATE_RANGES: DateRange[] = [7, 30, 90];
 
 function toNumber(value: unknown): number {
   const numeric = Number(value ?? 0);
@@ -62,28 +75,55 @@ function fmtCtr(value: number): string {
   return `${toNumber(value).toFixed(2)}%`;
 }
 
-function normalizeRankedMetricList(items: any[], labelKey: string, secondary?: (item: any) => string | undefined): RankedMetric[] {
+function formatRange(days: DateRange): string {
+  return `${days}d`;
+}
+
+function getDateFrom(days: DateRange): string {
+  const date = new Date();
+  date.setDate(date.getDate() - (days - 1));
+  return date.toISOString().slice(0, 10);
+}
+
+function makeQuery(days: DateRange): string {
+  return `?dateFrom=${encodeURIComponent(getDateFrom(days))}&limit=10`;
+}
+
+function normalizeRankedMetricList(items: any[], labelKey: string, valueKey: string, secondary?: (item: any) => string | undefined): RankedMetric[] {
   return (Array.isArray(items) ? items : []).map((item) => ({
     label: String(item?.[labelKey] ?? 'Unknown'),
-    value: toNumber(item?.impressions ?? item?.event_count ?? item?.clicks),
+    value: toNumber(item?.[valueKey]),
     secondary: secondary ? secondary(item) : undefined,
   }));
 }
 
-function normalizeWorkspaceAnalytics(payload: any, sitePayload: any, countryPayload: any, engagementPayload: any): WorkspaceAnalytics {
-  const source = payload?.stats ?? payload ?? {};
-  const topCampaigns = Array.isArray(source?.topCampaigns ?? source?.top_campaigns)
-    ? (source.topCampaigns ?? source.top_campaigns)
-    : [];
-  const topTags = Array.isArray(source?.topTags ?? source?.top_tags)
-    ? (source.topTags ?? source.top_tags)
-    : [];
-  const topSites = normalizeRankedMetricList(sitePayload?.breakdown ?? [], 'site_domain', (item) => fmtCtr(toNumber(item?.ctr)));
-  const topCountries = normalizeRankedMetricList(countryPayload?.breakdown ?? [], 'country', (item) => fmtCtr(toNumber(item?.ctr)));
-  const engagements = normalizeRankedMetricList(engagementPayload?.breakdown ?? [], 'event_type', (item) => {
-    const duration = toNumber(item?.total_duration_ms);
-    return duration > 0 ? `${fmtNum(duration)} ms` : undefined;
-  });
+function normalizeBreakdownList(items: any[], config: {
+  labelKey: string;
+  secondary?: (item: any) => string | undefined;
+  tertiary?: (item: any) => string | undefined;
+}): BreakdownItem[] {
+  return (Array.isArray(items) ? items : []).map((item) => ({
+    id: item?.id ? String(item.id) : undefined,
+    label: String(item?.[config.labelKey] ?? 'Unknown'),
+    secondary: config.secondary ? config.secondary(item) : undefined,
+    tertiary: config.tertiary ? config.tertiary(item) : undefined,
+    impressions: toNumber(item?.impressions),
+    clicks: toNumber(item?.clicks),
+    ctr: toNumber(item?.ctr),
+  }));
+}
+
+function normalizeWorkspaceAnalytics(
+  workspacePayload: any,
+  campaignPayload: any,
+  tagPayload: any,
+  sitePayload: any,
+  countryPayload: any,
+  engagementPayload: any,
+  creativePayload: any,
+  variantPayload: any,
+): WorkspaceAnalytics {
+  const source = workspacePayload?.stats ?? workspacePayload ?? {};
 
   return {
     totalImpressions: toNumber(source?.totalImpressions ?? source?.total_impressions),
@@ -97,25 +137,36 @@ function normalizeWorkspaceAnalytics(payload: any, sitePayload: any, countryPayl
     activeCampaigns: toNumber(source?.activeCampaigns ?? source?.active_campaigns),
     activeTags: toNumber(source?.activeTags ?? source?.active_tags),
     totalCreatives: toNumber(source?.totalCreatives ?? source?.total_creatives),
-    topCampaigns: topCampaigns.map((campaign: any) => ({
-      id: String(campaign?.id ?? ''),
-      name: String(campaign?.name ?? 'Untitled campaign'),
-      status: String(campaign?.status ?? 'unknown'),
-      impressions: toNumber(campaign?.impressions),
-      clicks: toNumber(campaign?.clicks),
-      ctr: toNumber(campaign?.ctr),
+    campaigns: normalizeBreakdownList(campaignPayload?.breakdown ?? [], {
+      labelKey: 'name',
+      secondary: (item) => String(item?.status ?? 'unknown'),
+    }),
+    tags: normalizeBreakdownList(tagPayload?.breakdown ?? [], {
+      labelKey: 'name',
+      secondary: (item) => String(item?.format ?? 'unknown'),
+      tertiary: (item) => String(item?.status ?? 'unknown'),
+    }),
+    creatives: normalizeBreakdownList(creativePayload?.breakdown ?? [], {
+      labelKey: 'name',
+      secondary: (item) => `${String(item?.source_kind ?? 'unknown')} · v${String(item?.version_number ?? '—')}`,
+      tertiary: (item) => String(item?.serving_format ?? 'unknown'),
+    }),
+    variants: (Array.isArray(variantPayload?.breakdown) ? variantPayload.breakdown : []).map((item: any) => ({
+      id: String(item?.id ?? ''),
+      creativeName: String(item?.creative_name ?? 'Untitled creative'),
+      label: String(item?.label ?? 'Variant'),
+      size: `${toNumber(item?.width)}x${toNumber(item?.height)}`,
+      status: String(item?.status ?? 'unknown'),
+      impressions: toNumber(item?.impressions),
+      clicks: toNumber(item?.clicks),
+      ctr: toNumber(item?.ctr),
     })),
-    topTags: topTags.map((tag: any) => ({
-      id: String(tag?.id ?? ''),
-      name: String(tag?.name ?? 'Untitled tag'),
-      format: String(tag?.format ?? 'unknown'),
-      impressions: toNumber(tag?.impressions),
-      clicks: toNumber(tag?.clicks),
-      ctr: toNumber(tag?.ctr),
-    })),
-    topSites,
-    topCountries,
-    engagements,
+    topSites: normalizeRankedMetricList(sitePayload?.breakdown ?? [], 'site_domain', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability`),
+    topCountries: normalizeRankedMetricList(countryPayload?.breakdown ?? [], 'country', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability`),
+    engagements: normalizeRankedMetricList(engagementPayload?.breakdown ?? [], 'event_type', 'event_count', (item) => {
+      const duration = toNumber(item?.total_duration_ms);
+      return duration > 0 ? `${fmtNum(duration)} ms total` : undefined;
+    }),
   };
 }
 
@@ -157,40 +208,146 @@ function RankedList({ title, emptyLabel, items }: { title: string; emptyLabel: s
   );
 }
 
+function BreakdownTable({
+  title,
+  emptyLabel,
+  rows,
+  secondaryLabel,
+}: {
+  title: string;
+  emptyLabel: string;
+  rows: BreakdownItem[];
+  secondaryLabel: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <h2 className="text-base font-semibold text-slate-800">{title}</h2>
+      </div>
+      {!rows.length ? (
+        <div className="px-5 py-10 text-center text-sm text-slate-400">{emptyLabel}</div>
+      ) : (
+        <table className="min-w-full divide-y divide-slate-100">
+          <thead className="bg-slate-50">
+            <tr>
+              {['Name', secondaryLabel, 'Impressions', 'Clicks', 'CTR'].map((heading) => (
+                <th key={heading} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {rows.map((row, index) => (
+              <tr key={row.id ?? `${row.label}-${index}`} className="hover:bg-slate-50">
+                <td className="px-4 py-3 text-sm font-medium text-slate-800 max-w-[220px] truncate">{row.label}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">
+                  {row.secondary ?? '—'}
+                  {row.tertiary ? <span className="block text-xs text-slate-400 mt-0.5">{row.tertiary}</span> : null}
+                </td>
+                <td className="px-4 py-3 text-sm text-slate-700">{fmtNum(row.impressions)}</td>
+                <td className="px-4 py-3 text-sm text-slate-700">{fmtNum(row.clicks)}</td>
+                <td className="px-4 py-3 text-sm text-slate-700">{fmtCtr(row.ctr)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function VariantTable({ rows }: { rows: VariantItem[] }) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <h2 className="text-base font-semibold text-slate-800">Top Variants</h2>
+      </div>
+      {!rows.length ? (
+        <div className="px-5 py-10 text-center text-sm text-slate-400">No variant data available</div>
+      ) : (
+        <table className="min-w-full divide-y divide-slate-100">
+          <thead className="bg-slate-50">
+            <tr>
+              {['Creative', 'Variant', 'Size', 'Status', 'Impressions', 'CTR'].map((heading) => (
+                <th key={heading} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {rows.map((row) => (
+              <tr key={row.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3 text-sm font-medium text-slate-800 max-w-[200px] truncate">{row.creativeName}</td>
+                <td className="px-4 py-3 text-sm text-slate-700">{row.label}</td>
+                <td className="px-4 py-3 text-sm text-slate-700">{row.size}</td>
+                <td className="px-4 py-3 text-sm text-slate-600 capitalize">{row.status}</td>
+                <td className="px-4 py-3 text-sm text-slate-700">{fmtNum(row.impressions)}</td>
+                <td className="px-4 py-3 text-sm text-slate-700">{fmtCtr(row.ctr)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 export default function AnalyticsDashboard() {
   const [data, setData] = useState<WorkspaceAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange>(30);
+
+  const query = useMemo(() => makeQuery(dateRange), [dateRange]);
 
   const load = () => {
     setLoading(true);
     setError('');
+
     Promise.all([
-      fetch('/v1/reporting/workspace', { credentials: 'include' }).then((r) => {
+      fetch(`/v1/reporting/workspace${query}`, { credentials: 'include' }).then((r) => {
         if (!r.ok) throw new Error('Failed to load analytics');
         return r.json();
       }),
-      fetch('/v1/reporting/workspace/site-breakdown', { credentials: 'include' }).then((r) => {
+      fetch(`/v1/reporting/workspace/campaign-breakdown${query}`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load campaign breakdown');
+        return r.json();
+      }),
+      fetch(`/v1/reporting/workspace/tag-breakdown${query}`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load tag breakdown');
+        return r.json();
+      }),
+      fetch(`/v1/reporting/workspace/site-breakdown${query}`, { credentials: 'include' }).then((r) => {
         if (!r.ok) throw new Error('Failed to load site breakdown');
         return r.json();
       }),
-      fetch('/v1/reporting/workspace/country-breakdown', { credentials: 'include' }).then((r) => {
+      fetch(`/v1/reporting/workspace/country-breakdown${query}`, { credentials: 'include' }).then((r) => {
         if (!r.ok) throw new Error('Failed to load country breakdown');
         return r.json();
       }),
-      fetch('/v1/reporting/workspace/engagement-breakdown', { credentials: 'include' }).then((r) => {
+      fetch(`/v1/reporting/workspace/engagement-breakdown${query}`, { credentials: 'include' }).then((r) => {
         if (!r.ok) throw new Error('Failed to load engagement breakdown');
         return r.json();
       }),
+      fetch(`/v1/reporting/workspace/creative-breakdown${query}`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load creative breakdown');
+        return r.json();
+      }),
+      fetch(`/v1/reporting/workspace/variant-breakdown${query}`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load variant breakdown');
+        return r.json();
+      }),
     ])
-      .then(([workspace, sites, countries, engagements]) => {
-        setData(normalizeWorkspaceAnalytics(workspace, sites, countries, engagements));
+      .then(([workspace, campaigns, tags, sites, countries, engagements, creatives, variants]) => {
+        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, engagements, creatives, variants));
       })
       .catch((loadError: any) => setError(loadError.message ?? 'Failed to load analytics'))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, []);
+  useEffect(load, [query]);
 
   if (loading) {
     return (
@@ -212,17 +369,36 @@ export default function AnalyticsDashboard() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Analytics</h1>
-          <p className="text-sm text-slate-500 mt-1">Workspace-level performance overview with site, country, and engagement signals.</p>
+          <h1 className="text-2xl font-bold text-slate-800">Reporting</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Workspace-level performance with site, country, tag, creative, variant, and rich media signals.
+          </p>
         </div>
-        <button
-          onClick={load}
-          className="px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-        >
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-slate-200 bg-white p-1">
+            {DATE_RANGES.map((range) => (
+              <button
+                key={range}
+                onClick={() => setDateRange(range)}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  dateRange === range
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {formatRange(range)}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={load}
+            className="px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
@@ -238,77 +414,43 @@ export default function AnalyticsDashboard() {
         <KpiCard label="Active Campaigns" value={String(data?.activeCampaigns ?? 0)} icon="📋" color="text-slate-800" />
         <KpiCard label="Active Tags" value={String(data?.activeTags ?? 0)} icon="🏷️" color="text-slate-800" />
         <KpiCard label="Creatives" value={String(data?.totalCreatives ?? 0)} icon="🧩" color="text-slate-800" />
-        <KpiCard label="Avg Hover Time" value={`${Math.round(((data?.totalHoverDurationMs ?? 0) / Math.max(data?.totalEngagements ?? 1, 1))).toLocaleString()} ms`} icon="🖐️" color="text-slate-800" />
+        <KpiCard
+          label="Avg Hover Time"
+          value={`${Math.round((data?.totalHoverDurationMs ?? 0) / Math.max(data?.totalEngagements ?? 1, 1)).toLocaleString()} ms`}
+          icon="🖐️"
+          color="text-slate-800"
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <h2 className="text-base font-semibold text-slate-800">Top Campaigns</h2>
-          </div>
-          {!data?.topCampaigns?.length ? (
-            <div className="px-5 py-10 text-center text-sm text-slate-400">No campaign data available</div>
-          ) : (
-            <table className="min-w-full divide-y divide-slate-100">
-              <thead className="bg-slate-50">
-                <tr>
-                  {['Campaign', 'Status', 'Impressions', 'CTR'].map((heading) => (
-                    <th key={heading} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      {heading}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {data.topCampaigns.map((campaign) => (
-                  <tr key={campaign.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 text-sm font-medium text-slate-800 max-w-[180px] truncate">{campaign.name}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600 capitalize">{campaign.status}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{fmtNum(campaign.impressions)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{fmtCtr(campaign.ctr)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <h2 className="text-base font-semibold text-slate-800">Top Tags</h2>
-          </div>
-          {!data?.topTags?.length ? (
-            <div className="px-5 py-10 text-center text-sm text-slate-400">No tag data available</div>
-          ) : (
-            <table className="min-w-full divide-y divide-slate-100">
-              <thead className="bg-slate-50">
-                <tr>
-                  {['Tag', 'Format', 'Impressions', 'CTR'].map((heading) => (
-                    <th key={heading} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      {heading}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {data.topTags.map((tag) => (
-                  <tr key={tag.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 text-sm font-medium text-slate-800 max-w-[180px] truncate">{tag.name}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{tag.format}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{fmtNum(tag.impressions)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{fmtCtr(tag.ctr)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
         <RankedList title="Top Sites" emptyLabel="No site data available" items={data?.topSites ?? []} />
         <RankedList title="Top Countries" emptyLabel="No country data available" items={data?.topCountries ?? []} />
         <RankedList title="Engagement Mix" emptyLabel="No engagement data available" items={data?.engagements ?? []} />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+        <BreakdownTable
+          title="Campaign Performance"
+          emptyLabel="No campaign data available"
+          rows={data?.campaigns ?? []}
+          secondaryLabel="Status"
+        />
+        <BreakdownTable
+          title="Tag Performance"
+          emptyLabel="No tag data available"
+          rows={data?.tags ?? []}
+          secondaryLabel="Format"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        <BreakdownTable
+          title="Creative Performance"
+          emptyLabel="No creative data available"
+          rows={data?.creatives ?? []}
+          secondaryLabel="Version"
+        />
+        <VariantTable rows={data?.variants ?? []} />
       </div>
     </div>
   );
