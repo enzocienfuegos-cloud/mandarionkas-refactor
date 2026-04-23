@@ -313,6 +313,22 @@ export async function assignCreativeVersionToTag(input: {
   });
 }
 
+export async function deleteCreativeById(creativeId: string) {
+  const response = await fetch(`/v1/creatives/${creativeId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const requestId = payload && typeof payload === 'object' ? payload.requestId ?? payload.request_id ?? null : null;
+    const message = payload && typeof payload === 'object'
+      ? payload.message ?? payload.error ?? null
+      : null;
+    const suffix = requestId ? ` (ref ${requestId})` : '';
+    throw new Error(message ? `${message}${suffix}` : `Request failed (${response.status})${suffix}`);
+  }
+}
+
 export async function createCreativeSizeVariant(input: {
   creativeVersionId: string;
   label?: string;

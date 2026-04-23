@@ -11,6 +11,7 @@ import {
   createTag,
   createCreativeSizeVariant,
   createCreativeSizeVariantsBulk,
+  deleteCreativeById,
   loadCreativesWithLatestVersion,
   loadCreativeIngestions,
   loadCreativeSizeVariants,
@@ -204,6 +205,22 @@ export default function CreativeLibrary() {
     } catch (assignError: any) {
       const message = assignError?.message ?? 'Assignment failed';
       setBindingState(current => current ? { ...current, loading: false, error: message } : current);
+    }
+  };
+
+  const handleDeleteCreative = async (creative: Creative) => {
+    const confirmed = window.confirm(`Delete "${creative.name}"? This will remove its published versions and assignments.`);
+    if (!confirmed) return;
+
+    setError('');
+    setSuccessMessage('');
+    try {
+      await deleteCreativeById(creative.id);
+      await load();
+      setSuccessMessage(`Deleted "${creative.name}".`);
+      window.setTimeout(() => setSuccessMessage(''), 3500);
+    } catch (deleteError: any) {
+      setError(deleteError.message ?? 'Failed to delete creative');
     }
   };
 
@@ -577,9 +594,22 @@ export default function CreativeLibrary() {
                             >
                               Assign to tag
                             </button>
+                            <button
+                              onClick={() => void handleDeleteCreative(creative)}
+                              className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                            >
+                              Delete
+                            </button>
                           </>
                         )}
-                        {!version && <span className="text-xs text-slate-400">—</span>}
+                        {!version && (
+                          <button
+                            onClick={() => void handleDeleteCreative(creative)}
+                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
