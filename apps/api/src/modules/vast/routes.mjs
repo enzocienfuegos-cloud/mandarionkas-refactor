@@ -39,6 +39,9 @@ function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedC
     const url = new URL(String(creativeUrl));
     if (shouldInjectTrackedClick && clickTrackUrl) {
       url.searchParams.set('smx_click', clickTrackUrl);
+      url.searchParams.set('clickTag', clickTrackUrl);
+      url.searchParams.set('clickTAG', clickTrackUrl);
+      url.searchParams.set('bsClickTAG', clickTrackUrl);
     }
     return url.toString();
   } catch {
