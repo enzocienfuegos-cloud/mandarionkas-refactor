@@ -119,6 +119,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   var tagId = ${JSON.stringify(tagId)};
   var baseUrl = ${JSON.stringify(baseUrl)};
   var w = ${width}, h = ${height};
+  var servingFormat = ${JSON.stringify(servingFormat)};
   var clickUrl = ${JSON.stringify(clickTrackUrl)};
   var creativeUrl = ${JSON.stringify(creativeUrl)};
   var impUrl = ${JSON.stringify(impressionUrl)};
