@@ -7,6 +7,13 @@ import {
 import { extractIp, resolveIp } from '@smx/geo';
 
 const PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function normalizeUuid(value) {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  const text = String(candidate ?? '').trim();
+  return UUID_RE.test(text) ? text : null;
+}
 
 function parseSiteContext(rawUrl) {
   if (!rawUrl) return null;
@@ -125,7 +132,10 @@ export function handleTrackingRoutes(app, { pool }) {
   // GET /track/impression/:tagId — records impression, returns 1x1 transparent GIF
   app.get('/track/impression/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, imp: impressionId, c: creativeId, csv: creativeSizeVariantId } = req.query;
+    const { ws: workspaceId, imp: rawImpressionId, c: rawCreativeId, csv: rawCreativeSizeVariantId } = req.query;
+    const impressionId = normalizeUuid(rawImpressionId);
+    const creativeId = normalizeUuid(rawCreativeId);
+    const creativeSizeVariantId = normalizeUuid(rawCreativeSizeVariantId);
 
     if (!workspaceId) {
       // Still return pixel, just don't record
@@ -146,7 +156,9 @@ export function handleTrackingRoutes(app, { pool }) {
         creative_id: creativeId ?? null,
         creative_size_variant_id: creativeSizeVariantId ?? null,
         ...context,
-    }).catch(() => {});
+    }).catch((error) => {
+      req.log?.warn?.({ err: error, tagId, workspaceId, impressionId }, 'failed to record impression');
+    });
 
     reply.header('Content-Type', 'image/gif');
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -158,21 +170,38 @@ export function handleTrackingRoutes(app, { pool }) {
   // GET /track/click/:tagId — records click, redirects to clickUrl
   app.get('/track/click/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, url: destinationUrl, imp: impressionId, c: creativeId, csv: creativeSizeVariantId, pu: pageUrl } = req.query;
+    const { ws: workspaceId, url: destinationUrl, imp: rawImpressionId, c: rawCreativeId, csv: rawCreativeSizeVariantId } = req.query;
+    const impressionId = normalizeUuid(rawImpressionId);
+    const creativeId = normalizeUuid(rawCreativeId);
+    const creativeSizeVariantId = normalizeUuid(rawCreativeSizeVariantId);
 
     const context = await collectTrackingContext(req, req.query);
 
     if (workspaceId) {
-      // Fire-and-forget
-      recordClick(pool, {
-        tag_id: tagId,
-        workspace_id: workspaceId,
-        creative_id: creativeId ?? null,
-        creative_size_variant_id: creativeSizeVariantId ?? null,
-        impression_id: impressionId ?? null,
-        redirect_url: destinationUrl ?? null,
-        ...context,
-      }).catch(() => {});
+      try {
+        await recordClick(pool, {
+          tag_id: tagId,
+          workspace_id: workspaceId,
+          creative_id: creativeId ?? null,
+          creative_size_variant_id: creativeSizeVariantId ?? null,
+          impression_id: impressionId ?? null,
+          redirect_url: destinationUrl ?? null,
+          ...context,
+        });
+      } catch (error) {
+        req.log?.error?.(
+          {
+            err: error,
+            tagId,
+            workspaceId,
+            impressionId,
+            creativeId,
+            creativeSizeVariantId,
+            destinationUrl,
+          },
+          'failed to record click',
+        );
+      }
     }
 
     if (destinationUrl) {
@@ -196,7 +225,10 @@ export function handleTrackingRoutes(app, { pool }) {
   // GET /track/viewability/:tagId — records viewability event
   app.get('/track/viewability/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, vp, imp: impressionId, c: creativeId, csv: creativeSizeVariantId, event, state, method, ms } = req.query;
+    const { ws: workspaceId, vp, imp: rawImpressionId, c: rawCreativeId, csv: rawCreativeSizeVariantId, event, state, method, ms } = req.query;
+    const impressionId = normalizeUuid(rawImpressionId);
+    const creativeId = normalizeUuid(rawCreativeId);
+    const creativeSizeVariantId = normalizeUuid(rawCreativeSizeVariantId);
 
     if (workspaceId) {
       const viewable = vp !== '0' && vp !== 'false';
@@ -209,7 +241,9 @@ export function handleTrackingRoutes(app, { pool }) {
         state: state ?? (viewable ? 'viewable' : 'measured'),
         method: method ?? null,
         duration_ms: ms ?? null,
-      }).catch(() => {});
+      }).catch((error) => {
+        req.log?.warn?.({ err: error, tagId, workspaceId, impressionId }, 'failed to record viewability');
+      });
       if (event) {
         recordEngagementEvent(pool, {
           tag_id: tagId,
@@ -219,7 +253,9 @@ export function handleTrackingRoutes(app, { pool }) {
           impression_id: impressionId ?? null,
           event_type: String(event),
           ...context,
-        }).catch(() => {});
+        }).catch((error) => {
+          req.log?.warn?.({ err: error, tagId, workspaceId, impressionId, event }, 'failed to record viewability engagement event');
+        });
       }
     }
 
@@ -234,12 +270,15 @@ export function handleTrackingRoutes(app, { pool }) {
     const { tagId } = req.params;
     const {
       ws: workspaceId,
-      imp: impressionId,
-      c: creativeId,
-      csv: creativeSizeVariantId,
+      imp: rawImpressionId,
+      c: rawCreativeId,
+      csv: rawCreativeSizeVariantId,
       event,
       hd: hoverDurationMs,
     } = req.query;
+    const impressionId = normalizeUuid(rawImpressionId);
+    const creativeId = normalizeUuid(rawCreativeId);
+    const creativeSizeVariantId = normalizeUuid(rawCreativeSizeVariantId);
 
     if (workspaceId && event) {
       const context = await collectTrackingContext(req, req.query);
@@ -252,7 +291,9 @@ export function handleTrackingRoutes(app, { pool }) {
         event_type: String(event),
         hover_duration_ms: hoverDurationMs ?? null,
         ...context,
-      }).catch(() => {});
+      }).catch((error) => {
+        req.log?.warn?.({ err: error, tagId, workspaceId, impressionId, event }, 'failed to record engagement event');
+      });
     }
 
     reply.header('Content-Type', 'image/gif');
