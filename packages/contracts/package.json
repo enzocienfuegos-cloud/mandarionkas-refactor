@@ -4,7 +4,12 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./dsp-macros": {
+      "types": "./src/dsp-macros.d.ts",
+      "import": "./src/dsp-macros.mjs",
+      "default": "./src/dsp-macros.mjs"
+    }
   },
   "devDependencies": {
     "typescript": "^5.4.5"

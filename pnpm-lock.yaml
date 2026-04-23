@@ -32,6 +32,9 @@ importers:
       '@fastify/session':
         specifier: ^10.9.0
         version: 10.9.0
+      '@smx/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@smx/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -111,6 +114,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@smx/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       react:
         specifier: ^18.3.1
         version: 18.3.1

@@ -6,6 +6,7 @@ import {
 } from '@smx/db/tracking';
 import { getTagById } from '@smx/db/tags';
 import { extractIp, resolveIp } from '@smx/geo';
+import { readDspMacroValue } from '@smx/contracts/dsp-macros';
 
 const PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -118,15 +119,16 @@ function buildIdentityKeys({ query = {}, headers = {}, cookies = {} }) {
     });
   };
 
+  const dspHint = query.smx_dsp;
   pushKey('device_id', query.did, 'query', true);
   pushKey('device_id', headers['x-device-id'], 'header', true);
   pushKey('device_id', cookies.smx_device_id ?? cookies.device_id, 'cookie', true);
-  pushKey('device_id', query.ifa ?? query.googleAdvertisingId ?? query.idfa, 'query', false, { provider: 'basis' });
+  pushKey('device_id', readDspMacroValue(query, 'deviceId', dspHint), 'query', false, { provider: String(dspHint || 'dsp') });
 
   pushKey('cookie_id', query.cid, 'query', true);
   pushKey('cookie_id', headers['x-cookie-id'], 'header', true);
   pushKey('cookie_id', cookies.smx_cookie_id ?? cookies.cookie_id, 'cookie', true);
-  pushKey('cookie_id', query.basis_uid ?? query.internalUserId, 'query', false, { provider: 'basis' });
+  pushKey('cookie_id', readDspMacroValue(query, 'cookieId', dspHint), 'query', false, { provider: String(dspHint || 'dsp') });
 
   pushKey('external_user_id', query.euid, 'query', true);
   pushKey('external_user_id', headers['x-external-user-id'], 'header', true);
@@ -177,7 +179,8 @@ async function collectTrackingContext(req, query = {}) {
   const referer = req.headers['referer'] ?? req.headers['referrer'] ?? null;
   const pageContext = parseSiteContext(query.pu);
   const refererContext = parseSiteContext(referer);
-  const macroDomain = readTrackingValue(query.sd, query.domain, query.inventoryUnitReportingName);
+  const macroDomain = readDspMacroValue(query, 'siteDomain', query.smx_dsp)
+    ?? readTrackingValue(query.sd, query.domain, query.inventoryUnitReportingName);
   const requestHost = resolveRequestHost(req);
   const selectedContext =
     (pageContext?.siteDomain && pageContext.siteDomain !== requestHost ? pageContext : null)

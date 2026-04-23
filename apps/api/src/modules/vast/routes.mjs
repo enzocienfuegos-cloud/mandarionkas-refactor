@@ -1,5 +1,5 @@
 import { getTagServingSnapshot, getTagServingSnapshotById } from '@smx/db/tags';
-import { wrapTrackedClickUrlWithDspMacro } from '../tags/dsp-macros.mjs';
+import { readDspMacroValue, wrapTrackedClickUrlWithDspMacro } from '@smx/contracts/dsp-macros';
 
 const BASE_URL = (process.env.BASE_URL ?? '').trim();
 
@@ -142,7 +142,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   clickTrackParams.set('url', clickUrl);
   const rawClickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
   const clickTrackUrl = wrapTrackedClickUrlWithDspMacro(rawClickTrackUrl, query);
-  const dspClickMacro = String(query?.dsp_click ?? query?.clickMacroEnc ?? query?.click_macro_enc ?? '');
+  const dspClickMacro = String(readDspMacroValue(query, 'clickMacro') ?? '');
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
   const internalClickSignals = Array.isArray(servingCandidate?.internalClickSignals)
@@ -401,7 +401,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
   clickTrackParams.set('url', clickUrl);
   const rawClickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
   const clickTrackUrl = wrapTrackedClickUrlWithDspMacro(rawClickTrackUrl, query);
-  const dspClickMacro = String(query?.dsp_click ?? query?.clickMacroEnc ?? query?.click_macro_enc ?? '');
+  const dspClickMacro = String(readDspMacroValue(query, 'clickMacro') ?? '');
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
   const internalClickSignals = Array.isArray(servingCandidate?.internalClickSignals)
@@ -539,7 +539,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
         }
         function resolveClickHref(url, macroOverride) {
           var trackedUrl = appendIdentity(url);
-          var macroValue = macroOverride || search.get('dsp_click') || '';
+          var macroValue = macroOverride || search.get('smx_dsp_click') || '';
           if (!macroValue) return trackedUrl;
           try {
             return decodeURIComponent(macroValue) + encodeURIComponent(trackedUrl);

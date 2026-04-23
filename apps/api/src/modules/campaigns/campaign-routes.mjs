@@ -10,7 +10,7 @@ import {
   createAdvertiser,
   updateAdvertiser,
 } from '@smx/db/campaigns';
-import { applyDspMacrosToUrl, readCampaignDsp } from '../tags/dsp-macros.mjs';
+import { applyDspMacrosToUrl, readCampaignDsp } from '@smx/contracts/dsp-macros';
 
 export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
   function getRequestBaseUrl(req) {

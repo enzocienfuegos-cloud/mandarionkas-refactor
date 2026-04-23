@@ -1,6 +1,6 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { applyDspMacrosToUrl, readCampaignDsp } from './dspMacros';
+import { applyDspMacrosToUrl, getDspMacroConfig, readCampaignDsp } from '@smx/contracts/dsp-macros';
 
 interface Campaign {
   id: string;
@@ -161,29 +161,30 @@ function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = '
 }
 
 function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp = ''): string {
-  const basisNote = readCampaignDsp({ dsp: campaignDsp }) === 'basis'
-    ? ' Basis macros are auto-injected for delivery context and click passthrough.'
+  const selectedConfig = getDspMacroConfig(campaignDsp);
+  const dspNote = selectedConfig
+    ? ` ${selectedConfig.label} macros are auto-injected for delivery context and click passthrough.`
     : '';
   if (tag.format === 'VAST') {
     return variant === 'vast-url'
-      ? `Use this VAST tag URL in a video player, SSP, or DSP that expects VAST XML.${basisNote}`
-      : `Use this XML wrapper only if your integration explicitly requires inline VAST XML.${basisNote}`;
+      ? `Use this VAST tag URL in a video player, SSP, or DSP that expects VAST XML.${dspNote}`
+      : `Use this XML wrapper only if your integration explicitly requires inline VAST XML.${dspNote}`;
   }
   if (tag.format === 'display') {
     if (variant === 'display-iframe') {
-      return `Use the iframe tag for sandboxed display placements or when a publisher requests iframe delivery.${basisNote}`;
+      return `Use the iframe tag for sandboxed display placements or when a publisher requests iframe delivery.${dspNote}`;
     }
     if (variant === 'display-ins') {
-      return `Use the ins tag when the publisher expects a slot placeholder plus inline bootstrap code.${basisNote}`;
+      return `Use the ins tag when the publisher expects a slot placeholder plus inline bootstrap code.${dspNote}`;
     }
-    return `Use the JavaScript tag for standard display placements. This is not a VAST tag.${basisNote}`;
+    return `Use the JavaScript tag for standard display placements. This is not a VAST tag.${dspNote}`;
   }
   if (tag.format === 'tracker') {
     return variant === 'tracker-impression'
-      ? `Use this 1x1 GIF URL as a pure impression tracker in external platforms.${basisNote}`
-      : `Use this click tracker URL in Meta or other platforms when you only need click measurement.${basisNote}`;
+      ? `Use this 1x1 GIF URL as a pure impression tracker in external platforms.${dspNote}`
+      : `Use this click tracker URL in Meta or other platforms when you only need click measurement.${dspNote}`;
   }
-  return `Use the JavaScript tag to initialize the native placement loader.${basisNote}`;
+  return `Use the JavaScript tag to initialize the native placement loader.${dspNote}`;
 }
 
 function getDisplaySizePreset(width?: string, height?: string): string {
@@ -207,6 +208,7 @@ export default function TagBuilder() {
   const [copied, setCopied] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const selectedCampaignDsp = readCampaignDsp(campaigns.find((campaign) => campaign.id === form.campaignId)?.metadata ?? null);
+  const selectedCampaignMacroConfig = getDspMacroConfig(selectedCampaignDsp);
 
   useEffect(() => {
     fetch('/v1/campaigns', { credentials: 'include' })
@@ -400,9 +402,9 @@ export default function TagBuilder() {
             </select>
           </div>
 
-          {selectedCampaignDsp === 'basis' && (
+          {selectedCampaignMacroConfig && (
             <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs text-indigo-700">
-              Basis selected on this campaign. Generated tag URLs will auto-inject Basis macros like <code>{'{pageUrlEnc}'}</code>, <code>{'{domain}'}</code>, <code>{'{clickMacroEnc}'}</code>, privacy strings, and mobile IDs where applicable.
+              {selectedCampaignMacroConfig.label} selected on this campaign. Generated tag URLs will auto-inject configured DSP macros like <code>{'{pageUrlEnc}'}</code>, <code>{'{domain}'}</code>, click macro passthrough, privacy strings, and identity hints where applicable.
             </div>
           )}
 

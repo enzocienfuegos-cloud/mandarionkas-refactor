@@ -7,7 +7,7 @@ import {
   getTagWithCreatives,
 } from '@smx/db/tags';
 import { listTagBindings, updateTagBinding } from '@smx/db';
-import { applyDspMacrosToUrl, readCampaignDsp } from './dsp-macros.mjs';
+import { applyDspMacrosToUrl, readCampaignDsp } from '@smx/contracts/dsp-macros';
 
 function getRequestBaseUrl(req) {
   const forwardedProto = req.headers['x-forwarded-proto'];

@@ -1,4 +1,4 @@
-const DSP_MACRO_CONFIGS = {
+export const DSP_MACRO_CONFIGS = {
   basis: {
     label: 'Basis',
     queryParams: {
@@ -19,6 +19,12 @@ const DSP_MACRO_CONFIGS = {
       basis_uid: '{internalUserId}',
       dsp_click: '{clickMacroEnc}',
     },
+    aliases: {
+      clickMacro: ['smx_dsp_click', 'dsp_click', 'clickMacroEnc', 'click_macro_enc'],
+      siteDomain: ['sd', 'domain', 'inventoryUnitReportingName'],
+      deviceId: ['ifa', 'googleAdvertisingId', 'idfa'],
+      cookieId: ['basis_uid', 'internalUserId'],
+    },
   },
 };
 
@@ -30,8 +36,7 @@ function readValue(value) {
 
 export function normalizeDsp(value) {
   const text = readValue(value);
-  if (!text) return '';
-  return text.toLowerCase();
+  return text ? text.toLowerCase() : '';
 }
 
 export function readCampaignDsp(metadata) {
@@ -44,21 +49,53 @@ export function getDspMacroConfig(dsp) {
   return normalized ? (DSP_MACRO_CONFIGS[normalized] ?? null) : null;
 }
 
+export function listSupportedDsps() {
+  return Object.entries(DSP_MACRO_CONFIGS).map(([value, config]) => ({
+    value,
+    label: config.label,
+  }));
+}
+
 export function applyDspMacrosToUrl(rawUrl, dsp, opts = {}) {
   const config = getDspMacroConfig(dsp);
   if (!config || !rawUrl) return rawUrl;
-  const { includeClickMacro = false } = opts;
+  const { includeClickMacro = false, includeDspHint = true } = opts;
 
   try {
     const url = new URL(String(rawUrl));
+    if (includeDspHint) {
+      url.searchParams.set('smx_dsp', normalizeDsp(dsp));
+    }
     for (const [key, value] of Object.entries(config.queryParams)) {
-      if (!includeClickMacro && key === 'dsp_click') continue;
+      if (!includeClickMacro && config.aliases?.clickMacro?.includes(key)) continue;
       url.searchParams.set(key, value);
+    }
+    if (includeClickMacro) {
+      const clickMacroKey = config.aliases?.clickMacro?.find((key) => key in config.queryParams);
+      if (clickMacroKey) {
+        url.searchParams.set('smx_dsp_click', config.queryParams[clickMacroKey]);
+      }
     }
     return url.toString();
   } catch {
     return rawUrl;
   }
+}
+
+export function readDspMacroValue(query = {}, kind, dsp = '') {
+  const normalizedDsp = normalizeDsp(dsp || query?.smx_dsp);
+  const configs = normalizedDsp
+    ? [getDspMacroConfig(normalizedDsp)].filter(Boolean)
+    : Object.values(DSP_MACRO_CONFIGS);
+
+  for (const config of configs) {
+    const aliases = config?.aliases?.[kind] ?? [];
+    for (const alias of aliases) {
+      const value = readValue(query?.[alias]);
+      if (value) return value;
+    }
+  }
+  return null;
 }
 
 function safeDecode(value) {
@@ -70,8 +107,8 @@ function safeDecode(value) {
   }
 }
 
-export function wrapTrackedClickUrlWithDspMacro(clickTrackUrl, query = {}) {
-  const encodedMacro = readValue(query.dsp_click) ?? readValue(query.clickMacroEnc) ?? readValue(query.click_macro_enc);
+export function wrapTrackedClickUrlWithDspMacro(clickTrackUrl, query = {}, dsp = '') {
+  const encodedMacro = readDspMacroValue(query, 'clickMacro', dsp);
   if (!encodedMacro || !clickTrackUrl) return clickTrackUrl;
 
   const prefix = safeDecode(encodedMacro);
