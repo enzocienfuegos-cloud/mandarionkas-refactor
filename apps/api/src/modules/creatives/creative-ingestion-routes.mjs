@@ -15,6 +15,7 @@ import {
 } from '@smx/db';
 import { buildPublicAssetUrl, hasUploadStorageConfig, prepareObjectUpload, sanitizeStorageFilename } from '../storage/object-storage.mjs';
 import { expandAndPublishHtml5Archive } from './html5-publisher.mjs';
+import { enrichVideoPublication } from './video-processor.mjs';
 
 const SOURCE_KINDS = new Set(['html5_zip', 'video_mp4']);
 
@@ -381,6 +382,55 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
             entryPath: htmlPublication.entryPath,
             publishedFrom: 'external_ingestion',
             filesPublished: htmlPublication.filesPublished,
+          },
+        });
+      } else if (row.source_kind === 'video_mp4') {
+        const videoPublication = await enrichVideoPublication({
+          workspaceId: req.authSession.workspaceId,
+          creativeVersionId: creativeVersion.id,
+          sourceStorageKey: row.storage_key,
+        });
+
+        for (const artifact of videoPublication.posterArtifacts) {
+          publishedArtifacts.push(await deps.createCreativeArtifact(client, req.authSession.workspaceId, {
+            creative_version_id: creativeVersion.id,
+            kind: artifact.kind,
+            storage_key: artifact.storageKey,
+            public_url: artifact.publicUrl,
+            mime_type: artifact.mimeType,
+            size_bytes: artifact.sizeBytes,
+            checksum: artifact.checksum,
+            metadata: artifact.metadata,
+          }));
+        }
+
+        publishedVersion = await deps.updateCreativeVersion(client, req.authSession.workspaceId, creativeVersion.id, {
+          width: videoPublication.metadata?.width ?? creativeVersion.width ?? req.body?.width ?? null,
+          height: videoPublication.metadata?.height ?? creativeVersion.height ?? req.body?.height ?? null,
+          durationMs: videoPublication.metadata?.durationMs ?? creativeVersion.duration_ms ?? req.body?.durationMs ?? null,
+          metadata: {
+            ...(creativeVersion.metadata ?? {}),
+            publishedFrom: 'external_ingestion',
+            videoProcessing: videoPublication.processing,
+            codec: videoPublication.metadata?.codec ?? null,
+            bitRate: videoPublication.metadata?.bitRate ?? null,
+            posterGenerated: videoPublication.posterArtifacts.length > 0,
+          },
+        });
+
+        const posterArtifact = videoPublication.posterArtifacts[0] ?? null;
+        creative = await deps.updateCreative(client, req.authSession.workspaceId, creative.id, {
+          width: videoPublication.metadata?.width ?? req.body?.width ?? null,
+          height: videoPublication.metadata?.height ?? req.body?.height ?? null,
+          duration_ms: videoPublication.metadata?.durationMs ?? req.body?.durationMs ?? null,
+          metadata: {
+            ...(creative.metadata ?? {}),
+            sourceKind: row.source_kind,
+            publishedFrom: 'external_ingestion',
+            videoProcessing: videoPublication.processing,
+            posterUrl: posterArtifact?.publicUrl ?? null,
+            codec: videoPublication.metadata?.codec ?? null,
+            bitRate: videoPublication.metadata?.bitRate ?? null,
           },
         });
       }
