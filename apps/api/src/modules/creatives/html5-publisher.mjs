@@ -153,39 +153,62 @@ function buildClickTrackingBootstrap() {
     var params = new URLSearchParams(window.location.search || '');
     var trackedClickUrl = params.get('smx_click');
     if (!trackedClickUrl) return;
+    var originalOpen = typeof window.open === 'function' ? window.open.bind(window) : null;
 
-    window.clickTag = trackedClickUrl;
-    window.clicktag = trackedClickUrl;
-
-    var trackedOpen = function(url, target, features) {
-      var destination = trackedClickUrl;
-      if (typeof window.open === 'function') {
-        return window.open.call(window, destination, target || '_blank', features);
+    function navigateTracked(target, features) {
+      if (originalOpen) {
+        return originalOpen(trackedClickUrl, target || '_blank', features);
       }
-      window.location.href = destination;
+      window.location.href = trackedClickUrl;
       return null;
-    };
-
-    window.open = trackedOpen;
-
-    if (window.Enabler && typeof window.Enabler === 'object') {
-      window.Enabler.exit = function() {
-        return trackedOpen(trackedClickUrl, '_blank');
-      };
-      window.Enabler.exitOverride = function() {
-        return trackedOpen(trackedClickUrl, '_blank');
-      };
     }
 
-    if (window.Adform && typeof window.Adform === 'object') {
-      window.Adform.clickTag = trackedClickUrl;
+    function defineTrackedProperty(name) {
+      try {
+        Object.defineProperty(window, name, {
+          configurable: true,
+          enumerable: true,
+          get: function() {
+            return trackedClickUrl;
+          },
+          set: function() {},
+        });
+      } catch (_) {
+        window[name] = trackedClickUrl;
+      }
     }
 
-    if (window.EB && typeof window.EB === 'object') {
-      window.EB.clickthrough = function() {
-        return trackedOpen(trackedClickUrl, '_blank');
+    function enforceTrackedBindings() {
+      defineTrackedProperty('clickTag');
+      defineTrackedProperty('clicktag');
+      window.open = function(url, target, features) {
+        return navigateTracked(target, features);
       };
+
+      if (window.Enabler && typeof window.Enabler === 'object') {
+        window.Enabler.exit = function() {
+          return navigateTracked('_blank');
+        };
+        window.Enabler.exitOverride = function() {
+          return navigateTracked('_blank');
+        };
+      }
+
+      if (window.Adform && typeof window.Adform === 'object') {
+        window.Adform.clickTag = trackedClickUrl;
+      }
+
+      if (window.EB && typeof window.EB === 'object') {
+        window.EB.clickthrough = function() {
+          return navigateTracked('_blank');
+        };
+      }
     }
+
+    enforceTrackedBindings();
+    document.addEventListener('DOMContentLoaded', enforceTrackedBindings, { once: true });
+    window.addEventListener('load', enforceTrackedBindings, { once: true });
+    setTimeout(enforceTrackedBindings, 250);
   } catch (_) {}
 })();
 </script>`;
