@@ -109,6 +109,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   if (servingCandidate?.creativeId) trackingParams.set('c', String(servingCandidate.creativeId));
   if (servingCandidate?.creativeSizeVariantId) trackingParams.set('csv', String(servingCandidate.creativeSizeVariantId));
   const impressionUrl = `${baseUrl}/track/impression/${tagId}?${trackingParams.toString()}`;
+  const viewabilityUrl = `${baseUrl}/track/viewability/${tagId}?${trackingParams.toString()}`;
   const clickTrackParams = new URLSearchParams(trackingParams);
   clickTrackParams.set('url', clickUrl);
   const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
@@ -124,6 +125,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   var clickUrl = ${JSON.stringify(clickTrackUrl)};
   var creativeUrl = ${JSON.stringify(creativeUrl)};
   var impUrl = ${JSON.stringify(impressionUrl)};
+  var viewabilityUrl = ${JSON.stringify(viewabilityUrl)};
   var engagementBase = ${JSON.stringify(engagementBase)};
   var pageUrl = (typeof window !== 'undefined' && window.location && window.location.href) ? window.location.href : '';
   var hoverStartedAt = null;
@@ -161,6 +163,13 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   // Record impression
   firePixel(appendIdentity(impUrl + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
 
+  var viewabilityTracked = false;
+  function trackViewability() {
+    if (viewabilityTracked) return;
+    viewabilityTracked = true;
+    firePixel(appendIdentity(viewabilityUrl + '&vp=1' + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
+  }
+
   // Build container
   var div = document.createElement('div');
   div.style.cssText = 'width:' + w + 'px;height:' + h + 'px;overflow:hidden;position:relative;display:inline-block;';
@@ -191,7 +200,9 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
     iframe.frameBorder = '0';
     iframe.style.border = '0';
     iframe.style.overflow = 'hidden';
-    div.appendChild(iframe);
+    iframe.style.pointerEvents = 'none';
+    link.style.cssText = 'display:block;width:100%;height:100%;';
+    link.appendChild(iframe);
   } else if (creativeUrl) {
     var img = document.createElement('img');
     img.src = creativeUrl;
@@ -208,6 +219,20 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   }
 
   div.appendChild(link);
+
+  if (typeof IntersectionObserver === 'function') {
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+          trackViewability();
+          observer.disconnect();
+        }
+      });
+    }, { threshold: [0.5] });
+    observer.observe(div);
+  } else {
+    window.setTimeout(trackViewability, 1000);
+  }
 
   // Inject into current script's parent
   if (currentScript && currentScript.parentNode) {
@@ -227,6 +252,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
   if (servingCandidate?.creativeId) trackingParams.set('c', String(servingCandidate.creativeId));
   if (servingCandidate?.creativeSizeVariantId) trackingParams.set('csv', String(servingCandidate.creativeSizeVariantId));
   const impressionUrl = `${baseUrl}/track/impression/${tagId}?${trackingParams.toString()}`;
+  const viewabilityUrl = `${baseUrl}/track/viewability/${tagId}?${trackingParams.toString()}`;
   const clickTrackParams = new URLSearchParams(trackingParams);
   clickTrackParams.set('url', clickUrl);
   const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
@@ -234,7 +260,9 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
   const creativeUrl = servingCandidate?.publicUrl ?? '';
 
   const body = creativeUrl && servingFormat === 'display_html'
-    ? `<iframe src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;"></iframe>`
+    ? `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
+  <iframe src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;pointer-events:none;"></iframe>
+</a>`
     : creativeUrl
     ? `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
   <img src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" alt="" style="display:block;border:0;width:100%;height:100%;" />
@@ -276,6 +304,12 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
         } else if (impPixel) {
           impPixel.src = appendIdentity(${JSON.stringify(impressionUrl)});
         }
+        var viewabilityTracked = false;
+        function trackViewability() {
+          if (viewabilityTracked) return;
+          viewabilityTracked = true;
+          fire(appendIdentity(${JSON.stringify(viewabilityUrl)} + '&vp=1' + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
+        }
         Array.prototype.forEach.call(document.querySelectorAll('a[href]'), function(anchor) {
           anchor.href = appendIdentity(anchor.href);
         });
@@ -297,6 +331,19 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
         document.body.addEventListener('click', function() {
           fire(engagementUrl('interaction'));
         });
+        if (typeof IntersectionObserver === 'function') {
+          var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+              if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+                trackViewability();
+                observer.disconnect();
+              }
+            });
+          }, { threshold: [0.5] });
+          observer.observe(document.body);
+        } else {
+          window.setTimeout(trackViewability, 1000);
+        }
       })();
     </script>
   </body>
