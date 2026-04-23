@@ -4,7 +4,14 @@ type DateRange = 7 | 30 | 90;
 type RangeMode = 'preset' | 'custom';
 type IdentityTypeFilter = '' | 'external_user_id' | 'device_id' | 'cookie_id';
 type IdentitySegmentPreset = '' | 'high_frequency_exposed' | 'clicked_users' | 'engaged_non_clickers';
-type IdentityExportFormat = 'full' | 'activation' | 'click_ids';
+type IdentityExportFormat =
+  | 'full'
+  | 'activation'
+  | 'click_ids'
+  | 'meta_click_ids'
+  | 'google_click_ids'
+  | 'tiktok_click_ids'
+  | 'microsoft_click_ids';
 
 interface RankedMetric {
   label: string;
@@ -47,6 +54,7 @@ interface SavedAudience {
   canonicalType: IdentityTypeFilter | '';
   country: string;
   segmentPreset: IdentitySegmentPreset | '';
+  activationTemplate: IdentityExportFormat;
   campaignId: string;
   tagId: string;
   creativeId: string;
@@ -108,6 +116,10 @@ const IDENTITY_EXPORT_FORMATS: Array<{ value: IdentityExportFormat; label: strin
   { value: 'full', label: 'Full export' },
   { value: 'activation', label: 'Activation export' },
   { value: 'click_ids', label: 'Click IDs only' },
+  { value: 'meta_click_ids', label: 'Meta click IDs' },
+  { value: 'google_click_ids', label: 'Google click IDs' },
+  { value: 'tiktok_click_ids', label: 'TikTok click IDs' },
+  { value: 'microsoft_click_ids', label: 'Microsoft click IDs' },
 ];
 
 function toNumber(value: unknown): number {
@@ -294,6 +306,7 @@ function normalizeWorkspaceAnalytics(
       canonicalType: String(item?.canonical_type ?? '') as IdentityTypeFilter | '',
       country: String(item?.country ?? ''),
       segmentPreset: String(item?.segment_preset ?? '') as IdentitySegmentPreset | '',
+      activationTemplate: String(item?.activation_template ?? 'full') as IdentityExportFormat,
       campaignId: String(item?.campaign_id ?? ''),
       tagId: String(item?.tag_id ?? ''),
       creativeId: String(item?.creative_id ?? ''),
@@ -479,6 +492,7 @@ export default function AnalyticsDashboard() {
     const canonicalType = overrides?.canonicalType ?? identityTypeFilter;
     const country = overrides?.country ?? identityCountryFilter.trim().toUpperCase();
     const segmentPreset = overrides?.segmentPreset ?? identitySegmentPreset;
+    const audienceTemplate = overrides?.activationTemplate ?? identityExportFormat;
     const campaignId = overrides?.campaignId ?? identityCampaignFilter;
     const tagId = overrides?.tagId ?? identityTagFilter;
     const creativeId = overrides?.creativeId ?? identityCreativeFilter;
@@ -494,7 +508,7 @@ export default function AnalyticsDashboard() {
     if (variantId) params.set('variantId', variantId);
     params.set('minImpressions', String(Math.max(minImpressions, 0)));
     params.set('minClicks', String(Math.max(minClicks, 0)));
-    params.set('format', exportFormat ?? identityExportFormat);
+    params.set('format', exportFormat ?? audienceTemplate);
     return `?${params.toString()}`;
   };
 
@@ -642,6 +656,7 @@ export default function AnalyticsDashboard() {
           canonicalType: identityTypeFilter || null,
           country: identityCountryFilter.trim().toUpperCase() || null,
           segmentPreset: identitySegmentPreset || null,
+          activationTemplate: identityExportFormat,
           campaignId: identityCampaignFilter || null,
           tagId: identityTagFilter || null,
           creativeId: identityCreativeFilter || null,
@@ -663,6 +678,7 @@ export default function AnalyticsDashboard() {
     setIdentityTypeFilter(audience.canonicalType);
     setIdentityCountryFilter(audience.country);
     setIdentitySegmentPreset(audience.segmentPreset);
+    setIdentityExportFormat(audience.activationTemplate);
     setIdentityCampaignFilter(audience.campaignId);
     setIdentityTagFilter(audience.tagId);
     setIdentityCreativeFilter(audience.creativeId);
@@ -982,6 +998,7 @@ export default function AnalyticsDashboard() {
                   audience.canonicalType ? IDENTITY_FILTERS.find((option) => option.value === audience.canonicalType)?.label : null,
                   audience.country || null,
                   audience.segmentPreset ? IDENTITY_SEGMENT_PRESETS.find((option) => option.value === audience.segmentPreset)?.label : null,
+                  IDENTITY_EXPORT_FORMATS.find((option) => option.value === audience.activationTemplate)?.label ?? 'Template',
                   audience.campaignId ? campaignOptions.find((item) => item.id === audience.campaignId)?.label ?? 'Campaign scoped' : null,
                   audience.tagId ? tagOptions.find((item) => item.id === audience.tagId)?.label ?? 'Tag scoped' : null,
                   audience.creativeId ? creativeOptions.find((item) => item.id === audience.creativeId)?.label ?? 'Creative scoped' : null,

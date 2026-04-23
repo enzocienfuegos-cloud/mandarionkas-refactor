@@ -68,6 +68,66 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
       ];
     }
 
+    if (format === 'meta_click_ids') {
+      return [
+        ['identity_profile_id', 'canonical_value', 'fbclids', 'clicks', 'country', 'region', 'city'],
+        ...rows.map((row) => ([
+          row.id,
+          row.canonical_value,
+          row.fbclids,
+          row.clicks,
+          row.last_country,
+          row.last_region,
+          row.last_city,
+        ])),
+      ];
+    }
+
+    if (format === 'google_click_ids') {
+      return [
+        ['identity_profile_id', 'canonical_value', 'gclids', 'clicks', 'country', 'region', 'city'],
+        ...rows.map((row) => ([
+          row.id,
+          row.canonical_value,
+          row.gclids,
+          row.clicks,
+          row.last_country,
+          row.last_region,
+          row.last_city,
+        ])),
+      ];
+    }
+
+    if (format === 'tiktok_click_ids') {
+      return [
+        ['identity_profile_id', 'canonical_value', 'ttclids', 'clicks', 'country', 'region', 'city'],
+        ...rows.map((row) => ([
+          row.id,
+          row.canonical_value,
+          row.ttclids,
+          row.clicks,
+          row.last_country,
+          row.last_region,
+          row.last_city,
+        ])),
+      ];
+    }
+
+    if (format === 'microsoft_click_ids') {
+      return [
+        ['identity_profile_id', 'canonical_value', 'msclkids', 'clicks', 'country', 'region', 'city'],
+        ...rows.map((row) => ([
+          row.id,
+          row.canonical_value,
+          row.msclkids,
+          row.clicks,
+          row.last_country,
+          row.last_region,
+          row.last_city,
+        ])),
+      ];
+    }
+
     return [
       [
         'identity_profile_id',

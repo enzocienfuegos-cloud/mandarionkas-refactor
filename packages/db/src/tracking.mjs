@@ -463,6 +463,7 @@ export async function listSavedAudiences(pool, workspaceId) {
        canonical_type,
        country,
        segment_preset,
+       activation_template,
        campaign_id,
         tag_id,
         creative_id,
@@ -490,6 +491,7 @@ export async function createSavedAudience(pool, workspaceId, payload = {}) {
   const canonicalType = payload.canonicalType ? String(payload.canonicalType) : null;
   const country = payload.country ? String(payload.country).trim().toUpperCase() : null;
   const segmentPreset = payload.segmentPreset ? String(payload.segmentPreset) : null;
+  const activationTemplate = payload.activationTemplate ? String(payload.activationTemplate) : 'full';
   const campaignId = payload.campaignId ? String(payload.campaignId) : null;
   const tagId = payload.tagId ? String(payload.tagId) : null;
   const creativeId = payload.creativeId ? String(payload.creativeId) : null;
@@ -499,13 +501,14 @@ export async function createSavedAudience(pool, workspaceId, payload = {}) {
 
   const { rows } = await pool.query(
     `INSERT INTO saved_audiences
-       (workspace_id, name, canonical_type, country, segment_preset, campaign_id, tag_id, creative_id, creative_size_variant_id, min_impressions, min_clicks)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       (workspace_id, name, canonical_type, country, segment_preset, activation_template, campaign_id, tag_id, creative_id, creative_size_variant_id, min_impressions, min_clicks)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      ON CONFLICT (workspace_id, name)
      DO UPDATE SET
        canonical_type = EXCLUDED.canonical_type,
        country = EXCLUDED.country,
        segment_preset = EXCLUDED.segment_preset,
+       activation_template = EXCLUDED.activation_template,
        campaign_id = EXCLUDED.campaign_id,
        tag_id = EXCLUDED.tag_id,
        creative_id = EXCLUDED.creative_id,
@@ -520,6 +523,7 @@ export async function createSavedAudience(pool, workspaceId, payload = {}) {
        canonical_type,
        country,
        segment_preset,
+       activation_template,
        campaign_id,
        tag_id,
        creative_id,
@@ -529,7 +533,7 @@ export async function createSavedAudience(pool, workspaceId, payload = {}) {
        status,
        created_at,
        updated_at`,
-    [workspaceId, name, canonicalType, country, segmentPreset, campaignId, tagId, creativeId, variantId, minImpressions, minClicks],
+    [workspaceId, name, canonicalType, country, segmentPreset, activationTemplate, campaignId, tagId, creativeId, variantId, minImpressions, minClicks],
   );
 
   return rows[0] ?? null;
