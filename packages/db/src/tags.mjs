@@ -347,7 +347,15 @@ function pickArtifactForBinding(binding) {
 function toServingCandidateFromBinding(binding, tag) {
   const artifact = pickArtifactForBinding(binding);
   const publicUrl = artifact?.public_url ?? binding.variant_public_url ?? binding.public_url ?? null;
+  const versionMetadata = binding.version_metadata && typeof binding.version_metadata === 'object'
+    ? binding.version_metadata
+    : {};
+  const clickOverrideEnabled = Boolean(tag.click_url);
   const clickUrl = tag.click_url ?? binding.creative_click_url ?? null;
+  const hasInternalClickTag = Boolean(
+    versionMetadata.hasInternalClickTag
+    || versionMetadata.hasEmbeddedClickTag,
+  );
   if (!publicUrl && binding.serving_format !== 'display_html') {
     return null;
   }
@@ -364,6 +372,8 @@ function toServingCandidateFromBinding(binding, tag) {
     durationMs: binding.duration_ms ?? null,
     mimeType: artifact?.mime_type ?? binding.mime_type ?? null,
     clickUrl,
+    clickOverrideEnabled,
+    hasInternalClickTag,
     publicUrl,
     entryPath: binding.entry_path ?? null,
     artifactKind: artifact?.kind ?? null,
@@ -412,6 +422,7 @@ async function listTagVersionBindings(pool, workspaceId, tagId) {
         cv.status AS creative_version_status,
         cv.public_url,
         cv.entry_path,
+        cv.metadata AS version_metadata,
         cv.mime_type,
         cv.width,
         cv.height,
@@ -447,7 +458,7 @@ async function listTagVersionBindings(pool, workspaceId, tagId) {
        AND tb.tag_id = $2
      GROUP BY
        tb.id, tb.tag_id, tb.creative_version_id, tb.creative_size_variant_id, tb.status, tb.weight, tb.start_at, tb.end_at, tb.created_at,
-       cv.id, cv.creative_id, cv.source_kind, cv.serving_format, cv.status, cv.public_url, cv.entry_path,
+       cv.id, cv.creative_id, cv.source_kind, cv.serving_format, cv.status, cv.public_url, cv.entry_path, cv.metadata,
        cv.mime_type, cv.width, cv.height, cv.duration_ms,
        c.name, c.click_url,
        csv.label, csv.width, csv.height, csv.status, csv.public_url

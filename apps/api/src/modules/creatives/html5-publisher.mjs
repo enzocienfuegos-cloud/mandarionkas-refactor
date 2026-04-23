@@ -122,6 +122,30 @@ function extractHtml5Dimensions(htmlSource) {
   return null;
 }
 
+function detectInternalClickBehavior(htmlSource) {
+  if (!htmlSource) {
+    return { hasInternalClickTag: false, signals: [] };
+  }
+
+  const checks = [
+    { name: 'clickTag', pattern: /\bclickTag\b/i },
+    { name: 'clicktag', pattern: /\bclicktag\b/i },
+    { name: 'exit', pattern: /\bexit\b/i },
+    { name: 'enabler.exit', pattern: /\bEnabler\.exit\b/i },
+    { name: 'adform.clicktag', pattern: /\bAdform\.clickTag\b/i },
+    { name: 'sizmek.clickthrough', pattern: /\bEB\.clickthrough\b/i },
+  ];
+
+  const signals = checks
+    .filter(check => check.pattern.test(htmlSource))
+    .map(check => check.name);
+
+  return {
+    hasInternalClickTag: signals.length > 0,
+    signals,
+  };
+}
+
 export async function expandAndPublishHtml5Archive({
   sourceStorageKey,
   workspaceId,
@@ -165,6 +189,7 @@ export async function expandAndPublishHtml5Archive({
     }
     const entryHtmlSource = await readFile(entryFile.absolutePath, 'utf8');
     const detectedDimensions = extractHtml5Dimensions(entryHtmlSource);
+    const clickBehavior = detectInternalClickBehavior(entryHtmlSource);
 
     const publishedPrefix = `${workspaceId}/creative-published/${creativeVersionId}`;
     const publishedArtifacts = [];
@@ -200,6 +225,8 @@ export async function expandAndPublishHtml5Archive({
       width: detectedDimensions?.width ?? null,
       height: detectedDimensions?.height ?? null,
       dimensionSource: detectedDimensions?.source ?? null,
+      hasInternalClickTag: clickBehavior.hasInternalClickTag,
+      internalClickSignals: clickBehavior.signals,
       artifacts: publishedArtifacts,
     };
   } finally {

@@ -7,15 +7,21 @@ import {
 
 const PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
 
-function parseSiteContext({ pageUrl, referer }) {
-  const rawUrl = pageUrl || referer || null;
-  if (!rawUrl) return { pageUrl: null, siteDomain: null };
+function parseSiteContext(rawUrl) {
+  if (!rawUrl) return null;
   try {
     const parsed = new URL(rawUrl);
     return { pageUrl: parsed.toString(), siteDomain: parsed.hostname.toLowerCase() };
   } catch {
-    return { pageUrl: rawUrl, siteDomain: null };
+    return { pageUrl: String(rawUrl), siteDomain: null };
   }
+}
+
+function resolveRequestHost(req) {
+  const forwardedHost = String(req.headers['x-forwarded-host'] ?? '').split(',')[0].trim().toLowerCase();
+  const directHost = String(req.headers.host ?? '').trim().toLowerCase();
+  const authority = forwardedHost || directHost;
+  return authority.replace(/:\d+$/, '') || null;
 }
 
 function inferDeviceInfo(userAgent = '') {
@@ -71,12 +77,34 @@ function inferGeo(req, query = {}) {
   return { country, region };
 }
 
+function inferCountryFromLocale(localeValue = '') {
+  const normalized = String(localeValue ?? '').trim();
+  if (!normalized) return null;
+  const match = normalized.match(/[-_](?<country>[A-Za-z]{2})\b/);
+  return match?.groups?.country ? match.groups.country.toUpperCase() : null;
+}
+
 function collectTrackingContext(req, query = {}) {
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? req.ip ?? null;
   const userAgent = req.headers['user-agent'] ?? null;
   const referer = req.headers['referer'] ?? req.headers['referrer'] ?? null;
-  const { pageUrl: normalizedPageUrl, siteDomain } = parseSiteContext({ pageUrl: query.pu, referer });
-  const { country, region } = inferGeo(req, query);
+  const pageContext = parseSiteContext(query.pu);
+  const refererContext = parseSiteContext(referer);
+  const requestHost = resolveRequestHost(req);
+  const selectedContext =
+    (pageContext?.siteDomain && pageContext.siteDomain !== requestHost ? pageContext : null)
+    ?? (refererContext?.siteDomain && refererContext.siteDomain !== requestHost ? refererContext : null)
+    ?? pageContext
+    ?? refererContext
+    ?? { pageUrl: null, siteDomain: null };
+  const localeHint =
+    query.hl
+    ?? req.headers['x-user-locale']
+    ?? req.headers['accept-language']
+    ?? '';
+  const geo = inferGeo(req, query);
+  const country = geo.country ?? inferCountryFromLocale(localeHint);
+  const region = geo.region ?? null;
   const { deviceType, browser, os } = inferDeviceInfo(userAgent);
   const cookieDeviceId = req.cookies?.smx_device_id ?? req.cookies?.device_id ?? null;
   const cookieCookieId = req.cookies?.smx_cookie_id ?? req.cookies?.cookie_id ?? null;
@@ -84,8 +112,8 @@ function collectTrackingContext(req, query = {}) {
     ip,
     user_agent: userAgent,
     referer,
-    page_url: normalizedPageUrl,
-    site_domain: siteDomain,
+    page_url: selectedContext.pageUrl,
+    site_domain: selectedContext.siteDomain,
     country,
     region,
     device_type: deviceType,

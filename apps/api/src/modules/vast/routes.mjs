@@ -23,6 +23,23 @@ function readRequestedSize(query = {}) {
   return { width, height };
 }
 
+function inferLocaleCountryExpression() {
+  return `(function() {
+    if (typeof navigator === 'undefined') return '';
+    var candidates = [];
+    if (navigator.language) candidates.push(navigator.language);
+    if (Array.isArray(navigator.languages)) {
+      for (var i = 0; i < navigator.languages.length; i += 1) candidates.push(navigator.languages[i]);
+    }
+    for (var index = 0; index < candidates.length; index += 1) {
+      var value = String(candidates[index] || '');
+      var match = value.match(/[-_]([A-Za-z]{2})\\b/);
+      if (match && match[1]) return match[1].toUpperCase();
+    }
+    return '';
+  })()`;
+}
+
 function buildVastXml(tag, workspaceId, baseUrl) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
@@ -115,6 +132,11 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
+  const localeCountryExpression = inferLocaleCountryExpression();
+  const useTrackedClickWrapper = Boolean(
+    clickUrl
+    && (servingCandidate?.clickOverrideEnabled || !servingCandidate?.hasInternalClickTag),
+  );
 
   return `(function() {
   var ws = ${JSON.stringify(workspaceId)};
@@ -128,6 +150,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   var viewabilityUrl = ${JSON.stringify(viewabilityUrl)};
   var engagementBase = ${JSON.stringify(engagementBase)};
   var pageUrl = (typeof window !== 'undefined' && window.location && window.location.href) ? window.location.href : '';
+  var localeCountry = ${localeCountryExpression};
   var hoverStartedAt = null;
   var currentScript = document.currentScript || (function() {
     var scripts = document.getElementsByTagName('script');
@@ -149,6 +172,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
     var nextUrl = url;
     if (resolvedDeviceId) nextUrl += '&did=' + encodeURIComponent(String(resolvedDeviceId));
     if (resolvedCookieId) nextUrl += '&cid=' + encodeURIComponent(String(resolvedCookieId));
+    if (localeCountry) nextUrl += '&ct=' + encodeURIComponent(String(localeCountry));
     return nextUrl;
   }
 
@@ -183,13 +207,16 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
     firePixel(buildEngagementUrl('hover_end', { hd: duration }));
   });
 
-  var link = document.createElement('a');
-  link.href = appendIdentity(clickUrl);
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  link.addEventListener('click', function() {
-    firePixel(buildEngagementUrl('interaction'));
-  });
+  var link = null;
+  if (${useTrackedClickWrapper ? 'true' : 'false'}) {
+    link = document.createElement('a');
+    link.href = appendIdentity(clickUrl);
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.addEventListener('click', function() {
+      firePixel(buildEngagementUrl('interaction'));
+    });
+  }
 
   if (creativeUrl && servingFormat === 'display_html') {
     var iframe = document.createElement('iframe');
@@ -200,9 +227,14 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
     iframe.frameBorder = '0';
     iframe.style.border = '0';
     iframe.style.overflow = 'hidden';
-    iframe.style.pointerEvents = 'none';
-    link.style.cssText = 'display:block;width:100%;height:100%;';
-    link.appendChild(iframe);
+    if (link) {
+      iframe.style.pointerEvents = 'none';
+      link.style.cssText = 'display:block;width:100%;height:100%;';
+      link.appendChild(iframe);
+    } else {
+      iframe.style.pointerEvents = 'auto';
+      div.appendChild(iframe);
+    }
   } else if (creativeUrl) {
     var img = document.createElement('img');
     img.src = creativeUrl;
@@ -210,15 +242,23 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
     img.height = h;
     img.alt = '';
     img.style.display = 'block';
-    link.appendChild(img);
+    if (link) {
+      link.appendChild(img);
+    } else {
+      div.appendChild(img);
+    }
   } else {
     var placeholder = document.createElement('div');
     placeholder.style.cssText = 'width:' + w + 'px;height:' + h + 'px;background:#eee;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#999;font-size:12px;';
     placeholder.textContent = 'Advertisement';
-    link.appendChild(placeholder);
+    if (link) {
+      link.appendChild(placeholder);
+    } else {
+      div.appendChild(placeholder);
+    }
   }
 
-  div.appendChild(link);
+  if (link) div.appendChild(link);
 
   if (typeof IntersectionObserver === 'function') {
     var observer = new IntersectionObserver(function(entries) {
@@ -258,11 +298,17 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
   const clickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
+  const useTrackedClickWrapper = Boolean(
+    clickUrl
+    && (servingCandidate?.clickOverrideEnabled || !servingCandidate?.hasInternalClickTag),
+  );
 
   const body = creativeUrl && servingFormat === 'display_html'
-    ? `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
+    ? useTrackedClickWrapper
+      ? `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
   <iframe src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;pointer-events:none;"></iframe>
 </a>`
+      : `<iframe src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;"></iframe>`
     : creativeUrl
     ? `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
   <img src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" alt="" style="display:block;border:0;width:100%;height:100%;" />
@@ -283,7 +329,8 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
     <img id="smx-imp-pixel" src="${escapeXml(impressionUrl)}" alt="" width="1" height="1" style="position:absolute;left:-9999px;top:-9999px;" />
     <script>
       (function() {
-        var pageUrl = (window.location && window.location.href) ? window.location.href : '';
+        var pageUrl = document.referrer || ((window.location && window.location.href) ? window.location.href : '');
+        var localeCountry = ${inferLocaleCountryExpression()};
         var search = new URLSearchParams(window.location.search);
         var resolvedDeviceId = search.get('did') || '';
         var resolvedCookieId = search.get('cid') || '';
@@ -296,6 +343,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
           var nextUrl = url;
           if (resolvedDeviceId) nextUrl += '&did=' + encodeURIComponent(String(resolvedDeviceId));
           if (resolvedCookieId) nextUrl += '&cid=' + encodeURIComponent(String(resolvedCookieId));
+          if (localeCountry) nextUrl += '&ct=' + encodeURIComponent(String(localeCountry));
           return nextUrl;
         }
         var impPixel = document.getElementById('smx-imp-pixel');

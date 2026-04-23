@@ -379,6 +379,8 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
             filesPublished: htmlPublication.filesPublished,
             publishedBytes: htmlPublication.totalBytes,
             dimensionSource: htmlPublication.dimensionSource ?? null,
+            hasInternalClickTag: htmlPublication.hasInternalClickTag,
+            internalClickSignals: htmlPublication.internalClickSignals ?? [],
           },
         });
         await deps.ensureCreativeVersionDefaultVariant(client, req.authSession.workspaceId, publishedVersion, {
@@ -398,6 +400,8 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
             publishedFrom: 'external_ingestion',
             filesPublished: htmlPublication.filesPublished,
             dimensionSource: htmlPublication.dimensionSource ?? null,
+            hasInternalClickTag: htmlPublication.hasInternalClickTag,
+            internalClickSignals: htmlPublication.internalClickSignals ?? [],
           },
         });
       } else if (row.source_kind === 'video_mp4') {

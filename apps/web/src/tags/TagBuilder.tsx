@@ -14,6 +14,7 @@ interface TagForm {
   campaignId: string;
   format: TagFormat;
   status: TagStatus;
+  clickUrl: string;
 }
 
 interface SavedTag {
@@ -38,6 +39,7 @@ const emptyForm: TagForm = {
   campaignId: '',
   format: 'VAST',
   status: 'draft',
+  clickUrl: '',
 };
 
 const STATUSES: TagStatus[] = ['draft', 'active', 'paused', 'archived'];
@@ -174,6 +176,7 @@ export default function TagBuilder() {
           campaignId: String((data.campaign as { id?: string } | undefined)?.id ?? data.campaignId ?? ''),
           format: (data.format as TagFormat | undefined) ?? 'VAST',
           status: (data.status as TagStatus | undefined) ?? 'draft',
+          clickUrl: String(data.clickUrl ?? ''),
         });
         const normalized = normalizeTagRecord(payload);
         setSavedTag(normalized);
@@ -214,6 +217,7 @@ export default function TagBuilder() {
       campaignId: form.campaignId || null,
       format: form.format,
       status: form.status,
+      clickUrl: form.clickUrl.trim() || null,
     };
 
     try {
@@ -339,6 +343,26 @@ export default function TagBuilder() {
               ))}
             </select>
           </div>
+
+          <details className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+            <summary className="cursor-pointer text-sm font-medium text-slate-700">
+              Click Override
+            </summary>
+            <p className="mt-2 text-xs text-slate-500">
+              HTML5 banners keep their own <code>clickTag</code> or <code>exit</code> by default.
+              Set this only when the ad server must override that destination.
+            </p>
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Click URL Override (optional)</label>
+              <input
+                type="url"
+                value={form.clickUrl}
+                onChange={set('clickUrl')}
+                className={inputClass()}
+                placeholder="https://example.com/landing"
+              />
+            </div>
+          </details>
 
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
             <button
