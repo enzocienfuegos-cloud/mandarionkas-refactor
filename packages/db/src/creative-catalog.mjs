@@ -678,13 +678,13 @@ export async function createTagBinding(pool, workspaceId, data) {
   if (existing.rows[0]) {
     const { rows } = await pool.query(
       `UPDATE tag_bindings
-       SET status = $4,
-           weight = $5,
-           start_at = $6,
-           end_at = $7,
-           created_by = COALESCE($8, created_by),
-           creative_version_id = $9,
-           creative_size_variant_id = $10,
+       SET status = $3,
+           weight = $4,
+           start_at = $5,
+           end_at = $6,
+           created_by = COALESCE($7, created_by),
+           creative_version_id = $8,
+           creative_size_variant_id = $9,
            updated_at = NOW()
        WHERE workspace_id = $1
          AND id = $2
@@ -692,7 +692,6 @@ export async function createTagBinding(pool, workspaceId, data) {
       [
         workspaceId,
         existing.rows[0].id,
-        tag_id,
         normalizeBindingStatus(status),
         Math.max(1, Number(weight) || 1),
         start_at,
