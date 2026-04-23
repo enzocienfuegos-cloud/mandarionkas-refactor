@@ -1,5 +1,6 @@
 import {
   createTagBinding,
+  listTagBindings,
   listCreatives,
   listCreativeVersions,
   listCreativeSizeVariants,
