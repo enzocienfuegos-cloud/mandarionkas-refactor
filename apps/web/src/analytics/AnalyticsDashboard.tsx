@@ -19,6 +19,8 @@ interface BreakdownItem {
   impressions: number;
   clicks: number;
   ctr: number;
+  uniqueIdentities?: number;
+  avgFrequency?: number;
   viewableImpressions?: number;
   measuredImpressions?: number;
   undeterminedImpressions?: number;
@@ -34,6 +36,8 @@ interface VariantItem {
   impressions: number;
   clicks: number;
   ctr: number;
+  uniqueIdentities?: number;
+  avgFrequency?: number;
 }
 
 interface WorkspaceAnalytics {
@@ -161,6 +165,8 @@ function normalizeBreakdownList(items: any[], config: {
     impressions: toNumber(item?.impressions),
     clicks: toNumber(item?.clicks),
     ctr: toNumber(item?.ctr),
+    uniqueIdentities: toNumber(item?.uniqueIdentities ?? item?.unique_identities),
+    avgFrequency: toNumber(item?.avgFrequency ?? item?.avg_frequency),
     viewableImpressions: toNumber(item?.viewableImps ?? item?.viewable_imps),
     measuredImpressions: toNumber(item?.measuredImps ?? item?.measured_imps),
     undeterminedImpressions: toNumber(item?.undeterminedImps ?? item?.undetermined_imps),
@@ -207,17 +213,17 @@ function normalizeWorkspaceAnalytics(
     campaigns: normalizeBreakdownList(campaignPayload?.breakdown ?? [], {
       labelKey: 'name',
       secondary: (item) => `${String(item?.status ?? 'unknown')} · ${fmtCtr(toNumber(item?.viewabilityRate ?? item?.viewability_rate))} viewability`,
-      tertiary: (item) => `${fmtNum(toNumber(item?.viewableImps ?? item?.viewable_imps))} viewable of ${fmtNum(toNumber(item?.measuredImps ?? item?.measured_imps))} measured`,
+      tertiary: (item) => `${fmtNum(toNumber(item?.viewableImps ?? item?.viewable_imps))} viewable of ${fmtNum(toNumber(item?.measuredImps ?? item?.measured_imps))} measured · ${fmtNum(toNumber(item?.uniqueIdentities ?? item?.unique_identities))} unique identities · ${toNumber(item?.avgFrequency ?? item?.avg_frequency).toFixed(2)} avg frequency`,
     }),
     tags: normalizeBreakdownList(tagPayload?.breakdown ?? [], {
       labelKey: 'name',
       secondary: (item) => `${String(item?.format ?? 'unknown')} · ${fmtCtr(toNumber(item?.viewabilityRate ?? item?.viewability_rate))} viewability`,
-      tertiary: (item) => `${String(item?.status ?? 'unknown')} · ${fmtNum(toNumber(item?.viewableImps ?? item?.viewable_imps))} of ${fmtNum(toNumber(item?.measuredImps ?? item?.measured_imps))} measured`,
+      tertiary: (item) => `${String(item?.status ?? 'unknown')} · ${fmtNum(toNumber(item?.viewableImps ?? item?.viewable_imps))} of ${fmtNum(toNumber(item?.measuredImps ?? item?.measured_imps))} measured · ${fmtNum(toNumber(item?.uniqueIdentities ?? item?.unique_identities))} unique identities · ${toNumber(item?.avgFrequency ?? item?.avg_frequency).toFixed(2)} avg frequency`,
     }),
     creatives: normalizeBreakdownList(creativePayload?.breakdown ?? [], {
       labelKey: 'name',
       secondary: (item) => `${String(item?.source_kind ?? 'unknown')} · v${String(item?.version_number ?? '—')}`,
-      tertiary: (item) => String(item?.serving_format ?? 'unknown'),
+      tertiary: (item) => `${String(item?.serving_format ?? 'unknown')} · ${fmtNum(toNumber(item?.uniqueIdentities ?? item?.unique_identities))} unique identities · ${toNumber(item?.avgFrequency ?? item?.avg_frequency).toFixed(2)} avg frequency`,
     }),
     variants: (Array.isArray(variantPayload?.breakdown) ? variantPayload.breakdown : []).map((item: any) => ({
       id: String(item?.id ?? ''),
@@ -228,6 +234,8 @@ function normalizeWorkspaceAnalytics(
       impressions: toNumber(item?.impressions),
       clicks: toNumber(item?.clicks),
       ctr: toNumber(item?.ctr),
+      uniqueIdentities: toNumber(item?.uniqueIdentities ?? item?.unique_identities),
+      avgFrequency: toNumber(item?.avgFrequency ?? item?.avg_frequency),
     })),
     topSites: normalizeRankedMetricList(sitePayload?.breakdown ?? [], 'site_domain', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured`),
     topCountries: normalizeRankedMetricList(countryPayload?.breakdown ?? [], 'country', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured`),
@@ -363,7 +371,12 @@ function VariantTable({ rows }: { rows: VariantItem[] }) {
             {rows.map((row) => (
               <tr key={row.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm font-medium text-slate-800 max-w-[200px] truncate">{row.creativeName}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{row.label}</td>
+                <td className="px-4 py-3 text-sm text-slate-700">
+                  {row.label}
+                  <span className="block text-xs text-slate-400 mt-0.5">
+                    {fmtNum(row.uniqueIdentities ?? 0)} unique identities · {(row.avgFrequency ?? 0).toFixed(2)} avg frequency
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-sm text-slate-700">{row.size}</td>
                 <td className="px-4 py-3 text-sm text-slate-600 capitalize">{row.status}</td>
                 <td className="px-4 py-3 text-sm text-slate-700">{fmtNum(row.impressions)}</td>

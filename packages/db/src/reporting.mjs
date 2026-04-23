@@ -264,6 +264,17 @@ export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}
   const { dateFrom, dateTo, limit = 25 } = opts;
   const params = [workspaceId];
   const joinFilter = addDateJoinFilters(params, 'ds', dateFrom, dateTo);
+  const identityConditions = ['ie.workspace_id = c.workspace_id', 't2.campaign_id = c.id', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
+  const identityParams = [];
+  if (dateFrom) {
+    identityParams.push(dateFrom);
+    identityConditions.push(`ie.timestamp >= $${params.length + identityParams.length}`);
+  }
+  if (dateTo) {
+    identityParams.push(`${dateTo}T23:59:59.999Z`);
+    identityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
+  }
+  params.push(...identityParams);
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
@@ -277,6 +288,24 @@ export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}
        COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
        COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps,
        COALESCE(SUM(ds.spend), 0) AS spend,
+       (
+         SELECT COUNT(DISTINCT e.identity_profile_id)::bigint
+         FROM ad_tags t2
+         JOIN impression_events ie ON ie.tag_id = t2.id
+         JOIN event_identity_keys e ON e.event_id = ie.id
+         WHERE ${identityConditions.join(' AND ')}
+       ) AS unique_identities,
+       (
+         SELECT CASE
+           WHEN COUNT(DISTINCT e.identity_profile_id) > 0
+             THEN ROUND(COUNT(DISTINCT ie.id)::NUMERIC / COUNT(DISTINCT e.identity_profile_id), 4)
+           ELSE 0
+         END
+         FROM ad_tags t2
+         JOIN impression_events ie ON ie.tag_id = t2.id
+         JOIN event_identity_keys e ON e.event_id = ie.id
+         WHERE ${identityConditions.join(' AND ')}
+       ) AS avg_frequency,
        CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
             THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
             ELSE 0 END AS ctr,
@@ -302,8 +331,19 @@ export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, limit = 25 } = opts;
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
+  const identityConditions = ['ie.tag_id = t.id', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
+  const identityParams = [];
 
   addDateFilters(params, conditions, 'ds', dateFrom, dateTo);
+  if (dateFrom) {
+    identityParams.push(dateFrom);
+    identityConditions.push(`ie.timestamp >= $${params.length + identityParams.length}`);
+  }
+  if (dateTo) {
+    identityParams.push(`${dateTo}T23:59:59.999Z`);
+    identityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
+  }
+  params.push(...identityParams);
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
@@ -318,6 +358,22 @@ export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
        COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
        COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps,
        COALESCE(SUM(ds.spend), 0) AS spend,
+       (
+         SELECT COUNT(DISTINCT e.identity_profile_id)::bigint
+         FROM impression_events ie
+         JOIN event_identity_keys e ON e.event_id = ie.id
+         WHERE ${identityConditions.join(' AND ')}
+       ) AS unique_identities,
+       (
+         SELECT CASE
+           WHEN COUNT(DISTINCT e.identity_profile_id) > 0
+             THEN ROUND(COUNT(DISTINCT ie.id)::NUMERIC / COUNT(DISTINCT e.identity_profile_id), 4)
+           ELSE 0
+         END
+         FROM impression_events ie
+         JOIN event_identity_keys e ON e.event_id = ie.id
+         WHERE ${identityConditions.join(' AND ')}
+       ) AS avg_frequency,
        CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
             THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
             ELSE 0 END AS ctr,
@@ -339,6 +395,17 @@ export async function getWorkspaceCreativeBreakdown(pool, workspaceId, opts = {}
   const { dateFrom, dateTo, limit = 25 } = opts;
   const params = [workspaceId];
   const joinFilter = addDateJoinFilters(params, 'cvds', dateFrom, dateTo);
+  const identityConditions = ['ie.workspace_id = cv.workspace_id', 'ie.creative_id = c.id', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
+  const identityParams = [];
+  if (dateFrom) {
+    identityParams.push(dateFrom);
+    identityConditions.push(`ie.timestamp >= $${params.length + identityParams.length}`);
+  }
+  if (dateTo) {
+    identityParams.push(`${dateTo}T23:59:59.999Z`);
+    identityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
+  }
+  params.push(...identityParams);
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
@@ -353,6 +420,22 @@ export async function getWorkspaceCreativeBreakdown(pool, workspaceId, opts = {}
        cv.serving_format,
        COALESCE(SUM(cvds.impressions), 0)::bigint AS impressions,
        COALESCE(SUM(cvds.clicks), 0)::bigint AS clicks,
+       (
+         SELECT COUNT(DISTINCT e.identity_profile_id)::bigint
+         FROM impression_events ie
+         JOIN event_identity_keys e ON e.event_id = ie.id
+         WHERE ${identityConditions.join(' AND ')}
+       ) AS unique_identities,
+       (
+         SELECT CASE
+           WHEN COUNT(DISTINCT e.identity_profile_id) > 0
+             THEN ROUND(COUNT(DISTINCT ie.id)::NUMERIC / COUNT(DISTINCT e.identity_profile_id), 4)
+           ELSE 0
+         END
+         FROM impression_events ie
+         JOIN event_identity_keys e ON e.event_id = ie.id
+         WHERE ${identityConditions.join(' AND ')}
+       ) AS avg_frequency,
        CASE WHEN COALESCE(SUM(cvds.impressions), 0) > 0
             THEN ROUND(COALESCE(SUM(cvds.clicks), 0)::NUMERIC / SUM(cvds.impressions) * 100, 4)
             ELSE 0 END AS ctr
@@ -378,6 +461,17 @@ export async function getWorkspaceVariantBreakdown(pool, workspaceId, opts = {})
   const { dateFrom, dateTo, limit = 25 } = opts;
   const params = [workspaceId];
   const joinFilter = addDateJoinFilters(params, 'cvds', dateFrom, dateTo);
+  const identityConditions = ['ie.workspace_id = csv.workspace_id', 'ie.creative_size_variant_id = csv.id', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
+  const identityParams = [];
+  if (dateFrom) {
+    identityParams.push(dateFrom);
+    identityConditions.push(`ie.timestamp >= $${params.length + identityParams.length}`);
+  }
+  if (dateTo) {
+    identityParams.push(`${dateTo}T23:59:59.999Z`);
+    identityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
+  }
+  params.push(...identityParams);
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
@@ -392,6 +486,22 @@ export async function getWorkspaceVariantBreakdown(pool, workspaceId, opts = {})
        c.name AS creative_name,
        COALESCE(SUM(cvds.impressions), 0)::bigint AS impressions,
        COALESCE(SUM(cvds.clicks), 0)::bigint AS clicks,
+       (
+         SELECT COUNT(DISTINCT e.identity_profile_id)::bigint
+         FROM impression_events ie
+         JOIN event_identity_keys e ON e.event_id = ie.id
+         WHERE ${identityConditions.join(' AND ')}
+       ) AS unique_identities,
+       (
+         SELECT CASE
+           WHEN COUNT(DISTINCT e.identity_profile_id) > 0
+             THEN ROUND(COUNT(DISTINCT ie.id)::NUMERIC / COUNT(DISTINCT e.identity_profile_id), 4)
+           ELSE 0
+         END
+         FROM impression_events ie
+         JOIN event_identity_keys e ON e.event_id = ie.id
+         WHERE ${identityConditions.join(' AND ')}
+       ) AS avg_frequency,
        CASE WHEN COALESCE(SUM(cvds.impressions), 0) > 0
             THEN ROUND(COALESCE(SUM(cvds.clicks), 0)::NUMERIC / SUM(cvds.impressions) * 100, 4)
             ELSE 0 END AS ctr
