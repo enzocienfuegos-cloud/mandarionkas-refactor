@@ -146,6 +146,62 @@ function detectInternalClickBehavior(htmlSource) {
   };
 }
 
+function buildClickTrackingBootstrap() {
+  return `<script>
+(function() {
+  try {
+    var params = new URLSearchParams(window.location.search || '');
+    var trackedClickUrl = params.get('smx_click');
+    if (!trackedClickUrl) return;
+
+    window.clickTag = trackedClickUrl;
+    window.clicktag = trackedClickUrl;
+
+    var trackedOpen = function(url, target, features) {
+      var destination = trackedClickUrl;
+      if (typeof window.open === 'function') {
+        return window.open.call(window, destination, target || '_blank', features);
+      }
+      window.location.href = destination;
+      return null;
+    };
+
+    window.open = trackedOpen;
+
+    if (window.Enabler && typeof window.Enabler === 'object') {
+      window.Enabler.exit = function() {
+        return trackedOpen(trackedClickUrl, '_blank');
+      };
+      window.Enabler.exitOverride = function() {
+        return trackedOpen(trackedClickUrl, '_blank');
+      };
+    }
+
+    if (window.Adform && typeof window.Adform === 'object') {
+      window.Adform.clickTag = trackedClickUrl;
+    }
+
+    if (window.EB && typeof window.EB === 'object') {
+      window.EB.clickthrough = function() {
+        return trackedOpen(trackedClickUrl, '_blank');
+      };
+    }
+  } catch (_) {}
+})();
+</script>`;
+}
+
+function injectClickTrackingBootstrap(htmlSource) {
+  const bootstrap = buildClickTrackingBootstrap();
+  if (/<head\b[^>]*>/i.test(htmlSource)) {
+    return htmlSource.replace(/<head\b[^>]*>/i, match => `${match}\n${bootstrap}`);
+  }
+  if (/<body\b[^>]*>/i.test(htmlSource)) {
+    return htmlSource.replace(/<body\b[^>]*>/i, match => `${match}\n${bootstrap}`);
+  }
+  return `${bootstrap}\n${htmlSource}`;
+}
+
 export async function expandAndPublishHtml5Archive({
   sourceStorageKey,
   workspaceId,
@@ -193,9 +249,14 @@ export async function expandAndPublishHtml5Archive({
 
     const publishedPrefix = `${workspaceId}/creative-published/${creativeVersionId}`;
     const publishedArtifacts = [];
+    const instrumentedEntryHtmlSource = clickBehavior.hasInternalClickTag
+      ? injectClickTrackingBootstrap(entryHtmlSource)
+      : entryHtmlSource;
 
     for (const file of files) {
-      const fileBuffer = await readFile(file.absolutePath);
+      const fileBuffer = file.relativePath === entryFile.relativePath
+        ? Buffer.from(instrumentedEntryHtmlSource, 'utf8')
+        : await readFile(file.absolutePath);
       const destinationKey = `${publishedPrefix}/${file.relativePath.split('/').map(segment => sanitizeStorageFilename(segment, segment)).join('/')}`;
       const upload = await putObjectBuffer({
         storageKey: destinationKey,

@@ -33,6 +33,19 @@ function isTrackableDestinationUrl(value) {
   }
 }
 
+function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedClick) {
+  if (!creativeUrl) return '';
+  try {
+    const url = new URL(String(creativeUrl));
+    if (shouldInjectTrackedClick && clickTrackUrl) {
+      url.searchParams.set('smx_click', clickTrackUrl);
+    }
+    return url.toString();
+  } catch {
+    return creativeUrl;
+  }
+}
+
 function buildVastXml(tag, workspaceId, baseUrl) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
@@ -129,6 +142,11 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
     isTrackableDestinationUrl(clickUrl)
     && (servingCandidate?.clickOverrideEnabled || !servingCandidate?.hasInternalClickTag),
   );
+  const creativeIframeUrl = buildCreativeIframeUrl(
+    creativeUrl,
+    clickTrackUrl,
+    !useTrackedClickWrapper && Boolean(servingCandidate?.hasInternalClickTag),
+  );
 
   return `(function() {
   var ws = ${JSON.stringify(workspaceId)};
@@ -137,7 +155,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   var w = ${width}, h = ${height};
   var servingFormat = ${JSON.stringify(servingFormat)};
   var clickUrl = ${JSON.stringify(clickTrackUrl)};
-  var creativeUrl = ${JSON.stringify(creativeUrl)};
+  var creativeUrl = ${JSON.stringify(creativeIframeUrl)};
   var impUrl = ${JSON.stringify(impressionUrl)};
   var viewabilityUrl = ${JSON.stringify(viewabilityUrl)};
   var engagementBase = ${JSON.stringify(engagementBase)};
@@ -315,13 +333,18 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
     isTrackableDestinationUrl(clickUrl)
     && (servingCandidate?.clickOverrideEnabled || !servingCandidate?.hasInternalClickTag),
   );
+  const creativeIframeUrl = buildCreativeIframeUrl(
+    creativeUrl,
+    clickTrackUrl,
+    !useTrackedClickWrapper && Boolean(servingCandidate?.hasInternalClickTag),
+  );
 
   const body = creativeUrl && servingFormat === 'display_html'
     ? useTrackedClickWrapper
       ? `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
-  <iframe src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;pointer-events:none;"></iframe>
+  <iframe src="${escapeXml(creativeIframeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;pointer-events:none;"></iframe>
 </a>`
-      : `<iframe src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;"></iframe>`
+      : `<iframe src="${escapeXml(creativeIframeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;"></iframe>`
     : creativeUrl
     ? `<a href="${escapeXml(clickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
   <img src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" alt="" style="display:block;border:0;width:100%;height:100%;" />
