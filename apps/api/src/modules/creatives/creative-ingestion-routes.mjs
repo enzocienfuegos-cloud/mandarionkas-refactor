@@ -9,9 +9,12 @@ import {
   getCreativeVersion,
   listCreativeArtifacts,
   listCreativeIngestions,
+  updateCreative,
   updateCreativeIngestion,
+  updateCreativeVersion,
 } from '@smx/db';
 import { buildPublicAssetUrl, hasUploadStorageConfig, prepareObjectUpload, sanitizeStorageFilename } from '../storage/object-storage.mjs';
+import { expandAndPublishHtml5Archive } from './html5-publisher.mjs';
 
 const SOURCE_KINDS = new Set(['html5_zip', 'video_mp4']);
 
@@ -145,7 +148,9 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
   getCreativeVersion,
   listCreativeArtifacts,
   listCreativeIngestions,
+  updateCreative,
   updateCreativeIngestion,
+  updateCreativeVersion,
 }) {
   app.get('/v1/creative-ingestions', { preHandler: requireWorkspace }, async (req, reply) => {
     const rows = await deps.listCreativeIngestions(pool, req.authSession.workspaceId, {
@@ -274,7 +279,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
     try {
       await client.query('BEGIN');
 
-      const creative = await deps.createCreative(client, req.authSession.workspaceId, {
+      let creative = await deps.createCreative(client, req.authSession.workspaceId, {
         name: creativeName,
         type: catalogDraft.creativeType,
         file_url: row.source_kind === 'video_mp4' ? row.public_url ?? null : null,
@@ -316,7 +321,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
         created_by: req.authSession.userId,
       });
 
-      const artifact = await deps.createCreativeArtifact(client, req.authSession.workspaceId, {
+      const sourceArtifact = await deps.createCreativeArtifact(client, req.authSession.workspaceId, {
         creative_version_id: creativeVersion.id,
         kind: catalogDraft.artifactKind,
         storage_key: row.storage_key ?? null,
@@ -331,6 +336,55 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
         },
       });
 
+      const publishedArtifacts = [sourceArtifact];
+      let publishedVersion = creativeVersion;
+      if (row.source_kind === 'html5_zip') {
+        const htmlPublication = await expandAndPublishHtml5Archive({
+          sourceStorageKey: row.storage_key,
+          workspaceId: req.authSession.workspaceId,
+          creativeVersionId: creativeVersion.id,
+        });
+
+        for (const artifact of htmlPublication.artifacts) {
+          publishedArtifacts.push(await deps.createCreativeArtifact(client, req.authSession.workspaceId, {
+            creative_version_id: creativeVersion.id,
+            kind: artifact.kind,
+            storage_key: artifact.storageKey,
+            public_url: artifact.publicUrl,
+            mime_type: artifact.mimeType,
+            size_bytes: artifact.sizeBytes,
+            checksum: artifact.checksum,
+            metadata: artifact.metadata,
+          }));
+        }
+
+        publishedVersion = await deps.updateCreativeVersion(client, req.authSession.workspaceId, creativeVersion.id, {
+          publicUrl: htmlPublication.entryPublicUrl,
+          entryPath: htmlPublication.entryPath,
+          mimeType: 'text/html; charset=utf-8',
+          metadata: {
+            ...(creativeVersion.metadata ?? {}),
+            publishedFrom: 'external_ingestion',
+            html5Published: true,
+            filesPublished: htmlPublication.filesPublished,
+            publishedBytes: htmlPublication.totalBytes,
+          },
+        });
+
+        creative = await deps.updateCreative(client, req.authSession.workspaceId, creative.id, {
+          file_url: htmlPublication.entryPublicUrl,
+          mime_type: 'text/html; charset=utf-8',
+          transcode_status: 'done',
+          metadata: {
+            ...(creative.metadata ?? {}),
+            sourceKind: row.source_kind,
+            entryPath: htmlPublication.entryPath,
+            publishedFrom: 'external_ingestion',
+            filesPublished: htmlPublication.filesPublished,
+          },
+        });
+      }
+
       const updatedIngestion = await deps.updateCreativeIngestion(client, req.authSession.workspaceId, row.id, {
         creativeId: creative.id,
         creativeVersionId: creativeVersion.id,
@@ -340,6 +394,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
           catalogPublished: true,
           creativeId: creative.id,
           creativeVersionId: creativeVersion.id,
+          html5Published: row.source_kind === 'html5_zip',
         },
       });
 
@@ -348,8 +403,8 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
       return reply.status(201).send({
         ingestion: toApiIngestion(updatedIngestion),
         creative,
-        creativeVersion,
-        artifacts: [artifact],
+        creativeVersion: publishedVersion,
+        artifacts: publishedArtifacts,
       });
     } catch (error) {
       await client.query('ROLLBACK');

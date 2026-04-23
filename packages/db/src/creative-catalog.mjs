@@ -87,6 +87,57 @@ export async function getCreativeVersion(pool, workspaceId, versionId) {
   return rows[0] ?? null;
 }
 
+export async function updateCreativeVersion(pool, workspaceId, versionId, patch = {}) {
+  const fieldMap = {
+    status: 'status',
+    publicUrl: 'public_url',
+    entryPath: 'entry_path',
+    mimeType: 'mime_type',
+    width: 'width',
+    height: 'height',
+    durationMs: 'duration_ms',
+    fileSize: 'file_size',
+    metadata: 'metadata',
+    reviewedBy: 'reviewed_by',
+    reviewedAt: 'reviewed_at',
+    reviewNotes: 'review_notes',
+  };
+
+  const params = [workspaceId, versionId];
+  const setClauses = [];
+
+  for (const [camel, column] of Object.entries(fieldMap)) {
+    if (!(camel in patch)) continue;
+    const value = patch[camel];
+    if (column === 'metadata') {
+      params.push(JSON.stringify(value ?? {}));
+      setClauses.push(`${column} = $${params.length}::jsonb`);
+    } else if (column === 'status') {
+      params.push(normalizeVersionStatus(value));
+      setClauses.push(`${column} = $${params.length}`);
+    } else {
+      params.push(value);
+      setClauses.push(`${column} = $${params.length}`);
+    }
+  }
+
+  if (!setClauses.length) {
+    return getCreativeVersion(pool, workspaceId, versionId);
+  }
+
+  setClauses.push('updated_at = NOW()');
+
+  const { rows } = await pool.query(
+    `UPDATE creative_versions
+     SET ${setClauses.join(', ')}
+     WHERE workspace_id = $1
+       AND id = $2
+     RETURNING *`,
+    params,
+  );
+  return rows[0] ?? null;
+}
+
 export async function listCreativeVersionsForReview(pool, workspaceId, status = 'pending_review') {
   const { rows } = await pool.query(
     `SELECT cv.*, c.name AS creative_name
