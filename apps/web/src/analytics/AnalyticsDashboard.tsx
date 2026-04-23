@@ -17,6 +17,10 @@ interface BreakdownItem {
   impressions: number;
   clicks: number;
   ctr: number;
+  viewableImpressions?: number;
+  measuredImpressions?: number;
+  undeterminedImpressions?: number;
+  viewabilityRate?: number;
 }
 
 interface VariantItem {
@@ -35,6 +39,8 @@ interface WorkspaceAnalytics {
   totalClicks: number;
   totalSpend: number;
   totalViewableImpressions: number;
+  totalMeasuredImpressions: number;
+  totalUndeterminedImpressions: number;
   viewabilityRate: number;
   avgCtr: number;
   totalEngagements: number;
@@ -131,6 +137,10 @@ function normalizeBreakdownList(items: any[], config: {
     impressions: toNumber(item?.impressions),
     clicks: toNumber(item?.clicks),
     ctr: toNumber(item?.ctr),
+    viewableImpressions: toNumber(item?.viewableImps ?? item?.viewable_imps),
+    measuredImpressions: toNumber(item?.measuredImps ?? item?.measured_imps),
+    undeterminedImpressions: toNumber(item?.undeterminedImps ?? item?.undetermined_imps),
+    viewabilityRate: toNumber(item?.viewabilityRate ?? item?.viewability_rate),
   }));
 }
 
@@ -151,6 +161,8 @@ function normalizeWorkspaceAnalytics(
     totalClicks: toNumber(source?.totalClicks ?? source?.total_clicks),
     totalSpend: toNumber(source?.totalSpend ?? source?.total_spend),
     totalViewableImpressions: toNumber(source?.totalViewableImpressions ?? source?.total_viewable_impressions),
+    totalMeasuredImpressions: toNumber(source?.totalMeasuredImpressions ?? source?.total_measured_impressions),
+    totalUndeterminedImpressions: toNumber(source?.totalUndeterminedImpressions ?? source?.total_undetermined_impressions),
     viewabilityRate: toNumber(source?.viewabilityRate ?? source?.viewability_rate),
     avgCtr: toNumber(source?.avgCtr ?? source?.avg_ctr),
     totalEngagements: toNumber(source?.totalEngagements ?? source?.total_engagements),
@@ -160,12 +172,13 @@ function normalizeWorkspaceAnalytics(
     totalCreatives: toNumber(source?.totalCreatives ?? source?.total_creatives),
     campaigns: normalizeBreakdownList(campaignPayload?.breakdown ?? [], {
       labelKey: 'name',
-      secondary: (item) => String(item?.status ?? 'unknown'),
+      secondary: (item) => `${String(item?.status ?? 'unknown')} · ${fmtCtr(toNumber(item?.viewabilityRate ?? item?.viewability_rate))} viewability`,
+      tertiary: (item) => `${fmtNum(toNumber(item?.viewableImps ?? item?.viewable_imps))} viewable of ${fmtNum(toNumber(item?.measuredImps ?? item?.measured_imps))} measured`,
     }),
     tags: normalizeBreakdownList(tagPayload?.breakdown ?? [], {
       labelKey: 'name',
-      secondary: (item) => String(item?.format ?? 'unknown'),
-      tertiary: (item) => String(item?.status ?? 'unknown'),
+      secondary: (item) => `${String(item?.format ?? 'unknown')} · ${fmtCtr(toNumber(item?.viewabilityRate ?? item?.viewability_rate))} viewability`,
+      tertiary: (item) => `${String(item?.status ?? 'unknown')} · ${fmtNum(toNumber(item?.viewableImps ?? item?.viewable_imps))} of ${fmtNum(toNumber(item?.measuredImps ?? item?.measured_imps))} measured`,
     }),
     creatives: normalizeBreakdownList(creativePayload?.breakdown ?? [], {
       labelKey: 'name',
@@ -182,8 +195,8 @@ function normalizeWorkspaceAnalytics(
       clicks: toNumber(item?.clicks),
       ctr: toNumber(item?.ctr),
     })),
-    topSites: normalizeRankedMetricList(sitePayload?.breakdown ?? [], 'site_domain', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability`),
-    topCountries: normalizeRankedMetricList(countryPayload?.breakdown ?? [], 'country', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability`),
+    topSites: normalizeRankedMetricList(sitePayload?.breakdown ?? [], 'site_domain', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured`),
+    topCountries: normalizeRankedMetricList(countryPayload?.breakdown ?? [], 'country', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured`),
     engagements: normalizeRankedMetricList(engagementPayload?.breakdown ?? [], 'event_type', 'event_count', (item) => {
       const duration = toNumber(item?.total_duration_ms);
       return duration > 0 ? `${fmtNum(duration)} ms total` : undefined;
@@ -478,7 +491,13 @@ export default function AnalyticsDashboard() {
         <KpiCard label="Clicks" value={fmtNum(data?.totalClicks ?? 0)} icon="🖱️" color="text-blue-700" />
         <KpiCard label="Spend" value={fmtCurrency(data?.totalSpend ?? 0)} icon="💸" color="text-emerald-700" />
         <KpiCard label="CTR" value={fmtCtr(data?.avgCtr ?? 0)} icon="📈" color="text-indigo-700" />
-        <KpiCard label="Viewability" value={fmtCtr(data?.viewabilityRate ?? 0)} icon="🎯" color="text-fuchsia-700" sub={`${fmtNum(data?.totalViewableImpressions ?? 0)} viewable imps`} />
+        <KpiCard
+          label="Viewability"
+          value={fmtCtr(data?.viewabilityRate ?? 0)}
+          icon="🎯"
+          color="text-fuchsia-700"
+          sub={`${fmtNum(data?.totalViewableImpressions ?? 0)} viewable of ${fmtNum(data?.totalMeasuredImpressions ?? 0)} measured · ${fmtNum(data?.totalUndeterminedImpressions ?? 0)} undetermined`}
+        />
         <KpiCard label="Engagements" value={fmtNum(data?.totalEngagements ?? 0)} icon="✨" color="text-amber-700" sub={`${fmtNum(data?.totalHoverDurationMs ?? 0)} ms hover time`} />
       </div>
 

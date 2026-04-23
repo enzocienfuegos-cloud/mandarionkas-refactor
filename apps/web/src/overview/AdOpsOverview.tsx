@@ -27,6 +27,9 @@ interface AdOpsSnapshot {
   totalClicks: number;
   totalSpend: number;
   totalViewableImpressions: number;
+  totalMeasuredImpressions: number;
+  totalUndeterminedImpressions: number;
+  viewabilityRate: number;
   avgCtr: number;
   engagements: number;
   activeCampaigns: number;
@@ -49,6 +52,9 @@ function getReportingStats(payload: any) {
     totalClicks: toNumber(stats?.totalClicks ?? stats?.total_clicks),
     totalSpend: toNumber(stats?.totalSpend ?? stats?.total_spend),
     totalViewableImpressions: toNumber(stats?.totalViewableImpressions ?? stats?.total_viewable_impressions),
+    totalMeasuredImpressions: toNumber(stats?.totalMeasuredImpressions ?? stats?.total_measured_impressions),
+    totalUndeterminedImpressions: toNumber(stats?.totalUndeterminedImpressions ?? stats?.total_undetermined_impressions),
+    viewabilityRate: toNumber(stats?.viewabilityRate ?? stats?.viewability_rate),
     avgCtr: toNumber(stats?.avgCtr ?? stats?.avg_ctr),
     totalEngagements: toNumber(stats?.totalEngagements ?? stats?.total_engagements),
     activeCampaigns: toNumber(stats?.activeCampaigns ?? stats?.active_campaigns),
@@ -122,6 +128,9 @@ export default function AdOpsOverview() {
         totalClicks: reportingStats.totalClicks,
         totalSpend: reportingStats.totalSpend,
         totalViewableImpressions: reportingStats.totalViewableImpressions,
+        totalMeasuredImpressions: reportingStats.totalMeasuredImpressions,
+        totalUndeterminedImpressions: reportingStats.totalUndeterminedImpressions,
+        viewabilityRate: reportingStats.viewabilityRate,
         avgCtr: reportingStats.avgCtr,
         engagements: reportingStats.totalEngagements,
         activeCampaigns: reportingStats.activeCampaigns || campaigns.filter(c => c.status === 'active').length,
@@ -222,6 +231,9 @@ export default function AdOpsOverview() {
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Viewable Imps</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{fmtCompact(snapshot?.totalViewableImpressions ?? 0)}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {(snapshot?.viewabilityRate ?? 0).toFixed(2)}% of {fmtCompact(snapshot?.totalMeasuredImpressions ?? 0)} measured
+              </p>
             </div>
           </div>
           <div className="mt-6 grid gap-3 md:grid-cols-2">

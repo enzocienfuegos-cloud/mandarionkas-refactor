@@ -143,6 +143,9 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   var engagementBase = ${JSON.stringify(engagementBase)};
   var pageUrl = (typeof window !== 'undefined' && window.location && window.location.href) ? window.location.href : '';
   var hoverStartedAt = null;
+  var impressionId = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+    ? crypto.randomUUID()
+    : 'imp-' + Date.now() + '-' + Math.random().toString(16).slice(2);
   var currentScript = document.currentScript || (function() {
     var scripts = document.getElementsByTagName('script');
     return scripts[scripts.length - 1];
@@ -161,6 +164,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
 
   function appendIdentity(url) {
     var nextUrl = url;
+    nextUrl += '&imp=' + encodeURIComponent(String(impressionId));
     if (resolvedDeviceId) nextUrl += '&did=' + encodeURIComponent(String(resolvedDeviceId));
     if (resolvedCookieId) nextUrl += '&cid=' + encodeURIComponent(String(resolvedCookieId));
     return nextUrl;
@@ -178,10 +182,21 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   firePixel(appendIdentity(impUrl + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
 
   var viewabilityTracked = false;
+  var viewabilityMeasured = false;
+  var visibilityTimer = null;
+  function markMeasured() {
+    if (viewabilityMeasured) return;
+    viewabilityMeasured = true;
+    firePixel(appendIdentity(viewabilityUrl + '&state=measured&fmt=display&method=intersection_observer' + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
+  }
+  function markUndetermined(reason) {
+    if (viewabilityMeasured || viewabilityTracked) return;
+    firePixel(appendIdentity(viewabilityUrl + '&state=undetermined&fmt=display&method=' + encodeURIComponent(reason || 'unsupported') + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
+  }
   function trackViewability() {
     if (viewabilityTracked) return;
     viewabilityTracked = true;
-    firePixel(appendIdentity(viewabilityUrl + '&vp=1' + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
+    firePixel(appendIdentity(viewabilityUrl + '&state=viewable&vp=1&fmt=display&method=intersection_observer&ms=1000' + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
   }
 
   // Build container
@@ -251,17 +266,25 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl) {
   if (link) div.appendChild(link);
 
   if (typeof IntersectionObserver === 'function') {
+    markMeasured();
     var observer = new IntersectionObserver(function(entries) {
       entries.forEach(function(entry) {
         if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-          trackViewability();
-          observer.disconnect();
+          if (!visibilityTimer) {
+            visibilityTimer = window.setTimeout(function() {
+              trackViewability();
+              observer.disconnect();
+            }, 1000);
+          }
+        } else if (visibilityTimer) {
+          window.clearTimeout(visibilityTimer);
+          visibilityTimer = null;
         }
       });
     }, { threshold: [0.5] });
     observer.observe(div);
   } else {
-    window.setTimeout(trackViewability, 1000);
+    markUndetermined('no_intersection_observer');
   }
 
   // Inject into current script's parent
@@ -321,6 +344,10 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
       (function() {
         var pageUrl = document.referrer || ((window.location && window.location.href) ? window.location.href : '');
         var search = new URLSearchParams(window.location.search);
+        var impressionId = search.get('imp')
+          || ((typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+            ? crypto.randomUUID()
+            : 'imp-' + Date.now() + '-' + Math.random().toString(16).slice(2));
         var resolvedDeviceId = search.get('did') || '';
         var resolvedCookieId = search.get('cid') || '';
         var hoverStartedAt = null;
@@ -330,6 +357,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
         }
         function appendIdentity(url) {
           var nextUrl = url;
+          nextUrl += '&imp=' + encodeURIComponent(String(impressionId));
           if (resolvedDeviceId) nextUrl += '&did=' + encodeURIComponent(String(resolvedDeviceId));
           if (resolvedCookieId) nextUrl += '&cid=' + encodeURIComponent(String(resolvedCookieId));
           return nextUrl;
@@ -341,10 +369,21 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
           impPixel.src = appendIdentity(${JSON.stringify(impressionUrl)});
         }
         var viewabilityTracked = false;
+        var viewabilityMeasured = false;
+        var visibilityTimer = null;
+        function markMeasured() {
+          if (viewabilityMeasured) return;
+          viewabilityMeasured = true;
+          fire(appendIdentity(${JSON.stringify(viewabilityUrl)} + '&state=measured&fmt=display&method=intersection_observer' + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
+        }
+        function markUndetermined(reason) {
+          if (viewabilityMeasured || viewabilityTracked) return;
+          fire(appendIdentity(${JSON.stringify(viewabilityUrl)} + '&state=undetermined&fmt=display&method=' + encodeURIComponent(reason || 'unsupported') + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
+        }
         function trackViewability() {
           if (viewabilityTracked) return;
           viewabilityTracked = true;
-          fire(appendIdentity(${JSON.stringify(viewabilityUrl)} + '&vp=1' + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
+          fire(appendIdentity(${JSON.stringify(viewabilityUrl)} + '&state=viewable&vp=1&fmt=display&method=intersection_observer&ms=1000' + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
         }
         Array.prototype.forEach.call(document.querySelectorAll('a[href]'), function(anchor) {
           anchor.href = appendIdentity(anchor.href);
@@ -368,17 +407,25 @@ function buildDisplayDocument(tag, workspaceId, baseUrl) {
           fire(engagementUrl('interaction'));
         });
         if (typeof IntersectionObserver === 'function') {
+          markMeasured();
           var observer = new IntersectionObserver(function(entries) {
             entries.forEach(function(entry) {
               if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-                trackViewability();
-                observer.disconnect();
+                if (!visibilityTimer) {
+                  visibilityTimer = window.setTimeout(function() {
+                    trackViewability();
+                    observer.disconnect();
+                  }, 1000);
+                }
+              } else if (visibilityTimer) {
+                window.clearTimeout(visibilityTimer);
+                visibilityTimer = null;
               }
             });
           }, { threshold: [0.5] });
           observer.observe(document.body);
         } else {
-          window.setTimeout(trackViewability, 1000);
+          markUndetermined('no_intersection_observer');
         }
       })();
     </script>

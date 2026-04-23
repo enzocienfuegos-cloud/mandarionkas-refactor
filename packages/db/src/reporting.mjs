@@ -37,8 +37,9 @@ export async function getTagStats(pool, workspaceId, tagId, opts = {}) {
   params.push(Math.min(Number(limit) || 30, 90));
 
   const { rows } = await pool.query(
-    `SELECT ds.date, ds.impressions, ds.clicks, ds.viewable_imps, ds.spend,
-            CASE WHEN ds.impressions > 0 THEN ROUND(ds.clicks::NUMERIC / ds.impressions * 100, 4) ELSE 0 END AS ctr
+    `SELECT ds.date, ds.impressions, ds.clicks, ds.viewable_imps, ds.measured_imps, ds.undetermined_imps, ds.spend,
+            CASE WHEN ds.impressions > 0 THEN ROUND(ds.clicks::NUMERIC / ds.impressions * 100, 4) ELSE 0 END AS ctr,
+            CASE WHEN ds.measured_imps > 0 THEN ROUND(ds.viewable_imps::NUMERIC / ds.measured_imps * 100, 4) ELSE 0 END AS viewability_rate
      FROM tag_daily_stats ds
      WHERE ${conditions.join(' AND ')}
      ORDER BY ds.date DESC
@@ -61,10 +62,15 @@ export async function getWorkspaceStats(pool, workspaceId, opts = {}) {
        COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
        COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
        COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
+       COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
+       COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps,
        COALESCE(SUM(ds.spend), 0) AS spend,
        CASE WHEN SUM(ds.impressions) > 0
             THEN ROUND(SUM(ds.clicks)::NUMERIC / SUM(ds.impressions) * 100, 4)
-            ELSE 0 END AS ctr
+            ELSE 0 END AS ctr,
+       CASE WHEN COALESCE(SUM(ds.measured_imps), 0) > 0
+            THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
+            ELSE 0 END AS viewability_rate
      FROM tag_daily_stats ds
      JOIN ad_tags t ON t.id = ds.tag_id
      WHERE ${conditions.join(' AND ')}
@@ -87,12 +93,14 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
        COALESCE(SUM(ds.impressions), 0)::bigint AS total_impressions,
        COALESCE(SUM(ds.clicks), 0)::bigint AS total_clicks,
        COALESCE(SUM(ds.viewable_imps), 0)::bigint AS total_viewable_impressions,
+       COALESCE(SUM(ds.measured_imps), 0)::bigint AS total_measured_impressions,
+       COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS total_undetermined_impressions,
        COALESCE(SUM(ds.spend), 0) AS total_spend,
        CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
             THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
             ELSE 0 END AS avg_ctr,
-       CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
-            THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
+       CASE WHEN COALESCE(SUM(ds.measured_imps), 0) > 0
+            THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
             ELSE 0 END AS viewability_rate
      FROM tag_daily_stats ds
      JOIN ad_tags t ON t.id = ds.tag_id
@@ -142,10 +150,16 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
        c.status,
        COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
        COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
+       COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
+       COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
+       COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps,
        COALESCE(SUM(ds.spend), 0) AS spend,
        CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
             THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
-            ELSE 0 END AS ctr
+            ELSE 0 END AS ctr,
+       CASE WHEN COALESCE(SUM(ds.measured_imps), 0) > 0
+            THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
+            ELSE 0 END AS viewability_rate
      FROM campaigns c
      LEFT JOIN ad_tags t
        ON t.campaign_id = c.id
@@ -171,9 +185,15 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
        t.status,
        COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
        COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
+       COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
+       COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
+       COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps,
        CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
             THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
-            ELSE 0 END AS ctr
+            ELSE 0 END AS ctr,
+       CASE WHEN COALESCE(SUM(ds.measured_imps), 0) > 0
+            THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
+            ELSE 0 END AS viewability_rate
      FROM ad_tags t
      LEFT JOIN tag_daily_stats ds ON ds.tag_id = t.id
      WHERE ${topTagConditions.join(' AND ')}
@@ -201,6 +221,8 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     total_impressions: summary.total_impressions ?? 0,
     total_clicks: summary.total_clicks ?? 0,
     total_viewable_impressions: summary.total_viewable_impressions ?? 0,
+    total_measured_impressions: summary.total_measured_impressions ?? 0,
+    total_undetermined_impressions: summary.total_undetermined_impressions ?? 0,
     total_spend: summary.total_spend ?? 0,
     avg_ctr: summary.avg_ctr ?? 0,
     viewability_rate: summary.viewability_rate ?? 0,
@@ -228,10 +250,15 @@ export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}
        COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
        COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
        COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
+       COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
+       COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps,
        COALESCE(SUM(ds.spend), 0) AS spend,
        CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
             THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
-            ELSE 0 END AS ctr
+            ELSE 0 END AS ctr,
+       CASE WHEN COALESCE(SUM(ds.measured_imps), 0) > 0
+            THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
+            ELSE 0 END AS viewability_rate
      FROM campaigns c
      LEFT JOIN ad_tags t
        ON t.campaign_id = c.id
@@ -264,10 +291,15 @@ export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
        COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
        COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
        COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
+       COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
+       COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps,
        COALESCE(SUM(ds.spend), 0) AS spend,
        CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
             THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
-            ELSE 0 END AS ctr
+            ELSE 0 END AS ctr,
+       CASE WHEN COALESCE(SUM(ds.measured_imps), 0) > 0
+            THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
+            ELSE 0 END AS viewability_rate
      FROM ad_tags t
      LEFT JOIN tag_daily_stats ds ON ds.tag_id = t.id
      WHERE ${conditions.join(' AND ')}
@@ -371,10 +403,15 @@ export async function getCampaignStats(pool, workspaceId, campaignId, opts = {})
        COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
        COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
        COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
+       COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
+       COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps,
        COALESCE(SUM(ds.spend), 0) AS spend,
        CASE WHEN SUM(ds.impressions) > 0
             THEN ROUND(SUM(ds.clicks)::NUMERIC / SUM(ds.impressions) * 100, 4)
-            ELSE 0 END AS ctr
+            ELSE 0 END AS ctr,
+       CASE WHEN COALESCE(SUM(ds.measured_imps), 0) > 0
+            THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
+            ELSE 0 END AS viewability_rate
      FROM tag_daily_stats ds
      JOIN ad_tags t ON t.id = ds.tag_id
      WHERE ${conditions.join(' AND ')}

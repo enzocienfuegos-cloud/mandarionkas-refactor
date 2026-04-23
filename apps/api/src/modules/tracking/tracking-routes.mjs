@@ -116,7 +116,7 @@ export function handleTrackingRoutes(app, { pool }) {
   // GET /track/impression/:tagId — records impression, returns 1x1 transparent GIF
   app.get('/track/impression/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, imp: impressionId, c: creativeId, csv: creativeSizeVariantId, pu: pageUrl } = req.query;
+    const { ws: workspaceId, imp: impressionId, c: creativeId, csv: creativeSizeVariantId } = req.query;
 
     if (!workspaceId) {
       // Still return pixel, just don't record
@@ -131,6 +131,7 @@ export function handleTrackingRoutes(app, { pool }) {
 
     // Fire-and-forget — don't block pixel response
       recordImpression(pool, {
+        impression_id: impressionId ?? null,
         tag_id: tagId,
         workspace_id: workspaceId,
         creative_id: creativeId ?? null,
@@ -186,7 +187,7 @@ export function handleTrackingRoutes(app, { pool }) {
   // GET /track/viewability/:tagId — records viewability event
   app.get('/track/viewability/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, vp, imp: impressionId, c: creativeId, csv: creativeSizeVariantId, event } = req.query;
+    const { ws: workspaceId, vp, imp: impressionId, c: creativeId, csv: creativeSizeVariantId, event, state, method, ms } = req.query;
 
     if (workspaceId) {
       const viewable = vp !== '0' && vp !== 'false';
@@ -196,6 +197,9 @@ export function handleTrackingRoutes(app, { pool }) {
         workspace_id: workspaceId,
         impression_id: impressionId ?? null,
         viewable,
+        state: state ?? (viewable ? 'viewable' : 'measured'),
+        method: method ?? null,
+        duration_ms: ms ?? null,
       }).catch(() => {});
       if (event) {
         recordEngagementEvent(pool, {

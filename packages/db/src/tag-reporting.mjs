@@ -22,12 +22,12 @@ export async function getTagDailyStats(pool, workspaceId, tagId, opts = {}) {
   params.push(Math.min(Number(limit) || 30, 90));
 
   const { rows } = await pool.query(
-    `SELECT ds.date, ds.impressions, ds.clicks, ds.viewable_imps, ds.spend,
+    `SELECT ds.date, ds.impressions, ds.clicks, ds.viewable_imps, ds.measured_imps, ds.undetermined_imps, ds.spend,
             CASE WHEN ds.impressions > 0
                  THEN ROUND(ds.clicks::NUMERIC / ds.impressions * 100, 4)
                  ELSE 0 END AS ctr,
-            CASE WHEN ds.impressions > 0
-                 THEN ROUND(ds.viewable_imps::NUMERIC / ds.impressions * 100, 4)
+            CASE WHEN ds.measured_imps > 0
+                 THEN ROUND(ds.viewable_imps::NUMERIC / ds.measured_imps * 100, 4)
                  ELSE 0 END AS viewability_rate
      FROM tag_daily_stats ds
      WHERE ${conditions.join(' AND ')}
@@ -51,12 +51,14 @@ export async function getTagSummaryStats(pool, workspaceId, tagId) {
        COALESCE(SUM(ds.impressions), 0)   AS total_impressions,
        COALESCE(SUM(ds.clicks), 0)        AS total_clicks,
        COALESCE(SUM(ds.viewable_imps), 0) AS total_viewable,
+       COALESCE(SUM(ds.measured_imps), 0) AS total_measured,
+       COALESCE(SUM(ds.undetermined_imps), 0) AS total_undetermined,
        COALESCE(SUM(ds.spend), 0)         AS total_spend,
        CASE WHEN SUM(ds.impressions) > 0
             THEN ROUND(SUM(ds.clicks)::NUMERIC / SUM(ds.impressions) * 100, 4)
             ELSE 0 END AS overall_ctr,
-       CASE WHEN SUM(ds.impressions) > 0
-            THEN ROUND(SUM(ds.viewable_imps)::NUMERIC / SUM(ds.impressions) * 100, 4)
+       CASE WHEN SUM(ds.measured_imps) > 0
+            THEN ROUND(SUM(ds.viewable_imps)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
             ELSE 0 END AS overall_viewability,
        MIN(ds.date)   AS first_date,
        MAX(ds.date)   AS last_date,
