@@ -27,6 +27,17 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 
+  function addTimestampFilters(params, clauses, column, dateFrom, dateTo) {
+    if (dateFrom) {
+      params.push(`${dateFrom}T00:00:00.000Z`);
+      clauses.push(`${column} >= $${params.length}::timestamptz`);
+    }
+    if (dateTo) {
+      params.push(`${dateTo}T23:59:59.999Z`);
+      clauses.push(`${column} <= $${params.length}::timestamptz`);
+    }
+  }
+
   function buildTagSnippet(baseUrl, tag, variant) {
     const width = Number(tag.serving_width ?? 0) || 300;
     const height = Number(tag.serving_height ?? 0) || 250;
@@ -140,6 +151,192 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     reply
       .header('content-type', 'text/csv; charset=utf-8')
       .header('content-disposition', `attachment; filename=\"${campaign.name.replace(/[^a-z0-9-_]+/gi, '_').toLowerCase()}-tags.csv\"`)
+      .send(csv);
+  });
+
+  app.get('/v1/campaigns/:id/events-export', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { userId } = req.authSession;
+    const { id } = req.params;
+    const { dateFrom, dateTo } = req.query;
+    const { rows: campaignRows } = await pool.query(
+      `SELECT c.id, c.workspace_id, c.name, w.name AS workspace_name
+       FROM campaigns c
+       JOIN workspace_members wm ON wm.workspace_id = c.workspace_id
+       JOIN workspaces w ON w.id = c.workspace_id
+       WHERE c.id = $1
+         AND wm.user_id = $2
+         AND wm.status = 'active'
+       LIMIT 1`,
+      [id, userId],
+    );
+    const campaign = campaignRows[0];
+    if (!campaign) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Campaign not found' });
+    }
+
+    const params = [campaign.workspace_id, id];
+    const impressionClauses = ['ie.workspace_id = $1', 't.campaign_id = $2'];
+    const clickClauses = ['ce.workspace_id = $1', 't.campaign_id = $2'];
+    const engagementClauses = ['ee.workspace_id = $1', 't.campaign_id = $2'];
+
+    addTimestampFilters(params, impressionClauses, 'ie.timestamp', dateFrom, dateTo);
+    addTimestampFilters(params, clickClauses, 'ce.timestamp', dateFrom, dateTo);
+    addTimestampFilters(params, engagementClauses, 'ee.timestamp', dateFrom, dateTo);
+
+    const { rows } = await pool.query(
+      `SELECT *
+       FROM (
+         SELECT
+           'impression'::text AS event_type,
+           ie.timestamp AS occurred_at,
+           t.id AS tag_id,
+           t.name AS tag_name,
+           t.format AS tag_format,
+           COALESCE(csv.width, cv.width, legacy.width) AS serving_width,
+           COALESCE(csv.height, cv.height, legacy.height) AS serving_height,
+           ie.creative_id,
+           ie.creative_size_variant_id,
+           ie.site_domain,
+           ie.page_url,
+           ie.country,
+           ie.region,
+           ie.device_type,
+           ie.browser,
+           ie.os,
+           ie.device_id,
+           ie.cookie_id,
+           ie.viewable::text AS event_value,
+           NULL::text AS redirect_url,
+           NULL::bigint AS hover_duration_ms
+         FROM impression_events ie
+         JOIN ad_tags t ON t.id = ie.tag_id
+         LEFT JOIN creative_size_variants csv ON csv.id = ie.creative_size_variant_id
+         LEFT JOIN creative_versions cv ON cv.id = csv.creative_version_id
+         LEFT JOIN creatives legacy ON legacy.id = ie.creative_id
+         WHERE ${impressionClauses.join(' AND ')}
+
+         UNION ALL
+
+         SELECT
+           'click'::text AS event_type,
+           ce.timestamp AS occurred_at,
+           t.id AS tag_id,
+           t.name AS tag_name,
+           t.format AS tag_format,
+           COALESCE(csv.width, cv.width, legacy.width) AS serving_width,
+           COALESCE(csv.height, cv.height, legacy.height) AS serving_height,
+           ce.creative_id,
+           ce.creative_size_variant_id,
+           ce.site_domain,
+           ce.page_url,
+           ce.country,
+           ce.region,
+           ce.device_type,
+           ce.browser,
+           ce.os,
+           ce.device_id,
+           ce.cookie_id,
+           NULL::text AS event_value,
+           ce.redirect_url,
+           NULL::bigint AS hover_duration_ms
+         FROM click_events ce
+         JOIN ad_tags t ON t.id = ce.tag_id
+         LEFT JOIN creative_size_variants csv ON csv.id = ce.creative_size_variant_id
+         LEFT JOIN creative_versions cv ON cv.id = csv.creative_version_id
+         LEFT JOIN creatives legacy ON legacy.id = ce.creative_id
+         WHERE ${clickClauses.join(' AND ')}
+
+         UNION ALL
+
+         SELECT
+           ee.event_type,
+           ee.timestamp AS occurred_at,
+           t.id AS tag_id,
+           t.name AS tag_name,
+           t.format AS tag_format,
+           COALESCE(csv.width, cv.width, legacy.width) AS serving_width,
+           COALESCE(csv.height, cv.height, legacy.height) AS serving_height,
+           ee.creative_id,
+           ee.creative_size_variant_id,
+           ee.site_domain,
+           ee.page_url,
+           ee.country,
+           ee.region,
+           ee.device_type,
+           ee.browser,
+           ee.os,
+           ee.device_id,
+           ee.cookie_id,
+           NULL::text AS event_value,
+           NULL::text AS redirect_url,
+           ee.hover_duration_ms
+         FROM engagement_events ee
+         JOIN ad_tags t ON t.id = ee.tag_id
+         LEFT JOIN creative_size_variants csv ON csv.id = ee.creative_size_variant_id
+         LEFT JOIN creative_versions cv ON cv.id = csv.creative_version_id
+         LEFT JOIN creatives legacy ON legacy.id = ee.creative_id
+         WHERE ${engagementClauses.join(' AND ')}
+       ) exported_events
+       ORDER BY occurred_at DESC
+       LIMIT 50000`,
+      params,
+    );
+
+    const csvRows = [
+      [
+        'client',
+        'campaign',
+        'event_type',
+        'occurred_at',
+        'tag_id',
+        'tag_name',
+        'tag_format',
+        'size',
+        'creative_id',
+        'creative_size_variant_id',
+        'site_domain',
+        'page_url',
+        'country',
+        'region',
+        'device_type',
+        'browser',
+        'os',
+        'device_id',
+        'cookie_id',
+        'event_value',
+        'redirect_url',
+        'hover_duration_ms',
+      ],
+      ...rows.map(row => ([
+        campaign.workspace_name ?? '',
+        campaign.name,
+        row.event_type,
+        row.occurred_at instanceof Date ? row.occurred_at.toISOString() : row.occurred_at,
+        row.tag_id,
+        row.tag_name,
+        row.tag_format,
+        row.serving_width && row.serving_height ? `${row.serving_width}x${row.serving_height}` : '',
+        row.creative_id ?? '',
+        row.creative_size_variant_id ?? '',
+        row.site_domain ?? '',
+        row.page_url ?? '',
+        row.country ?? '',
+        row.region ?? '',
+        row.device_type ?? '',
+        row.browser ?? '',
+        row.os ?? '',
+        row.device_id ?? '',
+        row.cookie_id ?? '',
+        row.event_value ?? '',
+        row.redirect_url ?? '',
+        row.hover_duration_ms ?? '',
+      ])),
+    ];
+
+    const csv = csvRows.map(row => row.map(escapeCsv).join(',')).join('\n');
+    reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', `attachment; filename=\"${campaign.name.replace(/[^a-z0-9-_]+/gi, '_').toLowerCase()}-events.csv\"`)
       .send(csv);
   });
 
