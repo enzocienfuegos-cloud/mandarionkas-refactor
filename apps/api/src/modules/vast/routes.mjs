@@ -59,7 +59,6 @@ const RUNTIME_DSP_CLICK_HELPER = `function applyDspClickMacro(url, macroValue) {
   try {
     decodedMacroValue = decodeURIComponent(macroValue);
   } catch (_error) {}
-  if (/[{}]/.test(decodedMacroValue) || /\\$\\{[^}]+\\}/.test(decodedMacroValue)) return url;
   return decodedMacroValue + encodeURIComponent(String(url));
 }`;
 
@@ -297,6 +296,15 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   ${RUNTIME_DSP_CLICK_HELPER}
   ${RUNTIME_TRACKING_HINT_HELPER}
 
+  function hasUnresolvedDspMacro(value) {
+    if (!value) return false;
+    var decoded = value;
+    try {
+      decoded = decodeURIComponent(value);
+    } catch (_error) {}
+    return /[{}]/.test(decoded) || /\\$\\{[^}]+\\}/.test(decoded);
+  }
+
   function resolveClickHref(url) {
     var hintedUrl = ensureSmxTrackingHints(url, currentScriptSearch, 'display_wrapper');
     var trackedUrl = appendIdentity(hintedUrl);
@@ -353,6 +361,16 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
     link.rel = 'noopener noreferrer';
     link.addEventListener('click', function() {
       firePixel(buildEngagementUrl('interaction'));
+      if (!hasUnresolvedDspMacro(dspClickMacro)) return;
+      var fallbackHref = appendIdentity(ensureSmxTrackingHints(clickUrl, currentScriptSearch, 'display_wrapper'));
+      window.setTimeout(function() {
+        try {
+          if (document.visibilityState === 'hidden') return;
+        } catch (_error) {}
+        try {
+          window.location.href = fallbackHref;
+        } catch (_error) {}
+      }, 350);
     });
   }
 
@@ -584,6 +602,14 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
         }
         ${RUNTIME_DSP_CLICK_HELPER}
         ${RUNTIME_TRACKING_HINT_HELPER}
+        function hasUnresolvedDspMacro(value) {
+          if (!value) return false;
+          var decoded = value;
+          try {
+            decoded = decodeURIComponent(value);
+          } catch (_error) {}
+          return /[{}]/.test(decoded) || /\\$\\{[^}]+\\}/.test(decoded);
+        }
         function resolveClickHref(url, macroOverride) {
           var hintedUrl = ensureSmxTrackingHints(url, search, 'display_wrapper');
           var trackedUrl = appendIdentity(hintedUrl);
@@ -594,6 +620,18 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
           var baseClick = anchor.getAttribute('data-smx-click') || anchor.href;
           var macroOverride = anchor.getAttribute('data-smx-dsp-click') || '';
           anchor.href = resolveClickHref(baseClick, macroOverride);
+          anchor.addEventListener('click', function() {
+            if (!hasUnresolvedDspMacro(macroOverride || search.get('smx_dsp_click') || '')) return;
+            var fallbackHref = appendIdentity(ensureSmxTrackingHints(baseClick, search, 'display_wrapper'));
+            window.setTimeout(function() {
+              try {
+                if (document.visibilityState === 'hidden') return;
+              } catch (_error) {}
+              try {
+                window.location.href = fallbackHref;
+              } catch (_error) {}
+            }, 350);
+          });
         });
         function engagementUrl(eventType, hoverDurationMs) {
           var params = ['event=' + encodeURIComponent(eventType)];

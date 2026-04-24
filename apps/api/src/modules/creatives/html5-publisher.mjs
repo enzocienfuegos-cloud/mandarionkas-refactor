@@ -221,7 +221,6 @@ function buildClickTrackingBootstrap() {
       try {
         decodedMacroValue = decodeURIComponent(macroValue);
       } catch (_) {}
-      if (/[{}]/.test(decodedMacroValue) || /\\$\\{[^}]+\\}/.test(decodedMacroValue)) return url;
       return decodedMacroValue + encodeURIComponent(String(url));
     }
 
