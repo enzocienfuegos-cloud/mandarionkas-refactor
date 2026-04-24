@@ -107,11 +107,18 @@ function safeDecode(value) {
   }
 }
 
+export function isResolvedDspMacroValue(value) {
+  const text = safeDecode(value).trim();
+  if (!text) return false;
+  if (/[{}]/.test(text) || /\$\{[^}]+\}/.test(text)) return false;
+  return true;
+}
+
 export function wrapTrackedClickUrlWithDspMacro(clickTrackUrl, query = {}, dsp = '') {
   const encodedMacro = readDspMacroValue(query, 'clickMacro', dsp);
   if (!encodedMacro || !clickTrackUrl) return clickTrackUrl;
 
   const prefix = safeDecode(encodedMacro);
-  if (!prefix) return clickTrackUrl;
+  if (!isResolvedDspMacroValue(prefix)) return clickTrackUrl;
   return `${prefix}${encodeURIComponent(String(clickTrackUrl))}`;
 }

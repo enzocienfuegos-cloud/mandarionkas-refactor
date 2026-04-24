@@ -217,6 +217,7 @@ function buildClickTrackingBootstrap() {
 
     function wrapWithDspMacro(url) {
       if (!dspClickMacro) return url;
+      if (/[{}]/.test(dspClickMacro) || /\$\{[^}]+\}/.test(dspClickMacro)) return url;
       try {
         return decodeURIComponent(dspClickMacro) + encodeURIComponent(url);
       } catch (_) {

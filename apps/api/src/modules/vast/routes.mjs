@@ -258,6 +258,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   function resolveClickHref(url) {
     var trackedUrl = appendIdentity(url);
     if (!dspClickMacro) return trackedUrl;
+    if (/[{}]/.test(dspClickMacro) || /\$\{[^}]+\}/.test(dspClickMacro)) return trackedUrl;
     try {
       return decodeURIComponent(dspClickMacro) + encodeURIComponent(trackedUrl);
     } catch (_error) {
@@ -546,6 +547,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
           var trackedUrl = appendIdentity(url);
           var macroValue = macroOverride || search.get('smx_dsp_click') || '';
           if (!macroValue) return trackedUrl;
+          if (/[{}]/.test(macroValue) || /\$\{[^}]+\}/.test(macroValue)) return trackedUrl;
           try {
             return decodeURIComponent(macroValue) + encodeURIComponent(trackedUrl);
           } catch (_error) {
