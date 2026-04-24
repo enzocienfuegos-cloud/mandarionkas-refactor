@@ -8,6 +8,7 @@ interface CampaignForm {
   workspaceId: string;
   name: string;
   dsp: string;
+  mediaType: string;
   status: string;
   startDate: string;
   endDate: string;
@@ -21,6 +22,7 @@ const emptyForm: CampaignForm = {
   workspaceId: '',
   name: '',
   dsp: '',
+  mediaType: 'display',
   status: 'draft',
   startDate: '',
   endDate: '',
@@ -62,6 +64,7 @@ export default function CampaignEditor() {
           workspaceId: campaign.workspaceId ?? campaign.workspace_id ?? '',
           name: campaign.name ?? '',
           dsp: campaign.metadata?.dsp ?? '',
+          mediaType: campaign.metadata?.mediaType ?? 'display',
           status: campaign.status ?? 'draft',
           startDate: campaign.startDate ? campaign.startDate.slice(0, 10) : (campaign.start_date ? campaign.start_date.slice(0, 10) : ''),
           endDate: campaign.endDate ? campaign.endDate.slice(0, 10) : (campaign.end_date ? campaign.end_date.slice(0, 10) : ''),
@@ -109,6 +112,7 @@ export default function CampaignEditor() {
       dailyBudget: form.dailyBudget ? Number(form.dailyBudget) : null,
       metadata: {
         dsp: form.dsp || null,
+        mediaType: form.mediaType || 'display',
       },
     };
 
@@ -200,6 +204,14 @@ export default function CampaignEditor() {
               {DSP_OPTIONS.map(option => (
                 <option key={option} value={option}>{option}</option>
               ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Media Type</label>
+            <select value={form.mediaType} onChange={set('mediaType')} className={inputClass()}>
+              <option value="display">Display / Interactive</option>
+              <option value="video">Video</option>
             </select>
           </div>
 

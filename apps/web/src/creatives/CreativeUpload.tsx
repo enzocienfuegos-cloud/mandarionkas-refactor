@@ -18,11 +18,13 @@ const ACCEPTED_EXTENSIONS: Record<SourceKind, string> = {
 export default function CreativeUpload() {
   const navigate = useNavigate();
   const [sourceKind, setSourceKind] = useState<SourceKind>('html5_zip');
-  const [name, setName] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [currentFileName, setCurrentFileName] = useState('');
+  const [currentFileProgress, setCurrentFileProgress] = useState(0);
+  const [overallProgress, setOverallProgress] = useState(0);
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
 
@@ -36,8 +38,8 @@ export default function CreativeUpload() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!file) {
-      setError('Select a file first.');
+    if (files.length === 0) {
+      setError('Select at least one file first.');
       return;
     }
     if (!workspaceId) {
@@ -48,33 +50,57 @@ export default function CreativeUpload() {
     setLoading(true);
     setError('');
     setStatus('Preparing upload…');
+    setCurrentFileName('');
+    setCurrentFileProgress(0);
+    setOverallProgress(0);
+
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    let uploadedCompletedBytes = 0;
 
     try {
-      const upload = await createCreativeIngestionUpload({
-        workspaceId,
-        sourceKind,
-        file,
-        name: name.trim() || undefined,
-      });
-      setStatus('Uploading file…');
-      await uploadFileToSignedUrl(upload.upload.uploadUrl, file);
+      for (const [index, file] of files.entries()) {
+        const label = `${index + 1}/${files.length} · ${file.name}`;
+        setCurrentFileName(file.name);
+        setCurrentFileProgress(0);
+        setStatus(`Preparing upload ${label}…`);
+        const upload = await createCreativeIngestionUpload({
+          workspaceId,
+          sourceKind,
+          file,
+        });
 
-      setStatus('Validating ingestion…');
-      await completeCreativeIngestion(upload.ingestion.id, {
-        workspaceId,
-        file,
-        publicUrl: upload.upload.publicUrl,
-        storageKey: upload.upload.storageKey,
-        name: name.trim() || undefined,
-      });
+        setStatus(`Uploading ${label}…`);
+        await uploadFileToSignedUrl(upload.upload.uploadUrl, file, ({ loadedBytes, totalBytes: fileTotalBytes, percent }) => {
+          setCurrentFileProgress(percent);
+          const cumulativeLoaded = uploadedCompletedBytes + loadedBytes;
+          const nextOverall = totalBytes > 0
+            ? Math.min(100, Math.round((cumulativeLoaded / totalBytes) * 100))
+            : 0;
+          setOverallProgress(nextOverall);
+          if (fileTotalBytes > 0 && loadedBytes >= fileTotalBytes) {
+            setCurrentFileProgress(100);
+          }
+        });
+        uploadedCompletedBytes += file.size;
+        setOverallProgress(totalBytes > 0 ? Math.min(100, Math.round((uploadedCompletedBytes / totalBytes) * 100)) : 100);
 
-      setStatus('Publishing to creative catalog…');
-      await publishCreativeIngestion(upload.ingestion.id, {
-        workspaceId,
-        name: name.trim() || undefined,
-      });
+        setStatus(`Validating ${label}…`);
+        await completeCreativeIngestion(upload.ingestion.id, {
+          workspaceId,
+          file,
+          publicUrl: upload.upload.publicUrl,
+          storageKey: upload.upload.storageKey,
+        });
 
-      setStatus('Creative published.');
+        setStatus(`Publishing ${label}…`);
+        await publishCreativeIngestion(upload.ingestion.id, {
+          workspaceId,
+        });
+      }
+
+      setStatus(`${files.length} creative${files.length === 1 ? '' : 's'} published.`);
+      setCurrentFileProgress(100);
+      setOverallProgress(100);
       navigate('/creatives');
     } catch (submitError: any) {
       setError(submitError.message ?? 'Upload failed');
@@ -87,9 +113,9 @@ export default function CreativeUpload() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Upload External Creative</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Upload External Creatives</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Upload an HTML5 zip or MP4 and publish it into the versioned creative catalog.
+          Upload multiple HTML5 zip banners or MP4 videos and publish them into the versioned creative catalog.
         </p>
       </div>
 
@@ -124,7 +150,11 @@ export default function CreativeUpload() {
             <div className="grid gap-3">
               <button
                 type="button"
-                onClick={() => setSourceKind('html5_zip')}
+                onClick={() => {
+                  setSourceKind('html5_zip');
+                  setFiles([]);
+                  setError('');
+                }}
                 className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'html5_zip' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}
               >
                 <div className="font-medium text-slate-800">HTML5 ZIP</div>
@@ -132,7 +162,11 @@ export default function CreativeUpload() {
               </button>
               <button
                 type="button"
-                onClick={() => setSourceKind('video_mp4')}
+                onClick={() => {
+                  setSourceKind('video_mp4');
+                  setFiles([]);
+                  setError('');
+                }}
                 className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'video_mp4' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}
               >
                 <div className="font-medium text-slate-800">Video MP4</div>
@@ -143,33 +177,72 @@ export default function CreativeUpload() {
 
           <div className="space-y-4">
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Display Name</label>
-              <input
-                value={name}
-                onChange={event => setName(event.target.value)}
-                placeholder="Spring launch takeover"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Creative File</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Creative Files</label>
               <input
                 key={sourceKind}
                 type="file"
                 accept={ACCEPTED_EXTENSIONS[sourceKind]}
-                onChange={event => setFile(event.target.files?.[0] ?? null)}
+                multiple
+                onChange={event => setFiles(Array.from(event.target.files ?? []))}
                 className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium"
               />
               <p className="mt-2 text-xs text-slate-500">
-                Accepted: {ACCEPTED_EXTENSIONS[sourceKind]} · the backend will validate and publish the artifact.
+                Accepted: {ACCEPTED_EXTENSIONS[sourceKind]} · each creative will use its file name as the creative name.
               </p>
+              {files.length > 0 && (
+                <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                    {files.length} selected
+                  </div>
+                  <div className="max-h-48 space-y-1 overflow-y-auto text-sm text-slate-700">
+                    {files.map(file => (
+                      <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-3">
+                        <span className="truncate">{file.name}</span>
+                        <span className="shrink-0 text-xs text-slate-500">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {status && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-            {status}
+            <div className="font-medium">{status}</div>
+            {loading && (
+              <div className="mt-3 space-y-3">
+                <div>
+                  <div className="mb-1 flex items-center justify-between text-xs text-blue-700">
+                    <span>Overall progress</span>
+                    <span>{overallProgress}%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-blue-100">
+                    <div
+                      className="h-full rounded-full bg-blue-600 transition-all"
+                      style={{ width: `${overallProgress}%` }}
+                    />
+                  </div>
+                </div>
+                {currentFileName && (
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs text-blue-700">
+                      <span className="truncate pr-3">Uploading {currentFileName}</span>
+                      <span>{currentFileProgress}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-blue-100">
+                      <div
+                        className="h-full rounded-full bg-indigo-600 transition-all"
+                        style={{ width: `${currentFileProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

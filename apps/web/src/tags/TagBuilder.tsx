@@ -22,7 +22,7 @@ import {
 interface Campaign {
   id: string;
   name: string;
-  metadata?: { dsp?: string | null } | null;
+  metadata?: { dsp?: string | null; mediaType?: string | null } | null;
 }
 
 type TagFormat = 'VAST' | 'display' | 'native' | 'tracker';
@@ -309,7 +309,10 @@ export default function TagBuilder() {
   const [assignmentError, setAssignmentError] = useState('');
   const [deliveryDiagnostics, setDeliveryDiagnostics] = useState<DeliveryDiagnosticsPayload | null>(null);
   const [deliveryDiagnosticsLoading, setDeliveryDiagnosticsLoading] = useState(false);
-  const selectedCampaignDsp = readCampaignDsp(campaigns.find((campaign) => campaign.id === form.campaignId)?.metadata ?? null);
+  const selectedCampaign = campaigns.find((campaign) => campaign.id === form.campaignId) ?? null;
+  const selectedCampaignDsp = readCampaignDsp(selectedCampaign?.metadata ?? null);
+  const selectedCampaignMediaType = String(selectedCampaign?.metadata?.mediaType ?? 'display').toLowerCase();
+  const videoCampaign = selectedCampaignMediaType === 'video';
   const selectedCampaignMacroConfig = getDspMacroConfig(selectedCampaignDsp);
   const deliveryDiagnosticSections: DeliveryDiagnosticSection[] = [
     { label: 'Display Wrapper', entry: deliveryDiagnostics?.deliveryDiagnostics?.displayWrapper },
@@ -421,6 +424,21 @@ export default function TagBuilder() {
     setErrors(er => ({ ...er, format: undefined }));
     setSuccessMessage('');
   };
+
+  useEffect(() => {
+    if (isEdit) return;
+    if (!videoCampaign) return;
+    if (form.format === 'VAST') return;
+    setForm(prev => ({
+      ...prev,
+      format: 'VAST',
+      servingWidth: '',
+      servingHeight: '',
+      trackerType: 'click',
+    }));
+    setSnippetVariant(getDefaultSnippetVariant('VAST', null));
+    setErrors(er => ({ ...er, format: undefined }));
+  }, [videoCampaign, form.format, isEdit]);
 
   const handleDisplaySizePresetChange = (value: string) => {
     const preset = DISPLAY_SIZE_PRESETS.find((entry) => entry.label === value);
@@ -600,11 +618,17 @@ export default function TagBuilder() {
             </div>
           )}
 
+          {videoCampaign && (
+            <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-700">
+              This campaign is marked as <strong>Video</strong>. Tag creation is limited to <code>VAST</code>; <code>display</code>, <code>native</code>, and <code>tracker</code> are hidden on purpose.
+            </div>
+          )}
+
           {/* Format */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Format</label>
             <div className="flex gap-3">
-              {(['VAST', 'display', 'native', 'tracker'] as TagFormat[]).map(f => (
+              {(videoCampaign ? (['VAST'] as TagFormat[]) : (['VAST', 'display', 'native', 'tracker'] as TagFormat[])).map(f => (
                 <label
                   key={f}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors ${

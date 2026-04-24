@@ -5,14 +5,22 @@ function splitCsv(value) {
     .filter(Boolean);
 }
 
+const DEFAULT_PUBLIC_SDK_ORIGINS = [
+  'https://imasdk.googleapis.com',
+];
+
 export function parseCorsOrigins(value = process.env.CORS_ORIGIN) {
   return splitCsv(value);
 }
 
 export function buildCorsOriginMatcher(value = process.env.CORS_ORIGIN) {
-  const allowedOrigins = parseCorsOrigins(value);
+  const configuredOrigins = parseCorsOrigins(value);
+  const allowedOrigins = Array.from(new Set([
+    ...configuredOrigins,
+    ...DEFAULT_PUBLIC_SDK_ORIGINS,
+  ]));
 
-  if (allowedOrigins.length === 0) {
+  if (configuredOrigins.length === 0) {
     return true;
   }
 
