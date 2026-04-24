@@ -4,7 +4,7 @@ import {
   recordViewability,
   recordEngagementEvent,
 } from '@smx/db/tracking';
-import { getTagById, getTagServingSnapshotById } from '@smx/db/tags';
+import { getTagServingSnapshotById } from '@smx/db/tags';
 import { extractIp, resolveIp } from '@smx/geo';
 import { readDspMacroValue, resolveDspClickMacroValue } from '@smx/contracts/dsp-macros';
 
@@ -287,18 +287,15 @@ export function handleTrackingRoutes(app, { pool }) {
 
   app.get('/v1/tags/tracker/:tagId/click', async (req, reply) => {
     const { tagId } = req.params;
-    const [tag, servingSnapshot] = await Promise.all([
-      getTagById(pool, tagId),
-      getTagServingSnapshotById(pool, tagId),
-    ]);
-    if (!tag || !servingSnapshot) {
+    const servingSnapshot = await getTagServingSnapshotById(pool, tagId);
+    if (!servingSnapshot) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
 
     const context = await collectTrackingContext(req, req.query);
     attachMeasurementDebugHeaders(reply, context);
     setTrackingIdentityCookies(reply, context);
-    const destinationUrl = tag.click_url
+    const destinationUrl = servingSnapshot.click_url
       ?? servingSnapshot.servingCandidate?.clickUrl
       ?? req.query?.url
       ?? null;
@@ -306,27 +303,26 @@ export function handleTrackingRoutes(app, { pool }) {
     const creativeSizeVariantId = normalizeUuid(req.query?.csv) ?? servingSnapshot.servingCandidate?.creativeSizeVariantId ?? null;
     const impressionId = normalizeUuid(req.query?.imp) ?? null;
 
-    try {
-      await recordClick(pool, {
+    logMeasurementPath(req, 'tracking click measurement path', {
+      tagId,
+      workspaceId: servingSnapshot.workspace_id,
+      impressionId,
+      creativeId,
+      creativeSizeVariantId,
+      destinationUrl,
+    }, context);
+
+    recordClick(pool, {
         tag_id: tagId,
-        workspace_id: tag.workspace_id,
+        workspace_id: servingSnapshot.workspace_id,
         creative_id: creativeId,
         creative_size_variant_id: creativeSizeVariantId,
         impression_id: impressionId,
         redirect_url: destinationUrl,
         ...context,
+      }).catch((error) => {
+        req.log?.error?.({ err: error, tagId, workspaceId: servingSnapshot.workspace_id, destinationUrl }, 'failed to record tracker click');
       });
-      logMeasurementPath(req, 'tracking click measurement path', {
-        tagId,
-        workspaceId: tag.workspace_id,
-        impressionId,
-        creativeId,
-        creativeSizeVariantId,
-        destinationUrl,
-      }, context);
-    } catch (error) {
-      req.log?.error?.({ err: error, tagId, workspaceId: tag.workspace_id, destinationUrl }, 'failed to record tracker click');
-    }
 
     if (!destinationUrl) {
       return reply.status(204).send();
