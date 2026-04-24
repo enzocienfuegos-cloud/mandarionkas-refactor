@@ -46,7 +46,6 @@ export declare function applyDspMacrosToDeliveryUrl(
   opts?: { includeClickMacro?: boolean; includeDspHint?: boolean; clickMacroValue?: string },
 ): string;
 export declare function buildDspNativeClickHref(clickTrackUrl: string, dsp: unknown): string;
-export declare function buildBasisNativeDisplayAnchor(displayHtmlUrl: string, clickHref: string, width: number, height: number): string;
 export declare function buildBasisNativeSnippet(input: {
   variant: string;
   tagId?: string;
