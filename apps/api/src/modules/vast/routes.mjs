@@ -4,6 +4,7 @@ import {
   buildBasisNativeSnippet,
   buildDspTrackedClickUrl,
   DSP_DELIVERY_KINDS,
+  normalizeDsp,
   readDspMacroValue,
   wrapTrackedClickUrlWithDspMacro,
 } from '@smx/contracts/dsp-macros';
@@ -76,7 +77,7 @@ const RUNTIME_TRACKING_HINT_HELPER = `function ensureSmxTrackingHints(url, sourc
     var dspValue = '';
     var dspClickValue = '';
     if (sourceParams && typeof sourceParams.get === 'function') {
-      dspValue = sourceParams.get('smx_dsp') || '';
+      dspValue = sourceParams.get('smx_dsp') || sourceParams.get('dsp') || '';
       dspClickValue = sourceParams.get('smx_dsp_click') || sourceParams.get('cuu') || sourceParams.get('dsp_click') || '';
     }
     if (dspValue && !nextUrl.searchParams.get('smx_dsp')) nextUrl.searchParams.set('smx_dsp', dspValue);
@@ -101,7 +102,8 @@ function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const width = servingCandidate?.width ?? 1920;
   const height = servingCandidate?.height ?? 1080;
   const trackingParams = new URLSearchParams({ ws: String(workspaceId) });
-  if (query?.smx_dsp) trackingParams.set('smx_dsp', String(query.smx_dsp));
+  const trackingDsp = normalizeDsp(query?.smx_dsp ?? query?.dsp);
+  if (trackingDsp) trackingParams.set('smx_dsp', String(trackingDsp));
   trackingParams.set('smx_delivery_kind', 'vast');
   if (creativeId) trackingParams.set('c', String(creativeId));
   if (creativeSizeVariantId) trackingParams.set('csv', String(creativeSizeVariantId));
@@ -174,7 +176,8 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   const height = servingCandidate?.height ?? 250;
   const clickUrl = servingCandidate?.clickUrl ?? '#';
   const trackingParams = new URLSearchParams({ ws: String(workspaceId) });
-  if (query?.smx_dsp) trackingParams.set('smx_dsp', String(query.smx_dsp));
+  const trackingDsp = normalizeDsp(query?.smx_dsp ?? query?.dsp);
+  if (trackingDsp) trackingParams.set('smx_dsp', String(trackingDsp));
   trackingParams.set('smx_delivery_kind', 'display_wrapper');
   if (servingCandidate?.creativeId) trackingParams.set('c', String(servingCandidate.creativeId));
   if (servingCandidate?.creativeSizeVariantId) trackingParams.set('csv', String(servingCandidate.creativeSizeVariantId));
@@ -460,7 +463,8 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
   const height = servingCandidate?.height ?? 250;
   const clickUrl = servingCandidate?.clickUrl ?? '#';
   const trackingParams = new URLSearchParams({ ws: String(workspaceId) });
-  if (query?.smx_dsp) trackingParams.set('smx_dsp', String(query.smx_dsp));
+  const trackingDsp = normalizeDsp(query?.smx_dsp ?? query?.dsp);
+  if (trackingDsp) trackingParams.set('smx_dsp', String(trackingDsp));
   trackingParams.set('smx_delivery_kind', 'display_wrapper');
   if (servingCandidate?.creativeId) trackingParams.set('c', String(servingCandidate.creativeId));
   if (servingCandidate?.creativeSizeVariantId) trackingParams.set('csv', String(servingCandidate.creativeSizeVariantId));
@@ -784,7 +788,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
     const loaded = await loadDisplayTag(req, reply, pool);
     if (!loaded) return;
 
-    const dsp = String(req.query?.smx_dsp ?? '').trim().toLowerCase();
+    const dsp = normalizeDsp(req.query?.smx_dsp ?? req.query?.dsp);
     if (dsp === 'basis') {
       const width = Number(loaded.tag.serving_width ?? 0) || 300;
       const height = Number(loaded.tag.serving_height ?? 0) || 250;

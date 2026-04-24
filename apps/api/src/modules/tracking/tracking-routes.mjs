@@ -143,7 +143,7 @@ function buildIdentityKeys({ query = {}, headers = {}, cookies = {} }) {
     });
   };
 
-  const dspHint = query.smx_dsp;
+  const dspHint = readTrackingValue(query.smx_dsp, query.dsp);
   pushKey('device_id', query.did, 'query', true);
   pushKey('device_id', headers['x-device-id'], 'header', true);
   pushKey('device_id', cookies.smx_device_id ?? cookies.device_id, 'cookie', true);
@@ -203,7 +203,8 @@ async function collectTrackingContext(req, query = {}) {
   const referer = req.headers['referer'] ?? req.headers['referrer'] ?? null;
   const pageContext = parseSiteContext(readTrackingValue(query.pu, query.purl));
   const refererContext = parseSiteContext(referer);
-  const macroDomain = readDspMacroValue(query, 'siteDomain', query.smx_dsp)
+  const dspHint = String(readTrackingValue(query.smx_dsp, query.dsp) ?? '').trim().toLowerCase();
+  const macroDomain = readDspMacroValue(query, 'siteDomain', dspHint)
     ?? readTrackingValue(query.dom, query.sd, query.domain, query.inventoryUnitReportingName);
   const requestHost = resolveRequestHost(req);
   const selectedContext =
@@ -223,7 +224,6 @@ async function collectTrackingContext(req, query = {}) {
   const cookieDeviceId = req.cookies?.smx_device_id ?? req.cookies?.device_id ?? null;
   const cookieCookieId = req.cookies?.smx_cookie_id ?? req.cookies?.cookie_id ?? null;
   const identityKeys = buildIdentityKeys({ query, headers: req.headers, cookies: req.cookies ?? {} });
-  const dspHint = String(query.smx_dsp ?? '').trim().toLowerCase();
   const deliveryKind = String(query.smx_delivery_kind ?? '').trim().toLowerCase() || null;
   const rawClickMacro = readDspMacroValue(query, 'clickMacro', dspHint);
   const resolvedClickMacro = resolveDspClickMacroValue(rawClickMacro);

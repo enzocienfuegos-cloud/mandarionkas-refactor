@@ -85,6 +85,28 @@ export function applyDspMacrosToUrl(rawUrl, dsp, opts = {}) {
   const { includeClickMacro = false, includeDspHint = true, clickMacroValue = '' } = opts;
 
   try {
+    if (normalizeDsp(dsp) === 'basis') {
+      const base = String(rawUrl).replace(/[?&]+$/, '');
+      const parts = [];
+      if (includeDspHint && !('dsp' in config.queryParams)) {
+        parts.push(`dsp=${config.label}`);
+      }
+      for (const [key, value] of Object.entries(config.queryParams)) {
+        if (!includeClickMacro && config.aliases?.clickMacro?.includes(key)) continue;
+        parts.push(`${key}=${value}`);
+      }
+      if (includeClickMacro) {
+        const clickMacroKey = config.aliases?.clickMacro?.find((key) => key in config.queryParams);
+        if (clickMacroKey) {
+          const macroValue = String(clickMacroValue || config.queryParams[clickMacroKey] || '').trim();
+          const nextParts = parts.filter((part) => !part.startsWith(`${clickMacroKey}=`));
+          nextParts.push(`${clickMacroKey}=${macroValue}`);
+          return `${base}?${nextParts.join('&')}`;
+        }
+      }
+      return `${base}?${parts.join('&')}`;
+    }
+
     const url = new URL(String(rawUrl));
     if (includeDspHint) {
       url.searchParams.set('smx_dsp', normalizeDsp(dsp));
@@ -124,6 +146,7 @@ export function getDspDeliveryPolicy(dsp, deliveryKind) {
     case DSP_DELIVERY_KINDS.DISPLAY_WRAPPER:
       return {
         ...basePolicy,
+        includeDspHint: true,
         includeClickMacro: true,
         measurementPath: 'basis_macro_or_smx_fallback',
         clickMacroValue: '{clickMacroEnc}',
@@ -131,6 +154,7 @@ export function getDspDeliveryPolicy(dsp, deliveryKind) {
     case DSP_DELIVERY_KINDS.HTML5_INTERNAL:
       return {
         ...basePolicy,
+        includeDspHint: true,
         includeClickMacro: true,
         measurementPath: 'basis_macro_or_smx_fallback',
         clickMacroValue: '{clickMacroEnc}',
@@ -138,12 +162,14 @@ export function getDspDeliveryPolicy(dsp, deliveryKind) {
     case DSP_DELIVERY_KINDS.VAST:
       return {
         ...basePolicy,
+        includeDspHint: true,
         includeClickMacro: false,
         measurementPath: 'basis_macro_or_smx_fallback',
       };
     case DSP_DELIVERY_KINDS.TRACKER_CLICK:
       return {
         ...basePolicy,
+        includeDspHint: true,
         includeClickMacro: true,
         measurementPath: 'basis_macro_or_smx_fallback',
         clickMacroValue: '{clickMacroEnc}',
@@ -151,6 +177,7 @@ export function getDspDeliveryPolicy(dsp, deliveryKind) {
     case DSP_DELIVERY_KINDS.TRACKER_IMPRESSION:
       return {
         ...basePolicy,
+        includeDspHint: true,
         includeClickMacro: false,
         measurementPath: 'smx_direct',
       };
@@ -177,19 +204,25 @@ export function buildDspNativeClickHref(clickTrackUrl, dsp) {
 
 function splitBasisNativeClickUrl(clickTrackUrl) {
   if (!clickTrackUrl) return { baseClickUrl: '', clickMacroValue: '' };
-  try {
-    const url = new URL(String(clickTrackUrl));
-    const clickMacroValue = url.searchParams.get('cuu')
-      || url.searchParams.get('smx_dsp_click')
-      || url.searchParams.get('dsp_click')
-      || '';
-    url.searchParams.delete('cuu');
-    url.searchParams.delete('smx_dsp_click');
-    url.searchParams.delete('dsp_click');
-    return { baseClickUrl: url.toString(), clickMacroValue };
-  } catch {
-    return { baseClickUrl: String(clickTrackUrl), clickMacroValue: '' };
+  const raw = String(clickTrackUrl);
+  const [base, query = ''] = raw.split('?', 2);
+  if (!query) return { baseClickUrl: raw, clickMacroValue: '' };
+  const kept = [];
+  let clickMacroValue = '';
+  for (const pair of query.split('&')) {
+    if (!pair) continue;
+    const [key, ...rest] = pair.split('=');
+    const value = rest.join('=');
+    if (key === 'cuu' || key === 'smx_dsp_click' || key === 'dsp_click') {
+      if (!clickMacroValue) clickMacroValue = value;
+      continue;
+    }
+    kept.push(pair);
   }
+  return {
+    baseClickUrl: kept.length ? `${base}?${kept.join('&')}` : base,
+    clickMacroValue,
+  };
 }
 
 export function buildBasisNativeDisplayAnchor(displayHtmlUrl, clickHref, width, height, clickMacroValue = '') {
@@ -235,14 +268,14 @@ export function buildBasisNativeSnippet({
     case 'vast-xml':
       return `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <Ad id="${tagId}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[${vastUrl}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
     case 'native-js':
-      return `(function(){var markup=${JSON.stringify(displayTagForInlineScript)};var rootId=${JSON.stringify(rootId)};var engagementBase=${JSON.stringify(trackerEngagementUrl)};function hasUnresolvedMacro(value){if(!value)return false;var decoded=value;try{decoded=decodeURIComponent(value);}catch(_error){}return /[{}]/.test(decoded)||/\\$\\{[^}]+\\}/.test(decoded);}function buildBasisFirstHop(baseClickUrl,macroValue){if(!baseClickUrl)return baseClickUrl;var decodedMacro=macroValue||'';try{decodedMacro=decodeURIComponent(decodedMacro);}catch(_error){}if(!decodedMacro||hasUnresolvedMacro(decodedMacro))return baseClickUrl;return decodedMacro+encodeURIComponent(String(baseClickUrl));}function attach(root){if(!root||root.__smxEngagementBound)return;root.__smxEngagementBound=true;var hoverStartedAt=null;function fire(url){try{var img=new Image();img.src=url;}catch(_error){}}function withParams(base,params){var sep=base.indexOf('?')===-1?'?':'&';return base+sep+params.join('&');}function currentPageUrl(){try{return window.location&&window.location.href?window.location.href:'';}catch(_error){return '';}}function buildEngagementUrl(eventType,hoverDurationMs){if(!engagementBase)return '';var params=['event='+encodeURIComponent(eventType)];var pageUrl=currentPageUrl();if(pageUrl)params.push('pu='+encodeURIComponent(pageUrl));if(typeof hoverDurationMs==='number'&&hoverDurationMs>=0)params.push('hd='+encodeURIComponent(String(Math.round(hoverDurationMs))));return withParams(engagementBase,params);}root.addEventListener('mouseenter',function(){hoverStartedAt=Date.now();var url=buildEngagementUrl('hover_start');if(url)fire(url);});root.addEventListener('mouseleave',function(){var duration=hoverStartedAt?(Date.now()-hoverStartedAt):0;hoverStartedAt=null;var url=buildEngagementUrl('hover_end',duration);if(url)fire(url);});root.addEventListener('click',function(){var url=buildEngagementUrl('interaction');if(url)fire(url);},true);var anchor=root.querySelector('a[data-smx-click]');if(anchor){anchor.addEventListener('click',function(){var baseClickUrl=anchor.getAttribute('data-smx-click')||anchor.href||'';var macroValue=anchor.getAttribute('data-smx-cuu')||'';anchor.href=buildBasisFirstHop(baseClickUrl,macroValue)||baseClickUrl;},true);}}var script=document.currentScript;var parent=script&&script.parentNode?script.parentNode:null;var root=null;if(parent&&script){var wrapper=document.createElement('div');wrapper.innerHTML=markup;while(wrapper.firstChild){var child=wrapper.firstChild;parent.insertBefore(child,script);if(!root&&child.id===rootId)root=child;}parent.removeChild(script);}else if(document.body){var fallback=document.createElement('div');fallback.innerHTML=markup;while(fallback.firstChild){var node=fallback.firstChild;document.body.appendChild(node);if(!root&&node.id===rootId)root=node;}}if(!root){root=document.getElementById(rootId);}attach(root);}());`;
+      return `(function(){var markup=${JSON.stringify(displayTagForInlineScript)};var rootId=${JSON.stringify(rootId)};var engagementBase=${JSON.stringify(trackerEngagementUrl)};function hasUnresolvedMacro(value){if(!value)return false;var decoded=value;try{decoded=decodeURIComponent(value);}catch(_error){}return /[{}]/.test(decoded)||/\\$\\{[^}]+\\}/.test(decoded);}function buildBasisFirstHop(baseClickUrl,macroValue){if(!baseClickUrl)return baseClickUrl;var decodedMacro=macroValue||'';try{decodedMacro=decodeURIComponent(decodedMacro);}catch(_error){}if(!decodedMacro||hasUnresolvedMacro(decodedMacro))return baseClickUrl;return decodedMacro+encodeURIComponent(String(baseClickUrl));}function attach(root){if(!root||root.__smxEngagementBound)return;root.__smxEngagementBound=true;var hoverStartedAt=null;function fire(url){try{var img=new Image();img.src=url;}catch(_error){}}function withParams(base,params){var sep=base.indexOf('?')===-1?'?':'&';return base+sep+params.join('&');}function currentPageUrl(){try{return window.location&&window.location.href?window.location.href:'';}catch(_error){return '';}}function buildEngagementUrl(eventType,hoverDurationMs){if(!engagementBase)return '';var params=['event='+encodeURIComponent(eventType)];var pageUrl=currentPageUrl();if(pageUrl)params.push('pu='+encodeURIComponent(pageUrl));if(typeof hoverDurationMs==='number'&&hoverDurationMs>=0)params.push('hd='+encodeURIComponent(String(Math.round(hoverDurationMs))));return withParams(engagementBase,params);}root.addEventListener('mouseenter',function(){var anchor=root.querySelector('a[data-smx-click]');if(anchor){var baseClickUrl=anchor.getAttribute('data-smx-click')||anchor.href||'';var macroValue=anchor.getAttribute('data-smx-cuu')||'';anchor.href=buildBasisFirstHop(baseClickUrl,macroValue)||baseClickUrl;}hoverStartedAt=Date.now();var url=buildEngagementUrl('hover_start');if(url)fire(url);});root.addEventListener('mouseleave',function(){var duration=hoverStartedAt?(Date.now()-hoverStartedAt):0;hoverStartedAt=null;var url=buildEngagementUrl('hover_end',duration);if(url)fire(url);});root.addEventListener('click',function(event){var anchor=root.querySelector('a[data-smx-click]');if(anchor){var baseClickUrl=anchor.getAttribute('data-smx-click')||anchor.href||'';var macroValue=anchor.getAttribute('data-smx-cuu')||'';var nextHref=buildBasisFirstHop(baseClickUrl,macroValue)||baseClickUrl;event.preventDefault();event.stopPropagation();try{window.open(nextHref, anchor.getAttribute('target')||'_blank', 'noopener,noreferrer');}catch(_error){window.location.href=nextHref;}}var url=buildEngagementUrl('interaction');if(url)fire(url);},true);}var script=document.currentScript;var parent=script&&script.parentNode?script.parentNode:null;var root=null;if(parent&&script){var wrapper=document.createElement('div');wrapper.innerHTML=markup;while(wrapper.firstChild){var child=wrapper.firstChild;parent.insertBefore(child,script);if(!root&&child.id===rootId)root=child;}parent.removeChild(script);}else if(document.body){var fallback=document.createElement('div');fallback.innerHTML=markup;while(fallback.firstChild){var node=fallback.firstChild;document.body.appendChild(node);if(!root&&node.id===rootId)root=node;}}if(!root){root=document.getElementById(rootId);}attach(root);}());`;
     default:
       return '';
   }
 }
 
 export function readDspMacroValue(query = {}, kind, dsp = '') {
-  const normalizedDsp = normalizeDsp(dsp || query?.smx_dsp);
+  const normalizedDsp = normalizeDsp(dsp || query?.smx_dsp || query?.dsp);
   const configs = normalizedDsp
     ? [getDspMacroConfig(normalizedDsp)].filter(Boolean)
     : Object.values(DSP_MACRO_CONFIGS);
