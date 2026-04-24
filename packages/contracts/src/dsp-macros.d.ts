@@ -15,6 +15,7 @@ export declare const DSP_DELIVERY_KINDS: {
 export declare function normalizeDsp(value: unknown): string;
 export declare function readCampaignDsp(metadata: unknown): string;
 export declare function getDspMacroConfig(dsp: unknown): DspMacroConfig | null;
+export declare function shouldUseBasisNativeDelivery(dsp: unknown): boolean;
 export declare function listSupportedDsps(): Array<{ value: string; label: string }>;
 export declare function applyDspMacrosToUrl(
   rawUrl: string,

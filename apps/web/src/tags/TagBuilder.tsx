@@ -6,6 +6,7 @@ import {
   DSP_DELIVERY_KINDS,
   getDspMacroConfig,
   readCampaignDsp,
+  shouldUseBasisNativeDelivery,
 } from '@smx/contracts/dsp-macros';
 import {
   assignCreativeVersionToTag,
@@ -184,7 +185,7 @@ function normalizeTagRecord(payload: unknown): SavedTag | null {
 
 function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = ''): string {
   const servingBaseUrl = resolveTagServingBaseUrl();
-  const normalizedDsp = readCampaignDsp({ dsp: campaignDsp });
+  const useBasisNative = shouldUseBasisNativeDelivery(campaignDsp);
   const displayJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
@@ -209,26 +210,26 @@ function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = '
 
   switch (variant) {
     case 'vast-url':
-      return normalizedDsp === 'basis' ? buildBasisNativeSnippet(basisNativeArgs) : vastUrl;
+      return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : vastUrl;
     case 'vast-xml':
-      return normalizedDsp === 'basis'
+      return useBasisNative
         ? buildBasisNativeSnippet(basisNativeArgs)
         : `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <Ad id="${tag.id}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[${vastUrl}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
     case 'display-iframe':
-      if (normalizedDsp === 'basis') return buildBasisNativeSnippet(basisNativeArgs);
+      if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
       return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
     case 'display-ins':
-      if (normalizedDsp === 'basis') return buildBasisNativeSnippet(basisNativeArgs);
+      if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
       return `<ins id="smx-ad-slot-${tag.id}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    var iframe = document.createElement('iframe');\n    iframe.src = ${JSON.stringify(displayHtmlUrl)};\n    iframe.width = ${JSON.stringify(String(width))};\n    iframe.height = ${JSON.stringify(String(height))};\n    iframe.scrolling = 'no';\n    iframe.frameBorder = '0';\n    iframe.style.border = '0';\n    iframe.style.overflow = 'hidden';\n    slot.replaceWith(iframe);\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tag.id}`)}));\n</script>`;
     case 'native-js':
       return `<script>\n  window.SMX = window.SMX || {};\n  window.SMX.native = window.SMX.native || [];\n  window.SMX.native.push({ tagId: "${tag.id}", format: "native" });\n</script>\n<script src="${nativeJsUrl}" async></script>`;
     case 'tracker-impression':
-      return normalizedDsp === 'basis' ? buildBasisNativeSnippet(basisNativeArgs) : trackerImpressionUrl;
+      return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : trackerImpressionUrl;
     case 'tracker-click':
-      return normalizedDsp === 'basis' ? buildBasisNativeSnippet(basisNativeArgs) : trackerClickUrl;
+      return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : trackerClickUrl;
     case 'display-js':
     default:
-      if (normalizedDsp === 'basis') return buildBasisNativeSnippet(basisNativeArgs);
+      if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
       return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
   }
 }
@@ -267,8 +268,7 @@ function getDisplaySizePreset(width?: string, height?: string): string {
 
 function isBasisNativeEnabled(tag: SavedTag | null, campaignDsp = ''): boolean {
   if (!tag) return false;
-  const normalizedDsp = readCampaignDsp({ dsp: campaignDsp });
-  if (normalizedDsp !== 'basis') return false;
+  if (!shouldUseBasisNativeDelivery(campaignDsp)) return false;
   return tag.format === 'display' || tag.format === 'tracker' || tag.format === 'VAST';
 }
 

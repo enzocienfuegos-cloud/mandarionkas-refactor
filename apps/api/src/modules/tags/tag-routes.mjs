@@ -13,6 +13,7 @@ import {
   DSP_DELIVERY_KINDS,
   getDspDeliveryPolicy,
   readCampaignDsp,
+  shouldUseBasisNativeDelivery,
 } from '@smx/contracts/dsp-macros';
 
 function getRequestBaseUrl(req) {
@@ -31,8 +32,7 @@ function escapeCsv(value) {
 }
 
 function isBasisNativeEligible(tagFormat, campaignDsp) {
-  const normalizedDsp = readCampaignDsp({ dsp: campaignDsp });
-  if (normalizedDsp !== 'basis') return false;
+  if (!shouldUseBasisNativeDelivery(campaignDsp)) return false;
   return ['display', 'tracker', 'vast', 'VAST'].includes(String(tagFormat ?? ''));
 }
 
@@ -52,7 +52,8 @@ function buildDeliverySummary(tag, campaignDsp) {
 function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
   const width = Number(tag.serving_width ?? 0) || 300;
   const height = Number(tag.serving_height ?? 0) || 250;
-  const normalizedDsp = readCampaignDsp(tag.campaign_metadata ?? { dsp: campaignDsp }) || readCampaignDsp({ dsp: campaignDsp });
+  const effectiveDsp = readCampaignDsp(tag.campaign_metadata ?? { dsp: campaignDsp }) || readCampaignDsp({ dsp: campaignDsp });
+  const useBasisNative = shouldUseBasisNativeDelivery(effectiveDsp);
   const displayJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
@@ -74,20 +75,20 @@ function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
   };
   switch (variant) {
     case 'display-js':
-      if (normalizedDsp === 'basis') return buildBasisNativeSnippet(basisNativeArgs);
+      if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
       return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
     case 'display-ins':
-      if (normalizedDsp === 'basis') return buildBasisNativeSnippet(basisNativeArgs);
+      if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
       return `<ins id="smx-ad-slot-${tag.id}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    var iframe = document.createElement('iframe');\n    iframe.src = ${JSON.stringify(displayHtmlUrl)};\n    iframe.width = ${JSON.stringify(String(width))};\n    iframe.height = ${JSON.stringify(String(height))};\n    iframe.scrolling = 'no';\n    iframe.frameBorder = '0';\n    iframe.style.border = '0';\n    iframe.style.overflow = 'hidden';\n    slot.replaceWith(iframe);\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tag.id}`)}));\n</script>`;
     case 'display-iframe':
-      if (normalizedDsp === 'basis') return buildBasisNativeSnippet(basisNativeArgs);
+      if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
       return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
     case 'vast-url':
-      return normalizedDsp === 'basis' ? buildBasisNativeSnippet(basisNativeArgs) : vastUrl;
+      return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : vastUrl;
     case 'tracker-click':
-      return normalizedDsp === 'basis' ? buildBasisNativeSnippet(basisNativeArgs) : trackerClickUrl;
+      return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : trackerClickUrl;
     case 'tracker-impression':
-      return normalizedDsp === 'basis' ? buildBasisNativeSnippet(basisNativeArgs) : trackerImpressionUrl;
+      return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : trackerImpressionUrl;
     default:
       return '';
   }
