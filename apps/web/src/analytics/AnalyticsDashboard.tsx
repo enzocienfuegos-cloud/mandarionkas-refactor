@@ -78,6 +78,10 @@ interface SavedAudience {
   minClicks: number;
 }
 
+interface AudiencePresetMetric extends RankedMetric {
+  presetValue: IdentitySegmentPreset;
+}
+
 interface WorkspaceAnalytics {
   totalImpressions: number;
   totalClicks: number;
@@ -114,6 +118,7 @@ interface WorkspaceAnalytics {
   identityAttribution: RankedMetric[];
   engagements: RankedMetric[];
   savedAudiences: SavedAudience[];
+  audiencePresets: AudiencePresetMetric[];
   timeline: TimelinePoint[];
 }
 
@@ -326,7 +331,7 @@ function normalizeWorkspaceAnalytics(
     topCountries: normalizeRankedMetricList(countryPayload?.breakdown ?? [], 'country', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured · ${fmtNum(toNumber(item?.unique_identities))} unique identities · ${toNumber(item?.avg_frequency).toFixed(2)} avg frequency`),
     topRegions: normalizeRankedMetricList(regionPayload?.breakdown ?? [], 'region', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured · ${fmtNum(toNumber(item?.unique_identities))} unique identities · ${toNumber(item?.avg_frequency).toFixed(2)} avg frequency`),
     topCities: normalizeRankedMetricList(cityPayload?.breakdown ?? [], 'city', 'impressions', (item) => `${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtCtr(toNumber(item?.viewability_rate))} viewability · ${fmtNum(toNumber(item?.viewable_imps))}/${fmtNum(toNumber(item?.measured_imps))} measured · ${fmtNum(toNumber(item?.unique_identities))} unique identities · ${toNumber(item?.avg_frequency).toFixed(2)} avg frequency`),
-    trackerPerformance: normalizeRankedMetricList(trackerPayload?.breakdown ?? [], 'name', 'clicks', (item) => `${String(item?.tracker_type ?? 'tracker')} tracker · ${fmtNum(toNumber(item?.impressions))} imps · ${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtNum(toNumber(item?.unique_identities))} unique identities · ${toNumber(item?.avg_frequency).toFixed(2)} avg frequency${item?.campaign_name ? ` · ${String(item.campaign_name)}` : ''}`),
+    trackerPerformance: normalizeRankedMetricList(trackerPayload?.breakdown ?? [], 'name', 'clicks', (item) => `${String(item?.tracker_type ?? 'measurement')} · ${fmtNum(toNumber(item?.impressions))} imps · ${fmtCtr(toNumber(item?.ctr))} CTR · ${fmtNum(toNumber(item?.unique_identities))} unique identities · ${toNumber(item?.avg_frequency).toFixed(2)} avg frequency${item?.campaign_name ? ` · ${String(item.campaign_name)}` : ''}`),
     topIdentities: normalizeRankedMetricList(identityPayload?.breakdown ?? [], 'canonical_value', 'impressions', (item) => {
       const location = [item?.last_city, item?.last_region, item?.last_country].filter(Boolean).join(', ');
       return `${String(item?.canonical_type ?? 'identity')} · ${fmtCtr(toNumber(item?.ctr))} CTR${location ? ` · ${location}` : ''}`;
@@ -364,6 +369,19 @@ function normalizeWorkspaceAnalytics(
       minImpressions: toNumber(item?.min_impressions),
       minClicks: toNumber(item?.min_clicks),
     })),
+    audiencePresets: (Array.isArray(identitySegmentsPayload?.breakdown) ? identitySegmentsPayload.breakdown : [])
+      .map((item: any) => ({
+        label: String(item?.label ?? 'Audience preset'),
+        value: toNumber(item?.identity_count),
+        secondary: `${fmtNum(toNumber(item?.impressions))} imps · ${fmtNum(toNumber(item?.clicks))} clicks · ${fmtNum(toNumber(item?.engagements))} engagements`,
+        presetValue:
+          String(item?.preset ?? '') === 'high_frequency_exposed'
+          || String(item?.preset ?? '') === 'clicked_users'
+          || String(item?.preset ?? '') === 'engaged_non_clickers'
+            ? String(item?.preset) as IdentitySegmentPreset
+            : '',
+      }))
+      .filter((item: AudiencePresetMetric) => Boolean(item.presetValue)),
     timeline,
   };
 }
@@ -667,6 +685,7 @@ export default function AnalyticsDashboard() {
   const siteOptions = data?.topSites ?? [];
   const regionOptions = data?.topRegions ?? [];
   const cityOptions = data?.topCities ?? [];
+  const audiencePresets = data?.audiencePresets ?? [];
   const chartPoints = useMemo(
     () => buildChartPoints(data?.timeline ?? [], chartGrain, chartMetric),
     [data?.timeline, chartGrain, chartMetric],
@@ -830,10 +849,29 @@ export default function AnalyticsDashboard() {
     }
   };
 
-  const handleSaveAudience = async () => {
-    const suggestedName = identitySegmentPreset
-      ? IDENTITY_SEGMENT_PRESETS.find((option) => option.value === identitySegmentPreset)?.label ?? 'Saved audience'
-      : `Audience ${identityCountryFilter.trim().toUpperCase() || identityTypeFilter || 'all'}`;
+  const handleSaveAudience = async (
+    suggestedNameOverride?: string,
+    overrides?: Partial<{
+      segmentPreset: IdentitySegmentPreset;
+      canonicalType: IdentityTypeFilter;
+      country: string;
+      siteDomain: string;
+      region: string;
+      city: string;
+      campaignId: string;
+      tagId: string;
+      creativeId: string;
+      variantId: string;
+      minImpressions: string;
+      minClicks: string;
+      activationTemplate: IdentityExportFormat;
+    }>,
+  ) => {
+    const nextSegmentPreset = overrides?.segmentPreset ?? identitySegmentPreset;
+    const suggestedName = suggestedNameOverride
+      ?? (nextSegmentPreset
+        ? IDENTITY_SEGMENT_PRESETS.find((option) => option.value === nextSegmentPreset)?.label ?? 'Saved audience'
+        : `Audience ${(overrides?.country ?? identityCountryFilter).trim().toUpperCase() || overrides?.canonicalType || identityTypeFilter || 'all'}`);
     const name = window.prompt('Name this saved audience', suggestedName);
     if (!name || !name.trim()) return;
 
@@ -845,19 +883,19 @@ export default function AnalyticsDashboard() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          canonicalType: identityTypeFilter || null,
-          country: identityCountryFilter.trim().toUpperCase() || null,
-          siteDomain: identitySiteDomainFilter || null,
-          region: identityRegionFilter || null,
-          city: identityCityFilter || null,
-          segmentPreset: identitySegmentPreset || null,
-          activationTemplate: identityExportFormat,
-          campaignId: identityCampaignFilter || null,
-          tagId: identityTagFilter || null,
-          creativeId: identityCreativeFilter || null,
-          variantId: identityVariantFilter || null,
-          minImpressions: identityMinImpressions.trim() || '0',
-          minClicks: identityMinClicks.trim() || '0',
+          canonicalType: (overrides?.canonicalType ?? identityTypeFilter) || null,
+          country: (overrides?.country ?? identityCountryFilter).trim().toUpperCase() || null,
+          siteDomain: (overrides?.siteDomain ?? identitySiteDomainFilter) || null,
+          region: (overrides?.region ?? identityRegionFilter) || null,
+          city: (overrides?.city ?? identityCityFilter) || null,
+          segmentPreset: nextSegmentPreset || null,
+          activationTemplate: overrides?.activationTemplate ?? identityExportFormat,
+          campaignId: (overrides?.campaignId ?? identityCampaignFilter) || null,
+          tagId: (overrides?.tagId ?? identityTagFilter) || null,
+          creativeId: (overrides?.creativeId ?? identityCreativeFilter) || null,
+          variantId: (overrides?.variantId ?? identityVariantFilter) || null,
+          minImpressions: (overrides?.minImpressions ?? identityMinImpressions.trim()) || '0',
+          minClicks: (overrides?.minClicks ?? identityMinClicks.trim()) || '0',
         }),
       });
       if (!response.ok) throw new Error('Failed to save audience');
@@ -1288,12 +1326,10 @@ export default function AnalyticsDashboard() {
       <div className="grid grid-cols-1 gap-6 mb-6">
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <h2 className="text-base font-semibold text-slate-800">Saved Audiences</h2>
-            <p className="text-xs text-slate-500 mt-1">Reusable identity filters for exports and activation workflows.</p>
+            <h2 className="text-base font-semibold text-slate-800">Audience Library</h2>
+            <p className="text-xs text-slate-500 mt-1">Saved audiences plus live presets derived from measured identity activity.</p>
           </div>
-          {!(data?.savedAudiences ?? []).length ? (
-            <div className="px-5 py-10 text-center text-sm text-slate-400">No saved audiences yet</div>
-          ) : (
+          {(data?.savedAudiences ?? []).length ? (
             <div className="divide-y divide-slate-100">
               {(data?.savedAudiences ?? []).map((audience) => {
                 const summary = [
@@ -1344,6 +1380,33 @@ export default function AnalyticsDashboard() {
                 );
               })}
             </div>
+          ) : audiencePresets.length ? (
+            <div className="divide-y divide-slate-100">
+              {audiencePresets.map((preset) => (
+                <div key={preset.presetValue} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-800">{preset.label}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">{preset.secondary}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIdentitySegmentPreset(preset.presetValue)}
+                      className="px-3 py-2 text-xs border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors"
+                    >
+                      Apply
+                    </button>
+                    <button
+                      onClick={() => void handleSaveAudience(preset.label, { segmentPreset: preset.presetValue })}
+                      className="px-3 py-2 text-xs border border-emerald-300 text-emerald-700 rounded-md hover:bg-emerald-50 transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="px-5 py-10 text-center text-sm text-slate-400">No saved audiences or live audience presets yet</div>
           )}
         </div>
       </div>
@@ -1354,7 +1417,7 @@ export default function AnalyticsDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 mb-6">
-        <RankedList title="Tracker Performance" emptyLabel="No tracker data available" items={data?.trackerPerformance ?? []} />
+        <RankedList title="Tracker Performance" emptyLabel="No tracker or delivery data available" items={data?.trackerPerformance ?? []} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
