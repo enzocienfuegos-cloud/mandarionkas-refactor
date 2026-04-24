@@ -184,12 +184,15 @@ async function listCreativeSizeVariantsWithSummaries(pool, workspaceId, creative
 async function regenerateVideoRenditionsForVersion(client, workspaceId, version, creative) {
   const artifacts = await listCreativeArtifacts(client, workspaceId, version.id);
   const sourceArtifact = artifacts.find((artifact) =>
-    artifact.storage_key
+    (artifact.storage_key || artifact.public_url)
     && artifact.kind === 'video_mp4'
     && (artifact.metadata?.ingestionId || artifact.metadata?.isSource || artifact.metadata?.generatedBy === 'source_passthrough'),
-  ) ?? artifacts.find((artifact) => artifact.storage_key && artifact.kind === 'video_mp4');
+  ) ?? artifacts.find((artifact) => (artifact.storage_key || artifact.public_url) && artifact.kind === 'video_mp4');
 
-  if (!sourceArtifact?.storage_key) {
+  const sourceStorageKey = sourceArtifact?.storage_key ?? null;
+  const sourcePublicUrl = sourceArtifact?.public_url ?? version.public_url ?? creative?.file_url ?? null;
+
+  if (!sourceStorageKey && !sourcePublicUrl) {
     throw new Error('No source MP4 artifact found for this creative version');
   }
 
@@ -208,7 +211,8 @@ async function regenerateVideoRenditionsForVersion(client, workspaceId, version,
   const videoPublication = await enrichVideoPublication({
     workspaceId,
     creativeVersionId: version.id,
-    sourceStorageKey: sourceArtifact.storage_key,
+    sourceStorageKey,
+    sourcePublicUrl,
   });
 
   const posterArtifacts = [];

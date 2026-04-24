@@ -28,6 +28,16 @@ async function runBinary(binary, args, options = {}) {
   }
 }
 
+async function downloadBufferFromPublicUrl(url) {
+  if (!url) return null;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Could not download source video from public URL (${response.status})`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 async function probeVideoFile(videoPath) {
   const result = await runBinary('ffprobe', [
     '-v', 'error',
@@ -157,8 +167,11 @@ export async function enrichVideoPublication({
   workspaceId,
   creativeVersionId,
   sourceStorageKey,
+  sourcePublicUrl,
 }) {
-  const videoBuffer = await getObjectBuffer(sourceStorageKey);
+  const videoBuffer = sourceStorageKey
+    ? await getObjectBuffer(sourceStorageKey)
+    : await downloadBufferFromPublicUrl(sourcePublicUrl);
   if (!videoBuffer) {
     throw new Error('Could not download source video from object storage');
   }
