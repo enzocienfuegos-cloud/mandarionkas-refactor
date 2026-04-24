@@ -291,11 +291,9 @@ export function handleTrackingRoutes(app, { pool }) {
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
-    if (tag.format !== 'tracker' || tag.tracker_type !== 'click') {
-      return reply.status(400).send({ error: 'Bad Request', message: 'Tag is not a click tracker' });
-    }
 
     const context = await collectTrackingContext(req, req.query);
+    attachMeasurementDebugHeaders(reply, context);
     setTrackingIdentityCookies(reply, context);
     const destinationUrl = tag.click_url ?? req.query?.url ?? null;
 
@@ -309,6 +307,14 @@ export function handleTrackingRoutes(app, { pool }) {
         redirect_url: destinationUrl,
         ...context,
       });
+      logMeasurementPath(req, 'tracking click measurement path', {
+        tagId,
+        workspaceId: tag.workspace_id,
+        impressionId: normalizeUuid(req.query?.imp) ?? null,
+        creativeId: normalizeUuid(req.query?.c) ?? null,
+        creativeSizeVariantId: normalizeUuid(req.query?.csv) ?? null,
+        destinationUrl,
+      }, context);
     } catch (error) {
       req.log?.error?.({ err: error, tagId, workspaceId: tag.workspace_id, destinationUrl }, 'failed to record tracker click');
     }
