@@ -230,6 +230,14 @@ export async function updateVideoRenditionById(input: {
   });
 }
 
+export async function regenerateVideoRenditions(versionId: string): Promise<VideoRendition[]> {
+  const payload = await fetchJson<{ renditions: VideoRendition[] }>(`/v1/creative-versions/${versionId}/video-renditions/regenerate`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  return payload.renditions ?? [];
+}
+
 export async function loadCreativesWithLatestVersion(input: { scope?: 'all'; workspaceId?: string } = {}) {
   const creatives = await loadCreatives(input);
   return {

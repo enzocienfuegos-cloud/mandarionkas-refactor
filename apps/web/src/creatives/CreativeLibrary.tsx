@@ -17,6 +17,7 @@ import {
   loadCreativeIngestions,
   loadCreativeSizeVariants,
   loadVideoRenditions,
+  regenerateVideoRenditions,
   loadTagBindings,
   loadTags,
   updateCreativeSizeVariant,
@@ -353,6 +354,22 @@ export default function CreativeLibrary() {
         ...current,
         loading: false,
         error: updateError.message ?? 'Failed to update video rendition',
+      } : current);
+    }
+  };
+
+  const handleRegenerateVideoRenditions = async () => {
+    if (!videoRenditionState) return;
+    setVideoRenditionState(current => current ? { ...current, loading: true, error: '' } : current);
+    try {
+      const renditions = await regenerateVideoRenditions(videoRenditionState.versionId);
+      setVideoRenditionState(current => current ? { ...current, loading: false, renditions } : current);
+      await load();
+    } catch (regenerateError: any) {
+      setVideoRenditionState(current => current ? {
+        ...current,
+        loading: false,
+        error: regenerateError.message ?? 'Failed to regenerate video renditions',
       } : current);
     }
   };
@@ -848,8 +865,17 @@ export default function CreativeLibrary() {
             </div>
 
             <div className="space-y-4 p-6">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                Manage which MP4 renditions are active for VAST delivery. The source file stays available as fallback, and transcoded renditions are served first when active.
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                <p className="max-w-2xl">
+                  Manage which MP4 renditions are active for VAST delivery. The source file stays available as fallback, and transcoded renditions are served first when active.
+                </p>
+                <button
+                  onClick={() => void handleRegenerateVideoRenditions()}
+                  disabled={videoRenditionState.loading}
+                  className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+                >
+                  {videoRenditionState.loading ? 'Regenerating…' : 'Regenerate renditions'}
+                </button>
               </div>
 
               {videoRenditionState.error && (
