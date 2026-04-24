@@ -257,6 +257,21 @@ function getDisplaySizePreset(width?: string, height?: string): string {
   return DISPLAY_SIZE_PRESETS.some((preset) => preset.label === normalized) ? normalized : '';
 }
 
+function isBasisNativeEnabled(tag: SavedTag | null, campaignDsp = ''): boolean {
+  if (!tag) return false;
+  const normalizedDsp = readCampaignDsp({ dsp: campaignDsp });
+  if (normalizedDsp !== 'basis') return false;
+  return tag.format === 'display' || tag.format === 'tracker' || tag.format === 'VAST';
+}
+
+function getMeasurementPathTone(measurementPath?: string | null): string {
+  const path = String(measurementPath ?? '').toLowerCase();
+  if (!path) return 'bg-slate-100 text-slate-700 border-slate-200';
+  if (path.includes('fallback')) return 'bg-amber-50 text-amber-700 border-amber-200';
+  if (path.includes('basis')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  return 'bg-slate-100 text-slate-700 border-slate-200';
+}
+
 export default function TagBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -289,6 +304,11 @@ export default function TagBuilder() {
     { label: 'Tracker Click', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerClick },
     { label: 'Tracker Impression', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerImpression },
   ];
+  const basisNativeEnabled = isBasisNativeEnabled(savedTag, selectedCampaignDsp);
+  const basisDiagnosticPath = deliveryDiagnostics?.deliveryDiagnostics?.displayWrapper?.policy?.measurementPath
+    ?? deliveryDiagnostics?.deliveryDiagnostics?.trackerClick?.policy?.measurementPath
+    ?? '';
+  const basisFallbackActive = basisDiagnosticPath.toLowerCase().includes('fallback');
 
   useEffect(() => {
     fetch('/v1/campaigns', { credentials: 'include' })
@@ -743,6 +763,25 @@ export default function TagBuilder() {
               {copied ? '✓ Copied!' : '📋 Copy'}
             </button>
           </div>
+          {(basisNativeEnabled || selectedCampaignMacroConfig) && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {basisNativeEnabled && (
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                  Basis Native Active
+                </span>
+              )}
+              {basisNativeEnabled && (
+                <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+                  Click Chain: Basis → SMX → Landing
+                </span>
+              )}
+              {selectedCampaignMacroConfig && !basisNativeEnabled && (
+                <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+                  {selectedCampaignMacroConfig.label} DSP Macros Enabled
+                </span>
+              )}
+            </div>
+          )}
           <div className="mb-3 flex flex-wrap gap-2">
             {getSnippetOptions(savedTag.format, savedTag.trackerType ?? null).map(option => (
               <button
@@ -783,6 +822,29 @@ export default function TagBuilder() {
           <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
             <span className="font-medium text-slate-800">DSP:</span>{' '}
             {deliveryDiagnostics?.dsp?.selected || selectedCampaignDsp || 'none'}
+          </div>
+
+          <div className="mb-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Delivery Mode</div>
+              <div className="mt-1 text-sm font-semibold text-slate-800">
+                {basisNativeEnabled ? 'Basis Native' : 'SMX Standard'}
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Preview Status</div>
+              <div className="mt-1 text-sm font-semibold text-slate-800">
+                {basisFallbackActive ? 'Fallback Possible' : basisNativeEnabled ? 'Basis First-Hop Ready' : 'Standard Delivery'}
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Measurement Path</div>
+              <div className="mt-2">
+                <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getMeasurementPathTone(basisDiagnosticPath)}`}>
+                  {basisDiagnosticPath || 'n/a'}
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-4">
