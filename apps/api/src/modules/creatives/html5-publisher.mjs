@@ -215,18 +215,18 @@ function buildClickTrackingBootstrap() {
       }
     }
 
-    function wrapWithDspMacro(url) {
-      if (!dspClickMacro) return url;
-      var decodedDspClickMacro = dspClickMacro;
+    function wrapWithResolvedDspMacro(url, macroValue) {
+      if (!macroValue) return url;
+      var decodedMacroValue = macroValue;
       try {
-        decodedDspClickMacro = decodeURIComponent(dspClickMacro);
+        decodedMacroValue = decodeURIComponent(macroValue);
       } catch (_) {}
-      if (/[{}]/.test(decodedDspClickMacro) || /\$\{[^}]+\}/.test(decodedDspClickMacro)) return url;
-      try {
-        return decodedDspClickMacro + encodeURIComponent(url);
-      } catch (_) {
-        return dspClickMacro + encodeURIComponent(url);
-      }
+      if (/[{}]/.test(decodedMacroValue) || /\\$\\{[^}]+\\}/.test(decodedMacroValue)) return url;
+      return decodedMacroValue + encodeURIComponent(String(url));
+    }
+
+    function wrapWithDspMacro(url) {
+      return wrapWithResolvedDspMacro(url, dspClickMacro);
     }
 
     function navigateTracked(target, features, destination) {

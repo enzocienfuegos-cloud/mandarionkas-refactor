@@ -1,6 +1,11 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { applyDspMacrosToUrl, getDspMacroConfig, readCampaignDsp } from '@smx/contracts/dsp-macros';
+import {
+  applyDspMacrosToDeliveryUrl,
+  DSP_DELIVERY_KINDS,
+  getDspMacroConfig,
+  readCampaignDsp,
+} from '@smx/contracts/dsp-macros';
 import {
   assignCreativeVersionToTag,
   loadCreativesWithLatestVersion,
@@ -44,6 +49,34 @@ interface SavedTag {
 interface CreativeAssignmentOption {
   creative: Creative;
   latestVersion: CreativeVersion;
+}
+
+interface DeliveryDiagnosticEntry {
+  policy?: {
+    includeDspHint?: boolean;
+    includeClickMacro?: boolean;
+    measurementPath?: string;
+  } | null;
+  url?: string;
+  jsUrl?: string;
+  htmlUrl?: string;
+}
+
+interface DeliveryDiagnosticsPayload {
+  dsp?: {
+    selected?: string | null;
+  } | null;
+  deliveryDiagnostics?: {
+    displayWrapper?: DeliveryDiagnosticEntry;
+    vast?: DeliveryDiagnosticEntry;
+    trackerClick?: DeliveryDiagnosticEntry;
+    trackerImpression?: DeliveryDiagnosticEntry;
+  } | null;
+}
+
+interface DeliveryDiagnosticSection {
+  label: string;
+  entry?: DeliveryDiagnosticEntry;
 }
 
 type SnippetVariant =
@@ -143,12 +176,12 @@ function normalizeTagRecord(payload: unknown): SavedTag | null {
 
 function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = ''): string {
   const servingBaseUrl = resolveTagServingBaseUrl();
-  const displayJsUrl = applyDspMacrosToUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, { includeClickMacro: true });
-  const displayHtmlUrl = applyDspMacrosToUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, { includeClickMacro: true });
-  const nativeJsUrl = applyDspMacrosToUrl(`${servingBaseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, { includeClickMacro: true });
-  const vastUrl = applyDspMacrosToUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, campaignDsp);
-  const trackerClickUrl = applyDspMacrosToUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp);
-  const trackerImpressionUrl = applyDspMacrosToUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp);
+  const displayJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+  const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+  const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+  const vastUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VAST);
+  const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
+  const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
   const width = tag.width ?? 300;
   const height = tag.height ?? 250;
 
@@ -227,8 +260,16 @@ export default function TagBuilder() {
   const [assignmentVersionId, setAssignmentVersionId] = useState('');
   const [assignmentBusy, setAssignmentBusy] = useState(false);
   const [assignmentError, setAssignmentError] = useState('');
+  const [deliveryDiagnostics, setDeliveryDiagnostics] = useState<DeliveryDiagnosticsPayload | null>(null);
+  const [deliveryDiagnosticsLoading, setDeliveryDiagnosticsLoading] = useState(false);
   const selectedCampaignDsp = readCampaignDsp(campaigns.find((campaign) => campaign.id === form.campaignId)?.metadata ?? null);
   const selectedCampaignMacroConfig = getDspMacroConfig(selectedCampaignDsp);
+  const deliveryDiagnosticSections: DeliveryDiagnosticSection[] = [
+    { label: 'Display Wrapper', entry: deliveryDiagnostics?.deliveryDiagnostics?.displayWrapper },
+    { label: 'VAST', entry: deliveryDiagnostics?.deliveryDiagnostics?.vast },
+    { label: 'Tracker Click', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerClick },
+    { label: 'Tracker Impression', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerImpression },
+  ];
 
   useEffect(() => {
     fetch('/v1/campaigns', { credentials: 'include' })
@@ -291,6 +332,19 @@ export default function TagBuilder() {
       .catch(() => setAssignmentError('Failed to load available creatives.'))
       .finally(() => setCreativeOptionsLoading(false));
   }, [isEdit]);
+
+  useEffect(() => {
+    if (!isEdit || !id) return;
+    setDeliveryDiagnosticsLoading(true);
+    void fetch(`/v1/tags/${id}/delivery-diagnostics`, { credentials: 'include' })
+      .then(response => {
+        if (!response.ok) throw new Error('Failed to load diagnostics');
+        return response.json();
+      })
+      .then(payload => setDeliveryDiagnostics(payload as DeliveryDiagnosticsPayload))
+      .catch(() => setDeliveryDiagnostics(null))
+      .finally(() => setDeliveryDiagnosticsLoading(false));
+  }, [id, isEdit]);
 
   const set = (field: keyof TagForm) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -692,6 +746,68 @@ export default function TagBuilder() {
           <pre className="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">
             {buildTagSnippet(savedTag, snippetVariant, selectedCampaignDsp)}
           </pre>
+        </div>
+      )}
+
+      {isEdit && savedTag && (
+        <div className="mt-6 bg-white rounded-xl border border-slate-200 p-6">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-base font-semibold text-slate-800">Delivery Diagnostics</h2>
+              <p className="text-sm text-slate-500">
+                Inspect the effective Basis/SMX delivery policy and generated URLs for this tag.
+              </p>
+            </div>
+            {deliveryDiagnosticsLoading && <span className="text-xs text-slate-500">Loading…</span>}
+          </div>
+
+          <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <span className="font-medium text-slate-800">DSP:</span>{' '}
+            {deliveryDiagnostics?.dsp?.selected || selectedCampaignDsp || 'none'}
+          </div>
+
+          <div className="space-y-4">
+            {deliveryDiagnosticSections.map(section => (
+              <details key={section.label} className="rounded-lg border border-slate-200 px-4 py-3">
+                <summary className="cursor-pointer text-sm font-medium text-slate-800">{section.label}</summary>
+                <div className="mt-3 space-y-3">
+                  <div className="grid gap-3 md:grid-cols-3 text-xs">
+                    <div className="rounded-md bg-slate-50 px-3 py-2">
+                      <div className="text-slate-500">Measurement Path</div>
+                      <div className="mt-1 font-medium text-slate-800">{section.entry?.policy?.measurementPath ?? 'n/a'}</div>
+                    </div>
+                    <div className="rounded-md bg-slate-50 px-3 py-2">
+                      <div className="text-slate-500">DSP Hint</div>
+                      <div className="mt-1 font-medium text-slate-800">{section.entry?.policy?.includeDspHint ? 'enabled' : 'disabled'}</div>
+                    </div>
+                    <div className="rounded-md bg-slate-50 px-3 py-2">
+                      <div className="text-slate-500">Click Macro</div>
+                      <div className="mt-1 font-medium text-slate-800">{section.entry?.policy?.includeClickMacro ? 'enabled' : 'disabled'}</div>
+                    </div>
+                  </div>
+
+                  {section.entry?.jsUrl && (
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-slate-700">JS URL</div>
+                      <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{section.entry.jsUrl}</pre>
+                    </div>
+                  )}
+                  {section.entry?.htmlUrl && (
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-slate-700">HTML URL</div>
+                      <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{section.entry.htmlUrl}</pre>
+                    </div>
+                  )}
+                  {section.entry?.url && (
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-slate-700">URL</div>
+                      <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{section.entry.url}</pre>
+                    </div>
+                  )}
+                </div>
+              </details>
+            ))}
+          </div>
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import { getTagServingSnapshot, getTagServingSnapshotById } from '@smx/db/tags';
-import { readDspMacroValue, wrapTrackedClickUrlWithDspMacro } from '@smx/contracts/dsp-macros';
+import { buildDspTrackedClickUrl, readDspMacroValue, wrapTrackedClickUrlWithDspMacro } from '@smx/contracts/dsp-macros';
 
 const BASE_URL = (process.env.BASE_URL ?? '').trim();
 
@@ -52,6 +52,16 @@ function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedC
     return creativeUrl;
   }
 }
+
+const RUNTIME_DSP_CLICK_HELPER = `function applyDspClickMacro(url, macroValue) {
+  if (!macroValue) return url;
+  var decodedMacroValue = macroValue;
+  try {
+    decodedMacroValue = decodeURIComponent(macroValue);
+  } catch (_error) {}
+  if (/[{}]/.test(decodedMacroValue) || /\\$\\{[^}]+\\}/.test(decodedMacroValue)) return url;
+  return decodedMacroValue + encodeURIComponent(String(url));
+}`;
 
 function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const tagId = tag.id;
@@ -255,19 +265,11 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
     return nextUrl;
   }
 
+  ${RUNTIME_DSP_CLICK_HELPER}
+
   function resolveClickHref(url) {
     var trackedUrl = appendIdentity(url);
-    if (!dspClickMacro) return trackedUrl;
-    var decodedMacro = dspClickMacro;
-    try {
-      decodedMacro = decodeURIComponent(dspClickMacro);
-    } catch (_error) {}
-    if (/[{}]/.test(decodedMacro) || /\$\{[^}]+\}/.test(decodedMacro)) return trackedUrl;
-    try {
-      return decodedMacro + encodeURIComponent(trackedUrl);
-    } catch (_error) {
-      return dspClickMacro + encodeURIComponent(trackedUrl);
-    }
+    return applyDspClickMacro(trackedUrl, dspClickMacro);
   }
 
   function buildEngagementUrl(eventType, extra) {
@@ -547,20 +549,11 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
           viewabilityTracked = true;
           fire(appendIdentity(${JSON.stringify(viewabilityUrl)} + '&state=viewable&vp=1&fmt=display&method=intersection_observer&ms=1000' + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
         }
+        ${RUNTIME_DSP_CLICK_HELPER}
         function resolveClickHref(url, macroOverride) {
           var trackedUrl = appendIdentity(url);
           var macroValue = macroOverride || search.get('smx_dsp_click') || '';
-          if (!macroValue) return trackedUrl;
-          var decodedMacroValue = macroValue;
-          try {
-            decodedMacroValue = decodeURIComponent(macroValue);
-          } catch (_error) {}
-          if (/[{}]/.test(decodedMacroValue) || /\$\{[^}]+\}/.test(decodedMacroValue)) return trackedUrl;
-          try {
-            return decodedMacroValue + encodeURIComponent(trackedUrl);
-          } catch (_error) {
-            return macroValue + encodeURIComponent(trackedUrl);
-          }
+          return applyDspClickMacro(trackedUrl, macroValue);
         }
         Array.prototype.forEach.call(document.querySelectorAll('a[href]'), function(anchor) {
           var baseClick = anchor.getAttribute('data-smx-click') || anchor.href;

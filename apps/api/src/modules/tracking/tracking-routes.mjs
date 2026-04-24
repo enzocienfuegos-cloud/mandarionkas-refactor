@@ -6,7 +6,7 @@ import {
 } from '@smx/db/tracking';
 import { getTagById } from '@smx/db/tags';
 import { extractIp, resolveIp } from '@smx/geo';
-import { readDspMacroValue } from '@smx/contracts/dsp-macros';
+import { readDspMacroValue, resolveDspClickMacroValue } from '@smx/contracts/dsp-macros';
 
 const PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -95,6 +95,30 @@ function setTrackingIdentityCookies(reply, context = {}) {
       maxAge: 60 * 60 * 24 * 30,
     });
   }
+}
+
+function buildMeasurementDebugMeta(context = {}) {
+  return {
+    measurementPath: context.measurement_path ?? 'smx_fallback',
+    macroSource: context.macro_source ?? 'absent',
+    dspProvider: context.dsp_provider ?? null,
+  };
+}
+
+function attachMeasurementDebugHeaders(reply, context = {}) {
+  const meta = buildMeasurementDebugMeta(context);
+  reply.header('x-smx-measurement-path', meta.measurementPath);
+  reply.header('x-smx-macro-source', meta.macroSource);
+  if (meta.dspProvider) {
+    reply.header('x-smx-dsp-provider', meta.dspProvider);
+  }
+}
+
+function logMeasurementPath(req, message, payload = {}, context = {}) {
+  req.log?.info?.({
+    ...payload,
+    ...buildMeasurementDebugMeta(context),
+  }, message);
 }
 
 function buildIdentityKeys({ query = {}, headers = {}, cookies = {} }) {
@@ -199,6 +223,9 @@ async function collectTrackingContext(req, query = {}) {
   const cookieDeviceId = req.cookies?.smx_device_id ?? req.cookies?.device_id ?? null;
   const cookieCookieId = req.cookies?.smx_cookie_id ?? req.cookies?.cookie_id ?? null;
   const identityKeys = buildIdentityKeys({ query, headers: req.headers, cookies: req.cookies ?? {} });
+  const dspHint = String(query.smx_dsp ?? '').trim().toLowerCase();
+  const rawClickMacro = readDspMacroValue(query, 'clickMacro', dspHint);
+  const resolvedClickMacro = resolveDspClickMacroValue(rawClickMacro);
   return {
     ip,
     user_agent: userAgent,
@@ -214,6 +241,9 @@ async function collectTrackingContext(req, query = {}) {
     device_id: String(query.did ?? req.headers['x-device-id'] ?? cookieDeviceId ?? '').trim() || null,
     cookie_id: String(query.cid ?? req.headers['x-cookie-id'] ?? cookieCookieId ?? '').trim() || null,
     identity_keys: identityKeys,
+    measurement_path: resolvedClickMacro ? 'basis_macro' : 'smx_fallback',
+    macro_source: rawClickMacro ? (resolvedClickMacro ? 'resolved' : 'unresolved') : 'absent',
+    dsp_provider: dspHint || null,
   };
 }
 
@@ -309,15 +339,23 @@ export function handleTrackingRoutes(app, { pool }) {
 
     const context = await collectTrackingContext(req, req.query);
     setTrackingIdentityCookies(reply, context);
+    attachMeasurementDebugHeaders(reply, context);
 
     // Fire-and-forget — don't block pixel response
-      recordImpression(pool, {
-        impression_id: impressionId ?? null,
-        tag_id: tagId,
-        workspace_id: workspaceId,
-        creative_id: creativeId ?? null,
-        creative_size_variant_id: creativeSizeVariantId ?? null,
-        ...context,
+    logMeasurementPath(req, 'tracking impression measurement path', {
+      tagId,
+      workspaceId,
+      impressionId,
+      creativeId,
+      creativeSizeVariantId,
+    }, context);
+    recordImpression(pool, {
+      impression_id: impressionId ?? null,
+      tag_id: tagId,
+      workspace_id: workspaceId,
+      creative_id: creativeId ?? null,
+      creative_size_variant_id: creativeSizeVariantId ?? null,
+      ...context,
     }).catch((error) => {
       req.log?.warn?.({ err: error, tagId, workspaceId, impressionId }, 'failed to record impression');
     });
@@ -338,9 +376,18 @@ export function handleTrackingRoutes(app, { pool }) {
     const creativeSizeVariantId = normalizeUuid(rawCreativeSizeVariantId);
 
     const context = await collectTrackingContext(req, req.query);
+    attachMeasurementDebugHeaders(reply, context);
 
     if (workspaceId) {
       try {
+        logMeasurementPath(req, 'tracking click measurement path', {
+          tagId,
+          workspaceId,
+          impressionId,
+          creativeId,
+          creativeSizeVariantId,
+          destinationUrl,
+        }, context);
         await recordClick(pool, {
           tag_id: tagId,
           workspace_id: workspaceId,
@@ -396,6 +443,16 @@ export function handleTrackingRoutes(app, { pool }) {
       const viewable = vp !== '0' && vp !== 'false';
       const context = await collectTrackingContext(req, req.query);
       setTrackingIdentityCookies(reply, context);
+      attachMeasurementDebugHeaders(reply, context);
+      logMeasurementPath(req, 'tracking viewability measurement path', {
+        tagId,
+        workspaceId,
+        impressionId,
+        creativeId,
+        creativeSizeVariantId,
+        viewable,
+        state: state ?? (viewable ? 'viewable' : 'measured'),
+      }, context);
       recordViewability(pool, {
         tag_id: tagId,
         workspace_id: workspaceId,

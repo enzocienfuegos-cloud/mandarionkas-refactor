@@ -10,7 +10,11 @@ import {
   createAdvertiser,
   updateAdvertiser,
 } from '@smx/db/campaigns';
-import { applyDspMacrosToUrl, readCampaignDsp } from '@smx/contracts/dsp-macros';
+import {
+  applyDspMacrosToDeliveryUrl,
+  DSP_DELIVERY_KINDS,
+  readCampaignDsp,
+} from '@smx/contracts/dsp-macros';
 
 export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
   function getRequestBaseUrl(req) {
@@ -42,11 +46,11 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
   function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
     const width = Number(tag.serving_width ?? 0) || 300;
     const height = Number(tag.serving_height ?? 0) || 250;
-    const displayJsUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, { includeClickMacro: true });
-    const displayHtmlUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, { includeClickMacro: true });
-    const vastUrl = applyDspMacrosToUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp);
-    const trackerClickUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp);
-    const trackerImpressionUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp);
+    const displayJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+    const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+    const vastUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VAST);
+    const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
+    const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
     switch (variant) {
       case 'display-js':
         return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;

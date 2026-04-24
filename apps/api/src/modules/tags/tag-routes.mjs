@@ -7,7 +7,12 @@ import {
   getTagWithCreatives,
 } from '@smx/db/tags';
 import { listTagBindings, updateTagBinding } from '@smx/db';
-import { applyDspMacrosToUrl, readCampaignDsp } from '@smx/contracts/dsp-macros';
+import {
+  applyDspMacrosToDeliveryUrl,
+  DSP_DELIVERY_KINDS,
+  getDspDeliveryPolicy,
+  readCampaignDsp,
+} from '@smx/contracts/dsp-macros';
 
 function getRequestBaseUrl(req) {
   const forwardedProto = req.headers['x-forwarded-proto'];
@@ -27,11 +32,11 @@ function escapeCsv(value) {
 function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
   const width = Number(tag.serving_width ?? 0) || 300;
   const height = Number(tag.serving_height ?? 0) || 250;
-  const displayJsUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, { includeClickMacro: true });
-  const displayHtmlUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, { includeClickMacro: true });
-  const vastUrl = applyDspMacrosToUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp);
-  const trackerClickUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp);
-  const trackerImpressionUrl = applyDspMacrosToUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp);
+  const displayJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+  const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+  const vastUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VAST);
+  const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
+  const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
   switch (variant) {
     case 'display-js':
       return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
@@ -232,6 +237,95 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     }
 
     return reply.send({ tag: toApiTag(tag) });
+  });
+
+  // GET /v1/tags/:id/delivery-diagnostics
+  app.get('/v1/tags/:id/delivery-diagnostics', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id } = req.params;
+
+    const { rows } = await pool.query(
+      `SELECT t.id, t.name, t.format, t.status,
+              t.click_url, t.workspace_id, t.campaign_id,
+              c.name AS campaign_name,
+              c.metadata AS campaign_metadata,
+              COALESCE(tfc.display_width, bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
+              COALESCE(tfc.display_height, bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height,
+              tfc.tracker_type
+       FROM ad_tags t
+       LEFT JOIN campaigns c ON c.id = t.campaign_id
+       LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
+       LEFT JOIN LATERAL (
+         SELECT
+           COALESCE(csv.width, cv.width) AS serving_width,
+           COALESCE(csv.height, cv.height) AS serving_height
+         FROM tag_bindings tb
+         JOIN creative_versions cv ON cv.id = tb.creative_version_id
+         LEFT JOIN creative_size_variants csv ON csv.id = tb.creative_size_variant_id
+         WHERE tb.workspace_id = t.workspace_id
+           AND tb.tag_id = t.id
+           AND tb.status IN ('active', 'draft')
+         ORDER BY tb.weight DESC, tb.created_at ASC
+         LIMIT 1
+       ) bound_sizes ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT
+           c.width AS serving_width,
+           c.height AS serving_height
+         FROM tag_creatives tc
+         JOIN creatives c ON c.id = tc.creative_id
+         WHERE tc.tag_id = t.id
+         ORDER BY tc.weight DESC, tc.created_at ASC
+         LIMIT 1
+       ) legacy_sizes ON TRUE
+       WHERE t.workspace_id = $1
+         AND t.id = $2
+       LIMIT 1`,
+      [workspaceId, id],
+    );
+
+    const tag = rows[0];
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    const baseUrl = getRequestBaseUrl(req);
+    const campaignDsp = readCampaignDsp(tag.campaign_metadata);
+
+    return reply.send({
+      tag: {
+        id: tag.id,
+        name: tag.name,
+        format: tag.format,
+        status: tag.status,
+        campaignId: tag.campaign_id ?? null,
+        campaignName: tag.campaign_name ?? null,
+        trackerType: tag.tracker_type ?? null,
+        size: tag.serving_width && tag.serving_height ? `${tag.serving_width}x${tag.serving_height}` : null,
+      },
+      dsp: {
+        selected: campaignDsp || null,
+      },
+      deliveryDiagnostics: {
+        displayWrapper: {
+          policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER),
+          jsUrl: applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER),
+          htmlUrl: applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER),
+        },
+        vast: {
+          policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.VAST),
+          url: applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VAST),
+        },
+        trackerClick: {
+          policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK),
+          url: applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK),
+        },
+        trackerImpression: {
+          policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION),
+          url: applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION),
+        },
+      },
+    });
   });
 
   // GET /v1/tags/:id/bindings

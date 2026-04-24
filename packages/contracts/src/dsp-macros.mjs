@@ -28,6 +28,14 @@ export const DSP_MACRO_CONFIGS = {
   },
 };
 
+export const DSP_DELIVERY_KINDS = {
+  DISPLAY_WRAPPER: 'display_wrapper',
+  HTML5_INTERNAL: 'html5_internal',
+  VAST: 'vast',
+  TRACKER_CLICK: 'tracker_click',
+  TRACKER_IMPRESSION: 'tracker_impression',
+};
+
 function readValue(value) {
   const candidate = Array.isArray(value) ? value[0] : value;
   const text = String(candidate ?? '').trim();
@@ -82,6 +90,63 @@ export function applyDspMacrosToUrl(rawUrl, dsp, opts = {}) {
   }
 }
 
+export function getDspDeliveryPolicy(dsp, deliveryKind) {
+  const normalizedDsp = normalizeDsp(dsp);
+  const normalizedKind = String(deliveryKind ?? '').trim().toLowerCase();
+
+  const basePolicy = {
+    includeDspHint: true,
+    includeClickMacro: false,
+    measurementPath: 'smx_fallback',
+  };
+
+  if (normalizedDsp !== 'basis') return basePolicy;
+
+  switch (normalizedKind) {
+    case DSP_DELIVERY_KINDS.DISPLAY_WRAPPER:
+      return {
+        ...basePolicy,
+        includeClickMacro: true,
+        measurementPath: 'basis_macro_or_smx_fallback',
+      };
+    case DSP_DELIVERY_KINDS.HTML5_INTERNAL:
+      return {
+        ...basePolicy,
+        includeClickMacro: true,
+        measurementPath: 'basis_macro_or_smx_fallback',
+      };
+    case DSP_DELIVERY_KINDS.VAST:
+      return {
+        ...basePolicy,
+        includeClickMacro: false,
+        measurementPath: 'basis_macro_or_smx_fallback',
+      };
+    case DSP_DELIVERY_KINDS.TRACKER_CLICK:
+      return {
+        ...basePolicy,
+        includeClickMacro: false,
+        measurementPath: 'basis_macro_or_smx_fallback',
+      };
+    case DSP_DELIVERY_KINDS.TRACKER_IMPRESSION:
+      return {
+        ...basePolicy,
+        includeClickMacro: false,
+        measurementPath: 'smx_direct',
+      };
+    default:
+      return basePolicy;
+  }
+}
+
+export function applyDspMacrosToDeliveryUrl(rawUrl, dsp, deliveryKind, opts = {}) {
+  const policy = getDspDeliveryPolicy(dsp, deliveryKind);
+  return applyDspMacrosToUrl(rawUrl, dsp, {
+    includeDspHint: policy.includeDspHint,
+    includeClickMacro: policy.includeClickMacro,
+    ...opts,
+  });
+}
+
 export function readDspMacroValue(query = {}, kind, dsp = '') {
   const normalizedDsp = normalizeDsp(dsp || query?.smx_dsp);
   const configs = normalizedDsp
@@ -114,11 +179,20 @@ export function isResolvedDspMacroValue(value) {
   return true;
 }
 
+export function resolveDspClickMacroValue(value) {
+  const text = safeDecode(value).trim();
+  return isResolvedDspMacroValue(text) ? text : '';
+}
+
+export function buildDspTrackedClickUrl(clickTrackUrl, macroValue) {
+  if (!clickTrackUrl) return clickTrackUrl;
+  const resolvedMacroValue = resolveDspClickMacroValue(macroValue);
+  if (!resolvedMacroValue) return clickTrackUrl;
+  return `${resolvedMacroValue}${encodeURIComponent(String(clickTrackUrl))}`;
+}
+
 export function wrapTrackedClickUrlWithDspMacro(clickTrackUrl, query = {}, dsp = '') {
   const encodedMacro = readDspMacroValue(query, 'clickMacro', dsp);
   if (!encodedMacro || !clickTrackUrl) return clickTrackUrl;
-
-  const prefix = safeDecode(encodedMacro);
-  if (!isResolvedDspMacroValue(prefix)) return clickTrackUrl;
-  return `${prefix}${encodeURIComponent(String(clickTrackUrl))}`;
+  return buildDspTrackedClickUrl(clickTrackUrl, encodedMacro);
 }
