@@ -68,8 +68,10 @@ export async function listCampaigns(pool, workspaceId, opts = {}) {
      LEFT JOIN LATERAL (
        SELECT COALESCE(SUM(COALESCE(ie.viewability_duration_ms, 0)), 0)::bigint AS total_in_view_duration_ms
        FROM impression_events ie
+       JOIN ad_tags t ON t.id = ie.tag_id
        WHERE ie.workspace_id = c.workspace_id
-         AND ie.campaign_id = c.id
+         AND t.workspace_id = c.workspace_id
+         AND t.campaign_id = c.id
      ) view_time ON true
      WHERE ${conditions.join(' AND ')}
      ORDER BY c.created_at DESC
@@ -152,8 +154,10 @@ export async function listCampaignsForUser(pool, userId, opts = {}) {
      LEFT JOIN LATERAL (
        SELECT COALESCE(SUM(COALESCE(ie.viewability_duration_ms, 0)), 0)::bigint AS total_in_view_duration_ms
        FROM impression_events ie
+       JOIN ad_tags t ON t.id = ie.tag_id
        WHERE ie.workspace_id = c.workspace_id
-         AND ie.campaign_id = c.id
+         AND t.workspace_id = c.workspace_id
+         AND t.campaign_id = c.id
      ) view_time ON true
      WHERE ${conditions.join(' AND ')}
      ORDER BY c.created_at DESC
