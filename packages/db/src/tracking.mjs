@@ -1515,10 +1515,20 @@ export async function getImpressionStats(pool, tagId, opts = {}) {
 }
 
 export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25 } = opts;
+  const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.workspace_id = $1', 'ie.site_domain IS NOT DISTINCT FROM ds.site_domain', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
+  if (campaignId) {
+    params.push(campaignId);
+    conditions.push(`t.campaign_id = $${params.length}`);
+    identityConditions.push(`EXISTS (SELECT 1 FROM ad_tags t2 WHERE t2.id = ie.tag_id AND t2.workspace_id = ie.workspace_id AND t2.campaign_id = $${params.length})`);
+  }
+  if (tagId) {
+    params.push(tagId);
+    conditions.push(`t.id = $${params.length}`);
+    identityConditions.push(`ie.tag_id = $${params.length}`);
+  }
 
   if (dateFrom) {
     params.push(dateFrom);
@@ -1584,10 +1594,20 @@ export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
 }
 
 export async function getWorkspaceCountryBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25 } = opts;
+  const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.workspace_id = $1', 'ie.country IS NOT DISTINCT FROM ds.country', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
+  if (campaignId) {
+    params.push(campaignId);
+    conditions.push(`t.campaign_id = $${params.length}`);
+    identityConditions.push(`EXISTS (SELECT 1 FROM ad_tags t2 WHERE t2.id = ie.tag_id AND t2.workspace_id = ie.workspace_id AND t2.campaign_id = $${params.length})`);
+  }
+  if (tagId) {
+    params.push(tagId);
+    conditions.push(`t.id = $${params.length}`);
+    identityConditions.push(`ie.tag_id = $${params.length}`);
+  }
 
   if (dateFrom) {
     params.push(dateFrom);
@@ -1653,10 +1673,20 @@ export async function getWorkspaceCountryBreakdown(pool, workspaceId, opts = {})
 }
 
 export async function getWorkspaceRegionBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25 } = opts;
+  const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.workspace_id = $1', 'ie.region IS NOT DISTINCT FROM ds.region', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
+  if (campaignId) {
+    params.push(campaignId);
+    conditions.push(`t.campaign_id = $${params.length}`);
+    identityConditions.push(`EXISTS (SELECT 1 FROM ad_tags t2 WHERE t2.id = ie.tag_id AND t2.workspace_id = ie.workspace_id AND t2.campaign_id = $${params.length})`);
+  }
+  if (tagId) {
+    params.push(tagId);
+    conditions.push(`t.id = $${params.length}`);
+    identityConditions.push(`ie.tag_id = $${params.length}`);
+  }
 
   if (dateFrom) {
     params.push(dateFrom);
@@ -1722,10 +1752,20 @@ export async function getWorkspaceRegionBreakdown(pool, workspaceId, opts = {}) 
 }
 
 export async function getWorkspaceCityBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25 } = opts;
+  const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.workspace_id = $1', 'ie.city IS NOT DISTINCT FROM ds.city', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
+  if (campaignId) {
+    params.push(campaignId);
+    conditions.push(`t.campaign_id = $${params.length}`);
+    identityConditions.push(`EXISTS (SELECT 1 FROM ad_tags t2 WHERE t2.id = ie.tag_id AND t2.workspace_id = ie.workspace_id AND t2.campaign_id = $${params.length})`);
+  }
+  if (tagId) {
+    params.push(tagId);
+    conditions.push(`t.id = $${params.length}`);
+    identityConditions.push(`ie.tag_id = $${params.length}`);
+  }
 
   if (dateFrom) {
     params.push(dateFrom);
@@ -1791,11 +1831,20 @@ export async function getWorkspaceCityBreakdown(pool, workspaceId, opts = {}) {
 }
 
 export async function getWorkspaceTrackerBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25 } = opts;
+  const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
   const params = [workspaceId];
   const conditions = ["t.workspace_id = $1", "t.format IN ('tracker', 'display', 'vast')"];
   const impressionIdentityConditions = ['ie.workspace_id = t.workspace_id', 'ie.tag_id = t.id', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
   const clickIdentityConditions = ['ce.workspace_id = t.workspace_id', 'ce.tag_id = t.id', "e.event_type = 'click'", 'e.identity_profile_id IS NOT NULL'];
+
+  if (campaignId) {
+    params.push(campaignId);
+    conditions.push(`t.campaign_id = $${params.length}`);
+  }
+  if (tagId) {
+    params.push(tagId);
+    conditions.push(`t.id = $${params.length}`);
+  }
 
   if (dateFrom) {
     params.push(dateFrom);
@@ -1891,9 +1940,17 @@ export async function getWorkspaceTrackerBreakdown(pool, workspaceId, opts = {})
 }
 
 export async function getWorkspaceEngagementBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25 } = opts;
+  const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
+  if (campaignId) {
+    params.push(campaignId);
+    conditions.push(`t.campaign_id = $${params.length}`);
+  }
+  if (tagId) {
+    params.push(tagId);
+    conditions.push(`t.id = $${params.length}`);
+  }
 
   if (dateFrom) {
     params.push(dateFrom);

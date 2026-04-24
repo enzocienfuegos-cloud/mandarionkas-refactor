@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
+import { getWorkspaceProductLabel, loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
+import { THEME_PREFERENCE_KEY, applyTheme, getInitialTheme, persistTheme, type ThemeMode } from '../shared/theme';
 
 interface User {
   id: string;
@@ -11,6 +12,10 @@ interface User {
   workspace: {
     id: string;
     name: string;
+    productAccess: {
+      ad_server: boolean;
+      studio: boolean;
+    };
   };
 }
 
@@ -51,6 +56,38 @@ function getStudioUrl(): string {
   return '/';
 }
 
+function WorkspaceAccessBadge({ workspace }: { workspace: { product_access?: { ad_server: boolean; studio: boolean } | undefined } }) {
+  const access = workspace.product_access;
+  const label = getWorkspaceProductLabel(workspace);
+  const badgeClass = access?.ad_server && access?.studio
+    ? 'bg-emerald-100 text-emerald-700'
+    : access?.ad_server
+      ? 'bg-indigo-100 text-indigo-700'
+      : 'bg-amber-100 text-amber-700';
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${badgeClass}`}>
+      {label}
+    </span>
+  );
+}
+
+async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
+  const response = await fetch(input, {
+    credentials: 'include',
+    headers: {
+      'content-type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
+    ...init,
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
+  return response.json() as Promise<T>;
+}
+
 export default function Shell() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -60,6 +97,7 @@ export default function Shell() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [clientError, setClientError] = useState('');
+  const [theme, setTheme] = useState<ThemeMode>(() => getInitialTheme());
 
   function normalizeUserPayload(payload: any): User | null {
     if (!payload?.user) return null;
@@ -75,12 +113,17 @@ export default function Shell() {
       workspace: {
         id: payload.workspace?.id ?? '',
         name: payload.workspace?.name ?? 'Workspace',
+        productAccess: payload.productAccess ?? payload.workspace?.product_access ?? { ad_server: true, studio: true },
       },
     };
   }
 
+  const hasAdServerAccess = user?.workspace?.productAccess?.ad_server !== false;
+  const hasStudioAccess = user?.workspace?.productAccess?.studio !== false;
+
   useEffect(() => {
-    Promise.all([loadAuthMe(), loadWorkspaces()])
+    const workspaceLoader = hasAdServerAccess ? loadWorkspaces('ad_server') : loadWorkspaces('all');
+    Promise.all([loadAuthMe(), workspaceLoader])
       .then(([authMe, workspaceList]) => {
         const normalized = normalizeUserPayload(authMe);
         if (normalized) setUser(normalized);
@@ -88,8 +131,29 @@ export default function Shell() {
       })
       .catch(() => navigate('/login'))
       .finally(() => setLoading(false));
-  }, [navigate]);
+  }, [hasAdServerAccess, navigate]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchJson<{ preferences?: Record<string, unknown> }>('/v1/auth/preferences')
+      .then((payload) => {
+        if (cancelled) return;
+        const preferredTheme = payload?.preferences?.[THEME_PREFERENCE_KEY];
+        if (preferredTheme === 'dark' || preferredTheme === 'light') {
+          setTheme(preferredTheme);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+    persistTheme(theme);
+  }, [theme]);
   const showClientSwitcher = useMemo(
     () => {
       const agnosticPrefixes = [
@@ -102,10 +166,12 @@ export default function Shell() {
         '/discrepancies',
         '/experiments',
         '/clients',
+        '/tools',
+        '/settings',
       ];
-      return !agnosticPrefixes.some(prefix => location.pathname.startsWith(prefix));
+      return !agnosticPrefixes.some(prefix => location.pathname.startsWith(prefix)) || !hasAdServerAccess;
     },
-    [location.pathname],
+    [hasAdServerAccess, location.pathname],
   );
   const toolsOpen = location.pathname.startsWith('/tools');
   const settingsOpen = location.pathname.startsWith('/settings');
@@ -121,7 +187,7 @@ export default function Shell() {
     setClientError('');
     try {
       await switchWorkspace(workspaceId);
-      const [authMe, workspaceList] = await Promise.all([loadAuthMe(), loadWorkspaces()]);
+      const [authMe, workspaceList] = await Promise.all([loadAuthMe(), hasAdServerAccess ? loadWorkspaces('ad_server') : loadWorkspaces('all')]);
       const normalized = normalizeUserPayload(authMe);
       if (normalized) setUser(normalized);
       setWorkspaces(workspaceList);
@@ -130,6 +196,19 @@ export default function Shell() {
     } finally {
       setWorkspaceBusy(false);
     }
+  };
+
+  const handleThemeToggle = () => {
+    const nextTheme: ThemeMode = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    void fetchJson('/v1/auth/preferences', {
+      method: 'PUT',
+      body: JSON.stringify({
+        preferences: {
+          [THEME_PREFERENCE_KEY]: nextTheme,
+        },
+      }),
+    }).catch(() => {});
   };
 
   if (loading) {
@@ -151,70 +230,80 @@ export default function Shell() {
 
         {/* Navigation */}
         <nav className="flex-1 px-2 py-3 space-y-0.5">
-          <SectionLabel label="Ad Ops" />
-          <NavLink to="/overview" className={navLinkClass}>
-            <span>🛰️</span> Overview
-          </NavLink>
-          <NavLink to="/campaigns" className={navLinkClass}>
-            <span>📋</span> Campaigns
-          </NavLink>
-          <NavLink to="/tags" className={navLinkClass}>
-            <span>🏷️</span> Tags
-          </NavLink>
-          <NavLink to="/creatives" className={navLinkClass}>
-            <span>🎨</span> Creatives
-          </NavLink>
+          {hasAdServerAccess && (
+            <>
+              <SectionLabel label="Ad Ops" />
+              <NavLink to="/overview" className={navLinkClass}>
+                <span>🛰️</span> Overview
+              </NavLink>
+              <NavLink to="/campaigns" className={navLinkClass}>
+                <span>📋</span> Campaigns
+              </NavLink>
+              <NavLink to="/tags" className={navLinkClass}>
+                <span>🏷️</span> Tags
+              </NavLink>
+              <NavLink to="/creatives" className={navLinkClass}>
+                <span>🎨</span> Creatives
+              </NavLink>
 
-          <SectionLabel label="Analytics" />
-          <NavLink to="/reporting" className={navLinkClass}>
-            <span>📊</span> Reporting
-          </NavLink>
-          <NavLink to="/pacing" className={navLinkClass}>
-            <span>⏱️</span> Pacing
-          </NavLink>
-          <NavLink to="/discrepancies" className={navLinkClass}>
-            <span>⚠️</span> Discrepancies
-          </NavLink>
-          <NavLink to="/experiments" className={navLinkClass}>
-            <span>🧪</span> Experiments
-          </NavLink>
+              <SectionLabel label="Analytics" />
+              <NavLink to="/reporting" className={navLinkClass}>
+                <span>📊</span> Reporting
+              </NavLink>
+              <NavLink to="/pacing" className={navLinkClass}>
+                <span>⏱️</span> Pacing
+              </NavLink>
+              <NavLink to="/discrepancies" className={navLinkClass}>
+                <span>⚠️</span> Discrepancies
+              </NavLink>
+              <NavLink to="/experiments" className={navLinkClass}>
+                <span>🧪</span> Experiments
+              </NavLink>
+            </>
+          )}
 
           <SectionLabel label="Creative Studio" />
           {/* Opens the canvas editor in a new tab — same session cookie, no second login */}
-          <a
-            href={getStudioUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
-          >
-            <span>🎬</span> Open Studio
-            <span className="ml-auto text-slate-500 text-xs">↗</span>
-          </a>
-
-          <SectionLabel label="Tools" />
-          <NavLink to="/tools" className={navLinkClass}>
-            <span className="flex items-center gap-2"><span>🔧</span> Tools</span>
-            <span className={`transition-transform ${toolsOpen ? 'rotate-180' : ''}`}><ChevronDownIcon /></span>
-          </NavLink>
-          {toolsOpen && (
-            <div className="pl-4 space-y-0.5">
-              <NavLink to="/tools/vast-validator" className={navLinkClass}>VAST Validator</NavLink>
-              <NavLink to="/tools/chain-validator" className={navLinkClass}>Chain Validator</NavLink>
-            </div>
+          {hasStudioAccess && (
+            <a
+              href={getStudioUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+            >
+              <span>🎬</span> Open Studio
+              <span className="ml-auto text-slate-500 text-xs">↗</span>
+            </a>
           )}
 
-          <SectionLabel label="Settings" />
-          <NavLink to="/settings" className={navLinkClass}>
-            <span className="flex items-center gap-2"><span>⚙️</span> Settings</span>
-            <span className={`transition-transform ${settingsOpen ? 'rotate-180' : ''}`}><ChevronDownIcon /></span>
-          </NavLink>
-          {settingsOpen && (
-            <div className="pl-4 space-y-0.5">
-              <NavLink to="/settings/api-keys" className={navLinkClass}>API Keys</NavLink>
-              <NavLink to="/settings/audit-log" className={navLinkClass}>Audit Log</NavLink>
-              <NavLink to="/settings/workspace" className={navLinkClass}>Workspace</NavLink>
-              <NavLink to="/settings/webhooks" className={navLinkClass}>Webhooks</NavLink>
-            </div>
+          {hasAdServerAccess && (
+            <>
+              <SectionLabel label="Tools" />
+              <NavLink to="/tools" className={navLinkClass}>
+                <span className="flex items-center gap-2"><span>🔧</span> Tools</span>
+                <span className={`transition-transform ${toolsOpen ? 'rotate-180' : ''}`}><ChevronDownIcon /></span>
+              </NavLink>
+              {toolsOpen && (
+                <div className="pl-4 space-y-0.5">
+                  <NavLink to="/tools/vast-validator" className={navLinkClass}>VAST Validator</NavLink>
+                  <NavLink to="/tools/chain-validator" className={navLinkClass}>Chain Validator</NavLink>
+                </div>
+              )}
+
+              <SectionLabel label="Settings" />
+              <NavLink to="/settings" className={navLinkClass}>
+                <span className="flex items-center gap-2"><span>⚙️</span> Settings</span>
+                <span className={`transition-transform ${settingsOpen ? 'rotate-180' : ''}`}><ChevronDownIcon /></span>
+              </NavLink>
+              {settingsOpen && (
+                <div className="pl-4 space-y-0.5">
+                  <NavLink to="/settings/api-keys" className={navLinkClass}>API Keys</NavLink>
+                  <NavLink to="/settings/audit-log" className={navLinkClass}>Audit Log</NavLink>
+                  <NavLink to="/settings/workspace" className={navLinkClass}>Workspace</NavLink>
+                  <NavLink to="/settings/webhooks" className={navLinkClass}>Webhooks</NavLink>
+                </div>
+              )}
+            </>
           )}
         </nav>
       </aside>
@@ -236,17 +325,26 @@ export default function Shell() {
                   >
                     {workspaces.map(workspace => (
                       <option key={workspace.id} value={workspace.id}>
-                        {workspace.name}
+                        {workspace.name} · {getWorkspaceProductLabel(workspace)}
                       </option>
                     ))}
                   </select>
-                  <button
-                    onClick={() => navigate('/clients')}
-                    disabled={workspaceBusy}
-                    className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                  >
-                    Manage clients
-                  </button>
+                  {user?.workspace?.id ? (
+                    <WorkspaceAccessBadge
+                      workspace={{
+                        product_access: user.workspace.productAccess,
+                      }}
+                    />
+                  ) : null}
+                  {hasAdServerAccess ? (
+                    <button
+                      onClick={() => navigate('/clients')}
+                      disabled={workspaceBusy}
+                      className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      Manage clients
+                    </button>
+                  ) : null}
                 </div>
                 {clientError && (
                   <span className="text-xs text-red-600">{clientError}</span>
@@ -256,6 +354,16 @@ export default function Shell() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleThemeToggle}
+              className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
+              <span className="hidden md:inline">{theme === 'dark' ? 'Light' : 'Dark'} mode</span>
+            </button>
+
             {/* Global search trigger */}
             <NavLink
               to="/search"
@@ -296,6 +404,13 @@ export default function Shell() {
                     ⚙️ Settings
                   </NavLink>
                   <button
+                    type="button"
+                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    onClick={handleThemeToggle}
+                  >
+                    {theme === 'dark' ? '☀️ Switch to light' : '🌙 Switch to dark'}
+                  </button>
+                  <button
                     className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                     onClick={handleLogout}
                   >
@@ -309,7 +424,27 @@ export default function Shell() {
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6 bg-slate-50">
-          <Outlet key={user?.workspace?.id ?? 'workspace-shell'} context={{ user }} />
+          {hasAdServerAccess ? (
+            <Outlet key={user?.workspace?.id ?? 'workspace-shell'} context={{ user }} />
+          ) : (
+            <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+              <h1 className="text-2xl font-bold text-slate-900">No Ad Server access</h1>
+              <p className="mt-2 text-sm text-slate-600">
+                Your access for this client is limited to Creative Studio. Contact an admin if you also need Ad Server access.
+              </p>
+              {hasStudioAccess && (
+                <a
+                  href={getStudioUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-5 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                >
+                  <span>🎬</span>
+                  Open Studio
+                </a>
+              )}
+            </div>
+          )}
         </main>
       </div>
 

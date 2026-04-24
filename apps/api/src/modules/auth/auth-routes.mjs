@@ -8,14 +8,19 @@ import {
   updateUserPreferences,
   verifyPassword,
 } from '@smx/db';
-import { activatePendingMembershipsForUser, getMember } from '@smx/db/team';
+import { activatePendingMembershipsForUser, getMember, memberHasProductAccess, normalizeProductAccess } from '@smx/db/team';
 import { buildStudioSessionPayload } from '../studio/shared.mjs';
 
 function safeLog(req, level, payload, message) {
   req.log?.[level]?.(payload, message);
 }
 
-export function buildRequireWorkspace(pool) {
+function pickPreferredWorkspace(workspaces, product = 'ad_server') {
+  if (!Array.isArray(workspaces) || workspaces.length === 0) return null;
+  return workspaces.find((workspace) => workspace?.product_access?.[product] === true) ?? workspaces[0] ?? null;
+}
+
+export function buildRequireWorkspace(pool, requiredProduct = null) {
   return async function requireWorkspace(req, reply) {
     const userId = req.session?.userId;
     const workspaceId = req.session?.workspaceId;
@@ -38,8 +43,13 @@ export function buildRequireWorkspace(pool) {
       userId,
       workspaceId,
       role: member.role,
+      productAccess: normalizeProductAccess(member.product_access),
       email: user.email,
     };
+
+    if (requiredProduct && !memberHasProductAccess(member, requiredProduct)) {
+      return reply.status(403).send({ error: 'Forbidden', message: `No ${requiredProduct} access for this workspace` });
+    }
   };
 }
 
@@ -61,8 +71,8 @@ async function createWorkspaceWithOwner(pool, userId, workspaceName) {
 
   // Create owner membership
   await pool.query(
-    `INSERT INTO workspace_members (workspace_id, user_id, role, joined_at)
-     VALUES ($1, $2, 'owner', NOW())`,
+    `INSERT INTO workspace_members (workspace_id, user_id, role, product_access, joined_at)
+     VALUES ($1, $2, 'owner', '{"ad_server": true, "studio": true}'::jsonb, NOW())`,
     [workspace.id, userId],
   );
 
@@ -99,7 +109,7 @@ export function handleAuthRoutes(app, { pool }) {
       });
       await activatePendingMembershipsForUser(pool, user.id);
       const workspaces = await listWorkspacesForUser(pool, user.id);
-      workspace = workspaces[0] ?? null;
+      workspace = pickPreferredWorkspace(workspaces, 'ad_server');
       if (!workspace && workspaceName) {
         workspace = await createWorkspaceWithOwner(pool, user.id, workspaceName);
       }
@@ -160,7 +170,7 @@ export function handleAuthRoutes(app, { pool }) {
 
     // Get the first/default workspace for this user
     const workspaces = await listWorkspacesForUser(pool, user.id);
-    const workspace = workspaces[0] ?? null;
+    const workspace = pickPreferredWorkspace(workspaces, 'ad_server');
 
     req.session.userId = user.id;
     req.session.workspaceId = workspace?.id ?? null;
@@ -208,6 +218,7 @@ export function handleAuthRoutes(app, { pool }) {
 
     let workspace = null;
     let role = null;
+    let productAccess = null;
     if (workspaceId) {
       const member = await getMember(pool, workspaceId, userId);
       if (member?.status === 'active') {
@@ -217,13 +228,18 @@ export function handleAuthRoutes(app, { pool }) {
         );
         workspace = rows[0] ?? null;
         role = member.role;
+        productAccess = normalizeProductAccess(member.product_access);
       }
     }
 
     return reply.send({
       user: { id: user.id, email: user.email, display_name: user.display_name, avatar_url: user.avatar_url },
-      workspace,
+      workspace: workspace ? {
+        ...workspace,
+        product_access: productAccess,
+      } : null,
       role,
+      productAccess,
     });
   });
 
@@ -254,7 +270,11 @@ export function handleAuthRoutes(app, { pool }) {
       workspaceId: activeWorkspace?.id ?? null,
       workspaceCount: workspaces.length,
     }, 'session restore completed');
-    return reply.send(await buildStudioSessionPayload(pool, req, { user, workspaceId: activeWorkspace?.id ?? null }));
+    const payload = await buildStudioSessionPayload(pool, req, { user, workspaceId: activeWorkspace?.id ?? null });
+    if (!payload.authenticated) {
+      return reply.status(403).send(payload);
+    }
+    return reply.send(payload);
   });
 
   // GET /v1/auth/workspaces
@@ -264,8 +284,12 @@ export function handleAuthRoutes(app, { pool }) {
       return reply.status(401).send({ error: 'Unauthorized', message: 'No active session' });
     }
 
+    const product = typeof req.query?.product === 'string' ? req.query.product : '';
     const workspaces = await listWorkspacesForUser(pool, userId);
-    return reply.send({ workspaces });
+    const filtered = product === 'ad_server' || product === 'studio'
+      ? workspaces.filter((workspace) => workspace?.product_access?.[product] === true)
+      : workspaces;
+    return reply.send({ workspaces: filtered });
   });
 
   app.get('/v1/auth/preferences', async (req, reply) => {
@@ -321,6 +345,10 @@ export function handleAuthRoutes(app, { pool }) {
 
     req.session.workspaceId = workspaceId;
 
-    return reply.send({ workspace, role: member.role });
+    return reply.send({
+      workspace: workspace ? { ...workspace, product_access: normalizeProductAccess(member.product_access) } : workspace,
+      role: member.role,
+      productAccess: normalizeProductAccess(member.product_access),
+    });
   });
 }

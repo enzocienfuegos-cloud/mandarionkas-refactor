@@ -1,4 +1,28 @@
 const VALID_ROLES = ['owner', 'admin', 'member', 'viewer'];
+const DEFAULT_PRODUCT_ACCESS = Object.freeze({
+  ad_server: true,
+  studio: true,
+});
+
+export function normalizeProductAccess(productAccess) {
+  if (!productAccess || typeof productAccess !== 'object' || Array.isArray(productAccess)) {
+    return { ...DEFAULT_PRODUCT_ACCESS };
+  }
+
+  return {
+    ad_server: productAccess.ad_server !== false,
+    studio: productAccess.studio !== false,
+  };
+}
+
+export function hasProductAccess(productAccess, product) {
+  const normalized = normalizeProductAccess(productAccess);
+  return normalized[product] === true;
+}
+
+export function memberHasProductAccess(member, product) {
+  return hasProductAccess(member?.product_access, product);
+}
 
 export async function getWorkspace(pool, workspaceId) {
   const { rows } = await pool.query(
@@ -34,7 +58,7 @@ export async function updateWorkspace(pool, workspaceId, data) {
 
 export async function listMembers(pool, workspaceId) {
   const { rows } = await pool.query(
-    `SELECT wm.id, wm.workspace_id, wm.user_id, wm.role, wm.status,
+    `SELECT wm.id, wm.workspace_id, wm.user_id, wm.role, wm.status, wm.product_access,
             wm.invited_at, wm.joined_at, wm.updated_at,
             u.email, u.display_name, u.avatar_url, u.email_verified, u.last_login_at
      FROM workspace_members wm
@@ -51,12 +75,15 @@ export async function listMembers(pool, workspaceId) {
        u.display_name ASC`,
     [workspaceId],
   );
-  return rows;
+  return rows.map((row) => ({
+    ...row,
+    product_access: normalizeProductAccess(row.product_access),
+  }));
 }
 
 export async function getMember(pool, workspaceId, userId) {
   const { rows } = await pool.query(
-    `SELECT wm.id, wm.workspace_id, wm.user_id, wm.role, wm.status,
+    `SELECT wm.id, wm.workspace_id, wm.user_id, wm.role, wm.status, wm.product_access,
             wm.invited_at, wm.joined_at, wm.updated_at,
             u.email, u.display_name, u.avatar_url, u.email_verified, u.last_login_at
      FROM workspace_members wm
@@ -64,11 +91,15 @@ export async function getMember(pool, workspaceId, userId) {
      WHERE wm.workspace_id = $1 AND wm.user_id = $2`,
     [workspaceId, userId],
   );
-  return rows[0] ?? null;
+  if (!rows[0]) return null;
+  return {
+    ...rows[0],
+    product_access: normalizeProductAccess(rows[0].product_access),
+  };
 }
 
 export async function inviteMember(pool, workspaceId, data) {
-  const { email, role = 'member', invited_by } = data;
+  const { email, role = 'member', invited_by, product_access } = data;
 
   if (!VALID_ROLES.includes(role)) {
     throw new Error(`Invalid role: ${role}. Must be one of: ${VALID_ROLES.join(', ')}`);
@@ -86,11 +117,12 @@ export async function inviteMember(pool, workspaceId, data) {
 
   // Add workspace member
   const { rows } = await pool.query(
-    `INSERT INTO workspace_members (workspace_id, user_id, role, status, invited_by, invited_at, joined_at)
-     VALUES ($1, $2, $3, 'pending', $4, NOW(), NULL)
+    `INSERT INTO workspace_members (workspace_id, user_id, role, status, product_access, invited_by, invited_at, joined_at)
+     VALUES ($1, $2, $3, 'pending', $4::jsonb, $5, NOW(), NULL)
      ON CONFLICT (workspace_id, user_id)
      DO UPDATE SET
        role = EXCLUDED.role,
+       product_access = EXCLUDED.product_access,
        status = CASE
          WHEN workspace_members.status = 'active' THEN 'active'
          ELSE 'pending'
@@ -103,9 +135,9 @@ export async function inviteMember(pool, workspaceId, data) {
        END,
        updated_at = NOW()
      RETURNING *`,
-    [workspaceId, user.id, role, invited_by ?? null],
+    [workspaceId, user.id, role, JSON.stringify(normalizeProductAccess(product_access)), invited_by ?? null],
   );
-  return { ...rows[0], email: user.email };
+  return { ...rows[0], email: user.email, product_access: normalizeProductAccess(rows[0].product_access) };
 }
 
 export async function activatePendingMembershipsForUser(pool, userId) {
@@ -153,7 +185,19 @@ export async function updateMemberRole(pool, workspaceId, userId, role) {
      RETURNING *`,
     [workspaceId, userId, role],
   );
-  return rows[0] ?? null;
+  return rows[0] ? { ...rows[0], product_access: normalizeProductAccess(rows[0].product_access) } : null;
+}
+
+export async function updateMemberProductAccess(pool, workspaceId, userId, productAccess) {
+  const { rows } = await pool.query(
+    `UPDATE workspace_members
+     SET product_access = $3::jsonb,
+         updated_at = NOW()
+     WHERE workspace_id = $1 AND user_id = $2
+     RETURNING *`,
+    [workspaceId, userId, JSON.stringify(normalizeProductAccess(productAccess))],
+  );
+  return rows[0] ? { ...rows[0], product_access: normalizeProductAccess(rows[0].product_access) } : null;
 }
 
 export async function removeMember(pool, workspaceId, userId) {
@@ -179,4 +223,54 @@ export async function removeMember(pool, workspaceId, userId) {
     [workspaceId, userId],
   );
   return rowCount > 0;
+}
+
+export async function listUsersWithWorkspaceAccess(pool, workspaceIds = []) {
+  if (!Array.isArray(workspaceIds) || workspaceIds.length === 0) return [];
+
+  const { rows } = await pool.query(
+    `SELECT
+       u.id AS user_id,
+       u.email,
+       u.display_name,
+       u.avatar_url,
+       wm.workspace_id,
+       w.name AS workspace_name,
+       wm.role,
+       wm.product_access,
+       wm.status,
+       wm.invited_at,
+       wm.joined_at
+     FROM workspace_members wm
+     JOIN users u ON u.id = wm.user_id
+     JOIN workspaces w ON w.id = wm.workspace_id
+     WHERE wm.workspace_id = ANY($1::uuid[])
+     ORDER BY lower(u.email) ASC, w.name ASC`,
+    [workspaceIds],
+  );
+
+  const grouped = new Map();
+  for (const row of rows) {
+    const userId = String(row.user_id);
+    if (!grouped.has(userId)) {
+      grouped.set(userId, {
+        id: userId,
+        email: row.email,
+        display_name: row.display_name ?? '',
+        avatar_url: row.avatar_url ?? null,
+        assignments: [],
+      });
+    }
+    grouped.get(userId).assignments.push({
+      workspace_id: row.workspace_id,
+      workspace_name: row.workspace_name,
+      role: row.role,
+      product_access: normalizeProductAccess(row.product_access),
+      status: row.status,
+      invited_at: row.invited_at,
+      joined_at: row.joined_at,
+    });
+  }
+
+  return Array.from(grouped.values());
 }

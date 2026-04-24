@@ -60,7 +60,7 @@ export default function TagList() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
-  const [selectedClientId, setSelectedClientId] = useState('');
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -105,11 +105,11 @@ export default function TagList() {
     if (!creating) return;
     setCreateForm(current => ({
       ...current,
-      workspaceId: current.workspaceId || selectedClientId || '',
+      workspaceId: current.workspaceId || selectedClientIds[0] || '',
     }));
-  }, [creating, selectedClientId]);
+  }, [creating, selectedClientIds]);
 
-  const filteredTags = tags.filter(tag => !selectedClientId || tag.workspaceId === selectedClientId);
+  const filteredTags = tags.filter(tag => !selectedClientIds.length || selectedClientIds.includes(tag.workspaceId ?? ''));
 
   const handleDelete = async (tag: Tag) => {
     if (!window.confirm(`Delete tag "${tag.name}"? This cannot be undone.`)) return;
@@ -269,15 +269,16 @@ export default function TagList() {
       <div className="mb-4 flex items-center gap-3">
         <label className="text-sm font-medium text-slate-700">Client</label>
         <select
-          value={selectedClientId}
-          onChange={event => setSelectedClientId(event.target.value)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          multiple
+          value={selectedClientIds}
+          onChange={event => setSelectedClientIds(Array.from(event.target.selectedOptions, option => option.value))}
+          className="min-h-[110px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
         >
-          <option value="">All clients</option>
           {clients.map(client => (
             <option key={client.id} value={client.id}>{client.name}</option>
           ))}
         </select>
+        <span className="text-xs text-slate-500">Leave empty to see all clients. Hold Cmd/Ctrl to select multiple.</span>
       </div>
 
       {filteredTags.length === 0 ? (

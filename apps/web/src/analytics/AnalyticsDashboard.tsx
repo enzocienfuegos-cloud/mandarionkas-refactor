@@ -326,17 +326,23 @@ function makeQuery({
   rangeMode,
   customStartDate,
   customEndDate,
+  campaignId = '',
+  tagId = '',
 }: {
   dateRange: DateRange;
   rangeMode: RangeMode;
   customStartDate: string;
   customEndDate: string;
+  campaignId?: string;
+  tagId?: string;
 }): string {
   const params = new URLSearchParams();
   const dateFrom = rangeMode === 'custom' ? customStartDate : getDateFrom(dateRange);
   const dateTo = rangeMode === 'custom' ? customEndDate : getToday();
   if (dateFrom) params.set('dateFrom', dateFrom);
   if (dateTo) params.set('dateTo', dateTo);
+  if (campaignId) params.set('campaignId', campaignId);
+  if (tagId) params.set('tagId', tagId);
   params.set('limit', '10');
   return `?${params.toString()}`;
 }
@@ -869,8 +875,8 @@ export default function AnalyticsDashboard() {
   const [identityMinImpressions, setIdentityMinImpressions] = useState('1');
   const [identityMinClicks, setIdentityMinClicks] = useState('0');
   const [identitySegmentPreset, setIdentitySegmentPreset] = useState<IdentitySegmentPreset>('');
-  const [identityCampaignFilter, setIdentityCampaignFilter] = useState('');
-  const [identityTagFilter, setIdentityTagFilter] = useState('');
+  const [globalCampaignFilter, setGlobalCampaignFilter] = useState('');
+  const [globalTagFilter, setGlobalTagFilter] = useState('');
   const [identityCreativeFilter, setIdentityCreativeFilter] = useState('');
   const [identityVariantFilter, setIdentityVariantFilter] = useState('');
   const [identityExportFormat, setIdentityExportFormat] = useState<IdentityExportFormat>('full');
@@ -890,19 +896,19 @@ export default function AnalyticsDashboard() {
     rangeMode,
     customStartDate,
     customEndDate,
-  }), [dateRange, rangeMode, customStartDate, customEndDate]);
+    campaignId: globalCampaignFilter,
+    tagId: globalTagFilter,
+  }), [dateRange, rangeMode, customStartDate, customEndDate, globalCampaignFilter, globalTagFilter]);
   const identityQuery = useMemo(() => {
     const params = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
     if (identityTypeFilter) params.set('canonicalType', identityTypeFilter);
-    if (identityCampaignFilter) params.set('campaignId', identityCampaignFilter);
-    if (identityTagFilter) params.set('tagId', identityTagFilter);
     if (identityCreativeFilter) params.set('creativeId', identityCreativeFilter);
     if (identityVariantFilter) params.set('variantId', identityVariantFilter);
     if (identitySiteDomainFilter) params.set('siteDomain', identitySiteDomainFilter);
     if (identityRegionFilter) params.set('region', identityRegionFilter);
     if (identityCityFilter) params.set('city', identityCityFilter);
     return `?${params.toString()}`;
-  }, [query, identityTypeFilter, identityCampaignFilter, identityTagFilter, identityCreativeFilter, identityVariantFilter, identitySiteDomainFilter, identityRegionFilter, identityCityFilter]);
+  }, [query, identityTypeFilter, identityCreativeFilter, identityVariantFilter, identitySiteDomainFilter, identityRegionFilter, identityCityFilter]);
   const customDatesValid = Boolean(customStartDate && customEndDate && customStartDate <= customEndDate);
   const campaignOptions = data?.campaigns ?? [];
   const tagOptions = data?.tags ?? [];
@@ -1034,8 +1040,8 @@ export default function AnalyticsDashboard() {
     const country = overrides?.country ?? identityCountryFilter.trim().toUpperCase();
     const segmentPreset = overrides?.segmentPreset ?? identitySegmentPreset;
     const audienceTemplate = overrides?.activationTemplate ?? identityExportFormat;
-    const campaignId = overrides?.campaignId ?? identityCampaignFilter;
-    const tagId = overrides?.tagId ?? identityTagFilter;
+    const campaignId = overrides?.campaignId ?? globalCampaignFilter;
+    const tagId = overrides?.tagId ?? globalTagFilter;
     const creativeId = overrides?.creativeId ?? identityCreativeFilter;
     const variantId = overrides?.variantId ?? identityVariantFilter;
     const siteDomain = overrides?.siteDomain ?? identitySiteDomainFilter;
@@ -1226,8 +1232,8 @@ export default function AnalyticsDashboard() {
           city: (overrides?.city ?? identityCityFilter) || null,
           segmentPreset: nextSegmentPreset || null,
           activationTemplate: overrides?.activationTemplate ?? identityExportFormat,
-          campaignId: (overrides?.campaignId ?? identityCampaignFilter) || null,
-          tagId: (overrides?.tagId ?? identityTagFilter) || null,
+          campaignId: (overrides?.campaignId ?? globalCampaignFilter) || null,
+          tagId: (overrides?.tagId ?? globalTagFilter) || null,
           creativeId: (overrides?.creativeId ?? identityCreativeFilter) || null,
           variantId: (overrides?.variantId ?? identityVariantFilter) || null,
           minImpressions: (overrides?.minImpressions ?? identityMinImpressions.trim()) || '0',
@@ -1251,8 +1257,8 @@ export default function AnalyticsDashboard() {
     setIdentityCityFilter(audience.city);
     setIdentitySegmentPreset(audience.segmentPreset);
     setIdentityExportFormat(audience.activationTemplate);
-    setIdentityCampaignFilter(audience.campaignId);
-    setIdentityTagFilter(audience.tagId);
+    setGlobalCampaignFilter(audience.campaignId);
+    setGlobalTagFilter(audience.tagId);
     setIdentityCreativeFilter(audience.creativeId);
     setIdentityVariantFilter(audience.variantId);
     setIdentityMinImpressions(String(audience.minImpressions));
@@ -1462,11 +1468,11 @@ export default function AnalyticsDashboard() {
                 <select value={identitySegmentPreset} onChange={(event) => setIdentitySegmentPreset(event.target.value as IdentitySegmentPreset)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
                   {IDENTITY_SEGMENT_PRESETS.map((option) => <option key={option.value || 'custom'} value={option.value}>{option.label}</option>)}
                 </select>
-                <select value={identityCampaignFilter} onChange={(event) => setIdentityCampaignFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                <select value={globalCampaignFilter} onChange={(event) => setGlobalCampaignFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
                   <option value="">All campaigns</option>
                   {campaignOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
                 </select>
-                <select value={identityTagFilter} onChange={(event) => setIdentityTagFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                <select value={globalTagFilter} onChange={(event) => setGlobalTagFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
                   <option value="">All tags</option>
                   {tagOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
                 </select>
@@ -1662,6 +1668,25 @@ export default function AnalyticsDashboard() {
           >
             Reset layout
           </button>
+        </div>
+      </div>
+
+      <div className="mb-6 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-800">Visible scope</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Campaign: {campaignOptions.find((item) => item.id === globalCampaignFilter)?.label ?? 'All campaigns'} · Tag: {tagOptions.find((item) => item.id === globalTagFilter)?.label ?? 'All tags'}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={globalCampaignFilter} onChange={(event) => setGlobalCampaignFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+            <option value="">All campaigns</option>
+            {campaignOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
+          </select>
+          <select value={globalTagFilter} onChange={(event) => setGlobalTagFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+            <option value="">All tags</option>
+            {tagOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
+          </select>
         </div>
       </div>
 

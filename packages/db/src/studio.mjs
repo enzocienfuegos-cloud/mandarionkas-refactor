@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { hasProductAccess, normalizeProductAccess } from './team.mjs';
 
 function mapDbRoleToWorkspaceRole(role) {
   if (role === 'owner') return 'owner';
@@ -74,7 +75,7 @@ async function listStudioInvites(pool, workspaceId) {
 export async function listStudioClientsForUser(pool, userId) {
   const { rows } = await pool.query(
     `SELECT w.id, w.name, w.slug, w.plan, w.logo_url, w.settings,
-            wm.role AS current_role
+            wm.role AS current_role, wm.product_access
      FROM workspaces w
      JOIN workspace_members wm
        ON wm.workspace_id = w.id
@@ -86,6 +87,7 @@ export async function listStudioClientsForUser(pool, userId) {
 
   const clients = [];
   for (const row of rows) {
+    if (!hasProductAccess(row.product_access, 'studio')) continue;
     const ownerUserId = await getWorkspaceOwnerId(pool, row.id);
     const [brands, invites] = await Promise.all([
       listStudioBrands(pool, row.id),
@@ -115,6 +117,7 @@ export async function listStudioClientsForUser(pool, userId) {
       invites,
       brands,
       currentRole: mapDbRoleToWorkspaceRole(row.current_role),
+      currentProductAccess: normalizeProductAccess(row.product_access),
     });
   }
 
@@ -139,8 +142,8 @@ export async function createStudioClient(pool, { userId, name }) {
   const workspaceId = workspaceRows[0].id;
 
   await pool.query(
-    `INSERT INTO workspace_members (workspace_id, user_id, role, joined_at)
-     VALUES ($1, $2, 'owner', NOW())`,
+    `INSERT INTO workspace_members (workspace_id, user_id, role, product_access, joined_at)
+     VALUES ($1, $2, 'owner', '{"ad_server": true, "studio": true}'::jsonb, NOW())`,
     [workspaceId, userId],
   );
 

@@ -7,6 +7,7 @@ import {
   mapDbRoleToWorkspaceRole,
   mapWorkspaceRoleToDbRole,
 } from '@smx/db';
+import { memberHasProductAccess } from '@smx/db/team';
 
 const ROLE_PERMISSIONS = {
   owner: [
@@ -55,13 +56,14 @@ export function getStudioRoleFromAuthSession(authSession) {
 }
 
 export function hasStudioPermission(authSession, permission, roleOverride = null) {
+  if (!authSession?.productAccess?.studio) return false;
   const role = roleOverride ?? getStudioRoleFromAuthSession(authSession);
   return getStudioRolePermissions(role).includes(permission);
 }
 
 export async function resolveStudioClientAccess(pool, workspaceId, userId, deps = { getMember }) {
   const member = await deps.getMember(pool, workspaceId, userId);
-  if (!member) return null;
+  if (!member || !memberHasProductAccess(member, 'studio')) return null;
   const role = deriveStudioRole(member.role);
   return {
     member,
@@ -99,11 +101,36 @@ export function canDeleteStudioAssets(authSession) {
 
 export async function buildStudioSessionPayload(pool, req, { user, workspaceId }) {
   const clients = await listStudioClientsForUser(pool, user.id);
+  if (!clients.length) {
+    return {
+      ok: true,
+      authenticated: false,
+      reason: 'no_studio_access',
+      user: {
+        id: user.id,
+        name: user.display_name ?? user.email,
+        email: user.email,
+        role: null,
+        avatarUrl: user.avatar_url ?? null,
+      },
+      activeClientId: null,
+      activeWorkspaceId: null,
+      clients: [],
+      workspaces: [],
+      permissions: [],
+      session: {
+        sessionId: req.session.sessionId ?? req.session.id ?? null,
+        persistenceMode: 'session',
+        issuedAt: new Date().toISOString(),
+        expiresAt: null,
+      },
+    };
+  }
   const activeClientId = workspaceId && clients.some((client) => client.id === workspaceId)
     ? workspaceId
     : clients[0]?.id;
   const activeClient = clients.find((client) => client.id === activeClientId) ?? null;
-  const role = activeClient?.currentRole ?? 'owner';
+  const role = activeClient?.currentRole ?? 'reviewer';
 
   return {
     ok: true,
@@ -117,8 +144,8 @@ export async function buildStudioSessionPayload(pool, req, { user, workspaceId }
     },
     activeClientId,
     activeWorkspaceId: activeClientId,
-    clients: clients.map(({ currentRole, ...client }) => client),
-    workspaces: clients.map(({ currentRole, ...client }) => client),
+    clients: clients.map(({ currentRole, currentProductAccess, ...client }) => client),
+    workspaces: clients.map(({ currentRole, currentProductAccess, ...client }) => client),
     permissions: getStudioRolePermissions(role),
     session: {
       sessionId: req.session.sessionId ?? req.session.id ?? null,

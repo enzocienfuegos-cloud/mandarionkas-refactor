@@ -74,6 +74,8 @@ export async function buildApp(opts = {}) {
   });
 
   const requireWorkspace = buildRequireWorkspace(pool);
+  const requireAdServerWorkspace = buildRequireWorkspace(pool, 'ad_server');
+  const requireStudioWorkspace = buildRequireWorkspace(pool, 'studio');
   const requireApiKey    = buildRequireApiKey(pool);
 
   function buildRequestLogContext(req, reply) {
@@ -153,7 +155,7 @@ export async function buildApp(opts = {}) {
     catch { return { ok: false, db: 'error' }; }
   });
 
-  const ctx = { requireWorkspace, pool };
+  const ctx = { requireWorkspace: requireAdServerWorkspace, pool };
 
   // Auth (no requireWorkspace — handles its own auth)
   handleAuthRoutes(app, { pool });
@@ -161,10 +163,10 @@ export async function buildApp(opts = {}) {
   // Platform management
   handleWorkspaceRoutes(app, ctx);
   handleTeamRoutes(app, ctx);
-  handleStudioClientRoutes(app, ctx);
-  handleStudioHubRoutes(app, ctx);
-  handleStudioProjectRoutes(app, ctx);
-  handleStudioAssetRoutes(app, ctx);
+  handleStudioClientRoutes(app, { requireWorkspace, pool });
+  handleStudioHubRoutes(app, { requireWorkspace: requireStudioWorkspace, pool });
+  handleStudioProjectRoutes(app, { requireWorkspace: requireStudioWorkspace, pool });
+  handleStudioAssetRoutes(app, { requireWorkspace: requireStudioWorkspace, pool });
   handleApiKeyRoutes(app, { requireWorkspace, pool });
 
   // Core ad serving — public tracking, key-auth VAST

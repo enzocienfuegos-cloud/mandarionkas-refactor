@@ -2,8 +2,11 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { applyTheme, getInitialTheme } from './shared/theme';
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+
+applyTheme(getInitialTheme());
 
 if (typeof window !== 'undefined' && apiBaseUrl) {
   const originalFetch = window.fetch.bind(window);

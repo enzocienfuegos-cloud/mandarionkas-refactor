@@ -22,6 +22,17 @@ function addDateJoinFilters(params, alias, dateFrom, dateTo) {
   return clauses.length ? ` AND ${clauses.join(' AND ')}` : '';
 }
 
+function addTagScopeFilters(params, conditions, tagAlias, campaignId, tagId) {
+  if (campaignId) {
+    params.push(campaignId);
+    conditions.push(`${tagAlias}.campaign_id = $${params.length}`);
+  }
+  if (tagId) {
+    params.push(tagId);
+    conditions.push(`${tagAlias}.id = $${params.length}`);
+  }
+}
+
 export async function getTagStats(pool, workspaceId, tagId, opts = {}) {
   const { dateFrom, dateTo, limit = 30 } = opts;
   const params = [tagId];
@@ -50,10 +61,11 @@ export async function getTagStats(pool, workspaceId, tagId, opts = {}) {
 }
 
 export async function getWorkspaceStats(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo } = opts;
+  const { dateFrom, dateTo, campaignId = '', tagId = '' } = opts;
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
 
+  addTagScopeFilters(params, conditions, 't', campaignId, tagId);
   addDateFilters(params, conditions, 'ds', dateFrom, dateTo);
 
   const { rows } = await pool.query(
@@ -82,10 +94,11 @@ export async function getWorkspaceStats(pool, workspaceId, opts = {}) {
 }
 
 export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, topLimit = 5 } = opts;
+  const { dateFrom, dateTo, topLimit = 5, campaignId = '', tagId = '' } = opts;
   const summaryParams = [workspaceId];
   const summaryConditions = ['t.workspace_id = $1'];
 
+  addTagScopeFilters(summaryParams, summaryConditions, 't', campaignId, tagId);
   addDateFilters(summaryParams, summaryConditions, 'ds', dateFrom, dateTo);
 
   const summaryQuery = pool.query(
@@ -113,6 +126,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 
   const engagementParams = [workspaceId];
   const engagementConditions = ['t.workspace_id = $1'];
+  addTagScopeFilters(engagementParams, engagementConditions, 't', campaignId, tagId);
   addDateFilters(engagementParams, engagementConditions, 'ds', dateFrom, dateTo);
   const engagementQuery = pool.query(
     `SELECT
@@ -126,6 +140,16 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 
   const durationParams = [workspaceId];
   const durationConditions = ['ie.workspace_id = $1'];
+  if (campaignId || tagId) {
+    durationConditions.push(`EXISTS (
+      SELECT 1
+      FROM ad_tags t
+      WHERE t.id = ie.tag_id
+        AND t.workspace_id = ie.workspace_id
+        ${campaignId ? `AND t.campaign_id = $${durationParams.push(campaignId)}` : ''}
+        ${tagId ? `AND t.id = $${durationParams.push(tagId)}` : ''}
+    )`);
+  }
   if (dateFrom) {
     durationParams.push(dateFrom);
     durationConditions.push(`ie.timestamp >= $${durationParams.length}::timestamptz`);
@@ -142,26 +166,67 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     durationParams,
   );
 
+  const activeCampaignParams = [workspaceId];
+  const activeCampaignConditions = ['workspace_id = $1', "status = 'active'"];
+  if (campaignId) {
+    activeCampaignParams.push(campaignId);
+    activeCampaignConditions.push(`id = $${activeCampaignParams.length}`);
+  }
   const activeCampaignsQuery = pool.query(
     `SELECT COUNT(*)::int AS active_campaigns
      FROM campaigns
-     WHERE workspace_id = $1 AND status = 'active'`,
-    [workspaceId],
+     WHERE ${activeCampaignConditions.join(' AND ')}`,
+    activeCampaignParams,
   );
+  const activeTagParams = [workspaceId];
+  const activeTagConditions = ['workspace_id = $1', "status = 'active'"];
+  if (campaignId) {
+    activeTagParams.push(campaignId);
+    activeTagConditions.push(`campaign_id = $${activeTagParams.length}`);
+  }
+  if (tagId) {
+    activeTagParams.push(tagId);
+    activeTagConditions.push(`id = $${activeTagParams.length}`);
+  }
   const activeTagsQuery = pool.query(
     `SELECT COUNT(*)::int AS active_tags
      FROM ad_tags
-     WHERE workspace_id = $1 AND status = 'active'`,
-    [workspaceId],
+     WHERE ${activeTagConditions.join(' AND ')}`,
+    activeTagParams,
   );
+  const creativesParams = [workspaceId];
+  const creativesConditions = ['c.workspace_id = $1'];
+  if (campaignId || tagId) {
+    creativesConditions.push(`EXISTS (
+      SELECT 1
+      FROM creative_versions cv
+      JOIN tag_bindings tb ON tb.creative_version_id = cv.id
+      JOIN ad_tags t ON t.id = tb.tag_id
+      WHERE cv.creative_id = c.id
+        AND cv.workspace_id = c.workspace_id
+        ${campaignId ? `AND t.campaign_id = $${creativesParams.push(campaignId)}` : ''}
+        ${tagId ? `AND t.id = $${creativesParams.push(tagId)}` : ''}
+    )`);
+  }
   const creativesQuery = pool.query(
     `SELECT COUNT(*)::int AS total_creatives
-     FROM creatives
-     WHERE workspace_id = $1`,
-    [workspaceId],
+     FROM creatives c
+     WHERE ${creativesConditions.join(' AND ')}`,
+    creativesParams,
   );
   const identitySummaryParams = [workspaceId];
   const identitySummaryConditions = ['ds.workspace_id = $1'];
+  if (campaignId) {
+    identitySummaryParams.push(campaignId);
+    identitySummaryConditions.push(`EXISTS (
+      SELECT 1 FROM ad_tags t
+      WHERE t.id = ds.tag_id AND t.workspace_id = ds.workspace_id AND t.campaign_id = $${identitySummaryParams.length}
+    )`);
+  }
+  if (tagId) {
+    identitySummaryParams.push(tagId);
+    identitySummaryConditions.push(`ds.tag_id = $${identitySummaryParams.length}`);
+  }
   addDateFilters(identitySummaryParams, identitySummaryConditions, 'ds', dateFrom, dateTo);
   const identitySummaryQuery = pool.query(
     `SELECT
@@ -175,6 +240,18 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 
   const topCampaignParams = [workspaceId];
   const topCampaignJoinFilter = addDateJoinFilters(topCampaignParams, 'ds', dateFrom, dateTo);
+  const topCampaignConditions = ['c.workspace_id = $1'];
+  if (campaignId) {
+    topCampaignParams.push(campaignId);
+    topCampaignConditions.push(`c.id = $${topCampaignParams.length}`);
+  }
+  if (tagId) {
+    topCampaignParams.push(tagId);
+    topCampaignConditions.push(`EXISTS (
+      SELECT 1 FROM ad_tags t3
+      WHERE t3.campaign_id = c.id AND t3.workspace_id = c.workspace_id AND t3.id = $${topCampaignParams.length}
+    )`);
+  }
   topCampaignParams.push(Math.min(Number(topLimit) || 5, 20));
   const topCampaignsQuery = pool.query(
     `SELECT
@@ -199,7 +276,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
       AND t.workspace_id = c.workspace_id
      LEFT JOIN tag_daily_stats ds
        ON ds.tag_id = t.id${topCampaignJoinFilter}
-     WHERE c.workspace_id = $1
+     WHERE ${topCampaignConditions.join(' AND ')}
      GROUP BY c.id, c.name, c.status
      ORDER BY COALESCE(SUM(ds.impressions), 0) DESC, c.name ASC
      LIMIT $${topCampaignParams.length}`,
@@ -208,6 +285,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 
   const topTagParams = [workspaceId];
   const topTagConditions = ['t.workspace_id = $1'];
+  addTagScopeFilters(topTagParams, topTagConditions, 't', campaignId, tagId);
   addDateFilters(topTagParams, topTagConditions, 'ds', dateFrom, dateTo);
   topTagParams.push(Math.min(Number(topLimit) || 5, 20));
   const topTagsQuery = pool.query(
@@ -285,7 +363,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 }
 
 export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25 } = opts;
+  const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
   const params = [workspaceId];
   const joinFilter = addDateJoinFilters(params, 'ds', dateFrom, dateTo);
   const identityConditions = ['ie.workspace_id = c.workspace_id', 't2.campaign_id = c.id', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
@@ -299,6 +377,18 @@ export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}
     identityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
   }
   params.push(...identityParams);
+  const campaignConditions = ['c.workspace_id = $1'];
+  if (campaignId) {
+    params.push(campaignId);
+    campaignConditions.push(`c.id = $${params.length}`);
+  }
+  if (tagId) {
+    params.push(tagId);
+    campaignConditions.push(`EXISTS (
+      SELECT 1 FROM ad_tags t4
+      WHERE t4.campaign_id = c.id AND t4.workspace_id = c.workspace_id AND t4.id = $${params.length}
+    )`);
+  }
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
@@ -342,7 +432,7 @@ export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}
       AND t.workspace_id = c.workspace_id
      LEFT JOIN tag_daily_stats ds
        ON ds.tag_id = t.id${joinFilter}
-     WHERE c.workspace_id = $1
+     WHERE ${campaignConditions.join(' AND ')}
      GROUP BY c.id, c.name, c.status
      ORDER BY COALESCE(SUM(ds.impressions), 0) DESC, c.name ASC
      LIMIT $${params.length}`,
@@ -352,12 +442,13 @@ export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}
 }
 
 export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25 } = opts;
+  const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.tag_id = t.id', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
   const identityParams = [];
 
+  addTagScopeFilters(params, conditions, 't', campaignId, tagId);
   addDateFilters(params, conditions, 'ds', dateFrom, dateTo);
   if (dateFrom) {
     identityParams.push(dateFrom);
@@ -416,7 +507,7 @@ export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
 }
 
 export async function getWorkspaceCreativeBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25 } = opts;
+  const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
   const params = [workspaceId];
   const joinFilter = addDateJoinFilters(params, 'cvds', dateFrom, dateTo);
   const identityConditions = ['ie.workspace_id = cv.workspace_id', 'ie.creative_id = c.id', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
@@ -430,6 +521,18 @@ export async function getWorkspaceCreativeBreakdown(pool, workspaceId, opts = {}
     identityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
   }
   params.push(...identityParams);
+  const conditions = ['cv.workspace_id = $1'];
+  if (campaignId || tagId) {
+    conditions.push(`EXISTS (
+      SELECT 1
+      FROM tag_bindings tb
+      JOIN ad_tags t ON t.id = tb.tag_id
+      WHERE tb.creative_version_id = cv.id
+        AND tb.workspace_id = cv.workspace_id
+        ${campaignId ? `AND t.campaign_id = $${params.push(campaignId)}` : ''}
+        ${tagId ? `AND t.id = $${params.push(tagId)}` : ''}
+    )`);
+  }
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
@@ -472,7 +575,7 @@ export async function getWorkspaceCreativeBreakdown(pool, workspaceId, opts = {}
       AND csv.workspace_id = cv.workspace_id
      LEFT JOIN creative_variant_daily_stats cvds
        ON cvds.creative_size_variant_id = csv.id${joinFilter}
-     WHERE cv.workspace_id = $1
+     WHERE ${conditions.join(' AND ')}
      GROUP BY c.id, c.name, c.type, cv.id, cv.version_number, cv.status, cv.source_kind, cv.serving_format
      ORDER BY COALESCE(SUM(cvds.impressions), 0) DESC, c.name ASC
      LIMIT $${params.length}`,
@@ -482,7 +585,7 @@ export async function getWorkspaceCreativeBreakdown(pool, workspaceId, opts = {}
 }
 
 export async function getWorkspaceVariantBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25 } = opts;
+  const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
   const params = [workspaceId];
   const joinFilter = addDateJoinFilters(params, 'cvds', dateFrom, dateTo);
   const identityConditions = ['ie.workspace_id = csv.workspace_id', 'ie.creative_size_variant_id = csv.id', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
@@ -496,6 +599,18 @@ export async function getWorkspaceVariantBreakdown(pool, workspaceId, opts = {})
     identityConditions.push(`ie.timestamp <= $${params.length + identityParams.length}`);
   }
   params.push(...identityParams);
+  const conditions = ['csv.workspace_id = $1'];
+  if (campaignId || tagId) {
+    conditions.push(`EXISTS (
+      SELECT 1
+      FROM tag_bindings tb
+      JOIN ad_tags t ON t.id = tb.tag_id
+      WHERE tb.creative_size_variant_id = csv.id
+        AND tb.workspace_id = csv.workspace_id
+        ${campaignId ? `AND t.campaign_id = $${params.push(campaignId)}` : ''}
+        ${tagId ? `AND t.id = $${params.push(tagId)}` : ''}
+    )`);
+  }
   params.push(Math.min(Number(limit) || 25, 100));
 
   const { rows } = await pool.query(
@@ -538,7 +653,7 @@ export async function getWorkspaceVariantBreakdown(pool, workspaceId, opts = {})
       AND c.workspace_id = cv.workspace_id
      LEFT JOIN creative_variant_daily_stats cvds
        ON cvds.creative_size_variant_id = csv.id${joinFilter}
-     WHERE csv.workspace_id = $1
+     WHERE ${conditions.join(' AND ')}
      GROUP BY csv.id, csv.creative_version_id, csv.label, csv.width, csv.height, csv.status, c.id, c.name
      ORDER BY COALESCE(SUM(cvds.impressions), 0) DESC, c.name ASC, csv.width ASC, csv.height ASC
      LIMIT $${params.length}`,

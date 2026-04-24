@@ -181,68 +181,68 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
   // GET /v1/reporting/workspace — workspace-level aggregate stats
   app.get('/v1/reporting/workspace', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo } = req.query;
+    const { dateFrom, dateTo, campaignId, tagId } = req.query;
 
     const [stats, timeline] = await Promise.all([
-      getWorkspaceOverview(pool, workspaceId, { dateFrom, dateTo }),
-      getWorkspaceStats(pool, workspaceId, { dateFrom, dateTo }),
+      getWorkspaceOverview(pool, workspaceId, { dateFrom, dateTo, campaignId, tagId }),
+      getWorkspaceStats(pool, workspaceId, { dateFrom, dateTo, campaignId, tagId }),
     ]);
     return reply.send({ stats, timeline });
   });
 
   app.get('/v1/reporting/workspace/campaign-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, limit } = req.query;
-    const breakdown = await getWorkspaceCampaignBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    const { dateFrom, dateTo, limit, campaignId, tagId } = req.query;
+    const breakdown = await getWorkspaceCampaignBreakdown(pool, workspaceId, { dateFrom, dateTo, limit, campaignId, tagId });
     return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/tag-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, limit } = req.query;
-    const breakdown = await getWorkspaceTagBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    const { dateFrom, dateTo, limit, campaignId, tagId } = req.query;
+    const breakdown = await getWorkspaceTagBreakdown(pool, workspaceId, { dateFrom, dateTo, limit, campaignId, tagId });
     return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/site-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, limit } = req.query;
-    const breakdown = await getWorkspaceSiteBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    const { dateFrom, dateTo, limit, campaignId, tagId } = req.query;
+    const breakdown = await getWorkspaceSiteBreakdown(pool, workspaceId, { dateFrom, dateTo, limit, campaignId, tagId });
     return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/country-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, limit } = req.query;
-    const breakdown = await getWorkspaceCountryBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    const { dateFrom, dateTo, limit, campaignId, tagId } = req.query;
+    const breakdown = await getWorkspaceCountryBreakdown(pool, workspaceId, { dateFrom, dateTo, limit, campaignId, tagId });
     return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/region-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, limit } = req.query;
-    const breakdown = await getWorkspaceRegionBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    const { dateFrom, dateTo, limit, campaignId, tagId } = req.query;
+    const breakdown = await getWorkspaceRegionBreakdown(pool, workspaceId, { dateFrom, dateTo, limit, campaignId, tagId });
     return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/city-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, limit } = req.query;
-    const breakdown = await getWorkspaceCityBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    const { dateFrom, dateTo, limit, campaignId, tagId } = req.query;
+    const breakdown = await getWorkspaceCityBreakdown(pool, workspaceId, { dateFrom, dateTo, limit, campaignId, tagId });
     return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/tracker-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, limit } = req.query;
-    const breakdown = await getWorkspaceTrackerBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    const { dateFrom, dateTo, limit, campaignId, tagId } = req.query;
+    const breakdown = await getWorkspaceTrackerBreakdown(pool, workspaceId, { dateFrom, dateTo, limit, campaignId, tagId });
     return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/engagement-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, limit } = req.query;
-    const breakdown = await getWorkspaceEngagementBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    const { dateFrom, dateTo, limit, campaignId, tagId } = req.query;
+    const breakdown = await getWorkspaceEngagementBreakdown(pool, workspaceId, { dateFrom, dateTo, limit, campaignId, tagId });
     return reply.send({ breakdown });
   });
 
@@ -396,15 +396,15 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
 
   app.get('/v1/reporting/workspace/creative-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, limit } = req.query;
-    const breakdown = await getWorkspaceCreativeBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    const { dateFrom, dateTo, limit, campaignId, tagId } = req.query;
+    const breakdown = await getWorkspaceCreativeBreakdown(pool, workspaceId, { dateFrom, dateTo, limit, campaignId, tagId });
     return reply.send({ breakdown });
   });
 
   app.get('/v1/reporting/workspace/variant-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
-    const { dateFrom, dateTo, limit } = req.query;
-    const breakdown = await getWorkspaceVariantBreakdown(pool, workspaceId, { dateFrom, dateTo, limit });
+    const { dateFrom, dateTo, limit, campaignId, tagId } = req.query;
+    const breakdown = await getWorkspaceVariantBreakdown(pool, workspaceId, { dateFrom, dateTo, limit, campaignId, tagId });
     return reply.send({ breakdown });
   });
 

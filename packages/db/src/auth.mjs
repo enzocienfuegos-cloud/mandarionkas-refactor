@@ -1,4 +1,5 @@
 import bcryptjs from 'bcryptjs';
+import { normalizeProductAccess } from './team.mjs';
 const { hash, compare } = bcryptjs;
 
 const SALT_ROUNDS = 12;
@@ -115,7 +116,7 @@ export async function deleteSession(pool, sessionId) {
 
 export async function listWorkspacesForUser(pool, userId) {
   const { rows } = await pool.query(
-    `SELECT w.id, w.name, w.slug, w.plan, w.logo_url, wm.role, wm.joined_at
+    `SELECT w.id, w.name, w.slug, w.plan, w.logo_url, wm.role, wm.joined_at, wm.product_access
      FROM workspaces w
      JOIN workspace_members wm ON wm.workspace_id = w.id
      WHERE wm.user_id = $1
@@ -123,5 +124,8 @@ export async function listWorkspacesForUser(pool, userId) {
      ORDER BY w.name ASC`,
     [userId],
   );
-  return rows;
+  return rows.map((row) => ({
+    ...row,
+    product_access: normalizeProductAccess(row.product_access),
+  }));
 }

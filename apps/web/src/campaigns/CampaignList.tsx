@@ -112,7 +112,7 @@ export default function CampaignList() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
-  const [selectedClientId, setSelectedClientId] = useState('');
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -139,7 +139,7 @@ export default function CampaignList() {
   useEffect(load, []);
 
   const filteredCampaigns = campaigns.filter(campaign => {
-    const clientMatch = !selectedClientId || campaign.workspace_id === selectedClientId;
+    const clientMatch = !selectedClientIds.length || selectedClientIds.includes(campaign.workspace_id ?? '');
     const searchMatch = !search.trim()
       || campaign.name.toLowerCase().includes(search.trim().toLowerCase())
       || (campaign.workspace_name ?? '').toLowerCase().includes(search.trim().toLowerCase());
@@ -271,15 +271,16 @@ export default function CampaignList() {
         <div>
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Client</label>
           <select
-            value={selectedClientId}
-            onChange={event => setSelectedClientId(event.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            multiple
+            value={selectedClientIds}
+            onChange={event => setSelectedClientIds(Array.from(event.target.selectedOptions, option => option.value))}
+            className="min-h-[110px] w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
-            <option value="">All clients</option>
             {clients.map(client => (
               <option key={client.id} value={client.id}>{client.name}</option>
             ))}
           </select>
+          <p className="mt-1 text-xs text-slate-500">Leave empty to see all clients. Hold Cmd/Ctrl to select multiple.</p>
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Campaign name</label>
