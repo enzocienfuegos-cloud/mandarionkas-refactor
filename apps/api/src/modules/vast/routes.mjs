@@ -12,6 +12,21 @@ import {
 
 const BASE_URL = (process.env.BASE_URL ?? '').trim();
 
+function encodeContextToken(payload = {}) {
+  try {
+    const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
+    return encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  } catch {
+    return '';
+  }
+}
+
+function appendQueryParam(url, key, value) {
+  if (!url || !value) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}${key}=${encodeURIComponent(String(value))}`;
+}
+
 function resolveBaseUrl(req) {
   const forwardedProto = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim();
   const forwardedHost = String(req.headers['x-forwarded-host'] ?? '').split(',')[0].trim();
@@ -126,10 +141,13 @@ function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   trackingParams.set('smx_delivery_kind', 'vast');
   if (creativeId) trackingParams.set('c', String(creativeId));
   if (creativeSizeVariantId) trackingParams.set('csv', String(creativeSizeVariantId));
-  const impressionUrl = `${baseUrl}/track/impression/${tagId}?${trackingParams.toString()}`;
+  const ctxToken = encodeContextToken(query);
+  const impressionUrl = appendQueryParam(`${baseUrl}/track/impression/${tagId}?${trackingParams.toString()}`, 'ctx', ctxToken);
   const trackingBase = `${baseUrl}/track`;
   const clickTrackingParams = new URLSearchParams(trackingParams);
-  const wrappedClickTrackUrl = wrapTrackedClickUrlWithDspMacro(`${trackingBase}/click/${tagId}?${clickTrackingParams.toString()}`, query);
+  const clickTrackingUrl = appendQueryParam(`${trackingBase}/click/${tagId}?${clickTrackingParams.toString()}`, 'ctx', ctxToken);
+  const wrappedClickTrackUrl = wrapTrackedClickUrlWithDspMacro(clickTrackingUrl, query);
+  const viewabilityBaseUrl = appendQueryParam(`${trackingBase}/viewability/${tagId}?${trackingParams.toString()}`, 'ctx', ctxToken);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <VAST version="4.0" xmlns="http://www.iab.com/VAST" xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -143,11 +161,11 @@ function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
           <Linear>
             <Duration>${duration}</Duration>
             <TrackingEvents>
-              <Tracking event="start"><![CDATA[${trackingBase}/viewability/${tagId}?${trackingParams.toString()}&event=start]]></Tracking>
-              <Tracking event="firstQuartile"><![CDATA[${trackingBase}/viewability/${tagId}?${trackingParams.toString()}&event=firstQuartile]]></Tracking>
-              <Tracking event="midpoint"><![CDATA[${trackingBase}/viewability/${tagId}?${trackingParams.toString()}&event=midpoint]]></Tracking>
-              <Tracking event="thirdQuartile"><![CDATA[${trackingBase}/viewability/${tagId}?${trackingParams.toString()}&event=thirdQuartile]]></Tracking>
-              <Tracking event="complete"><![CDATA[${trackingBase}/viewability/${tagId}?${trackingParams.toString()}&event=complete]]></Tracking>
+              <Tracking event="start"><![CDATA[${appendQueryParam(viewabilityBaseUrl, 'event', 'start')}]]></Tracking>
+              <Tracking event="firstQuartile"><![CDATA[${appendQueryParam(viewabilityBaseUrl, 'event', 'firstQuartile')}]]></Tracking>
+              <Tracking event="midpoint"><![CDATA[${appendQueryParam(viewabilityBaseUrl, 'event', 'midpoint')}]]></Tracking>
+              <Tracking event="thirdQuartile"><![CDATA[${appendQueryParam(viewabilityBaseUrl, 'event', 'thirdQuartile')}]]></Tracking>
+              <Tracking event="complete"><![CDATA[${appendQueryParam(viewabilityBaseUrl, 'event', 'complete')}]]></Tracking>
             </TrackingEvents>
             <VideoClicks>
               <ClickThrough><![CDATA[${clickUrl}]]></ClickThrough>
@@ -833,7 +851,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       const height = Number(loaded.tag.serving_height ?? 0) || 250;
       const tagId = loaded.tag.id;
       const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/native/${tagId}.js`, dsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
-      const vastUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tagId}`, dsp, DSP_DELIVERY_KINDS.VAST);
+      const vastUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tagId}`, dsp, DSP_DELIVERY_KINDS.VIDEO);
       const servingCandidate = loaded.tag.servingCandidate ?? null;
       const trackingParams = new URLSearchParams({ ws: String(loaded.workspaceId) });
       trackingParams.set('smx_dsp', String(dsp));

@@ -37,12 +37,57 @@ export const DSP_MACRO_CONFIGS = {
       cookieId: ['iuid', 'basis_uid', 'internalUserId'],
     },
   },
+  illumin: {
+    label: 'Illumin',
+    queryParams: {
+      dsp: 'Illumin',
+      cuu: '[CLICK_URL_ENCODED]',
+      cb: '[CACHEBUSTER]',
+      tmp: '[timestamp]',
+      excid: '[EXCHANGE_ID]',
+      excpubid: '[EXCHANGE_PUBLISHER_ID]',
+      excsiddmn: '[EXCHANGE_SITE_ID_OR_DOMAIN]',
+      sdmn: '[SITE_DOMAIN_ENCODED_URL]',
+      sid: '[SITE_ID]',
+      appb: '[APP_BUNDLE]',
+      appn: '[APP_NAME]',
+      appne: '[APP_NAME_ENCODED]',
+      cmpne: '[CAMPAIGN_NAME_ENCODED]',
+      cmpid: '[CAMPAIGN_ID]',
+      adgne: '[AD_GROUP_NAME_ENCODED]',
+      adgid: '[AD_GROUP_ID]',
+      crene: '[CREATIVE_NAME_ENCODED]',
+      cresze: '[CREATIVE_SIZE_ENCODED]',
+      cretye: '[CREATIVE_TYPE_ENCODED]',
+      creid: '[CREATIVE_ID]',
+      wbrse: '[WEB_BROWSER_ENCODED]',
+      oprsye: '[OPERATING_SYSTEM_ENCODED]',
+      vph: '[VIDEO_PLAYER_HEIGHT]',
+      vpw: '[VIDEO_PLAYER_WIDTH]',
+      vdur: '[VIDEO_DURATION]',
+      lcc: '[LOC_COUNTRY]',
+      lclat: '[LOC_LAT]',
+      lclong: '[LOC_LONG]',
+      dtyp: '[DEVICE_TYPE]',
+      lcst: '[LICENSEE_COST]',
+      cs_gdpr: '${GDPR}',
+      cs_gdpr_consent: '${GDPR_CONSENT_699}',
+    },
+    aliases: {
+      clickMacro: ['smx_dsp_click', 'cuu', 'dsp_click', 'clickMacro', 'clickMacroEnc', 'click_macro_enc'],
+      siteDomain: ['sdmn', 'dom', 'sd', 'domain'],
+      pageUrl: ['purl', 'pu', 'pageUrlEnc'],
+      deviceId: ['ifa', 'gadvid', 'googleAdvertisingId', 'idfa'],
+      cookieId: ['iuid', 'internalUserId', 'sid'],
+    },
+  },
 };
 
 export const DSP_DELIVERY_KINDS = {
   DISPLAY_WRAPPER: 'display_wrapper',
   HTML5_INTERNAL: 'html5_internal',
   VAST: 'vast',
+  VIDEO: 'video',
   TRACKER_CLICK: 'tracker_click',
   TRACKER_IMPRESSION: 'tracker_impression',
 };
@@ -70,6 +115,10 @@ export function getDspMacroConfig(dsp) {
 
 export function shouldUseBasisNativeDelivery(dsp) {
   return normalizeDsp(dsp) === 'basis';
+}
+
+export function shouldUseDspVideoDelivery(dsp) {
+  return Boolean(getDspMacroConfig(dsp));
 }
 
 export function listSupportedDsps() {
@@ -132,6 +181,7 @@ export function applyDspMacrosToUrl(rawUrl, dsp, opts = {}) {
 export function getDspDeliveryPolicy(dsp, deliveryKind) {
   const normalizedDsp = normalizeDsp(dsp);
   const normalizedKind = String(deliveryKind ?? '').trim().toLowerCase();
+  const config = getDspMacroConfig(normalizedDsp);
 
   const basePolicy = {
     includeDspHint: true,
@@ -140,7 +190,11 @@ export function getDspDeliveryPolicy(dsp, deliveryKind) {
     clickMacroValue: '',
   };
 
-  if (normalizedDsp !== 'basis') return basePolicy;
+  if (!config) return basePolicy;
+
+  const clickMacroKey = config.aliases?.clickMacro?.find((key) => key in config.queryParams);
+  const defaultClickMacroValue = clickMacroKey ? String(config.queryParams[clickMacroKey] ?? '').trim() : '';
+  const measurementPath = `${normalizedDsp}_macro_or_smx_fallback`;
 
   switch (normalizedKind) {
     case DSP_DELIVERY_KINDS.DISPLAY_WRAPPER:
@@ -148,31 +202,33 @@ export function getDspDeliveryPolicy(dsp, deliveryKind) {
         ...basePolicy,
         includeDspHint: true,
         includeClickMacro: true,
-        measurementPath: 'basis_macro_or_smx_fallback',
-        clickMacroValue: '{clickMacroEnc}',
+        measurementPath,
+        clickMacroValue: defaultClickMacroValue,
       };
     case DSP_DELIVERY_KINDS.HTML5_INTERNAL:
       return {
         ...basePolicy,
         includeDspHint: true,
         includeClickMacro: true,
-        measurementPath: 'basis_macro_or_smx_fallback',
-        clickMacroValue: '{clickMacroEnc}',
+        measurementPath,
+        clickMacroValue: defaultClickMacroValue,
       };
     case DSP_DELIVERY_KINDS.VAST:
+    case DSP_DELIVERY_KINDS.VIDEO:
       return {
         ...basePolicy,
         includeDspHint: true,
-        includeClickMacro: false,
-        measurementPath: 'basis_macro_or_smx_fallback',
+        includeClickMacro: true,
+        measurementPath,
+        clickMacroValue: defaultClickMacroValue,
       };
     case DSP_DELIVERY_KINDS.TRACKER_CLICK:
       return {
         ...basePolicy,
         includeDspHint: true,
         includeClickMacro: true,
-        measurementPath: 'basis_macro_or_smx_fallback',
-        clickMacroValue: '{clickMacroEnc}',
+        measurementPath,
+        clickMacroValue: defaultClickMacroValue,
       };
     case DSP_DELIVERY_KINDS.TRACKER_IMPRESSION:
       return {
@@ -260,6 +316,33 @@ export function buildBasisNativeSnippet({
     default:
       return '';
   }
+}
+
+export function buildVastWrapperSnippet(tagId, vastUrl) {
+  return `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <Ad id="${tagId}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[${vastUrl}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
+}
+
+export function buildDspVideoContractExamples(baseUrl, tagId) {
+  const standardUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tagId}`, '', DSP_DELIVERY_KINDS.VIDEO);
+  const basisUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tagId}`, 'basis', DSP_DELIVERY_KINDS.VIDEO);
+  const illuminUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tagId}`, 'illumin', DSP_DELIVERY_KINDS.VIDEO);
+  return {
+    standard: {
+      label: 'SMX Standard',
+      url: standardUrl,
+      xmlWrapper: buildVastWrapperSnippet(tagId, standardUrl),
+    },
+    basis: {
+      label: 'Basis',
+      url: basisUrl,
+      xmlWrapper: buildVastWrapperSnippet(tagId, basisUrl),
+    },
+    illumin: {
+      label: 'Illumin',
+      url: illuminUrl,
+      xmlWrapper: buildVastWrapperSnippet(tagId, illuminUrl),
+    },
+  };
 }
 
 export function readDspMacroValue(query = {}, kind, dsp = '') {

@@ -9,6 +9,7 @@ export declare const DSP_DELIVERY_KINDS: {
   DISPLAY_WRAPPER: string;
   HTML5_INTERNAL: string;
   VAST: string;
+  VIDEO: string;
   TRACKER_CLICK: string;
   TRACKER_IMPRESSION: string;
 };
@@ -16,6 +17,7 @@ export declare function normalizeDsp(value: unknown): string;
 export declare function readCampaignDsp(metadata: unknown): string;
 export declare function getDspMacroConfig(dsp: unknown): DspMacroConfig | null;
 export declare function shouldUseBasisNativeDelivery(dsp: unknown): boolean;
+export declare function shouldUseDspVideoDelivery(dsp: unknown): boolean;
 export declare function listSupportedDsps(): Array<{ value: string; label: string }>;
 export declare function applyDspMacrosToUrl(
   rawUrl: string,
@@ -60,6 +62,12 @@ export declare function buildBasisNativeSnippet(input: {
   width?: number;
   height?: number;
 }): string;
+export declare function buildVastWrapperSnippet(tagId: string, vastUrl: string): string;
+export declare function buildDspVideoContractExamples(baseUrl: string, tagId: string): {
+  standard: { label: string; url: string; xmlWrapper: string };
+  basis: { label: string; url: string; xmlWrapper: string };
+  illumin: { label: string; url: string; xmlWrapper: string };
+};
 export declare function wrapTrackedClickUrlWithDspMacro(
   clickTrackUrl: string,
   query?: Record<string, unknown>,

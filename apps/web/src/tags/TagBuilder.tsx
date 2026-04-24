@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   applyDspMacrosToDeliveryUrl,
   buildBasisNativeSnippet,
+  buildVastWrapperSnippet,
   DSP_DELIVERY_KINDS,
   getDspMacroConfig,
   readCampaignDsp,
   shouldUseBasisNativeDelivery,
+  shouldUseDspVideoDelivery,
 } from '@smx/contracts/dsp-macros';
 import {
   assignCreativeVersionToTag,
@@ -67,6 +69,11 @@ interface DeliveryDiagnosticEntry {
 interface DeliveryDiagnosticsPayload {
   dsp?: {
     selected?: string | null;
+  } | null;
+  videoContractExamples?: {
+    standard?: { label?: string; url?: string; xmlWrapper?: string } | null;
+    basis?: { label?: string; url?: string; xmlWrapper?: string } | null;
+    illumin?: { label?: string; url?: string; xmlWrapper?: string } | null;
   } | null;
   deliverySummary?: {
     basisNativeActive?: boolean;
@@ -189,7 +196,7 @@ function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = '
   const displayJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
-  const vastUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VAST);
+  const vastUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VIDEO);
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
   const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
@@ -210,11 +217,9 @@ function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = '
 
   switch (variant) {
     case 'vast-url':
-      return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : vastUrl;
+      return vastUrl;
     case 'vast-xml':
-      return useBasisNative
-        ? buildBasisNativeSnippet(basisNativeArgs)
-        : `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <Ad id="${tag.id}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[${vastUrl}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
+      return buildVastWrapperSnippet(tag.id, vastUrl);
     case 'display-iframe':
       if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
       return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
@@ -241,7 +246,7 @@ function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp 
     : '';
   if (tag.format === 'VAST') {
     return variant === 'vast-url'
-      ? `Use this VAST tag URL in a video player, SSP, or DSP that expects VAST XML.${dspNote}`
+      ? `Use this VAST 4.x tag URL in a video player, SSP, or DSP that expects remote VAST XML.${dspNote} This flow is DSP-aware and does not depend on VPAID.`
       : `Use this XML wrapper only if your integration explicitly requires inline VAST XML.${dspNote}`;
   }
   if (tag.format === 'display') {
@@ -269,7 +274,7 @@ function getDisplaySizePreset(width?: string, height?: string): string {
 function isBasisNativeEnabled(tag: SavedTag | null, campaignDsp = ''): boolean {
   if (!tag) return false;
   if (!shouldUseBasisNativeDelivery(campaignDsp)) return false;
-  return tag.format === 'display' || tag.format === 'tracker' || tag.format === 'VAST';
+  return tag.format === 'display' || tag.format === 'tracker';
 }
 
 function getMeasurementPathTone(measurementPath?: string | null): string {
@@ -313,6 +318,8 @@ export default function TagBuilder() {
     { label: 'Tracker Impression', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerImpression },
   ];
   const basisNativeEnabled = deliveryDiagnostics?.deliverySummary?.basisNativeActive ?? isBasisNativeEnabled(savedTag, selectedCampaignDsp);
+  const dspVideoEnabled = deliveryDiagnostics?.deliverySummary?.deliveryMode === 'dsp_video_contract'
+    || Boolean(savedTag && savedTag.format === 'VAST' && shouldUseDspVideoDelivery(selectedCampaignDsp));
   const basisDiagnosticPath = deliveryDiagnostics?.deliveryDiagnostics?.displayWrapper?.policy?.measurementPath
     ?? deliveryDiagnostics?.deliveryDiagnostics?.trackerClick?.policy?.measurementPath
     ?? '';
@@ -771,16 +778,26 @@ export default function TagBuilder() {
               {copied ? '✓ Copied!' : '📋 Copy'}
             </button>
           </div>
-          {(basisNativeEnabled || selectedCampaignMacroConfig) && (
+          {(basisNativeEnabled || dspVideoEnabled || selectedCampaignMacroConfig) && (
             <div className="mb-3 flex flex-wrap gap-2">
               {basisNativeEnabled && (
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
                   Basis Native Active
                 </span>
               )}
+              {dspVideoEnabled && !basisNativeEnabled && (
+                <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+                  DSP Video Contract Active
+                </span>
+              )}
               {basisNativeEnabled && (
                 <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
                   Click Chain: {deliveryDiagnostics?.deliverySummary?.clickChain ?? 'Basis → SMX → Landing'}
+                </span>
+              )}
+              {dspVideoEnabled && !basisNativeEnabled && (
+                <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+                  Click Chain: {deliveryDiagnostics?.deliverySummary?.clickChain ?? `${selectedCampaignMacroConfig?.label ?? 'DSP'} → SMX → Landing`}
                 </span>
               )}
               {selectedCampaignMacroConfig && !basisNativeEnabled && (
@@ -838,9 +855,11 @@ export default function TagBuilder() {
               <div className="mt-1 text-sm font-semibold text-slate-800">
                 {deliveryDiagnostics?.deliverySummary?.deliveryMode === 'basis_native'
                   ? 'Basis Native'
+                  : deliveryDiagnostics?.deliverySummary?.deliveryMode === 'dsp_video_contract'
+                    ? 'DSP Video Contract'
                   : deliveryDiagnostics?.deliverySummary?.deliveryMode === 'smx_standard'
                     ? 'SMX Standard'
-                    : basisNativeEnabled ? 'Basis Native' : 'SMX Standard'}
+                    : basisNativeEnabled ? 'Basis Native' : dspVideoEnabled ? 'DSP Video Contract' : 'SMX Standard'}
               </div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
@@ -848,9 +867,11 @@ export default function TagBuilder() {
               <div className="mt-1 text-sm font-semibold text-slate-800">
                 {deliveryDiagnostics?.deliverySummary?.previewStatus === 'basis_preview_may_fallback'
                   ? 'Fallback Possible'
+                  : deliveryDiagnostics?.deliverySummary?.previewStatus === 'dsp_video_contract_ready'
+                    ? 'DSP Video Ready'
                   : basisFallbackActive
                     ? 'Fallback Possible'
-                    : basisNativeEnabled ? 'Basis First-Hop Ready' : 'Standard Delivery'}
+                    : basisNativeEnabled ? 'Basis First-Hop Ready' : dspVideoEnabled ? 'DSP Video Ready' : 'Standard Delivery'}
               </div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
@@ -911,6 +932,40 @@ export default function TagBuilder() {
               </details>
             ))}
           </div>
+
+          {savedTag.format === 'VAST' && deliveryDiagnostics?.videoContractExamples && (
+            <div className="mt-6 rounded-lg border border-slate-200 p-4">
+              <div className="mb-3">
+                <h3 className="text-sm font-semibold text-slate-800">VAST DSP Contract Examples</h3>
+                <p className="text-xs text-slate-500">
+                  Ready-to-compare examples for SMX Standard, Basis, and Illumin using the same tag.
+                </p>
+              </div>
+              <div className="space-y-4">
+                {[
+                  deliveryDiagnostics.videoContractExamples.standard,
+                  deliveryDiagnostics.videoContractExamples.basis,
+                  deliveryDiagnostics.videoContractExamples.illumin,
+                ].filter(Boolean).map((example) => (
+                  <div key={example?.label} className="rounded-lg border border-slate-200 p-4">
+                    <div className="mb-2 text-sm font-medium text-slate-800">{example?.label}</div>
+                    {example?.url && (
+                      <div className="mb-3">
+                        <div className="mb-1 text-xs font-medium text-slate-700">VAST URL</div>
+                        <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{example.url}</pre>
+                      </div>
+                    )}
+                    {example?.xmlWrapper && (
+                      <div>
+                        <div className="mb-1 text-xs font-medium text-slate-700">XML Wrapper</div>
+                        <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{example.xmlWrapper}</pre>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

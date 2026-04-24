@@ -13,6 +13,8 @@ import {
 import {
   applyDspMacrosToDeliveryUrl,
   buildBasisNativeSnippet,
+  buildDspVideoContractExamples,
+  buildVastWrapperSnippet,
   DSP_DELIVERY_KINDS,
   readCampaignDsp,
   shouldUseBasisNativeDelivery,
@@ -72,7 +74,7 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     const displayJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
     const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
     const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
-    const vastUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VAST);
+    const vastUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VIDEO);
     const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
     const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
     const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
@@ -101,7 +103,9 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
         if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
         return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
       case 'vast-url':
-        return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : vastUrl;
+        return vastUrl;
+      case 'vast-xml':
+        return buildVastWrapperSnippet(tag.id, vastUrl);
       case 'tracker-click':
         return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : trackerClickUrl;
       case 'tracker-impression':
@@ -110,6 +114,7 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
         return '';
     }
   }
+
   // ---- Campaigns ----
 
   // GET /v1/campaigns
@@ -184,12 +189,13 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     const baseUrl = getRequestBaseUrl(req);
     const campaignDsp = readCampaignDsp(campaign.metadata);
     const rows = [
-      ['campaign', 'client', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'tracker_click_url', 'tracker_impression_url'],
+      ['campaign', 'client', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'vast_url_smx_standard', 'vast_url_basis', 'vast_url_illumin', 'tracker_click_url', 'tracker_impression_url'],
       ...tags.map(tag => {
         const size = tag.format === 'tracker'
           ? (tag.tracker_type === 'impression' ? '1x1' : '')
           : (tag.serving_width && tag.serving_height ? `${tag.serving_width}x${tag.serving_height}` : '');
         const format = String(tag.format ?? '').toLowerCase();
+        const videoExamples = buildDspVideoContractExamples(baseUrl, tag.id);
         return [
           campaign.name,
           campaign.workspace_name ?? '',
@@ -201,6 +207,9 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
           format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-ins', campaignDsp) : '',
           format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-iframe', campaignDsp) : '',
           format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url', campaignDsp) : '',
+          format === 'vast' ? videoExamples.standard.url : '',
+          format === 'vast' ? videoExamples.basis.url : '',
+          format === 'vast' ? videoExamples.illumin.url : '',
           format === 'tracker' && tag.tracker_type === 'click' ? buildTagSnippet(baseUrl, tag, 'tracker-click', campaignDsp) : '',
           format === 'tracker' && tag.tracker_type === 'impression' ? buildTagSnippet(baseUrl, tag, 'tracker-impression', campaignDsp) : '',
         ];

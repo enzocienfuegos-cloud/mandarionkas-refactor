@@ -11,10 +11,14 @@ import { listTagBindings, updateTagBinding } from '@smx/db';
 import {
   applyDspMacrosToDeliveryUrl,
   buildBasisNativeSnippet,
+  buildDspVideoContractExamples,
+  buildVastWrapperSnippet,
   DSP_DELIVERY_KINDS,
   getDspDeliveryPolicy,
+  getDspMacroConfig,
   readCampaignDsp,
   shouldUseBasisNativeDelivery,
+  shouldUseDspVideoDelivery,
 } from '@smx/contracts/dsp-macros';
 
 function getRequestBaseUrl(req) {
@@ -34,11 +38,27 @@ function escapeCsv(value) {
 
 function isBasisNativeEligible(tagFormat, campaignDsp) {
   if (!shouldUseBasisNativeDelivery(campaignDsp)) return false;
-  return ['display', 'tracker', 'vast', 'VAST'].includes(String(tagFormat ?? ''));
+  return ['display', 'tracker'].includes(String(tagFormat ?? ''));
+}
+
+function isDspVideoEligible(tagFormat, campaignDsp) {
+  if (!shouldUseDspVideoDelivery(campaignDsp)) return false;
+  return ['vast', 'VAST'].includes(String(tagFormat ?? ''));
 }
 
 function buildDeliverySummary(tag, campaignDsp) {
   const basisNativeActive = isBasisNativeEligible(tag.format, campaignDsp);
+  const dspVideoActive = isDspVideoEligible(tag.format, campaignDsp);
+  const dspLabel = getDspMacroConfig(campaignDsp)?.label ?? 'DSP';
+  if (dspVideoActive) {
+    return {
+      basisNativeActive: false,
+      deliveryMode: 'dsp_video_contract',
+      clickChain: `${dspLabel} -> SMX -> Landing`,
+      previewStatus: 'dsp_video_contract_ready',
+      previewNotes: `${dspLabel} video delivery uses a VAST 4.x DSP contract on the tag URL itself. No VPAID-specific wrapper is required.`,
+    };
+  }
   return {
     basisNativeActive,
     deliveryMode: basisNativeActive ? 'basis_native' : 'smx_standard',
@@ -58,7 +78,7 @@ function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
   const displayJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
-  const vastUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VAST);
+  const vastUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VIDEO);
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
   const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
@@ -87,7 +107,9 @@ function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
       if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
       return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
     case 'vast-url':
-      return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : vastUrl;
+      return vastUrl;
+    case 'vast-xml':
+      return buildVastWrapperSnippet(tag.id, vastUrl);
     case 'tracker-click':
       return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : trackerClickUrl;
     case 'tracker-impression':
@@ -283,8 +305,9 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     const format = String(tag.format ?? '').toLowerCase();
     const baseUrl = getRequestBaseUrl(req);
     const campaignDsp = readCampaignDsp(tag.campaign_metadata);
+    const videoExamples = buildDspVideoContractExamples(baseUrl, tag.id);
     const csvRows = [
-      ['client', 'campaign', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'tracker_click_url', 'tracker_impression_url'],
+      ['client', 'campaign', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'vast_url_smx_standard', 'vast_url_basis', 'vast_url_illumin', 'tracker_click_url', 'tracker_impression_url'],
       [
         tag.workspace_name ?? '',
         tag.campaign_name ?? '',
@@ -296,6 +319,9 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
         format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-ins', campaignDsp) : '',
         format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-iframe', campaignDsp) : '',
         format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url', campaignDsp) : '',
+        format === 'vast' ? (videoExamples.standard?.url ?? '') : '',
+        format === 'vast' ? (videoExamples.basis?.url ?? '') : '',
+        format === 'vast' ? (videoExamples.illumin?.url ?? '') : '',
         format === 'tracker' && tag.tracker_type === 'click' ? buildTagSnippet(baseUrl, tag, 'tracker-click', campaignDsp) : '',
         format === 'tracker' && tag.tracker_type === 'impression' ? buildTagSnippet(baseUrl, tag, 'tracker-impression', campaignDsp) : '',
       ],
@@ -390,6 +416,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
         selected: campaignDsp || null,
       },
       deliverySummary,
+      videoContractExamples: buildDspVideoContractExamples(baseUrl, tag.id),
       deliveryDiagnostics: {
         displayWrapper: {
           policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER),
@@ -397,8 +424,8 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
           htmlUrl: applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER),
         },
         vast: {
-          policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.VAST),
-          url: applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VAST),
+          policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.VIDEO),
+          url: applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VIDEO),
         },
         trackerClick: {
           policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK),
