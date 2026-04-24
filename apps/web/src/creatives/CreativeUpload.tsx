@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   completeCreativeIngestion,
@@ -17,6 +17,7 @@ const ACCEPTED_EXTENSIONS: Record<SourceKind, string> = {
 
 export default function CreativeUpload() {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [sourceKind, setSourceKind] = useState<SourceKind>('html5_zip');
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState('');
@@ -35,6 +36,21 @@ export default function CreativeUpload() {
       })
       .catch(() => {});
   }, []);
+
+  const mergeFiles = (incomingFiles: File[]) => {
+    setFiles((current) => {
+      const next = [...current];
+      const seen = new Set(current.map(file => `${file.name}-${file.size}-${file.lastModified}`));
+      for (const file of incomingFiles) {
+        const key = `${file.name}-${file.size}-${file.lastModified}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        next.push(file);
+      }
+      return next;
+    });
+    setError('');
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -154,6 +170,7 @@ export default function CreativeUpload() {
                   setSourceKind('html5_zip');
                   setFiles([]);
                   setError('');
+                  if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
                 className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'html5_zip' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}
               >
@@ -166,6 +183,7 @@ export default function CreativeUpload() {
                   setSourceKind('video_mp4');
                   setFiles([]);
                   setError('');
+                  if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
                 className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'video_mp4' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}
               >
@@ -179,20 +197,39 @@ export default function CreativeUpload() {
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">Creative Files</label>
               <input
+                ref={fileInputRef}
                 key={sourceKind}
                 type="file"
                 accept={ACCEPTED_EXTENSIONS[sourceKind]}
                 multiple
-                onChange={event => setFiles(Array.from(event.target.files ?? []))}
+                onChange={(event) => {
+                  mergeFiles(Array.from(event.target.files ?? []));
+                  event.currentTarget.value = '';
+                }}
                 className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium"
               />
               <p className="mt-2 text-xs text-slate-500">
                 Accepted: {ACCEPTED_EXTENSIONS[sourceKind]} · each creative will use its file name as the creative name.
               </p>
+              <p className="mt-1 text-xs text-slate-500">
+                You can select multiple files at once with <strong>Cmd</strong>/<strong>Shift</strong>, or pick files in several rounds and they will be appended.
+              </p>
               {files.length > 0 && (
                 <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-                    {files.length} selected
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      {files.length} selected
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFiles([]);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      className="text-xs font-medium text-slate-600 hover:text-slate-800"
+                    >
+                      Clear
+                    </button>
                   </div>
                   <div className="max-h-48 space-y-1 overflow-y-auto text-sm text-slate-700">
                     {files.map(file => (
