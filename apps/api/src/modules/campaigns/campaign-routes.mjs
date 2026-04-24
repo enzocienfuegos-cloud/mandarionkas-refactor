@@ -12,6 +12,7 @@ import {
 } from '@smx/db/campaigns';
 import {
   applyDspMacrosToDeliveryUrl,
+  buildBasisNativeSnippet,
   buildDspNativeClickHref,
   DSP_DELIVERY_KINDS,
   readCampaignDsp,
@@ -33,10 +34,6 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 
-  function buildBasisNativeDisplayTag(displayHtmlUrl, clickHref, width, height) {
-    return `<a href="${clickHref}" target="_blank" rel="noopener noreferrer" style="display:inline-block;width:${width}px;height:${height}px;">\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" marginwidth="0" marginheight="0" style="border:0;overflow:hidden;pointer-events:none;"></iframe>\n</a>`;
-  }
-
   function addTimestampFilters(params, clauses, column, dateFrom, dateTo) {
     if (dateFrom) {
       params.push(`${dateFrom}T00:00:00.000Z`);
@@ -54,32 +51,37 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     const normalizedDsp = readCampaignDsp({ dsp: campaignDsp });
     const displayJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
     const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+    const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
     const vastUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VAST);
     const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
     const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
-    const basisNativeClickHref = buildDspNativeClickHref(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp);
+    const basisNativeArgs = {
+      variant,
+      tagId: tag.id,
+      displayHtmlUrl,
+      nativeJsUrl,
+      vastUrl,
+      trackerClickUrl: buildDspNativeClickHref(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp),
+      trackerImpressionUrl,
+      width,
+      height,
+    };
     switch (variant) {
       case 'display-js':
-        if (normalizedDsp === 'basis') {
-          return `<script>\n  (function() {\n    var markup = ${JSON.stringify(buildBasisNativeDisplayTag(displayHtmlUrl, basisNativeClickHref, width, height))};\n    document.write(markup);\n  })();\n</script>\n<noscript>\n  ${buildBasisNativeDisplayTag(displayHtmlUrl, basisNativeClickHref, width, height)}\n</noscript>`;
-        }
+        if (normalizedDsp === 'basis') return buildBasisNativeSnippet(basisNativeArgs);
         return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
       case 'display-ins':
-        if (normalizedDsp === 'basis') {
-          return `<ins id="smx-ad-slot-${tag.id}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    slot.outerHTML = ${JSON.stringify(buildBasisNativeDisplayTag(displayHtmlUrl, basisNativeClickHref, width, height))};\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tag.id}`)}));\n</script>`;
-        }
+        if (normalizedDsp === 'basis') return buildBasisNativeSnippet(basisNativeArgs);
         return `<ins id="smx-ad-slot-${tag.id}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    var iframe = document.createElement('iframe');\n    iframe.src = ${JSON.stringify(displayHtmlUrl)};\n    iframe.width = ${JSON.stringify(String(width))};\n    iframe.height = ${JSON.stringify(String(height))};\n    iframe.scrolling = 'no';\n    iframe.frameBorder = '0';\n    iframe.style.border = '0';\n    iframe.style.overflow = 'hidden';\n    slot.replaceWith(iframe);\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tag.id}`)}));\n</script>`;
       case 'display-iframe':
-        if (normalizedDsp === 'basis') {
-          return buildBasisNativeDisplayTag(displayHtmlUrl, basisNativeClickHref, width, height);
-        }
+        if (normalizedDsp === 'basis') return buildBasisNativeSnippet(basisNativeArgs);
         return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
       case 'vast-url':
-        return vastUrl;
+        return normalizedDsp === 'basis' ? buildBasisNativeSnippet(basisNativeArgs) : vastUrl;
       case 'tracker-click':
-        return normalizedDsp === 'basis' ? basisNativeClickHref : trackerClickUrl;
+        return normalizedDsp === 'basis' ? buildBasisNativeSnippet(basisNativeArgs) : trackerClickUrl;
       case 'tracker-impression':
-        return trackerImpressionUrl;
+        return normalizedDsp === 'basis' ? buildBasisNativeSnippet(basisNativeArgs) : trackerImpressionUrl;
       default:
         return '';
     }

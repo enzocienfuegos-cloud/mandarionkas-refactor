@@ -161,6 +161,46 @@ export function buildDspNativeClickHref(clickTrackUrl, dsp) {
   return `{clickMacro}${String(clickTrackUrl)}`;
 }
 
+export function buildBasisNativeDisplayAnchor(displayHtmlUrl, clickHref, width, height) {
+  return `<a href="${clickHref}" target="_blank" rel="noopener noreferrer" style="display:inline-block;width:${width}px;height:${height}px;">\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" marginwidth="0" marginheight="0" style="border:0;overflow:hidden;pointer-events:none;"></iframe>\n</a>`;
+}
+
+export function buildBasisNativeSnippet({
+  variant,
+  tagId,
+  displayHtmlUrl = '',
+  nativeJsUrl = '',
+  vastUrl = '',
+  trackerClickUrl = '',
+  trackerImpressionUrl = '',
+  width = 300,
+  height = 250,
+} = {}) {
+  const clickHref = buildDspNativeClickHref(trackerClickUrl, 'basis');
+  const displayTag = buildBasisNativeDisplayAnchor(displayHtmlUrl, clickHref, width, height);
+
+  switch (variant) {
+    case 'display-js':
+      return `<script>\n  (function() {\n    var markup = ${JSON.stringify(displayTag)};\n    document.write(markup);\n  })();\n</script>\n<noscript>\n  ${displayTag}\n</noscript>`;
+    case 'display-ins':
+      return `<ins id="smx-ad-slot-${tagId}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    slot.outerHTML = ${JSON.stringify(displayTag)};\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tagId}`)}));\n</script>`;
+    case 'display-iframe':
+      return displayTag;
+    case 'tracker-click':
+      return clickHref;
+    case 'tracker-impression':
+      return trackerImpressionUrl;
+    case 'vast-url':
+      return vastUrl;
+    case 'vast-xml':
+      return `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <Ad id="${tagId}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[${vastUrl}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
+    case 'native-js':
+      return `<script>\n  window.SMX = window.SMX || {};\n  window.SMX.native = window.SMX.native || [];\n  window.SMX.native.push({ tagId: "${tagId}", format: "native" });\n</script>\n<script src="${nativeJsUrl}" async></script>`;
+    default:
+      return '';
+  }
+}
+
 export function readDspMacroValue(query = {}, kind, dsp = '') {
   const normalizedDsp = normalizeDsp(dsp || query?.smx_dsp);
   const configs = normalizedDsp
