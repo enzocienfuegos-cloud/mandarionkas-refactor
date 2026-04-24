@@ -82,6 +82,80 @@ export async function listTags(pool, workspaceId, opts = {}) {
   return rows;
 }
 
+export async function listTagsForUser(pool, userId, opts = {}) {
+  const { status, format, campaignId, workspaceId, limit = 100, offset = 0, search } = opts;
+  const params = [userId];
+  const conditions = ["wm.user_id = $1", "wm.status = 'active'"];
+
+  if (workspaceId) {
+    params.push(workspaceId);
+    conditions.push(`t.workspace_id = $${params.length}`);
+  }
+  if (status) {
+    params.push(normalizeTagStatus(status) ?? status);
+    conditions.push(`t.status = $${params.length}`);
+  }
+  if (format) {
+    params.push(normalizeTagFormat(format) ?? format);
+    conditions.push(`t.format = $${params.length}`);
+  }
+  if (campaignId) {
+    params.push(campaignId);
+    conditions.push(`t.campaign_id = $${params.length}`);
+  }
+  if (search && search.trim().length >= 2) {
+    params.push(search.trim());
+    conditions.push(`t.search_vec @@ websearch_to_tsquery('english', $${params.length})`);
+  }
+
+  params.push(Math.min(Number(limit) || 100, 500));
+  params.push(Number(offset) || 0);
+
+  const { rows } = await pool.query(
+    `SELECT t.id, t.workspace_id, w.name AS workspace_name, t.campaign_id, t.name, t.format, t.status,
+            t.click_url, t.impression_url, t.tag_code, t.description,
+            t.targeting, t.frequency_cap, t.frequency_cap_window,
+            t.geo_targets, t.device_targets, t.created_at, t.updated_at,
+            c.name AS campaign_name,
+            COALESCE(tfc.display_width, bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
+            COALESCE(tfc.display_height, bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height,
+            tfc.tracker_type
+     FROM ad_tags t
+     JOIN workspace_members wm ON wm.workspace_id = t.workspace_id
+     JOIN workspaces w ON w.id = t.workspace_id
+     LEFT JOIN campaigns c ON c.id = t.campaign_id
+     LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
+     LEFT JOIN LATERAL (
+       SELECT
+         COALESCE(csv.width, cv.width) AS serving_width,
+         COALESCE(csv.height, cv.height) AS serving_height
+       FROM tag_bindings tb
+       JOIN creative_versions cv ON cv.id = tb.creative_version_id
+       LEFT JOIN creative_size_variants csv ON csv.id = tb.creative_size_variant_id
+       WHERE tb.workspace_id = t.workspace_id
+         AND tb.tag_id = t.id
+         AND tb.status IN ('active', 'draft')
+       ORDER BY tb.weight DESC, tb.created_at ASC
+       LIMIT 1
+     ) bound_sizes ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT
+         c.width AS serving_width,
+         c.height AS serving_height
+       FROM tag_creatives tc
+       JOIN creatives c ON c.id = tc.creative_id
+       WHERE tc.tag_id = t.id
+       ORDER BY tc.weight DESC, tc.created_at ASC
+       LIMIT 1
+     ) legacy_sizes ON TRUE
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY t.created_at DESC
+     LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
 export async function getTag(pool, workspaceId, tagId) {
   const { rows } = await pool.query(
     `SELECT t.id, t.workspace_id, t.campaign_id, t.name, t.format, t.status,

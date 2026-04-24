@@ -91,10 +91,20 @@ export default function Shell() {
   }, [navigate]);
 
   const showClientSwitcher = useMemo(
-    () =>
-      !location.pathname.startsWith('/overview')
-      && !location.pathname.startsWith('/clients')
-      && !location.pathname.startsWith('/campaigns'),
+    () => {
+      const agnosticPrefixes = [
+        '/overview',
+        '/campaigns',
+        '/tags',
+        '/creatives',
+        '/reporting',
+        '/pacing',
+        '/discrepancies',
+        '/experiments',
+        '/clients',
+      ];
+      return !agnosticPrefixes.some(prefix => location.pathname.startsWith(prefix));
+    },
     [location.pathname],
   );
   const toolsOpen = location.pathname.startsWith('/tools');

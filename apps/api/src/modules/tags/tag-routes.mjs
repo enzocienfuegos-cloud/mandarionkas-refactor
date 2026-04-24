@@ -1,5 +1,6 @@
 import {
   listTags,
+  listTagsForUser,
   getTag,
   createTag,
   updateTag,
@@ -102,6 +103,8 @@ function toApiTag(tag) {
   const servingHeight = Number(tag.serving_height ?? 0) || null;
   return {
     id: tag.id,
+    workspaceId: tag.workspace_id ?? null,
+    workspaceName: tag.workspace_name ?? null,
     name: tag.name,
     campaignId: tag.campaign_id ?? null,
     campaign: tag.campaign_id ? { id: tag.campaign_id, name: tag.campaign_name ?? '' } : null,
@@ -128,27 +131,58 @@ function toApiTag(tag) {
 }
 
 export function handleTagRoutes(app, { requireWorkspace, pool }) {
+  async function resolveTargetWorkspaceId(userId, fallbackWorkspaceId, requestedWorkspaceId) {
+    const candidate = String(requestedWorkspaceId ?? '').trim();
+    if (!candidate) return fallbackWorkspaceId;
+    const { rowCount } = await pool.query(
+      `SELECT 1
+       FROM workspace_members
+       WHERE workspace_id = $1
+         AND user_id = $2
+         AND status = 'active'
+       LIMIT 1`,
+      [candidate, userId],
+    );
+    if (!rowCount) {
+      const error = new Error('Not a member of the selected client');
+      error.statusCode = 403;
+      throw error;
+    }
+    return candidate;
+  }
+
   // GET /v1/tags
   app.get('/v1/tags', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
-    const { campaignId, format, status, limit, offset, search } = req.query;
+    const { workspaceId, userId } = req.authSession;
+    const { campaignId, format, status, limit, offset, search, scope, workspaceId: filterWorkspaceId } = req.query;
 
-    const tags = await listTags(pool, workspaceId, {
-      campaignId,
-      format,
-      status,
-      limit,
-      offset,
-      search,
-    });
+    const tags = String(scope ?? '').toLowerCase() === 'all'
+      ? await listTagsForUser(pool, userId, {
+        campaignId,
+        format,
+        status,
+        limit,
+        offset,
+        search,
+        workspaceId: filterWorkspaceId,
+      })
+      : await listTags(pool, workspaceId, {
+        campaignId,
+        format,
+        status,
+        limit,
+        offset,
+        search,
+      });
 
     return reply.send({ tags: tags.map(toApiTag) });
   });
 
   // POST /v1/tags
   app.post('/v1/tags', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
+    const { workspaceId, userId } = req.authSession;
     const {
+      workspaceId: requestedWorkspaceId,
       name,
       campaignId,
       format,
@@ -170,7 +204,14 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       return reply.status(400).send({ error: 'Bad Request', message: 'name is required' });
     }
 
-    const tag = await createTag(pool, workspaceId, {
+    let targetWorkspaceId;
+    try {
+      targetWorkspaceId = await resolveTargetWorkspaceId(userId, workspaceId, requestedWorkspaceId);
+    } catch (error) {
+      return reply.status(error.statusCode ?? 500).send({ error: 'Forbidden', message: error.message });
+    }
+
+    const tag = await createTag(pool, targetWorkspaceId, {
       name,
       campaign_id: campaignId,
       format,

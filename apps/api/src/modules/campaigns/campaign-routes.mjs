@@ -19,6 +19,26 @@ import {
 } from '@smx/contracts/dsp-macros';
 
 export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
+  async function resolveTargetWorkspaceId(userId, fallbackWorkspaceId, requestedWorkspaceId) {
+    const candidate = String(requestedWorkspaceId ?? '').trim();
+    if (!candidate) return fallbackWorkspaceId;
+    const { rowCount } = await pool.query(
+      `SELECT 1
+       FROM workspace_members
+       WHERE workspace_id = $1
+         AND user_id = $2
+         AND status = 'active'
+       LIMIT 1`,
+      [candidate, userId],
+    );
+    if (!rowCount) {
+      const error = new Error('Not a member of the selected client');
+      error.statusCode = 403;
+      throw error;
+    }
+    return candidate;
+  }
+
   function getRequestBaseUrl(req) {
     const forwardedProto = req.headers['x-forwarded-proto'];
     const forwardedHost = req.headers['x-forwarded-host'];
@@ -382,8 +402,9 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
 
   // POST /v1/campaigns
   app.post('/v1/campaigns', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
+    const { workspaceId, userId } = req.authSession;
     const {
+      workspaceId: requestedWorkspaceId,
       name, advertiserId, startDate, endDate, status,
       impressionGoal, dailyBudget, budget, flightType,
       kpi, kpiGoal, currency, timezone, notes, metadata,
@@ -393,7 +414,14 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
       return reply.status(400).send({ error: 'Bad Request', message: 'name is required' });
     }
 
-    const campaign = await createCampaign(pool, workspaceId, {
+    let targetWorkspaceId;
+    try {
+      targetWorkspaceId = await resolveTargetWorkspaceId(userId, workspaceId, requestedWorkspaceId);
+    } catch (error) {
+      return reply.status(error.statusCode ?? 500).send({ error: 'Forbidden', message: error.message });
+    }
+
+    const campaign = await createCampaign(pool, targetWorkspaceId, {
       name,
       advertiser_id: advertiserId,
       start_date: startDate,
@@ -467,7 +495,18 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     const { workspaceId } = req.authSession;
     const { id } = req.params;
 
-    const deleted = await deleteCampaign(pool, workspaceId, id);
+    let deleted = false;
+    try {
+      deleted = await deleteCampaign(pool, workspaceId, id);
+    } catch (error) {
+      if (error?.code === 'CAMPAIGN_HAS_DEPENDENCIES') {
+        return reply.status(409).send({
+          error: 'Conflict',
+          message: 'Campaign cannot be deleted while it still has tags or creative assignments. Unassign everything first.',
+        });
+      }
+      throw error;
+    }
     if (!deleted) {
       return reply.status(404).send({ error: 'Not Found', message: 'Campaign not found' });
     }

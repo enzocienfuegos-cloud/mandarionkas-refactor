@@ -159,6 +159,26 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
   updateCreativeIngestion,
   updateCreativeVersion,
 }) {
+  async function resolveTargetWorkspaceId(userId, fallbackWorkspaceId, requestedWorkspaceId) {
+    const candidate = String(requestedWorkspaceId ?? '').trim();
+    if (!candidate) return fallbackWorkspaceId;
+    const { rowCount } = await pool.query(
+      `SELECT 1
+       FROM workspace_members
+       WHERE workspace_id = $1
+         AND user_id = $2
+         AND status = 'active'
+       LIMIT 1`,
+      [candidate, userId],
+    );
+    if (!rowCount) {
+      const error = new Error('Not a member of the selected client');
+      error.statusCode = 403;
+      throw error;
+    }
+    return candidate;
+  }
+
   app.get('/v1/creative-ingestions', { preHandler: requireWorkspace }, async (req, reply) => {
     const rows = await deps.listCreativeIngestions(pool, req.authSession.workspaceId, {
       status: req.query?.status,
@@ -184,11 +204,22 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
     const mimeType = req.body?.mimeType ?? null;
     const sizeBytes = req.body?.sizeBytes ?? null;
     const ingestionId = crypto.randomUUID();
-    const storageKey = `${req.authSession.workspaceId}/creative-ingestions/${ingestionId}/${sanitizeStorageFilename(originalFilename)}`;
+    let targetWorkspaceId;
+    try {
+      targetWorkspaceId = await resolveTargetWorkspaceId(
+        req.authSession.userId,
+        req.authSession.workspaceId,
+        req.body?.workspaceId,
+      );
+    } catch (error) {
+      return reply.status(error.statusCode ?? 500).send({ error: 'Forbidden', message: error.message });
+    }
+
+    const storageKey = `${targetWorkspaceId}/creative-ingestions/${ingestionId}/${sanitizeStorageFilename(originalFilename)}`;
     const upload = await prepareObjectUpload({ storageKey, contentType: mimeType });
 
     const row = await deps.createCreativeIngestion(pool, {
-      workspaceId: req.authSession.workspaceId,
+      workspaceId: targetWorkspaceId,
       createdBy: req.authSession.userId,
       sourceKind,
       originalFilename,
@@ -213,7 +244,18 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
   });
 
   app.post('/v1/creative-ingestions/:ingestionId/complete', { preHandler: requireWorkspace }, async (req, reply) => {
-    const row = await deps.getCreativeIngestion(pool, req.authSession.workspaceId, req.params.ingestionId);
+    let targetWorkspaceId;
+    try {
+      targetWorkspaceId = await resolveTargetWorkspaceId(
+        req.authSession.userId,
+        req.authSession.workspaceId,
+        req.body?.workspaceId,
+      );
+    } catch (error) {
+      return reply.status(error.statusCode ?? 500).send({ error: 'Forbidden', message: error.message });
+    }
+
+    const row = await deps.getCreativeIngestion(pool, targetWorkspaceId, req.params.ingestionId);
     if (!row) {
       return reply.status(404).send({ error: 'Not Found', message: 'Ingestion not found' });
     }
@@ -224,7 +266,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
       mimeType: req.body?.mimeType ?? row.mime_type,
     });
 
-    const next = await deps.updateCreativeIngestion(pool, req.authSession.workspaceId, row.id, {
+    const next = await deps.updateCreativeIngestion(pool, targetWorkspaceId, row.id, {
       status: validation.ok ? 'validated' : 'failed',
       mimeType: req.body?.mimeType ?? row.mime_type,
       sizeBytes: req.body?.sizeBytes ?? row.size_bytes,
@@ -245,7 +287,18 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
   });
 
   app.get('/v1/creative-ingestions/:ingestionId', { preHandler: requireWorkspace }, async (req, reply) => {
-    const row = await deps.getCreativeIngestion(pool, req.authSession.workspaceId, req.params.ingestionId);
+    let targetWorkspaceId;
+    try {
+      targetWorkspaceId = await resolveTargetWorkspaceId(
+        req.authSession.userId,
+        req.authSession.workspaceId,
+        req.query?.workspaceId,
+      );
+    } catch (error) {
+      return reply.status(error.statusCode ?? 500).send({ error: 'Forbidden', message: error.message });
+    }
+
+    const row = await deps.getCreativeIngestion(pool, targetWorkspaceId, req.params.ingestionId);
     if (!row) {
       return reply.status(404).send({ error: 'Not Found', message: 'Ingestion not found' });
     }
@@ -253,7 +306,18 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
   });
 
   app.post('/v1/creative-ingestions/:ingestionId/publish', { preHandler: requireWorkspace }, async (req, reply) => {
-    const row = await deps.getCreativeIngestion(pool, req.authSession.workspaceId, req.params.ingestionId);
+    let targetWorkspaceId;
+    try {
+      targetWorkspaceId = await resolveTargetWorkspaceId(
+        req.authSession.userId,
+        req.authSession.workspaceId,
+        req.body?.workspaceId,
+      );
+    } catch (error) {
+      return reply.status(error.statusCode ?? 500).send({ error: 'Forbidden', message: error.message });
+    }
+
+    const row = await deps.getCreativeIngestion(pool, targetWorkspaceId, req.params.ingestionId);
     if (!row) {
       return reply.status(404).send({ error: 'Not Found', message: 'Ingestion not found' });
     }
@@ -266,10 +330,10 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
     }
 
     if (row.status === 'published' && row.creative_id && row.creative_version_id) {
-      const creative = await deps.getCreative(pool, req.authSession.workspaceId, row.creative_id);
-      const version = await deps.getCreativeVersion(pool, req.authSession.workspaceId, row.creative_version_id);
+      const creative = await deps.getCreative(pool, targetWorkspaceId, row.creative_id);
+      const version = await deps.getCreativeVersion(pool, targetWorkspaceId, row.creative_version_id);
       const artifacts = version
-        ? await deps.listCreativeArtifacts(pool, req.authSession.workspaceId, version.id)
+        ? await deps.listCreativeArtifacts(pool, targetWorkspaceId, version.id)
         : [];
       return reply.send({
         ingestion: toApiIngestion(row),
@@ -287,7 +351,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
     try {
       await client.query('BEGIN');
 
-      let creative = await deps.createCreative(client, req.authSession.workspaceId, {
+      let creative = await deps.createCreative(client, targetWorkspaceId, {
         name: creativeName,
         type: catalogDraft.creativeType,
         file_url: row.source_kind === 'video_mp4' ? row.public_url ?? null : null,
@@ -308,7 +372,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
         transcode_status: catalogDraft.transcodeStatus,
       }, { ensureLegacyVersion: false });
 
-      const creativeVersion = await deps.createCreativeVersion(client, req.authSession.workspaceId, {
+      const creativeVersion = await deps.createCreativeVersion(client, targetWorkspaceId, {
         creativeId: creative.id,
         source_kind: row.source_kind,
         serving_format: catalogDraft.servingFormat,
@@ -329,7 +393,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
         created_by: req.authSession.userId,
       });
 
-      const sourceArtifact = await deps.createCreativeArtifact(client, req.authSession.workspaceId, {
+      const sourceArtifact = await deps.createCreativeArtifact(client, targetWorkspaceId, {
         creative_version_id: creativeVersion.id,
         kind: catalogDraft.artifactKind,
         storage_key: row.storage_key ?? null,
@@ -349,12 +413,12 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
       if (row.source_kind === 'html5_zip') {
         const htmlPublication = await expandAndPublishHtml5Archive({
           sourceStorageKey: row.storage_key,
-          workspaceId: req.authSession.workspaceId,
+          workspaceId: targetWorkspaceId,
           creativeVersionId: creativeVersion.id,
         });
 
         for (const artifact of htmlPublication.artifacts) {
-          publishedArtifacts.push(await deps.createCreativeArtifact(client, req.authSession.workspaceId, {
+          publishedArtifacts.push(await deps.createCreativeArtifact(client, targetWorkspaceId, {
             creative_version_id: creativeVersion.id,
             kind: artifact.kind,
             storage_key: artifact.storageKey,
@@ -366,7 +430,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
           }));
         }
 
-        publishedVersion = await deps.updateCreativeVersion(client, req.authSession.workspaceId, creativeVersion.id, {
+        publishedVersion = await deps.updateCreativeVersion(client, targetWorkspaceId, creativeVersion.id, {
           publicUrl: htmlPublication.entryPublicUrl,
           entryPath: htmlPublication.entryPath,
           mimeType: 'text/html; charset=utf-8',
@@ -384,11 +448,11 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
             clickDestinationUrl: htmlPublication.clickDestinationUrl ?? null,
           },
         });
-        await deps.ensureCreativeVersionDefaultVariant(client, req.authSession.workspaceId, publishedVersion, {
+        await deps.ensureCreativeVersionDefaultVariant(client, targetWorkspaceId, publishedVersion, {
           forceStatusSync: true,
         });
 
-        creative = await deps.updateCreative(client, req.authSession.workspaceId, creative.id, {
+        creative = await deps.updateCreative(client, targetWorkspaceId, creative.id, {
           file_url: htmlPublication.entryPublicUrl,
           mime_type: 'text/html; charset=utf-8',
           width: htmlPublication.width ?? req.body?.width ?? null,
@@ -409,13 +473,13 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
         });
       } else if (row.source_kind === 'video_mp4') {
         const videoPublication = await enrichVideoPublication({
-          workspaceId: req.authSession.workspaceId,
+          workspaceId: targetWorkspaceId,
           creativeVersionId: creativeVersion.id,
           sourceStorageKey: row.storage_key,
         });
 
         for (const artifact of videoPublication.posterArtifacts) {
-          publishedArtifacts.push(await deps.createCreativeArtifact(client, req.authSession.workspaceId, {
+          publishedArtifacts.push(await deps.createCreativeArtifact(client, targetWorkspaceId, {
             creative_version_id: creativeVersion.id,
             kind: artifact.kind,
             storage_key: artifact.storageKey,
@@ -427,7 +491,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
           }));
         }
 
-        publishedVersion = await deps.updateCreativeVersion(client, req.authSession.workspaceId, creativeVersion.id, {
+        publishedVersion = await deps.updateCreativeVersion(client, targetWorkspaceId, creativeVersion.id, {
           width: videoPublication.metadata?.width ?? creativeVersion.width ?? req.body?.width ?? null,
           height: videoPublication.metadata?.height ?? creativeVersion.height ?? req.body?.height ?? null,
           durationMs: videoPublication.metadata?.durationMs ?? creativeVersion.duration_ms ?? req.body?.durationMs ?? null,
@@ -440,12 +504,12 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
             posterGenerated: videoPublication.posterArtifacts.length > 0,
           },
         });
-        await deps.ensureCreativeVersionDefaultVariant(client, req.authSession.workspaceId, publishedVersion, {
+        await deps.ensureCreativeVersionDefaultVariant(client, targetWorkspaceId, publishedVersion, {
           forceStatusSync: true,
         });
 
         const posterArtifact = videoPublication.posterArtifacts[0] ?? null;
-        creative = await deps.updateCreative(client, req.authSession.workspaceId, creative.id, {
+        creative = await deps.updateCreative(client, targetWorkspaceId, creative.id, {
           width: videoPublication.metadata?.width ?? req.body?.width ?? null,
           height: videoPublication.metadata?.height ?? req.body?.height ?? null,
           duration_ms: videoPublication.metadata?.durationMs ?? req.body?.durationMs ?? null,
@@ -461,7 +525,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
         });
       }
 
-      const updatedIngestion = await deps.updateCreativeIngestion(client, req.authSession.workspaceId, row.id, {
+      const updatedIngestion = await deps.updateCreativeIngestion(client, targetWorkspaceId, row.id, {
         creativeId: creative.id,
         creativeVersionId: creativeVersion.id,
         status: 'published',

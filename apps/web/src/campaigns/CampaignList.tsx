@@ -162,10 +162,13 @@ export default function CampaignList() {
         setActiveWorkspaceId(campaign.workspace_id);
       }
       const res = await fetch(`/v1/campaigns/${campaign.id}`, { method: 'DELETE', credentials: 'include' });
-      if (!res.ok) throw new Error('Delete failed');
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.message ?? 'Delete failed');
+      }
       setCampaigns(cs => cs.filter(c => c.id !== campaign.id));
-    } catch {
-      alert('Failed to delete campaign.');
+    } catch (error: any) {
+      alert(error.message ?? 'Failed to delete campaign.');
     } finally {
       setDeletingId(null);
     }

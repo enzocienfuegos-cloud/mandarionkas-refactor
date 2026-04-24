@@ -113,6 +113,7 @@ export default function CreativeLibrary() {
   const [tags, setTags] = useState<TagOption[]>([]);
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
@@ -125,9 +126,9 @@ export default function CreativeLibrary() {
     setError('');
     try {
       const [{ creatives, latestVersions }, ingestions, tags, authMe, workspaceList] = await Promise.all([
-        loadCreativesWithLatestVersion(),
+        loadCreativesWithLatestVersion({ scope: 'all' }),
         loadCreativeIngestions(),
-        loadTags(),
+        loadTags({ scope: 'all' }),
         loadAuthMe(),
         loadWorkspaces(),
       ]);
@@ -148,29 +149,20 @@ export default function CreativeLibrary() {
     void load();
   }, []);
 
+  const filteredCreatives = useMemo(
+    () => creatives.filter(creative => !selectedClientId || creative.workspaceId === selectedClientId),
+    [creatives, selectedClientId],
+  );
+
   const summary = useMemo(() => {
-    const versions = Object.values(latestVersions).filter(Boolean) as CreativeVersion[];
+    const versions = filteredCreatives.map(creative => latestVersions[creative.id]).filter(Boolean) as CreativeVersion[];
     return {
-      totalCreatives: creatives.length,
+      totalCreatives: filteredCreatives.length,
       pendingReview: versions.filter(version => version.status === 'rejected').length,
       approved: versions.filter(version => ['approved', 'draft'].includes(version.status)).length,
       ingestions: ingestions.length,
     };
-  }, [creatives, latestVersions, ingestions]);
-
-  const handleWorkspaceChange = async (workspaceId: string) => {
-    if (!workspaceId || workspaceId === activeWorkspaceId) return;
-    setWorkspaceBusy(true);
-    setError('');
-    try {
-      await switchWorkspace(workspaceId);
-      await load();
-    } catch (workspaceError: any) {
-      setError(workspaceError.message ?? 'Failed to switch client');
-    } finally {
-      setWorkspaceBusy(false);
-    }
-  };
+  }, [filteredCreatives, latestVersions, ingestions]);
 
   const handleAssign = async () => {
     if (!bindingState?.tagId) {
@@ -200,6 +192,10 @@ export default function CreativeLibrary() {
     setError('');
     setSuccessMessage('');
     try {
+      if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
+        await switchWorkspace(creative.workspaceId);
+        setActiveWorkspaceId(creative.workspaceId);
+      }
       await deleteCreativeById(creative.id);
       await load();
       setSuccessMessage(`Deleted "${creative.name}".`);
@@ -455,25 +451,6 @@ export default function CreativeLibrary() {
           </p>
         </div>
         <div className="flex gap-2">
-          <select
-            value={activeWorkspaceId}
-            onChange={event => void handleWorkspaceChange(event.target.value)}
-            disabled={workspaceBusy}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
-          >
-            {workspaces.map(workspace => (
-              <option key={workspace.id} value={workspace.id}>
-                {workspace.name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => navigate('/clients')}
-            disabled={workspaceBusy}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
-          >
-            Manage clients
-          </button>
           <button
             onClick={() => navigate('/creatives/upload')}
             className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
@@ -481,6 +458,20 @@ export default function CreativeLibrary() {
             Upload Creative
           </button>
         </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-medium text-slate-700">Client</label>
+        <select
+          value={selectedClientId}
+          onChange={event => setSelectedClientId(event.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+        >
+          <option value="">All clients</option>
+          {workspaces.map(workspace => (
+            <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
+          ))}
+        </select>
       </div>
 
       {successMessage && (
@@ -524,15 +515,16 @@ export default function CreativeLibrary() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {creatives.map(creative => {
+              {filteredCreatives.map(creative => {
                 const version = latestVersions[creative.id];
                 return (
                   <tr key={creative.id} className="align-top">
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800">{creative.name}</div>
+                      <div className="text-xs text-slate-400">{creative.workspaceName ?? '—'}</div>
                     </td>
                     <td className="px-4 py-3 text-slate-700">
-                      {new Date(creative.createdAt).toLocaleString()}
+                      {creative.createdAt ? new Date(creative.createdAt).toLocaleString() : '—'}
                     </td>
                     <td className="px-4 py-3">
                       {version?.publicUrl ? (
@@ -559,17 +551,32 @@ export default function CreativeLibrary() {
                               Manage sizes
                             </button>
                             <button
-                              onClick={() => setBindingState({
-                                creativeId: creative.id,
-                                creativeName: creative.name,
-                                versionId: version.id,
-                                servingFormat: version.servingFormat,
-                                tagId: '',
-                                loading: false,
-                                error: '',
-                                bindingsLoading: false,
-                                bindings: [],
-                              })}
+                              onClick={async () => {
+                                try {
+                                  if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
+                                    setWorkspaceBusy(true);
+                                    await switchWorkspace(creative.workspaceId);
+                                    setActiveWorkspaceId(creative.workspaceId);
+                                  }
+                                  const nextTags = await loadTags({ workspaceId: creative.workspaceId ?? activeWorkspaceId });
+                                  setTags(nextTags);
+                                  setBindingState({
+                                    creativeId: creative.id,
+                                    creativeName: creative.name,
+                                    versionId: version.id,
+                                    servingFormat: version.servingFormat,
+                                    tagId: '',
+                                    loading: false,
+                                    error: '',
+                                    bindingsLoading: false,
+                                    bindings: [],
+                                  });
+                                } catch (workspaceError: any) {
+                                  setError(workspaceError.message ?? 'Failed to prepare assignment');
+                                } finally {
+                                  setWorkspaceBusy(false);
+                                }
+                              }}
                               className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
                             >
                               Assign to tag

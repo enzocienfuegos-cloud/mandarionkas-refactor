@@ -231,6 +231,30 @@ export async function updateCampaign(pool, workspaceId, id, data) {
 }
 
 export async function deleteCampaign(pool, workspaceId, id) {
+  const { rows: dependencyRows } = await pool.query(
+    `SELECT
+       EXISTS(SELECT 1 FROM ad_tags WHERE workspace_id = $1 AND campaign_id = $2) AS has_tags,
+       EXISTS(
+         SELECT 1
+         FROM ad_tags t
+         JOIN tag_bindings tb ON tb.tag_id = t.id
+         WHERE t.workspace_id = $1 AND t.campaign_id = $2
+       ) AS has_bindings,
+       EXISTS(
+         SELECT 1
+         FROM ad_tags t
+         JOIN tag_creatives tc ON tc.tag_id = t.id
+         WHERE t.workspace_id = $1 AND t.campaign_id = $2
+       ) AS has_legacy_assignments`,
+    [workspaceId, id],
+  );
+  const dependency = dependencyRows[0] ?? {};
+  if (dependency.has_tags || dependency.has_bindings || dependency.has_legacy_assignments) {
+    const error = new Error('Campaign has dependent tags or creative assignments');
+    error.code = 'CAMPAIGN_HAS_DEPENDENCIES';
+    throw error;
+  }
+
   const { rowCount } = await pool.query(
     `DELETE FROM campaigns WHERE workspace_id = $1 AND id = $2`,
     [workspaceId, id],

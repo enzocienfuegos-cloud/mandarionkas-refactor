@@ -35,6 +35,47 @@ export async function listCreatives(pool, workspaceId, opts = {}) {
   return rows;
 }
 
+export async function listCreativesForUser(pool, userId, opts = {}) {
+  const { approval_status, type, workspaceId, limit = 100, offset = 0, search } = opts;
+  const params = [userId];
+  const conditions = ["wm.user_id = $1", "wm.status = 'active'"];
+
+  if (workspaceId) {
+    params.push(workspaceId);
+    conditions.push(`c.workspace_id = $${params.length}`);
+  }
+  if (approval_status) {
+    params.push(approval_status);
+    conditions.push(`c.approval_status = $${params.length}`);
+  }
+  if (type) {
+    params.push(type);
+    conditions.push(`c.type = $${params.length}`);
+  }
+  if (search && search.trim().length >= 2) {
+    params.push(search.trim());
+    conditions.push(`c.search_vec @@ websearch_to_tsquery('english', $${params.length})`);
+  }
+
+  params.push(Math.min(Number(limit) || 100, 500));
+  params.push(Number(offset) || 0);
+
+  const { rows } = await pool.query(
+    `SELECT c.id, c.workspace_id, w.name AS workspace_name, c.name, c.type, c.file_url, c.file_size,
+            c.mime_type, c.width, c.height, c.duration_ms, c.click_url, c.metadata,
+            c.approval_status, c.reviewed_by, c.reviewed_at, c.review_notes,
+            c.transcode_status, c.created_at, c.updated_at
+     FROM creatives c
+     JOIN workspace_members wm ON wm.workspace_id = c.workspace_id
+     JOIN workspaces w ON w.id = c.workspace_id
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY c.created_at DESC
+     LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
 export async function getCreative(pool, workspaceId, id) {
   const { rows } = await pool.query(
     `SELECT c.id, c.workspace_id, c.name, c.type, c.file_url, c.file_size,

@@ -35,12 +35,34 @@ export async function getUserByEmail(pool, email) {
 
 export async function getUserById(pool, id) {
   const { rows } = await pool.query(
-    `SELECT id, email, display_name, avatar_url, email_verified, last_login_at, created_at, updated_at
+    `SELECT id, email, display_name, avatar_url, email_verified, last_login_at, created_at, updated_at, preferences
      FROM users
      WHERE id = $1`,
     [id],
   );
   return rows[0] ?? null;
+}
+
+export async function getUserPreferences(pool, userId) {
+  const { rows } = await pool.query(
+    `SELECT preferences
+     FROM users
+     WHERE id = $1`,
+    [userId],
+  );
+  return rows[0]?.preferences ?? {};
+}
+
+export async function updateUserPreferences(pool, userId, patch) {
+  const { rows } = await pool.query(
+    `UPDATE users
+     SET preferences = COALESCE(preferences, '{}'::jsonb) || $2::jsonb,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING preferences`,
+    [userId, JSON.stringify(patch ?? {})],
+  );
+  return rows[0]?.preferences ?? {};
 }
 
 export async function completeInvitedUserRegistration(pool, { userId, password, display_name, avatar_url }) {

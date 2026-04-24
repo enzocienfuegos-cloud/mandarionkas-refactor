@@ -3,7 +3,9 @@ import {
   createUser,
   getUserByEmail,
   getUserById,
+  getUserPreferences,
   listWorkspacesForUser,
+  updateUserPreferences,
   verifyPassword,
 } from '@smx/db';
 import { activatePendingMembershipsForUser, getMember } from '@smx/db/team';
@@ -264,6 +266,31 @@ export function handleAuthRoutes(app, { pool }) {
 
     const workspaces = await listWorkspacesForUser(pool, userId);
     return reply.send({ workspaces });
+  });
+
+  app.get('/v1/auth/preferences', async (req, reply) => {
+    const userId = req.session?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized', message: 'No active session' });
+    }
+
+    const preferences = await getUserPreferences(pool, userId);
+    return reply.send({ preferences });
+  });
+
+  app.put('/v1/auth/preferences', async (req, reply) => {
+    const userId = req.session?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized', message: 'No active session' });
+    }
+
+    const preferences = req.body?.preferences;
+    if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences)) {
+      return reply.status(400).send({ error: 'Bad Request', message: 'preferences object is required' });
+    }
+
+    const nextPreferences = await updateUserPreferences(pool, userId, preferences);
+    return reply.send({ preferences: nextPreferences });
   });
 
   // POST /v1/auth/switch

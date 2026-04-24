@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../shared/workspaces';
 
 interface Tag {
   id: string;
+  workspaceId?: string | null;
+  workspaceName?: string | null;
   name: string;
   campaign: { id: string; name: string } | null;
   format: 'VAST' | 'display' | 'native' | 'tracker';
@@ -55,12 +58,16 @@ export default function TagList() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tags, setTags] = useState<Tag[]>([]);
+  const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [createForm, setCreateForm] = useState({
+    workspaceId: '',
     name: '',
     campaignId: '',
     format: 'display' as Tag['format'],
@@ -73,9 +80,16 @@ export default function TagList() {
 
   const load = () => {
     setLoading(true);
-    fetch('/v1/tags', { credentials: 'include' })
-      .then(r => { if (!r.ok) throw new Error('Failed to load tags'); return r.json(); })
-      .then(d => setTags(d?.tags ?? d ?? []))
+    Promise.all([
+      fetch('/v1/tags?scope=all', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Failed to load tags'); return r.json(); }),
+      loadWorkspaces(),
+      loadAuthMe(),
+    ])
+      .then(([d, workspaceList, authMe]) => {
+        setTags(d?.tags ?? d ?? []);
+        setClients(workspaceList.map(workspace => ({ id: workspace.id, name: workspace.name })));
+        setActiveWorkspaceId(authMe.workspace?.id ?? '');
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   };
@@ -87,15 +101,32 @@ export default function TagList() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!creating) return;
+    setCreateForm(current => ({
+      ...current,
+      workspaceId: current.workspaceId || selectedClientId || '',
+    }));
+  }, [creating, selectedClientId]);
+
+  const filteredTags = tags.filter(tag => !selectedClientId || tag.workspaceId === selectedClientId);
+
   const handleDelete = async (tag: Tag) => {
     if (!window.confirm(`Delete tag "${tag.name}"? This cannot be undone.`)) return;
     setDeletingId(tag.id);
     try {
+      if (tag.workspaceId && tag.workspaceId !== activeWorkspaceId) {
+        await switchWorkspace(tag.workspaceId);
+        setActiveWorkspaceId(tag.workspaceId);
+      }
       const res = await fetch(`/v1/tags/${tag.id}`, { method: 'DELETE', credentials: 'include' });
-      if (!res.ok) throw new Error('Delete failed');
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.message ?? 'Delete failed');
+      }
       setTags(ts => ts.filter(t => t.id !== tag.id));
-    } catch {
-      alert('Failed to delete tag.');
+    } catch (error: any) {
+      alert(error.message ?? 'Failed to delete tag.');
     } finally {
       setDeletingId(null);
     }
@@ -124,13 +155,27 @@ export default function TagList() {
   const closeCreate = () => {
     setCreating(false);
     setCreateError('');
-    setCreateForm({ name: '', campaignId: '', format: 'display', status: 'draft', servingWidth: '', servingHeight: '', trackerType: 'click', clickUrl: '' });
+    setCreateForm({
+      workspaceId: '',
+      name: '',
+      campaignId: '',
+      format: 'display',
+      status: 'draft',
+      servingWidth: '',
+      servingHeight: '',
+      trackerType: 'click',
+      clickUrl: '',
+    });
     if (searchParams.get('create') === '1') {
       setSearchParams({});
     }
   };
 
   const handleCreate = async () => {
+    if (!createForm.workspaceId) {
+      setCreateError('Client is required.');
+      return;
+    }
     if (!createForm.name.trim()) {
       setCreateError('Tag name is required.');
       return;
@@ -152,6 +197,7 @@ export default function TagList() {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          workspaceId: createForm.workspaceId,
           name: createForm.name.trim(),
           campaignId: createForm.campaignId || null,
           format: createForm.format,
@@ -196,7 +242,7 @@ export default function TagList() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Tags</h1>
-          <p className="text-sm text-slate-500 mt-1">{tags.length} tag{tags.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-slate-500 mt-1">{filteredTags.length} tag{filteredTags.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex gap-2">
           <Link
@@ -220,11 +266,25 @@ export default function TagList() {
         </div>
       </div>
 
-      {tags.length === 0 ? (
+      <div className="mb-4 flex items-center gap-3">
+        <label className="text-sm font-medium text-slate-700">Client</label>
+        <select
+          value={selectedClientId}
+          onChange={event => setSelectedClientId(event.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+        >
+          <option value="">All clients</option>
+          {clients.map(client => (
+            <option key={client.id} value={client.id}>{client.name}</option>
+          ))}
+        </select>
+      </div>
+
+      {filteredTags.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
           <p className="text-4xl mb-3">🏷️</p>
           <h3 className="text-lg font-medium text-slate-700">No tags yet</h3>
-          <p className="text-sm text-slate-500 mt-1 mb-4">Create your first ad tag to start serving ads.</p>
+          <p className="text-sm text-slate-500 mt-1 mb-4">No tags match the current client filter.</p>
           <button onClick={() => setCreating(true)} className="inline-flex items-center gap-2 bg-indigo-600 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition-colors">
             + New Tag
           </button>
@@ -243,9 +303,12 @@ export default function TagList() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {tags.map(t => (
+                {filteredTags.map(t => (
                   <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-slate-600">{t.campaign?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">
+                      <div>{t.campaign?.name ?? '—'}</div>
+                      <div className="text-xs text-slate-400">{t.workspaceName ?? '—'}</div>
+                    </td>
                     <td className="px-4 py-3">{formatBadge(t.format)}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{t.sizeLabel || '—'}</td>
                     <td className="px-4 py-3">{statusBadge(t.status)}</td>
@@ -298,6 +361,19 @@ export default function TagList() {
               <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{createError}</div>
             )}
             <div className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Client</label>
+                <select
+                  value={createForm.workspaceId}
+                  onChange={event => setCreateForm(current => ({ ...current, workspaceId: event.target.value }))}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="">Select a client</option>
+                  {clients.map(client => (
+                    <option key={client.id} value={client.id}>{client.name}</option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Tag Name</label>
                 <input

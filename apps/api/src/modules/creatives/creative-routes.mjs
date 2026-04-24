@@ -2,6 +2,7 @@ import {
   createTagBinding,
   listTagBindings,
   listCreatives,
+  listCreativesForUser,
   listCreativeVersions,
   listCreativeSizeVariants,
   listCreativeSizeVariantBindingSummaries,
@@ -71,6 +72,23 @@ function toApiCreativeVersion(version) {
   };
 }
 
+function toApiCreative(creative) {
+  if (!creative) return null;
+  return {
+    id: creative.id,
+    workspaceId: creative.workspace_id ?? null,
+    workspaceName: creative.workspace_name ?? null,
+    name: creative.name,
+    format: creative.type,
+    approvalStatus: creative.approval_status,
+    thumbnailUrl: creative.thumbnail_url ?? undefined,
+    previewUrl: creative.file_url ?? undefined,
+    createdAt: creative.created_at ? new Date(creative.created_at).toISOString() : null,
+    updatedAt: creative.updated_at ? new Date(creative.updated_at).toISOString() : null,
+    latestVersion: creative.latest_version ? toApiCreativeVersion(creative.latest_version) : undefined,
+  };
+}
+
 function toApiCreativeArtifact(artifact) {
   if (!artifact) return null;
   return {
@@ -136,16 +154,45 @@ async function listCreativeSizeVariantsWithSummaries(pool, workspaceId, creative
 export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
   // GET /v1/creatives
   app.get('/v1/creatives', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
-    const { status, tagId, format, limit, offset, search } = req.query;
+    const { workspaceId, userId } = req.authSession;
+    const { status, tagId, format, limit, offset, search, scope, workspaceId: filterWorkspaceId } = req.query;
 
-    const creatives = await listCreatives(pool, workspaceId, {
-      approval_status: status,
-      type: format,
-      limit,
-      offset,
-      search,
-    });
+    const creatives = String(scope ?? '').toLowerCase() === 'all'
+      ? await listCreativesForUser(pool, userId, {
+        approval_status: status,
+        type: format,
+        workspaceId: filterWorkspaceId,
+        limit,
+        offset,
+        search,
+      })
+      : await listCreatives(pool, workspaceId, {
+        approval_status: status,
+        type: format,
+        limit,
+        offset,
+        search,
+      });
+
+    const includeLatestVersion = String(req.query?.includeLatestVersion ?? '') === '1';
+    let latestVersionByCreativeId = new Map();
+    if (includeLatestVersion && creatives.length > 0) {
+      const creativeIds = creatives.map(creative => creative.id);
+      const { rows: latestRows } = await pool.query(
+        `SELECT DISTINCT ON (creative_id)
+            id, workspace_id, creative_id, version_number, source_kind, serving_format,
+            status, public_url, entry_path, mime_type, width, height, duration_ms,
+            file_size, metadata, created_by, reviewed_by, reviewed_at, review_notes,
+            created_at, updated_at
+         FROM creative_versions
+         WHERE creative_id = ANY($1::uuid[])
+         ORDER BY creative_id, version_number DESC, created_at DESC`,
+        [creativeIds],
+      );
+      latestVersionByCreativeId = new Map(
+        latestRows.map(row => [row.creative_id, row]),
+      );
+    }
 
     // If tagId filter requested, additionally filter by tag assignment
     if (tagId) {
@@ -154,10 +201,22 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
         [tagId],
       );
       const idSet = new Set(tagCreativeIds.map(r => r.creative_id));
-      return reply.send({ creatives: creatives.filter(c => idSet.has(c.id)) });
+      return reply.send({
+        creatives: creatives
+          .filter(c => idSet.has(c.id))
+          .map(creative => toApiCreative({
+            ...creative,
+            latest_version: latestVersionByCreativeId.get(creative.id) ?? null,
+          })),
+      });
     }
 
-    return reply.send({ creatives });
+    return reply.send({
+      creatives: creatives.map(creative => toApiCreative({
+        ...creative,
+        latest_version: latestVersionByCreativeId.get(creative.id) ?? null,
+      })),
+    });
   });
 
   // POST /v1/creatives

@@ -1,9 +1,11 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
 
 const DSP_OPTIONS = ['Basis', 'Illumin', 'Criteo'] as const;
 
 interface CampaignForm {
+  workspaceId: string;
   name: string;
   dsp: string;
   status: string;
@@ -16,6 +18,7 @@ interface CampaignForm {
 const STATUSES = ['draft', 'active', 'paused', 'archived'];
 
 const emptyForm: CampaignForm = {
+  workspaceId: '',
   name: '',
   dsp: '',
   status: 'draft',
@@ -35,21 +38,35 @@ export default function CampaignEditor() {
   const [generalError, setGeneralError] = useState('');
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
 
   useEffect(() => {
+    if (!isEdit) {
+      setLoading(true);
+      loadWorkspaces()
+        .then((workspaceList) => {
+          setWorkspaces(workspaceList);
+        })
+        .catch(() => setGeneralError('Failed to load clients.'))
+        .finally(() => setLoading(false));
+      return;
+    }
+
     if (!isEdit) return;
     setLoading(true);
     fetch(`/v1/campaigns/${id}`, { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
       .then(data => {
+        const campaign = data?.campaign ?? data;
         setForm({
-          name: data.name ?? '',
-          dsp: data.metadata?.dsp ?? '',
-          status: data.status ?? 'draft',
-          startDate: data.startDate ? data.startDate.slice(0, 10) : '',
-          endDate: data.endDate ? data.endDate.slice(0, 10) : '',
-          impressionGoal: data.impressionGoal != null ? String(data.impressionGoal) : '',
-          dailyBudget: data.dailyBudget != null ? String(data.dailyBudget) : '',
+          workspaceId: campaign.workspaceId ?? campaign.workspace_id ?? '',
+          name: campaign.name ?? '',
+          dsp: campaign.metadata?.dsp ?? '',
+          status: campaign.status ?? 'draft',
+          startDate: campaign.startDate ? campaign.startDate.slice(0, 10) : (campaign.start_date ? campaign.start_date.slice(0, 10) : ''),
+          endDate: campaign.endDate ? campaign.endDate.slice(0, 10) : (campaign.end_date ? campaign.end_date.slice(0, 10) : ''),
+          impressionGoal: campaign.impressionGoal != null ? String(campaign.impressionGoal) : (campaign.impression_goal != null ? String(campaign.impression_goal) : ''),
+          dailyBudget: campaign.dailyBudget != null ? String(campaign.dailyBudget) : (campaign.daily_budget != null ? String(campaign.daily_budget) : ''),
         });
       })
       .catch(() => setGeneralError('Failed to load campaign.'))
@@ -65,6 +82,7 @@ export default function CampaignEditor() {
 
   const validate = (): Partial<CampaignForm> => {
     const errs: Partial<CampaignForm> = {};
+    if (!isEdit && !form.workspaceId) errs.workspaceId = 'Client is required.';
     if (!form.name.trim()) errs.name = 'Name is required.';
     if (form.impressionGoal && isNaN(Number(form.impressionGoal))) errs.impressionGoal = 'Must be a number.';
     if (form.dailyBudget && isNaN(Number(form.dailyBudget))) errs.dailyBudget = 'Must be a number.';
@@ -82,6 +100,7 @@ export default function CampaignEditor() {
 
     setSaving(true);
     const body = {
+      workspaceId: isEdit ? undefined : form.workspaceId || null,
       name: form.name.trim(),
       status: form.status,
       startDate: form.startDate || null,
@@ -143,6 +162,21 @@ export default function CampaignEditor() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+          {!isEdit && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Client <span className="text-red-500">*</span>
+              </label>
+              <select value={form.workspaceId} onChange={set('workspaceId')} className={inputClass(errors.workspaceId)}>
+                <option value="">Select a client</option>
+                {workspaces.map(workspace => (
+                  <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
+                ))}
+              </select>
+              {errors.workspaceId && <p className="mt-1 text-xs text-red-600">{errors.workspaceId}</p>}
+            </div>
+          )}
+
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -162,7 +196,7 @@ export default function CampaignEditor() {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">DSP</label>
             <select value={form.dsp} onChange={set('dsp')} className={inputClass()}>
-              <option value="">— Select DSP —</option>
+              <option value="">SMX Standard</option>
               {DSP_OPTIONS.map(option => (
                 <option key={option} value={option}>{option}</option>
               ))}

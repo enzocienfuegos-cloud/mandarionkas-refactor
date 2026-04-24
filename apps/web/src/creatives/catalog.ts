@@ -4,12 +4,15 @@ export type SourceKind = 'legacy' | 'studio_export' | 'html5_zip' | 'video_mp4' 
 
 export interface Creative {
   id: string;
+  workspaceId?: string | null;
+  workspaceName?: string | null;
   name: string;
   format: CreativeFormat;
   approvalStatus: ApprovalStatus;
   thumbnailUrl?: string;
   previewUrl?: string;
   createdAt: string;
+  latestVersion?: CreativeVersion;
 }
 
 export interface CreativeVersion {
@@ -135,8 +138,21 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function loadCreatives(): Promise<Creative[]> {
-  const payload = await fetchJson<{ creatives: Creative[] }>('/v1/creatives');
+function buildQuery(params: Record<string, string | null | undefined>) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && value !== '') query.set(key, value);
+  });
+  const text = query.toString();
+  return text ? `?${text}` : '';
+}
+
+export async function loadCreatives(input: { scope?: 'all'; workspaceId?: string } = {}): Promise<Creative[]> {
+  const payload = await fetchJson<{ creatives: Creative[] }>(`/v1/creatives${buildQuery({
+    scope: input.scope,
+    workspaceId: input.workspaceId,
+    includeLatestVersion: '1',
+  })}`);
   return payload.creatives ?? [];
 }
 
@@ -163,17 +179,13 @@ export async function loadCreativeSizeVariants(versionId: string): Promise<Creat
   return payload.variants ?? [];
 }
 
-export async function loadCreativesWithLatestVersion() {
-  const creatives = await loadCreatives();
-  const versionPairs = await Promise.all(
-    creatives.map(async creative => {
-      const versions = await loadCreativeVersions(creative.id);
-      return [creative.id, versions[0] ?? null] as const;
-    }),
-  );
+export async function loadCreativesWithLatestVersion(input: { scope?: 'all'; workspaceId?: string } = {}) {
+  const creatives = await loadCreatives(input);
   return {
     creatives,
-    latestVersions: Object.fromEntries(versionPairs),
+    latestVersions: Object.fromEntries(
+      creatives.map(creative => [creative.id, creative.latestVersion ?? null]),
+    ),
   };
 }
 
@@ -182,12 +194,16 @@ export async function loadCreativeIngestions(): Promise<CreativeIngestion[]> {
   return payload.ingestions ?? [];
 }
 
-export async function loadTags(): Promise<TagOption[]> {
-  const payload = await fetchJson<{ tags: TagOption[] }>('/v1/tags');
+export async function loadTags(input: { scope?: 'all'; workspaceId?: string } = {}): Promise<TagOption[]> {
+  const payload = await fetchJson<{ tags: TagOption[] }>(`/v1/tags${buildQuery({
+    scope: input.scope,
+    workspaceId: input.workspaceId,
+  })}`);
   return payload.tags ?? [];
 }
 
 export async function createTag(input: {
+  workspaceId?: string;
   name: string;
   format: 'VAST' | 'display' | 'native';
   status?: 'active' | 'paused' | 'archived' | 'draft';
@@ -196,6 +212,7 @@ export async function createTag(input: {
   const payload = await fetchJson<{ tag?: TagOption }>('/v1/tags', {
     method: 'POST',
     body: JSON.stringify({
+      workspaceId: input.workspaceId ?? null,
       name: input.name,
       format: input.format,
       status: input.status ?? 'draft',
@@ -236,6 +253,7 @@ export async function rejectCreativeVersion(versionId: string, reason: string) {
 }
 
 export async function createCreativeIngestionUpload(input: {
+  workspaceId?: string;
   sourceKind: 'html5_zip' | 'video_mp4';
   file: File;
   name?: string;
@@ -246,6 +264,7 @@ export async function createCreativeIngestionUpload(input: {
   }>('/v1/creative-ingestions/upload-url', {
     method: 'POST',
     body: JSON.stringify({
+      workspaceId: input.workspaceId ?? null,
       sourceKind: input.sourceKind,
       filename: input.file.name,
       mimeType: input.file.type || undefined,
@@ -267,6 +286,7 @@ export async function uploadFileToSignedUrl(uploadUrl: string, file: File) {
 }
 
 export async function completeCreativeIngestion(ingestionId: string, input: {
+  workspaceId?: string;
   file: File;
   publicUrl?: string;
   storageKey?: string;
@@ -275,6 +295,7 @@ export async function completeCreativeIngestion(ingestionId: string, input: {
   return fetchJson<{ ingestion: CreativeIngestion }>(`/v1/creative-ingestions/${ingestionId}/complete`, {
     method: 'POST',
     body: JSON.stringify({
+      workspaceId: input.workspaceId ?? null,
       filename: input.file.name,
       mimeType: input.file.type || undefined,
       sizeBytes: input.file.size,
@@ -286,6 +307,7 @@ export async function completeCreativeIngestion(ingestionId: string, input: {
 }
 
 export async function publishCreativeIngestion(ingestionId: string, input: {
+  workspaceId?: string;
   name?: string;
 }) {
   return fetchJson<{
@@ -294,7 +316,10 @@ export async function publishCreativeIngestion(ingestionId: string, input: {
     creativeVersion: CreativeVersion;
   }>(`/v1/creative-ingestions/${ingestionId}/publish`, {
     method: 'POST',
-    body: JSON.stringify({ name: input.name }),
+    body: JSON.stringify({
+      workspaceId: input.workspaceId ?? null,
+      name: input.name,
+    }),
   });
 }
 

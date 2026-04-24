@@ -6,7 +6,7 @@ import {
   publishCreativeIngestion,
   uploadFileToSignedUrl,
 } from './catalog';
-import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
+import { loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
 
 type SourceKind = 'html5_zip' | 'video_mp4';
 
@@ -25,33 +25,14 @@ export default function CreativeUpload() {
   const [loading, setLoading] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
-  const [workspaceBusy, setWorkspaceBusy] = useState(false);
 
   useEffect(() => {
-    Promise.all([loadAuthMe(), loadWorkspaces()])
-      .then(([authMe, workspaceList]) => {
+    loadWorkspaces()
+      .then((workspaceList) => {
         setWorkspaces(workspaceList);
-        setWorkspaceId(authMe.workspace?.id ?? workspaceList[0]?.id ?? '');
       })
       .catch(() => {});
   }, []);
-
-  const handleWorkspaceChange = async (nextWorkspaceId: string) => {
-    if (!nextWorkspaceId || nextWorkspaceId === workspaceId) {
-      setWorkspaceId(nextWorkspaceId);
-      return;
-    }
-    setWorkspaceBusy(true);
-    setError('');
-    try {
-      await switchWorkspace(nextWorkspaceId);
-      setWorkspaceId(nextWorkspaceId);
-    } catch (workspaceError: any) {
-      setError(workspaceError.message ?? 'Failed to switch client');
-    } finally {
-      setWorkspaceBusy(false);
-    }
-  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -69,13 +50,18 @@ export default function CreativeUpload() {
     setStatus('Preparing upload…');
 
     try {
-      await handleWorkspaceChange(workspaceId);
-      const upload = await createCreativeIngestionUpload({ sourceKind, file, name: name.trim() || undefined });
+      const upload = await createCreativeIngestionUpload({
+        workspaceId,
+        sourceKind,
+        file,
+        name: name.trim() || undefined,
+      });
       setStatus('Uploading file…');
       await uploadFileToSignedUrl(upload.upload.uploadUrl, file);
 
       setStatus('Validating ingestion…');
       await completeCreativeIngestion(upload.ingestion.id, {
+        workspaceId,
         file,
         publicUrl: upload.upload.publicUrl,
         storageKey: upload.upload.storageKey,
@@ -84,6 +70,7 @@ export default function CreativeUpload() {
 
       setStatus('Publishing to creative catalog…');
       await publishCreativeIngestion(upload.ingestion.id, {
+        workspaceId,
         name: name.trim() || undefined,
       });
 
@@ -113,8 +100,8 @@ export default function CreativeUpload() {
             <div className="mb-4 flex items-center gap-2">
               <select
                 value={workspaceId}
-                onChange={event => void handleWorkspaceChange(event.target.value)}
-                disabled={loading || workspaceBusy}
+                onChange={event => setWorkspaceId(event.target.value)}
+                disabled={loading}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="">Select a client</option>
@@ -127,7 +114,7 @@ export default function CreativeUpload() {
               <button
                 type="button"
                 onClick={() => navigate('/clients')}
-                disabled={loading || workspaceBusy}
+                disabled={loading}
                 className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
               >
                 New client
