@@ -201,10 +201,10 @@ async function collectTrackingContext(req, query = {}) {
   const ip = extractIp(req) ?? null;
   const userAgent = req.headers['user-agent'] ?? null;
   const referer = req.headers['referer'] ?? req.headers['referrer'] ?? null;
-  const pageContext = parseSiteContext(query.pu);
+  const pageContext = parseSiteContext(readTrackingValue(query.pu, query.purl));
   const refererContext = parseSiteContext(referer);
   const macroDomain = readDspMacroValue(query, 'siteDomain', query.smx_dsp)
-    ?? readTrackingValue(query.sd, query.domain, query.inventoryUnitReportingName);
+    ?? readTrackingValue(query.dom, query.sd, query.domain, query.inventoryUnitReportingName);
   const requestHost = resolveRequestHost(req);
   const selectedContext =
     (pageContext?.siteDomain && pageContext.siteDomain !== requestHost ? pageContext : null)

@@ -77,7 +77,7 @@ const RUNTIME_TRACKING_HINT_HELPER = `function ensureSmxTrackingHints(url, sourc
     var dspClickValue = '';
     if (sourceParams && typeof sourceParams.get === 'function') {
       dspValue = sourceParams.get('smx_dsp') || '';
-      dspClickValue = sourceParams.get('smx_dsp_click') || sourceParams.get('dsp_click') || '';
+      dspClickValue = sourceParams.get('smx_dsp_click') || sourceParams.get('cuu') || sourceParams.get('dsp_click') || '';
     }
     if (dspValue && !nextUrl.searchParams.get('smx_dsp')) nextUrl.searchParams.set('smx_dsp', dspValue);
     if (deliveryKind && !nextUrl.searchParams.get('smx_delivery_kind')) nextUrl.searchParams.set('smx_delivery_kind', deliveryKind);
@@ -620,7 +620,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
         function resolveClickHref(url, macroOverride) {
           var hintedUrl = ensureSmxTrackingHints(url, search, 'display_wrapper');
           var trackedUrl = appendIdentity(hintedUrl);
-          var macroValue = macroOverride || search.get('smx_dsp_click') || '';
+          var macroValue = macroOverride || search.get('smx_dsp_click') || search.get('cuu') || '';
           return applyDspClickMacro(trackedUrl, macroValue);
         }
         Array.prototype.forEach.call(document.querySelectorAll('a[href]'), function(anchor) {
@@ -628,7 +628,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
           var macroOverride = anchor.getAttribute('data-smx-dsp-click') || '';
           anchor.href = resolveClickHref(baseClick, macroOverride);
           anchor.addEventListener('click', function() {
-            if (!hasUnresolvedDspMacro(macroOverride || search.get('smx_dsp_click') || '')) return;
+            if (!hasUnresolvedDspMacro(macroOverride || search.get('smx_dsp_click') || search.get('cuu') || '')) return;
             var fallbackHref = appendIdentity(ensureSmxTrackingHints(baseClick, search, 'display_wrapper'));
             window.setTimeout(function() {
               try {

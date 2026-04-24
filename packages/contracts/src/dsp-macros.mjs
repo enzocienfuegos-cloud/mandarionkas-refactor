@@ -2,28 +2,39 @@ export const DSP_MACRO_CONFIGS = {
   basis: {
     label: 'Basis',
     queryParams: {
-      pu: '{pageUrlEnc}',
-      sd: '{domain}',
-      auction_id: '{auctionId}',
-      dsp_ad_id: '{adId}',
-      dsp_campaign_id: '{campaignId}',
-      traffic_type: '{trafficType}',
-      dimensions: '{dimensions}',
-      click_invalid: '{clickInvalid}',
+      dsp: 'Basis',
+      dom: '{domain}',
+      purl: '{pageUrlEnc}',
+      cuu: '{clickMacroEnc}',
+      cmpid: '{campaignId}',
+      trftype: '{trafficType}',
       gdpr: '{gdprApplicable}',
-      gdpr_consent: '{gdprUserConsentString}',
+      gdpr_consent: '${GDPR_CONSENT_699}',
+      cs_gdpr: '${GDPR}',
+      cs_gdpr_consent: '${GDPR_CONSENT_699}',
       us_privacy: '{us_privacy}',
-      gpp_sid: '${GPP_SID}',
-      gpp_string: '${GPP_STRING}',
       ifa: '{ifa}',
-      basis_uid: '{internalUserId}',
-      dsp_click: '{clickMacro}',
+      idfa: '{idfa}',
+      gadvid: '{googleAdvertisingId}',
+      iuid: '{internalUserId}',
+      appid: '{appId}',
+      ppos: '{pagePosition}',
+      netid: '{networkId}',
+      srcpubid: '{sourcePublisherId}',
+      cntlang: '{contentLanguage}',
+      cnttitle: '{contentTitle}',
+      cntseries: '{contentSeries}',
+      carr: '{carrier}',
+      ctxid: '{contextualIds}',
+      appstnm: '{appStoreName}',
+      cngen: '{contentGenre}',
     },
     aliases: {
-      clickMacro: ['smx_dsp_click', 'dsp_click', 'clickMacro', 'clickMacroEnc', 'click_macro_enc'],
-      siteDomain: ['sd', 'domain', 'inventoryUnitReportingName'],
-      deviceId: ['ifa', 'googleAdvertisingId', 'idfa'],
-      cookieId: ['basis_uid', 'internalUserId'],
+      clickMacro: ['smx_dsp_click', 'cuu', 'dsp_click', 'clickMacro', 'clickMacroEnc', 'click_macro_enc'],
+      siteDomain: ['dom', 'sd', 'domain', 'inventoryUnitReportingName'],
+      pageUrl: ['purl', 'pu', 'pageUrlEnc'],
+      deviceId: ['ifa', 'gadvid', 'googleAdvertisingId', 'idfa'],
+      cookieId: ['iuid', 'basis_uid', 'internalUserId'],
     },
   },
 };
@@ -115,14 +126,14 @@ export function getDspDeliveryPolicy(dsp, deliveryKind) {
         ...basePolicy,
         includeClickMacro: true,
         measurementPath: 'basis_macro_or_smx_fallback',
-        clickMacroValue: '{clickMacro}',
+        clickMacroValue: '{clickMacroEnc}',
       };
     case DSP_DELIVERY_KINDS.HTML5_INTERNAL:
       return {
         ...basePolicy,
         includeClickMacro: true,
         measurementPath: 'basis_macro_or_smx_fallback',
-        clickMacroValue: '{clickMacro}',
+        clickMacroValue: '{clickMacroEnc}',
       };
     case DSP_DELIVERY_KINDS.VAST:
       return {
@@ -135,7 +146,7 @@ export function getDspDeliveryPolicy(dsp, deliveryKind) {
         ...basePolicy,
         includeClickMacro: true,
         measurementPath: 'basis_macro_or_smx_fallback',
-        clickMacroValue: '{clickMacro}',
+        clickMacroValue: '{clickMacroEnc}',
       };
     case DSP_DELIVERY_KINDS.TRACKER_IMPRESSION:
       return {
