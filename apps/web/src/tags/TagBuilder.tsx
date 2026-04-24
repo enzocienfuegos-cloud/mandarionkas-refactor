@@ -68,6 +68,13 @@ interface DeliveryDiagnosticsPayload {
   dsp?: {
     selected?: string | null;
   } | null;
+  deliverySummary?: {
+    basisNativeActive?: boolean;
+    deliveryMode?: string | null;
+    clickChain?: string | null;
+    previewStatus?: string | null;
+    previewNotes?: string | null;
+  } | null;
   deliveryDiagnostics?: {
     displayWrapper?: DeliveryDiagnosticEntry;
     vast?: DeliveryDiagnosticEntry;
@@ -304,11 +311,11 @@ export default function TagBuilder() {
     { label: 'Tracker Click', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerClick },
     { label: 'Tracker Impression', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerImpression },
   ];
-  const basisNativeEnabled = isBasisNativeEnabled(savedTag, selectedCampaignDsp);
+  const basisNativeEnabled = deliveryDiagnostics?.deliverySummary?.basisNativeActive ?? isBasisNativeEnabled(savedTag, selectedCampaignDsp);
   const basisDiagnosticPath = deliveryDiagnostics?.deliveryDiagnostics?.displayWrapper?.policy?.measurementPath
     ?? deliveryDiagnostics?.deliveryDiagnostics?.trackerClick?.policy?.measurementPath
     ?? '';
-  const basisFallbackActive = basisDiagnosticPath.toLowerCase().includes('fallback');
+  const basisFallbackActive = (deliveryDiagnostics?.deliverySummary?.previewStatus ?? basisDiagnosticPath).toLowerCase().includes('fallback');
 
   useEffect(() => {
     fetch('/v1/campaigns', { credentials: 'include' })
@@ -772,7 +779,7 @@ export default function TagBuilder() {
               )}
               {basisNativeEnabled && (
                 <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
-                  Click Chain: Basis → SMX → Landing
+                  Click Chain: {deliveryDiagnostics?.deliverySummary?.clickChain ?? 'Basis → SMX → Landing'}
                 </span>
               )}
               {selectedCampaignMacroConfig && !basisNativeEnabled && (
@@ -828,13 +835,21 @@ export default function TagBuilder() {
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Delivery Mode</div>
               <div className="mt-1 text-sm font-semibold text-slate-800">
-                {basisNativeEnabled ? 'Basis Native' : 'SMX Standard'}
+                {deliveryDiagnostics?.deliverySummary?.deliveryMode === 'basis_native'
+                  ? 'Basis Native'
+                  : deliveryDiagnostics?.deliverySummary?.deliveryMode === 'smx_standard'
+                    ? 'SMX Standard'
+                    : basisNativeEnabled ? 'Basis Native' : 'SMX Standard'}
               </div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Preview Status</div>
               <div className="mt-1 text-sm font-semibold text-slate-800">
-                {basisFallbackActive ? 'Fallback Possible' : basisNativeEnabled ? 'Basis First-Hop Ready' : 'Standard Delivery'}
+                {deliveryDiagnostics?.deliverySummary?.previewStatus === 'basis_preview_may_fallback'
+                  ? 'Fallback Possible'
+                  : basisFallbackActive
+                    ? 'Fallback Possible'
+                    : basisNativeEnabled ? 'Basis First-Hop Ready' : 'Standard Delivery'}
               </div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
@@ -846,6 +861,12 @@ export default function TagBuilder() {
               </div>
             </div>
           </div>
+
+          {deliveryDiagnostics?.deliverySummary?.previewNotes && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+              {deliveryDiagnostics.deliverySummary.previewNotes}
+            </div>
+          )}
 
           <div className="space-y-4">
             {deliveryDiagnosticSections.map(section => (

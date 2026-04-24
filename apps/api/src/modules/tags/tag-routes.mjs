@@ -31,6 +31,25 @@ function escapeCsv(value) {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
+function isBasisNativeEligible(tagFormat, campaignDsp) {
+  const normalizedDsp = readCampaignDsp({ dsp: campaignDsp });
+  if (normalizedDsp !== 'basis') return false;
+  return ['display', 'tracker', 'vast', 'VAST'].includes(String(tagFormat ?? ''));
+}
+
+function buildDeliverySummary(tag, campaignDsp) {
+  const basisNativeActive = isBasisNativeEligible(tag.format, campaignDsp);
+  return {
+    basisNativeActive,
+    deliveryMode: basisNativeActive ? 'basis_native' : 'smx_standard',
+    clickChain: basisNativeActive ? 'Basis -> SMX -> Landing' : 'SMX -> Landing',
+    previewStatus: basisNativeActive ? 'basis_preview_may_fallback' : 'standard_delivery',
+    previewNotes: basisNativeActive
+      ? 'Basis preview may keep unresolved macros and fall back even when live serving counts Basis first-hop clicks correctly.'
+      : 'Standard SMX delivery does not require DSP-native click wrapping.',
+  };
+}
+
 function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
   const width = Number(tag.serving_width ?? 0) || 300;
   const height = Number(tag.serving_height ?? 0) || 250;
@@ -309,6 +328,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
 
     const baseUrl = getRequestBaseUrl(req);
     const campaignDsp = readCampaignDsp(tag.campaign_metadata);
+    const deliverySummary = buildDeliverySummary(tag, campaignDsp);
 
     return reply.send({
       tag: {
@@ -324,6 +344,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       dsp: {
         selected: campaignDsp || null,
       },
+      deliverySummary,
       deliveryDiagnostics: {
         displayWrapper: {
           policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER),
