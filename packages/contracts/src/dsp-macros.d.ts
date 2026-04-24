@@ -19,7 +19,7 @@ export declare function listSupportedDsps(): Array<{ value: string; label: strin
 export declare function applyDspMacrosToUrl(
   rawUrl: string,
   dsp: unknown,
-  opts?: { includeClickMacro?: boolean; includeDspHint?: boolean },
+  opts?: { includeClickMacro?: boolean; includeDspHint?: boolean; clickMacroValue?: string },
 ): string;
 export declare function readDspMacroValue(
   query: Record<string, unknown>,
@@ -36,12 +36,13 @@ export declare function getDspDeliveryPolicy(
   includeDspHint: boolean;
   includeClickMacro: boolean;
   measurementPath: string;
+  clickMacroValue: string;
 };
 export declare function applyDspMacrosToDeliveryUrl(
   rawUrl: string,
   dsp: unknown,
   deliveryKind: unknown,
-  opts?: { includeClickMacro?: boolean; includeDspHint?: boolean },
+  opts?: { includeClickMacro?: boolean; includeDspHint?: boolean; clickMacroValue?: string },
 ): string;
 export declare function wrapTrackedClickUrlWithDspMacro(
   clickTrackUrl: string,

@@ -224,8 +224,14 @@ async function collectTrackingContext(req, query = {}) {
   const cookieCookieId = req.cookies?.smx_cookie_id ?? req.cookies?.cookie_id ?? null;
   const identityKeys = buildIdentityKeys({ query, headers: req.headers, cookies: req.cookies ?? {} });
   const dspHint = String(query.smx_dsp ?? '').trim().toLowerCase();
+  const deliveryKind = String(query.smx_delivery_kind ?? '').trim().toLowerCase() || null;
   const rawClickMacro = readDspMacroValue(query, 'clickMacro', dspHint);
   const resolvedClickMacro = resolveDspClickMacroValue(rawClickMacro);
+  const measurementPath = resolvedClickMacro
+    ? 'basis_macro'
+    : dspHint
+      ? `${dspHint}_fallback`
+      : 'smx_fallback';
   return {
     ip,
     user_agent: userAgent,
@@ -241,9 +247,10 @@ async function collectTrackingContext(req, query = {}) {
     device_id: String(query.did ?? req.headers['x-device-id'] ?? cookieDeviceId ?? '').trim() || null,
     cookie_id: String(query.cid ?? req.headers['x-cookie-id'] ?? cookieCookieId ?? '').trim() || null,
     identity_keys: identityKeys,
-    measurement_path: resolvedClickMacro ? 'basis_macro' : 'smx_fallback',
+    measurement_path: measurementPath,
     macro_source: rawClickMacro ? (resolvedClickMacro ? 'resolved' : 'unresolved') : 'absent',
     dsp_provider: dspHint || null,
+    delivery_kind: deliveryKind,
   };
 }
 

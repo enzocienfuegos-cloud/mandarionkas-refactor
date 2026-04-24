@@ -17,10 +17,10 @@ export const DSP_MACRO_CONFIGS = {
       gpp_string: '${GPP_STRING}',
       ifa: '{ifa}',
       basis_uid: '{internalUserId}',
-      dsp_click: '{clickMacroEnc}',
+      dsp_click: '{clickMacro}',
     },
     aliases: {
-      clickMacro: ['smx_dsp_click', 'dsp_click', 'clickMacroEnc', 'click_macro_enc'],
+      clickMacro: ['smx_dsp_click', 'dsp_click', 'clickMacro', 'clickMacroEnc', 'click_macro_enc'],
       siteDomain: ['sd', 'domain', 'inventoryUnitReportingName'],
       deviceId: ['ifa', 'googleAdvertisingId', 'idfa'],
       cookieId: ['basis_uid', 'internalUserId'],
@@ -67,7 +67,7 @@ export function listSupportedDsps() {
 export function applyDspMacrosToUrl(rawUrl, dsp, opts = {}) {
   const config = getDspMacroConfig(dsp);
   if (!config || !rawUrl) return rawUrl;
-  const { includeClickMacro = false, includeDspHint = true } = opts;
+  const { includeClickMacro = false, includeDspHint = true, clickMacroValue = '' } = opts;
 
   try {
     const url = new URL(String(rawUrl));
@@ -81,7 +81,9 @@ export function applyDspMacrosToUrl(rawUrl, dsp, opts = {}) {
     if (includeClickMacro) {
       const clickMacroKey = config.aliases?.clickMacro?.find((key) => key in config.queryParams);
       if (clickMacroKey) {
-        url.searchParams.set('smx_dsp_click', config.queryParams[clickMacroKey]);
+        const macroValue = String(clickMacroValue || config.queryParams[clickMacroKey] || '').trim();
+        url.searchParams.set(clickMacroKey, macroValue);
+        url.searchParams.set('smx_dsp_click', macroValue);
       }
     }
     return url.toString();
@@ -98,6 +100,7 @@ export function getDspDeliveryPolicy(dsp, deliveryKind) {
     includeDspHint: true,
     includeClickMacro: false,
     measurementPath: 'smx_fallback',
+    clickMacroValue: '',
   };
 
   if (normalizedDsp !== 'basis') return basePolicy;
@@ -108,12 +111,14 @@ export function getDspDeliveryPolicy(dsp, deliveryKind) {
         ...basePolicy,
         includeClickMacro: true,
         measurementPath: 'basis_macro_or_smx_fallback',
+        clickMacroValue: '{clickMacro}',
       };
     case DSP_DELIVERY_KINDS.HTML5_INTERNAL:
       return {
         ...basePolicy,
         includeClickMacro: true,
         measurementPath: 'basis_macro_or_smx_fallback',
+        clickMacroValue: '{clickMacro}',
       };
     case DSP_DELIVERY_KINDS.VAST:
       return {
@@ -124,8 +129,9 @@ export function getDspDeliveryPolicy(dsp, deliveryKind) {
     case DSP_DELIVERY_KINDS.TRACKER_CLICK:
       return {
         ...basePolicy,
-        includeClickMacro: false,
+        includeClickMacro: true,
         measurementPath: 'basis_macro_or_smx_fallback',
+        clickMacroValue: '{clickMacro}',
       };
     case DSP_DELIVERY_KINDS.TRACKER_IMPRESSION:
       return {
@@ -143,6 +149,7 @@ export function applyDspMacrosToDeliveryUrl(rawUrl, dsp, deliveryKind, opts = {}
   return applyDspMacrosToUrl(rawUrl, dsp, {
     includeDspHint: policy.includeDspHint,
     includeClickMacro: policy.includeClickMacro,
+    clickMacroValue: policy.clickMacroValue,
     ...opts,
   });
 }

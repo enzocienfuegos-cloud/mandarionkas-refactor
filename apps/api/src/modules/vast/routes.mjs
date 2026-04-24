@@ -76,6 +76,8 @@ function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const width = servingCandidate?.width ?? 1920;
   const height = servingCandidate?.height ?? 1080;
   const trackingParams = new URLSearchParams({ ws: String(workspaceId) });
+  if (query?.smx_dsp) trackingParams.set('smx_dsp', String(query.smx_dsp));
+  trackingParams.set('smx_delivery_kind', 'vast');
   if (creativeId) trackingParams.set('c', String(creativeId));
   if (creativeSizeVariantId) trackingParams.set('csv', String(creativeSizeVariantId));
   const impressionUrl = `${baseUrl}/track/impression/${tagId}?${trackingParams.toString()}`;
@@ -147,6 +149,8 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   const height = servingCandidate?.height ?? 250;
   const clickUrl = servingCandidate?.clickUrl ?? '#';
   const trackingParams = new URLSearchParams({ ws: String(workspaceId) });
+  if (query?.smx_dsp) trackingParams.set('smx_dsp', String(query.smx_dsp));
+  trackingParams.set('smx_delivery_kind', 'display_wrapper');
   if (servingCandidate?.creativeId) trackingParams.set('c', String(servingCandidate.creativeId));
   if (servingCandidate?.creativeSizeVariantId) trackingParams.set('csv', String(servingCandidate.creativeSizeVariantId));
   const impressionUrl = `${baseUrl}/track/impression/${tagId}?${trackingParams.toString()}`;
@@ -404,6 +408,8 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
   const height = servingCandidate?.height ?? 250;
   const clickUrl = servingCandidate?.clickUrl ?? '#';
   const trackingParams = new URLSearchParams({ ws: String(workspaceId) });
+  if (query?.smx_dsp) trackingParams.set('smx_dsp', String(query.smx_dsp));
+  trackingParams.set('smx_delivery_kind', 'display_wrapper');
   if (servingCandidate?.creativeId) trackingParams.set('c', String(servingCandidate.creativeId));
   if (servingCandidate?.creativeSizeVariantId) trackingParams.set('csv', String(servingCandidate.creativeSizeVariantId));
   const impressionUrl = `${baseUrl}/track/impression/${tagId}?${trackingParams.toString()}`;
