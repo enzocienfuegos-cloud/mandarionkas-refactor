@@ -63,6 +63,25 @@ const RUNTIME_DSP_CLICK_HELPER = `function applyDspClickMacro(url, macroValue) {
   return decodedMacroValue + encodeURIComponent(String(url));
 }`;
 
+const RUNTIME_TRACKING_HINT_HELPER = `function ensureSmxTrackingHints(url, sourceParams, deliveryKind) {
+  if (!url) return url;
+  try {
+    var nextUrl = new URL(String(url), window.location.href);
+    var dspValue = '';
+    var dspClickValue = '';
+    if (sourceParams && typeof sourceParams.get === 'function') {
+      dspValue = sourceParams.get('smx_dsp') || '';
+      dspClickValue = sourceParams.get('smx_dsp_click') || sourceParams.get('dsp_click') || '';
+    }
+    if (dspValue && !nextUrl.searchParams.get('smx_dsp')) nextUrl.searchParams.set('smx_dsp', dspValue);
+    if (deliveryKind && !nextUrl.searchParams.get('smx_delivery_kind')) nextUrl.searchParams.set('smx_delivery_kind', deliveryKind);
+    if (dspClickValue && !nextUrl.searchParams.get('smx_dsp_click')) nextUrl.searchParams.set('smx_dsp_click', dspClickValue);
+    return nextUrl.toString();
+  } catch (_error) {
+    return url;
+  }
+}`;
+
 function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
@@ -201,6 +220,12 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
     var scripts = document.getElementsByTagName('script');
     return scripts[scripts.length - 1];
   })();
+  var currentScriptSearch = (function() {
+    try {
+      if (currentScript && currentScript.src) return new URL(currentScript.src, window.location.href).searchParams;
+    } catch (_error) {}
+    return new URLSearchParams();
+  })();
   function generateId(prefix) {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
       return crypto.randomUUID();
@@ -270,9 +295,11 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   }
 
   ${RUNTIME_DSP_CLICK_HELPER}
+  ${RUNTIME_TRACKING_HINT_HELPER}
 
   function resolveClickHref(url) {
-    var trackedUrl = appendIdentity(url);
+    var hintedUrl = ensureSmxTrackingHints(url, currentScriptSearch, 'display_wrapper');
+    var trackedUrl = appendIdentity(hintedUrl);
     return applyDspClickMacro(trackedUrl, dspClickMacro);
   }
 
@@ -556,8 +583,10 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
           fire(appendIdentity(${JSON.stringify(viewabilityUrl)} + '&state=viewable&vp=1&fmt=display&method=intersection_observer&ms=1000' + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
         }
         ${RUNTIME_DSP_CLICK_HELPER}
+        ${RUNTIME_TRACKING_HINT_HELPER}
         function resolveClickHref(url, macroOverride) {
-          var trackedUrl = appendIdentity(url);
+          var hintedUrl = ensureSmxTrackingHints(url, search, 'display_wrapper');
+          var trackedUrl = appendIdentity(hintedUrl);
           var macroValue = macroOverride || search.get('smx_dsp_click') || '';
           return applyDspClickMacro(trackedUrl, macroValue);
         }
