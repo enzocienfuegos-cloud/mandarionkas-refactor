@@ -4,7 +4,7 @@ import {
   recordViewability,
   recordEngagementEvent,
 } from '@smx/db/tracking';
-import { getTagById, getTagServingSnapshotById } from '@smx/db/tags';
+import { getTagServingSnapshotById } from '@smx/db/tags';
 import { extractIp, resolveIp } from '@smx/geo';
 import { readDspMacroValue, resolveDspClickMacroValue } from '@smx/contracts/dsp-macros';
 
@@ -300,25 +300,26 @@ export function handleTrackingRoutes(app, { pool }) {
   app.get('/v1/tags/tracker/:tagId/impression.gif', async (req, reply) => {
     const { tagId } = req.params;
     const mergedQuery = buildMergedTrackingQuery(req.query);
-    const tag = await getTagById(pool, tagId);
-    if (!tag) {
+    const servingSnapshot = await getTagServingSnapshotById(pool, tagId);
+    if (!servingSnapshot) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
-    if (tag.format !== 'tracker' || tag.tracker_type !== 'impression') {
+    if (servingSnapshot.format === 'tracker' && servingSnapshot.tracker_type && servingSnapshot.tracker_type !== 'impression') {
       return reply.status(400).send({ error: 'Bad Request', message: 'Tag is not an impression tracker' });
     }
 
     const context = await collectTrackingContext(req, mergedQuery);
+    attachMeasurementDebugHeaders(reply, context);
     setTrackingIdentityCookies(reply, context);
     recordImpression(pool, {
       impression_id: normalizeUuid(mergedQuery?.imp) ?? null,
       tag_id: tagId,
-      workspace_id: tag.workspace_id,
-      creative_id: normalizeUuid(mergedQuery?.c) ?? null,
-      creative_size_variant_id: normalizeUuid(mergedQuery?.csv) ?? null,
+      workspace_id: servingSnapshot.workspace_id,
+      creative_id: normalizeUuid(mergedQuery?.c) ?? servingSnapshot.servingCandidate?.creativeId ?? null,
+      creative_size_variant_id: normalizeUuid(mergedQuery?.csv) ?? servingSnapshot.servingCandidate?.creativeSizeVariantId ?? null,
       ...context,
     }).catch((error) => {
-      req.log?.warn?.({ err: error, tagId, workspaceId: tag.workspace_id }, 'failed to record tracker impression');
+      req.log?.warn?.({ err: error, tagId, workspaceId: servingSnapshot.workspace_id }, 'failed to record tracker impression');
     });
 
     reply.header('Content-Type', 'image/gif');

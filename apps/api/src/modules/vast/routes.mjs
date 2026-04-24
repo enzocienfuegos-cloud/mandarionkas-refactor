@@ -48,9 +48,19 @@ function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedC
   try {
     const url = new URL(String(creativeUrl));
     if (shouldInjectTrackedClick && clickTrackUrl) {
+      let creativeClickBaseUrl = clickTrackUrl;
+      if (!injectLegacyBootstrap) {
+        try {
+          const clickUrl = new URL(String(clickTrackUrl));
+          if (clickUrl.searchParams.has('url')) {
+            clickUrl.searchParams.set('url', '');
+            creativeClickBaseUrl = clickUrl.toString();
+          }
+        } catch {}
+      }
       const creativeClickUrl = dspClickMacro
-        ? buildDspLiteralClickUrl(clickTrackUrl, dspClickMacro)
-        : clickTrackUrl;
+        ? buildDspLiteralClickUrl(creativeClickBaseUrl, dspClickMacro)
+        : creativeClickBaseUrl;
       if (injectLegacyBootstrap) {
         url.searchParams.set('smx_click', clickTrackUrl);
         if (dspClickMacro) {
