@@ -61,6 +61,7 @@ function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
   const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
+  const trackerViewabilityUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/track/viewability/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const basisNativeArgs = {
     variant,
     tagId: tag.id,
@@ -70,6 +71,7 @@ function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
     trackerClickUrl,
     trackerEngagementUrl,
     trackerImpressionUrl,
+    trackerViewabilityUrl,
     width,
     height,
   };

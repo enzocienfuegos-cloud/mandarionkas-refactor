@@ -827,6 +827,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tagId}/click`, dsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
       const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tagId}/engagement`, dsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
       const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tagId}/impression.gif`, dsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
+      const trackerViewabilityUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/track/viewability/${tagId}`, dsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
       const servingCandidate = loaded.tag.servingCandidate ?? null;
       const trackingParams = new URLSearchParams({ ws: String(loaded.workspaceId) });
       trackingParams.set('smx_dsp', String(dsp));
@@ -855,6 +856,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
         trackerClickUrl,
         trackerEngagementUrl,
         trackerImpressionUrl,
+        trackerViewabilityUrl,
         width,
         height,
       });

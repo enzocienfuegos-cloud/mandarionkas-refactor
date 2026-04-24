@@ -56,6 +56,7 @@ export declare function buildBasisNativeSnippet(input: {
   trackerClickUrl?: string;
   trackerEngagementUrl?: string;
   trackerImpressionUrl?: string;
+  trackerViewabilityUrl?: string;
   width?: number;
   height?: number;
 }): string;

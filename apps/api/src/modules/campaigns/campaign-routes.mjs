@@ -56,6 +56,7 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
     const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
     const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
+    const trackerViewabilityUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/track/viewability/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
     const basisNativeArgs = {
       variant,
       tagId: tag.id,
@@ -65,6 +66,7 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
       trackerClickUrl,
       trackerEngagementUrl,
       trackerImpressionUrl,
+      trackerViewabilityUrl,
       width,
       height,
     };

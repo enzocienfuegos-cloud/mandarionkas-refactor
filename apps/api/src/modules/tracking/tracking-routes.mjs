@@ -75,6 +75,29 @@ function readTrackingValue(...values) {
   return null;
 }
 
+function decodeContextToken(token) {
+  const raw = Array.isArray(token) ? token[0] : token;
+  const text = String(raw ?? '').trim();
+  if (!text) return {};
+  try {
+    const normalized = text.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    const decoded = Buffer.from(padded, 'base64').toString('utf8');
+    const parsed = JSON.parse(decoded);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function buildMergedTrackingQuery(query = {}) {
+  const ctxQuery = decodeContextToken(query?.ctx);
+  return {
+    ...ctxQuery,
+    ...query,
+  };
+}
+
 function setTrackingIdentityCookies(reply, context = {}) {
   const secure = process.env.NODE_ENV === 'production';
   if (context.device_id) {
@@ -257,6 +280,7 @@ async function collectTrackingContext(req, query = {}) {
 export function handleTrackingRoutes(app, { pool }) {
   app.get('/v1/tags/tracker/:tagId/impression.gif', async (req, reply) => {
     const { tagId } = req.params;
+    const mergedQuery = buildMergedTrackingQuery(req.query);
     const tag = await getTagById(pool, tagId);
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
@@ -265,14 +289,14 @@ export function handleTrackingRoutes(app, { pool }) {
       return reply.status(400).send({ error: 'Bad Request', message: 'Tag is not an impression tracker' });
     }
 
-    const context = await collectTrackingContext(req, req.query);
+    const context = await collectTrackingContext(req, mergedQuery);
     setTrackingIdentityCookies(reply, context);
     recordImpression(pool, {
-      impression_id: normalizeUuid(req.query?.imp) ?? null,
+      impression_id: normalizeUuid(mergedQuery?.imp) ?? null,
       tag_id: tagId,
       workspace_id: tag.workspace_id,
-      creative_id: normalizeUuid(req.query?.c) ?? null,
-      creative_size_variant_id: normalizeUuid(req.query?.csv) ?? null,
+      creative_id: normalizeUuid(mergedQuery?.c) ?? null,
+      creative_size_variant_id: normalizeUuid(mergedQuery?.csv) ?? null,
       ...context,
     }).catch((error) => {
       req.log?.warn?.({ err: error, tagId, workspaceId: tag.workspace_id }, 'failed to record tracker impression');
@@ -287,21 +311,22 @@ export function handleTrackingRoutes(app, { pool }) {
 
   app.get('/v1/tags/tracker/:tagId/click', async (req, reply) => {
     const { tagId } = req.params;
+    const mergedQuery = buildMergedTrackingQuery(req.query);
     const servingSnapshot = await getTagServingSnapshotById(pool, tagId);
     if (!servingSnapshot) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
 
-    const context = await collectTrackingContext(req, req.query);
+    const context = await collectTrackingContext(req, mergedQuery);
     attachMeasurementDebugHeaders(reply, context);
     setTrackingIdentityCookies(reply, context);
     const destinationUrl = servingSnapshot.click_url
       ?? servingSnapshot.servingCandidate?.clickUrl
-      ?? req.query?.url
+      ?? mergedQuery?.url
       ?? null;
-    const creativeId = normalizeUuid(req.query?.c) ?? servingSnapshot.servingCandidate?.creativeId ?? null;
-    const creativeSizeVariantId = normalizeUuid(req.query?.csv) ?? servingSnapshot.servingCandidate?.creativeSizeVariantId ?? null;
-    const impressionId = normalizeUuid(req.query?.imp) ?? null;
+    const creativeId = normalizeUuid(mergedQuery?.c) ?? servingSnapshot.servingCandidate?.creativeId ?? null;
+    const creativeSizeVariantId = normalizeUuid(mergedQuery?.csv) ?? servingSnapshot.servingCandidate?.creativeSizeVariantId ?? null;
+    const impressionId = normalizeUuid(mergedQuery?.imp) ?? null;
 
     logMeasurementPath(req, 'tracking click measurement path', {
       tagId,
@@ -340,23 +365,24 @@ export function handleTrackingRoutes(app, { pool }) {
 
   app.get('/v1/tags/tracker/:tagId/engagement', async (req, reply) => {
     const { tagId } = req.params;
+    const mergedQuery = buildMergedTrackingQuery(req.query);
     const servingSnapshot = await getTagServingSnapshotById(pool, tagId);
     if (!servingSnapshot) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
 
-    const eventType = String(req.query?.event ?? '').trim();
+    const eventType = String(mergedQuery?.event ?? '').trim();
     if (!eventType) {
       return reply.status(400).send({ error: 'Bad Request', message: 'event is required' });
     }
 
-    const context = await collectTrackingContext(req, req.query);
+    const context = await collectTrackingContext(req, mergedQuery);
     attachMeasurementDebugHeaders(reply, context);
     setTrackingIdentityCookies(reply, context);
-    const creativeId = normalizeUuid(req.query?.c) ?? servingSnapshot.servingCandidate?.creativeId ?? null;
-    const creativeSizeVariantId = normalizeUuid(req.query?.csv) ?? servingSnapshot.servingCandidate?.creativeSizeVariantId ?? null;
-    const impressionId = normalizeUuid(req.query?.imp) ?? null;
-    const hoverDurationMs = Number(req.query?.hd ?? 0);
+    const creativeId = normalizeUuid(mergedQuery?.c) ?? servingSnapshot.servingCandidate?.creativeId ?? null;
+    const creativeSizeVariantId = normalizeUuid(mergedQuery?.csv) ?? servingSnapshot.servingCandidate?.creativeSizeVariantId ?? null;
+    const impressionId = normalizeUuid(mergedQuery?.imp) ?? null;
+    const hoverDurationMs = Number(mergedQuery?.hd ?? 0);
 
     logMeasurementPath(req, 'tracking native engagement measurement path', {
       tagId,
@@ -391,7 +417,8 @@ export function handleTrackingRoutes(app, { pool }) {
   // GET /track/impression/:tagId — records impression, returns 1x1 transparent GIF
   app.get('/track/impression/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, imp: rawImpressionId, c: rawCreativeId, csv: rawCreativeSizeVariantId } = req.query;
+    const mergedQuery = buildMergedTrackingQuery(req.query);
+    const { ws: workspaceId, imp: rawImpressionId, c: rawCreativeId, csv: rawCreativeSizeVariantId } = mergedQuery;
     const impressionId = normalizeUuid(rawImpressionId);
     const creativeId = normalizeUuid(rawCreativeId);
     const creativeSizeVariantId = normalizeUuid(rawCreativeSizeVariantId);
@@ -405,7 +432,7 @@ export function handleTrackingRoutes(app, { pool }) {
       return reply.send(PIXEL_GIF);
     }
 
-    const context = await collectTrackingContext(req, req.query);
+    const context = await collectTrackingContext(req, mergedQuery);
     setTrackingIdentityCookies(reply, context);
     attachMeasurementDebugHeaders(reply, context);
 
@@ -438,12 +465,13 @@ export function handleTrackingRoutes(app, { pool }) {
   // GET /track/click/:tagId — records click, redirects to clickUrl
   app.get('/track/click/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, url: destinationUrl, imp: rawImpressionId, c: rawCreativeId, csv: rawCreativeSizeVariantId } = req.query;
+    const mergedQuery = buildMergedTrackingQuery(req.query);
+    const { ws: workspaceId, url: destinationUrl, imp: rawImpressionId, c: rawCreativeId, csv: rawCreativeSizeVariantId } = mergedQuery;
     const impressionId = normalizeUuid(rawImpressionId);
     const creativeId = normalizeUuid(rawCreativeId);
     const creativeSizeVariantId = normalizeUuid(rawCreativeSizeVariantId);
 
-    const context = await collectTrackingContext(req, req.query);
+    const context = await collectTrackingContext(req, mergedQuery);
     attachMeasurementDebugHeaders(reply, context);
 
     if (workspaceId) {
@@ -502,14 +530,15 @@ export function handleTrackingRoutes(app, { pool }) {
   // GET /track/viewability/:tagId — records viewability event
   app.get('/track/viewability/:tagId', async (req, reply) => {
     const { tagId } = req.params;
-    const { ws: workspaceId, vp, imp: rawImpressionId, c: rawCreativeId, csv: rawCreativeSizeVariantId, event, state, method, ms } = req.query;
+    const mergedQuery = buildMergedTrackingQuery(req.query);
+    const { ws: workspaceId, vp, imp: rawImpressionId, c: rawCreativeId, csv: rawCreativeSizeVariantId, event, state, method, ms } = mergedQuery;
     const impressionId = normalizeUuid(rawImpressionId);
     const creativeId = normalizeUuid(rawCreativeId);
     const creativeSizeVariantId = normalizeUuid(rawCreativeSizeVariantId);
 
     if (workspaceId) {
       const viewable = vp !== '0' && vp !== 'false';
-      const context = await collectTrackingContext(req, req.query);
+      const context = await collectTrackingContext(req, mergedQuery);
       setTrackingIdentityCookies(reply, context);
       attachMeasurementDebugHeaders(reply, context);
       logMeasurementPath(req, 'tracking viewability measurement path', {
@@ -556,6 +585,7 @@ export function handleTrackingRoutes(app, { pool }) {
 
   app.get('/track/engagement/:tagId', async (req, reply) => {
     const { tagId } = req.params;
+    const mergedQuery = buildMergedTrackingQuery(req.query);
     const {
       ws: workspaceId,
       imp: rawImpressionId,
@@ -563,13 +593,13 @@ export function handleTrackingRoutes(app, { pool }) {
       csv: rawCreativeSizeVariantId,
       event,
       hd: hoverDurationMs,
-    } = req.query;
+    } = mergedQuery;
     const impressionId = normalizeUuid(rawImpressionId);
     const creativeId = normalizeUuid(rawCreativeId);
     const creativeSizeVariantId = normalizeUuid(rawCreativeSizeVariantId);
 
     if (workspaceId && event) {
-      const context = await collectTrackingContext(req, req.query);
+      const context = await collectTrackingContext(req, mergedQuery);
       setTrackingIdentityCookies(reply, context);
       recordEngagementEvent(pool, {
         tag_id: tagId,
