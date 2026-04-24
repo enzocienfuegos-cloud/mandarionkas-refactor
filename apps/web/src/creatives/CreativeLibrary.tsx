@@ -13,6 +13,7 @@ import {
   createCreativeSizeVariant,
   createCreativeSizeVariantsBulk,
   deleteCreativeById,
+  loadCreativeVersionDetail,
   loadCreativesWithLatestVersion,
   loadCreativeIngestions,
   loadCreativeSizeVariants,
@@ -120,6 +121,7 @@ interface VideoRenditionState {
   versionId: string;
   loading: boolean;
   error: string;
+  version: CreativeVersion | null;
   renditions: VideoRendition[];
 }
 
@@ -314,11 +316,17 @@ export default function CreativeLibrary() {
       versionId: version.id,
       loading: true,
       error: '',
+      version,
       renditions: [],
     });
     try {
-      const renditions = await loadVideoRenditions(version.id);
-      setVideoRenditionState(current => current ? { ...current, loading: false, renditions } : current);
+      const detail = await loadCreativeVersionDetail(version.id);
+      setVideoRenditionState(current => current ? {
+        ...current,
+        loading: false,
+        version: detail.creativeVersion,
+        renditions: detail.videoRenditions,
+      } : current);
     } catch (loadError: any) {
       setVideoRenditionState(current => current ? {
         ...current,
@@ -347,8 +355,13 @@ export default function CreativeLibrary() {
     setVideoRenditionState(current => current ? { ...current, loading: true, error: '' } : current);
     try {
       await updateVideoRenditionById({ renditionId, status });
-      const renditions = await loadVideoRenditions(videoRenditionState.versionId);
-      setVideoRenditionState(current => current ? { ...current, loading: false, renditions } : current);
+      const detail = await loadCreativeVersionDetail(videoRenditionState.versionId);
+      setVideoRenditionState(current => current ? {
+        ...current,
+        loading: false,
+        version: detail.creativeVersion,
+        renditions: detail.videoRenditions,
+      } : current);
     } catch (updateError: any) {
       setVideoRenditionState(current => current ? {
         ...current,
@@ -362,8 +375,14 @@ export default function CreativeLibrary() {
     if (!videoRenditionState) return;
     setVideoRenditionState(current => current ? { ...current, loading: true, error: '' } : current);
     try {
-      const renditions = await regenerateVideoRenditions(videoRenditionState.versionId);
-      setVideoRenditionState(current => current ? { ...current, loading: false, renditions } : current);
+      await regenerateVideoRenditions(videoRenditionState.versionId);
+      const detail = await loadCreativeVersionDetail(videoRenditionState.versionId);
+      setVideoRenditionState(current => current ? {
+        ...current,
+        loading: false,
+        version: detail.creativeVersion,
+        renditions: detail.videoRenditions,
+      } : current);
       await load();
     } catch (regenerateError: any) {
       setVideoRenditionState(current => current ? {
@@ -373,6 +392,10 @@ export default function CreativeLibrary() {
       } : current);
     }
   };
+
+  const videoProcessing = (videoRenditionState?.version?.metadata as Record<string, any> | undefined)?.videoProcessing;
+  const plannedRenditions = Array.isArray(videoProcessing?.targetPlan) ? videoProcessing.targetPlan : [];
+  const renditionProcessing = Array.isArray(videoProcessing?.renditionProcessing) ? videoProcessing.renditionProcessing : [];
 
   const toggleVariantSelection = (variantId: string) => {
     setVariantState(current => {
@@ -883,6 +906,67 @@ export default function CreativeLibrary() {
                   {videoRenditionState.error}
                 </div>
               )}
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <h3 className="text-sm font-semibold text-slate-800">Encoder feedback</h3>
+                  <div className="mt-3 space-y-2 text-sm text-slate-600">
+                    <div>
+                      Source:{' '}
+                      <span className="font-medium text-slate-800">
+                        {videoProcessing?.source?.width && videoProcessing?.source?.height
+                          ? `${videoProcessing.source.width}×${videoProcessing.source.height}`
+                          : 'Unknown'}
+                      </span>
+                    </div>
+                    <div>
+                      ffprobe:{' '}
+                      <span className="font-medium text-slate-800">
+                        {videoProcessing?.ffprobeAvailable ? 'available' : `missing (${videoProcessing?.ffprobeReason ?? 'unknown'})`}
+                      </span>
+                    </div>
+                    <div>
+                      ffmpeg:{' '}
+                      <span className="font-medium text-slate-800">
+                        {videoProcessing?.ffmpegAvailable ? 'available' : `missing (${videoProcessing?.ffmpegReason ?? 'unknown'})`}
+                      </span>
+                    </div>
+                    <div>
+                      Planned renditions:{' '}
+                      <span className="font-medium text-slate-800">
+                        {plannedRenditions.length ? plannedRenditions.map((target: any) => target.label).join(', ') : 'None'}
+                      </span>
+                    </div>
+                    <div>
+                      Generated:{' '}
+                      <span className="font-medium text-slate-800">
+                        {videoProcessing?.generatedCount ?? 0}
+                      </span>
+                    </div>
+                    {videoProcessing?.noTargetsReason && (
+                      <div className="text-amber-700">
+                        No ladder generated: {String(videoProcessing.noTargetsReason).replace(/_/g, ' ')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <h3 className="text-sm font-semibold text-slate-800">Last run detail</h3>
+                  <div className="mt-3 space-y-2 text-sm text-slate-600">
+                    {renditionProcessing.length > 0 ? renditionProcessing.map((entry: any) => (
+                      <div key={entry.label} className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2">
+                        <span className="font-medium text-slate-800">{entry.label}</span>
+                        <span className={entry.available ? 'text-emerald-700' : 'text-rose-700'}>
+                          {entry.available ? 'generated' : (entry.reason ?? 'failed')}
+                        </span>
+                      </div>
+                    )) : (
+                      <div className="text-slate-500">No encoder run recorded yet.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
               <div className="overflow-hidden rounded-xl border border-slate-200">
                 <table className="min-w-full divide-y divide-slate-200 text-sm">

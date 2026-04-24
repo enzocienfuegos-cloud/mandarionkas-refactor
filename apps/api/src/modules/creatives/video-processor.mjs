@@ -279,6 +279,21 @@ export async function enrichVideoPublication({
       posterArtifacts,
       renditions,
       processing: {
+        source: {
+          width: probe.metadata?.width ?? null,
+          height: probe.metadata?.height ?? null,
+          codec: probe.metadata?.codec ?? null,
+          bitRate: probe.metadata?.bitRate ?? null,
+        },
+        targetPlan: targets.map((target) => ({
+          label: target.label,
+          width: target.width,
+          targetBitrateKbps: target.targetBitrateKbps,
+          audioBitrateKbps: target.audioBitrateKbps,
+          sortOrder: target.sortOrder,
+        })),
+        targetCount: targets.length,
+        generatedCount: renditions.filter((rendition) => !rendition.isSource).length,
         ffprobeAvailable: probe.available,
         ffprobeReason: probe.reason,
         ffprobeDetail: probe.detail,
@@ -286,6 +301,7 @@ export async function enrichVideoPublication({
         ffmpegReason: poster.reason,
         ffmpegDetail: poster.detail,
         renditionProcessing,
+        noTargetsReason: targets.length === 0 ? 'source_too_small_or_probe_failed' : null,
       },
     };
   } finally {
