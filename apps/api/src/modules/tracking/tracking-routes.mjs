@@ -4,7 +4,7 @@ import {
   recordViewability,
   recordEngagementEvent,
 } from '@smx/db/tracking';
-import { getTagServingSnapshotById } from '@smx/db/tags';
+import { getTagById, getTagServingSnapshotById } from '@smx/db/tags';
 import { extractIp, resolveIp } from '@smx/geo';
 import { readDspMacroValue, resolveDspClickMacroValue } from '@smx/contracts/dsp-macros';
 
@@ -126,6 +126,25 @@ function buildMeasurementDebugMeta(context = {}) {
     macroSource: context.macro_source ?? 'absent',
     dspProvider: context.dsp_provider ?? null,
   };
+}
+
+async function recordEngagementEventResilient(pool, payload, req, logMeta = {}) {
+  try {
+    return await recordEngagementEvent(pool, payload);
+  } catch (error) {
+    if (error?.code === '23503' && payload?.impression_id) {
+      req.log?.warn?.({
+        err: error,
+        ...logMeta,
+        impressionId: payload.impression_id,
+      }, 'engagement impression missing, retrying without impression_id');
+      return recordEngagementEvent(pool, {
+        ...payload,
+        impression_id: null,
+      });
+    }
+    throw error;
+  }
 }
 
 function attachMeasurementDebugHeaders(reply, context = {}) {
@@ -394,7 +413,7 @@ export function handleTrackingRoutes(app, { pool }) {
       hoverDurationMs: Number.isFinite(hoverDurationMs) ? hoverDurationMs : null,
     }, context);
 
-    recordEngagementEvent(pool, {
+    recordEngagementEventResilient(pool, {
       tag_id: tagId,
       workspace_id: servingSnapshot.workspace_id,
       creative_id: creativeId,
@@ -403,6 +422,10 @@ export function handleTrackingRoutes(app, { pool }) {
       event_type: eventType,
       hover_duration_ms: Number.isFinite(hoverDurationMs) ? hoverDurationMs : null,
       ...context,
+    }, req, {
+      tagId,
+      workspaceId: servingSnapshot.workspace_id,
+      eventType,
     }).catch((error) => {
       req.log?.warn?.({ err: error, tagId, workspaceId: servingSnapshot.workspace_id, eventType }, 'failed to record native engagement event');
     });
@@ -562,7 +585,7 @@ export function handleTrackingRoutes(app, { pool }) {
         req.log?.warn?.({ err: error, tagId, workspaceId, impressionId }, 'failed to record viewability');
       });
       if (event) {
-        recordEngagementEvent(pool, {
+        recordEngagementEventResilient(pool, {
           tag_id: tagId,
           workspace_id: workspaceId,
           creative_id: creativeId ?? null,
@@ -570,6 +593,10 @@ export function handleTrackingRoutes(app, { pool }) {
           impression_id: impressionId ?? null,
           event_type: String(event),
           ...context,
+        }, req, {
+          tagId,
+          workspaceId,
+          event: String(event),
         }).catch((error) => {
           req.log?.warn?.({ err: error, tagId, workspaceId, impressionId, event }, 'failed to record viewability engagement event');
         });
@@ -601,7 +628,7 @@ export function handleTrackingRoutes(app, { pool }) {
     if (workspaceId && event) {
       const context = await collectTrackingContext(req, mergedQuery);
       setTrackingIdentityCookies(reply, context);
-      recordEngagementEvent(pool, {
+      recordEngagementEventResilient(pool, {
         tag_id: tagId,
         workspace_id: workspaceId,
         creative_id: creativeId ?? null,
@@ -610,6 +637,10 @@ export function handleTrackingRoutes(app, { pool }) {
         event_type: String(event),
         hover_duration_ms: hoverDurationMs ?? null,
         ...context,
+      }, req, {
+        tagId,
+        workspaceId,
+        event: String(event),
       }).catch((error) => {
         req.log?.warn?.({ err: error, tagId, workspaceId, impressionId, event }, 'failed to record engagement event');
       });
