@@ -13,7 +13,6 @@ import {
 import {
   applyDspMacrosToDeliveryUrl,
   buildBasisNativeSnippet,
-  buildDspNativeClickHref,
   DSP_DELIVERY_KINDS,
   readCampaignDsp,
 } from '@smx/contracts/dsp-macros';
@@ -61,7 +60,7 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
       displayHtmlUrl,
       nativeJsUrl,
       vastUrl,
-      trackerClickUrl: buildDspNativeClickHref(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp),
+      trackerClickUrl,
       trackerImpressionUrl,
       width,
       height,

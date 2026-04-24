@@ -10,7 +10,6 @@ import { listTagBindings, updateTagBinding } from '@smx/db';
 import {
   applyDspMacrosToDeliveryUrl,
   buildBasisNativeSnippet,
-  buildDspNativeClickHref,
   DSP_DELIVERY_KINDS,
   getDspDeliveryPolicy,
   readCampaignDsp,
@@ -66,7 +65,7 @@ function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
     displayHtmlUrl,
     nativeJsUrl,
     vastUrl,
-    trackerClickUrl: buildDspNativeClickHref(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp),
+    trackerClickUrl,
     trackerImpressionUrl,
     width,
     height,

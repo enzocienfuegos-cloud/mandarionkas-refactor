@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   applyDspMacrosToDeliveryUrl,
   buildBasisNativeSnippet,
-  buildDspNativeClickHref,
   DSP_DELIVERY_KINDS,
   getDspMacroConfig,
   readCampaignDsp,
@@ -200,7 +199,7 @@ function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = '
     displayHtmlUrl,
     nativeJsUrl,
     vastUrl,
-    trackerClickUrl: buildDspNativeClickHref(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp),
+    trackerClickUrl,
     trackerImpressionUrl,
     width,
     height,
