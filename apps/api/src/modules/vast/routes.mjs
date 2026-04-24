@@ -2,6 +2,7 @@ import { getTagServingSnapshot, getTagServingSnapshotById } from '@smx/db/tags';
 import {
   applyDspMacrosToDeliveryUrl,
   buildBasisNativeSnippet,
+  buildDspLiteralClickUrl,
   buildDspTrackedClickUrl,
   DSP_DELIVERY_KINDS,
   normalizeDsp,
@@ -42,7 +43,7 @@ function isTrackableDestinationUrl(value) {
   }
 }
 
-function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedClick, dspClickMacro = '') {
+function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedClick, dspClickMacro = '', engagementBase = '') {
   if (!creativeUrl) return '';
   try {
     const url = new URL(String(creativeUrl));
@@ -54,6 +55,9 @@ function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedC
       url.searchParams.set('clickTag', clickTrackUrl);
       url.searchParams.set('clickTAG', clickTrackUrl);
       url.searchParams.set('bsClickTAG', clickTrackUrl);
+      if (engagementBase) {
+        url.searchParams.set('smx_engagement', engagementBase);
+      }
     }
     return url.toString();
   } catch {
@@ -206,6 +210,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
     rawClickTrackUrl,
     !useTrackedClickWrapper && shouldPreferInternalClickRuntime,
     dspClickMacro,
+    engagementBase,
   );
 
   return `(function() {
@@ -476,6 +481,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
   const clickTrackUrl = wrapTrackedClickUrlWithDspMacro(rawClickTrackUrl, query);
   const dspClickMacro = String(readDspMacroValue(query, 'clickMacro') ?? '');
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
+  const useBasisNative = trackingDsp === 'basis';
   const creativeUrl = servingCandidate?.publicUrl ?? '';
   const internalClickSignals = Array.isArray(servingCandidate?.internalClickSignals)
     ? servingCandidate.internalClickSignals
@@ -491,11 +497,23 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
   const creativeIframeUrl = buildCreativeIframeUrl(
     creativeUrl,
     rawClickTrackUrl,
-    !useTrackedClickWrapper && shouldPreferInternalClickRuntime,
+    useBasisNative ? Boolean(creativeUrl && servingFormat === 'display_html') : (!useTrackedClickWrapper && shouldPreferInternalClickRuntime),
     dspClickMacro,
+    engagementBase,
   );
 
-  const body = creativeUrl && servingFormat === 'display_html'
+  const basisClickHref = buildDspLiteralClickUrl(rawClickTrackUrl, dspClickMacro);
+  const body = useBasisNative
+    ? (creativeUrl && servingFormat === 'display_html'
+      ? `<iframe src="${escapeXml(creativeIframeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;"></iframe>`
+      : creativeUrl
+      ? `<a href="${escapeXml(basisClickHref || rawClickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
+  <img src="${escapeXml(creativeUrl)}" width="${width}" height="${height}" alt="" style="display:block;border:0;width:100%;height:100%;" />
+</a>`
+      : `<a href="${escapeXml(basisClickHref || rawClickTrackUrl)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#eee;color:#999;font:12px sans-serif;text-decoration:none;">
+  Advertisement
+</a>`)
+    : creativeUrl && servingFormat === 'display_html'
     ? useTrackedClickWrapper
       ? `<a href="${escapeXml(rawClickTrackUrl)}" data-smx-click="${escapeXml(rawClickTrackUrl)}" data-smx-dsp-click="${escapeXml(dspClickMacro)}" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;height:100%;">
   <iframe src="${escapeXml(creativeIframeUrl)}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="display:block;border:0;overflow:hidden;width:100%;height:100%;pointer-events:none;"></iframe>
@@ -611,8 +629,8 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
           viewabilityTracked = true;
           fire(appendIdentity(${JSON.stringify(viewabilityUrl)} + '&state=viewable&vp=1&fmt=display&method=intersection_observer&ms=1000' + (pageUrl ? '&pu=' + encodeURIComponent(pageUrl) : '')));
         }
-        ${RUNTIME_DSP_CLICK_HELPER}
-        ${RUNTIME_TRACKING_HINT_HELPER}
+        ${useBasisNative ? '' : RUNTIME_DSP_CLICK_HELPER}
+        ${useBasisNative ? '' : RUNTIME_TRACKING_HINT_HELPER}
         function hasUnresolvedDspMacro(value) {
           if (!value) return false;
           var decoded = value;
@@ -627,23 +645,25 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
           var macroValue = macroOverride || search.get('smx_dsp_click') || search.get('cuu') || '';
           return applyDspClickMacro(trackedUrl, macroValue);
         }
-        Array.prototype.forEach.call(document.querySelectorAll('a[href]'), function(anchor) {
-          var baseClick = anchor.getAttribute('data-smx-click') || anchor.href;
-          var macroOverride = anchor.getAttribute('data-smx-dsp-click') || '';
-          anchor.href = resolveClickHref(baseClick, macroOverride);
-          anchor.addEventListener('click', function() {
-            if (!hasUnresolvedDspMacro(macroOverride || search.get('smx_dsp_click') || search.get('cuu') || '')) return;
-            var fallbackHref = appendIdentity(ensureSmxTrackingHints(baseClick, search, 'display_wrapper'));
-            window.setTimeout(function() {
-              try {
-                if (document.visibilityState === 'hidden') return;
-              } catch (_error) {}
-              try {
-                window.location.href = fallbackHref;
-              } catch (_error) {}
-            }, 350);
+        if (!${JSON.stringify(useBasisNative)}) {
+          Array.prototype.forEach.call(document.querySelectorAll('a[href]'), function(anchor) {
+            var baseClick = anchor.getAttribute('data-smx-click') || anchor.href;
+            var macroOverride = anchor.getAttribute('data-smx-dsp-click') || '';
+            anchor.href = resolveClickHref(baseClick, macroOverride);
+            anchor.addEventListener('click', function() {
+              if (!hasUnresolvedDspMacro(macroOverride || search.get('smx_dsp_click') || search.get('cuu') || '')) return;
+              var fallbackHref = appendIdentity(ensureSmxTrackingHints(baseClick, search, 'display_wrapper'));
+              window.setTimeout(function() {
+                try {
+                  if (document.visibilityState === 'hidden') return;
+                } catch (_error) {}
+                try {
+                  window.location.href = fallbackHref;
+                } catch (_error) {}
+              }, 350);
+            });
           });
-        });
+        }
         function engagementUrl(eventType, hoverDurationMs) {
           var params = ['event=' + encodeURIComponent(eventType)];
           if (pageUrl) params.push('pu=' + encodeURIComponent(pageUrl));

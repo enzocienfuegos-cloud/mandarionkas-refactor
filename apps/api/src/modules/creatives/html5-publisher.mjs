@@ -184,6 +184,7 @@ function buildClickTrackingBootstrap() {
     var params = new URLSearchParams(window.location.search || '');
     var trackedClickUrl = params.get('smx_click');
     var dspClickMacro = params.get('smx_dsp_click') || params.get('cuu') || '';
+    var engagementBase = params.get('smx_engagement') || '';
     if (!trackedClickUrl) return;
     var originalOpen = typeof window.open === 'function' ? window.open.bind(window) : null;
     var parsedTrackedBase = null;
@@ -228,8 +229,24 @@ function buildClickTrackingBootstrap() {
       return wrapWithResolvedDspMacro(url, dspClickMacro);
     }
 
+    function fireEngagement(eventType) {
+      if (!engagementBase || !eventType) return;
+      try {
+        var url = engagementBase;
+        url += (url.indexOf('?') === -1 ? '?' : '&') + 'event=' + encodeURIComponent(eventType);
+        var pageUrl = '';
+        try {
+          pageUrl = window.top && window.top.location && window.top.location.href ? window.top.location.href : '';
+        } catch (_) {}
+        if (pageUrl) url += '&pu=' + encodeURIComponent(pageUrl);
+        var img = new Image();
+        img.src = url;
+      } catch (_) {}
+    }
+
     function navigateTracked(target, features, destination) {
       var nextTrackedUrl = wrapWithDspMacro(buildTrackedUrl(destination));
+      fireEngagement('interaction');
       if (originalOpen) {
         return originalOpen(nextTrackedUrl, target || '_blank', features);
       }
