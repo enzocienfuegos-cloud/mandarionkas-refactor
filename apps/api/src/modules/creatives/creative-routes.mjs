@@ -197,6 +197,9 @@ async function regenerateVideoRenditionsForVersion(client, workspaceId, version,
   }
 
   const existingRenditions = await listVideoRenditions(client, workspaceId, version.id);
+  const existingByLabel = new Map(
+    existingRenditions.map((rendition) => [String(rendition.label ?? '').trim().toLowerCase(), rendition]),
+  );
   for (const rendition of existingRenditions) {
     await updateVideoRendition(client, workspaceId, rendition.id, {
       status: 'archived',
@@ -245,20 +248,37 @@ async function regenerateVideoRenditionsForVersion(client, workspaceId, version,
   }
 
   for (const entry of renditionArtifacts) {
-    await createVideoRendition(client, workspaceId, {
-      creative_version_id: version.id,
-      artifact_id: entry.artifact.id,
-      label: entry.rendition.label,
-      width: entry.rendition.width,
-      height: entry.rendition.height,
-      bitrate_kbps: entry.rendition.bitrateKbps,
-      codec: entry.rendition.codec,
-      mime_type: entry.rendition.mimeType,
-      status: entry.rendition.status,
-      is_source: entry.rendition.isSource,
-      sort_order: entry.rendition.sortOrder,
-      metadata: entry.rendition.artifact.metadata ?? {},
-    });
+    const existing = existingByLabel.get(String(entry.rendition.label ?? '').trim().toLowerCase());
+    if (existing) {
+      await updateVideoRendition(client, workspaceId, existing.id, {
+        artifactId: entry.artifact.id,
+        label: entry.rendition.label,
+        width: entry.rendition.width,
+        height: entry.rendition.height,
+        bitrateKbps: entry.rendition.bitrateKbps,
+        codec: entry.rendition.codec,
+        mimeType: entry.rendition.mimeType,
+        status: entry.rendition.status,
+        isSource: entry.rendition.isSource,
+        sortOrder: entry.rendition.sortOrder,
+        metadata: entry.rendition.artifact.metadata ?? {},
+      });
+    } else {
+      await createVideoRendition(client, workspaceId, {
+        creative_version_id: version.id,
+        artifact_id: entry.artifact.id,
+        label: entry.rendition.label,
+        width: entry.rendition.width,
+        height: entry.rendition.height,
+        bitrate_kbps: entry.rendition.bitrateKbps,
+        codec: entry.rendition.codec,
+        mime_type: entry.rendition.mimeType,
+        status: entry.rendition.status,
+        is_source: entry.rendition.isSource,
+        sort_order: entry.rendition.sortOrder,
+        metadata: entry.rendition.artifact.metadata ?? {},
+      });
+    }
   }
 
   const activeTranscodedRenditions = (videoPublication.renditions ?? []).filter((rendition) => !rendition.isSource);
