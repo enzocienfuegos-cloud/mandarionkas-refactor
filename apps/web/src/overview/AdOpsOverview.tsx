@@ -33,6 +33,9 @@ interface AdOpsSnapshot {
   viewabilityRate: number;
   avgCtr: number;
   engagements: number;
+  engagementRate: number;
+  totalHoverDurationMs: number;
+  totalInViewDurationMs: number;
   activeCampaigns: number;
   activeTags: number;
   creatives: number;
@@ -59,6 +62,9 @@ function getReportingStats(payload: any) {
     viewabilityRate: toNumber(stats?.viewabilityRate ?? stats?.viewability_rate),
     avgCtr: toNumber(stats?.avgCtr ?? stats?.avg_ctr),
     totalEngagements: toNumber(stats?.totalEngagements ?? stats?.total_engagements),
+    engagementRate: toNumber(stats?.engagementRate ?? stats?.engagement_rate),
+    totalHoverDurationMs: toNumber(stats?.totalHoverDurationMs ?? stats?.total_hover_duration_ms),
+    totalInViewDurationMs: toNumber(stats?.totalInViewDurationMs ?? stats?.total_in_view_duration_ms),
     activeCampaigns: toNumber(stats?.activeCampaigns ?? stats?.active_campaigns),
     activeTags: toNumber(stats?.activeTags ?? stats?.active_tags),
     totalCreatives: toNumber(stats?.totalCreatives ?? stats?.total_creatives),
@@ -79,6 +85,17 @@ function fmtCurrency(value: number) {
     currency: 'USD',
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function fmtPct(value: number) {
+  return `${toNumber(value).toFixed(2)}%`;
+}
+
+function fmtSecondsFromMs(value: number) {
+  const seconds = toNumber(value) / 1000;
+  if (seconds >= 3600) return `${(seconds / 3600).toFixed(2)}h`;
+  if (seconds >= 60) return `${(seconds / 60).toFixed(1)}m`;
+  return `${seconds.toFixed(1)}s`;
 }
 
 function KpiCard({ label, value, tone, helper }: { label: string; value: string; tone: string; helper?: string }) {
@@ -136,6 +153,9 @@ export default function AdOpsOverview() {
         viewabilityRate: reportingStats.viewabilityRate,
         avgCtr: reportingStats.avgCtr,
         engagements: reportingStats.totalEngagements,
+        engagementRate: reportingStats.engagementRate,
+        totalHoverDurationMs: reportingStats.totalHoverDurationMs,
+        totalInViewDurationMs: reportingStats.totalInViewDurationMs,
         activeCampaigns: reportingStats.activeCampaigns || campaigns.filter(c => c.status === 'active').length,
         activeTags: reportingStats.activeTags || tags.filter(t => t.status === 'active').length,
         creatives: reportingStats.totalCreatives || creatives.length,
@@ -202,12 +222,24 @@ export default function AdOpsOverview() {
         <KpiCard label="Impressions" value={fmtCompact(snapshot?.totalImpressions ?? 0)} tone="text-slate-900" />
         <KpiCard label="Spend" value={fmtCurrency(snapshot?.totalSpend ?? 0)} tone="text-emerald-700" />
         <KpiCard label="Clicks" value={fmtCompact(snapshot?.totalClicks ?? 0)} tone="text-indigo-700" />
-        <KpiCard label="CTR" value={`${(snapshot?.avgCtr ?? 0).toFixed(2)}%`} tone="text-fuchsia-700" />
+        <KpiCard label="CTR" value={fmtPct(snapshot?.avgCtr ?? 0)} tone="text-fuchsia-700" />
         <KpiCard
           label="Engagements"
           value={fmtCompact(snapshot?.engagements ?? 0)}
           tone="text-amber-700"
-          helper="Click-based until richer event tracking lands."
+          helper={`${fmtPct(snapshot?.engagementRate ?? 0)} engagement rate`}
+        />
+        <KpiCard
+          label="Attention Time"
+          value={fmtSecondsFromMs(snapshot?.totalHoverDurationMs ?? 0)}
+          tone="text-orange-700"
+          helper="Total hover duration"
+        />
+        <KpiCard
+          label="In-View Time"
+          value={fmtSecondsFromMs(snapshot?.totalInViewDurationMs ?? 0)}
+          tone="text-cyan-700"
+          helper="Total measured visible duration"
         />
       </section>
 

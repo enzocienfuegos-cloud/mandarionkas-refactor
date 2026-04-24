@@ -191,9 +191,9 @@ export function buildBasisNativeSnippet({
 
   switch (variant) {
     case 'display-js':
-      return `<script>\n  (function() {\n    var markup = ${JSON.stringify(displayTagForInlineScript)};\n    document.write(markup);\n  })();\n</script>\n<noscript>\n  ${displayMarkup}\n</noscript>`;
+      return `<script src="${nativeJsUrl}" async></script>\n<noscript>\n  ${displayMarkup}\n</noscript>`;
     case 'display-ins':
-      return `<ins id="smx-ad-slot-${tagId}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    slot.outerHTML = ${JSON.stringify(displayTagForInlineScript)};\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tagId}`)}));\n</script>`;
+      return `<script src="${nativeJsUrl}" async></script>\n<noscript>\n  ${displayMarkup}\n</noscript>`;
     case 'display-iframe':
       return displayTag;
     case 'tracker-click':
@@ -205,7 +205,7 @@ export function buildBasisNativeSnippet({
     case 'vast-xml':
       return `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <Ad id="${tagId}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[${vastUrl}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
     case 'native-js':
-      return `<script>\n  window.SMX = window.SMX || {};\n  window.SMX.native = window.SMX.native || [];\n  window.SMX.native.push({ tagId: "${tagId}", format: "native" });\n</script>\n<script src="${nativeJsUrl}" async></script>`;
+      return `(function(){var markup=${JSON.stringify(displayTagForInlineScript)};document.write(markup);}());`;
     default:
       return '';
   }

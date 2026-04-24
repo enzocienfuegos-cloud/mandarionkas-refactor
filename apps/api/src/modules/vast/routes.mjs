@@ -1,5 +1,12 @@
 import { getTagServingSnapshot, getTagServingSnapshotById } from '@smx/db/tags';
-import { buildDspTrackedClickUrl, readDspMacroValue, wrapTrackedClickUrlWithDspMacro } from '@smx/contracts/dsp-macros';
+import {
+  applyDspMacrosToDeliveryUrl,
+  buildBasisNativeSnippet,
+  buildDspTrackedClickUrl,
+  DSP_DELIVERY_KINDS,
+  readDspMacroValue,
+  wrapTrackedClickUrlWithDspMacro,
+} from '@smx/contracts/dsp-macros';
 
 const BASE_URL = (process.env.BASE_URL ?? '').trim();
 
@@ -772,6 +779,42 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
     return reply.send(snippet);
   }
 
+  async function serveNativeJavascript(req, reply) {
+    const baseUrl = resolveBaseUrl(req);
+    const loaded = await loadDisplayTag(req, reply, pool);
+    if (!loaded) return;
+
+    const dsp = String(req.query?.smx_dsp ?? '').trim().toLowerCase();
+    if (dsp === 'basis') {
+      const width = Number(loaded.tag.serving_width ?? 0) || 300;
+      const height = Number(loaded.tag.serving_height ?? 0) || 250;
+      const tagId = loaded.tag.id;
+      const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tagId}.html`, dsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+      const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/native/${tagId}.js`, dsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+      const vastUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tagId}`, dsp, DSP_DELIVERY_KINDS.VAST);
+      const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tagId}/click`, dsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
+      const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tagId}/engagement`, dsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+      const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tagId}/impression.gif`, dsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
+      const snippet = buildBasisNativeSnippet({
+        variant: 'native-js',
+        tagId,
+        displayHtmlUrl,
+        nativeJsUrl,
+        vastUrl,
+        trackerClickUrl,
+        trackerEngagementUrl,
+        trackerImpressionUrl,
+        width,
+        height,
+      });
+      reply.header('Content-Type', 'application/javascript; charset=utf-8');
+      reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+      return reply.send(snippet);
+    }
+
+    return serveDisplayJavascript(req, reply);
+  }
+
   async function serveDisplayDocument(req, reply) {
     const baseUrl = resolveBaseUrl(req);
     const loaded = await loadDisplayTag(req, reply, pool);
@@ -790,6 +833,5 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
   // Semantically clearer display endpoints for embed snippets.
   app.get('/v1/tags/display/:tagId.js', { preHandler: optionalAuth }, serveDisplayJavascript);
   app.get('/v1/tags/display/:tagId.html', { preHandler: optionalAuth }, serveDisplayDocument);
-  // Native currently reuses the display JS renderer until a dedicated native renderer exists.
-  app.get('/v1/tags/native/:tagId.js', { preHandler: optionalAuth }, serveDisplayJavascript);
+  app.get('/v1/tags/native/:tagId.js', { preHandler: optionalAuth }, serveNativeJavascript);
 }
