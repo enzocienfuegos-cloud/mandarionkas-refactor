@@ -161,7 +161,7 @@ export function applyDspMacrosToDeliveryUrl(rawUrl, dsp, deliveryKind, opts = {}
 export function buildDspNativeClickHref(clickTrackUrl, dsp) {
   if (!clickTrackUrl) return clickTrackUrl;
   if (!shouldUseBasisNativeDelivery(dsp)) return clickTrackUrl;
-  return `{clickMacro}${String(clickTrackUrl)}`;
+  return String(clickTrackUrl);
 }
 
 export function buildBasisNativeDisplayAnchor(displayHtmlUrl, clickHref, width, height) {
