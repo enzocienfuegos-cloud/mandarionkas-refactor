@@ -670,18 +670,20 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
           if (hoverDurationMs != null) params.push('hd=' + encodeURIComponent(String(hoverDurationMs)));
           return appendIdentity(${JSON.stringify(engagementBase)} + '&' + params.join('&'));
         }
-        document.body.addEventListener('mouseenter', function() {
-          hoverStartedAt = Date.now();
-          fire(engagementUrl('hover_start'));
-        });
-        document.body.addEventListener('mouseleave', function() {
-          var duration = hoverStartedAt ? Math.max(0, Date.now() - hoverStartedAt) : 0;
-          hoverStartedAt = null;
-          fire(engagementUrl('hover_end', duration));
-        });
-        document.body.addEventListener('click', function() {
-          fire(engagementUrl('interaction'));
-        });
+        if (!${JSON.stringify(useBasisNative)}) {
+          document.body.addEventListener('mouseenter', function() {
+            hoverStartedAt = Date.now();
+            fire(engagementUrl('hover_start'));
+          });
+          document.body.addEventListener('mouseleave', function() {
+            var duration = hoverStartedAt ? Math.max(0, Date.now() - hoverStartedAt) : 0;
+            hoverStartedAt = null;
+            fire(engagementUrl('hover_end', duration));
+          });
+          document.body.addEventListener('click', function() {
+            fire(engagementUrl('interaction'));
+          });
+        }
         if (typeof IntersectionObserver === 'function') {
           markMeasured();
           var observer = new IntersectionObserver(function(entries) {

@@ -203,8 +203,19 @@ function buildClickTrackingBootstrap() {
       }
     }
 
+    function isTrackedClickUrl(value) {
+      if (!value || !parsedTrackedBase) return false;
+      try {
+        var parsed = new URL(String(value), window.location.href);
+        return parsed.origin === parsedTrackedBase.origin && parsed.pathname === parsedTrackedBase.pathname;
+      } catch (_) {
+        return false;
+      }
+    }
+
     function buildTrackedUrl(destination) {
       if (!parsedTrackedBase) return trackedClickUrl;
+      if (isTrackedClickUrl(destination)) return new URL(String(destination), window.location.href).toString();
       try {
         var nextUrl = new URL(parsedTrackedBase.toString());
         if (isHttpUrl(destination)) {
