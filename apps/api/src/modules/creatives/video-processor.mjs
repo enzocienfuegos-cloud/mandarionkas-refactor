@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { execFile as execFileCallback } from 'node:child_process';
@@ -96,6 +96,63 @@ async function createPoster(videoPath, posterPath) {
   };
 }
 
+function buildRenditionTargets(metadata = {}) {
+  const sourceWidth = Number(metadata.width ?? 0) || 0;
+  const sourceHeight = Number(metadata.height ?? 0) || 0;
+  const sourceBitRate = Number(metadata.bitRate ?? 0) || 0;
+  const targets = [
+    { label: '1080p', width: 1920, targetBitrateKbps: 5000, audioBitrateKbps: 192, sortOrder: 10 },
+    { label: '720p', width: 1280, targetBitrateKbps: 2500, audioBitrateKbps: 160, sortOrder: 20 },
+    { label: '480p', width: 854, targetBitrateKbps: 1200, audioBitrateKbps: 128, sortOrder: 30 },
+  ];
+  return targets
+    .filter((target) => !sourceWidth || sourceWidth >= target.width)
+    .map((target) => {
+      const boundedSourceKbps = sourceBitRate > 0 ? Math.max(600, Math.round(sourceBitRate / 1000)) : null;
+      const targetBitrateKbps = boundedSourceKbps
+        ? Math.min(target.targetBitrateKbps, boundedSourceKbps)
+        : target.targetBitrateKbps;
+      return {
+        ...target,
+        targetBitrateKbps,
+        sourceWidth,
+        sourceHeight,
+      };
+    });
+}
+
+async function transcodeRendition(videoPath, outputPath, target) {
+  const maxRateKbps = Math.round(target.targetBitrateKbps * 1.2);
+  const bufferSizeKbps = Math.round(target.targetBitrateKbps * 2);
+  const result = await runBinary('ffmpeg', [
+    '-y',
+    '-i', videoPath,
+    '-vf', `scale=w=${target.width}:h=-2:force_original_aspect_ratio=decrease`,
+    '-c:v', 'libx264',
+    '-preset', 'medium',
+    '-profile:v', 'main',
+    '-pix_fmt', 'yuv420p',
+    '-movflags', '+faststart',
+    '-b:v', `${target.targetBitrateKbps}k`,
+    '-maxrate', `${maxRateKbps}k`,
+    '-bufsize', `${bufferSizeKbps}k`,
+    '-c:a', 'aac',
+    '-b:a', `${target.audioBitrateKbps}k`,
+    '-ar', '48000',
+    outputPath,
+  ], { timeoutMs: 120000 });
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      reason: result.missing ? 'ffmpeg_missing' : 'ffmpeg_failed',
+      detail: result.stderr || result.error?.message || '',
+    };
+  }
+
+  return { ok: true, reason: null, detail: '' };
+}
+
 export async function enrichVideoPublication({
   workspaceId,
   creativeVersionId,
@@ -115,6 +172,7 @@ export async function enrichVideoPublication({
 
     const probe = await probeVideoFile(videoPath);
     const poster = await createPoster(videoPath, posterPath);
+    const targets = buildRenditionTargets(probe.metadata ?? {});
 
     const posterArtifacts = [];
     if (poster.available) {
@@ -138,9 +196,88 @@ export async function enrichVideoPublication({
       });
     }
 
+    const renditions = [];
+    const sourceUpload = await putObjectBuffer({
+      storageKey: `${workspaceId}/creative-published/${creativeVersionId}/source.mp4`,
+      buffer: videoBuffer,
+      contentType: 'video/mp4',
+    });
+    renditions.push({
+      label: 'Source',
+      width: probe.metadata?.width ?? null,
+      height: probe.metadata?.height ?? null,
+      bitrateKbps: probe.metadata?.bitRate ? Math.round(Number(probe.metadata.bitRate) / 1000) : null,
+      codec: probe.metadata?.codec ?? null,
+      mimeType: 'video/mp4',
+      isSource: true,
+      status: 'active',
+      sortOrder: 999,
+      artifact: {
+        kind: 'video_mp4',
+        storageKey: `${workspaceId}/creative-published/${creativeVersionId}/source.mp4`,
+        publicUrl: sourceUpload?.publicUrl ?? null,
+        mimeType: 'video/mp4',
+        sizeBytes: videoBuffer.byteLength,
+        checksum: null,
+        metadata: {
+          generatedBy: 'source_passthrough',
+          renditionLabel: 'Source',
+          isSource: true,
+        },
+      },
+    });
+
+    const renditionProcessing = [];
+    for (const target of targets) {
+      const outputPath = path.join(tempRoot, `${target.label}.mp4`);
+      const transcode = await transcodeRendition(videoPath, outputPath, target);
+      renditionProcessing.push({
+        label: target.label,
+        available: transcode.ok,
+        reason: transcode.reason,
+        detail: transcode.detail,
+      });
+      if (!transcode.ok) continue;
+
+      const renditionBuffer = await readFile(outputPath);
+      const storageKey = `${workspaceId}/creative-published/${creativeVersionId}/renditions/${target.label}.mp4`;
+      const upload = await putObjectBuffer({
+        storageKey,
+        buffer: renditionBuffer,
+        contentType: 'video/mp4',
+      });
+      const renditionProbe = await probeVideoFile(outputPath);
+      renditions.push({
+        label: target.label,
+        width: renditionProbe.metadata?.width ?? null,
+        height: renditionProbe.metadata?.height ?? null,
+        bitrateKbps: target.targetBitrateKbps,
+        codec: renditionProbe.metadata?.codec ?? 'h264',
+        mimeType: 'video/mp4',
+        isSource: false,
+        status: 'active',
+        sortOrder: target.sortOrder,
+        artifact: {
+          kind: 'video_mp4',
+          storageKey,
+          publicUrl: upload?.publicUrl ?? null,
+          mimeType: 'video/mp4',
+          sizeBytes: renditionBuffer.byteLength,
+          checksum: null,
+          metadata: {
+            generatedBy: 'ffmpeg',
+            renditionLabel: target.label,
+            targetWidth: target.width,
+            targetBitrateKbps: target.targetBitrateKbps,
+          },
+        },
+      });
+    }
+
     return {
       metadata: probe.metadata,
       posterArtifacts,
+      renditions,
       processing: {
         ffprobeAvailable: probe.available,
         ffprobeReason: probe.reason,
@@ -148,6 +285,7 @@ export async function enrichVideoPublication({
         ffmpegAvailable: poster.available,
         ffmpegReason: poster.reason,
         ffmpegDetail: poster.detail,
+        renditionProcessing,
       },
     };
   } finally {

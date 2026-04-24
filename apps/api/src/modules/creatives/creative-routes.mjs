@@ -13,6 +13,8 @@ import {
   updateCreativeSizeVariant,
   updateCreativeSizeVariantsBulkStatus,
   listCreativeArtifacts,
+  listVideoRenditions,
+  updateVideoRendition,
   getCreative,
   getCreativeVersion,
   createCreative,
@@ -129,6 +131,30 @@ function toApiCreativeSizeVariant(variant) {
     createdBy: variant.created_by ?? null,
     createdAt: variant.created_at,
     updatedAt: variant.updated_at,
+  };
+}
+
+function toApiVideoRendition(rendition) {
+  if (!rendition) return null;
+  return {
+    id: rendition.id,
+    creativeVersionId: rendition.creative_version_id,
+    artifactId: rendition.artifact_id ?? null,
+    label: rendition.label,
+    width: rendition.width ?? null,
+    height: rendition.height ?? null,
+    bitrateKbps: rendition.bitrate_kbps ?? null,
+    codec: rendition.codec ?? '',
+    mimeType: rendition.mime_type ?? rendition.artifact_mime_type ?? '',
+    status: rendition.status,
+    isSource: Boolean(rendition.is_source),
+    sortOrder: rendition.sort_order ?? 0,
+    publicUrl: rendition.artifact_public_url ?? '',
+    storageKey: rendition.artifact_storage_key ?? '',
+    sizeBytes: rendition.artifact_size_bytes ?? null,
+    metadata: rendition.metadata ?? {},
+    createdAt: rendition.created_at,
+    updatedAt: rendition.updated_at,
   };
 }
 
@@ -291,11 +317,13 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
 
     const artifacts = await listCreativeArtifacts(pool, workspaceId, id);
     const variants = await listCreativeSizeVariantsWithSummaries(pool, workspaceId, id);
+    const videoRenditions = await listVideoRenditions(pool, workspaceId, id);
 
     return reply.send({
       creativeVersion: toApiCreativeVersion(version),
       artifacts: artifacts.map(toApiCreativeArtifact),
       variants: variants.map(toApiCreativeSizeVariant),
+      videoRenditions: videoRenditions.map(toApiVideoRendition),
     });
   });
 
@@ -310,6 +338,37 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
 
     const variants = await listCreativeSizeVariantsWithSummaries(pool, workspaceId, id);
     return reply.send({ variants: variants.map(toApiCreativeSizeVariant) });
+  });
+
+  app.get('/v1/creative-versions/:id/video-renditions', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id } = req.params;
+
+    const version = await getCreativeVersion(pool, workspaceId, id);
+    if (!version) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Creative version not found' });
+    }
+
+    const renditions = await listVideoRenditions(pool, workspaceId, id);
+    return reply.send({ renditions: renditions.map(toApiVideoRendition) });
+  });
+
+  app.patch('/v1/video-renditions/:id', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id } = req.params;
+
+    const rendition = await updateVideoRendition(pool, workspaceId, id, {
+      status: req.body?.status,
+      label: req.body?.label,
+      sortOrder: req.body?.sortOrder,
+      metadata: req.body?.metadata,
+    });
+
+    if (!rendition) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Video rendition not found' });
+    }
+
+    return reply.send({ rendition: toApiVideoRendition(rendition) });
   });
 
   app.post('/v1/creative-versions/:id/variants', { preHandler: requireWorkspace }, async (req, reply) => {

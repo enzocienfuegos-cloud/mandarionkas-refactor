@@ -492,9 +492,20 @@ function pickArtifactForBinding(binding) {
   return viable[0]?.artifact ?? null;
 }
 
+function pickPreferredVideoRendition(binding) {
+  const renditions = Array.isArray(binding?.video_renditions) ? binding.video_renditions : [];
+  const eligible = renditions
+    .filter((rendition) => rendition?.public_url && ['active', 'draft', 'paused'].includes(String(rendition?.status ?? '').toLowerCase()))
+    .sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0));
+  return eligible[0] ?? null;
+}
+
 function toServingCandidateFromBinding(binding, tag) {
   const artifact = pickArtifactForBinding(binding);
-  const publicUrl = artifact?.public_url ?? binding.variant_public_url ?? binding.public_url ?? null;
+  const preferredVideoRendition = String(binding?.serving_format ?? '').toLowerCase() === 'vast_video'
+    ? pickPreferredVideoRendition(binding)
+    : null;
+  const publicUrl = preferredVideoRendition?.public_url ?? artifact?.public_url ?? binding.variant_public_url ?? binding.public_url ?? null;
   const versionMetadata = binding.version_metadata && typeof binding.version_metadata === 'object'
     ? binding.version_metadata
     : {};
@@ -518,15 +529,16 @@ function toServingCandidateFromBinding(binding, tag) {
     creativeSizeVariantId: binding.creative_size_variant_id ?? null,
     creativeName: binding.creative_name ?? '',
     servingFormat: binding.serving_format,
-    width: binding.variant_width ?? binding.width ?? null,
-    height: binding.variant_height ?? binding.height ?? null,
+    width: preferredVideoRendition?.width ?? binding.variant_width ?? binding.width ?? null,
+    height: preferredVideoRendition?.height ?? binding.variant_height ?? binding.height ?? null,
     durationMs: binding.duration_ms ?? null,
-    mimeType: artifact?.mime_type ?? binding.mime_type ?? null,
+    mimeType: preferredVideoRendition?.mime_type ?? artifact?.mime_type ?? binding.mime_type ?? null,
     clickUrl,
     clickOverrideEnabled,
     hasInternalClickTag,
     internalClickSignals,
     publicUrl,
+    videoRenditions: Array.isArray(binding?.video_renditions) ? binding.video_renditions : [],
     entryPath: binding.entry_path ?? null,
     artifactKind: artifact?.kind ?? null,
     sourceKind: binding.source_kind ?? null,
@@ -600,7 +612,38 @@ async function listTagVersionBindings(pool, workspaceId, tagId) {
             ORDER BY ca.created_at DESC
           ) FILTER (WHERE ca.id IS NOT NULL),
           '[]'::json
-        ) AS artifacts
+          ) AS artifacts
+       ,
+       COALESCE(
+         (
+           SELECT json_agg(
+             json_build_object(
+               'id', vr.id,
+               'label', vr.label,
+               'width', vr.width,
+               'height', vr.height,
+               'bitrate_kbps', vr.bitrate_kbps,
+               'codec', vr.codec,
+               'mime_type', vr.mime_type,
+               'status', vr.status,
+               'is_source', vr.is_source,
+               'sort_order', vr.sort_order,
+               'public_url', ca2.public_url,
+               'storage_key', ca2.storage_key,
+               'size_bytes', ca2.size_bytes,
+               'metadata', vr.metadata
+             )
+             ORDER BY vr.sort_order ASC, vr.created_at ASC
+           )
+           FROM video_renditions vr
+           LEFT JOIN creative_artifacts ca2
+             ON ca2.id = vr.artifact_id
+            AND ca2.workspace_id = vr.workspace_id
+           WHERE vr.workspace_id = tb.workspace_id
+             AND vr.creative_version_id = cv.id
+         ),
+         '[]'::json
+       ) AS video_renditions
      FROM tag_bindings tb
      JOIN creative_versions cv ON cv.id = tb.creative_version_id
      JOIN creatives c ON c.id = cv.creative_id

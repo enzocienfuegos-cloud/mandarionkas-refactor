@@ -72,6 +72,27 @@ export interface CreativeSizeVariant {
   updatedAt?: string;
 }
 
+export interface VideoRendition {
+  id: string;
+  creativeVersionId: string;
+  artifactId?: string | null;
+  label: string;
+  width?: number | null;
+  height?: number | null;
+  bitrateKbps?: number | null;
+  codec?: string;
+  mimeType?: string;
+  status: 'draft' | 'processing' | 'active' | 'paused' | 'archived' | 'failed';
+  isSource?: boolean;
+  sortOrder?: number;
+  publicUrl?: string;
+  storageKey?: string;
+  sizeBytes?: number | null;
+  metadata?: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface TagOption {
   id: string;
   name: string;
@@ -165,18 +186,48 @@ export async function loadCreativeVersionDetail(versionId: string): Promise<{
   creativeVersion: CreativeVersion;
   artifacts: CreativeArtifact[];
   variants: CreativeSizeVariant[];
+  videoRenditions: VideoRendition[];
 }> {
-  const payload = await fetchJson<{ creativeVersion: CreativeVersion; artifacts: CreativeArtifact[]; variants: CreativeSizeVariant[] }>(`/v1/creative-versions/${versionId}`);
+  const payload = await fetchJson<{
+    creativeVersion: CreativeVersion;
+    artifacts: CreativeArtifact[];
+    variants: CreativeSizeVariant[];
+    videoRenditions: VideoRendition[];
+  }>(`/v1/creative-versions/${versionId}`);
   return {
     creativeVersion: payload.creativeVersion,
     artifacts: payload.artifacts ?? [],
     variants: payload.variants ?? [],
+    videoRenditions: payload.videoRenditions ?? [],
   };
 }
 
 export async function loadCreativeSizeVariants(versionId: string): Promise<CreativeSizeVariant[]> {
   const payload = await fetchJson<{ variants: CreativeSizeVariant[] }>(`/v1/creative-versions/${versionId}/variants`);
   return payload.variants ?? [];
+}
+
+export async function loadVideoRenditions(versionId: string): Promise<VideoRendition[]> {
+  const payload = await fetchJson<{ renditions: VideoRendition[] }>(`/v1/creative-versions/${versionId}/video-renditions`);
+  return payload.renditions ?? [];
+}
+
+export async function updateVideoRenditionById(input: {
+  renditionId: string;
+  status?: 'draft' | 'processing' | 'active' | 'paused' | 'archived' | 'failed';
+  label?: string;
+  sortOrder?: number;
+  metadata?: Record<string, unknown>;
+}) {
+  return fetchJson<{ rendition: VideoRendition }>(`/v1/video-renditions/${input.renditionId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      status: input.status,
+      label: input.label,
+      sortOrder: input.sortOrder,
+      metadata: input.metadata,
+    }),
+  });
 }
 
 export async function loadCreativesWithLatestVersion(input: { scope?: 'all'; workspaceId?: string } = {}) {

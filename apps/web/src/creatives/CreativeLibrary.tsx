@@ -5,6 +5,7 @@ import {
   type CreativeVersion,
   type CreativeIngestion,
   type CreativeSizeVariant,
+  type VideoRendition,
   type TagOption,
   type TagBinding,
   assignCreativeVersionToTag,
@@ -15,10 +16,12 @@ import {
   loadCreativesWithLatestVersion,
   loadCreativeIngestions,
   loadCreativeSizeVariants,
+  loadVideoRenditions,
   loadTagBindings,
   loadTags,
   updateCreativeSizeVariant,
   updateCreativeSizeVariantsBulkStatus,
+  updateVideoRenditionById,
   updateTagBinding,
 } from './catalog';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
@@ -65,6 +68,11 @@ function readinessBadge(variant: CreativeSizeVariant) {
   );
 }
 
+function formatVideoBitrate(value?: number | null) {
+  if (!value) return '—';
+  return `${Math.round(value)} kbps`;
+}
+
 type LatestVersionMap = Record<string, CreativeVersion | null>;
 
 const VARIANT_PRESETS = [
@@ -105,6 +113,15 @@ interface VariantState {
   };
 }
 
+interface VideoRenditionState {
+  creativeId: string;
+  creativeName: string;
+  versionId: string;
+  loading: boolean;
+  error: string;
+  renditions: VideoRendition[];
+}
+
 export default function CreativeLibrary() {
   const navigate = useNavigate();
   const [creatives, setCreatives] = useState<Creative[]>([]);
@@ -120,6 +137,7 @@ export default function CreativeLibrary() {
   const [successMessage, setSuccessMessage] = useState('');
   const [bindingState, setBindingState] = useState<BindingState | null>(null);
   const [variantState, setVariantState] = useState<VariantState | null>(null);
+  const [videoRenditionState, setVideoRenditionState] = useState<VideoRenditionState | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -288,6 +306,27 @@ export default function CreativeLibrary() {
     }
   };
 
+  const openVideoRenditionManager = async (creative: Creative, version: CreativeVersion) => {
+    setVideoRenditionState({
+      creativeId: creative.id,
+      creativeName: creative.name,
+      versionId: version.id,
+      loading: true,
+      error: '',
+      renditions: [],
+    });
+    try {
+      const renditions = await loadVideoRenditions(version.id);
+      setVideoRenditionState(current => current ? { ...current, loading: false, renditions } : current);
+    } catch (loadError: any) {
+      setVideoRenditionState(current => current ? {
+        ...current,
+        loading: false,
+        error: loadError.message ?? 'Failed to load video renditions',
+      } : current);
+    }
+  };
+
   const handleVariantStatusChange = async (variantId: string, status: 'active' | 'paused') => {
     setVariantState(current => current ? { ...current, loading: true, error: '' } : current);
     try {
@@ -296,6 +335,25 @@ export default function CreativeLibrary() {
       setVariantState(current => current ? { ...current, loading: false, variants } : current);
     } catch (updateError: any) {
       setVariantState(current => current ? { ...current, loading: false, error: updateError.message ?? 'Failed to update variant' } : current);
+    }
+  };
+
+  const handleVideoRenditionStatusChange = async (
+    renditionId: string,
+    status: 'active' | 'paused',
+  ) => {
+    if (!videoRenditionState) return;
+    setVideoRenditionState(current => current ? { ...current, loading: true, error: '' } : current);
+    try {
+      await updateVideoRenditionById({ renditionId, status });
+      const renditions = await loadVideoRenditions(videoRenditionState.versionId);
+      setVideoRenditionState(current => current ? { ...current, loading: false, renditions } : current);
+    } catch (updateError: any) {
+      setVideoRenditionState(current => current ? {
+        ...current,
+        loading: false,
+        error: updateError.message ?? 'Failed to update video rendition',
+      } : current);
     }
   };
 
@@ -546,10 +604,14 @@ export default function CreativeLibrary() {
                         {version && version.status !== 'rejected' && (
                           <>
                             <button
-                              onClick={() => void openVariantManager(creative, version)}
+                              onClick={() => void (
+                                version.servingFormat === 'vast_video'
+                                  ? openVideoRenditionManager(creative, version)
+                                  : openVariantManager(creative, version)
+                              )}
                               className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                             >
-                              Manage sizes
+                              {version.servingFormat === 'vast_video' ? 'Manage renditions' : 'Manage sizes'}
                             </button>
                             <button
                               onClick={async () => {
@@ -764,6 +826,118 @@ export default function CreativeLibrary() {
               >
                 {bindingState.loading ? 'Assigning…' : 'Assign'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {videoRenditionState && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800">Video renditions</h2>
+                <p className="mt-1 text-sm text-slate-500">{videoRenditionState.creativeName}</p>
+              </div>
+              <button
+                onClick={() => setVideoRenditionState(null)}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-4 p-6">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                Manage which MP4 renditions are active for VAST delivery. The source file stays available as fallback, and transcoded renditions are served first when active.
+              </div>
+
+              {videoRenditionState.error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {videoRenditionState.error}
+                </div>
+              )}
+
+              <div className="overflow-hidden rounded-xl border border-slate-200">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Rendition</th>
+                      <th className="px-4 py-3">Resolution</th>
+                      <th className="px-4 py-3">Bitrate</th>
+                      <th className="px-4 py-3">Codec</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Asset</th>
+                      <th className="px-4 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {videoRenditionState.renditions.map(rendition => (
+                      <tr key={rendition.id}>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium text-slate-800">{rendition.label}</span>
+                            {rendition.isSource && (
+                              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                                Source
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">
+                          {rendition.width && rendition.height ? `${rendition.width}×${rendition.height}` : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">{formatVideoBitrate(rendition.bitrateKbps)}</td>
+                        <td className="px-4 py-3 text-slate-600">{rendition.codec || '—'}</td>
+                        <td className="px-4 py-3">{statusBadge(rendition.status)}</td>
+                        <td className="px-4 py-3">
+                          <div className="space-y-1 text-xs text-slate-500">
+                            {rendition.publicUrl ? (
+                              <a
+                                href={rendition.publicUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-medium text-indigo-600 hover:text-indigo-700"
+                              >
+                                Open MP4
+                              </a>
+                            ) : (
+                              <span>Not published</span>
+                            )}
+                            <div>{formatBytes(rendition.sizeBytes)}</div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {rendition.status === 'active' ? (
+                            <button
+                              onClick={() => void handleVideoRenditionStatusChange(rendition.id, 'paused')}
+                              disabled={videoRenditionState.loading}
+                              className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-60"
+                            >
+                              Pause
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => void handleVideoRenditionStatusChange(rendition.id, 'active')}
+                              disabled={videoRenditionState.loading || rendition.status === 'processing' || rendition.status === 'failed'}
+                              className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                            >
+                              Activate
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {!videoRenditionState.loading && videoRenditionState.renditions.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500">
+                          No video renditions yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>

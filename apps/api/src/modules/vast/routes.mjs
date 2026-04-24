@@ -148,6 +148,27 @@ function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const clickTrackingUrl = appendQueryParam(`${trackingBase}/click/${tagId}?${clickTrackingParams.toString()}`, 'ctx', ctxToken);
   const wrappedClickTrackUrl = wrapTrackedClickUrlWithDspMacro(clickTrackingUrl, query);
   const viewabilityBaseUrl = appendQueryParam(`${trackingBase}/viewability/${tagId}?${trackingParams.toString()}`, 'ctx', ctxToken);
+  const mediaFiles = Array.isArray(servingCandidate?.videoRenditions) && servingCandidate.videoRenditions.length
+    ? servingCandidate.videoRenditions
+      .filter((rendition) => rendition?.public_url)
+      .filter((rendition) => ['active', 'draft', 'paused'].includes(String(rendition?.status ?? '').toLowerCase()))
+      .sort((a, b) => Number(a?.sort_order ?? 0) - Number(b?.sort_order ?? 0))
+    : [];
+  const mediaFilesXml = (mediaFiles.length ? mediaFiles : [{
+    public_url: videoUrl,
+    mime_type: 'video/mp4',
+    width,
+    height,
+    bitrate_kbps: null,
+  }]).map((rendition) => {
+    const renditionWidth = rendition?.width ?? width;
+    const renditionHeight = rendition?.height ?? height;
+    const bitrateAttr = rendition?.bitrate_kbps ? ` bitrate="${rendition.bitrate_kbps}"` : '';
+    const typeAttr = escapeXml(rendition?.mime_type ?? 'video/mp4');
+    return `              <MediaFile delivery="progressive" type="${typeAttr}" width="${renditionWidth}" height="${renditionHeight}"${bitrateAttr}>
+                <![CDATA[${rendition.public_url}]]>
+              </MediaFile>`;
+  }).join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <VAST version="4.0" xmlns="http://www.iab.com/VAST" xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -172,9 +193,7 @@ function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
               <ClickTracking><![CDATA[${wrappedClickTrackUrl}]]></ClickTracking>
             </VideoClicks>
             <MediaFiles>
-              <MediaFile delivery="progressive" type="video/mp4" width="${width}" height="${height}">
-                <![CDATA[${videoUrl}]]>
-              </MediaFile>
+${mediaFilesXml}
             </MediaFiles>
           </Linear>
         </Creative>

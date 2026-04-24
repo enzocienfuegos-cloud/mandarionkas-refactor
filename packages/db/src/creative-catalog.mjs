@@ -41,6 +41,13 @@ function normalizeVariantStatus(status) {
     : 'draft';
 }
 
+function normalizeVideoRenditionStatus(status) {
+  const normalized = String(status ?? '').trim().toLowerCase();
+  return ['draft', 'processing', 'active', 'paused', 'archived', 'failed'].includes(normalized)
+    ? normalized
+    : 'draft';
+}
+
 async function syncCreativeApprovalStatus(pool, workspaceId, creativeId, status, reviewerId = null, notes = null) {
   await pool.query(
     `UPDATE creatives
@@ -605,6 +612,136 @@ export async function createCreativeArtifact(pool, workspaceId, data) {
       checksum,
       JSON.stringify(metadata ?? {}),
     ],
+  );
+  return rows[0] ?? null;
+}
+
+export async function listVideoRenditions(pool, workspaceId, creativeVersionId) {
+  const { rows } = await pool.query(
+    `SELECT vr.*,
+            ca.public_url AS artifact_public_url,
+            ca.storage_key AS artifact_storage_key,
+            ca.mime_type AS artifact_mime_type,
+            ca.size_bytes AS artifact_size_bytes,
+            ca.metadata AS artifact_metadata
+     FROM video_renditions vr
+     LEFT JOIN creative_artifacts ca
+       ON ca.id = vr.artifact_id
+      AND ca.workspace_id = vr.workspace_id
+     WHERE vr.workspace_id = $1
+       AND vr.creative_version_id = $2
+     ORDER BY vr.sort_order ASC, vr.created_at ASC`,
+    [workspaceId, creativeVersionId],
+  );
+  return rows;
+}
+
+export async function createVideoRendition(pool, workspaceId, data) {
+  const {
+    creative_version_id,
+    artifact_id = null,
+    label,
+    width = null,
+    height = null,
+    bitrate_kbps = null,
+    codec = null,
+    mime_type = null,
+    status = 'draft',
+    is_source = false,
+    sort_order = 0,
+    metadata = {},
+  } = data;
+
+  if (!creative_version_id) {
+    throw new Error('creative_version_id is required');
+  }
+  if (!label) {
+    throw new Error('label is required');
+  }
+
+  const { rows } = await pool.query(
+    `INSERT INTO video_renditions (
+       workspace_id, creative_version_id, artifact_id, label, width, height,
+       bitrate_kbps, codec, mime_type, status, is_source, sort_order, metadata
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
+     RETURNING *`,
+    [
+      workspaceId,
+      creative_version_id,
+      artifact_id,
+      String(label).trim(),
+      width,
+      height,
+      bitrate_kbps,
+      codec,
+      mime_type,
+      normalizeVideoRenditionStatus(status),
+      Boolean(is_source),
+      Number(sort_order) || 0,
+      JSON.stringify(metadata ?? {}),
+    ],
+  );
+  return rows[0] ?? null;
+}
+
+export async function updateVideoRendition(pool, workspaceId, renditionId, patch = {}) {
+  const fieldMap = {
+    label: 'label',
+    width: 'width',
+    height: 'height',
+    bitrateKbps: 'bitrate_kbps',
+    codec: 'codec',
+    mimeType: 'mime_type',
+    status: 'status',
+    isSource: 'is_source',
+    sortOrder: 'sort_order',
+    metadata: 'metadata',
+    artifactId: 'artifact_id',
+  };
+
+  const params = [workspaceId, renditionId];
+  const setClauses = [];
+
+  for (const [camel, column] of Object.entries(fieldMap)) {
+    if (!(camel in patch)) continue;
+    const value = patch[camel];
+    if (column === 'metadata') {
+      params.push(JSON.stringify(value ?? {}));
+      setClauses.push(`${column} = $${params.length}::jsonb`);
+    } else if (column === 'status') {
+      params.push(normalizeVideoRenditionStatus(value));
+      setClauses.push(`${column} = $${params.length}`);
+    } else if (column === 'is_source') {
+      params.push(Boolean(value));
+      setClauses.push(`${column} = $${params.length}`);
+    } else if (column === 'sort_order' || column === 'bitrate_kbps' || column === 'width' || column === 'height') {
+      params.push(value == null ? null : Number(value));
+      setClauses.push(`${column} = $${params.length}`);
+    } else {
+      params.push(value);
+      setClauses.push(`${column} = $${params.length}`);
+    }
+  }
+
+  if (!setClauses.length) {
+    const { rows } = await pool.query(
+      `SELECT *
+       FROM video_renditions
+       WHERE workspace_id = $1
+         AND id = $2`,
+      [workspaceId, renditionId],
+    );
+    return rows[0] ?? null;
+  }
+
+  setClauses.push('updated_at = NOW()');
+  const { rows } = await pool.query(
+    `UPDATE video_renditions
+     SET ${setClauses.join(', ')}
+     WHERE workspace_id = $1
+       AND id = $2
+     RETURNING *`,
+    params,
   );
   return rows[0] ?? null;
 }

@@ -3,6 +3,7 @@ import {
   createCreative,
   createCreativeArtifact,
   createCreativeIngestion,
+  createVideoRendition,
   createCreativeVersion,
   ensureCreativeVersionDefaultVariant,
   getCreative,
@@ -114,7 +115,7 @@ function getCatalogDraftForIngestion(row) {
       publicUrl: row.public_url ?? null,
       entryPath: null,
       mimeType: row.mime_type ?? 'video/mp4',
-      transcodeStatus: 'done',
+      transcodeStatus: 'processing',
       metadata: {
         publishedFrom: 'external_ingestion',
         ingestionId: row.id,
@@ -148,6 +149,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
   createCreative,
   createCreativeArtifact,
   createCreativeIngestion,
+  createVideoRendition,
   createCreativeVersion,
   ensureCreativeVersionDefaultVariant,
   getCreative,
@@ -491,9 +493,47 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
           }));
         }
 
+        const renditionArtifacts = [];
+        for (const rendition of videoPublication.renditions ?? []) {
+          const renditionArtifact = await deps.createCreativeArtifact(client, targetWorkspaceId, {
+            creative_version_id: creativeVersion.id,
+            kind: rendition.artifact.kind,
+            storage_key: rendition.artifact.storageKey,
+            public_url: rendition.artifact.publicUrl,
+            mime_type: rendition.artifact.mimeType,
+            size_bytes: rendition.artifact.sizeBytes,
+            checksum: rendition.artifact.checksum,
+            metadata: rendition.artifact.metadata,
+          });
+          publishedArtifacts.push(renditionArtifact);
+          renditionArtifacts.push({ rendition, artifact: renditionArtifact });
+        }
+
+        for (const entry of renditionArtifacts) {
+          await deps.createVideoRendition(client, targetWorkspaceId, {
+            creative_version_id: creativeVersion.id,
+            artifact_id: entry.artifact.id,
+            label: entry.rendition.label,
+            width: entry.rendition.width,
+            height: entry.rendition.height,
+            bitrate_kbps: entry.rendition.bitrateKbps,
+            codec: entry.rendition.codec,
+            mime_type: entry.rendition.mimeType,
+            status: entry.rendition.status,
+            is_source: entry.rendition.isSource,
+            sort_order: entry.rendition.sortOrder,
+            metadata: entry.rendition.artifact.metadata ?? {},
+          });
+        }
+
+        const activeTranscodedRenditions = (videoPublication.renditions ?? []).filter(rendition => !rendition.isSource);
+        const preferredRendition = activeTranscodedRenditions[0] ?? (videoPublication.renditions ?? [])[0] ?? null;
+
         publishedVersion = await deps.updateCreativeVersion(client, targetWorkspaceId, creativeVersion.id, {
-          width: videoPublication.metadata?.width ?? creativeVersion.width ?? req.body?.width ?? null,
-          height: videoPublication.metadata?.height ?? creativeVersion.height ?? req.body?.height ?? null,
+          publicUrl: preferredRendition?.artifact.publicUrl ?? creativeVersion.public_url ?? row.public_url ?? null,
+          mimeType: preferredRendition?.mimeType ?? creativeVersion.mime_type ?? row.mime_type ?? 'video/mp4',
+          width: preferredRendition?.width ?? videoPublication.metadata?.width ?? creativeVersion.width ?? req.body?.width ?? null,
+          height: preferredRendition?.height ?? videoPublication.metadata?.height ?? creativeVersion.height ?? req.body?.height ?? null,
           durationMs: videoPublication.metadata?.durationMs ?? creativeVersion.duration_ms ?? req.body?.durationMs ?? null,
           metadata: {
             ...(creativeVersion.metadata ?? {}),
@@ -502,6 +542,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
             codec: videoPublication.metadata?.codec ?? null,
             bitRate: videoPublication.metadata?.bitRate ?? null,
             posterGenerated: videoPublication.posterArtifacts.length > 0,
+            renditionsGenerated: activeTranscodedRenditions.length,
           },
         });
         await deps.ensureCreativeVersionDefaultVariant(client, targetWorkspaceId, publishedVersion, {
@@ -510,9 +551,12 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
 
         const posterArtifact = videoPublication.posterArtifacts[0] ?? null;
         creative = await deps.updateCreative(client, targetWorkspaceId, creative.id, {
-          width: videoPublication.metadata?.width ?? req.body?.width ?? null,
-          height: videoPublication.metadata?.height ?? req.body?.height ?? null,
+          file_url: preferredRendition?.artifact.publicUrl ?? row.public_url ?? null,
+          mime_type: preferredRendition?.mimeType ?? row.mime_type ?? 'video/mp4',
+          width: preferredRendition?.width ?? videoPublication.metadata?.width ?? req.body?.width ?? null,
+          height: preferredRendition?.height ?? videoPublication.metadata?.height ?? req.body?.height ?? null,
           duration_ms: videoPublication.metadata?.durationMs ?? req.body?.durationMs ?? null,
+          transcode_status: activeTranscodedRenditions.length > 0 ? 'done' : 'failed',
           metadata: {
             ...(creative.metadata ?? {}),
             sourceKind: row.source_kind,
@@ -521,6 +565,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
             posterUrl: posterArtifact?.publicUrl ?? null,
             codec: videoPublication.metadata?.codec ?? null,
             bitRate: videoPublication.metadata?.bitRate ?? null,
+            renditionsGenerated: activeTranscodedRenditions.length,
           },
         });
       }
