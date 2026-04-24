@@ -4,7 +4,7 @@ import {
   recordViewability,
   recordEngagementEvent,
 } from '@smx/db/tracking';
-import { getTagById } from '@smx/db/tags';
+import { getTagById, getTagServingSnapshotById } from '@smx/db/tags';
 import { extractIp, resolveIp } from '@smx/geo';
 import { readDspMacroValue, resolveDspClickMacroValue } from '@smx/contracts/dsp-macros';
 
@@ -287,32 +287,41 @@ export function handleTrackingRoutes(app, { pool }) {
 
   app.get('/v1/tags/tracker/:tagId/click', async (req, reply) => {
     const { tagId } = req.params;
-    const tag = await getTagById(pool, tagId);
-    if (!tag) {
+    const [tag, servingSnapshot] = await Promise.all([
+      getTagById(pool, tagId),
+      getTagServingSnapshotById(pool, tagId),
+    ]);
+    if (!tag || !servingSnapshot) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
 
     const context = await collectTrackingContext(req, req.query);
     attachMeasurementDebugHeaders(reply, context);
     setTrackingIdentityCookies(reply, context);
-    const destinationUrl = tag.click_url ?? req.query?.url ?? null;
+    const destinationUrl = tag.click_url
+      ?? servingSnapshot.servingCandidate?.clickUrl
+      ?? req.query?.url
+      ?? null;
+    const creativeId = normalizeUuid(req.query?.c) ?? servingSnapshot.servingCandidate?.creativeId ?? null;
+    const creativeSizeVariantId = normalizeUuid(req.query?.csv) ?? servingSnapshot.servingCandidate?.creativeSizeVariantId ?? null;
+    const impressionId = normalizeUuid(req.query?.imp) ?? null;
 
     try {
       await recordClick(pool, {
         tag_id: tagId,
         workspace_id: tag.workspace_id,
-        creative_id: normalizeUuid(req.query?.c) ?? null,
-        creative_size_variant_id: normalizeUuid(req.query?.csv) ?? null,
-        impression_id: normalizeUuid(req.query?.imp) ?? null,
+        creative_id: creativeId,
+        creative_size_variant_id: creativeSizeVariantId,
+        impression_id: impressionId,
         redirect_url: destinationUrl,
         ...context,
       });
       logMeasurementPath(req, 'tracking click measurement path', {
         tagId,
         workspaceId: tag.workspace_id,
-        impressionId: normalizeUuid(req.query?.imp) ?? null,
-        creativeId: normalizeUuid(req.query?.c) ?? null,
-        creativeSizeVariantId: normalizeUuid(req.query?.csv) ?? null,
+        impressionId,
+        creativeId,
+        creativeSizeVariantId,
         destinationUrl,
       }, context);
     } catch (error) {
