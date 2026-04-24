@@ -14,6 +14,7 @@ const ACCEPTED_EXTENSIONS: Record<SourceKind, string> = {
   html5_zip: '.zip',
   video_mp4: '.mp4',
 };
+const MAX_PARALLEL_UPLOADS = 4;
 
 export default function CreativeUpload() {
   const navigate = useNavigate();
@@ -65,42 +66,66 @@ export default function CreativeUpload() {
 
     setLoading(true);
     setError('');
-    setStatus('Preparing upload…');
+    setStatus('Preparing uploads…');
     setCurrentFileName('');
     setCurrentFileProgress(0);
     setOverallProgress(0);
 
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-    let uploadedCompletedBytes = 0;
+    const loadedBytesByIndex = files.map(() => 0);
+    const activeIndexes = new Set<number>();
+
+    const refreshOverallProgress = () => {
+      const loadedBytes = loadedBytesByIndex.reduce((sum, value) => sum + value, 0);
+      const nextOverall = totalBytes > 0
+        ? Math.min(100, Math.round((loadedBytes / totalBytes) * 100))
+        : 0;
+      setOverallProgress(nextOverall);
+    };
+
+    const refreshActiveProgress = () => {
+      if (activeIndexes.size === 0) {
+        setCurrentFileName('');
+        setCurrentFileProgress(0);
+        return;
+      }
+      const indexes = Array.from(activeIndexes.values()).sort((a, b) => a - b);
+      const names = indexes.map(index => files[index]?.name).filter(Boolean);
+      const averageProgress = Math.round(
+        indexes.reduce((sum, index) => {
+          const size = files[index]?.size || 0;
+          if (size <= 0) return sum;
+          return sum + Math.min(100, Math.round((loadedBytesByIndex[index] / size) * 100));
+        }, 0) / indexes.length,
+      );
+      setCurrentFileName(names[0] + (names.length > 1 ? ` +${names.length - 1} more` : ''));
+      setCurrentFileProgress(averageProgress);
+    };
 
     try {
-      for (const [index, file] of files.entries()) {
-        const label = `${index + 1}/${files.length} · ${file.name}`;
-        setCurrentFileName(file.name);
-        setCurrentFileProgress(0);
-        setStatus(`Preparing upload ${label}…`);
+      const processFile = async (file: File, index: number) => {
+        activeIndexes.add(index);
+        refreshActiveProgress();
+
         const upload = await createCreativeIngestionUpload({
           workspaceId,
           sourceKind,
           file,
         });
 
-        setStatus(`Uploading ${label}…`);
-        await uploadFileToSignedUrl(upload.upload.uploadUrl, file, ({ loadedBytes, totalBytes: fileTotalBytes, percent }) => {
-          setCurrentFileProgress(percent);
-          const cumulativeLoaded = uploadedCompletedBytes + loadedBytes;
-          const nextOverall = totalBytes > 0
-            ? Math.min(100, Math.round((cumulativeLoaded / totalBytes) * 100))
-            : 0;
-          setOverallProgress(nextOverall);
+        await uploadFileToSignedUrl(upload.upload.uploadUrl, file, ({ loadedBytes, totalBytes: fileTotalBytes }) => {
+          loadedBytesByIndex[index] = loadedBytes;
           if (fileTotalBytes > 0 && loadedBytes >= fileTotalBytes) {
-            setCurrentFileProgress(100);
+            loadedBytesByIndex[index] = fileTotalBytes;
           }
+          refreshOverallProgress();
+          refreshActiveProgress();
         });
-        uploadedCompletedBytes += file.size;
-        setOverallProgress(totalBytes > 0 ? Math.min(100, Math.round((uploadedCompletedBytes / totalBytes) * 100)) : 100);
 
-        setStatus(`Validating ${label}…`);
+        loadedBytesByIndex[index] = file.size;
+        refreshOverallProgress();
+        refreshActiveProgress();
+
         await completeCreativeIngestion(upload.ingestion.id, {
           workspaceId,
           file,
@@ -108,10 +133,20 @@ export default function CreativeUpload() {
           storageKey: upload.upload.storageKey,
         });
 
-        setStatus(`Publishing ${label}…`);
         await publishCreativeIngestion(upload.ingestion.id, {
           workspaceId,
         });
+
+        activeIndexes.delete(index);
+        refreshActiveProgress();
+      };
+
+      const batchSize = Math.min(MAX_PARALLEL_UPLOADS, files.length);
+      setStatus(`Uploading ${files.length} creative${files.length === 1 ? '' : 's'} in batches of ${batchSize}…`);
+
+      for (let start = 0; start < files.length; start += MAX_PARALLEL_UPLOADS) {
+        const batch = files.slice(start, start + MAX_PARALLEL_UPLOADS);
+        await Promise.all(batch.map((file, offset) => processFile(file, start + offset)));
       }
 
       setStatus(`${files.length} creative${files.length === 1 ? '' : 's'} published.`);

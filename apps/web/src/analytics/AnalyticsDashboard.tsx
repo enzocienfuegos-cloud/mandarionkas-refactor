@@ -21,6 +21,8 @@ type PrimaryKpiId =
   | 'ctr'
   | 'viewability'
   | 'engagements'
+  | 'completions'
+  | 'completionRate'
   | 'engagementRate'
   | 'attentionTime'
   | 'inViewTime';
@@ -38,6 +40,7 @@ type ReportModuleId =
   | 'audienceLibrary'
   | 'regionalInsights'
   | 'trackerPerformance'
+  | 'videoCompletion'
   | 'identityFrequency'
   | 'identityAttribution'
   | 'identityKeys'
@@ -111,6 +114,13 @@ interface AudiencePresetMetric extends RankedMetric {
   presetValue: IdentitySegmentPreset;
 }
 
+interface VideoCompletionStep {
+  id: 'start' | 'firstQuartile' | 'midpoint' | 'thirdQuartile' | 'complete';
+  label: string;
+  count: number;
+  rate: number;
+}
+
 interface WorkspaceAnalytics {
   totalImpressions: number;
   totalClicks: number;
@@ -124,6 +134,12 @@ interface WorkspaceAnalytics {
   totalEngagements: number;
   engagementRate: number;
   totalHoverDurationMs: number;
+  videoStarts: number;
+  videoFirstQuartile: number;
+  videoMidpoint: number;
+  videoThirdQuartile: number;
+  videoCompletions: number;
+  videoCompletionRate: number;
   totalInViewDurationMs: number;
   totalIdentities: number;
   avgIdentityFrequency: number;
@@ -146,6 +162,7 @@ interface WorkspaceAnalytics {
   identityKeyBreakdown: RankedMetric[];
   identityAttribution: RankedMetric[];
   engagements: RankedMetric[];
+  videoCompletion: VideoCompletionStep[];
   savedAudiences: SavedAudience[];
   audiencePresets: AudiencePresetMetric[];
   timeline: TimelinePoint[];
@@ -185,6 +202,8 @@ const PRIMARY_KPI_ORDER_DEFAULT: PrimaryKpiId[] = [
   'ctr',
   'viewability',
   'engagements',
+  'completions',
+  'completionRate',
   'engagementRate',
   'attentionTime',
   'inViewTime',
@@ -204,6 +223,7 @@ const REPORT_MODULE_ORDER_DEFAULT: ReportModuleId[] = [
   'audienceLibrary',
   'regionalInsights',
   'trackerPerformance',
+  'videoCompletion',
   'identityFrequency',
   'identityAttribution',
   'identityKeys',
@@ -236,6 +256,23 @@ function fmtCurrency(value: number): string {
 
 function fmtCtr(value: number): string {
   return `${toNumber(value).toFixed(2)}%`;
+}
+
+function formatVideoEventLabel(eventType: string): string {
+  switch (eventType) {
+    case 'start':
+      return 'Start';
+    case 'firstQuartile':
+      return '25%';
+    case 'midpoint':
+      return '50%';
+    case 'thirdQuartile':
+      return '75%';
+    case 'complete':
+      return 'Complete';
+    default:
+      return eventType;
+  }
 }
 
 function fmtSecondsFromMs(value: number): string {
@@ -397,6 +434,19 @@ function normalizeWorkspaceAnalytics(
   variantPayload: any,
 ): WorkspaceAnalytics {
   const source = workspacePayload?.stats ?? workspacePayload ?? {};
+  const videoStartCount = toNumber(source?.videoStarts ?? source?.video_starts);
+  const rawEngagementBreakdown = Array.isArray(engagementPayload?.breakdown) ? engagementPayload.breakdown : [];
+  const videoCompletionEventTypes = ['start', 'firstQuartile', 'midpoint', 'thirdQuartile', 'complete'] as const;
+  const videoCompletion = videoCompletionEventTypes.map((eventType) => {
+    const item = rawEngagementBreakdown.find((entry: any) => String(entry?.event_type ?? '') === eventType);
+    const count = toNumber(item?.event_count);
+    return {
+      id: eventType,
+      label: formatVideoEventLabel(eventType),
+      count,
+      rate: videoStartCount > 0 ? Number(((count / videoStartCount) * 100).toFixed(2)) : 0,
+    };
+  });
   const timeline = (Array.isArray(workspacePayload?.timeline) ? workspacePayload.timeline : []).map((item: any) => ({
     date: String(item?.date ?? ''),
     impressions: toNumber(item?.impressions),
@@ -420,6 +470,12 @@ function normalizeWorkspaceAnalytics(
     totalEngagements: toNumber(source?.totalEngagements ?? source?.total_engagements),
     engagementRate: toNumber(source?.engagementRate ?? source?.engagement_rate),
     totalHoverDurationMs: toNumber(source?.totalHoverDurationMs ?? source?.total_hover_duration_ms),
+    videoStarts: videoStartCount,
+    videoFirstQuartile: toNumber(source?.videoFirstQuartile ?? source?.video_first_quartile),
+    videoMidpoint: toNumber(source?.videoMidpoint ?? source?.video_midpoint),
+    videoThirdQuartile: toNumber(source?.videoThirdQuartile ?? source?.video_third_quartile),
+    videoCompletions: toNumber(source?.videoCompletions ?? source?.video_completions),
+    videoCompletionRate: toNumber(source?.videoCompletionRate ?? source?.video_completion_rate),
     totalInViewDurationMs: toNumber(source?.totalInViewDurationMs ?? source?.total_in_view_duration_ms),
     totalIdentities: toNumber(source?.totalIdentities ?? source?.total_identities),
     avgIdentityFrequency: toNumber(source?.avgIdentityFrequency ?? source?.avg_identity_frequency),
@@ -479,6 +535,7 @@ function normalizeWorkspaceAnalytics(
       const duration = toNumber(item?.total_duration_ms);
       return duration > 0 ? `${fmtNum(duration)} ms total` : undefined;
     }),
+    videoCompletion,
     savedAudiences: (Array.isArray(savedAudiencePayload?.audiences) ? savedAudiencePayload.audiences : []).map((item: any) => ({
       id: String(item?.id ?? ''),
       name: String(item?.name ?? 'Untitled audience'),
@@ -990,6 +1047,20 @@ export default function AnalyticsDashboard() {
       icon: '✨',
       color: 'text-amber-700',
       sub: `${fmtCtr(data?.engagementRate ?? 0)} engagement rate`,
+    },
+    completions: {
+      label: 'Completions',
+      value: fmtNum(data?.videoCompletions ?? 0),
+      icon: '🎬',
+      color: 'text-emerald-700',
+      sub: `${fmtNum(data?.videoStarts ?? 0)} video starts`,
+    },
+    completionRate: {
+      label: 'Completion Rate',
+      value: fmtCtr(data?.videoCompletionRate ?? 0),
+      icon: '🏁',
+      color: 'text-violet-700',
+      sub: `${fmtNum(data?.videoCompletions ?? 0)} completions from ${fmtNum(data?.videoStarts ?? 0)} starts`,
     },
     engagementRate: {
       label: 'Engagement Rate',
@@ -1582,6 +1653,34 @@ export default function AnalyticsDashboard() {
         return <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6"><RankedList title="Top Regions" emptyLabel="No region data available" items={data?.topRegions ?? []} /><RankedList title="Top Cities" emptyLabel="No city data available" items={data?.topCities ?? []} /></div>;
       case 'trackerPerformance':
         return <div className="grid grid-cols-1 gap-6 mb-6"><RankedList title="Tracker Performance" emptyLabel="No tracker or delivery data available" items={data?.trackerPerformance ?? []} /></div>;
+      case 'videoCompletion':
+        return (
+          <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+            <div className="mb-4 flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-slate-800">Video Completion Funnel</h2>
+              <p className="text-xs text-slate-500">
+                Start, quartiles, completions, and completion rate for video playback.
+              </p>
+            </div>
+            {(data?.videoCompletion ?? []).some((step) => step.count > 0) ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+                {(data?.videoCompletion ?? []).map((step) => (
+                  <div key={step.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{step.label}</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-800">{fmtNum(step.count)}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {step.id === 'start' ? '100.00% of starts' : `${fmtCtr(step.rate)} of starts`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-400">
+                No video completion data available
+              </div>
+            )}
+          </div>
+        );
       case 'identityFrequency':
         return <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6"><RankedList title="Identity Frequency Buckets" emptyLabel="No identity frequency data available" items={data?.identityFrequency ?? []} /><RankedList title="Identity Segment Presets" emptyLabel="No identity segment data available" items={data?.identitySegments ?? []} /></div>;
       case 'identityAttribution':
@@ -1717,6 +1816,7 @@ export default function AnalyticsDashboard() {
               : moduleId === 'audienceLibrary' ? 'Audience Library'
               : moduleId === 'regionalInsights' ? 'Regional Insights'
               : moduleId === 'trackerPerformance' ? 'Tracker Performance'
+              : moduleId === 'videoCompletion' ? 'Video Completion Funnel'
               : moduleId === 'identityFrequency' ? 'Identity Frequency'
               : moduleId === 'identityAttribution' ? 'Identity Attribution'
               : moduleId === 'identityKeys' ? 'Identity Keys'

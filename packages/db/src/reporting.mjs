@@ -137,6 +137,18 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
      WHERE ${engagementConditions.join(' AND ')}`,
     engagementParams,
   );
+  const videoSummaryQuery = pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN ds.event_type = 'start' THEN ds.event_count ELSE 0 END), 0)::bigint AS video_starts,
+       COALESCE(SUM(CASE WHEN ds.event_type = 'firstQuartile' THEN ds.event_count ELSE 0 END), 0)::bigint AS video_first_quartile,
+       COALESCE(SUM(CASE WHEN ds.event_type = 'midpoint' THEN ds.event_count ELSE 0 END), 0)::bigint AS video_midpoint,
+       COALESCE(SUM(CASE WHEN ds.event_type = 'thirdQuartile' THEN ds.event_count ELSE 0 END), 0)::bigint AS video_third_quartile,
+       COALESCE(SUM(CASE WHEN ds.event_type = 'complete' THEN ds.event_count ELSE 0 END), 0)::bigint AS video_completions
+     FROM tag_engagement_daily_stats ds
+     JOIN ad_tags t ON t.id = ds.tag_id
+     WHERE ${engagementConditions.join(' AND ')}`,
+    engagementParams,
+  );
 
   const durationParams = [workspaceId];
   const durationConditions = ['ie.workspace_id = $1'];
@@ -314,10 +326,11 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     topTagParams,
   );
 
-  const [summaryRes, engagementRes, durationRes, activeCampaignsRes, activeTagsRes, creativesRes, identitySummaryRes, topCampaignsRes, topTagsRes] =
+  const [summaryRes, engagementRes, videoSummaryRes, durationRes, activeCampaignsRes, activeTagsRes, creativesRes, identitySummaryRes, topCampaignsRes, topTagsRes] =
     await Promise.all([
       summaryQuery,
       engagementQuery,
+      videoSummaryQuery,
       durationQuery,
       activeCampaignsQuery,
       activeTagsQuery,
@@ -329,6 +342,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 
   const summary = summaryRes.rows[0] ?? {};
   const engagement = engagementRes.rows[0] ?? {};
+  const videoSummary = videoSummaryRes.rows[0] ?? {};
   const duration = durationRes.rows[0] ?? {};
   const identitySummary = identitySummaryRes.rows[0] ?? {};
   const totalIdentities = Number(identitySummary.total_identities ?? 0);
@@ -336,6 +350,8 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   const identityClicks = Number(identitySummary.identity_clicks ?? 0);
   const totalImpressions = Number(summary.total_impressions ?? 0);
   const totalEngagements = Number(engagement.total_engagements ?? 0);
+  const videoStarts = Number(videoSummary.video_starts ?? 0);
+  const videoCompletions = Number(videoSummary.video_completions ?? 0);
 
   return {
     total_impressions: totalImpressions,
@@ -350,6 +366,12 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     total_engagements: totalEngagements,
     engagement_rate: totalImpressions > 0 ? Number(((totalEngagements / totalImpressions) * 100).toFixed(4)) : 0,
     total_hover_duration_ms: engagement.total_hover_duration_ms ?? 0,
+    video_starts: videoStarts,
+    video_first_quartile: videoSummary.video_first_quartile ?? 0,
+    video_midpoint: videoSummary.video_midpoint ?? 0,
+    video_third_quartile: videoSummary.video_third_quartile ?? 0,
+    video_completions: videoCompletions,
+    video_completion_rate: videoStarts > 0 ? Number(((videoCompletions / videoStarts) * 100).toFixed(4)) : 0,
     total_in_view_duration_ms: duration.total_in_view_duration_ms ?? 0,
     total_identities: totalIdentities,
     avg_identity_frequency: totalIdentities > 0 ? Number((identityImpressions / totalIdentities).toFixed(4)) : 0,
