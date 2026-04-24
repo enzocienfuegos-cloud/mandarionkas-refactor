@@ -43,7 +43,7 @@ function isTrackableDestinationUrl(value) {
   }
 }
 
-function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedClick, dspClickMacro = '', engagementBase = '') {
+function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedClick, dspClickMacro = '', engagementBase = '', injectLegacyBootstrap = true) {
   if (!creativeUrl) return '';
   try {
     const url = new URL(String(creativeUrl));
@@ -51,9 +51,11 @@ function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedC
       const creativeClickUrl = dspClickMacro
         ? buildDspLiteralClickUrl(clickTrackUrl, dspClickMacro)
         : clickTrackUrl;
-      url.searchParams.set('smx_click', clickTrackUrl);
-      if (dspClickMacro) {
-        url.searchParams.set('smx_dsp_click', dspClickMacro);
+      if (injectLegacyBootstrap) {
+        url.searchParams.set('smx_click', clickTrackUrl);
+        if (dspClickMacro) {
+          url.searchParams.set('smx_dsp_click', dspClickMacro);
+        }
       }
       url.searchParams.set('clickTag', creativeClickUrl);
       url.searchParams.set('clickTAG', creativeClickUrl);
@@ -214,6 +216,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
     !useTrackedClickWrapper && shouldPreferInternalClickRuntime,
     dspClickMacro,
     engagementBase,
+    true,
   );
 
   return `(function() {
@@ -503,6 +506,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
     useBasisNative ? Boolean(creativeUrl && servingFormat === 'display_html') : (!useTrackedClickWrapper && shouldPreferInternalClickRuntime),
     dspClickMacro,
     engagementBase,
+    !useBasisNative,
   );
 
   const basisClickHref = buildDspLiteralClickUrl(rawClickTrackUrl, dspClickMacro);
@@ -837,6 +841,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
         true,
         dspClickMacro,
         trackerEngagementUrl,
+        false,
       );
       const displayHtmlUrl = servingCandidate?.publicUrl && servingCandidate?.servingFormat === 'display_html'
         ? directCreativeIframeUrl
