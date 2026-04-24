@@ -194,9 +194,9 @@ export function buildBasisNativeSnippet({
 
   switch (variant) {
     case 'display-js':
-      return `<script src="${nativeJsUrl}" async></script>\n<noscript>\n  ${displayMarkup}\n</noscript>`;
+      return `<script src="${nativeJsUrl}"></script>\n<noscript>\n  ${displayMarkup}\n</noscript>`;
     case 'display-ins':
-      return `<script src="${nativeJsUrl}" async></script>\n<noscript>\n  ${displayMarkup}\n</noscript>`;
+      return `<script src="${nativeJsUrl}"></script>\n<noscript>\n  ${displayMarkup}\n</noscript>`;
     case 'display-iframe':
       return displayTag;
     case 'tracker-click':
@@ -208,7 +208,7 @@ export function buildBasisNativeSnippet({
     case 'vast-xml':
       return `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <Ad id="${tagId}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[${vastUrl}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
     case 'native-js':
-      return `(function(){var markup=${JSON.stringify(displayTagForInlineScript)};document.write(markup);}());`;
+      return `(function(){var markup=${JSON.stringify(displayTagForInlineScript)};var script=document.currentScript;var parent=script&&script.parentNode?script.parentNode:null;if(parent&&script){var wrapper=document.createElement('div');wrapper.innerHTML=markup;while(wrapper.firstChild){parent.insertBefore(wrapper.firstChild,script);}parent.removeChild(script);}else if(document.body){var fallback=document.createElement('div');fallback.innerHTML=markup;while(fallback.firstChild){document.body.appendChild(fallback.firstChild);}}}());`;
     default:
       return '';
   }
