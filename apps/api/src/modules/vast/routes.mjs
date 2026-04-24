@@ -48,13 +48,16 @@ function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedC
   try {
     const url = new URL(String(creativeUrl));
     if (shouldInjectTrackedClick && clickTrackUrl) {
+      const creativeClickUrl = dspClickMacro
+        ? buildDspLiteralClickUrl(clickTrackUrl, dspClickMacro)
+        : clickTrackUrl;
       url.searchParams.set('smx_click', clickTrackUrl);
       if (dspClickMacro) {
         url.searchParams.set('smx_dsp_click', dspClickMacro);
       }
-      url.searchParams.set('clickTag', clickTrackUrl);
-      url.searchParams.set('clickTAG', clickTrackUrl);
-      url.searchParams.set('bsClickTAG', clickTrackUrl);
+      url.searchParams.set('clickTag', creativeClickUrl);
+      url.searchParams.set('clickTAG', creativeClickUrl);
+      url.searchParams.set('bsClickTAG', creativeClickUrl);
       if (engagementBase) {
         url.searchParams.set('smx_engagement', engagementBase);
       }
