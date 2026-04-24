@@ -217,9 +217,13 @@ function buildClickTrackingBootstrap() {
 
     function wrapWithDspMacro(url) {
       if (!dspClickMacro) return url;
-      if (/[{}]/.test(dspClickMacro) || /\$\{[^}]+\}/.test(dspClickMacro)) return url;
+      var decodedDspClickMacro = dspClickMacro;
       try {
-        return decodeURIComponent(dspClickMacro) + encodeURIComponent(url);
+        decodedDspClickMacro = decodeURIComponent(dspClickMacro);
+      } catch (_) {}
+      if (/[{}]/.test(decodedDspClickMacro) || /\$\{[^}]+\}/.test(decodedDspClickMacro)) return url;
+      try {
+        return decodedDspClickMacro + encodeURIComponent(url);
       } catch (_) {
         return dspClickMacro + encodeURIComponent(url);
       }
