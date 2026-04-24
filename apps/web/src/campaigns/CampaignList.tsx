@@ -12,9 +12,45 @@ interface Campaign {
   status: 'active' | 'paused' | 'archived' | 'draft';
   startDate: string | null;
   endDate: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   impressionGoal: number | null;
+  impression_goal?: number | null;
   dailyBudget: number | null;
+  impressions?: number | string | null;
+  clicks?: number | string | null;
+  ctr?: number | string | null;
+  engagement_rate?: number | string | null;
+  engagementRate?: number | string | null;
+  viewability_rate?: number | string | null;
+  viewabilityRate?: number | string | null;
+  total_hover_duration_ms?: number | string | null;
+  totalHoverDurationMs?: number | string | null;
+  total_in_view_duration_ms?: number | string | null;
+  totalInViewDurationMs?: number | string | null;
 }
+
+type MetricKey = 'impressions' | 'clicks' | 'ctr' | 'engagementRate' | 'viewability' | 'inViewTime' | 'attentionTime';
+
+const METRIC_COLUMNS: Array<{ key: MetricKey; label: string }> = [
+  { key: 'impressions', label: 'Impressions' },
+  { key: 'clicks', label: 'Clicks' },
+  { key: 'ctr', label: 'CTR' },
+  { key: 'engagementRate', label: 'Eng. Rate' },
+  { key: 'viewability', label: 'Viewability' },
+  { key: 'inViewTime', label: 'In-View Time' },
+  { key: 'attentionTime', label: 'Attention Time' },
+];
+
+const DEFAULT_VISIBLE_METRICS: Record<MetricKey, boolean> = {
+  impressions: true,
+  clicks: true,
+  ctr: true,
+  engagementRate: true,
+  viewability: true,
+  inViewTime: true,
+  attentionTime: true,
+};
 
 const statusBadge = (status: Campaign['status']) => {
   const classes: Record<Campaign['status'], string> = {
@@ -32,6 +68,44 @@ const statusBadge = (status: Campaign['status']) => {
 
 const fmt = (val: string | null) => val ? new Date(val).toLocaleDateString() : '—';
 const fmtNum = (val: number | null) => val != null ? val.toLocaleString() : '—';
+const toNumber = (val: unknown) => {
+  const number = Number(val ?? 0);
+  return Number.isFinite(number) ? number : 0;
+};
+const fmtMetricNum = (val: unknown) => {
+  const number = toNumber(val);
+  if (number >= 1_000_000) return `${(number / 1_000_000).toFixed(2)}M`;
+  if (number >= 1_000) return `${(number / 1_000).toFixed(1)}K`;
+  return number.toLocaleString();
+};
+const fmtPct = (val: unknown) => `${toNumber(val).toFixed(2)}%`;
+const fmtSecondsFromMs = (val: unknown) => {
+  const seconds = toNumber(val) / 1000;
+  if (seconds >= 3600) return `${(seconds / 3600).toFixed(2)}h`;
+  if (seconds >= 60) return `${(seconds / 60).toFixed(1)}m`;
+  return `${seconds.toFixed(1)}s`;
+};
+
+function getCampaignMetric(campaign: Campaign, key: MetricKey) {
+  switch (key) {
+    case 'impressions':
+      return fmtMetricNum(campaign.impressions);
+    case 'clicks':
+      return fmtMetricNum(campaign.clicks);
+    case 'ctr':
+      return fmtPct(campaign.ctr);
+    case 'engagementRate':
+      return fmtPct(campaign.engagementRate ?? campaign.engagement_rate);
+    case 'viewability':
+      return fmtPct(campaign.viewabilityRate ?? campaign.viewability_rate);
+    case 'inViewTime':
+      return fmtSecondsFromMs(campaign.totalInViewDurationMs ?? campaign.total_in_view_duration_ms);
+    case 'attentionTime':
+      return fmtSecondsFromMs(campaign.totalHoverDurationMs ?? campaign.total_hover_duration_ms);
+    default:
+      return '—';
+  }
+}
 
 export default function CampaignList() {
   const navigate = useNavigate();
@@ -43,6 +117,8 @@ export default function CampaignList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [metricsCollapsed, setMetricsCollapsed] = useState(false);
+  const [visibleMetrics, setVisibleMetrics] = useState<Record<MetricKey, boolean>>(DEFAULT_VISIBLE_METRICS);
 
   const load = () => {
     setLoading(true);
@@ -69,6 +145,13 @@ export default function CampaignList() {
       || (campaign.workspace_name ?? '').toLowerCase().includes(search.trim().toLowerCase());
     return clientMatch && searchMatch;
   });
+  const visibleMetricColumns = metricsCollapsed
+    ? []
+    : METRIC_COLUMNS.filter(metric => visibleMetrics[metric.key]);
+
+  const toggleMetric = (key: MetricKey) => {
+    setVisibleMetrics(current => ({ ...current, [key]: !current[key] }));
+  };
 
   const handleDelete = async (campaign: Campaign) => {
     if (!window.confirm(`Delete campaign "${campaign.name}"? This cannot be undone.`)) return;
@@ -206,6 +289,42 @@ export default function CampaignList() {
         </div>
       </div>
 
+      <div className="mb-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-800">Campaign metrics</p>
+          <p className="text-xs text-slate-500">Impressions, clicks, CTR, engagement, viewability, and time-based signals.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMetricsCollapsed(value => !value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            {metricsCollapsed ? 'Show metrics' : 'Collapse metrics'}
+          </button>
+          <details className="relative">
+            <summary className="cursor-pointer list-none rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50">
+              Columns
+            </summary>
+            <div className="absolute right-0 z-10 mt-2 w-56 rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
+              <div className="space-y-2">
+                {METRIC_COLUMNS.map(metric => (
+                  <label key={metric.key} className="flex items-center gap-2 text-xs text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={visibleMetrics[metric.key]}
+                      onChange={() => toggleMetric(metric.key)}
+                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    {metric.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+
       {filteredCampaigns.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
           <p className="text-4xl mb-3">📋</p>
@@ -221,7 +340,16 @@ export default function CampaignList() {
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  {['Name', 'DSP', 'Status', 'Start Date', 'End Date', 'Imp. Goal', 'Actions'].map(h => (
+                  {[
+                    'Name',
+                    'DSP',
+                    'Status',
+                    'Start Date',
+                    'End Date',
+                    'Imp. Goal',
+                    ...visibleMetricColumns.map(metric => metric.label),
+                    'Actions',
+                  ].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       {h}
                     </th>
@@ -239,9 +367,14 @@ export default function CampaignList() {
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-600">{c.metadata?.dsp ?? c.advertiser?.name ?? '—'}</td>
                     <td className="px-4 py-3">{statusBadge(c.status)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{fmt(c.startDate)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{fmt(c.endDate)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{fmtNum(c.impressionGoal)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{fmt(c.startDate ?? c.start_date ?? null)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{fmt(c.endDate ?? c.end_date ?? null)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{fmtNum(c.impressionGoal ?? c.impression_goal ?? null)}</td>
+                    {visibleMetricColumns.map(metric => (
+                      <td key={metric.key} className="whitespace-nowrap px-4 py-3 text-sm font-medium text-slate-700">
+                        {getCampaignMetric(c, metric.key)}
+                      </td>
+                    ))}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button

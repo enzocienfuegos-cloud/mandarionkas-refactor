@@ -24,9 +24,53 @@ export async function listCampaigns(pool, workspaceId, opts = {}) {
             c.start_date, c.end_date, c.budget, c.impression_goal, c.daily_budget,
             c.flight_type, c.kpi, c.kpi_goal, c.currency, c.timezone,
             c.notes, c.metadata, c.created_at, c.updated_at,
-            adv.name AS advertiser_name
+            adv.name AS advertiser_name,
+            COALESCE(stats.impressions, 0)::bigint AS impressions,
+            COALESCE(stats.clicks, 0)::bigint AS clicks,
+            COALESCE(stats.viewable_imps, 0)::bigint AS viewable_imps,
+            COALESCE(stats.measured_imps, 0)::bigint AS measured_imps,
+            COALESCE(stats.undetermined_imps, 0)::bigint AS undetermined_imps,
+            COALESCE(engagements.total_engagements, 0)::bigint AS total_engagements,
+            COALESCE(engagements.total_hover_duration_ms, 0)::bigint AS total_hover_duration_ms,
+            COALESCE(view_time.total_in_view_duration_ms, 0)::bigint AS total_in_view_duration_ms,
+            CASE WHEN COALESCE(stats.impressions, 0) > 0
+              THEN ROUND(COALESCE(stats.clicks, 0)::NUMERIC / stats.impressions * 100, 4)
+              ELSE 0 END AS ctr,
+            CASE WHEN COALESCE(stats.measured_imps, 0) > 0
+              THEN ROUND(COALESCE(stats.viewable_imps, 0)::NUMERIC / stats.measured_imps * 100, 4)
+              ELSE 0 END AS viewability_rate,
+            CASE WHEN COALESCE(stats.impressions, 0) > 0
+              THEN ROUND(COALESCE(engagements.total_engagements, 0)::NUMERIC / stats.impressions * 100, 4)
+              ELSE 0 END AS engagement_rate
      FROM campaigns c
      LEFT JOIN advertisers adv ON adv.id = c.advertiser_id
+     LEFT JOIN LATERAL (
+       SELECT
+         COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
+         COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
+         COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
+         COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
+         COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps
+       FROM ad_tags t
+       LEFT JOIN tag_daily_stats ds ON ds.tag_id = t.id
+       WHERE t.workspace_id = c.workspace_id
+         AND t.campaign_id = c.id
+     ) stats ON true
+     LEFT JOIN LATERAL (
+       SELECT
+         COALESCE(SUM(es.event_count), 0)::bigint AS total_engagements,
+         COALESCE(SUM(CASE WHEN es.event_type = 'hover_end' THEN es.total_duration_ms ELSE 0 END), 0)::bigint AS total_hover_duration_ms
+       FROM ad_tags t
+       LEFT JOIN tag_engagement_daily_stats es ON es.tag_id = t.id
+       WHERE t.workspace_id = c.workspace_id
+         AND t.campaign_id = c.id
+     ) engagements ON true
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(SUM(COALESCE(ie.viewability_duration_ms, 0)), 0)::bigint AS total_in_view_duration_ms
+       FROM impression_events ie
+       WHERE ie.workspace_id = c.workspace_id
+         AND ie.campaign_id = c.id
+     ) view_time ON true
      WHERE ${conditions.join(' AND ')}
      ORDER BY c.created_at DESC
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -62,11 +106,55 @@ export async function listCampaignsForUser(pool, userId, opts = {}) {
             c.flight_type, c.kpi, c.kpi_goal, c.currency, c.timezone,
             c.notes, c.metadata, c.created_at, c.updated_at,
             adv.name AS advertiser_name,
-            w.name AS workspace_name
+            w.name AS workspace_name,
+            COALESCE(stats.impressions, 0)::bigint AS impressions,
+            COALESCE(stats.clicks, 0)::bigint AS clicks,
+            COALESCE(stats.viewable_imps, 0)::bigint AS viewable_imps,
+            COALESCE(stats.measured_imps, 0)::bigint AS measured_imps,
+            COALESCE(stats.undetermined_imps, 0)::bigint AS undetermined_imps,
+            COALESCE(engagements.total_engagements, 0)::bigint AS total_engagements,
+            COALESCE(engagements.total_hover_duration_ms, 0)::bigint AS total_hover_duration_ms,
+            COALESCE(view_time.total_in_view_duration_ms, 0)::bigint AS total_in_view_duration_ms,
+            CASE WHEN COALESCE(stats.impressions, 0) > 0
+              THEN ROUND(COALESCE(stats.clicks, 0)::NUMERIC / stats.impressions * 100, 4)
+              ELSE 0 END AS ctr,
+            CASE WHEN COALESCE(stats.measured_imps, 0) > 0
+              THEN ROUND(COALESCE(stats.viewable_imps, 0)::NUMERIC / stats.measured_imps * 100, 4)
+              ELSE 0 END AS viewability_rate,
+            CASE WHEN COALESCE(stats.impressions, 0) > 0
+              THEN ROUND(COALESCE(engagements.total_engagements, 0)::NUMERIC / stats.impressions * 100, 4)
+              ELSE 0 END AS engagement_rate
      FROM campaigns c
      JOIN workspace_members wm ON wm.workspace_id = c.workspace_id
      JOIN workspaces w ON w.id = c.workspace_id
      LEFT JOIN advertisers adv ON adv.id = c.advertiser_id
+     LEFT JOIN LATERAL (
+       SELECT
+         COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
+         COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
+         COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
+         COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
+         COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps
+       FROM ad_tags t
+       LEFT JOIN tag_daily_stats ds ON ds.tag_id = t.id
+       WHERE t.workspace_id = c.workspace_id
+         AND t.campaign_id = c.id
+     ) stats ON true
+     LEFT JOIN LATERAL (
+       SELECT
+         COALESCE(SUM(es.event_count), 0)::bigint AS total_engagements,
+         COALESCE(SUM(CASE WHEN es.event_type = 'hover_end' THEN es.total_duration_ms ELSE 0 END), 0)::bigint AS total_hover_duration_ms
+       FROM ad_tags t
+       LEFT JOIN tag_engagement_daily_stats es ON es.tag_id = t.id
+       WHERE t.workspace_id = c.workspace_id
+         AND t.campaign_id = c.id
+     ) engagements ON true
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(SUM(COALESCE(ie.viewability_duration_ms, 0)), 0)::bigint AS total_in_view_duration_ms
+       FROM impression_events ie
+       WHERE ie.workspace_id = c.workspace_id
+         AND ie.campaign_id = c.id
+     ) view_time ON true
      WHERE ${conditions.join(' AND ')}
      ORDER BY c.created_at DESC
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
