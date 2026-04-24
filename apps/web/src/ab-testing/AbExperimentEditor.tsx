@@ -49,6 +49,34 @@ const statusBadge = (status: ExperimentStatus) => {
   return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>;
 };
 
+function normalizeExperimentStatus(status: unknown): ExperimentStatus {
+  if (status === 'running' || status === 'active') return 'active';
+  if (status === 'completed' || status === 'ended') return 'ended';
+  return 'paused';
+}
+
+function toApiExperimentStatus(status: ExperimentStatus): string {
+  if (status === 'active') return 'running';
+  if (status === 'ended') return 'completed';
+  return 'paused';
+}
+
+function normalizeExperiment(raw: any): Experiment {
+  return {
+    id: String(raw?.id ?? ''),
+    name: String(raw?.name ?? 'Untitled experiment'),
+    tagId: String(raw?.tagId ?? raw?.tag_id ?? ''),
+    tagName: raw?.tagName ?? raw?.tag_name ?? undefined,
+    status: normalizeExperimentStatus(raw?.status),
+    variants: Array.isArray(raw?.variants) ? raw.variants.map((variant: any) => ({
+      id: variant?.id ? String(variant.id) : undefined,
+      name: String(variant?.name ?? 'Variant'),
+      weight: Number(variant?.weight ?? 0) || 0,
+    })) : [],
+    createdAt: String(raw?.createdAt ?? raw?.created_at ?? new Date().toISOString()),
+  };
+}
+
 function ResultsModal({ experiment, onClose }: { experiment: Experiment; onClose: () => void }) {
   const [results, setResults] = useState<ExperimentResults | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +85,24 @@ function ResultsModal({ experiment, onClose }: { experiment: Experiment; onClose
   useEffect(() => {
     fetch(`/v1/experiments/${experiment.id}/results`, { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Failed to load results'); return r.json(); })
-      .then(d => setResults(d))
+      .then(d => {
+        const payload = d?.results ?? d ?? {};
+        const variants = Array.isArray(payload?.variants) ? payload.variants : [];
+        const normalized: ExperimentResults = {
+          experimentId: String(payload?.experiment?.id ?? experiment.id),
+          variants: variants.map((variant: any) => ({
+            variantId: String(variant?.variantId ?? variant?.id ?? ''),
+            variantName: String(variant?.variantName ?? variant?.name ?? 'Variant'),
+            impressions: Number(variant?.impressions ?? 0) || 0,
+            clicks: Number(variant?.clicks ?? 0) || 0,
+            ctr: Number(variant?.ctr ?? 0) || 0,
+            isWinner: String(payload?.summary?.winner ?? '') === String(variant?.id ?? variant?.variantId ?? ''),
+          })),
+          totalImpressions: Number(payload?.totalImpressions ?? payload?.summary?.totalImpressions ?? 0) || 0,
+          enoughData: Number(payload?.summary?.totalImpressions ?? 0) >= 100,
+        };
+        setResults(normalized);
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, [experiment.id]);
@@ -187,7 +232,7 @@ function CreateModal({ tags, onClose, onCreated }: {
         throw new Error(d?.message ?? 'Failed to create experiment');
       }
       const data = await res.json();
-      onCreated(data);
+      onCreated(normalizeExperiment(data?.experiment ?? data));
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -335,7 +380,7 @@ export default function AbExperimentEditor() {
       fetch('/v1/tags', { credentials: 'include' }).then(r => r.json()).catch(() => ({ tags: [] })),
     ])
       .then(([expData, tagData]) => {
-        setExperiments(expData?.experiments ?? expData ?? []);
+        setExperiments((expData?.experiments ?? expData ?? []).map(normalizeExperiment));
         setTags(tagData?.tags ?? tagData ?? []);
       })
       .catch(e => setError(e.message))
@@ -355,7 +400,7 @@ export default function AbExperimentEditor() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: toApiExperimentStatus(newStatus) }),
       });
       if (!res.ok) throw new Error('Update failed');
       setExperiments(es => es.map(e => e.id === exp.id ? { ...e, status: newStatus } : e));

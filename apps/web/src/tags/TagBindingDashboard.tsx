@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { loadTagBindings, loadTags, type TagBinding, type TagOption, updateTagBinding } from '../creatives/catalog';
 
 type BindingFilter = 'all' | 'active' | 'paused' | 'draft' | 'archived';
@@ -19,6 +19,7 @@ function statusBadge(status: TagBinding['status']) {
 }
 
 export default function TagBindingDashboard() {
+  const [searchParams] = useSearchParams();
   const [tags, setTags] = useState<TagOption[]>([]);
   const [selectedTagId, setSelectedTagId] = useState('');
   const [bindings, setBindings] = useState<TagBinding[]>([]);
@@ -34,8 +35,9 @@ export default function TagBindingDashboard() {
       setError('');
       try {
         const loadedTags = await loadTags();
+        const requestedTagId = searchParams.get('tagId') ?? '';
         setTags(loadedTags);
-        setSelectedTagId(current => current || loadedTags[0]?.id || '');
+        setSelectedTagId(current => current || (loadedTags.some(tag => tag.id === requestedTagId) ? requestedTagId : loadedTags[0]?.id || ''));
       } catch (loadError: any) {
         setError(loadError.message ?? 'Failed to load tag assignments');
       } finally {
@@ -43,7 +45,7 @@ export default function TagBindingDashboard() {
       }
     };
     void loadInitial();
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!selectedTagId) {

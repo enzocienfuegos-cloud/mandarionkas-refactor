@@ -12,11 +12,23 @@ type IdentityExportFormat =
   | 'google_click_ids'
   | 'tiktok_click_ids'
   | 'microsoft_click_ids';
+type ChartGrain = 'day' | 'week' | 'month';
+type ChartMetric = 'impressions' | 'clicks' | 'ctr' | 'viewabilityRate';
 
 interface RankedMetric {
   label: string;
   value: number;
   secondary?: string;
+}
+
+interface TimelinePoint {
+  date: string;
+  impressions: number;
+  clicks: number;
+  viewableImps: number;
+  measuredImps: number;
+  ctr: number;
+  viewabilityRate: number;
 }
 
 interface BreakdownItem {
@@ -102,6 +114,7 @@ interface WorkspaceAnalytics {
   identityAttribution: RankedMetric[];
   engagements: RankedMetric[];
   savedAudiences: SavedAudience[];
+  timeline: TimelinePoint[];
 }
 
 const DATE_RANGES: DateRange[] = [7, 30, 90];
@@ -126,7 +139,11 @@ const IDENTITY_EXPORT_FORMATS: Array<{ value: IdentityExportFormat; label: strin
   { value: 'tiktok_click_ids', label: 'TikTok click IDs' },
   { value: 'microsoft_click_ids', label: 'Microsoft click IDs' },
 ];
-
+const CHART_GRAINS: Array<{ value: ChartGrain; label: string }> = [
+  { value: 'day', label: 'Daily' },
+  { value: 'week', label: 'Weekly' },
+  { value: 'month', label: 'Monthly' },
+];
 function toNumber(value: unknown): number {
   const numeric = Number(value ?? 0);
   return Number.isFinite(numeric) ? numeric : 0;
@@ -156,6 +173,13 @@ function fmtSecondsFromMs(value: number): string {
   if (seconds >= 60) return `${(seconds / 60).toFixed(1)}m`;
   return `${seconds.toFixed(1)}s`;
 }
+
+const CHART_METRICS: Array<{ value: ChartMetric; label: string; formatter: (value: number) => string }> = [
+  { value: 'impressions', label: 'Impressions', formatter: fmtNum },
+  { value: 'clicks', label: 'Clicks', formatter: fmtNum },
+  { value: 'ctr', label: 'CTR', formatter: fmtCtr },
+  { value: 'viewabilityRate', label: 'Viewability', formatter: fmtCtr },
+];
 
 function formatRange(days: DateRange): string {
   return `${days}d`;
@@ -241,6 +265,15 @@ function normalizeWorkspaceAnalytics(
   variantPayload: any,
 ): WorkspaceAnalytics {
   const source = workspacePayload?.stats ?? workspacePayload ?? {};
+  const timeline = (Array.isArray(workspacePayload?.timeline) ? workspacePayload.timeline : []).map((item: any) => ({
+    date: String(item?.date ?? ''),
+    impressions: toNumber(item?.impressions),
+    clicks: toNumber(item?.clicks),
+    viewableImps: toNumber(item?.viewableImps ?? item?.viewable_imps),
+    measuredImps: toNumber(item?.measuredImps ?? item?.measured_imps),
+    ctr: toNumber(item?.ctr),
+    viewabilityRate: toNumber(item?.viewabilityRate ?? item?.viewability_rate),
+  })).filter((item: TimelinePoint) => item.date);
 
   return {
     totalImpressions: toNumber(source?.totalImpressions ?? source?.total_impressions),
@@ -331,7 +364,127 @@ function normalizeWorkspaceAnalytics(
       minImpressions: toNumber(item?.min_impressions),
       minClicks: toNumber(item?.min_clicks),
     })),
+    timeline,
   };
+}
+
+function getTimelineBucket(dateValue: string, grain: ChartGrain): string {
+  const date = new Date(`${dateValue}T00:00:00Z`);
+  if (grain === 'month') {
+    return date.toISOString().slice(0, 7);
+  }
+  if (grain === 'week') {
+    const day = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() - day + 1);
+    return date.toISOString().slice(0, 10);
+  }
+  return dateValue;
+}
+
+function buildChartPoints(timeline: TimelinePoint[], grain: ChartGrain, metric: ChartMetric) {
+  const buckets = new Map<string, TimelinePoint>();
+  timeline.forEach((point) => {
+    const key = getTimelineBucket(point.date, grain);
+    const current = buckets.get(key) ?? {
+      date: key,
+      impressions: 0,
+      clicks: 0,
+      viewableImps: 0,
+      measuredImps: 0,
+      ctr: 0,
+      viewabilityRate: 0,
+    };
+    current.impressions += point.impressions;
+    current.clicks += point.clicks;
+    current.viewableImps += point.viewableImps;
+    current.measuredImps += point.measuredImps;
+    buckets.set(key, current);
+  });
+  return Array.from(buckets.values())
+    .map((point) => {
+      const ctr = point.impressions > 0 ? (point.clicks / point.impressions) * 100 : 0;
+      const viewabilityRate = point.measuredImps > 0 ? (point.viewableImps / point.measuredImps) * 100 : 0;
+      return {
+        label: point.date,
+        value: metric === 'ctr' ? ctr : metric === 'viewabilityRate' ? viewabilityRate : point[metric],
+      };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function PerformanceChart({
+  points,
+  metric,
+}: {
+  points: Array<{ label: string; value: number }>;
+  metric: ChartMetric;
+}) {
+  const metricConfig = CHART_METRICS.find((item) => item.value === metric) ?? CHART_METRICS[0];
+  const maxValue = Math.max(...points.map((point) => point.value), 1);
+  const width = 760;
+  const height = 220;
+  const pad = { left: 48, right: 18, top: 20, bottom: 42 };
+  const chartWidth = width - pad.left - pad.right;
+  const chartHeight = height - pad.top - pad.bottom;
+  const linePoints = points.map((point, index) => {
+    const x = points.length === 1 ? pad.left + chartWidth / 2 : pad.left + (index / (points.length - 1)) * chartWidth;
+    const y = pad.top + chartHeight - (point.value / maxValue) * chartHeight;
+    return `${x},${y}`;
+  }).join(' ');
+
+  if (points.length === 0) {
+    return <div className="py-16 text-center text-sm text-slate-400">No timeline data available for this range.</div>;
+  }
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-[260px] w-full">
+      {[0, 0.5, 1].map((fraction) => {
+        const y = pad.top + chartHeight - fraction * chartHeight;
+        return (
+          <g key={fraction}>
+            <line x1={pad.left} y1={y} x2={pad.left + chartWidth} y2={y} stroke="#e2e8f0" strokeWidth="1" />
+            <text x={pad.left - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#94a3b8">
+              {metricConfig.formatter(maxValue * fraction)}
+            </text>
+          </g>
+        );
+      })}
+      {points.map((point, index) => {
+        const slotWidth = chartWidth / Math.max(points.length, 1);
+        const barWidth = Math.max(4, Math.min(24, slotWidth * 0.45));
+        const x = points.length === 1 ? pad.left + chartWidth / 2 - barWidth / 2 : pad.left + (index / (points.length - 1)) * chartWidth - barWidth / 2;
+        const barHeight = (point.value / maxValue) * chartHeight;
+        return (
+          <g key={`${point.label}-${index}`}>
+            <rect
+              x={x}
+              y={pad.top + chartHeight - barHeight}
+              width={barWidth}
+              height={barHeight}
+              rx="4"
+              fill="#818cf8"
+              opacity="0.28"
+            />
+            {(index === 0 || index === points.length - 1 || index % Math.ceil(points.length / 6) === 0) && (
+              <text x={x + barWidth / 2} y={height - 16} textAnchor="middle" fontSize="10" fill="#94a3b8">
+                {point.label.slice(5)}
+              </text>
+            )}
+          </g>
+        );
+      })}
+      {points.length > 1 && <polyline points={linePoints} fill="none" stroke="#4f46e5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
+      {points.map((point, index) => {
+        const x = points.length === 1 ? pad.left + chartWidth / 2 : pad.left + (index / (points.length - 1)) * chartWidth;
+        const y = pad.top + chartHeight - (point.value / maxValue) * chartHeight;
+        return (
+          <circle key={`dot-${point.label}-${index}`} cx={x} cy={y} r="4" fill="#4f46e5">
+            <title>{`${point.label}: ${metricConfig.formatter(point.value)}`}</title>
+          </circle>
+        );
+      })}
+    </svg>
+  );
 }
 
 function KpiCard({ label, value, icon, color, sub }: { label: string; value: string; icon: string; color: string; sub?: string }) {
@@ -485,6 +638,8 @@ export default function AnalyticsDashboard() {
   const [identityVariantFilter, setIdentityVariantFilter] = useState('');
   const [identityExportFormat, setIdentityExportFormat] = useState<IdentityExportFormat>('full');
   const [savingAudience, setSavingAudience] = useState(false);
+  const [chartGrain, setChartGrain] = useState<ChartGrain>('day');
+  const [chartMetric, setChartMetric] = useState<ChartMetric>('impressions');
 
   const query = useMemo(() => makeQuery({
     dateRange,
@@ -512,6 +667,11 @@ export default function AnalyticsDashboard() {
   const siteOptions = data?.topSites ?? [];
   const regionOptions = data?.topRegions ?? [];
   const cityOptions = data?.topCities ?? [];
+  const chartPoints = useMemo(
+    () => buildChartPoints(data?.timeline ?? [], chartGrain, chartMetric),
+    [data?.timeline, chartGrain, chartMetric],
+  );
+  const selectedChartMetric = CHART_METRICS.find((metric) => metric.value === chartMetric) ?? CHART_METRICS[0];
 
   const buildIdentityAudienceQuery = (overrides?: Partial<SavedAudience>, exportFormat?: IdentityExportFormat) => {
     const params = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
@@ -890,6 +1050,47 @@ export default function AnalyticsDashboard() {
           color="text-slate-800"
           sub={`${(data?.avgIdentityFrequency ?? 0).toFixed(2)} avg impressions · ${(data?.avgIdentityClicks ?? 0).toFixed(2)} avg clicks`}
         />
+      </div>
+
+      <div className="mb-8 rounded-xl border border-slate-200 bg-white p-5">
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-800">Performance Trend</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              General chart by day, week, or month. Current metric: {selectedChartMetric.label}.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={chartMetric}
+              onChange={(event) => setChartMetric(event.target.value as ChartMetric)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700"
+            >
+              {CHART_METRICS.map((metric) => (
+                <option key={metric.value} value={metric.value}>
+                  {metric.label}
+                </option>
+              ))}
+            </select>
+            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+              {CHART_GRAINS.map((grain) => (
+                <button
+                  key={grain.value}
+                  type="button"
+                  onClick={() => setChartGrain(grain.value)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    chartGrain === grain.value
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-slate-600 hover:bg-white'
+                  }`}
+                >
+                  {grain.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <PerformanceChart points={chartPoints} metric={chartMetric} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">

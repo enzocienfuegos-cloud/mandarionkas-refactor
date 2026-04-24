@@ -303,8 +303,8 @@ export default function Shell() {
         </main>
       </div>
 
-      {/* Click outside to close menus */}
-      {(userMenuOpen || toolsOpen || settingsOpen) && (
+      {/* Click outside to close the user menu without blocking sidebar links. */}
+      {userMenuOpen && (
         <div
           className="fixed inset-0 z-40"
           onClick={() => { setUserMenuOpen(false); }}

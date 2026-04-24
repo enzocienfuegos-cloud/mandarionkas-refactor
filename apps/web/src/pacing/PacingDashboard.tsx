@@ -66,6 +66,39 @@ function fmtNum(n: number): string {
 
 type SortKey = 'name' | 'advertiser' | 'pacingPct' | 'deliveryPct' | 'remainingDays';
 
+function normalizePacingCampaign(raw: any): PacingCampaign {
+  const pacing = raw?.pacing ?? {};
+  return {
+    id: String(raw?.id ?? ''),
+    name: String(raw?.name ?? 'Untitled campaign'),
+    advertiser: String(raw?.advertiser ?? raw?.advertiserName ?? '—'),
+    status: (raw?.status ?? pacing?.status ?? 'no_goal') as PacingStatus,
+    pacingPct: Number(raw?.pacingPct ?? pacing?.pacingPct ?? 0) || 0,
+    deliveryPct: Number(raw?.deliveryPct ?? pacing?.deliveryPct ?? 0) || 0,
+    impressionsServed: Number(raw?.impressionsServed ?? raw?.servedTotal ?? pacing?.servedTotal ?? 0) || 0,
+    impressionGoal: raw?.impressionGoal ?? pacing?.impressionGoal ?? null,
+    remainingDays: Number(raw?.remainingDays ?? pacing?.remainingDays ?? 0) || 0,
+    startDate: String(raw?.startDate ?? ''),
+    endDate: String(raw?.endDate ?? ''),
+  };
+}
+
+function normalizePacingAlert(raw: any): PacingAlert {
+  const campaign = normalizePacingCampaign(raw);
+  const severity = campaign.status === 'behind' ? 'critical' : 'warning';
+  const message = raw?.message
+    ?? (campaign.status === 'behind'
+      ? `Delivery is behind expected pacing at ${campaign.pacingPct.toFixed(1)}%.`
+      : `Campaign has ${campaign.remainingDays} day(s) left and ${campaign.deliveryPct.toFixed(1)}% delivered.`);
+  return {
+    campaignId: campaign.id,
+    campaignName: campaign.name,
+    status: campaign.status,
+    message,
+    severity,
+  };
+}
+
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: PacingStatus }) {
@@ -297,7 +330,7 @@ export default function PacingDashboard() {
       fetch('/v1/pacing/alerts', { credentials: 'include' }).then(r => r.json()).catch(() => []),
     ])
       .then(([pacingData, alertData]) => {
-        const campaigns = pacingData?.campaigns ?? [];
+        const campaigns = (pacingData?.campaigns ?? []).map(normalizePacingCampaign);
         const summary = {
           total: campaigns.length,
           active: campaigns.filter((campaign: any) => ['on_track', 'behind', 'ahead'].includes(campaign.status)).length,
@@ -306,7 +339,7 @@ export default function PacingDashboard() {
           totalServed: campaigns.reduce((sum: number, campaign: any) => sum + Number(campaign.impressionsServed ?? 0), 0),
         };
         setData({ campaigns, summary });
-        setAlerts(alertData?.alerts ?? alertData ?? []);
+        setAlerts((alertData?.alerts ?? alertData ?? []).map(normalizePacingAlert));
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));

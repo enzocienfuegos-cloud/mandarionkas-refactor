@@ -35,21 +35,6 @@ function formatBytes(value?: number | null) {
   return `${size.toFixed(size >= 10 ? 0 : 1)} ${unit}`;
 }
 
-function sourceBadge(version?: CreativeVersion | null) {
-  const source = version?.sourceKind ?? 'legacy';
-  const labels: Record<string, string> = {
-    legacy: 'Legacy',
-    studio_export: 'Studio',
-    html5_zip: 'HTML5 ZIP',
-    video_mp4: 'MP4',
-  };
-  return (
-    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-      {labels[source] ?? source}
-    </span>
-  );
-}
-
 function statusBadge(status?: string) {
   const map: Record<string, string> = {
     draft: 'bg-slate-100 text-slate-600',
@@ -533,9 +518,7 @@ export default function CreativeLibrary() {
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">Creative</th>
-                <th className="px-4 py-3">Latest Version</th>
-                <th className="px-4 py-3">Source</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Preview</th>
                 <th className="px-4 py-3">Action</th>
               </tr>
@@ -547,13 +530,10 @@ export default function CreativeLibrary() {
                   <tr key={creative.id} className="align-top">
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800">{creative.name}</div>
-                      <div className="mt-1 text-xs text-slate-500">{new Date(creative.createdAt).toLocaleString()}</div>
                     </td>
                     <td className="px-4 py-3 text-slate-700">
-                      {version ? `v${version.versionNumber}` : '—'}
+                      {new Date(creative.createdAt).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3">{sourceBadge(version)}</td>
-                    <td className="px-4 py-3">{statusBadge(version?.status ?? creative.approvalStatus)}</td>
                     <td className="px-4 py-3">
                       {version?.publicUrl ? (
                         <a

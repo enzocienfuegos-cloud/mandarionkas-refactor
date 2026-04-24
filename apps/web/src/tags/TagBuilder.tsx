@@ -252,6 +252,7 @@ export default function TagBuilder() {
   };
 
   const setFormat = (f: TagFormat) => {
+    if (isEdit) return;
     setForm(prev => ({
       ...prev,
       format: f,
@@ -427,12 +428,18 @@ export default function TagBuilder() {
                     value={f}
                     checked={form.format === f}
                     onChange={() => setFormat(f)}
+                    disabled={isEdit}
                     className="sr-only"
                   />
                   <span className="text-sm font-medium capitalize">{f}</span>
                 </label>
               ))}
             </div>
+            {isEdit && (
+              <p className="mt-2 text-xs text-slate-500">
+                Format is locked after a tag is created. Display tags remain display, and VAST tags remain VAST.
+              </p>
+            )}
           </div>
 
           {form.format === 'display' && (

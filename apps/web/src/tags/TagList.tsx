@@ -235,7 +235,7 @@ export default function TagList() {
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  {['Name', 'Campaign', 'Format', 'Size', 'Status', 'Created At', 'Actions'].map(h => (
+                  {['Campaign', 'Format', 'Size', 'Status', 'Created At', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       {h}
                     </th>
@@ -245,7 +245,6 @@ export default function TagList() {
               <tbody className="divide-y divide-slate-100">
                 {tags.map(t => (
                   <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-medium text-slate-800">{t.name}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{t.campaign?.name ?? '—'}</td>
                     <td className="px-4 py-3">{formatBadge(t.format)}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{t.sizeLabel || '—'}</td>
@@ -255,6 +254,12 @@ export default function TagList() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => navigate(`/tags/bindings?tagId=${encodeURIComponent(t.id)}`)}
+                          className="text-xs text-slate-600 hover:text-slate-700 font-medium px-2 py-1 rounded hover:bg-slate-100 transition-colors"
+                        >
+                          Change assignments
+                        </button>
                         <button
                           onClick={() => handleExportTagCsv(t)}
                           className="text-xs text-slate-600 hover:text-slate-700 font-medium px-2 py-1 rounded hover:bg-slate-100 transition-colors"

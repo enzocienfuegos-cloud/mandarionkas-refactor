@@ -11,6 +11,7 @@ interface Workspace {
 
 interface Member {
   id: string;
+  memberId: string;
   email: string;
   firstName: string;
   lastName: string;
@@ -39,6 +40,31 @@ const roleBadge = (role: Member['role']) => {
     </span>
   );
 };
+
+function normalizeWorkspace(payload: any): Workspace | null {
+  const source = payload?.workspace ?? payload;
+  if (!source?.id) return null;
+  return {
+    id: String(source.id),
+    name: String(source.name ?? 'Workspace'),
+    plan: String(source.plan ?? 'free'),
+    createdAt: String(source.createdAt ?? source.created_at ?? ''),
+  };
+}
+
+function normalizeMember(raw: any): Member {
+  const displayName = String(raw?.display_name ?? raw?.displayName ?? raw?.email ?? '').trim();
+  const [firstName = '', ...rest] = displayName.split(/\s+/).filter(Boolean);
+  return {
+    id: String(raw?.user_id ?? raw?.userId ?? raw?.id ?? ''),
+    memberId: String(raw?.id ?? ''),
+    email: String(raw?.email ?? ''),
+    firstName,
+    lastName: rest.join(' '),
+    role: (['owner', 'admin', 'member', 'viewer'].includes(raw?.role) ? raw.role : 'member') as Member['role'],
+    joinedAt: String(raw?.joined_at ?? raw?.joinedAt ?? raw?.invited_at ?? raw?.invitedAt ?? ''),
+  };
+}
 
 export default function WorkspaceSettings() {
   const [tab, setTab] = useState<Tab>('profile');
@@ -72,9 +98,10 @@ export default function WorkspaceSettings() {
       fetch('/v1/team', { credentials: 'include' }).then(r => r.json()),
     ])
       .then(([wsData, teamData]) => {
-        setWorkspace(wsData);
-        setWsName(wsData?.name ?? '');
-        setMembers(teamData?.members ?? teamData ?? []);
+        const nextWorkspace = normalizeWorkspace(wsData);
+        setWorkspace(nextWorkspace);
+        setWsName(nextWorkspace?.name ?? '');
+        setMembers((teamData?.members ?? teamData ?? []).map(normalizeMember));
       })
       .catch(() => setError('Failed to load workspace data.'))
       .finally(() => setLoading(false));
@@ -126,6 +153,8 @@ export default function WorkspaceSettings() {
       }
       setInviteSuccess(`Invitation sent to ${inviteEmail.trim()}.`);
       setInviteEmail('');
+      const teamData = await fetch('/v1/team', { credentials: 'include' }).then(r => r.json());
+      setMembers((teamData?.members ?? teamData ?? []).map(normalizeMember));
     } catch (e: any) {
       setInviteError(e.message);
     } finally {
@@ -345,7 +374,7 @@ export default function WorkspaceSettings() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-500">
-                        {new Date(m.joinedAt).toLocaleDateString()}
+                        {m.joinedAt ? new Date(m.joinedAt).toLocaleDateString() : 'Pending'}
                       </td>
                       <td className="px-4 py-3">
                         {m.role !== 'owner' && (

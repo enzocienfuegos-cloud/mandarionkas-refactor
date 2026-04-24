@@ -317,6 +317,21 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     const { workspaceId } = req.authSession;
     const { id } = req.params;
     const body = req.body ?? {};
+    const existing = await getTag(pool, workspaceId, id);
+    if (!existing) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    if ('format' in body) {
+      const requestedFormat = body.format === 'VAST' ? 'vast' : String(body.format ?? '').toLowerCase();
+      const currentFormat = String(existing.format ?? '').toLowerCase();
+      if (requestedFormat && requestedFormat !== currentFormat) {
+        return reply.status(400).send({
+          error: 'Bad Request',
+          message: 'Tag format is locked after creation. Create a new tag to change between display, VAST, native, or tracker.',
+        });
+      }
+    }
 
     // Map camelCase to snake_case for the DB layer
     const data = {};
@@ -343,9 +358,6 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     }
 
     const tag = await updateTag(pool, workspaceId, id, data);
-    if (!tag) {
-      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
-    }
 
     return reply.send({ tag: toApiTag(tag) });
   });
