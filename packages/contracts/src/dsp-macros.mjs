@@ -162,7 +162,7 @@ export function buildDspNativeClickHref(clickTrackUrl, dsp) {
 }
 
 export function buildBasisNativeDisplayAnchor(displayHtmlUrl, clickHref, width, height) {
-  return `<a href="${clickHref}" target="_blank" rel="noopener noreferrer" style="display:inline-block;width:${width}px;height:${height}px;">\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" marginwidth="0" marginheight="0" style="border:0;overflow:hidden;pointer-events:none;"></iframe>\n</a>`;
+  return `<a href="${clickHref}" target="_blank" rel="noopener noreferrer" style="position:absolute;inset:0;display:block;z-index:2;"></a>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" marginwidth="0" marginheight="0" style="border:0;overflow:hidden;pointer-events:none;position:relative;z-index:1;"></iframe>`;
 }
 
 export function buildBasisNativeSnippet({
@@ -172,12 +172,17 @@ export function buildBasisNativeSnippet({
   nativeJsUrl = '',
   vastUrl = '',
   trackerClickUrl = '',
+  trackerEngagementUrl = '',
   trackerImpressionUrl = '',
   width = 300,
   height = 250,
 } = {}) {
   const clickHref = buildDspNativeClickHref(trackerClickUrl, 'basis');
-  const displayTag = buildBasisNativeDisplayAnchor(displayHtmlUrl, clickHref, width, height);
+  const displayMarkup = `<div id="smx-basis-slot-${tagId}" style="position:relative;display:inline-block;width:${width}px;height:${height}px;">\n  ${buildBasisNativeDisplayAnchor(displayHtmlUrl, clickHref, width, height)}\n</div>`;
+  const interactionScript = trackerEngagementUrl
+    ? `<script>\n  (function(rootId, engagementBase) {\n    var root = document.getElementById(rootId);\n    if (!root || !engagementBase) return;\n    var hoverStartedAt = null;\n    function fire(url) {\n      try {\n        var img = new Image();\n        img.src = url;\n      } catch (_error) {}\n    }\n    function withParams(base, params) {\n      var sep = base.indexOf('?') === -1 ? '?' : '&';\n      return base + sep + params.join('&');\n    }\n    function currentPageUrl() {\n      try {\n        return window.location && window.location.href ? window.location.href : '';\n      } catch (_error) {\n        return '';\n      }\n    }\n    function buildEngagementUrl(eventType, hoverDurationMs) {\n      var params = ['event=' + encodeURIComponent(eventType)];\n      var pageUrl = currentPageUrl();\n      if (pageUrl) params.push('pu=' + encodeURIComponent(pageUrl));\n      if (typeof hoverDurationMs === 'number' && hoverDurationMs >= 0) params.push('hd=' + encodeURIComponent(String(Math.round(hoverDurationMs))));\n      return withParams(engagementBase, params);\n    }\n    root.addEventListener('mouseenter', function() {\n      hoverStartedAt = Date.now();\n      fire(buildEngagementUrl('hover_start'));\n    });\n    root.addEventListener('mouseleave', function() {\n      var duration = hoverStartedAt ? (Date.now() - hoverStartedAt) : 0;\n      hoverStartedAt = null;\n      fire(buildEngagementUrl('hover_end', duration));\n    });\n    root.addEventListener('click', function() {\n      fire(buildEngagementUrl('interaction'));\n    }, true);\n  })(${JSON.stringify(`smx-basis-slot-${tagId}`)}, ${JSON.stringify(trackerEngagementUrl)});\n</script>`
+    : '';
+  const displayTag = `${displayMarkup}\n${interactionScript}`;
 
   switch (variant) {
     case 'display-js':

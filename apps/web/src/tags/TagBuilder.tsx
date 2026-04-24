@@ -190,6 +190,7 @@ function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = '
   const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const vastUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VAST);
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
+  const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
   const width = tag.width ?? 300;
   const height = tag.height ?? 250;
@@ -200,6 +201,7 @@ function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = '
     nativeJsUrl,
     vastUrl,
     trackerClickUrl,
+    trackerEngagementUrl,
     trackerImpressionUrl,
     width,
     height,

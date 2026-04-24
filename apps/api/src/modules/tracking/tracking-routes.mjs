@@ -338,6 +338,56 @@ export function handleTrackingRoutes(app, { pool }) {
     }
   });
 
+  app.get('/v1/tags/tracker/:tagId/engagement', async (req, reply) => {
+    const { tagId } = req.params;
+    const servingSnapshot = await getTagServingSnapshotById(pool, tagId);
+    if (!servingSnapshot) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    const eventType = String(req.query?.event ?? '').trim();
+    if (!eventType) {
+      return reply.status(400).send({ error: 'Bad Request', message: 'event is required' });
+    }
+
+    const context = await collectTrackingContext(req, req.query);
+    attachMeasurementDebugHeaders(reply, context);
+    setTrackingIdentityCookies(reply, context);
+    const creativeId = normalizeUuid(req.query?.c) ?? servingSnapshot.servingCandidate?.creativeId ?? null;
+    const creativeSizeVariantId = normalizeUuid(req.query?.csv) ?? servingSnapshot.servingCandidate?.creativeSizeVariantId ?? null;
+    const impressionId = normalizeUuid(req.query?.imp) ?? null;
+    const hoverDurationMs = Number(req.query?.hd ?? 0);
+
+    logMeasurementPath(req, 'tracking native engagement measurement path', {
+      tagId,
+      workspaceId: servingSnapshot.workspace_id,
+      impressionId,
+      creativeId,
+      creativeSizeVariantId,
+      eventType,
+      hoverDurationMs: Number.isFinite(hoverDurationMs) ? hoverDurationMs : null,
+    }, context);
+
+    recordEngagementEvent(pool, {
+      tag_id: tagId,
+      workspace_id: servingSnapshot.workspace_id,
+      creative_id: creativeId,
+      creative_size_variant_id: creativeSizeVariantId,
+      impression_id: impressionId,
+      event_type: eventType,
+      hover_duration_ms: Number.isFinite(hoverDurationMs) ? hoverDurationMs : null,
+      ...context,
+    }).catch((error) => {
+      req.log?.warn?.({ err: error, tagId, workspaceId: servingSnapshot.workspace_id, eventType }, 'failed to record native engagement event');
+    });
+
+    reply.header('Content-Type', 'image/gif');
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    reply.header('Pragma', 'no-cache');
+    reply.header('Expires', '0');
+    return reply.send(PIXEL_GIF);
+  });
+
   // GET /track/impression/:tagId — records impression, returns 1x1 transparent GIF
   app.get('/track/impression/:tagId', async (req, reply) => {
     const { tagId } = req.params;
