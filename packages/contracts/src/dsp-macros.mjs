@@ -186,11 +186,8 @@ export function buildBasisNativeSnippet({
 } = {}) {
   const clickHref = buildDspNativeClickHref(trackerClickUrl, 'basis');
   const displayMarkup = `<div id="smx-basis-slot-${tagId}" style="position:relative;display:inline-block;width:${width}px;height:${height}px;">\n  ${buildBasisNativeDisplayAnchor(displayHtmlUrl, clickHref, width, height)}\n</div>`;
-  const interactionScript = trackerEngagementUrl
-    ? `<script>\n  (function(rootId, engagementBase) {\n    var root = document.getElementById(rootId);\n    if (!root || !engagementBase) return;\n    var hoverStartedAt = null;\n    function fire(url) {\n      try {\n        var img = new Image();\n        img.src = url;\n      } catch (_error) {}\n    }\n    function withParams(base, params) {\n      var sep = base.indexOf('?') === -1 ? '?' : '&';\n      return base + sep + params.join('&');\n    }\n    function currentPageUrl() {\n      try {\n        return window.location && window.location.href ? window.location.href : '';\n      } catch (_error) {\n        return '';\n      }\n    }\n    function buildEngagementUrl(eventType, hoverDurationMs) {\n      var params = ['event=' + encodeURIComponent(eventType)];\n      var pageUrl = currentPageUrl();\n      if (pageUrl) params.push('pu=' + encodeURIComponent(pageUrl));\n      if (typeof hoverDurationMs === 'number' && hoverDurationMs >= 0) params.push('hd=' + encodeURIComponent(String(Math.round(hoverDurationMs))));\n      return withParams(engagementBase, params);\n    }\n    root.addEventListener('mouseenter', function() {\n      hoverStartedAt = Date.now();\n      fire(buildEngagementUrl('hover_start'));\n    });\n    root.addEventListener('mouseleave', function() {\n      var duration = hoverStartedAt ? (Date.now() - hoverStartedAt) : 0;\n      hoverStartedAt = null;\n      fire(buildEngagementUrl('hover_end', duration));\n    });\n    root.addEventListener('click', function() {\n      fire(buildEngagementUrl('interaction'));\n    }, true);\n  })(${JSON.stringify(`smx-basis-slot-${tagId}`)}, ${JSON.stringify(trackerEngagementUrl)});\n</script>`
-    : '';
-  const displayTag = `${displayMarkup}\n${interactionScript}`;
-  const displayTagForInlineScript = escapeInlineScriptMarkup(displayTag);
+  const displayTagForInlineScript = escapeInlineScriptMarkup(displayMarkup);
+  const rootId = `smx-basis-slot-${tagId}`;
 
   switch (variant) {
     case 'display-js':
@@ -198,7 +195,7 @@ export function buildBasisNativeSnippet({
     case 'display-ins':
       return `<script src="${nativeJsUrl}"></script>\n<noscript>\n  ${displayMarkup}\n</noscript>`;
     case 'display-iframe':
-      return displayTag;
+      return displayMarkup;
     case 'tracker-click':
       return clickHref;
     case 'tracker-impression':
@@ -208,7 +205,7 @@ export function buildBasisNativeSnippet({
     case 'vast-xml':
       return `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <Ad id="${tagId}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[${vastUrl}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
     case 'native-js':
-      return `(function(){var markup=${JSON.stringify(displayTagForInlineScript)};var script=document.currentScript;var parent=script&&script.parentNode?script.parentNode:null;if(parent&&script){var wrapper=document.createElement('div');wrapper.innerHTML=markup;while(wrapper.firstChild){parent.insertBefore(wrapper.firstChild,script);}parent.removeChild(script);}else if(document.body){var fallback=document.createElement('div');fallback.innerHTML=markup;while(fallback.firstChild){document.body.appendChild(fallback.firstChild);}}}());`;
+      return `(function(){var markup=${JSON.stringify(displayTagForInlineScript)};var rootId=${JSON.stringify(rootId)};var engagementBase=${JSON.stringify(trackerEngagementUrl)};function attach(root){if(!root||!engagementBase||root.__smxEngagementBound)return;root.__smxEngagementBound=true;var hoverStartedAt=null;function fire(url){try{var img=new Image();img.src=url;}catch(_error){}}function withParams(base,params){var sep=base.indexOf('?')===-1?'?':'&';return base+sep+params.join('&');}function currentPageUrl(){try{return window.location&&window.location.href?window.location.href:'';}catch(_error){return '';}}function buildEngagementUrl(eventType,hoverDurationMs){var params=['event='+encodeURIComponent(eventType)];var pageUrl=currentPageUrl();if(pageUrl)params.push('pu='+encodeURIComponent(pageUrl));if(typeof hoverDurationMs==='number'&&hoverDurationMs>=0)params.push('hd='+encodeURIComponent(String(Math.round(hoverDurationMs))));return withParams(engagementBase,params);}root.addEventListener('mouseenter',function(){hoverStartedAt=Date.now();fire(buildEngagementUrl('hover_start'));});root.addEventListener('mouseleave',function(){var duration=hoverStartedAt?(Date.now()-hoverStartedAt):0;hoverStartedAt=null;fire(buildEngagementUrl('hover_end',duration));});root.addEventListener('click',function(){fire(buildEngagementUrl('interaction'));},true);}var script=document.currentScript;var parent=script&&script.parentNode?script.parentNode:null;var root=null;if(parent&&script){var wrapper=document.createElement('div');wrapper.innerHTML=markup;while(wrapper.firstChild){var child=wrapper.firstChild;parent.insertBefore(child,script);if(!root&&child.id===rootId)root=child;}parent.removeChild(script);}else if(document.body){var fallback=document.createElement('div');fallback.innerHTML=markup;while(fallback.firstChild){var node=fallback.firstChild;document.body.appendChild(node);if(!root&&node.id===rootId)root=node;}}if(!root){root=document.getElementById(rootId);}attach(root);}());`;
     default:
       return '';
   }
