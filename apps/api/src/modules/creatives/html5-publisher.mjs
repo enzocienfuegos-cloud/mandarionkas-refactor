@@ -183,6 +183,7 @@ function buildClickTrackingBootstrap() {
   try {
     var params = new URLSearchParams(window.location.search || '');
     var trackedClickUrl = params.get('smx_click');
+    var dspClickMacro = params.get('smx_dsp_click') || '';
     if (!trackedClickUrl) return;
     var originalOpen = typeof window.open === 'function' ? window.open.bind(window) : null;
     var parsedTrackedBase = null;
@@ -214,8 +215,17 @@ function buildClickTrackingBootstrap() {
       }
     }
 
+    function wrapWithDspMacro(url) {
+      if (!dspClickMacro) return url;
+      try {
+        return decodeURIComponent(dspClickMacro) + encodeURIComponent(url);
+      } catch (_) {
+        return dspClickMacro + encodeURIComponent(url);
+      }
+    }
+
     function navigateTracked(target, features, destination) {
-      var nextTrackedUrl = buildTrackedUrl(destination);
+      var nextTrackedUrl = wrapWithDspMacro(buildTrackedUrl(destination));
       if (originalOpen) {
         return originalOpen(nextTrackedUrl, target || '_blank', features);
       }
@@ -229,12 +239,12 @@ function buildClickTrackingBootstrap() {
           configurable: true,
           enumerable: true,
           get: function() {
-            return trackedClickUrl;
+            return wrapWithDspMacro(trackedClickUrl);
           },
           set: function() {},
         });
       } catch (_) {
-        window[name] = trackedClickUrl;
+        window[name] = wrapWithDspMacro(trackedClickUrl);
       }
     }
 

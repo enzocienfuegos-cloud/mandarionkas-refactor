@@ -1,6 +1,14 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { applyDspMacrosToUrl, getDspMacroConfig, readCampaignDsp } from '@smx/contracts/dsp-macros';
+import {
+  assignCreativeVersionToTag,
+  loadCreativesWithLatestVersion,
+  loadTagBindings,
+  type Creative,
+  type CreativeVersion,
+  type TagBinding,
+} from '../creatives/catalog';
 
 interface Campaign {
   id: string;
@@ -31,6 +39,11 @@ interface SavedTag {
   height?: number | null;
   sizeLabel?: string;
   trackerType?: TrackerType | null;
+}
+
+interface CreativeAssignmentOption {
+  creative: Creative;
+  latestVersion: CreativeVersion;
 }
 
 type SnippetVariant =
@@ -207,6 +220,13 @@ export default function TagBuilder() {
   const [snippetVariant, setSnippetVariant] = useState<SnippetVariant>(getDefaultSnippetVariant(emptyForm.format, emptyForm.trackerType));
   const [copied, setCopied] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [bindings, setBindings] = useState<TagBinding[]>([]);
+  const [bindingsLoading, setBindingsLoading] = useState(false);
+  const [creativeOptions, setCreativeOptions] = useState<CreativeAssignmentOption[]>([]);
+  const [creativeOptionsLoading, setCreativeOptionsLoading] = useState(false);
+  const [assignmentVersionId, setAssignmentVersionId] = useState('');
+  const [assignmentBusy, setAssignmentBusy] = useState(false);
+  const [assignmentError, setAssignmentError] = useState('');
   const selectedCampaignDsp = readCampaignDsp(campaigns.find((campaign) => campaign.id === form.campaignId)?.metadata ?? null);
   const selectedCampaignMacroConfig = getDspMacroConfig(selectedCampaignDsp);
 
@@ -242,6 +262,35 @@ export default function TagBuilder() {
       .catch(() => setGeneralError('Failed to load tag.'))
       .finally(() => setLoading(false));
   }, [id, isEdit]);
+
+  useEffect(() => {
+    if (!isEdit || !id) return;
+    setBindingsLoading(true);
+    setAssignmentError('');
+    void loadTagBindings(id)
+      .then(nextBindings => setBindings(nextBindings))
+      .catch(() => setAssignmentError('Failed to load assigned creatives.'))
+      .finally(() => setBindingsLoading(false));
+  }, [id, isEdit]);
+
+  useEffect(() => {
+    if (!isEdit) return;
+    setCreativeOptionsLoading(true);
+    void loadCreativesWithLatestVersion()
+      .then(({ creatives, latestVersions }) => {
+        const nextOptions = creatives
+          .map(creative => {
+            const latestVersion = latestVersions[creative.id];
+            return latestVersion ? { creative, latestVersion } : null;
+          })
+          .filter((entry): entry is CreativeAssignmentOption => Boolean(entry))
+          .sort((left, right) => left.creative.name.localeCompare(right.creative.name));
+        setCreativeOptions(nextOptions);
+        setAssignmentVersionId(current => current || nextOptions[0]?.latestVersion.id || '');
+      })
+      .catch(() => setAssignmentError('Failed to load available creatives.'))
+      .finally(() => setCreativeOptionsLoading(false));
+  }, [isEdit]);
 
   const set = (field: keyof TagForm) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -343,6 +392,40 @@ export default function TagBuilder() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  };
+
+  const refreshBindings = async () => {
+    if (!id) return;
+    const nextBindings = await loadTagBindings(id);
+    setBindings(nextBindings);
+  };
+
+  const handleAssignCreative = async () => {
+    if (!id || !assignmentVersionId) {
+      setAssignmentError('Select a creative to assign.');
+      return;
+    }
+
+    setAssignmentBusy(true);
+    setAssignmentError('');
+
+    try {
+      await assignCreativeVersionToTag({
+        creativeVersionId: assignmentVersionId,
+        tagId: id,
+      });
+      await refreshBindings();
+      const selectedOption = creativeOptions.find(option => option.latestVersion.id === assignmentVersionId);
+      setSuccessMessage(
+        selectedOption
+          ? `Creative "${selectedOption.creative.name}" assigned successfully.`
+          : 'Creative assigned successfully.',
+      );
+    } catch (error: any) {
+      setAssignmentError(error?.message ?? 'Failed to assign creative.');
+    } finally {
+      setAssignmentBusy(false);
+    }
   };
 
   const inputClass = (err?: string) =>
@@ -609,6 +692,97 @@ export default function TagBuilder() {
           <pre className="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">
             {buildTagSnippet(savedTag, snippetVariant, selectedCampaignDsp)}
           </pre>
+        </div>
+      )}
+
+      {isEdit && savedTag && (
+        <div className="mt-6 bg-white rounded-xl border border-slate-200 p-6">
+          <div className="flex flex-col gap-1 mb-5">
+            <h2 className="text-base font-semibold text-slate-800">Creative Assignments</h2>
+            <p className="text-sm text-slate-500">
+              Assign creatives directly from this tag. For display tags, only compatible sizes can be attached.
+            </p>
+          </div>
+
+          {assignmentError && (
+            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {assignmentError}
+            </div>
+          )}
+
+          <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+            <section className="rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h3 className="text-sm font-semibold text-slate-800">Assigned Creatives</h3>
+                {bindingsLoading && <span className="text-xs text-slate-500">Loading…</span>}
+              </div>
+
+              {bindings.length === 0 && !bindingsLoading ? (
+                <div className="rounded-lg border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+                  No creatives assigned yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {bindings.map(binding => (
+                    <div key={binding.id} className="rounded-lg border border-slate-200 px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">{binding.creativeName}</p>
+                          <p className="text-xs text-slate-500">
+                            {binding.variantLabel
+                              ? `${binding.variantLabel} • ${binding.variantWidth ?? '?'}x${binding.variantHeight ?? '?'}`
+                              : binding.servingFormat}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                          {binding.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-slate-200 p-4">
+              <h3 className="text-sm font-semibold text-slate-800 mb-4">Assign Creative</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Creative</label>
+                  <select
+                    value={assignmentVersionId}
+                    onChange={event => {
+                      setAssignmentVersionId(event.target.value);
+                      setAssignmentError('');
+                      setSuccessMessage('');
+                    }}
+                    className={inputClass()}
+                    disabled={creativeOptionsLoading || assignmentBusy}
+                  >
+                    <option value="">Select a creative</option>
+                    {creativeOptions.map(option => (
+                      <option key={option.latestVersion.id} value={option.latestVersion.id}>
+                        {option.creative.name} · v{option.latestVersion.versionNumber}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAssignCreative}
+                  disabled={assignmentBusy || creativeOptionsLoading || !assignmentVersionId}
+                  className="w-full px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 rounded-lg transition-colors"
+                >
+                  {assignmentBusy ? 'Assigning…' : 'Assign Creative'}
+                </button>
+
+                <p className="text-xs text-slate-500">
+                  This uses the latest published version available for the selected creative and respects format and size constraints on the API side.
+                </p>
+              </div>
+            </section>
+          </div>
         </div>
       )}
     </div>

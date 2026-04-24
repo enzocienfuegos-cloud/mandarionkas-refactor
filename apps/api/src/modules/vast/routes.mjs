@@ -34,12 +34,15 @@ function isTrackableDestinationUrl(value) {
   }
 }
 
-function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedClick) {
+function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedClick, dspClickMacro = '') {
   if (!creativeUrl) return '';
   try {
     const url = new URL(String(creativeUrl));
     if (shouldInjectTrackedClick && clickTrackUrl) {
       url.searchParams.set('smx_click', clickTrackUrl);
+      if (dspClickMacro) {
+        url.searchParams.set('smx_dsp_click', dspClickMacro);
+      }
       url.searchParams.set('clickTag', clickTrackUrl);
       url.searchParams.set('clickTAG', clickTrackUrl);
       url.searchParams.set('bsClickTAG', clickTrackUrl);
@@ -158,8 +161,9 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   );
   const creativeIframeUrl = buildCreativeIframeUrl(
     creativeUrl,
-    clickTrackUrl,
+    rawClickTrackUrl,
     !useTrackedClickWrapper && shouldPreferInternalClickRuntime,
+    dspClickMacro,
   );
 
   return `(function() {
@@ -417,8 +421,9 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
   );
   const creativeIframeUrl = buildCreativeIframeUrl(
     creativeUrl,
-    clickTrackUrl,
+    rawClickTrackUrl,
     !useTrackedClickWrapper && shouldPreferInternalClickRuntime,
+    dspClickMacro,
   );
 
   const body = creativeUrl && servingFormat === 'display_html'
