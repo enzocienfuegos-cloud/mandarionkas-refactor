@@ -154,6 +154,13 @@ export function applyDspMacrosToDeliveryUrl(rawUrl, dsp, deliveryKind, opts = {}
   });
 }
 
+export function buildDspNativeClickHref(clickTrackUrl, dsp) {
+  const normalizedDsp = normalizeDsp(dsp);
+  if (!clickTrackUrl) return clickTrackUrl;
+  if (normalizedDsp !== 'basis') return clickTrackUrl;
+  return `{clickMacro}${String(clickTrackUrl)}`;
+}
+
 export function readDspMacroValue(query = {}, kind, dsp = '') {
   const normalizedDsp = normalizeDsp(dsp || query?.smx_dsp);
   const configs = normalizedDsp

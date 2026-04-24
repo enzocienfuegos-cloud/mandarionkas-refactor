@@ -44,6 +44,7 @@ export declare function applyDspMacrosToDeliveryUrl(
   deliveryKind: unknown,
   opts?: { includeClickMacro?: boolean; includeDspHint?: boolean; clickMacroValue?: string },
 ): string;
+export declare function buildDspNativeClickHref(clickTrackUrl: string, dsp: unknown): string;
 export declare function wrapTrackedClickUrlWithDspMacro(
   clickTrackUrl: string,
   query?: Record<string, unknown>,

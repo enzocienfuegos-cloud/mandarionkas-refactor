@@ -2,6 +2,7 @@ import React, { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   applyDspMacrosToDeliveryUrl,
+  buildDspNativeClickHref,
   DSP_DELIVERY_KINDS,
   getDspMacroConfig,
   readCampaignDsp,
@@ -176,14 +177,17 @@ function normalizeTagRecord(payload: unknown): SavedTag | null {
 
 function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = ''): string {
   const servingBaseUrl = resolveTagServingBaseUrl();
+  const normalizedDsp = readCampaignDsp({ dsp: campaignDsp });
   const displayJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const vastUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VAST);
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
   const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
+  const basisNativeClickHref = buildDspNativeClickHref(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp);
   const width = tag.width ?? 300;
   const height = tag.height ?? 250;
+  const basisNativeDisplayTag = `<a href="${basisNativeClickHref}" target="_blank" rel="noopener noreferrer" style="display:inline-block;width:${width}px;height:${height}px;">\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" marginwidth="0" marginheight="0" style="border:0;overflow:hidden;pointer-events:none;"></iframe>\n</a>`;
 
   switch (variant) {
     case 'vast-url':
@@ -191,17 +195,24 @@ function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = '
     case 'vast-xml':
       return `<VAST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <Ad id="${tag.id}">\n    <Wrapper>\n      <AdSystem>SMX Studio</AdSystem>\n      <VASTAdTagURI><![CDATA[${vastUrl}]]></VASTAdTagURI>\n    </Wrapper>\n  </Ad>\n</VAST>`;
     case 'display-iframe':
+      if (normalizedDsp === 'basis') return basisNativeDisplayTag;
       return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
     case 'display-ins':
+      if (normalizedDsp === 'basis') {
+        return `<ins id="smx-ad-slot-${tag.id}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    slot.outerHTML = ${JSON.stringify(basisNativeDisplayTag)};\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tag.id}`)}));\n</script>`;
+      }
       return `<ins id="smx-ad-slot-${tag.id}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    var iframe = document.createElement('iframe');\n    iframe.src = ${JSON.stringify(displayHtmlUrl)};\n    iframe.width = ${JSON.stringify(String(width))};\n    iframe.height = ${JSON.stringify(String(height))};\n    iframe.scrolling = 'no';\n    iframe.frameBorder = '0';\n    iframe.style.border = '0';\n    iframe.style.overflow = 'hidden';\n    slot.replaceWith(iframe);\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tag.id}`)}));\n</script>`;
     case 'native-js':
       return `<script>\n  window.SMX = window.SMX || {};\n  window.SMX.native = window.SMX.native || [];\n  window.SMX.native.push({ tagId: "${tag.id}", format: "native" });\n</script>\n<script src="${nativeJsUrl}" async></script>`;
     case 'tracker-impression':
       return trackerImpressionUrl;
     case 'tracker-click':
-      return trackerClickUrl;
+      return normalizedDsp === 'basis' ? basisNativeClickHref : trackerClickUrl;
     case 'display-js':
     default:
+      if (normalizedDsp === 'basis') {
+        return `<script>\n  (function() {\n    var markup = ${JSON.stringify(basisNativeDisplayTag)};\n    document.write(markup);\n  })();\n</script>\n<noscript>\n  ${basisNativeDisplayTag}\n</noscript>`;
+      }
       return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
   }
 }
