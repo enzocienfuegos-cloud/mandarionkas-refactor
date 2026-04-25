@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { createPool } from '@smx/db/pool';
 import { getCreativeIngestion, updateCreativeIngestion } from '@smx/db';
 import { dispatchWebhook } from './lib/webhook-dispatcher.mjs';
-import { transcode } from './lib/transcode.mjs';
+import { transcodeToHls } from './lib/transcode.mjs';
 import {
   publishCreativeIngestionToCatalog,
 } from '../../api/src/modules/creatives/creative-ingestion-publisher.mjs';
@@ -90,7 +90,7 @@ async function processJob(job) {
   switch (job.type) {
     case 'transcode': {
       const { inputPath, outputDir, creativeId } = payload;
-      const renditions = await transcode(inputPath, outputDir);
+      const renditions = await transcodeToHls({ inputPath, outputDir, creativeId });
       // Persist HLS manifest path back to the creative
       await pool.query(
         `UPDATE creatives SET hls_url = $2, status = 'active' WHERE id = $1`,
