@@ -216,6 +216,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
       JOIN ad_tags t ON t.id = tb.tag_id
       WHERE cv.creative_id = c.id
         AND cv.workspace_id = c.workspace_id
+        AND tb.workspace_id = c.workspace_id
         ${campaignId ? `AND t.campaign_id = $${creativesParams.push(campaignId)}` : ''}
         ${tagId ? `AND t.id = $${creativesParams.push(tagId)}` : ''}
     )`);
@@ -326,25 +327,50 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     topTagParams,
   );
 
-  const [summaryRes, engagementRes, videoSummaryRes, durationRes, activeCampaignsRes, activeTagsRes, creativesRes, identitySummaryRes, topCampaignsRes, topTagsRes] =
-    await Promise.all([
-      summaryQuery,
-      engagementQuery,
-      videoSummaryQuery,
-      durationQuery,
-      activeCampaignsQuery,
-      activeTagsQuery,
-      creativesQuery,
-      identitySummaryQuery,
-      topCampaignsQuery,
-      topTagsQuery,
-    ]);
+  const settledQueries = await Promise.allSettled([
+    summaryQuery,
+    engagementQuery,
+    videoSummaryQuery,
+    durationQuery,
+    activeCampaignsQuery,
+    activeTagsQuery,
+    creativesQuery,
+    identitySummaryQuery,
+    topCampaignsQuery,
+    topTagsQuery,
+  ]);
 
-  const summary = summaryRes.rows[0] ?? {};
-  const engagement = engagementRes.rows[0] ?? {};
-  const videoSummary = videoSummaryRes.rows[0] ?? {};
-  const duration = durationRes.rows[0] ?? {};
-  const identitySummary = identitySummaryRes.rows[0] ?? {};
+  function settledRow(result) {
+    return result?.status === 'fulfilled' ? (result.value.rows[0] ?? {}) : {};
+  }
+
+  function settledRows(result) {
+    return result?.status === 'fulfilled' ? result.value.rows : [];
+  }
+
+  const [
+    summaryRes,
+    engagementRes,
+    videoSummaryRes,
+    durationRes,
+    activeCampaignsRes,
+    activeTagsRes,
+    creativesRes,
+    identitySummaryRes,
+    topCampaignsRes,
+    topTagsRes,
+  ] = settledQueries;
+
+  const summary = settledRow(summaryRes);
+  const engagement = settledRow(engagementRes);
+  const videoSummary = settledRow(videoSummaryRes);
+  const duration = settledRow(durationRes);
+  const activeCampaigns = settledRow(activeCampaignsRes);
+  const activeTags = settledRow(activeTagsRes);
+  const creatives = settledRow(creativesRes);
+  const identitySummary = settledRow(identitySummaryRes);
+  const topCampaigns = settledRows(topCampaignsRes);
+  const topTags = settledRows(topTagsRes);
   const totalIdentities = Number(identitySummary.total_identities ?? 0);
   const identityImpressions = Number(identitySummary.identity_impressions ?? 0);
   const identityClicks = Number(identitySummary.identity_clicks ?? 0);
@@ -376,11 +402,11 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     total_identities: totalIdentities,
     avg_identity_frequency: totalIdentities > 0 ? Number((identityImpressions / totalIdentities).toFixed(4)) : 0,
     avg_identity_clicks: totalIdentities > 0 ? Number((identityClicks / totalIdentities).toFixed(4)) : 0,
-    active_campaigns: activeCampaignsRes.rows[0]?.active_campaigns ?? 0,
-    active_tags: activeTagsRes.rows[0]?.active_tags ?? 0,
-    total_creatives: creativesRes.rows[0]?.total_creatives ?? 0,
-    top_campaigns: topCampaignsRes.rows,
-    top_tags: topTagsRes.rows,
+    active_campaigns: activeCampaigns.active_campaigns ?? 0,
+    active_tags: activeTags.active_tags ?? 0,
+    total_creatives: creatives.total_creatives ?? 0,
+    top_campaigns: topCampaigns,
+    top_tags: topTags,
   };
 }
 
