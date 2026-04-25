@@ -314,6 +314,7 @@ export default function TagBuilder() {
   const [assignmentError, setAssignmentError] = useState('');
   const [deliveryDiagnostics, setDeliveryDiagnostics] = useState<DeliveryDiagnosticsPayload | null>(null);
   const [deliveryDiagnosticsLoading, setDeliveryDiagnosticsLoading] = useState(false);
+  const [republishingStaticDelivery, setRepublishingStaticDelivery] = useState(false);
   const selectedCampaign = campaigns.find((campaign) => campaign.id === form.campaignId) ?? null;
   const selectedCampaignDsp = readCampaignDsp(selectedCampaign?.metadata ?? null);
   const selectedCampaignMediaType = String(selectedCampaign?.metadata?.mediaType ?? 'display').toLowerCase();
@@ -397,15 +398,7 @@ export default function TagBuilder() {
 
   useEffect(() => {
     if (!isEdit || !id) return;
-    setDeliveryDiagnosticsLoading(true);
-    void fetch(`/v1/tags/${id}/delivery-diagnostics`, { credentials: 'include' })
-      .then(response => {
-        if (!response.ok) throw new Error('Failed to load diagnostics');
-        return response.json();
-      })
-      .then(payload => setDeliveryDiagnostics(payload as DeliveryDiagnosticsPayload))
-      .catch(() => setDeliveryDiagnostics(null))
-      .finally(() => setDeliveryDiagnosticsLoading(false));
+    void refreshDeliveryDiagnostics();
   }, [id, isEdit]);
 
   const set = (field: keyof TagForm) => (
@@ -531,6 +524,21 @@ export default function TagBuilder() {
     setBindings(nextBindings);
   };
 
+  const refreshDeliveryDiagnostics = async () => {
+    if (!id) return;
+    setDeliveryDiagnosticsLoading(true);
+    try {
+      const response = await fetch(`/v1/tags/${id}/delivery-diagnostics`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to load diagnostics');
+      const payload = await response.json();
+      setDeliveryDiagnostics(payload as DeliveryDiagnosticsPayload);
+    } catch {
+      setDeliveryDiagnostics(null);
+    } finally {
+      setDeliveryDiagnosticsLoading(false);
+    }
+  };
+
   const handleAssignCreative = async () => {
     if (!id || !assignmentVersionId) {
       setAssignmentError('Select a creative to assign.');
@@ -556,6 +564,35 @@ export default function TagBuilder() {
       setAssignmentError(error?.message ?? 'Failed to assign creative.');
     } finally {
       setAssignmentBusy(false);
+    }
+  };
+
+  const handleRepublishStaticDelivery = async () => {
+    if (!id) return;
+    setRepublishingStaticDelivery(true);
+    setGeneralError('');
+    setSuccessMessage('');
+
+    try {
+      const profiles = ['default', 'Basis', 'Illumin'];
+      for (const profile of profiles) {
+        const response = await fetch(`/v1/vast/tags/${id}/publish-static`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ dsp: profile }),
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data?.message ?? `Failed to publish static ${profile} delivery.`);
+        }
+      }
+      await refreshDeliveryDiagnostics();
+      setSuccessMessage('Static VAST delivery republished successfully.');
+    } catch (error: any) {
+      setGeneralError(error?.message ?? 'Failed to republish static VAST delivery.');
+    } finally {
+      setRepublishingStaticDelivery(false);
     }
   };
 
@@ -921,11 +958,25 @@ export default function TagBuilder() {
 
           {savedTag.format === 'VAST' && deliveryDiagnostics?.deliveryDiagnostics?.vast?.staticProfiles && (
             <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-              <div className="mb-3">
-                <h3 className="text-sm font-semibold text-emerald-900">Static Delivery URLs</h3>
-                <p className="text-xs text-emerald-800">
-                  Public XML artifacts served from storage for DSP delivery and validator-safe testing.
-                </p>
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-emerald-900">Static Delivery URLs</h3>
+                  <p className="text-xs text-emerald-800">
+                    Public XML artifacts served from storage for DSP delivery and validator-safe testing.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { void handleRepublishStaticDelivery(); }}
+                  disabled={republishingStaticDelivery}
+                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                    republishingStaticDelivery
+                      ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
+                      : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
+                  }`}
+                >
+                  {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
+                </button>
               </div>
               <div className="space-y-3">
                 {[
@@ -939,6 +990,34 @@ export default function TagBuilder() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {savedTag.format === 'VAST' && !deliveryDiagnostics?.deliveryDiagnostics?.vast?.staticProfiles && (
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-emerald-900">Static Delivery URLs</h3>
+                  <p className="text-xs text-emerald-800">
+                  Public XML artifacts served from storage for DSP delivery and validator-safe testing.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { void handleRepublishStaticDelivery(); }}
+                  disabled={republishingStaticDelivery}
+                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                    republishingStaticDelivery
+                      ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
+                      : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
+                  }`}
+                >
+                  {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
+                </button>
+              </div>
+              <p className="mt-3 text-xs text-emerald-900">
+                No static delivery artifacts are visible yet. Republish to generate or refresh the public XML profiles.
+              </p>
             </div>
           )}
 
