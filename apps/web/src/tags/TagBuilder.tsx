@@ -64,6 +64,11 @@ interface DeliveryDiagnosticEntry {
   url?: string;
   jsUrl?: string;
   htmlUrl?: string;
+  staticProfiles?: {
+    default?: string;
+    basis?: string;
+    illumin?: string;
+  } | null;
 }
 
 interface DeliveryDiagnosticsPayload {
@@ -911,6 +916,29 @@ export default function TagBuilder() {
           {deliveryDiagnostics?.deliverySummary?.previewNotes && (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
               {deliveryDiagnostics.deliverySummary.previewNotes}
+            </div>
+          )}
+
+          {savedTag.format === 'VAST' && deliveryDiagnostics?.deliveryDiagnostics?.vast?.staticProfiles && (
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <div className="mb-3">
+                <h3 className="text-sm font-semibold text-emerald-900">Static Delivery URLs</h3>
+                <p className="text-xs text-emerald-800">
+                  Public XML artifacts served from storage for DSP delivery and validator-safe testing.
+                </p>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { label: 'Default', url: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfiles.default },
+                  { label: 'Basis', url: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfiles.basis },
+                  { label: 'Illumin', url: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfiles.illumin },
+                ].filter((entry) => entry.url).map((entry) => (
+                  <div key={entry.label}>
+                    <div className="mb-1 text-xs font-medium text-emerald-900">{entry.label}</div>
+                    <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{entry.url}</pre>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
