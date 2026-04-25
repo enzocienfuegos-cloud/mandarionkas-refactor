@@ -150,6 +150,9 @@ importers:
       vite:
         specifier: ^5.2.12
         version: 5.4.21
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
 
   apps/worker:
     dependencies:
