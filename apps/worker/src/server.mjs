@@ -7,7 +7,7 @@ import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { createPool } from '@smx/db/pool';
 import { getCreativeIngestion, updateCreativeIngestion } from '@smx/db';
-import { dispatchWebhooks } from './lib/webhook-dispatcher.mjs';
+import { dispatchWebhook } from './lib/webhook-dispatcher.mjs';
 import { transcode } from './lib/transcode.mjs';
 import {
   publishCreativeIngestionToCatalog,
@@ -101,13 +101,7 @@ async function processJob(job) {
 
     case 'webhook': {
       const { webhookId, event, body } = payload;
-      const { rows } = await pool.query(
-        `SELECT url, secret FROM webhooks WHERE id = $1 AND active = TRUE`,
-        [webhookId],
-      );
-      if (rows[0]) {
-        await dispatchWebhooks([rows[0]], event, body);
-      }
+      await dispatchWebhook(pool, webhookId, event, body);
       break;
     }
 
