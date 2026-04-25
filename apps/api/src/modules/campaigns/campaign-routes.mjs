@@ -19,6 +19,7 @@ import {
   readCampaignDsp,
   shouldUseBasisNativeDelivery,
 } from '@smx/contracts/dsp-macros';
+import { buildStaticVastPublicUrl } from '../vast/delivery-artifacts.mjs';
 
 export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
   async function resolveTargetWorkspaceId(userId, fallbackWorkspaceId, requestedWorkspaceId) {
@@ -79,6 +80,7 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
     const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
     const trackerViewabilityUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/track/viewability/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+    const basisStaticVastUrl = tag.workspace_id ? buildStaticVastPublicUrl(tag.workspace_id, tag.id, 'basis') : '';
     const basisNativeArgs = {
       variant,
       tagId: tag.id,
@@ -104,6 +106,8 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
         return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
       case 'vast-url':
         return vastUrl;
+      case 'vast-url-basis-static':
+        return basisStaticVastUrl;
       case 'vast-xml':
         return buildVastWrapperSnippet(tag.id, vastUrl);
       case 'tracker-click':
@@ -154,7 +158,7 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     }
 
     const { rows: tags } = await pool.query(
-      `SELECT t.id, t.name, t.format, t.status, tfc.tracker_type,
+      `SELECT t.id, t.workspace_id, t.name, t.format, t.status, tfc.tracker_type,
               COALESCE(bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
               COALESCE(bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height
        FROM ad_tags t
@@ -189,7 +193,7 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     const baseUrl = getRequestBaseUrl(req);
     const campaignDsp = readCampaignDsp(campaign.metadata);
     const rows = [
-      ['campaign', 'client', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'vast_url_smx_standard', 'vast_url_basis', 'vast_url_illumin', 'tracker_click_url', 'tracker_impression_url'],
+      ['campaign', 'client', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'vast_url_smx_standard', 'vast_url_basis', 'vast_url_basis_static', 'vast_url_illumin', 'tracker_click_url', 'tracker_impression_url'],
       ...tags.map(tag => {
         const size = tag.format === 'tracker'
           ? (tag.tracker_type === 'impression' ? '1x1' : '')
@@ -209,6 +213,7 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
           format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url', campaignDsp) : '',
           format === 'vast' ? videoExamples.standard.url : '',
           format === 'vast' ? videoExamples.basis.url : '',
+          format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url-basis-static', campaignDsp) : '',
           format === 'vast' ? videoExamples.illumin.url : '',
           format === 'tracker' && tag.tracker_type === 'click' ? buildTagSnippet(baseUrl, tag, 'tracker-click', campaignDsp) : '',
           format === 'tracker' && tag.tracker_type === 'impression' ? buildTagSnippet(baseUrl, tag, 'tracker-impression', campaignDsp) : '',
