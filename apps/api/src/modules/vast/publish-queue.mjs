@@ -1,5 +1,39 @@
-import { createJob } from '@smx/db';
+import { createJob, updateJob } from '@smx/db';
 import { listTagIdsByCreativeVersion } from '@smx/db/tags';
+
+function normalizeProfiles(profiles = []) {
+  const values = Array.isArray(profiles) ? profiles : [];
+  const seen = new Set();
+  const normalized = [];
+  for (const value of values) {
+    const raw = String(value ?? '').trim();
+    const profile = raw ? raw.toLowerCase() : '';
+    const key = raw ? profile : '__default__';
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(profile);
+  }
+  return normalized;
+}
+
+async function findExistingStaticVastPublishJob(pool, { workspaceId, tagId } = {}) {
+  if (!pool || !workspaceId || !tagId) return null;
+  const { rows } = await pool.query(
+    `SELECT *
+       FROM jobs
+      WHERE queue = 'vast_delivery'
+        AND type = 'vast_static_publish'
+        AND status IN ('pending', 'running')
+        AND payload->>'workspaceId' = $1
+        AND payload->>'tagId' = $2
+      ORDER BY
+        CASE status WHEN 'running' THEN 0 ELSE 1 END,
+        created_at ASC
+      LIMIT 1`,
+    [String(workspaceId), String(tagId)],
+  );
+  return rows[0] ?? null;
+}
 
 export async function enqueueStaticVastPublish(pool, {
   workspaceId,
@@ -10,6 +44,25 @@ export async function enqueueStaticVastPublish(pool, {
   priority = 5,
 } = {}) {
   if (!pool || !workspaceId || !tagId) return null;
+  const normalizedProfiles = normalizeProfiles(dspProfiles);
+  const existing = await findExistingStaticVastPublishJob(pool, { workspaceId, tagId });
+  if (existing) {
+    const mergedProfiles = normalizeProfiles([
+      ...(existing.payload?.dspProfiles ?? []),
+      ...normalizedProfiles,
+    ]);
+    return updateJob(pool, existing.id, {
+      payload: {
+        ...(existing.payload ?? {}),
+        workspaceId,
+        tagId,
+        trigger,
+        requestedSize: requestedSize ?? existing.payload?.requestedSize ?? null,
+        dspProfiles: mergedProfiles.length ? mergedProfiles : ['', 'basis', 'illumin'],
+      },
+      priority: Math.max(Number(existing.priority ?? 0), Number(priority ?? 0)),
+    });
+  }
   return createJob(pool, {
     queue: 'vast_delivery',
     type: 'vast_static_publish',
@@ -20,7 +73,7 @@ export async function enqueueStaticVastPublish(pool, {
       tagId,
       trigger,
       requestedSize,
-      dspProfiles,
+      dspProfiles: normalizedProfiles.length ? normalizedProfiles : ['', 'basis', 'illumin'],
     },
   });
 }
