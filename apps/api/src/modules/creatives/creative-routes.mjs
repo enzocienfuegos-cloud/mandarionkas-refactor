@@ -32,6 +32,7 @@ import {
   enqueueStaticVastPublish,
   enqueueStaticVastPublishForCreativeVersion,
 } from '../vast/publish-queue.mjs';
+import { getRequestBaseUrl } from '../shared/request-base-url.mjs';
 
 function getTagServingSize(tag, bindings = []) {
   const activeBinding = bindings.find(binding =>
@@ -60,6 +61,7 @@ async function republishStaticVastArtifacts(req, pool, workspaceId, tagId, trigg
     await enqueueStaticVastPublish(pool, {
       workspaceId,
       tagId,
+      baseUrl: getRequestBaseUrl(req),
       trigger,
     });
   } catch (error) {
@@ -72,6 +74,7 @@ async function republishStaticVastArtifactsForCreativeVersion(req, pool, workspa
     await enqueueStaticVastPublishForCreativeVersion(pool, {
       workspaceId,
       creativeVersionId,
+      baseUrl: getRequestBaseUrl(req),
       trigger,
     });
   } catch (error) {

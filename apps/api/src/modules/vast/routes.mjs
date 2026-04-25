@@ -786,6 +786,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
     const job = await enqueueStaticVastPublish(pool, {
       workspaceId,
       tagId,
+      baseUrl: getRequestBaseUrl(req),
       trigger: 'manual_queue_static_publish',
       requestedSize: readRequestedSize(req.query),
       dspProfiles: normalizedDsp ? [normalizedDsp] : ['', 'basis', 'illumin'],

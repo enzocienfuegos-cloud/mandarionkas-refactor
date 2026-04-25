@@ -47,6 +47,7 @@ async function findExistingStaticVastPublishJob(pool, { workspaceId, tagId } = {
 export async function enqueueStaticVastPublish(pool, {
   workspaceId,
   tagId,
+  baseUrl = '',
   trigger = 'unknown',
   requestedSize = null,
   dspProfiles = ['', 'basis', 'illumin'],
@@ -69,6 +70,7 @@ export async function enqueueStaticVastPublish(pool, {
         ...(existing.payload ?? {}),
         workspaceId,
         tagId,
+        baseUrl: String(baseUrl || existing.payload?.baseUrl || '').trim(),
         trigger,
         requestedSize: requestedSize ?? existing.payload?.requestedSize ?? null,
         dspProfiles: mergedProfiles.length ? mergedProfiles : ['', 'basis', 'illumin'],
@@ -85,6 +87,7 @@ export async function enqueueStaticVastPublish(pool, {
     payload: {
       workspaceId,
       tagId,
+      baseUrl: String(baseUrl || '').trim(),
       trigger,
       requestedSize,
       dspProfiles: normalizedProfiles.length ? normalizedProfiles : ['', 'basis', 'illumin'],
@@ -96,6 +99,7 @@ export async function enqueueStaticVastPublish(pool, {
 export async function enqueueStaticVastPublishForCreativeVersion(pool, {
   workspaceId,
   creativeVersionId,
+  baseUrl = '',
   trigger = 'creative_version_update',
   requestedSize = null,
   dspProfiles = ['', 'basis', 'illumin'],
@@ -108,6 +112,7 @@ export async function enqueueStaticVastPublishForCreativeVersion(pool, {
     const job = await enqueueStaticVastPublish(pool, {
       workspaceId,
       tagId,
+      baseUrl,
       trigger,
       requestedSize,
       dspProfiles,

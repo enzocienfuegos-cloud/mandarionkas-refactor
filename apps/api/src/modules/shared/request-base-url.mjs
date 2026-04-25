@@ -1,7 +1,15 @@
-const BASE_URL = (process.env.BASE_URL ?? '').trim();
+const CONFIGURED_BASE_URL_ENVS = [
+  'API_PUBLIC_BASE_URL',
+  'API_BASE_URL',
+  'BASE_URL',
+  'VITE_API_BASE_URL',
+];
 
 export function getConfiguredBaseUrl() {
-  if (BASE_URL) return BASE_URL.replace(/\/$/, '');
+  for (const envName of CONFIGURED_BASE_URL_ENVS) {
+    const value = String(process.env[envName] ?? '').trim();
+    if (value) return value.replace(/\/$/, '');
+  }
   return 'http://localhost:4000';
 }
 

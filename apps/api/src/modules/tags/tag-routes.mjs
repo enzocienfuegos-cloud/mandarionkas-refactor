@@ -42,6 +42,7 @@ async function republishStaticVastArtifacts(req, pool, workspaceId, tagId, trigg
     await enqueueStaticVastPublish(pool, {
       workspaceId,
       tagId,
+      baseUrl: getRequestBaseUrl(req),
       trigger,
     });
   } catch (error) {

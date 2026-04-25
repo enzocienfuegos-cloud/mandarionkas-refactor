@@ -269,6 +269,7 @@ async function processJob(job) {
       const {
         workspaceId,
         tagId,
+        baseUrl: queuedBaseUrl = '',
         trigger = 'queued_publish',
         requestedSize = null,
         dspProfiles = ['', 'basis', 'illumin'],
@@ -278,7 +279,7 @@ async function processJob(job) {
         throw new Error('Missing workspaceId or tagId for vast_static_publish');
       }
 
-      const baseUrl = getConfiguredBaseUrl();
+      const baseUrl = String(queuedBaseUrl || getConfiguredBaseUrl()).trim();
       console.log(`[worker] static vast publish job ${job.id} started tag=${tagId} workspace=${workspaceId} trigger=${trigger}`);
       const published = await publishStaticVastArtifactsForTag({
         pool,
