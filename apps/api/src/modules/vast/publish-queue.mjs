@@ -16,6 +16,15 @@ function normalizeProfiles(profiles = []) {
   return normalized;
 }
 
+function buildTriggerEvent(trigger, dspProfiles = [], requestedSize = null) {
+  return {
+    trigger,
+    requestedSize,
+    dspProfiles: normalizeProfiles(dspProfiles),
+    queuedAt: new Date().toISOString(),
+  };
+}
+
 async function findExistingStaticVastPublishJob(pool, { workspaceId, tagId } = {}) {
   if (!pool || !workspaceId || !tagId) return null;
   const { rows } = await pool.query(
@@ -51,6 +60,10 @@ export async function enqueueStaticVastPublish(pool, {
       ...(existing.payload?.dspProfiles ?? []),
       ...normalizedProfiles,
     ]);
+    const triggerHistory = [
+      ...(Array.isArray(existing.payload?.triggerHistory) ? existing.payload.triggerHistory : []),
+      buildTriggerEvent(trigger, normalizedProfiles, requestedSize),
+    ].slice(-10);
     return updateJob(pool, existing.id, {
       payload: {
         ...(existing.payload ?? {}),
@@ -59,6 +72,7 @@ export async function enqueueStaticVastPublish(pool, {
         trigger,
         requestedSize: requestedSize ?? existing.payload?.requestedSize ?? null,
         dspProfiles: mergedProfiles.length ? mergedProfiles : ['', 'basis', 'illumin'],
+        triggerHistory,
       },
       priority: Math.max(Number(existing.priority ?? 0), Number(priority ?? 0)),
     });
@@ -74,6 +88,7 @@ export async function enqueueStaticVastPublish(pool, {
       trigger,
       requestedSize,
       dspProfiles: normalizedProfiles.length ? normalizedProfiles : ['', 'basis', 'illumin'],
+      triggerHistory: [buildTriggerEvent(trigger, normalizedProfiles, requestedSize)],
     },
   });
 }

@@ -17,6 +17,8 @@ import { publishStaticVastArtifactsForTag } from '../../api/src/modules/vast/xml
 
 const POLL_INTERVAL_MS = parseInt(process.env.WORKER_POLL_MS, 10) || 5_000;
 const WORKER_ID = process.env.WORKER_ID || `${process.env.HOSTNAME || 'worker'}-${randomUUID().slice(0, 8)}`;
+const WORKER_RETRY_BASE_MS = parseInt(process.env.WORKER_RETRY_BASE_MS, 10) || 30_000;
+const WORKER_RETRY_MAX_MS = parseInt(process.env.WORKER_RETRY_MAX_MS, 10) || 15 * 60_000;
 
 const pool = createPool();
 
@@ -42,25 +44,67 @@ async function claimJob(client) {
   return rows[0] ?? null;
 }
 
-async function finishJob(client, id, error = null) {
+function computeRetryDelayMs(attempt) {
+  const normalizedAttempt = Math.max(1, Number(attempt) || 1);
+  const exponentialDelay = Math.min(
+    WORKER_RETRY_MAX_MS,
+    WORKER_RETRY_BASE_MS * (2 ** (normalizedAttempt - 1)),
+  );
+  const jitterWindow = Math.min(5_000, Math.floor(exponentialDelay * 0.2));
+  const jitter = jitterWindow > 0 ? Math.floor(Math.random() * (jitterWindow + 1)) : 0;
+  return exponentialDelay + jitter;
+}
+
+async function finishJob(client, job, error = null) {
   if (error) {
+    const attempts = Number(job.attempts ?? 0);
+    const maxAttempts = Number(job.max_attempts ?? 0);
+    const hasRetriesRemaining = attempts < maxAttempts;
+    if (hasRetriesRemaining) {
+      const retryDelayMs = computeRetryDelayMs(attempts);
+      await client.query(`
+        UPDATE jobs
+        SET status = 'pending',
+            error = $2,
+            failed_at = NOW(),
+            started_at = NULL,
+            worker_id = NULL,
+            run_at = NOW() + ($3 * INTERVAL '1 millisecond'),
+            updated_at = NOW()
+        WHERE id = $1
+      `, [job.id, String(error), retryDelayMs]);
+      return {
+        status: 'retry_scheduled',
+        retryDelayMs,
+        nextAttempt: attempts + 1,
+      };
+    }
     await client.query(`
       UPDATE jobs
       SET status = 'failed',
           error = $2,
           failed_at = NOW(),
+          worker_id = NULL,
           updated_at = NOW()
       WHERE id = $1
-    `, [id, String(error)]);
+    `, [job.id, String(error)]);
+    return {
+      status: 'failed',
+      exhausted: true,
+    };
   } else {
     await client.query(`
       UPDATE jobs
       SET status = 'completed',
           error = NULL,
           completed_at = NOW(),
+          failed_at = NULL,
           updated_at = NOW()
       WHERE id = $1
-    `, [id]);
+    `, [job.id]);
+    return {
+      status: 'completed',
+    };
   }
 }
 
@@ -268,7 +312,7 @@ async function poll() {
     try {
       await processJob(job);
       const c2 = await pool.connect();
-      try { await finishJob(c2, job.id); }
+      try { await finishJob(c2, job); }
       finally { c2.release(); }
     } catch (err) {
       console.error(`[worker] job ${job.id} failed:`, err.stack ?? err.message);
@@ -292,7 +336,15 @@ async function poll() {
         }
       }
       const c2 = await pool.connect();
-      try { await finishJob(c2, job.id, err.message); }
+      try {
+        const retryState = await finishJob(c2, job, err.message);
+        if (retryState?.status === 'retry_scheduled') {
+          console.warn(
+            `[worker] job ${job.id} scheduled retry in ${retryState.retryDelayMs}ms ` +
+            `(attempt ${job.attempts}/${job.max_attempts})`,
+          );
+        }
+      }
       finally { c2.release(); }
     }
   } catch (err) {
