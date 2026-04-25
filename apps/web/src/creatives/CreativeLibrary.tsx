@@ -125,6 +125,52 @@ interface VideoRenditionState {
   renditions: VideoRendition[];
 }
 
+interface RegenerationFeedbackState {
+  active: boolean;
+  startedAt: number;
+  elapsedMs: number;
+  stageLabel: string;
+  progressPercent: number;
+}
+
+function formatElapsedDuration(ms: number) {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+function estimateRegenerationFeedback(elapsedMs: number) {
+  if (elapsedMs < 1200) {
+    return {
+      stageLabel: 'Preparing source video…',
+      progressPercent: Math.min(18, 6 + Math.round((elapsedMs / 1200) * 12)),
+    };
+  }
+  if (elapsedMs < 4000) {
+    return {
+      stageLabel: 'Analyzing source with ffprobe…',
+      progressPercent: Math.min(38, 18 + Math.round(((elapsedMs - 1200) / 2800) * 20)),
+    };
+  }
+  if (elapsedMs < 12000) {
+    return {
+      stageLabel: 'Transcoding renditions with FFmpeg…',
+      progressPercent: Math.min(82, 38 + Math.round(((elapsedMs - 4000) / 8000) * 44)),
+    };
+  }
+  if (elapsedMs < 20000) {
+    return {
+      stageLabel: 'Publishing rendition artifacts…',
+      progressPercent: Math.min(94, 82 + Math.round(((elapsedMs - 12000) / 8000) * 12)),
+    };
+  }
+  return {
+    stageLabel: 'Finalizing rendition metadata…',
+    progressPercent: 97,
+  };
+}
+
 export default function CreativeLibrary() {
   const navigate = useNavigate();
   const [creatives, setCreatives] = useState<Creative[]>([]);
@@ -141,6 +187,7 @@ export default function CreativeLibrary() {
   const [bindingState, setBindingState] = useState<BindingState | null>(null);
   const [variantState, setVariantState] = useState<VariantState | null>(null);
   const [videoRenditionState, setVideoRenditionState] = useState<VideoRenditionState | null>(null);
+  const [regenerationFeedback, setRegenerationFeedback] = useState<RegenerationFeedbackState | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -373,9 +420,24 @@ export default function CreativeLibrary() {
 
   const handleRegenerateVideoRenditions = async () => {
     if (!videoRenditionState) return;
+    const startedAt = Date.now();
+    const initialFeedback = estimateRegenerationFeedback(0);
+    setRegenerationFeedback({
+      active: true,
+      startedAt,
+      elapsedMs: 0,
+      stageLabel: initialFeedback.stageLabel,
+      progressPercent: initialFeedback.progressPercent,
+    });
     setVideoRenditionState(current => current ? { ...current, loading: true, error: '' } : current);
     try {
       await regenerateVideoRenditions(videoRenditionState.versionId);
+      setRegenerationFeedback(current => current ? {
+        ...current,
+        elapsedMs: Date.now() - current.startedAt,
+        stageLabel: 'Refreshing rendition details…',
+        progressPercent: 98,
+      } : current);
       const detail = await loadCreativeVersionDetail(videoRenditionState.versionId);
       setVideoRenditionState(current => current ? {
         ...current,
@@ -383,15 +445,46 @@ export default function CreativeLibrary() {
         version: detail.creativeVersion,
         renditions: detail.videoRenditions,
       } : current);
+      setRegenerationFeedback(current => current ? {
+        ...current,
+        active: false,
+        elapsedMs: Date.now() - current.startedAt,
+        stageLabel: 'Renditions updated',
+        progressPercent: 100,
+      } : current);
       await load();
+      window.setTimeout(() => {
+        setRegenerationFeedback(current => current?.progressPercent === 100 ? null : current);
+      }, 1800);
     } catch (regenerateError: any) {
       setVideoRenditionState(current => current ? {
         ...current,
         loading: false,
         error: regenerateError.message ?? 'Failed to regenerate video renditions',
       } : current);
+      setRegenerationFeedback(null);
     }
   };
+
+  useEffect(() => {
+    if (!regenerationFeedback?.active) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      setRegenerationFeedback(current => {
+        if (!current?.active) return current;
+        const elapsedMs = Date.now() - current.startedAt;
+        const estimate = estimateRegenerationFeedback(elapsedMs);
+        return {
+          ...current,
+          elapsedMs,
+          stageLabel: estimate.stageLabel,
+          progressPercent: estimate.progressPercent,
+        };
+      });
+    }, 250);
+
+    return () => window.clearInterval(intervalId);
+  }, [regenerationFeedback?.active]);
 
   const videoProcessing = (videoRenditionState?.version?.metadata as Record<string, any> | undefined)?.videoProcessing;
   const plannedRenditions = Array.isArray(videoProcessing?.targetPlan) ? videoProcessing.targetPlan : [];
@@ -904,6 +997,40 @@ export default function CreativeLibrary() {
               {videoRenditionState.error && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {videoRenditionState.error}
+                </div>
+              )}
+
+              {regenerationFeedback && (
+                <div className={`rounded-xl border px-4 py-4 ${
+                  regenerationFeedback.progressPercent === 100
+                    ? 'border-emerald-200 bg-emerald-50'
+                    : 'border-indigo-200 bg-indigo-50'
+                }`}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {regenerationFeedback.progressPercent === 100 ? 'Regeneration complete' : 'Regeneration in progress'}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">{regenerationFeedback.stageLabel}</p>
+                    </div>
+                    <div className="text-right text-sm text-slate-600">
+                      <div className="font-semibold text-slate-800">{regenerationFeedback.progressPercent}%</div>
+                      <div>Elapsed {formatElapsedDuration(regenerationFeedback.elapsedMs)}</div>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <div className="h-3 overflow-hidden rounded-full bg-white/80">
+                      <div
+                        className={`h-full rounded-full transition-[width] duration-300 ${
+                          regenerationFeedback.progressPercent === 100 ? 'bg-emerald-500' : 'bg-indigo-500'
+                        }`}
+                        style={{ width: `${regenerationFeedback.progressPercent}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">
+                      Estimated progress based on encoder stages. Large source files can take longer.
+                    </p>
+                  </div>
                 </div>
               )}
 
