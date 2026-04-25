@@ -119,7 +119,9 @@ function buildRenditionTargets(metadata = {}) {
   const sourceHeight = Number(metadata.height ?? 0) || 0;
   const sourceBitRate = Number(metadata.bitRate ?? 0) || 0;
   const targets = [
-    { label: '1080p', width: 1920, targetBitrateKbps: 5000, audioBitrateKbps: 192, sortOrder: 10 },
+    // Keep the uploaded source MP4 as the highest-quality fallback and generate
+    // a lighter ladder for delivery. This avoids redundant 1080p transcodes on
+    // small worker instances while still producing streaming-friendly renditions.
     { label: '720p', width: 1280, targetBitrateKbps: 2500, audioBitrateKbps: 160, sortOrder: 20 },
     { label: '480p', width: 854, targetBitrateKbps: 1200, audioBitrateKbps: 128, sortOrder: 30 },
     { label: '360p', width: 640, targetBitrateKbps: 800, audioBitrateKbps: 96, sortOrder: 40 },
@@ -146,9 +148,10 @@ async function transcodeRendition(videoPath, outputPath, target) {
   const result = await runBinary('ffmpeg', [
     '-y',
     '-i', videoPath,
-    '-vf', `scale=w=${target.width}:h=-2:force_original_aspect_ratio=decrease`,
+    // Ensure the final encoded frame size is even on both axes for libx264.
+    '-vf', `scale=w=${target.width}:h=-2:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2`,
     '-c:v', 'libx264',
-    '-preset', 'medium',
+    '-preset', 'veryfast',
     '-profile:v', 'main',
     '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart',
@@ -159,7 +162,7 @@ async function transcodeRendition(videoPath, outputPath, target) {
     '-b:a', `${target.audioBitrateKbps}k`,
     '-ar', '48000',
     outputPath,
-  ], { timeoutMs: 120000 });
+  ], { timeoutMs: 600000 });
 
   if (!result.ok) {
     return {
