@@ -656,17 +656,21 @@ export default function TagBuilder() {
     setSuccessMessage('');
 
     try {
-      const profiles = ['default', 'Basis', 'Illumin'];
+      const profiles = [
+        { dsp: '', label: 'Default' },
+        { dsp: 'Basis', label: 'Basis' },
+        { dsp: 'Illumin', label: 'Illumin' },
+      ];
       for (const profile of profiles) {
         const response = await fetch(`/v1/vast/tags/${id}/publish-static`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ dsp: profile }),
+          body: JSON.stringify({ dsp: profile.dsp }),
         });
         if (!response.ok) {
           const data = await response.json().catch(() => ({}));
-          throw new Error(data?.message ?? `Failed to publish static ${profile} delivery.`);
+          throw new Error(data?.message ?? `Failed to publish static ${profile.label} delivery.`);
         }
       }
       await refreshDeliveryDiagnostics();

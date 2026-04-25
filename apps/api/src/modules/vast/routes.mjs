@@ -726,7 +726,9 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
     const { workspaceId } = req.authSession;
     const { tagId } = req.params;
     const requestedDsp = String(req.body?.dsp ?? req.query?.dsp ?? '').trim();
-    const normalizedDsp = normalizeDsp(requestedDsp);
+    const normalizedDsp = requestedDsp.toLowerCase() === 'default'
+      ? ''
+      : normalizeDsp(requestedDsp);
     const profile = buildStaticVastProfile(normalizedDsp);
 
     if (!hasUploadStorageConfig()) {
