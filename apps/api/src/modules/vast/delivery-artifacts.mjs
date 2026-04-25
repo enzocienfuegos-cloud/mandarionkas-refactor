@@ -20,3 +20,11 @@ export function buildStaticVastTemplateQuery(dsp = '') {
   if (!config) return {};
   return { ...config.queryParams };
 }
+
+export function getStaticVastProfiles() {
+  return [
+    { key: 'default', dsp: '', label: 'Default' },
+    { key: 'basis', dsp: 'basis', label: 'Basis' },
+    { key: 'illumin', dsp: 'illumin', label: 'Illumin' },
+  ];
+}

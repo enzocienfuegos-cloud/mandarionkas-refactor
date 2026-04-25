@@ -69,6 +69,15 @@ interface DeliveryDiagnosticEntry {
     basis?: string;
     illumin?: string;
   } | null;
+  staticProfileStatus?: Record<string, {
+    publicUrl?: string | null;
+    storageKey?: string | null;
+    available?: boolean;
+    lastPublishedAt?: string | null;
+    contentLength?: number | null;
+    contentType?: string | null;
+    etag?: string | null;
+  }> | null;
 }
 
 interface DeliveryDiagnosticsPayload {
@@ -288,6 +297,21 @@ function getMeasurementPathTone(measurementPath?: string | null): string {
   if (path.includes('fallback')) return 'bg-amber-50 text-amber-700 border-amber-200';
   if (path.includes('basis')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
   return 'bg-slate-100 text-slate-700 border-slate-200';
+}
+
+function formatArtifactTimestamp(value?: string | null): string {
+  if (!value) return 'n/a';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'n/a';
+  return parsed.toLocaleString();
+}
+
+function formatArtifactBytes(value?: number | null): string {
+  const size = Number(value ?? 0);
+  if (!Number.isFinite(size) || size <= 0) return 'n/a';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 export default function TagBuilder() {
@@ -980,13 +1004,51 @@ export default function TagBuilder() {
               </div>
               <div className="space-y-3">
                 {[
-                  { label: 'Default', url: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfiles.default },
-                  { label: 'Basis', url: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfiles.basis },
-                  { label: 'Illumin', url: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfiles.illumin },
+                  {
+                    key: 'default',
+                    label: 'Default',
+                    url: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfiles.default,
+                    status: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfileStatus?.default,
+                  },
+                  {
+                    key: 'basis',
+                    label: 'Basis',
+                    url: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfiles.basis,
+                    status: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfileStatus?.basis,
+                  },
+                  {
+                    key: 'illumin',
+                    label: 'Illumin',
+                    url: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfiles.illumin,
+                    status: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfileStatus?.illumin,
+                  },
                 ].filter((entry) => entry.url).map((entry) => (
-                  <div key={entry.label}>
-                    <div className="mb-1 text-xs font-medium text-emerald-900">{entry.label}</div>
+                  <div key={entry.key}>
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <div className="text-xs font-medium text-emerald-900">{entry.label}</div>
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                        entry.status?.available
+                          ? 'border-emerald-300 bg-emerald-100 text-emerald-800'
+                          : 'border-amber-300 bg-amber-100 text-amber-800'
+                      }`}>
+                        {entry.status?.available ? 'Available' : 'Pending'}
+                      </span>
+                    </div>
                     <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{entry.url}</pre>
+                    <div className="mt-2 grid gap-2 md:grid-cols-3 text-[11px] text-emerald-900">
+                      <div className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2">
+                        <div className="font-medium">Last Published</div>
+                        <div className="mt-1">{formatArtifactTimestamp(entry.status?.lastPublishedAt)}</div>
+                      </div>
+                      <div className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2">
+                        <div className="font-medium">Artifact Size</div>
+                        <div className="mt-1">{formatArtifactBytes(entry.status?.contentLength)}</div>
+                      </div>
+                      <div className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2">
+                        <div className="font-medium">Content Type</div>
+                        <div className="mt-1">{entry.status?.contentType || 'n/a'}</div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

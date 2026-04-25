@@ -73,6 +73,34 @@ export async function putObjectBuffer({ storageKey, buffer, contentType }) {
   };
 }
 
+export async function getObjectMetadata(storageKey) {
+  const storage = await createStorageClient();
+  if (!storage) return null;
+
+  const { HeadObjectCommand } = await import('@aws-sdk/client-s3');
+
+  try {
+    const response = await storage.client.send(new HeadObjectCommand({
+      Bucket: storage.bucket,
+      Key: storageKey,
+    }));
+
+    return {
+      contentLength: Number(response?.ContentLength ?? 0) || 0,
+      contentType: response?.ContentType ?? null,
+      etag: typeof response?.ETag === 'string' ? response.ETag.replace(/^"|"$/g, '') : null,
+      lastModified: response?.LastModified instanceof Date
+        ? response.LastModified.toISOString()
+        : (response?.LastModified ? new Date(response.LastModified).toISOString() : null),
+    };
+  } catch (error) {
+    if (error?.$metadata?.httpStatusCode === 404 || error?.name === 'NotFound' || error?.name === 'NoSuchKey') {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export async function prepareObjectUpload({ storageKey, contentType }) {
   const uploadUrl = await createSignedUpload({ key: storageKey, contentType });
   const publicUrl = buildPublicAssetUrl(storageKey);

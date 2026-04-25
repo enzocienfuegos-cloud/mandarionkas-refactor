@@ -21,7 +21,12 @@ import {
   shouldUseDspVideoDelivery,
 } from '@smx/contracts/dsp-macros';
 import { getRequestBaseUrl } from '../shared/request-base-url.mjs';
-import { buildStaticVastPublicUrl } from '../vast/delivery-artifacts.mjs';
+import { getObjectMetadata } from '../storage/object-storage.mjs';
+import {
+  buildStaticVastPublicUrl,
+  buildStaticVastStorageKey,
+  getStaticVastProfiles,
+} from '../vast/delivery-artifacts.mjs';
 import { publishStaticVastArtifactsForTag } from '../vast/xml-delivery.mjs';
 
 function escapeCsv(value) {
@@ -410,6 +415,25 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     const baseUrl = getRequestBaseUrl(req);
     const campaignDsp = readCampaignDsp(tag.campaign_metadata);
     const deliverySummary = buildDeliverySummary(tag, campaignDsp);
+    const staticVastProfiles = await Promise.all(
+      getStaticVastProfiles().map(async (profile) => {
+        const storageKey = buildStaticVastStorageKey(workspaceId, tag.id, profile.dsp);
+        const metadata = await getObjectMetadata(storageKey).catch(() => null);
+        return [
+          profile.key,
+          {
+            publicUrl: buildStaticVastPublicUrl(workspaceId, tag.id, profile.dsp),
+            storageKey,
+            available: Boolean(metadata),
+            lastPublishedAt: metadata?.lastModified ?? null,
+            contentLength: metadata?.contentLength ?? null,
+            contentType: metadata?.contentType ?? null,
+            etag: metadata?.etag ?? null,
+          },
+        ];
+      }),
+    );
+    const staticVastProfileMap = Object.fromEntries(staticVastProfiles);
 
     return reply.send({
       tag: {
@@ -437,10 +461,11 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
           policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.VIDEO),
           url: applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VIDEO),
           staticProfiles: {
-            default: buildStaticVastPublicUrl(workspaceId, tag.id),
-            basis: buildStaticVastPublicUrl(workspaceId, tag.id, 'basis'),
-            illumin: buildStaticVastPublicUrl(workspaceId, tag.id, 'illumin'),
+            default: staticVastProfileMap.default?.publicUrl ?? buildStaticVastPublicUrl(workspaceId, tag.id),
+            basis: staticVastProfileMap.basis?.publicUrl ?? buildStaticVastPublicUrl(workspaceId, tag.id, 'basis'),
+            illumin: staticVastProfileMap.illumin?.publicUrl ?? buildStaticVastPublicUrl(workspaceId, tag.id, 'illumin'),
           },
+          staticProfileStatus: staticVastProfileMap,
         },
         trackerClick: {
           policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK),
