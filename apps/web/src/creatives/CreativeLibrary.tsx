@@ -133,11 +133,18 @@ interface RegenerationFeedbackState {
   progressPercent: number;
 }
 
-function formatElapsedDuration(ms: number) {
+function formatDuration(ms: number) {
   const seconds = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+function estimateRemainingDuration(elapsedMs: number, progressPercent: number) {
+  if (progressPercent <= 0 || progressPercent >= 100) return null;
+  const estimatedTotalMs = (elapsedMs / progressPercent) * 100;
+  const remainingMs = Math.max(0, estimatedTotalMs - elapsedMs);
+  return remainingMs;
 }
 
 function estimateRegenerationFeedback(elapsedMs: number) {
@@ -489,6 +496,9 @@ export default function CreativeLibrary() {
   const videoProcessing = (videoRenditionState?.version?.metadata as Record<string, any> | undefined)?.videoProcessing;
   const plannedRenditions = Array.isArray(videoProcessing?.targetPlan) ? videoProcessing.targetPlan : [];
   const renditionProcessing = Array.isArray(videoProcessing?.renditionProcessing) ? videoProcessing.renditionProcessing : [];
+  const estimatedRemainingMs = regenerationFeedback
+    ? estimateRemainingDuration(regenerationFeedback.elapsedMs, regenerationFeedback.progressPercent)
+    : null;
 
   const toggleVariantSelection = (variantId: string) => {
     setVariantState(current => {
@@ -1015,7 +1025,11 @@ export default function CreativeLibrary() {
                     </div>
                     <div className="text-right text-sm text-slate-600">
                       <div className="font-semibold text-slate-800">{regenerationFeedback.progressPercent}%</div>
-                      <div>Elapsed {formatElapsedDuration(regenerationFeedback.elapsedMs)}</div>
+                      <div>
+                        {regenerationFeedback.progressPercent === 100
+                          ? 'Estimated remaining 0:00'
+                          : `Estimated remaining ${formatDuration(estimatedRemainingMs ?? 0)}`}
+                      </div>
                     </div>
                   </div>
                   <div className="mt-4">
