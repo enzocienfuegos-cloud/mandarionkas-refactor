@@ -16,9 +16,14 @@ export function getConfiguredBaseUrl() {
 export function getRequestBaseUrl(req) {
   const forwardedProto = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim();
   const forwardedHost = String(req.headers['x-forwarded-host'] ?? '').split(',')[0].trim();
-  const host = String(req.headers.host ?? '').trim();
-  const proto = forwardedProto || (host.includes('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https');
-  const authority = forwardedHost || host;
+  const authorityHeader = String(req.headers[':authority'] ?? '').trim();
+  const hostHeader = String(req.headers.host ?? '').trim();
+  const hostname = String(req.hostname ?? '').trim();
+  const authority = forwardedHost || authorityHeader || hostHeader || hostname;
+  const protocolHint = authority || hostHeader || hostname;
+  const proto = forwardedProto
+    || String(req.protocol ?? '').trim()
+    || (protocolHint.includes('localhost') || protocolHint.startsWith('127.0.0.1') ? 'http' : 'https');
 
   if (authority) return `${proto}://${authority}`;
   return getConfiguredBaseUrl();
