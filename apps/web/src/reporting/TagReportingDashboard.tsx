@@ -183,7 +183,7 @@ export default function TagReportingDashboard() {
   const [selectedVariantId, setSelectedVariantId] = useState('');
 
   useEffect(() => {
-    fetch('/v1/tags', { credentials: 'include' })
+    fetch('/v1/tags?scope=all&limit=500', { credentials: 'include' })
       .then(r => {
         if (!r.ok) throw new Error('Failed to load tags');
         return r.json();
@@ -199,6 +199,29 @@ export default function TagReportingDashboard() {
       })
       .catch(e => setError(e.message))
       .finally(() => setLoadingTags(false));
+  }, [routeTagId]);
+
+  useEffect(() => {
+    if (!routeTagId) return;
+    fetch(`/v1/tags/${routeTagId}`, { credentials: 'include' })
+      .then(r => {
+        if (!r.ok) throw new Error('Failed to load selected tag');
+        return r.json();
+      })
+      .then(data => {
+        const rawTag = data?.tag ?? data;
+        if (!rawTag?.id) return;
+        const normalizedTag: Tag = {
+          id: String(rawTag.id),
+          name: String(rawTag.name ?? ''),
+          format: String(rawTag.format ?? ''),
+        };
+        setTags(prev => prev.some(tag => tag.id === normalizedTag.id) ? prev : [normalizedTag, ...prev]);
+        setSelectedTag(normalizedTag);
+      })
+      .catch(() => {
+        // Leave the list-selected fallback in place if the direct fetch fails.
+      });
   }, [routeTagId]);
 
   useEffect(() => {
