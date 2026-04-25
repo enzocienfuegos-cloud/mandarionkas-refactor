@@ -1,26 +1,22 @@
 import crypto from 'node:crypto';
 import {
-  createCreative,
-  createCreativeArtifact,
   createCreativeIngestion,
-  createVideoRendition,
-  createCreativeVersion,
-  ensureCreativeVersionDefaultVariant,
+  createJob,
   getCreative,
   getCreativeIngestion,
   getCreativeVersion,
   listCreativeArtifacts,
   listCreativeIngestions,
-  updateCreative,
   updateCreativeIngestion,
-  updateCreativeVersion,
 } from '@smx/db';
 import { buildPublicAssetUrl, hasUploadStorageConfig, prepareObjectUpload, sanitizeStorageFilename } from '../storage/object-storage.mjs';
-import { expandAndPublishHtml5Archive } from './html5-publisher.mjs';
-import { enrichVideoPublication } from './video-processor.mjs';
-import { syncVideoRenditionsForVersion } from './video-rendition-sync.mjs';
+import {
+  publishCreativeIngestionToCatalog,
+  shouldRequireManualReview,
+} from './creative-ingestion-publisher.mjs';
 
 const SOURCE_KINDS = new Set(['html5_zip', 'video_mp4']);
+const PUBLISH_MODE = process.env.CREATIVE_PUBLISH_MODE === 'async' ? 'async' : 'sync';
 
 function validateIngestionPayload({ sourceKind, originalFilename, mimeType }) {
   const extension = String(originalFilename ?? '').toLowerCase();
@@ -96,71 +92,15 @@ function toApiIngestion(row) {
   };
 }
 
-function deriveCreativeName(row, requestedName) {
-  if (requestedName && String(requestedName).trim()) {
-    return String(requestedName).trim();
-  }
-  if (row.metadata?.requestedName && String(row.metadata.requestedName).trim()) {
-    return String(row.metadata.requestedName).trim();
-  }
-  const filename = String(row.original_filename ?? 'Untitled creative');
-  return filename.replace(/\.[^.]+$/, '') || 'Untitled creative';
-}
-
-function getCatalogDraftForIngestion(row) {
-  if (row.source_kind === 'video_mp4') {
-    return {
-      creativeType: 'video',
-      servingFormat: 'vast_video',
-      artifactKind: 'video_mp4',
-      publicUrl: row.public_url ?? null,
-      entryPath: null,
-      mimeType: row.mime_type ?? 'video/mp4',
-      transcodeStatus: 'processing',
-      metadata: {
-        publishedFrom: 'external_ingestion',
-        ingestionId: row.id,
-        sourceKind: row.source_kind,
-      },
-    };
-  }
-
-  return {
-    creativeType: 'html',
-    servingFormat: 'display_html',
-    artifactKind: 'source_zip',
-    publicUrl: null,
-    entryPath: null,
-    mimeType: row.mime_type ?? 'application/zip',
-    transcodeStatus: 'pending',
-    metadata: {
-      publishedFrom: 'external_ingestion',
-      ingestionId: row.id,
-      sourceKind: row.source_kind,
-      awaitingArtifactExpansion: true,
-    },
-  };
-}
-
-function shouldRequireManualReview(body = {}) {
-  return body?.requireReview === true;
-}
-
 export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, deps = {
-  createCreative,
-  createCreativeArtifact,
   createCreativeIngestion,
-  createVideoRendition,
-  createCreativeVersion,
-  ensureCreativeVersionDefaultVariant,
+  createJob,
   getCreative,
   getCreativeIngestion,
   getCreativeVersion,
   listCreativeArtifacts,
   listCreativeIngestions,
-  updateCreative,
   updateCreativeIngestion,
-  updateCreativeVersion,
 }) {
   async function resolveTargetWorkspaceId(userId, fallbackWorkspaceId, requestedWorkspaceId) {
     const candidate = String(requestedWorkspaceId ?? '').trim();
@@ -325,7 +265,17 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
       return reply.status(404).send({ error: 'Not Found', message: 'Ingestion not found' });
     }
 
-    if (row.status !== 'validated' && row.status !== 'published') {
+    const isRetryablePublishFailure = row.status === 'failed' && row.error_code === 'publish_failed';
+
+    if (row.status === 'processing' && row.source_kind === 'video_mp4') {
+      return reply.status(202).send({
+        ingestion: toApiIngestion(row),
+        queued: false,
+        processing: true,
+      });
+    }
+
+    if (row.status !== 'validated' && row.status !== 'published' && !isRetryablePublishFailure) {
       return reply.status(409).send({
         error: 'Conflict',
         message: 'Only validated ingestions can be published to the creative catalog',
@@ -346,279 +296,77 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
       });
     }
 
-    const creativeName = deriveCreativeName(row, req.body?.name);
-    const catalogDraft = getCatalogDraftForIngestion(row);
     const requireManualReview = shouldRequireManualReview(req.body);
 
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      let creative = await deps.createCreative(client, targetWorkspaceId, {
-        name: creativeName,
-        type: catalogDraft.creativeType,
-        file_url: row.source_kind === 'video_mp4' ? row.public_url ?? null : null,
-        file_size: row.size_bytes ?? null,
-        mime_type: catalogDraft.mimeType,
-        duration_ms: req.body?.durationMs ?? null,
-        width: req.body?.width ?? null,
-        height: req.body?.height ?? null,
-        metadata: {
+    if (row.source_kind === 'video_mp4' && PUBLISH_MODE === 'async') {
+      const queuedAt = new Date().toISOString();
+      const job = await deps.createJob(pool, {
+        queue: 'creative_ingestions',
+        type: 'creative_ingestion_publish',
+        payload: {
+          workspaceId: targetWorkspaceId,
           ingestionId: row.id,
-          sourceKind: row.source_kind,
-          originalFilename: row.original_filename,
-          validationReport: row.validation_report ?? {},
-          ...(row.metadata ?? {}),
-          ...(req.body?.metadata ?? {}),
+          userId: req.authSession.userId,
+          requestedName: req.body?.name ?? null,
+          requireManualReview,
         },
-        approval_status: requireManualReview ? 'pending_review' : 'approved',
-        transcode_status: catalogDraft.transcodeStatus,
-      }, { ensureLegacyVersion: false });
-
-      const creativeVersion = await deps.createCreativeVersion(client, targetWorkspaceId, {
-        creativeId: creative.id,
-        source_kind: row.source_kind,
-        serving_format: catalogDraft.servingFormat,
-        status: requireManualReview ? 'pending_review' : 'approved',
-        public_url: catalogDraft.publicUrl,
-        entry_path: catalogDraft.entryPath,
-        mime_type: catalogDraft.mimeType,
-        width: req.body?.width ?? null,
-        height: req.body?.height ?? null,
-        duration_ms: req.body?.durationMs ?? null,
-        file_size: row.size_bytes ?? null,
-        metadata: {
-          ...(catalogDraft.metadata ?? {}),
-          originalFilename: row.original_filename,
-          validationReport: row.validation_report ?? {},
-          checksum: row.checksum ?? null,
-        },
-        created_by: req.authSession.userId,
+        priority: 50,
+        maxAttempts: 1,
       });
 
-      const sourceArtifact = await deps.createCreativeArtifact(client, targetWorkspaceId, {
-        creative_version_id: creativeVersion.id,
-        kind: catalogDraft.artifactKind,
-        storage_key: row.storage_key ?? null,
-        public_url: row.public_url ?? null,
-        mime_type: row.mime_type ?? catalogDraft.mimeType,
-        size_bytes: row.size_bytes ?? null,
-        checksum: row.checksum ?? null,
-        metadata: {
-          originalFilename: row.original_filename,
-          ingestionId: row.id,
-          validationReport: row.validation_report ?? {},
-        },
-      });
-
-      const publishedArtifacts = [sourceArtifact];
-      let publishedVersion = creativeVersion;
-      if (row.source_kind === 'html5_zip') {
-        const htmlPublication = await expandAndPublishHtml5Archive({
-          sourceStorageKey: row.storage_key,
-          workspaceId: targetWorkspaceId,
-          creativeVersionId: creativeVersion.id,
-        });
-
-        for (const artifact of htmlPublication.artifacts) {
-          publishedArtifacts.push(await deps.createCreativeArtifact(client, targetWorkspaceId, {
-            creative_version_id: creativeVersion.id,
-            kind: artifact.kind,
-            storage_key: artifact.storageKey,
-            public_url: artifact.publicUrl,
-            mime_type: artifact.mimeType,
-            size_bytes: artifact.sizeBytes,
-            checksum: artifact.checksum,
-            metadata: artifact.metadata,
-          }));
-        }
-
-        publishedVersion = await deps.updateCreativeVersion(client, targetWorkspaceId, creativeVersion.id, {
-          publicUrl: htmlPublication.entryPublicUrl,
-          entryPath: htmlPublication.entryPath,
-          mimeType: 'text/html; charset=utf-8',
-          width: htmlPublication.width ?? creativeVersion.width ?? req.body?.width ?? null,
-          height: htmlPublication.height ?? creativeVersion.height ?? req.body?.height ?? null,
-          metadata: {
-            ...(creativeVersion.metadata ?? {}),
-            publishedFrom: 'external_ingestion',
-            html5Published: true,
-            filesPublished: htmlPublication.filesPublished,
-            publishedBytes: htmlPublication.totalBytes,
-            dimensionSource: htmlPublication.dimensionSource ?? null,
-            hasInternalClickTag: htmlPublication.hasInternalClickTag,
-            internalClickSignals: htmlPublication.internalClickSignals ?? [],
-            clickDestinationUrl: htmlPublication.clickDestinationUrl ?? null,
-          },
-        });
-        await deps.ensureCreativeVersionDefaultVariant(client, targetWorkspaceId, publishedVersion, {
-          forceStatusSync: true,
-        });
-
-        creative = await deps.updateCreative(client, targetWorkspaceId, creative.id, {
-          file_url: htmlPublication.entryPublicUrl,
-          mime_type: 'text/html; charset=utf-8',
-          width: htmlPublication.width ?? req.body?.width ?? null,
-          height: htmlPublication.height ?? req.body?.height ?? null,
-          click_url: htmlPublication.clickDestinationUrl ?? creative.click_url ?? null,
-          transcode_status: 'done',
-          metadata: {
-            ...(creative.metadata ?? {}),
-            sourceKind: row.source_kind,
-            entryPath: htmlPublication.entryPath,
-            publishedFrom: 'external_ingestion',
-            filesPublished: htmlPublication.filesPublished,
-            dimensionSource: htmlPublication.dimensionSource ?? null,
-            hasInternalClickTag: htmlPublication.hasInternalClickTag,
-            internalClickSignals: htmlPublication.internalClickSignals ?? [],
-            clickDestinationUrl: htmlPublication.clickDestinationUrl ?? null,
-          },
-        });
-      } else if (row.source_kind === 'video_mp4') {
-        const videoPublication = await enrichVideoPublication({
-          workspaceId: targetWorkspaceId,
-          creativeVersionId: creativeVersion.id,
-          sourceStorageKey: row.storage_key,
-        });
-
-        for (const artifact of videoPublication.posterArtifacts) {
-          publishedArtifacts.push(await deps.createCreativeArtifact(client, targetWorkspaceId, {
-            creative_version_id: creativeVersion.id,
-            kind: artifact.kind,
-            storage_key: artifact.storageKey,
-            public_url: artifact.publicUrl,
-            mime_type: artifact.mimeType,
-            size_bytes: artifact.sizeBytes,
-            checksum: artifact.checksum,
-            metadata: artifact.metadata,
-          }));
-        }
-
-        const renditionArtifacts = [];
-        for (const rendition of videoPublication.renditions ?? []) {
-          const renditionArtifact = await deps.createCreativeArtifact(client, targetWorkspaceId, {
-            creative_version_id: creativeVersion.id,
-            kind: rendition.artifact.kind,
-            storage_key: rendition.artifact.storageKey,
-            public_url: rendition.artifact.publicUrl,
-            mime_type: rendition.artifact.mimeType,
-            size_bytes: rendition.artifact.sizeBytes,
-            checksum: rendition.artifact.checksum,
-            metadata: rendition.artifact.metadata,
-          });
-          publishedArtifacts.push(renditionArtifact);
-          renditionArtifacts.push({ rendition, artifact: renditionArtifact });
-        }
-
-        for (const entry of renditionArtifacts) {
-          await deps.createVideoRendition(client, targetWorkspaceId, {
-            creative_version_id: creativeVersion.id,
-            artifact_id: entry.artifact.id,
-            label: entry.rendition.label,
-            width: entry.rendition.width,
-            height: entry.rendition.height,
-            bitrate_kbps: entry.rendition.bitrateKbps,
-            codec: entry.rendition.codec,
-            mime_type: entry.rendition.mimeType,
-            status: entry.rendition.status,
-            is_source: entry.rendition.isSource,
-            sort_order: entry.rendition.sortOrder,
-            metadata: entry.rendition.artifact.metadata ?? {},
-          });
-        }
-
-        const activeTranscodedRenditions = (videoPublication.renditions ?? []).filter(rendition => !rendition.isSource);
-        const preferredRendition = activeTranscodedRenditions[0] ?? (videoPublication.renditions ?? [])[0] ?? null;
-
-        publishedVersion = await deps.updateCreativeVersion(client, targetWorkspaceId, creativeVersion.id, {
-          publicUrl: preferredRendition?.artifact.publicUrl ?? creativeVersion.public_url ?? row.public_url ?? null,
-          mimeType: preferredRendition?.mimeType ?? creativeVersion.mime_type ?? row.mime_type ?? 'video/mp4',
-          width: preferredRendition?.width ?? videoPublication.metadata?.width ?? creativeVersion.width ?? req.body?.width ?? null,
-          height: preferredRendition?.height ?? videoPublication.metadata?.height ?? creativeVersion.height ?? req.body?.height ?? null,
-          durationMs: videoPublication.metadata?.durationMs ?? creativeVersion.duration_ms ?? req.body?.durationMs ?? null,
-          metadata: {
-            ...(creativeVersion.metadata ?? {}),
-            publishedFrom: 'external_ingestion',
-            videoProcessing: videoPublication.processing,
-            codec: videoPublication.metadata?.codec ?? null,
-            bitRate: videoPublication.metadata?.bitRate ?? null,
-            posterGenerated: videoPublication.posterArtifacts.length > 0,
-            renditionsGenerated: activeTranscodedRenditions.length,
-          },
-        });
-        await deps.ensureCreativeVersionDefaultVariant(client, targetWorkspaceId, publishedVersion, {
-          forceStatusSync: true,
-        });
-
-        const posterArtifact = videoPublication.posterArtifacts[0] ?? null;
-        creative = await deps.updateCreative(client, targetWorkspaceId, creative.id, {
-          file_url: preferredRendition?.artifact.publicUrl ?? row.public_url ?? null,
-          mime_type: preferredRendition?.mimeType ?? row.mime_type ?? 'video/mp4',
-          width: preferredRendition?.width ?? videoPublication.metadata?.width ?? req.body?.width ?? null,
-          height: preferredRendition?.height ?? videoPublication.metadata?.height ?? req.body?.height ?? null,
-          duration_ms: videoPublication.metadata?.durationMs ?? req.body?.durationMs ?? null,
-          transcode_status: activeTranscodedRenditions.length > 0 ? 'done' : 'failed',
-          metadata: {
-            ...(creative.metadata ?? {}),
-            sourceKind: row.source_kind,
-            publishedFrom: 'external_ingestion',
-            videoProcessing: videoPublication.processing,
-            posterUrl: posterArtifact?.publicUrl ?? null,
-            codec: videoPublication.metadata?.codec ?? null,
-            bitRate: videoPublication.metadata?.bitRate ?? null,
-            renditionsGenerated: activeTranscodedRenditions.length,
-          },
-        });
-
-        const persistedRenditions = await deps.listVideoRenditions(client, targetWorkspaceId, creativeVersion.id);
-        const versionHasVideoProcessing = Boolean(publishedVersion?.metadata?.videoProcessing);
-        if (!versionHasVideoProcessing || persistedRenditions.length === 0) {
-          const repaired = await syncVideoRenditionsForVersion(client, targetWorkspaceId, publishedVersion, creative);
-          publishedVersion = repaired.updatedVersion ?? publishedVersion;
-          creative = repaired.updatedCreative ?? creative;
-          for (const artifact of repaired.posterArtifacts ?? []) {
-            publishedArtifacts.push(artifact);
-          }
-          for (const rendition of repaired.persistedRenditions ?? []) {
-            if (!publishedArtifacts.some((artifact) => artifact.id === rendition.artifact_id)) {
-              const renditionArtifact = await deps.listCreativeArtifacts(client, targetWorkspaceId, creativeVersion.id);
-              for (const artifact of renditionArtifact) {
-                if (!publishedArtifacts.some((publishedArtifact) => publishedArtifact.id === artifact.id)) {
-                  publishedArtifacts.push(artifact);
-                }
-              }
-              break;
-            }
-          }
-        }
-      }
-
-      const updatedIngestion = await deps.updateCreativeIngestion(client, targetWorkspaceId, row.id, {
-        creativeId: creative.id,
-        creativeVersionId: creativeVersion.id,
-        status: 'published',
+      const updatedIngestion = await deps.updateCreativeIngestion(pool, targetWorkspaceId, row.id, {
+        status: 'processing',
+        errorCode: null,
+        errorDetail: null,
         metadata: {
           ...(row.metadata ?? {}),
-          catalogPublished: true,
-          creativeId: creative.id,
-          creativeVersionId: creativeVersion.id,
-          html5Published: row.source_kind === 'html5_zip',
+          publishJob: {
+            jobId: job.id,
+            status: 'queued',
+            stage: 'queued',
+            progressPercent: 5,
+            message: 'Queued for background publish',
+            queuedAt,
+          },
         },
       });
 
-      await client.query('COMMIT');
-
-      return reply.status(201).send({
+      return reply.status(202).send({
         ingestion: toApiIngestion(updatedIngestion),
-        creative,
-        creativeVersion: publishedVersion,
-        artifacts: publishedArtifacts,
+        queued: true,
+        jobId: job.id,
       });
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
     }
+
+    const published = await publishCreativeIngestionToCatalog({
+      pool,
+      workspaceId: targetWorkspaceId,
+      ingestion: row,
+      requestedName: req.body?.name,
+      userId: req.authSession.userId,
+      requireManualReview,
+    });
+
+    const updatedIngestion = await deps.updateCreativeIngestion(pool, targetWorkspaceId, row.id, {
+      creativeId: published.creative.id,
+      creativeVersionId: published.creativeVersion.id,
+      status: 'published',
+      errorCode: null,
+      errorDetail: null,
+      metadata: {
+        ...(row.metadata ?? {}),
+        catalogPublished: true,
+        creativeId: published.creative.id,
+        creativeVersionId: published.creativeVersion.id,
+        html5Published: row.source_kind === 'html5_zip',
+      },
+    });
+
+    return reply.status(201).send({
+      ingestion: toApiIngestion(updatedIngestion),
+      creative: published.creative,
+      creativeVersion: published.creativeVersion,
+      artifacts: published.artifacts,
+    });
   });
 }

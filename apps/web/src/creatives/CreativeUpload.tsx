@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   completeCreativeIngestion,
   createCreativeIngestionUpload,
+  loadCreativeIngestion,
   publishCreativeIngestion,
   uploadFileToSignedUrl,
+  type CreativeIngestion,
 } from './catalog';
 import { loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
 
@@ -31,6 +33,48 @@ function estimateProcessingPercent(elapsedMs: number) {
   return 94;
 }
 
+function getPublishJob(ingestion: CreativeIngestion | null | undefined) {
+  const metadata = ingestion?.metadata;
+  if (!metadata || typeof metadata !== 'object') return null;
+  const publishJob = (metadata as Record<string, unknown>).publishJob;
+  return publishJob && typeof publishJob === 'object'
+    ? publishJob as Record<string, unknown>
+    : null;
+}
+
+function getProcessingStageMessage(stage: string | null | undefined, fallback: string) {
+  switch (stage) {
+    case 'queued':
+      return 'Queued for worker pickup…';
+    case 'starting':
+      return 'Preparing background publish job…';
+    case 'creating_catalog_record':
+      return 'Creating creative and version records…';
+    case 'publishing_html5_archive':
+      return 'Publishing HTML5 assets…';
+    case 'transcoding_video':
+      return 'Transcoding video renditions with FFmpeg…';
+    case 'finalizing_publication':
+      return 'Finalizing published creative version…';
+    case 'completed':
+      return 'Publish completed.';
+    case 'failed':
+      return 'Publish failed.';
+    default:
+      return fallback;
+  }
+}
+
+function getDisplayProcessingPercent(ingestion: CreativeIngestion | null | undefined, elapsedMs: number) {
+  const publishJob = getPublishJob(ingestion);
+  const explicitPercent = Number(publishJob?.progressPercent ?? 0) || 0;
+  const stage = String(publishJob?.stage ?? '');
+  if (stage === 'transcoding_video') {
+    return Math.max(explicitPercent, estimateProcessingPercent(elapsedMs));
+  }
+  return Math.min(100, explicitPercent);
+}
+
 export default function CreativeUpload() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -44,6 +88,7 @@ export default function CreativeUpload() {
   const [currentProcessingName, setCurrentProcessingName] = useState('');
   const [currentProcessingProgress, setCurrentProcessingProgress] = useState(0);
   const [currentProcessingEta, setCurrentProcessingEta] = useState('');
+  const [currentProcessingMessage, setCurrentProcessingMessage] = useState('');
   const [overallProgress, setOverallProgress] = useState(0);
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
@@ -90,6 +135,7 @@ export default function CreativeUpload() {
     setCurrentProcessingName('');
     setCurrentProcessingProgress(0);
     setCurrentProcessingEta('');
+    setCurrentProcessingMessage('');
     setOverallProgress(0);
 
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
@@ -97,12 +143,26 @@ export default function CreativeUpload() {
     const activeIndexes = new Set<number>();
     const processingStartedAtByIndex = files.map(() => 0);
     const activeProcessingIndexes = new Set<number>();
+    const processingStateByIndex = files.map<CreativeIngestion | null>(() => null);
 
     const refreshOverallProgress = () => {
-      const loadedBytes = loadedBytesByIndex.reduce((sum, value) => sum + value, 0);
-      const nextOverall = totalBytes > 0
-        ? Math.min(100, Math.round((loadedBytes / totalBytes) * 100))
-        : 0;
+      const combinedProgress = files.map((file, index) => {
+        const size = file.size || 0;
+        const uploadPercent = size > 0
+          ? Math.min(100, Math.round((loadedBytesByIndex[index] / size) * 100))
+          : 0;
+        if (uploadPercent < 100) {
+          return Math.round(uploadPercent * 0.5);
+        }
+        const processingPercent = getDisplayProcessingPercent(
+          processingStateByIndex[index],
+          Date.now() - (processingStartedAtByIndex[index] || Date.now()),
+        );
+        return Math.min(100, 50 + Math.round(processingPercent * 0.5));
+      });
+      const nextOverall = combinedProgress.length
+        ? Math.round(combinedProgress.reduce((sum, value) => sum + value, 0) / combinedProgress.length)
+        : (totalBytes > 0 ? 0 : 0);
       setOverallProgress(nextOverall);
     };
 
@@ -130,23 +190,39 @@ export default function CreativeUpload() {
         setCurrentProcessingName('');
         setCurrentProcessingProgress(0);
         setCurrentProcessingEta('');
+        setCurrentProcessingMessage('');
         return;
       }
       const indexes = Array.from(activeProcessingIndexes.values()).sort((a, b) => a - b);
       const names = indexes.map(index => files[index]?.name).filter(Boolean);
       const elapsedValues = indexes.map(index => Date.now() - (processingStartedAtByIndex[index] || Date.now()));
       const averageProgress = Math.round(
-        elapsedValues.reduce((sum, elapsedMs) => sum + estimateProcessingPercent(elapsedMs), 0) / elapsedValues.length,
+        indexes.reduce((sum, index) => (
+          sum + getDisplayProcessingPercent(
+            processingStateByIndex[index],
+            Date.now() - (processingStartedAtByIndex[index] || Date.now()),
+          )
+        ), 0) / indexes.length,
       );
-      const averageRemainingMs = elapsedValues.reduce((sum, elapsedMs) => {
-        const progress = estimateProcessingPercent(elapsedMs);
+      const averageRemainingMs = indexes.reduce((sum, index) => {
+        const elapsedMs = Date.now() - (processingStartedAtByIndex[index] || Date.now());
+        const progress = getDisplayProcessingPercent(processingStateByIndex[index], elapsedMs);
         if (progress <= 0 || progress >= 100) return sum;
         const estimatedTotalMs = (elapsedMs / progress) * 100;
         return sum + Math.max(0, estimatedTotalMs - elapsedMs);
       }, 0) / elapsedValues.length;
+      const primaryState = processingStateByIndex[indexes[0]];
+      const publishJob = getPublishJob(primaryState);
+      const stage = publishJob?.stage ? String(publishJob.stage) : '';
       setCurrentProcessingName(names[0] + (names.length > 1 ? ` +${names.length - 1} more` : ''));
       setCurrentProcessingProgress(averageProgress);
       setCurrentProcessingEta(`Estimated remaining ${formatDuration(averageRemainingMs || 0)}`);
+      setCurrentProcessingMessage(
+        getProcessingStageMessage(
+          stage,
+          String(publishJob?.message ?? 'Transcoding and publishing creative…'),
+        ),
+      );
     };
 
     const processingInterval = window.setInterval(() => {
@@ -186,16 +262,34 @@ export default function CreativeUpload() {
 
         processingStartedAtByIndex[index] = Date.now();
         activeProcessingIndexes.add(index);
-        setStatus(`Uploading complete. Transcoding and publishing ${files.length} creative${files.length === 1 ? '' : 's'}…`);
-        refreshProcessingProgress();
-        await publishCreativeIngestion(upload.ingestion.id, {
+        setStatus(`Upload complete. Processing ${files.length} creative${files.length === 1 ? '' : 's'} in the background…`);
+        const publishResult = await publishCreativeIngestion(upload.ingestion.id, {
           workspaceId,
         });
+        processingStateByIndex[index] = publishResult.ingestion ?? null;
+        refreshOverallProgress();
+        refreshProcessingProgress();
+
+        let latestIngestion = publishResult.ingestion;
+        while (latestIngestion?.status === 'processing') {
+          await new Promise(resolve => window.setTimeout(resolve, 2000));
+          latestIngestion = await loadCreativeIngestion(upload.ingestion.id, { workspaceId });
+          processingStateByIndex[index] = latestIngestion;
+          refreshOverallProgress();
+          refreshProcessingProgress();
+        }
+
+        if (latestIngestion?.status === 'failed') {
+          throw new Error(latestIngestion.errorDetail ?? 'Creative publish failed');
+        }
+
+        processingStateByIndex[index] = latestIngestion ?? publishResult.ingestion ?? null;
 
         activeProcessingIndexes.delete(index);
         refreshProcessingProgress();
         activeIndexes.delete(index);
         refreshActiveProgress();
+        refreshOverallProgress();
       };
 
       const batchSize = Math.min(MAX_PARALLEL_UPLOADS, files.length);
@@ -210,6 +304,7 @@ export default function CreativeUpload() {
       setCurrentFileProgress(100);
       setCurrentProcessingProgress(100);
       setCurrentProcessingEta('Estimated remaining 0:00');
+      setCurrentProcessingMessage('Publish completed.');
       setOverallProgress(100);
       navigate('/creatives');
     } catch (submitError: any) {
@@ -387,6 +482,9 @@ export default function CreativeUpload() {
                     </div>
                     {currentProcessingEta && (
                       <div className="mt-1 text-[11px] text-blue-600">{currentProcessingEta}</div>
+                    )}
+                    {currentProcessingMessage && (
+                      <div className="mt-1 text-[11px] text-blue-600">{currentProcessingMessage}</div>
                     )}
                   </div>
                 )}

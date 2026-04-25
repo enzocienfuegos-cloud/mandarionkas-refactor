@@ -131,6 +131,9 @@ export interface CreativeIngestion {
   mimeType?: string;
   sizeBytes?: number;
   publicUrl?: string;
+  metadata?: Record<string, unknown>;
+  validationReport?: Record<string, unknown>;
+  errorCode?: string;
   errorDetail?: string;
   creativeId?: string | null;
   creativeVersionId?: string | null;
@@ -251,6 +254,15 @@ export async function loadCreativesWithLatestVersion(input: { scope?: 'all'; wor
 export async function loadCreativeIngestions(): Promise<CreativeIngestion[]> {
   const payload = await fetchJson<{ ingestions: CreativeIngestion[] }>('/v1/creative-ingestions');
   return payload.ingestions ?? [];
+}
+
+export async function loadCreativeIngestion(ingestionId: string, input: { workspaceId?: string } = {}) {
+  const payload = await fetchJson<{ ingestion: CreativeIngestion }>(
+    `/v1/creative-ingestions/${ingestionId}${buildQuery({
+      workspaceId: input.workspaceId,
+    })}`,
+  );
+  return payload.ingestion;
 }
 
 export async function loadTags(input: { scope?: 'all'; workspaceId?: string } = {}): Promise<TagOption[]> {
@@ -392,8 +404,11 @@ export async function publishCreativeIngestion(ingestionId: string, input: {
 }) {
   return fetchJson<{
     ingestion: CreativeIngestion;
-    creative: Creative;
-    creativeVersion: CreativeVersion;
+    creative?: Creative;
+    creativeVersion?: CreativeVersion;
+    queued?: boolean;
+    processing?: boolean;
+    jobId?: string;
   }>(`/v1/creative-ingestions/${ingestionId}/publish`, {
     method: 'POST',
     body: JSON.stringify({

@@ -20,3 +20,4 @@ export * from './studio.mjs';
 export * from './studio-hub.mjs';
 export * from './creative-catalog.mjs';
 export * from './creative-ingestions.mjs';
+export * from './jobs.mjs';
