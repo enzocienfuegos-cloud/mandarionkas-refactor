@@ -12,6 +12,7 @@ import {
 } from '@smx/contracts/dsp-macros';
 import { hasUploadStorageConfig } from '../storage/object-storage.mjs';
 import { getRequestBaseUrl } from '../shared/request-base-url.mjs';
+import { buildStaticVastProfile } from './delivery-artifacts.mjs';
 import { enqueueStaticVastPublish } from './publish-queue.mjs';
 import {
   buildVastXml,
