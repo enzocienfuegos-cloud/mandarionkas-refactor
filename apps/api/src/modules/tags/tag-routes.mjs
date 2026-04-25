@@ -550,6 +550,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       bindings: bindings.map(binding => ({
         id: binding.id,
         tagId: binding.tag_id,
+        creativeId: binding.creative_id ?? null,
         creativeVersionId: binding.creative_version_id,
         creativeSizeVariantId: binding.creative_size_variant_id ?? null,
         status: binding.status,

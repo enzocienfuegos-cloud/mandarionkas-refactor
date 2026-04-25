@@ -756,7 +756,7 @@ export async function listTagBindings(pool, workspaceId, tagId, opts = {}) {
   }
 
   const { rows } = await pool.query(
-    `SELECT tb.*, cv.version_number, cv.source_kind, cv.serving_format,
+    `SELECT tb.*, cv.creative_id, cv.version_number, cv.source_kind, cv.serving_format,
             cv.status AS creative_version_status, cv.public_url, cv.entry_path,
             c.name AS creative_name,
             csv.label AS variant_label,

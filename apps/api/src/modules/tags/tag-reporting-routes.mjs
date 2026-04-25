@@ -26,7 +26,13 @@ export function handleTagReportingRoutes(app, { requireWorkspace, pool }) {
   app.get('/v1/tags/:id/stats', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
     const { id } = req.params;
-    const { days, dateFrom, dateTo } = req.query;
+    const {
+      days,
+      dateFrom,
+      dateTo,
+      creativeId = '',
+      creativeSizeVariantId = '',
+    } = req.query;
 
     let safeLimit = 30;
     if (days !== undefined) {
@@ -36,7 +42,13 @@ export function handleTagReportingRoutes(app, { requireWorkspace, pool }) {
       }
     }
 
-    const stats = await getTagDailyStats(pool, workspaceId, id, { limit: safeLimit, dateFrom, dateTo });
+    const stats = await getTagDailyStats(pool, workspaceId, id, {
+      limit: safeLimit,
+      dateFrom,
+      dateTo,
+      creativeId,
+      creativeSizeVariantId,
+    });
     if (!stats) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
@@ -48,8 +60,15 @@ export function handleTagReportingRoutes(app, { requireWorkspace, pool }) {
   app.get('/v1/tags/:id/summary', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
     const { id } = req.params;
+    const {
+      creativeId = '',
+      creativeSizeVariantId = '',
+    } = req.query;
 
-    const summary = await getTagSummaryStats(pool, workspaceId, id);
+    const summary = await getTagSummaryStats(pool, workspaceId, id, {
+      creativeId,
+      creativeSizeVariantId,
+    });
     if (!summary) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
