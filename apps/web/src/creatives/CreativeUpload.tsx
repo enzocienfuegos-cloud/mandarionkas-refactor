@@ -16,6 +16,21 @@ const ACCEPTED_EXTENSIONS: Record<SourceKind, string> = {
 };
 const MAX_PARALLEL_UPLOADS = 4;
 
+function formatDuration(ms: number) {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+function estimateProcessingPercent(elapsedMs: number) {
+  if (elapsedMs < 2000) return 8 + Math.round((elapsedMs / 2000) * 12);
+  if (elapsedMs < 8000) return 20 + Math.round(((elapsedMs - 2000) / 6000) * 35);
+  if (elapsedMs < 18000) return 55 + Math.round(((elapsedMs - 8000) / 10000) * 25);
+  if (elapsedMs < 30000) return 80 + Math.round(((elapsedMs - 18000) / 12000) * 12);
+  return 94;
+}
+
 export default function CreativeUpload() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -26,6 +41,9 @@ export default function CreativeUpload() {
   const [loading, setLoading] = useState(false);
   const [currentFileName, setCurrentFileName] = useState('');
   const [currentFileProgress, setCurrentFileProgress] = useState(0);
+  const [currentProcessingName, setCurrentProcessingName] = useState('');
+  const [currentProcessingProgress, setCurrentProcessingProgress] = useState(0);
+  const [currentProcessingEta, setCurrentProcessingEta] = useState('');
   const [overallProgress, setOverallProgress] = useState(0);
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
@@ -69,11 +87,16 @@ export default function CreativeUpload() {
     setStatus('Preparing uploads…');
     setCurrentFileName('');
     setCurrentFileProgress(0);
+    setCurrentProcessingName('');
+    setCurrentProcessingProgress(0);
+    setCurrentProcessingEta('');
     setOverallProgress(0);
 
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
     const loadedBytesByIndex = files.map(() => 0);
     const activeIndexes = new Set<number>();
+    const processingStartedAtByIndex = files.map(() => 0);
+    const activeProcessingIndexes = new Set<number>();
 
     const refreshOverallProgress = () => {
       const loadedBytes = loadedBytesByIndex.reduce((sum, value) => sum + value, 0);
@@ -101,6 +124,34 @@ export default function CreativeUpload() {
       setCurrentFileName(names[0] + (names.length > 1 ? ` +${names.length - 1} more` : ''));
       setCurrentFileProgress(averageProgress);
     };
+
+    const refreshProcessingProgress = () => {
+      if (activeProcessingIndexes.size === 0) {
+        setCurrentProcessingName('');
+        setCurrentProcessingProgress(0);
+        setCurrentProcessingEta('');
+        return;
+      }
+      const indexes = Array.from(activeProcessingIndexes.values()).sort((a, b) => a - b);
+      const names = indexes.map(index => files[index]?.name).filter(Boolean);
+      const elapsedValues = indexes.map(index => Date.now() - (processingStartedAtByIndex[index] || Date.now()));
+      const averageProgress = Math.round(
+        elapsedValues.reduce((sum, elapsedMs) => sum + estimateProcessingPercent(elapsedMs), 0) / elapsedValues.length,
+      );
+      const averageRemainingMs = elapsedValues.reduce((sum, elapsedMs) => {
+        const progress = estimateProcessingPercent(elapsedMs);
+        if (progress <= 0 || progress >= 100) return sum;
+        const estimatedTotalMs = (elapsedMs / progress) * 100;
+        return sum + Math.max(0, estimatedTotalMs - elapsedMs);
+      }, 0) / elapsedValues.length;
+      setCurrentProcessingName(names[0] + (names.length > 1 ? ` +${names.length - 1} more` : ''));
+      setCurrentProcessingProgress(averageProgress);
+      setCurrentProcessingEta(`Estimated remaining ${formatDuration(averageRemainingMs || 0)}`);
+    };
+
+    const processingInterval = window.setInterval(() => {
+      refreshProcessingProgress();
+    }, 300);
 
     try {
       const processFile = async (file: File, index: number) => {
@@ -133,10 +184,16 @@ export default function CreativeUpload() {
           storageKey: upload.upload.storageKey,
         });
 
+        processingStartedAtByIndex[index] = Date.now();
+        activeProcessingIndexes.add(index);
+        setStatus(`Uploading complete. Transcoding and publishing ${files.length} creative${files.length === 1 ? '' : 's'}…`);
+        refreshProcessingProgress();
         await publishCreativeIngestion(upload.ingestion.id, {
           workspaceId,
         });
 
+        activeProcessingIndexes.delete(index);
+        refreshProcessingProgress();
         activeIndexes.delete(index);
         refreshActiveProgress();
       };
@@ -151,12 +208,15 @@ export default function CreativeUpload() {
 
       setStatus(`${files.length} creative${files.length === 1 ? '' : 's'} published.`);
       setCurrentFileProgress(100);
+      setCurrentProcessingProgress(100);
+      setCurrentProcessingEta('Estimated remaining 0:00');
       setOverallProgress(100);
       navigate('/creatives');
     } catch (submitError: any) {
       setError(submitError.message ?? 'Upload failed');
       setStatus('');
     } finally {
+      window.clearInterval(processingInterval);
       setLoading(false);
     }
   };
@@ -311,6 +371,23 @@ export default function CreativeUpload() {
                         style={{ width: `${currentFileProgress}%` }}
                       />
                     </div>
+                  </div>
+                )}
+                {currentProcessingName && (
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs text-blue-700">
+                      <span className="truncate pr-3">Transcoding / publishing {currentProcessingName}</span>
+                      <span>{currentProcessingProgress}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-blue-100">
+                      <div
+                        className="h-full rounded-full bg-violet-600 transition-all"
+                        style={{ width: `${currentProcessingProgress}%` }}
+                      />
+                    </div>
+                    {currentProcessingEta && (
+                      <div className="mt-1 text-[11px] text-blue-600">{currentProcessingEta}</div>
+                    )}
                   </div>
                 )}
               </div>
