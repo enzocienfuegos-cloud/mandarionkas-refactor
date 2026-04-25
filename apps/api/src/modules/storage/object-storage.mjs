@@ -107,9 +107,26 @@ export async function prepareObjectUpload({ storageKey, contentType }) {
   return { uploadUrl, publicUrl };
 }
 
-export function buildPublicAssetUrl(storageKey) {
-  const base = (process.env.ASSETS_PUBLIC_BASE_URL ?? process.env.S3_CDN_URL ?? '').replace(/\/$/, '');
+function resolvePublicBaseUrl(preferredEnvVars = []) {
+  const candidates = [
+    ...(Array.isArray(preferredEnvVars) ? preferredEnvVars : []),
+    'ASSETS_PUBLIC_BASE_URL',
+    'S3_CDN_URL',
+  ];
+  for (const envName of candidates) {
+    const value = String(process.env[envName] ?? '').trim();
+    if (value) return value.replace(/\/$/, '');
+  }
+  return '';
+}
+
+export function buildScopedPublicAssetUrl(storageKey, preferredEnvVars = []) {
+  const base = resolvePublicBaseUrl(preferredEnvVars);
   return base ? `${base}/${storageKey}` : undefined;
+}
+
+export function buildPublicAssetUrl(storageKey) {
+  return buildScopedPublicAssetUrl(storageKey);
 }
 
 export function hasUploadStorageConfig() {

@@ -176,7 +176,7 @@ export async function publishStaticVastArtifactsForTag({
       buildStaticVastTemplateQuery(normalizedDsp),
     );
     const storageKey = buildStaticVastStorageKey(workspaceId, tagId, normalizedDsp);
-    const uploaded = await putObjectBuffer({
+    await putObjectBuffer({
       storageKey,
       buffer: Buffer.from(xml, 'utf8'),
       contentType: 'application/xml; charset=utf-8',
@@ -188,7 +188,7 @@ export async function publishStaticVastArtifactsForTag({
       dsp: normalizedDsp || null,
       profile,
       storageKey,
-      publicUrl: uploaded?.publicUrl ?? buildStaticVastPublicUrl(workspaceId, tagId, normalizedDsp),
+      publicUrl: buildStaticVastPublicUrl(workspaceId, tagId, normalizedDsp),
       xmlVersion: normalizedDsp === 'basis' ? '2.0' : '4.0',
     });
   }

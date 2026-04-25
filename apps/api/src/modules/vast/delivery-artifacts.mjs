@@ -1,5 +1,7 @@
 import { getDspMacroConfig, normalizeDsp } from '@smx/contracts/dsp-macros';
-import { buildPublicAssetUrl } from '../storage/object-storage.mjs';
+import { buildScopedPublicAssetUrl } from '../storage/object-storage.mjs';
+
+const STATIC_VAST_PUBLIC_BASE_ENVS = ['VAST_DELIVERY_PUBLIC_BASE_URL', 'ADS_PUBLIC_BASE_URL'];
 
 export function buildStaticVastProfile(dsp = '') {
   const normalizedDsp = normalizeDsp(dsp);
@@ -16,11 +18,17 @@ export function buildStaticVastManifestStorageKey(workspaceId, tagId) {
 }
 
 export function buildStaticVastPublicUrl(workspaceId, tagId, dsp = '') {
-  return buildPublicAssetUrl(buildStaticVastStorageKey(workspaceId, tagId, dsp)) ?? '';
+  return buildScopedPublicAssetUrl(
+    buildStaticVastStorageKey(workspaceId, tagId, dsp),
+    STATIC_VAST_PUBLIC_BASE_ENVS,
+  ) ?? '';
 }
 
 export function buildStaticVastManifestPublicUrl(workspaceId, tagId) {
-  return buildPublicAssetUrl(buildStaticVastManifestStorageKey(workspaceId, tagId)) ?? '';
+  return buildScopedPublicAssetUrl(
+    buildStaticVastManifestStorageKey(workspaceId, tagId),
+    STATIC_VAST_PUBLIC_BASE_ENVS,
+  ) ?? '';
 }
 
 export function buildStaticVastTemplateQuery(dsp = '') {
