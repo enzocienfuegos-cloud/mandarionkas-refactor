@@ -26,6 +26,7 @@ import {
   assignCreativeToTag,
   removeCreativeFromTag,
 } from '@smx/db';
+import { listTagIdsByCreativeVersion } from '@smx/db/tags';
 import { getTag } from '@smx/db/tags';
 import { syncVideoRenditionsForVersion } from './video-rendition-sync.mjs';
 import { getRequestBaseUrl } from '../shared/request-base-url.mjs';
@@ -63,6 +64,22 @@ async function republishStaticVastArtifacts(req, pool, workspaceId, tagId) {
     });
   } catch (error) {
     req.log?.warn?.({ err: error, tagId, workspaceId }, 'failed to republish static VAST artifacts');
+  }
+}
+
+async function republishStaticVastArtifactsForCreativeVersion(req, pool, workspaceId, creativeVersionId) {
+  try {
+    const tagIds = await listTagIdsByCreativeVersion(pool, workspaceId, creativeVersionId);
+    for (const tagId of tagIds) {
+      await publishStaticVastArtifactsForTag({
+        pool,
+        workspaceId,
+        tagId,
+        baseUrl: getRequestBaseUrl(req),
+      });
+    }
+  } catch (error) {
+    req.log?.warn?.({ err: error, creativeVersionId, workspaceId }, 'failed to republish static VAST artifacts for creative version');
   }
 }
 
@@ -416,6 +433,7 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
       await client.query('BEGIN');
       const renditions = await regenerateVideoRenditionsForVersion(client, workspaceId, version, creative);
       await client.query('COMMIT');
+      await republishStaticVastArtifactsForCreativeVersion(req, pool, workspaceId, id);
       return reply.send({ renditions: renditions.map(toApiVideoRendition) });
     } catch (error) {
       await client.query('ROLLBACK');

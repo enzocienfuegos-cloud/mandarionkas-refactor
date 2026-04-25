@@ -754,3 +754,14 @@ export async function getTagServingSnapshotById(pool, tagId, options = {}) {
     servingCandidate: toServingCandidateFromLegacy(legacyCreative, tag),
   };
 }
+
+export async function listTagIdsByCreativeVersion(pool, workspaceId, creativeVersionId) {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT tag_id
+     FROM tag_bindings
+     WHERE workspace_id = $1
+       AND creative_version_id = $2`,
+    [workspaceId, creativeVersionId],
+  );
+  return rows.map((row) => row.tag_id).filter(Boolean);
+}

@@ -1,5 +1,10 @@
 const BASE_URL = (process.env.BASE_URL ?? '').trim();
 
+export function getConfiguredBaseUrl() {
+  if (BASE_URL) return BASE_URL.replace(/\/$/, '');
+  return 'http://localhost:4000';
+}
+
 export function getRequestBaseUrl(req) {
   const forwardedProto = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim();
   const forwardedHost = String(req.headers['x-forwarded-host'] ?? '').split(',')[0].trim();
@@ -8,6 +13,5 @@ export function getRequestBaseUrl(req) {
   const authority = forwardedHost || host;
 
   if (authority) return `${proto}://${authority}`;
-  if (BASE_URL) return BASE_URL.replace(/\/$/, '');
-  return 'http://localhost:4000';
+  return getConfiguredBaseUrl();
 }

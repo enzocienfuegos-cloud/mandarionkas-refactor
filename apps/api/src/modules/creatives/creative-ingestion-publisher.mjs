@@ -9,9 +9,12 @@ import {
   updateCreative,
   updateCreativeVersion,
 } from '@smx/db';
+import { listTagIdsByCreativeVersion } from '@smx/db/tags';
 import { expandAndPublishHtml5Archive } from './html5-publisher.mjs';
 import { enrichVideoPublication } from './video-processor.mjs';
 import { syncVideoRenditionsForVersion } from './video-rendition-sync.mjs';
+import { getConfiguredBaseUrl } from '../shared/request-base-url.mjs';
+import { publishStaticVastArtifactsForTag } from '../vast/xml-delivery.mjs';
 
 export function deriveCreativeName(row, requestedName) {
   if (requestedName && String(requestedName).trim()) {
@@ -347,11 +350,33 @@ export async function publishCreativeIngestionToCatalog({
 
     await client.query('COMMIT');
 
-    return {
+    const result = {
       creative,
       creativeVersion: publishedVersion,
       artifacts: publishedArtifacts,
     };
+
+    try {
+      const tagIds = await listTagIdsByCreativeVersion(pool, workspaceId, publishedVersion.id);
+      const baseUrl = getConfiguredBaseUrl();
+      for (const tagId of tagIds) {
+        await publishStaticVastArtifactsForTag({
+          pool,
+          workspaceId,
+          tagId,
+          baseUrl,
+        });
+      }
+    } catch (error) {
+      // Keep catalog publication authoritative; static delivery refresh is best-effort.
+      console.warn('[vast-delivery] failed to republish static VAST artifacts after ingestion publish', {
+        workspaceId,
+        creativeVersionId: publishedVersion.id,
+        error: error?.message ?? String(error),
+      });
+    }
+
+    return result;
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
