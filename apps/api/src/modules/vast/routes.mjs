@@ -148,7 +148,7 @@ function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const clickTrackingUrl = appendQueryParam(`${trackingBase}/click/${tagId}?${clickTrackingParams.toString()}`, 'ctx', ctxToken);
   const wrappedClickTrackUrl = wrapTrackedClickUrlWithDspMacro(clickTrackingUrl, query);
   const viewabilityBaseUrl = appendQueryParam(`${trackingBase}/viewability/${tagId}?${trackingParams.toString()}`, 'ctx', ctxToken);
-  const vastVersion = trackingDsp === 'Basis' ? '2.0' : '4.0';
+  const vastVersion = trackingDsp === 'basis' ? '2.0' : '4.0';
   const clickThroughUrl = clickUrl || wrappedClickTrackUrl || clickTrackingUrl;
   const mediaFiles = Array.isArray(servingCandidate?.videoRenditions) && servingCandidate.videoRenditions.length
     ? servingCandidate.videoRenditions
@@ -173,10 +173,10 @@ function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   }).join('\n');
   const clickThroughXml = clickUrl
     ? `              <ClickThrough><![CDATA[${clickThroughUrl}]]></ClickThrough>\n`
-    : (trackingDsp === 'Basis'
+    : (trackingDsp === 'basis'
       ? `              <ClickThrough><![CDATA[${clickThroughUrl}]]></ClickThrough>\n`
       : '');
-  const errorXml = trackingDsp === 'Basis'
+  const errorXml = trackingDsp === 'basis'
     ? `      <Error><![CDATA[${appendQueryParam(`${trackingBase}/viewability/${tagId}?${trackingParams.toString()}`, 'event', '[ERRORCODE]')}]]></Error>\n`
     : '';
 
