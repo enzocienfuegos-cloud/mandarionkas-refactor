@@ -15,7 +15,7 @@ const RENDITIONS = [
  * @param {string} opts.inputPath    - Absolute path to the source video file
  * @param {string} opts.outputDir    - Base output directory; files go into outputDir/{creativeId}/
  * @param {string} opts.creativeId   - Used as subfolder name and in playlist URLs
- * @returns {Promise<{ playlistUrl: string, renditions: Array<{ label, resolution, playlistPath }> }>}
+ * @returns {Promise<{ playlistUrl: string, masterPlaylist: string, renditions: Array<{ label, resolution, playlistPath }> }>}
  */
 export async function transcodeToHls({ inputPath, outputDir, creativeId }) {
   const creativeDir = path.join(outputDir, creativeId);
@@ -64,8 +64,12 @@ export async function transcodeToHls({ inputPath, outputDir, creativeId }) {
   const masterContent = buildMasterPlaylist(renditionResults, creativeId);
   await fs.writeFile(masterPlaylistPath, masterContent, 'utf8');
 
+  const playlistUrl = `${creativeId}/master.m3u8`;
+
   return {
-    playlistUrl: `${creativeId}/master.m3u8`,
+    playlistUrl,
+    // Keep the legacy key while older worker callers are being phased out.
+    masterPlaylist: playlistUrl,
     renditions: renditionResults.map(r => ({
       label: r.label,
       resolution: r.resolution,
