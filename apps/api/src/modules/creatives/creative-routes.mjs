@@ -26,11 +26,12 @@ import {
   assignCreativeToTag,
   removeCreativeFromTag,
 } from '@smx/db';
-import { listTagIdsByCreativeVersion } from '@smx/db/tags';
 import { getTag } from '@smx/db/tags';
 import { syncVideoRenditionsForVersion } from './video-rendition-sync.mjs';
-import { getRequestBaseUrl } from '../shared/request-base-url.mjs';
-import { publishStaticVastArtifactsForTag } from '../vast/xml-delivery.mjs';
+import {
+  enqueueStaticVastPublish,
+  enqueueStaticVastPublishForCreativeVersion,
+} from '../vast/publish-queue.mjs';
 
 function getTagServingSize(tag, bindings = []) {
   const activeBinding = bindings.find(binding =>
@@ -56,11 +57,9 @@ function getTagServingSize(tag, bindings = []) {
 
 async function republishStaticVastArtifacts(req, pool, workspaceId, tagId, trigger = 'creative_assignment_update') {
   try {
-    await publishStaticVastArtifactsForTag({
-      pool,
+    await enqueueStaticVastPublish(pool, {
       workspaceId,
       tagId,
-      baseUrl: getRequestBaseUrl(req),
       trigger,
     });
   } catch (error) {
@@ -70,16 +69,11 @@ async function republishStaticVastArtifacts(req, pool, workspaceId, tagId, trigg
 
 async function republishStaticVastArtifactsForCreativeVersion(req, pool, workspaceId, creativeVersionId, trigger = 'creative_version_update') {
   try {
-    const tagIds = await listTagIdsByCreativeVersion(pool, workspaceId, creativeVersionId);
-    for (const tagId of tagIds) {
-      await publishStaticVastArtifactsForTag({
-        pool,
-        workspaceId,
-        tagId,
-        baseUrl: getRequestBaseUrl(req),
-        trigger,
-      });
-    }
+    await enqueueStaticVastPublishForCreativeVersion(pool, {
+      workspaceId,
+      creativeVersionId,
+      trigger,
+    });
   } catch (error) {
     req.log?.warn?.({ err: error, creativeVersionId, workspaceId }, 'failed to republish static VAST artifacts for creative version');
   }

@@ -12,6 +12,8 @@ import { transcodeToHls } from './lib/transcode.mjs';
 import {
   publishCreativeIngestionToCatalog,
 } from '../../api/src/modules/creatives/creative-ingestion-publisher.mjs';
+import { getConfiguredBaseUrl } from '../../api/src/modules/shared/request-base-url.mjs';
+import { publishStaticVastArtifactsForTag } from '../../api/src/modules/vast/xml-delivery.mjs';
 
 const POLL_INTERVAL_MS = parseInt(process.env.WORKER_POLL_MS, 10) || 5_000;
 const WORKER_ID = process.env.WORKER_ID || `${process.env.HOSTNAME || 'worker'}-${randomUUID().slice(0, 8)}`;
@@ -216,6 +218,34 @@ async function processJob(job) {
           },
         },
       });
+      break;
+    }
+
+    case 'vast_static_publish': {
+      const {
+        workspaceId,
+        tagId,
+        trigger = 'queued_publish',
+        requestedSize = null,
+        dspProfiles = ['', 'basis', 'illumin'],
+      } = payload;
+
+      if (!workspaceId || !tagId) {
+        throw new Error('Missing workspaceId or tagId for vast_static_publish');
+      }
+
+      const baseUrl = getConfiguredBaseUrl();
+      console.log(`[worker] static vast publish job ${job.id} started tag=${tagId} workspace=${workspaceId} trigger=${trigger}`);
+      const published = await publishStaticVastArtifactsForTag({
+        pool,
+        workspaceId,
+        tagId,
+        baseUrl,
+        requestedSize,
+        dspProfiles,
+        trigger,
+      });
+      console.log(`[worker] static vast publish job ${job.id} completed tag=${tagId} profiles=${published.length}`);
       break;
     }
 

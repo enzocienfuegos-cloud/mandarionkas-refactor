@@ -13,8 +13,7 @@ import { listTagIdsByCreativeVersion } from '@smx/db/tags';
 import { expandAndPublishHtml5Archive } from './html5-publisher.mjs';
 import { enrichVideoPublication } from './video-processor.mjs';
 import { syncVideoRenditionsForVersion } from './video-rendition-sync.mjs';
-import { getConfiguredBaseUrl } from '../shared/request-base-url.mjs';
-import { publishStaticVastArtifactsForTag } from '../vast/xml-delivery.mjs';
+import { enqueueStaticVastPublish } from '../vast/publish-queue.mjs';
 
 export function deriveCreativeName(row, requestedName) {
   if (requestedName && String(requestedName).trim()) {
@@ -358,13 +357,10 @@ export async function publishCreativeIngestionToCatalog({
 
     try {
       const tagIds = await listTagIdsByCreativeVersion(pool, workspaceId, publishedVersion.id);
-      const baseUrl = getConfiguredBaseUrl();
       for (const tagId of tagIds) {
-        await publishStaticVastArtifactsForTag({
-          pool,
+        await enqueueStaticVastPublish(pool, {
           workspaceId,
           tagId,
-          baseUrl,
           trigger: 'creative_ingestion_publish',
         });
       }

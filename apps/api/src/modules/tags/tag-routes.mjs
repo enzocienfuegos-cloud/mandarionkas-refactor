@@ -29,7 +29,7 @@ import {
   buildStaticVastStorageKey,
   getStaticVastProfiles,
 } from '../vast/delivery-artifacts.mjs';
-import { publishStaticVastArtifactsForTag } from '../vast/xml-delivery.mjs';
+import { enqueueStaticVastPublish } from '../vast/publish-queue.mjs';
 
 function escapeCsv(value) {
   const text = String(value ?? '');
@@ -38,11 +38,9 @@ function escapeCsv(value) {
 
 async function republishStaticVastArtifacts(req, pool, workspaceId, tagId, trigger = 'tag_update') {
   try {
-    await publishStaticVastArtifactsForTag({
-      pool,
+    await enqueueStaticVastPublish(pool, {
       workspaceId,
       tagId,
-      baseUrl: getRequestBaseUrl(req),
       trigger,
     });
   } catch (error) {
