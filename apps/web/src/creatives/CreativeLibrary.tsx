@@ -13,6 +13,7 @@ import {
   createCreativeSizeVariant,
   createCreativeSizeVariantsBulk,
   deleteCreativeById,
+  loadCreativeIngestion,
   loadCreativeVersionDetail,
   loadCreativesWithLatestVersion,
   loadCreativeIngestions,
@@ -1278,7 +1279,7 @@ export default function CreativeLibrary() {
                       </div>
                     )) : videoRenditionState.awaitingPublish ? (
                       <div className="text-slate-500">Waiting for the background worker to finish creating the creative version and renditions.</div>
-                    )) : (
+                    ) : (
                       <div className="text-slate-500">No encoder run recorded yet.</div>
                     )}
                   </div>
