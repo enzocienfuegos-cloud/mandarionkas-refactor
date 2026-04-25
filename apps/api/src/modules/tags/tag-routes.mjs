@@ -445,6 +445,26 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       }),
     );
     const staticVastProfileMap = Object.fromEntries(staticVastProfiles);
+    const { rows: staticJobRows } = await pool.query(
+      `SELECT id, status, priority, attempts, max_attempts, run_at, started_at, completed_at, failed_at, error, created_at, updated_at, payload
+         FROM jobs
+        WHERE queue = 'vast_delivery'
+          AND type = 'vast_static_publish'
+          AND payload->>'workspaceId' = $1
+          AND payload->>'tagId' = $2
+        ORDER BY
+          CASE status
+            WHEN 'running' THEN 0
+            WHEN 'pending' THEN 1
+            WHEN 'failed' THEN 2
+            WHEN 'completed' THEN 3
+            ELSE 4
+          END,
+          updated_at DESC
+        LIMIT 1`,
+      [String(workspaceId), String(tag.id)],
+    );
+    const latestStaticJob = staticJobRows[0] ?? null;
 
     return reply.send({
       tag: {
@@ -488,6 +508,23 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
               history: Array.isArray(staticVastManifest.history)
                 ? staticVastManifest.history.slice(0, 10)
                 : [],
+            }
+            : null,
+          staticJob: latestStaticJob
+            ? {
+              id: latestStaticJob.id,
+              status: latestStaticJob.status,
+              priority: latestStaticJob.priority ?? null,
+              attempts: latestStaticJob.attempts ?? null,
+              maxAttempts: latestStaticJob.max_attempts ?? null,
+              trigger: latestStaticJob.payload?.trigger ?? null,
+              createdAt: latestStaticJob.created_at ?? null,
+              updatedAt: latestStaticJob.updated_at ?? null,
+              runAt: latestStaticJob.run_at ?? null,
+              startedAt: latestStaticJob.started_at ?? null,
+              completedAt: latestStaticJob.completed_at ?? null,
+              failedAt: latestStaticJob.failed_at ?? null,
+              error: latestStaticJob.error ?? null,
             }
             : null,
         },

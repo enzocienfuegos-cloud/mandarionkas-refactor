@@ -96,6 +96,21 @@ interface DeliveryDiagnosticEntry {
       }> | null;
     }> | null;
   } | null;
+  staticJob?: {
+    id?: string | null;
+    status?: string | null;
+    priority?: number | null;
+    attempts?: number | null;
+    maxAttempts?: number | null;
+    trigger?: string | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+    runAt?: string | null;
+    startedAt?: string | null;
+    completedAt?: string | null;
+    failedAt?: string | null;
+    error?: string | null;
+  } | null;
 }
 
 interface DeliveryDiagnosticsPayload {
@@ -339,6 +354,21 @@ function formatTriggerLabel(value?: string | null): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function getJobStatusTone(value?: string | null): string {
+  switch (String(value ?? '').toLowerCase()) {
+    case 'running':
+      return 'border-sky-300 bg-sky-100 text-sky-800';
+    case 'pending':
+      return 'border-amber-300 bg-amber-100 text-amber-800';
+    case 'completed':
+      return 'border-emerald-300 bg-emerald-100 text-emerald-800';
+    case 'failed':
+      return 'border-rose-300 bg-rose-100 text-rose-800';
+    default:
+      return 'border-slate-300 bg-slate-100 text-slate-800';
+  }
 }
 
 export default function TagBuilder() {
@@ -1032,6 +1062,44 @@ export default function TagBuilder() {
               <div className="space-y-3">
                 {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest && (
                   <div className="rounded-lg border border-emerald-200 bg-white/70 px-3 py-3 text-[11px] text-emerald-900">
+                    {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob && (
+                      <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50/50 px-2.5 py-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="font-medium">Latest Static Publish Job</div>
+                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${getJobStatusTone(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.status)}`}>
+                            {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.status || 'unknown'}
+                          </span>
+                        </div>
+                        <div className="mt-2 grid gap-2 md:grid-cols-4">
+                          <div>
+                            <div className="font-medium">Trigger</div>
+                            <div className="mt-1">{formatTriggerLabel(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.trigger)}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium">Attempts</div>
+                            <div className="mt-1">
+                              {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.attempts ?? 0}
+                              {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.maxAttempts
+                                ? ` / ${deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.maxAttempts}`
+                                : ''}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-medium">Updated</div>
+                            <div className="mt-1">{formatArtifactTimestamp(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.updatedAt)}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium">Run At</div>
+                            <div className="mt-1">{formatArtifactTimestamp(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.runAt)}</div>
+                          </div>
+                        </div>
+                        {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.error && (
+                          <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 text-rose-800">
+                            {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.error}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="grid gap-2 md:grid-cols-4">
                       <div>
                         <div className="font-medium">Last Trigger</div>
