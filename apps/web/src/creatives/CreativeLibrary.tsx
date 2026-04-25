@@ -1159,23 +1159,29 @@ export default function CreativeLibrary() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          {rendition.status === 'active' ? (
-                            <button
-                              onClick={() => void handleVideoRenditionStatusChange(rendition.id, 'paused')}
-                              disabled={videoRenditionState.loading}
-                              className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-60"
-                            >
-                              Pause
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => void handleVideoRenditionStatusChange(rendition.id, 'active')}
-                              disabled={videoRenditionState.loading || rendition.status === 'processing' || rendition.status === 'failed'}
-                              className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
-                            >
-                              Activate
-                            </button>
-                          )}
+                          <label className={`inline-flex items-center gap-3 text-xs font-medium ${
+                            videoRenditionState.loading || rendition.status === 'processing' || rendition.status === 'failed'
+                              ? 'cursor-not-allowed text-slate-400'
+                              : 'cursor-pointer text-slate-700'
+                          }`}>
+                            <span>{rendition.status === 'active' ? 'On' : 'Off'}</span>
+                            <span className="relative inline-flex items-center">
+                              <input
+                                type="checkbox"
+                                className="peer sr-only"
+                                checked={rendition.status === 'active'}
+                                disabled={videoRenditionState.loading || rendition.status === 'processing' || rendition.status === 'failed'}
+                                onChange={(event) => {
+                                  void handleVideoRenditionStatusChange(
+                                    rendition.id,
+                                    event.target.checked ? 'active' : 'paused',
+                                  );
+                                }}
+                              />
+                              <span className="h-6 w-11 rounded-full bg-slate-300 transition-colors peer-checked:bg-emerald-500 peer-disabled:bg-slate-200" />
+                              <span className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+                            </span>
+                          </label>
                         </td>
                       </tr>
                     ))}
