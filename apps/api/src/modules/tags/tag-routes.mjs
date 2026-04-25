@@ -2,10 +2,12 @@ import {
   listTags,
   listTagsForUser,
   getTag,
+  getTagById,
   createTag,
   updateTag,
   deleteTag,
   getTagWithCreatives,
+  getTagWithCreativesById,
 } from '@smx/db/tags';
 import { listTagBindings, updateTagBinding } from '@smx/db';
 import {
@@ -201,6 +203,28 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     return candidate;
   }
 
+  async function resolveAccessibleTagWorkspace(userId, fallbackWorkspaceId, tagId) {
+    const currentTag = await getTagById(pool, tagId);
+    if (!currentTag) return null;
+
+    const targetWorkspaceId = String(currentTag.workspace_id ?? '').trim();
+    if (!targetWorkspaceId) return null;
+    if (targetWorkspaceId === fallbackWorkspaceId) {
+      return targetWorkspaceId;
+    }
+
+    const { rowCount } = await pool.query(
+      `SELECT 1
+       FROM workspace_members
+       WHERE workspace_id = $1
+         AND user_id = $2
+         AND status = 'active'
+       LIMIT 1`,
+      [targetWorkspaceId, userId],
+    );
+    return rowCount ? targetWorkspaceId : null;
+  }
+
   // GET /v1/tags
   app.get('/v1/tags', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId, userId } = req.authSession;
@@ -284,8 +308,12 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
 
   // GET /v1/tags/:id/export
   app.get('/v1/tags/:id/export', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
+    const { workspaceId, userId } = req.authSession;
     const { id } = req.params;
+    const resolvedWorkspaceId = await resolveAccessibleTagWorkspace(userId, workspaceId, id);
+    if (!resolvedWorkspaceId) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
 
     const { rows } = await pool.query(
       `SELECT t.id, t.workspace_id, t.name, t.format, t.status, tfc.tracker_type,
@@ -322,7 +350,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
        WHERE t.workspace_id = $1
          AND t.id = $2
        LIMIT 1`,
-      [workspaceId, id],
+      [resolvedWorkspaceId, id],
     );
     const tag = rows[0];
     if (!tag) {
@@ -362,10 +390,16 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
 
   // GET /v1/tags/:id
   app.get('/v1/tags/:id', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
+    const { workspaceId, userId } = req.authSession;
     const { id } = req.params;
+    const resolvedWorkspaceId = await resolveAccessibleTagWorkspace(userId, workspaceId, id);
+    if (!resolvedWorkspaceId) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
 
-    const tag = await getTagWithCreatives(pool, workspaceId, id);
+    const tag = resolvedWorkspaceId === workspaceId
+      ? await getTagWithCreatives(pool, resolvedWorkspaceId, id)
+      : await getTagWithCreativesById(pool, id);
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
@@ -375,8 +409,12 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
 
   // GET /v1/tags/:id/delivery-diagnostics
   app.get('/v1/tags/:id/delivery-diagnostics', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
+    const { workspaceId, userId } = req.authSession;
     const { id } = req.params;
+    const resolvedWorkspaceId = await resolveAccessibleTagWorkspace(userId, workspaceId, id);
+    if (!resolvedWorkspaceId) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
 
     const { rows } = await pool.query(
       `SELECT t.id, t.name, t.format, t.status,
@@ -415,7 +453,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
        WHERE t.workspace_id = $1
          AND t.id = $2
        LIMIT 1`,
-      [workspaceId, id],
+      [resolvedWorkspaceId, id],
     );
 
     const tag = rows[0];
@@ -426,7 +464,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     const baseUrl = getRequestBaseUrl(req);
     const campaignDsp = readCampaignDsp(tag.campaign_metadata);
     const deliverySummary = buildDeliverySummary(tag, campaignDsp);
-    const manifestStorageKey = buildStaticVastManifestStorageKey(workspaceId, tag.id);
+    const manifestStorageKey = buildStaticVastManifestStorageKey(resolvedWorkspaceId, tag.id);
     let staticVastManifest = null;
     try {
       const manifestBuffer = await getObjectBuffer(manifestStorageKey);
@@ -438,12 +476,12 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     }
     const staticVastProfiles = await Promise.all(
       getStaticVastProfiles().map(async (profile) => {
-        const storageKey = buildStaticVastStorageKey(workspaceId, tag.id, profile.dsp);
+        const storageKey = buildStaticVastStorageKey(resolvedWorkspaceId, tag.id, profile.dsp);
         const metadata = await getObjectMetadata(storageKey).catch(() => null);
         return [
           profile.key,
           {
-            publicUrl: buildStaticVastPublicUrl(workspaceId, tag.id, profile.dsp),
+            publicUrl: buildStaticVastPublicUrl(resolvedWorkspaceId, tag.id, profile.dsp),
             storageKey,
             available: Boolean(metadata),
             lastPublishedAt: metadata?.lastModified ?? null,
@@ -464,7 +502,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
           AND payload->>'tagId' = $2
         ORDER BY updated_at DESC, created_at DESC
         LIMIT 1`,
-      [String(workspaceId), String(tag.id)],
+      [String(resolvedWorkspaceId), String(tag.id)],
     );
     const latestStaticJob = staticJobRows[0] ?? null;
 
@@ -494,14 +532,14 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
           url: buildSelectedVideoVastUrl(baseUrl, tag, campaignDsp),
           selectedProfile: getSelectedVideoProfileKey(campaignDsp),
           staticProfiles: {
-            default: staticVastProfileMap.default?.publicUrl ?? buildStaticVastPublicUrl(workspaceId, tag.id),
-            basis: staticVastProfileMap.basis?.publicUrl ?? buildStaticVastPublicUrl(workspaceId, tag.id, 'basis'),
-            illumin: staticVastProfileMap.illumin?.publicUrl ?? buildStaticVastPublicUrl(workspaceId, tag.id, 'illumin'),
+            default: staticVastProfileMap.default?.publicUrl ?? buildStaticVastPublicUrl(resolvedWorkspaceId, tag.id),
+            basis: staticVastProfileMap.basis?.publicUrl ?? buildStaticVastPublicUrl(resolvedWorkspaceId, tag.id, 'basis'),
+            illumin: staticVastProfileMap.illumin?.publicUrl ?? buildStaticVastPublicUrl(resolvedWorkspaceId, tag.id, 'illumin'),
           },
           staticProfileStatus: staticVastProfileMap,
           staticManifest: staticVastManifest
             ? {
-              publicUrl: buildStaticVastManifestPublicUrl(workspaceId, tag.id),
+              publicUrl: buildStaticVastManifestPublicUrl(resolvedWorkspaceId, tag.id),
               generatedAt: staticVastManifest.generatedAt ?? null,
               trigger: staticVastManifest.trigger ?? null,
               previousGeneratedAt: staticVastManifest.previousGeneratedAt ?? null,
@@ -544,15 +582,19 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
 
   // GET /v1/tags/:id/bindings
   app.get('/v1/tags/:id/bindings', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
+    const { workspaceId, userId } = req.authSession;
     const { id } = req.params;
+    const resolvedWorkspaceId = await resolveAccessibleTagWorkspace(userId, workspaceId, id);
+    if (!resolvedWorkspaceId) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
 
-    const tag = await getTag(pool, workspaceId, id);
+    const tag = await getTag(pool, resolvedWorkspaceId, id);
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
 
-    const bindings = await listTagBindings(pool, workspaceId, id, {
+    const bindings = await listTagBindings(pool, resolvedWorkspaceId, id, {
       status: req.query?.status,
     });
 
@@ -586,14 +628,18 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
 
   // PATCH /v1/tags/:id/bindings/:bindingId
   app.patch('/v1/tags/:id/bindings/:bindingId', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
+    const { workspaceId, userId } = req.authSession;
     const { id, bindingId } = req.params;
-    const tag = await getTag(pool, workspaceId, id);
+    const resolvedWorkspaceId = await resolveAccessibleTagWorkspace(userId, workspaceId, id);
+    if (!resolvedWorkspaceId) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+    const tag = await getTag(pool, resolvedWorkspaceId, id);
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
 
-    const binding = await updateTagBinding(pool, workspaceId, bindingId, {
+    const binding = await updateTagBinding(pool, resolvedWorkspaceId, bindingId, {
       status: req.body?.status,
       weight: req.body?.weight,
       start_at: req.body?.startAt,
@@ -604,7 +650,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       return reply.status(404).send({ error: 'Not Found', message: 'Binding not found' });
     }
 
-    await republishStaticVastArtifacts(req, pool, workspaceId, id, 'tag_binding_update');
+    await republishStaticVastArtifacts(req, pool, resolvedWorkspaceId, id, 'tag_binding_update');
 
     return reply.send({
       binding: {
@@ -625,10 +671,14 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
 
   // PUT /v1/tags/:id
   app.put('/v1/tags/:id', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
+    const { workspaceId, userId } = req.authSession;
     const { id } = req.params;
     const body = req.body ?? {};
-    const existing = await getTag(pool, workspaceId, id);
+    const resolvedWorkspaceId = await resolveAccessibleTagWorkspace(userId, workspaceId, id);
+    if (!resolvedWorkspaceId) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+    const existing = await getTag(pool, resolvedWorkspaceId, id);
     if (!existing) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }
@@ -668,18 +718,22 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       if (camel in body) data[snake] = body[camel];
     }
 
-    const tag = await updateTag(pool, workspaceId, id, data);
-    await republishStaticVastArtifacts(req, pool, workspaceId, id, 'tag_update');
+    const tag = await updateTag(pool, resolvedWorkspaceId, id, data);
+    await republishStaticVastArtifacts(req, pool, resolvedWorkspaceId, id, 'tag_update');
 
     return reply.send({ tag: toApiTag(tag) });
   });
 
   // DELETE /v1/tags/:id
   app.delete('/v1/tags/:id', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
+    const { workspaceId, userId } = req.authSession;
     const { id } = req.params;
+    const resolvedWorkspaceId = await resolveAccessibleTagWorkspace(userId, workspaceId, id);
+    if (!resolvedWorkspaceId) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
 
-    const deleted = await deleteTag(pool, workspaceId, id);
+    const deleted = await deleteTag(pool, resolvedWorkspaceId, id);
     if (!deleted) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
     }

@@ -46,7 +46,7 @@ function normalizeWorkspace(payload: any): Workspace | null {
   if (!source?.id) return null;
   return {
     id: String(source.id),
-    name: String(source.name ?? 'Workspace'),
+    name: String(source.name ?? 'Agency'),
     plan: String(source.plan ?? 'free'),
     createdAt: String(source.createdAt ?? source.created_at ?? ''),
   };
@@ -103,7 +103,7 @@ export default function WorkspaceSettings() {
         setWsName(nextWorkspace?.name ?? '');
         setMembers((teamData?.members ?? teamData ?? []).map(normalizeMember));
       })
-      .catch(() => setError('Failed to load workspace data.'))
+      .catch(() => setError('Failed to load agency settings.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -121,9 +121,9 @@ export default function WorkspaceSettings() {
       });
       if (!res.ok) throw new Error('Save failed');
       setWorkspace(w => w ? { ...w, name: wsName.trim() } : w);
-      setProfileMsg('Workspace name updated successfully.');
+      setProfileMsg('Agency name updated successfully.');
     } catch {
-      setProfileMsg('Failed to save workspace name.');
+      setProfileMsg('Failed to save agency name.');
     } finally {
       setSavingProfile(false);
     }
@@ -181,7 +181,7 @@ export default function WorkspaceSettings() {
   };
 
   const handleRemoveMember = async (member: Member) => {
-    if (!window.confirm(`Remove ${member.email} from the workspace?`)) return;
+    if (!window.confirm(`Remove ${member.email} from the agency?`)) return;
     setRemovingId(member.id);
     try {
       const res = await fetch(`/v1/team/${member.id}`, { method: 'DELETE', credentials: 'include' });
@@ -211,8 +211,8 @@ export default function WorkspaceSettings() {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-        <p className="font-medium">Error loading settings</p>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+        <p className="font-medium">Error loading agency settings</p>
         <p className="text-sm mt-1">{error}</p>
       </div>
     );
@@ -221,7 +221,7 @@ export default function WorkspaceSettings() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Workspace Settings</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Agency Settings</h1>
       </div>
 
       {/* Tabs */}
@@ -236,10 +236,10 @@ export default function WorkspaceSettings() {
       {tab === 'profile' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-base font-semibold text-slate-800 mb-4">Workspace Profile</h2>
+            <h2 className="text-base font-semibold text-slate-800 mb-4">Agency Profile</h2>
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Workspace Name</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Agency Name</label>
                 <input
                   type="text"
                   value={wsName}
@@ -270,7 +270,7 @@ export default function WorkspaceSettings() {
                 <p className="text-lg font-bold text-indigo-700 capitalize">{workspace?.plan ?? 'Free'}</p>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Workspace ID</p>
+                <p className="text-sm text-slate-500">Agency ID</p>
                 <code className="text-xs font-mono text-slate-600">{workspace?.id}</code>
               </div>
               <div>

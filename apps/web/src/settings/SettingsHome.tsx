@@ -29,7 +29,7 @@ export default function SettingsHome() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Settings</h1>
-        <p className="mt-1 text-sm text-slate-500">Workspace-level controls and operational setup.</p>
+        <p className="mt-1 text-sm text-slate-500">Agency-level controls and operational setup.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
