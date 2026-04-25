@@ -221,7 +221,10 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
             created_at, updated_at
          FROM creative_versions
          WHERE creative_id = ANY($1::uuid[])
-         ORDER BY creative_id, version_number DESC, created_at DESC`,
+         ORDER BY creative_id,
+                  CASE WHEN source_kind = 'legacy' THEN 1 ELSE 0 END ASC,
+                  version_number DESC,
+                  created_at DESC`,
         [creativeIds],
       );
       latestVersionByCreativeId = new Map(
