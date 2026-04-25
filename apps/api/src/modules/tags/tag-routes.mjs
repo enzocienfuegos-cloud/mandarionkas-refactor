@@ -21,8 +21,10 @@ import {
   shouldUseDspVideoDelivery,
 } from '@smx/contracts/dsp-macros';
 import { getRequestBaseUrl } from '../shared/request-base-url.mjs';
-import { getObjectMetadata } from '../storage/object-storage.mjs';
+import { getObjectBuffer, getObjectMetadata } from '../storage/object-storage.mjs';
 import {
+  buildStaticVastManifestPublicUrl,
+  buildStaticVastManifestStorageKey,
   buildStaticVastPublicUrl,
   buildStaticVastStorageKey,
   getStaticVastProfiles,
@@ -34,13 +36,14 @@ function escapeCsv(value) {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-async function republishStaticVastArtifacts(req, pool, workspaceId, tagId) {
+async function republishStaticVastArtifacts(req, pool, workspaceId, tagId, trigger = 'tag_update') {
   try {
     await publishStaticVastArtifactsForTag({
       pool,
       workspaceId,
       tagId,
       baseUrl: getRequestBaseUrl(req),
+      trigger,
     });
   } catch (error) {
     req.log?.warn?.({ err: error, tagId, workspaceId }, 'failed to republish static VAST artifacts');
@@ -415,6 +418,16 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     const baseUrl = getRequestBaseUrl(req);
     const campaignDsp = readCampaignDsp(tag.campaign_metadata);
     const deliverySummary = buildDeliverySummary(tag, campaignDsp);
+    const manifestStorageKey = buildStaticVastManifestStorageKey(workspaceId, tag.id);
+    let staticVastManifest = null;
+    try {
+      const manifestBuffer = await getObjectBuffer(manifestStorageKey);
+      if (manifestBuffer) {
+        staticVastManifest = JSON.parse(Buffer.from(manifestBuffer).toString('utf8'));
+      }
+    } catch {
+      staticVastManifest = null;
+    }
     const staticVastProfiles = await Promise.all(
       getStaticVastProfiles().map(async (profile) => {
         const storageKey = buildStaticVastStorageKey(workspaceId, tag.id, profile.dsp);
@@ -466,6 +479,16 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
             illumin: staticVastProfileMap.illumin?.publicUrl ?? buildStaticVastPublicUrl(workspaceId, tag.id, 'illumin'),
           },
           staticProfileStatus: staticVastProfileMap,
+          staticManifest: staticVastManifest
+            ? {
+              publicUrl: buildStaticVastManifestPublicUrl(workspaceId, tag.id),
+              generatedAt: staticVastManifest.generatedAt ?? null,
+              trigger: staticVastManifest.trigger ?? null,
+              previousGeneratedAt: staticVastManifest.previousGeneratedAt ?? null,
+              previousTrigger: staticVastManifest.previousTrigger ?? null,
+              profileCount: Array.isArray(staticVastManifest.profiles) ? staticVastManifest.profiles.length : 0,
+            }
+            : null,
         },
         trackerClick: {
           policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK),
@@ -540,7 +563,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       return reply.status(404).send({ error: 'Not Found', message: 'Binding not found' });
     }
 
-    await republishStaticVastArtifacts(req, pool, workspaceId, id);
+    await republishStaticVastArtifacts(req, pool, workspaceId, id, 'tag_binding_update');
 
     return reply.send({
       binding: {
@@ -605,7 +628,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     }
 
     const tag = await updateTag(pool, workspaceId, id, data);
-    await republishStaticVastArtifacts(req, pool, workspaceId, id);
+    await republishStaticVastArtifacts(req, pool, workspaceId, id, 'tag_update');
 
     return reply.send({ tag: toApiTag(tag) });
   });

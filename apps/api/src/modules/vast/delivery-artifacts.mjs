@@ -11,8 +11,16 @@ export function buildStaticVastStorageKey(workspaceId, tagId, dsp = '') {
   return `${workspaceId}/tag-delivery/vast/${tagId}/${profile}.xml`;
 }
 
+export function buildStaticVastManifestStorageKey(workspaceId, tagId) {
+  return `${workspaceId}/tag-delivery/vast/${tagId}/manifest.json`;
+}
+
 export function buildStaticVastPublicUrl(workspaceId, tagId, dsp = '') {
   return buildPublicAssetUrl(buildStaticVastStorageKey(workspaceId, tagId, dsp)) ?? '';
+}
+
+export function buildStaticVastManifestPublicUrl(workspaceId, tagId) {
+  return buildPublicAssetUrl(buildStaticVastManifestStorageKey(workspaceId, tagId)) ?? '';
 }
 
 export function buildStaticVastTemplateQuery(dsp = '') {

@@ -4,8 +4,10 @@ import {
   normalizeDsp,
   wrapTrackedClickUrlWithDspMacro,
 } from '@smx/contracts/dsp-macros';
-import { putObjectBuffer } from '../storage/object-storage.mjs';
+import { getObjectBuffer, putObjectBuffer } from '../storage/object-storage.mjs';
 import {
+  buildStaticVastManifestPublicUrl,
+  buildStaticVastManifestStorageKey,
   buildStaticVastProfile,
   buildStaticVastPublicUrl,
   buildStaticVastStorageKey,
@@ -155,6 +157,7 @@ export async function publishStaticVastArtifactsForTag({
   baseUrl,
   requestedSize = null,
   dspProfiles = ['', 'basis', 'illumin'],
+  trigger = 'manual',
 } = {}) {
   if (!pool || !workspaceId || !tagId || !baseUrl) return [];
 
@@ -188,6 +191,49 @@ export async function publishStaticVastArtifactsForTag({
       publicUrl: uploaded?.publicUrl ?? buildStaticVastPublicUrl(workspaceId, tagId, normalizedDsp),
       xmlVersion: normalizedDsp === 'basis' ? '2.0' : '4.0',
     });
+  }
+
+  if (published.length) {
+    const manifestStorageKey = buildStaticVastManifestStorageKey(workspaceId, tagId);
+    let previousManifest = null;
+    try {
+      const existing = await getObjectBuffer(manifestStorageKey);
+      if (existing) {
+        previousManifest = JSON.parse(Buffer.from(existing).toString('utf8'));
+      }
+    } catch {
+      previousManifest = null;
+    }
+
+    const manifest = {
+      tagId,
+      workspaceId,
+      generatedAt: new Date().toISOString(),
+      trigger,
+      baseUrl,
+      requestedSize: requestedSize ?? null,
+      profiles: published.map((entry) => ({
+        profile: entry.profile,
+        dsp: entry.dsp,
+        publicUrl: entry.publicUrl,
+        storageKey: entry.storageKey,
+        xmlVersion: entry.xmlVersion,
+      })),
+      previousGeneratedAt: previousManifest?.generatedAt ?? null,
+      previousTrigger: previousManifest?.trigger ?? null,
+    };
+
+    await putObjectBuffer({
+      storageKey: manifestStorageKey,
+      buffer: Buffer.from(JSON.stringify(manifest, null, 2), 'utf8'),
+      contentType: 'application/json; charset=utf-8',
+    });
+
+    for (const entry of published) {
+      entry.manifestPublicUrl = buildStaticVastManifestPublicUrl(workspaceId, tagId);
+      entry.generatedAt = manifest.generatedAt;
+      entry.trigger = trigger;
+    }
   }
 
   return published;

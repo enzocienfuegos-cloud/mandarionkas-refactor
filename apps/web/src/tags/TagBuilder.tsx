@@ -78,6 +78,14 @@ interface DeliveryDiagnosticEntry {
     contentType?: string | null;
     etag?: string | null;
   }> | null;
+  staticManifest?: {
+    publicUrl?: string | null;
+    generatedAt?: string | null;
+    trigger?: string | null;
+    previousGeneratedAt?: string | null;
+    previousTrigger?: string | null;
+    profileCount?: number | null;
+  } | null;
 }
 
 interface DeliveryDiagnosticsPayload {
@@ -312,6 +320,15 @@ function formatArtifactBytes(value?: number | null): string {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function formatTriggerLabel(value?: string | null): string {
+  if (!value) return 'n/a';
+  return String(value)
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 export default function TagBuilder() {
@@ -1003,6 +1020,28 @@ export default function TagBuilder() {
                 </button>
               </div>
               <div className="space-y-3">
+                {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest && (
+                  <div className="rounded-lg border border-emerald-200 bg-white/70 px-3 py-3 text-[11px] text-emerald-900">
+                    <div className="grid gap-2 md:grid-cols-4">
+                      <div>
+                        <div className="font-medium">Last Trigger</div>
+                        <div className="mt-1">{formatTriggerLabel(deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.trigger)}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">Generated At</div>
+                        <div className="mt-1">{formatArtifactTimestamp(deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.generatedAt)}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">Previous Trigger</div>
+                        <div className="mt-1">{formatTriggerLabel(deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.previousTrigger)}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">Profiles Published</div>
+                        <div className="mt-1">{deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.profileCount ?? 0}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {[
                   {
                     key: 'default',

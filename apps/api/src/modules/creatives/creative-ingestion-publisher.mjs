@@ -365,6 +365,7 @@ export async function publishCreativeIngestionToCatalog({
           workspaceId,
           tagId,
           baseUrl,
+          trigger: 'creative_ingestion_publish',
         });
       }
     } catch (error) {

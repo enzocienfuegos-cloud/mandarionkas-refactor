@@ -747,6 +747,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       baseUrl: getRequestBaseUrl(req),
       requestedSize: readRequestedSize(req.query),
       dspProfiles: [normalizedDsp],
+      trigger: 'manual_publish_static',
     });
     if (!deliveryArtifact) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found or not a VAST tag' });

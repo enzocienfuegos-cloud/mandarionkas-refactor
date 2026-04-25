@@ -54,20 +54,21 @@ function getTagServingSize(tag, bindings = []) {
   return { width, height };
 }
 
-async function republishStaticVastArtifacts(req, pool, workspaceId, tagId) {
+async function republishStaticVastArtifacts(req, pool, workspaceId, tagId, trigger = 'creative_assignment_update') {
   try {
     await publishStaticVastArtifactsForTag({
       pool,
       workspaceId,
       tagId,
       baseUrl: getRequestBaseUrl(req),
+      trigger,
     });
   } catch (error) {
     req.log?.warn?.({ err: error, tagId, workspaceId }, 'failed to republish static VAST artifacts');
   }
 }
 
-async function republishStaticVastArtifactsForCreativeVersion(req, pool, workspaceId, creativeVersionId) {
+async function republishStaticVastArtifactsForCreativeVersion(req, pool, workspaceId, creativeVersionId, trigger = 'creative_version_update') {
   try {
     const tagIds = await listTagIdsByCreativeVersion(pool, workspaceId, creativeVersionId);
     for (const tagId of tagIds) {
@@ -76,6 +77,7 @@ async function republishStaticVastArtifactsForCreativeVersion(req, pool, workspa
         workspaceId,
         tagId,
         baseUrl: getRequestBaseUrl(req),
+        trigger,
       });
     }
   } catch (error) {
@@ -433,7 +435,7 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
       await client.query('BEGIN');
       const renditions = await regenerateVideoRenditionsForVersion(client, workspaceId, version, creative);
       await client.query('COMMIT');
-      await republishStaticVastArtifactsForCreativeVersion(req, pool, workspaceId, id);
+      await republishStaticVastArtifactsForCreativeVersion(req, pool, workspaceId, id, 'video_renditions_regenerate');
       return reply.send({ renditions: renditions.map(toApiVideoRendition) });
     } catch (error) {
       await client.query('ROLLBACK');
@@ -679,7 +681,7 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
       created_by: userId,
     });
 
-    await republishStaticVastArtifacts(req, pool, workspaceId, tagId);
+    await republishStaticVastArtifacts(req, pool, workspaceId, tagId, 'creative_version_assignment');
 
     return reply.status(201).send({ binding });
   });
@@ -721,7 +723,7 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
       created_by: userId,
     });
 
-    await republishStaticVastArtifacts(req, pool, workspaceId, tagId);
+    await republishStaticVastArtifacts(req, pool, workspaceId, tagId, 'creative_variant_assignment');
 
     return reply.status(201).send({ binding });
   });
