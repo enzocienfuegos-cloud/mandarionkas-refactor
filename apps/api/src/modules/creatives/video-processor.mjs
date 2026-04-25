@@ -114,6 +114,7 @@ function buildRenditionTargets(metadata = {}) {
     { label: '1080p', width: 1920, targetBitrateKbps: 5000, audioBitrateKbps: 192, sortOrder: 10 },
     { label: '720p', width: 1280, targetBitrateKbps: 2500, audioBitrateKbps: 160, sortOrder: 20 },
     { label: '480p', width: 854, targetBitrateKbps: 1200, audioBitrateKbps: 128, sortOrder: 30 },
+    { label: '360p', width: 640, targetBitrateKbps: 800, audioBitrateKbps: 96, sortOrder: 40 },
   ];
   return targets
     .filter((target) => !sourceWidth || sourceWidth >= target.width)
