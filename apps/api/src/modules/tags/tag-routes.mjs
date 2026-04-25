@@ -487,6 +487,9 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
               previousGeneratedAt: staticVastManifest.previousGeneratedAt ?? null,
               previousTrigger: staticVastManifest.previousTrigger ?? null,
               profileCount: Array.isArray(staticVastManifest.profiles) ? staticVastManifest.profiles.length : 0,
+              history: Array.isArray(staticVastManifest.history)
+                ? staticVastManifest.history.slice(0, 10)
+                : [],
             }
             : null,
         },

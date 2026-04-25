@@ -85,6 +85,16 @@ interface DeliveryDiagnosticEntry {
     previousGeneratedAt?: string | null;
     previousTrigger?: string | null;
     profileCount?: number | null;
+    history?: Array<{
+      generatedAt?: string | null;
+      trigger?: string | null;
+      profileCount?: number | null;
+      profiles?: Array<{
+        profile?: string | null;
+        dsp?: string | null;
+        xmlVersion?: string | null;
+      }> | null;
+    }> | null;
   } | null;
 }
 
@@ -1040,6 +1050,27 @@ export default function TagBuilder() {
                         <div className="mt-1">{deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.profileCount ?? 0}</div>
                       </div>
                     </div>
+                    {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.history && deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.history.length > 0 && (
+                      <div className="mt-3 border-t border-emerald-200 pt-3">
+                        <div className="mb-2 font-medium">Recent Publish History</div>
+                        <div className="space-y-2">
+                          {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.history.slice(0, 5).map((entry, index) => (
+                            <div key={`${entry.generatedAt ?? 'entry'}-${index}`} className="rounded-md border border-emerald-200 bg-emerald-50/40 px-2.5 py-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="font-medium">{formatTriggerLabel(entry.trigger)}</div>
+                                <div>{formatArtifactTimestamp(entry.generatedAt)}</div>
+                              </div>
+                              <div className="mt-1 text-emerald-800">
+                                Profiles: {entry.profileCount ?? 0}
+                                {Array.isArray(entry.profiles) && entry.profiles.length > 0
+                                  ? ` • ${entry.profiles.map((profile) => `${profile.profile ?? 'unknown'} (${profile.xmlVersion ?? 'n/a'})`).join(', ')}`
+                                  : ''}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 {[

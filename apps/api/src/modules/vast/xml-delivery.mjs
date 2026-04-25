@@ -204,11 +204,25 @@ export async function publishStaticVastArtifactsForTag({
     } catch {
       previousManifest = null;
     }
+    const generatedAt = new Date().toISOString();
+    const nextHistoryEntry = {
+      generatedAt,
+      trigger,
+      requestedSize: requestedSize ?? null,
+      profileCount: published.length,
+      profiles: published.map((entry) => ({
+        profile: entry.profile,
+        dsp: entry.dsp,
+        xmlVersion: entry.xmlVersion,
+      })),
+    };
+    const priorHistory = Array.isArray(previousManifest?.history) ? previousManifest.history : [];
+    const history = [nextHistoryEntry, ...priorHistory].slice(0, 10);
 
     const manifest = {
       tagId,
       workspaceId,
-      generatedAt: new Date().toISOString(),
+      generatedAt,
       trigger,
       baseUrl,
       requestedSize: requestedSize ?? null,
@@ -221,6 +235,7 @@ export async function publishStaticVastArtifactsForTag({
       })),
       previousGeneratedAt: previousManifest?.generatedAt ?? null,
       previousTrigger: previousManifest?.trigger ?? null,
+      history,
     };
 
     await putObjectBuffer({
