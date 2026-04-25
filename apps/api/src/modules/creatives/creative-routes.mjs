@@ -28,6 +28,8 @@ import {
 } from '@smx/db';
 import { getTag } from '@smx/db/tags';
 import { syncVideoRenditionsForVersion } from './video-rendition-sync.mjs';
+import { getRequestBaseUrl } from '../tags/tag-routes.mjs';
+import { publishStaticVastArtifactsForTag } from '../vast/routes.mjs';
 
 function getTagServingSize(tag, bindings = []) {
   const activeBinding = bindings.find(binding =>
@@ -49,6 +51,19 @@ function getTagServingSize(tag, bindings = []) {
   ) || null;
   if (!width || !height) return null;
   return { width, height };
+}
+
+async function republishStaticVastArtifacts(req, pool, workspaceId, tagId) {
+  try {
+    await publishStaticVastArtifactsForTag({
+      pool,
+      workspaceId,
+      tagId,
+      baseUrl: getRequestBaseUrl(req),
+    });
+  } catch (error) {
+    req.log?.warn?.({ err: error, tagId, workspaceId }, 'failed to republish static VAST artifacts');
+  }
 }
 
 function toApiCreativeVersion(version) {
@@ -646,6 +661,8 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
       created_by: userId,
     });
 
+    await republishStaticVastArtifacts(req, pool, workspaceId, tagId);
+
     return reply.status(201).send({ binding });
   });
 
@@ -685,6 +702,8 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
       end_at: endAt,
       created_by: userId,
     });
+
+    await republishStaticVastArtifacts(req, pool, workspaceId, tagId);
 
     return reply.status(201).send({ binding });
   });

@@ -35,7 +35,7 @@ function appendQueryParam(url, key, value) {
   return `${url}${separator}${key}=${encodeURIComponent(String(value))}`;
 }
 
-function resolveBaseUrl(req) {
+export function resolveBaseUrl(req) {
   const forwardedProto = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim();
   const forwardedHost = String(req.headers['x-forwarded-host'] ?? '').split(',')[0].trim();
   const host = String(req.headers.host ?? '').trim();
@@ -131,7 +131,7 @@ const RUNTIME_TRACKING_HINT_HELPER = `function ensureSmxTrackingHints(url, sourc
   }
 }`;
 
-function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
+export function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
   const creativeId = servingCandidate?.creativeId ?? 'no-creative';
@@ -220,6 +220,51 @@ ${mediaFilesXml}
     </InLine>
   </Ad>
 </VAST>`;
+}
+
+export async function publishStaticVastArtifactsForTag({
+  pool,
+  workspaceId,
+  tagId,
+  baseUrl,
+  requestedSize = null,
+  dspProfiles = ['', 'basis', 'illumin'],
+} = {}) {
+  if (!pool || !workspaceId || !tagId || !baseUrl || !hasUploadStorageConfig()) return [];
+
+  const tag = await getTagServingSnapshot(pool, workspaceId, tagId, { requestedSize });
+  if (!tag || (tag.format !== 'vast' && tag.format !== 'vast_video')) return [];
+
+  const published = [];
+  for (const dsp of dspProfiles) {
+    const normalizedDsp = normalizeDsp(dsp);
+    if (normalizedDsp && !getDspMacroConfig(normalizedDsp)) continue;
+    const profile = buildStaticVastProfile(normalizedDsp);
+    const xml = buildVastXml(
+      tag,
+      workspaceId,
+      baseUrl,
+      buildStaticVastTemplateQuery(normalizedDsp),
+    );
+    const storageKey = buildStaticVastStorageKey(workspaceId, tagId, normalizedDsp);
+    const uploaded = await putObjectBuffer({
+      storageKey,
+      buffer: Buffer.from(xml, 'utf8'),
+      contentType: 'application/xml; charset=utf-8',
+    });
+    published.push({
+      kind: 'vast_xml',
+      tagId,
+      workspaceId,
+      dsp: normalizedDsp || null,
+      profile,
+      storageKey,
+      publicUrl: uploaded?.publicUrl ?? buildStaticVastPublicUrl(workspaceId, tagId, normalizedDsp),
+      xmlVersion: normalizedDsp === 'basis' ? '2.0' : '4.0',
+    });
+  }
+
+  return published;
 }
 
 function formatDuration(ms) {
@@ -884,51 +929,26 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       });
     }
 
-    const tag = await getTagServingSnapshot(pool, workspaceId, tagId, {
-      requestedSize: readRequestedSize(req.query),
-    });
-    if (!tag) {
-      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
-    }
-
-    if (tag.format !== 'vast' && tag.format !== 'vast_video') {
-      return reply.status(400).send({
-        error: 'Bad Request',
-        message: `Tag format is "${tag.format}", not a VAST format`,
-      });
-    }
-
     if (normalizedDsp && !getDspMacroConfig(normalizedDsp)) {
       return reply.status(400).send({
         error: 'Bad Request',
         message: `Unsupported DSP profile "${requestedDsp}"`,
       });
     }
-
-    const xml = buildVastXml(
-      tag,
+    const [deliveryArtifact] = await publishStaticVastArtifactsForTag({
+      pool,
       workspaceId,
-      resolveBaseUrl(req),
-      buildStaticVastTemplateQuery(normalizedDsp),
-    );
-    const storageKey = buildStaticVastStorageKey(workspaceId, tagId, normalizedDsp);
-    const uploaded = await putObjectBuffer({
-      storageKey,
-      buffer: Buffer.from(xml, 'utf8'),
-      contentType: 'application/xml; charset=utf-8',
+      tagId,
+      baseUrl: resolveBaseUrl(req),
+      requestedSize: readRequestedSize(req.query),
+      dspProfiles: [normalizedDsp],
     });
+    if (!deliveryArtifact) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found or not a VAST tag' });
+    }
 
     return reply.send({
-      deliveryArtifact: {
-        kind: 'vast_xml',
-        tagId,
-        workspaceId,
-        dsp: normalizedDsp || null,
-        profile,
-        storageKey,
-        publicUrl: uploaded?.publicUrl ?? buildStaticVastPublicUrl(workspaceId, tagId, normalizedDsp),
-        xmlVersion: normalizedDsp === 'basis' ? '2.0' : '4.0',
-      },
+      deliveryArtifact,
     });
   });
 

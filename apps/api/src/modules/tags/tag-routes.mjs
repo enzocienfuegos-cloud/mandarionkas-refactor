@@ -21,8 +21,9 @@ import {
   shouldUseDspVideoDelivery,
 } from '@smx/contracts/dsp-macros';
 import { buildStaticVastPublicUrl } from '../vast/delivery-artifacts.mjs';
+import { publishStaticVastArtifactsForTag } from '../vast/routes.mjs';
 
-function getRequestBaseUrl(req) {
+export function getRequestBaseUrl(req) {
   const forwardedProto = req.headers['x-forwarded-proto'];
   const forwardedHost = req.headers['x-forwarded-host'];
   const proto = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
@@ -35,6 +36,19 @@ function getRequestBaseUrl(req) {
 function escapeCsv(value) {
   const text = String(value ?? '');
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+async function republishStaticVastArtifacts(req, pool, workspaceId, tagId) {
+  try {
+    await publishStaticVastArtifactsForTag({
+      pool,
+      workspaceId,
+      tagId,
+      baseUrl: getRequestBaseUrl(req),
+    });
+  } catch (error) {
+    req.log?.warn?.({ err: error, tagId, workspaceId }, 'failed to republish static VAST artifacts');
+  }
 }
 
 function isBasisNativeEligible(tagFormat, campaignDsp) {
@@ -510,6 +524,8 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       return reply.status(404).send({ error: 'Not Found', message: 'Binding not found' });
     }
 
+    await republishStaticVastArtifacts(req, pool, workspaceId, id);
+
     return reply.send({
       binding: {
         id: binding.id,
@@ -573,6 +589,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     }
 
     const tag = await updateTag(pool, workspaceId, id, data);
+    await republishStaticVastArtifacts(req, pool, workspaceId, id);
 
     return reply.send({ tag: toApiTag(tag) });
   });
