@@ -5,10 +5,18 @@ import {
   buildDspLiteralClickUrl,
   buildDspTrackedClickUrl,
   DSP_DELIVERY_KINDS,
+  getDspMacroConfig,
   normalizeDsp,
   readDspMacroValue,
   wrapTrackedClickUrlWithDspMacro,
 } from '@smx/contracts/dsp-macros';
+import { hasUploadStorageConfig, putObjectBuffer } from '../storage/object-storage.mjs';
+import {
+  buildStaticVastProfile,
+  buildStaticVastPublicUrl,
+  buildStaticVastStorageKey,
+  buildStaticVastTemplateQuery,
+} from './delivery-artifacts.mjs';
 
 const BASE_URL = (process.env.BASE_URL ?? '').trim();
 
@@ -859,6 +867,69 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
     reply.header('X-Content-Type-Options', 'nosniff');
     return reply.send(xml);
+  });
+
+  // POST /v1/vast/tags/:tagId/publish-static — materialize a public XML delivery artifact in R2
+  app.post('/v1/vast/tags/:tagId/publish-static', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { tagId } = req.params;
+    const requestedDsp = String(req.body?.dsp ?? req.query?.dsp ?? '').trim();
+    const normalizedDsp = normalizeDsp(requestedDsp);
+    const profile = buildStaticVastProfile(normalizedDsp);
+
+    if (!hasUploadStorageConfig()) {
+      return reply.status(503).send({
+        error: 'Service Unavailable',
+        message: 'Object storage is not configured for static VAST publishing',
+      });
+    }
+
+    const tag = await getTagServingSnapshot(pool, workspaceId, tagId, {
+      requestedSize: readRequestedSize(req.query),
+    });
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    if (tag.format !== 'vast' && tag.format !== 'vast_video') {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: `Tag format is "${tag.format}", not a VAST format`,
+      });
+    }
+
+    if (normalizedDsp && !getDspMacroConfig(normalizedDsp)) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: `Unsupported DSP profile "${requestedDsp}"`,
+      });
+    }
+
+    const xml = buildVastXml(
+      tag,
+      workspaceId,
+      resolveBaseUrl(req),
+      buildStaticVastTemplateQuery(normalizedDsp),
+    );
+    const storageKey = buildStaticVastStorageKey(workspaceId, tagId, normalizedDsp);
+    const uploaded = await putObjectBuffer({
+      storageKey,
+      buffer: Buffer.from(xml, 'utf8'),
+      contentType: 'application/xml; charset=utf-8',
+    });
+
+    return reply.send({
+      deliveryArtifact: {
+        kind: 'vast_xml',
+        tagId,
+        workspaceId,
+        dsp: normalizedDsp || null,
+        profile,
+        storageKey,
+        publicUrl: uploaded?.publicUrl ?? buildStaticVastPublicUrl(workspaceId, tagId, normalizedDsp),
+        xmlVersion: normalizedDsp === 'basis' ? '2.0' : '4.0',
+      },
+    });
   });
 
   async function serveDisplayJavascript(req, reply) {

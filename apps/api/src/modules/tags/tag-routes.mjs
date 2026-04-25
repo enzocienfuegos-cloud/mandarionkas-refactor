@@ -20,6 +20,7 @@ import {
   shouldUseBasisNativeDelivery,
   shouldUseDspVideoDelivery,
 } from '@smx/contracts/dsp-macros';
+import { buildStaticVastPublicUrl } from '../vast/delivery-artifacts.mjs';
 
 function getRequestBaseUrl(req) {
   const forwardedProto = req.headers['x-forwarded-proto'];
@@ -83,6 +84,7 @@ function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
   const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
   const trackerViewabilityUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/track/viewability/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+  const basisStaticVastUrl = tag.workspace_id ? buildStaticVastPublicUrl(tag.workspace_id, tag.id, 'basis') : '';
   const basisNativeArgs = {
     variant,
     tagId: tag.id,
@@ -108,6 +110,8 @@ function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
       return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
     case 'vast-url':
       return vastUrl;
+    case 'vast-url-basis-static':
+      return basisStaticVastUrl;
     case 'vast-xml':
       return buildVastWrapperSnippet(tag.id, vastUrl);
     case 'tracker-click':
@@ -260,7 +264,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     const { id } = req.params;
 
     const { rows } = await pool.query(
-      `SELECT t.id, t.name, t.format, t.status, tfc.tracker_type,
+      `SELECT t.id, t.workspace_id, t.name, t.format, t.status, tfc.tracker_type,
               w.name AS workspace_name,
               c.name AS campaign_name,
               c.metadata AS campaign_metadata,
@@ -307,7 +311,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
     const campaignDsp = readCampaignDsp(tag.campaign_metadata);
     const videoExamples = buildDspVideoContractExamples(baseUrl, tag.id);
     const csvRows = [
-      ['client', 'campaign', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'vast_url_smx_standard', 'vast_url_basis', 'vast_url_illumin', 'tracker_click_url', 'tracker_impression_url'],
+      ['client', 'campaign', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'vast_url_smx_standard', 'vast_url_basis', 'vast_url_basis_static', 'vast_url_illumin', 'tracker_click_url', 'tracker_impression_url'],
       [
         tag.workspace_name ?? '',
         tag.campaign_name ?? '',
@@ -321,6 +325,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
         format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url', campaignDsp) : '',
         format === 'vast' ? (videoExamples.standard?.url ?? '') : '',
         format === 'vast' ? (videoExamples.basis?.url ?? '') : '',
+        format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url-basis-static', campaignDsp) : '',
         format === 'vast' ? (videoExamples.illumin?.url ?? '') : '',
         format === 'tracker' && tag.tracker_type === 'click' ? buildTagSnippet(baseUrl, tag, 'tracker-click', campaignDsp) : '',
         format === 'tracker' && tag.tracker_type === 'impression' ? buildTagSnippet(baseUrl, tag, 'tracker-impression', campaignDsp) : '',
@@ -426,6 +431,11 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
         vast: {
           policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.VIDEO),
           url: applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VIDEO),
+          staticProfiles: {
+            default: buildStaticVastPublicUrl(workspaceId, tag.id),
+            basis: buildStaticVastPublicUrl(workspaceId, tag.id, 'basis'),
+            illumin: buildStaticVastPublicUrl(workspaceId, tag.id, 'illumin'),
+          },
         },
         trackerClick: {
           policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK),
