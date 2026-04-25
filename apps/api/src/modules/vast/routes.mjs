@@ -148,6 +148,8 @@ function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const clickTrackingUrl = appendQueryParam(`${trackingBase}/click/${tagId}?${clickTrackingParams.toString()}`, 'ctx', ctxToken);
   const wrappedClickTrackUrl = wrapTrackedClickUrlWithDspMacro(clickTrackingUrl, query);
   const viewabilityBaseUrl = appendQueryParam(`${trackingBase}/viewability/${tagId}?${trackingParams.toString()}`, 'ctx', ctxToken);
+  const vastVersion = trackingDsp === 'Basis' ? '2.0' : '4.0';
+  const clickThroughUrl = clickUrl || wrappedClickTrackUrl || clickTrackingUrl;
   const mediaFiles = Array.isArray(servingCandidate?.videoRenditions) && servingCandidate.videoRenditions.length
     ? servingCandidate.videoRenditions
       .filter((rendition) => rendition?.public_url)
@@ -170,15 +172,21 @@ function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
               </MediaFile>`;
   }).join('\n');
   const clickThroughXml = clickUrl
-    ? `              <ClickThrough><![CDATA[${clickUrl}]]></ClickThrough>\n`
+    ? `              <ClickThrough><![CDATA[${clickThroughUrl}]]></ClickThrough>\n`
+    : (trackingDsp === 'Basis'
+      ? `              <ClickThrough><![CDATA[${clickThroughUrl}]]></ClickThrough>\n`
+      : '');
+  const errorXml = trackingDsp === 'Basis'
+    ? `      <Error><![CDATA[${appendQueryParam(`${trackingBase}/viewability/${tagId}?${trackingParams.toString()}`, 'event', '[ERRORCODE]')}]]></Error>\n`
     : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<VAST version="4.0">
+<VAST version="${vastVersion}">
   <Ad id="${tagId}">
     <InLine>
       <AdSystem><![CDATA[SMX Studio]]></AdSystem>
       <AdTitle><![CDATA[${escapeXml(tag.name)}]]></AdTitle>
+${errorXml}
       <Impression id="smx-imp"><![CDATA[${impressionUrl}]]></Impression>
       <Creatives>
         <Creative id="${creativeId}" sequence="1">
