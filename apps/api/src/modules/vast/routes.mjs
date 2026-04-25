@@ -169,9 +169,12 @@ function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
                 <![CDATA[${rendition.public_url}]]>
               </MediaFile>`;
   }).join('\n');
+  const clickThroughXml = clickUrl
+    ? `              <ClickThrough><![CDATA[${clickUrl}]]></ClickThrough>\n`
+    : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<VAST version="4.0" xmlns="http://www.iab.com/VAST" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<VAST version="4.0">
   <Ad id="${tagId}">
     <InLine>
       <AdSystem><![CDATA[SMX Studio]]></AdSystem>
@@ -189,7 +192,7 @@ function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
               <Tracking event="complete"><![CDATA[${appendQueryParam(viewabilityBaseUrl, 'event', 'complete')}]]></Tracking>
             </TrackingEvents>
             <VideoClicks>
-              <ClickThrough><![CDATA[${clickUrl}]]></ClickThrough>
+${clickThroughXml}
               <ClickTracking><![CDATA[${wrappedClickTrackUrl}]]></ClickTracking>
             </VideoClicks>
             <MediaFiles>
