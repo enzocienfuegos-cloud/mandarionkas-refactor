@@ -11,6 +11,7 @@ import fastifyMultipart from '@fastify/multipart';
 
 import { createPool } from '@smx/db/pool';
 import { buildCorsOriginMatcher, buildSessionCookieOptions } from './config/http.mjs';
+import { PostgresSessionStore } from './config/session-store.mjs';
 
 import { handleAuthRoutes, buildRequireWorkspace } from './modules/auth/auth-routes.mjs';
 import { handleTagRoutes }             from './modules/tags/tag-routes.mjs';
@@ -53,6 +54,7 @@ export async function buildApp(opts = {}) {
   });
 
   const pool = createPool();
+  const sessionStore = new PostgresSessionStore(pool);
 
   await app.register(fastifyCors, {
     origin: buildCorsOriginMatcher(),
@@ -67,6 +69,7 @@ export async function buildApp(opts = {}) {
     secret:     process.env.SESSION_SECRET ?? 'smx-dev-secret-change-in-production',
     cookieName: 'smx_session',
     cookie: buildSessionCookieOptions(),
+    store: sessionStore,
   });
 
   await app.register(fastifyMultipart, {
