@@ -3,8 +3,27 @@ import {
   getTagSummaryStats,
   getTopTags,
 } from '@smx/db/tag-reporting';
+import { getTagById } from '@smx/db/tags';
 
 export function handleTagReportingRoutes(app, { requireWorkspace, pool }) {
+  async function resolveAccessibleTagWorkspace(userId, fallbackWorkspaceId, tagId) {
+    const currentTag = await getTagById(pool, tagId);
+    if (!currentTag?.workspace_id) return null;
+    if (currentTag.workspace_id === fallbackWorkspaceId) return fallbackWorkspaceId;
+
+    const { rows } = await pool.query(
+      `SELECT 1
+       FROM workspace_members
+       WHERE workspace_id = $1
+         AND user_id = $2
+         AND status = 'active'
+       LIMIT 1`,
+      [currentTag.workspace_id, userId],
+    );
+
+    return rows.length ? currentTag.workspace_id : null;
+  }
+
   // GET /v1/tags/top — must be before /v1/tags/:id routes
   app.get('/v1/tags/top', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
@@ -24,7 +43,7 @@ export function handleTagReportingRoutes(app, { requireWorkspace, pool }) {
 
   // GET /v1/tags/:id/stats
   app.get('/v1/tags/:id/stats', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
+    const { workspaceId, userId } = req.authSession;
     const { id } = req.params;
     const {
       days,
@@ -42,7 +61,12 @@ export function handleTagReportingRoutes(app, { requireWorkspace, pool }) {
       }
     }
 
-    const stats = await getTagDailyStats(pool, workspaceId, id, {
+    const resolvedWorkspaceId = await resolveAccessibleTagWorkspace(userId, workspaceId, id);
+    if (!resolvedWorkspaceId) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    const stats = await getTagDailyStats(pool, resolvedWorkspaceId, id, {
       limit: safeLimit,
       dateFrom,
       dateTo,
@@ -58,14 +82,19 @@ export function handleTagReportingRoutes(app, { requireWorkspace, pool }) {
 
   // GET /v1/tags/:id/summary
   app.get('/v1/tags/:id/summary', { preHandler: requireWorkspace }, async (req, reply) => {
-    const { workspaceId } = req.authSession;
+    const { workspaceId, userId } = req.authSession;
     const { id } = req.params;
     const {
       creativeId = '',
       creativeSizeVariantId = '',
     } = req.query;
 
-    const summary = await getTagSummaryStats(pool, workspaceId, id, {
+    const resolvedWorkspaceId = await resolveAccessibleTagWorkspace(userId, workspaceId, id);
+    if (!resolvedWorkspaceId) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    const summary = await getTagSummaryStats(pool, resolvedWorkspaceId, id, {
       creativeId,
       creativeSizeVariantId,
     });
