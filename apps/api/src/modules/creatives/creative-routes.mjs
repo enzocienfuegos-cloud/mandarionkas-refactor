@@ -28,8 +28,8 @@ import {
 } from '@smx/db';
 import { getTag } from '@smx/db/tags';
 import { syncVideoRenditionsForVersion } from './video-rendition-sync.mjs';
-import { getRequestBaseUrl } from '../tags/tag-routes.mjs';
-import { publishStaticVastArtifactsForTag } from '../vast/routes.mjs';
+import { getRequestBaseUrl } from '../shared/request-base-url.mjs';
+import { publishStaticVastArtifactsForTag } from '../vast/xml-delivery.mjs';
 
 function getTagServingSize(tag, bindings = []) {
   const activeBinding = bindings.find(binding =>

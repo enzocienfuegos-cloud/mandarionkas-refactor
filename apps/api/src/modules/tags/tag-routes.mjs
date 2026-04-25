@@ -20,18 +20,9 @@ import {
   shouldUseBasisNativeDelivery,
   shouldUseDspVideoDelivery,
 } from '@smx/contracts/dsp-macros';
+import { getRequestBaseUrl } from '../shared/request-base-url.mjs';
 import { buildStaticVastPublicUrl } from '../vast/delivery-artifacts.mjs';
-import { publishStaticVastArtifactsForTag } from '../vast/routes.mjs';
-
-export function getRequestBaseUrl(req) {
-  const forwardedProto = req.headers['x-forwarded-proto'];
-  const forwardedHost = req.headers['x-forwarded-host'];
-  const proto = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
-  const host = Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost;
-  if (proto && host) return `${proto}://${host}`.replace(/\/+$/, '');
-  if (process.env.BASE_URL) return process.env.BASE_URL.replace(/\/+$/, '');
-  return `https://${req.hostname}`.replace(/\/+$/, '');
-}
+import { publishStaticVastArtifactsForTag } from '../vast/xml-delivery.mjs';
 
 function escapeCsv(value) {
   const text = String(value ?? '');
