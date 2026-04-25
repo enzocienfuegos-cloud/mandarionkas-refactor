@@ -13,7 +13,6 @@ import {
 import {
   applyDspMacrosToDeliveryUrl,
   buildBasisNativeSnippet,
-  buildDspVideoContractExamples,
   buildVastWrapperSnippet,
   DSP_DELIVERY_KINDS,
   readCampaignDsp,
@@ -57,6 +56,19 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 
+  function getSelectedVideoProfileKey(campaignDsp = '') {
+    const normalized = readCampaignDsp({ dsp: campaignDsp });
+    return normalized || 'default';
+  }
+
+  function buildSelectedVideoVastUrl(baseUrl, tag, campaignDsp = '') {
+    const profileKey = getSelectedVideoProfileKey(campaignDsp);
+    if (profileKey !== 'default' && tag.workspace_id) {
+      return buildStaticVastPublicUrl(tag.workspace_id, tag.id, profileKey);
+    }
+    return applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VIDEO);
+  }
+
   function addTimestampFilters(params, clauses, column, dateFrom, dateTo) {
     if (dateFrom) {
       params.push(`${dateFrom}T00:00:00.000Z`);
@@ -75,7 +87,7 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     const displayJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
     const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
     const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
-    const vastUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VIDEO);
+    const vastUrl = buildSelectedVideoVastUrl(baseUrl, tag, campaignDsp);
     const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
     const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
     const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
@@ -193,13 +205,12 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
     const baseUrl = getRequestBaseUrl(req);
     const campaignDsp = readCampaignDsp(campaign.metadata);
     const rows = [
-      ['campaign', 'client', 'tag_name', 'format', 'size', 'tracker_type', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'vast_url_smx_standard', 'vast_url_basis', 'vast_url_basis_static', 'vast_url_illumin', 'tracker_click_url', 'tracker_impression_url'],
+      ['campaign', 'client', 'tag_name', 'format', 'size', 'tracker_type', 'delivery_profile', 'js_tag', 'ins_tag', 'iframe_tag', 'vast_url', 'vast_xml_wrapper', 'tracker_click_url', 'tracker_impression_url'],
       ...tags.map(tag => {
         const size = tag.format === 'tracker'
           ? (tag.tracker_type === 'impression' ? '1x1' : '')
           : (tag.serving_width && tag.serving_height ? `${tag.serving_width}x${tag.serving_height}` : '');
         const format = String(tag.format ?? '').toLowerCase();
-        const videoExamples = buildDspVideoContractExamples(baseUrl, tag.id);
         return [
           campaign.name,
           campaign.workspace_name ?? '',
@@ -207,14 +218,12 @@ export function handleCampaignRoutes(app, { requireWorkspace, pool }) {
           format === 'vast' ? 'VAST' : format,
           size,
           tag.tracker_type ?? '',
+          format === 'vast' ? getSelectedVideoProfileKey(campaignDsp) : '',
           format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-js', campaignDsp) : '',
           format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-ins', campaignDsp) : '',
           format === 'display' ? buildTagSnippet(baseUrl, tag, 'display-iframe', campaignDsp) : '',
           format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url', campaignDsp) : '',
-          format === 'vast' ? videoExamples.standard.url : '',
-          format === 'vast' ? videoExamples.basis.url : '',
-          format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-url-basis-static', campaignDsp) : '',
-          format === 'vast' ? videoExamples.illumin.url : '',
+          format === 'vast' ? buildTagSnippet(baseUrl, tag, 'vast-xml', campaignDsp) : '',
           format === 'tracker' && tag.tracker_type === 'click' ? buildTagSnippet(baseUrl, tag, 'tracker-click', campaignDsp) : '',
           format === 'tracker' && tag.tracker_type === 'impression' ? buildTagSnippet(baseUrl, tag, 'tracker-impression', campaignDsp) : '',
         ];

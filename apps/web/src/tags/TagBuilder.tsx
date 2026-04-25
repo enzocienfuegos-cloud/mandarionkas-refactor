@@ -44,6 +44,7 @@ interface SavedTag {
   id: string;
   format: TagFormat;
   name: string;
+  workspaceId?: string | null;
   width?: number | null;
   height?: number | null;
   sizeLabel?: string;
@@ -61,6 +62,7 @@ interface DeliveryDiagnosticEntry {
     includeClickMacro?: boolean;
     measurementPath?: string;
   } | null;
+  selectedProfile?: string | null;
   url?: string;
   jsUrl?: string;
   htmlUrl?: string;
@@ -116,11 +118,6 @@ interface DeliveryDiagnosticEntry {
 interface DeliveryDiagnosticsPayload {
   dsp?: {
     selected?: string | null;
-  } | null;
-  videoContractExamples?: {
-    standard?: { label?: string; url?: string; xmlWrapper?: string } | null;
-    basis?: { label?: string; url?: string; xmlWrapper?: string } | null;
-    illumin?: { label?: string; url?: string; xmlWrapper?: string } | null;
   } | null;
   deliverySummary?: {
     basisNativeActive?: boolean;
@@ -230,6 +227,7 @@ function normalizeTagRecord(payload: unknown): SavedTag | null {
     id: String(source.id ?? ''),
     format,
     name: String(source.name ?? ''),
+    workspaceId: source.workspaceId != null ? String(source.workspaceId) : null,
     width: Number(source.servingWidth ?? firstCreative?.width ?? 0) || null,
     height: Number(source.servingHeight ?? firstCreative?.height ?? 0) || null,
     sizeLabel: String(source.sizeLabel ?? ''),
@@ -237,13 +235,27 @@ function normalizeTagRecord(payload: unknown): SavedTag | null {
   };
 }
 
-function buildTagSnippet(tag: SavedTag, variant: SnippetVariant, campaignDsp = ''): string {
+function getSelectedStaticVastUrl(campaignDsp = '', diagnostics?: DeliveryDiagnosticsPayload | null) {
+  const normalized = readCampaignDsp({ dsp: campaignDsp });
+  if (!normalized) return '';
+  if (normalized !== 'basis' && normalized !== 'illumin') return '';
+  return diagnostics?.deliveryDiagnostics?.vast?.staticProfiles?.[normalized] ?? '';
+}
+
+function buildTagSnippet(
+  tag: SavedTag,
+  variant: SnippetVariant,
+  campaignDsp = '',
+  diagnostics?: DeliveryDiagnosticsPayload | null,
+): string {
   const servingBaseUrl = resolveTagServingBaseUrl();
   const useBasisNative = shouldUseBasisNativeDelivery(campaignDsp);
   const displayJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
-  const vastUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VIDEO);
+  const selectedStaticVastUrl = getSelectedStaticVastUrl(campaignDsp, diagnostics);
+  const vastUrl = selectedStaticVastUrl
+    || applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VIDEO);
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
   const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
@@ -293,7 +305,7 @@ function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp 
     : '';
   if (tag.format === 'VAST') {
     return variant === 'vast-url'
-      ? `Use this VAST 4.x tag URL in a video player, SSP, or DSP that expects remote VAST XML.${dspNote} This flow is DSP-aware and does not depend on VPAID.`
+      ? `Use this VAST URL for the selected campaign delivery profile.${dspNote} This flow is DSP-aware and does not depend on VPAID.`
       : `Use this XML wrapper only if your integration explicitly requires inline VAST XML.${dspNote}`;
   }
   if (tag.format === 'display') {
@@ -617,7 +629,7 @@ export default function TagBuilder() {
 
   const handleCopy = () => {
     if (!savedTag) return;
-    navigator.clipboard.writeText(buildTagSnippet(savedTag, snippetVariant, selectedCampaignDsp)).then(() => {
+    navigator.clipboard.writeText(buildTagSnippet(savedTag, snippetVariant, selectedCampaignDsp, deliveryDiagnostics)).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -1057,7 +1069,7 @@ export default function TagBuilder() {
             {getSnippetHelpText(savedTag, snippetVariant, selectedCampaignDsp)}
           </p>
           <pre className="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">
-            {buildTagSnippet(savedTag, snippetVariant, selectedCampaignDsp)}
+            {buildTagSnippet(savedTag, snippetVariant, selectedCampaignDsp, deliveryDiagnostics)}
           </pre>
         </div>
       )}
@@ -1403,39 +1415,6 @@ export default function TagBuilder() {
             </div>
           </details>
 
-          {savedTag.format === 'VAST' && deliveryDiagnostics?.videoContractExamples && (
-            <div className="mt-6 rounded-lg border border-slate-200 p-4">
-              <div className="mb-3">
-                <h3 className="text-sm font-semibold text-slate-800">VAST DSP Contract Examples</h3>
-                <p className="text-xs text-slate-500">
-                  Ready-to-compare examples for SMX Standard, Basis, and Illumin using the same tag.
-                </p>
-              </div>
-              <div className="space-y-4">
-                {[
-                  deliveryDiagnostics.videoContractExamples.standard,
-                  deliveryDiagnostics.videoContractExamples.basis,
-                  deliveryDiagnostics.videoContractExamples.illumin,
-                ].filter(Boolean).map((example) => (
-                  <div key={example?.label} className="rounded-lg border border-slate-200 p-4">
-                    <div className="mb-2 text-sm font-medium text-slate-800">{example?.label}</div>
-                    {example?.url && (
-                      <div className="mb-3">
-                        <div className="mb-1 text-xs font-medium text-slate-700">VAST URL</div>
-                        <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{example.url}</pre>
-                      </div>
-                    )}
-                    {example?.xmlWrapper && (
-                      <div>
-                        <div className="mb-1 text-xs font-medium text-slate-700">XML Wrapper</div>
-                        <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{example.xmlWrapper}</pre>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
