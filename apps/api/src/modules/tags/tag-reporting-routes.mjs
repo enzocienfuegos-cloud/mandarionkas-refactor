@@ -85,6 +85,8 @@ export function handleTagReportingRoutes(app, { requireWorkspace, pool }) {
     const { workspaceId, userId } = req.authSession;
     const { id } = req.params;
     const {
+      dateFrom,
+      dateTo,
       creativeId = '',
       creativeSizeVariantId = '',
     } = req.query;
@@ -95,6 +97,8 @@ export function handleTagReportingRoutes(app, { requireWorkspace, pool }) {
     }
 
     const summary = await getTagSummaryStats(pool, resolvedWorkspaceId, id, {
+      dateFrom,
+      dateTo,
       creativeId,
       creativeSizeVariantId,
     });
