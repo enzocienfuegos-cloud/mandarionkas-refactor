@@ -18,6 +18,7 @@ import {
 import { buildPublicAssetUrl, hasUploadStorageConfig, prepareObjectUpload, sanitizeStorageFilename } from '../storage/object-storage.mjs';
 import { expandAndPublishHtml5Archive } from './html5-publisher.mjs';
 import { enrichVideoPublication } from './video-processor.mjs';
+import { syncVideoRenditionsForVersion } from './video-rendition-sync.mjs';
 
 const SOURCE_KINDS = new Set(['html5_zip', 'video_mp4']);
 
@@ -568,6 +569,28 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
             renditionsGenerated: activeTranscodedRenditions.length,
           },
         });
+
+        const persistedRenditions = await deps.listVideoRenditions(client, targetWorkspaceId, creativeVersion.id);
+        const versionHasVideoProcessing = Boolean(publishedVersion?.metadata?.videoProcessing);
+        if (!versionHasVideoProcessing || persistedRenditions.length === 0) {
+          const repaired = await syncVideoRenditionsForVersion(client, targetWorkspaceId, publishedVersion, creative);
+          publishedVersion = repaired.updatedVersion ?? publishedVersion;
+          creative = repaired.updatedCreative ?? creative;
+          for (const artifact of repaired.posterArtifacts ?? []) {
+            publishedArtifacts.push(artifact);
+          }
+          for (const rendition of repaired.persistedRenditions ?? []) {
+            if (!publishedArtifacts.some((artifact) => artifact.id === rendition.artifact_id)) {
+              const renditionArtifact = await deps.listCreativeArtifacts(client, targetWorkspaceId, creativeVersion.id);
+              for (const artifact of renditionArtifact) {
+                if (!publishedArtifacts.some((publishedArtifact) => publishedArtifact.id === artifact.id)) {
+                  publishedArtifacts.push(artifact);
+                }
+              }
+              break;
+            }
+          }
+        }
       }
 
       const updatedIngestion = await deps.updateCreativeIngestion(client, targetWorkspaceId, row.id, {
