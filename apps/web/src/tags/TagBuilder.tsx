@@ -396,6 +396,7 @@ export default function TagBuilder() {
   const [deliveryDiagnostics, setDeliveryDiagnostics] = useState<DeliveryDiagnosticsPayload | null>(null);
   const [deliveryDiagnosticsLoading, setDeliveryDiagnosticsLoading] = useState(false);
   const [republishingStaticDelivery, setRepublishingStaticDelivery] = useState(false);
+  const [queueingStaticDelivery, setQueueingStaticDelivery] = useState(false);
   const selectedCampaign = campaigns.find((campaign) => campaign.id === form.campaignId) ?? null;
   const selectedCampaignDsp = readCampaignDsp(selectedCampaign?.metadata ?? null);
   const selectedCampaignMediaType = String(selectedCampaign?.metadata?.mediaType ?? 'display').toLowerCase();
@@ -674,6 +675,32 @@ export default function TagBuilder() {
       setGeneralError(error?.message ?? 'Failed to republish static VAST delivery.');
     } finally {
       setRepublishingStaticDelivery(false);
+    }
+  };
+
+  const handleQueueStaticDelivery = async () => {
+    if (!id) return;
+    setQueueingStaticDelivery(true);
+    setGeneralError('');
+    setSuccessMessage('');
+
+    try {
+      const response = await fetch(`/v1/vast/tags/${id}/queue-static-publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.message ?? 'Failed to queue static VAST delivery publish.');
+      }
+      await refreshDeliveryDiagnostics();
+      setSuccessMessage('Static VAST delivery queued successfully.');
+    } catch (error: any) {
+      setGeneralError(error?.message ?? 'Failed to queue static VAST delivery publish.');
+    } finally {
+      setQueueingStaticDelivery(false);
     }
   };
 
@@ -1046,18 +1073,32 @@ export default function TagBuilder() {
                     Public XML artifacts served from storage for DSP delivery and validator-safe testing.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { void handleRepublishStaticDelivery(); }}
-                  disabled={republishingStaticDelivery}
-                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                    republishingStaticDelivery
-                      ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
-                      : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
-                  }`}
-                >
-                  {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { void handleQueueStaticDelivery(); }}
+                    disabled={queueingStaticDelivery}
+                    className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                      queueingStaticDelivery
+                        ? 'cursor-not-allowed border-sky-200 bg-sky-100 text-sky-500'
+                        : 'border-sky-300 bg-white text-sky-800 hover:bg-sky-100'
+                    }`}
+                  >
+                    {queueingStaticDelivery ? 'Queueing…' : 'Queue Background Publish'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { void handleRepublishStaticDelivery(); }}
+                    disabled={republishingStaticDelivery}
+                    className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                      republishingStaticDelivery
+                        ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
+                        : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
+                    }`}
+                  >
+                    {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
+                  </button>
+                </div>
               </div>
               <div className="space-y-3">
                 {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest && (
@@ -1202,18 +1243,32 @@ export default function TagBuilder() {
                   Public XML artifacts served from storage for DSP delivery and validator-safe testing.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { void handleRepublishStaticDelivery(); }}
-                  disabled={republishingStaticDelivery}
-                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                    republishingStaticDelivery
-                      ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
-                      : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
-                  }`}
-                >
-                  {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { void handleQueueStaticDelivery(); }}
+                    disabled={queueingStaticDelivery}
+                    className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                      queueingStaticDelivery
+                        ? 'cursor-not-allowed border-sky-200 bg-sky-100 text-sky-500'
+                        : 'border-sky-300 bg-white text-sky-800 hover:bg-sky-100'
+                    }`}
+                  >
+                    {queueingStaticDelivery ? 'Queueing…' : 'Queue Background Publish'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { void handleRepublishStaticDelivery(); }}
+                    disabled={republishingStaticDelivery}
+                    className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                      republishingStaticDelivery
+                        ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
+                        : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
+                    }`}
+                  >
+                    {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
+                  </button>
+                </div>
               </div>
               <p className="mt-3 text-xs text-emerald-900">
                 No static delivery artifacts are visible yet. Republish to generate or refresh the public XML profiles.

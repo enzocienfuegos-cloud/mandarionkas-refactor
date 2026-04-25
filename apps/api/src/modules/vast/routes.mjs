@@ -12,6 +12,7 @@ import {
 } from '@smx/contracts/dsp-macros';
 import { hasUploadStorageConfig } from '../storage/object-storage.mjs';
 import { getRequestBaseUrl } from '../shared/request-base-url.mjs';
+import { enqueueStaticVastPublish } from './publish-queue.mjs';
 import {
   buildVastXml,
   publishStaticVastArtifactsForTag,
@@ -755,6 +756,52 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
 
     return reply.send({
       deliveryArtifact,
+    });
+  });
+
+  // POST /v1/vast/tags/:tagId/queue-static-publish — enqueue a background static VAST publish job
+  app.post('/v1/vast/tags/:tagId/queue-static-publish', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { tagId } = req.params;
+    const requestedDsp = String(req.body?.dsp ?? req.query?.dsp ?? '').trim();
+    const normalizedDsp = normalizeDsp(requestedDsp);
+
+    if (!hasUploadStorageConfig()) {
+      return reply.status(503).send({
+        error: 'Service Unavailable',
+        message: 'Object storage is not configured for static VAST publishing',
+      });
+    }
+
+    if (normalizedDsp && !getDspMacroConfig(normalizedDsp)) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: `Unsupported DSP profile "${requestedDsp}"`,
+      });
+    }
+
+    const job = await enqueueStaticVastPublish(pool, {
+      workspaceId,
+      tagId,
+      trigger: 'manual_queue_static_publish',
+      requestedSize: readRequestedSize(req.query),
+      dspProfiles: normalizedDsp ? [normalizedDsp] : ['', 'basis', 'illumin'],
+      priority: 10,
+    });
+
+    if (!job) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found or not a VAST tag' });
+    }
+
+    return reply.send({
+      queued: true,
+      job: {
+        id: job.id,
+        status: job.status,
+        priority: job.priority,
+        createdAt: job.created_at ?? null,
+        updatedAt: job.updated_at ?? null,
+      },
     });
   });
 
