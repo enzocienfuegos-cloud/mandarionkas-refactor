@@ -853,6 +853,8 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
 
     const xml = buildVastXml(tag, tag.workspace_id ?? workspaceId, baseUrl, req.query);
 
+    reply.header('Access-Control-Allow-Origin', '*');
+    reply.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
     reply.header('Content-Type', 'application/xml; charset=utf-8');
     reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
     reply.header('X-Content-Type-Options', 'nosniff');
