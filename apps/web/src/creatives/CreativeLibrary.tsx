@@ -118,11 +118,14 @@ interface VariantState {
 interface VideoRenditionState {
   creativeId: string;
   creativeName: string;
+  workspaceId?: string | null;
   versionId: string;
   loading: boolean;
   error: string;
   version: CreativeVersion | null;
   renditions: VideoRendition[];
+  pendingIngestion: CreativeIngestion | null;
+  awaitingPublish: boolean;
 }
 
 interface RegenerationFeedbackState {
@@ -176,6 +179,64 @@ function estimateRegenerationFeedback(elapsedMs: number) {
     stageLabel: 'Finalizing rendition metadata…',
     progressPercent: 97,
   };
+}
+
+function getPublishJob(ingestion: CreativeIngestion | null | undefined) {
+  const metadata = ingestion?.metadata;
+  if (!metadata || typeof metadata !== 'object') return null;
+  const publishJob = (metadata as Record<string, unknown>).publishJob;
+  return publishJob && typeof publishJob === 'object'
+    ? publishJob as Record<string, unknown>
+    : null;
+}
+
+function getPublishStageLabel(stage: string | null | undefined, fallback = 'Publishing creative in background…') {
+  switch (stage) {
+    case 'queued':
+      return 'Queued for worker pickup…';
+    case 'starting':
+      return 'Preparing background publish job…';
+    case 'creating_catalog_record':
+      return 'Creating creative and version records…';
+    case 'publishing_html5_archive':
+      return 'Publishing HTML5 assets…';
+    case 'transcoding_video':
+      return 'Transcoding video renditions with FFmpeg…';
+    case 'finalizing_publication':
+      return 'Saving rendition metadata and activating assets…';
+    case 'completed':
+      return 'Creative publish completed.';
+    case 'failed':
+      return 'Creative publish failed.';
+    default:
+      return fallback;
+  }
+}
+
+function findPendingIngestionForCreative(
+  ingestionList: CreativeIngestion[],
+  creative: Creative,
+  version: CreativeVersion,
+) {
+  const normalizedCreativeName = String(creative.name ?? '').trim().toLowerCase();
+  const matches = ingestionList.filter((ingestion) => {
+    const requestedName = String((ingestion.metadata as Record<string, unknown> | undefined)?.requestedName ?? '')
+      .trim()
+      .toLowerCase();
+    const filenameBase = String(ingestion.originalFilename ?? '')
+      .replace(/\.[^.]+$/, '')
+      .trim()
+      .toLowerCase();
+    return (
+      ingestion.creativeVersionId === version.id
+      || ingestion.creativeId === creative.id
+      || (!!normalizedCreativeName && requestedName === normalizedCreativeName)
+      || (!!normalizedCreativeName && filenameBase === normalizedCreativeName)
+    );
+  });
+
+  return matches
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0] ?? null;
 }
 
 export default function CreativeLibrary() {
@@ -364,14 +425,18 @@ export default function CreativeLibrary() {
   };
 
   const openVideoRenditionManager = async (creative: Creative, version: CreativeVersion) => {
+    const pendingIngestion = findPendingIngestionForCreative(ingestions, creative, version);
     setVideoRenditionState({
       creativeId: creative.id,
       creativeName: creative.name,
+      workspaceId: creative.workspaceId ?? null,
       versionId: version.id,
       loading: true,
       error: '',
       version,
       renditions: [],
+      pendingIngestion,
+      awaitingPublish: pendingIngestion?.status === 'processing',
     });
     try {
       const detail = await loadCreativeVersionDetail(version.id);
@@ -380,12 +445,18 @@ export default function CreativeLibrary() {
         loading: false,
         version: detail.creativeVersion,
         renditions: detail.videoRenditions,
+        awaitingPublish: false,
       } : current);
     } catch (loadError: any) {
+      const message = loadError.message ?? 'Failed to load video renditions';
+      const missingVersion = String(message).toLowerCase().includes('creative version not found');
       setVideoRenditionState(current => current ? {
         ...current,
         loading: false,
-        error: loadError.message ?? 'Failed to load video renditions',
+        error: missingVersion && pendingIngestion?.status === 'processing'
+          ? ''
+          : message,
+        awaitingPublish: missingVersion && pendingIngestion?.status === 'processing',
       } : current);
     }
   };
@@ -427,6 +498,13 @@ export default function CreativeLibrary() {
 
   const handleRegenerateVideoRenditions = async () => {
     if (!videoRenditionState) return;
+    if (videoRenditionState.awaitingPublish) {
+      setVideoRenditionState(current => current ? {
+        ...current,
+        error: 'This video is still publishing in the background. Renditions will appear when publishing completes.',
+      } : current);
+      return;
+    }
     const startedAt = Date.now();
     const initialFeedback = estimateRegenerationFeedback(0);
     setRegenerationFeedback({
@@ -493,12 +571,80 @@ export default function CreativeLibrary() {
     return () => window.clearInterval(intervalId);
   }, [regenerationFeedback?.active]);
 
+  useEffect(() => {
+    if (!videoRenditionState?.awaitingPublish || !videoRenditionState.pendingIngestion?.id) return undefined;
+
+    let cancelled = false;
+    const intervalId = window.setInterval(() => {
+      void (async () => {
+        try {
+          const latestIngestion = await loadCreativeIngestion(videoRenditionState.pendingIngestion!.id, {
+            workspaceId: videoRenditionState.workspaceId ?? undefined,
+          });
+          if (cancelled) return;
+
+          setIngestions(current => current.map(ingestion => (
+            ingestion.id === latestIngestion.id ? latestIngestion : ingestion
+          )));
+
+          if (latestIngestion.status === 'published' && latestIngestion.creativeVersionId) {
+            try {
+              const detail = await loadCreativeVersionDetail(latestIngestion.creativeVersionId);
+              if (cancelled) return;
+              setVideoRenditionState(current => current ? {
+                ...current,
+                versionId: latestIngestion.creativeVersionId ?? current.versionId,
+                version: detail.creativeVersion,
+                renditions: detail.videoRenditions,
+                pendingIngestion: latestIngestion,
+                awaitingPublish: false,
+                loading: false,
+                error: '',
+              } : current);
+              void load();
+            } catch {
+              if (cancelled) return;
+            }
+            return;
+          }
+
+          setVideoRenditionState(current => current ? {
+            ...current,
+            pendingIngestion: latestIngestion,
+            awaitingPublish: latestIngestion.status === 'processing',
+            error: latestIngestion.status === 'failed'
+              ? latestIngestion.errorDetail ?? 'Background publish failed'
+              : current.error,
+          } : current);
+        } catch {
+          if (cancelled) return;
+        }
+      })();
+    }, 2500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [
+    videoRenditionState?.awaitingPublish,
+    videoRenditionState?.pendingIngestion?.id,
+    videoRenditionState?.workspaceId,
+  ]);
+
   const videoProcessing = (videoRenditionState?.version?.metadata as Record<string, any> | undefined)?.videoProcessing;
   const plannedRenditions = Array.isArray(videoProcessing?.targetPlan) ? videoProcessing.targetPlan : [];
   const renditionProcessing = Array.isArray(videoProcessing?.renditionProcessing) ? videoProcessing.renditionProcessing : [];
   const estimatedRemainingMs = regenerationFeedback
     ? estimateRemainingDuration(regenerationFeedback.elapsedMs, regenerationFeedback.progressPercent)
     : null;
+  const pendingPublishJob = getPublishJob(videoRenditionState?.pendingIngestion);
+  const pendingPublishPercent = Math.min(100, Math.max(0, Number(pendingPublishJob?.progressPercent ?? 0) || 0));
+  const pendingPublishStage = String(pendingPublishJob?.stage ?? '');
+  const pendingPublishMessage = String(
+    pendingPublishJob?.message
+    ?? getPublishStageLabel(pendingPublishStage),
+  );
 
   const toggleVariantSelection = (variantId: string) => {
     setVariantState(current => {
@@ -997,16 +1143,44 @@ export default function CreativeLibrary() {
                 </p>
                 <button
                   onClick={() => void handleRegenerateVideoRenditions()}
-                  disabled={videoRenditionState.loading}
+                  disabled={videoRenditionState.loading || videoRenditionState.awaitingPublish}
                   className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
                 >
-                  {videoRenditionState.loading ? 'Regenerating…' : 'Regenerate renditions'}
+                  {videoRenditionState.awaitingPublish
+                    ? 'Publishing in background…'
+                    : videoRenditionState.loading
+                      ? 'Regenerating…'
+                      : 'Regenerate renditions'}
                 </button>
               </div>
 
               {videoRenditionState.error && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {videoRenditionState.error}
+                </div>
+              )}
+
+              {videoRenditionState.awaitingPublish && (
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Video publish in progress</p>
+                      <p className="mt-1 text-sm text-slate-600">{pendingPublishMessage}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        The creative version and renditions will appear here automatically when the background worker finishes.
+                      </p>
+                    </div>
+                    <div className="text-right text-sm text-slate-600">
+                      <div className="font-semibold text-slate-800">{pendingPublishPercent}%</div>
+                      <div>{getPublishStageLabel(pendingPublishStage)}</div>
+                    </div>
+                  </div>
+                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/80">
+                    <div
+                      className="h-full rounded-full bg-indigo-500 transition-[width] duration-300"
+                      style={{ width: `${Math.max(8, pendingPublishPercent)}%` }}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -1102,6 +1276,8 @@ export default function CreativeLibrary() {
                           {entry.available ? 'generated' : (entry.reason ?? 'failed')}
                         </span>
                       </div>
+                    )) : videoRenditionState.awaitingPublish ? (
+                      <div className="text-slate-500">Waiting for the background worker to finish creating the creative version and renditions.</div>
                     )) : (
                       <div className="text-slate-500">No encoder run recorded yet.</div>
                     )}
@@ -1185,7 +1361,14 @@ export default function CreativeLibrary() {
                         </td>
                       </tr>
                     ))}
-                    {!videoRenditionState.loading && videoRenditionState.renditions.length === 0 && (
+                    {!videoRenditionState.loading && videoRenditionState.renditions.length === 0 && videoRenditionState.awaitingPublish && (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500">
+                          Renditions are still being generated in the background. This table will populate after publish completes.
+                        </td>
+                      </tr>
+                    )}
+                    {!videoRenditionState.loading && videoRenditionState.renditions.length === 0 && !videoRenditionState.awaitingPublish && (
                       <tr>
                         <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500">
                           No video renditions yet.

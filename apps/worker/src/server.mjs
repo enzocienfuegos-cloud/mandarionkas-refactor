@@ -151,6 +151,7 @@ async function processJob(job) {
         },
       });
 
+      console.log(`[worker] publish job ${job.id} started ingestion=${ingestionId} workspace=${workspaceId} sourceKind=${ingestion.source_kind}`);
       const published = await publishCreativeIngestionToCatalog({
         pool,
         workspaceId,
@@ -159,6 +160,7 @@ async function processJob(job) {
         userId,
         requireManualReview,
         onStage: async ({ stage, progressPercent, message }) => {
+          console.log(`[worker] publish job ${job.id} stage=${stage} progress=${progressPercent ?? '?'} message=${message ?? ''}`);
           await updatePublishProgress(workspaceId, ingestionId, {
             status: 'processing',
             publishJob: {
@@ -188,6 +190,9 @@ async function processJob(job) {
         },
       });
 
+      console.log(
+        `[worker] publish job ${job.id} completed creative=${published.creative.id} creativeVersion=${published.creativeVersion.id}`,
+      );
       await updateCreativeIngestion(pool, workspaceId, ingestionId, {
         creativeId: published.creative.id,
         creativeVersionId: published.creativeVersion.id,
@@ -236,7 +241,7 @@ async function poll() {
       try { await finishJob(c2, job.id); }
       finally { c2.release(); }
     } catch (err) {
-      console.error(`[worker] job ${job.id} failed:`, err.message);
+      console.error(`[worker] job ${job.id} failed:`, err.stack ?? err.message);
       if (job.type === 'creative_ingestion_publish') {
         const { workspaceId, ingestionId } = job.payload ?? {};
         if (workspaceId && ingestionId) {

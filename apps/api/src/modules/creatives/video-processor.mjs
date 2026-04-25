@@ -7,6 +7,14 @@ import { getObjectBuffer, putObjectBuffer } from '../storage/object-storage.mjs'
 
 const execFile = promisify(execFileCallback);
 
+function logVideoProcessing(message, extra = null) {
+  if (extra) {
+    console.log(`[video-processing] ${message}`, extra);
+    return;
+  }
+  console.log(`[video-processing] ${message}`);
+}
+
 async function runBinary(binary, args, options = {}) {
   try {
     const result = await execFile(binary, args, {
@@ -170,12 +178,15 @@ export async function enrichVideoPublication({
   sourceStorageKey,
   sourcePublicUrl,
 }) {
+  const startedAt = Date.now();
+  logVideoProcessing(`start creativeVersion=${creativeVersionId} workspace=${workspaceId}`);
   const videoBuffer = sourceStorageKey
     ? await getObjectBuffer(sourceStorageKey)
     : await downloadBufferFromPublicUrl(sourcePublicUrl);
   if (!videoBuffer) {
     throw new Error('Could not download source video from object storage');
   }
+  logVideoProcessing(`downloaded source creativeVersion=${creativeVersionId} bytes=${videoBuffer.byteLength}`);
 
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'smx-video-'));
   const videoPath = path.join(tempRoot, 'source.mp4');
@@ -184,19 +195,26 @@ export async function enrichVideoPublication({
   try {
     await writeFile(videoPath, videoBuffer);
 
+    logVideoProcessing(`running ffprobe creativeVersion=${creativeVersionId}`);
     const probe = await probeVideoFile(videoPath);
+    logVideoProcessing(`ffprobe finished creativeVersion=${creativeVersionId}`, probe);
+    logVideoProcessing(`generating poster creativeVersion=${creativeVersionId}`);
     const poster = await createPoster(videoPath, posterPath);
+    logVideoProcessing(`poster generation finished creativeVersion=${creativeVersionId}`, poster);
     const targets = buildRenditionTargets(probe.metadata ?? {});
+    logVideoProcessing(`planned rendition targets creativeVersion=${creativeVersionId} count=${targets.length}`, targets);
 
     const posterArtifacts = [];
     if (poster.available) {
       const posterBuffer = await (await import('node:fs/promises')).readFile(posterPath);
       const storageKey = `${workspaceId}/creative-published/${creativeVersionId}/poster.jpg`;
+      logVideoProcessing(`uploading poster creativeVersion=${creativeVersionId} storageKey=${storageKey} bytes=${posterBuffer.byteLength}`);
       const upload = await putObjectBuffer({
         storageKey,
         buffer: posterBuffer,
         contentType: 'image/jpeg',
       });
+      logVideoProcessing(`uploaded poster creativeVersion=${creativeVersionId} publicUrl=${upload?.publicUrl ?? 'null'}`);
       posterArtifacts.push({
         kind: 'poster',
         storageKey,
@@ -211,11 +229,13 @@ export async function enrichVideoPublication({
     }
 
     const renditions = [];
+    logVideoProcessing(`uploading source passthrough creativeVersion=${creativeVersionId}`);
     const sourceUpload = await putObjectBuffer({
       storageKey: `${workspaceId}/creative-published/${creativeVersionId}/source.mp4`,
       buffer: videoBuffer,
       contentType: 'video/mp4',
     });
+    logVideoProcessing(`uploaded source passthrough creativeVersion=${creativeVersionId} publicUrl=${sourceUpload?.publicUrl ?? 'null'}`);
     renditions.push({
       label: 'Source',
       width: probe.metadata?.width ?? null,
@@ -244,7 +264,11 @@ export async function enrichVideoPublication({
     const renditionProcessing = [];
     for (const target of targets) {
       const outputPath = path.join(tempRoot, `${target.label}.mp4`);
+      logVideoProcessing(
+        `transcoding rendition creativeVersion=${creativeVersionId} label=${target.label} width=${target.width} bitrateKbps=${target.targetBitrateKbps}`,
+      );
       const transcode = await transcodeRendition(videoPath, outputPath, target);
+      logVideoProcessing(`transcode finished creativeVersion=${creativeVersionId} label=${target.label}`, transcode);
       renditionProcessing.push({
         label: target.label,
         available: transcode.ok,
@@ -255,12 +279,15 @@ export async function enrichVideoPublication({
 
       const renditionBuffer = await readFile(outputPath);
       const storageKey = `${workspaceId}/creative-published/${creativeVersionId}/renditions/${target.label}.mp4`;
+      logVideoProcessing(`uploading rendition creativeVersion=${creativeVersionId} label=${target.label} bytes=${renditionBuffer.byteLength}`);
       const upload = await putObjectBuffer({
         storageKey,
         buffer: renditionBuffer,
         contentType: 'video/mp4',
       });
+      logVideoProcessing(`uploaded rendition creativeVersion=${creativeVersionId} label=${target.label} publicUrl=${upload?.publicUrl ?? 'null'}`);
       const renditionProbe = await probeVideoFile(outputPath);
+      logVideoProcessing(`probed transcoded rendition creativeVersion=${creativeVersionId} label=${target.label}`, renditionProbe);
       renditions.push({
         label: target.label,
         width: renditionProbe.metadata?.width ?? null,
@@ -288,6 +315,9 @@ export async function enrichVideoPublication({
       });
     }
 
+    logVideoProcessing(
+      `completed creativeVersion=${creativeVersionId} generated=${renditions.filter((rendition) => !rendition.isSource).length} elapsedMs=${Date.now() - startedAt}`,
+    );
     return {
       metadata: probe.metadata,
       posterArtifacts,
@@ -319,6 +349,7 @@ export async function enrichVideoPublication({
       },
     };
   } finally {
+    logVideoProcessing(`cleanup creativeVersion=${creativeVersionId} elapsedMs=${Date.now() - startedAt}`);
     await rm(tempRoot, { recursive: true, force: true });
   }
 }
