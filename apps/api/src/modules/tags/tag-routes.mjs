@@ -452,15 +452,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
           AND type = 'vast_static_publish'
           AND payload->>'workspaceId' = $1
           AND payload->>'tagId' = $2
-        ORDER BY
-          CASE status
-            WHEN 'running' THEN 0
-            WHEN 'pending' THEN 1
-            WHEN 'failed' THEN 2
-            WHEN 'completed' THEN 3
-            ELSE 4
-          END,
-          updated_at DESC
+        ORDER BY updated_at DESC, created_at DESC
         LIMIT 1`,
       [String(workspaceId), String(tag.id)],
     );
