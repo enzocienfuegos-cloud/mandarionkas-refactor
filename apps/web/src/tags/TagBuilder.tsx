@@ -141,6 +141,9 @@ interface DeliveryDiagnosticSection {
 
 type SnippetVariant =
   | 'vast-url'
+  | 'vast-url-basis-static'
+  | 'vast-url-illumin-static'
+  | 'vast-url-vast4-static'
   | 'vast-url-basis-dynamic'
   | 'vast-url-illumin-dynamic'
   | 'vast-url-vast4-dynamic'
@@ -207,9 +210,9 @@ function getSnippetOptions(
       value: 'vast-url',
       label: selectedProfile ? `${selectedProfile === 'basis' ? 'Basis' : selectedProfile === 'illumin' ? 'Illumin' : 'Selected'} URL` : 'Campaign URL',
     });
-    options.push({ value: 'vast-url-basis-dynamic', label: 'Basis Compatible URL' });
-    options.push({ value: 'vast-url-illumin-dynamic', label: 'Illumin URL' });
-    options.push({ value: 'vast-url-vast4-dynamic', label: 'VAST 4.x URL' });
+    options.push({ value: 'vast-url-basis-static', label: 'Basis Compatible URL' });
+    options.push({ value: 'vast-url-illumin-static', label: 'Illumin URL' });
+    options.push({ value: 'vast-url-vast4-static', label: 'VAST 4.x URL' });
     options.push({ value: 'vast-xml', label: 'XML Wrapper' });
     return options;
   }
@@ -274,6 +277,9 @@ function buildTagSnippet(
   const basisDynamicVastUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, 'basis', DSP_DELIVERY_KINDS.VIDEO);
   const illuminDynamicVastUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, 'illumin', DSP_DELIVERY_KINDS.VIDEO);
   const vast4DynamicUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, '', DSP_DELIVERY_KINDS.VIDEO);
+  const basisStaticVastUrl = diagnostics?.deliveryDiagnostics?.vast?.staticProfiles?.basis ?? '';
+  const illuminStaticVastUrl = diagnostics?.deliveryDiagnostics?.vast?.staticProfiles?.illumin ?? '';
+  const vast4StaticUrl = diagnostics?.deliveryDiagnostics?.vast?.staticProfiles?.default ?? '';
   const vastUrl = selectedStaticVastUrl || campaignVastUrl;
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
   const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
@@ -296,6 +302,12 @@ function buildTagSnippet(
   switch (variant) {
     case 'vast-url':
       return campaignVastUrl;
+    case 'vast-url-basis-static':
+      return basisStaticVastUrl || basisDynamicVastUrl;
+    case 'vast-url-illumin-static':
+      return illuminStaticVastUrl || illuminDynamicVastUrl;
+    case 'vast-url-vast4-static':
+      return vast4StaticUrl || vast4DynamicUrl;
     case 'vast-url-basis-dynamic':
       return basisDynamicVastUrl;
     case 'vast-url-illumin-dynamic':
@@ -329,14 +341,23 @@ function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp 
     ? ` ${selectedConfig.label} macros are auto-injected for delivery context and click passthrough.`
     : '';
   if (tag.format === 'VAST') {
+    if (variant === 'vast-url-basis-static') {
+      return 'Use this Basis-compatible published XML artifact. This is the safest option for Basis acceptance.';
+    }
+    if (variant === 'vast-url-illumin-static') {
+      return 'Use this published Illumin XML artifact when you want the Illumin-ready static VAST.';
+    }
+    if (variant === 'vast-url-vast4-static') {
+      return 'Use this published VAST 4.x XML artifact when you want the OMID-capable static profile.';
+    }
     if (variant === 'vast-url-basis-dynamic') {
-      return 'Use this Basis-compatible VAST tag URL. It keeps Basis macros visible in the tag URL and returns the Basis-oriented video response.';
+      return 'Advanced option: dynamic Basis tag URL with macros visible in the URL itself.';
     }
     if (variant === 'vast-url-illumin-dynamic') {
-      return 'Use this Illumin VAST tag URL. It keeps Illumin macros visible in the tag URL for that DSP flow.';
+      return 'Advanced option: dynamic Illumin tag URL with macros visible in the URL itself.';
     }
     if (variant === 'vast-url-vast4-dynamic') {
-      return 'Use this VAST 4.x tag URL when you want the OMID-capable path for validators or players that support it.';
+      return 'Advanced option: dynamic VAST 4.x tag URL with macros visible in the URL itself.';
     }
     return variant === 'vast-url'
       ? `Use this VAST URL for the selected campaign delivery profile.${dspNote} This flow is DSP-aware and does not depend on VPAID.`
