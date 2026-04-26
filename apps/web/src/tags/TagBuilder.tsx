@@ -14,6 +14,7 @@ import {
   assignCreativeVersionToTag,
   loadCreativesWithLatestVersion,
   loadTagBindings,
+  updateTagBinding,
   type Creative,
   type CreativeVersion,
   type TagBinding,
@@ -55,6 +56,8 @@ interface CreativeAssignmentOption {
   creative: Creative;
   latestVersion: CreativeVersion;
 }
+
+type TagBindingStatus = TagBinding['status'];
 
 interface DeliveryDiagnosticEntry {
   policy?: {
@@ -478,6 +481,8 @@ export default function TagBuilder() {
   const [successMessage, setSuccessMessage] = useState('');
   const [bindings, setBindings] = useState<TagBinding[]>([]);
   const [bindingsLoading, setBindingsLoading] = useState(false);
+  const [bindingDrafts, setBindingDrafts] = useState<Record<string, { weight: string; status: TagBindingStatus }>>({});
+  const [updatingBindingId, setUpdatingBindingId] = useState<string | null>(null);
   const [creativeOptions, setCreativeOptions] = useState<CreativeAssignmentOption[]>([]);
   const [creativeOptionsLoading, setCreativeOptionsLoading] = useState(false);
   const [assignmentVersionId, setAssignmentVersionId] = useState('');
@@ -574,6 +579,17 @@ export default function TagBuilder() {
       .catch(() => setAssignmentError('Failed to load assigned creatives.'))
       .finally(() => setBindingsLoading(false));
   }, [id, isEdit]);
+
+  useEffect(() => {
+    setBindingDrafts(
+      Object.fromEntries(
+        bindings.map(binding => [
+          binding.id,
+          { weight: String(Math.max(1, Number(binding.weight) || 1)), status: binding.status },
+        ]),
+      ),
+    );
+  }, [bindings]);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -803,6 +819,80 @@ export default function TagBuilder() {
       setAssignmentError(error?.message ?? 'Failed to assign creative.');
     } finally {
       setAssignmentBusy(false);
+    }
+  };
+
+  const handleBindingDraftChange = (
+    bindingId: string,
+    field: 'weight' | 'status',
+    value: string,
+  ) => {
+    setBindingDrafts(current => ({
+      ...current,
+      [bindingId]: {
+        weight: current[bindingId]?.weight ?? '1',
+        status: current[bindingId]?.status ?? 'active',
+        [field]: value,
+      } as { weight: string; status: TagBindingStatus },
+    }));
+    setAssignmentError('');
+    setSuccessMessage('');
+  };
+
+  const handleSaveBinding = async (binding: TagBinding) => {
+    if (!id) return;
+    const draft = bindingDrafts[binding.id] ?? {
+      weight: String(Math.max(1, Number(binding.weight) || 1)),
+      status: binding.status,
+    };
+    const parsedWeight = Math.max(1, Number.parseInt(draft.weight, 10) || 1);
+
+    setUpdatingBindingId(binding.id);
+    setAssignmentError('');
+    setSuccessMessage('');
+
+    try {
+      await updateTagBinding({
+        tagId: id,
+        bindingId: binding.id,
+        status: draft.status,
+        weight: parsedWeight,
+      });
+      await refreshBindings();
+      await refreshDeliveryDiagnostics();
+      setSuccessMessage(`Rotation updated for "${binding.creativeName}".`);
+    } catch (error: any) {
+      setAssignmentError(error?.message ?? 'Failed to update creative rotation.');
+    } finally {
+      setUpdatingBindingId(null);
+    }
+  };
+
+  const handleToggleBindingStatus = async (binding: TagBinding) => {
+    const nextStatus: TagBindingStatus = binding.status === 'active' ? 'paused' : 'active';
+    handleBindingDraftChange(binding.id, 'status', nextStatus);
+    setUpdatingBindingId(binding.id);
+    setAssignmentError('');
+    setSuccessMessage('');
+
+    try {
+      await updateTagBinding({
+        tagId: binding.tagId,
+        bindingId: binding.id,
+        status: nextStatus,
+        weight: Math.max(1, Number(bindingDrafts[binding.id]?.weight ?? binding.weight) || 1),
+      });
+      await refreshBindings();
+      await refreshDeliveryDiagnostics();
+      setSuccessMessage(
+        nextStatus === 'active'
+          ? `Creative "${binding.creativeName}" activated for rotation.`
+          : `Creative "${binding.creativeName}" paused from rotation.`,
+      );
+    } catch (error: any) {
+      setAssignmentError(error?.message ?? 'Failed to update creative status.');
+    } finally {
+      setUpdatingBindingId(null);
     }
   };
 
@@ -1549,7 +1639,7 @@ export default function TagBuilder() {
                 <div className="space-y-3">
                   {bindings.map(binding => (
                     <div key={binding.id} className="rounded-lg border border-slate-200 px-4 py-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-medium text-slate-800">{binding.creativeName}</p>
                           <p className="text-xs text-slate-500">
@@ -1561,6 +1651,59 @@ export default function TagBuilder() {
                         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
                           {binding.status}
                         </span>
+                      </div>
+                      <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,110px)_minmax(0,140px)_1fr]">
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Weight</span>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={bindingDrafts[binding.id]?.weight ?? String(binding.weight)}
+                            onChange={(event) => handleBindingDraftChange(binding.id, 'weight', event.target.value)}
+                            className={inputClass()}
+                            disabled={updatingBindingId === binding.id}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Status</span>
+                          <select
+                            value={bindingDrafts[binding.id]?.status ?? binding.status}
+                            onChange={(event) => handleBindingDraftChange(binding.id, 'status', event.target.value)}
+                            className={inputClass()}
+                            disabled={updatingBindingId === binding.id}
+                          >
+                            <option value="active">active</option>
+                            <option value="paused">paused</option>
+                            <option value="draft">draft</option>
+                            <option value="archived">archived</option>
+                          </select>
+                        </label>
+                        <div className="flex flex-wrap items-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => { void handleSaveBinding(binding); }}
+                            disabled={updatingBindingId === binding.id}
+                            className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {updatingBindingId === binding.id ? 'Saving…' : 'Save Rotation'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { void handleToggleBindingStatus(binding); }}
+                            disabled={updatingBindingId === binding.id}
+                            className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                              binding.status === 'active'
+                                ? 'border-amber-300 bg-white text-amber-800 hover:bg-amber-50'
+                                : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50'
+                            }`}
+                          >
+                            {binding.status === 'active' ? 'Pause' : 'Activate'}
+                          </button>
+                          <div className="text-xs text-slate-500">
+                            Higher weight means this creative is selected more often during rotation.
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}

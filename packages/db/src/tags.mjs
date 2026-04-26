@@ -670,9 +670,29 @@ function selectServingBinding(bindings, requestedSize) {
   );
 
   if (!eligibleBindings.length) return null;
+  const pickWeightedBinding = (candidates) => {
+    if (!candidates.length) return null;
+    const normalizedCandidates = candidates.map((binding) => ({
+      binding,
+      weightScore: Math.max(1, Number(binding.weight) || 1),
+    }));
+    const totalWeight = normalizedCandidates.reduce((sum, candidate) => sum + candidate.weightScore, 0);
+    if (totalWeight <= 0) {
+      return normalizedCandidates[0]?.binding ?? null;
+    }
+
+    let roll = Math.random() * totalWeight;
+    for (const candidate of normalizedCandidates) {
+      roll -= candidate.weightScore;
+      if (roll <= 0) return candidate.binding;
+    }
+
+    return normalizedCandidates[normalizedCandidates.length - 1]?.binding ?? null;
+  };
+
   const requested = normalizeRequestedSize(requestedSize);
   if (!requested) {
-    return eligibleBindings[0];
+    return pickWeightedBinding(eligibleBindings);
   }
 
   const ranked = eligibleBindings
@@ -689,7 +709,13 @@ function selectServingBinding(bindings, requestedSize) {
       return new Date(a.binding.created_at).getTime() - new Date(b.binding.created_at).getTime();
     });
 
-  return ranked[0]?.binding ?? null;
+  const bestSizeScore = ranked[0]?.sizeScore ?? null;
+  const bestVariantMatch = ranked[0]?.hasVariant ?? null;
+  const topTierBindings = ranked
+    .filter(candidate => candidate.sizeScore === bestSizeScore && candidate.hasVariant === bestVariantMatch)
+    .map(candidate => candidate.binding);
+
+  return pickWeightedBinding(topTierBindings);
 }
 
 export async function getTagServingSnapshot(pool, workspaceId, tagId, options = {}) {
