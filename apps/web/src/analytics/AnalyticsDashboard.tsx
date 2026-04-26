@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 type DateRange = 7 | 30 | 90;
 type RangeMode = 'preset' | 'custom';
+type AnalyticsViewTab = 'display' | 'video' | 'identity';
 type IdentityTypeFilter = '' | 'external_user_id' | 'device_id' | 'cookie_id';
 type IdentitySegmentPreset = '' | 'high_frequency_exposed' | 'clicked_users' | 'engaged_non_clickers';
 type IdentityExportFormat =
@@ -230,6 +231,62 @@ const REPORT_MODULE_ORDER_DEFAULT: ReportModuleId[] = [
   'campaignTagBreakdowns',
   'creativeBreakdowns',
 ];
+const ANALYTICS_TABS: Array<{ value: AnalyticsViewTab; label: string; description: string }> = [
+  {
+    value: 'display',
+    label: 'Display',
+    description: 'Impressions, clicks, viewability, attention, regional breakdowns, and creative delivery.',
+  },
+  {
+    value: 'video',
+    label: 'Video',
+    description: 'Starts, quartiles, completions, engagement, and playback funnel health.',
+  },
+  {
+    value: 'identity',
+    label: 'Identity',
+    description: 'Identity, audience, attribution, and user-level insights segmented from delivery.',
+  },
+];
+const PRIMARY_KPIS_BY_TAB: Record<AnalyticsViewTab, PrimaryKpiId[]> = {
+  display: ['impressions', 'clicks', 'spend', 'ctr', 'viewability', 'attentionTime', 'inViewTime'],
+  video: ['impressions', 'clicks', 'viewability', 'engagements', 'completions', 'completionRate', 'engagementRate', 'inViewTime'],
+  identity: ['impressions', 'clicks', 'ctr', 'viewability', 'engagements', 'attentionTime'],
+};
+const SECONDARY_KPIS_BY_TAB: Record<AnalyticsViewTab, SecondaryKpiId[]> = {
+  display: ['activeCampaigns', 'activeTags', 'creatives', 'measurableRate'],
+  video: ['activeCampaigns', 'activeTags', 'creatives', 'measurableRate'],
+  identity: ['activeCampaigns', 'activeTags', 'identities'],
+};
+const MODULES_BY_TAB: Record<AnalyticsViewTab, ReportModuleId[]> = {
+  display: [
+    'primaryKpis',
+    'secondaryKpis',
+    'performanceTrend',
+    'regionalInsights',
+    'trackerPerformance',
+    'campaignTagBreakdowns',
+    'creativeBreakdowns',
+  ],
+  video: [
+    'primaryKpis',
+    'secondaryKpis',
+    'performanceTrend',
+    'videoCompletion',
+    'trackerPerformance',
+    'campaignTagBreakdowns',
+    'creativeBreakdowns',
+  ],
+  identity: [
+    'primaryKpis',
+    'secondaryKpis',
+    'topInsights',
+    'audienceLibrary',
+    'identityFrequency',
+    'identityAttribution',
+    'identityKeys',
+  ],
+};
 const PRIMARY_KPI_STORAGE_KEY = 'smx-reporting-primary-kpi-order-v1';
 const SECONDARY_KPI_STORAGE_KEY = 'smx-reporting-secondary-kpi-order-v1';
 const MODULE_STORAGE_KEY = 'smx-reporting-module-order-v1';
@@ -922,6 +979,7 @@ export default function AnalyticsDashboard() {
   const [error, setError] = useState('');
   const [dateRange, setDateRange] = useState<DateRange>(30);
   const [rangeMode, setRangeMode] = useState<RangeMode>('preset');
+  const [activeTab, setActiveTab] = useState<AnalyticsViewTab>('display');
   const [customStartDate, setCustomStartDate] = useState(() => getDateFrom(30));
   const [customEndDate, setCustomEndDate] = useState(() => getToday());
   const [identityTypeFilter, setIdentityTypeFilter] = useState<IdentityTypeFilter>('');
@@ -980,6 +1038,19 @@ export default function AnalyticsDashboard() {
     [data?.timeline, chartGrain, chartMetric],
   );
   const selectedChartMetric = CHART_METRICS.find((metric) => metric.value === chartMetric) ?? CHART_METRICS[0];
+  const activeTabConfig = ANALYTICS_TABS.find((tab) => tab.value === activeTab) ?? ANALYTICS_TABS[0];
+  const visiblePrimaryKpiOrder = useMemo(
+    () => primaryKpiOrder.filter((kpiId) => PRIMARY_KPIS_BY_TAB[activeTab].includes(kpiId)),
+    [activeTab, primaryKpiOrder],
+  );
+  const visibleSecondaryKpiOrder = useMemo(
+    () => secondaryKpiOrder.filter((kpiId) => SECONDARY_KPIS_BY_TAB[activeTab].includes(kpiId)),
+    [activeTab, secondaryKpiOrder],
+  );
+  const visibleModuleOrder = useMemo(
+    () => moduleOrder.filter((moduleId) => MODULES_BY_TAB[activeTab].includes(moduleId)),
+    [activeTab, moduleOrder],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -1379,7 +1450,7 @@ export default function AnalyticsDashboard() {
       case 'primaryKpis':
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
-            {primaryKpiOrder.map((kpiId, index) => {
+            {visiblePrimaryKpiOrder.map((kpiId, index) => {
               const card = primaryKpis[kpiId];
               return (
                 <div
@@ -1399,9 +1470,9 @@ export default function AnalyticsDashboard() {
                     <DragHandle label={`Drag ${card.label}`} />
                     <ReorderButtons
                       canMoveBackward={index > 0}
-                      canMoveForward={index < primaryKpiOrder.length - 1}
-                      onMoveBackward={() => setPrimaryKpiOrder((current) => moveItem(current, index, index - 1))}
-                      onMoveForward={() => setPrimaryKpiOrder((current) => moveItem(current, index, index + 1))}
+                      canMoveForward={index < visiblePrimaryKpiOrder.length - 1}
+                      onMoveBackward={() => setPrimaryKpiOrder((current) => reorderByValue(current, kpiId, visiblePrimaryKpiOrder[index - 1]))}
+                      onMoveForward={() => setPrimaryKpiOrder((current) => reorderByValue(current, kpiId, visiblePrimaryKpiOrder[index + 1]))}
                       backwardLabel={`Move ${card.label} left`}
                       forwardLabel={`Move ${card.label} right`}
                     />
@@ -1415,7 +1486,7 @@ export default function AnalyticsDashboard() {
       case 'secondaryKpis':
         return (
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-            {secondaryKpiOrder.map((kpiId, index) => {
+            {visibleSecondaryKpiOrder.map((kpiId, index) => {
               const card = secondaryKpis[kpiId];
               return (
                 <div
@@ -1435,9 +1506,9 @@ export default function AnalyticsDashboard() {
                     <DragHandle label={`Drag ${card.label}`} />
                     <ReorderButtons
                       canMoveBackward={index > 0}
-                      canMoveForward={index < secondaryKpiOrder.length - 1}
-                      onMoveBackward={() => setSecondaryKpiOrder((current) => moveItem(current, index, index - 1))}
-                      onMoveForward={() => setSecondaryKpiOrder((current) => moveItem(current, index, index + 1))}
+                      canMoveForward={index < visibleSecondaryKpiOrder.length - 1}
+                      onMoveBackward={() => setSecondaryKpiOrder((current) => reorderByValue(current, kpiId, visibleSecondaryKpiOrder[index - 1]))}
+                      onMoveForward={() => setSecondaryKpiOrder((current) => reorderByValue(current, kpiId, visibleSecondaryKpiOrder[index + 1]))}
                       backwardLabel={`Move ${card.label} left`}
                       forwardLabel={`Move ${card.label} right`}
                     />
@@ -1789,12 +1860,37 @@ export default function AnalyticsDashboard() {
         </div>
       </div>
 
+      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-800">Analytics view</p>
+            <p className="mt-1 text-xs text-slate-500">{activeTabConfig.description}</p>
+          </div>
+          <div className="flex flex-wrap rounded-lg border border-slate-200 bg-slate-50 p-1">
+            {ANALYTICS_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setActiveTab(tab.value)}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  activeTab === tab.value
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-600 hover:bg-white'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {rangeMode === 'custom' && !customDatesValid ? (
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
           Choose a valid custom range. The start date needs to be before or equal to the end date.
         </div>
       ) : null}
-      {moduleOrder.map((moduleId, index) => (
+      {visibleModuleOrder.map((moduleId, index) => (
         <section
           key={moduleId}
           draggable
@@ -1823,9 +1919,9 @@ export default function AnalyticsDashboard() {
               : moduleId === 'campaignTagBreakdowns' ? 'Campaign and Tag Breakdowns'
               : 'Creative Breakdowns'}
             canMoveUp={index > 0}
-            canMoveDown={index < moduleOrder.length - 1}
-            onMoveUp={() => setModuleOrder((current) => moveItem(current, index, index - 1))}
-            onMoveDown={() => setModuleOrder((current) => moveItem(current, index, index + 1))}
+            canMoveDown={index < visibleModuleOrder.length - 1}
+            onMoveUp={() => setModuleOrder((current) => reorderByValue(current, moduleId, visibleModuleOrder[index - 1]))}
+            onMoveDown={() => setModuleOrder((current) => reorderByValue(current, moduleId, visibleModuleOrder[index + 1]))}
           />
           {renderModule(moduleId)}
         </section>
