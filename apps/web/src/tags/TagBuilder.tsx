@@ -196,7 +196,7 @@ function resolveTagServingBaseUrl() {
 function getDefaultVastSnippetVariant(campaignDsp = ''): SnippetVariant {
   const normalized = readCampaignDsp({ dsp: campaignDsp });
   if (normalized === 'basis') return 'vast-url-basis-macro';
-  if (normalized === 'illumin') return 'vast-url-illumin-macro';
+  if (normalized === 'illumin') return 'vast-url-illumin-dynamic';
   return 'vast-url-vast4-dynamic';
 }
 
@@ -220,7 +220,7 @@ function getSnippetOptions(
     const optionMap: Record<string, { value: SnippetVariant; label: string }> = {
       basisMacro: { value: 'vast-url-basis-macro', label: 'Basis Macro URL' },
       basis: { value: 'vast-url-basis-dynamic', label: 'Basis Live XML' },
-      illuminMacro: { value: 'vast-url-illumin-macro', label: 'Illumin Macro URL' },
+      illuminMacro: { value: 'vast-url-illumin-macro', label: 'Illumin Macro URL (Trafficking)' },
       illumin: { value: 'vast-url-illumin-dynamic', label: 'Illumin Live XML' },
       vast4: { value: 'vast-url-vast4-dynamic', label: 'VAST 4.x Live XML' },
     };
@@ -228,12 +228,12 @@ function getSnippetOptions(
       readCampaignDsp({ dsp: campaignDsp }) === 'basis'
         ? 'basisMacro'
         : readCampaignDsp({ dsp: campaignDsp }) === 'illumin'
-          ? 'illuminMacro'
+          ? 'illumin'
           : 'vast4',
       'basisMacro',
       'basis',
-      'illuminMacro',
       'illumin',
+      'illuminMacro',
       'vast4',
     ];
 
@@ -375,7 +375,7 @@ function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp 
       return 'Use this stable API endpoint when you want the live Basis-compatible XML to reflect ad-server changes without republishing.';
     }
     if (variant === 'vast-url-illumin-macro') {
-      return 'Use this Illumin-compatible live URL when the DSP expects visible Illumin macros on the tag itself. It still resolves through the stable live Illumin XML profile.';
+      return 'Use this Illumin-compatible live URL only when trafficking into Illumin requires visible click macros on the tag itself. Illumin preview tools can leave those placeholders unresolved, so prefer Illumin Live XML for validation and QA.';
     }
     if (variant === 'vast-url-illumin-dynamic') {
       return 'Use this stable API endpoint when you want the live Illumin-compatible XML to reflect ad-server changes without republishing.';
