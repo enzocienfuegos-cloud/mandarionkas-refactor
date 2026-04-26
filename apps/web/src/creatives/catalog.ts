@@ -208,6 +208,26 @@ export async function loadCreativeVersionDetail(versionId: string): Promise<{
   };
 }
 
+export async function updateCreativeVersionById(input: {
+  creativeVersionId: string;
+  status?: 'draft' | 'processing' | 'pending_review' | 'approved' | 'rejected' | 'archived';
+  metadata?: Record<string, unknown>;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  reviewNotes?: string | null;
+}) {
+  return fetchJson<{ creativeVersion: CreativeVersion }>(`/v1/creative-versions/${input.creativeVersionId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      status: input.status,
+      metadata: input.metadata,
+      reviewedBy: input.reviewedBy,
+      reviewedAt: input.reviewedAt,
+      reviewNotes: input.reviewNotes,
+    }),
+  });
+}
+
 export async function loadCreativeSizeVariants(versionId: string): Promise<CreativeSizeVariant[]> {
   const payload = await fetchJson<{ variants: CreativeSizeVariant[] }>(`/v1/creative-versions/${versionId}/variants`);
   return payload.variants ?? [];

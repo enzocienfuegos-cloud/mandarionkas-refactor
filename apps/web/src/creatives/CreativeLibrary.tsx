@@ -22,6 +22,7 @@ import {
   regenerateVideoRenditions,
   loadTagBindings,
   loadTags,
+  updateCreativeVersionById,
   updateCreativeSizeVariant,
   updateCreativeSizeVariantsBulkStatus,
   updateCreativeById,
@@ -250,6 +251,9 @@ export default function CreativeLibrary() {
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'pending_review' | 'rejected'>('all');
+  const [formatFilter, setFormatFilter] = useState<'all' | 'vast_video' | 'display' | 'native'>('all');
   const [selectedCreativeIds, setSelectedCreativeIds] = useState<string[]>([]);
   const [bulkClickUrl, setBulkClickUrl] = useState('');
   const [bulkAssignTagId, setBulkAssignTagId] = useState('');
@@ -258,6 +262,7 @@ export default function CreativeLibrary() {
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [bulkClickUrlSaving, setBulkClickUrlSaving] = useState(false);
   const [bulkAssignSaving, setBulkAssignSaving] = useState(false);
+  const [statusUpdateCreativeId, setStatusUpdateCreativeId] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [bindingState, setBindingState] = useState<BindingState | null>(null);
   const [variantState, setVariantState] = useState<VariantState | null>(null);
@@ -292,9 +297,45 @@ export default function CreativeLibrary() {
     void load();
   }, []);
 
+  const getCreativeOperationalState = (creative: Creative) => {
+    const version = latestVersions[creative.id];
+    const status = String(version?.status ?? '').toLowerCase();
+    if (status === 'archived') return 'inactive';
+    if (status === 'pending_review') return 'pending_review';
+    if (status === 'rejected') return 'rejected';
+    return 'active';
+  };
+
   const filteredCreatives = useMemo(
-    () => creatives.filter(creative => !selectedClientIds.length || selectedClientIds.includes(creative.workspaceId ?? '')),
-    [creatives, selectedClientIds],
+    () => creatives.filter((creative) => {
+      if (selectedClientIds.length && !selectedClientIds.includes(creative.workspaceId ?? '')) return false;
+
+      const version = latestVersions[creative.id];
+      const formatFamily = version?.servingFormat === 'vast_video'
+        ? 'vast_video'
+        : version?.servingFormat === 'native'
+          ? 'native'
+          : 'display';
+      if (formatFilter !== 'all' && formatFamily !== formatFilter) return false;
+
+      const operationalState = getCreativeOperationalState(creative);
+      if (statusFilter !== 'all' && operationalState !== statusFilter) return false;
+
+      const needle = searchTerm.trim().toLowerCase();
+      if (!needle) return true;
+
+      return [
+        creative.name,
+        creative.workspaceName,
+        creative.clickUrl,
+        version?.creativeName,
+        version?.sourceKind,
+        version?.servingFormat,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(needle));
+    }),
+    [creatives, selectedClientIds, latestVersions, formatFilter, statusFilter, searchTerm],
   );
   const allVisibleCreativesSelected = filteredCreatives.length > 0 && filteredCreatives.every(creative => selectedCreativeIds.includes(creative.id));
   const someVisibleCreativesSelected = filteredCreatives.some(creative => selectedCreativeIds.includes(creative.id));
@@ -508,6 +549,44 @@ export default function CreativeLibrary() {
     } finally {
       setWorkspaceBusy(false);
       setBulkAssignSaving(false);
+    }
+  };
+
+  const handleCreativeOperationalStatusToggle = async (creative: Creative) => {
+    const version = latestVersions[creative.id];
+    if (!version) {
+      setError('This creative does not have a latest version yet.');
+      return;
+    }
+
+    const nextStatus = getCreativeOperationalState(creative) === 'inactive' ? 'approved' : 'archived';
+
+    setStatusUpdateCreativeId(creative.id);
+    setError('');
+    setSuccessMessage('');
+    try {
+      if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
+        setWorkspaceBusy(true);
+        await switchWorkspace(creative.workspaceId);
+        setActiveWorkspaceId(creative.workspaceId);
+      }
+      const response = await updateCreativeVersionById({
+        creativeVersionId: version.id,
+        status: nextStatus,
+      });
+      setLatestVersions((current) => ({
+        ...current,
+        [creative.id]: response.creativeVersion,
+      }));
+      setSuccessMessage(
+        `${creative.name} is now ${nextStatus === 'approved' ? 'active' : 'inactive'}.`,
+      );
+      window.setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (updateError: any) {
+      setError(updateError.message ?? 'Failed to update creative status');
+    } finally {
+      setWorkspaceBusy(false);
+      setStatusUpdateCreativeId('');
     }
   };
 
@@ -977,19 +1056,56 @@ export default function CreativeLibrary() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <label className="text-sm font-medium text-slate-700">Client</label>
-        <select
-          multiple
-          value={selectedClientIds}
-          onChange={event => setSelectedClientIds(Array.from(event.target.selectedOptions, option => option.value))}
-          className="min-h-[110px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
-        >
-          {workspaces.map(workspace => (
-            <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
-          ))}
-        </select>
-        <span className="text-xs text-slate-500">Leave empty to see all clients. Hold Cmd/Ctrl to select multiple.</span>
+      <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 lg:grid-cols-[minmax(0,1.2fr)_220px_220px_minmax(0,1fr)]">
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Search creatives</span>
+          <input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search by creative, client, URL, format..."
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Status</span>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="all">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="pending_review">Pending review</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Format</span>
+          <select
+            value={formatFilter}
+            onChange={(event) => setFormatFilter(event.target.value as typeof formatFilter)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="all">All formats</option>
+            <option value="display">Display</option>
+            <option value="vast_video">Video</option>
+            <option value="native">Native</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Client</span>
+          <select
+            multiple
+            value={selectedClientIds}
+            onChange={(event) => setSelectedClientIds(Array.from(event.target.selectedOptions, option => option.value))}
+            className="min-h-[110px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          >
+            {workspaces.map(workspace => (
+              <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {successMessage && (
@@ -1112,6 +1228,7 @@ export default function CreativeLibrary() {
                   />
                 </th>
                 <th className="px-4 py-3">Creative</th>
+                <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Destination URL</th>
                 <th className="px-4 py-3">Preview</th>
@@ -1135,6 +1252,28 @@ export default function CreativeLibrary() {
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800">{creative.name}</div>
                       <div className="text-xs text-slate-400">{creative.workspaceName ?? '—'}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-2">
+                        <span className={`inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          getCreativeOperationalState(creative) === 'active'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : getCreativeOperationalState(creative) === 'inactive'
+                              ? 'bg-slate-200 text-slate-700'
+                              : getCreativeOperationalState(creative) === 'pending_review'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-rose-100 text-rose-700'
+                        }`}>
+                          {getCreativeOperationalState(creative) === 'inactive'
+                            ? 'inactive'
+                            : getCreativeOperationalState(creative).replace(/_/g, ' ')}
+                        </span>
+                        {version && (
+                          <span className="text-[11px] text-slate-500">
+                            Latest version: {String(version.status ?? 'draft').replace(/_/g, ' ')}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       {creative.createdAt ? new Date(creative.createdAt).toLocaleString() : '—'}
@@ -1171,6 +1310,21 @@ export default function CreativeLibrary() {
                       <div className="flex flex-wrap gap-2">
                         {version && version.status !== 'rejected' && (
                           <>
+                            <button
+                              onClick={() => void handleCreativeOperationalStatusToggle(creative)}
+                              disabled={statusUpdateCreativeId === creative.id}
+                              className={`rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                                getCreativeOperationalState(creative) === 'inactive'
+                                  ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                                  : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              {statusUpdateCreativeId === creative.id
+                                ? 'Saving…'
+                                : getCreativeOperationalState(creative) === 'inactive'
+                                  ? 'Set active'
+                                  : 'Set inactive'}
+                            </button>
                             <button
                               onClick={() => void (
                                 version.servingFormat === 'vast_video'

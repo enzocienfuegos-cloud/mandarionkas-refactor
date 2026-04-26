@@ -371,6 +371,25 @@ export function handleCreativeRoutes(app, { requireWorkspace, pool }) {
     });
   });
 
+  app.patch('/v1/creative-versions/:id', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { id } = req.params;
+
+    const version = await updateCreativeVersion(pool, workspaceId, id, {
+      status: req.body?.status,
+      metadata: req.body?.metadata,
+      reviewedBy: req.body?.reviewedBy,
+      reviewedAt: req.body?.reviewedAt,
+      reviewNotes: req.body?.reviewNotes,
+    });
+
+    if (!version) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Creative version not found' });
+    }
+
+    return reply.send({ creativeVersion: toApiCreativeVersion(version) });
+  });
+
   app.get('/v1/creative-versions/:id/variants', { preHandler: requireWorkspace }, async (req, reply) => {
     const { workspaceId } = req.authSession;
     const { id } = req.params;
