@@ -137,10 +137,12 @@ function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
       return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
     case 'vast-url':
       return vastUrl;
-    case 'vast-url-basis-static':
-      return basisStaticVastUrl;
-    case 'vast-url-vast4-static':
-      return tag.workspace_id ? buildStaticVastPublicUrl(tag.workspace_id, tag.id) : vastUrl;
+    case 'vast-url-basis-dynamic':
+      return applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, 'basis', DSP_DELIVERY_KINDS.VIDEO);
+    case 'vast-url-illumin-dynamic':
+      return applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, 'illumin', DSP_DELIVERY_KINDS.VIDEO);
+    case 'vast-url-vast4-dynamic':
+      return applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, '', DSP_DELIVERY_KINDS.VIDEO);
     case 'vast-xml':
       return buildVastWrapperSnippet(tag.id, vastUrl);
     case 'tracker-click':
