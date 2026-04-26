@@ -306,6 +306,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   const clickUrl = servingCandidate?.clickUrl ?? '#';
   const trackingParams = new URLSearchParams({ ws: String(workspaceId) });
   const trackingDsp = normalizeDsp(query?.smx_dsp ?? query?.dsp);
+  const dspClickMode = getDspMacroConfig(trackingDsp)?.clickMacroMode || 'prefix_url';
   if (trackingDsp) trackingParams.set('smx_dsp', String(trackingDsp));
   trackingParams.set('smx_delivery_kind', 'display_wrapper');
   if (servingCandidate?.creativeId) trackingParams.set('c', String(servingCandidate.creativeId));
@@ -449,7 +450,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   function resolveClickHref(url) {
     var hintedUrl = ensureSmxTrackingHints(url, currentScriptSearch, 'display_wrapper');
     var trackedUrl = appendIdentity(hintedUrl);
-    return applyDspClickMacro(trackedUrl, dspClickMacro, ${JSON.stringify(getDspMacroConfig(dsp)?.clickMacroMode || 'prefix_url')});
+    return applyDspClickMacro(trackedUrl, dspClickMacro, ${JSON.stringify(dspClickMode)});
   }
 
   function buildEngagementUrl(eventType, extra) {
@@ -595,6 +596,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
   const clickUrl = servingCandidate?.clickUrl ?? '#';
   const trackingParams = new URLSearchParams({ ws: String(workspaceId) });
   const trackingDsp = normalizeDsp(query?.smx_dsp ?? query?.dsp);
+  const dspClickMode = getDspMacroConfig(trackingDsp)?.clickMacroMode || 'prefix_url';
   if (trackingDsp) trackingParams.set('smx_dsp', String(trackingDsp));
   trackingParams.set('smx_delivery_kind', 'display_wrapper');
   if (servingCandidate?.creativeId) trackingParams.set('c', String(servingCandidate.creativeId));
@@ -770,7 +772,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
           var hintedUrl = ensureSmxTrackingHints(url, search, 'display_wrapper');
           var trackedUrl = appendIdentity(hintedUrl);
           var macroValue = macroOverride || search.get('smx_dsp_click') || search.get('cuu') || '';
-          return applyDspClickMacro(trackedUrl, macroValue, ${JSON.stringify(getDspMacroConfig(dsp)?.clickMacroMode || 'prefix_url')});
+          return applyDspClickMacro(trackedUrl, macroValue, ${JSON.stringify(dspClickMode)});
         }
         if (!${JSON.stringify(useBasisNative)}) {
           Array.prototype.forEach.call(document.querySelectorAll('a[href]'), function(anchor) {
