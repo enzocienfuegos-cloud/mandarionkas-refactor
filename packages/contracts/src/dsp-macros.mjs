@@ -1,6 +1,7 @@
 export const DSP_MACRO_CONFIGS = {
   basis: {
     label: 'Basis',
+    clickMacroMode: 'prefix_url',
     queryParams: {
       dsp: 'Basis',
       dom: '{domain}',
@@ -39,6 +40,7 @@ export const DSP_MACRO_CONFIGS = {
   },
   illumin: {
     label: 'Illumin',
+    clickMacroMode: 'replace_destination',
     queryParams: {
       dsp: 'Illumin',
       cuu: '[CLICK_URL_ENCODED]',
@@ -382,22 +384,54 @@ export function resolveDspClickMacroValue(value) {
   return isResolvedDspMacroValue(text) ? text : '';
 }
 
-export function buildDspTrackedClickUrl(clickTrackUrl, macroValue) {
+function isHttpUrl(value) {
+  try {
+    const parsed = new URL(String(value));
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function buildDestinationAwareClickUrl(clickTrackUrl, destinationUrl) {
+  try {
+    const nextUrl = new URL(String(clickTrackUrl));
+    nextUrl.searchParams.set('url', String(destinationUrl));
+    return nextUrl.toString();
+  } catch {
+    return clickTrackUrl;
+  }
+}
+
+export function buildDspTrackedClickUrl(clickTrackUrl, macroValue, dsp = '') {
   if (!clickTrackUrl) return clickTrackUrl;
+  const mode = getDspMacroConfig(dsp)?.clickMacroMode || 'prefix_url';
   const resolvedMacroValue = resolveDspClickMacroValue(macroValue);
   if (!resolvedMacroValue) return clickTrackUrl;
+  if (mode === 'replace_destination') {
+    return isHttpUrl(resolvedMacroValue)
+      ? buildDestinationAwareClickUrl(clickTrackUrl, resolvedMacroValue)
+      : clickTrackUrl;
+  }
   return `${resolvedMacroValue}${encodeURIComponent(String(clickTrackUrl))}`;
 }
 
-export function buildDspLiteralClickUrl(clickTrackUrl, macroValue) {
+export function buildDspLiteralClickUrl(clickTrackUrl, macroValue, dsp = '') {
   if (!clickTrackUrl) return clickTrackUrl;
+  const mode = getDspMacroConfig(dsp)?.clickMacroMode || 'prefix_url';
   const literalMacroValue = safeDecode(macroValue).trim();
   if (!literalMacroValue) return clickTrackUrl;
+  if (mode === 'replace_destination') {
+    return isHttpUrl(literalMacroValue)
+      ? buildDestinationAwareClickUrl(clickTrackUrl, literalMacroValue)
+      : clickTrackUrl;
+  }
   return `${literalMacroValue}${encodeURIComponent(String(clickTrackUrl))}`;
 }
 
 export function wrapTrackedClickUrlWithDspMacro(clickTrackUrl, query = {}, dsp = '') {
-  const encodedMacro = readDspMacroValue(query, 'clickMacro', dsp);
+  const normalizedDsp = normalizeDsp(dsp || query?.smx_dsp || query?.dsp);
+  const encodedMacro = readDspMacroValue(query, 'clickMacro', normalizedDsp);
   if (!encodedMacro || !clickTrackUrl) return clickTrackUrl;
-  return buildDspTrackedClickUrl(clickTrackUrl, encodedMacro);
+  return buildDspTrackedClickUrl(clickTrackUrl, encodedMacro, normalizedDsp);
 }

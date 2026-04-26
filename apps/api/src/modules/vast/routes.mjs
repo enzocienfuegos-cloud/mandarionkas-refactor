@@ -275,7 +275,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   const clickTrackParams = new URLSearchParams(trackingParams);
   clickTrackParams.set('url', clickUrl);
   const rawClickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
-  const clickTrackUrl = wrapTrackedClickUrlWithDspMacro(rawClickTrackUrl, query);
+  const clickTrackUrl = wrapTrackedClickUrlWithDspMacro(rawClickTrackUrl, query, trackingDsp);
   const dspClickMacro = String(readDspMacroValue(query, 'clickMacro') ?? '');
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const creativeUrl = servingCandidate?.publicUrl ?? '';
@@ -564,7 +564,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
   const clickTrackParams = new URLSearchParams(trackingParams);
   clickTrackParams.set('url', clickUrl);
   const rawClickTrackUrl = `${baseUrl}/track/click/${tagId}?${clickTrackParams.toString()}`;
-  const clickTrackUrl = wrapTrackedClickUrlWithDspMacro(rawClickTrackUrl, query);
+  const clickTrackUrl = wrapTrackedClickUrlWithDspMacro(rawClickTrackUrl, query, trackingDsp);
   const dspClickMacro = String(readDspMacroValue(query, 'clickMacro') ?? '');
   const engagementBase = `${baseUrl}/track/engagement/${tagId}?${trackingParams.toString()}`;
   const useBasisNative = trackingDsp === 'basis';

@@ -281,7 +281,7 @@ async function collectTrackingContext(req, query = {}) {
   const rawClickMacro = readDspMacroValue(query, 'clickMacro', dspHint);
   const resolvedClickMacro = resolveDspClickMacroValue(rawClickMacro);
   const measurementPath = resolvedClickMacro
-    ? 'basis_macro'
+    ? `${dspHint || 'dsp'}_macro`
     : dspHint
       ? `${dspHint}_fallback`
       : 'smx_fallback';

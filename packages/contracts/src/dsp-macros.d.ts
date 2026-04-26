@@ -1,5 +1,6 @@
 export interface DspMacroConfig {
   label: string;
+  clickMacroMode?: 'prefix_url' | 'replace_destination';
   queryParams: Record<string, string>;
   aliases?: Record<string, string[]>;
 }
@@ -31,8 +32,8 @@ export declare function readDspMacroValue(
 ): string | null;
 export declare function isResolvedDspMacroValue(value: unknown): boolean;
 export declare function resolveDspClickMacroValue(value: unknown): string;
-export declare function buildDspTrackedClickUrl(clickTrackUrl: string, macroValue: unknown): string;
-export declare function buildDspLiteralClickUrl(clickTrackUrl: string, macroValue: unknown): string;
+export declare function buildDspTrackedClickUrl(clickTrackUrl: string, macroValue: unknown, dsp?: unknown): string;
+export declare function buildDspLiteralClickUrl(clickTrackUrl: string, macroValue: unknown, dsp?: unknown): string;
 export declare function getDspDeliveryPolicy(
   dsp: unknown,
   deliveryKind: unknown,

@@ -114,7 +114,7 @@ export function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
     clickTrackingParams.set('url', clickUrl);
   }
   const clickTrackingUrl = appendQueryParam(`${trackingBase}/click/${tagId}?${clickTrackingParams.toString()}`, 'ctx', ctxToken);
-  const wrappedClickTrackUrl = wrapTrackedClickUrlWithDspMacro(clickTrackingUrl, query);
+  const wrappedClickTrackUrl = wrapTrackedClickUrlWithDspMacro(clickTrackingUrl, query, trackingDsp);
   const viewabilityBaseUrl = appendQueryParam(`${trackingBase}/viewability/${tagId}?${trackingParams.toString()}`, 'ctx', ctxToken);
   const includeOmidVerification = shouldIncludeOmidVerification(trackingDsp);
   const vastVersion = trackingDsp === 'basis' ? '2.0' : (includeOmidVerification ? '4.1' : '4.0');
