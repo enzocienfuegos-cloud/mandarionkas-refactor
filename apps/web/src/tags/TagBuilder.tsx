@@ -146,10 +146,6 @@ interface DeliveryDiagnosticSection {
 }
 
 type SnippetVariant =
-  | 'vast-url'
-  | 'vast-url-basis-static'
-  | 'vast-url-illumin-static'
-  | 'vast-url-vast4-static'
   | 'vast-url-basis-dynamic'
   | 'vast-url-illumin-dynamic'
   | 'vast-url-vast4-dynamic'
@@ -195,8 +191,19 @@ function resolveTagServingBaseUrl() {
   return (candidates.find((candidate) => candidate?.trim()) ?? '').replace(/\/+$/, '');
 }
 
-function getDefaultSnippetVariant(format: TagFormat, trackerType: TrackerType | null = null): SnippetVariant {
-  if (format === 'VAST') return 'vast-url';
+function getDefaultVastSnippetVariant(campaignDsp = ''): SnippetVariant {
+  const normalized = readCampaignDsp({ dsp: campaignDsp });
+  if (normalized === 'basis') return 'vast-url-basis-dynamic';
+  if (normalized === 'illumin') return 'vast-url-illumin-dynamic';
+  return 'vast-url-vast4-dynamic';
+}
+
+function getDefaultSnippetVariant(
+  format: TagFormat,
+  trackerType: TrackerType | null = null,
+  campaignDsp = '',
+): SnippetVariant {
+  if (format === 'VAST') return getDefaultVastSnippetVariant(campaignDsp);
   if (format === 'display') return 'display-js';
   if (format === 'tracker') return trackerType === 'impression' ? 'tracker-impression' : 'tracker-click';
   return 'native-js';
@@ -206,23 +213,28 @@ function getSnippetOptions(
   format: TagFormat,
   trackerType: TrackerType | null = null,
   campaignDsp = '',
-  diagnostics?: DeliveryDiagnosticsPayload | null,
 ): Array<{ value: SnippetVariant; label: string }> {
   if (format === 'VAST') {
-    const options: Array<{ value: SnippetVariant; label: string }> = [];
-    const selectedProfile = readCampaignDsp({ dsp: campaignDsp });
-    options.push({
-      value: 'vast-url',
-      label: selectedProfile ? `${selectedProfile === 'basis' ? 'Basis' : selectedProfile === 'illumin' ? 'Illumin' : 'Selected'} Live XML` : 'Campaign Live XML',
-    });
-    options.push({ value: 'vast-url-basis-dynamic', label: 'Basis Live XML' });
-    options.push({ value: 'vast-url-basis-static', label: 'Basis Static XML' });
-    options.push({ value: 'vast-url-illumin-dynamic', label: 'Illumin Live XML' });
-    options.push({ value: 'vast-url-illumin-static', label: 'Illumin Static XML' });
-    options.push({ value: 'vast-url-vast4-dynamic', label: 'VAST 4.x Live XML' });
-    options.push({ value: 'vast-url-vast4-static', label: 'VAST 4.x Static XML' });
-    options.push({ value: 'vast-xml', label: 'XML Wrapper' });
-    return options;
+    const optionMap: Record<string, { value: SnippetVariant; label: string }> = {
+      basis: { value: 'vast-url-basis-dynamic', label: 'Basis Live XML' },
+      illumin: { value: 'vast-url-illumin-dynamic', label: 'Illumin Live XML' },
+      vast4: { value: 'vast-url-vast4-dynamic', label: 'VAST 4.x Live XML' },
+    };
+    const prioritizedKeys = [
+      readCampaignDsp({ dsp: campaignDsp }) === 'basis'
+        ? 'basis'
+        : readCampaignDsp({ dsp: campaignDsp }) === 'illumin'
+          ? 'illumin'
+          : 'vast4',
+      'basis',
+      'illumin',
+      'vast4',
+    ];
+
+    return [
+      ...Array.from(new Set(prioritizedKeys)).map((key) => optionMap[key]).filter(Boolean),
+      { value: 'vast-xml', label: 'XML Wrapper' },
+    ];
   }
   if (format === 'display') {
     return [
@@ -291,9 +303,6 @@ function buildTagSnippet(
     || `${servingBaseUrl}/v1/vast/tags/${tag.id}/illumin.xml`;
   const vast4DynamicUrl = diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.vast4
     || `${servingBaseUrl}/v1/vast/tags/${tag.id}/vast4.xml`;
-  const basisStaticVastUrl = diagnostics?.deliveryDiagnostics?.vast?.staticProfiles?.basis ?? '';
-  const illuminStaticVastUrl = diagnostics?.deliveryDiagnostics?.vast?.staticProfiles?.illumin ?? '';
-  const vast4StaticUrl = diagnostics?.deliveryDiagnostics?.vast?.staticProfiles?.default ?? '';
   const vastUrl = campaignVastUrl;
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
   const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
@@ -314,14 +323,6 @@ function buildTagSnippet(
   };
 
   switch (variant) {
-    case 'vast-url':
-      return campaignVastUrl;
-    case 'vast-url-basis-static':
-      return basisStaticVastUrl || basisDynamicVastUrl;
-    case 'vast-url-illumin-static':
-      return illuminStaticVastUrl || illuminDynamicVastUrl;
-    case 'vast-url-vast4-static':
-      return vast4StaticUrl || vast4DynamicUrl;
     case 'vast-url-basis-dynamic':
       return basisDynamicVastUrl;
     case 'vast-url-illumin-dynamic':
@@ -358,24 +359,13 @@ function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp 
     if (variant === 'vast-url-basis-dynamic') {
       return 'Use this stable API endpoint when you want the live Basis-compatible XML to reflect ad-server changes without republishing.';
     }
-    if (variant === 'vast-url-basis-static') {
-      return 'Use this published Basis XML artifact when you want the most frozen, cache-friendly Basis-compatible delivery artifact.';
-    }
     if (variant === 'vast-url-illumin-dynamic') {
       return 'Use this stable API endpoint when you want the live Illumin-compatible XML to reflect ad-server changes without republishing.';
-    }
-    if (variant === 'vast-url-illumin-static') {
-      return 'Use this Illumin static XML when you want the published Illumin-ready artifact.';
     }
     if (variant === 'vast-url-vast4-dynamic') {
       return 'Use this stable API endpoint when you want the live VAST 4.x / OMID-capable XML without relying on a published artifact.';
     }
-    if (variant === 'vast-url-vast4-static') {
-      return 'Use this published VAST 4.x XML artifact when you want the OMID-capable static profile.';
-    }
-    return variant === 'vast-url'
-      ? `Use this stable VAST API URL for the selected campaign delivery profile.${dspNote} It stays live to ad-server changes without retrafic if the DSP keeps the same tag URL.`
-      : 'Use this XML wrapper only if your integration explicitly requires inline VAST XML. It wraps the currently selected live VAST URL option.';
+    return 'Use this XML wrapper only if your integration explicitly requires inline VAST XML. It wraps the currently selected live VAST URL option.';
   }
   if (tag.format === 'display') {
     if (variant === 'display-iframe') {
@@ -464,7 +454,7 @@ export default function TagBuilder() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [savedTag, setSavedTag] = useState<SavedTag | null>(null);
-  const [snippetVariant, setSnippetVariant] = useState<SnippetVariant>(getDefaultSnippetVariant(emptyForm.format, emptyForm.trackerType));
+  const [snippetVariant, setSnippetVariant] = useState<SnippetVariant>(getDefaultSnippetVariant(emptyForm.format, emptyForm.trackerType, ''));
   const [copied, setCopied] = useState(false);
   const [copiedStaticProfile, setCopiedStaticProfile] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
@@ -546,7 +536,11 @@ export default function TagBuilder() {
         });
         const normalized = normalizeTagRecord(payload);
         setSavedTag(normalized);
-        setSnippetVariant(getDefaultSnippetVariant(((data.format as TagFormat | undefined) ?? 'VAST'), data.trackerType === 'impression' ? 'impression' : data.trackerType === 'click' ? 'click' : null));
+        setSnippetVariant(getDefaultSnippetVariant(
+          ((data.format as TagFormat | undefined) ?? 'VAST'),
+          data.trackerType === 'impression' ? 'impression' : data.trackerType === 'click' ? 'click' : null,
+          readCampaignDsp((data.campaign as { metadata?: { dsp?: string | null } } | undefined)?.metadata ?? null),
+        ));
         setSuccessMessage('');
       })
       .catch(() => setGeneralError('Failed to load tag.'))
@@ -587,6 +581,14 @@ export default function TagBuilder() {
     void refreshDeliveryDiagnostics();
   }, [id, isEdit]);
 
+  useEffect(() => {
+    if (!savedTag) return;
+    const availableVariants = getSnippetOptions(savedTag.format, savedTag.trackerType ?? null, selectedCampaignDsp)
+      .map((option) => option.value);
+    if (availableVariants.includes(snippetVariant)) return;
+    setSnippetVariant(getDefaultSnippetVariant(savedTag.format, savedTag.trackerType ?? null, selectedCampaignDsp));
+  }, [savedTag, selectedCampaignDsp, snippetVariant]);
+
   const set = (field: keyof TagForm) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -604,7 +606,7 @@ export default function TagBuilder() {
       servingHeight: f === 'display' ? prev.servingHeight : '',
       trackerType: f === 'tracker' ? prev.trackerType : 'click',
     }));
-    setSnippetVariant(getDefaultSnippetVariant(f, f === 'tracker' ? form.trackerType : null));
+    setSnippetVariant(getDefaultSnippetVariant(f, f === 'tracker' ? form.trackerType : null, selectedCampaignDsp));
     setErrors(er => ({ ...er, format: undefined }));
     setSuccessMessage('');
   };
@@ -620,7 +622,7 @@ export default function TagBuilder() {
       servingHeight: '',
       trackerType: 'click',
     }));
-    setSnippetVariant(getDefaultSnippetVariant('VAST', null));
+    setSnippetVariant(getDefaultSnippetVariant('VAST', null, selectedCampaignDsp));
     setErrors(er => ({ ...er, format: undefined }));
   }, [videoCampaign, form.format, isEdit]);
 
@@ -683,7 +685,11 @@ export default function TagBuilder() {
         const payload = await res.json();
         const normalized = normalizeTagRecord(payload);
         setSavedTag(normalized);
-        setSnippetVariant(getDefaultSnippetVariant(normalized?.format ?? form.format, normalized?.trackerType ?? null));
+        setSnippetVariant(getDefaultSnippetVariant(
+          normalized?.format ?? form.format,
+          normalized?.trackerType ?? null,
+          selectedCampaignDsp,
+        ));
         setSuccessMessage(isEdit ? 'Tag updated successfully.' : 'Tag created successfully.');
       } else {
         const data = await res.json().catch(() => ({}));
@@ -1119,7 +1125,7 @@ export default function TagBuilder() {
             </div>
           )}
           <div className="mb-3 flex flex-wrap gap-2">
-            {getSnippetOptions(savedTag.format, savedTag.trackerType ?? null, selectedCampaignDsp, deliveryDiagnostics).map(option => (
+            {getSnippetOptions(savedTag.format, savedTag.trackerType ?? null, selectedCampaignDsp).map(option => (
               <button
                 key={option.value}
                 type="button"
