@@ -97,12 +97,26 @@ function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedC
   }
 }
 
-const RUNTIME_DSP_CLICK_HELPER = `function applyDspClickMacro(url, macroValue) {
+const RUNTIME_DSP_CLICK_HELPER = `function applyDspClickMacro(url, macroValue, macroMode) {
   if (!macroValue) return url;
   var decodedMacroValue = macroValue;
   try {
     decodedMacroValue = decodeURIComponent(macroValue);
   } catch (_error) {}
+  var mode = String(macroMode || 'prefix_url');
+  var unresolved = /[{}]/.test(decodedMacroValue) || /\\[[^\\]]+\\]/.test(decodedMacroValue) || /\\$\\{[^}]+\\}/.test(decodedMacroValue);
+  if (mode === 'replace_destination') {
+    if (unresolved) return url;
+    try {
+      var destination = new URL(String(decodedMacroValue));
+      if (destination.protocol !== 'http:' && destination.protocol !== 'https:') return url;
+      var tracked = new URL(String(url), window.location.href);
+      tracked.searchParams.set('url', destination.toString());
+      return tracked.toString();
+    } catch (_error) {
+      return url;
+    }
+  }
   return decodedMacroValue + encodeURIComponent(String(url));
 }`;
 
@@ -435,7 +449,7 @@ function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   function resolveClickHref(url) {
     var hintedUrl = ensureSmxTrackingHints(url, currentScriptSearch, 'display_wrapper');
     var trackedUrl = appendIdentity(hintedUrl);
-    return applyDspClickMacro(trackedUrl, dspClickMacro);
+    return applyDspClickMacro(trackedUrl, dspClickMacro, ${JSON.stringify(getDspMacroConfig(dsp)?.clickMacroMode || 'prefix_url')});
   }
 
   function buildEngagementUrl(eventType, extra) {
@@ -756,7 +770,7 @@ function buildDisplayDocument(tag, workspaceId, baseUrl, query = {}) {
           var hintedUrl = ensureSmxTrackingHints(url, search, 'display_wrapper');
           var trackedUrl = appendIdentity(hintedUrl);
           var macroValue = macroOverride || search.get('smx_dsp_click') || search.get('cuu') || '';
-          return applyDspClickMacro(trackedUrl, macroValue);
+          return applyDspClickMacro(trackedUrl, macroValue, ${JSON.stringify(getDspMacroConfig(dsp)?.clickMacroMode || 'prefix_url')});
         }
         if (!${JSON.stringify(useBasisNative)}) {
           Array.prototype.forEach.call(document.querySelectorAll('a[href]'), function(anchor) {
