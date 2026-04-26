@@ -1,5 +1,5 @@
 import React, { useEffect, useState, FormEvent } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   applyDspMacrosToDeliveryUrl,
   buildBasisNativeSnippet,
@@ -880,8 +880,16 @@ export default function TagBuilder() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="mb-6">
+      <div className="mb-6 flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-800">{isEdit ? 'Edit Tag' : 'New Tag'}</h1>
+        {isEdit && id ? (
+          <Link
+            to={`/tags/${id}/reporting`}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            📊 Reporting
+          </Link>
+        ) : null}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">

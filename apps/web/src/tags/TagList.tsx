@@ -337,6 +337,12 @@ export default function TagList() {
                           Edit
                         </button>
                         <button
+                          onClick={() => navigate(`/tags/${t.id}/reporting`)}
+                          className="text-xs text-sky-600 hover:text-sky-700 font-medium px-2 py-1 rounded hover:bg-sky-50 transition-colors"
+                        >
+                          Reporting
+                        </button>
+                        <button
                           onClick={() => handleDelete(t)}
                           disabled={deletingId === t.id}
                           className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
