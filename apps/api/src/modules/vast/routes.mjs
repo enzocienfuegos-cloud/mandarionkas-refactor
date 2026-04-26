@@ -95,6 +95,164 @@ const RUNTIME_TRACKING_HINT_HELPER = `function ensureSmxTrackingHints(url, sourc
   }
 }`;
 
+const OMID_VERIFICATION_SCRIPT = String.raw`(function () {
+  var OMID_VENDOR_KEY = 'smx.co-omid';
+
+  function safeJsonParse(value) {
+    try {
+      return value ? JSON.parse(String(value)) : {};
+    } catch (_error) {
+      return {};
+    }
+  }
+
+  function readBool(value) {
+    if (value === true || value === 1) return true;
+    var text = String(value || '').trim().toLowerCase();
+    return text === '1' || text === 'true' || text === 'yes';
+  }
+
+  function appendQuery(url, key, value) {
+    if (!url || value === null || value === undefined || value === '') return url;
+    return url + (url.indexOf('?') === -1 ? '?' : '&') + encodeURIComponent(String(key)) + '=' + encodeURIComponent(String(value));
+  }
+
+  function send(url) {
+    try {
+      var img = new Image();
+      img.referrerPolicy = 'no-referrer-when-downgrade';
+      img.src = url;
+    } catch (_error) {}
+  }
+
+  function readPercentageInView(event) {
+    var data = event && event.data ? event.data : {};
+    var candidates = [
+      data.percentageInView,
+      data.percentage_in_view,
+      data.adView && data.adView.percentageInView,
+      data.geometry && data.geometry.percentageInView,
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var value = Number(candidates[i]);
+      if (Number.isFinite(value)) return Math.max(0, Math.min(100, value));
+    }
+    return 0;
+  }
+
+  function readVolume(event) {
+    var data = event && event.data ? event.data : {};
+    var candidates = [
+      data.volume,
+      data.mediaPlayerVolume,
+      data.playerVolume,
+      data.deviceVolume,
+      data.videoPlayerVolume,
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var value = Number(candidates[i]);
+      if (Number.isFinite(value)) return value;
+    }
+    return null;
+  }
+
+  function readFullscreen(event) {
+    var data = event && event.data ? event.data : {};
+    if (typeof data.fullscreen === 'boolean') return data.fullscreen;
+    var state = String(data.playerState || data.state || '').trim().toLowerCase();
+    return state === 'fullscreen' || state === 'full_screen';
+  }
+
+  var omid = window.omid3p;
+  if (!omid || typeof omid.registerSessionObserver !== 'function' || typeof omid.addEventListener !== 'function') {
+    return;
+  }
+
+  var tracking = {
+    viewabilityUrl: '',
+    measuredSent: false,
+    activeViewStartedAt: null,
+    lastTimestamp: null,
+    percentageInView: 0,
+    audible: false,
+    fullscreen: false,
+  };
+
+  function buildViewabilityUrl(state, durationMs) {
+    if (!tracking.viewabilityUrl) return '';
+    var url = tracking.viewabilityUrl;
+    url = appendQuery(url, 'state', state);
+    url = appendQuery(url, 'method', 'omid_verification');
+    url = appendQuery(url, 'omid', '1');
+    url = appendQuery(url, 'audible', tracking.audible ? '1' : '0');
+    url = appendQuery(url, 'fullscreen', tracking.fullscreen ? '1' : '0');
+    url = appendQuery(url, 'piv', Math.round(tracking.percentageInView));
+    if (typeof durationMs === 'number' && durationMs > 0) {
+      url = appendQuery(url, 'ms', Math.round(durationMs));
+    }
+    return url;
+  }
+
+  function ensureMeasured() {
+    if (tracking.measuredSent || !tracking.viewabilityUrl) return;
+    tracking.measuredSent = true;
+    send(buildViewabilityUrl('measured'));
+  }
+
+  function flushActiveView(timestamp) {
+    if (tracking.activeViewStartedAt === null) return;
+    var endTs = Number(timestamp || Date.now());
+    var durationMs = Math.max(0, Math.round(endTs - tracking.activeViewStartedAt));
+    tracking.activeViewStartedAt = null;
+    if (durationMs > 0) {
+      send(buildViewabilityUrl('viewable', durationMs));
+    }
+  }
+
+  omid.registerSessionObserver(function (event) {
+    if (!event || !event.data) return;
+    if (event.type === 'sessionStart') {
+      var params = safeJsonParse(event.data.verificationParameters);
+      tracking.viewabilityUrl = String(params.viewabilityUrl || '');
+      ensureMeasured();
+    }
+    if (event.type === 'sessionFinish') {
+      flushActiveView(event.timestamp);
+    }
+  }, OMID_VENDOR_KEY);
+
+  omid.addEventListener('geometryChange', function (event) {
+    var ts = Number(event && event.timestamp) || Date.now();
+    tracking.lastTimestamp = ts;
+    tracking.percentageInView = readPercentageInView(event);
+    ensureMeasured();
+
+    if (tracking.percentageInView >= 50) {
+      if (tracking.activeViewStartedAt === null) {
+        tracking.activeViewStartedAt = ts;
+      }
+    } else {
+      flushActiveView(ts);
+    }
+  });
+
+  omid.addEventListener('video', function (event) {
+    var ts = Number(event && event.timestamp) || tracking.lastTimestamp || Date.now();
+    var volume = readVolume(event);
+    if (volume !== null) {
+      tracking.audible = volume > 0;
+    }
+    tracking.fullscreen = readFullscreen(event) || tracking.fullscreen;
+    var state = String(event && event.data && (event.data.playerState || event.data.state || event.data.type) || '').toLowerCase();
+    if (state === 'pause' || state === 'buffering' || state === 'ended') {
+      flushActiveView(ts);
+    }
+    if (state === 'fullscreen' || state === 'full_screen') {
+      tracking.fullscreen = true;
+    }
+  });
+}());`;
+
 function buildDisplaySnippet(tag, workspaceId, baseUrl, query = {}) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
@@ -807,6 +965,13 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
         updatedAt: job.updated_at ?? null,
       },
     });
+  });
+
+  app.get('/v1/vast/omid-verification.js', { preHandler: optionalAuth }, async (_req, reply) => {
+    reply.header('Content-Type', 'application/javascript; charset=utf-8');
+    reply.header('Cache-Control', 'public, max-age=300');
+    reply.header('X-Content-Type-Options', 'nosniff');
+    return reply.send(OMID_VERIFICATION_SCRIPT);
   });
 
   async function serveDisplayJavascript(req, reply) {

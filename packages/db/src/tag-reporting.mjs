@@ -39,7 +39,7 @@ function hasSummaryActivity(summary = {}) {
     summary.video_starts,
     summary.video_completions,
     summary.total_in_view_duration_ms,
-    summary.total_hover_duration_ms,
+    summary.total_attention_duration_ms ?? summary.total_hover_duration_ms,
   ].some(value => Number(value ?? 0) > 0);
 }
 
@@ -238,7 +238,7 @@ async function getRawTagSummaryStats(pool, workspaceId, tagId, opts = {}) {
 
   const { rows: attentionRows } = await pool.query(
     `SELECT
-       COALESCE(SUM(CASE WHEN event_type = 'hover_end' THEN total_duration_ms ELSE 0 END), 0)::bigint AS total_hover_duration_ms
+       COALESCE(SUM(CASE WHEN event_type IN ('attention', 'hover_end') THEN total_duration_ms ELSE 0 END), 0)::bigint AS total_attention_duration_ms
      FROM engagement_events
      WHERE ${videoConditions.join(' AND ')}`,
     videoParams,
@@ -490,7 +490,7 @@ export async function getTagSummaryStats(pool, workspaceId, tagId, opts = {}) {
       video_midpoint: Number(rollupSummary.video_midpoint ?? 0) > 0 ? rollupSummary.video_midpoint : rawSummary?.video_midpoint ?? 0,
       video_third_quartile: Number(rollupSummary.video_third_quartile ?? 0) > 0 ? rollupSummary.video_third_quartile : rawSummary?.video_third_quartile ?? 0,
       video_completions: nextVideoCompletions,
-      total_hover_duration_ms: Number(rawSummary?.total_hover_duration_ms ?? 0),
+      total_attention_duration_ms: Number(rawSummary?.total_attention_duration_ms ?? rawSummary?.total_hover_duration_ms ?? 0),
       total_in_view_duration_ms: Number(rawSummary?.total_in_view_duration_ms ?? 0),
       overall_viewability: Number(rollupSummary.overall_viewability ?? 0) > 0
         ? Number(rollupSummary.overall_viewability ?? 0)

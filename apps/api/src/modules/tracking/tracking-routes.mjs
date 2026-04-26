@@ -75,6 +75,17 @@ function readTrackingValue(...values) {
   return null;
 }
 
+function readTrackingBoolean(value, fallback = false) {
+  const text = String(Array.isArray(value) ? value[0] : (value ?? '')).trim().toLowerCase();
+  if (!text) return fallback;
+  return text === '1' || text === 'true' || text === 'yes' || text === 'on';
+}
+
+function readTrackingNumber(value, fallback = null) {
+  const numeric = Number(Array.isArray(value) ? value[0] : value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
 function decodeContextToken(token) {
   const raw = Array.isArray(token) ? token[0] : token;
   const text = String(raw ?? '').trim();
@@ -579,6 +590,10 @@ export function handleTrackingRoutes(app, { pool }) {
       state,
       method,
       ms,
+      audible,
+      fullscreen,
+      omid,
+      piv,
     } = mergedQuery;
     const impressionId = normalizeUuid(rawImpressionId);
     const servingSnapshot = rawWorkspaceId
@@ -590,7 +605,16 @@ export function handleTrackingRoutes(app, { pool }) {
       normalizeUuid(rawCreativeSizeVariantId) ?? servingSnapshot?.servingCandidate?.creativeSizeVariantId ?? null;
 
     if (workspaceId) {
-      const viewable = vp !== '0' && vp !== 'false';
+      const normalizedState = String(state ?? '').trim().toLowerCase();
+      const hasVp = vp !== undefined && vp !== null && String(vp).trim() !== '';
+      const viewable = hasVp
+        ? !(String(vp).trim() === '0' || String(vp).trim().toLowerCase() === 'false')
+        : normalizedState === 'viewable';
+      const durationMs = readTrackingNumber(ms, null);
+      const isAudible = readTrackingBoolean(audible, false);
+      const isFullscreen = readTrackingBoolean(fullscreen, false);
+      const isOmid = readTrackingBoolean(omid, false);
+      const percentageInView = readTrackingNumber(piv, null);
       const context = await collectTrackingContext(req, mergedQuery);
       setTrackingIdentityCookies(reply, context);
       attachMeasurementDebugHeaders(reply, context);
@@ -602,6 +626,11 @@ export function handleTrackingRoutes(app, { pool }) {
         creativeSizeVariantId,
         viewable,
         state: state ?? (viewable ? 'viewable' : 'measured'),
+        durationMs,
+        audible: isAudible,
+        fullscreen: isFullscreen,
+        omid: isOmid,
+        percentageInView,
       }, context);
       recordViewability(pool, {
         tag_id: tagId,
@@ -610,10 +639,37 @@ export function handleTrackingRoutes(app, { pool }) {
         viewable,
         state: state ?? (viewable ? 'viewable' : 'measured'),
         method: method ?? null,
-        duration_ms: ms ?? null,
+        duration_ms: durationMs,
       }).catch((error) => {
         req.log?.warn?.({ err: error, tagId, workspaceId, impressionId }, 'failed to record viewability');
       });
+      if (durationMs && durationMs > 0 && (state === 'viewable' || viewable)) {
+        const attentionDurationMs = isAudible ? durationMs : null;
+        recordEngagementEventResilient(pool, {
+          tag_id: tagId,
+          workspace_id: workspaceId,
+          creative_id: creativeId ?? null,
+          creative_size_variant_id: creativeSizeVariantId ?? null,
+          impression_id: impressionId ?? null,
+          event_type: 'attention',
+          hover_duration_ms: attentionDurationMs,
+          metadata: {
+            measurement_method: method ?? 'unknown',
+            omid: isOmid,
+            audible: isAudible,
+            fullscreen: isFullscreen,
+            percentage_in_view: percentageInView,
+            duration_ms: durationMs,
+          },
+          ...context,
+        }, req, {
+          tagId,
+          workspaceId,
+          eventType: 'attention',
+        }).catch((error) => {
+          req.log?.warn?.({ err: error, tagId, workspaceId, impressionId }, 'failed to record attention event');
+        });
+      }
       if (event) {
         recordEngagementEventResilient(pool, {
           tag_id: tagId,

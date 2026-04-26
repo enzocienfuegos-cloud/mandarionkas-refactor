@@ -69,6 +69,25 @@ function isTrackableDestinationUrl(value) {
   }
 }
 
+function shouldIncludeOmidVerification(dsp) {
+  return normalizeDsp(dsp) !== 'basis';
+}
+
+function buildOmidVerificationParameters({
+  tagId,
+  workspaceId,
+  viewabilityUrl,
+} = {}) {
+  return JSON.stringify({
+    vendorKey: 'smx.co-omid',
+    tagId,
+    workspaceId,
+    viewabilityUrl,
+    measurementMethod: 'omid_verification',
+    mediaType: 'video',
+  });
+}
+
 export function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
@@ -97,7 +116,22 @@ export function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const clickTrackingUrl = appendQueryParam(`${trackingBase}/click/${tagId}?${clickTrackingParams.toString()}`, 'ctx', ctxToken);
   const wrappedClickTrackUrl = wrapTrackedClickUrlWithDspMacro(clickTrackingUrl, query);
   const viewabilityBaseUrl = appendQueryParam(`${trackingBase}/viewability/${tagId}?${trackingParams.toString()}`, 'ctx', ctxToken);
-  const vastVersion = trackingDsp === 'basis' ? '2.0' : '4.0';
+  const includeOmidVerification = shouldIncludeOmidVerification(trackingDsp);
+  const vastVersion = trackingDsp === 'basis' ? '2.0' : (includeOmidVerification ? '4.1' : '4.0');
+  const omidVerificationUrl = `${baseUrl}/v1/vast/omid-verification.js`;
+  const omidVerificationParameters = buildOmidVerificationParameters({
+    tagId,
+    workspaceId,
+    viewabilityUrl: viewabilityBaseUrl,
+  });
+  const adVerificationsXml = includeOmidVerification
+    ? `      <AdVerifications>
+        <Verification vendor="smx.co-omid">
+          <JavaScriptResource apiFramework="omid" browserOptional="true"><![CDATA[${omidVerificationUrl}]]></JavaScriptResource>
+          <VerificationParameters><![CDATA[${omidVerificationParameters}]]></VerificationParameters>
+        </Verification>
+      </AdVerifications>\n`
+    : '';
   const clickThroughUrl = wrappedClickTrackUrl || clickTrackingUrl || clickUrl;
   const clickTrackingXml = `              <ClickTracking><![CDATA[${wrappedClickTrackUrl}]]></ClickTracking>\n`;
   const mediaFiles = Array.isArray(servingCandidate?.videoRenditions) && servingCandidate.videoRenditions.length
@@ -137,6 +171,7 @@ export function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
       <AdSystem><![CDATA[SMX Studio]]></AdSystem>
       <AdTitle><![CDATA[${escapeXml(tag.name)}]]></AdTitle>
 ${errorXml}
+${adVerificationsXml}
       <Impression id="smx-imp"><![CDATA[${impressionUrl}]]></Impression>
       <Creatives>
         <Creative id="${creativeId}" sequence="1">
