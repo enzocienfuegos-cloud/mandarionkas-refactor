@@ -623,6 +623,46 @@ export function handleTrackingRoutes(app, { pool }) {
     return reply.status(204).send();
   });
 
+  // GET /track/click-beacon/:tagId — non-counting beacon for VAST ClickTracking
+  app.get('/track/click-beacon/:tagId', async (req, reply) => {
+    const { tagId } = req.params;
+    const mergedQuery = buildMergedTrackingQuery(req.query);
+    const {
+      ws: rawWorkspaceId,
+      imp: rawImpressionId,
+      c: rawCreativeId,
+      csv: rawCreativeSizeVariantId,
+    } = mergedQuery;
+    const impressionId = normalizeUuid(rawImpressionId);
+    const servingSnapshot = rawWorkspaceId
+      ? null
+      : await getTagServingSnapshotById(pool, tagId);
+    const workspaceId = rawWorkspaceId || servingSnapshot?.workspace_id || null;
+    const creativeId = normalizeUuid(rawCreativeId) ?? servingSnapshot?.servingCandidate?.creativeId ?? null;
+    const creativeSizeVariantId =
+      normalizeUuid(rawCreativeSizeVariantId) ?? servingSnapshot?.servingCandidate?.creativeSizeVariantId ?? null;
+
+    const context = await collectTrackingContext(req, mergedQuery);
+    setTrackingIdentityCookies(reply, context);
+    attachMeasurementDebugHeaders(reply, context);
+
+    if (workspaceId) {
+      logMeasurementPath(req, 'tracking click beacon path', {
+        tagId,
+        workspaceId,
+        impressionId,
+        creativeId,
+        creativeSizeVariantId,
+      }, context);
+    }
+
+    reply.header('Content-Type', 'image/gif');
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    reply.header('Pragma', 'no-cache');
+    reply.header('Expires', '0');
+    return reply.send(PIXEL_GIF);
+  });
+
   // GET /track/viewability/:tagId — records viewability event
   app.get('/track/viewability/:tagId', async (req, reply) => {
     const { tagId } = req.params;

@@ -114,6 +114,7 @@ export function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
     clickTrackingParams.set('url', clickUrl);
   }
   const clickTrackingUrl = appendQueryParam(`${trackingBase}/click/${tagId}?${clickTrackingParams.toString()}`, 'ctx', ctxToken);
+  const clickBeaconUrl = appendQueryParam(`${trackingBase}/click-beacon/${tagId}?${trackingParams.toString()}`, 'ctx', ctxToken);
   const wrappedClickTrackUrl = wrapTrackedClickUrlWithDspMacro(clickTrackingUrl, query, trackingDsp);
   const viewabilityBaseUrl = appendQueryParam(`${trackingBase}/viewability/${tagId}?${trackingParams.toString()}`, 'ctx', ctxToken);
   const includeOmidVerification = shouldIncludeOmidVerification(trackingDsp);
@@ -133,7 +134,7 @@ export function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
       </AdVerifications>\n`
     : '';
   const clickThroughUrl = wrappedClickTrackUrl || clickTrackingUrl || clickUrl;
-  const clickTrackingXml = `              <ClickTracking><![CDATA[${wrappedClickTrackUrl}]]></ClickTracking>\n`;
+  const clickTrackingXml = `              <ClickTracking><![CDATA[${clickBeaconUrl}]]></ClickTracking>\n`;
   const mediaFiles = Array.isArray(servingCandidate?.videoRenditions) && servingCandidate.videoRenditions.length
     ? servingCandidate.videoRenditions
       .filter((rendition) => rendition?.public_url)
