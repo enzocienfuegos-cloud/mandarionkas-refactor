@@ -25,6 +25,7 @@ interface TagSummary {
   ctr: number;
   impressionsLast7d: number;
   videoStarts: number;
+  videoStartRate: number;
   videoCompletions: number;
   videoCompletionRate: number;
 }
@@ -33,6 +34,8 @@ interface DailyStat {
   date: string;
   impressions: number;
   clicks: number;
+  videoStarts: number;
+  videoCompletions: number;
 }
 
 function BarChart({ data }: { data: DailyStat[] }) {
@@ -117,6 +120,7 @@ function normalizeTagSummary(source: any): TagSummary | null {
     ctr: toNumber(source.ctr ?? source.overall_ctr),
     impressionsLast7d: toNumber(source.impressionsLast7d ?? source.impressions_7d),
     videoStarts: toNumber(source.videoStarts ?? source.video_starts),
+    videoStartRate: toNumber(source.videoStartRate ?? source.video_start_rate),
     videoCompletions: toNumber(source.videoCompletions ?? source.video_completions),
     videoCompletionRate: toNumber(source.videoCompletionRate ?? source.video_completion_rate),
   };
@@ -128,6 +132,8 @@ function normalizeDailyStats(source: any): DailyStat[] {
     date: String(item?.date ?? ''),
     impressions: toNumber(item?.impressions),
     clicks: toNumber(item?.clicks),
+    videoStarts: toNumber(item?.videoStarts ?? item?.video_starts),
+    videoCompletions: toNumber(item?.videoCompletions ?? item?.video_completions),
   })).filter(item => item.date);
 }
 
@@ -341,17 +347,27 @@ export default function TagReportingDashboard() {
         { Metric: 'CTR (%)', Value: Number(summary.ctr.toFixed(2)) },
         { Metric: 'Last 7d Impressions', Value: summary.impressionsLast7d },
         { Metric: 'Play Starts', Value: summary.videoStarts },
+        { Metric: 'Start Rate (%)', Value: Number(summary.videoStartRate.toFixed(2)) },
         { Metric: 'Plays Completed', Value: summary.videoCompletions },
         { Metric: 'Completion Rate (%)', Value: Number(summary.videoCompletionRate.toFixed(2)) },
       ];
       const breakdownRows = [...stats]
         .reverse()
-        .map(row => ({
-          Date: row.date,
-          Impressions: row.impressions,
-          Clicks: row.clicks,
-          'CTR (%)': row.impressions > 0 ? Number((((row.clicks / row.impressions) * 100)).toFixed(2)) : 0,
-        }));
+        .map(row => {
+          const ctr = row.impressions > 0 ? (row.clicks / row.impressions) * 100 : 0;
+          const startRate = row.impressions > 0 ? (row.videoStarts / row.impressions) * 100 : 0;
+          const completionRate = row.videoStarts > 0 ? (row.videoCompletions / row.videoStarts) * 100 : 0;
+          return {
+            Date: row.date,
+            Impressions: row.impressions,
+            Clicks: row.clicks,
+            'Play Starts': row.videoStarts,
+            'Plays Completed': row.videoCompletions,
+            'CTR (%)': Number(ctr.toFixed(2)),
+            'Start Rate (%)': Number(startRate.toFixed(2)),
+            'Completion Rate (%)': Number(completionRate.toFixed(2)),
+          };
+        });
 
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(filterSummary), 'Filters');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), 'Summary');
@@ -518,12 +534,13 @@ export default function TagReportingDashboard() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4 mb-6">
                     <KpiCard label="Total Impressions" value={summary ? fmtNum(summary.totalImpressions) : '—'} />
                     <KpiCard label="Total Clicks" value={summary ? fmtNum(summary.totalClicks) : '—'} />
                     <KpiCard label="CTR" value={summary ? `${summary.ctr.toFixed(2)}%` : '—'} />
                     <KpiCard label="Last 7d Imps" value={summary ? fmtNum(summary.impressionsLast7d) : '—'} />
                     <KpiCard label="Play Starts" value={summary ? fmtNum(summary.videoStarts) : '—'} />
+                    <KpiCard label="Start Rate" value={summary ? `${summary.videoStartRate.toFixed(2)}%` : '—'} />
                     <KpiCard label="Plays Completed" value={summary ? fmtNum(summary.videoCompletions) : '—'} />
                     <KpiCard label="Completion Rate" value={summary ? `${summary.videoCompletionRate.toFixed(2)}%` : '—'} />
                   </div>
@@ -551,7 +568,7 @@ export default function TagReportingDashboard() {
                         <table className="min-w-full divide-y divide-slate-100">
                           <thead className="bg-slate-50">
                             <tr>
-                              {['Date', 'Impressions', 'Clicks', 'CTR'].map(header => (
+                              {['Date', 'Impressions', 'Clicks', 'Play Starts', 'Plays Completed', 'CTR', 'Start Rate', 'Completion Rate'].map(header => (
                                 <th key={header} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                                   {header}
                                 </th>
@@ -561,12 +578,18 @@ export default function TagReportingDashboard() {
                           <tbody className="divide-y divide-slate-100">
                             {[...stats].reverse().map(row => {
                               const ctr = row.impressions > 0 ? (row.clicks / row.impressions) * 100 : 0;
+                              const startRate = row.impressions > 0 ? (row.videoStarts / row.impressions) * 100 : 0;
+                              const completionRate = row.videoStarts > 0 ? (row.videoCompletions / row.videoStarts) * 100 : 0;
                               return (
                                 <tr key={row.date} className="hover:bg-slate-50">
                                   <td className="px-4 py-2.5 text-sm text-slate-600">{row.date}</td>
                                   <td className="px-4 py-2.5 text-sm font-medium text-slate-800">{row.impressions.toLocaleString()}</td>
                                   <td className="px-4 py-2.5 text-sm text-slate-700">{row.clicks.toLocaleString()}</td>
+                                  <td className="px-4 py-2.5 text-sm text-slate-700">{row.videoStarts.toLocaleString()}</td>
+                                  <td className="px-4 py-2.5 text-sm text-slate-700">{row.videoCompletions.toLocaleString()}</td>
                                   <td className="px-4 py-2.5 text-sm text-slate-700">{ctr.toFixed(2)}%</td>
+                                  <td className="px-4 py-2.5 text-sm text-slate-700">{startRate.toFixed(2)}%</td>
+                                  <td className="px-4 py-2.5 text-sm text-slate-700">{completionRate.toFixed(2)}%</td>
                                 </tr>
                               );
                             })}

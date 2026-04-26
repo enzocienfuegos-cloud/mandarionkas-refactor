@@ -60,6 +60,11 @@ async function getRawTagDailyStats(pool, workspaceId, tagId, opts = {}) {
   addCreativeFilters(clickParams, clickConditions, creativeId, creativeSizeVariantId);
   addTimestampFilters(clickParams, clickConditions, dateFrom, dateTo);
 
+  const videoParams = [tagId, workspaceId];
+  const videoConditions = ['tag_id = $1', 'workspace_id = $2'];
+  addCreativeFilters(videoParams, videoConditions, creativeId, creativeSizeVariantId);
+  addTimestampFilters(videoParams, videoConditions, dateFrom, dateTo);
+
   const { rows } = await pool.query(
     `WITH impression_daily AS (
        SELECT DATE(timestamp) AS date, COUNT(*)::bigint AS impressions
@@ -74,11 +79,24 @@ async function getRawTagDailyStats(pool, workspaceId, tagId, opts = {}) {
          .map(condition => condition.replace(/\$(\d+)/g, (_, num) => `$${Number(num) + impressionParams.length}`))
          .join(' AND ')}
        GROUP BY DATE(timestamp)
+     ),
+     engagement_daily AS (
+       SELECT
+         DATE(timestamp) AS date,
+         COALESCE(SUM(CASE WHEN event_type = 'start' THEN 1 ELSE 0 END), 0)::bigint AS video_starts,
+         COALESCE(SUM(CASE WHEN event_type = 'complete' THEN 1 ELSE 0 END), 0)::bigint AS video_completions
+       FROM engagement_events
+       WHERE ${videoConditions
+         .map(condition => condition.replace(/\$(\d+)/g, (_, num) => `$${Number(num) + impressionParams.length + clickParams.length}`))
+         .join(' AND ')}
+       GROUP BY DATE(timestamp)
      )
      SELECT
-       COALESCE(impression_daily.date, click_daily.date) AS date,
+       COALESCE(impression_daily.date, click_daily.date, engagement_daily.date) AS date,
        COALESCE(impression_daily.impressions, 0)::bigint AS impressions,
        COALESCE(click_daily.clicks, 0)::bigint AS clicks,
+       COALESCE(engagement_daily.video_starts, 0)::bigint AS video_starts,
+       COALESCE(engagement_daily.video_completions, 0)::bigint AS video_completions,
        0::bigint AS viewable_imps,
        0::bigint AS measured_imps,
        0::bigint AS undetermined_imps,
@@ -86,13 +104,21 @@ async function getRawTagDailyStats(pool, workspaceId, tagId, opts = {}) {
        CASE WHEN COALESCE(impression_daily.impressions, 0) > 0
             THEN ROUND(COALESCE(click_daily.clicks, 0)::numeric / impression_daily.impressions * 100, 4)
             ELSE 0 END AS ctr,
+       CASE WHEN COALESCE(impression_daily.impressions, 0) > 0
+            THEN ROUND(COALESCE(engagement_daily.video_starts, 0)::numeric / impression_daily.impressions * 100, 4)
+            ELSE 0 END AS video_start_rate,
+       CASE WHEN COALESCE(engagement_daily.video_starts, 0) > 0
+            THEN ROUND(COALESCE(engagement_daily.video_completions, 0)::numeric / engagement_daily.video_starts * 100, 4)
+            ELSE 0 END AS video_completion_rate,
        0::numeric AS viewability_rate
      FROM impression_daily
      FULL OUTER JOIN click_daily
        ON click_daily.date = impression_daily.date
+     FULL OUTER JOIN engagement_daily
+       ON engagement_daily.date = COALESCE(impression_daily.date, click_daily.date)
      ORDER BY date DESC
-     LIMIT $${impressionParams.length + clickParams.length + 1}`,
-    [...impressionParams, ...clickParams, Math.min(Number(limit) || 30, 90)],
+     LIMIT $${impressionParams.length + clickParams.length + videoParams.length + 1}`,
+    [...impressionParams, ...clickParams, ...videoParams, Math.min(Number(limit) || 30, 90)],
   );
 
   return rows;
@@ -206,6 +232,7 @@ async function getRawTagSummaryStats(pool, workspaceId, tagId, opts = {}) {
     total_spend: 0,
     overall_ctr: totalImpressions > 0 ? Number(((totalClicks / totalImpressions) * 100).toFixed(4)) : 0,
     overall_viewability: totalMeasured > 0 ? Number(((totalViewable / totalMeasured) * 100).toFixed(4)) : 0,
+    video_start_rate: totalImpressions > 0 ? Number(((videoStarts / totalImpressions) * 100).toFixed(4)) : 0,
     video_completion_rate: videoStarts > 0 ? Number(((videoCompletions / videoStarts) * 100).toFixed(4)) : 0,
   };
 }
@@ -241,13 +268,32 @@ export async function getTagDailyStats(pool, workspaceId, tagId, opts = {}) {
 
     const { rows } = await pool.query(
       `SELECT ds.date, ds.impressions, ds.clicks, ds.viewable_imps, ds.measured_imps, ds.undetermined_imps, ds.spend,
+              COALESCE(eng.video_starts, 0)::bigint AS video_starts,
+              COALESCE(eng.video_completions, 0)::bigint AS video_completions,
               CASE WHEN ds.impressions > 0
                    THEN ROUND(ds.clicks::NUMERIC / ds.impressions * 100, 4)
                    ELSE 0 END AS ctr,
+              CASE WHEN ds.impressions > 0
+                   THEN ROUND(COALESCE(eng.video_starts, 0)::NUMERIC / ds.impressions * 100, 4)
+                   ELSE 0 END AS video_start_rate,
+              CASE WHEN COALESCE(eng.video_starts, 0) > 0
+                   THEN ROUND(COALESCE(eng.video_completions, 0)::NUMERIC / eng.video_starts * 100, 4)
+                   ELSE 0 END AS video_completion_rate,
               CASE WHEN ds.measured_imps > 0
                    THEN ROUND(ds.viewable_imps::NUMERIC / ds.measured_imps * 100, 4)
                    ELSE 0 END AS viewability_rate
        FROM tag_daily_stats ds
+       LEFT JOIN (
+         SELECT
+           tag_id,
+           date,
+           COALESCE(SUM(CASE WHEN event_type = 'start' THEN event_count ELSE 0 END), 0)::bigint AS video_starts,
+           COALESCE(SUM(CASE WHEN event_type = 'complete' THEN event_count ELSE 0 END), 0)::bigint AS video_completions
+         FROM tag_engagement_daily_stats
+         GROUP BY tag_id, date
+       ) eng
+         ON eng.tag_id = ds.tag_id
+        AND eng.date = ds.date
        WHERE ${conditions.join(' AND ')}
        ORDER BY ds.date DESC
        LIMIT $${params.length}`,
@@ -338,12 +384,14 @@ export async function getTagSummaryStats(pool, workspaceId, tagId, opts = {}) {
   const videoSummary = videoRows[0] ?? {};
   const videoStarts = Number(videoSummary.video_starts ?? 0);
   const videoCompletions = Number(videoSummary.video_completions ?? 0);
+  const totalImpressions = Number(rows[0]?.total_impressions ?? 0);
 
   const rollupSummary = {
     tag,
     ...rows[0],
     ...last7[0],
     ...videoSummary,
+    video_start_rate: totalImpressions > 0 ? Number(((videoStarts / totalImpressions) * 100).toFixed(4)) : 0,
     video_completion_rate: videoStarts > 0 ? Number(((videoCompletions / videoStarts) * 100).toFixed(4)) : 0,
   };
 
