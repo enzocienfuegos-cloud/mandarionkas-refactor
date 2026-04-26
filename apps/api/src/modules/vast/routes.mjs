@@ -34,6 +34,24 @@ function isTrackableDestinationUrl(value) {
   }
 }
 
+function readRotationSeed(query = {}) {
+  const candidates = [
+    query?.smx_rotation_seed,
+    query?.cb,
+    query?.cachebuster,
+    query?.CACHEBUSTING,
+    query?.CACHEBUSTER,
+    query?.tmp,
+    query?.timestamp,
+    query?.ord,
+  ];
+  for (const candidate of candidates) {
+    const normalized = String(candidate ?? '').trim();
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
 function buildCreativeIframeUrl(creativeUrl, clickTrackUrl, shouldInjectTrackedClick, dspClickMacro = '', engagementBase = '', injectLegacyBootstrap = true) {
   if (!creativeUrl) return '';
   try {
@@ -804,9 +822,11 @@ async function loadDisplayTag(req, reply, pool) {
   const tag = workspaceId
     ? await getTagServingSnapshot(pool, workspaceId, tagId, {
         requestedSize: readRequestedSize(req.query),
+        rotationSeed: readRotationSeed(req.query),
       })
     : await getTagServingSnapshotById(pool, tagId, {
         requestedSize: readRequestedSize(req.query),
+        rotationSeed: readRotationSeed(req.query),
       });
   if (!tag) {
     reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
@@ -858,9 +878,11 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
     const tag = workspaceId
       ? await getTagServingSnapshot(pool, workspaceId, tagId, {
           requestedSize: readRequestedSize(req.query),
+          rotationSeed: readRotationSeed(req.query),
         })
       : await getTagServingSnapshotById(pool, tagId, {
           requestedSize: readRequestedSize(req.query),
+          rotationSeed: readRotationSeed(req.query),
         });
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
@@ -904,6 +926,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
 
     const tag = await getTagServingSnapshotById(pool, tagId, {
       requestedSize: readRequestedSize(req.query),
+      rotationSeed: readRotationSeed(req.query),
     });
     if (!tag) {
       return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });

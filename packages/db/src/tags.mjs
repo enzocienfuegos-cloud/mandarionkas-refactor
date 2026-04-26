@@ -705,7 +705,17 @@ async function listTagVersionBindings(pool, workspaceId, tagId) {
   return rows;
 }
 
-function selectServingBinding(bindings, requestedSize) {
+function hashRotationSeed(value) {
+  const input = String(value ?? '');
+  let hash = 5381;
+  for (let index = 0; index < input.length; index += 1) {
+    hash = ((hash << 5) + hash) + input.charCodeAt(index);
+    hash >>>= 0;
+  }
+  return hash >>> 0;
+}
+
+function selectServingBinding(bindings, requestedSize, rotationSeed = '') {
   const eligibleBindings = bindings.filter(binding =>
     isBindingActive(binding)
     && isServingVersionEligible({ status: binding.creative_version_status }),
@@ -723,7 +733,10 @@ function selectServingBinding(bindings, requestedSize) {
       return normalizedCandidates[0]?.binding ?? null;
     }
 
-    let roll = Math.random() * totalWeight;
+    const normalizedSeed = String(rotationSeed ?? '').trim();
+    let roll = normalizedSeed
+      ? (hashRotationSeed(normalizedSeed) % totalWeight)
+      : (Math.random() * totalWeight);
     for (const candidate of normalizedCandidates) {
       roll -= candidate.weightScore;
       if (roll <= 0) return candidate.binding;
@@ -769,7 +782,7 @@ export async function getTagServingSnapshot(pool, workspaceId, tagId, options = 
     getTagWithCreatives(pool, workspaceId, tagId),
   ]);
 
-  const activeBinding = selectServingBinding(bindings, options.requestedSize);
+  const activeBinding = selectServingBinding(bindings, options.requestedSize, options.rotationSeed);
   const servingCandidate = activeBinding
     ? toServingCandidateFromBinding(activeBinding, tag)
     : null;
@@ -801,7 +814,7 @@ export async function getTagServingSnapshotById(pool, tagId, options = {}) {
     getTagWithCreativesById(pool, tagId),
   ]);
 
-  const activeBinding = selectServingBinding(bindings, options.requestedSize);
+  const activeBinding = selectServingBinding(bindings, options.requestedSize, options.rotationSeed);
   const servingCandidate = activeBinding
     ? toServingCandidateFromBinding(activeBinding, tag)
     : null;
