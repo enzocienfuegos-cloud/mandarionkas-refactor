@@ -1070,6 +1070,44 @@ export async function recordClick(pool, data) {
     timestamp = new Date(),
   } = data;
 
+  const canDedupeClick = Boolean(impression_id || cookie_id || device_id || ip);
+  if (canDedupeClick) {
+    const { rows: existingRows } = await pool.query(
+      `SELECT id, tag_id, workspace_id, timestamp
+       FROM click_events
+       WHERE tag_id = $1
+         AND workspace_id = $2
+         AND creative_id IS NOT DISTINCT FROM $3
+         AND creative_size_variant_id IS NOT DISTINCT FROM $4
+         AND redirect_url IS NOT DISTINCT FROM $5
+         AND timestamp >= ($6::timestamptz - INTERVAL '2 seconds')
+         AND (
+           ($7::uuid IS NOT NULL AND impression_id IS NOT DISTINCT FROM $7)
+           OR ($8 IS NOT NULL AND cookie_id IS NOT DISTINCT FROM $8)
+           OR ($9 IS NOT NULL AND device_id IS NOT DISTINCT FROM $9)
+           OR ($10::inet IS NOT NULL AND ip IS NOT DISTINCT FROM $10::inet)
+         )
+       ORDER BY timestamp DESC
+       LIMIT 1`,
+      [
+        tag_id,
+        workspace_id,
+        creative_id,
+        creative_size_variant_id,
+        redirect_url,
+        timestamp,
+        impression_id,
+        cookie_id,
+        device_id,
+        ip,
+      ],
+    );
+
+    if (existingRows.length) {
+      return existingRows[0];
+    }
+  }
+
   const { rows } = await pool.query(
     `INSERT INTO click_events
        (tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, ip, user_agent,
