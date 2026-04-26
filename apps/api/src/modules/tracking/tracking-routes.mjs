@@ -63,7 +63,16 @@ function inferDeviceInfo(userAgent = '') {
               : /cros/i.test(lower) ? 'chromeos'
                 : 'unknown';
 
-  return { deviceType, browser, os };
+  const deviceModel =
+    ua.match(/\b(SM-[A-Z0-9-]+)\b/i)?.[1]
+    ?? ua.match(/\b(Pixel [A-Z0-9 ]+)\b/i)?.[1]
+    ?? ua.match(/\b(iPhone|iPad|iPod)\b/i)?.[1]
+    ?? ua.match(/\b(AppleTV|Roku|GoogleTV|SMART-TV|HbbTV)\b/i)?.[1]
+    ?? ua.match(/\b(Macintosh)\b/i)?.[1]
+    ?? ua.match(/\b(Windows NT [0-9.]+)\b/i)?.[1]
+    ?? null;
+
+  return { deviceType, browser, os, deviceModel };
 }
 
 function readTrackingValue(...values) {
@@ -273,13 +282,31 @@ async function collectTrackingContext(req, query = {}) {
   const country = geo.country ?? null;
   const region = geo.region ?? null;
   const city = geo.city ?? null;
-  const { deviceType, browser, os } = inferDeviceInfo(userAgent);
+  const { deviceType, browser, os, deviceModel: inferredDeviceModel } = inferDeviceInfo(userAgent);
   const cookieDeviceId = req.cookies?.smx_device_id ?? req.cookies?.device_id ?? null;
   const cookieCookieId = req.cookies?.smx_cookie_id ?? req.cookies?.cookie_id ?? null;
   const identityKeys = buildIdentityKeys({ query, headers: req.headers, cookies: req.cookies ?? {} });
   const deliveryKind = String(query.smx_delivery_kind ?? '').trim().toLowerCase() || null;
   const rawClickMacro = readDspMacroValue(query, 'clickMacro', dspHint);
   const resolvedClickMacro = resolveDspClickMacroValue(rawClickMacro);
+  const deviceModel = readTrackingValue(query.dmdl, query.deviceModel, query.model, inferredDeviceModel);
+  const contextualIds = readTrackingValue(query.ctxid, query.contextualIds);
+  const networkId = readTrackingValue(query.netid, query.networkId);
+  const sourcePublisherId = readTrackingValue(query.srcpubid, query.sourcePublisherId, query.excpubid, query.exchangePublisherId);
+  const appId = readTrackingValue(query.appid, query.appId, query.appb, query.appBundle);
+  const siteId = readTrackingValue(query.sid, query.siteId);
+  const exchangeId = readTrackingValue(query.excid, query.exchangeId);
+  const exchangePublisherId = readTrackingValue(query.excpubid, query.exchangePublisherId);
+  const exchangeSiteIdOrDomain = readTrackingValue(query.excsiddmn, query.exchangeSiteIdOrDomain);
+  const appBundle = readTrackingValue(query.appb, query.appBundle);
+  const appName = readTrackingValue(query.appn, query.appName, query.appne, query.appNameEncoded);
+  const pagePosition = readTrackingValue(query.ppos, query.pagePosition);
+  const contentLanguage = readTrackingValue(query.cntlang, query.contentLanguage);
+  const contentTitle = readTrackingValue(query.cnttitle, query.contentTitle);
+  const contentSeries = readTrackingValue(query.cntseries, query.contentSeries);
+  const carrier = readTrackingValue(query.carr, query.carrier);
+  const appStoreName = readTrackingValue(query.appstnm, query.appStoreName);
+  const contentGenre = readTrackingValue(query.cngen, query.contentGenre);
   const measurementPath = resolvedClickMacro
     ? `${dspHint || 'dsp'}_macro`
     : dspHint
@@ -295,10 +322,28 @@ async function collectTrackingContext(req, query = {}) {
     region,
     city,
     device_type: deviceType,
+    device_model: deviceModel,
     browser,
     os,
     device_id: String(query.did ?? req.headers['x-device-id'] ?? cookieDeviceId ?? '').trim() || null,
     cookie_id: String(query.cid ?? req.headers['x-cookie-id'] ?? cookieCookieId ?? '').trim() || null,
+    contextual_ids: contextualIds,
+    network_id: networkId,
+    source_publisher_id: sourcePublisherId,
+    app_id: appId,
+    site_id: siteId,
+    exchange_id: exchangeId,
+    exchange_publisher_id: exchangePublisherId,
+    exchange_site_id_or_domain: exchangeSiteIdOrDomain,
+    app_bundle: appBundle,
+    app_name: appName,
+    page_position: pagePosition,
+    content_language: contentLanguage,
+    content_title: contentTitle,
+    content_series: contentSeries,
+    carrier,
+    app_store_name: appStoreName,
+    content_genre: contentGenre,
     identity_keys: identityKeys,
     measurement_path: measurementPath,
     macro_source: rawClickMacro ? (resolvedClickMacro ? 'resolved' : 'unresolved') : 'absent',

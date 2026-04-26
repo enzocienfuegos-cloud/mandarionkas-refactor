@@ -31,6 +31,33 @@ interface TagSummary {
   videoStartRate: number;
   videoCompletions: number;
   videoCompletionRate: number;
+  latestContext: TagContextSnapshot | null;
+}
+
+interface TagContextSnapshot {
+  siteDomain: string;
+  pageUrl: string;
+  deviceType: string;
+  deviceModel: string;
+  browser: string;
+  os: string;
+  contextualIds: string;
+  networkId: string;
+  sourcePublisherId: string;
+  appId: string;
+  siteId: string;
+  exchangeId: string;
+  exchangePublisherId: string;
+  exchangeSiteIdOrDomain: string;
+  appBundle: string;
+  appName: string;
+  pagePosition: string;
+  contentLanguage: string;
+  contentTitle: string;
+  contentSeries: string;
+  carrier: string;
+  appStoreName: string;
+  contentGenre: string;
 }
 
 interface DailyStat {
@@ -125,6 +152,40 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function toText(value: unknown): string {
+  return String(value ?? '').trim();
+}
+
+function normalizeContextSnapshot(source: any): TagContextSnapshot | null {
+  if (!source || typeof source !== 'object') return null;
+  const snapshot: TagContextSnapshot = {
+    siteDomain: toText(source.siteDomain ?? source.site_domain),
+    pageUrl: toText(source.pageUrl ?? source.page_url),
+    deviceType: toText(source.deviceType ?? source.device_type),
+    deviceModel: toText(source.deviceModel ?? source.device_model),
+    browser: toText(source.browser),
+    os: toText(source.os),
+    contextualIds: toText(source.contextualIds ?? source.contextual_ids),
+    networkId: toText(source.networkId ?? source.network_id),
+    sourcePublisherId: toText(source.sourcePublisherId ?? source.source_publisher_id),
+    appId: toText(source.appId ?? source.app_id),
+    siteId: toText(source.siteId ?? source.site_id),
+    exchangeId: toText(source.exchangeId ?? source.exchange_id),
+    exchangePublisherId: toText(source.exchangePublisherId ?? source.exchange_publisher_id),
+    exchangeSiteIdOrDomain: toText(source.exchangeSiteIdOrDomain ?? source.exchange_site_id_or_domain),
+    appBundle: toText(source.appBundle ?? source.app_bundle),
+    appName: toText(source.appName ?? source.app_name),
+    pagePosition: toText(source.pagePosition ?? source.page_position),
+    contentLanguage: toText(source.contentLanguage ?? source.content_language),
+    contentTitle: toText(source.contentTitle ?? source.content_title),
+    contentSeries: toText(source.contentSeries ?? source.content_series),
+    carrier: toText(source.carrier),
+    appStoreName: toText(source.appStoreName ?? source.app_store_name),
+    contentGenre: toText(source.contentGenre ?? source.content_genre),
+  };
+  return Object.values(snapshot).some(Boolean) ? snapshot : null;
+}
+
 function normalizeTagSummary(source: any): TagSummary | null {
   if (!source || typeof source !== 'object') return null;
   return {
@@ -139,6 +200,7 @@ function normalizeTagSummary(source: any): TagSummary | null {
     videoStartRate: toNumber(source.videoStartRate ?? source.video_start_rate),
     videoCompletions: toNumber(source.videoCompletions ?? source.video_completions),
     videoCompletionRate: toNumber(source.videoCompletionRate ?? source.video_completion_rate),
+    latestContext: normalizeContextSnapshot(source.latestContext ?? source.latest_context),
   };
 }
 
@@ -370,6 +432,33 @@ export default function TagReportingDashboard() {
         { Metric: 'Plays Completed', Value: summary.videoCompletions },
         { Metric: 'Completion Rate (%)', Value: Number(summary.videoCompletionRate.toFixed(2)) },
       ];
+      const contextRows = summary.latestContext
+        ? [
+            { Field: 'Site Domain', Value: summary.latestContext.siteDomain || 'n/a' },
+            { Field: 'Page URL', Value: summary.latestContext.pageUrl || 'n/a' },
+            { Field: 'Device Type', Value: summary.latestContext.deviceType || 'n/a' },
+            { Field: 'Device Model', Value: summary.latestContext.deviceModel || 'n/a' },
+            { Field: 'Browser', Value: summary.latestContext.browser || 'n/a' },
+            { Field: 'OS', Value: summary.latestContext.os || 'n/a' },
+            { Field: 'Contextual IDs', Value: summary.latestContext.contextualIds || 'n/a' },
+            { Field: 'Network ID', Value: summary.latestContext.networkId || 'n/a' },
+            { Field: 'Source Publisher ID', Value: summary.latestContext.sourcePublisherId || 'n/a' },
+            { Field: 'App ID', Value: summary.latestContext.appId || 'n/a' },
+            { Field: 'Site ID', Value: summary.latestContext.siteId || 'n/a' },
+            { Field: 'Exchange ID', Value: summary.latestContext.exchangeId || 'n/a' },
+            { Field: 'Exchange Publisher ID', Value: summary.latestContext.exchangePublisherId || 'n/a' },
+            { Field: 'Exchange Site/Domain', Value: summary.latestContext.exchangeSiteIdOrDomain || 'n/a' },
+            { Field: 'App Bundle', Value: summary.latestContext.appBundle || 'n/a' },
+            { Field: 'App Name', Value: summary.latestContext.appName || 'n/a' },
+            { Field: 'Page Position', Value: summary.latestContext.pagePosition || 'n/a' },
+            { Field: 'Content Language', Value: summary.latestContext.contentLanguage || 'n/a' },
+            { Field: 'Content Title', Value: summary.latestContext.contentTitle || 'n/a' },
+            { Field: 'Content Series', Value: summary.latestContext.contentSeries || 'n/a' },
+            { Field: 'Carrier', Value: summary.latestContext.carrier || 'n/a' },
+            { Field: 'App Store Name', Value: summary.latestContext.appStoreName || 'n/a' },
+            { Field: 'Content Genre', Value: summary.latestContext.contentGenre || 'n/a' },
+          ]
+        : [];
       const breakdownRows = [...stats]
         .reverse()
         .map(row => {
@@ -390,6 +479,9 @@ export default function TagReportingDashboard() {
 
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(filterSummary), 'Filters');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), 'Summary');
+      if (contextRows.length) {
+        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(contextRows), 'Latest Context');
+      }
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(breakdownRows), 'Daily Breakdown');
       XLSX.writeFile(workbook, `${slugify(selectedTag.name)}-report.xlsx`);
     } catch (exportError) {
@@ -579,6 +671,38 @@ export default function TagReportingDashboard() {
                       <BarChart data={stats} />
                     )}
                   </div>
+
+                  {summary?.latestContext ? (
+                    <div className="mt-4 bg-white rounded-xl border border-slate-200 p-5">
+                      <h3 className="text-sm font-semibold text-slate-700 mb-4">Latest Delivery Context</h3>
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Device</p>
+                          <p className="mt-2 text-sm font-medium text-slate-800">{summary.latestContext.deviceType || 'n/a'}</p>
+                          <p className="mt-1 text-xs text-slate-500">{summary.latestContext.deviceModel || 'Model unavailable'}</p>
+                          <p className="mt-1 text-xs text-slate-400">{[summary.latestContext.browser, summary.latestContext.os].filter(Boolean).join(' · ') || 'Browser/OS unavailable'}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Site / App</p>
+                          <p className="mt-2 text-sm font-medium text-slate-800">{summary.latestContext.siteDomain || summary.latestContext.appName || 'n/a'}</p>
+                          <p className="mt-1 text-xs text-slate-500">{summary.latestContext.appId || summary.latestContext.appBundle || summary.latestContext.siteId || 'No app/site id captured'}</p>
+                          <p className="mt-1 text-xs text-slate-400">{summary.latestContext.pagePosition || 'Position unavailable'}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Inventory Source IDs</p>
+                          <p className="mt-2 text-sm font-medium text-slate-800">{summary.latestContext.networkId || summary.latestContext.exchangeId || 'n/a'}</p>
+                          <p className="mt-1 text-xs text-slate-500">{summary.latestContext.sourcePublisherId || summary.latestContext.exchangePublisherId || 'No publisher id captured'}</p>
+                          <p className="mt-1 text-xs text-slate-400">{summary.latestContext.exchangeSiteIdOrDomain || summary.latestContext.siteId || 'No site/exchange id captured'}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Content Context</p>
+                          <p className="mt-2 text-sm font-medium text-slate-800">{summary.latestContext.contextualIds || summary.latestContext.contentGenre || 'n/a'}</p>
+                          <p className="mt-1 text-xs text-slate-500">{summary.latestContext.contentTitle || summary.latestContext.contentSeries || 'No content title/series captured'}</p>
+                          <p className="mt-1 text-xs text-slate-400">{[summary.latestContext.contentLanguage, summary.latestContext.carrier, summary.latestContext.appStoreName].filter(Boolean).join(' · ') || 'No extra content metadata captured'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
 
                   {stats.length > 0 ? (
                     <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden">

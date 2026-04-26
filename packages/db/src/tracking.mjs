@@ -971,18 +971,24 @@ export async function recordImpression(pool, data) {
     viewability_method = null,
     viewability_duration_ms = null,
     site_domain = null, page_url = null, device_type = null, browser = null, os = null,
+    device_model = null,
     device_id = null, cookie_id = null,
+    contextual_ids = null, network_id = null, source_publisher_id = null,
+    app_id = null, site_id = null, exchange_id = null, exchange_publisher_id = null,
+    exchange_site_id_or_domain = null, app_bundle = null, app_name = null,
+    page_position = null, content_language = null, content_title = null, content_series = null,
+    carrier = null, app_store_name = null, content_genre = null,
     identity_keys = [],
     timestamp = new Date(),
   } = data;
 
   const { rows } = await pool.query(
     `INSERT INTO impression_events
-       (id, tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region, city, referer, viewable, viewability_status, viewability_method, viewability_duration_ms, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id)
-     VALUES (COALESCE($1::uuid, gen_random_uuid()),$2,$3,$4,$5,$6::inet,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+       (id, tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region, city, referer, viewable, viewability_status, viewability_method, viewability_duration_ms, timestamp, site_domain, page_url, device_type, browser, os, device_model, device_id, cookie_id, contextual_ids, network_id, source_publisher_id, app_id, site_id, exchange_id, exchange_publisher_id, exchange_site_id_or_domain, app_bundle, app_name, page_position, content_language, content_title, content_series, carrier, app_store_name, content_genre)
+     VALUES (COALESCE($1::uuid, gen_random_uuid()),$2,$3,$4,$5,$6::inet,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42)
      RETURNING id, tag_id, workspace_id, timestamp`,
     [impression_id, tag_id, workspace_id, creative_id, creative_size_variant_id, ip, user_agent, country, region, city,
-     referer, viewable, viewability_status, viewability_method, viewability_duration_ms, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id],
+     referer, viewable, viewability_status, viewability_method, viewability_duration_ms, timestamp, site_domain, page_url, device_type, browser, os, device_model, device_id, cookie_id, contextual_ids, network_id, source_publisher_id, app_id, site_id, exchange_id, exchange_publisher_id, exchange_site_id_or_domain, app_bundle, app_name, page_position, content_language, content_title, content_series, carrier, app_store_name, content_genre],
   );
   const event = rows[0];
   await recordEventIdentityKeys(pool, {
@@ -1065,7 +1071,12 @@ export async function recordClick(pool, data) {
     ip = null, user_agent = null, country = null, region = null, city = null,
     referer = null, redirect_url = null,
     site_domain = null, page_url = null, device_type = null, browser = null, os = null,
-    device_id = null, cookie_id = null,
+    device_model = null, device_id = null, cookie_id = null,
+    contextual_ids = null, network_id = null, source_publisher_id = null,
+    app_id = null, site_id = null, exchange_id = null, exchange_publisher_id = null,
+    exchange_site_id_or_domain = null, app_bundle = null, app_name = null,
+    page_position = null, content_language = null, content_title = null, content_series = null,
+    carrier = null, app_store_name = null, content_genre = null,
     dsp_provider = null,
     identity_keys = [],
     timestamp = new Date(),
@@ -1143,11 +1154,11 @@ export async function recordClick(pool, data) {
   const { rows } = await pool.query(
     `INSERT INTO click_events
        (tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, ip, user_agent,
-        country, region, city, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id)
-     VALUES ($1,$2,$3,$4,$5,$6::inet,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+        country, region, city, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os, device_model, device_id, cookie_id, contextual_ids, network_id, source_publisher_id, app_id, site_id, exchange_id, exchange_publisher_id, exchange_site_id_or_domain, app_bundle, app_name, page_position, content_language, content_title, content_series, carrier, app_store_name, content_genre)
+     VALUES ($1,$2,$3,$4,$5,$6::inet,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39)
      RETURNING id, tag_id, workspace_id, timestamp`,
     [tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, ip, user_agent,
-     country, region, city, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os, device_id, cookie_id],
+     country, region, city, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os, device_model, device_id, cookie_id, contextual_ids, network_id, source_publisher_id, app_id, site_id, exchange_id, exchange_publisher_id, exchange_site_id_or_domain, app_bundle, app_name, page_position, content_language, content_title, content_series, carrier, app_store_name, content_genre],
   );
   const event = rows[0];
   await recordEventIdentityKeys(pool, {
