@@ -22,6 +22,8 @@ export default function TagBindingDashboard() {
   const [searchParams] = useSearchParams();
   const [tags, setTags] = useState<TagOption[]>([]);
   const [selectedTagId, setSelectedTagId] = useState('');
+  const [clientFilter, setClientFilter] = useState('');
+  const [tagSearch, setTagSearch] = useState('');
   const [bindings, setBindings] = useState<TagBinding[]>([]);
   const [loading, setLoading] = useState(true);
   const [bindingsLoading, setBindingsLoading] = useState(false);
@@ -34,7 +36,7 @@ export default function TagBindingDashboard() {
       setLoading(true);
       setError('');
       try {
-        const loadedTags = await loadTags();
+        const loadedTags = await loadTags({ scope: 'all' });
         const requestedTagId = searchParams.get('tagId') ?? '';
         setTags(loadedTags);
         setSelectedTagId(current => current || (loadedTags.some(tag => tag.id === requestedTagId) ? requestedTagId : loadedTags[0]?.id || ''));
@@ -77,6 +79,46 @@ export default function TagBindingDashboard() {
     if (bindingFilter === 'all') return bindings;
     return bindings.filter(binding => binding.status === bindingFilter);
   }, [bindings, bindingFilter]);
+
+  const availableClients = useMemo(() => {
+    const seen = new Map<string, string>();
+    tags.forEach(tag => {
+      const workspaceId = String(tag.workspaceId ?? '').trim();
+      if (!workspaceId) return;
+      if (!seen.has(workspaceId)) {
+        seen.set(workspaceId, tag.workspaceName ?? workspaceId);
+      }
+    });
+    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
+  }, [tags]);
+
+  const normalizedTagSearch = tagSearch.trim().toLowerCase();
+  const visibleTags = useMemo(() => (
+    tags.filter(tag => {
+      const matchesClient = !clientFilter || (tag.workspaceId ?? '') === clientFilter;
+      if (!matchesClient) return false;
+      if (!normalizedTagSearch) return true;
+      return [
+        tag.name,
+        tag.workspaceName,
+        tag.format,
+        tag.status,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedTagSearch);
+    })
+  ), [clientFilter, normalizedTagSearch, tags]);
+
+  useEffect(() => {
+    if (!visibleTags.length) {
+      setSelectedTagId('');
+      return;
+    }
+    if (visibleTags.some(tag => tag.id === selectedTagId)) return;
+    setSelectedTagId(visibleTags[0]?.id ?? '');
+  }, [selectedTagId, visibleTags]);
 
   const selectedTag = tags.find(tag => tag.id === selectedTagId) ?? null;
 
@@ -131,15 +173,37 @@ export default function TagBindingDashboard() {
 
       <div className="grid gap-4 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)]">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <label className="mb-2 block text-sm font-medium text-slate-700">Client</label>
+          <select
+            value={clientFilter}
+            onChange={event => setClientFilter(event.target.value)}
+            className="mb-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">All clients</option>
+            {availableClients.map(client => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
+          </select>
+
+          <label className="mb-2 block text-sm font-medium text-slate-700">Search Tag</label>
+          <input
+            value={tagSearch}
+            onChange={event => setTagSearch(event.target.value)}
+            placeholder="Search tag"
+            className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+
           <label className="mb-2 block text-sm font-medium text-slate-700">Tag</label>
           <select
             value={selectedTagId}
             onChange={event => setSelectedTagId(event.target.value)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            {tags.map(tag => (
+            {visibleTags.map(tag => (
               <option key={tag.id} value={tag.id}>
-                {tag.name} · {tag.format} · {tag.status}
+                {tag.name} · {tag.workspaceName ?? 'Client'} · {tag.format} · {tag.status}
               </option>
             ))}
           </select>

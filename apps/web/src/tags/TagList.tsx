@@ -62,6 +62,7 @@ export default function TagList() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
   const [selectedClientId, setSelectedClientId] = useState('');
   const [tagSearch, setTagSearch] = useState('');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
@@ -114,6 +115,10 @@ export default function TagList() {
     }));
   }, [creating, selectedClientId]);
 
+  const normalizedClientSearch = clientSearch.trim().toLowerCase();
+  const visibleClients = clients.filter(client => (
+    !normalizedClientSearch || client.name.toLowerCase().includes(normalizedClientSearch)
+  ));
   const normalizedTagSearch = tagSearch.trim().toLowerCase();
   const filteredTags = tags.filter(tag => {
     const matchesClient = !selectedClientId || (tag.workspaceId ?? '') === selectedClientId;
@@ -380,13 +385,19 @@ export default function TagList() {
       <div className="mb-4 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-[minmax(220px,280px)_minmax(260px,1fr)]">
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Client</label>
+          <input
+            value={clientSearch}
+            onChange={event => setClientSearch(event.target.value)}
+            placeholder="Search client"
+            className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          />
           <select
             value={selectedClientId}
             onChange={event => setSelectedClientId(event.target.value)}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
           >
             <option value="">All clients</option>
-            {clients.map(client => (
+            {visibleClients.map(client => (
               <option key={client.id} value={client.id}>{client.name}</option>
             ))}
           </select>
