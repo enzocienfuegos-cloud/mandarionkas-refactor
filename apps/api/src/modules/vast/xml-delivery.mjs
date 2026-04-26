@@ -59,6 +59,16 @@ function escapeXml(str) {
     .replace(/'/g, '&apos;');
 }
 
+function isTrackableDestinationUrl(value) {
+  if (!value) return false;
+  try {
+    const parsed = new URL(String(value));
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const tagId = tag.id;
   const servingCandidate = tag.servingCandidate ?? null;
@@ -81,11 +91,14 @@ export function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const impressionUrl = appendQueryParam(`${baseUrl}/track/impression/${tagId}?${trackingParams.toString()}`, 'ctx', ctxToken);
   const trackingBase = `${baseUrl}/track`;
   const clickTrackingParams = new URLSearchParams(trackingParams);
+  if (isTrackableDestinationUrl(clickUrl)) {
+    clickTrackingParams.set('url', clickUrl);
+  }
   const clickTrackingUrl = appendQueryParam(`${trackingBase}/click/${tagId}?${clickTrackingParams.toString()}`, 'ctx', ctxToken);
   const wrappedClickTrackUrl = wrapTrackedClickUrlWithDspMacro(clickTrackingUrl, query);
   const viewabilityBaseUrl = appendQueryParam(`${trackingBase}/viewability/${tagId}?${trackingParams.toString()}`, 'ctx', ctxToken);
   const vastVersion = trackingDsp === 'basis' ? '2.0' : '4.0';
-  const clickThroughUrl = clickUrl || wrappedClickTrackUrl || clickTrackingUrl;
+  const clickThroughUrl = wrappedClickTrackUrl || clickTrackingUrl || clickUrl;
   const clickTrackingXml = `              <ClickTracking><![CDATA[${wrappedClickTrackUrl}]]></ClickTracking>\n`;
   const mediaFiles = Array.isArray(servingCandidate?.videoRenditions) && servingCandidate.videoRenditions.length
     ? servingCandidate.videoRenditions
