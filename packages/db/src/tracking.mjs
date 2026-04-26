@@ -1139,8 +1139,7 @@ export async function recordClick(pool, data) {
 
   const canDedupeIlluminBounce =
     String(dsp_provider ?? '').trim().toLowerCase() === 'illumin'
-    && redirect_url
-    && !impression_id;
+    && redirect_url;
   if (canDedupeIlluminBounce) {
     const { rows: illuminRows } = await pool.query(
       `SELECT id, tag_id, workspace_id, timestamp
@@ -1150,7 +1149,14 @@ export async function recordClick(pool, data) {
          AND creative_id IS NOT DISTINCT FROM $3
          AND creative_size_variant_id IS NOT DISTINCT FROM $4
          AND redirect_url IS NOT DISTINCT FROM $5
-         AND timestamp >= ($6::timestamptz - INTERVAL '1 second')
+         AND timestamp >= ($6::timestamptz - INTERVAL '2 seconds')
+         AND (
+           ($7::uuid IS NOT NULL AND impression_id IS NOT DISTINCT FROM $7)
+           OR ($8::text <> '' AND cookie_id IS NOT DISTINCT FROM $8)
+           OR ($9::text <> '' AND device_id IS NOT DISTINCT FROM $9)
+           OR ($10::inet IS NOT NULL AND ip IS NOT DISTINCT FROM $10::inet)
+           OR ($7::uuid IS NULL AND $8::text = '' AND $9::text = '' AND $10::inet IS NULL)
+         )
        ORDER BY timestamp DESC
        LIMIT 1`,
       [
@@ -1160,6 +1166,10 @@ export async function recordClick(pool, data) {
         creative_size_variant_id,
         redirect_url,
         timestamp,
+        impression_id,
+        cookie_id ?? '',
+        device_id ?? '',
+        ip ?? null,
       ],
     );
 

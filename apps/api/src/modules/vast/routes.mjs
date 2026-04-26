@@ -35,19 +35,27 @@ function isTrackableDestinationUrl(value) {
 }
 
 function readRotationSeed(query = {}) {
+  const isResolvedSeed = (value) => {
+    const normalized = String(value ?? '').trim();
+    if (!normalized) return false;
+    if (/\[[^\]]+\]/.test(normalized)) return false;
+    if (/[{}]/.test(normalized)) return false;
+    if (/\$\{[^}]+\}/.test(normalized)) return false;
+    return true;
+  };
   const candidates = [
     query?.smx_rotation_seed,
+    query?.tmp,
+    query?.timestamp,
+    query?.ord,
     query?.cb,
     query?.cachebuster,
     query?.CACHEBUSTING,
     query?.CACHEBUSTER,
-    query?.tmp,
-    query?.timestamp,
-    query?.ord,
   ];
   for (const candidate of candidates) {
     const normalized = String(candidate ?? '').trim();
-    if (normalized) return normalized;
+    if (isResolvedSeed(normalized)) return normalized;
   }
   return '';
 }
