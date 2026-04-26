@@ -1066,6 +1066,7 @@ export async function recordClick(pool, data) {
     referer = null, redirect_url = null,
     site_domain = null, page_url = null, device_type = null, browser = null, os = null,
     device_id = null, cookie_id = null,
+    dsp_provider = null,
     identity_keys = [],
     timestamp = new Date(),
   } = data;
@@ -1105,6 +1106,37 @@ export async function recordClick(pool, data) {
 
     if (existingRows.length) {
       return existingRows[0];
+    }
+  }
+
+  const canDedupeIlluminBounce =
+    String(dsp_provider ?? '').trim().toLowerCase() === 'illumin'
+    && redirect_url
+    && !impression_id;
+  if (canDedupeIlluminBounce) {
+    const { rows: illuminRows } = await pool.query(
+      `SELECT id, tag_id, workspace_id, timestamp
+       FROM click_events
+       WHERE tag_id = $1
+         AND workspace_id = $2
+         AND creative_id IS NOT DISTINCT FROM $3
+         AND creative_size_variant_id IS NOT DISTINCT FROM $4
+         AND redirect_url IS NOT DISTINCT FROM $5
+         AND timestamp >= ($6::timestamptz - INTERVAL '1 second')
+       ORDER BY timestamp DESC
+       LIMIT 1`,
+      [
+        tag_id,
+        workspace_id,
+        creative_id,
+        creative_size_variant_id,
+        redirect_url,
+        timestamp,
+      ],
+    );
+
+    if (illuminRows.length) {
+      return illuminRows[0];
     }
   }
 

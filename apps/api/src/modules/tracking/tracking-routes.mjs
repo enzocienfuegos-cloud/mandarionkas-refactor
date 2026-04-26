@@ -375,6 +375,7 @@ export function handleTrackingRoutes(app, { pool }) {
         creative_size_variant_id: creativeSizeVariantId,
         impression_id: impressionId,
         redirect_url: destinationUrl,
+        dsp_provider: context.dsp_provider ?? null,
         ...context,
       }).catch((error) => {
         req.log?.error?.({ err: error, tagId, workspaceId: servingSnapshot.workspace_id, destinationUrl }, 'failed to record tracker click');
@@ -540,6 +541,7 @@ export function handleTrackingRoutes(app, { pool }) {
           creative_size_variant_id: creativeSizeVariantId ?? null,
           impression_id: impressionId ?? null,
           redirect_url: destinationUrl ?? null,
+          dsp_provider: context.dsp_provider ?? null,
           ...context,
         });
       } catch (error) {
