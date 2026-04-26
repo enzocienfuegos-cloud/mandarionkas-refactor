@@ -451,14 +451,14 @@ function makeQuery({
   customStartDate,
   customEndDate,
   campaignId = '',
-  tagId = '',
+  tagIds = [],
 }: {
   dateRange: DateRange;
   rangeMode: RangeMode;
   customStartDate: string;
   customEndDate: string;
   campaignId?: string;
-  tagId?: string;
+  tagIds?: string[];
 }): string {
   const params = new URLSearchParams();
   const dateFrom = rangeMode === 'custom' ? customStartDate : getDateFrom(dateRange);
@@ -466,7 +466,7 @@ function makeQuery({
   if (dateFrom) params.set('dateFrom', dateFrom);
   if (dateTo) params.set('dateTo', dateTo);
   if (campaignId) params.set('campaignId', campaignId);
-  if (tagId) params.set('tagId', tagId);
+  if (tagIds.length) params.set('tagIds', tagIds.join(','));
   params.set('limit', '10');
   return `?${params.toString()}`;
 }
@@ -1035,7 +1035,7 @@ export default function AnalyticsDashboard() {
   const [identityMinClicks, setIdentityMinClicks] = useState('0');
   const [identitySegmentPreset, setIdentitySegmentPreset] = useState<IdentitySegmentPreset>('');
   const [globalCampaignFilter, setGlobalCampaignFilter] = useState('');
-  const [globalTagFilter, setGlobalTagFilter] = useState('');
+  const [globalTagFilters, setGlobalTagFilters] = useState<string[]>([]);
   const [identityCreativeFilter, setIdentityCreativeFilter] = useState('');
   const [identityVariantFilter, setIdentityVariantFilter] = useState('');
   const [identityExportFormat, setIdentityExportFormat] = useState<IdentityExportFormat>('full');
@@ -1056,8 +1056,8 @@ export default function AnalyticsDashboard() {
     customStartDate,
     customEndDate,
     campaignId: globalCampaignFilter,
-    tagId: globalTagFilter,
-  }), [dateRange, rangeMode, customStartDate, customEndDate, globalCampaignFilter, globalTagFilter]);
+    tagIds: globalTagFilters,
+  }), [dateRange, rangeMode, customStartDate, customEndDate, globalCampaignFilter, globalTagFilters]);
   const identityQuery = useMemo(() => {
     const params = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
     if (identityTypeFilter) params.set('canonicalType', identityTypeFilter);
@@ -1227,7 +1227,7 @@ export default function AnalyticsDashboard() {
     const segmentPreset = overrides?.segmentPreset ?? identitySegmentPreset;
     const audienceTemplate = overrides?.activationTemplate ?? identityExportFormat;
     const campaignId = overrides?.campaignId ?? globalCampaignFilter;
-    const tagId = overrides?.tagId ?? globalTagFilter;
+    const tagIds = overrides?.tagId ? [overrides.tagId] : globalTagFilters;
     const creativeId = overrides?.creativeId ?? identityCreativeFilter;
     const variantId = overrides?.variantId ?? identityVariantFilter;
     const siteDomain = overrides?.siteDomain ?? identitySiteDomainFilter;
@@ -1239,7 +1239,7 @@ export default function AnalyticsDashboard() {
     if (country) params.set('country', country);
     if (segmentPreset) params.set('segmentPreset', segmentPreset);
     if (campaignId) params.set('campaignId', campaignId);
-    if (tagId) params.set('tagId', tagId);
+    if (tagIds.length) params.set('tagIds', tagIds.join(','));
     if (creativeId) params.set('creativeId', creativeId);
     if (variantId) params.set('variantId', variantId);
     if (siteDomain) params.set('siteDomain', siteDomain);
@@ -1423,7 +1423,7 @@ export default function AnalyticsDashboard() {
           segmentPreset: nextSegmentPreset || null,
           activationTemplate: overrides?.activationTemplate ?? identityExportFormat,
           campaignId: (overrides?.campaignId ?? globalCampaignFilter) || null,
-          tagId: (overrides?.tagId ?? globalTagFilter) || null,
+          tagId: overrides?.tagId ?? (globalTagFilters.length === 1 ? globalTagFilters[0] : null),
           creativeId: (overrides?.creativeId ?? identityCreativeFilter) || null,
           variantId: (overrides?.variantId ?? identityVariantFilter) || null,
           minImpressions: (overrides?.minImpressions ?? identityMinImpressions.trim()) || '0',
@@ -1448,7 +1448,7 @@ export default function AnalyticsDashboard() {
     setIdentitySegmentPreset(audience.segmentPreset);
     setIdentityExportFormat(audience.activationTemplate);
     setGlobalCampaignFilter(audience.campaignId);
-    setGlobalTagFilter(audience.tagId);
+    setGlobalTagFilters(audience.tagId ? [audience.tagId] : []);
     setIdentityCreativeFilter(audience.creativeId);
     setIdentityVariantFilter(audience.variantId);
     setIdentityMinImpressions(String(audience.minImpressions));
@@ -1698,8 +1698,12 @@ export default function AnalyticsDashboard() {
                       <option value="">All campaigns</option>
                       {campaignOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
                     </select>
-                    <select value={globalTagFilter} onChange={(event) => setGlobalTagFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
-                      <option value="">All tags</option>
+                    <select
+                      multiple
+                      value={globalTagFilters}
+                      onChange={(event) => setGlobalTagFilters(Array.from(event.target.selectedOptions, (option) => option.value))}
+                      className="min-h-24 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+                    >
                       {tagOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
                     </select>
                     <select value={identityCreativeFilter} onChange={(event) => setIdentityCreativeFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
@@ -1926,7 +1930,7 @@ export default function AnalyticsDashboard() {
         <div>
           <p className="text-sm font-medium text-slate-800">Visible scope</p>
           <p className="mt-1 text-xs text-slate-500">
-            Campaign: {campaignOptions.find((item) => item.id === globalCampaignFilter)?.label ?? 'All campaigns'} · Tag: {tagOptions.find((item) => item.id === globalTagFilter)?.label ?? 'All tags'}
+            Campaign: {campaignOptions.find((item) => item.id === globalCampaignFilter)?.label ?? 'All campaigns'} · Tags: {globalTagFilters.length ? tagOptions.filter((item) => item.id && globalTagFilters.includes(item.id)).map((item) => item.label).join(', ') : 'All tags'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -1934,8 +1938,12 @@ export default function AnalyticsDashboard() {
             <option value="">All campaigns</option>
             {campaignOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
           </select>
-          <select value={globalTagFilter} onChange={(event) => setGlobalTagFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
-            <option value="">All tags</option>
+          <select
+            multiple
+            value={globalTagFilters}
+            onChange={(event) => setGlobalTagFilters(Array.from(event.target.selectedOptions, (option) => option.value))}
+            className="min-h-24 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+          >
             {tagOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
           </select>
         </div>

@@ -9,6 +9,19 @@ function normalizeAudienceName(value = '') {
   return String(value ?? '').trim();
 }
 
+function normalizeIdList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .flatMap(item => String(item ?? '').split(','))
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+  return String(value ?? '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
 function appendIdentityScopeExistsCondition(params, conditions, opts = {}, profileAlias = 'p') {
   const {
     dateFrom,
@@ -21,8 +34,9 @@ function appendIdentityScopeExistsCondition(params, conditions, opts = {}, profi
     region = '',
     city = '',
   } = opts;
+  const tagIds = normalizeIdList(opts.tagIds ?? tagId);
 
-  if (!campaignId && !tagId && !creativeId && !variantId && !siteDomain && !region && !city) return;
+  if (!campaignId && !tagIds.length && !creativeId && !variantId && !siteDomain && !region && !city) return;
 
   const scopeConditions = [
     'e.workspace_id = $1',
@@ -41,9 +55,12 @@ function appendIdentityScopeExistsCondition(params, conditions, opts = {}, profi
     params.push(campaignId);
     scopeConditions.push(`at.campaign_id = $${params.length}`);
   }
-  if (tagId) {
-    params.push(tagId);
+  if (tagIds.length === 1) {
+    params.push(tagIds[0]);
     scopeConditions.push(`COALESCE(ie.tag_id, ce.tag_id, ge.tag_id) = $${params.length}`);
+  } else if (tagIds.length > 1) {
+    params.push(tagIds);
+    scopeConditions.push(`COALESCE(ie.tag_id, ce.tag_id, ge.tag_id) = ANY($${params.length}::uuid[])`);
   }
   if (creativeId) {
     params.push(creativeId);
@@ -1597,6 +1614,7 @@ export async function getImpressionStats(pool, tagId, opts = {}) {
 
 export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
+  const tagIds = normalizeIdList(opts.tagIds ?? tagId);
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.workspace_id = $1', 'ie.site_domain IS NOT DISTINCT FROM ds.site_domain', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
@@ -1605,10 +1623,14 @@ export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
     conditions.push(`t.campaign_id = $${params.length}`);
     identityConditions.push(`EXISTS (SELECT 1 FROM ad_tags t2 WHERE t2.id = ie.tag_id AND t2.workspace_id = ie.workspace_id AND t2.campaign_id = $${params.length})`);
   }
-  if (tagId) {
-    params.push(tagId);
+  if (tagIds.length === 1) {
+    params.push(tagIds[0]);
     conditions.push(`t.id = $${params.length}`);
     identityConditions.push(`ie.tag_id = $${params.length}`);
+  } else if (tagIds.length > 1) {
+    params.push(tagIds);
+    conditions.push(`t.id = ANY($${params.length}::uuid[])`);
+    identityConditions.push(`ie.tag_id = ANY($${params.length}::uuid[])`);
   }
 
   if (dateFrom) {
@@ -1676,6 +1698,7 @@ export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
 
 export async function getWorkspaceCountryBreakdown(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
+  const tagIds = normalizeIdList(opts.tagIds ?? tagId);
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.workspace_id = $1', 'ie.country IS NOT DISTINCT FROM ds.country', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
@@ -1684,10 +1707,14 @@ export async function getWorkspaceCountryBreakdown(pool, workspaceId, opts = {})
     conditions.push(`t.campaign_id = $${params.length}`);
     identityConditions.push(`EXISTS (SELECT 1 FROM ad_tags t2 WHERE t2.id = ie.tag_id AND t2.workspace_id = ie.workspace_id AND t2.campaign_id = $${params.length})`);
   }
-  if (tagId) {
-    params.push(tagId);
+  if (tagIds.length === 1) {
+    params.push(tagIds[0]);
     conditions.push(`t.id = $${params.length}`);
     identityConditions.push(`ie.tag_id = $${params.length}`);
+  } else if (tagIds.length > 1) {
+    params.push(tagIds);
+    conditions.push(`t.id = ANY($${params.length}::uuid[])`);
+    identityConditions.push(`ie.tag_id = ANY($${params.length}::uuid[])`);
   }
 
   if (dateFrom) {
@@ -1755,6 +1782,7 @@ export async function getWorkspaceCountryBreakdown(pool, workspaceId, opts = {})
 
 export async function getWorkspaceRegionBreakdown(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
+  const tagIds = normalizeIdList(opts.tagIds ?? tagId);
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.workspace_id = $1', 'ie.region IS NOT DISTINCT FROM ds.region', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
@@ -1763,10 +1791,14 @@ export async function getWorkspaceRegionBreakdown(pool, workspaceId, opts = {}) 
     conditions.push(`t.campaign_id = $${params.length}`);
     identityConditions.push(`EXISTS (SELECT 1 FROM ad_tags t2 WHERE t2.id = ie.tag_id AND t2.workspace_id = ie.workspace_id AND t2.campaign_id = $${params.length})`);
   }
-  if (tagId) {
-    params.push(tagId);
+  if (tagIds.length === 1) {
+    params.push(tagIds[0]);
     conditions.push(`t.id = $${params.length}`);
     identityConditions.push(`ie.tag_id = $${params.length}`);
+  } else if (tagIds.length > 1) {
+    params.push(tagIds);
+    conditions.push(`t.id = ANY($${params.length}::uuid[])`);
+    identityConditions.push(`ie.tag_id = ANY($${params.length}::uuid[])`);
   }
 
   if (dateFrom) {
@@ -1834,6 +1866,7 @@ export async function getWorkspaceRegionBreakdown(pool, workspaceId, opts = {}) 
 
 export async function getWorkspaceCityBreakdown(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
+  const tagIds = normalizeIdList(opts.tagIds ?? tagId);
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   const identityConditions = ['ie.workspace_id = $1', 'ie.city IS NOT DISTINCT FROM ds.city', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
@@ -1842,10 +1875,14 @@ export async function getWorkspaceCityBreakdown(pool, workspaceId, opts = {}) {
     conditions.push(`t.campaign_id = $${params.length}`);
     identityConditions.push(`EXISTS (SELECT 1 FROM ad_tags t2 WHERE t2.id = ie.tag_id AND t2.workspace_id = ie.workspace_id AND t2.campaign_id = $${params.length})`);
   }
-  if (tagId) {
-    params.push(tagId);
+  if (tagIds.length === 1) {
+    params.push(tagIds[0]);
     conditions.push(`t.id = $${params.length}`);
     identityConditions.push(`ie.tag_id = $${params.length}`);
+  } else if (tagIds.length > 1) {
+    params.push(tagIds);
+    conditions.push(`t.id = ANY($${params.length}::uuid[])`);
+    identityConditions.push(`ie.tag_id = ANY($${params.length}::uuid[])`);
   }
 
   if (dateFrom) {
@@ -1913,6 +1950,7 @@ export async function getWorkspaceCityBreakdown(pool, workspaceId, opts = {}) {
 
 export async function getWorkspaceTrackerBreakdown(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
+  const tagIds = normalizeIdList(opts.tagIds ?? tagId);
   const params = [workspaceId];
   const conditions = ["t.workspace_id = $1", "t.format IN ('tracker', 'display', 'vast')"];
   const impressionIdentityConditions = ['ie.workspace_id = t.workspace_id', 'ie.tag_id = t.id', "e.event_type = 'impression'", 'e.identity_profile_id IS NOT NULL'];
@@ -1922,9 +1960,12 @@ export async function getWorkspaceTrackerBreakdown(pool, workspaceId, opts = {})
     params.push(campaignId);
     conditions.push(`t.campaign_id = $${params.length}`);
   }
-  if (tagId) {
-    params.push(tagId);
+  if (tagIds.length === 1) {
+    params.push(tagIds[0]);
     conditions.push(`t.id = $${params.length}`);
+  } else if (tagIds.length > 1) {
+    params.push(tagIds);
+    conditions.push(`t.id = ANY($${params.length}::uuid[])`);
   }
 
   if (dateFrom) {
@@ -2022,15 +2063,19 @@ export async function getWorkspaceTrackerBreakdown(pool, workspaceId, opts = {})
 
 export async function getWorkspaceEngagementBreakdown(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, limit = 25, campaignId = '', tagId = '' } = opts;
+  const tagIds = normalizeIdList(opts.tagIds ?? tagId);
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
   if (campaignId) {
     params.push(campaignId);
     conditions.push(`t.campaign_id = $${params.length}`);
   }
-  if (tagId) {
-    params.push(tagId);
+  if (tagIds.length === 1) {
+    params.push(tagIds[0]);
     conditions.push(`t.id = $${params.length}`);
+  } else if (tagIds.length > 1) {
+    params.push(tagIds);
+    conditions.push(`t.id = ANY($${params.length}::uuid[])`);
   }
 
   if (dateFrom) {
@@ -2060,6 +2105,7 @@ export async function getWorkspaceEngagementBreakdown(pool, workspaceId, opts = 
 
 export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, campaignId = '', tagId = '' } = opts;
+  const tagIds = normalizeIdList(opts.tagIds ?? tagId);
 
   const impressionParams = [workspaceId];
   const impressionConditions = ['workspace_id = $1'];
@@ -2067,9 +2113,12 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
     impressionParams.push(campaignId);
     impressionConditions.push(`EXISTS (SELECT 1 FROM ad_tags t WHERE t.id = impression_events.tag_id AND t.workspace_id = impression_events.workspace_id AND t.campaign_id = $${impressionParams.length})`);
   }
-  if (tagId) {
-    impressionParams.push(tagId);
+  if (tagIds.length === 1) {
+    impressionParams.push(tagIds[0]);
     impressionConditions.push(`tag_id = $${impressionParams.length}`);
+  } else if (tagIds.length > 1) {
+    impressionParams.push(tagIds);
+    impressionConditions.push(`tag_id = ANY($${impressionParams.length}::uuid[])`);
   }
   if (dateFrom) {
     impressionParams.push(`${dateFrom}T00:00:00.000Z`);
@@ -2086,9 +2135,12 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
     clickParams.push(campaignId);
     clickConditions.push(`EXISTS (SELECT 1 FROM ad_tags t WHERE t.id = click_events.tag_id AND t.workspace_id = click_events.workspace_id AND t.campaign_id = $${clickParams.length})`);
   }
-  if (tagId) {
-    clickParams.push(tagId);
+  if (tagIds.length === 1) {
+    clickParams.push(tagIds[0]);
     clickConditions.push(`tag_id = $${clickParams.length}`);
+  } else if (tagIds.length > 1) {
+    clickParams.push(tagIds);
+    clickConditions.push(`tag_id = ANY($${clickParams.length}::uuid[])`);
   }
   if (dateFrom) {
     clickParams.push(`${dateFrom}T00:00:00.000Z`);
