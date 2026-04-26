@@ -113,10 +113,13 @@ export default function CampaignList() {
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<Campaign['status']>('active');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const [metricsCollapsed, setMetricsCollapsed] = useState(false);
   const [visibleMetrics, setVisibleMetrics] = useState<Record<MetricKey, boolean>>(DEFAULT_VISIBLE_METRICS);
 
@@ -138,6 +141,10 @@ export default function CampaignList() {
 
   useEffect(load, []);
 
+  useEffect(() => {
+    setSelectedCampaignIds(current => current.filter(id => campaigns.some(campaign => campaign.id === id)));
+  }, [campaigns]);
+
   const filteredCampaigns = campaigns.filter(campaign => {
     const clientMatch = !selectedClientIds.length || selectedClientIds.includes(campaign.workspace_id ?? '');
     const searchMatch = !search.trim()
@@ -148,9 +155,31 @@ export default function CampaignList() {
   const visibleMetricColumns = metricsCollapsed
     ? []
     : METRIC_COLUMNS.filter(metric => visibleMetrics[metric.key]);
+  const allVisibleSelected = filteredCampaigns.length > 0
+    && filteredCampaigns.every(campaign => selectedCampaignIds.includes(campaign.id));
+  const hasVisibleSelection = filteredCampaigns.some(campaign => selectedCampaignIds.includes(campaign.id));
 
   const toggleMetric = (key: MetricKey) => {
     setVisibleMetrics(current => ({ ...current, [key]: !current[key] }));
+  };
+
+  const toggleCampaignSelection = (campaignId: string) => {
+    setSelectedCampaignIds(current => (
+      current.includes(campaignId)
+        ? current.filter(id => id !== campaignId)
+        : [...current, campaignId]
+    ));
+  };
+
+  const toggleSelectAllVisible = () => {
+    if (allVisibleSelected) {
+      const visibleIds = new Set(filteredCampaigns.map(campaign => campaign.id));
+      setSelectedCampaignIds(current => current.filter(id => !visibleIds.has(id)));
+      return;
+    }
+    const merged = new Set(selectedCampaignIds);
+    filteredCampaigns.forEach(campaign => merged.add(campaign.id));
+    setSelectedCampaignIds(Array.from(merged));
   };
 
   const handleDelete = async (campaign: Campaign) => {
@@ -171,6 +200,42 @@ export default function CampaignList() {
       alert(error.message ?? 'Failed to delete campaign.');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleBulkStatusUpdate = async (nextStatus: Campaign['status']) => {
+    const selectedCampaigns = campaigns.filter(campaign => selectedCampaignIds.includes(campaign.id));
+    if (!selectedCampaigns.length) return;
+    setBulkUpdating(true);
+    try {
+      for (const campaign of selectedCampaigns) {
+        if (campaign.workspace_id && campaign.workspace_id !== activeWorkspaceId) {
+          await switchWorkspace(campaign.workspace_id);
+          setActiveWorkspaceId(campaign.workspace_id);
+        }
+        const res = await fetch(`/v1/campaigns/${campaign.id}`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus }),
+        });
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error(payload?.message ?? `Failed to update ${campaign.name}`);
+        }
+      }
+      setCampaigns(current => current.map(campaign => (
+        selectedCampaignIds.includes(campaign.id)
+          ? { ...campaign, status: nextStatus }
+          : campaign
+      )));
+      if (nextStatus === 'archived') {
+        setSelectedCampaignIds([]);
+      }
+    } catch (error: any) {
+      alert(error.message ?? 'Failed to update selected campaigns.');
+    } finally {
+      setBulkUpdating(false);
     }
   };
 
@@ -329,6 +394,46 @@ export default function CampaignList() {
         </div>
       </div>
 
+      <div className="mb-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-800">Bulk actions</p>
+          <p className="text-xs text-slate-500">
+            {selectedCampaignIds.length
+              ? `${selectedCampaignIds.length} campaign${selectedCampaignIds.length !== 1 ? 's' : ''} selected`
+              : 'Select campaigns to change status or archive them'}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={bulkStatus}
+            onChange={event => setBulkStatus(event.target.value as Campaign['status'])}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            disabled={!selectedCampaignIds.length || bulkUpdating}
+          >
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+            <option value="draft">Draft</option>
+            <option value="archived">Archived</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => void handleBulkStatusUpdate(bulkStatus)}
+            disabled={!selectedCampaignIds.length || bulkUpdating}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {bulkUpdating ? 'Saving…' : 'Apply status'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleBulkStatusUpdate('archived')}
+            disabled={!selectedCampaignIds.length || bulkUpdating}
+            className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {bulkUpdating ? 'Archiving…' : 'Archive selected'}
+          </button>
+        </div>
+      </div>
+
       {filteredCampaigns.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
           <p className="text-4xl mb-3">📋</p>
@@ -344,6 +449,15 @@ export default function CampaignList() {
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={toggleSelectAllVisible}
+                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      aria-label={allVisibleSelected ? 'Deselect visible campaigns' : 'Select visible campaigns'}
+                    />
+                  </th>
                   {[
                     'Name',
                     'DSP',
@@ -362,7 +476,16 @@ export default function CampaignList() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredCampaigns.map(c => (
-                  <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedCampaignIds.includes(c.id)}
+                        onChange={() => toggleCampaignSelection(c.id)}
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        aria-label={`Select campaign ${c.name}`}
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <div>
                         <span className="text-sm font-medium text-slate-800">{c.name}</span>
