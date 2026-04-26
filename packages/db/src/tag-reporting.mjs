@@ -41,6 +41,46 @@ function hasSummaryActivity(summary = {}) {
   ].some(value => Number(value ?? 0) > 0);
 }
 
+function buildDailyVideoOverlayMap(rows = []) {
+  const map = new Map();
+  for (const row of rows) {
+    const date = String(row?.date ?? '');
+    if (!date) continue;
+    map.set(date, {
+      video_starts: Number(row?.video_starts ?? 0),
+      video_completions: Number(row?.video_completions ?? 0),
+    });
+  }
+  return map;
+}
+
+function mergeDailyVideoMetrics(primaryRows = [], fallbackRows = []) {
+  const overlay = buildDailyVideoOverlayMap(fallbackRows);
+  const merged = primaryRows.map((row) => {
+    const raw = overlay.get(String(row?.date ?? ''));
+    const rollupStarts = Number(row?.video_starts ?? 0);
+    const rollupCompletions = Number(row?.video_completions ?? 0);
+    const videoStarts = rollupStarts > 0 ? rollupStarts : Number(raw?.video_starts ?? 0);
+    const videoCompletions = rollupCompletions > 0 ? rollupCompletions : Number(raw?.video_completions ?? 0);
+    return {
+      ...row,
+      video_starts: videoStarts,
+      video_completions: videoCompletions,
+      video_start_rate: Number(row?.impressions ?? 0) > 0 ? Number(((videoStarts / Number(row.impressions)) * 100).toFixed(4)) : 0,
+      video_completion_rate: videoStarts > 0 ? Number(((videoCompletions / videoStarts) * 100).toFixed(4)) : 0,
+    };
+  });
+
+  const existingDates = new Set(merged.map((row) => String(row?.date ?? '')));
+  for (const row of fallbackRows) {
+    const date = String(row?.date ?? '');
+    if (!date || existingDates.has(date)) continue;
+    merged.push(row);
+  }
+
+  return merged.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+
 async function getRawTagDailyStats(pool, workspaceId, tagId, opts = {}) {
   const {
     dateFrom,
@@ -299,7 +339,10 @@ export async function getTagDailyStats(pool, workspaceId, tagId, opts = {}) {
        LIMIT $${params.length}`,
       params,
     );
-    if (rows.length && hasNonZeroDailyRows(rows)) return rows;
+    if (rows.length && hasNonZeroDailyRows(rows)) {
+      const rawRows = await getRawTagDailyStats(pool, workspaceId, tagId, opts);
+      return mergeDailyVideoMetrics(rows, rawRows);
+    }
     return getRawTagDailyStats(pool, workspaceId, tagId, opts);
   }
 
@@ -396,7 +439,21 @@ export async function getTagSummaryStats(pool, workspaceId, tagId, opts = {}) {
   };
 
   if (hasSummaryActivity(rollupSummary)) {
-    return rollupSummary;
+    const rawSummary = await getRawTagSummaryStats(pool, workspaceId, tagId, opts);
+    const rawVideoStarts = Number(rawSummary?.video_starts ?? 0);
+    const rawVideoCompletions = Number(rawSummary?.video_completions ?? 0);
+    const nextVideoStarts = videoStarts > 0 ? videoStarts : rawVideoStarts;
+    const nextVideoCompletions = videoCompletions > 0 ? videoCompletions : rawVideoCompletions;
+    return {
+      ...rollupSummary,
+      video_starts: nextVideoStarts,
+      video_first_quartile: Number(rollupSummary.video_first_quartile ?? 0) > 0 ? rollupSummary.video_first_quartile : rawSummary?.video_first_quartile ?? 0,
+      video_midpoint: Number(rollupSummary.video_midpoint ?? 0) > 0 ? rollupSummary.video_midpoint : rawSummary?.video_midpoint ?? 0,
+      video_third_quartile: Number(rollupSummary.video_third_quartile ?? 0) > 0 ? rollupSummary.video_third_quartile : rawSummary?.video_third_quartile ?? 0,
+      video_completions: nextVideoCompletions,
+      video_start_rate: totalImpressions > 0 ? Number(((nextVideoStarts / totalImpressions) * 100).toFixed(4)) : 0,
+      video_completion_rate: nextVideoStarts > 0 ? Number(((nextVideoCompletions / nextVideoStarts) * 100).toFixed(4)) : 0,
+    };
   }
 
   return {

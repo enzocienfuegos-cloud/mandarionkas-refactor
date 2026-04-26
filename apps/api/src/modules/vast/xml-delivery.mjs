@@ -85,11 +85,8 @@ export function buildVastXml(tag, workspaceId, baseUrl, query = {}) {
   const wrappedClickTrackUrl = wrapTrackedClickUrlWithDspMacro(clickTrackingUrl, query);
   const viewabilityBaseUrl = appendQueryParam(`${trackingBase}/viewability/${tagId}?${trackingParams.toString()}`, 'ctx', ctxToken);
   const vastVersion = trackingDsp === 'basis' ? '2.0' : '4.0';
-  const hasDestinationClickUrl = Boolean(clickUrl);
   const clickThroughUrl = clickUrl || wrappedClickTrackUrl || clickTrackingUrl;
-  const clickTrackingXml = hasDestinationClickUrl
-    ? `              <ClickTracking><![CDATA[${wrappedClickTrackUrl}]]></ClickTracking>\n`
-    : '';
+  const clickTrackingXml = `              <ClickTracking><![CDATA[${wrappedClickTrackUrl}]]></ClickTracking>\n`;
   const mediaFiles = Array.isArray(servingCandidate?.videoRenditions) && servingCandidate.videoRenditions.length
     ? servingCandidate.videoRenditions
       .filter((rendition) => rendition?.public_url)
