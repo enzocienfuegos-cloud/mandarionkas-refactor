@@ -5,6 +5,14 @@ const CONFIGURED_BASE_URL_ENVS = [
   'VITE_API_BASE_URL',
 ];
 
+function isLoopbackBaseUrl(value = '') {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized.startsWith('http://localhost')
+    || normalized.startsWith('https://localhost')
+    || normalized.startsWith('http://127.0.0.1')
+    || normalized.startsWith('https://127.0.0.1');
+}
+
 export function getConfiguredBaseUrl() {
   for (const envName of CONFIGURED_BASE_URL_ENVS) {
     const value = String(process.env[envName] ?? '').trim();
@@ -14,6 +22,7 @@ export function getConfiguredBaseUrl() {
 }
 
 export function getRequestBaseUrl(req) {
+  const configuredBaseUrl = getConfiguredBaseUrl();
   const forwardedProto = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim();
   const forwardedHost = String(req.headers['x-forwarded-host'] ?? '').split(',')[0].trim();
   const authorityHeader = String(req.headers[':authority'] ?? '').trim();
@@ -25,6 +34,13 @@ export function getRequestBaseUrl(req) {
     || String(req.protocol ?? '').trim()
     || (protocolHint.includes('localhost') || protocolHint.startsWith('127.0.0.1') ? 'http' : 'https');
 
-  if (authority) return `${proto}://${authority}`;
-  return getConfiguredBaseUrl();
+  if (authority) {
+    const derivedBaseUrl = `${proto}://${authority}`;
+    if (isLoopbackBaseUrl(derivedBaseUrl) && !isLoopbackBaseUrl(configuredBaseUrl)) {
+      return configuredBaseUrl;
+    }
+    return derivedBaseUrl;
+  }
+
+  return configuredBaseUrl;
 }

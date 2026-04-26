@@ -22,6 +22,14 @@ const WORKER_RETRY_MAX_MS = parseInt(process.env.WORKER_RETRY_MAX_MS, 10) || 15 
 
 const pool = createPool();
 
+function isLoopbackBaseUrl(value = '') {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized.startsWith('http://localhost')
+    || normalized.startsWith('https://localhost')
+    || normalized.startsWith('http://127.0.0.1')
+    || normalized.startsWith('https://127.0.0.1');
+}
+
 async function claimJob(client) {
   const { rows } = await client.query(`
     UPDATE jobs
@@ -279,7 +287,15 @@ async function processJob(job) {
         throw new Error('Missing workspaceId or tagId for vast_static_publish');
       }
 
-      const baseUrl = String(queuedBaseUrl || getConfiguredBaseUrl()).trim();
+      const configuredBaseUrl = String(getConfiguredBaseUrl() || '').trim();
+      const baseUrl = (() => {
+        const queuedBase = String(queuedBaseUrl || '').trim();
+        if (!queuedBase) return configuredBaseUrl;
+        if (isLoopbackBaseUrl(queuedBase) && configuredBaseUrl && !isLoopbackBaseUrl(configuredBaseUrl)) {
+          return configuredBaseUrl;
+        }
+        return queuedBase;
+      })();
       console.log(`[worker] static vast publish job ${job.id} started tag=${tagId} workspace=${workspaceId} trigger=${trigger}`);
       const published = await publishStaticVastArtifactsForTag({
         pool,
