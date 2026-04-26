@@ -1098,10 +1098,34 @@ export async function recordClick(pool, data) {
     identity_keys = [],
     timestamp = new Date(),
   } = data;
+  const canDedupeIlluminBounce =
+    String(dsp_provider ?? '').trim().toLowerCase() === 'illumin'
+    && redirect_url;
+  const client = canDedupeIlluminBounce ? await pool.connect() : null;
+  const db = client ?? pool;
 
-  const canDedupeClick = Boolean(impression_id || cookie_id || device_id || ip);
-  if (canDedupeClick) {
-    const { rows: existingRows } = await pool.query(
+  if (client) {
+    await client.query('BEGIN');
+    const dedupeKey = [
+      'illumin-click',
+      tag_id ?? '',
+      workspace_id ?? '',
+      creative_id ?? '',
+      creative_size_variant_id ?? '',
+      redirect_url ?? '',
+      impression_id ?? '',
+      cookie_id ?? '',
+      device_id ?? '',
+      ip ?? '',
+    ].join('|');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [dedupeKey]);
+  }
+
+  try {
+
+    const canDedupeClick = Boolean(impression_id || cookie_id || device_id || ip);
+    if (canDedupeClick) {
+      const { rows: existingRows } = await db.query(
       `SELECT id, tag_id, workspace_id, timestamp
        FROM click_events
        WHERE tag_id = $1
@@ -1130,18 +1154,16 @@ export async function recordClick(pool, data) {
         device_id,
         ip,
       ],
-    );
+      );
 
-    if (existingRows.length) {
-      return existingRows[0];
+      if (existingRows.length) {
+        if (client) await client.query('COMMIT');
+        return existingRows[0];
+      }
     }
-  }
 
-  const canDedupeIlluminBounce =
-    String(dsp_provider ?? '').trim().toLowerCase() === 'illumin'
-    && redirect_url;
-  if (canDedupeIlluminBounce) {
-    const { rows: illuminRows } = await pool.query(
+    if (canDedupeIlluminBounce) {
+      const { rows: illuminRows } = await db.query(
       `SELECT id, tag_id, workspace_id, timestamp
        FROM click_events
        WHERE tag_id = $1
@@ -1171,14 +1193,15 @@ export async function recordClick(pool, data) {
         device_id ?? '',
         ip ?? null,
       ],
-    );
+      );
 
-    if (illuminRows.length) {
-      return illuminRows[0];
+      if (illuminRows.length) {
+        if (client) await client.query('COMMIT');
+        return illuminRows[0];
+      }
     }
-  }
 
-  const { rows } = await pool.query(
+    const { rows } = await db.query(
     `INSERT INTO click_events
        (tag_id, workspace_id, creative_id, creative_size_variant_id, impression_id, ip, user_agent,
         country, region, city, referer, redirect_url, timestamp, site_domain, page_url, device_type, browser, os, device_model, device_id, cookie_id, contextual_ids, network_id, source_publisher_id, app_id, site_id, exchange_id, exchange_publisher_id, exchange_site_id_or_domain, app_bundle, app_name, page_position, content_language, content_title, content_series, carrier, app_store_name, content_genre)
@@ -1201,7 +1224,7 @@ export async function recordClick(pool, data) {
 
   const date = new Date(timestamp).toISOString().slice(0, 10);
 
-  await pool.query(
+    await db.query(
     `INSERT INTO tag_daily_stats (tag_id, date, clicks)
      VALUES ($1, $2, 1)
      ON CONFLICT (tag_id, date)
@@ -1209,8 +1232,8 @@ export async function recordClick(pool, data) {
     [tag_id, date],
   );
 
-  if (site_domain) {
-    await pool.query(
+    if (site_domain) {
+      await db.query(
       `INSERT INTO tag_site_daily_stats (tag_id, date, site_domain, clicks)
        VALUES ($1, $2, $3, 1)
        ON CONFLICT (tag_id, date, site_domain)
@@ -1219,8 +1242,8 @@ export async function recordClick(pool, data) {
     );
   }
 
-  if (country) {
-    await pool.query(
+    if (country) {
+      await db.query(
       `INSERT INTO tag_country_daily_stats (tag_id, date, country, clicks)
        VALUES ($1, $2, $3, 1)
        ON CONFLICT (tag_id, date, country)
@@ -1229,8 +1252,8 @@ export async function recordClick(pool, data) {
     );
   }
 
-  if (region) {
-    await pool.query(
+    if (region) {
+      await db.query(
       `INSERT INTO tag_region_daily_stats (tag_id, date, region, clicks)
        VALUES ($1, $2, $3, 1)
        ON CONFLICT (tag_id, date, region)
@@ -1239,8 +1262,8 @@ export async function recordClick(pool, data) {
     );
   }
 
-  if (city) {
-    await pool.query(
+    if (city) {
+      await db.query(
       `INSERT INTO tag_city_daily_stats (tag_id, date, city, clicks)
        VALUES ($1, $2, $3, 1)
        ON CONFLICT (tag_id, date, city)
@@ -1249,16 +1272,23 @@ export async function recordClick(pool, data) {
     );
   }
 
-  if (creative_size_variant_id) {
-    await pool.query(
+    if (creative_size_variant_id) {
+      await db.query(
       `INSERT INTO creative_variant_daily_stats (creative_size_variant_id, date, clicks)
        VALUES ($1, $2, 1)
        ON CONFLICT (creative_size_variant_id, date)
        DO UPDATE SET clicks = creative_variant_daily_stats.clicks + 1, updated_at = NOW()`,
       [creative_size_variant_id, date],
     );
+    }
+    if (client) await client.query('COMMIT');
+    return event;
+  } catch (error) {
+    if (client) await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client?.release();
   }
-  return event;
 }
 
 export async function recordViewability(pool, data) {
