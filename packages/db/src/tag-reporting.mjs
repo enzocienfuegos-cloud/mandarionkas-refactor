@@ -114,96 +114,100 @@ async function getLatestTagContextSnapshot(pool, workspaceId, tagId, opts = {}) 
     .map(condition => condition.replace(/\$(\d+)/g, (_, num) => `$${Number(num) + impressionParams.length}`))
     .join(' AND ');
 
-  const { rows } = await pool.query(
-    `WITH context_events AS (
-       SELECT
-         timestamp,
-         site_domain,
-         page_url,
-         device_type,
-         device_model,
-         browser,
-         os,
-         contextual_ids,
-         network_id,
-         source_publisher_id,
-         app_id,
-         site_id,
-         exchange_id,
-         exchange_publisher_id,
-         exchange_site_id_or_domain,
-         app_bundle,
-         app_name,
-         page_position,
-         content_language,
-         content_title,
-         content_series,
-         carrier,
-         app_store_name,
-         content_genre
-       FROM impression_events
-       WHERE ${impressionConditions.join(' AND ')}
-       UNION ALL
-       SELECT
-         timestamp,
-         site_domain,
-         page_url,
-         device_type,
-         device_model,
-         browser,
-         os,
-         contextual_ids,
-         network_id,
-         source_publisher_id,
-         app_id,
-         site_id,
-         exchange_id,
-         exchange_publisher_id,
-         exchange_site_id_or_domain,
-         app_bundle,
-         app_name,
-         page_position,
-         content_language,
-         content_title,
-         content_series,
-         carrier,
-         app_store_name,
-         content_genre
-       FROM click_events
-       WHERE ${translatedClickConditions}
-     )
-     SELECT *
-     FROM context_events
-     WHERE
-       site_domain IS NOT NULL
-       OR page_url IS NOT NULL
-       OR device_type IS NOT NULL
-       OR device_model IS NOT NULL
-       OR browser IS NOT NULL
-       OR os IS NOT NULL
-       OR contextual_ids IS NOT NULL
-       OR network_id IS NOT NULL
-       OR source_publisher_id IS NOT NULL
-       OR app_id IS NOT NULL
-       OR site_id IS NOT NULL
-       OR exchange_id IS NOT NULL
-       OR exchange_publisher_id IS NOT NULL
-       OR exchange_site_id_or_domain IS NOT NULL
-       OR app_bundle IS NOT NULL
-       OR app_name IS NOT NULL
-       OR page_position IS NOT NULL
-       OR content_language IS NOT NULL
-       OR content_title IS NOT NULL
-       OR content_series IS NOT NULL
-       OR carrier IS NOT NULL
-       OR app_store_name IS NOT NULL
-       OR content_genre IS NOT NULL
-     ORDER BY timestamp DESC
-     LIMIT 1`,
-    [...impressionParams, ...clickParams],
-  );
+  try {
+    const { rows } = await pool.query(
+      `WITH context_events AS (
+         SELECT
+           timestamp,
+           site_domain,
+           page_url,
+           device_type,
+           device_model,
+           browser,
+           os,
+           contextual_ids,
+           network_id,
+           source_publisher_id,
+           app_id,
+           site_id,
+           exchange_id,
+           exchange_publisher_id,
+           exchange_site_id_or_domain,
+           app_bundle,
+           app_name,
+           page_position,
+           content_language,
+           content_title,
+           content_series,
+           carrier,
+           app_store_name,
+           content_genre
+         FROM impression_events
+         WHERE ${impressionConditions.join(' AND ')}
+         UNION ALL
+         SELECT
+           timestamp,
+           site_domain,
+           page_url,
+           device_type,
+           device_model,
+           browser,
+           os,
+           contextual_ids,
+           network_id,
+           source_publisher_id,
+           app_id,
+           site_id,
+           exchange_id,
+           exchange_publisher_id,
+           exchange_site_id_or_domain,
+           app_bundle,
+           app_name,
+           page_position,
+           content_language,
+           content_title,
+           content_series,
+           carrier,
+           app_store_name,
+           content_genre
+         FROM click_events
+         WHERE ${translatedClickConditions}
+       )
+       SELECT *
+       FROM context_events
+       WHERE
+         site_domain IS NOT NULL
+         OR page_url IS NOT NULL
+         OR device_type IS NOT NULL
+         OR device_model IS NOT NULL
+         OR browser IS NOT NULL
+         OR os IS NOT NULL
+         OR contextual_ids IS NOT NULL
+         OR network_id IS NOT NULL
+         OR source_publisher_id IS NOT NULL
+         OR app_id IS NOT NULL
+         OR site_id IS NOT NULL
+         OR exchange_id IS NOT NULL
+         OR exchange_publisher_id IS NOT NULL
+         OR exchange_site_id_or_domain IS NOT NULL
+         OR app_bundle IS NOT NULL
+         OR app_name IS NOT NULL
+         OR page_position IS NOT NULL
+         OR content_language IS NOT NULL
+         OR content_title IS NOT NULL
+         OR content_series IS NOT NULL
+         OR carrier IS NOT NULL
+         OR app_store_name IS NOT NULL
+         OR content_genre IS NOT NULL
+       ORDER BY timestamp DESC
+       LIMIT 1`,
+      [...impressionParams, ...clickParams],
+    );
 
-  return rows[0] ?? null;
+    return rows[0] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function getRawTagDailyStats(pool, workspaceId, tagId, opts = {}) {
