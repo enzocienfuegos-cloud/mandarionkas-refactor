@@ -253,7 +253,8 @@ export default function CreativeLibrary() {
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'pending_review' | 'rejected'>('all');
-  const [formatFilter, setFormatFilter] = useState<'all' | 'vast_video' | 'display' | 'native'>('all');
+  const [formatFilter, setFormatFilter] = useState<'all' | 'video' | 'display' | 'native'>('all');
+  const [sizeFilter, setSizeFilter] = useState('all');
   const [selectedCreativeIds, setSelectedCreativeIds] = useState<string[]>([]);
   const [bulkClickUrl, setBulkClickUrl] = useState('');
   const [bulkAssignTagId, setBulkAssignTagId] = useState('');
@@ -306,20 +307,41 @@ export default function CreativeLibrary() {
     return 'active';
   };
 
+  const getCreativeFormatFamily = (creative: Creative) => {
+    const version = latestVersions[creative.id];
+    if (version?.servingFormat === 'vast_video') return 'video';
+    if (version?.servingFormat === 'native') return 'native';
+    return 'display';
+  };
+
+  const getCreativeSizeLabel = (creative: Creative) => {
+    const version = latestVersions[creative.id];
+    const width = Number(version?.width) || 0;
+    const height = Number(version?.height) || 0;
+    return width > 0 && height > 0 ? `${width}x${height}` : 'unknown';
+  };
+
+  const availableSizeOptions = useMemo(
+    () => Array.from(new Set(creatives.map((creative) => getCreativeSizeLabel(creative)).filter((value) => value !== 'unknown'))).sort((left, right) => {
+      const [leftWidth, leftHeight] = left.split('x').map(Number);
+      const [rightWidth, rightHeight] = right.split('x').map(Number);
+      return (leftWidth * leftHeight) - (rightWidth * rightHeight) || left.localeCompare(right);
+    }),
+    [creatives, latestVersions],
+  );
+
   const filteredCreatives = useMemo(
     () => creatives.filter((creative) => {
       if (selectedClientIds.length && !selectedClientIds.includes(creative.workspaceId ?? '')) return false;
 
       const version = latestVersions[creative.id];
-      const formatFamily = version?.servingFormat === 'vast_video'
-        ? 'vast_video'
-        : version?.servingFormat === 'native'
-          ? 'native'
-          : 'display';
+      const formatFamily = getCreativeFormatFamily(creative);
       if (formatFilter !== 'all' && formatFamily !== formatFilter) return false;
 
       const operationalState = getCreativeOperationalState(creative);
       if (statusFilter !== 'all' && operationalState !== statusFilter) return false;
+
+      if (sizeFilter !== 'all' && getCreativeSizeLabel(creative) !== sizeFilter) return false;
 
       const needle = searchTerm.trim().toLowerCase();
       if (!needle) return true;
@@ -335,7 +357,7 @@ export default function CreativeLibrary() {
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(needle));
     }),
-    [creatives, selectedClientIds, latestVersions, formatFilter, statusFilter, searchTerm],
+    [creatives, selectedClientIds, latestVersions, formatFilter, statusFilter, sizeFilter, searchTerm],
   );
   const allVisibleCreativesSelected = filteredCreatives.length > 0 && filteredCreatives.every(creative => selectedCreativeIds.includes(creative.id));
   const someVisibleCreativesSelected = filteredCreatives.some(creative => selectedCreativeIds.includes(creative.id));
@@ -1056,7 +1078,7 @@ export default function CreativeLibrary() {
         </div>
       </div>
 
-      <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 lg:grid-cols-[minmax(0,1.2fr)_220px_220px_minmax(0,1fr)]">
+      <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 lg:grid-cols-[minmax(0,1.2fr)_220px_220px_220px_minmax(0,1fr)]">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">Search creatives</span>
           <input
@@ -1089,8 +1111,21 @@ export default function CreativeLibrary() {
           >
             <option value="all">All formats</option>
             <option value="display">Display</option>
-            <option value="vast_video">Video</option>
+            <option value="video">Video</option>
             <option value="native">Native</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Size</span>
+          <select
+            value={sizeFilter}
+            onChange={(event) => setSizeFilter(event.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="all">All sizes</option>
+            {availableSizeOptions.map((sizeOption) => (
+              <option key={sizeOption} value={sizeOption}>{sizeOption}</option>
+            ))}
           </select>
         </label>
         <label className="block">
@@ -1228,6 +1263,7 @@ export default function CreativeLibrary() {
                   />
                 </th>
                 <th className="px-4 py-3">Creative</th>
+                <th className="px-4 py-3">Format / Size</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Destination URL</th>
@@ -1252,6 +1288,10 @@ export default function CreativeLibrary() {
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800">{creative.name}</div>
                       <div className="text-xs text-slate-400">{creative.workspaceName ?? '—'}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-slate-700">{getCreativeFormatFamily(creative)}</div>
+                      <div className="text-xs text-slate-500">{getCreativeSizeLabel(creative) === 'unknown' ? '—' : getCreativeSizeLabel(creative)}</div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-2">

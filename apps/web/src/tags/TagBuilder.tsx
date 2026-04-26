@@ -1,4 +1,4 @@
-import React, { useEffect, useState, FormEvent } from 'react';
+import React, { useEffect, useState, FormEvent, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   applyDspMacrosToDeliveryUrl,
@@ -23,6 +23,8 @@ import {
 interface Campaign {
   id: string;
   name: string;
+  workspaceId?: string | null;
+  workspace_id?: string | null;
   metadata?: { dsp?: string | null; mediaType?: string | null } | null;
 }
 
@@ -493,6 +495,7 @@ export default function TagBuilder() {
   const [republishingStaticDelivery, setRepublishingStaticDelivery] = useState(false);
   const [queueingStaticDelivery, setQueueingStaticDelivery] = useState(false);
   const selectedCampaign = campaigns.find((campaign) => campaign.id === form.campaignId) ?? null;
+  const selectedCampaignWorkspaceId = selectedCampaign?.workspaceId ?? selectedCampaign?.workspace_id ?? null;
   const selectedCampaignDsp = readCampaignDsp(selectedCampaign?.metadata ?? null);
   const selectedCampaignMediaType = String(selectedCampaign?.metadata?.mediaType ?? 'display').toLowerCase();
   const videoCampaign = selectedCampaignMediaType === 'video';
@@ -609,6 +612,46 @@ export default function TagBuilder() {
       .catch(() => setAssignmentError('Failed to load available creatives.'))
       .finally(() => setCreativeOptionsLoading(false));
   }, [isEdit]);
+
+  const filteredCreativeOptions = useMemo(() => {
+    const targetWorkspaceId = selectedCampaignWorkspaceId ?? savedTag?.workspaceId ?? null;
+    const tagWidth = Number(form.servingWidth) || savedTag?.width || 0;
+    const tagHeight = Number(form.servingHeight) || savedTag?.height || 0;
+
+    return creativeOptions.filter((option) => {
+      if (targetWorkspaceId && option.creative.workspaceId && option.creative.workspaceId !== targetWorkspaceId) {
+        return false;
+      }
+
+      if (form.format === 'VAST') {
+        return option.latestVersion.servingFormat === 'vast_video';
+      }
+      if (form.format === 'native') {
+        return option.latestVersion.servingFormat === 'native';
+      }
+      if (form.format === 'display') {
+        if (!['display_html', 'display_image'].includes(option.latestVersion.servingFormat)) {
+          return false;
+        }
+        const creativeWidth = Number(option.latestVersion.width) || 0;
+        const creativeHeight = Number(option.latestVersion.height) || 0;
+        if (tagWidth > 0 && tagHeight > 0) {
+          return creativeWidth === tagWidth && creativeHeight === tagHeight;
+        }
+        return true;
+      }
+
+      return true;
+    });
+  }, [creativeOptions, form.format, form.servingWidth, form.servingHeight, savedTag?.height, savedTag?.width, savedTag?.workspaceId, selectedCampaignWorkspaceId]);
+
+  useEffect(() => {
+    setAssignmentVersionId((current) => (
+      current && filteredCreativeOptions.some((option) => option.latestVersion.id === current)
+        ? current
+        : filteredCreativeOptions[0]?.latestVersion.id || ''
+    ));
+  }, [filteredCreativeOptions]);
 
   useEffect(() => {
     if (!isEdit || !id) return;
@@ -809,7 +852,7 @@ export default function TagBuilder() {
         tagId: id,
       });
       await refreshBindings();
-      const selectedOption = creativeOptions.find(option => option.latestVersion.id === assignmentVersionId);
+      const selectedOption = filteredCreativeOptions.find(option => option.latestVersion.id === assignmentVersionId);
       setSuccessMessage(
         selectedOption
           ? `Creative "${selectedOption.creative.name}" assigned successfully.`
@@ -1354,12 +1397,17 @@ export default function TagBuilder() {
                     disabled={creativeOptionsLoading || assignmentBusy}
                   >
                     <option value="">Select a creative</option>
-                    {creativeOptions.map(option => (
+                    {filteredCreativeOptions.map(option => (
                       <option key={option.latestVersion.id} value={option.latestVersion.id}>
                         {option.creative.name} · v{option.latestVersion.versionNumber}
                       </option>
                     ))}
                   </select>
+                  {filteredCreativeOptions.length === 0 && (
+                    <p className="mt-2 text-xs text-amber-700">
+                      No creatives match this tag yet. We only show creatives from the selected client and, for display tags, only the exact assigned size.
+                    </p>
+                  )}
                 </div>
 
                 <button
