@@ -29,6 +29,7 @@ export default function TagBindingDashboard() {
   const [bindingsLoading, setBindingsLoading] = useState(false);
   const [error, setError] = useState('');
   const [bindingFilter, setBindingFilter] = useState<BindingFilter>('all');
+  const [bindingDrafts, setBindingDrafts] = useState<Record<string, { weight: string; status: TagBinding['status'] }>>({});
   const [updatingBindingId, setUpdatingBindingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,6 +75,20 @@ export default function TagBindingDashboard() {
       cancelled = true;
     };
   }, [selectedTagId]);
+
+  useEffect(() => {
+    setBindingDrafts(
+      Object.fromEntries(
+        bindings.map(binding => [
+          binding.id,
+          {
+            weight: String(Math.max(1, Number(binding.weight) || 1)),
+            status: binding.status,
+          },
+        ]),
+      ),
+    );
+  }, [bindings]);
 
   const filteredBindings = useMemo(() => {
     if (bindingFilter === 'all') return bindings;
@@ -122,16 +137,58 @@ export default function TagBindingDashboard() {
 
   const selectedTag = tags.find(tag => tag.id === selectedTagId) ?? null;
 
+  const handleBindingDraftChange = (
+    bindingId: string,
+    field: 'weight' | 'status',
+    value: string,
+  ) => {
+    setBindingDrafts(current => ({
+      ...current,
+      [bindingId]: {
+        weight: current[bindingId]?.weight ?? '1',
+        status: current[bindingId]?.status ?? 'active',
+        [field]: value,
+      } as { weight: string; status: TagBinding['status'] },
+    }));
+  };
+
+  const refreshBindings = async (tagId: string) => {
+    const nextBindings = await loadTagBindings(tagId);
+    setBindings(nextBindings);
+  };
+
+  const handleSaveBinding = async (binding: TagBinding) => {
+    setUpdatingBindingId(binding.id);
+    try {
+      const draft = bindingDrafts[binding.id] ?? {
+        weight: String(Math.max(1, Number(binding.weight) || 1)),
+        status: binding.status,
+      };
+      await updateTagBinding({
+        tagId: binding.tagId,
+        bindingId: binding.id,
+        status: draft.status,
+        weight: Math.max(1, Number.parseInt(draft.weight, 10) || 1),
+      });
+      await refreshBindings(binding.tagId);
+    } catch {
+      alert('Failed to update assignment status.');
+    } finally {
+      setUpdatingBindingId(null);
+    }
+  };
+
   const handleStatusChange = async (binding: TagBinding, nextStatus: 'active' | 'paused') => {
+    handleBindingDraftChange(binding.id, 'status', nextStatus);
     setUpdatingBindingId(binding.id);
     try {
       await updateTagBinding({
         tagId: binding.tagId,
         bindingId: binding.id,
         status: nextStatus,
+        weight: Math.max(1, Number(bindingDrafts[binding.id]?.weight ?? binding.weight) || 1),
       });
-      const nextBindings = await loadTagBindings(binding.tagId);
-      setBindings(nextBindings);
+      await refreshBindings(binding.tagId);
     } catch {
       alert('Failed to update assignment status.');
     } finally {
@@ -276,7 +333,17 @@ export default function TagBindingDashboard() {
                         : 'Version default'}
                     </td>
                     <td className="px-4 py-3">{statusBadge(binding.status)}</td>
-                    <td className="px-4 py-3 text-slate-600">{binding.weight}</td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={bindingDrafts[binding.id]?.weight ?? String(binding.weight)}
+                        onChange={(event) => handleBindingDraftChange(binding.id, 'weight', event.target.value)}
+                        disabled={updatingBindingId === binding.id}
+                        className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       {binding.publicUrl ? (
                         <a
@@ -292,23 +359,32 @@ export default function TagBindingDashboard() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {binding.status === 'active' ? (
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
-                          onClick={() => void handleStatusChange(binding, 'paused')}
+                          onClick={() => void handleSaveBinding(binding)}
                           disabled={updatingBindingId === binding.id}
-                          className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-60"
+                          className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
                         >
-                          Pause
+                          {updatingBindingId === binding.id ? 'Saving…' : 'Save'}
                         </button>
-                      ) : (
-                        <button
-                          onClick={() => void handleStatusChange(binding, 'active')}
-                          disabled={updatingBindingId === binding.id}
-                          className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
-                        >
-                          Activate
-                        </button>
-                      )}
+                        {binding.status === 'active' ? (
+                          <button
+                            onClick={() => void handleStatusChange(binding, 'paused')}
+                            disabled={updatingBindingId === binding.id}
+                            className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-60"
+                          >
+                            Pause
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => void handleStatusChange(binding, 'active')}
+                            disabled={updatingBindingId === binding.id}
+                            className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                          >
+                            Activate
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
