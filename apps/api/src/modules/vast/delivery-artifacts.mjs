@@ -80,5 +80,11 @@ export function buildLiveVastProfileUrl(baseUrl, tagId, profileKey = 'default') 
   const normalizedBaseUrl = getConfiguredLiveVastBaseUrl()
     || String(baseUrl ?? '').replace(/\/+$/, '');
   if (!normalizedBaseUrl || !tagId || !profile) return '';
-  return `${normalizedBaseUrl}/v1/vast/tags/${tagId}/${profile.key}.xml`;
+  const url = new URL(`${normalizedBaseUrl}/v1/vast/tags/${tagId}/${profile.key}.xml`);
+  if (profile.key === 'basis') {
+    url.searchParams.set('cb', '[CACHEBUSTING]');
+  } else if (profile.key === 'illumin') {
+    url.searchParams.set('cb', '[CACHEBUSTER]');
+  }
+  return url.toString();
 }

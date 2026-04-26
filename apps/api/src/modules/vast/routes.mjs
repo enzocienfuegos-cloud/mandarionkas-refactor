@@ -926,8 +926,12 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       },
     );
 
+    reply.header('Access-Control-Allow-Origin', '*');
+    reply.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
     reply.header('Content-Type', 'application/xml; charset=utf-8');
-    reply.header('Cache-Control', 'public, max-age=60, s-maxage=300');
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    reply.header('Pragma', 'no-cache');
+    reply.header('Expires', '0');
     reply.header('X-Content-Type-Options', 'nosniff');
     return reply.send(xml);
   });
