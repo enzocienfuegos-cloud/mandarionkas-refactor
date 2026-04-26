@@ -23,6 +23,9 @@ interface TagSummary {
   totalImpressions: number;
   totalClicks: number;
   ctr: number;
+  viewabilityRate: number;
+  totalInViewDurationMs: number;
+  totalHoverDurationMs: number;
   impressionsLast7d: number;
   videoStarts: number;
   videoStartRate: number;
@@ -107,6 +110,16 @@ function fmtNum(n: number) {
   return n.toLocaleString();
 }
 
+function fmtDurationFromMs(ms: number) {
+  if (!Number.isFinite(ms) || ms <= 0) return '0s';
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (seconds === 0) return `${minutes}m`;
+  return `${minutes}m ${seconds}s`;
+}
+
 function toNumber(value: unknown): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -118,6 +131,9 @@ function normalizeTagSummary(source: any): TagSummary | null {
     totalImpressions: toNumber(source.totalImpressions ?? source.total_impressions),
     totalClicks: toNumber(source.totalClicks ?? source.total_clicks),
     ctr: toNumber(source.ctr ?? source.overall_ctr),
+    viewabilityRate: toNumber(source.viewabilityRate ?? source.viewability_rate ?? source.overallViewability ?? source.overall_viewability),
+    totalInViewDurationMs: toNumber(source.totalInViewDurationMs ?? source.total_in_view_duration_ms),
+    totalHoverDurationMs: toNumber(source.totalHoverDurationMs ?? source.total_hover_duration_ms),
     impressionsLast7d: toNumber(source.impressionsLast7d ?? source.impressions_7d),
     videoStarts: toNumber(source.videoStarts ?? source.video_starts),
     videoStartRate: toNumber(source.videoStartRate ?? source.video_start_rate),
@@ -345,6 +361,9 @@ export default function TagReportingDashboard() {
         { Metric: 'Total Impressions', Value: summary.totalImpressions },
         { Metric: 'Total Clicks', Value: summary.totalClicks },
         { Metric: 'CTR (%)', Value: Number(summary.ctr.toFixed(2)) },
+        { Metric: 'Viewability (%)', Value: Number(summary.viewabilityRate.toFixed(2)) },
+        { Metric: 'In-View Time (ms)', Value: summary.totalInViewDurationMs },
+        { Metric: 'Attention Time (ms)', Value: summary.totalHoverDurationMs },
         { Metric: 'Last 7d Impressions', Value: summary.impressionsLast7d },
         { Metric: 'Video Starts', Value: summary.videoStarts },
         { Metric: 'Start Rate (%)', Value: Number(summary.videoStartRate.toFixed(2)) },
@@ -534,10 +553,13 @@ export default function TagReportingDashboard() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4 mb-6">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-11 gap-4 mb-6">
                     <KpiCard label="Total Impressions" value={summary ? fmtNum(summary.totalImpressions) : '—'} />
                     <KpiCard label="Total Clicks" value={summary ? fmtNum(summary.totalClicks) : '—'} />
                     <KpiCard label="CTR" value={summary ? `${summary.ctr.toFixed(2)}%` : '—'} />
+                    <KpiCard label="Viewability" value={summary ? `${summary.viewabilityRate.toFixed(2)}%` : '—'} />
+                    <KpiCard label="In-View Time" value={summary ? fmtDurationFromMs(summary.totalInViewDurationMs) : '—'} />
+                    <KpiCard label="Attention Time" value={summary ? fmtDurationFromMs(summary.totalHoverDurationMs) : '—'} />
                     <KpiCard label="Last 7d Imps" value={summary ? fmtNum(summary.impressionsLast7d) : '—'} />
                     <KpiCard label="Video Starts" value={summary ? fmtNum(summary.videoStarts) : '—'} />
                     <KpiCard label="Start Rate" value={summary ? `${summary.videoStartRate.toFixed(2)}%` : '—'} />

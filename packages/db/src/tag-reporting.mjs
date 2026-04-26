@@ -38,6 +38,8 @@ function hasSummaryActivity(summary = {}) {
     summary.total_undetermined,
     summary.video_starts,
     summary.video_completions,
+    summary.total_in_view_duration_ms,
+    summary.total_hover_duration_ms,
   ].some(value => Number(value ?? 0) > 0);
 }
 
@@ -234,6 +236,22 @@ async function getRawTagSummaryStats(pool, workspaceId, tagId, opts = {}) {
     videoParams,
   );
 
+  const { rows: attentionRows } = await pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN event_type = 'hover_end' THEN total_duration_ms ELSE 0 END), 0)::bigint AS total_hover_duration_ms
+     FROM engagement_events
+     WHERE ${videoConditions.join(' AND ')}`,
+    videoParams,
+  );
+
+  const { rows: inViewRows } = await pool.query(
+    `SELECT
+       COALESCE(SUM(COALESCE(viewability_duration_ms, 0)), 0)::bigint AS total_in_view_duration_ms
+     FROM impression_events
+     WHERE ${impressionConditions.join(' AND ')}`,
+    impressionParams,
+  );
+
   const { rows: activityRows } = await pool.query(
     `WITH activity_dates AS (
        SELECT DATE(timestamp) AS date
@@ -264,6 +282,8 @@ async function getRawTagSummaryStats(pool, workspaceId, tagId, opts = {}) {
   const clickSummary = clickRows[0] ?? {};
   const last7Summary = last7Rows[0] ?? {};
   const videoSummary = videoRows[0] ?? {};
+  const attentionSummary = attentionRows[0] ?? {};
+  const inViewSummary = inViewRows[0] ?? {};
   const activitySummary = activityRows[0] ?? {};
   const totalImpressions = Number(impressionSummary.total_impressions ?? 0);
   const totalClicks = Number(clickSummary.total_clicks ?? 0);
@@ -277,6 +297,8 @@ async function getRawTagSummaryStats(pool, workspaceId, tagId, opts = {}) {
     ...clickSummary,
     ...last7Summary,
     ...videoSummary,
+    ...attentionSummary,
+    ...inViewSummary,
     ...activitySummary,
     total_spend: 0,
     overall_ctr: totalImpressions > 0 ? Number(((totalClicks / totalImpressions) * 100).toFixed(4)) : 0,
@@ -468,6 +490,11 @@ export async function getTagSummaryStats(pool, workspaceId, tagId, opts = {}) {
       video_midpoint: Number(rollupSummary.video_midpoint ?? 0) > 0 ? rollupSummary.video_midpoint : rawSummary?.video_midpoint ?? 0,
       video_third_quartile: Number(rollupSummary.video_third_quartile ?? 0) > 0 ? rollupSummary.video_third_quartile : rawSummary?.video_third_quartile ?? 0,
       video_completions: nextVideoCompletions,
+      total_hover_duration_ms: Number(rawSummary?.total_hover_duration_ms ?? 0),
+      total_in_view_duration_ms: Number(rawSummary?.total_in_view_duration_ms ?? 0),
+      overall_viewability: Number(rollupSummary.overall_viewability ?? 0) > 0
+        ? Number(rollupSummary.overall_viewability ?? 0)
+        : Number(rawSummary?.overall_viewability ?? 0),
       overall_ctr: nextTotalImpressions > 0 ? Number(((nextTotalClicks / nextTotalImpressions) * 100).toFixed(4)) : 0,
       video_start_rate: nextTotalImpressions > 0 ? Number(((nextVideoStarts / nextTotalImpressions) * 100).toFixed(4)) : 0,
       video_completion_rate: nextVideoStarts > 0 ? Number(((nextVideoCompletions / nextVideoStarts) * 100).toFixed(4)) : 0,

@@ -1083,8 +1083,8 @@ export async function recordClick(pool, data) {
          AND timestamp >= ($6::timestamptz - INTERVAL '2 seconds')
          AND (
            ($7::uuid IS NOT NULL AND impression_id IS NOT DISTINCT FROM $7)
-           OR ($8 IS NOT NULL AND cookie_id IS NOT DISTINCT FROM $8)
-           OR ($9 IS NOT NULL AND device_id IS NOT DISTINCT FROM $9)
+           OR ($8::text IS NOT NULL AND cookie_id IS NOT DISTINCT FROM $8::text)
+           OR ($9::text IS NOT NULL AND device_id IS NOT DISTINCT FROM $9::text)
            OR ($10::inet IS NOT NULL AND ip IS NOT DISTINCT FROM $10::inet)
          )
        ORDER BY timestamp DESC
