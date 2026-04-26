@@ -139,6 +139,8 @@ function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
       return vastUrl;
     case 'vast-url-basis-static':
       return basisStaticVastUrl;
+    case 'vast-url-vast4-static':
+      return tag.workspace_id ? buildStaticVastPublicUrl(tag.workspace_id, tag.id) : vastUrl;
     case 'vast-xml':
       return buildVastWrapperSnippet(tag.id, vastUrl);
     case 'tracker-click':

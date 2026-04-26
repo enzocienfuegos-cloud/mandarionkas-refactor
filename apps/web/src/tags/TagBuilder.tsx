@@ -141,6 +141,8 @@ interface DeliveryDiagnosticSection {
 
 type SnippetVariant =
   | 'vast-url'
+  | 'vast-url-basis-static'
+  | 'vast-url-vast4-static'
   | 'vast-xml'
   | 'display-js'
   | 'display-iframe'
@@ -190,12 +192,28 @@ function getDefaultSnippetVariant(format: TagFormat, trackerType: TrackerType | 
   return 'native-js';
 }
 
-function getSnippetOptions(format: TagFormat, trackerType: TrackerType | null = null): Array<{ value: SnippetVariant; label: string }> {
+function getSnippetOptions(
+  format: TagFormat,
+  trackerType: TrackerType | null = null,
+  campaignDsp = '',
+  diagnostics?: DeliveryDiagnosticsPayload | null,
+): Array<{ value: SnippetVariant; label: string }> {
   if (format === 'VAST') {
-    return [
-      { value: 'vast-url', label: 'VAST URL' },
-      { value: 'vast-xml', label: 'XML Wrapper' },
-    ];
+    const options: Array<{ value: SnippetVariant; label: string }> = [];
+    const selectedProfile = readCampaignDsp({ dsp: campaignDsp });
+    const selectedStaticUrl = getSelectedStaticVastUrl(campaignDsp, diagnostics);
+    options.push({
+      value: 'vast-url',
+      label: selectedProfile ? `${selectedProfile === 'basis' ? 'Basis' : selectedProfile === 'illumin' ? 'Illumin' : 'Selected'} URL` : 'Campaign URL',
+    });
+    if (getStaticVastUrl('basis', diagnostics) && !selectedStaticUrl.includes('/basis.xml')) {
+      options.push({ value: 'vast-url-basis-static', label: 'Basis Compatible URL' });
+    }
+    if (getStaticVastUrl('default', diagnostics) && (!selectedStaticUrl || selectedStaticUrl.includes('/basis.xml') || selectedProfile === 'basis')) {
+      options.push({ value: 'vast-url-vast4-static', label: 'VAST 4.x URL' });
+    }
+    options.push({ value: 'vast-xml', label: 'XML Wrapper' });
+    return options;
   }
   if (format === 'display') {
     return [
@@ -242,6 +260,10 @@ function getSelectedStaticVastUrl(campaignDsp = '', diagnostics?: DeliveryDiagno
   return diagnostics?.deliveryDiagnostics?.vast?.staticProfiles?.[normalized] ?? '';
 }
 
+function getStaticVastUrl(profileKey: 'default' | 'basis' | 'illumin', diagnostics?: DeliveryDiagnosticsPayload | null) {
+  return diagnostics?.deliveryDiagnostics?.vast?.staticProfiles?.[profileKey] ?? '';
+}
+
 function buildTagSnippet(
   tag: SavedTag,
   variant: SnippetVariant,
@@ -254,6 +276,8 @@ function buildTagSnippet(
   const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
   const selectedStaticVastUrl = getSelectedStaticVastUrl(campaignDsp, diagnostics);
+  const basisStaticVastUrl = getStaticVastUrl('basis', diagnostics);
+  const vast4StaticUrl = getStaticVastUrl('default', diagnostics);
   const vastUrl = selectedStaticVastUrl
     || applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VIDEO);
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
@@ -277,6 +301,10 @@ function buildTagSnippet(
   switch (variant) {
     case 'vast-url':
       return vastUrl;
+    case 'vast-url-basis-static':
+      return basisStaticVastUrl || vastUrl;
+    case 'vast-url-vast4-static':
+      return vast4StaticUrl || vastUrl;
     case 'vast-xml':
       return buildVastWrapperSnippet(tag.id, vastUrl);
     case 'display-iframe':
@@ -304,9 +332,15 @@ function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp 
     ? ` ${selectedConfig.label} macros are auto-injected for delivery context and click passthrough.`
     : '';
   if (tag.format === 'VAST') {
+    if (variant === 'vast-url-basis-static') {
+      return 'Use this Basis-compatible static VAST URL when you specifically need the safer Basis profile.';
+    }
+    if (variant === 'vast-url-vast4-static') {
+      return 'Use this static VAST 4.x URL when you want the newer OMID-capable profile for validators or players that support it.';
+    }
     return variant === 'vast-url'
       ? `Use this VAST URL for the selected campaign delivery profile.${dspNote} This flow is DSP-aware and does not depend on VPAID.`
-      : `Use this XML wrapper only if your integration explicitly requires inline VAST XML.${dspNote}`;
+      : 'Use this XML wrapper only if your integration explicitly requires inline VAST XML. It wraps the currently selected VAST URL option.';
   }
   if (tag.format === 'display') {
     if (variant === 'display-iframe') {
@@ -1050,7 +1084,7 @@ export default function TagBuilder() {
             </div>
           )}
           <div className="mb-3 flex flex-wrap gap-2">
-            {getSnippetOptions(savedTag.format, savedTag.trackerType ?? null).map(option => (
+            {getSnippetOptions(savedTag.format, savedTag.trackerType ?? null, selectedCampaignDsp, deliveryDiagnostics).map(option => (
               <button
                 key={option.value}
                 type="button"
