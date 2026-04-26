@@ -920,7 +920,10 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       tag,
       tag.workspace_id,
       baseUrl,
-      buildStaticVastTemplateQuery(profile.dsp),
+      {
+        ...buildStaticVastTemplateQuery(profile.dsp),
+        ...req.query,
+      },
     );
 
     reply.header('Content-Type', 'application/xml; charset=utf-8');

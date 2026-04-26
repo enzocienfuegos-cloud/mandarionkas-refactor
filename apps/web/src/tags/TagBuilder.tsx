@@ -147,7 +147,9 @@ interface DeliveryDiagnosticSection {
 
 type SnippetVariant =
   | 'vast-url-basis-dynamic'
+  | 'vast-url-basis-macro'
   | 'vast-url-illumin-dynamic'
+  | 'vast-url-illumin-macro'
   | 'vast-url-vast4-dynamic'
   | 'vast-xml'
   | 'display-js'
@@ -193,8 +195,8 @@ function resolveTagServingBaseUrl() {
 
 function getDefaultVastSnippetVariant(campaignDsp = ''): SnippetVariant {
   const normalized = readCampaignDsp({ dsp: campaignDsp });
-  if (normalized === 'basis') return 'vast-url-basis-dynamic';
-  if (normalized === 'illumin') return 'vast-url-illumin-dynamic';
+  if (normalized === 'basis') return 'vast-url-basis-macro';
+  if (normalized === 'illumin') return 'vast-url-illumin-macro';
   return 'vast-url-vast4-dynamic';
 }
 
@@ -216,17 +218,21 @@ function getSnippetOptions(
 ): Array<{ value: SnippetVariant; label: string }> {
   if (format === 'VAST') {
     const optionMap: Record<string, { value: SnippetVariant; label: string }> = {
+      basisMacro: { value: 'vast-url-basis-macro', label: 'Basis Macro URL' },
       basis: { value: 'vast-url-basis-dynamic', label: 'Basis Live XML' },
+      illuminMacro: { value: 'vast-url-illumin-macro', label: 'Illumin Macro URL' },
       illumin: { value: 'vast-url-illumin-dynamic', label: 'Illumin Live XML' },
       vast4: { value: 'vast-url-vast4-dynamic', label: 'VAST 4.x Live XML' },
     };
     const prioritizedKeys = [
       readCampaignDsp({ dsp: campaignDsp }) === 'basis'
-        ? 'basis'
+        ? 'basisMacro'
         : readCampaignDsp({ dsp: campaignDsp }) === 'illumin'
-          ? 'illumin'
+          ? 'illuminMacro'
           : 'vast4',
+      'basisMacro',
       'basis',
+      'illuminMacro',
       'illumin',
       'vast4',
     ];
@@ -303,6 +309,8 @@ function buildTagSnippet(
     || `${servingBaseUrl}/v1/vast/tags/${tag.id}/illumin.xml`;
   const vast4DynamicUrl = diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.vast4
     || `${servingBaseUrl}/v1/vast/tags/${tag.id}/vast4.xml`;
+  const basisMacroVastUrl = applyDspMacrosToDeliveryUrl(basisDynamicVastUrl, 'basis', DSP_DELIVERY_KINDS.VIDEO);
+  const illuminMacroVastUrl = applyDspMacrosToDeliveryUrl(illuminDynamicVastUrl, 'illumin', DSP_DELIVERY_KINDS.VIDEO);
   const vastUrl = campaignVastUrl;
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
   const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
@@ -325,8 +333,12 @@ function buildTagSnippet(
   switch (variant) {
     case 'vast-url-basis-dynamic':
       return basisDynamicVastUrl;
+    case 'vast-url-basis-macro':
+      return basisMacroVastUrl;
     case 'vast-url-illumin-dynamic':
       return illuminDynamicVastUrl;
+    case 'vast-url-illumin-macro':
+      return illuminMacroVastUrl;
     case 'vast-url-vast4-dynamic':
       return vast4DynamicUrl;
     case 'vast-xml':
@@ -356,8 +368,14 @@ function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp 
     ? ` ${selectedConfig.label} macros are auto-injected for delivery context and click passthrough.`
     : '';
   if (tag.format === 'VAST') {
+    if (variant === 'vast-url-basis-macro') {
+      return 'Use this Basis-compatible live URL when the DSP expects visible Basis macros on the tag itself. It still resolves through the stable live Basis XML profile.';
+    }
     if (variant === 'vast-url-basis-dynamic') {
       return 'Use this stable API endpoint when you want the live Basis-compatible XML to reflect ad-server changes without republishing.';
+    }
+    if (variant === 'vast-url-illumin-macro') {
+      return 'Use this Illumin-compatible live URL when the DSP expects visible Illumin macros on the tag itself. It still resolves through the stable live Illumin XML profile.';
     }
     if (variant === 'vast-url-illumin-dynamic') {
       return 'Use this stable API endpoint when you want the live Illumin-compatible XML to reflect ad-server changes without republishing.';
