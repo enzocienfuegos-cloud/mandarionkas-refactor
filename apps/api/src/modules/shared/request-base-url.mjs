@@ -5,6 +5,14 @@ const CONFIGURED_BASE_URL_ENVS = [
   'VITE_API_BASE_URL',
 ];
 
+function readConfiguredBaseUrl(envNames = []) {
+  for (const envName of envNames) {
+    const value = String(process.env[envName] ?? '').trim();
+    if (value) return value.replace(/\/$/, '');
+  }
+  return '';
+}
+
 function isLoopbackBaseUrl(value = '') {
   const normalized = String(value ?? '').trim().toLowerCase();
   return normalized.startsWith('http://localhost')
@@ -14,15 +22,11 @@ function isLoopbackBaseUrl(value = '') {
 }
 
 export function getConfiguredBaseUrl() {
-  for (const envName of CONFIGURED_BASE_URL_ENVS) {
-    const value = String(process.env[envName] ?? '').trim();
-    if (value) return value.replace(/\/$/, '');
-  }
-  return 'http://localhost:4000';
+  return readConfiguredBaseUrl(CONFIGURED_BASE_URL_ENVS) || 'http://localhost:4000';
 }
 
-export function getRequestBaseUrl(req) {
-  const configuredBaseUrl = getConfiguredBaseUrl();
+export function getRequestBaseUrl(req, preferredEnvNames = []) {
+  const configuredBaseUrl = readConfiguredBaseUrl(preferredEnvNames) || getConfiguredBaseUrl();
   const forwardedProto = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim();
   const forwardedHost = String(req.headers['x-forwarded-host'] ?? '').split(',')[0].trim();
   const authorityHeader = String(req.headers[':authority'] ?? '').trim();

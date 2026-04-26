@@ -851,7 +851,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
 
   // GET /v1/vast/tags/:tagId — serve VAST XML for a tag
   app.get('/v1/vast/tags/:tagId', { preHandler: optionalAuth }, async (req, reply) => {
-    const baseUrl = getRequestBaseUrl(req);
+    const baseUrl = getRequestBaseUrl(req, ['VAST_LIVE_PUBLIC_BASE_URL']);
     const { workspaceId } = req.authSession ?? req.apiKeyAuth ?? {};
     const { tagId } = req.params;
 
@@ -894,7 +894,7 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
       return payload;
     },
   }, async (req, reply) => {
-    const baseUrl = getRequestBaseUrl(req);
+    const baseUrl = getRequestBaseUrl(req, ['VAST_LIVE_PUBLIC_BASE_URL']);
     const { tagId, profile: requestedProfile } = req.params;
     const profile = resolveLiveVastProfile(requestedProfile);
 
