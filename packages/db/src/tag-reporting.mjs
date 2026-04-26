@@ -356,7 +356,7 @@ async function getRawTagSummaryStats(pool, workspaceId, tagId, opts = {}) {
 
   const { rows: attentionRows } = await pool.query(
     `SELECT
-       COALESCE(SUM(CASE WHEN event_type IN ('attention', 'hover_end') THEN total_duration_ms ELSE 0 END), 0)::bigint AS total_attention_duration_ms
+       COALESCE(SUM(CASE WHEN event_type IN ('attention', 'hover_end') THEN COALESCE(hover_duration_ms, 0) ELSE 0 END), 0)::bigint AS total_attention_duration_ms
      FROM engagement_events
      WHERE ${videoConditions.join(' AND ')}`,
     videoParams,
