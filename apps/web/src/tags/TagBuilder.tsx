@@ -210,9 +210,12 @@ function getSnippetOptions(
       value: 'vast-url',
       label: selectedProfile ? `${selectedProfile === 'basis' ? 'Basis' : selectedProfile === 'illumin' ? 'Illumin' : 'Selected'} URL` : 'Campaign URL',
     });
-    options.push({ value: 'vast-url-basis-static', label: 'Basis Compatible URL' });
-    options.push({ value: 'vast-url-illumin-static', label: 'Illumin URL' });
-    options.push({ value: 'vast-url-vast4-static', label: 'VAST 4.x URL' });
+    options.push({ value: 'vast-url-basis-dynamic', label: 'Basis Macro URL' });
+    options.push({ value: 'vast-url-basis-static', label: 'Basis Static XML' });
+    options.push({ value: 'vast-url-illumin-dynamic', label: 'Illumin Macro URL' });
+    options.push({ value: 'vast-url-illumin-static', label: 'Illumin Static XML' });
+    options.push({ value: 'vast-url-vast4-dynamic', label: 'VAST 4.x Macro URL' });
+    options.push({ value: 'vast-url-vast4-static', label: 'VAST 4.x Static XML' });
     options.push({ value: 'vast-xml', label: 'XML Wrapper' });
     return options;
   }
@@ -341,23 +344,23 @@ function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp 
     ? ` ${selectedConfig.label} macros are auto-injected for delivery context and click passthrough.`
     : '';
   if (tag.format === 'VAST') {
+    if (variant === 'vast-url-basis-dynamic') {
+      return 'Use this Basis macro URL when you need a dynamic VAST endpoint with Basis macros visible in the tag URL, similar to Connected Stories.';
+    }
     if (variant === 'vast-url-basis-static') {
-      return 'Use this Basis-compatible published XML artifact. This is the safest option for Basis acceptance.';
+      return 'Use this Basis static XML when you want the published Basis-compatible artifact instead of a dynamic macro URL.';
+    }
+    if (variant === 'vast-url-illumin-dynamic') {
+      return 'Use this Illumin macro URL when you need a dynamic VAST endpoint with Illumin macros visible in the tag URL.';
     }
     if (variant === 'vast-url-illumin-static') {
-      return 'Use this published Illumin XML artifact when you want the Illumin-ready static VAST.';
+      return 'Use this Illumin static XML when you want the published Illumin-ready artifact.';
+    }
+    if (variant === 'vast-url-vast4-dynamic') {
+      return 'Use this VAST 4.x macro URL when you want the OMID-capable dynamic endpoint.';
     }
     if (variant === 'vast-url-vast4-static') {
       return 'Use this published VAST 4.x XML artifact when you want the OMID-capable static profile.';
-    }
-    if (variant === 'vast-url-basis-dynamic') {
-      return 'Advanced option: dynamic Basis tag URL with macros visible in the URL itself.';
-    }
-    if (variant === 'vast-url-illumin-dynamic') {
-      return 'Advanced option: dynamic Illumin tag URL with macros visible in the URL itself.';
-    }
-    if (variant === 'vast-url-vast4-dynamic') {
-      return 'Advanced option: dynamic VAST 4.x tag URL with macros visible in the URL itself.';
     }
     return variant === 'vast-url'
       ? `Use this VAST URL for the selected campaign delivery profile.${dspNote} This flow is DSP-aware and does not depend on VPAID.`
