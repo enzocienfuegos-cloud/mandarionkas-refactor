@@ -12,7 +12,11 @@ import {
 } from '@smx/contracts/dsp-macros';
 import { hasUploadStorageConfig } from '../storage/object-storage.mjs';
 import { getRequestBaseUrl } from '../shared/request-base-url.mjs';
-import { buildStaticVastProfile } from './delivery-artifacts.mjs';
+import {
+  buildStaticVastProfile,
+  buildStaticVastTemplateQuery,
+  resolveLiveVastProfile,
+} from './delivery-artifacts.mjs';
 import { enqueueStaticVastPublish } from './publish-queue.mjs';
 import {
   buildVastXml,
@@ -870,6 +874,54 @@ export function handleVastRoutes(app, { requireWorkspace, requireApiKey, pool })
     }
 
     const xml = buildVastXml(tag, tag.workspace_id ?? workspaceId, baseUrl, req.query);
+
+    reply.header('Access-Control-Allow-Origin', '*');
+    reply.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    reply.header('Content-Type', 'application/xml; charset=utf-8');
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    reply.header('X-Content-Type-Options', 'nosniff');
+    return reply.send(xml);
+  });
+
+  // GET /v1/vast/tags/:tagId/:profile.xml — serve a stable, profile-based VAST XML for a tag
+  app.get('/v1/vast/tags/:tagId/:profile', { preHandler: optionalAuth }, async (req, reply) => {
+    const baseUrl = getRequestBaseUrl(req);
+    const { workspaceId } = req.authSession ?? req.apiKeyAuth ?? {};
+    const { tagId, profile: requestedProfile } = req.params;
+    const profile = resolveLiveVastProfile(requestedProfile);
+
+    if (!profile) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Unsupported VAST profile' });
+    }
+
+    let tag = null;
+    if (workspaceId) {
+      tag = await getTagServingSnapshot(pool, workspaceId, tagId, {
+        requestedSize: readRequestedSize(req.query),
+      });
+    }
+    if (!tag) {
+      tag = await getTagServingSnapshotById(pool, tagId, {
+        requestedSize: readRequestedSize(req.query),
+      });
+    }
+    if (!tag) {
+      return reply.status(404).send({ error: 'Not Found', message: 'Tag not found' });
+    }
+
+    if (tag.format !== 'vast' && tag.format !== 'vast_video') {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: `Tag format is "${tag.format}", not a VAST format`,
+      });
+    }
+
+    const xml = buildVastXml(
+      tag,
+      tag.workspace_id ?? workspaceId,
+      baseUrl,
+      buildStaticVastTemplateQuery(profile.dsp),
+    );
 
     reply.header('Access-Control-Allow-Origin', '*');
     reply.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');

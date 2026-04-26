@@ -24,10 +24,12 @@ import {
 import { getRequestBaseUrl } from '../shared/request-base-url.mjs';
 import { getObjectBuffer, getObjectMetadata } from '../storage/object-storage.mjs';
 import {
+  buildLiveVastProfileUrl,
   buildStaticVastManifestPublicUrl,
   buildStaticVastManifestStorageKey,
   buildStaticVastPublicUrl,
   buildStaticVastStorageKey,
+  getLiveVastProfiles,
   getStaticVastProfiles,
 } from '../vast/delivery-artifacts.mjs';
 import { enqueueStaticVastPublish } from '../vast/publish-queue.mjs';
@@ -68,10 +70,7 @@ function getSelectedVideoProfileKey(campaignDsp = '') {
 
 function buildSelectedVideoVastUrl(baseUrl, tag, campaignDsp = '') {
   const profileKey = getSelectedVideoProfileKey(campaignDsp);
-  if (profileKey !== 'default' && tag.workspace_id) {
-    return buildStaticVastPublicUrl(tag.workspace_id, tag.id, profileKey);
-  }
-  return applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, campaignDsp, DSP_DELIVERY_KINDS.VIDEO);
+  return buildLiveVastProfileUrl(baseUrl, tag.id, profileKey);
 }
 
 function buildDeliverySummary(tag, campaignDsp) {
@@ -79,12 +78,18 @@ function buildDeliverySummary(tag, campaignDsp) {
   const dspVideoActive = isDspVideoEligible(tag.format, campaignDsp);
   const dspLabel = getDspMacroConfig(campaignDsp)?.label ?? 'DSP';
   if (dspVideoActive) {
+    const normalizedDsp = readCampaignDsp({ dsp: campaignDsp });
+    const profileLabel = normalizedDsp === 'basis'
+      ? 'Basis-compatible VAST 2.0'
+      : normalizedDsp === 'illumin'
+        ? 'Illumin-compatible VAST'
+        : 'VAST 4.x';
     return {
       basisNativeActive: false,
       deliveryMode: 'dsp_video_contract',
       clickChain: `${dspLabel} -> SMX -> Landing`,
       previewStatus: 'dsp_video_contract_ready',
-      previewNotes: `${dspLabel} video delivery uses a VAST 4.x DSP contract on the tag URL itself. No VPAID-specific wrapper is required.`,
+      previewNotes: `${dspLabel} video delivery uses a stable ${profileLabel} API profile on the tag URL itself. No manual republish is required for normal ad-server changes.`,
     };
   }
   return {
@@ -138,11 +143,11 @@ function buildTagSnippet(baseUrl, tag, variant, campaignDsp = '') {
     case 'vast-url':
       return vastUrl;
     case 'vast-url-basis-dynamic':
-      return applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, 'basis', DSP_DELIVERY_KINDS.VIDEO);
+      return buildLiveVastProfileUrl(baseUrl, tag.id, 'basis');
     case 'vast-url-illumin-dynamic':
-      return applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, 'illumin', DSP_DELIVERY_KINDS.VIDEO);
+      return buildLiveVastProfileUrl(baseUrl, tag.id, 'illumin');
     case 'vast-url-vast4-dynamic':
-      return applyDspMacrosToDeliveryUrl(`${baseUrl}/v1/vast/tags/${tag.id}`, '', DSP_DELIVERY_KINDS.VIDEO);
+      return buildLiveVastProfileUrl(baseUrl, tag.id, 'vast4');
     case 'vast-xml':
       return buildVastWrapperSnippet(tag.id, vastUrl);
     case 'tracker-click':
@@ -498,6 +503,12 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
       }),
     );
     const staticVastProfileMap = Object.fromEntries(staticVastProfiles);
+    const liveVastProfileMap = Object.fromEntries(
+      getLiveVastProfiles().map((profile) => [
+        profile.key,
+        buildLiveVastProfileUrl(baseUrl, tag.id, profile.key),
+      ]),
+    );
     const { rows: staticJobRows } = await pool.query(
       `SELECT id, status, priority, attempts, max_attempts, run_at, started_at, completed_at, failed_at, error, created_at, updated_at, payload
          FROM jobs
@@ -536,6 +547,7 @@ export function handleTagRoutes(app, { requireWorkspace, pool }) {
           policy: getDspDeliveryPolicy(campaignDsp, DSP_DELIVERY_KINDS.VIDEO),
           url: buildSelectedVideoVastUrl(baseUrl, tag, campaignDsp),
           selectedProfile: getSelectedVideoProfileKey(campaignDsp),
+          liveProfiles: liveVastProfileMap,
           staticProfiles: {
             default: staticVastProfileMap.default?.publicUrl ?? buildStaticVastPublicUrl(resolvedWorkspaceId, tag.id),
             basis: staticVastProfileMap.basis?.publicUrl ?? buildStaticVastPublicUrl(resolvedWorkspaceId, tag.id, 'basis'),
