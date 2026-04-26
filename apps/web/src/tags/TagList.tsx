@@ -12,6 +12,8 @@ interface Tag {
   status: 'active' | 'paused' | 'archived' | 'draft';
   sizeLabel?: string;
   trackerType?: 'click' | 'impression' | null;
+  assignedCount?: number;
+  assignedNames?: string;
   createdAt: string;
 }
 
@@ -60,7 +62,8 @@ export default function TagList() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
-  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [tagSearch, setTagSearch] = useState('');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -107,11 +110,29 @@ export default function TagList() {
     if (!creating) return;
     setCreateForm(current => ({
       ...current,
-      workspaceId: current.workspaceId || selectedClientIds[0] || '',
+      workspaceId: current.workspaceId || selectedClientId || '',
     }));
-  }, [creating, selectedClientIds]);
+  }, [creating, selectedClientId]);
 
-  const filteredTags = tags.filter(tag => !selectedClientIds.length || selectedClientIds.includes(tag.workspaceId ?? ''));
+  const normalizedTagSearch = tagSearch.trim().toLowerCase();
+  const filteredTags = tags.filter(tag => {
+    const matchesClient = !selectedClientId || (tag.workspaceId ?? '') === selectedClientId;
+    if (!matchesClient) return false;
+    if (!normalizedTagSearch) return true;
+    const haystack = [
+      tag.name,
+      tag.workspaceName,
+      tag.campaign?.name,
+      tag.assignedNames,
+      tag.format,
+      tag.status,
+      tag.sizeLabel,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(normalizedTagSearch);
+  });
   const selectedCount = selectedTagIds.length;
   const allVisibleSelected = filteredTags.length > 0 && filteredTags.every(tag => selectedTagIds.includes(tag.id));
   const someVisibleSelected = filteredTags.some(tag => selectedTagIds.includes(tag.id));
@@ -356,19 +377,29 @@ export default function TagList() {
         </div>
       </div>
 
-      <div className="mb-4 flex items-center gap-3">
-        <label className="text-sm font-medium text-slate-700">Client</label>
-        <select
-          multiple
-          value={selectedClientIds}
-          onChange={event => setSelectedClientIds(Array.from(event.target.selectedOptions, option => option.value))}
-          className="min-h-[110px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
-        >
-          {clients.map(client => (
-            <option key={client.id} value={client.id}>{client.name}</option>
-          ))}
-        </select>
-        <span className="text-xs text-slate-500">Leave empty to see all clients. Hold Cmd/Ctrl to select multiple.</span>
+      <div className="mb-4 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-[minmax(220px,280px)_minmax(260px,1fr)]">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Client</label>
+          <select
+            value={selectedClientId}
+            onChange={event => setSelectedClientId(event.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          >
+            <option value="">All clients</option>
+            {clients.map(client => (
+              <option key={client.id} value={client.id}>{client.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Tag Filter</label>
+          <input
+            value={tagSearch}
+            onChange={event => setTagSearch(event.target.value)}
+            placeholder="Search by tag, campaign, client, or assigned creative"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          />
+        </div>
       </div>
 
       {selectedCount > 0 && (
@@ -405,7 +436,7 @@ export default function TagList() {
         <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
           <p className="text-4xl mb-3">🏷️</p>
           <h3 className="text-lg font-medium text-slate-700">No tags yet</h3>
-          <p className="text-sm text-slate-500 mt-1 mb-4">No tags match the current client filter.</p>
+          <p className="text-sm text-slate-500 mt-1 mb-4">No tags match the current client or tag filter.</p>
           <button onClick={() => setCreating(true)} className="inline-flex items-center gap-2 bg-indigo-600 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition-colors">
             + New Tag
           </button>
@@ -430,7 +461,7 @@ export default function TagList() {
                       aria-label="Select all visible tags"
                     />
                   </th>
-                  {['Campaign', 'Format', 'Size', 'Status', 'Created At', 'Actions'].map(h => (
+                  {['Tag', 'Client / Campaign', 'Assigned', 'Format', 'Size', 'Status', 'Created At', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       {h}
                     </th>
@@ -450,8 +481,18 @@ export default function TagList() {
                       />
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-600">
-                      <div>{t.campaign?.name ?? '—'}</div>
-                      <div className="text-xs text-slate-400">{t.workspaceName ?? '—'}</div>
+                      <div className="font-medium text-slate-800">{t.name}</div>
+                      <div className="text-xs text-slate-400">{t.id}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-600">
+                      <div>{t.workspaceName ?? '—'}</div>
+                      <div className="text-xs text-slate-400">{t.campaign?.name ?? 'No campaign'}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-600">
+                      <div>{t.assignedCount ? `${t.assignedCount} assigned` : 'No assignments'}</div>
+                      <div className="text-xs text-slate-400">
+                        {t.assignedNames?.trim() ? t.assignedNames : 'No creatives assigned'}
+                      </div>
                     </td>
                     <td className="px-4 py-3">{formatBadge(t.format)}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{t.sizeLabel || '—'}</td>

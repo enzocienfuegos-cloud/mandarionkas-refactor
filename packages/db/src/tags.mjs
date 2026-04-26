@@ -45,12 +45,33 @@ export async function listTags(pool, workspaceId, opts = {}) {
             t.targeting, t.frequency_cap, t.frequency_cap_window,
             t.geo_targets, t.device_targets, t.created_at, t.updated_at,
             c.name AS campaign_name,
+            assigned_creatives.assigned_count,
+            assigned_creatives.assigned_names,
             COALESCE(tfc.display_width, bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
             COALESCE(tfc.display_height, bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height,
             tfc.tracker_type
      FROM ad_tags t
      LEFT JOIN campaigns c ON c.id = t.campaign_id
      LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
+     LEFT JOIN LATERAL (
+       SELECT
+         COUNT(*)::int AS assigned_count,
+         string_agg(assigned.name, ', ' ORDER BY assigned.sort_weight DESC, assigned.created_at ASC) AS assigned_names
+       FROM (
+         SELECT cr.name, tb.weight AS sort_weight, tb.created_at
+         FROM tag_bindings tb
+         JOIN creative_versions cv2 ON cv2.id = tb.creative_version_id
+         JOIN creatives cr ON cr.id = cv2.creative_id
+         WHERE tb.workspace_id = t.workspace_id
+           AND tb.tag_id = t.id
+           AND tb.status IN ('active', 'draft', 'paused')
+         UNION ALL
+         SELECT cr.name, tc.weight AS sort_weight, tc.created_at
+         FROM tag_creatives tc
+         JOIN creatives cr ON cr.id = tc.creative_id
+         WHERE tc.tag_id = t.id
+       ) assigned
+     ) assigned_creatives ON TRUE
      LEFT JOIN LATERAL (
        SELECT
          COALESCE(csv.width, cv.width) AS serving_width,
@@ -117,6 +138,8 @@ export async function listTagsForUser(pool, userId, opts = {}) {
             t.targeting, t.frequency_cap, t.frequency_cap_window,
             t.geo_targets, t.device_targets, t.created_at, t.updated_at,
             c.name AS campaign_name,
+            assigned_creatives.assigned_count,
+            assigned_creatives.assigned_names,
             COALESCE(tfc.display_width, bound_sizes.serving_width, legacy_sizes.serving_width) AS serving_width,
             COALESCE(tfc.display_height, bound_sizes.serving_height, legacy_sizes.serving_height) AS serving_height,
             tfc.tracker_type
@@ -125,6 +148,25 @@ export async function listTagsForUser(pool, userId, opts = {}) {
      JOIN workspaces w ON w.id = t.workspace_id
      LEFT JOIN campaigns c ON c.id = t.campaign_id
      LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
+     LEFT JOIN LATERAL (
+       SELECT
+         COUNT(*)::int AS assigned_count,
+         string_agg(assigned.name, ', ' ORDER BY assigned.sort_weight DESC, assigned.created_at ASC) AS assigned_names
+       FROM (
+         SELECT cr.name, tb.weight AS sort_weight, tb.created_at
+         FROM tag_bindings tb
+         JOIN creative_versions cv2 ON cv2.id = tb.creative_version_id
+         JOIN creatives cr ON cr.id = cv2.creative_id
+         WHERE tb.workspace_id = t.workspace_id
+           AND tb.tag_id = t.id
+           AND tb.status IN ('active', 'draft', 'paused')
+         UNION ALL
+         SELECT cr.name, tc.weight AS sort_weight, tc.created_at
+         FROM tag_creatives tc
+         JOIN creatives cr ON cr.id = tc.creative_id
+         WHERE tc.tag_id = t.id
+       ) assigned
+     ) assigned_creatives ON TRUE
      LEFT JOIN LATERAL (
        SELECT
          COALESCE(csv.width, cv.width) AS serving_width,

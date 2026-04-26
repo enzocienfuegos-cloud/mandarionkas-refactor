@@ -186,6 +186,8 @@ function toApiTag(tag) {
       ? (tag.tracker_type === 'impression' ? '1x1' : '')
       : (servingWidth && servingHeight ? `${servingWidth}x${servingHeight}` : ''),
     trackerType: tag.tracker_type ?? null,
+    assignedCount: Number(tag.assigned_count ?? 0) || 0,
+    assignedNames: tag.assigned_names ?? '',
     createdAt: tag.created_at,
     updatedAt: tag.updated_at,
     creatives: Array.isArray(tag.creatives) ? tag.creatives : undefined,
