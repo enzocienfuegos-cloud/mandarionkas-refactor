@@ -61,9 +61,11 @@ export default function TagList() {
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [createForm, setCreateForm] = useState({
@@ -110,15 +112,32 @@ export default function TagList() {
   }, [creating, selectedClientIds]);
 
   const filteredTags = tags.filter(tag => !selectedClientIds.length || selectedClientIds.includes(tag.workspaceId ?? ''));
+  const selectedCount = selectedTagIds.length;
+  const allVisibleSelected = filteredTags.length > 0 && filteredTags.every(tag => selectedTagIds.includes(tag.id));
+  const someVisibleSelected = filteredTags.some(tag => selectedTagIds.includes(tag.id));
+
+  useEffect(() => {
+    setSelectedTagIds(current => current.filter(id => filteredTags.some(tag => tag.id === id)));
+  }, [filteredTags]);
+
+  const updateTagInState = (tagId: string, nextStatus: Tag['status']) => {
+    setTags(current => current.map(tag => (
+      tag.id === tagId ? { ...tag, status: nextStatus } : tag
+    )));
+  };
+
+  const withWorkspaceContext = async (tag: Tag) => {
+    if (tag.workspaceId && tag.workspaceId !== activeWorkspaceId) {
+      await switchWorkspace(tag.workspaceId);
+      setActiveWorkspaceId(tag.workspaceId);
+    }
+  };
 
   const handleDelete = async (tag: Tag) => {
     if (!window.confirm(`Delete tag "${tag.name}"? This cannot be undone.`)) return;
     setDeletingId(tag.id);
     try {
-      if (tag.workspaceId && tag.workspaceId !== activeWorkspaceId) {
-        await switchWorkspace(tag.workspaceId);
-        setActiveWorkspaceId(tag.workspaceId);
-      }
+      await withWorkspaceContext(tag);
       const res = await fetch(`/v1/tags/${tag.id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
@@ -129,6 +148,77 @@ export default function TagList() {
       alert(error.message ?? 'Failed to delete tag.');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const toggleTagSelection = (tagId: string) => {
+    setSelectedTagIds(current => (
+      current.includes(tagId)
+        ? current.filter(id => id !== tagId)
+        : [...current, tagId]
+    ));
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedTagIds(current => {
+      if (allVisibleSelected) {
+        return current.filter(id => !filteredTags.some(tag => tag.id === id));
+      }
+      const next = new Set(current);
+      filteredTags.forEach(tag => next.add(tag.id));
+      return Array.from(next);
+    });
+  };
+
+  const handleBulkStatus = async (nextStatus: Extract<Tag['status'], 'active' | 'paused'>) => {
+    if (!selectedTagIds.length) return;
+    setBulkActionLoading(true);
+    try {
+      const selectedTags = tags.filter(tag => selectedTagIds.includes(tag.id));
+      for (const tag of selectedTags) {
+        await withWorkspaceContext(tag);
+        const res = await fetch(`/v1/tags/${tag.id}`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus }),
+        });
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error(payload?.message ?? `Failed to ${nextStatus === 'active' ? 'activate' : 'deactivate'} "${tag.name}"`);
+        }
+        updateTagInState(tag.id, nextStatus);
+      }
+      setSelectedTagIds([]);
+    } catch (bulkError: any) {
+      alert(bulkError.message ?? 'Bulk update failed.');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedTagIds.length) return;
+    if (!window.confirm(`Delete ${selectedTagIds.length} selected tag${selectedTagIds.length !== 1 ? 's' : ''}? This cannot be undone.`)) {
+      return;
+    }
+    setBulkActionLoading(true);
+    try {
+      const selectedTags = tags.filter(tag => selectedTagIds.includes(tag.id));
+      for (const tag of selectedTags) {
+        await withWorkspaceContext(tag);
+        const res = await fetch(`/v1/tags/${tag.id}`, { method: 'DELETE', credentials: 'include' });
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error(payload?.message ?? `Failed to delete "${tag.name}"`);
+        }
+      }
+      setTags(current => current.filter(tag => !selectedTagIds.includes(tag.id)));
+      setSelectedTagIds([]);
+    } catch (bulkError: any) {
+      alert(bulkError.message ?? 'Bulk delete failed.');
+    } finally {
+      setBulkActionLoading(false);
     }
   };
 
@@ -281,6 +371,36 @@ export default function TagList() {
         <span className="text-xs text-slate-500">Leave empty to see all clients. Hold Cmd/Ctrl to select multiple.</span>
       </div>
 
+      {selectedCount > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+          <span className="text-sm font-medium text-indigo-900">
+            {selectedCount} tag{selectedCount !== 1 ? 's' : ''} selected
+          </span>
+          <button
+            onClick={() => void handleBulkStatus('active')}
+            disabled={bulkActionLoading}
+            className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Activate
+          </button>
+          <button
+            onClick={() => void handleBulkStatus('paused')}
+            disabled={bulkActionLoading}
+            className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Deactivate
+          </button>
+          <button
+            onClick={() => void handleBulkDelete()}
+            disabled={bulkActionLoading}
+            className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Delete
+          </button>
+          {bulkActionLoading && <span className="text-xs text-slate-500">Applying changes...</span>}
+        </div>
+      )}
+
       {filteredTags.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
           <p className="text-4xl mb-3">🏷️</p>
@@ -296,6 +416,20 @@ export default function TagList() {
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      ref={element => {
+                        if (element) {
+                          element.indeterminate = !allVisibleSelected && someVisibleSelected;
+                        }
+                      }}
+                      onChange={toggleSelectAllVisible}
+                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      aria-label="Select all visible tags"
+                    />
+                  </th>
                   {['Campaign', 'Format', 'Size', 'Status', 'Created At', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       {h}
@@ -306,6 +440,15 @@ export default function TagList() {
               <tbody className="divide-y divide-slate-100">
                 {filteredTags.map(t => (
                   <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedTagIds.includes(t.id)}
+                        onChange={() => toggleTagSelection(t.id)}
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        aria-label={`Select tag ${t.name}`}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm text-slate-600">
                       <div>{t.campaign?.name ?? '—'}</div>
                       <div className="text-xs text-slate-400">{t.workspaceName ?? '—'}</div>
