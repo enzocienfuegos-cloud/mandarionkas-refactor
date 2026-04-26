@@ -60,6 +60,8 @@ interface TagContextSnapshot {
   contentGenre: string;
 }
 
+type ReportingTab = 'display' | 'video' | 'identity';
+
 interface DailyStat {
   date: string;
   impressions: number;
@@ -131,6 +133,12 @@ const DATE_RANGES = [
   { label: '30d', days: 30 },
 ];
 
+const REPORTING_TABS: Array<{ id: ReportingTab; label: string }> = [
+  { id: 'display', label: 'Display' },
+  { id: 'video', label: 'Video' },
+  { id: 'identity', label: 'Identity' },
+];
+
 function fmtNum(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
@@ -145,6 +153,40 @@ function fmtDurationFromMs(ms: number) {
   const seconds = totalSeconds % 60;
   if (seconds === 0) return `${minutes}m`;
   return `${minutes}m ${seconds}s`;
+}
+
+function titleCase(value: string) {
+  return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function deriveInventoryEnvironment(context: TagContextSnapshot | null): string {
+  if (!context) return 'Unknown';
+  if (context.appId || context.appBundle || context.appName || context.appStoreName) {
+    return context.deviceType === 'tv' ? 'CTV App' : 'App';
+  }
+  if (context.deviceType === 'tv') return 'CTV';
+  if (context.siteDomain || context.pageUrl) return 'Site';
+  return 'Unknown';
+}
+
+function deriveIdentitySource(context: TagContextSnapshot | null): string {
+  if (!context) return 'Unavailable';
+  if (context.appId || context.appBundle || context.appName) return 'Reported by DSP/App';
+  if (context.siteDomain || context.pageUrl) return 'Inferred from request';
+  return 'Limited signal';
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-2 border-b border-slate-100 last:border-b-0">
+      <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span>
+      <span className="text-sm text-slate-700 text-right break-all">{value || 'n/a'}</span>
+    </div>
+  );
 }
 
 function toNumber(value: unknown): number {
@@ -265,6 +307,7 @@ export default function TagReportingDashboard() {
   const [tagSearch, setTagSearch] = useState('');
   const [selectedCreativeId, setSelectedCreativeId] = useState('');
   const [selectedVariantId, setSelectedVariantId] = useState('');
+  const [activeTab, setActiveTab] = useState<ReportingTab>('display');
 
   useEffect(() => {
     fetch('/v1/tags?scope=all&limit=500', { credentials: 'include' })
@@ -367,6 +410,16 @@ export default function TagReportingDashboard() {
     if (!needle) return tags;
     return tags.filter(tag => tag.name.toLowerCase().includes(needle));
   }, [tags, tagSearch]);
+
+  const inventoryEnvironment = useMemo(
+    () => deriveInventoryEnvironment(summary?.latestContext ?? null),
+    [summary?.latestContext],
+  );
+
+  const identitySource = useMemo(
+    () => deriveIdentitySource(summary?.latestContext ?? null),
+    [summary?.latestContext],
+  );
 
   const loadTagData = useCallback((tag: Tag, days: number, filters: { creativeId: string; creativeSizeVariantId: string }) => {
     setLoadingStats(true);
@@ -645,66 +698,159 @@ export default function TagReportingDashboard() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-11 gap-4 mb-6">
-                    <KpiCard label="Total Impressions" value={summary ? fmtNum(summary.totalImpressions) : '—'} />
-                    <KpiCard label="Total Clicks" value={summary ? fmtNum(summary.totalClicks) : '—'} />
-                    <KpiCard label="CTR" value={summary ? `${summary.ctr.toFixed(2)}%` : '—'} />
-                    <KpiCard label="Viewability" value={summary ? `${summary.viewabilityRate.toFixed(2)}%` : '—'} />
-                    <KpiCard label="In-View Time" value={summary ? fmtDurationFromMs(summary.totalInViewDurationMs) : '—'} />
-                    <KpiCard label="Attention Time" value={summary ? fmtDurationFromMs(summary.totalAttentionDurationMs) : '—'} />
-                    <KpiCard label="Last 7d Imps" value={summary ? fmtNum(summary.impressionsLast7d) : '—'} />
-                    <KpiCard label="Video Starts" value={summary ? fmtNum(summary.videoStarts) : '—'} />
-                    <KpiCard label="Start Rate" value={summary ? `${summary.videoStartRate.toFixed(2)}%` : '—'} />
-                    <KpiCard label="Plays Completed" value={summary ? fmtNum(summary.videoCompletions) : '—'} />
-                    <KpiCard label="Completion Rate" value={summary ? `${summary.videoCompletionRate.toFixed(2)}%` : '—'} />
+                  <div className="mb-6 flex flex-wrap gap-2">
+                    {REPORTING_TABS.map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          activeTab === tab.id
+                            ? 'bg-slate-800 text-white'
+                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
                   </div>
 
-                  <div className="bg-white rounded-xl border border-slate-200 p-5">
-                    <h3 className="text-sm font-semibold text-slate-700 mb-4">
-                      Daily Impressions — Last {dateRange} days
-                    </h3>
-                    {stats.length === 0 ? (
-                      <div className="flex items-center justify-center h-32 text-slate-400 text-sm">
-                        No data for this period
+                  {activeTab === 'display' ? (
+                    <>
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+                        <KpiCard label="Total Impressions" value={summary ? fmtNum(summary.totalImpressions) : '—'} />
+                        <KpiCard label="Total Clicks" value={summary ? fmtNum(summary.totalClicks) : '—'} />
+                        <KpiCard label="CTR" value={summary ? `${summary.ctr.toFixed(2)}%` : '—'} />
+                        <KpiCard label="Viewability" value={summary ? `${summary.viewabilityRate.toFixed(2)}%` : '—'} />
+                        <KpiCard label="In-View Time" value={summary ? fmtDurationFromMs(summary.totalInViewDurationMs) : '—'} />
+                        <KpiCard label="Attention Time" value={summary ? fmtDurationFromMs(summary.totalAttentionDurationMs) : '—'} />
                       </div>
-                    ) : (
-                      <BarChart data={stats} />
-                    )}
-                  </div>
 
-                  {summary?.latestContext ? (
-                    <div className="mt-4 bg-white rounded-xl border border-slate-200 p-5">
-                      <h3 className="text-sm font-semibold text-slate-700 mb-4">Latest Delivery Context</h3>
-                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Device</p>
-                          <p className="mt-2 text-sm font-medium text-slate-800">{summary.latestContext.deviceType || 'n/a'}</p>
-                          <p className="mt-1 text-xs text-slate-500">{summary.latestContext.deviceModel || 'Model unavailable'}</p>
-                          <p className="mt-1 text-xs text-slate-400">{[summary.latestContext.browser, summary.latestContext.os].filter(Boolean).join(' · ') || 'Browser/OS unavailable'}</p>
-                        </div>
-                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Site / App</p>
-                          <p className="mt-2 text-sm font-medium text-slate-800">{summary.latestContext.siteDomain || summary.latestContext.appName || 'n/a'}</p>
-                          <p className="mt-1 text-xs text-slate-500">{summary.latestContext.appId || summary.latestContext.appBundle || summary.latestContext.siteId || 'No app/site id captured'}</p>
-                          <p className="mt-1 text-xs text-slate-400">{summary.latestContext.pagePosition || 'Position unavailable'}</p>
-                        </div>
-                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Inventory Source IDs</p>
-                          <p className="mt-2 text-sm font-medium text-slate-800">{summary.latestContext.networkId || summary.latestContext.exchangeId || 'n/a'}</p>
-                          <p className="mt-1 text-xs text-slate-500">{summary.latestContext.sourcePublisherId || summary.latestContext.exchangePublisherId || 'No publisher id captured'}</p>
-                          <p className="mt-1 text-xs text-slate-400">{summary.latestContext.exchangeSiteIdOrDomain || summary.latestContext.siteId || 'No site/exchange id captured'}</p>
-                        </div>
-                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Content Context</p>
-                          <p className="mt-2 text-sm font-medium text-slate-800">{summary.latestContext.contextualIds || summary.latestContext.contentGenre || 'n/a'}</p>
-                          <p className="mt-1 text-xs text-slate-500">{summary.latestContext.contentTitle || summary.latestContext.contentSeries || 'No content title/series captured'}</p>
-                          <p className="mt-1 text-xs text-slate-400">{[summary.latestContext.contentLanguage, summary.latestContext.carrier, summary.latestContext.appStoreName].filter(Boolean).join(' · ') || 'No extra content metadata captured'}</p>
-                        </div>
+                      <div className="bg-white rounded-xl border border-slate-200 p-5">
+                        <h3 className="text-sm font-semibold text-slate-700 mb-4">
+                          Daily Impressions — Last {dateRange} days
+                        </h3>
+                        {stats.length === 0 ? (
+                          <div className="flex items-center justify-center h-32 text-slate-400 text-sm">
+                            No data for this period
+                          </div>
+                        ) : (
+                          <BarChart data={stats} />
+                        )}
                       </div>
+                    </>
+                  ) : null}
+
+                  {activeTab === 'video' ? (
+                    <>
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+                        <KpiCard label="Last 7d Imps" value={summary ? fmtNum(summary.impressionsLast7d) : '—'} />
+                        <KpiCard label="Video Starts" value={summary ? fmtNum(summary.videoStarts) : '—'} />
+                        <KpiCard label="Start Rate" value={summary ? `${summary.videoStartRate.toFixed(2)}%` : '—'} />
+                        <KpiCard label="Plays Completed" value={summary ? fmtNum(summary.videoCompletions) : '—'} />
+                        <KpiCard label="Completion Rate" value={summary ? `${summary.videoCompletionRate.toFixed(2)}%` : '—'} />
+                      </div>
+
+                      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                          <h3 className="text-sm font-semibold text-slate-700">Daily Video Breakdown</h3>
+                          <p className="text-xs text-slate-400">Starts and completions for the active filters</p>
+                        </div>
+                        {stats.length === 0 ? (
+                          <div className="flex items-center justify-center h-32 text-slate-400 text-sm">
+                            No video data for this period
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-slate-100">
+                              <thead className="bg-slate-50">
+                                <tr>
+                                  {['Date', 'Impressions', 'Play Starts', 'Plays Completed', 'Start Rate', 'Completion Rate'].map(header => (
+                                    <th key={header} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                      {header}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {[...stats].reverse().map(row => {
+                                  const startRate = row.impressions > 0 ? (row.videoStarts / row.impressions) * 100 : 0;
+                                  const completionRate = row.videoStarts > 0 ? (row.videoCompletions / row.videoStarts) * 100 : 0;
+                                  return (
+                                    <tr key={row.date} className="hover:bg-slate-50">
+                                      <td className="px-4 py-2.5 text-sm text-slate-600">{row.date}</td>
+                                      <td className="px-4 py-2.5 text-sm font-medium text-slate-800">{row.impressions.toLocaleString()}</td>
+                                      <td className="px-4 py-2.5 text-sm text-slate-700">{row.videoStarts.toLocaleString()}</td>
+                                      <td className="px-4 py-2.5 text-sm text-slate-700">{row.videoCompletions.toLocaleString()}</td>
+                                      <td className="px-4 py-2.5 text-sm text-slate-700">{startRate.toFixed(2)}%</td>
+                                      <td className="px-4 py-2.5 text-sm text-slate-700">{completionRate.toFixed(2)}%</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : null}
+
+                  {activeTab === 'identity' ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <KpiCard label="Inventory Environment" value={inventoryEnvironment} sub={identitySource} />
+                        <KpiCard label="Device Type" value={summary?.latestContext?.deviceType ? titleCase(summary.latestContext.deviceType) : 'Unknown'} sub="Inferred from request" />
+                        <KpiCard label="Device Model" value={summary?.latestContext?.deviceModel || 'Unknown'} sub="User-agent or DSP reported" />
+                        <KpiCard label="Site / App Type" value={summary?.latestContext?.appId || summary?.latestContext?.appBundle || summary?.latestContext?.appName ? 'App' : summary?.latestContext?.siteDomain || summary?.latestContext?.pageUrl ? 'Web Site' : 'Unknown'} />
+                      </div>
+
+                      {summary?.latestContext ? (
+                        <div className="bg-white rounded-xl border border-slate-200 p-5">
+                          <h3 className="text-sm font-semibold text-slate-700 mb-4">Latest Delivery Identity & Context</h3>
+                          <div className="grid gap-6 lg:grid-cols-3">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Identity</p>
+                              <DetailRow label="Inventory Environment" value={inventoryEnvironment} />
+                              <DetailRow label="Device Type" value={titleCase(summary.latestContext.deviceType || 'Unknown')} />
+                              <DetailRow label="Device Model" value={summary.latestContext.deviceModel || 'Unknown'} />
+                              <DetailRow label="Browser" value={summary.latestContext.browser || 'Unknown'} />
+                              <DetailRow label="OS" value={summary.latestContext.os || 'Unknown'} />
+                              <DetailRow label="Carrier" value={summary.latestContext.carrier || 'n/a'} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Site / App</p>
+                              <DetailRow label="Site Domain" value={summary.latestContext.siteDomain || 'n/a'} />
+                              <DetailRow label="Page URL" value={summary.latestContext.pageUrl || 'n/a'} />
+                              <DetailRow label="App Name" value={summary.latestContext.appName || 'n/a'} />
+                              <DetailRow label="App ID" value={summary.latestContext.appId || 'n/a'} />
+                              <DetailRow label="App Bundle" value={summary.latestContext.appBundle || 'n/a'} />
+                              <DetailRow label="Page Position" value={summary.latestContext.pagePosition || 'n/a'} />
+                              <DetailRow label="App Store" value={summary.latestContext.appStoreName || 'n/a'} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Supply & Context</p>
+                              <DetailRow label="Network ID" value={summary.latestContext.networkId || 'n/a'} />
+                              <DetailRow label="Source Publisher ID" value={summary.latestContext.sourcePublisherId || 'n/a'} />
+                              <DetailRow label="Exchange ID" value={summary.latestContext.exchangeId || 'n/a'} />
+                              <DetailRow label="Exchange Publisher ID" value={summary.latestContext.exchangePublisherId || 'n/a'} />
+                              <DetailRow label="Exchange Site/Domain" value={summary.latestContext.exchangeSiteIdOrDomain || 'n/a'} />
+                              <DetailRow label="Site ID" value={summary.latestContext.siteId || 'n/a'} />
+                              <DetailRow label="Contextual IDs" value={summary.latestContext.contextualIds || 'n/a'} />
+                              <DetailRow label="Content Genre" value={summary.latestContext.contentGenre || 'n/a'} />
+                              <DetailRow label="Content Title" value={summary.latestContext.contentTitle || 'n/a'} />
+                              <DetailRow label="Content Series" value={summary.latestContext.contentSeries || 'n/a'} />
+                              <DetailRow label="Content Language" value={summary.latestContext.contentLanguage || 'n/a'} />
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-white rounded-xl border border-slate-200 p-6 text-sm text-slate-500">
+                          No identity context has been captured yet for the current filters. This tab fills from new traffic and can use inferred request data even when DSP macros are absent.
+                        </div>
+                      )}
                     </div>
                   ) : null}
 
-                  {stats.length > 0 ? (
+                  {activeTab === 'display' && stats.length > 0 ? (
                     <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden">
                       <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                         <h3 className="text-sm font-semibold text-slate-700">Daily Breakdown</h3>
