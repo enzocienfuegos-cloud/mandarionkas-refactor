@@ -9,6 +9,7 @@ export interface Creative {
   name: string;
   format: CreativeFormat;
   approvalStatus: ApprovalStatus;
+  clickUrl?: string | null;
   thumbnailUrl?: string;
   previewUrl?: string;
   createdAt: string;
@@ -328,6 +329,7 @@ export async function createCreativeIngestionUpload(input: {
   sourceKind: 'html5_zip' | 'video_mp4';
   file: File;
   name?: string;
+  clickUrl?: string | null;
 }) {
   return fetchJson<{
     ingestion: CreativeIngestion;
@@ -341,6 +343,7 @@ export async function createCreativeIngestionUpload(input: {
       mimeType: input.file.type || undefined,
       sizeBytes: input.file.size,
       name: input.name,
+      clickUrl: input.clickUrl ?? null,
     }),
   });
 }
@@ -383,6 +386,7 @@ export async function completeCreativeIngestion(ingestionId: string, input: {
   publicUrl?: string;
   storageKey?: string;
   name?: string;
+  clickUrl?: string | null;
 }) {
   return fetchJson<{ ingestion: CreativeIngestion }>(`/v1/creative-ingestions/${ingestionId}/complete`, {
     method: 'POST',
@@ -394,6 +398,7 @@ export async function completeCreativeIngestion(ingestionId: string, input: {
       publicUrl: input.publicUrl,
       storageKey: input.storageKey,
       name: input.name,
+      clickUrl: input.clickUrl ?? null,
     }),
   });
 }
@@ -401,6 +406,7 @@ export async function completeCreativeIngestion(ingestionId: string, input: {
 export async function publishCreativeIngestion(ingestionId: string, input: {
   workspaceId?: string;
   name?: string;
+  clickUrl?: string | null;
 }) {
   return fetchJson<{
     ingestion: CreativeIngestion;
@@ -414,6 +420,7 @@ export async function publishCreativeIngestion(ingestionId: string, input: {
     body: JSON.stringify({
       workspaceId: input.workspaceId ?? null,
       name: input.name,
+      clickUrl: input.clickUrl ?? null,
     }),
   });
 }
@@ -447,6 +454,20 @@ export async function deleteCreativeById(creativeId: string) {
     const suffix = requestId ? ` (ref ${requestId})` : '';
     throw new Error(message ? `${message}${suffix}` : `Request failed (${response.status})${suffix}`);
   }
+}
+
+export async function updateCreativeById(input: {
+  creativeId: string;
+  clickUrl?: string | null;
+  name?: string;
+}) {
+  return fetchJson<{ creative: Creative }>(`/v1/creatives/${input.creativeId}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      clickUrl: input.clickUrl,
+      name: input.name,
+    }),
+  });
 }
 
 export async function createCreativeSizeVariant(input: {

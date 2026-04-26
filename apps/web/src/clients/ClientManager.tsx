@@ -12,8 +12,6 @@ import {
   type WorkspaceOption,
 } from '../shared/workspaces';
 
-const DSP_OPTIONS = ['Basis', 'Illumin', 'Criteo'] as const;
-
 function ProductAccessBadges({ productAccess }: { productAccess?: { ad_server: boolean; studio: boolean } | null }) {
   const access = productAccess ?? { ad_server: true, studio: true };
   return (
@@ -44,7 +42,6 @@ export default function ClientManager() {
   const [accessUsers, setAccessUsers] = useState<ClientAccessUser[]>([]);
   const [name, setName] = useState('');
   const [website, setWebsite] = useState('');
-  const [dsp, setDsp] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userRole, setUserRole] = useState<'owner' | 'editor' | 'reviewer'>('editor');
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
@@ -205,11 +202,9 @@ export default function ClientManager() {
       await createClientWorkspace({
         name: name.trim(),
         website: website.trim(),
-        dsp,
       });
       setName('');
       setWebsite('');
-      setDsp('');
       await load();
     } catch (saveError: any) {
       setError(saveError.message ?? 'Failed to create client');
@@ -256,19 +251,6 @@ export default function ClientManager() {
                 placeholder="https://example.com"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Default DSP</label>
-              <select
-                value={dsp}
-                onChange={event => setDsp(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">SMX Standard</option>
-                {DSP_OPTIONS.map(option => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
             </div>
             <div className="pt-2">
               <button

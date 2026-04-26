@@ -24,6 +24,7 @@ import {
   loadTags,
   updateCreativeSizeVariant,
   updateCreativeSizeVariantsBulkStatus,
+  updateCreativeById,
   updateVideoRenditionById,
   updateTagBinding,
 } from './catalog';
@@ -249,9 +250,12 @@ export default function CreativeLibrary() {
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [selectedCreativeIds, setSelectedCreativeIds] = useState<string[]>([]);
+  const [bulkClickUrl, setBulkClickUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [bulkClickUrlSaving, setBulkClickUrlSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [bindingState, setBindingState] = useState<BindingState | null>(null);
   const [variantState, setVariantState] = useState<VariantState | null>(null);
@@ -290,6 +294,12 @@ export default function CreativeLibrary() {
     () => creatives.filter(creative => !selectedClientIds.length || selectedClientIds.includes(creative.workspaceId ?? '')),
     [creatives, selectedClientIds],
   );
+  const allVisibleCreativesSelected = filteredCreatives.length > 0 && filteredCreatives.every(creative => selectedCreativeIds.includes(creative.id));
+  const someVisibleCreativesSelected = filteredCreatives.some(creative => selectedCreativeIds.includes(creative.id));
+
+  useEffect(() => {
+    setSelectedCreativeIds((current) => current.filter((id) => filteredCreatives.some((creative) => creative.id === id)));
+  }, [filteredCreatives]);
 
   const summary = useMemo(() => {
     const versions = filteredCreatives.map(creative => latestVersions[creative.id]).filter(Boolean) as CreativeVersion[];
@@ -339,6 +349,72 @@ export default function CreativeLibrary() {
       window.setTimeout(() => setSuccessMessage(''), 3500);
     } catch (deleteError: any) {
       setError(deleteError.message ?? 'Failed to delete creative');
+    }
+  };
+
+  const toggleCreativeSelection = (creativeId: string) => {
+    setSelectedCreativeIds((current) => (
+      current.includes(creativeId)
+        ? current.filter((id) => id !== creativeId)
+        : [...current, creativeId]
+    ));
+  };
+
+  const toggleSelectAllVisibleCreatives = () => {
+    setSelectedCreativeIds((current) => {
+      if (allVisibleCreativesSelected) {
+        return current.filter((id) => !filteredCreatives.some((creative) => creative.id === id));
+      }
+      const next = new Set(current);
+      filteredCreatives.forEach((creative) => next.add(creative.id));
+      return Array.from(next);
+    });
+  };
+
+  const handleBulkClickUrlUpdate = async () => {
+    const normalized = bulkClickUrl.trim();
+    if (!selectedCreativeIds.length) {
+      setError('Select at least one creative first.');
+      return;
+    }
+    let parsedClickUrl = '';
+    try {
+      parsedClickUrl = new URL(normalized).toString();
+    } catch (_) {
+      setError('Enter a valid http(s) destination URL for the selected creatives.');
+      return;
+    }
+
+    setBulkClickUrlSaving(true);
+    setError('');
+    setSuccessMessage('');
+    try {
+      const selectedCreatives = creatives.filter((creative) => selectedCreativeIds.includes(creative.id));
+      for (const creative of selectedCreatives) {
+        if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
+          setWorkspaceBusy(true);
+          await switchWorkspace(creative.workspaceId);
+          setActiveWorkspaceId(creative.workspaceId);
+        }
+        await updateCreativeById({
+          creativeId: creative.id,
+          clickUrl: parsedClickUrl,
+        });
+      }
+      setCreatives((current) => current.map((creative) => (
+        selectedCreativeIds.includes(creative.id)
+          ? { ...creative, clickUrl: parsedClickUrl }
+          : creative
+      )));
+      setSelectedCreativeIds([]);
+      setBulkClickUrl('');
+      setSuccessMessage(`Updated destination URL for ${selectedCreatives.length} creative${selectedCreatives.length === 1 ? '' : 's'}.`);
+      window.setTimeout(() => setSuccessMessage(''), 3500);
+    } catch (updateError: any) {
+      setError(updateError.message ?? 'Failed to update destination URLs');
+    } finally {
+      setWorkspaceBusy(false);
+      setBulkClickUrlSaving(false);
     }
   };
 
@@ -829,6 +905,37 @@ export default function CreativeLibrary() {
         </div>
       )}
 
+      {selectedCreativeIds.length > 0 && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="text-sm font-medium text-indigo-900">
+                {selectedCreativeIds.length} creative{selectedCreativeIds.length === 1 ? '' : 's'} selected
+              </div>
+              <div className="mt-1 text-xs text-indigo-700">
+                Apply one destination URL across the selected banners so you can update landing pages in bulk.
+              </div>
+            </div>
+            <div className="flex w-full max-w-2xl flex-col gap-2 sm:flex-row">
+              <input
+                value={bulkClickUrl}
+                onChange={(event) => setBulkClickUrl(event.target.value)}
+                placeholder="https://example.com/landing"
+                className="min-w-0 flex-1 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                type="button"
+                onClick={() => void handleBulkClickUrlUpdate()}
+                disabled={bulkClickUrlSaving}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {bulkClickUrlSaving ? 'Saving…' : 'Update destination URL'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-sm text-slate-500">Creatives</p>
@@ -857,8 +964,23 @@ export default function CreativeLibrary() {
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
+                <th className="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleCreativesSelected}
+                    ref={(element) => {
+                      if (element) {
+                        element.indeterminate = !allVisibleCreativesSelected && someVisibleCreativesSelected;
+                      }
+                    }}
+                    onChange={toggleSelectAllVisibleCreatives}
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    aria-label="Select all visible creatives"
+                  />
+                </th>
                 <th className="px-4 py-3">Creative</th>
                 <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Destination URL</th>
                 <th className="px-4 py-3">Preview</th>
                 <th className="px-4 py-3">Action</th>
               </tr>
@@ -869,11 +991,34 @@ export default function CreativeLibrary() {
                 return (
                   <tr key={creative.id} className="align-top">
                     <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedCreativeIds.includes(creative.id)}
+                        onChange={() => toggleCreativeSelection(creative.id)}
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        aria-label={`Select creative ${creative.name}`}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="font-medium text-slate-800">{creative.name}</div>
                       <div className="text-xs text-slate-400">{creative.workspaceName ?? '—'}</div>
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       {creative.createdAt ? new Date(creative.createdAt).toLocaleString() : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      {creative.clickUrl ? (
+                        <a
+                          href={creative.clickUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="break-all font-medium text-indigo-600 hover:text-indigo-700"
+                        >
+                          {creative.clickUrl}
+                        </a>
+                      ) : (
+                        <span className="text-rose-600">Missing URL</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {version?.publicUrl ? (

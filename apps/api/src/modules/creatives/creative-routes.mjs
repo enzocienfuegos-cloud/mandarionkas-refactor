@@ -118,6 +118,7 @@ function toApiCreative(creative) {
     name: creative.name,
     format: creative.type,
     approvalStatus: creative.approval_status,
+    clickUrl: creative.click_url ?? null,
     thumbnailUrl: creative.thumbnail_url ?? undefined,
     previewUrl: creative.file_url ?? undefined,
     createdAt: creative.created_at ? new Date(creative.created_at).toISOString() : null,

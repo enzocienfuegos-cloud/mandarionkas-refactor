@@ -165,6 +165,7 @@ async function processJob(job) {
         ingestionId,
         userId,
         requestedName = null,
+        requestedClickUrl = null,
         requireManualReview = false,
       } = payload;
 
@@ -211,6 +212,7 @@ async function processJob(job) {
         workspaceId,
         ingestion,
         requestedName,
+        requestedClickUrl,
         userId,
         requireManualReview,
         onStage: async ({ stage, progressPercent, message }) => {

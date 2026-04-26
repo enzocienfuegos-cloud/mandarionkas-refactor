@@ -172,6 +172,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
       publicUrl: upload.publicUrl ?? buildPublicAssetUrl(storageKey) ?? null,
       metadata: {
         requestedName: req.body?.name ?? null,
+        requestedClickUrl: req.body?.clickUrl ?? null,
       },
     });
 
@@ -218,6 +219,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
         ...(row.metadata ?? {}),
         originalUploadCompleted: true,
         requestedName: req.body?.name ?? row.metadata?.requestedName ?? null,
+        requestedClickUrl: req.body?.clickUrl ?? row.metadata?.requestedClickUrl ?? null,
       },
       validationReport: validation.report,
       errorCode: validation.errorCode,
@@ -308,6 +310,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
           ingestionId: row.id,
           userId: req.authSession.userId,
           requestedName: req.body?.name ?? null,
+          requestedClickUrl: req.body?.clickUrl ?? row.metadata?.requestedClickUrl ?? null,
           requireManualReview,
         },
         priority: 50,
@@ -343,6 +346,7 @@ export function handleCreativeIngestionRoutes(app, { requireWorkspace, pool }, d
       workspaceId: targetWorkspaceId,
       ingestion: row,
       requestedName: req.body?.name,
+      requestedClickUrl: req.body?.clickUrl ?? row.metadata?.requestedClickUrl ?? null,
       userId: req.authSession.userId,
       requireManualReview,
     });

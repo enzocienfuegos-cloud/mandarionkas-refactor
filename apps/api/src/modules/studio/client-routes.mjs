@@ -189,7 +189,7 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }, deps =
     if (!req.authSession.productAccess?.ad_server) {
       return reply.status(403).send({ ok: false, message: 'No Ad Server access for this workspace' });
     }
-    const { name, website = '', dsp = '' } = req.body ?? {};
+    const { name, website = '' } = req.body ?? {};
     const userId = req.authSession.userId;
 
     if (!canManageStudioClient(req.authSession)) {
@@ -202,9 +202,8 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }, deps =
     const workspaceId = await deps.handleCreateStudioClient(pool, userId, String(name).trim());
     const settingsPatch = {
       website: String(website ?? '').trim() || null,
-      dsp: String(dsp ?? '').trim() || null,
     };
-    if (settingsPatch.website || settingsPatch.dsp) {
+    if (settingsPatch.website) {
       const currentWorkspace = await updateWorkspace(pool, workspaceId, {
         settings: settingsPatch,
       });
@@ -216,7 +215,6 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }, deps =
         metadata: {
           name: String(name).trim(),
           website: currentWorkspace?.settings?.website ?? settingsPatch.website,
-          dsp: currentWorkspace?.settings?.dsp ?? settingsPatch.dsp,
         },
       };
     }
@@ -226,7 +224,7 @@ export function handleStudioClientRoutes(app, { requireWorkspace, pool }, deps =
       workspace_id: workspaceId,
       resource_type: 'studio_client',
       resource_id: workspaceId,
-      metadata: { name: String(name).trim(), website: settingsPatch.website, dsp: settingsPatch.dsp },
+      metadata: { name: String(name).trim(), website: settingsPatch.website },
     };
 
     const user = await deps.resolveStudioCurrentUser(pool, userId);

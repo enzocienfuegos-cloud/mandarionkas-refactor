@@ -69,13 +69,12 @@ export async function switchWorkspace(workspaceId: string) {
   });
 }
 
-export async function createClientWorkspace(input: { name: string; website?: string; dsp?: string } | string) {
+export async function createClientWorkspace(input: { name: string; website?: string } | string) {
   const payload = typeof input === 'string'
     ? { name: input }
     : {
       name: input.name,
       website: input.website ?? '',
-      dsp: input.dsp ?? '',
     };
   return fetchJson<{
     ok: boolean;

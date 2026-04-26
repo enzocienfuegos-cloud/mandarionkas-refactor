@@ -65,17 +65,36 @@ export function shouldRequireManualReview(body = {}) {
   return body?.requireReview === true;
 }
 
+function normalizeHttpUrl(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return null;
+  try {
+    const parsed = new URL(text);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.toString();
+  } catch (_) {
+    return null;
+  }
+}
+
 export async function publishCreativeIngestionToCatalog({
   pool,
   workspaceId,
   ingestion,
   requestedName,
+  requestedClickUrl = null,
   userId,
   requireManualReview = false,
   onStage = null,
 }) {
   const creativeName = deriveCreativeName(ingestion, requestedName);
   const catalogDraft = getCatalogDraftForIngestion(ingestion);
+  const fallbackClickUrl = normalizeHttpUrl(
+    requestedClickUrl
+    ?? ingestion.metadata?.requestedClickUrl
+    ?? ingestion.metadata?.clickUrl
+    ?? null,
+  );
 
   const client = await pool.connect();
   try {
@@ -96,6 +115,7 @@ export async function publishCreativeIngestionToCatalog({
       duration_ms: null,
       width: null,
       height: null,
+      click_url: fallbackClickUrl,
       metadata: {
         ingestionId: ingestion.id,
         sourceKind: ingestion.source_kind,
@@ -158,6 +178,10 @@ export async function publishCreativeIngestionToCatalog({
         workspaceId,
         creativeVersionId: creativeVersion.id,
       });
+      const resolvedClickUrl = normalizeHttpUrl(htmlPublication.clickDestinationUrl ?? null) ?? fallbackClickUrl;
+      if (!resolvedClickUrl) {
+        throw new Error('HTML5 creatives require a click URL. Use a banner with an embedded clickTag or provide a fallback destination URL before publishing.');
+      }
 
       for (const artifact of htmlPublication.artifacts) {
         publishedArtifacts.push(await createCreativeArtifact(client, workspaceId, {
@@ -193,7 +217,7 @@ export async function publishCreativeIngestionToCatalog({
           dimensionSource: htmlPublication.dimensionSource ?? null,
           hasInternalClickTag: htmlPublication.hasInternalClickTag,
           internalClickSignals: htmlPublication.internalClickSignals ?? [],
-          clickDestinationUrl: htmlPublication.clickDestinationUrl ?? null,
+          clickDestinationUrl: resolvedClickUrl,
         },
       });
       await ensureCreativeVersionDefaultVariant(client, workspaceId, publishedVersion, {
@@ -216,10 +240,13 @@ export async function publishCreativeIngestionToCatalog({
           dimensionSource: htmlPublication.dimensionSource ?? null,
           hasInternalClickTag: htmlPublication.hasInternalClickTag,
           internalClickSignals: htmlPublication.internalClickSignals ?? [],
-          clickDestinationUrl: htmlPublication.clickDestinationUrl ?? null,
+          clickDestinationUrl: resolvedClickUrl,
         },
       });
     } else if (ingestion.source_kind === 'video_mp4') {
+      if (!fallbackClickUrl) {
+        throw new Error('Video creatives require a destination URL before they can be published.');
+      }
       await onStage?.({
         stage: 'transcoding_video',
         progressPercent: 45,

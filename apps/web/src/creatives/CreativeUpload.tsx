@@ -18,6 +18,22 @@ const ACCEPTED_EXTENSIONS: Record<SourceKind, string> = {
 };
 const MAX_PARALLEL_UPLOADS = 4;
 
+function buildFileKey(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
+
+function normalizeHttpUrl(value: string) {
+  const text = value.trim();
+  if (!text) return '';
+  try {
+    const parsed = new URL(text);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    return parsed.toString();
+  } catch (_) {
+    return '';
+  }
+}
+
 function formatDuration(ms: number) {
   const seconds = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(seconds / 60);
@@ -80,6 +96,7 @@ export default function CreativeUpload() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [sourceKind, setSourceKind] = useState<SourceKind>('html5_zip');
   const [files, setFiles] = useState<File[]>([]);
+  const [clickUrlsByFileKey, setClickUrlsByFileKey] = useState<Record<string, string>>({});
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -104,9 +121,9 @@ export default function CreativeUpload() {
   const mergeFiles = (incomingFiles: File[]) => {
     setFiles((current) => {
       const next = [...current];
-      const seen = new Set(current.map(file => `${file.name}-${file.size}-${file.lastModified}`));
+      const seen = new Set(current.map(file => buildFileKey(file)));
       for (const file of incomingFiles) {
-        const key = `${file.name}-${file.size}-${file.lastModified}`;
+        const key = buildFileKey(file);
         if (seen.has(key)) continue;
         seen.add(key);
         next.push(file);
@@ -125,6 +142,21 @@ export default function CreativeUpload() {
     if (!workspaceId) {
       setError('Select a client before uploading.');
       return;
+    }
+    const invalidClickUrlFile = files.find((file) => {
+      const rawValue = clickUrlsByFileKey[buildFileKey(file)] ?? '';
+      return rawValue.trim() && !normalizeHttpUrl(rawValue);
+    });
+    if (invalidClickUrlFile) {
+      setError(`"${invalidClickUrlFile.name}" has an invalid destination URL. Use a full http(s) URL.`);
+      return;
+    }
+    if (sourceKind === 'video_mp4') {
+      const missingVideoClickUrl = files.find((file) => !normalizeHttpUrl(clickUrlsByFileKey[buildFileKey(file)] ?? ''));
+      if (missingVideoClickUrl) {
+        setError(`"${missingVideoClickUrl.name}" needs a destination URL before upload.`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -231,6 +263,7 @@ export default function CreativeUpload() {
 
     try {
       const processFile = async (file: File, index: number) => {
+        const requestedClickUrl = normalizeHttpUrl(clickUrlsByFileKey[buildFileKey(file)] ?? '') || null;
         activeIndexes.add(index);
         refreshActiveProgress();
 
@@ -238,6 +271,7 @@ export default function CreativeUpload() {
           workspaceId,
           sourceKind,
           file,
+          clickUrl: requestedClickUrl,
         });
 
         await uploadFileToSignedUrl(upload.upload.uploadUrl, file, ({ loadedBytes, totalBytes: fileTotalBytes }) => {
@@ -258,6 +292,7 @@ export default function CreativeUpload() {
           file,
           publicUrl: upload.upload.publicUrl,
           storageKey: upload.upload.storageKey,
+          clickUrl: requestedClickUrl,
         });
 
         processingStartedAtByIndex[index] = Date.now();
@@ -265,6 +300,7 @@ export default function CreativeUpload() {
         setStatus(`Upload complete. Processing ${files.length} creative${files.length === 1 ? '' : 's'} in the background…`);
         const publishResult = await publishCreativeIngestion(upload.ingestion.id, {
           workspaceId,
+          clickUrl: requestedClickUrl,
         });
         processingStateByIndex[index] = publishResult.ingestion ?? null;
         refreshOverallProgress();
@@ -306,6 +342,7 @@ export default function CreativeUpload() {
       setCurrentProcessingEta('Estimated remaining 0:00');
       setCurrentProcessingMessage('Publish completed.');
       setOverallProgress(100);
+      setClickUrlsByFileKey({});
       navigate('/creatives');
     } catch (submitError: any) {
       setError(submitError.message ?? 'Upload failed');
@@ -414,6 +451,7 @@ export default function CreativeUpload() {
                       type="button"
                       onClick={() => {
                         setFiles([]);
+                        setClickUrlsByFileKey({});
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
                       className="text-xs font-medium text-slate-600 hover:text-slate-800"
@@ -421,13 +459,34 @@ export default function CreativeUpload() {
                       Clear
                     </button>
                   </div>
-                  <div className="max-h-48 space-y-1 overflow-y-auto text-sm text-slate-700">
+                  <div className="max-h-80 space-y-3 overflow-y-auto text-sm text-slate-700">
                     {files.map(file => (
-                      <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-3">
-                        <span className="truncate">{file.name}</span>
-                        <span className="shrink-0 text-xs text-slate-500">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </span>
+                      <div key={buildFileKey(file)} className="rounded-lg border border-slate-200 bg-white p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="truncate font-medium text-slate-800">{file.name}</span>
+                          <span className="shrink-0 text-xs text-slate-500">
+                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                          </span>
+                        </div>
+                        <div className="mt-2">
+                          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                            {sourceKind === 'video_mp4' ? 'Destination URL *' : 'Fallback destination URL'}
+                          </label>
+                          <input
+                            value={clickUrlsByFileKey[buildFileKey(file)] ?? ''}
+                            onChange={(event) => setClickUrlsByFileKey((current) => ({
+                              ...current,
+                              [buildFileKey(file)]: event.target.value,
+                            }))}
+                            placeholder="https://example.com/landing"
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            {sourceKind === 'video_mp4'
+                              ? 'Videos need a destination URL before publishing.'
+                              : 'For HTML5, we auto-detect clickTag/click URL from the archive. If none is found, this fallback URL is required.'}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>
