@@ -96,6 +96,8 @@ export interface VideoRendition {
 
 export interface TagOption {
   id: string;
+  workspaceId?: string | null;
+  workspaceName?: string | null;
   name: string;
   format: 'VAST' | 'display' | 'native';
   status: 'active' | 'paused' | 'archived' | 'draft';

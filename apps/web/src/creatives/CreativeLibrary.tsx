@@ -252,10 +252,12 @@ export default function CreativeLibrary() {
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [selectedCreativeIds, setSelectedCreativeIds] = useState<string[]>([]);
   const [bulkClickUrl, setBulkClickUrl] = useState('');
+  const [bulkAssignTagId, setBulkAssignTagId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [bulkClickUrlSaving, setBulkClickUrlSaving] = useState(false);
+  const [bulkAssignSaving, setBulkAssignSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [bindingState, setBindingState] = useState<BindingState | null>(null);
   const [variantState, setVariantState] = useState<VariantState | null>(null);
@@ -296,10 +298,41 @@ export default function CreativeLibrary() {
   );
   const allVisibleCreativesSelected = filteredCreatives.length > 0 && filteredCreatives.every(creative => selectedCreativeIds.includes(creative.id));
   const someVisibleCreativesSelected = filteredCreatives.some(creative => selectedCreativeIds.includes(creative.id));
+  const selectedCreatives = useMemo(
+    () => creatives.filter((creative) => selectedCreativeIds.includes(creative.id)),
+    [creatives, selectedCreativeIds],
+  );
+  const selectedCreativeWorkspaceIds = useMemo(
+    () => Array.from(new Set(selectedCreatives.map((creative) => String(creative.workspaceId ?? '')).filter(Boolean))),
+    [selectedCreatives],
+  );
+  const selectedCreativeFormatFamilies = useMemo(
+    () => Array.from(new Set(selectedCreatives.map((creative) => {
+      const version = latestVersions[creative.id];
+      if (!version) return 'unknown';
+      if (version.servingFormat === 'vast_video') return 'VAST';
+      if (version.servingFormat === 'native') return 'native';
+      return 'display';
+    }))),
+    [latestVersions, selectedCreatives],
+  );
+  const bulkAssignableTags = useMemo(() => {
+    if (selectedCreativeWorkspaceIds.length !== 1 || selectedCreativeFormatFamilies.length !== 1) return [];
+    const workspaceId = selectedCreativeWorkspaceIds[0];
+    const formatFamily = selectedCreativeFormatFamilies[0];
+    if (formatFamily === 'unknown') return [];
+    return tags.filter((tag) => tag.workspaceId === workspaceId && tag.format === formatFamily);
+  }, [selectedCreativeFormatFamilies, selectedCreativeWorkspaceIds, tags]);
 
   useEffect(() => {
     setSelectedCreativeIds((current) => current.filter((id) => filteredCreatives.some((creative) => creative.id === id)));
   }, [filteredCreatives]);
+
+  useEffect(() => {
+    setBulkAssignTagId((current) => (
+      current && bulkAssignableTags.some((tag) => tag.id === current) ? current : ''
+    ));
+  }, [bulkAssignableTags]);
 
   const summary = useMemo(() => {
     const versions = filteredCreatives.map(creative => latestVersions[creative.id]).filter(Boolean) as CreativeVersion[];
@@ -415,6 +448,66 @@ export default function CreativeLibrary() {
     } finally {
       setWorkspaceBusy(false);
       setBulkClickUrlSaving(false);
+    }
+  };
+
+  const handleBulkAssignToTag = async () => {
+    if (!selectedCreativeIds.length) {
+      setError('Select at least one creative first.');
+      return;
+    }
+    if (selectedCreativeWorkspaceIds.length !== 1) {
+      setError('Bulk assignment only works when all selected creatives belong to the same client.');
+      return;
+    }
+    if (selectedCreativeFormatFamilies.length !== 1 || selectedCreativeFormatFamilies[0] === 'unknown') {
+      setError('Bulk assignment only works when all selected creatives share the same delivery type and have a latest version.');
+      return;
+    }
+    if (!bulkAssignTagId) {
+      setError('Select a destination tag first.');
+      return;
+    }
+
+    setBulkAssignSaving(true);
+    setError('');
+    setSuccessMessage('');
+    try {
+      const selectedTag = tags.find((tag) => tag.id === bulkAssignTagId);
+      if (!selectedTag) {
+        throw new Error('Selected tag no longer exists.');
+      }
+      if (selectedTag.workspaceId && selectedTag.workspaceId !== activeWorkspaceId) {
+        setWorkspaceBusy(true);
+        await switchWorkspace(selectedTag.workspaceId);
+        setActiveWorkspaceId(selectedTag.workspaceId);
+      }
+
+      let assignedCount = 0;
+      let skippedCount = 0;
+      for (const creative of selectedCreatives) {
+        const version = latestVersions[creative.id];
+        if (!version) {
+          skippedCount += 1;
+          continue;
+        }
+        await assignCreativeVersionToTag({
+          creativeVersionId: version.id,
+          tagId: bulkAssignTagId,
+        });
+        assignedCount += 1;
+      }
+
+      setSelectedCreativeIds([]);
+      setBulkAssignTagId('');
+      const suffix = skippedCount ? ` ${skippedCount} creative${skippedCount === 1 ? '' : 's'} skipped because they had no latest version.` : '';
+      setSuccessMessage(`Assigned ${assignedCount} creative${assignedCount === 1 ? '' : 's'} to "${selectedTag.name}".${suffix}`);
+      window.setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (assignError: any) {
+      setError(assignError.message ?? 'Failed to assign creatives to tag');
+    } finally {
+      setWorkspaceBusy(false);
+      setBulkAssignSaving(false);
     }
   };
 
@@ -907,30 +1000,70 @@ export default function CreativeLibrary() {
 
       {selectedCreativeIds.length > 0 && (
         <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-4">
             <div>
               <div className="text-sm font-medium text-indigo-900">
                 {selectedCreativeIds.length} creative{selectedCreativeIds.length === 1 ? '' : 's'} selected
               </div>
               <div className="mt-1 text-xs text-indigo-700">
-                Apply one destination URL across the selected banners so you can update landing pages in bulk.
+                Update landing pages in bulk or assign the selected creatives to one tag when they belong to the same client and share the same delivery type.
               </div>
             </div>
-            <div className="flex w-full max-w-2xl flex-col gap-2 sm:flex-row">
-              <input
-                value={bulkClickUrl}
-                onChange={(event) => setBulkClickUrl(event.target.value)}
-                placeholder="https://example.com/landing"
-                className="min-w-0 flex-1 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <button
-                type="button"
-                onClick={() => void handleBulkClickUrlUpdate()}
-                disabled={bulkClickUrlSaving}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {bulkClickUrlSaving ? 'Saving…' : 'Update destination URL'}
-              </button>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="rounded-lg border border-indigo-100 bg-white/70 p-3">
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-indigo-700">Bulk destination URL</div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    value={bulkClickUrl}
+                    onChange={(event) => setBulkClickUrl(event.target.value)}
+                    placeholder="https://example.com/landing"
+                    className="min-w-0 flex-1 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleBulkClickUrlUpdate()}
+                    disabled={bulkClickUrlSaving}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {bulkClickUrlSaving ? 'Saving…' : 'Update URL'}
+                  </button>
+                </div>
+              </div>
+              <div className="rounded-lg border border-indigo-100 bg-white/70 p-3">
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-indigo-700">Bulk tag assignment</div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <select
+                    value={bulkAssignTagId}
+                    onChange={(event) => setBulkAssignTagId(event.target.value)}
+                    disabled={selectedCreativeWorkspaceIds.length !== 1 || selectedCreativeFormatFamilies.length !== 1 || selectedCreativeFormatFamilies[0] === 'unknown'}
+                    className="min-w-0 flex-1 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+                  >
+                    <option value="">Select a tag</option>
+                    {bulkAssignableTags.map((tag) => (
+                      <option key={tag.id} value={tag.id}>
+                        {tag.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => void handleBulkAssignToTag()}
+                    disabled={bulkAssignSaving || !bulkAssignTagId}
+                    className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+                  >
+                    {bulkAssignSaving ? 'Assigning…' : 'Assign to tag'}
+                  </button>
+                </div>
+                {selectedCreativeWorkspaceIds.length !== 1 && (
+                  <p className="mt-1 text-[11px] text-amber-700">Select creatives from one client only to bulk assign them.</p>
+                )}
+                {selectedCreativeWorkspaceIds.length === 1 && (selectedCreativeFormatFamilies.length !== 1 || selectedCreativeFormatFamilies[0] === 'unknown') && (
+                  <p className="mt-1 text-[11px] text-amber-700">Selected creatives need one shared delivery type and a latest version before bulk assignment.</p>
+                )}
+                {selectedCreativeWorkspaceIds.length === 1 && selectedCreativeFormatFamilies.length === 1 && selectedCreativeFormatFamilies[0] !== 'unknown' && bulkAssignableTags.length === 0 && (
+                  <p className="mt-1 text-[11px] text-amber-700">No tags of that type are available for this client yet.</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
