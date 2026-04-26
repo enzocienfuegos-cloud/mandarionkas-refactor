@@ -2,6 +2,7 @@ import { getDspMacroConfig, normalizeDsp } from '@smx/contracts/dsp-macros';
 import { buildScopedPublicAssetUrl } from '../storage/object-storage.mjs';
 
 const STATIC_VAST_PUBLIC_BASE_ENVS = ['VAST_DELIVERY_PUBLIC_BASE_URL', 'ADS_PUBLIC_BASE_URL'];
+const LIVE_VAST_PUBLIC_BASE_ENVS = ['VAST_LIVE_PUBLIC_BASE_URL'];
 const LIVE_VAST_PROFILE_DEFINITIONS = [
   { key: 'default', dsp: '', label: 'Default', aliases: ['default', 'default.xml'] },
   { key: 'basis', dsp: 'basis', label: 'Basis', aliases: ['basis', 'basis.xml'] },
@@ -59,6 +60,14 @@ export function getLiveVastProfiles() {
   }));
 }
 
+function getConfiguredLiveVastBaseUrl() {
+  for (const envName of LIVE_VAST_PUBLIC_BASE_ENVS) {
+    const value = String(process.env[envName] ?? '').trim();
+    if (value) return value.replace(/\/+$/, '');
+  }
+  return '';
+}
+
 export function resolveLiveVastProfile(profileKey = '') {
   const normalized = String(profileKey ?? '').trim().toLowerCase();
   return LIVE_VAST_PROFILE_DEFINITIONS.find((profile) => (
@@ -68,7 +77,8 @@ export function resolveLiveVastProfile(profileKey = '') {
 
 export function buildLiveVastProfileUrl(baseUrl, tagId, profileKey = 'default') {
   const profile = resolveLiveVastProfile(profileKey) ?? resolveLiveVastProfile('default');
-  const normalizedBaseUrl = String(baseUrl ?? '').replace(/\/+$/, '');
+  const normalizedBaseUrl = getConfiguredLiveVastBaseUrl()
+    || String(baseUrl ?? '').replace(/\/+$/, '');
   if (!normalizedBaseUrl || !tagId || !profile) return '';
   return `${normalizedBaseUrl}/v1/vast/tags/${tagId}/${profile.key}.xml`;
 }
