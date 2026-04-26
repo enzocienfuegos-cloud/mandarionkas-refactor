@@ -122,6 +122,32 @@ interface VideoCompletionStep {
   rate: number;
 }
 
+interface DeliveryContextSnapshot {
+  site_domain?: string | null;
+  page_url?: string | null;
+  device_type?: string | null;
+  device_model?: string | null;
+  browser?: string | null;
+  os?: string | null;
+  contextual_ids?: string | null;
+  network_id?: string | null;
+  source_publisher_id?: string | null;
+  app_id?: string | null;
+  site_id?: string | null;
+  exchange_id?: string | null;
+  exchange_publisher_id?: string | null;
+  exchange_site_id_or_domain?: string | null;
+  app_bundle?: string | null;
+  app_name?: string | null;
+  page_position?: string | null;
+  content_language?: string | null;
+  content_title?: string | null;
+  content_series?: string | null;
+  carrier?: string | null;
+  app_store_name?: string | null;
+  content_genre?: string | null;
+}
+
 interface WorkspaceAnalytics {
   totalImpressions: number;
   totalClicks: number;
@@ -167,6 +193,10 @@ interface WorkspaceAnalytics {
   savedAudiences: SavedAudience[];
   audiencePresets: AudiencePresetMetric[];
   timeline: TimelinePoint[];
+  latestContext: DeliveryContextSnapshot | null;
+  deviceTypes: RankedMetric[];
+  deviceModels: RankedMetric[];
+  inventoryEnvironments: RankedMetric[];
 }
 
 const DATE_RANGES: DateRange[] = [7, 30, 90];
@@ -489,6 +519,7 @@ function normalizeWorkspaceAnalytics(
   savedAudiencePayload: any,
   creativePayload: any,
   variantPayload: any,
+  contextPayload: any,
 ): WorkspaceAnalytics {
   const source = workspacePayload?.stats ?? workspacePayload ?? {};
   const videoStartCount = toNumber(source?.videoStarts ?? source?.video_starts);
@@ -624,7 +655,20 @@ function normalizeWorkspaceAnalytics(
       }))
       .filter((item: AudiencePresetMetric) => Boolean(item.presetValue)),
     timeline,
+    latestContext: contextPayload?.latest_context ?? null,
+    deviceTypes: normalizeRankedMetricList(contextPayload?.device_types ?? [], 'label', 'value'),
+    deviceModels: normalizeRankedMetricList(contextPayload?.device_models ?? [], 'label', 'value'),
+    inventoryEnvironments: normalizeRankedMetricList(contextPayload?.inventory_environments ?? [], 'label', 'value'),
   };
+}
+
+function inferSiteAppType(context: DeliveryContextSnapshot | null): string {
+  if (!context) return 'Unknown';
+  if (context.device_type === 'tv' && (context.app_id || context.app_bundle || context.app_name)) return 'CTV App';
+  if (context.device_type === 'tv') return 'CTV';
+  if (context.app_id || context.app_bundle || context.app_name) return 'App';
+  if (context.site_domain || context.page_url) return 'Site';
+  return 'Unknown';
 }
 
 function getTimelineBucket(dateValue: string, grain: ChartGrain): string {
@@ -1280,9 +1324,13 @@ export default function AnalyticsDashboard() {
         if (!r.ok) throw new Error('Failed to load variant breakdown');
         return r.json();
       }),
+      fetch(`/v1/reporting/workspace/context-snapshot${query}`, { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load delivery context');
+        return r.json();
+      }),
     ])
-      .then(([workspace, campaigns, tags, sites, countries, regions, cities, trackers, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, savedAudiences, creatives, variants]) => {
-        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, regions, cities, trackers, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, savedAudiences, creatives, variants));
+      .then(([workspace, campaigns, tags, sites, countries, regions, cities, trackers, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, savedAudiences, creatives, variants, context]) => {
+        setData(normalizeWorkspaceAnalytics(workspace, campaigns, tags, sites, countries, regions, cities, trackers, engagements, identities, identityFrequency, identitySegments, identityKeys, identityAttribution, savedAudiences, creatives, variants, context));
       })
       .catch((loadError: any) => setError(loadError.message ?? 'Failed to load analytics'))
       .finally(() => setLoading(false));
@@ -1565,159 +1613,192 @@ export default function AnalyticsDashboard() {
       case 'topInsights':
         return (
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-            <RankedList title="Top Sites" emptyLabel="No site data available" items={data?.topSites ?? []} />
-            <RankedList title="Top Countries" emptyLabel="No country data available" items={data?.topCountries ?? []} />
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <h2 className="text-base font-semibold text-slate-800">Top Identities</h2>
-                  <p className="text-xs text-slate-500 mt-1">Filter by canonical identity type and export the current reach/frequency cut.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={identityTypeFilter}
-                    onChange={(event) => setIdentityTypeFilter(event.target.value as IdentityTypeFilter)}
-                    className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
-                  >
-                    {IDENTITY_FILTERS.map((option) => (
-                      <option key={option.value || 'all'} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => void handleExportIdentityCsv()}
-                    className="px-3 py-2 text-xs border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors"
-                  >
-                    Export CSV
-                  </button>
-                </div>
-              </div>
-              <div className="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 bg-slate-50/60">
-                <input value={identityCountryFilter} onChange={(event) => setIdentityCountryFilter(event.target.value)} placeholder="Country (e.g. SV)" className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700" />
-                <select value={identitySiteDomainFilter} onChange={(event) => setIdentitySiteDomainFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
-                  <option value="">All sites</option>
-                  {siteOptions.map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
-                </select>
-                <select value={identityRegionFilter} onChange={(event) => setIdentityRegionFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
-                  <option value="">All regions</option>
-                  {regionOptions.map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
-                </select>
-                <select value={identityCityFilter} onChange={(event) => setIdentityCityFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
-                  <option value="">All cities</option>
-                  {cityOptions.map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
-                </select>
-                <select value={identitySegmentPreset} onChange={(event) => setIdentitySegmentPreset(event.target.value as IdentitySegmentPreset)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
-                  {IDENTITY_SEGMENT_PRESETS.map((option) => <option key={option.value || 'custom'} value={option.value}>{option.label}</option>)}
-                </select>
-                <select value={globalCampaignFilter} onChange={(event) => setGlobalCampaignFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
-                  <option value="">All campaigns</option>
-                  {campaignOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
-                </select>
-                <select value={globalTagFilter} onChange={(event) => setGlobalTagFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
-                  <option value="">All tags</option>
-                  {tagOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
-                </select>
-                <select value={identityCreativeFilter} onChange={(event) => setIdentityCreativeFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
-                  <option value="">All creatives</option>
-                  {creativeOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
-                </select>
-                <select value={identityVariantFilter} onChange={(event) => setIdentityVariantFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
-                  <option value="">All variants</option>
-                  {variantOptions.map((item) => <option key={item.id} value={item.id}>{item.creativeName} · {item.label}</option>)}
-                </select>
-                <input value={identityMinImpressions} onChange={(event) => setIdentityMinImpressions(event.target.value)} placeholder="Min impressions" inputMode="numeric" className="w-28 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700" />
-                <input value={identityMinClicks} onChange={(event) => setIdentityMinClicks(event.target.value)} placeholder="Min clicks" inputMode="numeric" className="w-24 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700" />
-                <select value={identityExportFormat} onChange={(event) => setIdentityExportFormat(event.target.value as IdentityExportFormat)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
-                  {IDENTITY_EXPORT_FORMATS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-                <button onClick={() => void handleExportIdentityAudienceCsv()} className="px-3 py-2 text-xs border border-indigo-300 text-indigo-700 rounded-md hover:bg-indigo-50 transition-colors">Export Audience</button>
-                <button onClick={() => void handleSaveAudience()} disabled={savingAudience} className="px-3 py-2 text-xs border border-emerald-300 text-emerald-700 rounded-md hover:bg-emerald-50 transition-colors disabled:opacity-60">
-                  {savingAudience ? 'Saving...' : 'Save Audience'}
-                </button>
-              </div>
-              <div className="divide-y divide-slate-100">
-                {(data?.topIdentities ?? []).length === 0 ? (
-                  <div className="px-5 py-10 text-center text-sm text-slate-400">No identity data available</div>
-                ) : (
-                  (data?.topIdentities ?? []).map((item) => (
-                    <div key={`identity-${item.label}`} className="flex items-center justify-between gap-4 px-5 py-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-800">{item.label}</p>
-                        {item.secondary ? <p className="mt-0.5 text-xs text-slate-500">{item.secondary}</p> : null}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-slate-700">{fmtNum(item.value)}</p>
-                        <p className="text-xs text-slate-400">impressions</p>
-                      </div>
+            {activeTab === 'identity' ? (
+              <>
+                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100">
+                    <h2 className="text-base font-semibold text-slate-800">Latest Delivery Context</h2>
+                    <p className="text-xs text-slate-500 mt-1">Most recent device and inventory context seen in this analytics slice.</p>
+                  </div>
+                  {data?.latestContext ? (
+                    <div className="grid grid-cols-1 gap-3 px-5 py-4 text-sm text-slate-700">
+                      <div><span className="font-medium text-slate-800">Device Type:</span> {data.latestContext.device_type || 'Unknown'}</div>
+                      <div><span className="font-medium text-slate-800">Device Model:</span> {data.latestContext.device_model || 'Unknown'}</div>
+                      <div><span className="font-medium text-slate-800">Site / App Type:</span> {inferSiteAppType(data.latestContext)}</div>
+                      <div><span className="font-medium text-slate-800">Site Domain:</span> {data.latestContext.site_domain || '—'}</div>
+                      <div><span className="font-medium text-slate-800">App:</span> {data.latestContext.app_name || data.latestContext.app_bundle || data.latestContext.app_id || '—'}</div>
+                      <div><span className="font-medium text-slate-800">Browser / OS:</span> {[data.latestContext.browser, data.latestContext.os].filter(Boolean).join(' · ') || '—'}</div>
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
-            <RankedList title="Engagement Mix" emptyLabel="No engagement data available" items={data?.engagements ?? []} />
+                  ) : (
+                    <div className="px-5 py-10 text-center text-sm text-slate-400">No delivery context available yet</div>
+                  )}
+                </div>
+                <RankedList title="Top Device Types" emptyLabel="No device type data available" items={data?.deviceTypes ?? []} />
+                <RankedList title="Top Device Models" emptyLabel="No device model data available" items={data?.deviceModels ?? []} />
+              </>
+            ) : (
+              <>
+                <RankedList title="Top Sites" emptyLabel="No site data available" items={data?.topSites ?? []} />
+                <RankedList title="Top Countries" emptyLabel="No country data available" items={data?.topCountries ?? []} />
+                <RankedList title="Engagement Mix" emptyLabel="No engagement data available" items={data?.engagements ?? []} />
+              </>
+            )}
           </div>
         );
       case 'audienceLibrary':
         return (
           <div className="grid grid-cols-1 gap-6 mb-6">
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100">
-                <h2 className="text-base font-semibold text-slate-800">Audience Library</h2>
-                <p className="text-xs text-slate-500 mt-1">Saved audiences plus live presets derived from measured identity activity.</p>
+            {activeTab === 'identity' ? (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <RankedList title="Inventory Environment" emptyLabel="No environment data available" items={data?.inventoryEnvironments ?? []} />
+                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <h2 className="text-base font-semibold text-slate-800">Top Identities</h2>
+                      <p className="text-xs text-slate-500 mt-1">Filter by canonical identity type and export the current reach/frequency cut.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={identityTypeFilter}
+                        onChange={(event) => setIdentityTypeFilter(event.target.value as IdentityTypeFilter)}
+                        className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
+                      >
+                        {IDENTITY_FILTERS.map((option) => (
+                          <option key={option.value || 'all'} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => void handleExportIdentityCsv()}
+                        className="px-3 py-2 text-xs border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors"
+                      >
+                        Export CSV
+                      </button>
+                    </div>
+                  </div>
+                  <div className="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 bg-slate-50/60">
+                    <input value={identityCountryFilter} onChange={(event) => setIdentityCountryFilter(event.target.value)} placeholder="Country (e.g. SV)" className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700" />
+                    <select value={identitySiteDomainFilter} onChange={(event) => setIdentitySiteDomainFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                      <option value="">All sites</option>
+                      {siteOptions.map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
+                    </select>
+                    <select value={identityRegionFilter} onChange={(event) => setIdentityRegionFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                      <option value="">All regions</option>
+                      {regionOptions.map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
+                    </select>
+                    <select value={identityCityFilter} onChange={(event) => setIdentityCityFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                      <option value="">All cities</option>
+                      {cityOptions.map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
+                    </select>
+                    <select value={identitySegmentPreset} onChange={(event) => setIdentitySegmentPreset(event.target.value as IdentitySegmentPreset)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                      {IDENTITY_SEGMENT_PRESETS.map((option) => <option key={option.value || 'custom'} value={option.value}>{option.label}</option>)}
+                    </select>
+                    <select value={globalCampaignFilter} onChange={(event) => setGlobalCampaignFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                      <option value="">All campaigns</option>
+                      {campaignOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
+                    </select>
+                    <select value={globalTagFilter} onChange={(event) => setGlobalTagFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                      <option value="">All tags</option>
+                      {tagOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
+                    </select>
+                    <select value={identityCreativeFilter} onChange={(event) => setIdentityCreativeFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                      <option value="">All creatives</option>
+                      {creativeOptions.map((item) => <option key={item.id ?? item.label} value={item.id ?? ''}>{item.label}</option>)}
+                    </select>
+                    <select value={identityVariantFilter} onChange={(event) => setIdentityVariantFilter(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                      <option value="">All variants</option>
+                      {variantOptions.map((item) => <option key={item.id} value={item.id}>{item.creativeName} · {item.label}</option>)}
+                    </select>
+                    <input value={identityMinImpressions} onChange={(event) => setIdentityMinImpressions(event.target.value)} placeholder="Min impressions" inputMode="numeric" className="w-28 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700" />
+                    <input value={identityMinClicks} onChange={(event) => setIdentityMinClicks(event.target.value)} placeholder="Min clicks" inputMode="numeric" className="w-24 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700" />
+                    <select value={identityExportFormat} onChange={(event) => setIdentityExportFormat(event.target.value as IdentityExportFormat)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                      {IDENTITY_EXPORT_FORMATS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                    <button onClick={() => void handleExportIdentityAudienceCsv()} className="px-3 py-2 text-xs border border-indigo-300 text-indigo-700 rounded-md hover:bg-indigo-50 transition-colors">Export Audience</button>
+                    <button onClick={() => void handleSaveAudience()} disabled={savingAudience} className="px-3 py-2 text-xs border border-emerald-300 text-emerald-700 rounded-md hover:bg-emerald-50 transition-colors disabled:opacity-60">
+                      {savingAudience ? 'Saving...' : 'Save Audience'}
+                    </button>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {(data?.topIdentities ?? []).length === 0 ? (
+                      <div className="px-5 py-10 text-center text-sm text-slate-400">No identity data available</div>
+                    ) : (
+                      (data?.topIdentities ?? []).map((item) => (
+                        <div key={`identity-${item.label}`} className="flex items-center justify-between gap-4 px-5 py-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-slate-800">{item.label}</p>
+                            {item.secondary ? <p className="mt-0.5 text-xs text-slate-500">{item.secondary}</p> : null}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-slate-700">{fmtNum(item.value)}</p>
+                            <p className="text-xs text-slate-400">impressions</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
-              {(data?.savedAudiences ?? []).length ? (
-                <div className="divide-y divide-slate-100">
-                  {(data?.savedAudiences ?? []).map((audience) => {
-                    const summary = [
-                      audience.canonicalType ? IDENTITY_FILTERS.find((option) => option.value === audience.canonicalType)?.label : null,
-                      audience.country || null,
-                      audience.siteDomain || null,
-                      audience.region || null,
-                      audience.city || null,
-                      audience.segmentPreset ? IDENTITY_SEGMENT_PRESETS.find((option) => option.value === audience.segmentPreset)?.label : null,
-                      IDENTITY_EXPORT_FORMATS.find((option) => option.value === audience.activationTemplate)?.label ?? 'Template',
-                      audience.campaignId ? campaignOptions.find((item) => item.id === audience.campaignId)?.label ?? 'Campaign scoped' : null,
-                      audience.tagId ? tagOptions.find((item) => item.id === audience.tagId)?.label ?? 'Tag scoped' : null,
-                      audience.creativeId ? creativeOptions.find((item) => item.id === audience.creativeId)?.label ?? 'Creative scoped' : null,
-                      audience.variantId ? variantOptions.find((item) => item.id === audience.variantId)?.label ?? 'Variant scoped' : null,
-                      `Min ${audience.minImpressions} imps`,
-                      `Min ${audience.minClicks} clicks`,
-                    ].filter(Boolean).join(' · ');
-                    return (
-                      <div key={audience.id} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+            ) : (
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100">
+                  <h2 className="text-base font-semibold text-slate-800">Audience Library</h2>
+                  <p className="text-xs text-slate-500 mt-1">Saved audiences plus live presets derived from measured identity activity.</p>
+                </div>
+                {(data?.savedAudiences ?? []).length ? (
+                  <div className="divide-y divide-slate-100">
+                    {(data?.savedAudiences ?? []).map((audience) => {
+                      const summary = [
+                        audience.canonicalType ? IDENTITY_FILTERS.find((option) => option.value === audience.canonicalType)?.label : null,
+                        audience.country || null,
+                        audience.siteDomain || null,
+                        audience.region || null,
+                        audience.city || null,
+                        audience.segmentPreset ? IDENTITY_SEGMENT_PRESETS.find((option) => option.value === audience.segmentPreset)?.label : null,
+                        IDENTITY_EXPORT_FORMATS.find((option) => option.value === audience.activationTemplate)?.label ?? 'Template',
+                        audience.campaignId ? campaignOptions.find((item) => item.id === audience.campaignId)?.label ?? 'Campaign scoped' : null,
+                        audience.tagId ? tagOptions.find((item) => item.id === audience.tagId)?.label ?? 'Tag scoped' : null,
+                        audience.creativeId ? creativeOptions.find((item) => item.id === audience.creativeId)?.label ?? 'Creative scoped' : null,
+                        audience.variantId ? variantOptions.find((item) => item.id === audience.variantId)?.label ?? 'Variant scoped' : null,
+                        `Min ${audience.minImpressions} imps`,
+                        `Min ${audience.minClicks} clicks`,
+                      ].filter(Boolean).join(' · ');
+                      return (
+                        <div key={audience.id} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-800">{audience.name}</p>
+                            <p className="mt-0.5 text-xs text-slate-500">{summary}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => applySavedAudience(audience)} className="px-3 py-2 text-xs border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors">Apply</button>
+                            <button onClick={() => { void handleExportIdentityAudienceCsv(audience); }} className="px-3 py-2 text-xs border border-indigo-300 text-indigo-700 rounded-md hover:bg-indigo-50 transition-colors">Export</button>
+                            <button onClick={() => void handleDeleteSavedAudience(audience)} className="px-3 py-2 text-xs border border-rose-300 text-rose-700 rounded-md hover:bg-rose-50 transition-colors">Delete</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : audiencePresets.length ? (
+                  <div className="divide-y divide-slate-100">
+                    {audiencePresets.map((preset) => (
+                      <div key={preset.presetValue} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-800">{audience.name}</p>
-                          <p className="mt-0.5 text-xs text-slate-500">{summary}</p>
+                          <p className="text-sm font-medium text-slate-800">{preset.label}</p>
+                          <p className="mt-0.5 text-xs text-slate-500">{preset.secondary}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button onClick={() => applySavedAudience(audience)} className="px-3 py-2 text-xs border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors">Apply</button>
-                          <button onClick={() => { void handleExportIdentityAudienceCsv(audience); }} className="px-3 py-2 text-xs border border-indigo-300 text-indigo-700 rounded-md hover:bg-indigo-50 transition-colors">Export</button>
-                          <button onClick={() => void handleDeleteSavedAudience(audience)} className="px-3 py-2 text-xs border border-rose-300 text-rose-700 rounded-md hover:bg-rose-50 transition-colors">Delete</button>
+                          <button onClick={() => setIdentitySegmentPreset(preset.presetValue)} className="px-3 py-2 text-xs border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors">Apply</button>
+                          <button onClick={() => void handleSaveAudience(preset.label, { segmentPreset: preset.presetValue })} className="px-3 py-2 text-xs border border-emerald-300 text-emerald-700 rounded-md hover:bg-emerald-50 transition-colors">Save</button>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : audiencePresets.length ? (
-                <div className="divide-y divide-slate-100">
-                  {audiencePresets.map((preset) => (
-                    <div key={preset.presetValue} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-800">{preset.label}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">{preset.secondary}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setIdentitySegmentPreset(preset.presetValue)} className="px-3 py-2 text-xs border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors">Apply</button>
-                        <button onClick={() => void handleSaveAudience(preset.label, { segmentPreset: preset.presetValue })} className="px-3 py-2 text-xs border border-emerald-300 text-emerald-700 rounded-md hover:bg-emerald-50 transition-colors">Save</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="px-5 py-10 text-center text-sm text-slate-400">No saved audiences or live audience presets yet</div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-5 py-10 text-center text-sm text-slate-400">No saved audiences or live audience presets yet</div>
+                )}
+              </div>
+            )}
           </div>
         );
       case 'regionalInsights':

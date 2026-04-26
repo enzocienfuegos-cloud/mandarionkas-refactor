@@ -2057,3 +2057,184 @@ export async function getWorkspaceEngagementBreakdown(pool, workspaceId, opts = 
   );
   return rows;
 }
+
+export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, campaignId = '', tagId = '' } = opts;
+
+  const impressionParams = [workspaceId];
+  const impressionConditions = ['workspace_id = $1'];
+  if (campaignId) {
+    impressionParams.push(campaignId);
+    impressionConditions.push(`EXISTS (SELECT 1 FROM ad_tags t WHERE t.id = impression_events.tag_id AND t.workspace_id = impression_events.workspace_id AND t.campaign_id = $${impressionParams.length})`);
+  }
+  if (tagId) {
+    impressionParams.push(tagId);
+    impressionConditions.push(`tag_id = $${impressionParams.length}`);
+  }
+  if (dateFrom) {
+    impressionParams.push(`${dateFrom}T00:00:00.000Z`);
+    impressionConditions.push(`timestamp >= $${impressionParams.length}::timestamptz`);
+  }
+  if (dateTo) {
+    impressionParams.push(`${dateTo}T23:59:59.999Z`);
+    impressionConditions.push(`timestamp <= $${impressionParams.length}::timestamptz`);
+  }
+
+  const clickParams = [workspaceId];
+  const clickConditions = ['workspace_id = $1'];
+  if (campaignId) {
+    clickParams.push(campaignId);
+    clickConditions.push(`EXISTS (SELECT 1 FROM ad_tags t WHERE t.id = click_events.tag_id AND t.workspace_id = click_events.workspace_id AND t.campaign_id = $${clickParams.length})`);
+  }
+  if (tagId) {
+    clickParams.push(tagId);
+    clickConditions.push(`tag_id = $${clickParams.length}`);
+  }
+  if (dateFrom) {
+    clickParams.push(`${dateFrom}T00:00:00.000Z`);
+    clickConditions.push(`timestamp >= $${clickParams.length}::timestamptz`);
+  }
+  if (dateTo) {
+    clickParams.push(`${dateTo}T23:59:59.999Z`);
+    clickConditions.push(`timestamp <= $${clickParams.length}::timestamptz`);
+  }
+
+  const translatedClickConditions = clickConditions
+    .map(condition => condition.replace(/\$(\d+)/g, (_, num) => `$${Number(num) + impressionParams.length}`))
+    .join(' AND ');
+
+  const contextSql = `WITH context_events AS (
+      SELECT
+        timestamp,
+        site_domain,
+        page_url,
+        device_type,
+        device_model,
+        browser,
+        os,
+        contextual_ids,
+        network_id,
+        source_publisher_id,
+        app_id,
+        site_id,
+        exchange_id,
+        exchange_publisher_id,
+        exchange_site_id_or_domain,
+        app_bundle,
+        app_name,
+        page_position,
+        content_language,
+        content_title,
+        content_series,
+        carrier,
+        app_store_name,
+        content_genre
+      FROM impression_events
+      WHERE ${impressionConditions.join(' AND ')}
+      UNION ALL
+      SELECT
+        timestamp,
+        site_domain,
+        page_url,
+        device_type,
+        device_model,
+        browser,
+        os,
+        contextual_ids,
+        network_id,
+        source_publisher_id,
+        app_id,
+        site_id,
+        exchange_id,
+        exchange_publisher_id,
+        exchange_site_id_or_domain,
+        app_bundle,
+        app_name,
+        page_position,
+        content_language,
+        content_title,
+        content_series,
+        carrier,
+        app_store_name,
+        content_genre
+      FROM click_events
+      WHERE ${translatedClickConditions}
+    )
+    SELECT * FROM context_events`;
+
+  const rankedLimit = 10;
+  const [latestRes, deviceTypeRes, deviceModelRes, environmentRes] = await Promise.all([
+    pool.query(
+      `${contextSql}
+       WHERE
+         site_domain IS NOT NULL
+         OR page_url IS NOT NULL
+         OR device_type IS NOT NULL
+         OR device_model IS NOT NULL
+         OR browser IS NOT NULL
+         OR os IS NOT NULL
+         OR contextual_ids IS NOT NULL
+         OR network_id IS NOT NULL
+         OR source_publisher_id IS NOT NULL
+         OR app_id IS NOT NULL
+         OR site_id IS NOT NULL
+         OR exchange_id IS NOT NULL
+         OR exchange_publisher_id IS NOT NULL
+         OR exchange_site_id_or_domain IS NOT NULL
+         OR app_bundle IS NOT NULL
+         OR app_name IS NOT NULL
+         OR page_position IS NOT NULL
+         OR content_language IS NOT NULL
+         OR content_title IS NOT NULL
+         OR content_series IS NOT NULL
+         OR carrier IS NOT NULL
+         OR app_store_name IS NOT NULL
+         OR content_genre IS NOT NULL
+       ORDER BY timestamp DESC
+       LIMIT 1`,
+      [...impressionParams, ...clickParams],
+    ),
+    pool.query(
+      `WITH ranked AS (${contextSql})
+       SELECT COALESCE(NULLIF(device_type, ''), 'Unknown') AS label, COUNT(*)::bigint AS value
+       FROM ranked
+       GROUP BY COALESCE(NULLIF(device_type, ''), 'Unknown')
+       ORDER BY COUNT(*) DESC, label ASC
+       LIMIT ${rankedLimit}`,
+      [...impressionParams, ...clickParams],
+    ),
+    pool.query(
+      `WITH ranked AS (${contextSql})
+       SELECT COALESCE(NULLIF(device_model, ''), 'Unknown') AS label, COUNT(*)::bigint AS value
+       FROM ranked
+       GROUP BY COALESCE(NULLIF(device_model, ''), 'Unknown')
+       ORDER BY COUNT(*) DESC, label ASC
+       LIMIT ${rankedLimit}`,
+      [...impressionParams, ...clickParams],
+    ),
+    pool.query(
+      `WITH ranked AS (${contextSql})
+       SELECT
+         CASE
+           WHEN COALESCE(device_type, '') = 'tv' AND (app_id IS NOT NULL OR app_bundle IS NOT NULL OR app_name IS NOT NULL) THEN 'CTV App'
+           WHEN COALESCE(device_type, '') = 'tv' THEN 'CTV'
+           WHEN app_id IS NOT NULL OR app_bundle IS NOT NULL OR app_name IS NOT NULL THEN 'App'
+           WHEN site_domain IS NOT NULL OR page_url IS NOT NULL THEN 'Site'
+           ELSE 'Unknown'
+         END AS label,
+         COUNT(*)::bigint AS value
+       FROM ranked
+       GROUP BY 1
+       ORDER BY COUNT(*) DESC, label ASC
+       LIMIT ${rankedLimit}`,
+      [...impressionParams, ...clickParams],
+    ),
+  ]);
+
+  return {
+    latest_context: latestRes.rows[0] ?? null,
+    device_types: deviceTypeRes.rows,
+    device_models: deviceModelRes.rows,
+    inventory_environments: environmentRes.rows,
+  };
+}

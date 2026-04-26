@@ -22,6 +22,7 @@ import {
   getWorkspaceIdentitySegmentPresets,
   getWorkspaceIdentityKeyBreakdown,
   getWorkspaceIdentityAttributionWindows,
+  getWorkspaceContextSnapshot,
   listSavedAudiences,
   createSavedAudience,
   deleteSavedAudience,
@@ -392,6 +393,13 @@ export function handleReportingRoutes(app, { requireWorkspace, pool }) {
     const { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId, siteDomain, region, city } = req.query;
     const breakdown = await getWorkspaceIdentityAttributionWindows(pool, workspaceId, { dateFrom, dateTo, canonicalType, campaignId, tagId, creativeId, variantId, siteDomain, region, city });
     return reply.send({ breakdown });
+  });
+
+  app.get('/v1/reporting/workspace/context-snapshot', { preHandler: requireWorkspace }, async (req, reply) => {
+    const { workspaceId } = req.authSession;
+    const { dateFrom, dateTo, campaignId, tagId } = req.query;
+    const snapshot = await getWorkspaceContextSnapshot(pool, workspaceId, { dateFrom, dateTo, campaignId, tagId });
+    return reply.send(snapshot);
   });
 
   app.get('/v1/reporting/workspace/creative-breakdown', { preHandler: requireWorkspace }, async (req, reply) => {
