@@ -47,6 +47,8 @@ function buildDailyVideoOverlayMap(rows = []) {
     const date = String(row?.date ?? '');
     if (!date) continue;
     map.set(date, {
+      impressions: Number(row?.impressions ?? 0),
+      clicks: Number(row?.clicks ?? 0),
       video_starts: Number(row?.video_starts ?? 0),
       video_completions: Number(row?.video_completions ?? 0),
     });
@@ -58,15 +60,22 @@ function mergeDailyVideoMetrics(primaryRows = [], fallbackRows = []) {
   const overlay = buildDailyVideoOverlayMap(fallbackRows);
   const merged = primaryRows.map((row) => {
     const raw = overlay.get(String(row?.date ?? ''));
+    const rollupImpressions = Number(row?.impressions ?? 0);
+    const rollupClicks = Number(row?.clicks ?? 0);
     const rollupStarts = Number(row?.video_starts ?? 0);
     const rollupCompletions = Number(row?.video_completions ?? 0);
+    const impressions = rollupImpressions > 0 ? rollupImpressions : Number(raw?.impressions ?? 0);
+    const clicks = rollupClicks > 0 ? rollupClicks : Number(raw?.clicks ?? 0);
     const videoStarts = rollupStarts > 0 ? rollupStarts : Number(raw?.video_starts ?? 0);
     const videoCompletions = rollupCompletions > 0 ? rollupCompletions : Number(raw?.video_completions ?? 0);
     return {
       ...row,
+      impressions,
+      clicks,
       video_starts: videoStarts,
       video_completions: videoCompletions,
-      video_start_rate: Number(row?.impressions ?? 0) > 0 ? Number(((videoStarts / Number(row.impressions)) * 100).toFixed(4)) : 0,
+      ctr: impressions > 0 ? Number(((clicks / impressions) * 100).toFixed(4)) : 0,
+      video_start_rate: impressions > 0 ? Number(((videoStarts / impressions) * 100).toFixed(4)) : 0,
       video_completion_rate: videoStarts > 0 ? Number(((videoCompletions / videoStarts) * 100).toFixed(4)) : 0,
     };
   });
@@ -440,18 +449,27 @@ export async function getTagSummaryStats(pool, workspaceId, tagId, opts = {}) {
 
   if (hasSummaryActivity(rollupSummary)) {
     const rawSummary = await getRawTagSummaryStats(pool, workspaceId, tagId, opts);
+    const rawTotalImpressions = Number(rawSummary?.total_impressions ?? 0);
+    const rawTotalClicks = Number(rawSummary?.total_clicks ?? 0);
+    const rawImpressionsLast7d = Number(rawSummary?.impressions_7d ?? 0);
     const rawVideoStarts = Number(rawSummary?.video_starts ?? 0);
     const rawVideoCompletions = Number(rawSummary?.video_completions ?? 0);
+    const nextTotalImpressions = totalImpressions > 0 ? totalImpressions : rawTotalImpressions;
+    const nextTotalClicks = Number(rollupSummary.total_clicks ?? 0) > 0 ? Number(rollupSummary.total_clicks ?? 0) : rawTotalClicks;
     const nextVideoStarts = videoStarts > 0 ? videoStarts : rawVideoStarts;
     const nextVideoCompletions = videoCompletions > 0 ? videoCompletions : rawVideoCompletions;
     return {
       ...rollupSummary,
+      total_impressions: nextTotalImpressions,
+      total_clicks: nextTotalClicks,
+      impressions_7d: Number(rollupSummary.impressions_7d ?? 0) > 0 ? Number(rollupSummary.impressions_7d ?? 0) : rawImpressionsLast7d,
       video_starts: nextVideoStarts,
       video_first_quartile: Number(rollupSummary.video_first_quartile ?? 0) > 0 ? rollupSummary.video_first_quartile : rawSummary?.video_first_quartile ?? 0,
       video_midpoint: Number(rollupSummary.video_midpoint ?? 0) > 0 ? rollupSummary.video_midpoint : rawSummary?.video_midpoint ?? 0,
       video_third_quartile: Number(rollupSummary.video_third_quartile ?? 0) > 0 ? rollupSummary.video_third_quartile : rawSummary?.video_third_quartile ?? 0,
       video_completions: nextVideoCompletions,
-      video_start_rate: totalImpressions > 0 ? Number(((nextVideoStarts / totalImpressions) * 100).toFixed(4)) : 0,
+      overall_ctr: nextTotalImpressions > 0 ? Number(((nextTotalClicks / nextTotalImpressions) * 100).toFixed(4)) : 0,
+      video_start_rate: nextTotalImpressions > 0 ? Number(((nextVideoStarts / nextTotalImpressions) * 100).toFixed(4)) : 0,
       video_completion_rate: nextVideoStarts > 0 ? Number(((nextVideoCompletions / nextVideoStarts) * 100).toFixed(4)) : 0,
     };
   }

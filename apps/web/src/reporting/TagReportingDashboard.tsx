@@ -346,7 +346,7 @@ export default function TagReportingDashboard() {
         { Metric: 'Total Clicks', Value: summary.totalClicks },
         { Metric: 'CTR (%)', Value: Number(summary.ctr.toFixed(2)) },
         { Metric: 'Last 7d Impressions', Value: summary.impressionsLast7d },
-        { Metric: 'Play Starts', Value: summary.videoStarts },
+        { Metric: 'Video Starts', Value: summary.videoStarts },
         { Metric: 'Start Rate (%)', Value: Number(summary.videoStartRate.toFixed(2)) },
         { Metric: 'Plays Completed', Value: summary.videoCompletions },
         { Metric: 'Completion Rate (%)', Value: Number(summary.videoCompletionRate.toFixed(2)) },
@@ -539,7 +539,7 @@ export default function TagReportingDashboard() {
                     <KpiCard label="Total Clicks" value={summary ? fmtNum(summary.totalClicks) : '—'} />
                     <KpiCard label="CTR" value={summary ? `${summary.ctr.toFixed(2)}%` : '—'} />
                     <KpiCard label="Last 7d Imps" value={summary ? fmtNum(summary.impressionsLast7d) : '—'} />
-                    <KpiCard label="Play Starts" value={summary ? fmtNum(summary.videoStarts) : '—'} />
+                    <KpiCard label="Video Starts" value={summary ? fmtNum(summary.videoStarts) : '—'} />
                     <KpiCard label="Start Rate" value={summary ? `${summary.videoStartRate.toFixed(2)}%` : '—'} />
                     <KpiCard label="Plays Completed" value={summary ? fmtNum(summary.videoCompletions) : '—'} />
                     <KpiCard label="Completion Rate" value={summary ? `${summary.videoCompletionRate.toFixed(2)}%` : '—'} />
