@@ -4003,3 +4003,262 @@
   font-size: 12px;
   color: var(--muted-text, #93a0bd);
 }
+
+/* Standalone visual system alignment for Studio shell */
+.studio-shell {
+  background:
+    radial-gradient(circle at 78% 10%, var(--accent-purple), transparent 22%),
+    radial-gradient(circle at 68% 20%, var(--accent-soft), transparent 24%),
+    var(--bg);
+}
+
+.panel,
+.left-rail-more,
+.status-popover,
+.asset-library-browser,
+.workspace-hub-stat-card,
+.workspace-hub-toolbar,
+.workspace-project-card,
+.workspace-hub-empty-state,
+.workspace-hub-storage {
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
+}
+
+.top-bar {
+  border-bottom: 1px solid var(--stroke);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-3) 90%, transparent), color-mix(in srgb, var(--panel-2) 92%, transparent)),
+    radial-gradient(circle at 75% 0%, var(--accent-soft), transparent 38%);
+  backdrop-filter: blur(18px);
+}
+
+.left-rail,
+.right-inspector,
+.bottom-timeline {
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.left-rail {
+  border-right: 1px solid var(--stroke);
+}
+
+.right-inspector {
+  border-left: 1px solid var(--stroke);
+}
+
+.bottom-timeline {
+  border-top: 1px solid var(--stroke);
+}
+
+.section {
+  border-bottom: 1px solid color-mix(in srgb, var(--stroke) 74%, transparent);
+}
+
+.section h3,
+.workspace-hub-kicker,
+.workspace-project-meta-label,
+.workspace-hub-stat-label,
+.rail-heading,
+.brand-mark {
+  color: var(--accent);
+}
+
+.pill,
+.status-chip,
+.workspace-folder-card,
+.status-metric {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--stroke);
+  backdrop-filter: blur(10px);
+}
+
+.status-chip--good {
+  color: var(--success);
+}
+
+.status-chip--warn {
+  color: var(--warning);
+}
+
+.status-chip--danger {
+  color: var(--danger);
+}
+
+.top-brand-row--ux {
+  gap: 14px;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(241,0,139,0.18), rgba(140,50,255,0.1));
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.doc-name-input--ux {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.doc-name-input--ux::placeholder {
+  color: var(--muted);
+}
+
+.top-actions-cluster .compact-action.is-active,
+.top-target-switch .compact-action.is-active,
+.left-tab-button.is-active,
+.left-tab-button:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 92%, rgba(255,255,255,0.03));
+  box-shadow: 0 0 0 1px rgba(241,0,139,0.12) inset;
+}
+
+.top-save-dot--saving {
+  background: var(--accent);
+}
+
+.top-save-dot--saved {
+  background: var(--success);
+}
+
+.top-save-dot--error {
+  background: var(--danger);
+}
+
+.left-tab-bar {
+  background: rgba(255,255,255,0.02);
+}
+
+.left-tab-button {
+  color: var(--muted);
+}
+
+.shell-tab-icon-wrap,
+.shell-inline-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shell-tab-icon,
+.shell-inline-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.shell-inline-icon--stacked {
+  width: 16px;
+  height: 16px;
+}
+
+.top-back-button,
+.top-library-button,
+.panel-collapse-button,
+.collapsed-panel-tab,
+.left-tab-button {
+  box-shadow: none;
+}
+
+.top-library-button {
+  gap: 8px;
+}
+
+.collapsed-panel-tab {
+  border: 1px solid var(--stroke);
+  background: color-mix(in srgb, var(--panel-solid) 94%, transparent);
+  box-shadow: var(--shadow-soft);
+}
+
+.left-rail-more {
+  background: color-mix(in srgb, var(--panel-solid) 94%, transparent);
+}
+
+.left-rail-resize-handle::after {
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 56%, transparent), transparent);
+}
+
+.asset-library-modal-shell {
+  background: rgba(9, 4, 14, 0.58);
+}
+
+.asset-library-browser {
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-3) 92%, transparent), color-mix(in srgb, var(--panel-2) 96%, transparent)),
+    radial-gradient(circle at top right, var(--accent-soft), transparent 32%);
+}
+
+.workspace-hub-stat-card strong,
+.workspace-hub-storage-header h2,
+.workspace-hub-topbar h1 {
+  color: var(--text);
+}
+
+.workspace-folder-card.is-active {
+  border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+  box-shadow: 0 0 0 1px rgba(241,0,139,0.16);
+  background: color-mix(in srgb, var(--accent-soft) 92%, rgba(255,255,255,0.03));
+}
+
+.timeline-row.is-group-row {
+  background: linear-gradient(180deg, rgba(241,0,139,0.09) 0%, rgba(255,255,255,0.01) 100%);
+}
+
+.timeline-row.is-nested .timeline-row-meta::before {
+  background: linear-gradient(180deg, rgba(241,0,139,0.28), rgba(241,0,139,0.03));
+}
+
+.timeline-bar.is-group-bar {
+  box-shadow: inset 0 0 0 1px rgba(241,0,139,0.28);
+}
+
+.timeline-group-collapsed-badge {
+  background: rgba(241,0,139,0.16);
+  border: 1px solid rgba(241,0,139,0.24);
+}
+
+@media (prefers-color-scheme: light) {
+  .studio-shell {
+    background:
+      radial-gradient(circle at 78% 10%, rgba(140, 50, 255, 0.08), transparent 22%),
+      radial-gradient(circle at 68% 20%, rgba(241, 0, 139, 0.08), transparent 24%),
+      var(--bg);
+  }
+
+  .workspace-shell.workspace-shell-backdrop-light {
+    background: linear-gradient(180deg, #ffffff 0%, #f8effa 100%);
+  }
+
+  .workspace-shell.workspace-shell-backdrop-gray {
+    background: radial-gradient(circle at 50% 18%, rgba(241,0,139,0.08), transparent 36%), linear-gradient(180deg, #e8deef 0%, #d9cfe5 100%);
+  }
+
+  .workspace-shell.workspace-shell-backdrop-dark {
+    background: radial-gradient(circle at 50% 18%, rgba(140,50,255,0.12), transparent 34%), linear-gradient(180deg, #3b2944 0%, #221428 100%);
+  }
+
+  .left-tab-bar,
+  .top-bar,
+  .left-rail,
+  .right-inspector,
+  .bottom-timeline,
+  .panel,
+  .left-rail-more,
+  .status-popover,
+  .asset-library-browser {
+    box-shadow: 0 14px 34px rgba(62, 24, 71, 0.10);
+  }
+}

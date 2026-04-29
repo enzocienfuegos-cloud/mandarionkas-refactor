@@ -9,11 +9,11 @@ export function TopBarDocumentControls({ controller, compact = false }: { contro
     <div className={`top-control-group ${compact ? 'top-control-group--compact' : ''}`}>
       <strong className="section-kicker">Document</strong>
       <div className="top-control-grid">
-        <button className="ghost" onClick={() => sceneActions.previousScene()}>← Scene</button>
+        <button className="ghost" onClick={() => sceneActions.previousScene()}>Previous scene</button>
         <select value={activeSceneId} onChange={(event) => sceneActions.selectScene(event.target.value)}>
           {scenes.map((scene) => <option key={scene.id} value={scene.id}>{scene.name}</option>)}
         </select>
-        <button className="ghost" onClick={() => sceneActions.nextScene()}>Scene →</button>
+        <button className="ghost" onClick={() => sceneActions.nextScene()}>Next scene</button>
         <select value={canvasPresetId} onChange={(event) => documentActions.applyCanvasPreset(event.target.value)}>
           {CANVAS_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
         </select>
