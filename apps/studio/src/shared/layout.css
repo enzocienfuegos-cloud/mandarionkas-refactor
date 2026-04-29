@@ -3163,9 +3163,9 @@
   min-height: 100vh;
   padding: 28px;
   background:
-    radial-gradient(circle at top right, rgba(124,92,255,0.14), transparent 28%),
-    radial-gradient(circle at top left, rgba(39,194,134,0.08), transparent 26%),
-    linear-gradient(180deg, #101823 0%, #0c131b 100%);
+    radial-gradient(circle at 82% 8%, var(--accent-purple), transparent 26%),
+    radial-gradient(circle at 18% 14%, var(--accent-soft), transparent 24%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 92%, #06010a 8%) 0%, var(--bg) 100%);
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -3220,10 +3220,13 @@
 .workspace-hub-toolbar,
 .workspace-project-card,
 .workspace-hub-empty-state {
-  border: 1px solid rgba(120,144,168,0.2);
-  background: linear-gradient(180deg, rgba(24,34,45,0.92), rgba(15,22,30,0.94));
+  border: 1px solid var(--stroke);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-3) 84%, transparent), color-mix(in srgb, var(--panel) 92%, transparent)),
+    radial-gradient(circle at top right, var(--accent-soft), transparent 46%);
   border-radius: 18px;
-  box-shadow: 0 18px 36px rgba(0,0,0,0.18);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
 }
 
 .workspace-hub-stat-card {
@@ -3280,8 +3283,8 @@
 .workspace-folder-card {
   min-width: 132px;
   border-radius: 14px;
-  border: 1px solid rgba(120,144,168,0.2);
-  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.04);
   padding: 12px 14px;
   display: inline-flex;
   align-items: flex-start;
@@ -3295,9 +3298,9 @@
 }
 
 .workspace-folder-card.is-active {
-  border-color: rgba(124,92,255,0.58);
-  box-shadow: 0 0 0 1px rgba(124,92,255,0.36);
-  background: rgba(124,92,255,0.10);
+  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+  box-shadow: 0 0 0 1px rgba(241,0,139,0.16);
+  background: color-mix(in srgb, var(--accent-soft) 88%, rgba(255,255,255,0.03));
 }
 
 .workspace-folder-card strong {
@@ -3315,10 +3318,13 @@
 .workspace-hub-storage {
   flex-direction: column;
   padding: 18px;
-  border: 1px solid rgba(120,144,168,0.2);
-  background: linear-gradient(180deg, rgba(24,34,45,0.92), rgba(15,22,30,0.94));
+  border: 1px solid var(--stroke);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-3) 84%, transparent), color-mix(in srgb, var(--panel) 92%, transparent)),
+    radial-gradient(circle at top right, var(--accent-soft), transparent 44%);
   border-radius: 18px;
-  box-shadow: 0 18px 36px rgba(0,0,0,0.18);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
 }
 
 .workspace-hub-storage-header,
@@ -3380,8 +3386,8 @@
 }
 
 .workspace-project-card.is-selected {
-  border-color: rgba(124,92,255,0.55);
-  box-shadow: 0 0 0 1px rgba(124,92,255,0.45), 0 18px 36px rgba(0,0,0,0.18);
+  border-color: color-mix(in srgb, var(--accent) 54%, transparent);
+  box-shadow: 0 0 0 1px rgba(241,0,139,0.22), var(--shadow-glow);
 }
 
 .workspace-project-select {
@@ -3406,16 +3412,17 @@
 
 .workspace-project-frame {
   min-height: 160px;
-  border: 1px solid rgba(120,144,168,0.26);
+  border: 1px solid var(--stroke);
   border-radius: 14px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 14px;
   background:
-    linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01)),
-    radial-gradient(circle at center, rgba(124,92,255,0.18), transparent 40%),
-    #111922;
+    linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02)),
+    radial-gradient(circle at 78% 22%, var(--accent-soft), transparent 34%),
+    radial-gradient(circle at 28% 84%, var(--accent-purple), transparent 36%),
+    color-mix(in srgb, var(--panel-solid) 88%, #08030d 12%);
 }
 
 .workspace-project-frame-label {
@@ -3458,9 +3465,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  border: 1px solid rgba(120,144,168,0.14);
+  border: 1px solid var(--stroke);
   border-radius: 12px;
-  background: rgba(255,255,255,0.025);
+  background: rgba(255,255,255,0.03);
 }
 
 .workspace-project-meta-grid {
@@ -3538,9 +3545,9 @@
   min-height: 100vh;
   padding: 28px;
   background:
-    radial-gradient(circle at top right, rgba(245,165,36,0.10), transparent 24%),
-    radial-gradient(circle at 15% 12%, rgba(39,194,134,0.08), transparent 22%),
-    linear-gradient(180deg, #0c131b 0%, #0a1017 100%);
+    radial-gradient(circle at 82% 8%, var(--accent-purple), transparent 24%),
+    radial-gradient(circle at 14% 12%, var(--accent-soft), transparent 24%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 92%, #06010a 8%) 0%, var(--bg) 100%);
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -3578,10 +3585,13 @@
 .agency-shell-section {
   flex-direction: column;
   padding: 18px;
-  border: 1px solid rgba(120,144,168,0.2);
-  background: linear-gradient(180deg, rgba(24,34,45,0.92), rgba(15,22,30,0.94));
+  border: 1px solid var(--stroke);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-3) 84%, transparent), color-mix(in srgb, var(--panel) 92%, transparent)),
+    radial-gradient(circle at top right, var(--accent-soft), transparent 44%);
   border-radius: 18px;
-  box-shadow: 0 18px 36px rgba(0,0,0,0.18);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
 }
 
 .agency-shell-section-head {
@@ -3624,13 +3634,17 @@
 .agency-project-card,
 .agency-client-card,
 .agency-leaderboard-card {
-  border: 1px solid rgba(120,144,168,0.2);
-  background: linear-gradient(180deg, rgba(19,28,37,0.96), rgba(13,19,27,0.98));
+  border: 1px solid var(--stroke);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-3) 84%, transparent), color-mix(in srgb, var(--panel) 92%, transparent)),
+    radial-gradient(circle at top right, rgba(255,255,255,0.05), transparent 42%);
   border-radius: 18px;
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
 }
 
 .agency-project-card__preview {
@@ -3705,9 +3719,13 @@
   gap: 16px;
   align-items: center;
   padding: 16px;
-  border: 1px solid rgba(120,144,168,0.2);
+  border: 1px solid var(--stroke);
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(19,28,37,0.96), rgba(13,19,27,0.98));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-3) 84%, transparent), color-mix(in srgb, var(--panel) 92%, transparent)),
+    radial-gradient(circle at top right, rgba(255,255,255,0.05), transparent 42%);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
 }
 
 .agency-project-index-row h3,
@@ -3755,9 +3773,9 @@
 .agency-empty-state {
   min-height: 180px;
   padding: 20px;
-  border: 1px dashed rgba(120,144,168,0.24);
+  border: 1px dashed color-mix(in srgb, var(--accent) 34%, transparent);
   border-radius: 18px;
-  background: rgba(255,255,255,0.02);
+  background: rgba(255,255,255,0.03);
   flex-direction: column;
   justify-content: center;
 }
@@ -3802,6 +3820,85 @@
   .agency-leaderboard-row {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+.workspace-hub-topbar,
+.agency-shell-topbar {
+  padding: 20px 22px;
+  border: 1px solid var(--stroke);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-3) 84%, transparent), color-mix(in srgb, var(--panel) 92%, transparent)),
+    radial-gradient(circle at 82% 10%, var(--accent-soft), transparent 36%);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(16px);
+}
+
+.workspace-hub-kicker,
+.workspace-project-meta-label,
+.workspace-hub-stat-label {
+  color: var(--accent);
+}
+
+.workspace-hub-topbar h1,
+.agency-shell-topbar h1,
+.agency-shell-section-head h2 {
+  color: var(--text);
+}
+
+.workspace-hub-topbar p,
+.agency-shell-topbar p,
+.workspace-project-card__body p,
+.agency-project-card__body p,
+.agency-client-card__header p,
+.agency-project-index-row p,
+.agency-leaderboard-row p {
+  color: var(--muted);
+}
+
+.workspace-hub-session .pill,
+.agency-shell-topbar .pill,
+.agency-project-index-meta .pill,
+.agency-leaderboard-row .pill {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--stroke);
+}
+
+.workspace-hub-toolbar-row .pill {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--stroke));
+  background: color-mix(in srgb, var(--accent-soft) 72%, rgba(255,255,255,0.03));
+}
+
+.agency-client-card__metrics div,
+.workspace-project-meta-grid div {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.03);
+}
+
+.workspace-project-actions .primary,
+.agency-project-card__actions .primary,
+.agency-client-card__footer .primary {
+  box-shadow: 0 0 20px rgba(241,0,139,0.24);
+}
+
+@media (prefers-color-scheme: light) {
+  .workspace-hub-shell,
+  .agency-shell {
+    background:
+      radial-gradient(circle at 82% 8%, rgba(140,50,255,0.08), transparent 24%),
+      radial-gradient(circle at 14% 12%, rgba(241,0,139,0.08), transparent 24%),
+      linear-gradient(180deg, #f8effa 0%, #f3ebf7 100%);
+  }
+
+  .workspace-project-frame {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.5)),
+      radial-gradient(circle at 78% 22%, rgba(241,0,139,0.12), transparent 34%),
+      radial-gradient(circle at 28% 84%, rgba(140,50,255,0.12), transparent 36%),
+      #ffffff;
   }
 }
 
