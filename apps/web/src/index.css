@@ -14,12 +14,18 @@ html, body, #root {
 }
 
 html {
-  background: #0c0c0e;
+  background: #f6f3f8;
 }
 
 html.dark {
   color-scheme: dark;
   background: #0c0c0e;
+}
+
+body,
+#root {
+  background: #f6f3f8;
+  color: #111114;
 }
 
 html.dark body,
