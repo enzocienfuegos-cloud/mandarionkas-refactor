@@ -3,7 +3,21 @@ import { Link, useNavigate } from 'react-router-dom';
 
 const BRAND = '#f1008b';
 
-function FieldIcon({
+function Icon({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span className={`inline-flex items-center justify-center ${className}`}>
+      {children}
+    </span>
+  );
+}
+
+function InputIcon({
   children,
 }: {
   children: React.ReactNode;
@@ -26,6 +40,41 @@ function GoogleIcon() {
   );
 }
 
+function ZapIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="currentColor" d="M13 2 3 14h7l-1 8 12-14h-8l2-6Z" />
+    </svg>
+  );
+}
+
+function MailIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4h16v16H4z" />
+      <path d="m22 6-10 7L2 6" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l7 3v6c0 5-3.5 8.5-7 9-3.5-.5-7-4-7-9V6l7-3Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
 function Feature({
   title,
   copy,
@@ -34,10 +83,29 @@ function Feature({
   copy: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+    <div>
+      <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#f1008b]/25 bg-[#f1008b]/12 text-[#f1008b]">
+        <ZapIcon />
+      </div>
       <div className="text-sm font-semibold text-white">{title}</div>
-      <p className="mt-1 text-sm leading-6 text-white/65">{copy}</p>
+      <p className="mt-1 text-sm leading-6 text-white/50">{copy}</p>
     </div>
+  );
+}
+
+function GhostButton({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      disabled
+      className="flex w-full cursor-default items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/60"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -50,10 +118,13 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const fieldErrors = useMemo(() => ({
-    email: error && !email.trim() ? 'Email is required.' : '',
-    password: error && !password ? 'Password is required.' : '',
-  }), [email, password, error]);
+  const fieldErrors = useMemo(
+    () => ({
+      email: error && !email.trim() ? 'Email is required.' : '',
+      password: error && !password ? 'Password is required.' : '',
+    }),
+    [email, password, error],
+  );
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -87,85 +158,125 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[#06010d] text-white">
+    <div className="min-h-screen overflow-hidden bg-[#0a0010] text-white">
       <div className="relative min-h-screen">
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,#0a0010_0%,#0f0018_50%,#080010_100%)]" />
-        <div className="absolute left-[48%] top-[18%] h-[320px] w-[420px] rounded-full bg-[#f1008b]/20 blur-[70px]" />
-        <div className="absolute left-[67%] top-[12%] h-[220px] w-[240px] rounded-full bg-violet-500/15 blur-[60px]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,0,16,0.55)_0%,transparent_38%,transparent_65%,rgba(8,0,14,0.7)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,#0a0010_0%,#0f0018_52%,#080010_100%)]" />
+        <div className="absolute left-[45%] top-[16%] h-[340px] w-[420px] rounded-full bg-[#f1008b]/18 blur-[90px]" />
+        <div className="absolute left-[66%] top-[12%] h-[220px] w-[240px] rounded-full bg-violet-600/15 blur-[70px]" />
 
-        <div className="relative mx-auto grid min-h-screen max-w-7xl gap-12 px-6 py-10 lg:grid-cols-[1.1fr_0.9fr] lg:px-10">
-          <section className="flex items-center">
-            <div className="max-w-xl">
-              <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 backdrop-blur-sm">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold text-[#0a0010]">S</span>
-                <span>SMX Ad Server</span>
-              </div>
-
-              <h1 className="mt-8 text-5xl font-semibold tracking-tight text-white lg:text-6xl">
-                Operate campaigns with a cleaner, faster control room.
-              </h1>
-              <p className="mt-6 text-lg leading-8 text-white/70">
-                Log into the real ad server workspace for campaigns, tags, creatives, pacing, and reporting without changing the rest of your flow.
-              </p>
-
-              <div className="mt-10 grid gap-4 sm:grid-cols-3">
-                <Feature title="Full control" copy="Manage campaigns, creatives, and delivery from one place." />
-                <Feature title="Flexible setup" copy="Handle client workspaces without changing your rhythm." />
-                <Feature title="Faster reviews" copy="Keep approvals, pacing, and reporting close to the work." />
-              </div>
-
-              <div className="mt-10 flex flex-wrap items-center gap-5 text-sm font-semibold text-white/60">
-                <div className="flex items-center gap-2">
-                  <GoogleIcon />
-                  <span>Google Ad Manager</span>
+        <div className="relative flex min-h-screen">
+          <section className="hidden flex-1 px-10 py-10 lg:flex xl:px-14">
+            <div className="flex max-w-3xl flex-1 flex-col">
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-9 w-9 items-center justify-center rounded-xl text-white"
+                  style={{ background: BRAND, boxShadow: '0 8px 22px rgba(241, 0, 139, 0.28)' }}
+                >
+                  <ZapIcon />
                 </div>
-                <span className="h-4 w-px bg-white/15" />
-                <span>Basis</span>
-                <span className="h-4 w-px bg-white/15" />
-                <span>Illumin</span>
-                <span className="h-4 w-px bg-white/15" />
-                <span>Magnite</span>
+                <span className="text-lg font-semibold tracking-tight text-white">MandaRion</span>
+              </div>
+
+              <div className="mt-16">
+                <h1 className="text-[5.25rem] font-extrabold leading-[0.95] tracking-[-0.06em] text-white">
+                  Own
+                  <br />
+                  your <span style={{ color: BRAND }}>media.</span>
+                </h1>
+                <p className="mt-5 text-lg text-white/65">For agencies ready to scale.</p>
+              </div>
+
+              <div className="mt-12 grid max-w-2xl gap-8 md:grid-cols-3">
+                <Feature title="Full control" copy="Decide how your campaigns run." />
+                <Feature title="Flexible setup" copy="Adapt to your clients, not the other way around." />
+                <Feature title="Move faster" copy="Launch and optimize without unnecessary complexity." />
+              </div>
+
+              <div className="mt-12">
+                <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.24em] text-white/30">
+                  Works with your existing stack
+                </div>
+                <div className="flex flex-wrap items-center gap-5 text-sm font-semibold text-white/55">
+                  <span>Google Ad Manager</span>
+                  <span className="h-4 w-px bg-white/12" />
+                  <span>Basis</span>
+                  <span className="h-4 w-px bg-white/12" />
+                  <span>Illumin</span>
+                  <span className="h-4 w-px bg-white/12" />
+                  <span>Magnite</span>
+                </div>
+              </div>
+
+              <div className="mt-auto max-w-xl rounded-2xl border border-white/10 bg-white/5 px-5 py-4 backdrop-blur-sm">
+                <div className="flex items-start gap-4">
+                  <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl border border-[#f1008b]/25 bg-[#f1008b]/12 text-[#f1008b]">
+                    <ShieldIcon />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-white">Independent. Transparent. Built for agencies.</div>
+                    <p className="mt-1 text-sm text-white/45">No hidden fees. No platform lock-in.</p>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
 
-          <section className="flex items-center justify-center lg:justify-end">
-            <div className="w-full max-w-md rounded-[28px] border border-white/10 bg-white/8 p-8 shadow-2xl shadow-black/35 backdrop-blur-xl">
-              <div className="mb-8">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-white/45">Welcome back</p>
-                <h2 className="mt-3 text-3xl font-semibold text-white">Sign in to SMX Studio</h2>
-                <p className="mt-3 text-sm leading-6 text-white/60">
-                  Use your ad server account to continue into campaigns, tags, creatives, and reporting.
-                </p>
+          <section className="relative flex min-h-screen w-full items-center justify-center px-6 py-8 lg:w-[420px] lg:flex-none lg:border-l lg:border-white/10 lg:bg-[#13131a] lg:px-10">
+            <div className="w-full max-w-md">
+              <div className="mb-8 flex justify-center">
+                <div
+                  className="flex h-14 w-14 items-center justify-center rounded-2xl text-white"
+                  style={{ background: BRAND, boxShadow: '0 12px 28px rgba(241, 0, 139, 0.32)' }}
+                >
+                  <ZapIcon />
+                </div>
+              </div>
+
+              <div className="mb-7 text-center">
+                <h2 className="text-[1.65rem] font-semibold tracking-tight text-[#f0f0f4]">Access your workspace</h2>
+                <p className="mt-2 text-sm text-white/40">Sign in to continue to MandaRion</p>
+              </div>
+
+              <div className="space-y-3">
+                <GhostButton>
+                  <GoogleIcon />
+                  <span>Continue with Google</span>
+                </GhostButton>
+                <GhostButton>
+                  <LockIcon />
+                  <span>Continue with SSO</span>
+                </GhostButton>
+              </div>
+
+              <div className="my-5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-xs font-medium text-white/35">or continue with email</span>
+                <div className="h-px flex-1 bg-white/10" />
               </div>
 
               {error && (
-                <div className="mb-5 rounded-2xl border border-red-400/35 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                <div className="mb-4 rounded-xl border border-red-400/35 bg-red-500/10 px-4 py-3 text-sm text-red-100">
                   {error}
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+              <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-white/75" htmlFor="email">
-                    Email address
+                  <label className="mb-2 block text-sm font-medium text-white/70" htmlFor="email">
+                    Email
                   </label>
                   <div className="relative">
-                    <FieldIcon>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 4h16v16H4z" />
-                        <path d="m22 6-10 7L2 6" />
-                      </svg>
-                    </FieldIcon>
+                    <InputIcon>
+                      <MailIcon />
+                    </InputIcon>
                     <input
                       id="email"
                       type="email"
                       autoComplete="email"
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
-                      placeholder="admin@smxstudio.io"
-                      className={`w-full rounded-2xl border bg-white/5 px-11 py-3 text-sm text-white placeholder:text-white/30 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-pink-500/40 ${
+                      placeholder="you@agency.com"
+                      className={`w-full rounded-xl border bg-white/5 px-11 py-3 text-sm text-white placeholder:text-white/28 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-pink-500/40 ${
                         fieldErrors.email ? 'border-red-400/70' : 'border-white/10'
                       }`}
                     />
@@ -175,20 +286,21 @@ export default function Login() {
 
                 <div>
                   <div className="mb-2 flex items-center justify-between">
-                    <label className="block text-sm font-medium text-white/75" htmlFor="password">
+                    <label className="block text-sm font-medium text-white/70" htmlFor="password">
                       Password
                     </label>
-                    <button type="button" className="text-xs font-semibold text-[#f1008b]" onClick={() => setShowPassword((value) => !value)}>
-                      {showPassword ? 'Hide' : 'Show'}
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-[#f1008b]"
+                      onClick={() => setShowPassword((value) => !value)}
+                    >
+                      {showPassword ? 'Hide password' : 'Forgot password?'}
                     </button>
                   </div>
                   <div className="relative">
-                    <FieldIcon>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                        <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
-                      </svg>
-                    </FieldIcon>
+                    <InputIcon>
+                      <LockIcon />
+                    </InputIcon>
                     <input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
@@ -196,7 +308,7 @@ export default function Login() {
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       placeholder="••••••••"
-                      className={`w-full rounded-2xl border bg-white/5 px-11 py-3 text-sm text-white placeholder:text-white/30 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-pink-500/40 ${
+                      className={`w-full rounded-xl border bg-white/5 px-11 py-3 text-sm text-white placeholder:text-white/28 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-pink-500/40 ${
                         fieldErrors.password ? 'border-red-400/70' : 'border-white/10'
                       }`}
                     />
@@ -204,20 +316,20 @@ export default function Login() {
                   {fieldErrors.password ? <p className="mt-2 text-xs text-red-300">{fieldErrors.password}</p> : null}
                 </div>
 
-                <label className="flex items-center gap-3 text-sm text-white/70">
+                <label className="flex items-center gap-3 pt-1 text-sm text-white/60">
                   <input
                     type="checkbox"
                     checked={remember}
                     onChange={(event) => setRemember(event.target.checked)}
                     className="h-4 w-4 rounded border-white/20 bg-white/5 text-[#f1008b] focus:ring-[#f1008b]"
                   />
-                  Keep me signed in on this device
+                  Keep me signed in for 30 days
                 </label>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border-0 px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70"
                   style={{ background: BRAND, boxShadow: '0 18px 40px rgba(241, 0, 139, 0.28)' }}
                 >
                   {loading ? (
@@ -228,23 +340,39 @@ export default function Login() {
                       </svg>
                       Signing in...
                     </>
-                  ) : 'Sign in'}
+                  ) : (
+                    'Sign in to MandaRion'
+                  )}
                 </button>
               </form>
 
-              <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-sm text-white/65">
+              <div className="mt-5 rounded-xl border border-white/10 bg-black/20 px-4 py-4 text-sm text-white/60">
                 <div className="font-medium text-white/90">Staging access</div>
                 <p className="mt-1 leading-6">
                   Use <span className="font-semibold text-white">admin@smxstudio.io</span> with <span className="font-semibold text-white">Admin1234!</span>.
                 </p>
               </div>
 
-              <p className="mt-6 text-center text-sm text-white/50">
-                Don&apos;t have an account?{' '}
+              <p className="mt-5 text-center text-sm text-white/35">
+                No account?{' '}
                 <Link to="/register" className="font-semibold text-[#f1008b]">
-                  Create one
+                  Request access
                 </Link>
               </p>
+
+              <div className="mt-6 flex flex-col items-center gap-2">
+                <div className="flex items-center gap-2 text-xs text-white/28">
+                  <Icon className="text-white/28">
+                    <ShieldIcon />
+                  </Icon>
+                  <span>Secure by design</span>
+                </div>
+                <p className="max-w-[300px] text-center text-[11px] leading-6 text-white/22">
+                  By signing in you agree to MandaRion&apos;s{' '}
+                  <span className="text-[#f1008b]">Terms of Service</span> and{' '}
+                  <span className="text-[#f1008b]">Privacy Policy</span>.
+                </p>
+              </div>
             </div>
           </section>
         </div>
