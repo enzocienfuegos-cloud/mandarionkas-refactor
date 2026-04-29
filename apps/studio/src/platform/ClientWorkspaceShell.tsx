@@ -66,7 +66,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
           <p>Projects, folders, owners and bulk actions stay scoped to the selected client workspace.</p>
         </div>
         <div className="workspace-hub-session">
-          <button className="ghost compact-action" type="button" onClick={onBackToAgencyShell}>← Agency shell</button>
+          <button className="ghost compact-action" type="button" onClick={onBackToAgencyShell}>Back to agency</button>
           <div className="pill">{workspace.currentUser?.name ?? 'Guest'}</div>
           <div className="pill">{workspace.workspaceRole ?? workspace.currentUser?.role ?? 'viewer'}</div>
           <button className="ghost compact-action" type="button" onClick={() => void workspace.handleLogout()}>Logout</button>
