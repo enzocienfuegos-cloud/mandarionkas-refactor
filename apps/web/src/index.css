@@ -14,55 +14,55 @@ html, body, #root {
 }
 
 html {
-  background: #f8fafc;
+  background: #0c0c0e;
 }
 
 html.dark {
   color-scheme: dark;
-  background: #020617;
+  background: #0c0c0e;
 }
 
 html.dark body,
 html.dark #root {
-  background: #020617;
-  color: #e2e8f0;
+  background: #0c0c0e;
+  color: #f3f4f6;
 }
 
 html.dark .bg-white {
-  background-color: #0f172a !important;
+  background-color: #18181c !important;
 }
 
 html.dark .bg-slate-50 {
-  background-color: #020617 !important;
+  background-color: #0c0c0e !important;
 }
 
 html.dark .bg-slate-100,
 html.dark .bg-slate-200 {
-  background-color: #111827 !important;
+  background-color: #111114 !important;
 }
 
 html.dark .border-slate-100,
 html.dark .border-slate-200,
 html.dark .border-slate-300 {
-  border-color: #334155 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 html.dark .text-slate-900 {
-  color: #f8fafc !important;
+  color: #f5f5f7 !important;
 }
 
 html.dark .text-slate-800 {
-  color: #e2e8f0 !important;
+  color: #f3f4f6 !important;
 }
 
 html.dark .text-slate-700 {
-  color: #cbd5e1 !important;
+  color: rgba(255, 255, 255, 0.75) !important;
 }
 
 html.dark .text-slate-600,
 html.dark .text-slate-500,
 html.dark .text-slate-400 {
-  color: #94a3b8 !important;
+  color: rgba(255, 255, 255, 0.46) !important;
 }
 
 html.dark .bg-indigo-50,
@@ -126,12 +126,33 @@ html.dark .hover\:text-white:hover {
 html.dark input,
 html.dark select,
 html.dark textarea {
-  background-color: #0f172a;
-  color: #e2e8f0;
-  border-color: #334155;
+  background-color: rgba(255, 255, 255, 0.03);
+  color: #f5f5f7;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 html.dark input::placeholder,
 html.dark textarea::placeholder {
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+html.dark .shadow-sm,
+html.dark .shadow,
+html.dark .shadow-lg {
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28) !important;
+}
+
+html.dark .bg-indigo-600,
+html.dark .bg-indigo-700 {
+  background-color: #f1008b !important;
+}
+
+html.dark .text-indigo-700 {
+  color: #f3a6d0 !important;
+}
+
+html.dark .mandarion-shell h1,
+html.dark .mandarion-shell h2,
+html.dark .mandarion-shell h3 {
+  letter-spacing: -0.02em;
 }
