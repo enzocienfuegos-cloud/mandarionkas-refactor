@@ -6,6 +6,7 @@ import { LayersSection } from './left-rail/LayersSection';
 import { StoryFlowSection } from './left-rail/StoryFlowSection';
 import { WidgetLibrarySection } from './left-rail/WidgetLibrarySection';
 import { useLeftRailController } from './left-rail/use-left-rail-controller';
+import { ChevronLeftIcon } from './ShellIcons';
 
 export function LeftRail({
   onToggleCollapse,
@@ -31,7 +32,9 @@ export function LeftRail({
               {controller.activeLeftTab === 'flow' ? 'Flow' : null}
             </strong>
           </div>
-          <button className="icon-button ghost panel-collapse-button" type="button" title="Hide left panel" aria-label="Hide left panel" onClick={onToggleCollapse}>‹</button>
+          <button className="icon-button ghost panel-collapse-button" type="button" title="Hide left panel" aria-label="Hide left panel" onClick={onToggleCollapse}>
+            <ChevronLeftIcon className="shell-inline-icon" />
+          </button>
         </div>
         <div className="left-rail-panel">
           {controller.activeLeftTab === 'widgets' ? <WidgetLibrarySection controller={controller} /> : null}

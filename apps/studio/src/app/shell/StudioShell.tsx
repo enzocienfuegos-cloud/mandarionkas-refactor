@@ -5,6 +5,7 @@ import { LeftRail } from './LeftRail';
 import { Workspace } from './Workspace';
 import { RightInspector } from '../../inspector/RightInspector';
 import { BottomTimeline } from '../../timeline/BottomTimeline';
+import { ChevronRightIcon, ChevronUpIcon, PanelsIcon } from './ShellIcons';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -75,7 +76,7 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
 
       {leftRailHidden ? (
         <button className="collapsed-panel-tab collapsed-panel-tab-left" type="button" onClick={() => setLeftRailHidden(false)}>
-          <span>▦</span>
+          <PanelsIcon className="shell-inline-icon shell-inline-icon--stacked" />
           <span>Panels</span>
         </button>
       ) : null}
@@ -83,13 +84,13 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
       {rightInspectorHidden ? (
         <button className="collapsed-panel-tab collapsed-panel-tab-right" type="button" onClick={() => setRightInspectorHidden(false)}>
           <span>Inspector</span>
-          <span>‹</span>
+          <ChevronRightIcon className="shell-inline-icon shell-inline-icon--stacked" />
         </button>
       ) : null}
 
       {timelineHidden ? (
         <button className="collapsed-panel-tab collapsed-panel-tab-bottom" type="button" onClick={() => setTimelineHidden(false)}>
-          <span>⌃</span>
+          <ChevronUpIcon className="shell-inline-icon shell-inline-icon--stacked" />
           <span>Timeline</span>
         </button>
       ) : null}

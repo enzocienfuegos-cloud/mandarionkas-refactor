@@ -1,51 +1,96 @@
 :root {
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color-scheme: dark;
-  color: #eef3f8;
-  background: #111820;
+  font-family: "Sora", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color-scheme: dark light;
+  color: #f7f2fb;
+  background: #0a0010;
   line-height: 1.4;
   font-weight: 400;
-  --bg: #111820;
-  --panel: #18222d;
-  --panel-2: #1f2c39;
-  --panel-3: #253444;
-  --stroke: #314658;
-  --stroke-2: #45617c;
-  --text: #eef3f8;
-  --muted: #9db0c2;
-  --accent: #f5a524;
-  --accent-2: #27c286;
-  --danger: #e26a6a;
-  --stage-grid-a: rgba(255,255,255,0.03);
-  --stage-grid-b: rgba(255,255,255,0.02);
+  --bg: #0a0010;
+  --bg-radial-a: rgba(241, 0, 139, 0.2);
+  --bg-radial-b: rgba(140, 50, 255, 0.16);
+  --panel: rgba(19, 19, 26, 0.86);
+  --panel-2: rgba(24, 19, 34, 0.88);
+  --panel-3: rgba(34, 24, 45, 0.92);
+  --panel-solid: #13131a;
+  --panel-elevated: #18161f;
+  --stroke: rgba(255,255,255,0.12);
+  --stroke-2: rgba(255,255,255,0.22);
+  --text: #ffffff;
+  --muted: rgba(255,255,255,0.66);
+  --accent: #f1008b;
+  --accent-strong: #ff3ba7;
+  --accent-soft: rgba(241, 0, 139, 0.18);
+  --accent-purple: rgba(140, 50, 255, 0.14);
+  --accent-2: #8c32ff;
+  --success: #43d992;
+  --warning: #f6b94c;
+  --danger: #ff6b8f;
+  --shadow-soft: 0 18px 46px rgba(0,0,0,0.32);
+  --shadow-glow: 0 0 0 1px rgba(241,0,139,0.16), 0 16px 44px rgba(241,0,139,0.12);
+  --stage-grid-a: rgba(255,255,255,0.028);
+  --stage-grid-b: rgba(255,255,255,0.016);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #21182e;
+    background: #f6eef8;
+    --bg: #f6eef8;
+    --bg-radial-a: rgba(241, 0, 139, 0.12);
+    --bg-radial-b: rgba(140, 50, 255, 0.08);
+    --panel: rgba(255,255,255,0.82);
+    --panel-2: rgba(255,255,255,0.9);
+    --panel-3: rgba(249, 242, 251, 0.96);
+    --panel-solid: #ffffff;
+    --panel-elevated: #fff8ff;
+    --stroke: rgba(61, 28, 71, 0.12);
+    --stroke-2: rgba(61, 28, 71, 0.22);
+    --text: #21182e;
+    --muted: rgba(45, 28, 56, 0.58);
+    --accent-soft: rgba(241, 0, 139, 0.12);
+    --accent-purple: rgba(140, 50, 255, 0.08);
+    --success: #148a55;
+    --warning: #b67606;
+    --danger: #d83a64;
+    --shadow-soft: 0 18px 38px rgba(58, 20, 66, 0.12);
+    --shadow-glow: 0 0 0 1px rgba(241,0,139,0.12), 0 12px 28px rgba(241,0,139,0.10);
+    --stage-grid-a: rgba(60, 20, 70, 0.028);
+    --stage-grid-b: rgba(60, 20, 70, 0.014);
+  }
 }
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; min-height: 100%; height: 100%; }
-body { background: var(--bg); color: var(--text); }
+body {
+  background:
+    radial-gradient(circle at 70% 24%, var(--bg-radial-a), transparent 36%),
+    radial-gradient(circle at 84% 16%, var(--bg-radial-b), transparent 30%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 94%, #000 6%) 0%, var(--bg) 100%);
+  color: var(--text);
+}
 button, input, select, textarea { font: inherit; }
 button {
   min-height: 36px;
-  background: linear-gradient(180deg, rgba(37, 52, 68, 0.96), rgba(25, 36, 48, 0.96));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--panel-3) 86%, transparent) 0%, color-mix(in srgb, var(--panel-2) 92%, transparent) 100%);
   color: var(--text);
-  border: 1px solid rgba(120, 144, 168, 0.24);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 20px rgba(0,0,0,0.12);
-  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 10px 24px rgba(0,0,0,0.14);
+  border-radius: 10px;
   padding: 8px 12px;
   cursor: pointer;
   transition: border-color .16s ease, background .16s ease, transform .16s ease, box-shadow .16s ease, color .16s ease;
 }
 button:hover {
-  border-color: rgba(245,165,36,0.34);
-  background: linear-gradient(180deg, rgba(45, 62, 79, 0.98), rgba(28, 41, 54, 0.98));
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--panel-3) 94%, white 6%) 0%, color-mix(in srgb, var(--panel-2) 94%, white 4%) 100%);
   transform: translateY(-1px);
 }
 button:active { transform: translateY(0); }
 button.primary {
-  background: linear-gradient(180deg, rgba(39,194,134,0.94), rgba(29,167,116,0.94));
-  color: #08110d;
-  border-color: rgba(39,194,134,.32);
+  background: linear-gradient(180deg, var(--accent-strong), var(--accent));
+  color: #ffffff;
+  border-color: color-mix(in srgb, var(--accent) 56%, transparent);
   font-weight: 700;
-  box-shadow: 0 10px 24px rgba(39,194,134,.18);
+  box-shadow: 0 0 20px rgba(241, 0, 139, 0.28);
 }
 button.ghost {
   background: rgba(255,255,255,0.03);
@@ -53,16 +98,16 @@ button.ghost {
   box-shadow: none;
 }
 button.ghost:hover {
-  background: rgba(255,255,255,0.06);
+  background: color-mix(in srgb, var(--accent-soft) 52%, rgba(255,255,255,0.03));
 }
 button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 input, select, textarea {
   width: 100%;
   min-height: 38px;
-  background: linear-gradient(180deg, rgba(12, 19, 26, 0.96), rgba(9, 15, 22, 0.96));
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
   color: var(--text);
-  border: 1px solid rgba(120, 144, 168, 0.22);
-  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
   padding: 9px 11px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
   transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
@@ -73,12 +118,12 @@ textarea {
   line-height: 1.5;
 }
 input:hover, select:hover, textarea:hover {
-  border-color: rgba(157,176,194,0.32);
+  border-color: var(--stroke-2);
 }
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: rgba(245,165,36,0.6);
-  box-shadow: 0 0 0 3px rgba(245,165,36,0.14), inset 0 1px 0 rgba(255,255,255,0.03);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px rgba(241,0,139,0.12), inset 0 1px 0 rgba(255,255,255,0.03);
 }
 input::placeholder, textarea::placeholder { color: rgba(157,176,194,.62); }
 select {
@@ -139,7 +184,7 @@ textarea:focus-visible,
 .timeline-trim:focus-visible,
 .selection-handle:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.2), 0 0 0 1px rgba(124, 92, 255, 0.65) inset;
+  box-shadow: 0 0 0 3px rgba(241, 0, 139, 0.18), 0 0 0 1px rgba(241, 0, 139, 0.8) inset;
 }
 
 button,

@@ -1,10 +1,11 @@
 import type { StudioState } from '../../domain/document/types';
+import { AssetsIcon, FlowIcon, LayersIcon, SettingsIcon, PanelsIcon } from './ShellIcons';
 
-const TABS: Array<{ key: StudioState['ui']['activeLeftTab']; label: string; icon: string }> = [
-  { key: 'widgets', label: 'Widgets', icon: '▦' },
-  { key: 'layers', label: 'Layers', icon: '☰' },
-  { key: 'assets', label: 'Assets', icon: '◫' },
-  { key: 'flow', label: 'Flow', icon: '⇄' },
+const TABS: Array<{ key: StudioState['ui']['activeLeftTab']; label: string; icon: JSX.Element }> = [
+  { key: 'widgets', label: 'Widgets', icon: <PanelsIcon className="shell-tab-icon" /> },
+  { key: 'layers', label: 'Layers', icon: <LayersIcon className="shell-tab-icon" /> },
+  { key: 'assets', label: 'Assets', icon: <AssetsIcon className="shell-tab-icon" /> },
+  { key: 'flow', label: 'Flow', icon: <FlowIcon className="shell-tab-icon" /> },
 ];
 
 export function LeftTabBar({ activeTab, onSelectTab, onOpenMore }: { activeTab: StudioState['ui']['activeLeftTab']; onSelectTab: (tab: StudioState['ui']['activeLeftTab']) => void; onOpenMore: () => void }): JSX.Element {
@@ -20,11 +21,15 @@ export function LeftTabBar({ activeTab, onSelectTab, onOpenMore }: { activeTab: 
             aria-label={tab.label}
             onClick={() => onSelectTab(tab.key)}
           >
-            <span>{tab.icon}</span>
+            <span className="shell-tab-icon-wrap">{tab.icon}</span>
           </button>
         ))}
       </div>
-      <button type="button" className="left-tab-button left-tab-button--gear" title="More" aria-label="More" onClick={onOpenMore}>⚙</button>
+      <button type="button" className="left-tab-button left-tab-button--gear" title="More" aria-label="More" onClick={onOpenMore}>
+        <span className="shell-tab-icon-wrap">
+          <SettingsIcon className="shell-tab-icon" />
+        </span>
+      </button>
     </div>
   );
 }
