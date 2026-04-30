@@ -35,7 +35,7 @@ create table if not exists workspaces (
 create table if not exists workspace_members (
   workspace_id text not null references workspaces(id) on delete cascade,
   user_id text not null references users(id) on delete cascade,
-  role text not null check (role in ('owner', 'editor', 'reviewer')),
+  role text not null check (role in ('owner', 'admin', 'member', 'viewer', 'editor', 'reviewer')),
   added_at timestamptz not null default now(),
   primary key (workspace_id, user_id)
 );
@@ -45,7 +45,7 @@ create table if not exists workspace_invites (
   id text primary key,
   workspace_id text not null references workspaces(id) on delete cascade,
   email text not null,
-  role text not null check (role in ('owner', 'editor', 'reviewer')),
+  role text not null check (role in ('owner', 'admin', 'member', 'viewer', 'editor', 'reviewer')),
   status text not null check (status in ('pending', 'accepted', 'revoked')),
   invited_by_user_id text references users(id),
   invited_at timestamptz not null default now(),

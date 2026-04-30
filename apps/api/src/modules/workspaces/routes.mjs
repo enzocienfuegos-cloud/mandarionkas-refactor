@@ -3,9 +3,14 @@ import { requireAuthenticatedSession } from '../auth/service.mjs';
 import {
   createBrandForWorkspace,
   createWorkspaceForUser,
+  getWorkspaceById,
   inviteMemberToWorkspace,
+  listWorkspaceTeamMembers,
   listWorkspacesForUser,
+  removeWorkspaceMember,
   setSessionActiveWorkspace,
+  updateWorkspaceMemberRole,
+  updateWorkspaceProfile,
 } from './service.mjs';
 import { listRecentAuditEvents, recordAuditEvent } from '../../../../../packages/db/src/audit.mjs';
 
@@ -63,6 +68,21 @@ function workspacesPayload(session, workspaces, activeWorkspaceId) {
   };
 }
 
+function getActiveWorkspaceId(session) {
+  return session.session.activeWorkspaceId || session.workspaces[0]?.id || null;
+}
+
+function serializeWorkspaceForSettings(workspace) {
+  if (!workspace) return null;
+  return {
+    id: workspace.id,
+    name: workspace.name,
+    plan: 'free',
+    createdAt: workspace.created_at?.toISOString?.() || workspace.createdAt || null,
+    updatedAt: workspace.updated_at?.toISOString?.() || workspace.updatedAt || null,
+  };
+}
+
 export async function handleWorkspaceRoutes(ctx) {
   const { method, pathname, body, res, requestId } = ctx;
 
@@ -111,6 +131,149 @@ export async function handleWorkspaceRoutes(ctx) {
         }, responseHeaders);
       } catch (error) {
         await session.client.query('rollback');
+        return badRequest(res, requestId, error.message);
+      }
+    });
+  }
+
+  if (method === 'GET' && pathname === '/v1/workspace') {
+    return withSession(ctx, async (session) => {
+      const workspaceId = getActiveWorkspaceId(session);
+      if (!workspaceId) {
+        return badRequest(res, requestId, 'No active workspace available.');
+      }
+      const workspace = await getWorkspaceById(session.client, workspaceId);
+      return sendJson(res, 200, { ok: true, requestId, workspace: serializeWorkspaceForSettings(workspace) });
+    });
+  }
+
+  if (method === 'PUT' && pathname === '/v1/workspace') {
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'clients:update')) {
+        return forbidden(res, requestId, 'You do not have permission to update workspace settings.');
+      }
+      const workspaceId = getActiveWorkspaceId(session);
+      if (!workspaceId) {
+        return badRequest(res, requestId, 'No active workspace available.');
+      }
+      try {
+        const workspace = await updateWorkspaceProfile(session.client, {
+          workspaceId,
+          name: body?.name,
+        });
+        await recordAuditEvent(session.client, {
+          workspaceId,
+          actorUserId: session.user.id,
+          action: 'workspace.updated',
+          targetType: 'workspace',
+          targetId: workspaceId,
+          payload: { name: workspace?.name || body?.name || null },
+        });
+        return sendJson(res, 200, { ok: true, requestId, workspace: serializeWorkspaceForSettings(workspace) });
+      } catch (error) {
+        return badRequest(res, requestId, error.message);
+      }
+    });
+  }
+
+  if (method === 'GET' && pathname === '/v1/team') {
+    return withSession(ctx, async (session) => {
+      const workspaceId = getActiveWorkspaceId(session);
+      if (!workspaceId) {
+        return badRequest(res, requestId, 'No active workspace available.');
+      }
+      const members = await listWorkspaceTeamMembers(session.client, workspaceId);
+      return sendJson(res, 200, { ok: true, requestId, members });
+    });
+  }
+
+  if (method === 'POST' && pathname === '/v1/team/invite') {
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'clients:invite')) {
+        return forbidden(res, requestId, 'You do not have permission to invite members.');
+      }
+      const workspaceId = getActiveWorkspaceId(session);
+      if (!workspaceId) {
+        return badRequest(res, requestId, 'No active workspace available.');
+      }
+      try {
+        await session.client.query('begin');
+        const inviteResult = await inviteMemberToWorkspace(session.client, {
+          workspaceId,
+          email: body?.email,
+          role: body?.role,
+          invitedByUserId: session.user.id,
+        });
+        await recordAuditEvent(session.client, {
+          workspaceId,
+          actorUserId: session.user.id,
+          action: 'workspace.invite.created',
+          targetType: 'workspace_invite',
+          targetId: inviteResult.invite?.id || null,
+          payload: { email: body?.email || null, role: body?.role || 'member' },
+        });
+        await session.client.query('commit');
+        return sendJson(res, 200, { ok: true, requestId, message: inviteResult.message, invite: inviteResult.invite || null });
+      } catch (error) {
+        await session.client.query('rollback');
+        return badRequest(res, requestId, error.message);
+      }
+    });
+  }
+
+  if (method === 'PUT' && /\/v1\/team\/[^/]+\/role$/.test(pathname)) {
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'clients:manage-members')) {
+        return forbidden(res, requestId, 'You do not have permission to manage members.');
+      }
+      const workspaceId = getActiveWorkspaceId(session);
+      if (!workspaceId) {
+        return badRequest(res, requestId, 'No active workspace available.');
+      }
+      const userId = pathname.split('/')[3];
+      try {
+        const member = await updateWorkspaceMemberRole(session.client, {
+          workspaceId,
+          userId,
+          role: body?.role,
+        });
+        await recordAuditEvent(session.client, {
+          workspaceId,
+          actorUserId: session.user.id,
+          action: 'workspace.member.role_updated',
+          targetType: 'workspace_member',
+          targetId: userId,
+          payload: { role: member?.role || body?.role || null },
+        });
+        return sendJson(res, 200, { ok: true, requestId, member });
+      } catch (error) {
+        return badRequest(res, requestId, error.message);
+      }
+    });
+  }
+
+  if (method === 'DELETE' && /\/v1\/team\/[^/]+$/.test(pathname)) {
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'clients:manage-members')) {
+        return forbidden(res, requestId, 'You do not have permission to remove members.');
+      }
+      const workspaceId = getActiveWorkspaceId(session);
+      if (!workspaceId) {
+        return badRequest(res, requestId, 'No active workspace available.');
+      }
+      const userId = pathname.split('/')[3];
+      try {
+        await removeWorkspaceMember(session.client, { workspaceId, userId });
+        await recordAuditEvent(session.client, {
+          workspaceId,
+          actorUserId: session.user.id,
+          action: 'workspace.member.removed',
+          targetType: 'workspace_member',
+          targetId: userId,
+          payload: null,
+        });
+        return sendJson(res, 200, { ok: true, requestId });
+      } catch (error) {
         return badRequest(res, requestId, error.message);
       }
     });

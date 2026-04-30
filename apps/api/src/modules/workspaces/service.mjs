@@ -1,5 +1,16 @@
 import { randomUUID } from 'node:crypto';
 
+const WORKSPACE_ROLE_ALIASES = {
+  editor: 'member',
+  reviewer: 'viewer',
+};
+
+function normalizeWorkspaceRole(role, fallback = 'member') {
+  const value = String(role || '').trim().toLowerCase();
+  const aliased = WORKSPACE_ROLE_ALIASES[value] || value;
+  return ['owner', 'admin', 'member', 'viewer'].includes(aliased) ? aliased : fallback;
+}
+
 function createSlug(value) {
   return String(value || '')
     .trim()
@@ -204,7 +215,8 @@ export async function inviteMemberToWorkspace(client, { workspaceId, email, role
   if (!normalizedEmail) {
     throw new Error('Invite email is required.');
   }
-  if (!['owner', 'editor', 'reviewer'].includes(role)) {
+  const normalizedRole = normalizeWorkspaceRole(role);
+  if (!['owner', 'admin', 'member', 'viewer'].includes(normalizedRole)) {
     throw new Error('Invite role is invalid.');
   }
 
@@ -235,7 +247,7 @@ export async function inviteMemberToWorkspace(client, { workspaceId, email, role
         values ($1, $2, $3)
         on conflict (workspace_id, user_id) do update set role = excluded.role
       `,
-      [workspaceId, existingUser.rows[0].id, role],
+      [workspaceId, existingUser.rows[0].id, normalizedRole],
     );
 
     if (existingInvite.rows[0]) {
@@ -254,7 +266,7 @@ export async function inviteMemberToWorkspace(client, { workspaceId, email, role
           insert into workspace_invites (id, workspace_id, email, role, status, invited_by_user_id, accepted_at)
           values ($1, $2, $3, $4, 'accepted', $5, now())
         `,
-        [randomUUID(), workspaceId, normalizedEmail, role, invitedByUserId],
+        [randomUUID(), workspaceId, normalizedEmail, normalizedRole, invitedByUserId],
       );
     }
 
@@ -271,10 +283,10 @@ export async function inviteMemberToWorkspace(client, { workspaceId, email, role
       insert into workspace_invites (id, workspace_id, email, role, status, invited_by_user_id)
       values ($1, $2, $3, $4, 'pending', $5)
     `,
-    [inviteId, workspaceId, normalizedEmail, role, invitedByUserId],
+    [inviteId, workspaceId, normalizedEmail, normalizedRole, invitedByUserId],
   );
 
-  return { message: `Invite sent to ${normalizedEmail}.`, invite: { id: inviteId, email: normalizedEmail, role, status: 'pending' } };
+  return { message: `Invite sent to ${normalizedEmail}.`, invite: { id: inviteId, email: normalizedEmail, role: normalizedRole, status: 'pending' } };
 }
 
 export async function setSessionActiveWorkspace(client, { sessionId, workspaceId, userId }) {
@@ -283,4 +295,128 @@ export async function setSessionActiveWorkspace(client, { sessionId, workspaceId
     throw new Error('Workspace not found for this user.');
   }
   await client.query('update sessions set active_workspace_id = $1, last_seen_at = now() where id = $2', [workspaceId, sessionId]);
+}
+
+export async function getWorkspaceById(client, workspaceId) {
+  const result = await client.query(
+    `
+      select id, slug, name, brand_color, owner_user_id, created_at, updated_at
+      from workspaces
+      where id = $1
+        and archived_at is null
+      limit 1
+    `,
+    [workspaceId],
+  );
+  return result.rows[0] || null;
+}
+
+export async function updateWorkspaceProfile(client, { workspaceId, name }) {
+  const trimmedName = String(name || '').trim();
+  if (!trimmedName) {
+    throw new Error('Workspace name is required.');
+  }
+
+  const result = await client.query(
+    `
+      update workspaces
+      set name = $2,
+          updated_at = now()
+      where id = $1
+      returning id, slug, name, brand_color, owner_user_id, created_at, updated_at
+    `,
+    [workspaceId, trimmedName],
+  );
+  return result.rows[0] || null;
+}
+
+export async function listWorkspaceTeamMembers(client, workspaceId) {
+  const result = await client.query(
+    `
+      select wm.workspace_id,
+             wm.user_id,
+             wm.role,
+             wm.added_at,
+             u.email,
+             u.display_name
+      from workspace_members wm
+      join users u on u.id = wm.user_id
+      where wm.workspace_id = $1
+      order by wm.added_at asc, u.email asc
+    `,
+    [workspaceId],
+  );
+
+  return result.rows.map((row) => ({
+    id: row.user_id,
+    memberId: `${row.workspace_id}:${row.user_id}`,
+    userId: row.user_id,
+    email: row.email,
+    displayName: row.display_name,
+    role: normalizeWorkspaceRole(row.role, row.user_id ? 'member' : 'viewer'),
+    joinedAt: row.added_at?.toISOString?.() || null,
+  }));
+}
+
+export async function updateWorkspaceMemberRole(client, { workspaceId, userId, role }) {
+  const normalizedRole = normalizeWorkspaceRole(role);
+  if (normalizedRole === 'owner') {
+    throw new Error('Owner role cannot be assigned through this endpoint.');
+  }
+
+  const existing = await client.query(
+    `
+      select role
+      from workspace_members
+      where workspace_id = $1 and user_id = $2
+      limit 1
+    `,
+    [workspaceId, userId],
+  );
+
+  if (!existing.rows[0]) {
+    throw new Error('Workspace member not found.');
+  }
+  if (normalizeWorkspaceRole(existing.rows[0].role) === 'owner') {
+    throw new Error('Workspace owner cannot be modified.');
+  }
+
+  const result = await client.query(
+    `
+      update workspace_members
+      set role = $3
+      where workspace_id = $1 and user_id = $2
+      returning workspace_id, user_id, role, added_at
+    `,
+    [workspaceId, userId, normalizedRole],
+  );
+  return result.rows[0] || null;
+}
+
+export async function removeWorkspaceMember(client, { workspaceId, userId }) {
+  const existing = await client.query(
+    `
+      select role
+      from workspace_members
+      where workspace_id = $1 and user_id = $2
+      limit 1
+    `,
+    [workspaceId, userId],
+  );
+
+  if (!existing.rows[0]) {
+    throw new Error('Workspace member not found.');
+  }
+  if (normalizeWorkspaceRole(existing.rows[0].role) === 'owner') {
+    throw new Error('Workspace owner cannot be removed.');
+  }
+
+  await client.query(
+    `
+      delete from workspace_members
+      where workspace_id = $1 and user_id = $2
+    `,
+    [workspaceId, userId],
+  );
+  return true;
 }
