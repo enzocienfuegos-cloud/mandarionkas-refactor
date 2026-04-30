@@ -1,9 +1,0 @@
-export const brandingDefaults = {
-  defaultBrandName: 'Primary Brand',
-  untitledBrandName: 'Untitled Brand',
-  brandColor: '#8b5cf6',
-  secondaryColor: '#0f172a',
-  accentColor: '#8b5cf6',
-  fontFamily: 'Inter, system-ui, sans-serif',
-} as const;
-

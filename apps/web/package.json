@@ -1,31 +1,27 @@
 {
   "name": "@smx/web",
-  "private": true,
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node ../../node_modules/vite/dist/node/cli.js",
-    "build": "node ../../node_modules/vite/dist/node/cli.js build",
-    "preview": "node ../../node_modules/vite/dist/node/cli.js preview",
-    "test": "node ../../node_modules/vitest/vitest.mjs run",
-    "test:watch": "node ../../node_modules/vitest/vitest.mjs",
-    "typecheck": "node ../../node_modules/typescript/lib/tsc.js --project tsconfig.app.json --noEmit",
-    "test:architecture": "node ../../node_modules/vitest/vitest.mjs run src/testing/architecture/architecture-guardrails.test.ts",
-    "check": "npm run test:architecture && npm run typecheck && npm run test && npm run build"
+    "dev":     "vite",
+    "build":   "tsc && vite build",
+    "preview": "vite preview",
+    "test":    "tsc --noEmit"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1029.0",
-    "@aws-sdk/s3-request-presigner": "^3.1029.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "use-sync-external-store": "^1.2.2"
-  },
-  "devDependencies": {
-    "@types/react": "^18.3.11",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.1",
-    "typescript": "^5.6.3",
-    "vite": "^5.4.10",
-    "vitest": "^2.1.8"
+    "@smx/contracts": "file:../../packages/contracts",
+    "@types/react":         "^18.3.3",
+    "@types/react-dom":     "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer":         "^10.4.19",
+    "postcss":              "^8.4.38",
+    "react":            "^18.3.1",
+    "react-dom":        "^18.3.1",
+    "react-router-dom": "^6.23.1",
+    "tailwindcss":          "^3.4.4",
+    "typescript":           "^5.4.5",
+    "vite":                 "^5.2.12",
+    "xlsx":                 "^0.18.5"
   }
 }

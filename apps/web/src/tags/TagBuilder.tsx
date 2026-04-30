@@ -1,0 +1,1770 @@
+import React, { useEffect, useState, FormEvent, useMemo } from 'react';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import {
+  applyDspMacrosToDeliveryUrl,
+  buildBasisNativeSnippet,
+  buildVastWrapperSnippet,
+  DSP_DELIVERY_KINDS,
+  getDspMacroConfig,
+  readCampaignDsp,
+  shouldUseBasisNativeDelivery,
+  shouldUseDspVideoDelivery,
+} from '@smx/contracts/dsp-macros';
+import {
+  assignCreativeVersionToTag,
+  loadCreativesWithLatestVersion,
+  loadTagBindings,
+  updateTagBinding,
+  type Creative,
+  type CreativeVersion,
+  type TagBinding,
+} from '../creatives/catalog';
+
+interface Campaign {
+  id: string;
+  name: string;
+  workspaceId?: string | null;
+  workspace_id?: string | null;
+  metadata?: { dsp?: string | null; mediaType?: string | null } | null;
+}
+
+type TagFormat = 'VAST' | 'display' | 'native' | 'tracker';
+type TagStatus = 'draft' | 'active' | 'paused' | 'archived';
+type TrackerType = 'click' | 'impression';
+
+interface TagForm {
+  name: string;
+  campaignId: string;
+  format: TagFormat;
+  status: TagStatus;
+  clickUrl: string;
+  servingWidth: string;
+  servingHeight: string;
+  trackerType: TrackerType;
+}
+
+interface SavedTag {
+  id: string;
+  format: TagFormat;
+  name: string;
+  workspaceId?: string | null;
+  width?: number | null;
+  height?: number | null;
+  sizeLabel?: string;
+  trackerType?: TrackerType | null;
+}
+
+interface CreativeAssignmentOption {
+  creative: Creative;
+  latestVersion: CreativeVersion;
+}
+
+type TagBindingStatus = TagBinding['status'];
+
+interface DeliveryDiagnosticEntry {
+  policy?: {
+    includeDspHint?: boolean;
+    includeClickMacro?: boolean;
+    measurementPath?: string;
+  } | null;
+  selectedProfile?: string | null;
+  url?: string;
+  jsUrl?: string;
+  htmlUrl?: string;
+  staticProfiles?: {
+    default?: string;
+    basis?: string;
+    illumin?: string;
+  } | null;
+  liveProfiles?: {
+    default?: string;
+    basis?: string;
+    illumin?: string;
+    vast4?: string;
+  } | null;
+  staticProfileStatus?: Record<string, {
+    publicUrl?: string | null;
+    storageKey?: string | null;
+    available?: boolean;
+    lastPublishedAt?: string | null;
+    contentLength?: number | null;
+    contentType?: string | null;
+    etag?: string | null;
+  }> | null;
+  staticManifest?: {
+    publicUrl?: string | null;
+    generatedAt?: string | null;
+    trigger?: string | null;
+    previousGeneratedAt?: string | null;
+    previousTrigger?: string | null;
+    profileCount?: number | null;
+    history?: Array<{
+      generatedAt?: string | null;
+      trigger?: string | null;
+      profileCount?: number | null;
+      profiles?: Array<{
+        profile?: string | null;
+        dsp?: string | null;
+        xmlVersion?: string | null;
+      }> | null;
+    }> | null;
+  } | null;
+  staticJob?: {
+    id?: string | null;
+    status?: string | null;
+    priority?: number | null;
+    attempts?: number | null;
+    maxAttempts?: number | null;
+    trigger?: string | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+    runAt?: string | null;
+    startedAt?: string | null;
+    completedAt?: string | null;
+    failedAt?: string | null;
+    error?: string | null;
+  } | null;
+}
+
+interface DeliveryDiagnosticsPayload {
+  dsp?: {
+    selected?: string | null;
+  } | null;
+  deliverySummary?: {
+    basisNativeActive?: boolean;
+    deliveryMode?: string | null;
+    clickChain?: string | null;
+    previewStatus?: string | null;
+    previewNotes?: string | null;
+  } | null;
+  deliveryDiagnostics?: {
+    displayWrapper?: DeliveryDiagnosticEntry;
+    vast?: DeliveryDiagnosticEntry;
+    trackerClick?: DeliveryDiagnosticEntry;
+    trackerImpression?: DeliveryDiagnosticEntry;
+  } | null;
+}
+
+interface DeliveryDiagnosticSection {
+  label: string;
+  entry?: DeliveryDiagnosticEntry;
+}
+
+type SnippetVariant =
+  | 'vast-url-basis-dynamic'
+  | 'vast-url-basis-macro'
+  | 'vast-url-illumin-dynamic'
+  | 'vast-url-illumin-macro'
+  | 'vast-url-vast4-dynamic'
+  | 'vast-xml'
+  | 'display-js'
+  | 'display-iframe'
+  | 'display-ins'
+  | 'native-js'
+  | 'tracker-click'
+  | 'tracker-impression';
+
+const DISPLAY_SIZE_PRESETS = [
+  { label: '300x250', width: 300, height: 250 },
+  { label: '320x50', width: 320, height: 50 },
+  { label: '320x100', width: 320, height: 100 },
+  { label: '336x280', width: 336, height: 280 },
+  { label: '728x90', width: 728, height: 90 },
+  { label: '970x250', width: 970, height: 250 },
+  { label: '160x600', width: 160, height: 600 },
+  { label: '300x600', width: 300, height: 600 },
+];
+
+const emptyForm: TagForm = {
+  name: '',
+  campaignId: '',
+  format: 'VAST',
+  status: 'draft',
+  clickUrl: '',
+  servingWidth: '',
+  servingHeight: '',
+  trackerType: 'click',
+};
+
+const STATUSES: TagStatus[] = ['draft', 'active', 'paused', 'archived'];
+
+function resolveTagServingBaseUrl() {
+  const candidates = [
+    import.meta.env.VITE_TAGS_BASE_URL,
+    import.meta.env.VITE_API_BASE_URL,
+    typeof window !== 'undefined' ? window.location.origin : '',
+  ];
+
+  return (candidates.find((candidate) => candidate?.trim()) ?? '').replace(/\/+$/, '');
+}
+
+function getDefaultVastSnippetVariant(campaignDsp = ''): SnippetVariant {
+  const normalized = readCampaignDsp({ dsp: campaignDsp });
+  if (normalized === 'basis') return 'vast-url-basis-macro';
+  if (normalized === 'illumin') return 'vast-url-illumin-dynamic';
+  return 'vast-url-vast4-dynamic';
+}
+
+function getDefaultSnippetVariant(
+  format: TagFormat,
+  trackerType: TrackerType | null = null,
+  campaignDsp = '',
+): SnippetVariant {
+  if (format === 'VAST') return getDefaultVastSnippetVariant(campaignDsp);
+  if (format === 'display') return 'display-js';
+  if (format === 'tracker') return trackerType === 'impression' ? 'tracker-impression' : 'tracker-click';
+  return 'native-js';
+}
+
+function getSnippetOptions(
+  format: TagFormat,
+  trackerType: TrackerType | null = null,
+  campaignDsp = '',
+): Array<{ value: SnippetVariant; label: string }> {
+  if (format === 'VAST') {
+    const optionMap: Record<string, { value: SnippetVariant; label: string }> = {
+      basisMacro: { value: 'vast-url-basis-macro', label: 'Basis Macro URL' },
+      basis: { value: 'vast-url-basis-dynamic', label: 'Basis Live XML' },
+      illuminMacro: { value: 'vast-url-illumin-macro', label: 'Illumin Macro URL (Trafficking)' },
+      illumin: { value: 'vast-url-illumin-dynamic', label: 'Illumin Live XML' },
+      vast4: { value: 'vast-url-vast4-dynamic', label: 'VAST 4.x Live XML' },
+    };
+    const prioritizedKeys = [
+      readCampaignDsp({ dsp: campaignDsp }) === 'basis'
+        ? 'basisMacro'
+        : readCampaignDsp({ dsp: campaignDsp }) === 'illumin'
+          ? 'illumin'
+          : 'vast4',
+      'basisMacro',
+      'basis',
+      'illumin',
+      'illuminMacro',
+      'vast4',
+    ];
+
+    return [
+      ...Array.from(new Set(prioritizedKeys)).map((key) => optionMap[key]).filter(Boolean),
+      { value: 'vast-xml', label: 'XML Wrapper' },
+    ];
+  }
+  if (format === 'display') {
+    return [
+      { value: 'display-js', label: 'JS Tag' },
+      { value: 'display-iframe', label: 'Iframe Tag' },
+      { value: 'display-ins', label: 'Ins Tag' },
+    ];
+  }
+  if (format === 'tracker') {
+    return trackerType === 'impression'
+      ? [{ value: 'tracker-impression', label: 'Impression Pixel URL' }]
+      : [{ value: 'tracker-click', label: 'Click Tracker URL' }];
+  }
+  return [{ value: 'native-js', label: 'JS Tag' }];
+}
+
+function normalizeTagRecord(payload: unknown): SavedTag | null {
+  const source = (payload as { tag?: Record<string, unknown> } | null)?.tag
+    ?? (payload as Record<string, unknown> | null);
+  if (!source || typeof source !== 'object') return null;
+
+  const format = source.format === 'display' || source.format === 'native' || source.format === 'VAST' || source.format === 'tracker'
+    ? source.format
+    : 'display';
+  const creatives = Array.isArray(source.creatives) ? source.creatives : [];
+  const firstCreative = creatives[0] as Record<string, unknown> | undefined;
+
+  return {
+    id: String(source.id ?? ''),
+    format,
+    name: String(source.name ?? ''),
+    workspaceId: source.workspaceId != null ? String(source.workspaceId) : null,
+    width: Number(source.servingWidth ?? firstCreative?.width ?? 0) || null,
+    height: Number(source.servingHeight ?? firstCreative?.height ?? 0) || null,
+    sizeLabel: String(source.sizeLabel ?? ''),
+    trackerType: (source.trackerType === 'click' || source.trackerType === 'impression') ? source.trackerType : null,
+  };
+}
+
+function getSelectedLiveVastUrl(campaignDsp = '', diagnostics?: DeliveryDiagnosticsPayload | null) {
+  const normalized = readCampaignDsp({ dsp: campaignDsp });
+  if (normalized === 'basis' || normalized === 'illumin') {
+    return diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.[normalized] ?? '';
+  }
+  return diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.default
+    ?? diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.vast4
+    ?? '';
+}
+
+function buildTagSnippet(
+  tag: SavedTag,
+  variant: SnippetVariant,
+  campaignDsp = '',
+  diagnostics?: DeliveryDiagnosticsPayload | null,
+): string {
+  const servingBaseUrl = resolveTagServingBaseUrl();
+  const useBasisNative = shouldUseBasisNativeDelivery(campaignDsp);
+  const displayJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+  const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+  const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+  const campaignVastUrl = getSelectedLiveVastUrl(campaignDsp, diagnostics)
+    || `${servingBaseUrl}/v1/vast/tags/${tag.id}/default.xml`;
+  const basisDynamicVastUrl = diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.basis
+    || `${servingBaseUrl}/v1/vast/tags/${tag.id}/basis.xml`;
+  const illuminDynamicVastUrl = diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.illumin
+    || `${servingBaseUrl}/v1/vast/tags/${tag.id}/illumin.xml`;
+  const vast4DynamicUrl = diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.vast4
+    || `${servingBaseUrl}/v1/vast/tags/${tag.id}/vast4.xml`;
+  const basisMacroVastUrl = applyDspMacrosToDeliveryUrl(basisDynamicVastUrl, 'basis', DSP_DELIVERY_KINDS.VIDEO);
+  const illuminMacroVastUrl = applyDspMacrosToDeliveryUrl(illuminDynamicVastUrl, 'illumin', DSP_DELIVERY_KINDS.VIDEO);
+  const vastUrl = campaignVastUrl;
+  const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
+  const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+  const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
+  const width = tag.width ?? 300;
+  const height = tag.height ?? 250;
+  const basisNativeArgs = {
+    variant,
+    tagId: tag.id,
+    displayHtmlUrl,
+    nativeJsUrl,
+    vastUrl,
+    trackerClickUrl,
+    trackerEngagementUrl,
+    trackerImpressionUrl,
+    width,
+    height,
+  };
+
+  switch (variant) {
+    case 'vast-url-basis-dynamic':
+      return basisDynamicVastUrl;
+    case 'vast-url-basis-macro':
+      return basisMacroVastUrl;
+    case 'vast-url-illumin-dynamic':
+      return illuminDynamicVastUrl;
+    case 'vast-url-illumin-macro':
+      return illuminMacroVastUrl;
+    case 'vast-url-vast4-dynamic':
+      return vast4DynamicUrl;
+    case 'vast-xml':
+      return buildVastWrapperSnippet(tag.id, vastUrl);
+    case 'display-iframe':
+      if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
+      return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
+    case 'display-ins':
+      if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
+      return `<ins id="smx-ad-slot-${tag.id}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    var iframe = document.createElement('iframe');\n    iframe.src = ${JSON.stringify(displayHtmlUrl)};\n    iframe.width = ${JSON.stringify(String(width))};\n    iframe.height = ${JSON.stringify(String(height))};\n    iframe.scrolling = 'no';\n    iframe.frameBorder = '0';\n    iframe.style.border = '0';\n    iframe.style.overflow = 'hidden';\n    slot.replaceWith(iframe);\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tag.id}`)}));\n</script>`;
+    case 'native-js':
+      return `<script>\n  window.SMX = window.SMX || {};\n  window.SMX.native = window.SMX.native || [];\n  window.SMX.native.push({ tagId: "${tag.id}", format: "native" });\n</script>\n<script src="${nativeJsUrl}" async></script>`;
+    case 'tracker-impression':
+      return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : trackerImpressionUrl;
+    case 'tracker-click':
+      return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : trackerClickUrl;
+    case 'display-js':
+    default:
+      if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
+      return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
+  }
+}
+
+function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp = ''): string {
+  const selectedConfig = getDspMacroConfig(campaignDsp);
+  const dspNote = selectedConfig
+    ? ` ${selectedConfig.label} macros are auto-injected for delivery context and click passthrough.`
+    : '';
+  if (tag.format === 'VAST') {
+    if (variant === 'vast-url-basis-macro') {
+      return 'Use this Basis-compatible live URL when the DSP expects visible Basis macros on the tag itself. It still resolves through the stable live Basis XML profile.';
+    }
+    if (variant === 'vast-url-basis-dynamic') {
+      return 'Use this stable API endpoint when you want the live Basis-compatible XML to reflect ad-server changes without republishing.';
+    }
+    if (variant === 'vast-url-illumin-macro') {
+      return 'Use this Illumin-compatible live URL only when trafficking into Illumin requires visible click macros on the tag itself. Illumin preview tools can leave those placeholders unresolved, so prefer Illumin Live XML for validation and QA.';
+    }
+    if (variant === 'vast-url-illumin-dynamic') {
+      return 'Use this stable API endpoint when you want the live Illumin-compatible XML to reflect ad-server changes without republishing.';
+    }
+    if (variant === 'vast-url-vast4-dynamic') {
+      return 'Use this stable API endpoint when you want the live VAST 4.x / OMID-capable XML without relying on a published artifact.';
+    }
+    return 'Use this XML wrapper only if your integration explicitly requires inline VAST XML. It wraps the currently selected live VAST URL option.';
+  }
+  if (tag.format === 'display') {
+    if (variant === 'display-iframe') {
+      return `Use the iframe tag for sandboxed display placements or when a publisher requests iframe delivery.${dspNote}`;
+    }
+    if (variant === 'display-ins') {
+      return `Use the ins tag when the publisher expects a slot placeholder plus inline bootstrap code.${dspNote}`;
+    }
+    return `Use the JavaScript tag for standard display placements. This is not a VAST tag.${dspNote}`;
+  }
+  if (tag.format === 'tracker') {
+    return variant === 'tracker-impression'
+      ? `Use this 1x1 GIF URL as a pure impression tracker in external platforms.${dspNote}`
+      : `Use this click tracker URL in Meta or other platforms when you only need click measurement.${dspNote}`;
+  }
+  return `Use the JavaScript tag to initialize the native placement loader.${dspNote}`;
+}
+
+function getDisplaySizePreset(width?: string, height?: string): string {
+  const normalized = `${Number(width) || 0}x${Number(height) || 0}`;
+  return DISPLAY_SIZE_PRESETS.some((preset) => preset.label === normalized) ? normalized : '';
+}
+
+function isBasisNativeEnabled(tag: SavedTag | null, campaignDsp = ''): boolean {
+  if (!tag) return false;
+  if (!shouldUseBasisNativeDelivery(campaignDsp)) return false;
+  return tag.format === 'display' || tag.format === 'tracker';
+}
+
+function getMeasurementPathTone(measurementPath?: string | null): string {
+  const path = String(measurementPath ?? '').toLowerCase();
+  if (!path) return 'bg-slate-100 text-slate-700 border-slate-200';
+  if (path.includes('fallback')) return 'bg-amber-50 text-amber-700 border-amber-200';
+  if (path.includes('basis')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  return 'bg-slate-100 text-slate-700 border-slate-200';
+}
+
+function formatArtifactTimestamp(value?: string | null): string {
+  if (!value) return 'n/a';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'n/a';
+  return parsed.toLocaleString();
+}
+
+function formatArtifactBytes(value?: number | null): string {
+  const size = Number(value ?? 0);
+  if (!Number.isFinite(size) || size <= 0) return 'n/a';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function formatTriggerLabel(value?: string | null): string {
+  if (!value) return 'n/a';
+  return String(value)
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function getJobStatusTone(value?: string | null): string {
+  switch (String(value ?? '').toLowerCase()) {
+    case 'running':
+      return 'border-sky-300 bg-sky-100 text-sky-800';
+    case 'pending':
+      return 'border-amber-300 bg-amber-100 text-amber-800';
+    case 'completed':
+      return 'border-emerald-300 bg-emerald-100 text-emerald-800';
+    case 'failed':
+      return 'border-rose-300 bg-rose-100 text-rose-800';
+    default:
+      return 'border-slate-300 bg-slate-100 text-slate-800';
+  }
+}
+
+export default function TagBuilder() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const isEdit = Boolean(id && id !== 'new');
+
+  const [form, setForm] = useState<TagForm>(emptyForm);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [errors, setErrors] = useState<Partial<Record<keyof TagForm, string>>>({});
+  const [generalError, setGeneralError] = useState('');
+  const [loading, setLoading] = useState(isEdit);
+  const [saving, setSaving] = useState(false);
+  const [savedTag, setSavedTag] = useState<SavedTag | null>(null);
+  const [snippetVariant, setSnippetVariant] = useState<SnippetVariant>(getDefaultSnippetVariant(emptyForm.format, emptyForm.trackerType, ''));
+  const [copied, setCopied] = useState(false);
+  const [copiedStaticProfile, setCopiedStaticProfile] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [bindings, setBindings] = useState<TagBinding[]>([]);
+  const [bindingsLoading, setBindingsLoading] = useState(false);
+  const [bindingDrafts, setBindingDrafts] = useState<Record<string, { weight: string; status: TagBindingStatus }>>({});
+  const [updatingBindingId, setUpdatingBindingId] = useState<string | null>(null);
+  const [creativeOptions, setCreativeOptions] = useState<CreativeAssignmentOption[]>([]);
+  const [creativeOptionsLoading, setCreativeOptionsLoading] = useState(false);
+  const [assignmentVersionId, setAssignmentVersionId] = useState('');
+  const [assignmentBusy, setAssignmentBusy] = useState(false);
+  const [assignmentError, setAssignmentError] = useState('');
+  const [deliveryDiagnostics, setDeliveryDiagnostics] = useState<DeliveryDiagnosticsPayload | null>(null);
+  const [deliveryDiagnosticsLoading, setDeliveryDiagnosticsLoading] = useState(false);
+  const [republishingStaticDelivery, setRepublishingStaticDelivery] = useState(false);
+  const [queueingStaticDelivery, setQueueingStaticDelivery] = useState(false);
+  const selectedCampaign = campaigns.find((campaign) => campaign.id === form.campaignId) ?? null;
+  const selectedCampaignWorkspaceId = selectedCampaign?.workspaceId ?? selectedCampaign?.workspace_id ?? null;
+  const selectedCampaignDsp = readCampaignDsp(selectedCampaign?.metadata ?? null);
+  const selectedCampaignMediaType = String(selectedCampaign?.metadata?.mediaType ?? 'display').toLowerCase();
+  const videoCampaign = selectedCampaignMediaType === 'video';
+  const selectedCampaignMacroConfig = getDspMacroConfig(selectedCampaignDsp);
+  const deliveryDiagnosticSections: DeliveryDiagnosticSection[] = [
+    { label: 'Display Wrapper', entry: deliveryDiagnostics?.deliveryDiagnostics?.displayWrapper },
+    { label: 'VAST', entry: deliveryDiagnostics?.deliveryDiagnostics?.vast },
+    { label: 'Tracker Click', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerClick },
+    { label: 'Tracker Impression', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerImpression },
+  ];
+  const basisNativeEnabled = deliveryDiagnostics?.deliverySummary?.basisNativeActive ?? isBasisNativeEnabled(savedTag, selectedCampaignDsp);
+  const dspVideoEnabled = deliveryDiagnostics?.deliverySummary?.deliveryMode === 'dsp_video_contract'
+    || Boolean(savedTag && savedTag.format === 'VAST' && shouldUseDspVideoDelivery(selectedCampaignDsp));
+  const basisDiagnosticPath = deliveryDiagnostics?.deliveryDiagnostics?.displayWrapper?.policy?.measurementPath
+    ?? deliveryDiagnostics?.deliveryDiagnostics?.trackerClick?.policy?.measurementPath
+    ?? '';
+  const basisFallbackActive = (deliveryDiagnostics?.deliverySummary?.previewStatus ?? basisDiagnosticPath).toLowerCase().includes('fallback');
+  const staticDeliveryEntries = deliveryDiagnostics?.deliveryDiagnostics?.vast?.staticProfiles
+    ? [
+        {
+          key: 'default',
+          label: 'Default',
+          url: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfiles.default,
+          status: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfileStatus?.default,
+        },
+        {
+          key: 'basis',
+          label: 'Basis',
+          url: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfiles.basis,
+          status: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfileStatus?.basis,
+        },
+        {
+          key: 'illumin',
+          label: 'Illumin',
+          url: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfiles.illumin,
+          status: deliveryDiagnostics.deliveryDiagnostics.vast.staticProfileStatus?.illumin,
+        },
+      ].filter((entry) => entry.url)
+    : [];
+
+  useEffect(() => {
+    fetch('/v1/campaigns', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setCampaigns(d?.campaigns ?? d ?? []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!isEdit) return;
+    setLoading(true);
+    fetch(`/v1/tags/${id}`, { credentials: 'include' })
+      .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
+      .then(payload => {
+        const data = (payload?.tag ?? payload) as Record<string, unknown>;
+        setForm({
+          name: String(data.name ?? ''),
+          campaignId: String((data.campaign as { id?: string } | undefined)?.id ?? data.campaignId ?? ''),
+          format: (data.format as TagFormat | undefined) ?? 'VAST',
+          status: (data.status as TagStatus | undefined) ?? 'draft',
+          clickUrl: String(data.clickUrl ?? ''),
+          servingWidth: String(data.servingWidth ?? data.width ?? ''),
+          servingHeight: String(data.servingHeight ?? data.height ?? ''),
+          trackerType: data.trackerType === 'impression' ? 'impression' : 'click',
+        });
+        const normalized = normalizeTagRecord(payload);
+        setSavedTag(normalized);
+        setSnippetVariant(getDefaultSnippetVariant(
+          ((data.format as TagFormat | undefined) ?? 'VAST'),
+          data.trackerType === 'impression' ? 'impression' : data.trackerType === 'click' ? 'click' : null,
+          readCampaignDsp((data.campaign as { metadata?: { dsp?: string | null } } | undefined)?.metadata ?? null),
+        ));
+        setSuccessMessage('');
+      })
+      .catch(() => setGeneralError('Failed to load tag.'))
+      .finally(() => setLoading(false));
+  }, [id, isEdit]);
+
+  useEffect(() => {
+    if (!isEdit || !id) return;
+    setBindingsLoading(true);
+    setAssignmentError('');
+    void loadTagBindings(id)
+      .then(nextBindings => setBindings(nextBindings))
+      .catch(() => setAssignmentError('Failed to load assigned creatives.'))
+      .finally(() => setBindingsLoading(false));
+  }, [id, isEdit]);
+
+  useEffect(() => {
+    setBindingDrafts(
+      Object.fromEntries(
+        bindings.map(binding => [
+          binding.id,
+          { weight: String(Math.max(1, Number(binding.weight) || 1)), status: binding.status },
+        ]),
+      ),
+    );
+  }, [bindings]);
+
+  useEffect(() => {
+    if (!isEdit) return;
+    setCreativeOptionsLoading(true);
+    void loadCreativesWithLatestVersion()
+      .then(({ creatives, latestVersions }) => {
+        const nextOptions = creatives
+          .map(creative => {
+            const latestVersion = latestVersions[creative.id];
+            return latestVersion ? { creative, latestVersion } : null;
+          })
+          .filter((entry): entry is CreativeAssignmentOption => Boolean(entry))
+          .sort((left, right) => left.creative.name.localeCompare(right.creative.name));
+        setCreativeOptions(nextOptions);
+        setAssignmentVersionId(current => current || nextOptions[0]?.latestVersion.id || '');
+      })
+      .catch(() => setAssignmentError('Failed to load available creatives.'))
+      .finally(() => setCreativeOptionsLoading(false));
+  }, [isEdit]);
+
+  const filteredCreativeOptions = useMemo(() => {
+    const targetWorkspaceId = selectedCampaignWorkspaceId ?? savedTag?.workspaceId ?? null;
+    const tagWidth = Number(form.servingWidth) || savedTag?.width || 0;
+    const tagHeight = Number(form.servingHeight) || savedTag?.height || 0;
+
+    return creativeOptions.filter((option) => {
+      if (targetWorkspaceId && option.creative.workspaceId && option.creative.workspaceId !== targetWorkspaceId) {
+        return false;
+      }
+
+      if (form.format === 'VAST') {
+        return option.latestVersion.servingFormat === 'vast_video';
+      }
+      if (form.format === 'native') {
+        return option.latestVersion.servingFormat === 'native';
+      }
+      if (form.format === 'display') {
+        if (!['display_html', 'display_image'].includes(option.latestVersion.servingFormat)) {
+          return false;
+        }
+        const creativeWidth = Number(option.latestVersion.width) || 0;
+        const creativeHeight = Number(option.latestVersion.height) || 0;
+        if (tagWidth > 0 && tagHeight > 0) {
+          return creativeWidth === tagWidth && creativeHeight === tagHeight;
+        }
+        return true;
+      }
+
+      return true;
+    });
+  }, [creativeOptions, form.format, form.servingWidth, form.servingHeight, savedTag?.height, savedTag?.width, savedTag?.workspaceId, selectedCampaignWorkspaceId]);
+
+  useEffect(() => {
+    setAssignmentVersionId((current) => (
+      current && filteredCreativeOptions.some((option) => option.latestVersion.id === current)
+        ? current
+        : filteredCreativeOptions[0]?.latestVersion.id || ''
+    ));
+  }, [filteredCreativeOptions]);
+
+  useEffect(() => {
+    if (!isEdit || !id) return;
+    void refreshDeliveryDiagnostics();
+  }, [id, isEdit]);
+
+  useEffect(() => {
+    if (!savedTag) return;
+    const availableVariants = getSnippetOptions(savedTag.format, savedTag.trackerType ?? null, selectedCampaignDsp)
+      .map((option) => option.value);
+    if (availableVariants.includes(snippetVariant)) return;
+    setSnippetVariant(getDefaultSnippetVariant(savedTag.format, savedTag.trackerType ?? null, selectedCampaignDsp));
+  }, [savedTag, selectedCampaignDsp, snippetVariant]);
+
+  const set = (field: keyof TagForm) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    setForm(f => ({ ...f, [field]: e.target.value }));
+    setErrors(er => ({ ...er, [field]: undefined }));
+    if (field !== 'name') setSuccessMessage('');
+  };
+
+  const setFormat = (f: TagFormat) => {
+    if (isEdit) return;
+    setForm(prev => ({
+      ...prev,
+      format: f,
+      servingWidth: f === 'display' ? prev.servingWidth : '',
+      servingHeight: f === 'display' ? prev.servingHeight : '',
+      trackerType: f === 'tracker' ? prev.trackerType : 'click',
+    }));
+    setSnippetVariant(getDefaultSnippetVariant(f, f === 'tracker' ? form.trackerType : null, selectedCampaignDsp));
+    setErrors(er => ({ ...er, format: undefined }));
+    setSuccessMessage('');
+  };
+
+  useEffect(() => {
+    if (isEdit) return;
+    if (!videoCampaign) return;
+    if (form.format === 'VAST') return;
+    setForm(prev => ({
+      ...prev,
+      format: 'VAST',
+      servingWidth: '',
+      servingHeight: '',
+      trackerType: 'click',
+    }));
+    setSnippetVariant(getDefaultSnippetVariant('VAST', null, selectedCampaignDsp));
+    setErrors(er => ({ ...er, format: undefined }));
+  }, [videoCampaign, form.format, isEdit]);
+
+  const handleDisplaySizePresetChange = (value: string) => {
+    const preset = DISPLAY_SIZE_PRESETS.find((entry) => entry.label === value);
+    if (!preset) return;
+    setForm(prev => ({
+      ...prev,
+      servingWidth: String(preset.width),
+      servingHeight: String(preset.height),
+    }));
+    setErrors(er => ({ ...er, servingWidth: undefined, servingHeight: undefined }));
+    setSuccessMessage('');
+  };
+
+  const validate = () => {
+    const errs: Partial<Record<keyof TagForm, string>> = {};
+    if (!form.name.trim()) errs.name = 'Name is required.';
+    if (form.format === 'display') {
+      const width = Number(form.servingWidth);
+      const height = Number(form.servingHeight);
+      if (!Number.isFinite(width) || width <= 0) errs.servingWidth = 'Width is required for display tags.';
+      if (!Number.isFinite(height) || height <= 0) errs.servingHeight = 'Height is required for display tags.';
+    }
+    if (form.format === 'tracker' && form.trackerType === 'click' && !form.clickUrl.trim()) {
+      errs.clickUrl = 'Click URL is required for click trackers.';
+    }
+    return errs;
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setGeneralError('');
+    const errs = validate();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+
+    setSaving(true);
+    const body = {
+      name: form.name.trim(),
+      campaignId: form.campaignId || null,
+      format: form.format,
+      status: form.status,
+      clickUrl: form.clickUrl.trim() || null,
+      servingWidth: form.format === 'display' ? Number(form.servingWidth) || null : null,
+      servingHeight: form.format === 'display' ? Number(form.servingHeight) || null : null,
+      trackerType: form.format === 'tracker' ? form.trackerType : null,
+    };
+
+    try {
+      const url = isEdit ? `/v1/tags/${id}` : '/v1/tags';
+      const method = isEdit ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        const payload = await res.json();
+        const normalized = normalizeTagRecord(payload);
+        setSavedTag(normalized);
+        setSnippetVariant(getDefaultSnippetVariant(
+          normalized?.format ?? form.format,
+          normalized?.trackerType ?? null,
+          selectedCampaignDsp,
+        ));
+        setSuccessMessage(isEdit ? 'Tag updated successfully.' : 'Tag created successfully.');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setGeneralError(data?.message ?? 'Failed to save tag.');
+      }
+    } catch {
+      setGeneralError('Network error. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCopy = () => {
+    if (!savedTag) return;
+    navigator.clipboard.writeText(buildTagSnippet(savedTag, snippetVariant, selectedCampaignDsp, deliveryDiagnostics)).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleCopyStaticProfile = (profileKey: string, url?: string) => {
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedStaticProfile(profileKey);
+      setTimeout(() => {
+        setCopiedStaticProfile((current) => (current === profileKey ? null : current));
+      }, 2000);
+    });
+  };
+
+  const handleDownloadStaticProfile = (profileKey: string, url?: string) => {
+    if (!savedTag || !url) return;
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${savedTag.id}-${profileKey}.xml`;
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadAllStaticProfiles = () => {
+    staticDeliveryEntries.forEach((entry, index) => {
+      window.setTimeout(() => {
+        handleDownloadStaticProfile(entry.key, entry.url);
+      }, index * 150);
+    });
+  };
+
+  const refreshBindings = async () => {
+    if (!id) return;
+    const nextBindings = await loadTagBindings(id);
+    setBindings(nextBindings);
+  };
+
+  const refreshDeliveryDiagnostics = async () => {
+    if (!id) return;
+    setDeliveryDiagnosticsLoading(true);
+    try {
+      const response = await fetch(`/v1/tags/${id}/delivery-diagnostics`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to load diagnostics');
+      const payload = await response.json();
+      setDeliveryDiagnostics(payload as DeliveryDiagnosticsPayload);
+    } catch {
+      setDeliveryDiagnostics(null);
+    } finally {
+      setDeliveryDiagnosticsLoading(false);
+    }
+  };
+
+  const handleAssignCreative = async () => {
+    if (!id || !assignmentVersionId) {
+      setAssignmentError('Select a creative to assign.');
+      return;
+    }
+
+    setAssignmentBusy(true);
+    setAssignmentError('');
+
+    try {
+      await assignCreativeVersionToTag({
+        creativeVersionId: assignmentVersionId,
+        tagId: id,
+      });
+      await refreshBindings();
+      const selectedOption = filteredCreativeOptions.find(option => option.latestVersion.id === assignmentVersionId);
+      setSuccessMessage(
+        selectedOption
+          ? `Creative "${selectedOption.creative.name}" assigned successfully.`
+          : 'Creative assigned successfully.',
+      );
+    } catch (error: any) {
+      setAssignmentError(error?.message ?? 'Failed to assign creative.');
+    } finally {
+      setAssignmentBusy(false);
+    }
+  };
+
+  const handleBindingDraftChange = (
+    bindingId: string,
+    field: 'weight' | 'status',
+    value: string,
+  ) => {
+    setBindingDrafts(current => ({
+      ...current,
+      [bindingId]: {
+        weight: current[bindingId]?.weight ?? '1',
+        status: current[bindingId]?.status ?? 'active',
+        [field]: value,
+      } as { weight: string; status: TagBindingStatus },
+    }));
+    setAssignmentError('');
+    setSuccessMessage('');
+  };
+
+  const handleSaveBinding = async (binding: TagBinding) => {
+    if (!id) return;
+    const draft = bindingDrafts[binding.id] ?? {
+      weight: String(Math.max(1, Number(binding.weight) || 1)),
+      status: binding.status,
+    };
+    const parsedWeight = Math.max(1, Number.parseInt(draft.weight, 10) || 1);
+
+    setUpdatingBindingId(binding.id);
+    setAssignmentError('');
+    setSuccessMessage('');
+
+    try {
+      await updateTagBinding({
+        tagId: id,
+        bindingId: binding.id,
+        status: draft.status,
+        weight: parsedWeight,
+      });
+      await refreshBindings();
+      await refreshDeliveryDiagnostics();
+      setSuccessMessage(`Rotation updated for "${binding.creativeName}".`);
+    } catch (error: any) {
+      setAssignmentError(error?.message ?? 'Failed to update creative rotation.');
+    } finally {
+      setUpdatingBindingId(null);
+    }
+  };
+
+  const handleToggleBindingStatus = async (binding: TagBinding) => {
+    const nextStatus: TagBindingStatus = binding.status === 'active' ? 'paused' : 'active';
+    handleBindingDraftChange(binding.id, 'status', nextStatus);
+    setUpdatingBindingId(binding.id);
+    setAssignmentError('');
+    setSuccessMessage('');
+
+    try {
+      await updateTagBinding({
+        tagId: binding.tagId,
+        bindingId: binding.id,
+        status: nextStatus,
+        weight: Math.max(1, Number(bindingDrafts[binding.id]?.weight ?? binding.weight) || 1),
+      });
+      await refreshBindings();
+      await refreshDeliveryDiagnostics();
+      setSuccessMessage(
+        nextStatus === 'active'
+          ? `Creative "${binding.creativeName}" activated for rotation.`
+          : `Creative "${binding.creativeName}" paused from rotation.`,
+      );
+    } catch (error: any) {
+      setAssignmentError(error?.message ?? 'Failed to update creative status.');
+    } finally {
+      setUpdatingBindingId(null);
+    }
+  };
+
+  const handleRepublishStaticDelivery = async () => {
+    if (!id) return;
+    setRepublishingStaticDelivery(true);
+    setGeneralError('');
+    setSuccessMessage('');
+
+    try {
+      const profiles = [
+        { dsp: '', label: 'Default' },
+        { dsp: 'Basis', label: 'Basis' },
+        { dsp: 'Illumin', label: 'Illumin' },
+      ];
+      for (const profile of profiles) {
+        const response = await fetch(`/v1/vast/tags/${id}/publish-static`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ dsp: profile.dsp }),
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data?.message ?? `Failed to publish static ${profile.label} delivery.`);
+        }
+      }
+      await refreshDeliveryDiagnostics();
+      setSuccessMessage('Static VAST delivery republished successfully.');
+    } catch (error: any) {
+      setGeneralError(error?.message ?? 'Failed to republish static VAST delivery.');
+    } finally {
+      setRepublishingStaticDelivery(false);
+    }
+  };
+
+  const handleQueueStaticDelivery = async () => {
+    if (!id) return;
+    setQueueingStaticDelivery(true);
+    setGeneralError('');
+    setSuccessMessage('');
+
+    try {
+      const response = await fetch(`/v1/vast/tags/${id}/queue-static-publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.message ?? 'Failed to queue static VAST delivery publish.');
+      }
+      await refreshDeliveryDiagnostics();
+      setSuccessMessage('Static VAST delivery queued successfully.');
+    } catch (error: any) {
+      setGeneralError(error?.message ?? 'Failed to queue static VAST delivery publish.');
+    } finally {
+      setQueueingStaticDelivery(false);
+    }
+  };
+
+  const inputClass = (err?: string) =>
+    `w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+      err ? 'border-red-400 bg-red-50' : 'border-slate-300'
+    }`;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-800">{isEdit ? 'Edit Tag' : 'New Tag'}</h1>
+        {isEdit && id ? (
+          <Link
+            to={`/tags/${id}/reporting`}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            📊 Reporting
+          </Link>
+        ) : null}
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+        {generalError && (
+          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {generalError}
+          </div>
+        )}
+        {successMessage && (
+          <div className="mb-4 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700">
+            {successMessage}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+          {/* Name */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Tag Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={set('name')}
+              className={inputClass(errors.name)}
+              placeholder="Homepage Leaderboard VAST"
+            />
+            {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
+          </div>
+
+          {/* Campaign */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Campaign</label>
+            <select value={form.campaignId} onChange={set('campaignId')} className={inputClass()}>
+              <option value="">— No campaign —</option>
+              {campaigns.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {selectedCampaignMacroConfig && (
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs text-indigo-700">
+              {selectedCampaignMacroConfig.label} selected on this campaign. Generated tag URLs will auto-inject configured DSP macros like <code>{'{pageUrlEnc}'}</code>, <code>{'{domain}'}</code>, click macro passthrough, privacy strings, and identity hints where applicable.
+            </div>
+          )}
+
+          {videoCampaign && (
+            <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-700">
+              This campaign is marked as <strong>Video</strong>. Tag creation is limited to <code>VAST</code>; <code>display</code>, <code>native</code>, and <code>tracker</code> are hidden on purpose.
+            </div>
+          )}
+
+          {/* Format */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Format</label>
+            <div className="flex gap-3">
+              {(videoCampaign ? (['VAST'] as TagFormat[]) : (['VAST', 'display', 'native', 'tracker'] as TagFormat[])).map(f => (
+                <label
+                  key={f}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                    form.format === f
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                      : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="format"
+                    value={f}
+                    checked={form.format === f}
+                    onChange={() => setFormat(f)}
+                    disabled={isEdit}
+                    className="sr-only"
+                  />
+                  <span className="text-sm font-medium capitalize">{f}</span>
+                </label>
+              ))}
+            </div>
+            {isEdit && (
+              <p className="mt-2 text-xs text-slate-500">
+                Format is locked after a tag is created. Display tags remain display, and VAST tags remain VAST.
+              </p>
+            )}
+          </div>
+
+          {form.format === 'display' && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Display Size Preset <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={getDisplaySizePreset(form.servingWidth, form.servingHeight)}
+                  onChange={event => handleDisplaySizePresetChange(event.target.value)}
+                  className={inputClass(errors.servingWidth || errors.servingHeight)}
+                >
+                  <option value="">Select a size</option>
+                  {DISPLAY_SIZE_PRESETS.map((preset) => (
+                    <option key={preset.label} value={preset.label}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
+                {(errors.servingWidth || errors.servingHeight) && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.servingWidth ?? errors.servingHeight}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Width</label>
+                <input
+                  type="number"
+                  min="1"
+                  readOnly
+                  value={form.servingWidth}
+                  className={`${inputClass()} bg-slate-50 text-slate-500`}
+                  placeholder="300"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Height</label>
+                <input
+                  type="number"
+                  min="1"
+                  readOnly
+                  value={form.servingHeight}
+                  className={`${inputClass()} bg-slate-50 text-slate-500`}
+                  placeholder="250"
+                />
+              </div>
+            </div>
+          )}
+
+          {form.format === 'tracker' && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tracker Type</label>
+                <select value={form.trackerType} onChange={set('trackerType')} className={inputClass()}>
+                  <option value="click">Click tracker</option>
+                  <option value="impression">Impression tracker</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tracker Size</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={form.trackerType === 'impression' ? '1x1' : 'N/A'}
+                  className={`${inputClass()} bg-slate-50 text-slate-500`}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+            <select value={form.status} onChange={set('status')} className={inputClass()}>
+              {STATUSES.map(s => (
+                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+              ))}
+            </select>
+          </div>
+
+          <details className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3" open={form.format === 'tracker'}>
+            <summary className="cursor-pointer text-sm font-medium text-slate-700">
+              {form.format === 'tracker' ? 'Tracker Destination' : 'Click Override'}
+            </summary>
+            <p className="mt-2 text-xs text-slate-500">
+              {form.format === 'tracker'
+                ? 'Click trackers need a destination URL. Impression trackers ignore this field and only return a 1x1 measurement pixel.'
+                : <>HTML5 banners keep their own <code>clickTag</code> or <code>exit</code> by default. Set this only when the ad server must override that destination.</>}
+            </p>
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                {form.format === 'tracker' ? 'Destination URL' : 'Click URL Override (optional)'}
+              </label>
+              <input
+                type="url"
+                value={form.clickUrl}
+                onChange={set('clickUrl')}
+                className={inputClass(errors.clickUrl)}
+                placeholder="https://example.com/landing"
+              />
+              {errors.clickUrl && <p className="mt-1 text-xs text-red-600">{errors.clickUrl}</p>}
+            </div>
+          </details>
+
+          <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => navigate('/tags')}
+              className="px-4 py-2 text-sm text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 rounded-lg transition-colors flex items-center gap-2"
+            >
+              {saving && (
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+              )}
+              {saving ? 'Saving...' : isEdit ? 'Update Tag' : 'Create Tag'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Generated Snippet */}
+      {savedTag && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold text-slate-800">Generated Tag Snippet</h2>
+            <button
+              onClick={handleCopy}
+              className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                copied
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              {copied ? '✓ Copied!' : '📋 Copy'}
+            </button>
+          </div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {getSnippetOptions(savedTag.format, savedTag.trackerType ?? null, selectedCampaignDsp).map(option => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setSnippetVariant(option.value)}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  snippetVariant === option.value
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500 mb-3">
+            {getSnippetHelpText(savedTag, snippetVariant, selectedCampaignDsp)}
+          </p>
+          <pre className="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">
+            {buildTagSnippet(savedTag, snippetVariant, selectedCampaignDsp, deliveryDiagnostics)}
+          </pre>
+        </div>
+      )}
+
+      {isEdit && savedTag && (
+        <div className="mt-6 bg-white rounded-xl border border-slate-200 p-6">
+          <div className="flex flex-col gap-1 mb-5">
+            <h2 className="text-base font-semibold text-slate-800">Creative Assignments</h2>
+            <p className="text-sm text-slate-500">
+              Assign creatives directly from this tag. For display tags, only compatible sizes can be attached.
+            </p>
+          </div>
+
+          {assignmentError && (
+            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {assignmentError}
+            </div>
+          )}
+
+          <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+            <section className="rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h3 className="text-sm font-semibold text-slate-800">Assigned Creatives</h3>
+                {bindingsLoading && <span className="text-xs text-slate-500">Loading…</span>}
+              </div>
+
+              {bindings.length === 0 && !bindingsLoading ? (
+                <div className="rounded-lg border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+                  No creatives assigned yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {bindings.map(binding => (
+                    <div key={binding.id} className="rounded-lg border border-slate-200 px-4 py-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">{binding.creativeName}</p>
+                          <p className="text-xs text-slate-500">
+                            {binding.variantLabel
+                              ? `${binding.variantLabel} • ${binding.variantWidth ?? '?'}x${binding.variantHeight ?? '?'}`
+                              : binding.servingFormat}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                          {binding.status}
+                        </span>
+                      </div>
+                      <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,110px)_minmax(0,140px)_1fr]">
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Weight</span>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={bindingDrafts[binding.id]?.weight ?? String(binding.weight)}
+                            onChange={(event) => handleBindingDraftChange(binding.id, 'weight', event.target.value)}
+                            className={inputClass()}
+                            disabled={updatingBindingId === binding.id}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Status</span>
+                          <select
+                            value={bindingDrafts[binding.id]?.status ?? binding.status}
+                            onChange={(event) => handleBindingDraftChange(binding.id, 'status', event.target.value)}
+                            className={inputClass()}
+                            disabled={updatingBindingId === binding.id}
+                          >
+                            <option value="active">active</option>
+                            <option value="paused">paused</option>
+                            <option value="draft">draft</option>
+                            <option value="archived">archived</option>
+                          </select>
+                        </label>
+                        <div className="flex flex-wrap items-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => { void handleSaveBinding(binding); }}
+                            disabled={updatingBindingId === binding.id}
+                            className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {updatingBindingId === binding.id ? 'Saving…' : 'Save Rotation'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { void handleToggleBindingStatus(binding); }}
+                            disabled={updatingBindingId === binding.id}
+                            className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                              binding.status === 'active'
+                                ? 'border-amber-300 bg-white text-amber-800 hover:bg-amber-50'
+                                : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50'
+                            }`}
+                          >
+                            {binding.status === 'active' ? 'Pause' : 'Activate'}
+                          </button>
+                          <div className="text-xs text-slate-500">
+                            Higher weight means this creative is selected more often during rotation.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-slate-200 p-4">
+              <h3 className="text-sm font-semibold text-slate-800 mb-4">Assign Creative</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Creative</label>
+                  <select
+                    value={assignmentVersionId}
+                    onChange={event => {
+                      setAssignmentVersionId(event.target.value);
+                      setAssignmentError('');
+                      setSuccessMessage('');
+                    }}
+                    className={inputClass()}
+                    disabled={creativeOptionsLoading || assignmentBusy}
+                  >
+                    <option value="">Select a creative</option>
+                    {filteredCreativeOptions.map(option => (
+                      <option key={option.latestVersion.id} value={option.latestVersion.id}>
+                        {option.creative.name} · v{option.latestVersion.versionNumber}
+                      </option>
+                    ))}
+                  </select>
+                  {filteredCreativeOptions.length === 0 && (
+                    <p className="mt-2 text-xs text-amber-700">
+                      No creatives match this tag yet. We only show creatives from the selected client and, for display tags, only the exact assigned size.
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAssignCreative}
+                  disabled={assignmentBusy || creativeOptionsLoading || !assignmentVersionId}
+                  className="w-full px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 rounded-lg transition-colors"
+                >
+                  {assignmentBusy ? 'Assigning…' : 'Assign Creative'}
+                </button>
+
+                <p className="text-xs text-slate-500">
+                  This uses the latest published version available for the selected creative and respects format and size constraints on the API side.
+                </p>
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
+
+      {isEdit && savedTag && (
+        <div className="mt-6 bg-white rounded-xl border border-slate-200 p-6">
+          <details className="group rounded-lg border border-slate-200 px-4 py-3">
+            <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-slate-800">Delivery Diagnostics</h2>
+                <p className="text-sm text-slate-500">
+                  Inspect the effective Basis/SMX delivery policy and generated URLs for this tag.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {deliveryDiagnosticsLoading && <span className="text-xs text-slate-500">Loading…</span>}
+                <span className="text-slate-400 transition-transform group-open:rotate-180">▾</span>
+              </div>
+            </summary>
+
+            <div className="mt-4">
+              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <span className="font-medium text-slate-800">DSP:</span>{' '}
+                {deliveryDiagnostics?.dsp?.selected || selectedCampaignDsp || 'none'}
+              </div>
+
+              <div className="mb-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Delivery Mode</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-800">
+                    {deliveryDiagnostics?.deliverySummary?.deliveryMode === 'basis_native'
+                      ? 'Basis Native'
+                      : deliveryDiagnostics?.deliverySummary?.deliveryMode === 'dsp_video_contract'
+                        ? 'DSP Video Contract'
+                      : deliveryDiagnostics?.deliverySummary?.deliveryMode === 'smx_standard'
+                        ? 'SMX Standard'
+                        : basisNativeEnabled ? 'Basis Native' : dspVideoEnabled ? 'DSP Video Contract' : 'SMX Standard'}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Preview Status</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-800">
+                    {deliveryDiagnostics?.deliverySummary?.previewStatus === 'basis_preview_may_fallback'
+                      ? 'Fallback Possible'
+                      : deliveryDiagnostics?.deliverySummary?.previewStatus === 'dsp_video_contract_ready'
+                        ? 'DSP Video Ready'
+                      : basisFallbackActive
+                        ? 'Fallback Possible'
+                        : basisNativeEnabled ? 'Basis First-Hop Ready' : dspVideoEnabled ? 'DSP Video Ready' : 'Standard Delivery'}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Measurement Path</div>
+                  <div className="mt-2">
+                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getMeasurementPathTone(basisDiagnosticPath)}`}>
+                      {basisDiagnosticPath || 'n/a'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {savedTag.format === 'VAST' && deliveryDiagnostics?.deliveryDiagnostics?.vast?.staticProfiles && (
+                <details className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                  <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-emerald-900">Static Delivery URLs</h3>
+                      <p className="text-xs text-emerald-800">
+                        Public XML artifacts served from storage for DSP delivery and validator-safe testing.
+                      </p>
+                    </div>
+                    <span className="text-emerald-700">▾</span>
+                  </summary>
+                  <div className="mt-3">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-xs text-emerald-800">
+                        Copy each profile independently or download all XMLs in one shot.
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleDownloadAllStaticProfiles}
+                          disabled={!staticDeliveryEntries.length}
+                          className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                            staticDeliveryEntries.length
+                              ? 'border-indigo-300 bg-white text-indigo-800 hover:bg-indigo-100'
+                              : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                          }`}
+                        >
+                          Download All XMLs
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { void handleQueueStaticDelivery(); }}
+                          disabled={queueingStaticDelivery}
+                          className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                            queueingStaticDelivery
+                              ? 'cursor-not-allowed border-sky-200 bg-sky-100 text-sky-500'
+                              : 'border-sky-300 bg-white text-sky-800 hover:bg-sky-100'
+                          }`}
+                        >
+                          {queueingStaticDelivery ? 'Queueing…' : 'Queue Background Publish'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { void handleRepublishStaticDelivery(); }}
+                          disabled={republishingStaticDelivery}
+                          className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                            republishingStaticDelivery
+                              ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
+                              : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest && (
+                  <div className="rounded-lg border border-emerald-200 bg-white/70 px-3 py-3 text-[11px] text-emerald-900">
+                    {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob && (
+                      <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50/50 px-2.5 py-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="font-medium">Latest Static Publish Job</div>
+                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${getJobStatusTone(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.status)}`}>
+                            {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.status || 'unknown'}
+                          </span>
+                        </div>
+                        <div className="mt-2 grid gap-2 md:grid-cols-4">
+                          <div>
+                            <div className="font-medium">Trigger</div>
+                            <div className="mt-1">{formatTriggerLabel(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.trigger)}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium">Attempts</div>
+                            <div className="mt-1">
+                              {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.attempts ?? 0}
+                              {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.maxAttempts
+                                ? ` / ${deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.maxAttempts}`
+                                : ''}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-medium">Updated</div>
+                            <div className="mt-1">{formatArtifactTimestamp(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.updatedAt)}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium">Run At</div>
+                            <div className="mt-1">{formatArtifactTimestamp(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.runAt)}</div>
+                          </div>
+                        </div>
+                        {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.error && (
+                          <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 text-rose-800">
+                            {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.error}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="grid gap-2 md:grid-cols-4">
+                      <div>
+                        <div className="font-medium">Last Trigger</div>
+                        <div className="mt-1">{formatTriggerLabel(deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.trigger)}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">Generated At</div>
+                        <div className="mt-1">{formatArtifactTimestamp(deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.generatedAt)}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">Previous Trigger</div>
+                        <div className="mt-1">{formatTriggerLabel(deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.previousTrigger)}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">Profiles Published</div>
+                        <div className="mt-1">{deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.profileCount ?? 0}</div>
+                      </div>
+                    </div>
+                    {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.history && deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.history.length > 0 && (
+                      <div className="mt-3 border-t border-emerald-200 pt-3">
+                        <div className="mb-2 font-medium">Recent Publish History</div>
+                        <div className="space-y-2">
+                          {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.history.slice(0, 5).map((entry, index) => (
+                            <div key={`${entry.generatedAt ?? 'entry'}-${index}`} className="rounded-md border border-emerald-200 bg-emerald-50/40 px-2.5 py-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="font-medium">{formatTriggerLabel(entry.trigger)}</div>
+                                <div>{formatArtifactTimestamp(entry.generatedAt)}</div>
+                              </div>
+                              <div className="mt-1 text-emerald-800">
+                                Profiles: {entry.profileCount ?? 0}
+                                {Array.isArray(entry.profiles) && entry.profiles.length > 0
+                                  ? ` • ${entry.profiles.map((profile) => `${profile.profile ?? 'unknown'} (${profile.xmlVersion ?? 'n/a'})`).join(', ')}`
+                                  : ''}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                        {staticDeliveryEntries.map((entry) => (
+                  <div key={entry.key}>
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <div className="text-xs font-medium text-emerald-900">{entry.label}</div>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyStaticProfile(entry.key, entry.url)}
+                          className="rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-medium text-emerald-800 transition-colors hover:bg-emerald-100"
+                        >
+                          {copiedStaticProfile === entry.key ? 'Copied' : 'Copy URL'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadStaticProfile(entry.key, entry.url)}
+                          className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-100"
+                        >
+                          Download XML
+                        </button>
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                          entry.status?.available
+                            ? 'border-emerald-300 bg-emerald-100 text-emerald-800'
+                            : 'border-amber-300 bg-amber-100 text-amber-800'
+                        }`}>
+                          {entry.status?.available ? 'Available' : 'Pending'}
+                        </span>
+                      </div>
+                    </div>
+                    <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{entry.url}</pre>
+                    <div className="mt-2 grid gap-2 md:grid-cols-3 text-[11px] text-emerald-900">
+                      <div className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2">
+                        <div className="font-medium">Last Published</div>
+                        <div className="mt-1">{formatArtifactTimestamp(entry.status?.lastPublishedAt)}</div>
+                      </div>
+                      <div className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2">
+                        <div className="font-medium">Artifact Size</div>
+                        <div className="mt-1">{formatArtifactBytes(entry.status?.contentLength)}</div>
+                      </div>
+                      <div className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2">
+                        <div className="font-medium">Content Type</div>
+                        <div className="mt-1">{entry.status?.contentType || 'n/a'}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                    </div>
+                  </div>
+                </details>
+              )}
+          {savedTag.format === 'VAST' && !deliveryDiagnostics?.deliveryDiagnostics?.vast?.staticProfiles && (
+            <details className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-emerald-900">Static Delivery URLs</h3>
+                  <p className="text-xs text-emerald-800">
+                    Public XML artifacts served from storage for DSP delivery and validator-safe testing.
+                  </p>
+                </div>
+                <span className="text-emerald-700">▾</span>
+              </summary>
+              <div className="mt-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-emerald-900">
+                    No static delivery artifacts are visible yet. Republish to generate or refresh the public XML profiles.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { void handleQueueStaticDelivery(); }}
+                      disabled={queueingStaticDelivery}
+                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                        queueingStaticDelivery
+                          ? 'cursor-not-allowed border-sky-200 bg-sky-100 text-sky-500'
+                          : 'border-sky-300 bg-white text-sky-800 hover:bg-sky-100'
+                      }`}
+                    >
+                      {queueingStaticDelivery ? 'Queueing…' : 'Queue Background Publish'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { void handleRepublishStaticDelivery(); }}
+                      disabled={republishingStaticDelivery}
+                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                        republishingStaticDelivery
+                          ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
+                          : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </details>
+          )}
+
+          <div className="space-y-4">
+            {deliveryDiagnosticSections.map(section => (
+              <details key={section.label} className="rounded-lg border border-slate-200 px-4 py-3">
+                <summary className="cursor-pointer text-sm font-medium text-slate-800">{section.label}</summary>
+                <div className="mt-3 space-y-3">
+                  <div className="grid gap-3 md:grid-cols-3 text-xs">
+                    <div className="rounded-md bg-slate-50 px-3 py-2">
+                      <div className="text-slate-500">Measurement Path</div>
+                      <div className="mt-1 font-medium text-slate-800">{section.entry?.policy?.measurementPath ?? 'n/a'}</div>
+                    </div>
+                    <div className="rounded-md bg-slate-50 px-3 py-2">
+                      <div className="text-slate-500">DSP Hint</div>
+                      <div className="mt-1 font-medium text-slate-800">{section.entry?.policy?.includeDspHint ? 'enabled' : 'disabled'}</div>
+                    </div>
+                    <div className="rounded-md bg-slate-50 px-3 py-2">
+                      <div className="text-slate-500">Click Macro</div>
+                      <div className="mt-1 font-medium text-slate-800">{section.entry?.policy?.includeClickMacro ? 'enabled' : 'disabled'}</div>
+                    </div>
+                  </div>
+
+                  {section.entry?.jsUrl && (
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-slate-700">JS URL</div>
+                      <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{section.entry.jsUrl}</pre>
+                    </div>
+                  )}
+                  {section.entry?.htmlUrl && (
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-slate-700">HTML URL</div>
+                      <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{section.entry.htmlUrl}</pre>
+                    </div>
+                  )}
+                  {section.entry?.url && (
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-slate-700">URL</div>
+                      <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{section.entry.url}</pre>
+                    </div>
+                  )}
+                </div>
+              </details>
+            ))}
+          </div>
+            </div>
+          </details>
+
+        </div>
+      )}
+    </div>
+  );
+}
