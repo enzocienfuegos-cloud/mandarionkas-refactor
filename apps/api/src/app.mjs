@@ -9,6 +9,7 @@ import { handleDiscrepancyRoutes } from './modules/adserver/discrepancies/routes
 import { handlePacingRoutes } from './modules/adserver/pacing/routes.mjs';
 import { handleReportingRoutes } from './modules/adserver/reporting/routes.mjs';
 import { handleTagRoutes } from './modules/adserver/tags/routes.mjs';
+import { handleWebhookRoutes } from './modules/adserver/webhooks/routes.mjs';
 import { applyCors, getRequestId, notFound, readJsonBody, sendJson } from './lib/http.mjs';
 import { getApiConfig } from './plugins/config.mjs';
 import { logError, logInfo } from './lib/logger.mjs';
@@ -26,6 +27,7 @@ const routeHandlers = [
   handlePacingRoutes,
   handleReportingRoutes,
   handleTagRoutes,
+  handleWebhookRoutes,
 ];
 
 function logRequest({ requestId, method, pathname, statusCode, durationMs }) {
