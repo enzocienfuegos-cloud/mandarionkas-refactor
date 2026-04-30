@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { loadPreference, savePreference } from '../shared/preferences';
 
 type DateRange = 7 | 30 | 90;
 type RangeMode = 'preset' | 'custom';
@@ -1137,25 +1138,13 @@ export default function AnalyticsDashboard() {
   );
 
   useEffect(() => {
-    let cancelled = false;
-    fetchJson<{ preferences?: Record<string, unknown> }>('/v1/auth/preferences')
-      .then((payload) => {
-        if (cancelled) return;
-        const layout = payload?.preferences?.[REPORTING_LAYOUT_PREFERENCE_KEY] as Record<string, unknown> | undefined;
-        if (layout && typeof layout === 'object') {
-          setPrimaryKpiOrder(normalizeExplicitOrder(layout.primaryKpiOrder, PRIMARY_KPI_ORDER_DEFAULT));
-          setSecondaryKpiOrder(normalizeExplicitOrder(layout.secondaryKpiOrder, SECONDARY_KPI_ORDER_DEFAULT));
-          setModuleOrder(normalizeExplicitOrder(layout.moduleOrder, REPORT_MODULE_ORDER_DEFAULT));
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLayoutPrefsLoaded(true);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    const layout = loadPreference<Record<string, unknown>>(REPORTING_LAYOUT_PREFERENCE_KEY);
+    if (layout && typeof layout === 'object') {
+      setPrimaryKpiOrder(normalizeExplicitOrder(layout.primaryKpiOrder, PRIMARY_KPI_ORDER_DEFAULT));
+      setSecondaryKpiOrder(normalizeExplicitOrder(layout.secondaryKpiOrder, SECONDARY_KPI_ORDER_DEFAULT));
+      setModuleOrder(normalizeExplicitOrder(layout.moduleOrder, REPORT_MODULE_ORDER_DEFAULT));
+    }
+    setLayoutPrefsLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -1167,18 +1156,11 @@ export default function AnalyticsDashboard() {
   useEffect(() => {
     if (!layoutPrefsLoaded) return;
     const timeout = window.setTimeout(() => {
-      void fetchJson('/v1/auth/preferences', {
-        method: 'PUT',
-        body: JSON.stringify({
-          preferences: {
-            [REPORTING_LAYOUT_PREFERENCE_KEY]: {
-              primaryKpiOrder,
-              secondaryKpiOrder,
-              moduleOrder,
-            },
-          },
-        }),
-      }).catch(() => {});
+      savePreference(REPORTING_LAYOUT_PREFERENCE_KEY, {
+        primaryKpiOrder,
+        secondaryKpiOrder,
+        moduleOrder,
+      });
     }, 300);
 
     return () => window.clearTimeout(timeout);

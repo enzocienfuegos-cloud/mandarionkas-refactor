@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { loadAuthMe, switchWorkspace } from '../shared/workspaces';
+import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../shared/workspaces';
 
 interface Campaign {
   id: string;
@@ -127,12 +127,12 @@ export default function CampaignList() {
     setLoading(true);
     Promise.all([
       fetch('/v1/campaigns?scope=all', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Failed to load campaigns'); return r.json(); }),
-      fetch('/v1/auth/workspaces', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Failed to load clients'); return r.json(); }),
+      loadWorkspaces(),
       loadAuthMe(),
     ])
       .then(([campaignData, workspaceData, authMe]) => {
         setCampaigns(campaignData?.campaigns ?? campaignData ?? []);
-        setClients(workspaceData?.workspaces ?? []);
+        setClients(workspaceData ?? []);
         setActiveWorkspaceId(authMe.workspace?.id ?? '');
       })
       .catch(e => setError(e.message))

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { loadCreatives, type Creative } from '../creatives/catalog';
+import { loadPreference, savePreference } from '../shared/preferences';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 import { THEME_PREFERENCE_KEY, applyTheme, getInitialTheme, persistTheme, type ThemeMode } from '../shared/theme';
 
@@ -153,6 +154,7 @@ type SegmentBreakdownItem = {
 };
 
 const OVERVIEW_LAYOUT_PREFERENCE_KEY = 'overviewLayout';
+const OVERVIEW_LAYOUT_STORAGE_KEY = 'smx-overview-layout-v1';
 const OVERVIEW_CARD_ORDER: OverviewCardId[] = [
   'spend',
   'impressions',
@@ -724,14 +726,13 @@ export default function AdOpsOverview() {
   useEffect(() => {
     let active = true;
     Promise.all([
-      fetchJson<{ preferences?: Record<string, unknown> }>('/v1/auth/preferences').catch(() => ({ preferences: {} })),
       loadAuthMe() as Promise<AuthPayload>,
       loadWorkspaces('ad_server').catch(() => [] as WorkspaceOption[]),
       fetchJson<{ campaigns?: Campaign[] }>('/v1/campaigns?scope=all').catch(() => ({ campaigns: [] })),
       fetchJson<{ tags?: Tag[] }>('/v1/tags?scope=all').catch(() => ({ tags: [] })),
       loadCreatives({ scope: 'all' }).catch(() => [] as Creative[]),
     ])
-      .then(([prefPayload, authMe, workspaceList, campaignPayload, tagPayload, creativeList]) => {
+      .then(([authMe, workspaceList, campaignPayload, tagPayload, creativeList]) => {
         if (!active) return;
         const displayName = String(authMe?.user?.display_name ?? '').trim() || String(authMe?.user?.email ?? '').split('@')[0] || 'Admin';
         setUserName(displayName);
@@ -741,9 +742,9 @@ export default function AdOpsOverview() {
         setCampaigns(campaignPayload.campaigns ?? []);
         setTags(tagPayload.tags ?? []);
         setCreatives(creativeList);
-        const preferences = (prefPayload?.preferences ?? {}) as Record<string, unknown>;
-        const layout = preferences[OVERVIEW_LAYOUT_PREFERENCE_KEY] as OverviewPreferences | undefined;
-        const preferredTheme = preferences[THEME_PREFERENCE_KEY];
+        const layout = loadPreference<OverviewPreferences>(OVERVIEW_LAYOUT_PREFERENCE_KEY)
+          ?? loadPreference<OverviewPreferences>(OVERVIEW_LAYOUT_STORAGE_KEY);
+        const preferredTheme = loadPreference<ThemeMode>(THEME_PREFERENCE_KEY);
         if (preferredTheme === 'dark' || preferredTheme === 'light') {
           applyTheme(preferredTheme);
           persistTheme(preferredTheme);
@@ -767,18 +768,16 @@ export default function AdOpsOverview() {
     if (!preferencesLoaded) return;
     if (preferenceSaveTimer.current) clearTimeout(preferenceSaveTimer.current);
     preferenceSaveTimer.current = setTimeout(() => {
-      void fetchJson('/v1/auth/preferences', {
-        method: 'PUT',
-        body: JSON.stringify({
-          preferences: {
-            [OVERVIEW_LAYOUT_PREFERENCE_KEY]: {
-              visibleCards,
-              savedSetups,
-              activeSetupId,
-            },
-          },
-        }),
-      }).catch(() => undefined);
+      savePreference(OVERVIEW_LAYOUT_PREFERENCE_KEY, {
+        visibleCards,
+        savedSetups,
+        activeSetupId,
+      });
+      savePreference(OVERVIEW_LAYOUT_STORAGE_KEY, {
+        visibleCards,
+        savedSetups,
+        activeSetupId,
+      });
     }, 300);
     return () => {
       if (preferenceSaveTimer.current) clearTimeout(preferenceSaveTimer.current);
@@ -1032,15 +1031,8 @@ export default function AdOpsOverview() {
     const nextTheme: ThemeMode = theme === 'dark' ? 'light' : 'dark';
     applyTheme(nextTheme);
     persistTheme(nextTheme);
+    savePreference(THEME_PREFERENCE_KEY, nextTheme);
     setTheme(nextTheme);
-    try {
-      await fetchJson('/v1/auth/preferences', {
-        method: 'PUT',
-        body: JSON.stringify({ preferences: { [THEME_PREFERENCE_KEY]: nextTheme } }),
-      });
-    } catch {
-      // Keep local theme even if save fails.
-    }
   };
 
   const toggleVisibleCard = (cardId: OverviewCardId) => {

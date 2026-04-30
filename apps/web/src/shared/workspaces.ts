@@ -24,6 +24,7 @@ export interface AuthMeUser {
   email: string;
   display_name?: string | null;
   avatar_url?: string | null;
+  role?: string | null;
 }
 
 export interface AuthMeResponse {
@@ -34,6 +35,24 @@ export interface AuthMeResponse {
     ad_server: boolean;
     studio: boolean;
   } | null;
+}
+
+interface SessionWorkspacePayload {
+  ok: boolean;
+  authenticated: boolean;
+  user?: {
+    id: string;
+    email: string;
+    name?: string | null;
+    role?: string | null;
+  } | null;
+  activeWorkspaceId?: string | null;
+  workspaces?: WorkspaceOption[];
+}
+
+interface WorkspaceListPayload {
+  workspaces?: WorkspaceOption[];
+  activeWorkspaceId?: string | null;
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -52,21 +71,59 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+function getMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
 export async function loadAuthMe() {
-  return fetchJson<AuthMeResponse>('/v1/auth/me');
+  const payload = await fetchJson<SessionWorkspacePayload>('/v1/auth/session');
+  if (!payload.authenticated || !payload.user) {
+    throw new Error('Authentication required');
+  }
+
+  const workspaces = payload.workspaces ?? [];
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === payload.activeWorkspaceId) ?? workspaces[0] ?? null;
+
+  return {
+    user: {
+      id: payload.user.id,
+      email: payload.user.email,
+      display_name: payload.user.name ?? payload.user.email.split('@')[0] ?? null,
+      avatar_url: null,
+      role: payload.user.role ?? null,
+    },
+    workspace: activeWorkspace,
+    role: payload.user.role ?? null,
+    productAccess: activeWorkspace?.product_access ?? null,
+  } satisfies AuthMeResponse;
 }
 
 export async function loadWorkspaces(product: 'ad_server' | 'studio' | 'all' = 'ad_server') {
-  const suffix = product === 'all' ? '' : `?product=${product}`;
-  const payload = await fetchJson<{ workspaces: WorkspaceOption[] }>(`/v1/auth/workspaces${suffix}`);
-  return payload.workspaces ?? [];
+  const payload = await fetchJson<WorkspaceListPayload>('/v1/workspaces');
+  const workspaces = payload.workspaces ?? [];
+  if (product === 'all') return workspaces;
+  return workspaces.filter((workspace) => {
+    const access = workspace.product_access;
+    if (!access) return true;
+    return product === 'ad_server' ? access.ad_server !== false : access.studio !== false;
+  });
 }
 
 export async function switchWorkspace(workspaceId: string) {
-  return fetchJson<{ workspace: WorkspaceOption; role?: string | null; productAccess?: { ad_server: boolean; studio: boolean } | null }>('/v1/auth/switch', {
+  const payload = await fetchJson<{
+    workspaces?: WorkspaceOption[];
+    activeWorkspaceId?: string | null;
+  }>('/v1/clients/active', {
     method: 'POST',
     body: JSON.stringify({ workspaceId }),
   });
+  const workspace = (payload.workspaces ?? []).find((item) => item.id === payload.activeWorkspaceId) ?? null;
+  return {
+    workspace,
+    role: null,
+    productAccess: workspace?.product_access ?? null,
+  };
 }
 
 export async function createClientWorkspace(input: { name: string; website?: string } | string) {
@@ -108,10 +165,17 @@ export interface ClientAccessUser {
 }
 
 export async function loadClientAccess() {
-  return fetchJson<{
-    clients: Array<{ id: string; name: string; role: string }>;
-    users: ClientAccessUser[];
-  }>('/v1/clients/access');
+  try {
+    return await fetchJson<{
+      clients: Array<{ id: string; name: string; role: string }>;
+      users: ClientAccessUser[];
+    }>('/v1/clients/access');
+  } catch (error) {
+    if (getMessage(error, '').includes('(404)')) {
+      return { clients: [], users: [] };
+    }
+    throw error;
+  }
 }
 
 export async function grantClientAccess(input: {
@@ -120,22 +184,30 @@ export async function grantClientAccess(input: {
   workspaceIds: string[];
   productAccess: { ad_server: boolean; studio: boolean };
 }) {
-  return fetchJson<{ ok: boolean; message?: string }>('/v1/clients/access', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
+  try {
+    return await fetchJson<{ ok: boolean; message?: string }>('/v1/clients/access', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  } catch (error) {
+    throw new Error(getMessage(error, 'Client access management is unavailable in this environment.'));
+  }
 }
 
 export async function removeClientAccess(clientId: string, userId: string) {
-  return fetch(`/v1/clients/${clientId}/access/${userId}`, {
-    method: 'DELETE',
-    credentials: 'include',
-  }).then(async (response) => {
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload?.message ?? `Request failed (${response.status})`);
-    }
-  });
+  try {
+    return await fetch(`/v1/clients/${clientId}/access/${userId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    }).then(async (response) => {
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.message ?? `Request failed (${response.status})`);
+      }
+    });
+  } catch (error) {
+    throw new Error(getMessage(error, 'Client access management is unavailable in this environment.'));
+  }
 }
 
 export async function updateClientAccess(input: {
@@ -144,11 +216,15 @@ export async function updateClientAccess(input: {
   role: 'owner' | 'editor' | 'reviewer';
   productAccess: { ad_server: boolean; studio: boolean };
 }) {
-  return fetchJson<{ ok: boolean; message?: string }>(`/v1/clients/${input.clientId}/access/${input.userId}`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      role: input.role,
-      productAccess: input.productAccess,
-    }),
-  });
+  try {
+    return await fetchJson<{ ok: boolean; message?: string }>(`/v1/clients/${input.clientId}/access/${input.userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        role: input.role,
+        productAccess: input.productAccess,
+      }),
+    });
+  } catch (error) {
+    throw new Error(getMessage(error, 'Client access management is unavailable in this environment.'));
+  }
 }

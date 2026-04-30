@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { getWorkspaceProductLabel, loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
+import { loadPreference, savePreference } from '../shared/preferences';
 import { THEME_PREFERENCE_KEY, applyTheme, getInitialTheme, persistTheme, type ThemeMode } from '../shared/theme';
 
 interface User {
@@ -202,23 +203,6 @@ function WorkspaceAccessBadge({ workspace }: { workspace: { product_access?: { a
   );
 }
 
-async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
-  const response = await fetch(input, {
-    credentials: 'include',
-    headers: {
-      'content-type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-    ...init,
-  });
-
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return response.json() as Promise<T>;
-}
-
 export default function Shell() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -266,25 +250,16 @@ export default function Shell() {
   }, [hasAdServerAccess, navigate]);
 
   useEffect(() => {
-    let cancelled = false;
-    fetchJson<{ preferences?: Record<string, unknown> }>('/v1/auth/preferences')
-      .then((payload) => {
-        if (cancelled) return;
-        const preferredTheme = payload?.preferences?.[THEME_PREFERENCE_KEY];
-        if (preferredTheme === 'dark' || preferredTheme === 'light') {
-          setTheme(preferredTheme);
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
+    const preferredTheme = loadPreference<ThemeMode>(THEME_PREFERENCE_KEY);
+    if (preferredTheme === 'dark' || preferredTheme === 'light') {
+      setTheme(preferredTheme);
+    }
   }, []);
 
   useEffect(() => {
     applyTheme(theme);
     persistTheme(theme);
+    savePreference(THEME_PREFERENCE_KEY, theme);
   }, [theme]);
 
   const showClientSwitcher = useMemo(() => {
@@ -333,14 +308,6 @@ export default function Shell() {
   const handleThemeToggle = () => {
     const nextTheme: ThemeMode = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
-    void fetchJson('/v1/auth/preferences', {
-      method: 'PUT',
-      body: JSON.stringify({
-        preferences: {
-          [THEME_PREFERENCE_KEY]: nextTheme,
-        },
-      }),
-    }).catch(() => {});
   };
 
   if (loading) {
