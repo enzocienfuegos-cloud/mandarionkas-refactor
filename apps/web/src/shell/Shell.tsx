@@ -345,16 +345,16 @@ export default function Shell() {
 
   if (loading) {
     return (
-      <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-[#0c0c0e]' : 'bg-[#f6f3f8]'}`}>
+      <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]'}`}>
         <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
       </div>
     );
   }
 
   return (
-    <div className={`mandarion-shell flex h-screen overflow-hidden ${isDark ? 'bg-[#0c0c0e] text-white' : 'bg-[#f6f3f8] text-slate-900'}`}>
-      <aside className={`flex w-[220px] flex-shrink-0 flex-col ${isDark ? 'border-r border-white/[0.06] bg-[#111114]' : 'border-r border-slate-200 bg-white'}`}>
-        <div className={`px-5 py-5 ${isDark ? 'border-b border-white/[0.06]' : 'border-b border-slate-200'}`}>
+    <div className={`mandarion-shell flex h-screen overflow-hidden ${isDark ? 'bg-[#0b1020] text-white' : 'bg-[#f6f3fb] text-slate-900'}`}>
+      <aside className={`flex w-[220px] flex-shrink-0 flex-col ${isDark ? 'border-r border-white/[0.05] bg-[#0f1422]' : 'border-r border-slate-200/80 bg-[rgba(252,251,255,0.92)]'}`}>
+        <div className={`px-5 py-5 ${isDark ? 'border-b border-white/[0.05]' : 'border-b border-slate-200/80'}`}>
           <div className="flex items-center gap-3">
             <div
               className="flex h-8 w-8 items-center justify-center rounded-[10px] text-white"
@@ -369,7 +369,7 @@ export default function Shell() {
           </div>
         </div>
 
-        <div className={`mx-3 mt-3 rounded-xl px-3 py-3 ${isDark ? 'border border-white/[0.08] bg-white/[0.03]' : 'border border-slate-200 bg-slate-50'}`}>
+        <div className={`mx-3 mt-3 rounded-xl px-3 py-3 ${isDark ? 'border border-white/[0.05] bg-white/[0.025]' : 'border border-slate-200/80 bg-[rgba(243,239,248,0.85)]'}`}>
           <div className="flex items-center gap-3">
             <div className="h-5 w-5 rounded-md bg-fuchsia-500/90" />
             <div className="min-w-0 flex-1">

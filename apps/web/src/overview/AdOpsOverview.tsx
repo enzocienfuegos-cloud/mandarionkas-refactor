@@ -291,7 +291,7 @@ function Panel({ children, className }: { children: React.ReactNode; className?:
   return (
     <section
       className={classNames(
-        'rounded-[28px] border border-slate-200/80 bg-white/92 shadow-[0_22px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/[0.05] dark:bg-[linear-gradient(180deg,rgba(17,24,39,0.9),rgba(9,13,24,0.96))] dark:shadow-[0_22px_60px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.025)]',
+        'rounded-[28px] border border-slate-200/70 bg-[rgba(252,251,255,0.86)] shadow-[0_16px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.04] dark:bg-[linear-gradient(180deg,rgba(18,24,38,0.88),rgba(11,16,32,0.94))] dark:shadow-[0_16px_42px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.02)]',
         className,
       )}
     >
@@ -1105,7 +1105,7 @@ export default function AdOpsOverview() {
   };
 
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.08),transparent_26%),radial-gradient(circle_at_70%_20%,rgba(124,58,237,0.1),transparent_24%)] px-8 py-8 text-slate-950 dark:text-white">
+    <div className="min-h-full bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.06),transparent_24%),radial-gradient(circle_at_70%_18%,rgba(124,58,237,0.08),transparent_22%)] px-8 py-8 text-slate-950 dark:bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.08),transparent_26%),radial-gradient(circle_at_70%_20%,rgba(124,58,237,0.1),transparent_24%)] dark:text-white">
       <div className="mx-auto max-w-[1680px]">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-3">
@@ -1113,7 +1113,7 @@ export default function AdOpsOverview() {
               <select
                 value={activeWorkspaceId}
                 onChange={(event) => void handleWorkspaceChange(event.target.value)}
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white"
+                className="w-full appearance-none rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 py-3 pr-10 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.05] dark:bg-white/[0.025] dark:text-white"
               >
                 {workspaces.map((workspace) => (
                   <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
@@ -1124,7 +1124,7 @@ export default function AdOpsOverview() {
             <select
               value={String(dateRange)}
               onChange={(event) => setDateRange(Number(event.target.value) as DateRange)}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white"
+              className="rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.05] dark:bg-white/[0.025] dark:text-white"
             >
               <option value="7">Last 7 days</option>
               <option value="30">Last 30 days</option>
@@ -1133,7 +1133,7 @@ export default function AdOpsOverview() {
             <select
               value={campaignId}
               onChange={(event) => setCampaignId(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white"
+              className="rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.05] dark:bg-white/[0.025] dark:text-white"
             >
               <option value="">All campaigns</option>
               {campaigns.map((campaign) => (
@@ -1143,7 +1143,7 @@ export default function AdOpsOverview() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative">
-              <button type="button" onClick={() => setCustomizerOpen((current) => !current)} className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/86 dark:hover:border-fuchsia-500/20 dark:hover:bg-white/[0.05]">
+              <button type="button" onClick={() => setCustomizerOpen((current) => !current)} className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.05] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/20 dark:hover:bg-white/[0.04]">
                 <LayoutGridIcon className="text-slate-500 dark:text-white/60" />
                 Customize cards
               </button>
@@ -1161,7 +1161,7 @@ export default function AdOpsOverview() {
                 onReset={resetLayout}
               />
             </div>
-            <button type="button" onClick={() => void toggleTheme()} className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/86 dark:hover:border-fuchsia-500/20 dark:hover:bg-white/[0.05]">
+            <button type="button" onClick={() => void toggleTheme()} className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.05] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/20 dark:hover:bg-white/[0.04]">
               <EyeIcon className="text-slate-500 dark:text-white/60" />
               {theme === 'dark' ? 'Light mode' : 'Dark mode'}
             </button>
