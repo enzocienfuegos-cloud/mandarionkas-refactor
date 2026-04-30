@@ -230,15 +230,36 @@ export async function updateTag(pool, workspaceId, id, data) {
   const params = [workspaceId, id];
 
   for (const key of allowed) {
-    if (key in data) {
-      let value = data[key];
-      if (key === 'format') value = normalizeTagFormat(value) ?? value;
-      if (key === 'status') value = normalizeTagStatus(value) ?? value;
-      if (key === 'targeting') value = JSON.stringify(value || {});
-      params.push(value);
-      const cast = key === 'targeting' ? '::jsonb' : key === 'geo_targets' || key === 'device_targets' ? '::text[]' : '';
-      setClauses.push(`${key} = $${params.length}${cast}`);
+    if (!(key in data)) continue;
+
+    let value = data[key];
+    if (value === undefined) continue;
+
+    if (key === 'format') {
+      const normalizedFormat = normalizeTagFormat(value);
+      if (!normalizedFormat) {
+        throw new Error('Tag format is invalid.');
+      }
+      value = normalizedFormat;
     }
+    if (key === 'status') {
+      const normalizedStatus = normalizeTagStatus(value);
+      if (!normalizedStatus) {
+        throw new Error('Tag status is invalid.');
+      }
+      value = normalizedStatus;
+    }
+    if (key === 'name') {
+      value = String(value || '').trim();
+      if (!value) {
+        throw new Error('Tag name is required.');
+      }
+    }
+    if (key === 'targeting') value = JSON.stringify(value || {});
+
+    params.push(value);
+    const cast = key === 'targeting' ? '::jsonb' : key === 'geo_targets' || key === 'device_targets' ? '::text[]' : '';
+    setClauses.push(`${key} = $${params.length}${cast}`);
   }
 
   if (setClauses.length) {
