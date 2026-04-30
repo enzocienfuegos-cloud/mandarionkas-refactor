@@ -4,13 +4,49 @@ import { runExtractMetadataJob } from './jobs/extract-metadata.mjs';
 import { runMaintenanceJob } from './jobs/maintenance.mjs';
 import { runTranscodeVideoJob } from './jobs/transcode-video.mjs';
 
-async function main() {
-  console.log(JSON.stringify({ level: 'info', service: 'smx-worker', message: 'Worker booted.' }));
+function parseIntervalMs(source = process.env) {
+  const raw = Number.parseInt(String(source.WORKER_POLL_INTERVAL_MS || '30000'), 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : 30000;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runCycle() {
   await runMaintenanceJob();
   await runGenerateImageDerivativesJob();
   await runTranscodeVideoJob();
   await runGenerateThumbnailsJob();
   await runExtractMetadataJob();
+}
+
+async function main() {
+  const pollIntervalMs = parseIntervalMs();
+  let shuttingDown = false;
+  const handleShutdown = () => {
+    shuttingDown = true;
+  };
+
+  process.on('SIGTERM', handleShutdown);
+  process.on('SIGINT', handleShutdown);
+
+  console.log(JSON.stringify({ level: 'info', service: 'smx-worker', message: 'Worker booted.' }));
+  console.log(JSON.stringify({
+    level: 'info',
+    service: 'smx-worker',
+    message: 'Worker polling loop started.',
+    pollIntervalMs,
+  }));
+
+  while (!shuttingDown) {
+    await runCycle();
+    if (!shuttingDown) {
+      await sleep(pollIntervalMs);
+    }
+  }
+
+  console.log(JSON.stringify({ level: 'info', service: 'smx-worker', message: 'Worker shutting down.' }));
 }
 
 main().catch((error) => {
