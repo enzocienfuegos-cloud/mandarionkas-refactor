@@ -207,6 +207,115 @@ async function ensureTagAndStats(client, workspaceId, campaignId) {
   }
 }
 
+async function ensureCreativeCatalog(client, workspaceId) {
+  const existing = await client.query(
+    `
+      select id
+      from creatives
+      where workspace_id = $1
+        and lower(name) = lower($2)
+      limit 1
+    `,
+    [workspaceId, 'Bocadeli Spring HTML5'],
+  );
+  if (existing.rows[0]?.id) return existing.rows[0].id;
+
+  const creativeId = randomUUID();
+  await client.query(
+    `
+      insert into creatives (
+        id, workspace_id, name, type, file_url, thumbnail_url, file_size, mime_type,
+        width, height, click_url, metadata, approval_status, transcode_status
+      )
+      values (
+        $1, $2, $3, 'display', $4, $5, $6, 'application/zip',
+        300, 250, $7, $8::jsonb, 'approved', 'ready'
+      )
+    `,
+    [
+      creativeId,
+      workspaceId,
+      'Bocadeli Spring HTML5',
+      'https://cdn.duskplatform.co/demo/creatives/bocadeli-spring/index.html',
+      'https://cdn.duskplatform.co/demo/creatives/bocadeli-spring/thumbnail.png',
+      284312,
+      'https://bocadeli.com/spring',
+      JSON.stringify({ theme: 'spring-launch', template: 'bocadeli-worldcup' }),
+    ],
+  );
+
+  const creativeVersionId = randomUUID();
+  await client.query(
+    `
+      insert into creative_versions (
+        id, workspace_id, creative_id, version_number, source_kind, serving_format, status,
+        public_url, entry_path, mime_type, width, height, file_size, metadata
+      )
+      values (
+        $1, $2, $3, 1, 'html5_zip', 'display_html', 'approved',
+        $4, 'index.html', 'application/zip', 300, 250, $5, $6::jsonb
+      )
+    `,
+    [
+      creativeVersionId,
+      workspaceId,
+      creativeId,
+      'https://cdn.duskplatform.co/demo/creatives/bocadeli-spring/index.html',
+      284312,
+      JSON.stringify({ build: 'seed-demo', previewAspectRatio: '6:5' }),
+    ],
+  );
+
+  await client.query(
+    `
+      insert into creative_artifacts (
+        id, workspace_id, creative_version_id, kind, storage_key, public_url, mime_type, size_bytes, metadata
+      )
+      values (
+        $1, $2, $3, 'published_html', $4, $5, 'application/zip', $6, $7::jsonb
+      )
+    `,
+    [
+      randomUUID(),
+      workspaceId,
+      creativeVersionId,
+      'demo/creatives/bocadeli-spring/source.zip',
+      'https://cdn.duskplatform.co/demo/creatives/bocadeli-spring/source.zip',
+      284312,
+      JSON.stringify({ entryPath: 'index.html' }),
+    ],
+  );
+
+  await client.query(
+    `
+      insert into creative_ingestions (
+        id, workspace_id, creative_id, creative_version_id, source_kind, status,
+        original_filename, mime_type, size_bytes, storage_key, public_url, metadata, validation_report
+      )
+      values (
+        $1, $2, $3, $4, 'html5_zip', 'published',
+        'bocadeli-spring-html5.zip', 'application/zip', $5, $6, $7, $8::jsonb, $9::jsonb
+      )
+    `,
+    [
+      randomUUID(),
+      workspaceId,
+      creativeId,
+      creativeVersionId,
+      284312,
+      'demo/creative-ingestions/bocadeli-spring-html5.zip',
+      'https://cdn.duskplatform.co/demo/creative-ingestions/bocadeli-spring-html5.zip',
+      JSON.stringify({
+        requestedName: 'Bocadeli Spring HTML5',
+        publishJob: { stage: 'completed', status: 'completed' },
+      }),
+      JSON.stringify({ htmlValidated: true, manifestWarnings: [] }),
+    ],
+  );
+
+  return creativeId;
+}
+
 async function main() {
   if (!connectionString) {
     throw new Error('DATABASE_URL is required to seed demo data.');
@@ -287,6 +396,7 @@ async function main() {
     const advertiserId = await ensureAdvertiser(client, resolvedWorkspaceId);
     const campaignId = await ensureCampaign(client, resolvedWorkspaceId, advertiserId);
     await ensureTagAndStats(client, resolvedWorkspaceId, campaignId);
+    await ensureCreativeCatalog(client, resolvedWorkspaceId);
 
     await client.query('commit');
     console.log(JSON.stringify({ ok: true, workspaceId: resolvedWorkspaceId }, null, 2));
