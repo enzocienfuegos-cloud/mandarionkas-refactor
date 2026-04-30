@@ -5,6 +5,7 @@ import { handleProjectRoutes } from './modules/projects/routes.mjs';
 import { handleAssetRoutes } from './modules/assets/routes.mjs';
 import { handleCampaignRoutes } from './modules/adserver/campaigns/routes.mjs';
 import { handleCreativeRoutes } from './modules/adserver/creatives/routes.mjs';
+import { handlePacingRoutes } from './modules/adserver/pacing/routes.mjs';
 import { handleReportingRoutes } from './modules/adserver/reporting/routes.mjs';
 import { handleTagRoutes } from './modules/adserver/tags/routes.mjs';
 import { applyCors, getRequestId, notFound, readJsonBody, sendJson } from './lib/http.mjs';
@@ -20,6 +21,7 @@ const routeHandlers = [
   handleAssetRoutes,
   handleCampaignRoutes,
   handleCreativeRoutes,
+  handlePacingRoutes,
   handleReportingRoutes,
   handleTagRoutes,
 ];

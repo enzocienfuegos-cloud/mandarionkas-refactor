@@ -37,6 +37,10 @@ function normalizeLimit(limit, fallback = 25, max = 100) {
   return Math.min(Math.max(Number(limit) || fallback, 1), max);
 }
 
+function normalizeNonNegativeInt(value) {
+  return Math.max(Number.parseInt(String(value ?? '0'), 10) || 0, 0);
+}
+
 function addTagScopeFilters(params, conditions, alias, campaignId, tagIds) {
   if (campaignId) {
     params.push(campaignId);
@@ -156,10 +160,8 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
        MAX(ie.country) FILTER (WHERE COALESCE(ie.country, '') <> '') AS country,
        MAX(ie.region) FILTER (WHERE COALESCE(ie.region, '') <> '') AS region,
        MAX(ie.city) FILTER (WHERE COALESCE(ie.city, '') <> '') AS city,
-       MAX(ie.device_type) FILTER (WHERE COALESCE(ie.device_type, '') <> '') AS device_type,
-       MAX(ie.device_model) FILTER (WHERE COALESCE(ie.device_model, '') <> '') AS device_model,
-       MAX(ie.browser) FILTER (WHERE COALESCE(ie.browser, '') <> '') AS browser,
-       MAX(ie.os) FILTER (WHERE COALESCE(ie.os, '') <> '') AS os
+       MAX(ie.referer) FILTER (WHERE COALESCE(ie.referer, '') <> '') AS referer,
+       MAX(ie.user_agent) FILTER (WHERE COALESCE(ie.user_agent, '') <> '') AS user_agent
      FROM impression_events ie
      WHERE ${durationConditions.join(' AND ')}`,
     durationParams,
@@ -203,11 +205,11 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     videoCompletionRate: videoStarts > 0 ? Number(((videoCompletions / videoStarts) * 100).toFixed(4)) : 0,
     latestContext: {
       siteDomain: duration.site_domain || '',
-      pageUrl: '',
-      deviceType: duration.device_type || '',
-      deviceModel: duration.device_model || '',
-      browser: duration.browser || '',
-      os: duration.os || '',
+      pageUrl: duration.referer || '',
+      deviceType: '',
+      deviceModel: '',
+      browser: '',
+      os: '',
       contextualIds: '',
       networkId: '',
       sourcePublisherId: '',
@@ -501,17 +503,15 @@ async function getImpressionGroupedBreakdown(pool, workspaceId, groupSql, labelA
     `SELECT
        ${groupSql} AS ${labelAlias},
        COUNT(*)::bigint AS impressions,
-       COALESCE(SUM(CASE WHEN COALESCE(ie.click_count, 0) > 0 THEN 1 ELSE 0 END), 0)::bigint AS clicks,
-       COALESCE(SUM(CASE WHEN COALESCE(ie.is_viewable, false) THEN 1 ELSE 0 END), 0)::bigint AS viewable_imps,
-       COALESCE(SUM(CASE WHEN ie.measured IS NOT NULL THEN 1 ELSE 0 END), 0)::bigint AS measured_imps,
-       COALESCE(SUM(CASE WHEN ie.measured IS NULL THEN 1 ELSE 0 END), 0)::bigint AS undetermined_imps,
+       0::bigint AS clicks,
+       COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::bigint AS viewable_imps,
+       COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0)::bigint AS measured_imps,
+       COALESCE(SUM(CASE WHEN ie.viewable IS NULL THEN 1 ELSE 0 END), 0)::bigint AS undetermined_imps,
        0::bigint AS unique_identities,
        0::numeric AS avg_frequency,
-       CASE WHEN COUNT(*) > 0
-         THEN ROUND(COALESCE(SUM(CASE WHEN COALESCE(ie.click_count, 0) > 0 THEN 1 ELSE 0 END), 0)::NUMERIC / COUNT(*) * 100, 4)
-         ELSE 0 END AS ctr,
-       CASE WHEN COALESCE(SUM(CASE WHEN ie.measured IS NOT NULL THEN 1 ELSE 0 END), 0) > 0
-         THEN ROUND(COALESCE(SUM(CASE WHEN COALESCE(ie.is_viewable, false) THEN 1 ELSE 0 END), 0)::NUMERIC / SUM(CASE WHEN ie.measured IS NOT NULL THEN 1 ELSE 0 END) * 100, 4)
+       0::numeric AS ctr,
+       CASE WHEN COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0) > 0
+         THEN ROUND(COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::NUMERIC / SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END) * 100, 4)
          ELSE 0 END AS viewability_rate
      FROM impression_events ie
      JOIN ad_tags t ON t.id = ie.tag_id
@@ -615,26 +615,26 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
   const latestQuery = pool.query(
     `SELECT
        ie.site_domain,
-       ie.page_url,
-       ie.device_type,
-       ie.device_model,
-       ie.browser,
-       ie.os,
+       ie.referer AS page_url,
        ie.country,
        ie.region,
        ie.city,
-       ie.app_bundle,
-       ie.app_name,
-       ie.app_id,
-       ie.exchange_id,
-       ie.network_id,
-       ie.page_position,
-       ie.content_language,
-       ie.content_title,
-       ie.content_series,
-       ie.carrier,
-       ie.app_store_name,
-       ie.content_genre
+       NULL::text AS device_type,
+       NULL::text AS device_model,
+       NULL::text AS browser,
+       NULL::text AS os,
+       NULL::text AS app_bundle,
+       NULL::text AS app_name,
+       NULL::text AS app_id,
+       NULL::text AS exchange_id,
+       NULL::text AS network_id,
+       NULL::text AS page_position,
+       NULL::text AS content_language,
+       NULL::text AS content_title,
+       NULL::text AS content_series,
+       NULL::text AS carrier,
+       NULL::text AS app_store_name,
+       NULL::text AS content_genre
      FROM impression_events ie
      JOIN ad_tags t ON t.id = ie.tag_id
      WHERE ${latestConditions.join(' AND ')}
@@ -643,27 +643,78 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
     latestParams,
   );
 
-  const deviceTypeBreakdown = getImpressionGroupedBreakdown(pool, workspaceId, `COALESCE(NULLIF(ie.device_type, ''), 'Unknown')`, 'label', opts);
-  const deviceModelBreakdown = getImpressionGroupedBreakdown(pool, workspaceId, `COALESCE(NULLIF(ie.device_model, ''), 'Unknown')`, 'label', opts);
-  const inventoryBreakdown = getImpressionGroupedBreakdown(
-    pool,
-    workspaceId,
-    `CASE WHEN COALESCE(ie.app_id, '') <> '' OR COALESCE(ie.app_bundle, '') <> '' OR COALESCE(ie.app_name, '') <> '' THEN 'app' ELSE 'web' END`,
-    'label',
-    opts,
-  );
-
-  const [latestResult, deviceTypes, deviceModels, inventoryEnvironments] = await Promise.all([
-    latestQuery,
-    deviceTypeBreakdown,
-    deviceModelBreakdown,
-    inventoryBreakdown,
-  ]);
+  const [latestResult] = await Promise.all([latestQuery]);
 
   return {
     latest_context: latestResult.rows[0] ?? null,
-    device_types: deviceTypes.map((item) => ({ label: item.label, value: Number(item.impressions || 0) })),
-    device_models: deviceModels.map((item) => ({ label: item.label, value: Number(item.impressions || 0) })),
-    inventory_environments: inventoryEnvironments.map((item) => ({ label: item.label, value: Number(item.impressions || 0) })),
+    device_types: [],
+    device_models: [],
+    inventory_environments: [{ label: 'web', value: Number(latestResult.rowCount || 0) }],
   };
+}
+
+export async function listSavedAudiences(pool, workspaceId) {
+  const { rows } = await pool.query(
+    `SELECT *
+     FROM saved_audiences
+     WHERE workspace_id = $1
+     ORDER BY created_at DESC`,
+    [workspaceId],
+  );
+  return rows;
+}
+
+export async function createSavedAudience(pool, workspaceId, createdBy, payload = {}) {
+  const { rows } = await pool.query(
+    `INSERT INTO saved_audiences (
+       workspace_id,
+       created_by,
+       name,
+       canonical_type,
+       country,
+       site_domain,
+       region,
+       city,
+       segment_preset,
+       activation_template,
+       campaign_id,
+       tag_id,
+       creative_id,
+       creative_size_variant_id,
+       min_impressions,
+       min_clicks
+     ) VALUES (
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
+     )
+     RETURNING *`,
+    [
+      workspaceId,
+      createdBy || null,
+      String(payload.name || '').trim(),
+      payload.canonicalType || null,
+      payload.country || null,
+      payload.siteDomain || null,
+      payload.region || null,
+      payload.city || null,
+      payload.segmentPreset || null,
+      payload.activationTemplate || 'full',
+      payload.campaignId || null,
+      payload.tagId || null,
+      payload.creativeId || null,
+      payload.variantId || null,
+      normalizeNonNegativeInt(payload.minImpressions),
+      normalizeNonNegativeInt(payload.minClicks),
+    ],
+  );
+  return rows[0] ?? null;
+}
+
+export async function deleteSavedAudience(pool, workspaceId, id) {
+  const { rowCount } = await pool.query(
+    `DELETE FROM saved_audiences
+     WHERE workspace_id = $1
+       AND id = $2`,
+    [workspaceId, id],
+  );
+  return rowCount > 0;
 }
