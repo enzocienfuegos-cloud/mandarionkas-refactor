@@ -4,7 +4,11 @@ import './index.css';
 import App from './App';
 import { applyTheme, getInitialTheme } from './shared/theme';
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+function normalizeApiBaseUrl(value: string) {
+  return value.replace(/\/+$/, '').replace(/\/v1$/, '');
+}
+
+const apiBaseUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL ?? '');
 
 applyTheme(getInitialTheme());
 

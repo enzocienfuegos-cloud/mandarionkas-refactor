@@ -188,6 +188,10 @@ const emptyForm: TagForm = {
 
 const STATUSES: TagStatus[] = ['draft', 'active', 'paused', 'archived'];
 
+function normalizeServingBaseUrl(value: string) {
+  return value.replace(/\/+$/, '').replace(/\/v1$/, '');
+}
+
 function resolveTagServingBaseUrl() {
   const candidates = [
     import.meta.env.VITE_TAGS_BASE_URL,
@@ -195,7 +199,7 @@ function resolveTagServingBaseUrl() {
     typeof window !== 'undefined' ? window.location.origin : '',
   ];
 
-  return (candidates.find((candidate) => candidate?.trim()) ?? '').replace(/\/+$/, '');
+  return normalizeServingBaseUrl(candidates.find((candidate) => candidate?.trim()) ?? '');
 }
 
 function getDefaultVastSnippetVariant(campaignDsp = ''): SnippetVariant {
