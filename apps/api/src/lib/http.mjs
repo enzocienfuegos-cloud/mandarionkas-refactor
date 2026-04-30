@@ -12,7 +12,10 @@ export function getOrigin(headers) {
 
 export function applyCors(req, res, env) {
   const requestOrigin = getOrigin(req.headers);
-  const allowOrigin = requestOrigin && requestOrigin === env.appOrigin ? requestOrigin : env.appOrigin;
+  const allowedOrigins = Array.isArray(env.corsOrigins) && env.corsOrigins.length ? env.corsOrigins : [env.appOrigin];
+  const allowOrigin = requestOrigin && allowedOrigins.includes(requestOrigin)
+    ? requestOrigin
+    : allowedOrigins[0];
   if (allowOrigin) {
     res.setHeader('Access-Control-Allow-Origin', allowOrigin);
     res.setHeader('Vary', 'Origin');

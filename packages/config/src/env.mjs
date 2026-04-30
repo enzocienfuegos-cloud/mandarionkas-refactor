@@ -9,13 +9,25 @@ function parseInteger(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function parseCsv(value) {
+  const normalized = normalize(value);
+  if (!normalized) return [];
+  return normalized
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 export function readApiEnv(source = process.env) {
+  const appOrigin = normalize(source.APP_ORIGIN) || 'http://localhost:5173';
+  const corsOrigins = parseCsv(source.CORS_ORIGIN);
   return Object.freeze({
     nodeEnv: normalize(source.NODE_ENV) || 'development',
     appName: normalize(source.APP_NAME) || 'smx-studio-api',
     appEnv: normalize(source.APP_ENV) || normalize(source.NODE_ENV) || 'development',
     port: parseInteger(source.PORT, 8080),
-    appOrigin: normalize(source.APP_ORIGIN) || 'http://localhost:5173',
+    appOrigin,
+    corsOrigins: corsOrigins.length ? corsOrigins : [appOrigin],
     apiBaseUrl: normalize(source.API_BASE_URL) || '',
     assetsPublicBaseUrl: normalize(source.ASSETS_PUBLIC_BASE_URL) || '',
     databaseUrl: normalize(source.DATABASE_URL) || '',

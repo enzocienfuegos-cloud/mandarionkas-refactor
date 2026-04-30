@@ -1,6 +1,12 @@
+import { randomUUID } from 'node:crypto';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { badRequest, forbidden, notImplemented, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
 import { requireAuthenticatedSession } from '../../auth/service.mjs';
 import {
+  createCreativeIngestion,
+  createPublishedCreative,
+  createTagBinding,
   deleteCreative,
   getCreative,
   getCreativeIngestion,
@@ -12,9 +18,15 @@ import {
   listCreatives,
   listCreativesForUser,
   listCreativeVersions,
+  updateCreativeIngestion,
   updateCreative,
   updateCreativeVersion,
 } from '../../../../../../packages/db/src/creatives.mjs';
+
+const R2_REGION = 'auto';
+const PREPARE_UPLOAD_TTL_SECONDS = 60 * 15;
+let cachedR2Client = null;
+let cachedR2Key = '';
 
 async function withSession(ctx, callback) {
   const session = await requireAuthenticatedSession({ env: ctx.env, headers: ctx.req.headers });
@@ -43,6 +55,56 @@ async function resolveTargetWorkspaceId(client, userId, fallbackWorkspaceId, req
     throw error;
   }
   return candidate;
+}
+
+function trimText(value) {
+  return String(value ?? '').trim();
+}
+
+function sanitizeFilename(filename) {
+  return trimText(filename).replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/-+/g, '-').slice(-160) || 'upload.bin';
+}
+
+function trimBaseUrl(value) {
+  return trimText(value).replace(/\/+$/, '');
+}
+
+function isR2SigningReady(env) {
+  return Boolean(env.r2Endpoint && env.r2Bucket && env.r2AccessKeyId && env.r2SecretAccessKey);
+}
+
+function getR2Client(env) {
+  const cacheKey = `${env.r2Endpoint}|${env.r2AccessKeyId}|${env.r2Bucket}`;
+  if (cachedR2Client && cachedR2Key === cacheKey) return cachedR2Client;
+  cachedR2Client = new S3Client({
+    region: R2_REGION,
+    endpoint: env.r2Endpoint,
+    credentials: {
+      accessKeyId: env.r2AccessKeyId,
+      secretAccessKey: env.r2SecretAccessKey,
+    },
+  });
+  cachedR2Key = cacheKey;
+  return cachedR2Client;
+}
+
+function buildCreativeStorageKey({ workspaceId, ingestionId, filename }) {
+  return `workspaces/${workspaceId}/creative-ingestions/${ingestionId}/${sanitizeFilename(filename)}`;
+}
+
+function buildPublicUrl(env, storageKey) {
+  const base = trimBaseUrl(env.assetsPublicBaseUrl);
+  return base && storageKey ? `${base}/${storageKey}` : null;
+}
+
+async function signUploadUrl(env, { storageKey, mimeType }) {
+  if (!isR2SigningReady(env)) return null;
+  const command = new PutObjectCommand({
+    Bucket: env.r2Bucket,
+    Key: storageKey,
+    ContentType: trimText(mimeType) || undefined,
+  });
+  return getSignedUrl(getR2Client(env), command, { expiresIn: PREPARE_UPLOAD_TTL_SECONDS });
 }
 
 function normalizeCreative(row) {
@@ -145,6 +207,33 @@ function normalizeCreativeIngestion(row) {
     errorDetail: row.error_detail ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function normalizeTagBinding(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    tagId: row.tag_id,
+    creativeId: row.creative_id,
+    creativeVersionId: row.creative_version_id,
+    creativeSizeVariantId: row.creative_size_variant_id ?? null,
+    status: row.status,
+    weight: Number(row.weight || 1),
+    startAt: row.start_at ?? null,
+    endAt: row.end_at ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    creativeName: row.creative_name ?? '',
+    creativeVersionStatus: row.creative_version_status ?? '',
+    sourceKind: row.source_kind ?? '',
+    servingFormat: row.serving_format ?? '',
+    publicUrl: row.public_url ?? null,
+    entryPath: row.entry_path ?? null,
+    variantLabel: row.variant_label ?? '',
+    variantWidth: row.variant_width ?? null,
+    variantHeight: row.variant_height ?? null,
+    variantStatus: row.variant_status ?? null,
   };
 }
 
@@ -405,19 +494,174 @@ export async function handleCreativeRoutes(ctx) {
   }
 
   if (method === 'POST' && pathname === '/v1/creative-ingestions/upload-url') {
-    return withSession(ctx, async () => notImplemented(res, requestId, pathname, 'Signed upload URL generation will be ported with the ingestion publish workflow.'));
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:create')) {
+        return forbidden(res, requestId, 'You do not have permission to upload creatives.');
+      }
+      if (!isR2SigningReady(ctx.env)) {
+        return badRequest(res, requestId, 'Creative uploads are not configured yet.');
+      }
+      if (!trimBaseUrl(ctx.env.assetsPublicBaseUrl)) {
+        return badRequest(res, requestId, 'ASSETS_PUBLIC_BASE_URL is required to prepare creative uploads.');
+      }
+
+      const filename = trimText(ctx.body?.filename);
+      const sourceKind = trimText(ctx.body?.sourceKind || ctx.body?.source_kind).toLowerCase();
+      if (!filename) return badRequest(res, requestId, 'Filename is required.');
+      if (!['html5_zip', 'video_mp4'].includes(sourceKind)) {
+        return badRequest(res, requestId, 'sourceKind must be html5_zip or video_mp4.');
+      }
+
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const ingestionId = randomUUID();
+      const storageKey = buildCreativeStorageKey({ workspaceId, ingestionId, filename });
+      const publicUrl = buildPublicUrl(ctx.env, storageKey);
+      const uploadUrl = await signUploadUrl(ctx.env, {
+        storageKey,
+        mimeType: ctx.body?.mimeType || ctx.body?.mime_type,
+      });
+      const ingestion = await createCreativeIngestion(session.client, {
+        id: ingestionId,
+        workspaceId,
+        createdBy: session.user.id,
+        sourceKind,
+        status: 'uploaded',
+        originalFilename: filename,
+        mimeType: ctx.body?.mimeType || ctx.body?.mime_type || null,
+        sizeBytes: ctx.body?.sizeBytes ?? ctx.body?.size_bytes ?? null,
+        storageKey,
+        publicUrl,
+        metadata: {
+          requestedName: trimText(ctx.body?.name) || null,
+          clickUrl: trimText(ctx.body?.clickUrl ?? ctx.body?.click_url) || null,
+        },
+      });
+      return sendJson(res, 200, {
+        ingestion: normalizeCreativeIngestion(ingestion),
+        upload: { ingestionId, storageKey, uploadUrl, publicUrl },
+        requestId,
+      });
+    });
   }
 
   if (method === 'POST' && /^\/v1\/creative-ingestions\/[^/]+\/complete$/.test(pathname)) {
-    return withSession(ctx, async () => notImplemented(res, requestId, pathname, 'Creative ingestion completion is not ported yet.'));
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:create')) {
+        return forbidden(res, requestId, 'You do not have permission to complete creative uploads.');
+      }
+      const ingestionId = pathname.split('/')[3];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const existing = await getCreativeIngestion(session.client, workspaceId, ingestionId);
+      if (!existing) return badRequest(res, requestId, 'Creative ingestion not found.');
+      const ingestion = await updateCreativeIngestion(session.client, workspaceId, ingestionId, {
+        original_filename: trimText(ctx.body?.filename) || existing.original_filename,
+        mime_type: trimText(ctx.body?.mimeType || ctx.body?.mime_type) || existing.mime_type,
+        size_bytes: ctx.body?.sizeBytes ?? ctx.body?.size_bytes ?? existing.size_bytes,
+        public_url: trimText(ctx.body?.publicUrl || ctx.body?.public_url) || existing.public_url,
+        storage_key: trimText(ctx.body?.storageKey || ctx.body?.storage_key) || existing.storage_key,
+        status: 'validated',
+        metadata: {
+          ...(existing.metadata || {}),
+          requestedName: trimText(ctx.body?.name) || existing.metadata?.requestedName || null,
+          clickUrl: trimText(ctx.body?.clickUrl ?? ctx.body?.click_url) || existing.metadata?.clickUrl || null,
+        },
+        validation_report: {
+          completed: true,
+          readyToPublish: true,
+        },
+      });
+      return sendJson(res, 200, { ingestion: normalizeCreativeIngestion(ingestion), requestId });
+    });
   }
 
   if (method === 'POST' && /^\/v1\/creative-ingestions\/[^/]+\/publish$/.test(pathname)) {
-    return withSession(ctx, async () => notImplemented(res, requestId, pathname, 'Creative ingestion publish jobs are the next creative workflow slice.'));
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:create')) {
+        return forbidden(res, requestId, 'You do not have permission to publish creatives.');
+      }
+      const ingestionId = pathname.split('/')[3];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const existing = await getCreativeIngestion(session.client, workspaceId, ingestionId);
+      if (!existing) return badRequest(res, requestId, 'Creative ingestion not found.');
+
+      if (existing.creative_id && existing.creative_version_id && existing.status === 'published') {
+        const creative = await getCreative(session.client, workspaceId, existing.creative_id);
+        const creativeVersion = await getCreativeVersion(session.client, workspaceId, existing.creative_version_id);
+        return sendJson(res, 200, {
+          ingestion: normalizeCreativeIngestion(existing),
+          creative: normalizeCreative(creative),
+          creativeVersion: normalizeCreativeVersion(creativeVersion),
+          queued: false,
+          processing: false,
+          requestId,
+        });
+      }
+
+      const result = await createPublishedCreative(session.client, {
+        workspaceId,
+        createdBy: session.user.id,
+        ingestionId,
+        sourceKind: existing.source_kind,
+        name: trimText(ctx.body?.name) || existing.metadata?.requestedName || existing.original_filename,
+        clickUrl: trimText(ctx.body?.clickUrl ?? ctx.body?.click_url) || existing.metadata?.clickUrl || null,
+        publicUrl: existing.public_url,
+        storageKey: existing.storage_key,
+        originalFilename: existing.original_filename,
+        mimeType: existing.mime_type,
+        sizeBytes: existing.size_bytes,
+        metadata: existing.metadata || {},
+      });
+      return sendJson(res, 200, {
+        ingestion: normalizeCreativeIngestion(result.ingestion),
+        creative: normalizeCreative(result.creative),
+        creativeVersion: normalizeCreativeVersion(result.creativeVersion),
+        queued: false,
+        processing: false,
+        requestId,
+      });
+    });
   }
 
   if (method === 'POST' && /^\/v1\/creative-versions\/[^/]+\/assign\/[^/]+$/.test(pathname)) {
-    return withSession(ctx, async () => notImplemented(res, requestId, pathname, 'Creative-to-tag bindings will be ported with the variant binding subdomain.'));
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:save')) {
+        return forbidden(res, requestId, 'You do not have permission to assign creatives.');
+      }
+      const versionId = pathname.split('/')[3];
+      const tagId = pathname.split('/')[5];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
+      if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
+      const binding = await createTagBinding(session.client, {
+        workspaceId,
+        tagId,
+        creativeVersionId: versionId,
+        status: ctx.body?.status,
+        weight: ctx.body?.weight,
+        createdBy: session.user.id,
+      });
+      return sendJson(res, 200, { binding: normalizeTagBinding(binding), requestId });
+    });
   }
 
   if (method === 'PATCH' && /^\/v1\/creative-variants\/[^/]+$/.test(pathname)) {

@@ -2,6 +2,7 @@ import { badRequest, conflict, forbidden, sendJson, serviceUnavailable, unauthor
 import { requireAuthenticatedSession } from '../../auth/service.mjs';
 import { checkTagHealth, getTagHealthSummary, listTagHealth } from '../../../../../../packages/db/src/tag-health.mjs';
 import { getTagStats, getTagSummary } from '../../../../../../packages/db/src/reporting.mjs';
+import { listTagBindings as listCreativeTagBindings, updateTagBinding as updateCreativeTagBinding } from '../../../../../../packages/db/src/creatives.mjs';
 import {
   createTag,
   deleteTag,
@@ -92,6 +93,33 @@ function parseTagInput(body = {}) {
     serving_width: body.servingWidth ?? body.serving_width ?? null,
     serving_height: body.servingHeight ?? body.serving_height ?? null,
     tracker_type: body.trackerType ?? body.tracker_type ?? null,
+  };
+}
+
+function normalizeTagBinding(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    tagId: row.tag_id,
+    creativeId: row.creative_id,
+    creativeVersionId: row.creative_version_id,
+    creativeSizeVariantId: row.creative_size_variant_id ?? null,
+    status: row.status,
+    weight: Number(row.weight || 1),
+    startAt: row.start_at ?? null,
+    endAt: row.end_at ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    creativeName: row.creative_name ?? '',
+    creativeVersionStatus: row.creative_version_status ?? '',
+    sourceKind: row.source_kind ?? '',
+    servingFormat: row.serving_format ?? '',
+    publicUrl: row.public_url ?? null,
+    entryPath: row.entry_path ?? null,
+    variantLabel: row.variant_label ?? '',
+    variantWidth: row.variant_width ?? null,
+    variantHeight: row.variant_height ?? null,
+    variantStatus: row.variant_status ?? null,
   };
 }
 
@@ -253,7 +281,30 @@ export async function handleTagRoutes(ctx) {
   }
 
   if (method === 'GET' && /^\/v1\/tags\/[^/]+\/bindings$/.test(pathname)) {
-    return withSession(ctx, async () => sendJson(res, 200, { bindings: [], requestId }));
+    return withSession(ctx, async (session) => {
+      const id = pathname.split('/')[3];
+      const baseTag = await getTagById(session.client, id);
+      if (!baseTag) return badRequest(res, requestId, 'Tag not found.');
+      const bindings = await listCreativeTagBindings(session.client, baseTag.workspace_id, id);
+      return sendJson(res, 200, { bindings: bindings.map(normalizeTagBinding), requestId });
+    });
+  }
+
+  if (method === 'PATCH' && /^\/v1\/tags\/[^/]+\/bindings\/[^/]+$/.test(pathname)) {
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:save')) {
+        return forbidden(res, requestId, 'You do not have permission to update tag bindings.');
+      }
+      const [, , , tagId, , bindingId] = pathname.split('/');
+      const baseTag = await getTagById(session.client, tagId);
+      if (!baseTag) return badRequest(res, requestId, 'Tag not found.');
+      const binding = await updateCreativeTagBinding(session.client, baseTag.workspace_id, tagId, bindingId, {
+        status: body?.status,
+        weight: body?.weight,
+      });
+      if (!binding) return badRequest(res, requestId, 'Tag binding not found.');
+      return sendJson(res, 200, { binding: normalizeTagBinding(binding), requestId });
+    });
   }
 
   if (method === 'GET' && /^\/v1\/tags\/[^/]+\/delivery-diagnostics$/.test(pathname)) {
