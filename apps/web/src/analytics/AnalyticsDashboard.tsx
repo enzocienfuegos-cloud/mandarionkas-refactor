@@ -776,12 +776,12 @@ function PerformanceChart({
           </g>
         );
       })}
-      {points.length > 1 && <polyline points={linePoints} fill="none" stroke="#4f46e5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
+      {points.length > 1 && <polyline points={linePoints} fill="none" stroke="#f1008b" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
       {points.map((point, index) => {
         const x = points.length === 1 ? pad.left + chartWidth / 2 : pad.left + (index / (points.length - 1)) * chartWidth;
         const y = pad.top + chartHeight - (point.value / maxValue) * chartHeight;
         return (
-          <circle key={`dot-${point.label}-${index}`} cx={x} cy={y} r="4" fill="#4f46e5">
+          <circle key={`dot-${point.label}-${index}`} cx={x} cy={y} r="4" fill="#f1008b">
             <title>{`${point.label}: ${metricConfig.formatter(point.value)}`}</title>
           </circle>
         );
@@ -790,12 +790,52 @@ function PerformanceChart({
   );
 }
 
-function KpiCard({ label, value, icon, color, sub }: { label: string; value: string; icon: string; color: string; sub?: string }) {
+function MetricGlyph({ type }: { type: 'eye' | 'cursor' | 'wallet' | 'trend' | 'target' | 'spark' | 'video' | 'flag' | 'bolt' | 'hourglass' | 'clock' | 'campaign' | 'tag' | 'creative' | 'lab' | 'id' }) {
+  const content = (() => {
+    switch (type) {
+      case 'eye':
+        return <><path d="M1.5 8s2.5-4 6.5-4 6.5 4 6.5 4-2.5 4-6.5 4-6.5-4-6.5-4Z" stroke="currentColor" strokeWidth="1.4" fill="none" /><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.4" fill="none" /></>;
+      case 'cursor':
+        return <path d="m3 2 7 7-3 .8 1.2 3.2-1.7.7-1.2-3.2-2.3 2Z" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinejoin="round" />;
+      case 'wallet':
+        return <><rect x="2" y="4" width="12" height="8" rx="2" stroke="currentColor" strokeWidth="1.4" fill="none" /><path d="M9.5 7.5h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></>;
+      case 'trend':
+        return <path d="M2.5 11.5 6 8l2 2 4-5.5" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+      case 'target':
+        return <><circle cx="8" cy="8" r="5" stroke="currentColor" strokeWidth="1.4" fill="none" /><circle cx="8" cy="8" r="2.2" stroke="currentColor" strokeWidth="1.4" fill="none" /></>;
+      case 'spark':
+        return <path d="M8 2.5 9.5 6.5 13.5 8 9.5 9.5 8 13.5 6.5 9.5 2.5 8 6.5 6.5Z" fill="currentColor" />;
+      case 'video':
+        return <><rect x="2.5" y="4" width="9" height="8" rx="1.6" stroke="currentColor" strokeWidth="1.4" fill="none" /><path d="m7 6.2 2.8 1.8L7 9.8Z" fill="currentColor" /></>;
+      case 'flag':
+        return <><path d="M4 2.5v11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M5 3h6l-1.4 2L11 7H5Z" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinejoin="round" /></>;
+      case 'bolt':
+        return <path d="M8.5 1.8 4.2 7.8h2.9L6.6 14l4.9-6.2H8.6Z" fill="currentColor" />;
+      case 'hourglass':
+        return <><path d="M4 2.5h8M4 13.5h8M5 3.5c0 2 2 2.6 3 4.5-1 1.9-3 2.5-3 4.5M11 3.5c0 2-2 2.6-3 4.5 1 1.9 3 2.5 3 4.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></>;
+      case 'clock':
+        return <><circle cx="8" cy="8" r="5" stroke="currentColor" strokeWidth="1.4" fill="none" /><path d="M8 5.2v3.1l2 1.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></>;
+      case 'campaign':
+        return <><rect x="2.5" y="3.2" width="11" height="2.5" rx="1" stroke="currentColor" strokeWidth="1.3" fill="none" /><rect x="2.5" y="7" width="11" height="2.5" rx="1" stroke="currentColor" strokeWidth="1.3" fill="none" /><rect x="2.5" y="10.8" width="7" height="2.5" rx="1" stroke="currentColor" strokeWidth="1.3" fill="none" /></>;
+      case 'tag':
+        return <path d="M2.5 7.5V3h4.5l5 5-4.5 4.5Z" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinejoin="round" />;
+      case 'creative':
+        return <><rect x="2.5" y="3" width="11" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none" /><path d="m4.3 10 2.2-2.2 1.8 1.8 1.8-2.3 1.4 2.7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></>;
+      case 'lab':
+        return <path d="M5 2.5h6M8 2.5v3l3 5a1 1 0 0 1-.9 1.5H5.9A1 1 0 0 1 5 10.5l3-5Z" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinejoin="round" />;
+      case 'id':
+        return <><rect x="2.5" y="4" width="11" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none" /><circle cx="5.7" cy="8" r="1.1" fill="currentColor" /><path d="M8 7h3M8 9h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></>;
+    }
+  })();
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">{content}</svg>;
+}
+
+function KpiCard({ label, value, icon, color, sub }: { label: string; value: string; icon: React.ReactNode; color: string; sub?: string }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5">
       <div className="flex items-center justify-between mb-3">
         <p className="text-sm text-slate-500 font-medium">{label}</p>
-        <span className="text-2xl">{icon}</span>
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-fuchsia-100 bg-fuchsia-50 text-fuchsia-600">{icon}</span>
       </div>
       <p className={`text-3xl font-bold ${color}`}>{value}</p>
       {sub ? <p className="text-xs text-slate-400 mt-1">{sub}</p> : null}
@@ -1144,77 +1184,77 @@ export default function AnalyticsDashboard() {
     return () => window.clearTimeout(timeout);
   }, [layoutPrefsLoaded, primaryKpiOrder, secondaryKpiOrder, moduleOrder]);
 
-  const primaryKpis = useMemo<Record<PrimaryKpiId, { label: string; value: string; icon: string; color: string; sub?: string }>>(() => ({
-    impressions: { label: 'Impressions', value: fmtNum(data?.totalImpressions ?? 0), icon: '👁️', color: 'text-slate-800' },
-    clicks: { label: 'Clicks', value: fmtNum(data?.totalClicks ?? 0), icon: '🖱️', color: 'text-blue-700' },
-    spend: { label: 'Spend', value: fmtCurrency(data?.totalSpend ?? 0), icon: '💸', color: 'text-emerald-700' },
-    ctr: { label: 'CTR', value: fmtCtr(data?.avgCtr ?? 0), icon: '📈', color: 'text-indigo-700' },
+  const primaryKpis = useMemo<Record<PrimaryKpiId, { label: string; value: string; icon: React.ReactNode; color: string; sub?: string }>>(() => ({
+    impressions: { label: 'Impressions', value: fmtNum(data?.totalImpressions ?? 0), icon: <MetricGlyph type="eye" />, color: 'text-slate-800' },
+    clicks: { label: 'Clicks', value: fmtNum(data?.totalClicks ?? 0), icon: <MetricGlyph type="cursor" />, color: 'text-fuchsia-600' },
+    spend: { label: 'Spend', value: fmtCurrency(data?.totalSpend ?? 0), icon: <MetricGlyph type="wallet" />, color: 'text-emerald-700' },
+    ctr: { label: 'CTR', value: fmtCtr(data?.avgCtr ?? 0), icon: <MetricGlyph type="trend" />, color: 'text-fuchsia-600' },
     viewability: {
       label: 'Viewability',
       value: fmtCtr(data?.viewabilityRate ?? 0),
-      icon: '🎯',
+      icon: <MetricGlyph type="target" />,
       color: 'text-fuchsia-700',
       sub: `${fmtNum(data?.totalViewableImpressions ?? 0)} viewable of ${fmtNum(data?.totalMeasuredImpressions ?? 0)} measured · ${fmtCtr(data?.measurableRate ?? 0)} measurable`,
     },
     engagements: {
       label: 'Engagements',
       value: fmtNum(data?.totalEngagements ?? 0),
-      icon: '✨',
+      icon: <MetricGlyph type="spark" />,
       color: 'text-amber-700',
       sub: `${fmtCtr(data?.engagementRate ?? 0)} engagement rate`,
     },
     completions: {
       label: 'Completions',
       value: fmtNum(data?.videoCompletions ?? 0),
-      icon: '🎬',
+      icon: <MetricGlyph type="video" />,
       color: 'text-emerald-700',
       sub: `${fmtNum(data?.videoStarts ?? 0)} video starts`,
     },
     completionRate: {
       label: 'Completion Rate',
       value: fmtCtr(data?.videoCompletionRate ?? 0),
-      icon: '🏁',
-      color: 'text-violet-700',
+      icon: <MetricGlyph type="flag" />,
+      color: 'text-fuchsia-700',
       sub: `${fmtNum(data?.videoCompletions ?? 0)} completions from ${fmtNum(data?.videoStarts ?? 0)} starts`,
     },
     engagementRate: {
       label: 'Engagement Rate',
       value: fmtCtr(data?.engagementRate ?? 0),
-      icon: '⚡',
+      icon: <MetricGlyph type="bolt" />,
       color: 'text-orange-700',
       sub: `${fmtNum(data?.totalEngagements ?? 0)} engagements on ${fmtNum(data?.totalImpressions ?? 0)} impressions`,
     },
     attentionTime: {
       label: 'Attention Time',
       value: fmtSecondsFromMs(data?.totalHoverDurationMs ?? 0),
-      icon: '⏳',
+      icon: <MetricGlyph type="hourglass" />,
       color: 'text-amber-700',
       sub: 'Total hover duration',
     },
     inViewTime: {
       label: 'In-View Time',
       value: fmtSecondsFromMs(data?.totalInViewDurationMs ?? 0),
-      icon: '⏱️',
-      color: 'text-cyan-700',
+      icon: <MetricGlyph type="clock" />,
+      color: 'text-fuchsia-600',
       sub: 'Total measured visible duration',
     },
   }), [data]);
 
-  const secondaryKpis = useMemo<Record<SecondaryKpiId, { label: string; value: string; icon: string; color: string; sub?: string }>>(() => ({
-    activeCampaigns: { label: 'Active Campaigns', value: String(data?.activeCampaigns ?? 0), icon: '📋', color: 'text-slate-800' },
-    activeTags: { label: 'Active Tags', value: String(data?.activeTags ?? 0), icon: '🏷️', color: 'text-slate-800' },
-    creatives: { label: 'Creatives', value: String(data?.totalCreatives ?? 0), icon: '🧩', color: 'text-slate-800' },
+  const secondaryKpis = useMemo<Record<SecondaryKpiId, { label: string; value: string; icon: React.ReactNode; color: string; sub?: string }>>(() => ({
+    activeCampaigns: { label: 'Active Campaigns', value: String(data?.activeCampaigns ?? 0), icon: <MetricGlyph type="campaign" />, color: 'text-slate-800' },
+    activeTags: { label: 'Active Tags', value: String(data?.activeTags ?? 0), icon: <MetricGlyph type="tag" />, color: 'text-slate-800' },
+    creatives: { label: 'Creatives', value: String(data?.totalCreatives ?? 0), icon: <MetricGlyph type="creative" />, color: 'text-slate-800' },
     measurableRate: {
       label: 'Measurable Rate',
       value: fmtCtr(data?.measurableRate ?? 0),
-      icon: '🧪',
+      icon: <MetricGlyph type="lab" />,
       color: 'text-slate-800',
       sub: `${fmtNum(data?.totalUndeterminedImpressions ?? 0)} undetermined impressions`,
     },
     identities: {
       label: 'Identities',
       value: fmtNum(data?.totalIdentities ?? 0),
-      icon: '🪪',
+      icon: <MetricGlyph type="id" />,
       color: 'text-slate-800',
       sub: `${(data?.avgIdentityFrequency ?? 0).toFixed(2)} avg impressions · ${(data?.avgIdentityClicks ?? 0).toFixed(2)} avg clicks`,
     },
@@ -1478,7 +1518,7 @@ export default function AnalyticsDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-fuchsia-500"></div>
       </div>
     );
   }
@@ -1597,7 +1637,7 @@ export default function AnalyticsDashboard() {
                       onClick={() => setChartGrain(grain.value)}
                       className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                         chartGrain === grain.value
-                          ? 'bg-indigo-600 text-white'
+                          ? 'bg-fuchsia-600 text-white'
                           : 'text-slate-600 hover:bg-white'
                       }`}
                     >
@@ -1719,7 +1759,7 @@ export default function AnalyticsDashboard() {
                     <select value={identityExportFormat} onChange={(event) => setIdentityExportFormat(event.target.value as IdentityExportFormat)} className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700">
                       {IDENTITY_EXPORT_FORMATS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
-                    <button onClick={() => void handleExportIdentityAudienceCsv()} className="px-3 py-2 text-xs border border-indigo-300 text-indigo-700 rounded-md hover:bg-indigo-50 transition-colors">Export Audience</button>
+                    <button onClick={() => void handleExportIdentityAudienceCsv()} className="px-3 py-2 text-xs border border-fuchsia-200 text-fuchsia-700 rounded-md hover:bg-fuchsia-50 transition-colors">Export Audience</button>
                     <button onClick={() => void handleSaveAudience()} disabled={savingAudience} className="px-3 py-2 text-xs border border-emerald-300 text-emerald-700 rounded-md hover:bg-emerald-50 transition-colors disabled:opacity-60">
                       {savingAudience ? 'Saving...' : 'Save Audience'}
                     </button>
@@ -1776,7 +1816,7 @@ export default function AnalyticsDashboard() {
                           </div>
                           <div className="flex items-center gap-2">
                             <button onClick={() => applySavedAudience(audience)} className="px-3 py-2 text-xs border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors">Apply</button>
-                            <button onClick={() => { void handleExportIdentityAudienceCsv(audience); }} className="px-3 py-2 text-xs border border-indigo-300 text-indigo-700 rounded-md hover:bg-indigo-50 transition-colors">Export</button>
+                            <button onClick={() => { void handleExportIdentityAudienceCsv(audience); }} className="px-3 py-2 text-xs border border-fuchsia-200 text-fuchsia-700 rounded-md hover:bg-fuchsia-50 transition-colors">Export</button>
                             <button onClick={() => void handleDeleteSavedAudience(audience)} className="px-3 py-2 text-xs border border-rose-300 text-rose-700 rounded-md hover:bg-rose-50 transition-colors">Delete</button>
                           </div>
                         </div>
@@ -1872,7 +1912,7 @@ export default function AnalyticsDashboard() {
                 }}
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   rangeMode === 'preset' && dateRange === range
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-fuchsia-600 text-white'
                     : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -1880,11 +1920,11 @@ export default function AnalyticsDashboard() {
               </button>
             ))}
           </div>
-          <div className={`flex items-center gap-2 rounded-lg border p-2 ${rangeMode === 'custom' ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200 bg-white'}`}>
+          <div className={`flex items-center gap-2 rounded-lg border p-2 ${rangeMode === 'custom' ? 'border-fuchsia-200 bg-fuchsia-50' : 'border-slate-200 bg-white'}`}>
             <button
               onClick={() => setRangeMode('custom')}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                rangeMode === 'custom' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+                rangeMode === 'custom' ? 'bg-fuchsia-600 text-white' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
               Custom
@@ -1963,7 +2003,7 @@ export default function AnalyticsDashboard() {
                 onClick={() => setActiveTab(tab.value)}
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   activeTab === tab.value
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-fuchsia-600 text-white'
                     : 'text-slate-600 hover:bg-white'
                 }`}
               >

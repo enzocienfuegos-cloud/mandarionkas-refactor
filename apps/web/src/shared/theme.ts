@@ -4,14 +4,14 @@ export const THEME_PREFERENCE_KEY = 'ui.theme';
 export const THEME_STORAGE_KEY = 'smx-theme';
 
 function getSystemTheme(): ThemeMode {
-  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
+  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: light)').matches) {
+    return 'light';
   }
-  return 'light';
+  return 'dark';
 }
 
 export function getInitialTheme(): ThemeMode {
-  if (typeof window === 'undefined') return 'light';
+  if (typeof window === 'undefined') return 'dark';
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
   return stored === 'dark' || stored === 'light' ? stored : getSystemTheme();
 }
