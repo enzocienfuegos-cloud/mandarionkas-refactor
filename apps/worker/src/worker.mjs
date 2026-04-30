@@ -13,12 +13,26 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function runJob(name, fn) {
+  try {
+    await fn();
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: 'error',
+      service: 'smx-worker',
+      job: name,
+      message: error?.message || 'Job failed',
+      stack: error?.stack,
+    }));
+  }
+}
+
 async function runCycle() {
-  await runMaintenanceJob();
-  await runGenerateImageDerivativesJob();
-  await runTranscodeVideoJob();
-  await runGenerateThumbnailsJob();
-  await runExtractMetadataJob();
+  await runJob('maintenance', runMaintenanceJob);
+  await runJob('image-derivatives', runGenerateImageDerivativesJob);
+  await runJob('transcode-video', runTranscodeVideoJob);
+  await runJob('generate-thumbnails', runGenerateThumbnailsJob);
+  await runJob('extract-metadata', runExtractMetadataJob);
 }
 
 async function main() {
