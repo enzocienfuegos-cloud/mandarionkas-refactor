@@ -1109,22 +1109,17 @@ export default function AdOpsOverview() {
       <div className="mx-auto max-w-[1680px]">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="min-w-[230px]">
-              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-white/38">
-                Client scope
-              </label>
-              <div className="relative">
-                <select
-                  value={activeWorkspaceId}
-                  onChange={(event) => void handleWorkspaceChange(event.target.value)}
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white"
-                >
-                  {workspaces.map((workspace) => (
-                    <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
-                  ))}
-                </select>
-                <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/36" />
-              </div>
+            <div className="relative min-w-[230px]">
+              <select
+                value={activeWorkspaceId}
+                onChange={(event) => void handleWorkspaceChange(event.target.value)}
+                className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white"
+              >
+                {workspaces.map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
+                ))}
+              </select>
+              <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/36" />
             </div>
             <select
               value={String(dateRange)}
@@ -1185,7 +1180,7 @@ export default function AdOpsOverview() {
             {selectedWorkspaceName}
           </div>
           <h1 className="text-5xl font-semibold tracking-tight text-slate-950 dark:text-white">Good morning, {userName.split(' ')[0] || 'Admin'}</h1>
-          <p className="mt-3 text-xl text-slate-600 dark:text-white/62">This is your command center across clients. Metrics and alerts refresh when you switch the client selector.</p>
+          <p className="mt-3 text-xl text-slate-600 dark:text-white/62">This is your command center across clients. Use the client selector to pivot the overview, alerts, and health signals.</p>
         </header>
 
         {error ? <div className="mt-6 rounded-2xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">{error}</div> : null}

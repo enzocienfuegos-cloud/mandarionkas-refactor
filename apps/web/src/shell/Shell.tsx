@@ -306,6 +306,7 @@ export default function Shell() {
 
   const toolsOpen = location.pathname.startsWith('/tools');
   const settingsOpen = location.pathname.startsWith('/settings');
+  const isOverviewRoute = location.pathname.startsWith('/overview');
 
   const handleLogout = async () => {
     await fetch('/v1/auth/logout', { method: 'POST', credentials: 'include' });
@@ -568,6 +569,7 @@ export default function Shell() {
       </aside>
 
       <div className={`flex min-w-0 flex-1 flex-col ${isDark ? 'bg-[#0c0c0e]' : 'bg-[#f6f3f8]'}`}>
+        {!isOverviewRoute ? (
         <header className={`flex h-14 flex-shrink-0 items-center justify-between px-7 ${isDark ? 'border-b border-white/[0.06] bg-[#0c0c0e]' : 'border-b border-slate-200 bg-[#f6f3f8]'}`}>
           <div className="flex items-center gap-3">
             <div className={`hidden max-w-[360px] items-center gap-2 rounded-xl px-3 py-2 text-sm md:flex ${isDark ? 'border border-white/[0.08] bg-white/[0.03] text-white/35' : 'border border-slate-200 bg-white text-slate-400'}`}>
@@ -676,8 +678,9 @@ export default function Shell() {
             </div>
           </div>
         </header>
+        ) : null}
 
-        <main className={`flex-1 overflow-y-auto p-6 ${isDark ? 'bg-[#0c0c0e]' : 'bg-[#f6f3f8]'}`}>
+        <main className={`flex-1 overflow-y-auto ${isOverviewRoute ? 'p-0' : 'p-6'} ${isDark ? 'bg-[#0c0c0e]' : 'bg-[#f6f3f8]'}`}>
           {hasAdServerAccess ? (
             <Outlet key={user?.workspace?.id ?? 'workspace-shell'} context={{ user }} />
           ) : (
