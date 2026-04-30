@@ -30,6 +30,183 @@ async function upsertUser(client, user) {
   return result.rows[0]?.id;
 }
 
+async function ensureAdvertiser(client, workspaceId) {
+  const existing = await client.query(
+    `
+      select id
+      from advertisers
+      where workspace_id = $1
+        and lower(name) = lower($2)
+      limit 1
+    `,
+    [workspaceId, 'Bocadeli'],
+  );
+  if (existing.rows[0]?.id) return existing.rows[0].id;
+
+  const created = await client.query(
+    `
+      insert into advertisers (id, workspace_id, name, domain, industry, contact_email, notes, status)
+      values ($1, $2, $3, $4, $5, $6, $7, 'active')
+      returning id
+    `,
+    [
+      randomUUID(),
+      workspaceId,
+      'Bocadeli',
+      'bocadeli.com',
+      'CPG',
+      'media@bocadeli.com',
+      'Seeded advertiser for ad server acceptance.',
+    ],
+  );
+  return created.rows[0]?.id;
+}
+
+async function ensureCampaign(client, workspaceId, advertiserId) {
+  const existing = await client.query(
+    `
+      select id
+      from campaigns
+      where workspace_id = $1
+        and lower(name) = lower($2)
+      limit 1
+    `,
+    [workspaceId, 'Bocadeli Launch'],
+  );
+  if (existing.rows[0]?.id) return existing.rows[0].id;
+
+  const created = await client.query(
+    `
+      insert into campaigns (
+        id,
+        workspace_id,
+        advertiser_id,
+        name,
+        status,
+        start_date,
+        end_date,
+        budget,
+        impression_goal,
+        daily_budget,
+        flight_type,
+        kpi,
+        kpi_goal,
+        currency,
+        timezone,
+        notes,
+        metadata
+      )
+      values (
+        $1,$2,$3,$4,'active',$5,$6,$7,$8,$9,'standard','ctr',$10,'USD','UTC',$11,$12::jsonb
+      )
+      returning id
+    `,
+    [
+      randomUUID(),
+      workspaceId,
+      advertiserId,
+      'Bocadeli Launch',
+      '2026-04-01',
+      '2026-06-30',
+      15000,
+      1200000,
+      500,
+      1.25,
+      'Seeded campaign for ad server acceptance.',
+      JSON.stringify({ dsp: 'Basis', mediaType: 'display' }),
+    ],
+  );
+  return created.rows[0]?.id;
+}
+
+async function ensureTagAndStats(client, workspaceId, campaignId) {
+  const tagResult = await client.query(
+    `
+      insert into ad_tags (id, workspace_id, campaign_id, name, format, status, click_url, impression_url, description)
+      values ($1, $2, $3, $4, 'display', 'active', $5, $6, $7)
+      on conflict do nothing
+      returning id
+    `,
+    [
+      randomUUID(),
+      workspaceId,
+      campaignId,
+      'Bocadeli Hero 300x250',
+      'https://bocadeli.com',
+      'https://bocadeli.com/pixel',
+      'Seeded display tag for analytics and campaign rollups.',
+    ],
+  );
+
+  const resolvedTagId = tagResult.rows[0]?.id
+    || (await client.query(
+      `
+        select id
+        from ad_tags
+        where workspace_id = $1
+          and campaign_id = $2
+          and lower(name) = lower($3)
+        limit 1
+      `,
+      [workspaceId, campaignId, 'Bocadeli Hero 300x250'],
+    )).rows[0]?.id;
+
+  if (!resolvedTagId) return;
+
+  await client.query(
+    `
+      insert into tag_format_configs (id, tag_id, display_width, display_height)
+      values ($1, $2, 300, 250)
+      on conflict (tag_id) do update
+      set display_width = excluded.display_width,
+          display_height = excluded.display_height,
+          updated_at = now()
+    `,
+    [randomUUID(), resolvedTagId],
+  );
+
+  const today = new Date();
+  for (let index = 0; index < 7; index += 1) {
+    const day = new Date(today);
+    day.setUTCDate(today.getUTCDate() - index);
+    const date = day.toISOString().slice(0, 10);
+    const impressions = 10000 - index * 500;
+    const clicks = 120 - index * 8;
+    const measured = Math.round(impressions * 0.92);
+    const viewable = Math.round(measured * 0.71);
+    const undetermined = impressions - measured;
+    await client.query(
+      `
+        insert into tag_daily_stats (
+          id, tag_id, date, impressions, clicks, viewable_imps, measured_imps, undetermined_imps, spend
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        on conflict (tag_id, date) do update
+        set impressions = excluded.impressions,
+            clicks = excluded.clicks,
+            viewable_imps = excluded.viewable_imps,
+            measured_imps = excluded.measured_imps,
+            undetermined_imps = excluded.undetermined_imps,
+            spend = excluded.spend,
+            updated_at = now()
+      `,
+      [randomUUID(), resolvedTagId, date, impressions, clicks, viewable, measured, undetermined, 42.5 + index],
+    );
+
+    await client.query(
+      `
+        insert into tag_engagement_daily_stats (id, tag_id, date, event_type, event_count, total_duration_ms)
+        values ($1, $2, $3, 'hover_end', $4, $5)
+        on conflict (tag_id, date, event_type) do update
+        set event_count = excluded.event_count,
+            total_duration_ms = excluded.total_duration_ms,
+            updated_at = now()
+      `,
+      [randomUUID(), resolvedTagId, date, Math.max(25, 80 - index * 4), Math.max(20000, 90000 - index * 3000)],
+    );
+  }
+}
+
 async function main() {
   if (!connectionString) {
     throw new Error('DATABASE_URL is required to seed demo data.');
@@ -106,6 +283,10 @@ async function main() {
       `,
       [randomUUID(), resolvedWorkspaceId, 'Core Brand', '#8b5cf6', '#0f172a', '#ec4899', 'Inter, system-ui, sans-serif'],
     );
+
+    const advertiserId = await ensureAdvertiser(client, resolvedWorkspaceId);
+    const campaignId = await ensureCampaign(client, resolvedWorkspaceId, advertiserId);
+    await ensureTagAndStats(client, resolvedWorkspaceId, campaignId);
 
     await client.query('commit');
     console.log(JSON.stringify({ ok: true, workspaceId: resolvedWorkspaceId }, null, 2));

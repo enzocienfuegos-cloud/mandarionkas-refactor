@@ -3,6 +3,9 @@ import { handleAuthRoutes } from './modules/auth/routes.mjs';
 import { handleWorkspaceRoutes } from './modules/workspaces/routes.mjs';
 import { handleProjectRoutes } from './modules/projects/routes.mjs';
 import { handleAssetRoutes } from './modules/assets/routes.mjs';
+import { handleCampaignRoutes } from './modules/adserver/campaigns/routes.mjs';
+import { handleReportingRoutes } from './modules/adserver/reporting/routes.mjs';
+import { handleTagRoutes } from './modules/adserver/tags/routes.mjs';
 import { applyCors, getRequestId, notFound, readJsonBody, sendJson } from './lib/http.mjs';
 import { getApiConfig } from './plugins/config.mjs';
 import { logError, logInfo } from './lib/logger.mjs';
@@ -14,6 +17,9 @@ const routeHandlers = [
   handleWorkspaceRoutes,
   handleProjectRoutes,
   handleAssetRoutes,
+  handleCampaignRoutes,
+  handleReportingRoutes,
+  handleTagRoutes,
 ];
 
 function logRequest({ requestId, method, pathname, statusCode, durationMs }) {
