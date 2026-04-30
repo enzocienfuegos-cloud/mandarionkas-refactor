@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS advertisers (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id  UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  workspace_id  TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   name          TEXT NOT NULL,
   domain        TEXT,
   industry      TEXT,
@@ -15,9 +15,9 @@ CREATE INDEX IF NOT EXISTS advertisers_workspace_idx ON advertisers(workspace_id
 CREATE INDEX IF NOT EXISTS advertisers_status_idx ON advertisers(workspace_id, status);
 
 CREATE TABLE IF NOT EXISTS campaigns (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id    UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  advertiser_id   UUID REFERENCES advertisers(id) ON DELETE SET NULL,
+  id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  workspace_id    TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  advertiser_id   TEXT REFERENCES advertisers(id) ON DELETE SET NULL,
   external_id     TEXT,
   name            TEXT NOT NULL,
   status          TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'paused', 'completed', 'archived')),
@@ -43,9 +43,9 @@ CREATE INDEX IF NOT EXISTS campaigns_status_idx ON campaigns(workspace_id, statu
 CREATE INDEX IF NOT EXISTS campaigns_external_id_idx ON campaigns(workspace_id, external_id) WHERE external_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS ad_tags (
-  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id           UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  campaign_id            UUID REFERENCES campaigns(id) ON DELETE SET NULL,
+  id                     TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  workspace_id           TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  campaign_id            TEXT REFERENCES campaigns(id) ON DELETE SET NULL,
   name                   TEXT NOT NULL,
   format                 TEXT NOT NULL DEFAULT 'display' CHECK (format IN ('vast', 'display', 'native', 'tracker')),
   status                 TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('draft', 'active', 'paused', 'archived')),
@@ -67,8 +67,8 @@ CREATE INDEX IF NOT EXISTS ad_tags_campaign_idx ON ad_tags(campaign_id);
 CREATE INDEX IF NOT EXISTS ad_tags_status_idx ON ad_tags(workspace_id, status);
 
 CREATE TABLE IF NOT EXISTS tag_format_configs (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tag_id          UUID NOT NULL REFERENCES ad_tags(id) ON DELETE CASCADE UNIQUE,
+  id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  tag_id          TEXT NOT NULL REFERENCES ad_tags(id) ON DELETE CASCADE UNIQUE,
   vast_version    TEXT CHECK (vast_version IN ('2.0', '3.0', '4.0', '4.1', '4.2')),
   vast_wrapper    BOOLEAN NOT NULL DEFAULT FALSE,
   vast_url        TEXT,
@@ -84,8 +84,8 @@ CREATE TABLE IF NOT EXISTS tag_format_configs (
 CREATE INDEX IF NOT EXISTS tag_format_configs_tag_idx ON tag_format_configs(tag_id);
 
 CREATE TABLE IF NOT EXISTS tag_pixels (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tag_id      UUID NOT NULL REFERENCES ad_tags(id) ON DELETE CASCADE,
+  id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  tag_id      TEXT NOT NULL REFERENCES ad_tags(id) ON DELETE CASCADE,
   pixel_type  TEXT NOT NULL CHECK (pixel_type IN ('impression', 'click', 'viewability', 'custom')),
   url         TEXT NOT NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -94,8 +94,8 @@ CREATE TABLE IF NOT EXISTS tag_pixels (
 CREATE INDEX IF NOT EXISTS tag_pixels_tag_idx ON tag_pixels(tag_id);
 
 CREATE TABLE IF NOT EXISTS tag_daily_stats (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tag_id            UUID NOT NULL REFERENCES ad_tags(id) ON DELETE CASCADE,
+  id                TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  tag_id            TEXT NOT NULL REFERENCES ad_tags(id) ON DELETE CASCADE,
   date              DATE NOT NULL,
   impressions       BIGINT NOT NULL DEFAULT 0,
   clicks            BIGINT NOT NULL DEFAULT 0,
@@ -112,8 +112,8 @@ CREATE INDEX IF NOT EXISTS tag_daily_stats_date_idx ON tag_daily_stats(date DESC
 CREATE INDEX IF NOT EXISTS tag_daily_stats_tag_date_idx ON tag_daily_stats(tag_id, date DESC);
 
 CREATE TABLE IF NOT EXISTS tag_engagement_daily_stats (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tag_id            UUID NOT NULL REFERENCES ad_tags(id) ON DELETE CASCADE,
+  id                TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  tag_id            TEXT NOT NULL REFERENCES ad_tags(id) ON DELETE CASCADE,
   date              DATE NOT NULL,
   event_type        TEXT NOT NULL,
   event_count       BIGINT NOT NULL DEFAULT 0,
@@ -127,10 +127,10 @@ CREATE INDEX IF NOT EXISTS tag_engagement_daily_stats_date_idx ON tag_engagement
 CREATE INDEX IF NOT EXISTS tag_engagement_daily_stats_tag_date_idx ON tag_engagement_daily_stats(tag_id, date DESC);
 
 CREATE TABLE IF NOT EXISTS impression_events (
-  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tag_id                   UUID NOT NULL REFERENCES ad_tags(id) ON DELETE CASCADE,
-  workspace_id             UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  creative_id              UUID,
+  id                       TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  tag_id                   TEXT NOT NULL REFERENCES ad_tags(id) ON DELETE CASCADE,
+  workspace_id             TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  creative_id              TEXT,
   ip                       INET,
   user_agent               TEXT,
   country                  CHAR(2),
@@ -149,9 +149,9 @@ CREATE INDEX IF NOT EXISTS impression_events_timestamp_idx ON impression_events(
 CREATE INDEX IF NOT EXISTS impression_events_tag_ts_idx ON impression_events(tag_id, timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS tag_health_logs (
-  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tag_id               UUID NOT NULL REFERENCES ad_tags(id) ON DELETE CASCADE,
-  workspace_id         UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  id                   TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  tag_id               TEXT NOT NULL REFERENCES ad_tags(id) ON DELETE CASCADE,
+  workspace_id         TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   status               TEXT NOT NULL CHECK (status IN ('healthy', 'warning', 'critical', 'unknown')),
   last_impression_at   TIMESTAMPTZ,
   impression_count_24h BIGINT NOT NULL DEFAULT 0,

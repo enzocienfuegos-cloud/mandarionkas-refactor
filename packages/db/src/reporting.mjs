@@ -47,7 +47,7 @@ function addTagScopeFilters(params, conditions, alias, campaignId, tagIds) {
     conditions.push(`${alias}.id = $${params.length}`);
   } else if (tagIds.length > 1) {
     params.push(tagIds);
-    conditions.push(`${alias}.id = ANY($${params.length}::uuid[])`);
+    conditions.push(`${alias}.id = ANY($${params.length}::text[])`);
   }
 }
 
@@ -63,7 +63,7 @@ function addImpressionScopeFilters(params, conditions, tagAlias, eventAlias, cam
     conditions.push(`${tagAlias}.id = $${params.length}`);
   } else if (tagIds.length > 1) {
     params.push(tagIds);
-    conditions.push(`${tagAlias}.id = ANY($${params.length}::uuid[])`);
+    conditions.push(`${tagAlias}.id = ANY($${params.length}::text[])`);
   }
 }
 
@@ -404,7 +404,7 @@ export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}
     conditions.push(`EXISTS (SELECT 1 FROM ad_tags t3 WHERE t3.campaign_id = c.id AND t3.workspace_id = c.workspace_id AND t3.id = $${params.length})`);
   } else if (tagIds.length > 1) {
     params.push(tagIds);
-    conditions.push(`EXISTS (SELECT 1 FROM ad_tags t3 WHERE t3.campaign_id = c.id AND t3.workspace_id = c.workspace_id AND t3.id = ANY($${params.length}::uuid[]))`);
+    conditions.push(`EXISTS (SELECT 1 FROM ad_tags t3 WHERE t3.campaign_id = c.id AND t3.workspace_id = c.workspace_id AND t3.id = ANY($${params.length}::text[]))`);
   }
   const dateClauses = [];
   if (dateFrom) {
