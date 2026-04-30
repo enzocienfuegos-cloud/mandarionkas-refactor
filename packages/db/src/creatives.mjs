@@ -625,6 +625,49 @@ export async function createPublishedCreative(pool, input = {}) {
     ],
   );
 
+  if (normalizedSourceKind === 'video_mp4') {
+    await pool.query(
+      `INSERT INTO video_renditions (
+         workspace_id, creative_version_id, artifact_id, label, width, height,
+         bitrate_kbps, codec, mime_type, status, is_source, sort_order,
+         public_url, storage_key, size_bytes, metadata
+       )
+       SELECT
+         $1,
+         $2,
+         ca.id,
+         'Source',
+         $3,
+         $4,
+         NULL,
+         NULL,
+         $5,
+         'active',
+         TRUE,
+         0,
+         $6,
+         $7,
+         $8,
+         $9::jsonb
+       FROM creative_artifacts ca
+       WHERE ca.workspace_id = $1
+         AND ca.creative_version_id = $2
+         AND ca.kind = 'video_mp4'
+       ON CONFLICT DO NOTHING`,
+      [
+        workspaceId,
+        creativeVersion.id,
+        width,
+        height,
+        mimeType,
+        publicUrl,
+        storageKey,
+        sizeBytes,
+        JSON.stringify({ generatedBy: 'publish', profile: 'source' }),
+      ],
+    );
+  }
+
   const ingestion = await updateCreativeIngestion(pool, workspaceId, ingestionId, {
     creative_id: creative.id,
     creative_version_id: creativeVersion.id,
@@ -642,10 +685,15 @@ export async function listTagBindings(pool, workspaceId, tagId) {
             b.status, b.weight, b.start_at, b.end_at, b.created_at, b.updated_at,
             cv.creative_id, cv.status AS creative_version_status, cv.source_kind, cv.serving_format,
             cv.public_url, cv.entry_path,
-            c.name AS creative_name
+            c.name AS creative_name,
+            v.label AS variant_label,
+            v.width AS variant_width,
+            v.height AS variant_height,
+            v.status AS variant_status
      FROM creative_tag_bindings b
      JOIN creative_versions cv ON cv.id = b.creative_version_id
      JOIN creatives c ON c.id = cv.creative_id
+     LEFT JOIN creative_size_variants v ON v.id = b.creative_size_variant_id
      WHERE b.workspace_id = $1 AND b.tag_id = $2
      ORDER BY b.created_at DESC`,
     [workspaceId, tagId],
@@ -743,4 +791,406 @@ export async function updateTagBinding(pool, workspaceId, tagId, bindingId, inpu
 
   const bindings = await listTagBindings(pool, workspaceId, tagId);
   return bindings.find((binding) => binding.id === bindingId) ?? null;
+}
+
+function normalizeVariantStatus(status, fallback = 'draft') {
+  const normalized = String(status || '').trim().toLowerCase();
+  return ['draft', 'active', 'paused', 'archived'].includes(normalized)
+    ? normalized
+    : fallback;
+}
+
+function normalizeRenditionStatus(status, fallback = 'processing') {
+  const normalized = String(status || '').trim().toLowerCase();
+  return ['draft', 'processing', 'active', 'paused', 'archived', 'failed'].includes(normalized)
+    ? normalized
+    : fallback;
+}
+
+function normalizePositiveInteger(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : null;
+}
+
+function buildVariantLabel(input = {}) {
+  const explicit = String(input.label || '').trim();
+  if (explicit) return explicit;
+  return `${input.width}x${input.height}`;
+}
+
+function estimateBitrateKbps(width, height) {
+  const w = normalizePositiveInteger(width);
+  const h = normalizePositiveInteger(height);
+  if (!w || !h) return null;
+  const pixels = w * h;
+  if (pixels >= 1920 * 1080) return 5000;
+  if (pixels >= 1280 * 720) return 2800;
+  if (pixels >= 854 * 480) return 1400;
+  return 800;
+}
+
+function buildVideoTargetProfiles(version = {}) {
+  const sourceWidth = normalizePositiveInteger(version.width) || 1280;
+  const sourceHeight = normalizePositiveInteger(version.height) || 720;
+  const aspectRatio = sourceWidth > 0 && sourceHeight > 0 ? sourceWidth / sourceHeight : 16 / 9;
+  const candidates = [
+    { label: '1080p', height: 1080, sortOrder: 10 },
+    { label: '720p', height: 720, sortOrder: 20 },
+    { label: '480p', height: 480, sortOrder: 30 },
+    { label: '360p', height: 360, sortOrder: 40 },
+  ];
+  return candidates
+    .filter((candidate) => candidate.height <= sourceHeight)
+    .map((candidate) => {
+      const width = Math.max(2, Math.round((candidate.height * aspectRatio) / 2) * 2);
+      return {
+        label: candidate.label,
+        width,
+        height: candidate.height,
+        bitrateKbps: estimateBitrateKbps(width, candidate.height),
+        sortOrder: candidate.sortOrder,
+      };
+    });
+}
+
+export async function listCreativeSizeVariants(pool, workspaceId, creativeVersionId) {
+  const { rows } = await pool.query(
+    `SELECT v.id, v.workspace_id, v.creative_version_id, v.label, v.width, v.height,
+            v.status, v.public_url, v.artifact_id, v.metadata, v.created_by,
+            v.created_at, v.updated_at,
+            COALESCE(COUNT(b.id), 0)::int AS binding_count,
+            COALESCE(COUNT(*) FILTER (WHERE b.status = 'active'), 0)::int AS active_binding_count,
+            COALESCE(
+              ARRAY_REMOVE(ARRAY_AGG(DISTINCT t.name) FILTER (WHERE t.name IS NOT NULL), NULL),
+              ARRAY[]::TEXT[]
+            ) AS tag_names
+     FROM creative_size_variants v
+     LEFT JOIN creative_tag_bindings b ON b.creative_size_variant_id = v.id
+     LEFT JOIN ad_tags t ON t.id = b.tag_id
+     WHERE v.workspace_id = $1 AND v.creative_version_id = $2
+     GROUP BY v.id
+     ORDER BY v.created_at DESC`,
+    [workspaceId, creativeVersionId],
+  );
+  return rows;
+}
+
+export async function getCreativeSizeVariant(pool, workspaceId, variantId) {
+  const { rows } = await pool.query(
+    `SELECT id, workspace_id, creative_version_id, label, width, height, status,
+            public_url, artifact_id, metadata, created_by, created_at, updated_at
+     FROM creative_size_variants
+     WHERE workspace_id = $1 AND id = $2`,
+    [workspaceId, variantId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function createCreativeSizeVariant(pool, input = {}) {
+  const width = normalizePositiveInteger(input.width);
+  const height = normalizePositiveInteger(input.height);
+  if (!width || !height) {
+    throw new Error('Width and height must be positive integers.');
+  }
+
+  const params = [
+    input.workspaceId,
+    input.creativeVersionId,
+    buildVariantLabel({ ...input, width, height }),
+    width,
+    height,
+    normalizeVariantStatus(input.status),
+    input.publicUrl || null,
+    input.artifactId || null,
+    JSON.stringify(input.metadata || {}),
+    input.createdBy || null,
+  ];
+
+  const { rows } = await pool.query(
+    `INSERT INTO creative_size_variants (
+       workspace_id, creative_version_id, label, width, height,
+       status, public_url, artifact_id, metadata, created_by
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+     ON CONFLICT (creative_version_id, width, height)
+     DO UPDATE SET
+       label = EXCLUDED.label,
+       status = EXCLUDED.status,
+       public_url = COALESCE(EXCLUDED.public_url, creative_size_variants.public_url),
+       artifact_id = COALESCE(EXCLUDED.artifact_id, creative_size_variants.artifact_id),
+       metadata = CASE
+         WHEN EXCLUDED.metadata = '{}'::jsonb THEN creative_size_variants.metadata
+         ELSE creative_size_variants.metadata || EXCLUDED.metadata
+       END,
+       updated_at = NOW()
+     RETURNING id, workspace_id, creative_version_id, label, width, height, status,
+               public_url, artifact_id, metadata, created_by, created_at, updated_at`,
+    params,
+  );
+  return rows[0] ?? null;
+}
+
+export async function createCreativeSizeVariantsBulk(pool, input = {}) {
+  const variants = Array.isArray(input.variants) ? input.variants : [];
+  const created = [];
+  let skippedCount = 0;
+
+  for (const variant of variants) {
+    const width = normalizePositiveInteger(variant.width);
+    const height = normalizePositiveInteger(variant.height);
+    if (!width || !height) {
+      skippedCount += 1;
+      continue;
+    }
+    const existing = await pool.query(
+      `SELECT id
+       FROM creative_size_variants
+       WHERE workspace_id = $1 AND creative_version_id = $2 AND width = $3 AND height = $4`,
+      [input.workspaceId, input.creativeVersionId, width, height],
+    );
+    if (existing.rowCount) {
+      skippedCount += 1;
+      continue;
+    }
+    const createdVariant = await createCreativeSizeVariant(pool, {
+      workspaceId: input.workspaceId,
+      creativeVersionId: input.creativeVersionId,
+      label: variant.label,
+      width,
+      height,
+      status: variant.status ?? input.status,
+      publicUrl: variant.publicUrl ?? input.publicUrl,
+      artifactId: variant.artifactId ?? null,
+      metadata: variant.metadata ?? {},
+      createdBy: input.createdBy,
+    });
+    if (createdVariant) created.push(createdVariant);
+  }
+
+  const allVariants = await listCreativeSizeVariants(pool, input.workspaceId, input.creativeVersionId);
+  return { created, variants: allVariants, skippedCount };
+}
+
+export async function updateCreativeSizeVariant(pool, workspaceId, variantId, input = {}) {
+  const fields = [];
+  const params = [workspaceId, variantId];
+
+  if (Object.prototype.hasOwnProperty.call(input, 'label')) {
+    params.push(String(input.label || '').trim());
+    fields.push(`label = $${params.length}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'width')) {
+    const width = normalizePositiveInteger(input.width);
+    if (!width) throw new Error('Width must be a positive integer.');
+    params.push(width);
+    fields.push(`width = $${params.length}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'height')) {
+    const height = normalizePositiveInteger(input.height);
+    if (!height) throw new Error('Height must be a positive integer.');
+    params.push(height);
+    fields.push(`height = $${params.length}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'status')) {
+    params.push(normalizeVariantStatus(input.status));
+    fields.push(`status = $${params.length}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'public_url')) {
+    params.push(input.public_url || null);
+    fields.push(`public_url = $${params.length}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'artifact_id')) {
+    params.push(input.artifact_id || null);
+    fields.push(`artifact_id = $${params.length}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'metadata')) {
+    params.push(JSON.stringify(input.metadata || {}));
+    fields.push(`metadata = $${params.length}::jsonb`);
+  }
+
+  if (!fields.length) {
+    return getCreativeSizeVariant(pool, workspaceId, variantId);
+  }
+
+  fields.push('updated_at = NOW()');
+  const { rows } = await pool.query(
+    `UPDATE creative_size_variants
+     SET ${fields.join(', ')}
+     WHERE workspace_id = $1 AND id = $2
+     RETURNING id, workspace_id, creative_version_id, label, width, height, status,
+               public_url, artifact_id, metadata, created_by, created_at, updated_at`,
+    params,
+  );
+  return rows[0] ?? null;
+}
+
+export async function updateCreativeSizeVariantsBulkStatus(pool, workspaceId, creativeVersionId, variantIds = [], status) {
+  const normalizedIds = variantIds.map((value) => String(value || '').trim()).filter(Boolean);
+  if (!normalizedIds.length) {
+    return listCreativeSizeVariants(pool, workspaceId, creativeVersionId);
+  }
+  await pool.query(
+    `UPDATE creative_size_variants
+     SET status = $4, updated_at = NOW()
+     WHERE workspace_id = $1 AND creative_version_id = $2 AND id = ANY($3::text[])`,
+    [workspaceId, creativeVersionId, normalizedIds, normalizeVariantStatus(status, 'active')],
+  );
+  return listCreativeSizeVariants(pool, workspaceId, creativeVersionId);
+}
+
+export async function listVideoRenditions(pool, workspaceId, creativeVersionId) {
+  const { rows } = await pool.query(
+    `SELECT id, workspace_id, creative_version_id, artifact_id, label, width, height,
+            bitrate_kbps, codec, mime_type, status, is_source, sort_order,
+            public_url, storage_key, size_bytes, metadata, created_at, updated_at
+     FROM video_renditions
+     WHERE workspace_id = $1 AND creative_version_id = $2
+     ORDER BY sort_order ASC, created_at ASC`,
+    [workspaceId, creativeVersionId],
+  );
+  return rows;
+}
+
+export async function updateVideoRendition(pool, workspaceId, renditionId, input = {}) {
+  const fields = [];
+  const params = [workspaceId, renditionId];
+
+  if (Object.prototype.hasOwnProperty.call(input, 'label')) {
+    params.push(String(input.label || '').trim());
+    fields.push(`label = $${params.length}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'status')) {
+    params.push(normalizeRenditionStatus(input.status, 'active'));
+    fields.push(`status = $${params.length}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'sort_order')) {
+    params.push(Math.max(0, Number(input.sort_order) || 0));
+    fields.push(`sort_order = $${params.length}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'metadata')) {
+    params.push(JSON.stringify(input.metadata || {}));
+    fields.push(`metadata = $${params.length}::jsonb`);
+  }
+
+  if (!fields.length) {
+    const { rows } = await pool.query(
+      `SELECT id, workspace_id, creative_version_id, artifact_id, label, width, height,
+              bitrate_kbps, codec, mime_type, status, is_source, sort_order,
+              public_url, storage_key, size_bytes, metadata, created_at, updated_at
+       FROM video_renditions
+       WHERE workspace_id = $1 AND id = $2`,
+      [workspaceId, renditionId],
+    );
+    return rows[0] ?? null;
+  }
+
+  fields.push('updated_at = NOW()');
+  const { rows } = await pool.query(
+    `UPDATE video_renditions
+     SET ${fields.join(', ')}
+     WHERE workspace_id = $1 AND id = $2
+     RETURNING id, workspace_id, creative_version_id, artifact_id, label, width, height,
+               bitrate_kbps, codec, mime_type, status, is_source, sort_order,
+               public_url, storage_key, size_bytes, metadata, created_at, updated_at`,
+    params,
+  );
+  return rows[0] ?? null;
+}
+
+export async function regenerateVideoRenditions(pool, workspaceId, creativeVersionId) {
+  const version = await getCreativeVersion(pool, workspaceId, creativeVersionId);
+  if (!version) return [];
+
+  const artifactRows = await listCreativeArtifacts(pool, workspaceId, creativeVersionId);
+  const sourceArtifact = artifactRows.find((artifact) => artifact.kind === 'video_mp4')
+    || artifactRows.find((artifact) => artifact.kind === 'source_zip')
+    || artifactRows[0]
+    || null;
+
+  await pool.query(
+    `DELETE FROM video_renditions
+     WHERE workspace_id = $1 AND creative_version_id = $2`,
+    [workspaceId, creativeVersionId],
+  );
+
+  const sourceMetadata = {
+    ...(version.metadata || {}),
+    renditionProfile: 'source',
+    generatedAt: new Date().toISOString(),
+  };
+  await pool.query(
+    `INSERT INTO video_renditions (
+       workspace_id, creative_version_id, artifact_id, label, width, height,
+       bitrate_kbps, codec, mime_type, status, is_source, sort_order,
+       public_url, storage_key, size_bytes, metadata
+     )
+     VALUES (
+       $1, $2, $3, 'Source', $4, $5, $6, $7, $8, 'active', TRUE, 0,
+       $9, $10, $11, $12::jsonb
+     )`,
+    [
+      workspaceId,
+      creativeVersionId,
+      sourceArtifact?.id ?? null,
+      version.width,
+      version.height,
+      estimateBitrateKbps(version.width, version.height),
+      'h264',
+      version.mime_type || 'video/mp4',
+      version.public_url ?? null,
+      sourceArtifact?.storage_key ?? null,
+      version.file_size ?? null,
+      JSON.stringify(sourceMetadata),
+    ],
+  );
+
+  const targetProfiles = buildVideoTargetProfiles(version);
+  for (const profile of targetProfiles) {
+    await pool.query(
+      `INSERT INTO video_renditions (
+         workspace_id, creative_version_id, artifact_id, label, width, height,
+         bitrate_kbps, codec, mime_type, status, is_source, sort_order,
+         public_url, storage_key, size_bytes, metadata
+       )
+       VALUES (
+         $1, $2, NULL, $3, $4, $5, $6, $7, $8, 'active', FALSE, $9,
+         NULL, NULL, NULL, $10::jsonb
+       )`,
+      [
+        workspaceId,
+        creativeVersionId,
+        profile.label,
+        profile.width,
+        profile.height,
+        profile.bitrateKbps,
+        'h264',
+        'video/mp4',
+        profile.sortOrder,
+        JSON.stringify({
+          ...version.metadata,
+          renditionProfile: profile.label,
+          generatedAt: new Date().toISOString(),
+          targetWidth: profile.width,
+          targetHeight: profile.height,
+        }),
+      ],
+    );
+  }
+
+  const mergedMetadata = {
+    ...(version.metadata || {}),
+    videoProcessing: {
+      targetPlan: targetProfiles,
+      renditionProcessing: targetProfiles.map((profile) => ({
+        label: profile.label,
+        status: 'active',
+      })),
+      regeneratedAt: new Date().toISOString(),
+    },
+  };
+  await updateCreativeVersion(pool, workspaceId, creativeVersionId, {
+    metadata: mergedMetadata,
+  });
+
+  return listVideoRenditions(pool, workspaceId, creativeVersionId);
 }

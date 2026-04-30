@@ -1,26 +1,35 @@
 import { randomUUID } from 'node:crypto';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { badRequest, forbidden, notImplemented, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
+import { badRequest, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
 import { requireAuthenticatedSession } from '../../auth/service.mjs';
 import {
+  createCreativeSizeVariant,
+  createCreativeSizeVariantsBulk,
   createCreativeIngestion,
   createPublishedCreative,
   createTagBinding,
   deleteCreative,
   getCreative,
   getCreativeIngestion,
+  getCreativeSizeVariant,
   getCreativeVersion,
   listPendingReviewCreativeVersions,
   listCreativeArtifacts,
   listCreativeIngestions,
   listCreativeIngestionsForUser,
+  listCreativeSizeVariants,
   listCreatives,
   listCreativesForUser,
   listCreativeVersions,
+  listVideoRenditions,
+  regenerateVideoRenditions,
   updateCreativeIngestion,
   updateCreative,
+  updateCreativeSizeVariant,
+  updateCreativeSizeVariantsBulkStatus,
   updateCreativeVersion,
+  updateVideoRendition,
 } from '../../../../../../packages/db/src/creatives.mjs';
 
 const R2_REGION = 'auto';
@@ -237,6 +246,60 @@ function normalizeTagBinding(row) {
   };
 }
 
+function normalizeCreativeSizeVariant(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    creativeVersionId: row.creative_version_id,
+    label: row.label,
+    width: row.width,
+    height: row.height,
+    status: row.status,
+    publicUrl: row.public_url ?? null,
+    artifactId: row.artifact_id ?? null,
+    metadata: row.metadata ?? {},
+    bindingCount: Number(row.binding_count ?? 0),
+    activeBindingCount: Number(row.active_binding_count ?? 0),
+    tagNames: Array.isArray(row.tag_names) ? row.tag_names.filter(Boolean) : [],
+    totalImpressions: Number(row.total_impressions ?? 0),
+    totalClicks: Number(row.total_clicks ?? 0),
+    impressions7d: Number(row.impressions_7d ?? 0),
+    clicks7d: Number(row.clicks_7d ?? 0),
+    ctr: Number(row.ctr ?? 0),
+    createdBy: row.created_by ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function normalizeVideoRendition(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    creativeVersionId: row.creative_version_id,
+    artifactId: row.artifact_id ?? null,
+    label: row.label,
+    width: row.width ?? null,
+    height: row.height ?? null,
+    bitrateKbps: row.bitrate_kbps ?? null,
+    codec: row.codec ?? null,
+    mimeType: row.mime_type ?? null,
+    status: row.status,
+    isSource: Boolean(row.is_source),
+    sortOrder: row.sort_order ?? 0,
+    publicUrl: row.public_url ?? null,
+    storageKey: row.storage_key ?? null,
+    sizeBytes: row.size_bytes ?? null,
+    metadata: row.metadata ?? {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object ?? {}, key);
+}
+
 function hasPermission(session, permission) {
   return session.permissions.includes(permission);
 }
@@ -340,38 +403,167 @@ export async function handleCreativeRoutes(ctx) {
       const creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
       if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
       const artifacts = await listCreativeArtifacts(session.client, workspaceId, versionId);
+      const variants = await listCreativeSizeVariants(session.client, workspaceId, versionId);
+      const videoRenditions = await listVideoRenditions(session.client, workspaceId, versionId);
       return sendJson(res, 200, {
         creativeVersion: normalizeCreativeVersion(creativeVersion),
         artifacts: artifacts.map(normalizeCreativeArtifact),
-        variants: [],
-        videoRenditions: [],
+        variants: variants.map(normalizeCreativeSizeVariant),
+        videoRenditions: videoRenditions.map(normalizeVideoRendition),
         requestId,
       });
     });
   }
 
   if (method === 'GET' && /^\/v1\/creative-versions\/[^/]+\/variants$/.test(pathname)) {
-    return withSession(ctx, async () => sendJson(res, 200, { variants: [], requestId }));
+    return withSession(ctx, async (session) => {
+      const versionId = pathname.split('/')[3];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
+      if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
+      const variants = await listCreativeSizeVariants(session.client, workspaceId, versionId);
+      return sendJson(res, 200, { variants: variants.map(normalizeCreativeSizeVariant), requestId });
+    });
   }
 
   if (method === 'POST' && /^\/v1\/creative-versions\/[^/]+\/variants$/.test(pathname)) {
-    return withSession(ctx, async () => notImplemented(res, requestId, pathname, 'Creative variant authoring is the next creatives subdomain to port.'));
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:save')) {
+        return forbidden(res, requestId, 'You do not have permission to create creative variants.');
+      }
+      const versionId = pathname.split('/')[3];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
+      if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
+      try {
+        const variant = await createCreativeSizeVariant(session.client, {
+          workspaceId,
+          creativeVersionId: versionId,
+          label: ctx.body?.label,
+          width: ctx.body?.width,
+          height: ctx.body?.height,
+          status: ctx.body?.status,
+          publicUrl: ctx.body?.publicUrl ?? ctx.body?.public_url,
+          artifactId: ctx.body?.artifactId ?? ctx.body?.artifact_id,
+          metadata: ctx.body?.metadata,
+          createdBy: session.user.id,
+        });
+        return sendJson(res, 200, { variant: normalizeCreativeSizeVariant(variant), requestId });
+      } catch (error) {
+        return badRequest(res, requestId, error?.message || 'Failed to create creative variant.');
+      }
+    });
   }
 
   if (method === 'POST' && /^\/v1\/creative-versions\/[^/]+\/variants\/bulk$/.test(pathname)) {
-    return withSession(ctx, async () => notImplemented(res, requestId, pathname, 'Bulk creative variant authoring is not ported yet.'));
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:save')) {
+        return forbidden(res, requestId, 'You do not have permission to create creative variants.');
+      }
+      const versionId = pathname.split('/')[3];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
+      if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
+      const variants = Array.isArray(ctx.body?.variants) ? ctx.body.variants : [];
+      try {
+        const result = await createCreativeSizeVariantsBulk(session.client, {
+          workspaceId,
+          creativeVersionId: versionId,
+          variants,
+          status: ctx.body?.status,
+          publicUrl: ctx.body?.publicUrl ?? ctx.body?.public_url,
+          createdBy: session.user.id,
+        });
+        return sendJson(res, 200, {
+          created: result.created.map(normalizeCreativeSizeVariant),
+          variants: result.variants.map(normalizeCreativeSizeVariant),
+          skippedCount: result.skippedCount,
+          requestId,
+        });
+      } catch (error) {
+        return badRequest(res, requestId, error?.message || 'Failed to create creative variants.');
+      }
+    });
   }
 
   if (method === 'PATCH' && /^\/v1\/creative-versions\/[^/]+\/variants\/status$/.test(pathname)) {
-    return withSession(ctx, async () => notImplemented(res, requestId, pathname, 'Bulk creative variant status changes are not ported yet.'));
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:save')) {
+        return forbidden(res, requestId, 'You do not have permission to update creative variants.');
+      }
+      const versionId = pathname.split('/')[3];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
+      if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
+      const variantIds = Array.isArray(ctx.body?.variantIds)
+        ? ctx.body.variantIds
+        : Array.isArray(ctx.body?.variant_ids)
+          ? ctx.body.variant_ids
+          : [];
+      const variants = await updateCreativeSizeVariantsBulkStatus(
+        session.client,
+        workspaceId,
+        versionId,
+        variantIds,
+        ctx.body?.status,
+      );
+      return sendJson(res, 200, { variants: variants.map(normalizeCreativeSizeVariant), requestId });
+    });
   }
 
   if (method === 'GET' && /^\/v1\/creative-versions\/[^/]+\/video-renditions$/.test(pathname)) {
-    return withSession(ctx, async () => sendJson(res, 200, { renditions: [], requestId }));
+    return withSession(ctx, async (session) => {
+      const versionId = pathname.split('/')[3];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
+      if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
+      const renditions = await listVideoRenditions(session.client, workspaceId, versionId);
+      return sendJson(res, 200, { renditions: renditions.map(normalizeVideoRendition), requestId });
+    });
   }
 
   if (method === 'POST' && /^\/v1\/creative-versions\/[^/]+\/video-renditions\/regenerate$/.test(pathname)) {
-    return withSession(ctx, async () => notImplemented(res, requestId, pathname, 'Video transcoding orchestration has not been ported yet.'));
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:save')) {
+        return forbidden(res, requestId, 'You do not have permission to regenerate video renditions.');
+      }
+      const versionId = pathname.split('/')[3];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
+      if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
+      const renditions = await regenerateVideoRenditions(session.client, workspaceId, versionId);
+      return sendJson(res, 200, { renditions: renditions.map(normalizeVideoRendition), requestId });
+    });
   }
 
   if (method === 'GET' && pathname === '/v1/creative-versions/pending-review') {
@@ -665,15 +857,84 @@ export async function handleCreativeRoutes(ctx) {
   }
 
   if (method === 'PATCH' && /^\/v1\/creative-variants\/[^/]+$/.test(pathname)) {
-    return withSession(ctx, async () => notImplemented(res, requestId, pathname, 'Creative variant editing is not ported yet.'));
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:save')) {
+        return forbidden(res, requestId, 'You do not have permission to update creative variants.');
+      }
+      const variantId = pathname.split('/')[3];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      try {
+        const variant = await updateCreativeSizeVariant(session.client, workspaceId, variantId, {
+          ...(hasOwn(ctx.body, 'label') ? { label: ctx.body?.label } : {}),
+          ...(hasOwn(ctx.body, 'width') ? { width: ctx.body?.width } : {}),
+          ...(hasOwn(ctx.body, 'height') ? { height: ctx.body?.height } : {}),
+          ...(hasOwn(ctx.body, 'status') ? { status: ctx.body?.status } : {}),
+          ...(hasOwn(ctx.body, 'publicUrl') || hasOwn(ctx.body, 'public_url') ? { public_url: ctx.body?.publicUrl ?? ctx.body?.public_url } : {}),
+          ...(hasOwn(ctx.body, 'artifactId') || hasOwn(ctx.body, 'artifact_id') ? { artifact_id: ctx.body?.artifactId ?? ctx.body?.artifact_id } : {}),
+          ...(hasOwn(ctx.body, 'metadata') ? { metadata: ctx.body?.metadata } : {}),
+        });
+        if (!variant) return badRequest(res, requestId, 'Creative variant not found.');
+        return sendJson(res, 200, { variant: normalizeCreativeSizeVariant(variant), requestId });
+      } catch (error) {
+        return badRequest(res, requestId, error?.message || 'Failed to update creative variant.');
+      }
+    });
   }
 
   if (method === 'POST' && /^\/v1\/creative-variants\/[^/]+\/assign\/[^/]+$/.test(pathname)) {
-    return withSession(ctx, async () => notImplemented(res, requestId, pathname, 'Creative variant tag assignment is not ported yet.'));
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:save')) {
+        return forbidden(res, requestId, 'You do not have permission to assign creative variants.');
+      }
+      const variantId = pathname.split('/')[3];
+      const tagId = pathname.split('/')[5];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const variant = await getCreativeSizeVariant(session.client, workspaceId, variantId);
+      if (!variant) return badRequest(res, requestId, 'Creative variant not found.');
+      const binding = await createTagBinding(session.client, {
+        workspaceId,
+        tagId,
+        creativeVersionId: variant.creative_version_id,
+        creativeSizeVariantId: variant.id,
+        status: ctx.body?.status,
+        weight: ctx.body?.weight,
+        createdBy: session.user.id,
+      });
+      return sendJson(res, 200, { binding: normalizeTagBinding(binding), requestId });
+    });
   }
 
   if (method === 'PATCH' && /^\/v1\/video-renditions\/[^/]+$/.test(pathname)) {
-    return withSession(ctx, async () => notImplemented(res, requestId, pathname, 'Video rendition editing is not ported yet.'));
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:save')) {
+        return forbidden(res, requestId, 'You do not have permission to update video renditions.');
+      }
+      const renditionId = pathname.split('/')[3];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const rendition = await updateVideoRendition(session.client, workspaceId, renditionId, {
+        ...(hasOwn(ctx.body, 'label') ? { label: ctx.body?.label } : {}),
+        ...(hasOwn(ctx.body, 'status') ? { status: ctx.body?.status } : {}),
+        ...(hasOwn(ctx.body, 'sortOrder') || hasOwn(ctx.body, 'sort_order') ? { sort_order: ctx.body?.sortOrder ?? ctx.body?.sort_order } : {}),
+        ...(hasOwn(ctx.body, 'metadata') ? { metadata: ctx.body?.metadata } : {}),
+      });
+      if (!rendition) return badRequest(res, requestId, 'Video rendition not found.');
+      return sendJson(res, 200, { rendition: normalizeVideoRendition(rendition), requestId });
+    });
   }
 
   return false;
