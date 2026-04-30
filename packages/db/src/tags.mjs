@@ -86,7 +86,7 @@ export async function listTags(pool, workspaceId, opts = {}) {
 export async function listTagsForUser(pool, userId, opts = {}) {
   const { status, format, campaignId, workspaceId, limit = 100, offset = 0, search } = opts;
   const params = [userId];
-  const conditions = [`wm.user_id = $1`, `wm.status = 'active'`];
+  const conditions = ['wm.user_id = $1'];
 
   const normalizedStatus = normalizeTagStatus(status);
   const normalizedFormat = normalizeTagFormat(format);

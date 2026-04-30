@@ -91,7 +91,7 @@ export async function listCreatives(pool, workspaceId, opts = {}) {
 export async function listCreativesForUser(pool, userId, opts = {}) {
   const { approval_status, type, workspaceId, limit = 100, offset = 0, search, includeLatestVersion = false } = opts;
   const params = [userId];
-  const conditions = ["wm.user_id = $1", "wm.status = 'active'"];
+  const conditions = ['wm.user_id = $1'];
   const normalizedSearch = normalizeSearch(search);
 
   if (workspaceId) {
@@ -229,8 +229,7 @@ export async function listPendingReviewCreativeVersions(pool, userId) {
      JOIN workspace_members wm ON wm.workspace_id = cv.workspace_id
      JOIN workspaces w ON w.id = cv.workspace_id
      WHERE wm.user_id = $1
-       AND wm.status = 'active'
-       AND cv.status = 'pending_review'
+     AND cv.status = 'pending_review'
      ORDER BY cv.created_at DESC`,
     [userId],
   );
@@ -321,7 +320,7 @@ export async function listCreativeIngestions(pool, workspaceId, opts = {}) {
 export async function listCreativeIngestionsForUser(pool, userId, opts = {}) {
   const { workspaceId, status, sourceKind, limit = 100, offset = 0 } = opts;
   const params = [userId];
-  const conditions = ["wm.user_id = $1", "wm.status = 'active'"];
+  const conditions = ['wm.user_id = $1'];
 
   if (workspaceId) {
     params.push(workspaceId);

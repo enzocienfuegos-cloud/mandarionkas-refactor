@@ -41,7 +41,6 @@ async function resolveTargetWorkspaceId(client, userId, fallbackWorkspaceId, req
      FROM workspace_members
      WHERE workspace_id = $1
        AND user_id = $2
-       AND status = 'active'
      LIMIT 1`,
     [candidate, userId],
   );

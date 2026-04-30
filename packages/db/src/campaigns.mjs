@@ -117,7 +117,7 @@ export async function listCampaigns(pool, workspaceId, opts = {}) {
 export async function listCampaignsForUser(pool, userId, opts = {}) {
   const { status, workspaceId, limit = 250, offset = 0, search } = opts;
   const params = [userId];
-  const conditions = [`wm.user_id = $1`, `wm.status = 'active'`];
+  const conditions = ['wm.user_id = $1'];
 
   const normalizedStatus = normalizeStatus(status);
   const normalizedSearch = normalizeSearch(search);

@@ -46,7 +46,7 @@ async function resolveTargetWorkspaceId(client, userId, fallbackWorkspaceId, req
   const candidate = String(requestedWorkspaceId ?? '').trim();
   if (!candidate) return fallbackWorkspaceId;
   const { rowCount } = await client.query(
-    `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND status = 'active' LIMIT 1`,
+    `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 LIMIT 1`,
     [candidate, userId],
   );
   if (!rowCount) {
