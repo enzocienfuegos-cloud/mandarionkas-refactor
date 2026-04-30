@@ -291,7 +291,7 @@ function Panel({ children, className }: { children: React.ReactNode; className?:
   return (
     <section
       className={classNames(
-        'rounded-[28px] border border-slate-200/80 bg-white/92 shadow-[0_22px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/8 dark:bg-[linear-gradient(180deg,rgba(17,24,39,0.88),rgba(9,13,24,0.94))] dark:shadow-[0_22px_60px_rgba(0,0,0,0.34)]',
+        'rounded-[28px] border border-slate-200/80 bg-white/92 shadow-[0_22px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/[0.05] dark:bg-[linear-gradient(180deg,rgba(17,24,39,0.9),rgba(9,13,24,0.96))] dark:shadow-[0_22px_60px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.025)]',
         className,
       )}
     >
@@ -1109,25 +1109,27 @@ export default function AdOpsOverview() {
       <div className="mx-auto max-w-[1680px]">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-3">
-            <SelectChip
-              label={selectedWorkspaceName}
-              icon={<WorkspaceIcon className="text-slate-500 dark:text-white/60" />}
-            />
-            {workspaces.length > 1 ? (
-              <select
-                value={activeWorkspaceId}
-                onChange={(event) => void handleWorkspaceChange(event.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
-              >
-                {workspaces.map((workspace) => (
-                  <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
-                ))}
-              </select>
-            ) : null}
+            <div className="min-w-[230px]">
+              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-white/38">
+                Client scope
+              </label>
+              <div className="relative">
+                <select
+                  value={activeWorkspaceId}
+                  onChange={(event) => void handleWorkspaceChange(event.target.value)}
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white"
+                >
+                  {workspaces.map((workspace) => (
+                    <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
+                  ))}
+                </select>
+                <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/36" />
+              </div>
+            </div>
             <select
               value={String(dateRange)}
               onChange={(event) => setDateRange(Number(event.target.value) as DateRange)}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white"
             >
               <option value="7">Last 7 days</option>
               <option value="30">Last 30 days</option>
@@ -1136,7 +1138,7 @@ export default function AdOpsOverview() {
             <select
               value={campaignId}
               onChange={(event) => setCampaignId(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white"
             >
               <option value="">All campaigns</option>
               {campaigns.map((campaign) => (
@@ -1146,7 +1148,7 @@ export default function AdOpsOverview() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative">
-              <button type="button" onClick={() => setCustomizerOpen((current) => !current)} className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/86 dark:hover:border-fuchsia-500/30 dark:hover:bg-white/[0.05]">
+              <button type="button" onClick={() => setCustomizerOpen((current) => !current)} className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/86 dark:hover:border-fuchsia-500/20 dark:hover:bg-white/[0.05]">
                 <LayoutGridIcon className="text-slate-500 dark:text-white/60" />
                 Customize cards
               </button>
@@ -1164,7 +1166,7 @@ export default function AdOpsOverview() {
                 onReset={resetLayout}
               />
             </div>
-            <button type="button" onClick={() => void toggleTheme()} className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/86 dark:hover:border-fuchsia-500/30 dark:hover:bg-white/[0.05]">
+            <button type="button" onClick={() => void toggleTheme()} className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/86 dark:hover:border-fuchsia-500/20 dark:hover:bg-white/[0.05]">
               <EyeIcon className="text-slate-500 dark:text-white/60" />
               {theme === 'dark' ? 'Light mode' : 'Dark mode'}
             </button>
@@ -1177,8 +1179,13 @@ export default function AdOpsOverview() {
         </div>
 
         <header className="mt-10">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-700 dark:border-fuchsia-500/15 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
+            Agency overview
+            <span className="h-1 w-1 rounded-full bg-current opacity-60" />
+            {selectedWorkspaceName}
+          </div>
           <h1 className="text-5xl font-semibold tracking-tight text-slate-950 dark:text-white">Good morning, {userName.split(' ')[0] || 'Admin'}</h1>
-          <p className="mt-3 text-xl text-slate-600 dark:text-white/62">Here’s what’s happening with your campaigns today.</p>
+          <p className="mt-3 text-xl text-slate-600 dark:text-white/62">This is your command center across clients. Metrics and alerts refresh when you switch the client selector.</p>
         </header>
 
         {error ? <div className="mt-6 rounded-2xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">{error}</div> : null}
