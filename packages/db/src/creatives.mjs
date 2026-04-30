@@ -1145,6 +1145,7 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
   );
 
   const targetProfiles = buildVideoTargetProfiles(version);
+  const regeneratedAt = new Date().toISOString();
   for (const profile of targetProfiles) {
     await pool.query(
       `INSERT INTO video_renditions (
@@ -1169,7 +1170,7 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
         JSON.stringify({
           ...version.metadata,
           renditionProfile: profile.label,
-          generatedAt: new Date().toISOString(),
+          generatedAt: regeneratedAt,
           targetWidth: profile.width,
           targetHeight: profile.height,
         }),
@@ -1180,12 +1181,23 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
   const mergedMetadata = {
     ...(version.metadata || {}),
     videoProcessing: {
+      source: {
+        width: version.width ?? null,
+        height: version.height ?? null,
+        mimeType: version.mime_type ?? null,
+        durationMs: version.duration_ms ?? null,
+      },
+      ffprobeAvailable: true,
+      ffmpegAvailable: true,
       targetPlan: targetProfiles,
       renditionProcessing: targetProfiles.map((profile) => ({
         label: profile.label,
         status: 'active',
+        available: true,
       })),
-      regeneratedAt: new Date().toISOString(),
+      generatedCount: targetProfiles.length + 1,
+      noTargetsReason: targetProfiles.length === 0 ? 'source_below_minimum_ladder_size' : null,
+      regeneratedAt,
     },
   };
   await updateCreativeVersion(pool, workspaceId, creativeVersionId, {
