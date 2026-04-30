@@ -2,6 +2,27 @@ export type AssetKindDto = 'image' | 'video' | 'font' | 'other';
 export type AssetStorageModeDto = 'object-storage' | 'remote-url';
 export type AssetSourceTypeDto = 'upload' | 'url';
 export type AssetAccessScopeDto = 'private' | 'client';
+export type AssetQualityTierDto = 'low' | 'mid' | 'high';
+export type AssetQualityPreferenceDto = 'auto' | AssetQualityTierDto;
+
+export type AssetDerivativeDto = {
+  src: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  width?: number;
+  height?: number;
+  bitrateKbps?: number;
+  codec?: string;
+};
+
+export type AssetDerivativeSetDto = {
+  original?: AssetDerivativeDto;
+  low?: AssetDerivativeDto;
+  mid?: AssetDerivativeDto;
+  high?: AssetDerivativeDto;
+  thumbnail?: AssetDerivativeDto;
+  poster?: AssetDerivativeDto;
+};
 
 export type AssetRecordDto = {
   id: string;
@@ -14,6 +35,9 @@ export type AssetRecordDto = {
   storageMode?: AssetStorageModeDto;
   storageKey?: string;
   publicUrl?: string;
+  optimizedUrl?: string;
+  qualityPreference?: AssetQualityPreferenceDto;
+  derivatives?: AssetDerivativeSetDto;
   originUrl?: string;
   posterSrc?: string;
   thumbnailUrl?: string;
@@ -90,6 +114,8 @@ export type PreparedAssetUploadDto = {
   storageKey: string;
   uploadUrl?: string;
   publicUrl?: string;
+  optimizedUrl?: string;
+  derivatives?: AssetDerivativeSetDto;
 };
 
 export type PrepareAssetUploadRequestDto = {
@@ -125,6 +151,9 @@ export type CompleteAssetUploadRequestDto = {
   storageMode?: AssetStorageModeDto;
   storageKey: string;
   publicUrl?: string;
+  optimizedUrl?: string;
+  qualityPreference?: AssetQualityPreferenceDto;
+  derivatives?: AssetDerivativeSetDto;
   sourceType?: AssetSourceTypeDto;
   metadata?: {
     width?: number;
