@@ -75,25 +75,65 @@ function normalizeTag(row) {
   };
 }
 
-function parseTagInput(body = {}) {
-  return {
-    workspaceId: body.workspaceId ?? body.workspace_id ?? null,
-    campaign_id: body.campaignId ?? body.campaign_id ?? null,
-    name: String(body.name || '').trim(),
-    format: body.format ? String(body.format).trim().toLowerCase() : undefined,
-    status: body.status ? String(body.status).trim().toLowerCase() : undefined,
-    click_url: body.clickUrl ?? body.click_url ?? null,
-    impression_url: body.impressionUrl ?? body.impression_url ?? null,
-    description: body.description ?? null,
-    targeting: body.targeting && typeof body.targeting === 'object' ? body.targeting : {},
-    frequency_cap: body.frequencyCap ?? body.frequency_cap ?? null,
-    frequency_cap_window: body.frequencyCapWindow ?? body.frequency_cap_window ?? null,
-    geo_targets: body.geoTargets ?? body.geo_targets ?? [],
-    device_targets: body.deviceTargets ?? body.device_targets ?? [],
-    serving_width: body.servingWidth ?? body.serving_width ?? null,
-    serving_height: body.servingHeight ?? body.serving_height ?? null,
-    tracker_type: body.trackerType ?? body.tracker_type ?? null,
-  };
+function hasOwn(body, key) {
+  return Object.prototype.hasOwnProperty.call(body, key);
+}
+
+function parseTagInput(body = {}, mode = 'create') {
+  const input = {};
+  input.workspaceId = body.workspaceId ?? body.workspace_id ?? null;
+
+  if (mode === 'create' || hasOwn(body, 'campaignId') || hasOwn(body, 'campaign_id')) {
+    input.campaign_id = body.campaignId ?? body.campaign_id ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'name')) {
+    input.name = String(body.name || '').trim();
+  }
+  if (hasOwn(body, 'format')) {
+    input.format = body.format ? String(body.format).trim().toLowerCase() : undefined;
+  } else if (mode === 'create') {
+    input.format = undefined;
+  }
+  if (hasOwn(body, 'status')) {
+    input.status = body.status ? String(body.status).trim().toLowerCase() : undefined;
+  } else if (mode === 'create') {
+    input.status = undefined;
+  }
+  if (mode === 'create' || hasOwn(body, 'clickUrl') || hasOwn(body, 'click_url')) {
+    input.click_url = body.clickUrl ?? body.click_url ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'impressionUrl') || hasOwn(body, 'impression_url')) {
+    input.impression_url = body.impressionUrl ?? body.impression_url ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'description')) {
+    input.description = body.description ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'targeting')) {
+    input.targeting = body.targeting && typeof body.targeting === 'object' ? body.targeting : {};
+  }
+  if (mode === 'create' || hasOwn(body, 'frequencyCap') || hasOwn(body, 'frequency_cap')) {
+    input.frequency_cap = body.frequencyCap ?? body.frequency_cap ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'frequencyCapWindow') || hasOwn(body, 'frequency_cap_window')) {
+    input.frequency_cap_window = body.frequencyCapWindow ?? body.frequency_cap_window ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'geoTargets') || hasOwn(body, 'geo_targets')) {
+    input.geo_targets = body.geoTargets ?? body.geo_targets ?? [];
+  }
+  if (mode === 'create' || hasOwn(body, 'deviceTargets') || hasOwn(body, 'device_targets')) {
+    input.device_targets = body.deviceTargets ?? body.device_targets ?? [];
+  }
+  if (mode === 'create' || hasOwn(body, 'servingWidth') || hasOwn(body, 'serving_width')) {
+    input.serving_width = body.servingWidth ?? body.serving_width ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'servingHeight') || hasOwn(body, 'serving_height')) {
+    input.serving_height = body.servingHeight ?? body.serving_height ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'trackerType') || hasOwn(body, 'tracker_type')) {
+    input.tracker_type = body.trackerType ?? body.tracker_type ?? null;
+  }
+
+  return input;
 }
 
 function normalizeTagBinding(row) {
@@ -217,7 +257,7 @@ export async function handleTagRoutes(ctx) {
       if (!hasPermission(session, 'projects:create')) {
         return forbidden(res, requestId, 'You do not have permission to create tags.');
       }
-      const input = parseTagInput(body);
+      const input = parseTagInput(body, 'create');
       if (!input.name) return badRequest(res, requestId, 'Tag name is required.');
       try {
         const workspaceId = await resolveTargetWorkspaceId(
@@ -242,7 +282,7 @@ export async function handleTagRoutes(ctx) {
       const id = pathname.split('/')[3];
       const baseTag = await getTagById(session.client, id);
       if (!baseTag) return badRequest(res, requestId, 'Tag not found.');
-      const input = parseTagInput(body);
+      const input = parseTagInput(body, 'update');
       try {
         const workspaceId = await resolveTargetWorkspaceId(
           session.client,
