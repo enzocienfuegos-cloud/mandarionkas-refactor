@@ -242,10 +242,38 @@ export async function updateCampaign(pool, workspaceId, id, data) {
   const params = [workspaceId, id];
 
   for (const key of allowed) {
-    if (key in data) {
-      params.push(key === 'metadata' ? JSON.stringify(data[key]) : data[key]);
-      setClauses.push(`${key} = $${params.length}`);
+    if (!(key in data)) continue;
+
+    let value = data[key];
+    if (value === undefined) continue;
+
+    if (key === 'name') {
+      value = String(value || '').trim();
+      if (!value) {
+        throw new Error('Campaign name is required.');
+      }
     }
+    if (key === 'status') {
+      value = normalizeStatus(value);
+      if (!value) {
+        throw new Error('Campaign status is invalid.');
+      }
+    }
+    if (key === 'currency') {
+      value = String(value || '').trim().toUpperCase();
+      if (!value) {
+        throw new Error('Campaign currency is invalid.');
+      }
+    }
+    if (key === 'timezone') {
+      value = String(value || '').trim();
+      if (!value) {
+        throw new Error('Campaign timezone is invalid.');
+      }
+    }
+
+    params.push(key === 'metadata' ? JSON.stringify(value) : value);
+    setClauses.push(`${key} = $${params.length}`);
   }
 
   if (!setClauses.length) {

@@ -71,25 +71,67 @@ function normalizeCampaign(row) {
   };
 }
 
-function parseCampaignInput(body = {}) {
-  return {
-    workspaceId: body.workspaceId ?? body.workspace_id ?? null,
-    advertiser_id: body.advertiserId ?? body.advertiser_id ?? null,
-    name: String(body.name || '').trim(),
-    status: body.status ? String(body.status).trim().toLowerCase() : undefined,
-    start_date: body.startDate ?? body.start_date ?? null,
-    end_date: body.endDate ?? body.end_date ?? null,
-    budget: body.budget ?? null,
-    impression_goal: body.impressionGoal ?? body.impression_goal ?? null,
-    daily_budget: body.dailyBudget ?? body.daily_budget ?? null,
-    flight_type: body.flightType ?? body.flight_type ?? null,
-    kpi: body.kpi ?? null,
-    kpi_goal: body.kpiGoal ?? body.kpi_goal ?? null,
-    currency: body.currency ?? undefined,
-    timezone: body.timezone ?? undefined,
-    notes: body.notes ?? null,
-    metadata: body.metadata && typeof body.metadata === 'object' ? body.metadata : {},
-  };
+function hasOwn(body, key) {
+  return Object.prototype.hasOwnProperty.call(body, key);
+}
+
+function parseCampaignInput(body = {}, mode = 'create') {
+  const input = {};
+  input.workspaceId = body.workspaceId ?? body.workspace_id ?? null;
+
+  if (mode === 'create' || hasOwn(body, 'advertiserId') || hasOwn(body, 'advertiser_id')) {
+    input.advertiser_id = body.advertiserId ?? body.advertiser_id ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'name')) {
+    input.name = String(body.name || '').trim();
+  }
+  if (hasOwn(body, 'status')) {
+    input.status = body.status ? String(body.status).trim().toLowerCase() : undefined;
+  } else if (mode === 'create') {
+    input.status = undefined;
+  }
+  if (mode === 'create' || hasOwn(body, 'startDate') || hasOwn(body, 'start_date')) {
+    input.start_date = body.startDate ?? body.start_date ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'endDate') || hasOwn(body, 'end_date')) {
+    input.end_date = body.endDate ?? body.end_date ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'budget')) {
+    input.budget = body.budget ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'impressionGoal') || hasOwn(body, 'impression_goal')) {
+    input.impression_goal = body.impressionGoal ?? body.impression_goal ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'dailyBudget') || hasOwn(body, 'daily_budget')) {
+    input.daily_budget = body.dailyBudget ?? body.daily_budget ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'flightType') || hasOwn(body, 'flight_type')) {
+    input.flight_type = body.flightType ?? body.flight_type ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'kpi')) {
+    input.kpi = body.kpi ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'kpiGoal') || hasOwn(body, 'kpi_goal')) {
+    input.kpi_goal = body.kpiGoal ?? body.kpi_goal ?? null;
+  }
+  if (hasOwn(body, 'currency')) {
+    input.currency = body.currency ?? undefined;
+  } else if (mode === 'create') {
+    input.currency = undefined;
+  }
+  if (hasOwn(body, 'timezone')) {
+    input.timezone = body.timezone ?? undefined;
+  } else if (mode === 'create') {
+    input.timezone = undefined;
+  }
+  if (mode === 'create' || hasOwn(body, 'notes')) {
+    input.notes = body.notes ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'metadata')) {
+    input.metadata = body.metadata && typeof body.metadata === 'object' ? body.metadata : {};
+  }
+
+  return input;
 }
 
 function buildCsvValue(value) {
@@ -146,7 +188,7 @@ export async function handleCampaignRoutes(ctx) {
         return forbidden(res, requestId, 'You do not have permission to create campaigns.');
       }
 
-      const input = parseCampaignInput(body);
+      const input = parseCampaignInput(body, 'create');
       if (!input.name) {
         return badRequest(res, requestId, 'Campaign name is required.');
       }
@@ -172,7 +214,7 @@ export async function handleCampaignRoutes(ctx) {
         return forbidden(res, requestId, 'You do not have permission to update campaigns.');
       }
       const id = pathname.split('/')[3];
-      const input = parseCampaignInput(body);
+      const input = parseCampaignInput(body, 'update');
       try {
         const workspaceId = await resolveTargetWorkspaceId(
           session.client,
