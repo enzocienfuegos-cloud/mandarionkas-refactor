@@ -795,7 +795,7 @@ export async function createPublishedCreative(pool, input = {}) {
         const profileKey = String(profile.label || '').trim().toLowerCase();
         await pool.query(
           `UPDATE video_renditions
-           SET status = 'processing',
+           SET status = 'queued',
                public_url = $4,
                storage_key = $5,
                metadata = coalesce(metadata, '{}'::jsonb) || $6::jsonb,
@@ -922,7 +922,7 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
       poster: derivatives.poster?.src ?? null,
       renditionProcessing: renditionKeys.map((key) => ({
         label: key[0].toUpperCase() + key.slice(1),
-        status: derivatives[key] ? 'active' : 'processing',
+        status: derivatives[key] ? 'active' : 'queued',
         available: Boolean(derivatives[key]),
         publicUrl: derivatives[key]?.src ?? outputPlan[key]?.publicUrl ?? null,
         storageKey: outputPlan[key]?.storageKey ?? null,
@@ -1070,7 +1070,7 @@ function normalizeVariantStatus(status, fallback = 'draft') {
 
 function normalizeRenditionStatus(status, fallback = 'processing') {
   const normalized = String(status || '').trim().toLowerCase();
-  return ['draft', 'processing', 'active', 'paused', 'archived', 'failed'].includes(normalized)
+  return ['draft', 'queued', 'processing', 'active', 'paused', 'archived', 'failed'].includes(normalized)
     ? normalized
     : fallback;
 }
