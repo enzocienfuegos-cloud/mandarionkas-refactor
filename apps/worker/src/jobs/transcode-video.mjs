@@ -23,7 +23,9 @@ function getFfmpegBin(source = process.env) {
 }
 
 function transcodeEnabled(source = process.env) {
-  return String(source.TRANSCODE_VIDEO_ENABLED || '').trim().toLowerCase() === 'true';
+  const normalized = String(source.TRANSCODE_VIDEO_ENABLED || '').trim().toLowerCase();
+  if (!normalized) return true;
+  return !['false', '0', 'off', 'no', 'disabled'].includes(normalized);
 }
 
 function isR2Configured(source = process.env) {

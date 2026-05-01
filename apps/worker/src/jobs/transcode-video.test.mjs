@@ -124,6 +124,25 @@ test('video transcode job marks asset as blocked when ffmpeg is unavailable', as
   assert.equal(calls.patch.at(-1)?.metadataPatch?.optimization?.video?.status, 'blocked');
 });
 
+test('video transcode job is enabled by default when flag is unset', async () => {
+  const { deps, calls } = createDeps();
+  const result = await runTranscodeVideoJobWithDeps(
+    {
+      DATABASE_URL: 'postgres://example',
+      R2_ENDPOINT: 'https://r2.example.com',
+      R2_BUCKET: 'bucket',
+      R2_ACCESS_KEY_ID: 'key',
+      R2_SECRET_ACCESS_KEY: 'secret',
+      FFMPEG_BIN: 'ffmpeg',
+    },
+    deps,
+  );
+
+  assert.deepEqual(result, { processed: 1, skipped: false });
+  assert.equal(calls.complete.length, 1);
+  assert.equal(calls.ffmpeg.length, 4);
+});
+
 test('video transcode job completes and writes derivative metadata', async () => {
   const { deps, calls } = createDeps();
   const result = await runTranscodeVideoJobWithDeps(
