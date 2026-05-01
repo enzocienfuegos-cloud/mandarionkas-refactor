@@ -415,30 +415,45 @@ function buildAutoVideoOutputPlan({ storageKey, publicUrl }) {
   const safePublicUrl = String(publicUrl || '').trim();
   const baseStorageKey = safeStorageKey.replace(/\.[^.]+$/, '');
   const basePublicUrl = safePublicUrl.replace(/\.[^.]+$/, '');
-  return {
-    low: {
-      storageKey: `${baseStorageKey}-low.mp4`,
-      publicUrl: `${basePublicUrl}-low.mp4`,
-      maxHeight: 480,
-      videoBitrateKbps: 900,
-    },
-    mid: {
-      storageKey: `${baseStorageKey}-mid.mp4`,
-      publicUrl: `${basePublicUrl}-mid.mp4`,
-      maxHeight: 720,
-      videoBitrateKbps: 1500,
-    },
-    high: {
-      storageKey: `${baseStorageKey}-high.mp4`,
-      publicUrl: `${basePublicUrl}-high.mp4`,
-      maxHeight: 1080,
-      videoBitrateKbps: 2400,
-    },
-    poster: {
-      storageKey: `${baseStorageKey}-poster.jpg`,
-      publicUrl: `${basePublicUrl}-poster.jpg`,
-    },
+  const low = {
+    storageKey: `${baseStorageKey}-low.mp4`,
+    publicUrl: `${basePublicUrl}-low.mp4`,
+    maxHeight: 480,
+    videoBitrateKbps: 900,
   };
+  const mid = {
+    storageKey: `${baseStorageKey}-mid.mp4`,
+    publicUrl: `${basePublicUrl}-mid.mp4`,
+    maxHeight: 720,
+    videoBitrateKbps: 1500,
+  };
+  const high = {
+    storageKey: `${baseStorageKey}-high.mp4`,
+    publicUrl: `${basePublicUrl}-high.mp4`,
+    maxHeight: 1080,
+    videoBitrateKbps: 2400,
+  };
+  const poster = {
+    storageKey: `${baseStorageKey}-poster.jpg`,
+    publicUrl: `${basePublicUrl}-poster.jpg`,
+  };
+  return {
+    low,
+    mid,
+    high,
+    '480p': low,
+    '720p': mid,
+    '1080p': high,
+    poster,
+  };
+}
+
+function getVideoProfileOutputKey(label = '') {
+  const normalized = String(label || '').trim().toLowerCase();
+  if (normalized === '1080p' || normalized === 'high') return 'high';
+  if (normalized === '720p' || normalized === 'mid') return 'mid';
+  if (normalized === '480p' || normalized === 'low') return 'low';
+  return normalized;
 }
 
 function buildQueuedVideoProcessingMetadata(version = {}, targetProfiles = [], outputPlan = {}) {
@@ -795,7 +810,8 @@ export async function createPublishedCreative(pool, input = {}) {
 
       const targetProfiles = buildVideoTargetProfiles(creativeVersion);
       for (const profile of targetProfiles) {
-        const profileKey = String(profile.label || '').trim().toLowerCase();
+        const profileLabel = String(profile.label || '').trim();
+        const profileKey = getVideoProfileOutputKey(profileLabel);
         await pool.query(
           `UPDATE video_renditions
            SET status = 'queued',
@@ -810,12 +826,12 @@ export async function createPublishedCreative(pool, input = {}) {
           [
             workspaceId,
             creativeVersion.id,
-            profileKey,
+            profileLabel.toLowerCase(),
             outputPlan[profileKey]?.publicUrl ?? null,
             outputPlan[profileKey]?.storageKey ?? null,
             JSON.stringify({
               queuedBy: 'publish',
-              profile: profile.label,
+              profile: profileLabel,
             }),
           ],
         );
@@ -879,8 +895,10 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
   const version = await getCreativeVersion(pool, workspaceId, creativeVersionId);
   if (!version) return null;
 
-  const renditionKeys = ['low', 'mid', 'high'];
-  for (const key of renditionKeys) {
+  const targetProfiles = buildVideoTargetProfiles(version);
+  for (const profile of targetProfiles) {
+    const profileLabel = String(profile.label || '').trim();
+    const key = getVideoProfileOutputKey(profileLabel);
     const derivative = derivatives[key];
     if (!derivative) continue;
     await pool.query(
@@ -892,7 +910,11 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
            mime_type = $7,
            codec = $8,
            bitrate_kbps = $9,
-           metadata = coalesce(metadata, '{}'::jsonb) || $10::jsonb,
+           width = COALESCE($10, width),
+           height = COALESCE($11, height),
+           artifact_id = NULL,
+           sort_order = $12,
+           metadata = coalesce(metadata, '{}'::jsonb) || $13::jsonb,
            updated_at = NOW()
        WHERE workspace_id = $1
          AND creative_version_id = $2
@@ -901,16 +923,20 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
       [
         workspaceId,
         creativeVersionId,
-        key,
+        profileLabel.toLowerCase(),
         derivative.src ?? outputPlan[key]?.publicUrl ?? null,
         outputPlan[key]?.storageKey ?? null,
         derivative.sizeBytes ?? null,
         derivative.mimeType ?? 'video/mp4',
         derivative.codec ?? 'h264',
         derivative.bitrateKbps ?? null,
+        profile.width ?? derivative.width ?? null,
+        profile.height ?? derivative.height ?? null,
+        profile.sortOrder ?? 0,
         JSON.stringify({
           processedAt: new Date().toISOString(),
           available: true,
+          profile: profileLabel,
         }),
       ],
     );
@@ -923,13 +949,20 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
       completedAt: new Date().toISOString(),
       mode: 'auto-on-publish',
       poster: derivatives.poster?.src ?? null,
-      renditionProcessing: renditionKeys.map((key) => ({
-        label: key[0].toUpperCase() + key.slice(1),
-        status: derivatives[key] ? 'active' : 'queued',
-        available: Boolean(derivatives[key]),
-        publicUrl: derivatives[key]?.src ?? outputPlan[key]?.publicUrl ?? null,
-        storageKey: outputPlan[key]?.storageKey ?? null,
-      })),
+      generatedCount: 1 + targetProfiles.filter((profile) => derivatives[getVideoProfileOutputKey(profile.label)]).length,
+      renditionProcessing: targetProfiles.map((profile) => {
+        const key = getVideoProfileOutputKey(profile.label);
+        return {
+          label: profile.label,
+          status: derivatives[key] ? 'active' : 'queued',
+          available: Boolean(derivatives[key]),
+          publicUrl: derivatives[key]?.src ?? outputPlan[key]?.publicUrl ?? null,
+          storageKey: outputPlan[key]?.storageKey ?? null,
+          width: profile.width ?? null,
+          height: profile.height ?? null,
+          bitrateKbps: profile.bitrateKbps ?? null,
+        };
+      }),
     },
   };
 
@@ -1108,7 +1141,6 @@ function buildVideoTargetProfiles(version = {}) {
     { label: '1080p', height: 1080, sortOrder: 10 },
     { label: '720p', height: 720, sortOrder: 20 },
     { label: '480p', height: 480, sortOrder: 30 },
-    { label: '360p', height: 360, sortOrder: 40 },
   ];
   return candidates
     .filter((candidate) => candidate.height <= sourceHeight)
