@@ -269,13 +269,21 @@ function getRenditionProgressLabel(entry: any) {
   return `In progress (${progressPercent}%)`;
 }
 
-function getVideoRenditionStatusBadge(rendition: VideoRendition) {
-  const normalizedStatus = String(rendition.status || '').trim().toLowerCase();
+function getVideoRenditionStatusBadge(rendition: VideoRendition, processingEntry?: Record<string, any> | null) {
+  const source: Record<string, any> = (processingEntry && !processingEntry.available)
+    ? processingEntry
+    : ((rendition.metadata && typeof rendition.metadata === 'object')
+      ? { ...rendition, ...rendition.metadata }
+      : { ...rendition });
+  const normalizedStatus = String(source?.status || '').trim().toLowerCase();
   if (!['queued', 'processing', 'draft'].includes(normalizedStatus)) {
     return statusBadge(rendition.status);
   }
 
-  const startedAt = parseTimestamp(rendition.metadata?.startedAt)
+  const startedAt = parseTimestamp(source?.startedAt)
+    ?? parseTimestamp(source?.updatedAt)
+    ?? parseTimestamp(source?.queuedAt)
+    ?? parseTimestamp(rendition.metadata?.startedAt)
     ?? parseTimestamp(rendition.metadata?.updatedAt)
     ?? parseTimestamp(rendition.metadata?.queuedAt);
   const elapsedMs = startedAt ? Math.max(0, Date.now() - startedAt) : 0;
@@ -1990,6 +1998,12 @@ export default function CreativeLibrary() {
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {videoRenditionState.renditions.map(rendition => (
                       (() => {
+                        const matchingProcessingEntry = rendition.isSource
+                          ? null
+                          : renditionProcessing.find((entry: any) => (
+                            String(entry?.label ?? '').trim().toLowerCase()
+                            === String(rendition.label ?? '').trim().toLowerCase()
+                          )) ?? null;
                         const renditionReadyForToggle = Boolean(
                           rendition.isSource || (
                             rendition.publicUrl
@@ -2027,7 +2041,7 @@ export default function CreativeLibrary() {
                         </td>
                         <td className="px-4 py-3 text-slate-600">{formatVideoBitrate(rendition.bitrateKbps)}</td>
                         <td className="px-4 py-3 text-slate-600">{rendition.codec || '—'}</td>
-                        <td className="px-4 py-3">{getVideoRenditionStatusBadge(rendition)}</td>
+                        <td className="px-4 py-3">{getVideoRenditionStatusBadge(rendition, matchingProcessingEntry)}</td>
                         <td className="px-4 py-3">
                           <div className="space-y-1 text-xs text-slate-500">
                             {rendition.publicUrl ? (
