@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { enqueueVideoTranscodeJob } from './asset-jobs.mjs';
 
+function trimText(value) {
+  return String(value ?? '').trim();
+}
+
 function normalizeLimit(limit, fallback = 100) {
   return Math.min(Math.max(Number(limit) || fallback, 1), 500);
 }
@@ -10,8 +14,16 @@ function normalizeOffset(offset) {
 }
 
 function normalizeSearch(search) {
-  const value = String(search || '').trim().toLowerCase();
+  const value = trimText(search).toLowerCase();
   return value.length >= 2 ? value : '';
+}
+
+function hasPublishedRenditionAsset(rendition) {
+  return (
+    trimText(rendition?.public_url).length > 0
+    && Number(rendition?.size_bytes || 0) > 0
+    && extractJsonObject(rendition?.metadata, {}).available === true
+  );
 }
 
 function latestVersionSelect() {
@@ -640,6 +652,7 @@ export async function queueVideoTranscodeForCreativeVersion(pool, input = {}) {
         height: height || null,
         durationMs: durationMs || null,
         outputPlan,
+        targetPlan: targetProfiles,
       },
     });
   }
@@ -1006,7 +1019,11 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
     ...(version.metadata || {}),
     videoProcessing: {
       ...((version.metadata || {}).videoProcessing || {}),
+      status: 'completed',
+      reason: null,
+      nextRetryAt: null,
       completedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       mode: 'auto-on-publish',
       poster: derivatives.poster?.src ?? null,
       generatedCount: 1 + targetProfiles.filter((profile) => derivatives[getVideoProfileOutputKey(profile.label)]).length,
@@ -1014,13 +1031,14 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
         const key = getVideoProfileOutputKey(profile.label);
         return {
           label: profile.label,
-          status: derivatives[key] ? 'active' : 'queued',
+          status: derivatives[key] ? 'active' : 'unavailable',
           available: Boolean(derivatives[key]),
           publicUrl: derivatives[key]?.src ?? outputPlan[key]?.publicUrl ?? null,
           storageKey: outputPlan[key]?.storageKey ?? null,
           width: profile.width ?? null,
           height: profile.height ?? null,
           bitrateKbps: profile.bitrateKbps ?? null,
+          updatedAt: new Date().toISOString(),
         };
       }),
     },
@@ -1501,7 +1519,7 @@ export async function updateVideoRendition(pool, workspaceId, renditionId, input
   const params = [workspaceId, renditionId];
 
   if (Object.prototype.hasOwnProperty.call(input, 'label')) {
-    params.push(String(input.label || '').trim());
+    params.push(trimText(input.label));
     fields.push(`label = $${params.length}`);
   }
   if (Object.prototype.hasOwnProperty.call(input, 'status')) {
@@ -1509,11 +1527,7 @@ export async function updateVideoRendition(pool, workspaceId, renditionId, input
     if (
       nextStatus === 'active'
       && !existing.is_source
-      && (
-        !trimText(existing.public_url)
-        || Number(existing.size_bytes || 0) <= 0
-        || extractJsonObject(existing.metadata, {}).available !== true
-      )
+      && !hasPublishedRenditionAsset(existing)
     ) {
       throw new Error('This rendition is not ready yet. Wait for transcoding to finish before activating it.');
     }

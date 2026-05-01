@@ -109,6 +109,64 @@ function buildOutputPlan(input = {}) {
   };
 }
 
+function getRequestedProfiles(input = {}, outputPlan = {}) {
+  const targetPlan = Array.isArray(input.targetPlan) ? input.targetPlan : [];
+  const normalized = targetPlan
+    .map((profile) => {
+      const label = String(profile?.label || '').trim();
+      if (!label) return null;
+      const key = label.toLowerCase() === '1080p' ? 'high'
+        : label.toLowerCase() === '720p' ? 'mid'
+        : label.toLowerCase() === '480p' ? 'low'
+        : null;
+      if (!key || !outputPlan[key]) return null;
+      return {
+        key,
+        label,
+        fileName: `${key}.mp4`,
+        storageKey: outputPlan[key].storageKey,
+        publicUrl: outputPlan[key].publicUrl,
+        maxHeight: Number(profile?.height || outputPlan[key].maxHeight || 0) || outputPlan[key].maxHeight,
+        videoBitrateKbps: Number(profile?.bitrateKbps || outputPlan[key].videoBitrateKbps || 0) || outputPlan[key].videoBitrateKbps,
+        width: Number(profile?.width || 0) || undefined,
+        height: Number(profile?.height || 0) || undefined,
+      };
+    })
+    .filter(Boolean);
+
+  if (normalized.length) return normalized;
+
+  return [
+    {
+      key: 'low',
+      label: '480p',
+      fileName: 'low.mp4',
+      storageKey: outputPlan.low.storageKey,
+      publicUrl: outputPlan.low.publicUrl,
+      maxHeight: outputPlan.low.maxHeight,
+      videoBitrateKbps: outputPlan.low.videoBitrateKbps,
+    },
+    {
+      key: 'mid',
+      label: '720p',
+      fileName: 'mid.mp4',
+      storageKey: outputPlan.mid.storageKey,
+      publicUrl: outputPlan.mid.publicUrl,
+      maxHeight: outputPlan.mid.maxHeight,
+      videoBitrateKbps: outputPlan.mid.videoBitrateKbps,
+    },
+    {
+      key: 'high',
+      label: '1080p',
+      fileName: 'high.mp4',
+      storageKey: outputPlan.high.storageKey,
+      publicUrl: outputPlan.high.publicUrl,
+      maxHeight: outputPlan.high.maxHeight,
+      videoBitrateKbps: outputPlan.high.videoBitrateKbps,
+    },
+  ];
+}
+
 async function commandExists(binary) {
   return new Promise((resolve) => {
     const child = spawn(binary, ['-version'], { stdio: 'ignore' });
@@ -229,6 +287,7 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
 
     const input = job.input || {};
     const outputPlan = buildOutputPlan(input);
+    const requestedProfiles = getRequestedProfiles(input, outputPlan);
     const assetMetadataPatch = {
       optimization: {
         video: {
@@ -397,59 +456,47 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
 
     const scratchDir = await deps.mkdtemp(path.join(tmpdir(), 'smx-video-job-'));
     try {
-      const lowPath = path.join(scratchDir, 'low.mp4');
-      const midPath = path.join(scratchDir, 'mid.mp4');
-      const highPath = path.join(scratchDir, 'high.mp4');
       const posterPath = path.join(scratchDir, 'poster.jpg');
       const sourcePath = path.join(scratchDir, 'source.mp4');
 
       await downloadSourceToFile(sourceUrl, sourcePath);
 
-      await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourcePath, '-vf', 'scale=-2:480', '-c:v', 'libx264', '-b:v', '900k', '-an', lowPath], scratchDir);
-      await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourcePath, '-vf', 'scale=-2:720', '-c:v', 'libx264', '-b:v', '1500k', '-an', midPath], scratchDir);
-      await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourcePath, '-vf', 'scale=-2:1080', '-c:v', 'libx264', '-b:v', '2400k', '-an', highPath], scratchDir);
+      const transcodedProfiles = [];
+      for (const profile of requestedProfiles) {
+        const filePath = path.join(scratchDir, profile.fileName);
+        await deps.runFfmpeg(
+          ffmpegBin,
+          ['-y', '-i', sourcePath, '-vf', `scale=-2:${profile.maxHeight}`, '-c:v', 'libx264', '-b:v', `${profile.videoBitrateKbps}k`, '-an', filePath],
+          scratchDir,
+        );
+        transcodedProfiles.push({ ...profile, filePath });
+      }
       await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourcePath, '-frames:v', '1', posterPath], scratchDir);
 
-      await deps.uploadFileToR2(source, { storageKey: outputPlan.low.storageKey, filePath: lowPath, contentType: 'video/mp4' });
-      await deps.uploadFileToR2(source, { storageKey: outputPlan.mid.storageKey, filePath: midPath, contentType: 'video/mp4' });
-      await deps.uploadFileToR2(source, { storageKey: outputPlan.high.storageKey, filePath: highPath, contentType: 'video/mp4' });
+      for (const profile of transcodedProfiles) {
+        await deps.uploadFileToR2(source, { storageKey: profile.storageKey, filePath: profile.filePath, contentType: 'video/mp4' });
+      }
       await deps.uploadFileToR2(source, { storageKey: outputPlan.poster.storageKey, filePath: posterPath, contentType: 'image/jpeg' });
 
-      const [lowStats, midStats, highStats, posterStats] = await Promise.all([
-        deps.stat(lowPath),
-        deps.stat(midPath),
-        deps.stat(highPath),
-        deps.stat(posterPath),
-      ]);
-
-      const derivatives = {
-        low: normalizeOutputMetadata({
-          publicUrl: outputPlan.low.publicUrl,
-          fileStats: lowStats,
+      const derivatives = {};
+      for (const profile of transcodedProfiles) {
+        const fileStats = await deps.stat(profile.filePath);
+        derivatives[profile.key] = normalizeOutputMetadata({
+          publicUrl: profile.publicUrl,
+          fileStats,
           mimeType: 'video/mp4',
           codec: 'h264',
-          bitrateKbps: outputPlan.low.videoBitrateKbps,
-        }),
-        mid: normalizeOutputMetadata({
-          publicUrl: outputPlan.mid.publicUrl,
-          fileStats: midStats,
-          mimeType: 'video/mp4',
-          codec: 'h264',
-          bitrateKbps: outputPlan.mid.videoBitrateKbps,
-        }),
-        high: normalizeOutputMetadata({
-          publicUrl: outputPlan.high.publicUrl,
-          fileStats: highStats,
-          mimeType: 'video/mp4',
-          codec: 'h264',
-          bitrateKbps: outputPlan.high.videoBitrateKbps,
-        }),
-        poster: normalizeOutputMetadata({
-          publicUrl: outputPlan.poster.publicUrl,
-          fileStats: posterStats,
-          mimeType: 'image/jpeg',
-        }),
-      };
+          bitrateKbps: profile.videoBitrateKbps,
+          width: profile.width,
+          height: profile.height,
+        });
+      }
+      const posterStats = await deps.stat(posterPath);
+      derivatives.poster = normalizeOutputMetadata({
+        publicUrl: outputPlan.poster.publicUrl,
+        fileStats: posterStats,
+        mimeType: 'image/jpeg',
+      });
 
       await deps.completeAssetProcessingJob(client, {
         jobId: job.id,

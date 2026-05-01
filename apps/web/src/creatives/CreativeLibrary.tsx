@@ -146,6 +146,27 @@ function parseTimestamp(value: unknown) {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
+function getLatestProcessingTimestamp(processing: Record<string, any> | undefined) {
+  const directTimestamps = [
+    parseTimestamp(processing?.updatedAt),
+    parseTimestamp(processing?.startedAt),
+    parseTimestamp(processing?.queuedAt),
+  ].filter((value): value is number => value != null);
+
+  const renditionProcessing = Array.isArray(processing?.renditionProcessing)
+    ? processing.renditionProcessing
+    : [];
+  const nestedTimestamps = renditionProcessing
+    .flatMap((entry: any) => [
+      parseTimestamp(entry?.updatedAt),
+      parseTimestamp(entry?.startedAt),
+      parseTimestamp(entry?.queuedAt),
+    ])
+    .filter((value): value is number => value != null);
+
+  return [...directTimestamps, ...nestedTimestamps].sort((a, b) => b - a)[0] ?? null;
+}
+
 function estimateVideoProcessingPercent(videoProcessing: Record<string, any> | undefined) {
   const status = String(videoProcessing?.status ?? '').trim().toLowerCase();
   if (!['queued', 'processing'].includes(status)) return null;
@@ -166,6 +187,34 @@ function estimateVideoProcessingPercent(videoProcessing: Record<string, any> | u
   return Math.min(97, 84 + Math.round((elapsedMs - 14000) / 1200));
 }
 
+function isVideoProcessingStale(videoProcessing: Record<string, any> | undefined) {
+  const status = String(videoProcessing?.status ?? '').trim().toLowerCase();
+  if (!['queued', 'processing'].includes(status)) return false;
+
+  const referenceAt = getLatestProcessingTimestamp(videoProcessing);
+  if (!referenceAt) return false;
+
+  const elapsedMs = Math.max(0, Date.now() - referenceAt);
+  const nextRetryAt = parseTimestamp(videoProcessing?.nextRetryAt);
+  if (nextRetryAt && nextRetryAt > Date.now()) return false;
+
+  return elapsedMs >= 30 * 1000;
+}
+
+function isRenditionProcessingEntryStale(entry: Record<string, any> | undefined) {
+  const status = String(entry?.status ?? '').trim().toLowerCase();
+  if (!['queued', 'processing', 'draft'].includes(status)) return false;
+
+  const referenceAt = [
+    parseTimestamp(entry?.updatedAt),
+    parseTimestamp(entry?.startedAt),
+    parseTimestamp(entry?.queuedAt),
+  ].filter((value): value is number => value != null).sort((a, b) => b - a)[0] ?? null;
+  if (!referenceAt) return false;
+
+  return Math.max(0, Date.now() - referenceAt) >= 30 * 1000;
+}
+
 function shouldPollVideoRenditions(state: VideoRenditionState | null) {
   if (!state || state.loading || !state.version) return false;
   if (state.awaitingPublish) return true;
@@ -174,7 +223,7 @@ function shouldPollVideoRenditions(state: VideoRenditionState | null) {
   const metadata = (state.version.metadata as Record<string, any> | undefined) ?? {};
   const videoProcessing = (metadata.videoProcessing as Record<string, any> | undefined) ?? {};
   const topLevelStatus = String(videoProcessing.status ?? '').toLowerCase();
-  if (['blocked', 'failed'].includes(topLevelStatus)) return false;
+  if (['blocked', 'failed'].includes(topLevelStatus) || isVideoProcessingStale(videoProcessing)) return false;
   const renditionProcessing = Array.isArray(videoProcessing.renditionProcessing)
     ? videoProcessing.renditionProcessing
     : [];
@@ -218,6 +267,15 @@ function getVideoProcessingPanelSummary(videoProcessing: Record<string, any> | u
   const reasonText = humanizeVideoProcessingReason(videoProcessing?.reason);
   const nextRetryAt = String(videoProcessing?.nextRetryAt || '').trim();
   const progressPercent = estimateVideoProcessingPercent(videoProcessing);
+  const stale = isVideoProcessingStale(videoProcessing);
+
+  if (stale) {
+    return {
+      tone: 'warning' as const,
+      title: 'Renditions unavailable',
+      message: 'N/A. No active transcode job is running right now, so these renditions are not being generated. Regenerate renditions to retry this video.',
+    };
+  }
 
   if (status === 'blocked') {
     return {
@@ -258,6 +316,9 @@ function getRenditionProgressLabel(entry: any) {
   if (!['queued', 'processing', 'draft'].includes(status)) {
     return String(entry?.status ?? entry?.reason ?? 'failed');
   }
+  if (isRenditionProcessingEntryStale(entry)) {
+    return 'N/A';
+  }
 
   const startedAt = parseTimestamp(entry?.startedAt)
     ?? parseTimestamp(entry?.updatedAt)
@@ -269,6 +330,15 @@ function getRenditionProgressLabel(entry: any) {
   return `In progress (${progressPercent}%)`;
 }
 
+function getVideoRenditionToggleBlockedReason(rendition: VideoRendition, renditionReadyForToggle: boolean) {
+  if (rendition.status === 'processing') return 'This rendition is currently processing.';
+  if (rendition.status === 'failed') return 'This rendition failed to generate.';
+  if (!rendition.isSource && rendition.status !== 'active' && !renditionReadyForToggle) {
+    return 'This rendition is still queued and has not been generated yet.';
+  }
+  return null;
+}
+
 function getVideoRenditionStatusBadge(rendition: VideoRendition, processingEntry?: Record<string, any> | null) {
   const source: Record<string, any> = (processingEntry && !processingEntry.available)
     ? processingEntry
@@ -278,6 +348,13 @@ function getVideoRenditionStatusBadge(rendition: VideoRendition, processingEntry
   const normalizedStatus = String(source?.status || '').trim().toLowerCase();
   if (!['queued', 'processing', 'draft'].includes(normalizedStatus)) {
     return statusBadge(rendition.status);
+  }
+  if (isRenditionProcessingEntryStale(source)) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+        N/A
+      </span>
+    );
   }
 
   const startedAt = parseTimestamp(source?.startedAt)
@@ -1093,7 +1170,7 @@ export default function CreativeLibrary() {
             version: detail.creativeVersion,
             renditions: detail.videoRenditions,
             loading: false,
-            error: '',
+            error: current.error,
           } : current);
         } catch {
           if (cancelled) return;
@@ -2011,19 +2088,13 @@ export default function CreativeLibrary() {
                             && rendition.metadata?.available === true
                           ),
                         );
+                        const toggleBlockedReason = getVideoRenditionToggleBlockedReason(rendition, renditionReadyForToggle);
                         const toggleBlocked = videoRenditionState.loading
-                          || rendition.status === 'processing'
-                          || rendition.status === 'failed'
-                          || (!rendition.isSource && rendition.status !== 'active' && !renditionReadyForToggle);
-                        const toggleTitle = rendition.status === 'processing'
-                          ? 'This rendition is currently processing.'
-                          : rendition.status === 'failed'
-                            ? 'This rendition failed to generate.'
-                            : (!rendition.isSource && rendition.status !== 'active' && !renditionReadyForToggle)
-                              ? 'This rendition is still queued and has not been generated yet.'
-                              : rendition.status === 'active'
-                                ? 'Disable this rendition for VAST delivery.'
-                                : 'Enable this rendition for VAST delivery.';
+                          || Boolean(toggleBlockedReason);
+                        const toggleTitle = toggleBlockedReason
+                          ?? (rendition.status === 'active'
+                            ? 'Disable this rendition for VAST delivery.'
+                            : 'Enable this rendition for VAST delivery.');
                         return (
                       <tr key={rendition.id}>
                         <td className="px-4 py-3">
@@ -2064,7 +2135,15 @@ export default function CreativeLibrary() {
                             toggleBlocked
                               ? 'cursor-not-allowed text-slate-400'
                               : 'cursor-pointer text-slate-700'
-                          }`} title={toggleTitle}>
+                          }`} title={toggleTitle} onClick={(event) => {
+                            if (!toggleBlockedReason) return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setVideoRenditionState(current => current ? {
+                              ...current,
+                              error: toggleBlockedReason,
+                            } : current);
+                          }}>
                             <span>{rendition.status === 'active' ? 'On' : 'Off'}</span>
                             <span className="relative inline-flex items-center">
                               <input
