@@ -2,15 +2,15 @@ import { readFile, rm, mkdtemp, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getPool } from '../../../../packages/db/src/pool.mjs';
+import { getPool } from '@smx/db/src/pool.mjs';
 import {
   claimNextAssetProcessingJob,
   completeAssetProcessingJob,
   failAssetProcessingJob,
   patchAssetMetadata,
   skipAssetProcessingJob,
-} from '../../../../packages/db/src/asset-jobs.mjs';
-import { logInfo, logWarn } from '../../../api/src/lib/logger.mjs';
+} from 'node:fs/promises';
+import { logInfo, logWarn } from '@smx/api/src/lib/logger.mjs';
 
 function getConnectionString(source = process.env) {
   return String(source.DATABASE_POOL_URL || source.DATABASE_URL || '').trim();

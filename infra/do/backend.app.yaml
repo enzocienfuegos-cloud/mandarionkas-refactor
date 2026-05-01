@@ -1,16 +1,27 @@
-# DigitalOcean App Platform spec for API + worker + predeploy migration job.
-# Replace github.repo, env values and secrets before applying.
+# DigitalOcean App Platform — Backend (API + Worker + pre-deploy migration)
+#
+# S43: Added PLATFORM_ALLOWED_ORIGIN, CORS_ORIGIN, API_BASE_URL, R2_PUBLIC_BASE,
+#      PLATFORM_COOKIE_SECURE, PLATFORM_OBSERVABILITY_ENABLED, tracker buffer vars,
+#      and worker R2 env vars.
+#
+# Apply with: doctl apps update <APP_ID> --spec infra/do/backend.app.yaml
+#
+# SECRET values: set via DigitalOcean dashboard or doctl — not hardcoded here.
+
 name: smx-studio-backend
 region: nyc
+
 alerts:
   - rule: DEPLOYMENT_FAILED
   - rule: DOMAIN_FAILED
+
 features:
   - buildpack-stack=ubuntu-22
+
 services:
   - name: api
     github:
-      repo: your-org/your-repo
+      repo: YOUR_ORG/YOUR_REPO
       branch: main
       deploy_on_push: true
     source_dir: ./
@@ -20,6 +31,7 @@ services:
     http_port: 8080
     instance_size_slug: apps-s-1vcpu-1gb
     instance_count: 1
+
     health_check:
       http_path: /healthz
       initial_delay_seconds: 5
@@ -27,63 +39,145 @@ services:
       timeout_seconds: 5
       success_threshold: 1
       failure_threshold: 3
+
     envs:
       - key: APP_NAME
         scope: RUN_TIME
         type: GENERAL
         value: smx-studio-api
+
       - key: APP_ENV
         scope: RUN_TIME
         type: GENERAL
         value: production
+
+      # S43: Portal domain — required for CORS cookie auth to work.
+      # Must exactly match the portal hostname. No trailing slash.
+      - key: PLATFORM_ALLOWED_ORIGIN
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://portal.YOUR_DOMAIN.com
+
+      # S43: Full CORS allowlist — portal + web + studio for deep links.
+      - key: CORS_ORIGIN
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://portal.YOUR_DOMAIN.com,https://app.YOUR_DOMAIN.com,https://studio.YOUR_DOMAIN.com
+
+      # S43: Primary frontend origin (session cookie SameSite context).
       - key: APP_ORIGIN
         scope: RUN_TIME
         type: GENERAL
-        value: https://app.example.com
+        value: https://portal.YOUR_DOMAIN.com
+
+      # S43: Cookie security — must be true in production.
+      - key: PLATFORM_COOKIE_SECURE
+        scope: RUN_TIME
+        type: GENERAL
+        value: "true"
+
+      # S43: Needed by VAST tracker to build absolute impression/click/engagement URLs.
+      - key: API_BASE_URL
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://api.YOUR_DOMAIN.com
+
       - key: ASSETS_PUBLIC_BASE_URL
         scope: RUN_TIME
         type: GENERAL
-        value: https://assets.example.com
+        value: https://assets.YOUR_DOMAIN.com
+
+      - key: PLATFORM_OBSERVABILITY_ENABLED
+        scope: RUN_TIME
+        type: GENERAL
+        value: "true"
+
+      - key: PLATFORM_LOGIN_RATE_LIMIT_WINDOW_MS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "60000"
+
+      - key: PLATFORM_LOGIN_RATE_LIMIT_MAX
+        scope: RUN_TIME
+        type: GENERAL
+        value: "10"
+
+      - key: PLATFORM_UPLOAD_RATE_LIMIT_WINDOW_MS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "60000"
+
+      - key: PLATFORM_UPLOAD_RATE_LIMIT_MAX
+        scope: RUN_TIME
+        type: GENERAL
+        value: "20"
+
       - key: DATABASE_URL
         scope: RUN_TIME
         type: SECRET
         value: REPLACE_ME
+
       - key: DATABASE_POOL_URL
         scope: RUN_TIME
         type: SECRET
         value: REPLACE_ME
+
       - key: SESSION_SECRET
         scope: RUN_TIME
         type: SECRET
         value: REPLACE_ME
-      - key: APP_GIT_SHA
+
+      # S40: Tracker buffer tuning.
+      - key: TRACKER_FLUSH_INTERVAL_MS
         scope: RUN_TIME
         type: GENERAL
-        value: main
-      - key: APP_BUILD_TIME
+        value: "5000"
+
+      - key: TRACKER_FLUSH_THRESHOLD
         scope: RUN_TIME
         type: GENERAL
-        value: 2026-04-13T00:00:00Z
+        value: "1000"
+
       - key: R2_ENDPOINT
         scope: RUN_TIME
         type: GENERAL
-        value: https://<accountid>.r2.cloudflarestorage.com
+        value: https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
+
       - key: R2_BUCKET
         scope: RUN_TIME
         type: GENERAL
         value: smx-assets
+
       - key: R2_ACCESS_KEY_ID
         scope: RUN_TIME
         type: SECRET
         value: REPLACE_ME
+
       - key: R2_SECRET_ACCESS_KEY
         scope: RUN_TIME
         type: SECRET
         value: REPLACE_ME
+
+      # S41: CDN URL for R2 bucket — used in static VAST publicUrl.
+      - key: R2_PUBLIC_BASE
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://assets.YOUR_DOMAIN.com
+
+      - key: APP_GIT_SHA
+        scope: RUN_TIME
+        type: GENERAL
+        value: main
+
+      - key: APP_BUILD_TIME
+        scope: RUN_TIME
+        type: GENERAL
+        value: "2026-05-01T00:00:00Z"
+
 workers:
   - name: worker
     github:
-      repo: your-org/your-repo
+      repo: YOUR_ORG/YOUR_REPO
       branch: main
       deploy_on_push: true
     source_dir: ./
@@ -92,28 +186,63 @@ workers:
     run_command: npm run start:worker
     instance_size_slug: apps-s-1vcpu-0.5gb
     instance_count: 1
+
     envs:
       - key: APP_ENV
         scope: RUN_TIME
         type: GENERAL
         value: production
+
       - key: DATABASE_URL
         scope: RUN_TIME
         type: SECRET
         value: REPLACE_ME
+
       - key: DATABASE_POOL_URL
         scope: RUN_TIME
         type: SECRET
         value: REPLACE_ME
+
       - key: DRAFT_RETENTION_DAYS
         scope: RUN_TIME
         type: GENERAL
         value: "30"
+
+      - key: WORKER_POLL_INTERVAL_MS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "30000"
+
+      - key: R2_ENDPOINT
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
+
+      - key: R2_BUCKET
+        scope: RUN_TIME
+        type: GENERAL
+        value: smx-assets
+
+      - key: R2_ACCESS_KEY_ID
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_ME
+
+      - key: R2_SECRET_ACCESS_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_ME
+
+      - key: R2_PUBLIC_BASE
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://assets.YOUR_DOMAIN.com
+
 jobs:
   - name: migrate
     kind: PRE_DEPLOY
     github:
-      repo: your-org/your-repo
+      repo: YOUR_ORG/YOUR_REPO
       branch: main
       deploy_on_push: true
     source_dir: ./
@@ -122,6 +251,7 @@ jobs:
     run_command: node packages/db/scripts/run-migrations.mjs
     instance_size_slug: apps-s-1vcpu-0.5gb
     instance_count: 1
+
     envs:
       - key: DATABASE_URL
         scope: RUN_TIME

@@ -46,6 +46,7 @@ export function readApiEnv(source = process.env) {
     r2Bucket: normalize(source.R2_BUCKET) || '',
     r2AccessKeyId: normalize(source.R2_ACCESS_KEY_ID) || '',
     r2SecretAccessKey: normalize(source.R2_SECRET_ACCESS_KEY) || '',
+    r2PublicBaseUrl: normalize(source.R2_PUBLIC_BASE) || '',
     trackerFlushIntervalMs: parseInteger(source.TRACKER_FLUSH_INTERVAL_MS, 5000),
     trackerFlushThreshold: parseInteger(source.TRACKER_FLUSH_THRESHOLD, 1000),
   });

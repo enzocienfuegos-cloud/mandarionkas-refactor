@@ -16,16 +16,17 @@ function createSlug(value) {
 async function upsertUser(client, user) {
   const result = await client.query(
     `
-      insert into users (id, email, password_hash, display_name, global_role)
-      values ($1, $2, $3, $4, $5)
+      insert into users (id, email, password_hash, display_name, global_role, platform_role)
+      values ($1, $2, $3, $4, $5, $6)
       on conflict (email) do update
       set password_hash = excluded.password_hash,
           display_name = excluded.display_name,
           global_role = excluded.global_role,
+          platform_role = excluded.platform_role,
           updated_at = now()
       returning id
     `,
-    [user.id, user.email, user.passwordHash, user.displayName, user.globalRole],
+    [user.id, user.email, user.passwordHash, user.displayName, user.globalRole, user.platformRole],
   );
   return result.rows[0]?.id;
 }
@@ -340,6 +341,7 @@ async function main() {
       passwordHash: adminHash,
       displayName: 'SMX Admin',
       globalRole: 'admin',
+      platformRole: 'admin',
     });
     const resolvedEditorId = await upsertUser(client, {
       id: editorId,
@@ -347,6 +349,7 @@ async function main() {
       passwordHash: editorHash,
       displayName: 'Client Editor',
       globalRole: 'editor',
+      platformRole: 'designer',
     });
     const resolvedReviewerId = await upsertUser(client, {
       id: reviewerId,
@@ -354,6 +357,7 @@ async function main() {
       passwordHash: reviewerHash,
       displayName: 'Client Reviewer',
       globalRole: 'reviewer',
+      platformRole: 'reviewer',
     });
 
     const workspaceId = randomUUID();
@@ -373,14 +377,20 @@ async function main() {
       throw new Error('Failed to resolve seeded workspace.');
     }
 
-    for (const [userId, role] of [[resolvedAdminId, 'owner'], [resolvedEditorId, 'editor'], [resolvedReviewerId, 'reviewer']]) {
+    for (const [userId, role, productAccess] of [
+      [resolvedAdminId, 'owner', { ad_server: true, studio: true }],
+      [resolvedEditorId, 'member', { ad_server: false, studio: true }],
+      [resolvedReviewerId, 'viewer', { ad_server: true, studio: true }],
+    ]) {
       await client.query(
         `
-          insert into workspace_members (workspace_id, user_id, role)
-          values ($1, $2, $3)
-          on conflict (workspace_id, user_id) do update set role = excluded.role
+          insert into workspace_members (workspace_id, user_id, role, product_access)
+          values ($1, $2, $3, $4::jsonb)
+          on conflict (workspace_id, user_id) do update
+          set role = excluded.role,
+              product_access = excluded.product_access
         `,
-        [resolvedWorkspaceId, userId, role],
+        [resolvedWorkspaceId, userId, role, JSON.stringify(productAccess)],
       );
     }
 

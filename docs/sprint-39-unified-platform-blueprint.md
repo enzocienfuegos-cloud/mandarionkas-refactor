@@ -18,26 +18,49 @@ The platform should support a single authenticated experience where:
 
 - `admin` users can access both `Ad Server` and `Studio`
 - `designer` users can access `Studio` only
-- `ad ops` users can access `Ad Server` only
+- `ad_ops` users can access `Ad Server` only
 - future roles can be added without redesigning auth or routing
 
 The platform should remain operationally simple while clearly separating domain responsibilities.
 
 ## Current state
 
+### Status as of 2026-05-01
+
+This blueprint is still the right target, but the implementation is now materially ahead of the original document.
+
+Current status by phase:
+
+- Phase 1
+  Mostly complete
+- Phase 2
+  Complete enough for normal Ad Server usage
+- Phase 3
+  Mostly complete
+- Phase 4
+  Partial
+- Phase 5
+  Partial
+
+The main remaining Sprint 39 gaps are now:
+
+- operational rollout of `platform_role` across existing environments and legacy datasets
+- residual UX polish on `audit`, `pixels`, and `tracking`
+- finishing deploy cutover so the new `apps/portal` shell becomes the canonical product entrypoint
+
+The recent video rendition instability is operationally important, but it is not the architectural blocker for Sprint 39.
+It should not drive the platform boundary decisions anymore.
+
 ### What already exists in the monorepo
 
 - `apps/studio`
   The Studio frontend
+- `apps/portal`
+  The unified launcher and identity shell
 - `apps/web`
   The Ad Server frontend
 - `apps/api`
-  A newer platform API with:
-  - `auth`
-  - `workspaces`
-  - `projects`
-  - `assets`
-  - `health`
+  The unified platform API
 - `apps/worker`
   Background jobs and maintenance
 - `packages/db`
@@ -45,9 +68,17 @@ The platform should remain operationally simple while clearly separating domain 
 - `packages/contracts`
   Shared runtime contracts
 
-### What still only exists in the legacy backend
+### What is already ported into `apps/api`
 
-The Ad Server frontend depends on backend domains that are not yet present in the current `apps/api`:
+Core/shared platform modules already exist:
+
+- `auth`
+- `workspaces`
+- `projects`
+- `assets`
+- `health`
+
+Ad Server modules already present in `apps/api`:
 
 - `campaigns`
 - `tags`
@@ -56,24 +87,39 @@ The Ad Server frontend depends on backend domains that are not yet present in th
 - `discrepancies`
 - `api-keys`
 - `webhooks`
-- `pixels`
-- `tracking`
-- `ab-testing`
 - `search`
 - `vast`
-- `audit`
-- parts of team/access operations
+- `experiments`
+- `creatives`
 
-### Why staging became unstable
+This means the platform is no longer blocked by the original "minimum Ad Server domain port" work.
 
-The frontend for `Ad Server` was restored, but it was pointed at a backend that currently implements only the core platform domains.
+### What still remains outside the target shape
 
-That means the current problem is architectural, not cosmetic:
+The most meaningful remaining gaps are now:
 
-- the `Ad Server` frontend expects the full ad-serving domain
-- the new backend currently exposes only the core identity/workspace/studio-adjacent surface
+- `audit` operational polish and broader backoffice adoption
+- final `apps/portal` deploy/routing cutover
+- role migration cleanup after `platform_role` rollout in staging and production
 
-Fixing individual endpoints does not solve the system mismatch.
+### Why staging is still unstable
+
+The original mismatch described in this sprint has narrowed.
+
+The platform now has most of the required Ad Server backend surface, but still suffers from:
+
+- incomplete cross-cutting platform contracts
+  - product-aware identity
+  - workspace entitlements
+  - role normalization
+- unfinished delivery domains
+  - `pixels`
+  - `tracking`
+- operational reliability gaps in already-ported modules
+  - example: video rendition queue / recovery behavior
+
+So the problem is no longer "the backend only has core modules".
+The problem is now "the backend is mostly unified, but the final platform contract and a few remaining domains are still incomplete".
 
 ## Architecture principles
 
@@ -175,6 +221,7 @@ Recommended structure:
 - `modules/adserver/ab-testing`
 - `modules/adserver/search`
 - `modules/adserver/vast`
+- `modules/adserver/creatives`
 
 - `modules/studio/hub`
 - `modules/studio/editor`
@@ -226,6 +273,28 @@ Recommended shape:
 
 - `permissions`
   Derived from role plus optional workspace overrides
+
+### Current implementation gap
+
+The frontend already expects `product_access` on workspaces and in session-derived active workspace behavior.
+
+The blueprint target remains:
+
+- `admin`
+- `designer`
+- `ad_ops`
+- `reviewer`
+
+The current implementation is now split cleanly:
+
+- `global_role`
+  legacy compatibility vocabulary
+- `platform_role`
+  persistent platform identity contract
+- `product_access`
+  workspace-scoped entitlement contract
+
+This is the intended decoupled direction for Sprint 39. The remaining work is rollout completeness, not architectural definition.
 
 ### Runtime behavior
 
@@ -296,6 +365,10 @@ Keep and harden:
 - assets
 - worker + DB migrations
 
+Status:
+
+- mostly complete
+
 Success criteria:
 
 - login is stable
@@ -312,6 +385,10 @@ Port the minimum usable Ad Server stack from legacy:
 3. `reporting`
 
 These three domains unblock most of the current frontend failures.
+
+Status:
+
+- complete enough to count as done
 
 Success criteria:
 
@@ -333,6 +410,10 @@ Next modules:
 6. `api-keys`
 7. `webhooks`
 
+Status:
+
+- mostly complete
+
 Success criteria:
 
 - operator workflows are back
@@ -346,8 +427,24 @@ Final Ad Server critical path:
 9. `tracking`
 10. `vast`
 11. `search`
-12. `ab-testing`
+12. `ab-testing` / `experiments`
 13. `audit`
+
+Status:
+
+- partial
+
+Already present in `apps/api`:
+
+- `vast`
+- `search`
+- `experiments`
+
+Still missing or not aligned with the blueprint target:
+
+- `pixels` as a fully integrated product workflow
+- `tracking` as a fully integrated product workflow
+- `audit` as a fully integrated product/platform workflow
 
 Success criteria:
 
@@ -368,6 +465,10 @@ Once both products are stable on the same identity layer:
 - add `apps/portal`
   or
 - evolve the main entry shell into a proper product launcher
+
+Status:
+
+- not started
 
 Success criteria:
 
@@ -412,22 +513,50 @@ This blueprint explicitly avoids:
 
 ## Immediate next implementation step
 
-The next engineering step should be:
+The original next step in this document is already behind us.
 
-### Port the Ad Server minimum domain into `apps/api`
+### Updated next engineering step
 
-Start with:
+The next platform step should be:
 
-1. `campaign-routes`
-2. `tag-routes`
-3. `tag-reporting-routes`
-4. `reporting/routes`
+1. promote `product_access` into the core auth/workspace contract
+2. align runtime role naming with the blueprint target
+3. document and then implement the missing delivery modules:
+4. only after that, introduce `apps/portal` or equivalent unified launcher logic
 
-Then wire them into:
+Concretely, the next code work should focus on:
 
-- `/Users/enzocienfuegos/Documents/New project/apps/api/src/app.mjs`
+- `apps/api/src/modules/auth`
+- `apps/api/src/modules/workspaces`
+- the session payload returned by:
+  - `GET /v1/auth/session`
+- the workspace/client payloads returned by:
+  - `GET /v1/workspaces`
+  - `GET /v1/clients`
 
-Only after that should we continue validating `app-staging`.
+The goal is to make product routing and entitlement a backend-owned contract instead of a frontend convention.
+
+## Recommended remaining backlog
+
+### Track A. Identity unification
+
+- make `product_access` explicit in core workspace membership flows
+- normalize role vocabulary
+- ensure `auth/session` can drive landing-product routing without frontend guesswork
+
+### Track B. Delivery domain closure
+
+- integrate `pixels` end-to-end beyond the backend CRUD surface
+- integrate `tracking` end-to-end beyond the backend reporting surface
+- align `audit` ownership, permissions, and product exposure end-to-end
+
+### Track C. Product entry architecture
+
+- decide whether `apps/portal` is a new app or an evolution of an existing shell
+- add launcher behavior for:
+  - dual-product admins
+  - Studio-only users
+  - Ad Server-only users
 
 ## Success definition
 
@@ -440,4 +569,3 @@ We are done when:
 - `Ad Server` does not depend on the legacy backend
 - `Studio` does not depend on Ad Server route assumptions
 - the worker and DB are shared only where the domain model is intentionally shared
-

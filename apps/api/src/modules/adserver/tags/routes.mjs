@@ -1,8 +1,9 @@
 import { badRequest, conflict, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
 import { requireAuthenticatedSession } from '../../auth/service.mjs';
-import { checkTagHealth, getTagHealthSummary, listTagHealth } from '../../../../../../packages/db/src/tag-health.mjs';
-import { getTagStats, getTagSummary } from '../../../../../../packages/db/src/reporting.mjs';
-import { listTagBindings as listCreativeTagBindings, updateTagBinding as updateCreativeTagBinding } from '../../../../../../packages/db/src/creatives.mjs';
+import { withSession, hasPermission } from '../../../lib/session.mjs';
+import { checkTagHealth, getTagHealthSummary, listTagHealth } from '@smx/db/src/tag-health.mjs';
+import { getTagStats, getTagSummary } from '@smx/db/src/reporting.mjs';
+import { listTagBindings as listCreativeTagBindings, updateTagBinding as updateCreativeTagBinding } from '@smx/db/src/creatives.mjs';
 import {
   createTag,
   deleteTag,
@@ -11,25 +12,8 @@ import {
   listTags,
   listTagsForUser,
   updateTag,
-} from '../../../../../../packages/db/src/tags.mjs';
+} from '@smx/db/src/creatives.mjs';
 
-function hasPermission(session, permission) {
-  return session.permissions.includes(permission);
-}
-
-async function withSession(ctx, callback) {
-  const session = await requireAuthenticatedSession({ env: ctx.env, headers: ctx.req.headers });
-  if (!session.ok) {
-    if (session.statusCode === 503) return serviceUnavailable(ctx.res, ctx.requestId, session.message);
-    if (session.statusCode === 401) return unauthorized(ctx.res, ctx.requestId, session.message);
-    return false;
-  }
-  try {
-    return await callback(session);
-  } finally {
-    await session.finish();
-  }
-}
 
 async function resolveTargetWorkspaceId(client, userId, fallbackWorkspaceId, requestedWorkspaceId) {
   const candidate = String(requestedWorkspaceId ?? '').trim();

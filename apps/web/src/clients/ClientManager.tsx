@@ -11,6 +11,7 @@ import {
   type ClientAccessUser,
   type WorkspaceOption,
 } from '../shared/workspaces';
+import { derivePlatformRoleFromAssignment, type PlatformRole } from '../shared/roles';
 
 function ProductAccessBadges({ productAccess }: { productAccess?: { ad_server: boolean; studio: boolean } | null }) {
   const access = productAccess ?? { ad_server: true, studio: true };
@@ -43,7 +44,7 @@ export default function ClientManager() {
   const [name, setName] = useState('');
   const [website, setWebsite] = useState('');
   const [userEmail, setUserEmail] = useState('');
-  const [userRole, setUserRole] = useState<'owner' | 'editor' | 'reviewer'>('editor');
+  const [userRole, setUserRole] = useState<PlatformRole>('ad_ops');
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [productAccess, setProductAccess] = useState({ ad_server: true, studio: true });
   const [loading, setLoading] = useState(true);
@@ -52,7 +53,7 @@ export default function ClientManager() {
   const [updatingAccessKey, setUpdatingAccessKey] = useState('');
   const [removingAccessKey, setRemovingAccessKey] = useState('');
   const [accessDrafts, setAccessDrafts] = useState<Record<string, {
-    role: 'owner' | 'editor' | 'reviewer';
+    role: PlatformRole;
     productAccess: { ad_server: boolean; studio: boolean };
   }>>({});
   const [error, setError] = useState('');
@@ -104,7 +105,7 @@ export default function ClientManager() {
         productAccess,
       });
       setUserEmail('');
-      setUserRole('editor');
+      setUserRole('ad_ops');
       setSelectedClientIds([]);
       setProductAccess({ ad_server: true, studio: true });
       await load();
@@ -130,7 +131,10 @@ export default function ClientManager() {
   };
 
   const getAssignmentRole = (assignment: ClientAccessUser['assignments'][number]) =>
-    assignment.role === 'admin' ? 'editor' : assignment.role === 'viewer' ? 'reviewer' : (assignment.role as 'owner' | 'editor' | 'reviewer');
+    derivePlatformRoleFromAssignment({
+      role: assignment.role,
+      productAccess: assignment.product_access,
+    });
 
   const getAssignmentDraft = (assignment: ClientAccessUser['assignments'][number], userId: string) => {
     const key = `${assignment.workspace_id}:${userId}`;
@@ -143,7 +147,7 @@ export default function ClientManager() {
   const updateAssignmentDraft = (
     assignment: ClientAccessUser['assignments'][number],
     userId: string,
-    patch: Partial<{ role: 'owner' | 'editor' | 'reviewer'; productAccess: { ad_server: boolean; studio: boolean } }>,
+    patch: Partial<{ role: PlatformRole; productAccess: { ad_server: boolean; studio: boolean } }>,
   ) => {
     const key = `${assignment.workspace_id}:${userId}`;
     const current = getAssignmentDraft(assignment, userId);
@@ -324,12 +328,13 @@ export default function ClientManager() {
               <label className="mb-1 block text-sm font-medium text-slate-700">Role across selected clients</label>
               <select
                 value={userRole}
-                onChange={(event) => setUserRole(event.target.value as 'owner' | 'editor' | 'reviewer')}
+                onChange={(event) => setUserRole(event.target.value as PlatformRole)}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                <option value="editor">Editor</option>
+                <option value="ad_ops">Ad Ops</option>
+                <option value="designer">Designer</option>
                 <option value="reviewer">Reviewer</option>
-                <option value="owner">Owner</option>
+                <option value="admin">Admin</option>
               </select>
             </div>
             <div>
@@ -348,7 +353,7 @@ export default function ClientManager() {
                     </span>
                     <div className="flex items-center gap-2">
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                        {client.role}
+                        Managed client
                       </span>
                       <ProductAccessBadges
                         productAccess={workspaces.find((workspace) => workspace.id === client.id)?.product_access}
@@ -424,12 +429,13 @@ export default function ClientManager() {
                           <ProductAccessBadges productAccess={assignment.product_access} />
                           <select
                             value={draft.role}
-                            onChange={(event) => updateAssignmentDraft(assignment, user.id, { role: event.target.value as 'owner' | 'editor' | 'reviewer' })}
+                            onChange={(event) => updateAssignmentDraft(assignment, user.id, { role: event.target.value as PlatformRole })}
                             className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
                           >
-                            <option value="editor">Editor</option>
+                            <option value="ad_ops">Ad Ops</option>
+                            <option value="designer">Designer</option>
                             <option value="reviewer">Reviewer</option>
-                            <option value="owner">Owner</option>
+                            <option value="admin">Admin</option>
                           </select>
                           <label className="flex items-center gap-1">
                             <input

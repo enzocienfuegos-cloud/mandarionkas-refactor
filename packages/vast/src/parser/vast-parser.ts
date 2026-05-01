@@ -1,5 +1,6 @@
 import type {
   VASTAd,
+  VASTAdVerification,
   VASTCompanion,
   VASTCompanionResource,
   VASTExtension,
@@ -81,6 +82,8 @@ function parseInLine(el: Element, meta: AdMeta): VASTAd {
   }
 
   const extensions = getAll(el, 'Extensions > Extension').map(parseExtension);
+  // S48: Parse <AdVerifications> block for OMID support
+  const adVerifications = parseAdVerifications(el);
 
   return {
     id: meta.id,
@@ -96,7 +99,28 @@ function parseInLine(el: Element, meta: AdMeta): VASTAd {
     linear,
     companions,
     extensions,
+    adVerifications,
   };
+}
+
+
+// S48: Parse <AdVerifications> for OMID measurement vendors
+function parseAdVerifications(el: Element): VASTAdVerification[] {
+  const verificationEls = getAll(el, 'AdVerifications > Verification');
+  return verificationEls.map((v) => {
+    const jsResourceEl = getAll(v, 'JavaScriptResource')[0];
+    const jsUrl = jsResourceEl?.textContent?.trim() ?? '';
+    const apiFramework = jsResourceEl ? attr(jsResourceEl, 'apiFramework') : undefined;
+    const browserOptional = jsResourceEl ? attr(jsResourceEl, 'browserOptional') === 'true' : false;
+    const verificationParameters = getText(v, 'VerificationParameters');
+    return {
+      vendor: attr(v, 'vendor'),
+      jsUrl,
+      apiFramework,
+      browserOptional,
+      verificationParameters,
+    };
+  }).filter((v) => Boolean(v.jsUrl));
 }
 
 function parseWrapper(el: Element, meta: AdMeta): VASTWrapperDescriptor {

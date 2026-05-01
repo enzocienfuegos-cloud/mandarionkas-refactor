@@ -4,22 +4,8 @@ import {
   getCampaignPacingBreakdown,
   listWorkspacePacingAlerts,
   listWorkspacePacingCampaigns,
-} from '../../../../../../packages/db/src/pacing.mjs';
-
-async function withSession(ctx, callback) {
-  const session = await requireAuthenticatedSession({ env: ctx.env, headers: ctx.req.headers });
-  if (!session.ok) {
-    if (session.statusCode === 503) return serviceUnavailable(ctx.res, ctx.requestId, session.message);
-    if (session.statusCode === 401) return unauthorized(ctx.res, ctx.requestId, session.message);
-    return false;
-  }
-
-  try {
-    return await callback(session);
-  } finally {
-    await session.finish();
-  }
-}
+} from '@smx/db/src/pacing.mjs';
+import { withSession } from '../../../lib/session.mjs';
 
 export async function handlePacingRoutes(ctx) {
   const { method, pathname, requestId, res, url } = ctx;

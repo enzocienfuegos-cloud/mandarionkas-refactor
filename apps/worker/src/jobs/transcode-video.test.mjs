@@ -3,206 +3,177 @@ import assert from 'node:assert/strict';
 import { runTranscodeVideoJobWithDeps } from './transcode-video.mjs';
 
 function createFakeClient() {
+  return { released: false, release() { this.released = true; } };
+}
+
+function baseEnv(overrides = {}) {
   return {
-    released: false,
-    release() {
-      this.released = true;
-    },
+    DATABASE_URL: 'postgres://fake/db',
+    TRANSCODE_VIDEO_ENABLED: 'true',
+    R2_ENDPOINT: 'https://fake.r2.cloudflarestorage.com',
+    R2_BUCKET: 'smx-test',
+    R2_ACCESS_KEY_ID: 'key',
+    R2_SECRET_ACCESS_KEY: 'secret',
+    R2_PUBLIC_BASE: 'https://cdn.example.com',
+    ...overrides,
   };
 }
 
-function createBaseJob() {
+function baseJob(overrides = {}) {
   return {
-    id: 'job_video_1',
-    asset_id: 'asset_video_1',
-    workspace_id: 'workspace_1',
-    input: {
-      publicUrl: 'https://cdn.example.com/source.mp4',
-      storageKey: 'uploads/source.mp4',
-    },
+    id: 'job-1',
+    workspace_id: 'ws-1',
+    creative_version_id: 'cv-1',
+    asset_id: 'asset-1',
+    source_url: 'https://cdn.example.com/source.mp4',
+    source_storage_key: 'workspaces/ws-1/assets/asset-1/source.mp4',
+    target_plan: [
+      { label: '480p', height: 480, bitrateKbps: 900 },
+      { label: '720p', height: 720, bitrateKbps: 1500 },
+    ],
+    attempts: 1,
+    max_attempts: 3,
+    ...overrides,
   };
 }
 
-function createDeps(overrides = {}) {
+function createDeps(jobOverride = null, overrides = {}) {
   const calls = {
-    skip: [],
-    patch: [],
+    claim: [],
+    markProcessing: [],
     complete: [],
     fail: [],
-    upload: [],
+    syncOutputs: [],
     ffmpeg: [],
-    info: [],
-    warn: [],
-    error: [],
+    upload: [],
   };
-  const client = createFakeClient();
-  return {
-    calls,
-    client,
-    deps: {
-      getPool: () => ({
-        connect: async () => client,
-      }),
-      closeAllPools: async () => undefined,
-      claimNextAssetProcessingJob: async () => createBaseJob(),
-      completeAssetProcessingJob: async (_client, payload) => {
-        calls.complete.push(payload);
-        return payload;
-      },
-      failAssetProcessingJob: async (_client, payload) => {
-        calls.fail.push(payload);
-        return payload;
-      },
-      patchAssetMetadata: async (_client, payload) => {
-        calls.patch.push(payload);
-        return true;
-      },
-      skipAssetProcessingJob: async (_client, payload) => {
-        calls.skip.push(payload);
-        return payload;
-      },
-      logInfo: (payload) => {
-        calls.info.push(payload);
-      },
-      logWarn: (payload) => {
-        calls.warn.push(payload);
-      },
-      logError: (payload) => {
-        calls.error.push(payload);
-      },
-      commandExists: async () => true,
-      runFfmpeg: async (binary, args, cwd) => {
-        calls.ffmpeg.push({ binary, args, cwd });
-      },
-      uploadFileToR2: async (_source, payload) => {
-        calls.upload.push(payload);
-      },
-      mkdtemp: async () => '/tmp/smx-video-test',
-      rm: async () => undefined,
-      stat: async (filePath) => ({
-        size: filePath.endsWith('.jpg') ? 3456 : 456789,
-      }),
-      ...overrides,
+
+  const fakeClient = createFakeClient();
+
+  const deps = {
+    _getPool: () => ({ connect: async () => fakeClient }),
+    _closeAllPools: async () => undefined,
+    _claimJob: async (client) => {
+      const job = jobOverride ?? baseJob();
+      calls.claim.push({ client });
+      return job;
     },
+    _markProcessing: async (_client, jobId) => {
+      calls.markProcessing.push({ jobId });
+      return { id: jobId, status: 'processing' };
+    },
+    _completeJob: async (_client, jobId, output) => {
+      calls.complete.push({ jobId, output });
+      return { id: jobId, status: 'done' };
+    },
+    _failJob: async (_client, jobId, errorMessage, errorDetail) => {
+      calls.fail.push({ jobId, errorMessage, errorDetail });
+      return { id: jobId, status: 'failed' };
+    },
+    _syncOutputs: async (_client, params) => {
+      calls.syncOutputs.push(params);
+      return true;
+    },
+    _commandExists: async () => true,
+    _runFfmpeg: async (binary, args) => {
+      calls.ffmpeg.push({ binary, args: args.join(' ') });
+      return { stderr: '' };
+    },
+    _downloadSource: async () => undefined,
+    _uploadToR2: async ({ storageKey, filePath, contentType }) => {
+      calls.upload.push({ storageKey, filePath, contentType });
+      return storageKey;
+    },
+    _mkdtemp: async () => `/tmp/fake-scratch-${Date.now()}`,
+    _rm: async () => undefined,
+    _stat: async () => ({ size: 1024 * 1024 }),
+    ...overrides,
   };
+
+  return { calls, fakeClient, deps };
 }
 
-test('video transcode job marks asset as planned when transcoding is disabled', async () => {
-  const { deps, calls, client } = createDeps();
-  const result = await runTranscodeVideoJobWithDeps(
-    {
-      DATABASE_URL: 'postgres://example',
-      TRANSCODE_VIDEO_ENABLED: 'false',
-    },
-    deps,
-  );
-
-  assert.deepEqual(result, { processed: 0, skipped: false });
-  assert.equal(calls.skip.length, 1);
-  assert.equal(calls.patch.at(-1)?.metadataPatch?.optimization?.video?.status, 'planned');
-  assert.equal(client.released, true);
+test('skips when no DATABASE_URL', async () => {
+  const { deps } = createDeps();
+  const result = await runTranscodeVideoJobWithDeps({ DATABASE_URL: '' }, deps);
+  assert.equal(result.skipped, true);
+  assert.equal(result.processed, 0);
 });
 
-test('video transcode job marks asset as blocked when ffmpeg is unavailable', async () => {
-  const { deps, calls } = createDeps({
-    commandExists: async () => false,
+test('returns idle when no pending jobs', async () => {
+  const { deps } = createDeps(null, {
+    _claimJob: async () => null,
   });
-  const result = await runTranscodeVideoJobWithDeps(
-    {
-      DATABASE_URL: 'postgres://example',
-      TRANSCODE_VIDEO_ENABLED: 'true',
-      R2_ENDPOINT: 'https://r2.example.com',
-      R2_BUCKET: 'bucket',
-      R2_ACCESS_KEY_ID: 'key',
-      R2_SECRET_ACCESS_KEY: 'secret',
-    },
-    deps,
-  );
-
-  assert.deepEqual(result, { processed: 0, skipped: false });
-  assert.equal(calls.skip.length, 1);
-  assert.equal(calls.patch.at(-1)?.metadataPatch?.optimization?.video?.status, 'blocked');
+  const result = await runTranscodeVideoJobWithDeps(baseEnv(), deps);
+  assert.equal(result.processed, 0);
+  assert.equal(result.skipped, false);
 });
 
-test('video transcode job is enabled by default when flag is unset', async () => {
+test('fails immediately when TRANSCODE_VIDEO_ENABLED=false', async () => {
   const { deps, calls } = createDeps();
-  const result = await runTranscodeVideoJobWithDeps(
-    {
-      DATABASE_URL: 'postgres://example',
-      R2_ENDPOINT: 'https://r2.example.com',
-      R2_BUCKET: 'bucket',
-      R2_ACCESS_KEY_ID: 'key',
-      R2_SECRET_ACCESS_KEY: 'secret',
-      FFMPEG_BIN: 'ffmpeg',
-    },
-    deps,
-  );
-
-  assert.deepEqual(result, { processed: 1, skipped: false });
-  assert.equal(calls.complete.length, 1);
-  assert.equal(calls.ffmpeg.length, 4);
-});
-
-test('video transcode job completes and writes derivative metadata', async () => {
-  const { deps, calls } = createDeps();
-  const result = await runTranscodeVideoJobWithDeps(
-    {
-      DATABASE_URL: 'postgres://example',
-      TRANSCODE_VIDEO_ENABLED: 'true',
-      R2_ENDPOINT: 'https://r2.example.com',
-      R2_BUCKET: 'bucket',
-      R2_ACCESS_KEY_ID: 'key',
-      R2_SECRET_ACCESS_KEY: 'secret',
-      FFMPEG_BIN: 'ffmpeg',
-    },
-    deps,
-  );
-
-  assert.deepEqual(result, { processed: 1, skipped: false });
-  assert.equal(calls.complete.length, 1);
-  assert.equal(calls.ffmpeg.length, 4);
-  assert.equal(calls.upload.length, 4);
-
-  const finalPatch = calls.patch.at(-1);
-  assert.equal(finalPatch?.metadataPatch?.optimization?.video?.status, 'completed');
-  assert.equal(finalPatch?.metadataPatch?.derivatives?.low?.src, 'https://cdn.example.com/source-low.mp4');
-  assert.equal(finalPatch?.metadataPatch?.derivatives?.mid?.src, 'https://cdn.example.com/source-mid.mp4');
-  assert.equal(finalPatch?.metadataPatch?.derivatives?.high?.src, 'https://cdn.example.com/source-high.mp4');
-  assert.equal(finalPatch?.metadataPatch?.derivatives?.poster?.src, 'https://cdn.example.com/source-poster.jpg');
-  assert.equal(finalPatch?.metadataPatch?.optimizedUrl, 'https://cdn.example.com/source-high.mp4');
-  assert.equal(finalPatch?.posterSrc, 'https://cdn.example.com/source-poster.jpg');
-  assert.equal(finalPatch?.thumbnailUrl, 'https://cdn.example.com/source-poster.jpg');
-});
-
-test('video transcode job requeues transient failures before max attempts', async () => {
-  const { deps, calls } = createDeps({
-    claimNextAssetProcessingJob: async () => ({
-      ...createBaseJob(),
-      attempts: 1,
-      max_attempts: 3,
-    }),
-    runFfmpeg: async () => {
-      throw new Error('temporary ffmpeg failure');
-    },
-  });
-
-  const result = await runTranscodeVideoJobWithDeps(
-    {
-      DATABASE_URL: 'postgres://example',
-      TRANSCODE_VIDEO_ENABLED: 'true',
-      R2_ENDPOINT: 'https://r2.example.com',
-      R2_BUCKET: 'bucket',
-      R2_ACCESS_KEY_ID: 'key',
-      R2_SECRET_ACCESS_KEY: 'secret',
-      FFMPEG_BIN: 'ffmpeg',
-    },
-    deps,
-  );
-
-  assert.deepEqual(result, { processed: 0, skipped: false });
+  await runTranscodeVideoJobWithDeps(baseEnv({ TRANSCODE_VIDEO_ENABLED: 'false' }), deps);
   assert.equal(calls.fail.length, 1);
-  assert.equal(calls.fail[0]?.final, false);
-  assert.equal(calls.fail[0]?.retryDelaySeconds, 30);
-  assert.equal(calls.patch.at(-1)?.metadataPatch?.optimization?.video?.status, 'queued');
-  assert.equal(calls.patch.at(-1)?.metadataPatch?.optimization?.video?.retryCount, 1);
+  assert.ok(calls.fail[0].errorMessage.includes('TRANSCODE_VIDEO_ENABLED'));
+  assert.equal(calls.complete.length, 0);
+});
+
+test('fails immediately when ffmpeg not available', async () => {
+  const { deps, calls } = createDeps(null, {
+    _commandExists: async () => false,
+  });
+  await runTranscodeVideoJobWithDeps(baseEnv(), deps);
+  assert.equal(calls.fail.length, 1);
+  assert.ok(calls.fail[0].errorDetail?.reason === 'ffmpeg_missing');
+});
+
+test('fails immediately when R2 not configured', async () => {
+  const { deps, calls } = createDeps();
+  const env = baseEnv({ R2_ENDPOINT: '', R2_BUCKET: '' });
+  await runTranscodeVideoJobWithDeps(env, deps);
+  assert.equal(calls.fail.length, 1);
+  assert.ok(calls.fail[0].errorDetail?.reason === 'r2_missing');
+});
+
+test('fails immediately when job has no source_url', async () => {
+  const { deps, calls } = createDeps(baseJob({ source_url: '' }));
+  await runTranscodeVideoJobWithDeps(baseEnv(), deps);
+  assert.equal(calls.fail.length, 1);
+  assert.ok(calls.fail[0].errorDetail?.reason === 'missing_source_url');
+});
+
+test('successful transcode completes and syncs outputs', async () => {
+  const { deps, calls } = createDeps();
+  const result = await runTranscodeVideoJobWithDeps(baseEnv(), deps);
+
+  assert.equal(result.processed, 1);
+  assert.equal(calls.claim.length, 1);
+  assert.equal(calls.markProcessing.length, 1);
+  assert.equal(calls.ffmpeg.length, 3);
+  assert.equal(calls.upload.length, 3);
+  assert.equal(calls.complete.length, 1);
+  assert.equal(calls.syncOutputs.length, 1);
+});
+
+test('on ffmpeg error: fails job without completing', async () => {
+  const { deps, calls } = createDeps(null, {
+    _runFfmpeg: async () => { throw new Error('ffmpeg crashed'); },
+  });
+  const result = await runTranscodeVideoJobWithDeps(baseEnv(), deps);
+
+  assert.equal(result.processed, 0);
+  assert.equal(calls.complete.length, 0);
+  assert.equal(calls.fail.length, 1);
+  assert.ok(calls.fail[0].errorMessage.includes('ffmpeg crashed'));
+  assert.equal(calls.syncOutputs.length, 0);
+});
+
+test('uses target_plan from job when provided', async () => {
+  const { deps, calls } = createDeps(baseJob({
+    target_plan: [
+      { label: '1080p', height: 1080, bitrateKbps: 5000 },
+    ],
+  }));
+  await runTranscodeVideoJobWithDeps(baseEnv(), deps);
+  assert.equal(calls.ffmpeg.length, 2);
+  assert.equal(calls.upload.length, 2);
 });

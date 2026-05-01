@@ -1,4 +1,5 @@
 import React, { useEffect, useState, FormEvent } from 'react';
+import { getPlatformRoleLabel, type PlatformRole } from '../shared/roles';
 
 type Tab = 'profile' | 'members';
 
@@ -9,6 +10,11 @@ interface Workspace {
   createdAt: string;
 }
 
+interface ProductAccess {
+  ad_server: boolean;
+  studio: boolean;
+}
+
 interface Member {
   id: string;
   memberId: string;
@@ -16,54 +22,112 @@ interface Member {
   firstName: string;
   lastName: string;
   role: 'owner' | 'admin' | 'member' | 'viewer';
+  platformRole: PlatformRole;
+  productAccess: ProductAccess;
   joinedAt: string;
 }
 
-const ROLES: Member['role'][] = ['owner', 'admin', 'member', 'viewer'];
-const ROLE_LABELS: Record<Member['role'], string> = {
-  owner: 'Owner',
-  admin: 'Admin',
-  member: 'Member',
-  viewer: 'Viewer',
+const PLATFORM_ROLES: PlatformRole[] = ['admin', 'designer', 'ad_ops', 'reviewer'];
+
+const PLATFORM_ROLE_PRODUCT_ACCESS: Record<PlatformRole, ProductAccess> = {
+  admin: { ad_server: true, studio: true },
+  designer: { ad_server: false, studio: true },
+  ad_ops: { ad_server: true, studio: false },
+  reviewer: { ad_server: true, studio: true },
 };
 
-const roleBadge = (role: Member['role']) => {
-  const cls: Record<Member['role'], string> = {
-    owner:  'bg-purple-100 text-purple-800',
-    admin:  'bg-blue-100 text-blue-800',
-    member: 'bg-slate-100 text-slate-700',
-    viewer: 'bg-slate-100 text-slate-500',
-  };
+const ROLE_BADGE_CLASS: Record<PlatformRole | 'owner', string> = {
+  owner: 'bg-violet-100 text-violet-800',
+  admin: 'bg-blue-100 text-blue-800',
+  designer: 'bg-emerald-100 text-emerald-800',
+  ad_ops: 'bg-fuchsia-100 text-fuchsia-800',
+  reviewer: 'bg-slate-100 text-slate-600',
+};
+
+function roleBadge(role: PlatformRole | 'owner') {
+  const label = role === 'owner' ? 'Owner' : getPlatformRoleLabel(role);
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls[role]}`}>
-      {ROLE_LABELS[role]}
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_BADGE_CLASS[role]}`}>
+      {label}
     </span>
   );
-};
+}
+
+function productAccessLabel(productAccess: ProductAccess) {
+  if (productAccess.ad_server && productAccess.studio) return 'Ad Server + Studio';
+  if (productAccess.ad_server) return 'Ad Server only';
+  if (productAccess.studio) return 'Studio only';
+  return 'No product access';
+}
 
 function normalizeWorkspace(payload: any): Workspace | null {
   const source = payload?.workspace ?? payload;
   if (!source?.id) return null;
   return {
     id: String(source.id),
-    name: String(source.name ?? 'Agency'),
+    name: String(source.name ?? 'Workspace'),
     plan: String(source.plan ?? 'free'),
     createdAt: String(source.createdAt ?? source.created_at ?? ''),
   };
 }
 
+function getWorkspaceRoleForPlatformRole(role: PlatformRole): Member['role'] {
+  if (role === 'admin') return 'admin';
+  if (role === 'reviewer') return 'viewer';
+  return 'member';
+}
+
+function normalizeProductAccess(raw: any, fallbackRole: PlatformRole): ProductAccess {
+  if (raw && typeof raw === 'object') {
+    return {
+      ad_server: raw.ad_server !== false,
+      studio: raw.studio !== false,
+    };
+  }
+  return PLATFORM_ROLE_PRODUCT_ACCESS[fallbackRole];
+}
+
+function derivePlatformRole(raw: any, workspaceRole: Member['role'], productAccess: ProductAccess): PlatformRole {
+  const value = String(raw ?? '').trim().toLowerCase();
+  if (value === 'admin' || value === 'designer' || value === 'ad_ops' || value === 'reviewer') {
+    return value as PlatformRole;
+  }
+  if (workspaceRole === 'owner' || workspaceRole === 'admin') return 'admin';
+  if (workspaceRole === 'viewer') return 'reviewer';
+  if (productAccess.ad_server && !productAccess.studio) return 'ad_ops';
+  return 'designer';
+}
+
 function normalizeMember(raw: any): Member {
   const displayName = String(raw?.display_name ?? raw?.displayName ?? raw?.email ?? '').trim();
   const [firstName = '', ...rest] = displayName.split(/\s+/).filter(Boolean);
+  const role = (['owner', 'admin', 'member', 'viewer'].includes(raw?.role) ? raw.role : 'member') as Member['role'];
+  const productAccess = normalizeProductAccess(raw?.productAccess ?? raw?.product_access, role === 'owner' ? 'admin' : 'designer');
+  const platformRole = derivePlatformRole(raw?.platformRole ?? raw?.platform_role, role, productAccess);
   return {
     id: String(raw?.user_id ?? raw?.userId ?? raw?.id ?? ''),
-    memberId: String(raw?.id ?? ''),
+    memberId: String(raw?.memberId ?? raw?.id ?? ''),
     email: String(raw?.email ?? ''),
     firstName,
     lastName: rest.join(' '),
-    role: (['owner', 'admin', 'member', 'viewer'].includes(raw?.role) ? raw.role : 'member') as Member['role'],
+    role,
+    platformRole,
+    productAccess,
     joinedAt: String(raw?.joined_at ?? raw?.joinedAt ?? raw?.invited_at ?? raw?.invitedAt ?? ''),
   };
+}
+
+function ProductAccessBadge({ productAccess }: { productAccess: ProductAccess }) {
+  const cls = productAccess.ad_server && productAccess.studio
+    ? 'bg-emerald-50 text-emerald-700'
+    : productAccess.ad_server
+      ? 'bg-fuchsia-50 text-fuchsia-700'
+      : 'bg-amber-50 text-amber-700';
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+      {productAccessLabel(productAccess)}
+    </span>
+  );
 }
 
 export default function WorkspaceSettings() {
@@ -73,29 +137,29 @@ export default function WorkspaceSettings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Profile form
   const [wsName, setWsName] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState('');
 
-  // Invite form
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<Member['role']>('member');
+  const [inviteRole, setInviteRole] = useState<PlatformRole>('designer');
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
 
-  // Role update
   const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
-
-  // Remove member
   const [removingId, setRemovingId] = useState<string | null>(null);
+
+  async function reloadMembers() {
+    const teamData = await fetch('/v1/team', { credentials: 'include' }).then((response) => response.json());
+    setMembers((teamData?.members ?? teamData ?? []).map(normalizeMember));
+  }
 
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetch('/v1/workspace', { credentials: 'include' }).then(r => r.json()),
-      fetch('/v1/team', { credentials: 'include' }).then(r => r.json()),
+      fetch('/v1/workspace', { credentials: 'include' }).then((response) => response.json()),
+      fetch('/v1/team', { credentials: 'include' }).then((response) => response.json()),
     ])
       .then(([wsData, teamData]) => {
         const nextWorkspace = normalizeWorkspace(wsData);
@@ -103,37 +167,43 @@ export default function WorkspaceSettings() {
         setWsName(nextWorkspace?.name ?? '');
         setMembers((teamData?.members ?? teamData ?? []).map(normalizeMember));
       })
-      .catch(() => setError('Failed to load agency settings.'))
+      .catch(() => setError('Failed to load workspace settings.'))
       .finally(() => setLoading(false));
   }, []);
 
-  const handleSaveProfile = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!wsName.trim()) { setProfileMsg('Name is required.'); return; }
+  const handleSaveProfile = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!wsName.trim()) {
+      setProfileMsg('Name is required.');
+      return;
+    }
     setSavingProfile(true);
     setProfileMsg('');
     try {
-      const res = await fetch('/v1/workspace', {
+      const response = await fetch('/v1/workspace', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ name: wsName.trim() }),
       });
-      if (!res.ok) throw new Error('Save failed');
-      setWorkspace(w => w ? { ...w, name: wsName.trim() } : w);
-      setProfileMsg('Agency name updated successfully.');
+      if (!response.ok) throw new Error('Save failed');
+      setWorkspace((current) => (current ? { ...current, name: wsName.trim() } : current));
+      setProfileMsg('Workspace name updated successfully.');
     } catch {
-      setProfileMsg('Failed to save agency name.');
+      setProfileMsg('Failed to save workspace name.');
     } finally {
       setSavingProfile(false);
     }
   };
 
-  const handleInvite = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleInvite = async (event: FormEvent) => {
+    event.preventDefault();
     setInviteError('');
     setInviteSuccess('');
-    if (!inviteEmail.trim()) { setInviteError('Email is required.'); return; }
+    if (!inviteEmail.trim()) {
+      setInviteError('Email is required.');
+      return;
+    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
       setInviteError('Enter a valid email address.');
       return;
@@ -141,38 +211,53 @@ export default function WorkspaceSettings() {
 
     setInviting(true);
     try {
-      const res = await fetch('/v1/team/invite', {
+      const response = await fetch('/v1/team/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+        body: JSON.stringify({
+          email: inviteEmail.trim(),
+          role: inviteRole,
+          productAccess: PLATFORM_ROLE_PRODUCT_ACCESS[inviteRole],
+        }),
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.message ?? 'Invite failed');
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.message ?? 'Invite failed');
       }
       setInviteSuccess(`Invitation sent to ${inviteEmail.trim()}.`);
       setInviteEmail('');
-      const teamData = await fetch('/v1/team', { credentials: 'include' }).then(r => r.json());
-      setMembers((teamData?.members ?? teamData ?? []).map(normalizeMember));
-    } catch (e: any) {
-      setInviteError(e.message);
+      await reloadMembers();
+    } catch (caught: any) {
+      setInviteError(caught.message);
     } finally {
       setInviting(false);
     }
   };
 
-  const handleRoleChange = async (member: Member, newRole: Member['role']) => {
+  const handleRoleChange = async (member: Member, nextRole: PlatformRole) => {
     setUpdatingRoleId(member.id);
     try {
-      const res = await fetch(`/v1/team/${member.id}/role`, {
+      const response = await fetch(`/v1/team/${member.id}/role`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ role: newRole }),
+        body: JSON.stringify({
+          role: nextRole,
+          productAccess: PLATFORM_ROLE_PRODUCT_ACCESS[nextRole],
+        }),
       });
-      if (!res.ok) throw new Error('Role update failed');
-      setMembers(ms => ms.map(m => m.id === member.id ? { ...m, role: newRole } : m));
+      if (!response.ok) throw new Error('Role update failed');
+      setMembers((current) => current.map((entry) => (
+        entry.id === member.id
+          ? {
+            ...entry,
+            role: getWorkspaceRoleForPlatformRole(nextRole),
+            platformRole: nextRole,
+            productAccess: PLATFORM_ROLE_PRODUCT_ACCESS[nextRole],
+          }
+          : entry
+      )));
     } catch {
       alert('Failed to update role.');
     } finally {
@@ -181,12 +266,12 @@ export default function WorkspaceSettings() {
   };
 
   const handleRemoveMember = async (member: Member) => {
-    if (!window.confirm(`Remove ${member.email} from the agency?`)) return;
+    if (!window.confirm(`Remove ${member.email} from the workspace?`)) return;
     setRemovingId(member.id);
     try {
-      const res = await fetch(`/v1/team/${member.id}`, { method: 'DELETE', credentials: 'include' });
-      if (!res.ok) throw new Error('Remove failed');
-      setMembers(ms => ms.filter(m => m.id !== member.id));
+      const response = await fetch(`/v1/team/${member.id}`, { method: 'DELETE', credentials: 'include' });
+      if (!response.ok) throw new Error('Remove failed');
+      setMembers((current) => current.filter((entry) => entry.id !== member.id));
     } catch {
       alert('Failed to remove member.');
     } finally {
@@ -194,9 +279,9 @@ export default function WorkspaceSettings() {
     }
   };
 
-  const tabClass = (t: Tab) =>
+  const tabClass = (nextTab: Tab) =>
     `px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
-      tab === t
+      tab === nextTab
         ? 'border-indigo-600 text-indigo-600'
         : 'border-transparent text-slate-500 hover:text-slate-700'
     }`;
@@ -211,20 +296,19 @@ export default function WorkspaceSettings() {
 
   if (error) {
     return (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-        <p className="font-medium">Error loading agency settings</p>
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+        <p className="font-medium">Error loading workspace settings</p>
         <p className="text-sm mt-1">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Agency Settings</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Workspace Settings</h1>
       </div>
 
-      {/* Tabs */}
       <div className="flex border-b border-slate-200 mb-6">
         <button className={tabClass('profile')} onClick={() => setTab('profile')}>Profile</button>
         <button className={tabClass('members')} onClick={() => setTab('members')}>
@@ -232,18 +316,17 @@ export default function WorkspaceSettings() {
         </button>
       </div>
 
-      {/* Profile tab */}
       {tab === 'profile' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-base font-semibold text-slate-800 mb-4">Agency Profile</h2>
+            <h2 className="text-base font-semibold text-slate-800 mb-4">Workspace Profile</h2>
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Agency Name</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Workspace Name</label>
                 <input
                   type="text"
                   value={wsName}
-                  onChange={e => setWsName(e.target.value)}
+                  onChange={(event) => setWsName(event.target.value)}
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -270,7 +353,7 @@ export default function WorkspaceSettings() {
                 <p className="text-lg font-bold text-indigo-700 capitalize">{workspace?.plan ?? 'Free'}</p>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Agency ID</p>
+                <p className="text-sm text-slate-500">Workspace ID</p>
                 <code className="text-xs font-mono text-slate-600">{workspace?.id}</code>
               </div>
               <div>
@@ -284,10 +367,8 @@ export default function WorkspaceSettings() {
         </div>
       )}
 
-      {/* Members tab */}
       {tab === 'members' && (
         <div className="space-y-6">
-          {/* Invite form */}
           <div className="bg-white rounded-xl border border-slate-200 p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Invite Member</h2>
             <form onSubmit={handleInvite} className="flex flex-wrap gap-3 items-end">
@@ -296,20 +377,20 @@ export default function WorkspaceSettings() {
                 <input
                   type="email"
                   value={inviteEmail}
-                  onChange={e => setInviteEmail(e.target.value)}
+                  onChange={(event) => setInviteEmail(event.target.value)}
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="colleague@example.com"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Platform Role</label>
                 <select
                   value={inviteRole}
-                  onChange={e => setInviteRole(e.target.value as Member['role'])}
+                  onChange={(event) => setInviteRole(event.target.value as PlatformRole)}
                   className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  {ROLES.filter(r => r !== 'owner').map(r => (
-                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                  {PLATFORM_ROLES.map((role) => (
+                    <option key={role} value={role}>{getPlatformRoleLabel(role)}</option>
                   ))}
                 </select>
               </div>
@@ -325,7 +406,6 @@ export default function WorkspaceSettings() {
             {inviteSuccess && <p className="mt-2 text-sm text-green-600">{inviteSuccess}</p>}
           </div>
 
-          {/* Members table */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
               <h2 className="text-sm font-semibold text-slate-700">Team Members ({members.length})</h2>
@@ -336,54 +416,57 @@ export default function WorkspaceSettings() {
               <table className="min-w-full divide-y divide-slate-100">
                 <thead className="bg-slate-50">
                   <tr>
-                    {['Member', 'Email', 'Role', 'Joined', 'Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        {h}
+                    {['Member', 'Email', 'Role', 'Product Access', 'Joined', 'Actions'].map((heading) => (
+                      <th key={heading} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        {heading}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {members.map(m => (
-                    <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                  {members.map((member) => (
+                    <tr key={member.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-semibold">
-                            {m.firstName?.[0]}{m.lastName?.[0]}
+                            {member.firstName?.[0]}{member.lastName?.[0]}
                           </div>
                           <span className="text-sm font-medium text-slate-800">
-                            {m.firstName} {m.lastName}
+                            {member.firstName} {member.lastName}
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{m.email}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{member.email}</td>
                       <td className="px-4 py-3">
-                        {m.role === 'owner' ? (
-                          roleBadge(m.role)
+                        {member.role === 'owner' ? (
+                          roleBadge('owner')
                         ) : (
                           <select
-                            value={m.role}
-                            onChange={e => handleRoleChange(m, e.target.value as Member['role'])}
-                            disabled={updatingRoleId === m.id}
+                            value={member.platformRole}
+                            onChange={(event) => handleRoleChange(member, event.target.value as PlatformRole)}
+                            disabled={updatingRoleId === member.id}
                             className="px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                           >
-                            {ROLES.filter(r => r !== 'owner').map(r => (
-                              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                            {PLATFORM_ROLES.map((role) => (
+                              <option key={role} value={role}>{getPlatformRoleLabel(role)}</option>
                             ))}
                           </select>
                         )}
                       </td>
+                      <td className="px-4 py-3">
+                        <ProductAccessBadge productAccess={member.productAccess} />
+                      </td>
                       <td className="px-4 py-3 text-xs text-slate-500">
-                        {m.joinedAt ? new Date(m.joinedAt).toLocaleDateString() : 'Pending'}
+                        {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString() : 'Pending'}
                       </td>
                       <td className="px-4 py-3">
-                        {m.role !== 'owner' && (
+                        {member.role !== 'owner' && (
                           <button
-                            onClick={() => handleRemoveMember(m)}
-                            disabled={removingId === m.id}
+                            onClick={() => handleRemoveMember(member)}
+                            disabled={removingId === member.id}
                             className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
                           >
-                            {removingId === m.id ? '...' : 'Remove'}
+                            {removingId === member.id ? '...' : 'Remove'}
                           </button>
                         )}
                       </td>

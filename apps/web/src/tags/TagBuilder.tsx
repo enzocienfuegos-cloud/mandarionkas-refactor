@@ -1020,12 +1020,26 @@ export default function TagBuilder() {
       <div className="mb-6 flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-800">{isEdit ? 'Edit Tag' : 'New Tag'}</h1>
         {isEdit && id ? (
-          <Link
-            to={`/tags/${id}/reporting`}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            📊 Reporting
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to={`/tags/${id}/reporting`}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              📊 Reporting
+            </Link>
+            <Link
+              to={`/tags/${id}/tracking`}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              📈 Tracking
+            </Link>
+            <Link
+              to={`/tags/${id}/pixels`}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              🔗 Pixels
+            </Link>
+          </div>
         ) : null}
       </div>
 

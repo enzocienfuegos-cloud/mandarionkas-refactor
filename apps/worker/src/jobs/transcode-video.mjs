@@ -6,54 +6,57 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getPool, closeAllPools } from '../../../../packages/db/src/pool.mjs';
+import { getPool, closeAllPools } from '@smx/db/src/pool.mjs';
 import {
-  claimNextAssetProcessingJob,
-  completeAssetProcessingJob,
-  failAssetProcessingJob,
-  patchAssetMetadata,
-  skipAssetProcessingJob,
-} from '../../../../packages/db/src/asset-jobs.mjs';
+  claimNextVideoTranscodeJob,
+  completeVideoTranscodeJob,
+  failVideoTranscodeJob,
+  markVideoTranscodeJobProcessing,
+} from '@smx/db/src/video-transcode-jobs.mjs';
 import {
   syncCreativeVideoTranscodeOutputs,
-  updateCreativeVersionVideoProcessingState,
-} from '../../../../packages/db/src/creatives.mjs';
-import { logError, logInfo, logWarn } from '../../../api/src/lib/logger.mjs';
+} from '@smx/db/src/creatives.mjs';
+
+function log(level, payload) {
+  const line = JSON.stringify({ level, time: new Date().toISOString(), service: 'smx-worker', job: 'transcode-video', ...payload });
+  if (level === 'error') {
+    console.error(line);
+    return;
+  }
+  console.log(line);
+}
+
+const logInfo = (payload) => log('info', payload);
+const logWarn = (payload) => log('warn', payload);
+const logError = (payload) => log('error', payload);
 
 const require = createRequire(import.meta.url);
-let cachedBundledFfmpegBin;
+let cachedFfmpeg;
 
 function getBundledFfmpegBin() {
-  if (cachedBundledFfmpegBin !== undefined) return cachedBundledFfmpegBin;
+  if (cachedFfmpeg !== undefined) return cachedFfmpeg;
   try {
     const resolved = require('ffmpeg-static');
-    cachedBundledFfmpegBin = resolved ? String(resolved).trim() : null;
+    cachedFfmpeg = resolved ? String(resolved).trim() : null;
   } catch {
-    cachedBundledFfmpegBin = null;
+    cachedFfmpeg = null;
   }
-  return cachedBundledFfmpegBin;
+  return cachedFfmpeg;
+}
+
+function getFfmpegBin(source = process.env) {
+  return String(source.FFMPEG_BIN || '').trim()
+    || getBundledFfmpegBin()
+    || 'ffmpeg';
 }
 
 function getConnectionString(source = process.env) {
   return String(source.DATABASE_POOL_URL || source.DATABASE_URL || '').trim();
 }
 
-function getConfiguredFfmpegBin(source = process.env) {
-  return String(source.FFMPEG_BIN || '').trim();
-}
-
-function getFfmpegBin(source = process.env) {
-  const configured = getConfiguredFfmpegBin(source);
-  if (configured) return configured;
-  const bundled = getBundledFfmpegBin();
-  if (bundled) return bundled;
-  return 'ffmpeg';
-}
-
 function transcodeEnabled(source = process.env) {
-  const normalized = String(source.TRANSCODE_VIDEO_ENABLED || '').trim().toLowerCase();
-  if (!normalized) return true;
-  return !['false', '0', 'off', 'no', 'disabled'].includes(normalized);
+  const value = String(source.TRANSCODE_VIDEO_ENABLED || '').trim().toLowerCase();
+  return !value || !['false', '0', 'off', 'no', 'disabled'].includes(value);
 }
 
 function isR2Configured(source = process.env) {
@@ -64,107 +67,58 @@ let cachedR2Client = null;
 let cachedR2Key = '';
 
 function getR2Client(source = process.env) {
-  const cacheKey = `${source.R2_ENDPOINT}|${source.R2_ACCESS_KEY_ID}|${source.R2_BUCKET}`;
-  if (cachedR2Client && cachedR2Key === cacheKey) return cachedR2Client;
+  const key = `${source.R2_ENDPOINT}|${source.R2_ACCESS_KEY_ID}|${source.R2_BUCKET}`;
+  if (cachedR2Client && cachedR2Key === key) return cachedR2Client;
   cachedR2Client = new S3Client({
     region: 'auto',
     endpoint: source.R2_ENDPOINT,
-    credentials: {
-      accessKeyId: source.R2_ACCESS_KEY_ID,
-      secretAccessKey: source.R2_SECRET_ACCESS_KEY,
-    },
+    credentials: { accessKeyId: source.R2_ACCESS_KEY_ID, secretAccessKey: source.R2_SECRET_ACCESS_KEY },
   });
-  cachedR2Key = cacheKey;
+  cachedR2Key = key;
   return cachedR2Client;
 }
 
-function buildOutputPlan(input = {}) {
-  const storageKey = String(input.storageKey || '').trim();
-  const publicUrl = String(input.publicUrl || '').trim();
-  const baseKey = storageKey.replace(/\.[^.]+$/, '');
-  const baseUrl = publicUrl.replace(/\.[^.]+$/, '');
-  return {
-    low: {
-      storageKey: `${baseKey}-low.mp4`,
-      publicUrl: `${baseUrl}-low.mp4`,
-      maxHeight: 480,
-      videoBitrateKbps: 900,
-    },
-    mid: {
-      storageKey: `${baseKey}-mid.mp4`,
-      publicUrl: `${baseUrl}-mid.mp4`,
-      maxHeight: 720,
-      videoBitrateKbps: 1500,
-    },
-    high: {
-      storageKey: `${baseKey}-high.mp4`,
-      publicUrl: `${baseUrl}-high.mp4`,
-      maxHeight: 1080,
-      videoBitrateKbps: 2400,
-    },
-    poster: {
-      storageKey: `${baseKey}-poster.jpg`,
-      publicUrl: `${baseUrl}-poster.jpg`,
-    },
-  };
+const DEFAULT_PROFILES = [
+  { label: '480p', key: 'low', maxHeight: 480, videoBitrateKbps: 900 },
+  { label: '720p', key: 'mid', maxHeight: 720, videoBitrateKbps: 1500 },
+  { label: '1080p', key: 'high', maxHeight: 1080, videoBitrateKbps: 2400 },
+];
+
+function buildOutputPlan(job) {
+  const sourceUrl = job.source_url;
+  const storageBase = (job.source_storage_key || '').replace(/\.[^.]+$/, '');
+  const urlBase = sourceUrl.replace(/\.[^.]+$/, '');
+  const publicBase = String(process.env.R2_PUBLIC_BASE || '').replace(/\/+$/, '');
+
+  const targetPlan = Array.isArray(job.target_plan) ? job.target_plan : [];
+  const profiles = targetPlan.length > 0
+    ? targetPlan.map((profile) => ({
+      label: String(profile.label || '').trim(),
+      key: String(profile.label || '').toLowerCase().replace(/[^a-z0-9]/g, ''),
+      maxHeight: Number(profile.height || profile.maxHeight || 480),
+      videoBitrateKbps: Number(profile.bitrateKbps || 900),
+      width: Number(profile.width || 0) || undefined,
+    }))
+    : DEFAULT_PROFILES;
+
+  return profiles.map((profile) => {
+    const storageKey = storageBase ? `${storageBase}-${profile.key}.mp4` : '';
+    const publicUrl = storageKey && publicBase
+      ? `${publicBase}/${storageKey}`
+      : `${urlBase}-${profile.key}.mp4`;
+    return { ...profile, storageKey, publicUrl, fileName: `${profile.key}.mp4` };
+  });
 }
 
-function getRequestedProfiles(input = {}, outputPlan = {}) {
-  const targetPlan = Array.isArray(input.targetPlan) ? input.targetPlan : [];
-  const normalized = targetPlan
-    .map((profile) => {
-      const label = String(profile?.label || '').trim();
-      if (!label) return null;
-      const key = label.toLowerCase() === '1080p' ? 'high'
-        : label.toLowerCase() === '720p' ? 'mid'
-        : label.toLowerCase() === '480p' ? 'low'
-        : null;
-      if (!key || !outputPlan[key]) return null;
-      return {
-        key,
-        label,
-        fileName: `${key}.mp4`,
-        storageKey: outputPlan[key].storageKey,
-        publicUrl: outputPlan[key].publicUrl,
-        maxHeight: Number(profile?.height || outputPlan[key].maxHeight || 0) || outputPlan[key].maxHeight,
-        videoBitrateKbps: Number(profile?.bitrateKbps || outputPlan[key].videoBitrateKbps || 0) || outputPlan[key].videoBitrateKbps,
-        width: Number(profile?.width || 0) || undefined,
-        height: Number(profile?.height || 0) || undefined,
-      };
-    })
-    .filter(Boolean);
-
-  if (normalized.length) return normalized;
-
-  return [
-    {
-      key: 'low',
-      label: '480p',
-      fileName: 'low.mp4',
-      storageKey: outputPlan.low.storageKey,
-      publicUrl: outputPlan.low.publicUrl,
-      maxHeight: outputPlan.low.maxHeight,
-      videoBitrateKbps: outputPlan.low.videoBitrateKbps,
-    },
-    {
-      key: 'mid',
-      label: '720p',
-      fileName: 'mid.mp4',
-      storageKey: outputPlan.mid.storageKey,
-      publicUrl: outputPlan.mid.publicUrl,
-      maxHeight: outputPlan.mid.maxHeight,
-      videoBitrateKbps: outputPlan.mid.videoBitrateKbps,
-    },
-    {
-      key: 'high',
-      label: '1080p',
-      fileName: 'high.mp4',
-      storageKey: outputPlan.high.storageKey,
-      publicUrl: outputPlan.high.publicUrl,
-      maxHeight: outputPlan.high.maxHeight,
-      videoBitrateKbps: outputPlan.high.videoBitrateKbps,
-    },
-  ];
+function buildPosterPlan(job) {
+  const urlBase = job.source_url.replace(/\.[^.]+$/, '');
+  const storageBase = (job.source_storage_key || '').replace(/\.[^.]+$/, '');
+  const publicBase = String(process.env.R2_PUBLIC_BASE || '').replace(/\/+$/, '');
+  const storageKey = storageBase ? `${storageBase}-poster.jpg` : '';
+  const publicUrl = storageKey && publicBase
+    ? `${publicBase}/${storageKey}`
+    : `${urlBase}-poster.jpg`;
+  return { storageKey, publicUrl };
 }
 
 async function commandExists(binary) {
@@ -179,431 +133,207 @@ async function runFfmpeg(binary, args, cwd) {
   return new Promise((resolve, reject) => {
     const child = spawn(binary, args, { cwd, stdio: 'pipe' });
     let stderr = '';
-    let stdout = '';
-    child.stdout.on('data', (chunk) => {
-      stdout += String(chunk);
-    });
     child.stderr.on('data', (chunk) => {
       stderr += String(chunk);
     });
     child.on('error', reject);
     child.on('exit', (code) => {
       if (code === 0) {
-        resolve({ stdout, stderr });
+        resolve({ stderr });
         return;
       }
-      reject(new Error(
-        [
-          `ffmpeg exited with code ${code}`,
-          stderr.trim(),
-          stdout.trim(),
-        ].filter(Boolean).join('\n\n'),
-      ));
+      reject(new Error(`ffmpeg exited ${code}\n${stderr.trim()}`));
     });
   });
 }
 
-async function downloadSourceToFile(sourceUrl, targetPath) {
-  const response = await fetch(sourceUrl);
-  if (!response.ok || !response.body) {
-    throw new Error(`Unable to download source video: ${response.status} ${response.statusText}`.trim());
-  }
-  await pipeline(response.body, createWriteStream(targetPath));
+async function downloadSource(url, destination) {
+  const response = await fetch(url);
+  if (!response.ok || !response.body) throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+  await pipeline(response.body, createWriteStream(destination));
 }
 
-async function uploadFileToR2(source, { storageKey, filePath, contentType }) {
+async function uploadToR2(source, { storageKey, filePath, contentType }) {
+  if (!storageKey) {
+    logWarn({ event: 'upload_skipped', reason: 'no_storage_key', filePath });
+    return null;
+  }
   const client = getR2Client(source);
   const body = await readFile(filePath);
-  await client.send(new PutObjectCommand({
-    Bucket: source.R2_BUCKET,
-    Key: storageKey,
-    Body: body,
-    ContentType: contentType,
-  }));
+  await client.send(new PutObjectCommand({ Bucket: source.R2_BUCKET, Key: storageKey, Body: body, ContentType: contentType }));
+  return storageKey;
 }
 
-function normalizeOutputMetadata({ publicUrl, fileStats, mimeType, codec, width, height, bitrateKbps }) {
-  return {
-    src: publicUrl,
-    mimeType,
-    sizeBytes: Number(fileStats.size),
-    width: width || undefined,
-    height: height || undefined,
-    bitrateKbps: bitrateKbps || undefined,
-    codec: codec || undefined,
-  };
-}
+export async function runTranscodeVideoJobWithDeps(source = process.env, deps = {}) {
+  const {
+    _getPool = () => getPool(getConnectionString(source)),
+    _closeAllPools = closeAllPools,
+    _claimJob = claimNextVideoTranscodeJob,
+    _markProcessing = markVideoTranscodeJobProcessing,
+    _completeJob = completeVideoTranscodeJob,
+    _failJob = failVideoTranscodeJob,
+    _syncOutputs = syncCreativeVideoTranscodeOutputs,
+    _commandExists = commandExists,
+    _runFfmpeg = runFfmpeg,
+    _downloadSource = downloadSource,
+    _uploadToR2 = (options) => uploadToR2(source, options),
+    _mkdtemp = mkdtemp,
+    _rm = rm,
+    _stat = stat,
+  } = deps;
 
-function isFinalAttempt(job) {
-  const attempts = Number(job?.attempts || 0);
-  const maxAttempts = Number(job?.max_attempts || 1);
-  return attempts >= maxAttempts;
-}
-
-function computeRetryDelaySeconds(job) {
-  const attempts = Number(job?.attempts || 1);
-  return Math.min(600, Math.max(30, 30 * 2 ** Math.max(0, attempts - 1)));
-}
-
-function createDefaultDeps(source = process.env) {
-  return {
-    getPool,
-    closeAllPools,
-    claimNextAssetProcessingJob,
-    completeAssetProcessingJob,
-    failAssetProcessingJob,
-    patchAssetMetadata,
-    skipAssetProcessingJob,
-    syncCreativeVideoTranscodeOutputs,
-    updateCreativeVersionVideoProcessingState,
-    logError,
-    logInfo,
-    logWarn,
-    commandExists,
-    runFfmpeg,
-    uploadFileToR2,
-    mkdtemp,
-    rm,
-    stat,
-  };
-}
-
-export async function runTranscodeVideoJobWithDeps(source = process.env, deps = createDefaultDeps(source)) {
   const connectionString = getConnectionString(source);
   if (!connectionString) {
-    deps.logInfo({ service: 'smx-worker', job: 'transcode-video', status: 'skipped', reason: 'database_not_configured' });
+    logInfo({ status: 'skipped', reason: 'database_not_configured' });
     return { processed: 0, skipped: true };
   }
 
-  const pool = deps.getPool(connectionString);
+  const pool = _getPool();
   const client = await pool.connect();
   let job = null;
+
   try {
-    job = await deps.claimNextAssetProcessingJob(client, { jobType: 'video-transcode' });
+    job = await _claimJob(client);
     if (!job) {
-      deps.logInfo({ service: 'smx-worker', job: 'transcode-video', status: 'idle', reason: 'no_pending_jobs' });
+      logInfo({ status: 'idle', reason: 'no_pending_jobs' });
       return { processed: 0, skipped: false };
     }
 
-    const input = job.input || {};
-    const outputPlan = buildOutputPlan(input);
-    const requestedProfiles = getRequestedProfiles(input, outputPlan);
-    const assetMetadataPatch = {
-      optimization: {
-        video: {
-          status: 'processing',
-          jobId: job.id,
-          outputs: outputPlan,
-          retryCount: Number(job.attempts || 1),
-          updatedAt: new Date().toISOString(),
-        },
-      },
-    };
-    await deps.patchAssetMetadata(client, {
-      assetId: job.asset_id,
-      workspaceId: job.workspace_id,
-      metadataPatch: assetMetadataPatch,
-    });
-    if (input.creativeVersionId) {
-      await deps.updateCreativeVersionVideoProcessingState(client, {
-        workspaceId: job.workspace_id,
-        creativeVersionId: input.creativeVersionId,
-        status: 'processing',
-      });
-    }
+    logInfo({ status: 'claimed', jobId: job.id, creativeVersionId: job.creative_version_id });
 
     if (!transcodeEnabled(source)) {
-      await deps.skipAssetProcessingJob(client, {
-        jobId: job.id,
-        reason: 'Video transcoding is disabled. Set TRANSCODE_VIDEO_ENABLED=true to enable ffmpeg processing.',
-        output: { outputs: outputPlan, mode: 'planned-only' },
-      });
-      await deps.patchAssetMetadata(client, {
-        assetId: job.asset_id,
-        workspaceId: job.workspace_id,
-        metadataPatch: {
-          optimization: {
-            video: {
-              status: 'planned',
-              jobId: job.id,
-              outputs: outputPlan,
-              reason: 'transcoding_disabled',
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        },
-      });
-      if (input.creativeVersionId) {
-        await deps.updateCreativeVersionVideoProcessingState(client, {
-          workspaceId: job.workspace_id,
-          creativeVersionId: input.creativeVersionId,
-          status: 'blocked',
-          reason: 'transcoding_disabled',
-        });
-      }
-      deps.logWarn({ service: 'smx-worker', job: 'transcode-video', status: 'skipped', jobId: job.id, reason: 'transcoding_disabled' });
+      await _failJob(client, job.id, 'TRANSCODE_VIDEO_ENABLED is not set to true.', { reason: 'transcoding_disabled' });
+      logWarn({ status: 'failed', jobId: job.id, reason: 'transcoding_disabled' });
       return { processed: 0, skipped: false };
     }
 
-    const configuredFfmpegBin = getConfiguredFfmpegBin(source);
-    const bundledFfmpegBin = getBundledFfmpegBin();
-    let ffmpegBin = getFfmpegBin(source);
-    let ffmpegReady = await deps.commandExists(ffmpegBin);
-    if (!ffmpegReady && configuredFfmpegBin && bundledFfmpegBin && bundledFfmpegBin !== configuredFfmpegBin) {
-      const bundledReady = await deps.commandExists(bundledFfmpegBin);
-      if (bundledReady) {
-        ffmpegBin = bundledFfmpegBin;
-        ffmpegReady = true;
-      }
-    }
+    const ffmpegBin = getFfmpegBin(source);
+    const ffmpegReady = await _commandExists(ffmpegBin);
     if (!ffmpegReady) {
-      await deps.skipAssetProcessingJob(client, {
-        jobId: job.id,
-        reason: `ffmpeg binary "${ffmpegBin}" is not available in the worker environment.`,
-        output: { outputs: outputPlan, mode: 'ffmpeg-missing' },
-      });
-      await deps.patchAssetMetadata(client, {
-        assetId: job.asset_id,
-        workspaceId: job.workspace_id,
-        metadataPatch: {
-          optimization: {
-            video: {
-              status: 'blocked',
-              jobId: job.id,
-              outputs: outputPlan,
-              reason: 'ffmpeg_missing',
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        },
-      });
-      if (input.creativeVersionId) {
-        await deps.updateCreativeVersionVideoProcessingState(client, {
-          workspaceId: job.workspace_id,
-          creativeVersionId: input.creativeVersionId,
-          status: 'blocked',
-          reason: 'ffmpeg_missing',
-        });
-      }
-      deps.logWarn({ service: 'smx-worker', job: 'transcode-video', status: 'skipped', jobId: job.id, reason: 'ffmpeg_missing' });
+      await _failJob(client, job.id, `ffmpeg binary "${ffmpegBin}" not available.`, { reason: 'ffmpeg_missing', binary: ffmpegBin });
+      logWarn({ status: 'failed', jobId: job.id, reason: 'ffmpeg_missing' });
       return { processed: 0, skipped: false };
     }
+
     if (!isR2Configured(source)) {
-      await deps.skipAssetProcessingJob(client, {
-        jobId: job.id,
-        reason: 'R2 upload is not configured for worker transcoding.',
-        output: { outputs: outputPlan, mode: 'r2-missing' },
-      });
-      await deps.patchAssetMetadata(client, {
-        assetId: job.asset_id,
-        workspaceId: job.workspace_id,
-        metadataPatch: {
-          optimization: {
-            video: {
-              status: 'blocked',
-              jobId: job.id,
-              outputs: outputPlan,
-              reason: 'r2_missing',
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        },
-      });
-      if (input.creativeVersionId) {
-        await deps.updateCreativeVersionVideoProcessingState(client, {
-          workspaceId: job.workspace_id,
-          creativeVersionId: input.creativeVersionId,
-          status: 'blocked',
-          reason: 'r2_missing',
-        });
-      }
-      deps.logWarn({ service: 'smx-worker', job: 'transcode-video', status: 'skipped', jobId: job.id, reason: 'r2_missing' });
+      await _failJob(client, job.id, 'R2 storage is not configured.', { reason: 'r2_missing' });
+      logWarn({ status: 'failed', jobId: job.id, reason: 'r2_missing' });
       return { processed: 0, skipped: false };
     }
 
-    const sourceUrl = String(input.publicUrl || '').trim();
-    if (!sourceUrl) {
-      await deps.failAssetProcessingJob(client, {
-        jobId: job.id,
-        errorMessage: 'Video transcode job is missing a source public URL.',
-        final: true,
-      });
-      await deps.patchAssetMetadata(client, {
-        assetId: job.asset_id,
-        workspaceId: job.workspace_id,
-        metadataPatch: {
-          optimization: {
-            video: {
-              status: 'failed',
-              jobId: job.id,
-              outputs: outputPlan,
-              reason: 'missing_source_url',
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        },
-      });
-      if (input.creativeVersionId) {
-        await deps.updateCreativeVersionVideoProcessingState(client, {
-          workspaceId: job.workspace_id,
-          creativeVersionId: input.creativeVersionId,
-          status: 'failed',
-          reason: 'missing_source_url',
-        });
-      }
+    if (!job.source_url) {
+      await _failJob(client, job.id, 'Job has no source_url.', { reason: 'missing_source_url' });
+      logWarn({ status: 'failed', jobId: job.id, reason: 'missing_source_url' });
       return { processed: 0, skipped: false };
     }
 
-    const scratchDir = await deps.mkdtemp(path.join(tmpdir(), 'smx-video-job-'));
+    await _markProcessing(client, job.id);
+
+    const outputProfiles = buildOutputPlan(job);
+    const posterPlan = buildPosterPlan(job);
+    const scratchDir = await _mkdtemp(path.join(tmpdir(), 'smx-video-'));
+
     try {
-      const posterPath = path.join(scratchDir, 'poster.jpg');
       const sourcePath = path.join(scratchDir, 'source.mp4');
+      const posterPath = path.join(scratchDir, 'poster.jpg');
 
-      await downloadSourceToFile(sourceUrl, sourcePath);
+      logInfo({ event: 'download_start', jobId: job.id, sourceUrl: job.source_url });
+      await _downloadSource(job.source_url, sourcePath);
+      logInfo({ event: 'download_complete', jobId: job.id });
 
-      const transcodedProfiles = [];
-      for (const profile of requestedProfiles) {
-        const filePath = path.join(scratchDir, profile.fileName);
-        await deps.runFfmpeg(
-          ffmpegBin,
-          ['-y', '-i', sourcePath, '-vf', `scale=-2:${profile.maxHeight}`, '-c:v', 'libx264', '-b:v', `${profile.videoBitrateKbps}k`, '-an', filePath],
-          scratchDir,
-        );
-        transcodedProfiles.push({ ...profile, filePath });
+      const completedProfiles = [];
+      for (const profile of outputProfiles) {
+        const outPath = path.join(scratchDir, profile.fileName);
+        const args = [
+          '-y', '-i', sourcePath,
+          '-vf', `scale=-2:${profile.maxHeight}`,
+          '-c:v', 'libx264',
+          '-b:v', `${profile.videoBitrateKbps}k`,
+          '-preset', 'fast',
+          '-movflags', '+faststart',
+          '-an',
+          outPath,
+        ];
+        logInfo({ event: 'transcode_start', jobId: job.id, profile: profile.label });
+        await _runFfmpeg(ffmpegBin, args, scratchDir);
+        completedProfiles.push({ ...profile, filePath: outPath });
+        logInfo({ event: 'transcode_complete', jobId: job.id, profile: profile.label });
       }
-      await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourcePath, '-frames:v', '1', posterPath], scratchDir);
 
-      for (const profile of transcodedProfiles) {
-        await deps.uploadFileToR2(source, { storageKey: profile.storageKey, filePath: profile.filePath, contentType: 'video/mp4' });
-      }
-      await deps.uploadFileToR2(source, { storageKey: outputPlan.poster.storageKey, filePath: posterPath, contentType: 'image/jpeg' });
+      await _runFfmpeg(ffmpegBin, ['-y', '-i', sourcePath, '-frames:v', '1', posterPath], scratchDir);
 
-      const derivatives = {};
-      for (const profile of transcodedProfiles) {
-        const fileStats = await deps.stat(profile.filePath);
-        derivatives[profile.key] = normalizeOutputMetadata({
+      const renditionRows = [];
+      for (const profile of completedProfiles) {
+        const fileInfo = await _stat(profile.filePath);
+        const uploaded = await _uploadToR2({ storageKey: profile.storageKey, filePath: profile.filePath, contentType: 'video/mp4' });
+        renditionRows.push({
+          label: profile.label,
           publicUrl: profile.publicUrl,
-          fileStats,
-          mimeType: 'video/mp4',
-          codec: 'h264',
+          storageKey: uploaded || profile.storageKey,
+          width: profile.width ?? null,
+          height: profile.maxHeight,
           bitrateKbps: profile.videoBitrateKbps,
-          width: profile.width,
-          height: profile.height,
+          codec: 'h264',
+          mimeType: 'video/mp4',
+          sizeBytes: fileInfo.size,
         });
       }
-      const posterStats = await deps.stat(posterPath);
-      derivatives.poster = normalizeOutputMetadata({
-        publicUrl: outputPlan.poster.publicUrl,
-        fileStats: posterStats,
-        mimeType: 'image/jpeg',
+
+      const posterUploaded = await _uploadToR2({ storageKey: posterPlan.storageKey, filePath: posterPath, contentType: 'image/jpeg' });
+
+      const output = {
+        renditions: renditionRows,
+        posterUrl: posterUploaded ? posterPlan.publicUrl : null,
+        posterStorageKey: posterUploaded || null,
+      };
+
+      await _completeJob(client, job.id, output);
+
+      await _syncOutputs(client, {
+        workspaceId: job.workspace_id,
+        creativeVersionId: job.creative_version_id,
+        outputPlan: {
+          low: completedProfiles.find((profile) => profile.key === 'low') ? { publicUrl: completedProfiles.find((profile) => profile.key === 'low').publicUrl } : null,
+          mid: completedProfiles.find((profile) => profile.key === 'mid') ? { publicUrl: completedProfiles.find((profile) => profile.key === 'mid').publicUrl } : null,
+          high: completedProfiles.find((profile) => profile.key === 'high') ? { publicUrl: completedProfiles.find((profile) => profile.key === 'high').publicUrl } : null,
+          poster: { publicUrl: output.posterUrl || '' },
+        },
+        derivatives: Object.fromEntries(
+          renditionRows.map((row) => [row.label, {
+            src: row.publicUrl,
+            mimeType: row.mimeType,
+            sizeBytes: row.sizeBytes,
+            width: row.width,
+            height: row.height,
+            bitrateKbps: row.bitrateKbps,
+            codec: row.codec,
+          }]),
+        ),
       });
 
-      await deps.completeAssetProcessingJob(client, {
-        jobId: job.id,
-        output: {
-          outputs: outputPlan,
-          mode: 'ffmpeg-complete',
-          derivatives,
-        },
-      });
-      await deps.patchAssetMetadata(client, {
-        assetId: job.asset_id,
-        workspaceId: job.workspace_id,
-        posterSrc: outputPlan.poster.publicUrl,
-        thumbnailUrl: outputPlan.poster.publicUrl,
-        metadataPatch: {
-          derivatives,
-          optimizedUrl: outputPlan.high.publicUrl,
-          qualityPreference: 'auto',
-          optimization: {
-            video: {
-              status: 'completed',
-              jobId: job.id,
-              outputs: outputPlan,
-              posterGenerated: true,
-              uploaded: true,
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        },
-      });
-      if (input.creativeVersionId) {
-        await deps.syncCreativeVideoTranscodeOutputs(client, {
-          workspaceId: job.workspace_id,
-          creativeVersionId: input.creativeVersionId,
-          outputPlan,
-          derivatives,
-        });
-      }
-      deps.logInfo({ service: 'smx-worker', job: 'transcode-video', status: 'completed', jobId: job.id, assetId: job.asset_id });
+      logInfo({ status: 'completed', jobId: job.id, creativeVersionId: job.creative_version_id, renditions: renditionRows.length });
       return { processed: 1, skipped: false };
     } finally {
-      await deps.rm(scratchDir, { recursive: true, force: true });
+      await _rm(scratchDir, { recursive: true, force: true });
     }
   } catch (error) {
-    deps.logError({ service: 'smx-worker', job: 'transcode-video', status: 'failed', error });
-    if (!job) throw error;
-    const final = isFinalAttempt(job);
-    const retryDelaySeconds = final ? null : computeRetryDelaySeconds(job);
-    const nextRetryAt = retryDelaySeconds ? new Date(Date.now() + retryDelaySeconds * 1000).toISOString() : null;
-    await deps.failAssetProcessingJob(client, {
-      jobId: job.id,
-      errorMessage: error instanceof Error ? error.message : 'Video transcoding failed.',
-      output: {
-        outputs: job.input?.outputPlan || buildOutputPlan(job.input || {}),
-        mode: final ? 'ffmpeg-failed-final' : 'ffmpeg-failed-retry',
-        attempts: Number(job.attempts || 1),
-        maxAttempts: Number(job.max_attempts || 1),
-      },
-      final,
-      retryDelaySeconds,
-    });
-    await deps.patchAssetMetadata(client, {
-      assetId: job.asset_id,
-      workspaceId: job.workspace_id,
-      metadataPatch: {
-        optimization: {
-          video: {
-            status: final ? 'failed' : 'queued',
-            jobId: job.id,
-            outputs: job.input?.outputPlan || buildOutputPlan(job.input || {}),
-            reason: error instanceof Error ? error.message : 'video_processing_failed',
-            retryCount: Number(job.attempts || 1),
-            lastRetryAt: new Date().toISOString(),
-            nextRetryAt,
-            updatedAt: new Date().toISOString(),
-          },
-        },
-      },
-    });
-    if (job.input?.creativeVersionId) {
-      await deps.updateCreativeVersionVideoProcessingState(client, {
-        workspaceId: job.workspace_id,
-        creativeVersionId: job.input.creativeVersionId,
-        status: final ? 'failed' : 'queued',
-        reason: error instanceof Error ? error.message : 'video_processing_failed',
-        nextRetryAt,
-        retryCount: Number(job.attempts || 1),
-      });
+    logError({ status: 'error', jobId: job?.id, error: error?.message, stack: error?.stack });
+
+    if (job) {
+      await _failJob(client, job.id, error?.message || 'Video transcoding failed.', {
+        attempts: job.attempts,
+        maxAttempts: job.max_attempts,
+        final: job.attempts >= job.max_attempts,
+      }).catch(() => undefined);
     }
+
     return { processed: 0, skipped: false };
   } finally {
     client.release();
-    await deps.closeAllPools();
+    await _closeAllPools();
   }
 }
 
 export async function runTranscodeVideoJob(source = process.env) {
-  return runTranscodeVideoJobWithDeps(source, createDefaultDeps(source));
+  return runTranscodeVideoJobWithDeps(source);
 }
-
-export const __testables = {
-  buildOutputPlan,
-  getConnectionString,
-  getFfmpegBin,
-  transcodeEnabled,
-  isR2Configured,
-  isFinalAttempt,
-  computeRetryDelaySeconds,
-  normalizeOutputMetadata,
-};

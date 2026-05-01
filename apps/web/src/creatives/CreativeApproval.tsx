@@ -8,6 +8,7 @@ import {
   loadPendingReviewVersions,
   rejectCreativeVersion,
 } from './catalog';
+import { normalizePlatformRole } from '../shared/roles';
 
 interface User {
   id: string;
@@ -108,7 +109,7 @@ export default function CreativeApproval() {
   const [qaState, setQaState] = useState<QaState | null>(null);
   const [processed, setProcessed] = useState<Set<string>>(new Set());
 
-  const canAct = user?.role === 'admin' || user?.role === 'owner';
+  const canAct = normalizePlatformRole(user?.role) === 'admin';
 
   const load = async () => {
     setLoading(true);
@@ -207,7 +208,7 @@ export default function CreativeApproval() {
 
       {!canAct && (
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-          You have read-only access. Only admins and owners can approve or reject versions.
+          You have read-only access. Only admins can approve or reject versions.
         </div>
       )}
 

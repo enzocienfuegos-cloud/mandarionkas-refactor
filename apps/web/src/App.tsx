@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import Shell   from './shell/Shell';
+import ProductLauncher from './shell/ProductLauncher';
 import Login    from './auth/Login';
 import Register from './auth/Register';
 
@@ -13,6 +14,8 @@ const TagList            = lazy(() => import('./tags/TagList'));
 const TagBuilder         = lazy(() => import('./tags/TagBuilder'));
 const TagBindingDashboard = lazy(() => import('./tags/TagBindingDashboard'));
 const TagHealthDashboard = lazy(() => import('./tags/TagHealthDashboard'));
+const TagPixelsManager   = lazy(() => import('./tags/TagPixelsManager'));
+const TagTrackingDashboard = lazy(() => import('./tags/TagTrackingDashboard'));
 const TagReportingDashboard = lazy(() => import('./reporting/TagReportingDashboard'));
 const CreativeLibrary    = lazy(() => import('./creatives/CreativeLibrary'));
 const CreativeApproval   = lazy(() => import('./creatives/CreativeApproval'));
@@ -48,7 +51,8 @@ export default function App() {
 
           {/* Protected — Shell provides sidebar + topbar via Outlet */}
           <Route path="/" element={<Shell />}>
-            <Route index element={<Navigate to="/overview" replace />} />
+            <Route index element={<ProductLauncher />} />
+            <Route path="launch" element={<ProductLauncher />} />
 
             {/* Overview */}
             <Route path="overview" element={<AdOpsOverview />} />
@@ -67,6 +71,8 @@ export default function App() {
             <Route path="tags/new"                  element={<Navigate to="/tags?create=1" replace />} />
             <Route path="tags/:id"                  element={<TagBuilder />} />
             <Route path="tags/:id/health"           element={<TagHealthDashboard />} />
+            <Route path="tags/:id/pixels"           element={<TagPixelsManager />} />
+            <Route path="tags/:id/tracking"         element={<TagTrackingDashboard />} />
             <Route path="tags/:id/reporting"        element={<TagReportingDashboard />} />
 
             {/* Creatives */}
@@ -97,7 +103,7 @@ export default function App() {
             <Route path="settings/webhooks"   element={<WebhookManager />} />
 
             {/* Catch-all */}
-            <Route path="*" element={<Navigate to="/overview" replace />} />
+            <Route path="*" element={<Navigate to="/launch" replace />} />
           </Route>
         </Routes>
       </Suspense>

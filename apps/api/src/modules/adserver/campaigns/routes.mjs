@@ -1,5 +1,6 @@
 import { badRequest, conflict, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
 import { requireAuthenticatedSession } from '../../auth/service.mjs';
+import { withSession, hasPermission } from '../../../lib/session.mjs';
 import {
   createCampaign,
   deleteCampaign,
@@ -7,30 +8,9 @@ import {
   listCampaigns,
   listCampaignsForUser,
   updateCampaign,
-} from '../../../../../../packages/db/src/campaigns.mjs';
+} from '@smx/db/src/campaigns.mjs';
 
-function hasPermission(session, permission) {
-  return session.permissions.includes(permission);
-}
 
-async function withSession(ctx, callback) {
-  const session = await requireAuthenticatedSession({ env: ctx.env, headers: ctx.req.headers });
-  if (!session.ok) {
-    if (session.statusCode === 503) {
-      return serviceUnavailable(ctx.res, ctx.requestId, session.message);
-    }
-    if (session.statusCode === 401) {
-      return unauthorized(ctx.res, ctx.requestId, session.message);
-    }
-    return false;
-  }
-
-  try {
-    return await callback(session);
-  } finally {
-    await session.finish();
-  }
-}
 
 async function resolveTargetWorkspaceId(client, userId, fallbackWorkspaceId, requestedWorkspaceId) {
   const candidate = String(requestedWorkspaceId ?? '').trim();

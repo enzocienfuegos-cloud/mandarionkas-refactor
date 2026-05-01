@@ -1,3 +1,6 @@
+// packages/vast/src/types.ts
+// S48: Added VASTAdVerification type and adVerifications field to VASTAd.
+
 export type VASTTrackingEvent =
   | 'start'
   | 'firstQuartile'
@@ -79,17 +82,23 @@ export interface VASTExtension {
   attributes: Record<string, string>;
 }
 
-export interface VASTLinear {
-  duration: number;
-  skipOffset?: number | string;
-  mediaFiles: VASTMediaFile[];
-  interactiveCreativeFiles: VASTInteractiveCreativeFile[];
-  clickThrough?: string;
-  clickTrackingUrls: string[];
-  customClickUrls: string[];
-  trackingEvents: Partial<Record<VASTTrackingEvent, string[]>>;
-  icons: VASTIcon[];
-  adParameters?: string;
+// ── S48: OMID Ad Verification ───────────────────────────────────────────────
+
+/**
+ * Parsed representation of a single <Verification> block inside <AdVerifications>.
+ * Maps to the VAST 4.x AdVerifications spec.
+ */
+export interface VASTAdVerification {
+  /** Vendor identifier (e.g. 'iabtechlab.com-omid'). */
+  vendor?: string;
+  /** URL of the vendor's JS verification resource. */
+  jsUrl: string;
+  /** apiFramework attribute on <JavaScriptResource> (typically 'omid'). */
+  apiFramework?: string;
+  /** Whether the JS resource is optional (browserOptional="true"). */
+  browserOptional: boolean;
+  /** Opaque parameters string from <VerificationParameters>. */
+  verificationParameters?: string;
 }
 
 export interface VASTIcon {
@@ -119,6 +128,8 @@ export interface VASTAd {
   linear?: VASTLinear;
   companions: VASTCompanion[];
   extensions: VASTExtension[];
+  /** S48: Parsed <AdVerifications> block. Empty array when not present. */
+  adVerifications: VASTAdVerification[];
   vastVersion?: string;
 }
 
@@ -130,36 +141,12 @@ export interface VASTResolveSuccess {
 
 export interface VASTResolveError {
   ok: false;
-  errorCode: VASTErrorCode;
+  errorCode: number;
   message: string;
   requestCount: number;
 }
 
 export type VASTResolveResult = VASTResolveSuccess | VASTResolveError;
-
-export type VASTErrorCode =
-  | 100
-  | 101
-  | 102
-  | 200
-  | 201
-  | 202
-  | 203
-  | 300
-  | 301
-  | 302
-  | 303
-  | 400
-  | 401
-  | 402
-  | 403
-  | 405
-  | 500
-  | 501
-  | 502
-  | 601
-  | 900
-  | 901;
 
 export interface VASTResolveOptions {
   maxRedirects?: number;
@@ -167,3 +154,18 @@ export interface VASTResolveOptions {
   fetchFn?: (url: string, signal: AbortSignal) => Promise<string>;
   onWrapperResolved?: (depth: number, url: string) => void;
 }
+
+export interface VASTLinear {
+  duration: number;
+  skipOffset?: number | string;
+  mediaFiles: VASTMediaFile[];
+  interactiveCreativeFiles: VASTInteractiveCreativeFile[];
+  clickThrough?: string;
+  clickTrackingUrls: string[];
+  customClickUrls: string[];
+  trackingEvents: Partial<Record<VASTTrackingEvent, string[]>>;
+  icons: VASTIcon[];
+  adParameters?: string;
+}
+
+export type VASTErrorCode = number;

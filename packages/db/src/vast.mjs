@@ -7,6 +7,7 @@ import {
   shouldUseDspVideoDelivery,
 } from '../../contracts/src/dsp-macros.mjs';
 import { listVideoRenditions } from './creatives.mjs';
+import { buildVastStorageKey } from '../../r2/src/client.mjs';
 
 const PROFILE_XML_VERSION = {
   default: '4.2',
@@ -402,6 +403,9 @@ function buildInlineXml({
   mediaFiles = [],
   source = {},
   trackingEvents = [],
+  omidVerificationJsUrl = '',
+  omidVerificationParams = '',
+  omidVerificationVendor = '',
 }) {
   const rootAttributes = buildXmlRootAttributes(xmlVersion);
   const normalizedMediaFiles = normalizeMediaFiles(mediaFiles, source);
@@ -428,6 +432,12 @@ function buildInlineXml({
       ${errorUrl ? `<Error>${cdata(errorUrl)}</Error>` : ''}
 ${impressionXml}
       ${hasVast4 && viewableUrl ? `<ViewableImpression><Viewable>${cdata(viewableUrl)}</Viewable></ViewableImpression>` : ''}
+      ${omidVerificationJsUrl ? `<AdVerifications>
+        <Verification vendor="${xmlEscapeText(omidVerificationVendor || 'smx-omid')}">
+          <JavaScriptResource apiFramework="omid" browserOptional="true">${cdata(omidVerificationJsUrl)}</JavaScriptResource>
+          ${omidVerificationParams ? `<VerificationParameters>${cdata(omidVerificationParams)}</VerificationParameters>` : ''}
+        </Verification>
+      </AdVerifications>` : ''}
       <Creatives>
         <Creative ${creativeAttributes}>
           ${hasUniversalId ? `<UniversalAdId idRegistry="smx-studio">${xmlEscapeText(tagId)}</UniversalAdId>` : ''}
@@ -612,6 +622,7 @@ async function getTagContext(pool, tagId) {
   const { rows } = await pool.query(
     `SELECT t.id, t.workspace_id, t.campaign_id, t.name, t.format, t.status,
             t.click_url, t.impression_url, t.targeting, t.created_at, t.updated_at,
+            t.omid_verification_vendor, t.omid_verification_js_url, t.omid_verification_params,
             c.name AS campaign_name,
             c.metadata AS campaign_metadata,
             tfc.vast_version, tfc.vast_wrapper, tfc.vast_url,
@@ -768,6 +779,9 @@ function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl }) {
     mediaFiles,
     source,
     trackingEvents,
+    omidVerificationJsUrl: trimText(ctx.tag.omid_verification_js_url),
+    omidVerificationParams: trimText(ctx.tag.omid_verification_params),
+    omidVerificationVendor: trimText(ctx.tag.omid_verification_vendor),
   });
 }
 
@@ -795,10 +809,26 @@ function buildStaticHistoryEntry(manifest, profiles) {
   };
 }
 
-export async function publishStaticVastProfiles(pool, { tagId, baseUrl, profiles = ['default', 'basis', 'illumin'], trigger = 'manual_publish' }) {
+export async function publishStaticVastProfiles(
+  pool,
+  { tagId, baseUrl, profiles = ['default', 'basis', 'illumin'], trigger = 'manual_publish' },
+  { r2 = null } = {},
+) {
   const ctx = await getTagContext(pool, tagId);
   if (!ctx) throw new Error('Tag not found.');
   if (String(ctx.tag.format || '').toLowerCase() !== 'vast') throw new Error('Static VAST publish is only available for VAST tags.');
+
+  const r2Available = r2?.isConfigured === true;
+  if (!r2Available) {
+    console.warn(JSON.stringify({
+      level: 'warn',
+      time: new Date().toISOString(),
+      service: 'smx-vast',
+      fn: 'publishStaticVastProfiles',
+      tagId,
+      message: 'R2 client not configured — static profiles will be stored in Postgres only. DSP URLs will not resolve from CDN.',
+    }));
+  }
 
   const currentState = parseStaticDeliveryMetadata(ctx.tag.format_metadata);
   const generatedAt = new Date().toISOString();
@@ -810,34 +840,55 @@ export async function publishStaticVastProfiles(pool, { tagId, baseUrl, profiles
 
   for (const profile of normalizedProfiles) {
     const xml = buildLiveXmlForTagContext(ctx, { profile, baseUrl });
-    const publicUrl = buildStaticProfileUrl(baseUrl, tagId, profile);
     const contentLength = Buffer.byteLength(xml, 'utf8');
+    const etag = hashEtag(xml);
+    const xmlVersion = getProfileVersion(profile, ctx.tag.vast_version);
+    const dsp = deriveProfileDsp(profile, readCampaignDsp(ctx.tag.campaign_metadata)) || null;
+
+    let storageKey = null;
+    let publicUrl = buildStaticProfileUrl(baseUrl, tagId, profile);
+
+    if (r2Available) {
+      const key = buildVastStorageKey(tagId, profile);
+      const result = await r2.putXml(key, xml, {
+        contentType: 'application/xml; charset=utf-8',
+        cacheControl: 'public, max-age=300, stale-while-revalidate=60',
+        etag,
+      });
+      storageKey = result.storageKey;
+      publicUrl = result.publicUrl;
+    }
+
     const snapshot = {
       xml,
       publicUrl,
       generatedAt,
       trigger,
-      xmlVersion: getProfileVersion(profile, ctx.tag.vast_version),
-      dsp: deriveProfileDsp(profile, readCampaignDsp(ctx.tag.campaign_metadata)) || null,
+      xmlVersion,
+      dsp,
       contentLength,
       contentType: 'application/xml; charset=utf-8',
-      etag: hashEtag(xml),
+      etag,
+      storageKey,
     };
     snapshots[profile] = snapshot;
     staticProfiles[profile] = publicUrl;
     staticProfileStatus[profile] = {
       publicUrl,
-      storageKey: null,
-      available: true,
+      storageKey,
+      available: r2Available,
       lastPublishedAt: generatedAt,
       contentLength,
       contentType: snapshot.contentType,
       etag: snapshot.etag,
+      uploadedToR2: r2Available,
     };
     publishedProfiles.push({
       profile,
-      dsp: snapshot.dsp,
-      xmlVersion: snapshot.xmlVersion,
+      dsp,
+      xmlVersion,
+      storageKey,
+      publicUrl,
     });
   }
 
@@ -852,12 +903,15 @@ export async function publishStaticVastProfiles(pool, { tagId, baseUrl, profiles
   ].slice(0, 10);
 
   const manifest = {
-    publicUrl: buildStaticProfileUrl(baseUrl, tagId, 'default'),
+    publicUrl: r2Available
+      ? publishedProfiles.find((profile) => profile.profile === 'default')?.publicUrl || ''
+      : buildStaticProfileUrl(baseUrl, tagId, 'default'),
     generatedAt,
     trigger,
     previousGeneratedAt: previousManifest?.generatedAt ?? null,
     previousTrigger: previousManifest?.trigger ?? null,
     profileCount: publishedProfiles.length,
+    uploadedToR2: r2Available,
     history,
   };
 
@@ -888,13 +942,13 @@ export async function publishStaticVastProfiles(pool, { tagId, baseUrl, profiles
   return nextState;
 }
 
-export async function queueStaticVastPublish(pool, { tagId, baseUrl, trigger = 'manual_queue' }) {
+export async function queueStaticVastPublish(pool, { tagId, baseUrl, trigger = 'manual_queue' }, deps = {}) {
   return publishStaticVastProfiles(pool, {
     tagId,
     baseUrl,
     profiles: ['default', 'basis', 'illumin'],
     trigger,
-  });
+  }, deps);
 }
 
 export async function getStaticVastXml(pool, { tagId, profile = 'default', baseUrl }) {
@@ -957,7 +1011,7 @@ export async function getVastDeliveryDiagnostics(pool, { tagId, baseUrl }) {
       clickChain: trackers.click,
       previewStatus: deliveryMode === 'dsp_video_contract' ? 'dsp_video_contract_ready' : 'smx_standard_ready',
       previewNotes: currentState.manifest?.generatedAt
-        ? `Static VAST last published ${currentState.manifest.generatedAt}.`
+        ? `Static VAST last published ${currentState.manifest.generatedAt}. Uploaded to R2: ${currentState.manifest.uploadedToR2 ?? false}.`
         : 'Using live VAST endpoints.',
     },
     deliveryDiagnostics: {

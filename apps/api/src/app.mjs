@@ -22,7 +22,7 @@ import { handleWebhookRoutes } from './modules/adserver/webhooks/routes.mjs';
 import { applyCors, getRequestId, notFound, readJsonBody, sendJson } from './lib/http.mjs';
 import { getApiConfig } from './plugins/config.mjs';
 import { logError, logInfo } from './lib/logger.mjs';
-import { getPool } from '../../../packages/db/src/pool.mjs';
+import { getPool } from '@smx/db/src/pool.mjs';
 
 const { env, warnings } = getApiConfig();
 let trackerBuffer = null;

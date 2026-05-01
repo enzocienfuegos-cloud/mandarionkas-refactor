@@ -86,6 +86,28 @@ function normalizeRole(role, fallback = 'editor') {
   return fallback;
 }
 
+function derivePlatformRole(globalRole) {
+  const value = String(globalRole || '').trim().toLowerCase();
+  if (value === 'admin') return 'admin';
+  if (value === 'reviewer') return 'reviewer';
+  if (value === 'ad_ops') return 'ad_ops';
+  return 'designer';
+}
+
+function deriveWorkspaceRole(globalRole) {
+  const value = normalizeRole(globalRole, 'editor');
+  if (value === 'owner') return 'owner';
+  if (value === 'admin') return 'admin';
+  if (value === 'reviewer') return 'viewer';
+  return 'member';
+}
+
+function defaultProductAccessForPlatformRole(platformRole) {
+  if (platformRole === 'designer') return { ad_server: false, studio: true };
+  if (platformRole === 'ad_ops') return { ad_server: true, studio: false };
+  return { ad_server: true, studio: true };
+}
+
 function normalizeAccessScope(value) {
   return value === 'private' || value === 'reviewers' ? value : 'client';
 }
@@ -497,7 +519,8 @@ export async function buildLegacyImportPlan(legacyDb) {
     const passwordHash = await hashPassword(String(legacyUser?.password || randomBytes(12).toString('hex')));
     const createdAt = normalizeTimestamp(legacyUser?.createdAt, nowIso());
     const updatedAt = normalizeTimestamp(legacyUser?.updatedAt, createdAt);
-    const userRow = { id: userId, email, passwordHash, displayName, globalRole: role === 'owner' ? 'editor' : role, createdAt, updatedAt };
+    const globalRole = role === 'owner' ? 'editor' : role;
+    const userRow = { id: userId, email, passwordHash, displayName, globalRole, platformRole: derivePlatformRole(globalRole), createdAt, updatedAt };
     users.push(userRow);
     userById.set(userId, userRow);
     userDisplayNames.set(userId, displayName);
@@ -516,6 +539,7 @@ export async function buildLegacyImportPlan(legacyDb) {
       passwordHash: '',
       displayName: String(fallbackName || normalizedId).trim() || normalizedId,
       globalRole: normalizeRole(fallbackRole, 'editor') === 'owner' ? 'editor' : normalizeRole(fallbackRole, 'editor'),
+      platformRole: derivePlatformRole(normalizeRole(fallbackRole, 'editor') === 'owner' ? 'editor' : normalizeRole(fallbackRole, 'editor')),
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };
@@ -555,26 +579,36 @@ export async function buildLegacyImportPlan(legacyDb) {
     brandIdsByWorkspace.set(workspaceId, new Set());
 
     const memberMap = new Map();
-    memberMap.set(owner.id, { workspaceId, userId: owner.id, role: 'owner', addedAt: normalizeTimestamp(legacyClient?.createdAt, createdAt) });
+    memberMap.set(owner.id, {
+      workspaceId,
+      userId: owner.id,
+      role: 'owner',
+      addedAt: normalizeTimestamp(legacyClient?.createdAt, createdAt),
+      productAccess: { ad_server: true, studio: true },
+    });
     for (const member of ensureArray(legacyClient?.members)) {
       const user = ensureUser(member?.userId, member?.userId, normalizeRole(member?.role, 'editor'));
       if (!user) continue;
+      const platformRole = derivePlatformRole(user.globalRole);
       memberMap.set(user.id, {
         workspaceId,
         userId: user.id,
-        role: normalizeRole(member?.role, user.id === owner.id ? 'owner' : 'editor'),
+        role: deriveWorkspaceRole(member?.role || (user.id === owner.id ? 'owner' : 'editor')),
         addedAt: normalizeTimestamp(member?.addedAt, createdAt),
+        productAccess: defaultProductAccessForPlatformRole(platformRole),
       });
     }
     for (const userId of ensureArray(legacyClient?.memberUserIds)) {
       const user = ensureUser(userId, userId, userId === owner.id ? 'owner' : 'editor');
       if (!user) continue;
       if (!memberMap.has(user.id)) {
+        const platformRole = derivePlatformRole(user.globalRole);
         memberMap.set(user.id, {
           workspaceId,
           userId: user.id,
-          role: user.id === owner.id ? 'owner' : 'editor',
+          role: user.id === owner.id ? 'owner' : deriveWorkspaceRole(user.globalRole),
           addedAt: createdAt,
+          productAccess: defaultProductAccessForPlatformRole(platformRole),
         });
       }
     }
@@ -582,16 +616,18 @@ export async function buildLegacyImportPlan(legacyDb) {
 
     for (const invite of ensureArray(legacyClient?.invites)) {
       const inviteId = String(invite?.id || `${workspaceId}:${invite?.email || randomBytes(6).toString('hex')}`);
+      const platformRole = derivePlatformRole(normalizeRole(invite?.role, 'editor') === 'owner' ? 'admin' : normalizeRole(invite?.role, 'editor'));
       invites.push({
         id: inviteId,
         workspaceId,
         email: normalizeEmail(invite?.email, inviteId),
-        role: normalizeRole(invite?.role, 'editor') === 'admin' ? 'editor' : normalizeRole(invite?.role, 'editor'),
+        role: deriveWorkspaceRole(normalizeRole(invite?.role, 'editor') === 'owner' ? 'admin' : normalizeRole(invite?.role, 'editor')),
         status: ['accepted', 'revoked'].includes(String(invite?.status || '').trim()) ? String(invite.status).trim() : 'pending',
         invitedByUserId: owner.id,
         invitedAt: normalizeTimestamp(invite?.invitedAt, createdAt),
         acceptedAt: normalizeTimestamp(invite?.acceptedAt, null),
         revokedAt: normalizeTimestamp(invite?.revokedAt, null),
+        productAccess: defaultProductAccessForPlatformRole(platformRole),
       });
     }
 
@@ -633,7 +669,13 @@ export async function buildLegacyImportPlan(legacyDb) {
       archivedAt: null,
     };
     workspaces.push(workspaceRow);
-    members.push({ workspaceId: normalizedId, userId: adminUser.id, role: 'owner', addedAt: nowIso() });
+    members.push({
+      workspaceId: normalizedId,
+      userId: adminUser.id,
+      role: 'owner',
+      addedAt: nowIso(),
+      productAccess: { ad_server: true, studio: true },
+    });
     workspaceById.set(normalizedId, workspaceRow);
     brandIdsByWorkspace.set(normalizedId, new Set());
     return workspaceRow;
@@ -925,16 +967,17 @@ export async function applyLegacyImportPlan(dbClient, plan, options = {}) {
     for (const row of plan.users) {
       await dbClient.query(
         `
-          insert into users (id, email, password_hash, display_name, global_role, created_at, updated_at)
-          values ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz)
+          insert into users (id, email, password_hash, display_name, global_role, platform_role, created_at, updated_at)
+          values ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz)
           on conflict (id) do update
           set email = excluded.email,
               password_hash = excluded.password_hash,
               display_name = excluded.display_name,
               global_role = excluded.global_role,
+              platform_role = excluded.platform_role,
               updated_at = excluded.updated_at
         `,
-        [row.id, row.email, row.passwordHash, row.displayName, row.globalRole, row.createdAt, row.updatedAt],
+        [row.id, row.email, row.passwordHash, row.displayName, row.globalRole, row.platformRole, row.createdAt, row.updatedAt],
       );
     }
 
@@ -958,21 +1001,22 @@ export async function applyLegacyImportPlan(dbClient, plan, options = {}) {
     for (const row of plan.members) {
       await dbClient.query(
         `
-          insert into workspace_members (workspace_id, user_id, role, added_at)
-          values ($1, $2, $3, $4::timestamptz)
+          insert into workspace_members (workspace_id, user_id, role, added_at, product_access)
+          values ($1, $2, $3, $4::timestamptz, $5::jsonb)
           on conflict (workspace_id, user_id) do update
           set role = excluded.role,
-              added_at = excluded.added_at
+              added_at = excluded.added_at,
+              product_access = excluded.product_access
         `,
-        [row.workspaceId, row.userId, row.role === 'admin' ? 'editor' : row.role, row.addedAt],
+        [row.workspaceId, row.userId, row.role, row.addedAt, JSON.stringify(row.productAccess || { ad_server: true, studio: true })],
       );
     }
 
     for (const row of plan.invites) {
       await dbClient.query(
         `
-          insert into workspace_invites (id, workspace_id, email, role, status, invited_by_user_id, invited_at, accepted_at, revoked_at)
-          values ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9::timestamptz)
+          insert into workspace_invites (id, workspace_id, email, role, status, invited_by_user_id, invited_at, accepted_at, revoked_at, product_access)
+          values ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9::timestamptz, $10::jsonb)
           on conflict (id) do update
           set email = excluded.email,
               role = excluded.role,
@@ -980,9 +1024,10 @@ export async function applyLegacyImportPlan(dbClient, plan, options = {}) {
               invited_by_user_id = excluded.invited_by_user_id,
               invited_at = excluded.invited_at,
               accepted_at = excluded.accepted_at,
-              revoked_at = excluded.revoked_at
+              revoked_at = excluded.revoked_at,
+              product_access = excluded.product_access
         `,
-        [row.id, row.workspaceId, row.email, row.role === 'admin' ? 'editor' : row.role, row.status, row.invitedByUserId, row.invitedAt, row.acceptedAt, row.revokedAt],
+        [row.id, row.workspaceId, row.email, row.role, row.status, row.invitedByUserId, row.invitedAt, row.acceptedAt, row.revokedAt, JSON.stringify(row.productAccess || { ad_server: true, studio: true })],
       );
     }
 

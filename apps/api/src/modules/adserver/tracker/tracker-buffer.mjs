@@ -1,4 +1,4 @@
-import { flushTrackerBatch } from '../../../../../../packages/db/src/tracking.mjs';
+import { flushTrackerBatch } from '@smx/db/src/tracking.mjs';
 import { logError, logInfo } from '../../../lib/logger.mjs';
 
 const DEFAULT_FLUSH_INTERVAL_MS = 5_000;

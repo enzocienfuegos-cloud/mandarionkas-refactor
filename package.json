@@ -19,10 +19,12 @@
     "test": "npm run test:web",
     "typecheck": "npm run typecheck:web",
     "dev:web": "npm run dev -w @smx/web",
+    "dev:portal": "npm run dev -w @smx/portal",
     "dev:studio": "npm run dev -w @smx/studio",
     "dev:api": "npm run dev -w @smx/api",
     "dev:worker": "npm run dev -w @smx/worker",
     "build:web": "npm run build -w @smx/web",
+    "build:portal": "npm run build -w @smx/portal",
     "build:studio": "npm run build -w @smx/studio && cp apps/studio/dist/index.html apps/studio/dist/404.html",
     "typecheck:web": "npm run typecheck -w @smx/web",
     "test:web": "npm run test -w @smx/web",
@@ -56,6 +58,15 @@
     "staging:tenant-mutations:rehearsal": "node scripts/staging-tenant-mutations-rehearsal.mjs",
     "staging:maintenance:cleanup-sessions": "node scripts/run-session-cleanup.mjs",
     "staging:maintenance:cleanup-drafts": "node scripts/run-draft-cleanup.mjs",
-    "staging:maintenance:assets": "node scripts/run-asset-housekeeping.mjs"
+    "staging:maintenance:assets": "node scripts/run-asset-housekeeping.mjs",
+    "migrate:imports": "node scripts/migrate-imports.mjs",
+    "migrate:imports:dry": "node scripts/migrate-imports.mjs --dry-run",
+    "migrate:imports:verify": "node scripts/migrate-imports.mjs --verify",
+    "validate:legacy-migration": "node scripts/validate-legacy-migration.mjs",
+    "validate:legacy-migration:fix": "node scripts/validate-legacy-migration.mjs --fix",
+    "validate:portal-cutover": "node scripts/validate-portal-cutover.mjs",
+    "validate:do:staging": "node scripts/check-do-staging-specs.mjs",
+    "audit:s40-s44": "node scripts/staging-s40-s44-audit.mjs",
+    "audit:go-nogo": "npm run production:readiness:evaluate && npm run audit:s40-s44"
   }
 }

@@ -3,7 +3,8 @@ create table if not exists users (
   email text not null unique,
   password_hash text not null,
   display_name text not null,
-  global_role text not null check (global_role in ('admin', 'editor', 'reviewer')),
+  global_role text not null check (global_role in ('admin', 'editor', 'designer', 'ad_ops', 'reviewer')),
+  platform_role text not null check (platform_role in ('admin', 'designer', 'ad_ops', 'reviewer')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

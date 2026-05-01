@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { getWorkspaceProductLabel, loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
+import { getPlatformRoleLabel } from '../shared/roles';
 import { loadPreference, savePreference } from '../shared/preferences';
 import { THEME_PREFERENCE_KEY, applyTheme, getInitialTheme, persistTheme, type ThemeMode } from '../shared/theme';
 
@@ -10,6 +11,7 @@ interface User {
   firstName: string;
   lastName: string;
   role: string;
+  permissions: string[];
   workspace: {
     id: string;
     name: string;
@@ -225,6 +227,7 @@ export default function Shell() {
       firstName,
       lastName,
       role: payload.role ?? 'member',
+      permissions: payload.permissions ?? [],
       workspace: {
         id: payload.workspace?.id ?? '',
         name: payload.workspace?.name ?? 'Workspace',
@@ -235,7 +238,12 @@ export default function Shell() {
 
   const hasAdServerAccess = user?.workspace?.productAccess?.ad_server !== false;
   const hasStudioAccess = user?.workspace?.productAccess?.studio !== false;
+  const canReadAudit = Boolean(user?.permissions?.includes('audit:read'));
   const isDark = theme === 'dark';
+  const launcherAccessibleWithoutAdServer = location.pathname === '/' || location.pathname === '/launch';
+  const workspaceSettingsAccessibleWithoutAdServer = location.pathname.startsWith('/settings/workspace');
+  const auditAccessibleWithoutPermission = !location.pathname.startsWith('/settings/audit-log') || canReadAudit;
+  const canRenderCurrentRouteWithoutAdServer = launcherAccessibleWithoutAdServer || workspaceSettingsAccessibleWithoutAdServer;
 
   useEffect(() => {
     const workspaceLoader = hasAdServerAccess ? loadWorkspaces('ad_server') : loadWorkspaces('all');
@@ -248,6 +256,18 @@ export default function Shell() {
       .catch(() => navigate('/login'))
       .finally(() => setLoading(false));
   }, [hasAdServerAccess, navigate]);
+
+  useEffect(() => {
+    if (!loading && !hasAdServerAccess && !canRenderCurrentRouteWithoutAdServer) {
+      navigate('/launch', { replace: true });
+    }
+  }, [canRenderCurrentRouteWithoutAdServer, hasAdServerAccess, loading, navigate]);
+
+  useEffect(() => {
+    if (!loading && !canReadAudit && location.pathname.startsWith('/settings/audit-log')) {
+      navigate('/settings', { replace: true });
+    }
+  }, [canReadAudit, loading, location.pathname, navigate]);
 
   useEffect(() => {
     const preferredTheme = loadPreference<ThemeMode>(THEME_PREFERENCE_KEY);
@@ -310,6 +330,8 @@ export default function Shell() {
     setTheme(nextTheme);
   };
 
+  const canRenderCurrentRoute = (hasAdServerAccess || canRenderCurrentRouteWithoutAdServer) && auditAccessibleWithoutPermission;
+
   if (loading) {
     return (
       <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]'}`}>
@@ -341,7 +363,7 @@ export default function Shell() {
             <div className="h-5 w-5 rounded-md bg-fuchsia-500/90" />
             <div className="min-w-0 flex-1">
               <div className={`truncate text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{user?.workspace?.name ?? 'Workspace'}</div>
-              <div className={`text-[11px] ${isDark ? 'text-white/28' : 'text-slate-400'}`}>{user?.role ?? 'member'}</div>
+              <div className={`text-[11px] ${isDark ? 'text-white/28' : 'text-slate-400'}`}>{getPlatformRoleLabel(user?.role)}</div>
             </div>
           </div>
         </div>
@@ -489,14 +511,16 @@ export default function Shell() {
                       </>
                     )}
                   </NavLink>
-                  <NavLink to="/settings/audit-log" className={navLinkClass}>
-                    {({ isActive }) => (
-                      <>
-                        <NavGlyph active={isActive} name="audit" />
-                        <span className="font-medium">Audit Log</span>
-                      </>
-                    )}
-                  </NavLink>
+                  {canReadAudit && (
+                    <NavLink to="/settings/audit-log" className={navLinkClass}>
+                      {({ isActive }) => (
+                        <>
+                          <NavGlyph active={isActive} name="audit" />
+                          <span className="font-medium">Audit Log</span>
+                        </>
+                      )}
+                    </NavLink>
+                  )}
                   <NavLink to="/settings/workspace" className={navLinkClass}>
                     {({ isActive }) => (
                       <>
@@ -615,7 +639,7 @@ export default function Shell() {
                       {user?.firstName} {user?.lastName}
                     </p>
                     <p className={`mt-1 text-xs ${isDark ? 'text-white/38' : 'text-slate-500'}`}>{user?.email}</p>
-                    <p className={`mt-1 text-[11px] uppercase tracking-[0.14em] ${isDark ? 'text-white/22' : 'text-slate-400'}`}>{user?.role}</p>
+                    <p className={`mt-1 text-[11px] uppercase tracking-[0.14em] ${isDark ? 'text-white/22' : 'text-slate-400'}`}>{getPlatformRoleLabel(user?.role)}</p>
                   </div>
                   <NavLink
                     to="/settings/workspace"
@@ -648,7 +672,7 @@ export default function Shell() {
         ) : null}
 
         <main className={`flex-1 overflow-y-auto ${isOverviewRoute ? 'p-0' : 'p-6'} ${isDark ? 'bg-[#0c0c0e]' : 'bg-[#f6f3f8]'}`}>
-          {hasAdServerAccess ? (
+          {canRenderCurrentRoute ? (
             <Outlet key={user?.workspace?.id ?? 'workspace-shell'} context={{ user }} />
           ) : (
             <div className={`mx-auto max-w-2xl rounded-[18px] p-8 ${isDark ? 'border border-white/[0.08] bg-[#18181c] shadow-[0_18px_50px_rgba(0,0,0,0.32)]' : 'border border-slate-200 bg-white shadow-sm'}`}>

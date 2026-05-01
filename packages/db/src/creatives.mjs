@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { enqueueVideoTranscodeJob } from './asset-jobs.mjs';
+import { enqueueVideoTranscodeJob } from './video-transcode-jobs.mjs';
 
 function trimText(value) {
   return String(value ?? '').trim();
@@ -638,39 +638,21 @@ export async function queueVideoTranscodeForCreativeVersion(pool, input = {}) {
     return { queued: false, reason: 'source_below_minimum_ladder_size', targetProfiles: ladderProfiles };
   }
 
-  const existingJobResult = await pool.query(
-    `SELECT id
-     FROM asset_processing_jobs
-     WHERE workspace_id = $1
-       AND job_type = 'video-transcode'
-       AND status IN ('pending', 'processing')
-       AND input->>'creativeVersionId' = $2
-     LIMIT 1`,
-    [workspaceId, creativeVersionId],
-  );
-  if (!existingJobResult.rows[0]?.id) {
-    await enqueueVideoTranscodeJob(pool, {
-      workspaceId,
-      ownerUserId: createdBy,
-      assetId: queuedAssetId,
-      input: {
-        assetId: queuedAssetId,
-        workspaceId,
-        creativeId,
-        creativeVersionId,
-        storageKey,
-        publicUrl,
-        mimeType: mimeType || 'video/mp4',
-        width: width || null,
-        height: height || null,
-        durationMs: durationMs || null,
-        outputPlan,
-        targetPlan: targetProfiles,
-      },
-    });
+  const queuedJob = await enqueueVideoTranscodeJob(pool, {
+    workspaceId,
+    creativeVersionId,
+    assetId: queuedAssetId,
+    sourceUrl: publicUrl,
+    sourceStorageKey: storageKey,
+    targetPlan: targetProfiles,
+    createdBy,
+  });
+
+  if (!queuedJob) {
+    return { queued: false, reason: 'job_already_active', outputPlan, assetId: queuedAssetId, targetProfiles: ladderProfiles };
   }
 
-  return { queued: true, outputPlan, assetId: queuedAssetId, targetProfiles: ladderProfiles };
+  return { queued: true, outputPlan, assetId: queuedAssetId, targetProfiles: ladderProfiles, jobId: queuedJob.id };
 }
 
 export async function createCreativeIngestion(pool, input = {}) {

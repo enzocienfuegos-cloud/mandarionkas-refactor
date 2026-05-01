@@ -1,0 +1,237 @@
+# DigitalOcean App Platform — Backend staging (API + Worker + pre-deploy migration)
+#
+# Staging spec for branch: codex/s50-staging-rc
+# Repo: enzocienfuegos-cloud/dusk
+#
+# Apply with:
+#   doctl apps create --spec infra/do/backend.staging.app.yaml
+#   doctl apps update <APP_ID> --spec infra/do/backend.staging.app.yaml
+#
+# Secrets must be set in DigitalOcean before deploy:
+#   DATABASE_URL
+#   DATABASE_POOL_URL
+#   SESSION_SECRET
+#   R2_ENDPOINT
+#   R2_ACCESS_KEY_ID
+#   R2_SECRET_ACCESS_KEY
+
+name: smx-studio-backend-staging
+region: nyc
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+features:
+  - buildpack-stack=ubuntu-22
+
+services:
+  - name: api
+    github:
+      repo: enzocienfuegos-cloud/dusk
+      branch: codex/s50-staging-rc
+      deploy_on_push: false
+    source_dir: ./
+    environment_slug: node-js
+    build_command: npm ci
+    run_command: npm run start:api
+    http_port: 8080
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+
+    health_check:
+      http_path: /healthz
+      initial_delay_seconds: 5
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+
+    envs:
+      - key: APP_NAME
+        scope: RUN_TIME
+        type: GENERAL
+        value: smx-studio-api
+      - key: APP_ENV
+        scope: RUN_TIME
+        type: GENERAL
+        value: staging
+      - key: PLATFORM_ALLOWED_ORIGIN
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://portal-staging.duskplatform.co
+      - key: CORS_ORIGIN
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://portal-staging.duskplatform.co,https://app-staging.duskplatform.co,https://studio-staging.duskplatform.co
+      - key: APP_ORIGIN
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://portal-staging.duskplatform.co
+      - key: PLATFORM_COOKIE_SECURE
+        scope: RUN_TIME
+        type: GENERAL
+        value: "true"
+      - key: API_BASE_URL
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://api-staging.duskplatform.co
+      - key: ASSETS_PUBLIC_BASE_URL
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://cdn-staging.duskplatform.co
+      - key: PLATFORM_OBSERVABILITY_ENABLED
+        scope: RUN_TIME
+        type: GENERAL
+        value: "true"
+      - key: PLATFORM_LOGIN_RATE_LIMIT_WINDOW_MS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "60000"
+      - key: PLATFORM_LOGIN_RATE_LIMIT_MAX
+        scope: RUN_TIME
+        type: GENERAL
+        value: "10"
+      - key: PLATFORM_UPLOAD_RATE_LIMIT_WINDOW_MS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "60000"
+      - key: PLATFORM_UPLOAD_RATE_LIMIT_MAX
+        scope: RUN_TIME
+        type: GENERAL
+        value: "20"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DO_SECRET
+      - key: DATABASE_POOL_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DO_SECRET
+      - key: SESSION_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DO_SECRET
+      - key: TRACKER_FLUSH_INTERVAL_MS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "5000"
+      - key: TRACKER_FLUSH_THRESHOLD
+        scope: RUN_TIME
+        type: GENERAL
+        value: "1000"
+      - key: PGBOSS_ARCHIVE_COMPLETED_AFTER_SECONDS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "3600"
+      - key: PGBOSS_ARCHIVE_FAILED_AFTER_SECONDS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "86400"
+      - key: PGBOSS_DELETE_AFTER_DAYS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "7"
+      - key: R2_ENDPOINT
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DO_SECRET
+      - key: R2_BUCKET
+        scope: RUN_TIME
+        type: GENERAL
+        value: smx-assets
+      - key: R2_ACCESS_KEY_ID
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DO_SECRET
+      - key: R2_SECRET_ACCESS_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DO_SECRET
+      - key: R2_PUBLIC_BASE
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://cdn-staging.duskplatform.co
+      - key: APP_GIT_SHA
+        scope: RUN_TIME
+        type: GENERAL
+        value: codex/s50-staging-rc
+      - key: APP_BUILD_TIME
+        scope: RUN_TIME
+        type: GENERAL
+        value: "2026-05-01T00:00:00Z"
+
+workers:
+  - name: worker
+    github:
+      repo: enzocienfuegos-cloud/dusk
+      branch: codex/s50-staging-rc
+      deploy_on_push: false
+    source_dir: ./
+    environment_slug: node-js
+    build_command: npm ci
+    run_command: npm run start:worker
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+
+    envs:
+      - key: APP_ENV
+        scope: RUN_TIME
+        type: GENERAL
+        value: staging
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DO_SECRET
+      - key: DATABASE_POOL_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DO_SECRET
+      - key: DRAFT_RETENTION_DAYS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "30"
+      - key: WORKER_POLL_INTERVAL_MS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "30000"
+      - key: R2_ENDPOINT
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DO_SECRET
+      - key: R2_BUCKET
+        scope: RUN_TIME
+        type: GENERAL
+        value: smx-assets
+      - key: R2_ACCESS_KEY_ID
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DO_SECRET
+      - key: R2_SECRET_ACCESS_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DO_SECRET
+      - key: R2_PUBLIC_BASE
+        scope: RUN_TIME
+        type: GENERAL
+        value: https://cdn-staging.duskplatform.co
+
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    github:
+      repo: enzocienfuegos-cloud/dusk
+      branch: codex/s50-staging-rc
+      deploy_on_push: false
+    source_dir: ./
+    environment_slug: node-js
+    build_command: npm ci
+    run_command: node packages/db/scripts/run-migrations.mjs
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DO_SECRET

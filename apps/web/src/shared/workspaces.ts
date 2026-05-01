@@ -24,13 +24,14 @@ export interface AuthMeUser {
   email: string;
   display_name?: string | null;
   avatar_url?: string | null;
-  role?: string | null;
+  role?: 'admin' | 'designer' | 'ad_ops' | 'reviewer' | string | null;
 }
 
 export interface AuthMeResponse {
   user: AuthMeUser;
   workspace: WorkspaceOption | null;
-  role?: string | null;
+  role?: 'admin' | 'designer' | 'ad_ops' | 'reviewer' | string | null;
+  permissions?: string[];
   productAccess?: {
     ad_server: boolean;
     studio: boolean;
@@ -40,6 +41,7 @@ export interface AuthMeResponse {
 interface SessionWorkspacePayload {
   ok: boolean;
   authenticated: boolean;
+  permissions?: string[];
   user?: {
     id: string;
     email: string;
@@ -95,6 +97,7 @@ export async function loadAuthMe() {
     },
     workspace: activeWorkspace,
     role: payload.user.role ?? null,
+    permissions: payload.permissions ?? [],
     productAccess: activeWorkspace?.product_access ?? null,
   } satisfies AuthMeResponse;
 }
@@ -180,7 +183,7 @@ export async function loadClientAccess() {
 
 export async function grantClientAccess(input: {
   email: string;
-  role: 'owner' | 'editor' | 'reviewer';
+  role: 'admin' | 'designer' | 'ad_ops' | 'reviewer';
   workspaceIds: string[];
   productAccess: { ad_server: boolean; studio: boolean };
 }) {
@@ -213,7 +216,7 @@ export async function removeClientAccess(clientId: string, userId: string) {
 export async function updateClientAccess(input: {
   clientId: string;
   userId: string;
-  role: 'owner' | 'editor' | 'reviewer';
+  role: 'admin' | 'designer' | 'ad_ops' | 'reviewer';
   productAccess: { ad_server: boolean; studio: boolean };
 }) {
   try {

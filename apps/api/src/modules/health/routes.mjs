@@ -1,5 +1,5 @@
 import { sendJson } from '../../lib/http.mjs';
-import { getPool } from '../../../../../packages/db/src/pool.mjs';
+import { getPool } from '@smx/db/src/pool.mjs';
 
 async function runReadinessChecks(env) {
   const checks = {

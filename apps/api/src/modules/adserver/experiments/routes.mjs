@@ -8,22 +8,8 @@ import {
   startExperiment,
   stopExperiment,
   updateExperiment,
-} from '../../../../../../packages/db/src/experiments.mjs';
-
-async function withSession(ctx, callback) {
-  const session = await requireAuthenticatedSession({ env: ctx.env, headers: ctx.req.headers });
-  if (!session.ok) {
-    if (session.statusCode === 503) return serviceUnavailable(ctx.res, ctx.requestId, session.message);
-    if (session.statusCode === 401) return unauthorized(ctx.res, ctx.requestId, session.message);
-    return false;
-  }
-
-  try {
-    return await callback(session);
-  } finally {
-    await session.finish();
-  }
-}
+} from '@smx/db/src/experiments.mjs';
+import { withSession } from '../../../lib/session.mjs';
 
 function getWorkspaceId(session) {
   return session.session.activeWorkspaceId || session.workspaces[0]?.id || null;

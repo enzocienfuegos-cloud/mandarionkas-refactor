@@ -1,7 +1,12 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 
-const cards = [
+const cards: Array<{
+  title: string;
+  description: string;
+  href: string;
+  permission?: string;
+}> = [
   {
     title: 'Manage Clients',
     description: 'Create clients and maintain basic account setup outside trafficking screens.',
@@ -16,6 +21,7 @@ const cards = [
     title: 'Audit Log',
     description: 'Inspect platform activity and operational changes.',
     href: '/settings/audit-log',
+    permission: 'audit:read',
   },
   {
     title: 'Webhooks',
@@ -25,6 +31,9 @@ const cards = [
 ];
 
 export default function SettingsHome() {
+  const { user } = useOutletContext<{ user?: { permissions?: string[] } }>();
+  const visibleCards = cards.filter((card) => !card.permission || user?.permissions?.includes(card.permission));
+
   return (
     <div className="space-y-6">
       <div>
@@ -33,7 +42,7 @@ export default function SettingsHome() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {cards.map(card => (
+        {visibleCards.map(card => (
           <Link
             key={card.title}
             to={card.href}

@@ -1,40 +1,125 @@
-# Cloudflare setup
+# Cloudflare Setup — S43 Portal Cutover
 
-## DNS
+## Hostnames
 
-Create proxied records for:
+Replace `YOUR_DOMAIN.com` with your actual domain everywhere below.
 
-- `app.example.com` → DigitalOcean Static Site default ingress
-- `api.example.com` → DigitalOcean API ingress
-- `assets.example.com` → Cloudflare R2 custom domain
+| Hostname | Purpose | Target |
+|---|---|---|
+| `portal.YOUR_DOMAIN.com` | Portal (unified launcher + identity) | DO Portal Static Site |
+| `app.YOUR_DOMAIN.com` | Ad Server web app (apps/web) | DO Web Static Site |
+| `studio.YOUR_DOMAIN.com` | Studio frontend (apps/studio) | DO Studio Static Site |
+| `api.YOUR_DOMAIN.com` | API backend (apps/api) | DO API Service |
+| `assets.YOUR_DOMAIN.com` | CDN for R2 binary objects | Cloudflare R2 custom domain |
+
+**Canonical entrypoint after S43:** `portal.YOUR_DOMAIN.com`
+
+---
+
+## DNS records
+
+Create these proxied (orange cloud) CNAME records in Cloudflare:
+
+```
+portal.YOUR_DOMAIN.com  CNAME  <DO-portal-app-ingress>.ondigitalocean.app
+app.YOUR_DOMAIN.com     CNAME  <DO-web-app-ingress>.ondigitalocean.app
+studio.YOUR_DOMAIN.com  CNAME  <DO-studio-app-ingress>.ondigitalocean.app
+api.YOUR_DOMAIN.com     CNAME  <DO-api-service-ingress>.ondigitalocean.app
+assets.YOUR_DOMAIN.com  CNAME  <R2-bucket>.r2.cloudflarestorage.com
+```
+
+Get the DO ingress URLs:
+```bash
+doctl apps list
+doctl apps get <APP_ID> --format DefaultIngress
+```
+
+---
 
 ## TLS
 
-- Use **Full (strict)**.
-- Install Cloudflare Origin CA certificates on DigitalOcean origins.
-- Keep browser-facing traffic proxied through Cloudflare.
+- Use **Full (strict)** SSL mode.
+- Cloudflare handles browser-facing certificate.
+- DigitalOcean handles origin certificate (auto-managed by App Platform).
+- `PLATFORM_COOKIE_SECURE=true` requires HTTPS — confirm before enabling.
 
-## Cache rules
+---
 
-- Bypass cache for `api.example.com/*`
-- Cache hashed frontend assets aggressively on `app.example.com`
-- Cache public asset objects on `assets.example.com`
+## Cache rules (Cloudflare dashboard → Cache Rules)
 
-## Security rules
+### Rule 1: Bypass cache for API
+```
+If hostname equals api.YOUR_DOMAIN.com → Cache: Bypass
+```
 
-- Rate-limit `POST /v1/auth/login`
-- Rate-limit `POST /v1/assets/uploads`, `POST /v1/assets/upload-url`, `POST /v1/assets/complete-upload`, and `POST /v1/assets/uploads/*/complete`
-- Turn on managed WAF rules for `app` and `api`
-- Keep `assets` behind the custom domain, not `r2.dev`
+### Rule 2: Cache hashed frontend assets
+```
+If hostname in {portal.YOUR_DOMAIN.com, app.YOUR_DOMAIN.com, studio.YOUR_DOMAIN.com}
+AND URI path matches /assets/*
+→ Cache: Standard, Browser TTL: 1 year
+```
 
-## Origin health / cutover
+### Rule 3: Cache R2 objects
+```
+If hostname equals assets.YOUR_DOMAIN.com
+→ Cache: Standard, Browser TTL: 5 minutes, Edge TTL: 5 minutes
+```
 
-- Check `https://api.example.com/readyz` until it returns `200`
-- Run the smoke check after DNS switch: `SMOKE_BASE_URL=https://api.example.com npm run smoke:api`
-- Watch worker logs for maintenance activity during the first production window
+---
 
-## R2
+## Security rules (Cloudflare WAF → Rate Limiting)
 
-- Use R2 only for binary objects
-- Do not store business JSON documents in R2
-- Metadata, ownership and folder hierarchy belong in PostgreSQL
+### Login rate limit
+```
+Expression: http.request.method eq "POST" AND http.request.uri.path eq "/v1/auth/login"
+Action: Block — 10 requests / 60 seconds per IP
+```
+
+### Upload rate limit
+```
+Expression: http.request.method eq "POST" AND http.request.uri.path matches "^/v1/assets/"
+Action: Block — 20 requests / 60 seconds per IP
+```
+
+Enable **Cloudflare Managed Ruleset** for all four app hostnames.
+
+---
+
+## DNS cutover checklist
+
+### Pre-cutover
+- [ ] Deploy backend with `PLATFORM_ALLOWED_ORIGIN=https://portal.YOUR_DOMAIN.com`
+- [ ] Deploy web with `VITE_PORTAL_URL=https://portal.YOUR_DOMAIN.com/launch`
+- [ ] Deploy portal with real `VITE_*` URLs
+- [ ] Run: `PORTAL_URL=https://portal.YOUR_DOMAIN.com API_URL=https://api.YOUR_DOMAIN.com node scripts/validate-portal-cutover.mjs`
+
+### DNS change
+- [ ] Create `portal.YOUR_DOMAIN.com` CNAME → portal DO ingress
+- [ ] Wait for propagation (< 5 min with Cloudflare)
+- [ ] Verify: `curl -I https://portal.YOUR_DOMAIN.com` → HTTP 200
+- [ ] Login flow works end-to-end in browser
+
+### Post-cutover
+- [ ] Re-run `validate-portal-cutover.mjs`
+- [ ] Run `npm run staging:post-deploy:check`
+- [ ] Manual: login → workspace → Ad Server → portal → Studio
+
+---
+
+## R2 custom domain setup
+
+1. Cloudflare R2 dashboard → your bucket → Settings → Custom Domains
+2. Add `assets.YOUR_DOMAIN.com`
+3. Cloudflare creates DNS record automatically
+4. Wait for SSL provisioning (< 5 min)
+
+---
+
+## Smoke check after any deploy
+
+```bash
+PORTAL_URL=https://portal.YOUR_DOMAIN.com \
+API_URL=https://api.YOUR_DOMAIN.com \
+WEB_URL=https://app.YOUR_DOMAIN.com \
+node scripts/validate-portal-cutover.mjs
+```

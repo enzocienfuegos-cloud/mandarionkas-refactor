@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { getPool } from '../../../../../packages/db/src/pool.mjs';
-import { signOpaqueToken, verifyOpaqueToken, verifyPassword } from '../../../../../packages/config/src/security.mjs';
+import { getPool } from '@smx/db/src/pool.mjs';
+import { signOpaqueToken, verifyOpaqueToken, verifyPassword } from '@smx/config/src/security.mjs';
 import { parseCookies, serializeCookie } from '../../lib/cookies.mjs';
 import { listWorkspacesForUser, setSessionActiveWorkspace, userHasWorkspaceAccess } from '../workspaces/service.mjs';
 
@@ -14,6 +14,7 @@ const ROLE_PERMISSIONS = {
     'clients:update',
     'clients:invite',
     'clients:manage-members',
+    'audit:read',
     'projects:create',
     'projects:view-client',
     'projects:save',
@@ -41,6 +42,13 @@ const ROLE_PERMISSIONS = {
   reviewer: ['projects:view-client', 'assets:view-client'],
 };
 
+const PLATFORM_ROLE_PERMISSIONS = {
+  admin: ROLE_PERMISSIONS.admin,
+  designer: ROLE_PERMISSIONS.editor,
+  ad_ops: [...ROLE_PERMISSIONS.editor, 'audit:read'],
+  reviewer: ROLE_PERMISSIONS.reviewer,
+};
+
 function now() {
   return new Date();
 }
@@ -60,11 +68,52 @@ function toPublicUser(row) {
     id: row.user_id || row.id,
     name: row.display_name,
     email: row.email,
-    role: row.global_role,
+    role: row.platform_role || null,
+    platformRole: row.platform_role || null,
+    legacyRole: row.global_role,
   };
 }
 
+function normalizePlatformRole(globalRole, productAccess = null) {
+  const role = String(globalRole || '').trim().toLowerCase();
+  if (role === 'admin') return 'admin';
+  if (role === 'reviewer') return 'reviewer';
+  if (role !== 'editor') return role || 'reviewer';
+
+  const access = productAccess && typeof productAccess === 'object'
+    ? productAccess
+    : { ad_server: true, studio: true };
+
+  if (access.studio !== false && access.ad_server === false) return 'designer';
+  if (access.ad_server !== false && access.studio === false) return 'ad_ops';
+
+  // Legacy "editor" covered a mixed operational role. Until the full migration
+  // is complete, bias toward the creative/studio-facing platform label.
+  return 'designer';
+}
+
+function resolvePlatformRole(row, productAccess = null) {
+  const stored = String(row?.platform_role || '').trim().toLowerCase();
+  if (stored) return stored;
+  return normalizePlatformRole(row?.global_role, productAccess);
+}
+
+function getPermissionsForRole(role) {
+  const normalized = String(role || '').trim().toLowerCase();
+  return PLATFORM_ROLE_PERMISSIONS[normalized] || ROLE_PERMISSIONS[normalized] || [];
+}
+
 function toAuthPayload({ sessionId, persistenceMode, issuedAt, expiresAt, user, activeWorkspaceId, workspaces }) {
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) || workspaces[0] || null;
+  const normalizedRole = resolvePlatformRole(
+    { global_role: user.legacyRole || user.role, platform_role: user.platformRole || user.role },
+    activeWorkspace?.product_access || null,
+  );
+  const normalizedUser = {
+    ...user,
+    legacyRole: user.legacyRole || user.role,
+    role: normalizedRole,
+  };
   return {
     ok: true,
     authenticated: true,
@@ -74,10 +123,11 @@ function toAuthPayload({ sessionId, persistenceMode, issuedAt, expiresAt, user, 
       issuedAt,
       expiresAt,
     },
-    user,
+    user: normalizedUser,
     activeClientId: activeWorkspaceId,
     activeWorkspaceId,
-    permissions: ROLE_PERMISSIONS[user.role] || [],
+    permissions: getPermissionsForRole(normalizedUser.role),
+    productAccess: activeWorkspace?.product_access || { ad_server: true, studio: true },
     clients: workspaces,
     workspaces,
   };
@@ -172,7 +222,7 @@ async function readSessionRowFromCookie(client, env, headers) {
   const result = await client.query(
     `
       select s.id, s.user_id, s.active_workspace_id, s.expires_at, s.created_at, s.persistence_mode,
-             u.email, u.display_name, u.global_role
+             u.email, u.display_name, u.global_role, u.platform_role
       from sessions s
       join users u on u.id = s.user_id
       where s.id = $1
@@ -227,7 +277,7 @@ export async function createLoginSession({ env, email, password, remember, heade
   try {
     const userResult = await client.query(
       `
-        select id, email, password_hash, display_name, global_role
+        select id, email, password_hash, display_name, global_role, platform_role
         from users
         where lower(email) = $1
         limit 1
@@ -351,7 +401,7 @@ export async function requireAuthenticatedSession({ env, headers }) {
       },
       user: toPublicUser(sessionRow),
       workspaces,
-      permissions: ROLE_PERMISSIONS[sessionRow.global_role] || [],
+      permissions: getPermissionsForRole(resolvePlatformRole(sessionRow, workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.product_access || null)),
       async finish() {
         client.release();
       },

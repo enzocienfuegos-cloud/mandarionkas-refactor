@@ -1,4 +1,5 @@
 import React, { useEffect, useState, FormEvent } from 'react';
+import { useOutletContext } from 'react-router-dom';
 
 interface AuditEvent {
   id: string;
@@ -26,6 +27,7 @@ const RESOURCE_TYPES = [
 const LIMIT = 50;
 
 export default function AuditLog() {
+  const { user } = useOutletContext<{ user?: { permissions?: string[] } }>();
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -41,6 +43,7 @@ export default function AuditLog() {
     dateTo: '',
   });
   const [pendingFilters, setPendingFilters] = useState({ ...filters });
+  const canReadAudit = Boolean(user?.permissions?.includes('audit:read'));
 
   const setF = (k: keyof typeof pendingFilters) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -69,7 +72,9 @@ export default function AuditLog() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(0); }, [filters]);
+  useEffect(() => {
+    if (canReadAudit) load(0);
+  }, [canReadAudit, filters]);
 
   const handleApplyFilters = (e: FormEvent) => {
     e.preventDefault();
@@ -84,6 +89,17 @@ export default function AuditLog() {
 
   const totalPages = Math.ceil(total / LIMIT);
   const currentPage = Math.floor(offset / LIMIT) + 1;
+
+  if (!canReadAudit) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-900">
+        <h1 className="text-2xl font-bold">Audit Log</h1>
+        <p className="mt-2 text-sm">
+          This workspace account does not currently include permission to inspect audit events.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>

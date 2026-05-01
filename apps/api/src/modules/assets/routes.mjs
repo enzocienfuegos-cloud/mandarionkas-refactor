@@ -1,5 +1,6 @@
 import { badRequest, forbidden, sendJson, sendNoContent, serviceUnavailable, unauthorized } from '../../lib/http.mjs';
 import { requireAuthenticatedSession } from '../auth/service.mjs';
+import { withSession, hasPermission } from '../../lib/session.mjs';
 import {
   completeAssetUpload,
   createAssetFolder,
@@ -12,31 +13,10 @@ import {
   renameAsset,
   saveRemoteAsset,
 } from './service.mjs';
-import { recordAuditEvent } from '../../../../../packages/db/src/audit.mjs';
+import { recordAuditEvent } from '@smx/db/src/audit.mjs';
 import { checkRateLimit } from '../../lib/rate-limit.mjs';
 
-function hasPermission(session, permission) {
-  return session.permissions.includes(permission);
-}
 
-async function withSession(ctx, callback) {
-  const session = await requireAuthenticatedSession({ env: ctx.env, headers: ctx.req.headers });
-  if (!session.ok) {
-    if (session.statusCode === 503) {
-      return serviceUnavailable(ctx.res, ctx.requestId, session.message);
-    }
-    if (session.statusCode === 401) {
-      return unauthorized(ctx.res, ctx.requestId, session.message);
-    }
-    return false;
-  }
-
-  try {
-    return await callback(session);
-  } finally {
-    await session.finish();
-  }
-}
 
 function getActiveWorkspace(session) {
   return session.workspaces.find((workspace) => workspace.id === session.session.activeWorkspaceId) || session.workspaces[0] || null;
