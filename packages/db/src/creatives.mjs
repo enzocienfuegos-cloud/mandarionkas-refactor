@@ -642,11 +642,11 @@ export async function queueVideoTranscodeForCreativeVersion(pool, input = {}) {
     `SELECT id
      FROM asset_processing_jobs
      WHERE workspace_id = $1
-       AND asset_id = $2
        AND job_type = 'video-transcode'
        AND status IN ('pending', 'processing')
+       AND input->>'creativeVersionId' = $2
      LIMIT 1`,
-    [workspaceId, queuedAssetId],
+    [workspaceId, creativeVersionId],
   );
   if (!existingJobResult.rows[0]?.id) {
     await enqueueVideoTranscodeJob(pool, {

@@ -312,6 +312,23 @@ async function findActiveVideoTranscodeJob(client, workspaceId, creativeVersionI
   return rows[0] ?? null;
 }
 
+function getFeasibleVideoRenditionLabels(creativeVersion) {
+  const sourceHeight = Number(creativeVersion?.height || 0) || 720;
+  return ['1080p', '720p', '480p'].filter((label) => {
+    const targetHeight = label === '1080p' ? 1080 : label === '720p' ? 720 : 480;
+    return targetHeight <= sourceHeight;
+  });
+}
+
+function hasPublishedVideoRenditionAsset(rendition) {
+  const metadata = rendition?.metadata && typeof rendition.metadata === 'object' ? rendition.metadata : {};
+  return (
+    trimText(rendition?.public_url).length > 0
+    && Number(rendition?.size_bytes || 0) > 0
+    && metadata.available === true
+  );
+}
+
 async function ensureVideoTranscodeQueued(client, {
   workspaceId,
   creativeVersion,
@@ -323,9 +340,12 @@ async function ensureVideoTranscodeQueued(client, {
 
   let renditions = await listVideoRenditions(client, workspaceId, creativeVersion.id);
   const nonSourceRenditions = renditions.filter((row) => !row.is_source);
+  const feasibleLabels = new Set(getFeasibleVideoRenditionLabels(creativeVersion));
   const hasActionablePendingRenditions = nonSourceRenditions.some((row) => {
+    const label = String(row.label || '').trim();
     const status = String(row.status || '').trim().toLowerCase();
-    return !['active', 'unavailable'].includes(status);
+    if (feasibleLabels.has(label) && !hasPublishedVideoRenditionAsset(row)) return true;
+    return !feasibleLabels.has(label) && !['active', 'unavailable'].includes(status);
   });
 
   if (!nonSourceRenditions.length) {
@@ -335,8 +355,10 @@ async function ensureVideoTranscodeQueued(client, {
   const latestRenditions = renditions.length ? renditions : await listVideoRenditions(client, workspaceId, creativeVersion.id);
   const latestNonSourceRenditions = latestRenditions.filter((row) => !row.is_source);
   const stillNeedsTranscode = latestNonSourceRenditions.some((row) => {
+    const label = String(row.label || '').trim();
     const status = String(row.status || '').trim().toLowerCase();
-    return !['active', 'unavailable'].includes(status);
+    if (feasibleLabels.has(label) && !hasPublishedVideoRenditionAsset(row)) return true;
+    return !feasibleLabels.has(label) && !['active', 'unavailable'].includes(status);
   });
 
   if (!hasActionablePendingRenditions && !stillNeedsTranscode) {
@@ -351,7 +373,8 @@ async function ensureVideoTranscodeQueued(client, {
   const artifacts = await listCreativeArtifacts(client, workspaceId, creativeVersion.id);
   const sourceArtifact = artifacts.find((artifact) => artifact.kind === 'video_mp4') || artifacts[0] || null;
   const creative = await getCreative(client, workspaceId, creativeVersion.creative_id);
-  if (!sourceArtifact?.storage_key || !creativeVersion.public_url) {
+  const sourcePublicUrl = creativeVersion.public_url || sourceArtifact?.public_url || null;
+  if (!sourceArtifact?.storage_key || !sourcePublicUrl) {
     return { queued: false, reason: 'missing_queue_prerequisites' };
   }
 
@@ -363,7 +386,7 @@ async function ensureVideoTranscodeQueued(client, {
     creativeName: creative?.name || sourceArtifact?.metadata?.originalFilename || 'Video creative',
     mimeType: creativeVersion.mime_type || sourceArtifact?.mime_type || 'video/mp4',
     storageKey: sourceArtifact.storage_key,
-    publicUrl: creativeVersion.public_url,
+    publicUrl: sourcePublicUrl,
     sizeBytes: creativeVersion.file_size ?? sourceArtifact?.size_bytes ?? null,
     width: creativeVersion.width ?? null,
     height: creativeVersion.height ?? null,
