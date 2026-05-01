@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -17,12 +18,30 @@ import {
 } from '../../../../packages/db/src/creatives.mjs';
 import { logError, logInfo, logWarn } from '../../../api/src/lib/logger.mjs';
 
+const require = createRequire(import.meta.url);
+let cachedBundledFfmpegBin;
+
+function getBundledFfmpegBin() {
+  if (cachedBundledFfmpegBin !== undefined) return cachedBundledFfmpegBin;
+  try {
+    const resolved = require('ffmpeg-static');
+    cachedBundledFfmpegBin = resolved ? String(resolved).trim() : null;
+  } catch {
+    cachedBundledFfmpegBin = null;
+  }
+  return cachedBundledFfmpegBin;
+}
+
 function getConnectionString(source = process.env) {
   return String(source.DATABASE_POOL_URL || source.DATABASE_URL || '').trim();
 }
 
 function getFfmpegBin(source = process.env) {
-  return String(source.FFMPEG_BIN || 'ffmpeg').trim();
+  const configured = String(source.FFMPEG_BIN || '').trim();
+  if (configured) return configured;
+  const bundled = getBundledFfmpegBin();
+  if (bundled) return bundled;
+  return 'ffmpeg';
 }
 
 function transcodeEnabled(source = process.env) {
@@ -202,6 +221,13 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
       workspaceId: job.workspace_id,
       metadataPatch: assetMetadataPatch,
     });
+    if (input.creativeVersionId) {
+      await deps.updateCreativeVersionVideoProcessingState(client, {
+        workspaceId: job.workspace_id,
+        creativeVersionId: input.creativeVersionId,
+        status: 'processing',
+      });
+    }
 
     if (!transcodeEnabled(source)) {
       await deps.skipAssetProcessingJob(client, {

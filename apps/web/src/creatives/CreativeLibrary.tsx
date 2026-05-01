@@ -139,6 +139,33 @@ interface RegenerationFeedbackState {
   progressPercent: number;
 }
 
+function parseTimestamp(value: unknown) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  const timestamp = Date.parse(text);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function estimateVideoProcessingPercent(videoProcessing: Record<string, any> | undefined) {
+  const status = String(videoProcessing?.status ?? '').trim().toLowerCase();
+  if (!['queued', 'processing'].includes(status)) return null;
+
+  const startedAt = parseTimestamp(videoProcessing?.startedAt)
+    ?? parseTimestamp(videoProcessing?.updatedAt)
+    ?? parseTimestamp(videoProcessing?.queuedAt);
+  if (!startedAt) {
+    return status === 'processing' ? 18 : 8;
+  }
+
+  const elapsedMs = Math.max(0, Date.now() - startedAt);
+  if (status === 'queued') {
+    return Math.min(24, 8 + Math.round(elapsedMs / 1500));
+  }
+  if (elapsedMs < 4000) return Math.min(42, 24 + Math.round(elapsedMs / 250));
+  if (elapsedMs < 14000) return Math.min(84, 42 + Math.round((elapsedMs - 4000) / 240));
+  return Math.min(97, 84 + Math.round((elapsedMs - 14000) / 1200));
+}
+
 function shouldPollVideoRenditions(state: VideoRenditionState | null) {
   if (!state || state.loading || !state.version) return false;
   if (state.awaitingPublish) return true;
@@ -190,6 +217,7 @@ function getVideoProcessingPanelSummary(videoProcessing: Record<string, any> | u
   const status = String(videoProcessing?.status ?? '').trim().toLowerCase();
   const reasonText = humanizeVideoProcessingReason(videoProcessing?.reason);
   const nextRetryAt = String(videoProcessing?.nextRetryAt || '').trim();
+  const progressPercent = estimateVideoProcessingPercent(videoProcessing);
 
   if (status === 'blocked') {
     return {
@@ -208,20 +236,58 @@ function getVideoProcessingPanelSummary(videoProcessing: Record<string, any> | u
   if (status === 'queued') {
     return {
       tone: 'info' as const,
-      title: 'Queued for transcoding',
+      title: 'Transcoding in progress',
       message: nextRetryAt
-        ? `The worker will retry this job around ${nextRetryAt}.`
-        : 'The worker has not finished this job yet. Renditions should move to processing and then active.',
+        ? `In progress (${progressPercent ?? 8}%). The worker will retry this job around ${nextRetryAt}.`
+        : `In progress (${progressPercent ?? 8}%). The worker is preparing this job for transcoding.`,
     };
   }
   if (status === 'processing') {
     return {
       tone: 'info' as const,
       title: 'Transcoding in progress',
-      message: 'The worker is rendering the rendition ladder now.',
+      message: `In progress (${progressPercent ?? 42}%). The worker is rendering the rendition ladder now.`,
     };
   }
   return null;
+}
+
+function getRenditionProgressLabel(entry: any) {
+  if (entry?.available) return 'generated';
+  const status = String(entry?.status ?? '').trim().toLowerCase();
+  if (!['queued', 'processing', 'draft'].includes(status)) {
+    return String(entry?.status ?? entry?.reason ?? 'failed');
+  }
+
+  const startedAt = parseTimestamp(entry?.startedAt)
+    ?? parseTimestamp(entry?.updatedAt)
+    ?? parseTimestamp(entry?.queuedAt);
+  const elapsedMs = startedAt ? Math.max(0, Date.now() - startedAt) : 0;
+  const progressPercent = status === 'processing'
+    ? Math.min(97, Math.max(24, 24 + Math.round(elapsedMs / 500)))
+    : Math.min(24, Math.max(8, 8 + Math.round(elapsedMs / 1500)));
+  return `In progress (${progressPercent}%)`;
+}
+
+function getVideoRenditionStatusBadge(rendition: VideoRendition) {
+  const normalizedStatus = String(rendition.status || '').trim().toLowerCase();
+  if (!['queued', 'processing', 'draft'].includes(normalizedStatus)) {
+    return statusBadge(rendition.status);
+  }
+
+  const startedAt = parseTimestamp(rendition.metadata?.startedAt)
+    ?? parseTimestamp(rendition.metadata?.updatedAt)
+    ?? parseTimestamp(rendition.metadata?.queuedAt);
+  const elapsedMs = startedAt ? Math.max(0, Date.now() - startedAt) : 0;
+  const progressPercent = normalizedStatus === 'processing'
+    ? Math.min(97, Math.max(24, 24 + Math.round(elapsedMs / 500)))
+    : Math.min(24, Math.max(8, 8 + Math.round(elapsedMs / 1500)));
+
+  return (
+    <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+      In progress {progressPercent}%
+    </span>
+  );
 }
 
 function formatDuration(ms: number) {
@@ -1896,7 +1962,7 @@ export default function CreativeLibrary() {
                       <div key={entry.label} className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2">
                         <span className="font-medium text-slate-800">{entry.label}</span>
                         <span className={entry.available ? 'text-emerald-700' : ['queued', 'processing', 'draft'].includes(String(entry.status ?? '').toLowerCase()) ? 'text-amber-700' : 'text-rose-700'}>
-                          {entry.available ? 'generated' : (entry.status ?? entry.reason ?? 'failed')}
+                          {getRenditionProgressLabel(entry)}
                         </span>
                       </div>
                     )) : videoRenditionState.awaitingPublish ? (
@@ -1961,7 +2027,7 @@ export default function CreativeLibrary() {
                         </td>
                         <td className="px-4 py-3 text-slate-600">{formatVideoBitrate(rendition.bitrateKbps)}</td>
                         <td className="px-4 py-3 text-slate-600">{rendition.codec || '—'}</td>
-                        <td className="px-4 py-3">{statusBadge(rendition.status)}</td>
+                        <td className="px-4 py-3">{getVideoRenditionStatusBadge(rendition)}</td>
                         <td className="px-4 py-3">
                           <div className="space-y-1 text-xs text-slate-500">
                             {rendition.publicUrl ? (

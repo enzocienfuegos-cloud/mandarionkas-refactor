@@ -457,12 +457,14 @@ function getVideoProfileOutputKey(label = '') {
 }
 
 function buildQueuedVideoProcessingMetadata(version = {}, targetProfiles = [], outputPlan = {}) {
+  const queuedAt = new Date().toISOString();
   const renditionProcessing = targetProfiles.map((profile) => {
     const key = String(profile.label || '').trim().toLowerCase();
     return {
       label: profile.label,
       status: 'queued',
       available: false,
+      queuedAt,
       publicUrl: outputPlan[key]?.publicUrl ?? null,
       storageKey: outputPlan[key]?.storageKey ?? null,
     };
@@ -482,7 +484,8 @@ function buildQueuedVideoProcessingMetadata(version = {}, targetProfiles = [], o
       renditionProcessing,
       generatedCount: renditionProcessing.length + 1,
       noTargetsReason: targetProfiles.length === 0 ? 'source_below_minimum_ladder_size' : null,
-      queuedAt: new Date().toISOString(),
+      status: 'queued',
+      queuedAt,
       mode: 'auto-on-publish',
     },
   };
@@ -1060,15 +1063,22 @@ export async function updateCreativeVersionVideoProcessingState(pool, {
     : [];
 
   const normalizedStatus = String(status || '').trim().toLowerCase() || 'queued';
+  const statusTimestamp = new Date().toISOString();
   const updatedVideoProcessing = {
     ...previousVideoProcessing,
     status: normalizedStatus,
     reason: reason || null,
     retryCount: retryCount ?? previousVideoProcessing.retryCount ?? null,
     nextRetryAt: nextRetryAt ?? null,
+    queuedAt: normalizedStatus === 'queued'
+      ? (previousVideoProcessing.queuedAt ?? statusTimestamp)
+      : (previousVideoProcessing.queuedAt ?? null),
+    startedAt: normalizedStatus === 'processing'
+      ? (previousVideoProcessing.startedAt ?? statusTimestamp)
+      : (previousVideoProcessing.startedAt ?? null),
     failedAt: normalizedStatus === 'failed' ? new Date().toISOString() : (previousVideoProcessing.failedAt ?? null),
     blockedAt: normalizedStatus === 'blocked' ? new Date().toISOString() : (previousVideoProcessing.blockedAt ?? null),
-    updatedAt: new Date().toISOString(),
+    updatedAt: statusTimestamp,
     ffmpegAvailable: reason === 'ffmpeg_missing'
       ? false
       : (previousVideoProcessing.ffmpegAvailable ?? true),
@@ -1083,6 +1093,13 @@ export async function updateCreativeVersionVideoProcessingState(pool, {
             status: normalizedStatus,
             reason: reason || null,
             nextRetryAt: nextRetryAt ?? null,
+            queuedAt: normalizedStatus === 'queued'
+              ? (entry?.queuedAt ?? statusTimestamp)
+              : (entry?.queuedAt ?? null),
+            startedAt: normalizedStatus === 'processing'
+              ? (entry?.startedAt ?? statusTimestamp)
+              : (entry?.startedAt ?? null),
+            updatedAt: statusTimestamp,
           }
     )),
   };
@@ -1578,6 +1595,7 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
 
   const targetProfiles = buildVideoTargetProfiles(version);
   const regeneratedAt = new Date().toISOString();
+  const queuedAt = new Date().toISOString();
   const sourceArtifactStorageKey = sourceArtifact?.storage_key ?? null;
   const sourcePublicUrl = version.public_url ?? null;
   const outputPlan = buildAutoVideoOutputPlan({
@@ -1636,6 +1654,7 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
         label: profile.label,
         status: 'queued',
         available: false,
+        queuedAt,
         publicUrl: outputPlan[getVideoProfileOutputKey(profile.label)]?.publicUrl ?? null,
         storageKey: outputPlan[getVideoProfileOutputKey(profile.label)]?.storageKey ?? null,
         width: profile.width ?? null,
@@ -1644,6 +1663,8 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
       })),
       generatedCount: 1,
       noTargetsReason: targetProfiles.length === 0 ? 'source_below_minimum_ladder_size' : null,
+      status: 'queued',
+      queuedAt,
       regeneratedAt,
     },
   };
