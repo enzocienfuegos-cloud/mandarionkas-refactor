@@ -106,7 +106,6 @@ export async function handleVastRoutes(ctx) {
       tagId,
       profile: 'default',
       baseUrl,
-      requestQuery: url.searchParams,
     });
     if (!xml) return badRequest(res, requestId, 'Tag not found.');
     return sendXml(res, xml, { 'Cache-Control': 'private, no-store' });
@@ -120,7 +119,6 @@ export async function handleVastRoutes(ctx) {
       tagId,
       profile,
       baseUrl,
-      requestQuery: url.searchParams,
     });
     if (!xml) return badRequest(res, requestId, 'Tag not found.');
     return sendXml(res, xml, { 'Cache-Control': 'private, no-store' });

@@ -432,10 +432,17 @@ async function getTagContext(pool, tagId) {
   };
 }
 
-function buildTrackerUrls({ baseUrl, tagId, dsp }) {
+function buildTrackerUrls({ baseUrl, tagId, dsp = '' }) {
   const rawImpression = `${baseUrl}/v1/tags/tracker/${tagId}/impression.gif`;
   const rawClick = `${baseUrl}/v1/tags/tracker/${tagId}/click`;
   const rawEngagement = `${baseUrl}/v1/tags/tracker/${tagId}/engagement`;
+  if (!trimText(dsp)) {
+    return {
+      impression: rawImpression,
+      click: rawClick,
+      engagement: rawEngagement,
+    };
+  }
   return {
     impression: applyDspMacrosToDeliveryUrl(rawImpression, dsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION),
     click: applyDspMacrosToDeliveryUrl(rawClick, dsp, DSP_DELIVERY_KINDS.TRACKER_CLICK),
@@ -443,30 +450,20 @@ function buildTrackerUrls({ baseUrl, tagId, dsp }) {
   };
 }
 
-function shouldUseMacroDeliveryMode(requestQuery = null) {
-  if (!requestQuery) return false;
-  const params = requestQuery instanceof URLSearchParams
-    ? requestQuery
-    : new URLSearchParams(requestQuery);
-  return Array.from(params.keys()).some(Boolean);
-}
-
-function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl, requestQuery = null }) {
+function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl }) {
   const normalizedProfile = normalizeProfile(profile, 'default');
   const configuredVersion = trimText(ctx.tag.vast_version);
   const campaignDsp = readCampaignDsp(ctx.tag.campaign_metadata);
-  const macroMode = shouldUseMacroDeliveryMode(requestQuery);
-  const profileDsp = macroMode ? deriveProfileDsp(normalizedProfile, campaignDsp) : '';
   const xmlVersion = getProfileVersion(normalizedProfile, configuredVersion);
   const liveBaseUrl = trimText(baseUrl).replace(/\/+$/, '');
-  const trackers = buildTrackerUrls({ baseUrl: liveBaseUrl, tagId: ctx.tag.id, dsp: profileDsp });
+  const trackers = buildTrackerUrls({ baseUrl: liveBaseUrl, tagId: ctx.tag.id, dsp: '' });
   const clickThroughUrl = trimText(ctx.tag.click_url || ctx.selectedBinding?.creative_click_url) || `${liveBaseUrl}/v1/tags/tracker/${ctx.tag.id}/click`;
   const adTitle = `${trimText(ctx.tag.name) || 'SMX Studio Tag'} · ${normalizedProfile.toUpperCase()}`;
 
   if (ctx.tag.vast_wrapper && trimText(ctx.tag.vast_url)) {
     return buildWrapperXml({
       tagId: ctx.tag.id,
-      targetUrl: applyDspMacrosToDeliveryUrl(trimText(ctx.tag.vast_url), profileDsp, DSP_DELIVERY_KINDS.VIDEO),
+      targetUrl: trimText(ctx.tag.vast_url),
       impressionUrl: trackers.impression,
       clickTrackingUrl: trackers.click,
       clickThroughUrl,
@@ -478,7 +475,7 @@ function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl, requestQ
   if (ctx.selectedBinding?.source_kind === 'vast_wrapper' && trimText(ctx.selectedBinding.public_url)) {
     return buildWrapperXml({
       tagId: ctx.tag.id,
-      targetUrl: applyDspMacrosToDeliveryUrl(trimText(ctx.selectedBinding.public_url), profileDsp, DSP_DELIVERY_KINDS.VIDEO),
+      targetUrl: trimText(ctx.selectedBinding.public_url),
       impressionUrl: trackers.impression,
       clickTrackingUrl: trackers.click,
       clickThroughUrl,
@@ -645,10 +642,10 @@ export async function getStaticVastXml(pool, { tagId, profile = 'default', baseU
   return { xml, contentType: 'application/xml; charset=utf-8', etag: hashEtag(xml) };
 }
 
-export async function getLiveVastXml(pool, { tagId, profile = 'default', baseUrl, requestQuery = null }) {
+export async function getLiveVastXml(pool, { tagId, profile = 'default', baseUrl }) {
   const ctx = await getTagContext(pool, tagId);
   if (!ctx) return null;
-  return buildLiveXmlForTagContext(ctx, { profile, baseUrl, requestQuery });
+  return buildLiveXmlForTagContext(ctx, { profile, baseUrl });
 }
 
 export async function getTagClickDestination(pool, tagId) {
