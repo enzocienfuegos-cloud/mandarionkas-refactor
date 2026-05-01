@@ -2,6 +2,11 @@ function normalize(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function normalizeOrigin(value) {
+  const normalized = normalize(value);
+  return normalized.replace(/\/+$/, '');
+}
+
 function parseInteger(value, fallback) {
   const normalized = normalize(value);
   if (!normalized) return fallback;
@@ -13,13 +18,13 @@ function parseCsv(value) {
   const normalized = normalize(value);
   if (!normalized) return [];
   return normalized
-    .split(',')
-    .map((entry) => entry.trim())
+    .split(/[,\n\r\s]+/)
+    .map((entry) => normalizeOrigin(entry))
     .filter(Boolean);
 }
 
 export function readApiEnv(source = process.env) {
-  const appOrigin = normalize(source.APP_ORIGIN) || 'http://localhost:5173';
+  const appOrigin = normalizeOrigin(source.APP_ORIGIN) || 'http://localhost:5173';
   const corsOrigins = parseCsv(source.CORS_ORIGIN);
   return Object.freeze({
     nodeEnv: normalize(source.NODE_ENV) || 'development',

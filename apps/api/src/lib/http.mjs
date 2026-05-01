@@ -10,9 +10,15 @@ export function getOrigin(headers) {
   return Array.isArray(origin) ? origin[0] : origin || '';
 }
 
+function normalizeOrigin(value) {
+  return String(value ?? '').trim().replace(/\/+$/, '');
+}
+
 export function applyCors(req, res, env) {
-  const requestOrigin = getOrigin(req.headers);
-  const allowedOrigins = Array.isArray(env.corsOrigins) && env.corsOrigins.length ? env.corsOrigins : [env.appOrigin];
+  const requestOrigin = normalizeOrigin(getOrigin(req.headers));
+  const allowedOrigins = (Array.isArray(env.corsOrigins) && env.corsOrigins.length ? env.corsOrigins : [env.appOrigin])
+    .map(normalizeOrigin)
+    .filter(Boolean);
   const allowOrigin = requestOrigin && allowedOrigins.includes(requestOrigin)
     ? requestOrigin
     : allowedOrigins[0];
