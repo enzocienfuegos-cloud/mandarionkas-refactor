@@ -107,6 +107,14 @@ function buildPublicUrl(env, storageKey) {
   return base && storageKey ? `${base}/${storageKey}` : null;
 }
 
+function inferStorageKeyFromPublicUrl(env, publicUrl) {
+  const base = trimBaseUrl(env.assetsPublicBaseUrl);
+  const normalizedUrl = trimText(publicUrl);
+  if (!base || !normalizedUrl) return null;
+  if (!normalizedUrl.startsWith(`${base}/`)) return null;
+  return normalizedUrl.slice(base.length + 1) || null;
+}
+
 async function signUploadUrl(env, { storageKey, mimeType }) {
   if (!isR2SigningReady(env)) return null;
   const command = new PutObjectCommand({
@@ -333,6 +341,7 @@ async function ensureVideoTranscodeQueued(client, {
   workspaceId,
   creativeVersion,
   userId,
+  env,
 }) {
   if (!creativeVersion || creativeVersion.source_kind !== 'video_mp4') {
     return { queued: false, reason: 'not_video_version' };
@@ -373,8 +382,12 @@ async function ensureVideoTranscodeQueued(client, {
   const artifacts = await listCreativeArtifacts(client, workspaceId, creativeVersion.id);
   const sourceArtifact = artifacts.find((artifact) => artifact.kind === 'video_mp4') || artifacts[0] || null;
   const creative = await getCreative(client, workspaceId, creativeVersion.creative_id);
+  const sourceStorageKey = sourceArtifact?.storage_key
+    || inferStorageKeyFromPublicUrl(env, sourceArtifact?.public_url)
+    || inferStorageKeyFromPublicUrl(env, creativeVersion.public_url)
+    || null;
   const sourcePublicUrl = creativeVersion.public_url || sourceArtifact?.public_url || null;
-  if (!sourceArtifact?.storage_key || !sourcePublicUrl) {
+  if (!sourceStorageKey || !sourcePublicUrl) {
     return { queued: false, reason: 'missing_queue_prerequisites' };
   }
 
@@ -385,7 +398,7 @@ async function ensureVideoTranscodeQueued(client, {
     createdBy: userId,
     creativeName: creative?.name || sourceArtifact?.metadata?.originalFilename || 'Video creative',
     mimeType: creativeVersion.mime_type || sourceArtifact?.mime_type || 'video/mp4',
-    storageKey: sourceArtifact.storage_key,
+    storageKey: sourceStorageKey,
     publicUrl: sourcePublicUrl,
     sizeBytes: creativeVersion.file_size ?? sourceArtifact?.size_bytes ?? null,
     width: creativeVersion.width ?? null,
@@ -509,6 +522,7 @@ export async function handleCreativeRoutes(ctx) {
         workspaceId,
         creativeVersion,
         userId: session.user.id,
+        env: ctx.env,
       });
       creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
       const artifacts = await listCreativeArtifacts(session.client, workspaceId, versionId);
@@ -655,6 +669,7 @@ export async function handleCreativeRoutes(ctx) {
         workspaceId,
         creativeVersion,
         userId: session.user.id,
+        env: ctx.env,
       });
       const renditions = await listVideoRenditions(session.client, workspaceId, versionId);
       return sendJson(res, 200, { renditions: renditions.map(normalizeVideoRendition), requestId });
@@ -678,8 +693,12 @@ export async function handleCreativeRoutes(ctx) {
       const creative = await getCreative(session.client, workspaceId, creativeVersion.creative_id);
       const artifacts = await listCreativeArtifacts(session.client, workspaceId, versionId);
       const sourceArtifact = artifacts.find((artifact) => artifact.kind === 'video_mp4') || artifacts[0] || null;
+      const sourceStorageKey = sourceArtifact?.storage_key
+        || inferStorageKeyFromPublicUrl(ctx.env, sourceArtifact?.public_url)
+        || inferStorageKeyFromPublicUrl(ctx.env, creativeVersion.public_url)
+        || null;
       const renditions = await regenerateVideoRenditions(session.client, workspaceId, versionId);
-      if (creativeVersion.source_kind === 'video_mp4' && sourceArtifact?.storage_key && creativeVersion.public_url) {
+      if (creativeVersion.source_kind === 'video_mp4' && sourceStorageKey && creativeVersion.public_url) {
         await queueVideoTranscodeForCreativeVersion(session.client, {
           workspaceId,
           creativeId: creativeVersion.creative_id,
@@ -687,7 +706,7 @@ export async function handleCreativeRoutes(ctx) {
           createdBy: session.user.id,
           creativeName: creative?.name || sourceArtifact?.metadata?.originalFilename || 'Video creative',
           mimeType: creativeVersion.mime_type || sourceArtifact?.mime_type || 'video/mp4',
-          storageKey: sourceArtifact.storage_key,
+          storageKey: sourceStorageKey,
           publicUrl: creativeVersion.public_url,
           sizeBytes: creativeVersion.file_size ?? sourceArtifact?.size_bytes ?? null,
           width: creativeVersion.width ?? null,
@@ -951,7 +970,7 @@ export async function handleCreativeRoutes(ctx) {
         name: trimText(ctx.body?.name) || existing.metadata?.requestedName || existing.original_filename,
         clickUrl: trimText(ctx.body?.clickUrl ?? ctx.body?.click_url) || existing.metadata?.clickUrl || null,
         publicUrl: existing.public_url,
-        storageKey: existing.storage_key,
+        storageKey: existing.storage_key || inferStorageKeyFromPublicUrl(ctx.env, existing.public_url),
         originalFilename: existing.original_filename,
         mimeType: existing.mime_type,
         sizeBytes: existing.size_bytes,
