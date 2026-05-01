@@ -11,7 +11,10 @@ import {
   patchAssetMetadata,
   skipAssetProcessingJob,
 } from '../../../../packages/db/src/asset-jobs.mjs';
-import { syncCreativeVideoTranscodeOutputs } from '../../../../packages/db/src/creatives.mjs';
+import {
+  syncCreativeVideoTranscodeOutputs,
+  updateCreativeVersionVideoProcessingState,
+} from '../../../../packages/db/src/creatives.mjs';
 import { logError, logInfo, logWarn } from '../../../api/src/lib/logger.mjs';
 
 function getConnectionString(source = process.env) {
@@ -151,6 +154,7 @@ function createDefaultDeps(source = process.env) {
     patchAssetMetadata,
     skipAssetProcessingJob,
     syncCreativeVideoTranscodeOutputs,
+    updateCreativeVersionVideoProcessingState,
     logError,
     logInfo,
     logWarn,
@@ -220,6 +224,14 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
           },
         },
       });
+      if (input.creativeVersionId) {
+        await deps.updateCreativeVersionVideoProcessingState(client, {
+          workspaceId: job.workspace_id,
+          creativeVersionId: input.creativeVersionId,
+          status: 'blocked',
+          reason: 'transcoding_disabled',
+        });
+      }
       deps.logWarn({ service: 'smx-worker', job: 'transcode-video', status: 'skipped', jobId: job.id, reason: 'transcoding_disabled' });
       return { processed: 0, skipped: false };
     }
@@ -247,6 +259,14 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
           },
         },
       });
+      if (input.creativeVersionId) {
+        await deps.updateCreativeVersionVideoProcessingState(client, {
+          workspaceId: job.workspace_id,
+          creativeVersionId: input.creativeVersionId,
+          status: 'blocked',
+          reason: 'ffmpeg_missing',
+        });
+      }
       deps.logWarn({ service: 'smx-worker', job: 'transcode-video', status: 'skipped', jobId: job.id, reason: 'ffmpeg_missing' });
       return { processed: 0, skipped: false };
     }
@@ -271,6 +291,14 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
           },
         },
       });
+      if (input.creativeVersionId) {
+        await deps.updateCreativeVersionVideoProcessingState(client, {
+          workspaceId: job.workspace_id,
+          creativeVersionId: input.creativeVersionId,
+          status: 'blocked',
+          reason: 'r2_missing',
+        });
+      }
       deps.logWarn({ service: 'smx-worker', job: 'transcode-video', status: 'skipped', jobId: job.id, reason: 'r2_missing' });
       return { processed: 0, skipped: false };
     }
@@ -297,6 +325,14 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
           },
         },
       });
+      if (input.creativeVersionId) {
+        await deps.updateCreativeVersionVideoProcessingState(client, {
+          workspaceId: job.workspace_id,
+          creativeVersionId: input.creativeVersionId,
+          status: 'failed',
+          reason: 'missing_source_url',
+        });
+      }
       return { processed: 0, skipped: false };
     }
 
@@ -431,6 +467,16 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
         },
       },
     });
+    if (input.creativeVersionId) {
+      await deps.updateCreativeVersionVideoProcessingState(client, {
+        workspaceId: job.workspace_id,
+        creativeVersionId: input.creativeVersionId,
+        status: final ? 'failed' : 'queued',
+        reason: error instanceof Error ? error.message : 'video_processing_failed',
+        nextRetryAt,
+        retryCount: Number(job.attempts || 1),
+      });
+    }
     return { processed: 0, skipped: false };
   } finally {
     client.release();

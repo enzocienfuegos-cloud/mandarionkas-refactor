@@ -983,6 +983,63 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
   return listVideoRenditions(pool, workspaceId, creativeVersionId);
 }
 
+export async function updateCreativeVersionVideoProcessingState(pool, {
+  workspaceId,
+  creativeVersionId,
+  status,
+  reason = null,
+  nextRetryAt = null,
+  retryCount = null,
+}) {
+  const version = await getCreativeVersion(pool, workspaceId, creativeVersionId);
+  if (!version) return null;
+
+  const previousMetadata = (version.metadata && typeof version.metadata === 'object') ? version.metadata : {};
+  const previousVideoProcessing = (previousMetadata.videoProcessing && typeof previousMetadata.videoProcessing === 'object')
+    ? previousMetadata.videoProcessing
+    : {};
+  const renditionProcessing = Array.isArray(previousVideoProcessing.renditionProcessing)
+    ? previousVideoProcessing.renditionProcessing
+    : [];
+
+  const normalizedStatus = String(status || '').trim().toLowerCase() || 'queued';
+  const updatedVideoProcessing = {
+    ...previousVideoProcessing,
+    status: normalizedStatus,
+    reason: reason || null,
+    retryCount: retryCount ?? previousVideoProcessing.retryCount ?? null,
+    nextRetryAt: nextRetryAt ?? null,
+    failedAt: normalizedStatus === 'failed' ? new Date().toISOString() : (previousVideoProcessing.failedAt ?? null),
+    blockedAt: normalizedStatus === 'blocked' ? new Date().toISOString() : (previousVideoProcessing.blockedAt ?? null),
+    updatedAt: new Date().toISOString(),
+    ffmpegAvailable: reason === 'ffmpeg_missing'
+      ? false
+      : (previousVideoProcessing.ffmpegAvailable ?? true),
+    ffmpegReason: reason === 'ffmpeg_missing'
+      ? 'ffmpeg_missing'
+      : (previousVideoProcessing.ffmpegReason ?? null),
+    renditionProcessing: renditionProcessing.map((entry) => (
+      entry?.available
+        ? entry
+        : {
+            ...entry,
+            status: normalizedStatus,
+            reason: reason || null,
+            nextRetryAt: nextRetryAt ?? null,
+          }
+    )),
+  };
+
+  await updateCreativeVersion(pool, workspaceId, creativeVersionId, {
+    metadata: {
+      ...previousMetadata,
+      videoProcessing: updatedVideoProcessing,
+    },
+  });
+
+  return getCreativeVersion(pool, workspaceId, creativeVersionId);
+}
+
 export async function listTagBindings(pool, workspaceId, tagId) {
   const { rows } = await pool.query(
     `SELECT b.id, b.workspace_id, b.tag_id, b.creative_version_id, b.creative_size_variant_id,

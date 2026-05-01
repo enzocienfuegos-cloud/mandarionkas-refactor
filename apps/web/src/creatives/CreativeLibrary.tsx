@@ -146,6 +146,8 @@ function shouldPollVideoRenditions(state: VideoRenditionState | null) {
 
   const metadata = (state.version.metadata as Record<string, any> | undefined) ?? {};
   const videoProcessing = (metadata.videoProcessing as Record<string, any> | undefined) ?? {};
+  const topLevelStatus = String(videoProcessing.status ?? '').toLowerCase();
+  if (['blocked', 'failed'].includes(topLevelStatus)) return false;
   const renditionProcessing = Array.isArray(videoProcessing.renditionProcessing)
     ? videoProcessing.renditionProcessing
     : [];
@@ -159,6 +161,67 @@ function shouldPollVideoRenditions(state: VideoRenditionState | null) {
   const onlySourceVisible = state.renditions.length <= 1;
 
   return hasPendingRenditions || hasPendingProcessingEntries || autoQueuedWithoutCompletion || onlySourceVisible;
+}
+
+function humanizeVideoProcessingReason(reason: string | null | undefined) {
+  switch (String(reason || '').trim().toLowerCase()) {
+    case 'transcoding_disabled':
+      return 'Transcoding is disabled in the worker configuration.';
+    case 'ffmpeg_missing':
+      return 'The worker does not have ffmpeg available.';
+    case 'r2_missing':
+      return 'The worker is missing R2 upload configuration.';
+    case 'missing_source_url':
+      return 'The source video URL is missing, so the worker cannot transcode it.';
+    default:
+      return String(reason || '').trim();
+  }
+}
+
+function getVideoProcessingPanelSummary(videoProcessing: Record<string, any> | undefined, awaitingPublish: boolean) {
+  if (awaitingPublish) {
+    return {
+      tone: 'info' as const,
+      title: 'Publishing in background',
+      message: 'The creative is still being published. Renditions will appear after the publish job finishes.',
+    };
+  }
+
+  const status = String(videoProcessing?.status ?? '').trim().toLowerCase();
+  const reasonText = humanizeVideoProcessingReason(videoProcessing?.reason);
+  const nextRetryAt = String(videoProcessing?.nextRetryAt || '').trim();
+
+  if (status === 'blocked') {
+    return {
+      tone: 'warning' as const,
+      title: 'Transcoding blocked',
+      message: reasonText || 'The worker is not able to start transcoding for this video yet.',
+    };
+  }
+  if (status === 'failed') {
+    return {
+      tone: 'error' as const,
+      title: 'Transcoding failed',
+      message: reasonText || 'The worker failed to render the video ladder.',
+    };
+  }
+  if (status === 'queued') {
+    return {
+      tone: 'info' as const,
+      title: 'Queued for transcoding',
+      message: nextRetryAt
+        ? `The worker will retry this job around ${nextRetryAt}.`
+        : 'The worker has not finished this job yet. Renditions should move to processing and then active.',
+    };
+  }
+  if (status === 'processing') {
+    return {
+      tone: 'info' as const,
+      title: 'Transcoding in progress',
+      message: 'The worker is rendering the rendition ladder now.',
+    };
+  }
+  return null;
 }
 
 function formatDuration(ms: number) {
@@ -979,6 +1042,7 @@ export default function CreativeLibrary() {
   const videoProcessing = (videoRenditionState?.version?.metadata as Record<string, any> | undefined)?.videoProcessing;
   const plannedRenditions = Array.isArray(videoProcessing?.targetPlan) ? videoProcessing.targetPlan : [];
   const renditionProcessing = Array.isArray(videoProcessing?.renditionProcessing) ? videoProcessing.renditionProcessing : [];
+  const videoProcessingSummary = getVideoProcessingPanelSummary(videoProcessing, videoRenditionState?.awaitingPublish ?? false);
   const estimatedRemainingMs = regenerationFeedback
     ? estimateRemainingDuration(regenerationFeedback.elapsedMs, regenerationFeedback.progressPercent)
     : null;
@@ -1765,6 +1829,19 @@ export default function CreativeLibrary() {
                       Estimated progress based on encoder stages. Large source files can take longer.
                     </p>
                   </div>
+                </div>
+              )}
+
+              {videoProcessingSummary && !videoRenditionState.awaitingPublish && (
+                <div className={`rounded-xl border px-4 py-4 text-sm ${
+                  videoProcessingSummary.tone === 'error'
+                    ? 'border-rose-200 bg-rose-50 text-rose-800'
+                    : videoProcessingSummary.tone === 'warning'
+                      ? 'border-amber-200 bg-amber-50 text-amber-800'
+                      : 'border-sky-200 bg-sky-50 text-sky-800'
+                }`}>
+                  <div className="font-semibold">{videoProcessingSummary.title}</div>
+                  <div className="mt-1">{videoProcessingSummary.message}</div>
                 </div>
               )}
 
