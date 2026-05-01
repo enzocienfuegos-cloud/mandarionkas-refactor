@@ -274,8 +274,8 @@ function getVideoProcessingPanelSummary(videoProcessing: Record<string, any> | u
   if (stale) {
     return {
       tone: 'warning' as const,
-      title: 'Renditions unavailable',
-      message: 'N/A. No active transcode job is running right now, so these renditions are not being generated. Regenerate renditions to retry this video.',
+      title: 'Transcoding stalled',
+      message: 'No active transcode job is running right now. These renditions should be generated for this source video, but the job is no longer progressing. Use Regenerate renditions to retry.',
     };
   }
 
@@ -320,7 +320,7 @@ function getRenditionProgressLabel(entry: any) {
     return String(entry?.status ?? entry?.reason ?? 'failed');
   }
   if (isRenditionProcessingEntryStale(entry)) {
-    return 'N/A';
+    return 'Retry required';
   }
 
   const startedAt = parseTimestamp(entry?.startedAt)
@@ -356,7 +356,7 @@ function getVideoRenditionStatusBadge(rendition: VideoRendition, processingEntry
   if (isRenditionProcessingEntryStale(source)) {
     return (
       <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-        N/A
+        Stalled
       </span>
     );
   }

@@ -297,6 +297,80 @@ function normalizeVideoRendition(row) {
   };
 }
 
+async function findActiveVideoTranscodeJob(client, workspaceId, creativeVersionId) {
+  const { rows } = await client.query(
+    `SELECT id, status, created_at, claimed_at, completed_at
+     FROM asset_processing_jobs
+     WHERE workspace_id = $1
+       AND job_type = 'video-transcode'
+       AND status IN ('pending', 'processing')
+       AND input->>'creativeVersionId' = $2
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [workspaceId, creativeVersionId],
+  );
+  return rows[0] ?? null;
+}
+
+async function ensureVideoTranscodeQueued(client, {
+  workspaceId,
+  creativeVersion,
+  userId,
+}) {
+  if (!creativeVersion || creativeVersion.source_kind !== 'video_mp4') {
+    return { queued: false, reason: 'not_video_version' };
+  }
+
+  let renditions = await listVideoRenditions(client, workspaceId, creativeVersion.id);
+  const nonSourceRenditions = renditions.filter((row) => !row.is_source);
+  const hasActionablePendingRenditions = nonSourceRenditions.some((row) => {
+    const status = String(row.status || '').trim().toLowerCase();
+    return !['active', 'unavailable'].includes(status);
+  });
+
+  if (!nonSourceRenditions.length) {
+    renditions = await regenerateVideoRenditions(client, workspaceId, creativeVersion.id);
+  }
+
+  const latestRenditions = renditions.length ? renditions : await listVideoRenditions(client, workspaceId, creativeVersion.id);
+  const latestNonSourceRenditions = latestRenditions.filter((row) => !row.is_source);
+  const stillNeedsTranscode = latestNonSourceRenditions.some((row) => {
+    const status = String(row.status || '').trim().toLowerCase();
+    return !['active', 'unavailable'].includes(status);
+  });
+
+  if (!hasActionablePendingRenditions && !stillNeedsTranscode) {
+    return { queued: false, reason: 'no_pending_renditions' };
+  }
+
+  const activeJob = await findActiveVideoTranscodeJob(client, workspaceId, creativeVersion.id);
+  if (activeJob) {
+    return { queued: false, reason: 'job_already_active', jobId: activeJob.id, status: activeJob.status };
+  }
+
+  const artifacts = await listCreativeArtifacts(client, workspaceId, creativeVersion.id);
+  const sourceArtifact = artifacts.find((artifact) => artifact.kind === 'video_mp4') || artifacts[0] || null;
+  const creative = await getCreative(client, workspaceId, creativeVersion.creative_id);
+  if (!sourceArtifact?.storage_key || !creativeVersion.public_url) {
+    return { queued: false, reason: 'missing_queue_prerequisites' };
+  }
+
+  return queueVideoTranscodeForCreativeVersion(client, {
+    workspaceId,
+    creativeId: creativeVersion.creative_id,
+    creativeVersionId: creativeVersion.id,
+    createdBy: userId,
+    creativeName: creative?.name || sourceArtifact?.metadata?.originalFilename || 'Video creative',
+    mimeType: creativeVersion.mime_type || sourceArtifact?.mime_type || 'video/mp4',
+    storageKey: sourceArtifact.storage_key,
+    publicUrl: creativeVersion.public_url,
+    sizeBytes: creativeVersion.file_size ?? sourceArtifact?.size_bytes ?? null,
+    width: creativeVersion.width ?? null,
+    height: creativeVersion.height ?? null,
+    durationMs: creativeVersion.duration_ms ?? null,
+  });
+}
+
 function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object ?? {}, key);
 }
@@ -406,8 +480,14 @@ export async function handleCreativeRoutes(ctx) {
         session.session.activeWorkspaceId,
         url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
       );
-      const creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
+      let creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
       if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
+      await ensureVideoTranscodeQueued(session.client, {
+        workspaceId,
+        creativeVersion,
+        userId: session.user.id,
+      });
+      creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
       const artifacts = await listCreativeArtifacts(session.client, workspaceId, versionId);
       const variants = await listCreativeSizeVariants(session.client, workspaceId, versionId);
       const videoRenditions = await listVideoRenditions(session.client, workspaceId, versionId);
@@ -548,6 +628,11 @@ export async function handleCreativeRoutes(ctx) {
       );
       const creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
       if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
+      await ensureVideoTranscodeQueued(session.client, {
+        workspaceId,
+        creativeVersion,
+        userId: session.user.id,
+      });
       const renditions = await listVideoRenditions(session.client, workspaceId, versionId);
       return sendJson(res, 200, { renditions: renditions.map(normalizeVideoRendition), requestId });
     });
