@@ -139,6 +139,28 @@ interface RegenerationFeedbackState {
   progressPercent: number;
 }
 
+function shouldPollVideoRenditions(state: VideoRenditionState | null) {
+  if (!state || state.loading || !state.version) return false;
+  if (state.awaitingPublish) return true;
+  if (state.version.sourceKind !== 'video_mp4') return false;
+
+  const metadata = (state.version.metadata as Record<string, any> | undefined) ?? {};
+  const videoProcessing = (metadata.videoProcessing as Record<string, any> | undefined) ?? {};
+  const renditionProcessing = Array.isArray(videoProcessing.renditionProcessing)
+    ? videoProcessing.renditionProcessing
+    : [];
+  const hasPendingRenditions = state.renditions.some(
+    (rendition) => !rendition.isSource && ['queued', 'processing', 'draft'].includes(String(rendition.status ?? '').toLowerCase()),
+  );
+  const hasPendingProcessingEntries = renditionProcessing.some(
+    (entry: any) => ['queued', 'processing', 'draft'].includes(String(entry?.status ?? '').toLowerCase()) || !entry?.available,
+  );
+  const autoQueuedWithoutCompletion = videoProcessing.mode === 'auto-on-publish' && !videoProcessing.completedAt;
+  const onlySourceVisible = state.renditions.length <= 1;
+
+  return hasPendingRenditions || hasPendingProcessingEntries || autoQueuedWithoutCompletion || onlySourceVisible;
+}
+
 function formatDuration(ms: number) {
   const seconds = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(seconds / 60);
@@ -901,6 +923,42 @@ export default function CreativeLibrary() {
     videoRenditionState?.awaitingPublish,
     videoRenditionState?.pendingIngestion?.id,
     videoRenditionState?.workspaceId,
+  ]);
+
+  useEffect(() => {
+    if (!shouldPollVideoRenditions(videoRenditionState)) return undefined;
+
+    let cancelled = false;
+    const intervalId = window.setInterval(() => {
+      void (async () => {
+        try {
+          const currentVersionId = videoRenditionState?.versionId;
+          if (!currentVersionId) return;
+          const detail = await loadCreativeVersionDetail(currentVersionId);
+          if (cancelled) return;
+          setVideoRenditionState((current) => current ? {
+            ...current,
+            version: detail.creativeVersion,
+            renditions: detail.videoRenditions,
+            loading: false,
+            error: '',
+          } : current);
+        } catch {
+          if (cancelled) return;
+        }
+      })();
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [
+    videoRenditionState?.versionId,
+    videoRenditionState?.awaitingPublish,
+    videoRenditionState?.loading,
+    videoRenditionState?.version?.updatedAt,
+    videoRenditionState?.renditions.length,
   ]);
 
   const videoProcessing = (videoRenditionState?.version?.metadata as Record<string, any> | undefined)?.videoProcessing;
