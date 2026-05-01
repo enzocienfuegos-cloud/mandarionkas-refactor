@@ -4,6 +4,7 @@ import { handleWorkspaceRoutes } from './modules/workspaces/routes.mjs';
 import { handleProjectRoutes } from './modules/projects/routes.mjs';
 import { handleAssetRoutes } from './modules/assets/routes.mjs';
 import { handleCampaignRoutes } from './modules/adserver/campaigns/routes.mjs';
+import { handleApiKeyRoutes } from './modules/adserver/api-keys/routes.mjs';
 import { handleCreativeRoutes } from './modules/adserver/creatives/routes.mjs';
 import { handleDiscrepancyRoutes } from './modules/adserver/discrepancies/routes.mjs';
 import { handleExperimentRoutes } from './modules/adserver/experiments/routes.mjs';
@@ -23,6 +24,7 @@ const routeHandlers = [
   handleProjectRoutes,
   handleAssetRoutes,
   handleCampaignRoutes,
+  handleApiKeyRoutes,
   handleCreativeRoutes,
   handleDiscrepancyRoutes,
   handleExperimentRoutes,
