@@ -83,7 +83,7 @@ export interface VideoRendition {
   bitrateKbps?: number | null;
   codec?: string;
   mimeType?: string;
-  status: 'draft' | 'processing' | 'active' | 'paused' | 'archived' | 'failed';
+  status: 'draft' | 'queued' | 'processing' | 'active' | 'paused' | 'archived' | 'failed' | 'unavailable';
   isSource?: boolean;
   sortOrder?: number;
   publicUrl?: string;

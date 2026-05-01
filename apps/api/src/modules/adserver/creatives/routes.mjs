@@ -856,8 +856,9 @@ export async function handleCreativeRoutes(ctx) {
         ingestion: normalizeCreativeIngestion(result.ingestion),
         creative: normalizeCreative(result.creative),
         creativeVersion: normalizeCreativeVersion(result.creativeVersion),
-        queued: existing.source_kind === 'video_mp4',
-        processing: existing.source_kind === 'video_mp4',
+        queued: Boolean(result.transcode?.queued),
+        processing: Boolean(result.transcode?.queued),
+        transcode: result.transcode ?? null,
         requestId,
       });
     });

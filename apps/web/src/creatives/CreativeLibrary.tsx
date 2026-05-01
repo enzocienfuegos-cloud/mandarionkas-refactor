@@ -53,6 +53,8 @@ function statusBadge(status?: string) {
     validated: 'bg-emerald-100 text-emerald-700',
     failed: 'bg-rose-100 text-rose-700',
     processing: 'bg-purple-100 text-purple-700',
+    queued: 'bg-amber-100 text-amber-800',
+    unavailable: 'bg-slate-100 text-slate-500',
     uploaded: 'bg-slate-100 text-slate-500',
   };
   return (
@@ -313,6 +315,7 @@ function getVideoProcessingPanelSummary(videoProcessing: Record<string, any> | u
 function getRenditionProgressLabel(entry: any) {
   if (entry?.available) return 'generated';
   const status = String(entry?.status ?? '').trim().toLowerCase();
+  if (status === 'unavailable') return 'N/A';
   if (!['queued', 'processing', 'draft'].includes(status)) {
     return String(entry?.status ?? entry?.reason ?? 'failed');
   }
@@ -333,6 +336,7 @@ function getRenditionProgressLabel(entry: any) {
 function getVideoRenditionToggleBlockedReason(rendition: VideoRendition, renditionReadyForToggle: boolean) {
   if (rendition.status === 'processing') return 'This rendition is currently processing.';
   if (rendition.status === 'failed') return 'This rendition failed to generate.';
+  if (rendition.status === 'unavailable') return 'N/A. This rendition is not technically possible for the current source video.';
   if (!rendition.isSource && rendition.status !== 'active' && !renditionReadyForToggle) {
     return 'This rendition is still queued and has not been generated yet.';
   }
@@ -2046,7 +2050,7 @@ export default function CreativeLibrary() {
                     {renditionProcessing.length > 0 ? renditionProcessing.map((entry: any) => (
                       <div key={entry.label} className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2">
                         <span className="font-medium text-slate-800">{entry.label}</span>
-                        <span className={entry.available ? 'text-emerald-700' : ['queued', 'processing', 'draft'].includes(String(entry.status ?? '').toLowerCase()) ? 'text-amber-700' : 'text-rose-700'}>
+                        <span className={entry.available ? 'text-emerald-700' : ['queued', 'processing', 'draft'].includes(String(entry.status ?? '').toLowerCase()) ? 'text-amber-700' : String(entry.status ?? '').toLowerCase() === 'unavailable' ? 'text-slate-500' : 'text-rose-700'}>
                           {getRenditionProgressLabel(entry)}
                         </span>
                       </div>

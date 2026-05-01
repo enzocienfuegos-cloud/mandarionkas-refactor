@@ -468,17 +468,22 @@ function getVideoProfileOutputKey(label = '') {
   return normalized;
 }
 
-function buildQueuedVideoProcessingMetadata(version = {}, targetProfiles = [], outputPlan = {}) {
+function buildQueuedVideoProcessingMetadata(version = {}, ladderProfiles = [], outputPlan = {}) {
   const queuedAt = new Date().toISOString();
-  const renditionProcessing = targetProfiles.map((profile) => {
+  const feasibleProfiles = ladderProfiles.filter((profile) => profile.transcodePossible);
+  const renditionProcessing = ladderProfiles.map((profile) => {
     const key = String(profile.label || '').trim().toLowerCase();
     return {
       label: profile.label,
-      status: 'queued',
+      status: profile.transcodePossible ? 'queued' : 'unavailable',
       available: false,
-      queuedAt,
+      queuedAt: profile.transcodePossible ? queuedAt : null,
       publicUrl: outputPlan[key]?.publicUrl ?? null,
       storageKey: outputPlan[key]?.storageKey ?? null,
+      width: profile.width ?? null,
+      height: profile.height ?? null,
+      bitrateKbps: profile.bitrateKbps ?? null,
+      reason: profile.transcodePossible ? null : (profile.reason ?? 'source_below_target_height'),
     };
   });
   return {
@@ -492,12 +497,13 @@ function buildQueuedVideoProcessingMetadata(version = {}, targetProfiles = [], o
       },
       ffprobeAvailable: true,
       ffmpegAvailable: true,
-      targetPlan: targetProfiles,
+      targetPlan: ladderProfiles,
       renditionProcessing,
-      generatedCount: renditionProcessing.length + 1,
-      noTargetsReason: targetProfiles.length === 0 ? 'source_below_minimum_ladder_size' : null,
-      status: 'queued',
-      queuedAt,
+      generatedCount: 1,
+      noTargetsReason: feasibleProfiles.length === 0 ? 'source_below_minimum_ladder_size' : null,
+      status: feasibleProfiles.length > 0 ? 'queued' : 'blocked',
+      queuedAt: feasibleProfiles.length > 0 ? queuedAt : null,
+      reason: feasibleProfiles.length > 0 ? null : 'source_below_minimum_ladder_size',
       mode: 'auto-on-publish',
     },
   };
@@ -583,16 +589,17 @@ export async function queueVideoTranscodeForCreativeVersion(pool, input = {}) {
   );
 
   const queuedAssetId = assetResult.rows[0]?.id ?? assetId;
-  const targetProfiles = buildVideoTargetProfiles(creativeVersion);
-  for (const profile of targetProfiles) {
+  const ladderProfiles = buildVideoLadderProfiles(creativeVersion);
+  const targetProfiles = ladderProfiles.filter((profile) => profile.transcodePossible);
+  for (const profile of ladderProfiles) {
     const profileLabel = String(profile.label || '').trim();
     const profileKey = getVideoProfileOutputKey(profileLabel);
     await pool.query(
       `UPDATE video_renditions
-       SET status = 'queued',
+       SET status = $6,
            public_url = $4,
            storage_key = $5,
-           metadata = coalesce(metadata, '{}'::jsonb) || $6::jsonb,
+           metadata = coalesce(metadata, '{}'::jsonb) || $7::jsonb,
            updated_at = NOW()
        WHERE workspace_id = $1
          AND creative_version_id = $2
@@ -604,26 +611,32 @@ export async function queueVideoTranscodeForCreativeVersion(pool, input = {}) {
         profileLabel.toLowerCase(),
         outputPlan[profileKey]?.publicUrl ?? null,
         outputPlan[profileKey]?.storageKey ?? null,
+        profile.transcodePossible ? 'queued' : 'unavailable',
         JSON.stringify({
           queuedBy: 'publish',
           profile: profileLabel,
           available: false,
+          reason: profile.transcodePossible ? null : (profile.reason ?? 'source_below_target_height'),
         }),
       ],
     );
   }
 
   await updateCreativeVersion(pool, workspaceId, creativeVersionId, {
-    metadata: buildQueuedVideoProcessingMetadata(creativeVersion, targetProfiles, outputPlan),
+    metadata: buildQueuedVideoProcessingMetadata(creativeVersion, ladderProfiles, outputPlan),
   });
 
   await pool.query(
     `UPDATE creatives
-     SET transcode_status = 'queued',
+     SET transcode_status = $3,
          updated_at = NOW()
      WHERE workspace_id = $1 AND id = $2`,
-    [workspaceId, creativeId],
+    [workspaceId, creativeId, targetProfiles.length > 0 ? 'queued' : 'blocked'],
   );
+
+  if (!targetProfiles.length) {
+    return { queued: false, reason: 'source_below_minimum_ladder_size', targetProfiles: ladderProfiles };
+  }
 
   const existingJobResult = await pool.query(
     `SELECT id
@@ -657,7 +670,7 @@ export async function queueVideoTranscodeForCreativeVersion(pool, input = {}) {
     });
   }
 
-  return { queued: true, outputPlan, assetId: queuedAssetId };
+  return { queued: true, outputPlan, assetId: queuedAssetId, targetProfiles: ladderProfiles };
 }
 
 export async function createCreativeIngestion(pool, input = {}) {
@@ -828,7 +841,7 @@ export async function createPublishedCreative(pool, input = {}) {
       clickUrl,
       JSON.stringify(creativeMetadata),
       'draft',
-      normalizedSourceKind === 'video_mp4' ? 'ready' : 'ready',
+      normalizedSourceKind === 'video_mp4' ? 'queued' : 'ready',
     ],
   );
   const creative = creativeResult.rows[0];
@@ -881,6 +894,8 @@ export async function createPublishedCreative(pool, input = {}) {
     ],
   );
 
+  let transcode = null;
+
   if (normalizedSourceKind === 'video_mp4') {
     await pool.query(
       `INSERT INTO video_renditions (
@@ -925,8 +940,10 @@ export async function createPublishedCreative(pool, input = {}) {
 
     await regenerateVideoRenditions(pool, workspaceId, creativeVersion.id);
 
-    if (storageKey && publicUrl && createdBy) {
-      await queueVideoTranscodeForCreativeVersion(pool, {
+    const resolvedStorageKey = storageKey || null;
+    const resolvedPublicUrl = publicUrl || creativeVersion.public_url || null;
+    if (resolvedStorageKey && resolvedPublicUrl && createdBy) {
+      transcode = await queueVideoTranscodeForCreativeVersion(pool, {
         workspaceId,
         creativeId: creative.id,
         creativeVersionId: creativeVersion.id,
@@ -935,13 +952,32 @@ export async function createPublishedCreative(pool, input = {}) {
         ingestionId,
         sourceKind: normalizedSourceKind,
         mimeType: mimeType || 'video/mp4',
-        storageKey,
-        publicUrl,
+        storageKey: resolvedStorageKey,
+        publicUrl: resolvedPublicUrl,
         sizeBytes,
         width: resolvedWidth || null,
         height: resolvedHeight || null,
         durationMs: resolvedDurationMs || null,
       });
+    } else {
+      transcode = { queued: false, reason: 'missing_queue_prerequisites' };
+    }
+
+    if (!transcode?.queued) {
+      const blockedReason = transcode?.reason || 'transcode_not_queued';
+      await updateCreativeVersionVideoProcessingState(pool, {
+        workspaceId,
+        creativeVersionId: creativeVersion.id,
+        status: 'blocked',
+        reason: blockedReason,
+      });
+      await pool.query(
+        `UPDATE creatives
+         SET transcode_status = 'blocked',
+             updated_at = NOW()
+         WHERE workspace_id = $1 AND id = $2`,
+        [workspaceId, creative.id],
+      );
     }
   }
 
@@ -956,7 +992,12 @@ export async function createPublishedCreative(pool, input = {}) {
   const latestCreative = await getCreative(pool, workspaceId, creative.id);
   const latestCreativeVersion = await getCreativeVersion(pool, workspaceId, creativeVersion.id);
 
-  return { creative: latestCreative ?? creative, creativeVersion: latestCreativeVersion ?? creativeVersion, ingestion };
+  return {
+    creative: latestCreative ?? creative,
+    creativeVersion: latestCreativeVersion ?? creativeVersion,
+    ingestion,
+    transcode,
+  };
 }
 
 export async function syncCreativeVideoTranscodeOutputs(pool, {
@@ -968,8 +1009,8 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
   const version = await getCreativeVersion(pool, workspaceId, creativeVersionId);
   if (!version) return null;
 
-  const targetProfiles = buildVideoTargetProfiles(version);
-  for (const profile of targetProfiles) {
+  const ladderProfiles = buildVideoLadderProfiles(version);
+  for (const profile of ladderProfiles.filter((entry) => entry.transcodePossible)) {
     const profileLabel = String(profile.label || '').trim();
     const key = getVideoProfileOutputKey(profileLabel);
     const derivative = derivatives[key];
@@ -1026,18 +1067,30 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
       updatedAt: new Date().toISOString(),
       mode: 'auto-on-publish',
       poster: derivatives.poster?.src ?? null,
-      generatedCount: 1 + targetProfiles.filter((profile) => derivatives[getVideoProfileOutputKey(profile.label)]).length,
-      renditionProcessing: targetProfiles.map((profile) => {
+      generatedCount: 1 + ladderProfiles.filter((profile) => derivatives[getVideoProfileOutputKey(profile.label)]).length,
+      targetPlan: ladderProfiles,
+      renditionProcessing: ladderProfiles.map((profile) => {
         const key = getVideoProfileOutputKey(profile.label);
+        const derivative = derivatives[key];
+        const status = derivative
+          ? 'active'
+          : profile.transcodePossible
+            ? 'failed'
+            : 'unavailable';
         return {
           label: profile.label,
-          status: derivatives[key] ? 'active' : 'unavailable',
-          available: Boolean(derivatives[key]),
-          publicUrl: derivatives[key]?.src ?? outputPlan[key]?.publicUrl ?? null,
+          status,
+          available: Boolean(derivative),
+          publicUrl: derivative?.src ?? outputPlan[key]?.publicUrl ?? null,
           storageKey: outputPlan[key]?.storageKey ?? null,
           width: profile.width ?? null,
           height: profile.height ?? null,
           bitrateKbps: profile.bitrateKbps ?? null,
+          reason: derivative
+            ? null
+            : profile.transcodePossible
+              ? 'transcode_output_missing'
+              : (profile.reason ?? 'source_below_target_height'),
           updatedAt: new Date().toISOString(),
         };
       }),
@@ -1255,7 +1308,7 @@ function normalizeVariantStatus(status, fallback = 'draft') {
 
 function normalizeRenditionStatus(status, fallback = 'processing') {
   const normalized = String(status || '').trim().toLowerCase();
-  return ['draft', 'queued', 'processing', 'active', 'paused', 'archived', 'failed'].includes(normalized)
+  return ['draft', 'queued', 'processing', 'active', 'paused', 'archived', 'failed', 'unavailable'].includes(normalized)
     ? normalized
     : fallback;
 }
@@ -1282,7 +1335,7 @@ function estimateBitrateKbps(width, height) {
   return 800;
 }
 
-function buildVideoTargetProfiles(version = {}) {
+function buildVideoLadderProfiles(version = {}) {
   const sourceWidth = normalizePositiveInteger(version.width) || 1280;
   const sourceHeight = normalizePositiveInteger(version.height) || 720;
   const aspectRatio = sourceWidth > 0 && sourceHeight > 0 ? sourceWidth / sourceHeight : 16 / 9;
@@ -1291,18 +1344,23 @@ function buildVideoTargetProfiles(version = {}) {
     { label: '720p', height: 720, sortOrder: 20 },
     { label: '480p', height: 480, sortOrder: 30 },
   ];
-  return candidates
-    .filter((candidate) => candidate.height <= sourceHeight)
-    .map((candidate) => {
-      const width = Math.max(2, Math.round((candidate.height * aspectRatio) / 2) * 2);
-      return {
-        label: candidate.label,
-        width,
-        height: candidate.height,
-        bitrateKbps: estimateBitrateKbps(width, candidate.height),
-        sortOrder: candidate.sortOrder,
-      };
-    });
+  return candidates.map((candidate) => {
+    const width = Math.max(2, Math.round((candidate.height * aspectRatio) / 2) * 2);
+    const transcodePossible = candidate.height <= sourceHeight;
+    return {
+      label: candidate.label,
+      width,
+      height: candidate.height,
+      bitrateKbps: estimateBitrateKbps(width, candidate.height),
+      sortOrder: candidate.sortOrder,
+      transcodePossible,
+      reason: transcodePossible ? null : 'source_below_target_height',
+    };
+  });
+}
+
+function buildVideoTargetProfiles(version = {}) {
+  return buildVideoLadderProfiles(version).filter((profile) => profile.transcodePossible);
 }
 
 export async function listCreativeSizeVariants(pool, workspaceId, creativeVersionId) {
@@ -1607,7 +1665,7 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
     ],
   );
 
-  const targetProfiles = buildVideoTargetProfiles(version);
+  const ladderProfiles = buildVideoLadderProfiles(version);
   const regeneratedAt = new Date().toISOString();
   const queuedAt = new Date().toISOString();
   const sourceArtifactStorageKey = sourceArtifact?.storage_key ?? null;
@@ -1616,7 +1674,8 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
     storageKey: sourceArtifactStorageKey,
     publicUrl: sourcePublicUrl,
   });
-  for (const profile of targetProfiles) {
+  const feasibleProfiles = ladderProfiles.filter((profile) => profile.transcodePossible);
+  for (const profile of ladderProfiles) {
     const profileKey = getVideoProfileOutputKey(profile.label);
     await pool.query(
       `INSERT INTO video_renditions (
@@ -1625,8 +1684,8 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
          public_url, storage_key, size_bytes, metadata
        )
        VALUES (
-         $1, $2, NULL, $3, $4, $5, $6, $7, $8, 'queued', FALSE, $9,
-         $10, $11, NULL, $12::jsonb
+         $1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, FALSE, $10,
+         $11, $12, NULL, $13::jsonb
        )`,
       [
         workspaceId,
@@ -1637,6 +1696,7 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
         profile.bitrateKbps,
         'h264',
         'video/mp4',
+        profile.transcodePossible ? 'queued' : 'unavailable',
         profile.sortOrder,
         outputPlan[profileKey]?.publicUrl ?? null,
         outputPlan[profileKey]?.storageKey ?? null,
@@ -1647,6 +1707,7 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
           targetWidth: profile.width,
           targetHeight: profile.height,
           available: false,
+          reason: profile.transcodePossible ? null : (profile.reason ?? 'source_below_target_height'),
         }),
       ],
     );
@@ -1663,22 +1724,24 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
       },
       ffprobeAvailable: true,
       ffmpegAvailable: true,
-      targetPlan: targetProfiles,
-      renditionProcessing: targetProfiles.map((profile) => ({
+      targetPlan: ladderProfiles,
+      renditionProcessing: ladderProfiles.map((profile) => ({
         label: profile.label,
-        status: 'queued',
+        status: profile.transcodePossible ? 'queued' : 'unavailable',
         available: false,
-        queuedAt,
+        queuedAt: profile.transcodePossible ? queuedAt : null,
         publicUrl: outputPlan[getVideoProfileOutputKey(profile.label)]?.publicUrl ?? null,
         storageKey: outputPlan[getVideoProfileOutputKey(profile.label)]?.storageKey ?? null,
         width: profile.width ?? null,
         height: profile.height ?? null,
         bitrateKbps: profile.bitrateKbps ?? null,
+        reason: profile.transcodePossible ? null : (profile.reason ?? 'source_below_target_height'),
       })),
       generatedCount: 1,
-      noTargetsReason: targetProfiles.length === 0 ? 'source_below_minimum_ladder_size' : null,
-      status: 'queued',
-      queuedAt,
+      noTargetsReason: feasibleProfiles.length === 0 ? 'source_below_minimum_ladder_size' : null,
+      status: feasibleProfiles.length > 0 ? 'queued' : 'blocked',
+      queuedAt: feasibleProfiles.length > 0 ? queuedAt : null,
+      reason: feasibleProfiles.length > 0 ? null : 'source_below_minimum_ladder_size',
       regeneratedAt,
     },
   };
