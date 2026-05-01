@@ -120,15 +120,20 @@ function cdata(value) {
 
 function extractSourceInfo(version = {}, renditionRows = []) {
   const source = renditionRows.find((row) => row.is_source) ?? null;
+  const versionMetadata = extractJsonObject(version?.metadata || version?.creative_version_metadata, {});
+  const versionVideoProcessing = extractJsonObject(versionMetadata.videoProcessing, {});
+  const versionVideoSource = extractJsonObject(versionVideoProcessing.source, {});
+  const sourceMetadata = extractJsonObject(source?.metadata, {});
   return {
-    width: source?.width ?? version.width ?? null,
-    height: source?.height ?? version.height ?? null,
-    mimeType: source?.mime_type ?? version.mime_type ?? null,
-    durationMs: version.duration_ms ?? null,
+    width: source?.width ?? version.width ?? versionVideoSource.width ?? versionMetadata.width ?? sourceMetadata.width ?? null,
+    height: source?.height ?? version.height ?? versionVideoSource.height ?? versionMetadata.height ?? sourceMetadata.height ?? null,
+    mimeType: source?.mime_type ?? version.mime_type ?? versionVideoSource.mimeType ?? versionMetadata.mimeType ?? sourceMetadata.mimeType ?? null,
+    durationMs: version.duration_ms ?? versionVideoSource.durationMs ?? versionMetadata.durationMs ?? sourceMetadata.durationMs ?? null,
   };
 }
 
 function buildRenditionPlan(version = {}, renditionRows = []) {
+  const sourceInfo = extractSourceInfo(version, renditionRows);
   const activeRows = renditionRows
     .filter((row) => row.status === 'active' && row.public_url)
     .sort((left, right) => Number(left.sort_order || 0) - Number(right.sort_order || 0));
@@ -140,32 +145,145 @@ function buildRenditionPlan(version = {}, renditionRows = []) {
   return ordered.map((row) => ({
     label: row.label,
     url: row.public_url,
-    width: row.width ?? version.width ?? null,
-    height: row.height ?? version.height ?? null,
+    width: row.width ?? sourceInfo.width ?? null,
+    height: row.height ?? sourceInfo.height ?? null,
     bitrateKbps: row.bitrate_kbps ?? null,
     codec: row.codec ?? 'h264',
-    mimeType: row.mime_type ?? version.mime_type ?? 'video/mp4',
+    mimeType: row.mime_type ?? sourceInfo.mimeType ?? 'video/mp4',
     isSource: Boolean(row.is_source),
   }));
 }
 
-function buildWrapperXml({ tagId, targetUrl, impressionUrl, clickTrackingUrl, clickThroughUrl, xmlVersion, adTitle }) {
+function buildTrackingEventUrls(engagementUrl) {
+  const safeUrl = trimText(engagementUrl);
+  if (!safeUrl) return [];
+  const events = [
+    'creativeView',
+    'start',
+    'firstQuartile',
+    'midpoint',
+    'thirdQuartile',
+    'complete',
+    'mute',
+    'unmute',
+    'pause',
+    'resume',
+    'fullscreen',
+    'closeLinear',
+  ];
+  return events.map((event) => ({
+    event,
+    url: `${safeUrl}?event=${encodeURIComponent(event)}`,
+  }));
+}
+
+function formatXmlAttributes(attributes = {}) {
+  return Object.entries(attributes)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${key}="${xmlEscapeText(value)}"`)
+    .join(' ');
+}
+
+function buildXmlRootAttributes(xmlVersion) {
+  const version = trimText(xmlVersion) || '4.2';
+  if (version.startsWith('4')) {
+    return `version="${xmlEscapeText(version)}" xmlns="http://www.iab.com/VAST"`;
+  }
+  return `version="${xmlEscapeText(version)}"`;
+}
+
+function normalizeMediaFiles(mediaFiles = [], source = {}) {
+  const unique = [];
+  const seen = new Set();
+  for (const file of mediaFiles) {
+    const url = trimText(file?.url);
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    unique.push({
+      id: trimText(file?.label || `rendition-${unique.length + 1}`),
+      label: trimText(file?.label || ''),
+      url,
+      width: Number(file?.width || source.width || 0) || null,
+      height: Number(file?.height || source.height || 0) || null,
+      bitrateKbps: Number(file?.bitrateKbps || 0) || null,
+      codec: trimText(file?.codec || source.codec || ''),
+      mimeType: trimText(file?.mimeType || source.mimeType || 'video/mp4') || 'video/mp4',
+      isSource: Boolean(file?.isSource),
+    });
+  }
+
+  if (!unique.length && trimText(source.url)) {
+    unique.push({
+      id: 'source',
+      label: 'Source',
+      url: trimText(source.url),
+      width: Number(source.width || 0) || null,
+      height: Number(source.height || 0) || null,
+      bitrateKbps: Number(source.bitrateKbps || 0) || null,
+      codec: trimText(source.codec || ''),
+      mimeType: trimText(source.mimeType || 'video/mp4') || 'video/mp4',
+      isSource: true,
+    });
+  }
+
+  return unique;
+}
+
+function buildImpressionXml(impressionUrls = []) {
+  return impressionUrls.map((url, index) => `      <Impression${index === 0 ? ' id="smx-imp"' : ''}>${cdata(url)}</Impression>`).join('\n');
+}
+
+function buildMediaFileXml(mediaFiles = []) {
+  return mediaFiles.map((file, index) => {
+    const attrs = formatXmlAttributes({
+      id: file.id || `media-${index + 1}`,
+      delivery: 'progressive',
+      type: file.mimeType || 'video/mp4',
+      width: file.width,
+      height: file.height,
+      bitrate: file.bitrateKbps,
+      codec: file.codec || undefined,
+      scalable: 'true',
+      maintainAspectRatio: 'true',
+    });
+    return `              <MediaFile ${attrs}>${cdata(file.url)}</MediaFile>`;
+  }).join('\n');
+}
+
+function buildTrackingEventsXml(trackingEvents = []) {
+  return trackingEvents.map(({ event, url }) => `              <Tracking event="${xmlEscapeText(event)}">${cdata(url)}</Tracking>`).join('\n');
+}
+
+function buildWrapperXml({
+  tagId,
+  targetUrl,
+  impressionUrls = [],
+  errorUrl = '',
+  clickTrackingUrls = [],
+  clickThroughUrl,
+  xmlVersion,
+  adTitle,
+}) {
+  const rootAttributes = buildXmlRootAttributes(xmlVersion);
+  const impressionXml = buildImpressionXml(impressionUrls);
+  const clickTrackingXml = clickTrackingUrls.map((url) => `              <ClickTracking>${cdata(url)}</ClickTracking>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
-<VAST version="${xmlEscapeText(xmlVersion)}">
+<VAST ${rootAttributes}>
   <Ad id="${xmlEscapeText(tagId)}">
-    <Wrapper>
-      <AdSystem>SMX Studio</AdSystem>
+    <Wrapper followAdditionalWrappers="true" allowMultipleAds="true" fallbackOnNoAd="true">
+      <AdSystem version="1.0">SMX Studio</AdSystem>
       <AdTitle>${cdata(adTitle)}</AdTitle>
-      <Impression>${cdata(impressionUrl)}</Impression>
+      ${errorUrl ? `<Error>${cdata(errorUrl)}</Error>` : ''}
+${impressionXml}
       <Creatives>
-        <Creative>
+        <Creative id="${xmlEscapeText(`${tagId}-creative`)}" sequence="1">
           <Linear>
             <TrackingEvents>
-              <Tracking event="creativeView">${cdata(impressionUrl)}</Tracking>
+              <Tracking event="creativeView">${cdata(impressionUrls[0] || '')}</Tracking>
             </TrackingEvents>
             <VideoClicks>
               <ClickThrough>${cdata(clickThroughUrl)}</ClickThrough>
-              <ClickTracking>${cdata(clickTrackingUrl)}</ClickTracking>
+${clickTrackingXml}
             </VideoClicks>
           </Linear>
         </Creative>
@@ -180,36 +298,46 @@ function buildInlineXml({
   tagId,
   adTitle,
   xmlVersion,
-  impressionUrl,
-  clickTrackingUrl,
+  impressionUrls = [],
+  errorUrl = '',
+  clickTrackingUrls = [],
   clickThroughUrl,
   durationMs,
   mediaFiles = [],
+  source = {},
+  trackingEvents = [],
 }) {
-  const mediaFileXml = mediaFiles.map((file) => {
-    const width = Number(file.width || 0);
-    const height = Number(file.height || 0);
-    const bitrate = Number(file.bitrateKbps || 0);
-    return `              <MediaFile delivery="progressive" type="${xmlEscapeText(file.mimeType || 'video/mp4')}"${width > 0 ? ` width="${width}"` : ''}${height > 0 ? ` height="${height}"` : ''}${bitrate > 0 ? ` bitrate="${bitrate}"` : ''} scalable="true" maintainAspectRatio="true">${cdata(file.url)}</MediaFile>`;
-  }).join('\n');
+  const rootAttributes = buildXmlRootAttributes(xmlVersion);
+  const normalizedMediaFiles = normalizeMediaFiles(mediaFiles, source);
+  const mediaFileXml = buildMediaFileXml(normalizedMediaFiles);
+  const impressionXml = buildImpressionXml(impressionUrls);
+  const trackingEventsXml = buildTrackingEventsXml(trackingEvents);
+  const clickTrackingXml = clickTrackingUrls.map((url) => `              <ClickTracking>${cdata(url)}</ClickTracking>`).join('\n');
+  const creativeAttributes = formatXmlAttributes({
+    id: `${tagId}-creative`,
+    sequence: 1,
+  });
+  const hasUniversalId = trimText(xmlVersion).startsWith('4');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<VAST version="${xmlEscapeText(xmlVersion)}">
+<VAST ${rootAttributes}>
   <Ad id="${xmlEscapeText(tagId)}">
     <InLine>
-      <AdSystem>SMX Studio</AdSystem>
+      <AdSystem version="1.0">SMX Studio</AdSystem>
       <AdTitle>${cdata(adTitle)}</AdTitle>
-      <Impression>${cdata(impressionUrl)}</Impression>
+      ${errorUrl ? `<Error>${cdata(errorUrl)}</Error>` : ''}
+${impressionXml}
       <Creatives>
-        <Creative>
+        <Creative ${creativeAttributes}>
+          ${hasUniversalId ? `<UniversalAdId idRegistry="smx-studio">${xmlEscapeText(tagId)}</UniversalAdId>` : ''}
           <Linear>
             <Duration>${formatDuration(durationMs)}</Duration>
             <TrackingEvents>
-              <Tracking event="creativeView">${cdata(impressionUrl)}</Tracking>
+${trackingEventsXml}
             </TrackingEvents>
             <VideoClicks>
               <ClickThrough>${cdata(clickThroughUrl)}</ClickThrough>
-              <ClickTracking>${cdata(clickTrackingUrl)}</ClickTracking>
+${clickTrackingXml}
             </VideoClicks>
             <MediaFiles>
 ${mediaFileXml}
@@ -425,10 +553,19 @@ async function getTagContext(pool, tagId) {
     ? await listVideoRenditions(pool, tag.workspace_id, selectedBinding.creative_version_id)
     : [];
 
+  const { rows: pixelRows } = await pool.query(
+    `SELECT id, pixel_type, url
+     FROM tag_pixels
+     WHERE tag_id = $1
+     ORDER BY created_at ASC`,
+    [tagId],
+  );
+
   return {
     tag,
     selectedBinding,
     renditions,
+    pixels: pixelRows,
   };
 }
 
@@ -450,6 +587,31 @@ function buildTrackerUrls({ baseUrl, tagId, dsp = '' }) {
   };
 }
 
+function buildSupplementalTrackerUrls(ctx = {}, trackerType) {
+  return (ctx.pixels || [])
+    .filter((row) => row.pixel_type === trackerType && trimText(row.url))
+    .map((row) => trimText(row.url));
+}
+
+function resolveClickThroughUrl(ctx = {}, baseUrl = '') {
+  const explicit = trimText(ctx.tag?.click_url || ctx.selectedBinding?.creative_click_url);
+  if (explicit) return explicit;
+  return `${trimText(baseUrl).replace(/\/+$/, '')}/v1/tags/tracker/${ctx.tag?.id}/click`;
+}
+
+function resolveSourceFallback(selectedBinding = {}, renditions = []) {
+  const source = extractSourceInfo(selectedBinding, renditions);
+  return {
+    url: trimText(selectedBinding?.public_url || renditions.find((row) => row.is_source)?.public_url || ''),
+    width: source.width,
+    height: source.height,
+    mimeType: source.mimeType || 'video/mp4',
+    durationMs: source.durationMs,
+    codec: trimText(renditions.find((row) => row.is_source)?.codec || ''),
+    bitrateKbps: Number(renditions.find((row) => row.is_source)?.bitrate_kbps || 0) || null,
+  };
+}
+
 function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl }) {
   const normalizedProfile = normalizeProfile(profile, 'default');
   const configuredVersion = trimText(ctx.tag.vast_version);
@@ -457,15 +619,21 @@ function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl }) {
   const xmlVersion = getProfileVersion(normalizedProfile, configuredVersion);
   const liveBaseUrl = trimText(baseUrl).replace(/\/+$/, '');
   const trackers = buildTrackerUrls({ baseUrl: liveBaseUrl, tagId: ctx.tag.id, dsp: '' });
-  const clickThroughUrl = trimText(ctx.tag.click_url || ctx.selectedBinding?.creative_click_url) || `${liveBaseUrl}/v1/tags/tracker/${ctx.tag.id}/click`;
+  const impressionUrls = [trackers.impression, ...buildSupplementalTrackerUrls(ctx, 'impression')];
+  const clickTrackingUrls = [trackers.click, ...buildSupplementalTrackerUrls(ctx, 'click')];
+  const clickThroughUrl = resolveClickThroughUrl(ctx, liveBaseUrl);
   const adTitle = `${trimText(ctx.tag.name) || 'SMX Studio Tag'} · ${normalizedProfile.toUpperCase()}`;
+  const source = resolveSourceFallback(ctx.selectedBinding || {}, ctx.renditions || []);
+  const trackingEvents = buildTrackingEventUrls(trackers.engagement);
+  const errorUrl = `${trackers.engagement}?event=error`;
 
   if (ctx.tag.vast_wrapper && trimText(ctx.tag.vast_url)) {
     return buildWrapperXml({
       tagId: ctx.tag.id,
       targetUrl: trimText(ctx.tag.vast_url),
-      impressionUrl: trackers.impression,
-      clickTrackingUrl: trackers.click,
+      impressionUrls,
+      errorUrl,
+      clickTrackingUrls,
       clickThroughUrl,
       xmlVersion,
       adTitle,
@@ -476,8 +644,9 @@ function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl }) {
     return buildWrapperXml({
       tagId: ctx.tag.id,
       targetUrl: trimText(ctx.selectedBinding.public_url),
-      impressionUrl: trackers.impression,
-      clickTrackingUrl: trackers.click,
+      impressionUrls,
+      errorUrl,
+      clickTrackingUrls,
       clickThroughUrl,
       xmlVersion,
       adTitle,
@@ -485,17 +654,19 @@ function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl }) {
   }
 
   const mediaFiles = buildRenditionPlan(ctx.selectedBinding || {}, ctx.renditions);
-  const source = extractSourceInfo(ctx.selectedBinding || {}, ctx.renditions);
 
   return buildInlineXml({
     tagId: ctx.tag.id,
     adTitle,
     xmlVersion,
-    impressionUrl: trackers.impression,
-    clickTrackingUrl: trackers.click,
+    impressionUrls,
+    errorUrl,
+    clickTrackingUrls,
     clickThroughUrl,
-    durationMs: ctx.selectedBinding?.duration_ms ?? source.durationMs ?? 15000,
+    durationMs: ctx.selectedBinding?.duration_ms ?? source.durationMs ?? 30000,
     mediaFiles,
+    source,
+    trackingEvents,
   });
 }
 

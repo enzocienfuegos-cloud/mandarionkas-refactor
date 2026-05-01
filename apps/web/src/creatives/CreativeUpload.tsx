@@ -91,6 +91,39 @@ function getDisplayProcessingPercent(ingestion: CreativeIngestion | null | undef
   return Math.min(100, explicitPercent);
 }
 
+async function readVideoFileMetadata(file: File) {
+  if (!file.type.startsWith('video/')) {
+    return { width: null, height: null, durationMs: null };
+  }
+
+  return new Promise<{ width: number | null; height: number | null; durationMs: number | null }>((resolve) => {
+    const video = document.createElement('video');
+    const objectUrl = URL.createObjectURL(file);
+    const cleanup = () => {
+      video.removeAttribute('src');
+      video.load();
+      URL.revokeObjectURL(objectUrl);
+    };
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      const width = Number.isFinite(video.videoWidth) && video.videoWidth > 0 ? Math.round(video.videoWidth) : null;
+      const height = Number.isFinite(video.videoHeight) && video.videoHeight > 0 ? Math.round(video.videoHeight) : null;
+      const durationSeconds = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null;
+      cleanup();
+      resolve({
+        width,
+        height,
+        durationMs: durationSeconds != null ? Math.round(durationSeconds * 1000) : null,
+      });
+    };
+    video.onerror = () => {
+      cleanup();
+      resolve({ width: null, height: null, durationMs: null });
+    };
+    video.src = objectUrl;
+  });
+}
+
 export default function CreativeUpload() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -264,6 +297,9 @@ export default function CreativeUpload() {
     try {
       const processFile = async (file: File, index: number) => {
         const requestedClickUrl = normalizeHttpUrl(clickUrlsByFileKey[buildFileKey(file)] ?? '') || null;
+        const videoMetadata = sourceKind === 'video_mp4'
+          ? await readVideoFileMetadata(file)
+          : { width: null, height: null, durationMs: null };
         activeIndexes.add(index);
         refreshActiveProgress();
 
@@ -272,6 +308,7 @@ export default function CreativeUpload() {
           sourceKind,
           file,
           clickUrl: requestedClickUrl,
+          ...videoMetadata,
         });
 
         await uploadFileToSignedUrl(upload.upload.uploadUrl, file, ({ loadedBytes, totalBytes: fileTotalBytes }) => {
@@ -293,6 +330,7 @@ export default function CreativeUpload() {
           publicUrl: upload.upload.publicUrl,
           storageKey: upload.upload.storageKey,
           clickUrl: requestedClickUrl,
+          ...videoMetadata,
         });
 
         processingStartedAtByIndex[index] = Date.now();

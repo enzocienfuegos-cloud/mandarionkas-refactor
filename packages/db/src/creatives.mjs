@@ -608,6 +608,9 @@ export async function createPublishedCreative(pool, input = {}) {
   const servingFormat = inferServingFormat(normalizedSourceKind);
   const artifactKind = inferArtifactKind(normalizedSourceKind);
   const creativeName = String(name || '').trim() || originalFilename || 'Untitled creative';
+  const resolvedWidth = width ?? normalizePositiveInteger(metadata?.width);
+  const resolvedHeight = height ?? normalizePositiveInteger(metadata?.height);
+  const resolvedDurationMs = durationMs ?? normalizePositiveInteger(metadata?.durationMs);
   const creativeMetadata = {
     ...(metadata || {}),
     ingestionId,
@@ -632,9 +635,9 @@ export async function createPublishedCreative(pool, input = {}) {
       publicUrl,
       sizeBytes,
       mimeType,
-      width,
-      height,
-      durationMs,
+      resolvedWidth,
+      resolvedHeight,
+      resolvedDurationMs,
       clickUrl,
       JSON.stringify(creativeMetadata),
       'draft',
@@ -663,9 +666,9 @@ export async function createPublishedCreative(pool, input = {}) {
       publicUrl,
       normalizedSourceKind === 'html5_zip' ? originalFilename : null,
       mimeType,
-      width,
-      height,
-      durationMs,
+      resolvedWidth,
+      resolvedHeight,
+      resolvedDurationMs,
       sizeBytes,
       JSON.stringify(creativeMetadata),
       createdBy || null,
@@ -723,8 +726,8 @@ export async function createPublishedCreative(pool, input = {}) {
       [
         workspaceId,
         creativeVersion.id,
-        width,
-        height,
+        resolvedWidth,
+        resolvedHeight,
         mimeType,
         publicUrl,
         storageKey,
@@ -771,9 +774,9 @@ export async function createPublishedCreative(pool, input = {}) {
           storageKey,
           publicUrl,
           sizeBytes,
-          width,
-          height,
-          durationMs,
+          resolvedWidth,
+          resolvedHeight,
+          resolvedDurationMs,
           JSON.stringify({
             creativeId: creative.id,
             creativeVersionId: creativeVersion.id,
@@ -844,9 +847,9 @@ export async function createPublishedCreative(pool, input = {}) {
           storageKey,
           publicUrl,
           mimeType: mimeType || 'video/mp4',
-          width: width || null,
-          height: height || null,
-          durationMs: durationMs || null,
+          width: resolvedWidth || null,
+          height: resolvedHeight || null,
+          durationMs: resolvedDurationMs || null,
           outputPlan,
         },
       });

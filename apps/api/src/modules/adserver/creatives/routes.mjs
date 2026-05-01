@@ -300,6 +300,11 @@ function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object ?? {}, key);
 }
 
+function normalizeOptionalPositiveInteger(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : null;
+}
+
 function hasPermission(session, permission) {
   return session.permissions.includes(permission);
 }
@@ -731,6 +736,9 @@ export async function handleCreativeRoutes(ctx) {
         metadata: {
           requestedName: trimText(ctx.body?.name) || null,
           clickUrl: trimText(ctx.body?.clickUrl ?? ctx.body?.click_url) || null,
+          width: normalizeOptionalPositiveInteger(ctx.body?.width),
+          height: normalizeOptionalPositiveInteger(ctx.body?.height),
+          durationMs: normalizeOptionalPositiveInteger(ctx.body?.durationMs ?? ctx.body?.duration_ms),
         },
       });
       return sendJson(res, 200, {
@@ -766,6 +774,9 @@ export async function handleCreativeRoutes(ctx) {
           ...(existing.metadata || {}),
           requestedName: trimText(ctx.body?.name) || existing.metadata?.requestedName || null,
           clickUrl: trimText(ctx.body?.clickUrl ?? ctx.body?.click_url) || existing.metadata?.clickUrl || null,
+          width: normalizeOptionalPositiveInteger(ctx.body?.width) ?? existing.metadata?.width ?? null,
+          height: normalizeOptionalPositiveInteger(ctx.body?.height) ?? existing.metadata?.height ?? null,
+          durationMs: normalizeOptionalPositiveInteger(ctx.body?.durationMs ?? ctx.body?.duration_ms) ?? existing.metadata?.durationMs ?? null,
         },
         validation_report: {
           completed: true,
@@ -816,6 +827,9 @@ export async function handleCreativeRoutes(ctx) {
         originalFilename: existing.original_filename,
         mimeType: existing.mime_type,
         sizeBytes: existing.size_bytes,
+        width: normalizeOptionalPositiveInteger(ctx.body?.width) ?? existing.metadata?.width ?? null,
+        height: normalizeOptionalPositiveInteger(ctx.body?.height) ?? existing.metadata?.height ?? null,
+        durationMs: normalizeOptionalPositiveInteger(ctx.body?.durationMs ?? ctx.body?.duration_ms) ?? existing.metadata?.durationMs ?? null,
         metadata: existing.metadata || {},
       });
       return sendJson(res, 200, {

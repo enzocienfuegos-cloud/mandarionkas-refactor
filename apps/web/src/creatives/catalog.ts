@@ -352,6 +352,9 @@ export async function createCreativeIngestionUpload(input: {
   file: File;
   name?: string;
   clickUrl?: string | null;
+  width?: number | null;
+  height?: number | null;
+  durationMs?: number | null;
 }) {
   return fetchJson<{
     ingestion: CreativeIngestion;
@@ -366,6 +369,9 @@ export async function createCreativeIngestionUpload(input: {
       sizeBytes: input.file.size,
       name: input.name,
       clickUrl: input.clickUrl ?? null,
+      width: input.width ?? null,
+      height: input.height ?? null,
+      durationMs: input.durationMs ?? null,
     }),
   });
 }
@@ -409,6 +415,9 @@ export async function completeCreativeIngestion(ingestionId: string, input: {
   storageKey?: string;
   name?: string;
   clickUrl?: string | null;
+  width?: number | null;
+  height?: number | null;
+  durationMs?: number | null;
 }) {
   return fetchJson<{ ingestion: CreativeIngestion }>(`/v1/creative-ingestions/${ingestionId}/complete`, {
     method: 'POST',
@@ -421,6 +430,9 @@ export async function completeCreativeIngestion(ingestionId: string, input: {
       storageKey: input.storageKey,
       name: input.name,
       clickUrl: input.clickUrl ?? null,
+      width: input.width ?? null,
+      height: input.height ?? null,
+      durationMs: input.durationMs ?? null,
     }),
   });
 }
