@@ -10,6 +10,7 @@ import { handleDiscrepancyRoutes } from './modules/adserver/discrepancies/routes
 import { handleExperimentRoutes } from './modules/adserver/experiments/routes.mjs';
 import { handlePacingRoutes } from './modules/adserver/pacing/routes.mjs';
 import { handleReportingRoutes } from './modules/adserver/reporting/routes.mjs';
+import { handleSearchRoutes } from './modules/adserver/search/routes.mjs';
 import { handleTagRoutes } from './modules/adserver/tags/routes.mjs';
 import { handleWebhookRoutes } from './modules/adserver/webhooks/routes.mjs';
 import { applyCors, getRequestId, notFound, readJsonBody, sendJson } from './lib/http.mjs';
@@ -30,6 +31,7 @@ const routeHandlers = [
   handleExperimentRoutes,
   handlePacingRoutes,
   handleReportingRoutes,
+  handleSearchRoutes,
   handleTagRoutes,
   handleWebhookRoutes,
 ];
