@@ -1803,8 +1803,8 @@ export default function CreativeLibrary() {
                     {renditionProcessing.length > 0 ? renditionProcessing.map((entry: any) => (
                       <div key={entry.label} className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2">
                         <span className="font-medium text-slate-800">{entry.label}</span>
-                        <span className={entry.available ? 'text-emerald-700' : 'text-rose-700'}>
-                          {entry.available ? 'generated' : (entry.reason ?? 'failed')}
+                        <span className={entry.available ? 'text-emerald-700' : ['queued', 'processing', 'draft'].includes(String(entry.status ?? '').toLowerCase()) ? 'text-amber-700' : 'text-rose-700'}>
+                          {entry.available ? 'generated' : (entry.status ?? entry.reason ?? 'failed')}
                         </span>
                       </div>
                     )) : videoRenditionState.awaitingPublish ? (
