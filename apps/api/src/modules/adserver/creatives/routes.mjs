@@ -14,6 +14,7 @@ import {
   getCreativeIngestion,
   getCreativeSizeVariant,
   getCreativeVersion,
+  queueVideoTranscodeForCreativeVersion,
   listPendingReviewCreativeVersions,
   listCreativeArtifacts,
   listCreativeIngestions,
@@ -566,7 +567,26 @@ export async function handleCreativeRoutes(ctx) {
       );
       const creativeVersion = await getCreativeVersion(session.client, workspaceId, versionId);
       if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
+      const creative = await getCreative(session.client, workspaceId, creativeVersion.creative_id);
+      const artifacts = await listCreativeArtifacts(session.client, workspaceId, versionId);
+      const sourceArtifact = artifacts.find((artifact) => artifact.kind === 'video_mp4') || artifacts[0] || null;
       const renditions = await regenerateVideoRenditions(session.client, workspaceId, versionId);
+      if (creativeVersion.source_kind === 'video_mp4' && sourceArtifact?.storage_key && creativeVersion.public_url) {
+        await queueVideoTranscodeForCreativeVersion(session.client, {
+          workspaceId,
+          creativeId: creativeVersion.creative_id,
+          creativeVersionId: versionId,
+          createdBy: session.user.id,
+          creativeName: creative?.name || sourceArtifact?.metadata?.originalFilename || 'Video creative',
+          mimeType: creativeVersion.mime_type || sourceArtifact?.mime_type || 'video/mp4',
+          storageKey: sourceArtifact.storage_key,
+          publicUrl: creativeVersion.public_url,
+          sizeBytes: creativeVersion.file_size ?? sourceArtifact?.size_bytes ?? null,
+          width: creativeVersion.width ?? null,
+          height: creativeVersion.height ?? null,
+          durationMs: creativeVersion.duration_ms ?? null,
+        });
+      }
       return sendJson(res, 200, { renditions: renditions.map(normalizeVideoRendition), requestId });
     });
   }

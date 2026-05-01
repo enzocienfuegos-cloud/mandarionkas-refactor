@@ -1923,6 +1923,28 @@ export default function CreativeLibrary() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {videoRenditionState.renditions.map(rendition => (
+                      (() => {
+                        const renditionReadyForToggle = Boolean(
+                          rendition.isSource || (
+                            rendition.publicUrl
+                            && Number(rendition.sizeBytes || 0) > 0
+                            && rendition.metadata?.available === true
+                          ),
+                        );
+                        const toggleBlocked = videoRenditionState.loading
+                          || rendition.status === 'processing'
+                          || rendition.status === 'failed'
+                          || (!rendition.isSource && rendition.status !== 'active' && !renditionReadyForToggle);
+                        const toggleTitle = rendition.status === 'processing'
+                          ? 'This rendition is currently processing.'
+                          : rendition.status === 'failed'
+                            ? 'This rendition failed to generate.'
+                            : (!rendition.isSource && rendition.status !== 'active' && !renditionReadyForToggle)
+                              ? 'This rendition is still queued and has not been generated yet.'
+                              : rendition.status === 'active'
+                                ? 'Disable this rendition for VAST delivery.'
+                                : 'Enable this rendition for VAST delivery.';
+                        return (
                       <tr key={rendition.id}>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap items-center gap-2">
@@ -1959,37 +1981,17 @@ export default function CreativeLibrary() {
                         </td>
                         <td className="px-4 py-3">
                           <label className={`inline-flex items-center gap-3 text-xs font-medium ${
-                            videoRenditionState.loading
-                            || rendition.status === 'processing'
-                            || rendition.status === 'failed'
-                            || (!rendition.isSource
-                              && rendition.status !== 'active'
-                              && (
-                                !rendition.publicUrl
-                                || Number(rendition.sizeBytes || 0) <= 0
-                                || rendition.metadata?.available !== true
-                              ))
+                            toggleBlocked
                               ? 'cursor-not-allowed text-slate-400'
                               : 'cursor-pointer text-slate-700'
-                          }`}>
+                          }`} title={toggleTitle}>
                             <span>{rendition.status === 'active' ? 'On' : 'Off'}</span>
                             <span className="relative inline-flex items-center">
                               <input
                                 type="checkbox"
                                 className="peer sr-only"
                                 checked={rendition.status === 'active'}
-                                disabled={
-                                  videoRenditionState.loading
-                                  || rendition.status === 'processing'
-                                  || rendition.status === 'failed'
-                                  || (!rendition.isSource
-                                    && rendition.status !== 'active'
-                                    && (
-                                      !rendition.publicUrl
-                                      || Number(rendition.sizeBytes || 0) <= 0
-                                      || rendition.metadata?.available !== true
-                                    ))
-                                }
+                                disabled={toggleBlocked}
                                 onChange={(event) => {
                                   void handleVideoRenditionStatusChange(
                                     rendition.id,
@@ -2003,6 +2005,8 @@ export default function CreativeLibrary() {
                           </label>
                         </td>
                       </tr>
+                        );
+                      })()
                     ))}
                     {!videoRenditionState.loading && videoRenditionState.renditions.length === 0 && videoRenditionState.awaitingPublish && (
                       <tr>

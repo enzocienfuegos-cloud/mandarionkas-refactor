@@ -488,6 +488,162 @@ function buildQueuedVideoProcessingMetadata(version = {}, targetProfiles = [], o
   };
 }
 
+export async function queueVideoTranscodeForCreativeVersion(pool, input = {}) {
+  const {
+    workspaceId,
+    creativeId,
+    creativeVersionId,
+    createdBy,
+    creativeName,
+    ingestionId = null,
+    sourceKind = 'video_mp4',
+    mimeType = 'video/mp4',
+    storageKey = null,
+    publicUrl = null,
+    sizeBytes = null,
+    width = null,
+    height = null,
+    durationMs = null,
+  } = input;
+
+  if (!workspaceId || !creativeId || !creativeVersionId || !createdBy || !storageKey || !publicUrl) {
+    return { queued: false, reason: 'missing_queue_prerequisites' };
+  }
+
+  const creativeVersion = await getCreativeVersion(pool, workspaceId, creativeVersionId);
+  if (!creativeVersion) return { queued: false, reason: 'creative_version_not_found' };
+
+  const assetId = randomUUID();
+  const outputPlan = buildAutoVideoOutputPlan({ storageKey, publicUrl });
+  const assetResult = await pool.query(
+    `INSERT INTO assets (
+       id, workspace_id, owner_user_id, upload_session_id, name, kind, mime_type,
+       source_type, storage_mode, storage_key, public_url, origin_url,
+       poster_src, thumbnail_url, access_scope, tags, size_bytes, width,
+       height, duration_ms, fingerprint, font_family, metadata
+     )
+     VALUES (
+       $1, $2, $3, NULL, $4, 'video', $5, 'upload', 'object-storage', $6, $7, $7,
+       NULL, NULL, 'client', '{}'::text[], $8, $9, $10, $11, NULL, NULL, $12::jsonb
+     )
+     ON CONFLICT (workspace_id, storage_key) DO UPDATE
+     SET owner_user_id = EXCLUDED.owner_user_id,
+         name = EXCLUDED.name,
+         mime_type = EXCLUDED.mime_type,
+         public_url = EXCLUDED.public_url,
+         origin_url = EXCLUDED.origin_url,
+         size_bytes = EXCLUDED.size_bytes,
+         width = EXCLUDED.width,
+         height = EXCLUDED.height,
+         duration_ms = EXCLUDED.duration_ms,
+         metadata = EXCLUDED.metadata,
+         updated_at = NOW()
+     RETURNING id`,
+    [
+      assetId,
+      workspaceId,
+      createdBy,
+      creativeName,
+      mimeType || 'video/mp4',
+      storageKey,
+      publicUrl,
+      sizeBytes,
+      width,
+      height,
+      durationMs,
+      JSON.stringify({
+        creativeId,
+        creativeVersionId,
+        ingestionId,
+        sourceKind,
+        optimization: {
+          video: {
+            status: 'queued',
+            outputs: outputPlan,
+            queuedAt: new Date().toISOString(),
+          },
+        },
+      }),
+    ],
+  );
+
+  const queuedAssetId = assetResult.rows[0]?.id ?? assetId;
+  const targetProfiles = buildVideoTargetProfiles(creativeVersion);
+  for (const profile of targetProfiles) {
+    const profileLabel = String(profile.label || '').trim();
+    const profileKey = getVideoProfileOutputKey(profileLabel);
+    await pool.query(
+      `UPDATE video_renditions
+       SET status = 'queued',
+           public_url = $4,
+           storage_key = $5,
+           metadata = coalesce(metadata, '{}'::jsonb) || $6::jsonb,
+           updated_at = NOW()
+       WHERE workspace_id = $1
+         AND creative_version_id = $2
+         AND lower(label) = $3
+         AND is_source = FALSE`,
+      [
+        workspaceId,
+        creativeVersionId,
+        profileLabel.toLowerCase(),
+        outputPlan[profileKey]?.publicUrl ?? null,
+        outputPlan[profileKey]?.storageKey ?? null,
+        JSON.stringify({
+          queuedBy: 'publish',
+          profile: profileLabel,
+          available: false,
+        }),
+      ],
+    );
+  }
+
+  await updateCreativeVersion(pool, workspaceId, creativeVersionId, {
+    metadata: buildQueuedVideoProcessingMetadata(creativeVersion, targetProfiles, outputPlan),
+  });
+
+  await pool.query(
+    `UPDATE creatives
+     SET transcode_status = 'queued',
+         updated_at = NOW()
+     WHERE workspace_id = $1 AND id = $2`,
+    [workspaceId, creativeId],
+  );
+
+  const existingJobResult = await pool.query(
+    `SELECT id
+     FROM asset_processing_jobs
+     WHERE workspace_id = $1
+       AND asset_id = $2
+       AND job_type = 'video-transcode'
+       AND status IN ('pending', 'processing')
+     LIMIT 1`,
+    [workspaceId, queuedAssetId],
+  );
+  if (!existingJobResult.rows[0]?.id) {
+    await enqueueVideoTranscodeJob(pool, {
+      workspaceId,
+      ownerUserId: createdBy,
+      assetId: queuedAssetId,
+      input: {
+        assetId: queuedAssetId,
+        workspaceId,
+        creativeId,
+        creativeVersionId,
+        storageKey,
+        publicUrl,
+        mimeType: mimeType || 'video/mp4',
+        width: width || null,
+        height: height || null,
+        durationMs: durationMs || null,
+        outputPlan,
+      },
+    });
+  }
+
+  return { queued: true, outputPlan, assetId: queuedAssetId };
+}
+
 export async function createCreativeIngestion(pool, input = {}) {
   const {
     id,
@@ -754,120 +910,21 @@ export async function createPublishedCreative(pool, input = {}) {
     await regenerateVideoRenditions(pool, workspaceId, creativeVersion.id);
 
     if (storageKey && publicUrl && createdBy) {
-      const assetId = randomUUID();
-      const outputPlan = buildAutoVideoOutputPlan({ storageKey, publicUrl });
-      const assetResult = await pool.query(
-        `INSERT INTO assets (
-           id, workspace_id, owner_user_id, upload_session_id, name, kind, mime_type,
-           source_type, storage_mode, storage_key, public_url, origin_url,
-           poster_src, thumbnail_url, access_scope, tags, size_bytes, width,
-           height, duration_ms, fingerprint, font_family, metadata
-         )
-         VALUES (
-           $1, $2, $3, NULL, $4, 'video', $5, 'upload', 'object-storage', $6, $7, $7,
-           NULL, NULL, 'client', '{}'::text[], $8, $9, $10, $11, NULL, NULL, $12::jsonb
-         )
-         ON CONFLICT (workspace_id, storage_key) DO UPDATE
-         SET owner_user_id = EXCLUDED.owner_user_id,
-             name = EXCLUDED.name,
-             mime_type = EXCLUDED.mime_type,
-             public_url = EXCLUDED.public_url,
-             origin_url = EXCLUDED.origin_url,
-             size_bytes = EXCLUDED.size_bytes,
-             width = EXCLUDED.width,
-             height = EXCLUDED.height,
-             duration_ms = EXCLUDED.duration_ms,
-             metadata = EXCLUDED.metadata,
-             updated_at = NOW()
-         RETURNING id`,
-        [
-          assetId,
-          workspaceId,
-          createdBy,
-          creativeName,
-          mimeType || 'video/mp4',
-          storageKey,
-          publicUrl,
-          sizeBytes,
-          resolvedWidth,
-          resolvedHeight,
-          resolvedDurationMs,
-          JSON.stringify({
-            creativeId: creative.id,
-            creativeVersionId: creativeVersion.id,
-            ingestionId,
-            sourceKind: normalizedSourceKind,
-            optimization: {
-              video: {
-                status: 'queued',
-                outputs: outputPlan,
-                queuedAt: new Date().toISOString(),
-              },
-            },
-          }),
-        ],
-      );
-
-      const targetProfiles = buildVideoTargetProfiles(creativeVersion);
-      for (const profile of targetProfiles) {
-        const profileLabel = String(profile.label || '').trim();
-        const profileKey = getVideoProfileOutputKey(profileLabel);
-        await pool.query(
-          `UPDATE video_renditions
-           SET status = 'queued',
-               public_url = $4,
-               storage_key = $5,
-               metadata = coalesce(metadata, '{}'::jsonb) || $6::jsonb,
-               updated_at = NOW()
-           WHERE workspace_id = $1
-             AND creative_version_id = $2
-             AND lower(label) = $3
-             AND is_source = FALSE`,
-          [
-            workspaceId,
-            creativeVersion.id,
-            profileLabel.toLowerCase(),
-            outputPlan[profileKey]?.publicUrl ?? null,
-            outputPlan[profileKey]?.storageKey ?? null,
-            JSON.stringify({
-              queuedBy: 'publish',
-              profile: profileLabel,
-            }),
-          ],
-        );
-      }
-
-      await updateCreativeVersion(pool, workspaceId, creativeVersion.id, {
-        metadata: buildQueuedVideoProcessingMetadata(creativeVersion, targetProfiles, outputPlan),
-      });
-
-      await pool.query(
-        `UPDATE creatives
-         SET transcode_status = 'queued',
-             updated_at = NOW()
-         WHERE workspace_id = $1 AND id = $2`,
-        [workspaceId, creative.id],
-      );
-
-      const queuedAssetId = assetResult.rows[0]?.id ?? assetId;
-
-      await enqueueVideoTranscodeJob(pool, {
+      await queueVideoTranscodeForCreativeVersion(pool, {
         workspaceId,
-        ownerUserId: createdBy,
-        assetId: queuedAssetId,
-        input: {
-          assetId: queuedAssetId,
-          workspaceId,
-          creativeId: creative.id,
-          creativeVersionId: creativeVersion.id,
-          storageKey,
-          publicUrl,
-          mimeType: mimeType || 'video/mp4',
-          width: resolvedWidth || null,
-          height: resolvedHeight || null,
-          durationMs: resolvedDurationMs || null,
-          outputPlan,
-        },
+        creativeId: creative.id,
+        creativeVersionId: creativeVersion.id,
+        createdBy,
+        creativeName,
+        ingestionId,
+        sourceKind: normalizedSourceKind,
+        mimeType: mimeType || 'video/mp4',
+        storageKey,
+        publicUrl,
+        sizeBytes,
+        width: resolvedWidth || null,
+        height: resolvedHeight || null,
+        durationMs: resolvedDurationMs || null,
       });
     }
   }
