@@ -770,6 +770,21 @@ export default function CreativeLibrary() {
     status: 'active' | 'paused',
   ) => {
     if (!videoRenditionState) return;
+    const rendition = videoRenditionState.renditions.find((row) => row.id === renditionId);
+    const isReadyToActivate = Boolean(
+      rendition?.isSource || (
+        rendition?.publicUrl
+        && Number(rendition?.sizeBytes || 0) > 0
+        && rendition?.metadata?.available === true
+      ),
+    );
+    if (status === 'active' && !isReadyToActivate) {
+      setVideoRenditionState(current => current ? {
+        ...current,
+        error: 'This rendition is still queued. Wait for transcoding to finish before turning it on.',
+      } : current);
+      return;
+    }
     setVideoRenditionState(current => current ? { ...current, loading: true, error: '' } : current);
     try {
       await updateVideoRenditionById({ renditionId, status });
@@ -1867,7 +1882,16 @@ export default function CreativeLibrary() {
                         </td>
                         <td className="px-4 py-3">
                           <label className={`inline-flex items-center gap-3 text-xs font-medium ${
-                            videoRenditionState.loading || rendition.status === 'processing' || rendition.status === 'failed'
+                            videoRenditionState.loading
+                            || rendition.status === 'processing'
+                            || rendition.status === 'failed'
+                            || (!rendition.isSource
+                              && rendition.status !== 'active'
+                              && (
+                                !rendition.publicUrl
+                                || Number(rendition.sizeBytes || 0) <= 0
+                                || rendition.metadata?.available !== true
+                              ))
                               ? 'cursor-not-allowed text-slate-400'
                               : 'cursor-pointer text-slate-700'
                           }`}>
@@ -1877,7 +1901,18 @@ export default function CreativeLibrary() {
                                 type="checkbox"
                                 className="peer sr-only"
                                 checked={rendition.status === 'active'}
-                                disabled={videoRenditionState.loading || rendition.status === 'processing' || rendition.status === 'failed'}
+                                disabled={
+                                  videoRenditionState.loading
+                                  || rendition.status === 'processing'
+                                  || rendition.status === 'failed'
+                                  || (!rendition.isSource
+                                    && rendition.status !== 'active'
+                                    && (
+                                      !rendition.publicUrl
+                                      || Number(rendition.sizeBytes || 0) <= 0
+                                      || rendition.metadata?.available !== true
+                                    ))
+                                }
                                 onChange={(event) => {
                                   void handleVideoRenditionStatusChange(
                                     rendition.id,

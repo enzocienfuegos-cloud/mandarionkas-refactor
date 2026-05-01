@@ -137,7 +137,12 @@ function extractSourceInfo(version = {}, renditionRows = []) {
 function buildRenditionPlan(version = {}, renditionRows = []) {
   const sourceInfo = extractSourceInfo(version, renditionRows);
   const activeRows = renditionRows
-    .filter((row) => row.status === 'active' && row.public_url)
+    .filter((row) => {
+      if (row.status !== 'active' || !row.public_url) return false;
+      if (row.is_source) return true;
+      const metadata = extractJsonObject(row.metadata, {});
+      return metadata.available === true && Number(row.size_bytes || 0) > 0;
+    })
     .sort((left, right) => Number(left.sort_order || 0) - Number(right.sort_order || 0));
 
   const sources = activeRows.filter((row) => row.is_source);

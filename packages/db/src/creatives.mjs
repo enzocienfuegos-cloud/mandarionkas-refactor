@@ -1355,6 +1355,17 @@ export async function listVideoRenditions(pool, workspaceId, creativeVersionId) 
 }
 
 export async function updateVideoRendition(pool, workspaceId, renditionId, input = {}) {
+  const existingResult = await pool.query(
+    `SELECT id, workspace_id, creative_version_id, artifact_id, label, width, height,
+            bitrate_kbps, codec, mime_type, status, is_source, sort_order,
+            public_url, storage_key, size_bytes, metadata, created_at, updated_at
+     FROM video_renditions
+     WHERE workspace_id = $1 AND id = $2`,
+    [workspaceId, renditionId],
+  );
+  const existing = existingResult.rows[0] ?? null;
+  if (!existing) return null;
+
   const fields = [];
   const params = [workspaceId, renditionId];
 
@@ -1363,7 +1374,19 @@ export async function updateVideoRendition(pool, workspaceId, renditionId, input
     fields.push(`label = $${params.length}`);
   }
   if (Object.prototype.hasOwnProperty.call(input, 'status')) {
-    params.push(normalizeRenditionStatus(input.status, 'active'));
+    const nextStatus = normalizeRenditionStatus(input.status, 'active');
+    if (
+      nextStatus === 'active'
+      && !existing.is_source
+      && (
+        !trimText(existing.public_url)
+        || Number(existing.size_bytes || 0) <= 0
+        || extractJsonObject(existing.metadata, {}).available !== true
+      )
+    ) {
+      throw new Error('This rendition is not ready yet. Wait for transcoding to finish before activating it.');
+    }
+    params.push(nextStatus);
     fields.push(`status = $${params.length}`);
   }
   if (Object.prototype.hasOwnProperty.call(input, 'sort_order')) {
@@ -1376,15 +1399,7 @@ export async function updateVideoRendition(pool, workspaceId, renditionId, input
   }
 
   if (!fields.length) {
-    const { rows } = await pool.query(
-      `SELECT id, workspace_id, creative_version_id, artifact_id, label, width, height,
-              bitrate_kbps, codec, mime_type, status, is_source, sort_order,
-              public_url, storage_key, size_bytes, metadata, created_at, updated_at
-       FROM video_renditions
-       WHERE workspace_id = $1 AND id = $2`,
-      [workspaceId, renditionId],
-    );
-    return rows[0] ?? null;
+    return existing;
   }
 
   fields.push('updated_at = NOW()');
@@ -1449,7 +1464,14 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
 
   const targetProfiles = buildVideoTargetProfiles(version);
   const regeneratedAt = new Date().toISOString();
+  const sourceArtifactStorageKey = sourceArtifact?.storage_key ?? null;
+  const sourcePublicUrl = version.public_url ?? null;
+  const outputPlan = buildAutoVideoOutputPlan({
+    storageKey: sourceArtifactStorageKey,
+    publicUrl: sourcePublicUrl,
+  });
   for (const profile of targetProfiles) {
+    const profileKey = getVideoProfileOutputKey(profile.label);
     await pool.query(
       `INSERT INTO video_renditions (
          workspace_id, creative_version_id, artifact_id, label, width, height,
@@ -1457,8 +1479,8 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
          public_url, storage_key, size_bytes, metadata
        )
        VALUES (
-         $1, $2, NULL, $3, $4, $5, $6, $7, $8, 'active', FALSE, $9,
-         NULL, NULL, NULL, $10::jsonb
+         $1, $2, NULL, $3, $4, $5, $6, $7, $8, 'queued', FALSE, $9,
+         $10, $11, NULL, $12::jsonb
        )`,
       [
         workspaceId,
@@ -1470,12 +1492,15 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
         'h264',
         'video/mp4',
         profile.sortOrder,
+        outputPlan[profileKey]?.publicUrl ?? null,
+        outputPlan[profileKey]?.storageKey ?? null,
         JSON.stringify({
           ...version.metadata,
           renditionProfile: profile.label,
           generatedAt: regeneratedAt,
           targetWidth: profile.width,
           targetHeight: profile.height,
+          available: false,
         }),
       ],
     );
@@ -1495,10 +1520,15 @@ export async function regenerateVideoRenditions(pool, workspaceId, creativeVersi
       targetPlan: targetProfiles,
       renditionProcessing: targetProfiles.map((profile) => ({
         label: profile.label,
-        status: 'active',
-        available: true,
+        status: 'queued',
+        available: false,
+        publicUrl: outputPlan[getVideoProfileOutputKey(profile.label)]?.publicUrl ?? null,
+        storageKey: outputPlan[getVideoProfileOutputKey(profile.label)]?.storageKey ?? null,
+        width: profile.width ?? null,
+        height: profile.height ?? null,
+        bitrateKbps: profile.bitrateKbps ?? null,
       })),
-      generatedCount: targetProfiles.length + 1,
+      generatedCount: 1,
       noTargetsReason: targetProfiles.length === 0 ? 'source_below_minimum_ladder_size' : null,
       regeneratedAt,
     },
