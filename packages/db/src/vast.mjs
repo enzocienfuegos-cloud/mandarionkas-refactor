@@ -397,17 +397,22 @@ async function getTagContext(pool, tagId) {
   if (!tag) return null;
 
   const { rows: bindingRows } = await pool.query(
-    `SELECT b.id, b.tag_id, b.creative_id, b.creative_version_id, b.status, b.weight,
-            cv.source_kind, cv.serving_format, cv.status AS creative_version_status,
+    `SELECT b.id, b.tag_id, b.creative_version_id, b.creative_size_variant_id, b.status, b.weight,
+            cv.creative_id, cv.source_kind, cv.serving_format, cv.status AS creative_version_status,
             cv.public_url, cv.mime_type, cv.width, cv.height, cv.duration_ms, cv.metadata AS creative_version_metadata,
-            c.name AS creative_name, c.click_url AS creative_click_url, c.transcode_status
+            c.name AS creative_name, c.click_url AS creative_click_url, c.transcode_status,
+            v.label AS variant_label, v.width AS variant_width, v.height AS variant_height,
+            v.status AS variant_status, v.public_url AS variant_public_url
      FROM creative_tag_bindings b
      JOIN creative_versions cv
        ON cv.id = b.creative_version_id
       AND cv.workspace_id = b.workspace_id
      JOIN creatives c
-       ON c.id = b.creative_id
+       ON c.id = cv.creative_id
       AND c.workspace_id = b.workspace_id
+     LEFT JOIN creative_size_variants v
+       ON v.id = b.creative_size_variant_id
+      AND v.workspace_id = b.workspace_id
      WHERE b.workspace_id = $1
        AND b.tag_id = $2
        AND b.status = 'active'
