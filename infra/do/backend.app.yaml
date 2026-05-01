@@ -15,6 +15,7 @@ services:
       deploy_on_push: true
     source_dir: ./
     environment_slug: node-js
+    build_command: npm ci
     run_command: npm run start:api
     http_port: 8080
     instance_size_slug: apps-s-1vcpu-1gb
@@ -87,6 +88,7 @@ workers:
       deploy_on_push: true
     source_dir: ./
     environment_slug: node-js
+    build_command: npm ci
     run_command: npm run start:worker
     instance_size_slug: apps-s-1vcpu-0.5gb
     instance_count: 1
@@ -116,6 +118,7 @@ jobs:
       deploy_on_push: true
     source_dir: ./
     environment_slug: node-js
+    build_command: npm ci
     run_command: node packages/db/scripts/run-migrations.mjs
     instance_size_slug: apps-s-1vcpu-0.5gb
     instance_count: 1
