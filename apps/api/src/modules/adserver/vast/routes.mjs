@@ -68,6 +68,12 @@ function sendXml(res, xml, extraHeaders = {}) {
   return true;
 }
 
+function applyPublicCors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.removeHeader('Access-Control-Allow-Credentials');
+  res.setHeader('Vary', 'Origin');
+}
+
 export async function handleVastRoutes(ctx) {
   const { method, pathname, body, res, requestId, url } = ctx;
   const baseUrl = resolveBaseUrl(ctx);
@@ -108,6 +114,7 @@ export async function handleVastRoutes(ctx) {
       baseUrl,
     });
     if (!xml) return badRequest(res, requestId, 'Tag not found.');
+    applyPublicCors(res);
     return sendXml(res, xml, { 'Cache-Control': 'private, no-store' });
   }
 
@@ -121,6 +128,7 @@ export async function handleVastRoutes(ctx) {
       baseUrl,
     });
     if (!xml) return badRequest(res, requestId, 'Tag not found.');
+    applyPublicCors(res);
     return sendXml(res, xml, { 'Cache-Control': 'private, no-store' });
   }
 
@@ -134,6 +142,7 @@ export async function handleVastRoutes(ctx) {
       baseUrl,
     });
     if (!snapshot) return badRequest(res, requestId, 'Tag not found.');
+    applyPublicCors(res);
     return sendXml(res, snapshot.xml, {
       ETag: snapshot.etag || undefined,
       'Cache-Control': 'private, max-age=60',
@@ -191,6 +200,7 @@ export async function handleVastRoutes(ctx) {
 
   if (method === 'GET' && /^\/v1\/tags\/tracker\/[^/]+\/impression\.gif$/.test(pathname)) {
     res.statusCode = 200;
+    applyPublicCors(res);
     res.setHeader('Content-Type', 'image/gif');
     res.setHeader('Cache-Control', 'private, no-store');
     res.end(PIXEL_GIF);
@@ -199,6 +209,7 @@ export async function handleVastRoutes(ctx) {
 
   if (method === 'GET' && /^\/v1\/tags\/tracker\/[^/]+\/engagement$/.test(pathname)) {
     res.statusCode = 204;
+    applyPublicCors(res);
     res.end();
     return true;
   }
@@ -208,6 +219,7 @@ export async function handleVastRoutes(ctx) {
     const explicitTarget = trimText(url.searchParams.get('url'));
     const destination = explicitTarget || await getTagClickDestination(getDatabasePool(ctx.env), tagId);
     res.statusCode = 302;
+    applyPublicCors(res);
     res.setHeader('Location', destination || baseUrl);
     res.end();
     return true;
