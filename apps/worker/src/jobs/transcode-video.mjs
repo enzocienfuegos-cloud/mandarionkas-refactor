@@ -36,8 +36,12 @@ function getConnectionString(source = process.env) {
   return String(source.DATABASE_POOL_URL || source.DATABASE_URL || '').trim();
 }
 
+function getConfiguredFfmpegBin(source = process.env) {
+  return String(source.FFMPEG_BIN || '').trim();
+}
+
 function getFfmpegBin(source = process.env) {
-  const configured = String(source.FFMPEG_BIN || '').trim();
+  const configured = getConfiguredFfmpegBin(source);
   if (configured) return configured;
   const bundled = getBundledFfmpegBin();
   if (bundled) return bundled;
@@ -262,8 +266,17 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
       return { processed: 0, skipped: false };
     }
 
-    const ffmpegBin = getFfmpegBin(source);
-    const ffmpegReady = await deps.commandExists(ffmpegBin);
+    const configuredFfmpegBin = getConfiguredFfmpegBin(source);
+    const bundledFfmpegBin = getBundledFfmpegBin();
+    let ffmpegBin = getFfmpegBin(source);
+    let ffmpegReady = await deps.commandExists(ffmpegBin);
+    if (!ffmpegReady && configuredFfmpegBin && bundledFfmpegBin && bundledFfmpegBin !== configuredFfmpegBin) {
+      const bundledReady = await deps.commandExists(bundledFfmpegBin);
+      if (bundledReady) {
+        ffmpegBin = bundledFfmpegBin;
+        ffmpegReady = true;
+      }
+    }
     if (!ffmpegReady) {
       await deps.skipAssetProcessingJob(client, {
         jobId: job.id,
