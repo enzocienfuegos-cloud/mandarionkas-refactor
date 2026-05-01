@@ -11,6 +11,7 @@ import {
   patchAssetMetadata,
   skipAssetProcessingJob,
 } from '../../../../packages/db/src/asset-jobs.mjs';
+import { syncCreativeVideoTranscodeOutputs } from '../../../../packages/db/src/creatives.mjs';
 import { logError, logInfo, logWarn } from '../../../api/src/lib/logger.mjs';
 
 function getConnectionString(source = process.env) {
@@ -147,6 +148,7 @@ function createDefaultDeps(source = process.env) {
     failAssetProcessingJob,
     patchAssetMetadata,
     skipAssetProcessingJob,
+    syncCreativeVideoTranscodeOutputs,
     logError,
     logInfo,
     logWarn,
@@ -378,6 +380,14 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
           },
         },
       });
+      if (input.creativeVersionId) {
+        await deps.syncCreativeVideoTranscodeOutputs(client, {
+          workspaceId: job.workspace_id,
+          creativeVersionId: input.creativeVersionId,
+          outputPlan,
+          derivatives,
+        });
+      }
       deps.logInfo({ service: 'smx-worker', job: 'transcode-video', status: 'completed', jobId: job.id, assetId: job.asset_id });
       return { processed: 1, skipped: false };
     } finally {

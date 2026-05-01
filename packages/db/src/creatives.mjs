@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { enqueueVideoTranscodeJob } from './asset-jobs.mjs';
+
 function normalizeLimit(limit, fallback = 100) {
   return Math.min(Math.max(Number(limit) || fallback, 1), 500);
 }
@@ -407,6 +410,69 @@ function inferArtifactKind(sourceKind) {
   return 'source_zip';
 }
 
+function buildAutoVideoOutputPlan({ storageKey, publicUrl }) {
+  const safeStorageKey = String(storageKey || '').trim();
+  const safePublicUrl = String(publicUrl || '').trim();
+  const baseStorageKey = safeStorageKey.replace(/\.[^.]+$/, '');
+  const basePublicUrl = safePublicUrl.replace(/\.[^.]+$/, '');
+  return {
+    low: {
+      storageKey: `${baseStorageKey}-low.mp4`,
+      publicUrl: `${basePublicUrl}-low.mp4`,
+      maxHeight: 480,
+      videoBitrateKbps: 900,
+    },
+    mid: {
+      storageKey: `${baseStorageKey}-mid.mp4`,
+      publicUrl: `${basePublicUrl}-mid.mp4`,
+      maxHeight: 720,
+      videoBitrateKbps: 1500,
+    },
+    high: {
+      storageKey: `${baseStorageKey}-high.mp4`,
+      publicUrl: `${basePublicUrl}-high.mp4`,
+      maxHeight: 1080,
+      videoBitrateKbps: 2400,
+    },
+    poster: {
+      storageKey: `${baseStorageKey}-poster.jpg`,
+      publicUrl: `${basePublicUrl}-poster.jpg`,
+    },
+  };
+}
+
+function buildQueuedVideoProcessingMetadata(version = {}, targetProfiles = [], outputPlan = {}) {
+  const renditionProcessing = targetProfiles.map((profile) => {
+    const key = String(profile.label || '').trim().toLowerCase();
+    return {
+      label: profile.label,
+      status: 'queued',
+      available: false,
+      publicUrl: outputPlan[key]?.publicUrl ?? null,
+      storageKey: outputPlan[key]?.storageKey ?? null,
+    };
+  });
+  return {
+    ...(version.metadata || {}),
+    videoProcessing: {
+      source: {
+        width: version.width ?? null,
+        height: version.height ?? null,
+        mimeType: version.mime_type ?? null,
+        durationMs: version.duration_ms ?? null,
+      },
+      ffprobeAvailable: true,
+      ffmpegAvailable: true,
+      targetPlan: targetProfiles,
+      renditionProcessing,
+      generatedCount: renditionProcessing.length + 1,
+      noTargetsReason: targetProfiles.length === 0 ? 'source_below_minimum_ladder_size' : null,
+      queuedAt: new Date().toISOString(),
+      mode: 'auto-on-publish',
+    },
+  };
+}
+
 export async function createCreativeIngestion(pool, input = {}) {
   const {
     id,
@@ -666,6 +732,125 @@ export async function createPublishedCreative(pool, input = {}) {
         JSON.stringify({ generatedBy: 'publish', profile: 'source' }),
       ],
     );
+
+    await regenerateVideoRenditions(pool, workspaceId, creativeVersion.id);
+
+    if (storageKey && publicUrl && createdBy) {
+      const assetId = randomUUID();
+      const outputPlan = buildAutoVideoOutputPlan({ storageKey, publicUrl });
+      const assetResult = await pool.query(
+        `INSERT INTO assets (
+           id, workspace_id, owner_user_id, upload_session_id, name, kind, mime_type,
+           source_type, storage_mode, storage_key, public_url, origin_url,
+           poster_src, thumbnail_url, access_scope, tags, size_bytes, width,
+           height, duration_ms, fingerprint, font_family, metadata
+         )
+         VALUES (
+           $1, $2, $3, NULL, $4, 'video', $5, 'upload', 'object-storage', $6, $7, $7,
+           NULL, NULL, 'client', '{}'::text[], $8, $9, $10, $11, NULL, NULL, $12::jsonb
+         )
+         ON CONFLICT (workspace_id, storage_key) DO UPDATE
+         SET owner_user_id = EXCLUDED.owner_user_id,
+             name = EXCLUDED.name,
+             mime_type = EXCLUDED.mime_type,
+             public_url = EXCLUDED.public_url,
+             origin_url = EXCLUDED.origin_url,
+             size_bytes = EXCLUDED.size_bytes,
+             width = EXCLUDED.width,
+             height = EXCLUDED.height,
+             duration_ms = EXCLUDED.duration_ms,
+             metadata = EXCLUDED.metadata,
+             updated_at = NOW()
+         RETURNING id`,
+        [
+          assetId,
+          workspaceId,
+          createdBy,
+          creativeName,
+          mimeType || 'video/mp4',
+          storageKey,
+          publicUrl,
+          sizeBytes,
+          width,
+          height,
+          durationMs,
+          JSON.stringify({
+            creativeId: creative.id,
+            creativeVersionId: creativeVersion.id,
+            ingestionId,
+            sourceKind: normalizedSourceKind,
+            optimization: {
+              video: {
+                status: 'queued',
+                outputs: outputPlan,
+                queuedAt: new Date().toISOString(),
+              },
+            },
+          }),
+        ],
+      );
+
+      const targetProfiles = buildVideoTargetProfiles(creativeVersion);
+      for (const profile of targetProfiles) {
+        const profileKey = String(profile.label || '').trim().toLowerCase();
+        await pool.query(
+          `UPDATE video_renditions
+           SET status = 'queued',
+               public_url = $4,
+               storage_key = $5,
+               metadata = coalesce(metadata, '{}'::jsonb) || $6::jsonb,
+               updated_at = NOW()
+           WHERE workspace_id = $1
+             AND creative_version_id = $2
+             AND lower(label) = $3
+             AND is_source = FALSE`,
+          [
+            workspaceId,
+            creativeVersion.id,
+            profileKey,
+            outputPlan[profileKey]?.publicUrl ?? null,
+            outputPlan[profileKey]?.storageKey ?? null,
+            JSON.stringify({
+              queuedBy: 'publish',
+              profile: profile.label,
+            }),
+          ],
+        );
+      }
+
+      await updateCreativeVersion(pool, workspaceId, creativeVersion.id, {
+        metadata: buildQueuedVideoProcessingMetadata(creativeVersion, targetProfiles, outputPlan),
+      });
+
+      await pool.query(
+        `UPDATE creatives
+         SET transcode_status = 'queued',
+             updated_at = NOW()
+         WHERE workspace_id = $1 AND id = $2`,
+        [workspaceId, creative.id],
+      );
+
+      const queuedAssetId = assetResult.rows[0]?.id ?? assetId;
+
+      await enqueueVideoTranscodeJob(pool, {
+        workspaceId,
+        ownerUserId: createdBy,
+        assetId: queuedAssetId,
+        input: {
+          assetId: queuedAssetId,
+          workspaceId,
+          creativeId: creative.id,
+          creativeVersionId: creativeVersion.id,
+          storageKey,
+          publicUrl,
+          mimeType: mimeType || 'video/mp4',
+          width: width || null,
+          height: height || null,
+          durationMs: durationMs || null,
+          outputPlan,
+        },
+      });
+    }
   }
 
   const ingestion = await updateCreativeIngestion(pool, workspaceId, ingestionId, {
@@ -676,7 +861,90 @@ export async function createPublishedCreative(pool, input = {}) {
     validation_report: { published: true },
   });
 
-  return { creative, creativeVersion, ingestion };
+  const latestCreative = await getCreative(pool, workspaceId, creative.id);
+  const latestCreativeVersion = await getCreativeVersion(pool, workspaceId, creativeVersion.id);
+
+  return { creative: latestCreative ?? creative, creativeVersion: latestCreativeVersion ?? creativeVersion, ingestion };
+}
+
+export async function syncCreativeVideoTranscodeOutputs(pool, {
+  workspaceId,
+  creativeVersionId,
+  outputPlan = {},
+  derivatives = {},
+}) {
+  const version = await getCreativeVersion(pool, workspaceId, creativeVersionId);
+  if (!version) return null;
+
+  const renditionKeys = ['low', 'mid', 'high'];
+  for (const key of renditionKeys) {
+    const derivative = derivatives[key];
+    if (!derivative) continue;
+    await pool.query(
+      `UPDATE video_renditions
+       SET status = 'active',
+           public_url = $4,
+           storage_key = $5,
+           size_bytes = $6,
+           mime_type = $7,
+           codec = $8,
+           bitrate_kbps = $9,
+           metadata = coalesce(metadata, '{}'::jsonb) || $10::jsonb,
+           updated_at = NOW()
+       WHERE workspace_id = $1
+         AND creative_version_id = $2
+         AND lower(label) = $3
+         AND is_source = FALSE`,
+      [
+        workspaceId,
+        creativeVersionId,
+        key,
+        derivative.src ?? outputPlan[key]?.publicUrl ?? null,
+        outputPlan[key]?.storageKey ?? null,
+        derivative.sizeBytes ?? null,
+        derivative.mimeType ?? 'video/mp4',
+        derivative.codec ?? 'h264',
+        derivative.bitrateKbps ?? null,
+        JSON.stringify({
+          processedAt: new Date().toISOString(),
+          available: true,
+        }),
+      ],
+    );
+  }
+
+  const mergedMetadata = {
+    ...(version.metadata || {}),
+    videoProcessing: {
+      ...((version.metadata || {}).videoProcessing || {}),
+      completedAt: new Date().toISOString(),
+      mode: 'auto-on-publish',
+      poster: derivatives.poster?.src ?? null,
+      renditionProcessing: renditionKeys.map((key) => ({
+        label: key[0].toUpperCase() + key.slice(1),
+        status: derivatives[key] ? 'active' : 'queued',
+        available: Boolean(derivatives[key]),
+        publicUrl: derivatives[key]?.src ?? outputPlan[key]?.publicUrl ?? null,
+        storageKey: outputPlan[key]?.storageKey ?? null,
+      })),
+    },
+  };
+
+  await updateCreativeVersion(pool, workspaceId, creativeVersionId, {
+    metadata: mergedMetadata,
+  });
+
+  await pool.query(
+    `UPDATE creatives
+     SET thumbnail_url = COALESCE($3, thumbnail_url),
+         transcode_status = 'ready',
+         updated_at = NOW()
+     WHERE workspace_id = $1
+       AND id = (SELECT creative_id FROM creative_versions WHERE workspace_id = $1 AND id = $2)`,
+    [workspaceId, creativeVersionId, derivatives.poster?.src ?? null],
+  );
+
+  return listVideoRenditions(pool, workspaceId, creativeVersionId);
 }
 
 export async function listTagBindings(pool, workspaceId, tagId) {
