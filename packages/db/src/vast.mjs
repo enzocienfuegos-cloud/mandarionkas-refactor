@@ -443,11 +443,20 @@ function buildTrackerUrls({ baseUrl, tagId, dsp }) {
   };
 }
 
-function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl }) {
+function shouldUseMacroDeliveryMode(requestQuery = null) {
+  if (!requestQuery) return false;
+  const params = requestQuery instanceof URLSearchParams
+    ? requestQuery
+    : new URLSearchParams(requestQuery);
+  return Array.from(params.keys()).some(Boolean);
+}
+
+function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl, requestQuery = null }) {
   const normalizedProfile = normalizeProfile(profile, 'default');
   const configuredVersion = trimText(ctx.tag.vast_version);
   const campaignDsp = readCampaignDsp(ctx.tag.campaign_metadata);
-  const profileDsp = deriveProfileDsp(normalizedProfile, campaignDsp);
+  const macroMode = shouldUseMacroDeliveryMode(requestQuery);
+  const profileDsp = macroMode ? deriveProfileDsp(normalizedProfile, campaignDsp) : '';
   const xmlVersion = getProfileVersion(normalizedProfile, configuredVersion);
   const liveBaseUrl = trimText(baseUrl).replace(/\/+$/, '');
   const trackers = buildTrackerUrls({ baseUrl: liveBaseUrl, tagId: ctx.tag.id, dsp: profileDsp });
@@ -636,10 +645,10 @@ export async function getStaticVastXml(pool, { tagId, profile = 'default', baseU
   return { xml, contentType: 'application/xml; charset=utf-8', etag: hashEtag(xml) };
 }
 
-export async function getLiveVastXml(pool, { tagId, profile = 'default', baseUrl }) {
+export async function getLiveVastXml(pool, { tagId, profile = 'default', baseUrl, requestQuery = null }) {
   const ctx = await getTagContext(pool, tagId);
   if (!ctx) return null;
-  return buildLiveXmlForTagContext(ctx, { profile, baseUrl });
+  return buildLiveXmlForTagContext(ctx, { profile, baseUrl, requestQuery });
 }
 
 export async function getTagClickDestination(pool, tagId) {
