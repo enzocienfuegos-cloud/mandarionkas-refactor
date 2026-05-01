@@ -1,5 +1,4 @@
 import { forbidden, sendJson, serviceUnavailable, unauthorized } from '../../lib/http.mjs';
-import { requireAuthenticatedSession } from '../auth/service.mjs';
 import { withSession, hasPermission } from '../../lib/session.mjs';
 import { queryAuditEvents } from '@smx/db/src/audit.mjs';
 

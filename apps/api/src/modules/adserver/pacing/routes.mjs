@@ -1,5 +1,4 @@
 import { badRequest, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
-import { requireAuthenticatedSession } from '../../auth/service.mjs';
 import {
   getCampaignPacingBreakdown,
   listWorkspacePacingAlerts,

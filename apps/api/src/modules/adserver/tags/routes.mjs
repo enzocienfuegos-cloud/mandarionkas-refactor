@@ -1,5 +1,4 @@
 import { badRequest, conflict, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
-import { requireAuthenticatedSession } from '../../auth/service.mjs';
 import { withSession, hasPermission } from '../../../lib/session.mjs';
 import { checkTagHealth, getTagHealthSummary, listTagHealth } from '@smx/db/src/tag-health.mjs';
 import { getTagStats, getTagSummary } from '@smx/db/src/reporting.mjs';

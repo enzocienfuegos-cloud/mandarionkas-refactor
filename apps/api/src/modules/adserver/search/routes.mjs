@@ -1,5 +1,4 @@
 import { sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
-import { requireAuthenticatedSession } from '../../auth/service.mjs';
 import { searchWorkspace } from '@smx/db/src/search.mjs';
 import { withSession } from '../../../lib/session.mjs';
 

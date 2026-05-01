@@ -9,8 +9,14 @@ import {
   failAssetProcessingJob,
   patchAssetMetadata,
   skipAssetProcessingJob,
-} from 'node:fs/promises';
-import { logInfo, logWarn } from '@smx/api/src/lib/logger.mjs';
+} from '@smx/db/src/asset-jobs.mjs';
+function log(level, payload) {
+  console[level === 'error' ? 'error' : 'log'](
+    JSON.stringify({ level, time: new Date().toISOString(), service: 'smx-worker', job: 'image-derivatives', ...payload })
+  );
+}
+const logInfo = (p) => log('info', p);
+const logWarn  = (p) => log('warn', p);
 
 function getConnectionString(source = process.env) {
   return String(source.DATABASE_POOL_URL || source.DATABASE_URL || '').trim();

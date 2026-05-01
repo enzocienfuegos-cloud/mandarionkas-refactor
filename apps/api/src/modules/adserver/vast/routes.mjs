@@ -18,7 +18,6 @@
 // static VAST is consumed by DSPs that don't carry first-party cookies.
 
 import { badRequest, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
-import { requireAuthenticatedSession } from '../../auth/service.mjs';
 import { withSession, hasPermission } from '../../../lib/session.mjs';
 import { getPool } from '@smx/db/src/pool.mjs';
 import {
