@@ -1,8 +1,10 @@
 import { spawn } from 'node:child_process';
+import { createWriteStream } from 'node:fs';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getPool, closeAllPools } from '../../../../packages/db/src/pool.mjs';
 import {
@@ -119,18 +121,36 @@ async function runFfmpeg(binary, args, cwd) {
   return new Promise((resolve, reject) => {
     const child = spawn(binary, args, { cwd, stdio: 'pipe' });
     let stderr = '';
+    let stdout = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
     child.stderr.on('data', (chunk) => {
       stderr += String(chunk);
     });
     child.on('error', reject);
     child.on('exit', (code) => {
       if (code === 0) {
-        resolve(stderr);
+        resolve({ stdout, stderr });
         return;
       }
-      reject(new Error(stderr || `ffmpeg exited with code ${code}`));
+      reject(new Error(
+        [
+          `ffmpeg exited with code ${code}`,
+          stderr.trim(),
+          stdout.trim(),
+        ].filter(Boolean).join('\n\n'),
+      ));
     });
   });
+}
+
+async function downloadSourceToFile(sourceUrl, targetPath) {
+  const response = await fetch(sourceUrl);
+  if (!response.ok || !response.body) {
+    throw new Error(`Unable to download source video: ${response.status} ${response.statusText}`.trim());
+  }
+  await pipeline(response.body, createWriteStream(targetPath));
 }
 
 async function uploadFileToR2(source, { storageKey, filePath, contentType }) {
@@ -381,11 +401,14 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
       const midPath = path.join(scratchDir, 'mid.mp4');
       const highPath = path.join(scratchDir, 'high.mp4');
       const posterPath = path.join(scratchDir, 'poster.jpg');
+      const sourcePath = path.join(scratchDir, 'source.mp4');
 
-      await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourceUrl, '-vf', 'scale=-2:480', '-c:v', 'libx264', '-b:v', '900k', '-an', lowPath], scratchDir);
-      await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourceUrl, '-vf', 'scale=-2:720', '-c:v', 'libx264', '-b:v', '1500k', '-an', midPath], scratchDir);
-      await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourceUrl, '-vf', 'scale=-2:1080', '-c:v', 'libx264', '-b:v', '2400k', '-an', highPath], scratchDir);
-      await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourceUrl, '-frames:v', '1', posterPath], scratchDir);
+      await downloadSourceToFile(sourceUrl, sourcePath);
+
+      await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourcePath, '-vf', 'scale=-2:480', '-c:v', 'libx264', '-b:v', '900k', '-an', lowPath], scratchDir);
+      await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourcePath, '-vf', 'scale=-2:720', '-c:v', 'libx264', '-b:v', '1500k', '-an', midPath], scratchDir);
+      await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourcePath, '-vf', 'scale=-2:1080', '-c:v', 'libx264', '-b:v', '2400k', '-an', highPath], scratchDir);
+      await deps.runFfmpeg(ffmpegBin, ['-y', '-i', sourcePath, '-frames:v', '1', posterPath], scratchDir);
 
       await deps.uploadFileToR2(source, { storageKey: outputPlan.low.storageKey, filePath: lowPath, contentType: 'video/mp4' });
       await deps.uploadFileToR2(source, { storageKey: outputPlan.mid.storageKey, filePath: midPath, contentType: 'video/mp4' });
@@ -506,10 +529,10 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
         },
       },
     });
-    if (input.creativeVersionId) {
+    if (job.input?.creativeVersionId) {
       await deps.updateCreativeVersionVideoProcessingState(client, {
         workspaceId: job.workspace_id,
-        creativeVersionId: input.creativeVersionId,
+        creativeVersionId: job.input.creativeVersionId,
         status: final ? 'failed' : 'queued',
         reason: error instanceof Error ? error.message : 'video_processing_failed',
         nextRetryAt,
