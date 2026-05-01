@@ -795,7 +795,7 @@ export async function createPublishedCreative(pool, input = {}) {
         const profileKey = String(profile.label || '').trim().toLowerCase();
         await pool.query(
           `UPDATE video_renditions
-           SET status = 'queued',
+           SET status = 'processing',
                public_url = $4,
                storage_key = $5,
                metadata = coalesce(metadata, '{}'::jsonb) || $6::jsonb,
@@ -922,7 +922,7 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
       poster: derivatives.poster?.src ?? null,
       renditionProcessing: renditionKeys.map((key) => ({
         label: key[0].toUpperCase() + key.slice(1),
-        status: derivatives[key] ? 'active' : 'queued',
+        status: derivatives[key] ? 'active' : 'processing',
         available: Boolean(derivatives[key]),
         publicUrl: derivatives[key]?.src ?? outputPlan[key]?.publicUrl ?? null,
         storageKey: outputPlan[key]?.storageKey ?? null,
