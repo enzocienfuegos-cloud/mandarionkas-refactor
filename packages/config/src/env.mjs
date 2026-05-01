@@ -29,6 +29,8 @@ export function readApiEnv(source = process.env) {
     appOrigin,
     corsOrigins: corsOrigins.length ? corsOrigins : [appOrigin],
     apiBaseUrl: normalize(source.API_BASE_URL) || '',
+    apiPublicBaseUrl: normalize(source.API_PUBLIC_BASE_URL) || '',
+    baseUrl: normalize(source.BASE_URL) || '',
     assetsPublicBaseUrl: normalize(source.ASSETS_PUBLIC_BASE_URL) || '',
     databaseUrl: normalize(source.DATABASE_URL) || '',
     databasePoolUrl: normalize(source.DATABASE_POOL_URL) || '',

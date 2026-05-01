@@ -12,6 +12,7 @@ import { handlePacingRoutes } from './modules/adserver/pacing/routes.mjs';
 import { handleReportingRoutes } from './modules/adserver/reporting/routes.mjs';
 import { handleSearchRoutes } from './modules/adserver/search/routes.mjs';
 import { handleTagRoutes } from './modules/adserver/tags/routes.mjs';
+import { handleVastRoutes } from './modules/adserver/vast/routes.mjs';
 import { handleWebhookRoutes } from './modules/adserver/webhooks/routes.mjs';
 import { applyCors, getRequestId, notFound, readJsonBody, sendJson } from './lib/http.mjs';
 import { getApiConfig } from './plugins/config.mjs';
@@ -32,6 +33,7 @@ const routeHandlers = [
   handlePacingRoutes,
   handleReportingRoutes,
   handleSearchRoutes,
+  handleVastRoutes,
   handleTagRoutes,
   handleWebhookRoutes,
 ];
