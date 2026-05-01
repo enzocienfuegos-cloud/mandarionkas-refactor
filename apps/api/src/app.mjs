@@ -1,5 +1,6 @@
 import { handleHealthRoutes } from './modules/health/routes.mjs';
 import { handleAuthRoutes } from './modules/auth/routes.mjs';
+import { handleAuditRoutes } from './modules/audit/routes.mjs';
 import { handleWorkspaceRoutes } from './modules/workspaces/routes.mjs';
 import { handleProjectRoutes } from './modules/projects/routes.mjs';
 import { handleAssetRoutes } from './modules/assets/routes.mjs';
@@ -9,34 +10,69 @@ import { handleCreativeRoutes } from './modules/adserver/creatives/routes.mjs';
 import { handleDiscrepancyRoutes } from './modules/adserver/discrepancies/routes.mjs';
 import { handleExperimentRoutes } from './modules/adserver/experiments/routes.mjs';
 import { handlePacingRoutes } from './modules/adserver/pacing/routes.mjs';
+import { handlePixelRoutes } from './modules/adserver/pixels/routes.mjs';
 import { handleReportingRoutes } from './modules/adserver/reporting/routes.mjs';
 import { handleSearchRoutes } from './modules/adserver/search/routes.mjs';
 import { handleTagRoutes } from './modules/adserver/tags/routes.mjs';
+import { createTrackerRoutes } from './modules/adserver/tracker/routes.mjs';
+import { TrackerBuffer } from './modules/adserver/tracker/tracker-buffer.mjs';
+import { handleTrackingRoutes } from './modules/adserver/tracking/routes.mjs';
 import { handleVastRoutes } from './modules/adserver/vast/routes.mjs';
 import { handleWebhookRoutes } from './modules/adserver/webhooks/routes.mjs';
 import { applyCors, getRequestId, notFound, readJsonBody, sendJson } from './lib/http.mjs';
 import { getApiConfig } from './plugins/config.mjs';
 import { logError, logInfo } from './lib/logger.mjs';
+import { getPool } from '../../../packages/db/src/pool.mjs';
 
 const { env, warnings } = getApiConfig();
-const routeHandlers = [
-  handleHealthRoutes,
-  handleAuthRoutes,
-  handleWorkspaceRoutes,
-  handleProjectRoutes,
-  handleAssetRoutes,
-  handleCampaignRoutes,
-  handleApiKeyRoutes,
-  handleCreativeRoutes,
-  handleDiscrepancyRoutes,
-  handleExperimentRoutes,
-  handlePacingRoutes,
-  handleReportingRoutes,
-  handleSearchRoutes,
-  handleVastRoutes,
-  handleTagRoutes,
-  handleWebhookRoutes,
-];
+let trackerBuffer = null;
+
+function initTrackerBuffer() {
+  const connectionString = env.databasePoolUrl || env.databaseUrl || '';
+  if (!connectionString) {
+    logInfo({ service: env.appName, event: 'tracker_buffer_skipped', reason: 'no_database_url' });
+    return null;
+  }
+
+  const pool = getPool(connectionString);
+  const buffer = new TrackerBuffer(pool, {
+    flushIntervalMs: env.trackerFlushIntervalMs,
+    flushThreshold: env.trackerFlushThreshold,
+  });
+  buffer.start();
+  logInfo({
+    service: env.appName,
+    event: 'tracker_buffer_started',
+    flushIntervalMs: env.trackerFlushIntervalMs,
+    flushThreshold: env.trackerFlushThreshold,
+  });
+  return buffer;
+}
+
+function buildRouteHandlers(buffer) {
+  return [
+    handleHealthRoutes,
+    handleAuthRoutes,
+    handleAuditRoutes,
+    handleWorkspaceRoutes,
+    handleProjectRoutes,
+    handleAssetRoutes,
+    handleCampaignRoutes,
+    handleApiKeyRoutes,
+    handleCreativeRoutes,
+    handleDiscrepancyRoutes,
+    handleExperimentRoutes,
+    handlePacingRoutes,
+    handlePixelRoutes,
+    handleReportingRoutes,
+    handleSearchRoutes,
+    createTrackerRoutes(buffer),
+    handleVastRoutes,
+    handleTagRoutes,
+    handleTrackingRoutes,
+    handleWebhookRoutes,
+  ];
+}
 
 function logRequest({ requestId, method, pathname, statusCode, durationMs }) {
   logInfo({
@@ -50,6 +86,9 @@ function logRequest({ requestId, method, pathname, statusCode, durationMs }) {
 }
 
 export function createApp() {
+  trackerBuffer = initTrackerBuffer();
+  const routeHandlers = buildRouteHandlers(trackerBuffer);
+
   return async function handleRequest(req, res) {
     const startedAt = Date.now();
     const requestId = getRequestId(req.headers);
@@ -108,4 +147,10 @@ export function createApp() {
 
     logRequest({ requestId, method, pathname, statusCode: res.statusCode || 200, durationMs: Date.now() - startedAt });
   };
+}
+
+export async function shutdownApp() {
+  if (trackerBuffer) {
+    await trackerBuffer.stop();
+  }
 }

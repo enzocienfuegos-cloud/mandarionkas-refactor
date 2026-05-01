@@ -4,15 +4,12 @@ import { getPool } from '../../../../../../packages/db/src/pool.mjs';
 import {
   getLiveVastXml,
   getStaticVastXml,
-  getTagClickDestination,
   getVastDeliveryDiagnostics,
   publishStaticVastProfiles,
   queueStaticVastPublish,
   resolveVastChain,
   validateVastTag,
 } from '../../../../../../packages/db/src/vast.mjs';
-
-const PIXEL_GIF = Buffer.from('R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==', 'base64');
 
 function trimText(value) {
   return String(value ?? '').trim();
@@ -204,33 +201,6 @@ export async function handleVastRoutes(ctx) {
       if (!diagnostics) return badRequest(res, requestId, 'Tag not found.');
       return sendJson(res, 200, { ...diagnostics, requestId });
     });
-  }
-
-  if (method === 'GET' && /^\/v1\/tags\/tracker\/[^/]+\/impression\.gif$/.test(pathname)) {
-    res.statusCode = 200;
-    applyPublicCors(ctx.req, res);
-    res.setHeader('Content-Type', 'image/gif');
-    res.setHeader('Cache-Control', 'private, no-store');
-    res.end(PIXEL_GIF);
-    return true;
-  }
-
-  if (method === 'GET' && /^\/v1\/tags\/tracker\/[^/]+\/engagement$/.test(pathname)) {
-    res.statusCode = 204;
-    applyPublicCors(ctx.req, res);
-    res.end();
-    return true;
-  }
-
-  if (method === 'GET' && /^\/v1\/tags\/tracker\/[^/]+\/click$/.test(pathname)) {
-    const tagId = pathname.split('/')[4];
-    const explicitTarget = trimText(url.searchParams.get('url'));
-    const destination = explicitTarget || await getTagClickDestination(getDatabasePool(ctx.env), tagId);
-    res.statusCode = 302;
-    applyPublicCors(ctx.req, res);
-    res.setHeader('Location', destination || baseUrl);
-    res.end();
-    return true;
   }
 
   return false;
