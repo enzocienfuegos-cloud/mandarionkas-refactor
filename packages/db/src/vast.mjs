@@ -23,6 +23,8 @@ const EMPTY_STATIC_METADATA = Object.freeze({
   job: null,
 });
 
+let hasTagFormatConfigMetadataColumn = null;
+
 function trimText(value) {
   return String(value ?? '').trim();
 }
@@ -252,6 +254,20 @@ async function fetchUrlText(url) {
   return response.text();
 }
 
+async function tagFormatConfigHasMetadataColumn(pool) {
+  if (hasTagFormatConfigMetadataColumn !== null) return hasTagFormatConfigMetadataColumn;
+  const { rows } = await pool.query(
+    `SELECT 1
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'tag_format_configs'
+       AND column_name = 'metadata'
+     LIMIT 1`,
+  );
+  hasTagFormatConfigMetadataColumn = rows.length > 0;
+  return hasTagFormatConfigMetadataColumn;
+}
+
 export async function validateVastTag({ xml = '', url = '' }) {
   const sourceUrl = trimText(url);
   const sourceXml = trimText(xml) || (sourceUrl ? await fetchUrlText(sourceUrl) : '');
@@ -363,12 +379,14 @@ export async function resolveVastChain({ url, maxDepth = 10 }) {
 }
 
 async function getTagContext(pool, tagId) {
+  const hasMetadataColumn = await tagFormatConfigHasMetadataColumn(pool);
   const { rows } = await pool.query(
     `SELECT t.id, t.workspace_id, t.campaign_id, t.name, t.format, t.status,
             t.click_url, t.impression_url, t.targeting, t.created_at, t.updated_at,
             c.name AS campaign_name,
             c.metadata AS campaign_metadata,
-            tfc.vast_version, tfc.vast_wrapper, tfc.vast_url, tfc.metadata AS format_metadata
+            tfc.vast_version, tfc.vast_wrapper, tfc.vast_url,
+            ${hasMetadataColumn ? "tfc.metadata" : "'{}'::jsonb"} AS format_metadata
      FROM ad_tags t
      LEFT JOIN campaigns c ON c.id = t.campaign_id
      LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
