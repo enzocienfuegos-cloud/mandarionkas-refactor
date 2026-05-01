@@ -10,8 +10,8 @@ import { listVideoRenditions } from './creatives.mjs';
 
 const PROFILE_XML_VERSION = {
   default: '4.2',
-  basis: '3.0',
-  illumin: '3.0',
+  basis: '4.2',
+  illumin: '4.2',
   vast4: '4.2',
 };
 
@@ -59,7 +59,7 @@ function formatDuration(durationMs) {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  return [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':');
+  return `${[hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':')}.000`;
 }
 
 function extractJsonObject(value, fallback = {}) {
@@ -123,10 +123,12 @@ function extractSourceInfo(version = {}, renditionRows = []) {
   const versionMetadata = extractJsonObject(version?.metadata || version?.creative_version_metadata, {});
   const versionVideoProcessing = extractJsonObject(versionMetadata.videoProcessing, {});
   const versionVideoSource = extractJsonObject(versionVideoProcessing.source, {});
+  const targetPlan = Array.isArray(versionVideoProcessing.targetPlan) ? versionVideoProcessing.targetPlan : [];
+  const largestTarget = [...targetPlan].sort((left, right) => Number(right.height || 0) - Number(left.height || 0))[0] || {};
   const sourceMetadata = extractJsonObject(source?.metadata, {});
   return {
-    width: source?.width ?? version.width ?? versionVideoSource.width ?? versionMetadata.width ?? sourceMetadata.width ?? null,
-    height: source?.height ?? version.height ?? versionVideoSource.height ?? versionMetadata.height ?? sourceMetadata.height ?? null,
+    width: source?.width ?? version.width ?? versionVideoSource.width ?? versionMetadata.width ?? sourceMetadata.width ?? largestTarget.width ?? null,
+    height: source?.height ?? version.height ?? versionVideoSource.height ?? versionMetadata.height ?? sourceMetadata.height ?? largestTarget.height ?? null,
     mimeType: source?.mime_type ?? version.mime_type ?? versionVideoSource.mimeType ?? versionMetadata.mimeType ?? sourceMetadata.mimeType ?? null,
     durationMs: version.duration_ms ?? versionVideoSource.durationMs ?? versionMetadata.durationMs ?? sourceMetadata.durationMs ?? null,
   };
@@ -142,8 +144,8 @@ function buildRenditionPlan(version = {}, renditionRows = []) {
   const transcoded = activeRows.filter((row) => !row.is_source);
   const ordered = [...transcoded, ...sources].filter((row, index, all) => all.findIndex((entry) => entry.id === row.id) === index);
 
-  return ordered.map((row) => ({
-    label: row.label,
+  const fromRows = ordered.map((row) => ({
+    label: normalizeRenditionLabel(row.label),
     url: row.public_url,
     width: row.width ?? sourceInfo.width ?? null,
     height: row.height ?? sourceInfo.height ?? null,
@@ -152,6 +154,20 @@ function buildRenditionPlan(version = {}, renditionRows = []) {
     mimeType: row.mime_type ?? sourceInfo.mimeType ?? 'video/mp4',
     isSource: Boolean(row.is_source),
   }));
+
+  const merged = [...fromRows];
+  const seen = new Set(fromRows.map((row) => trimText(row.url)));
+  for (const row of buildMetadataBackedRenditionPlan(version)) {
+    if (seen.has(trimText(row.url))) continue;
+    seen.add(trimText(row.url));
+    merged.push(row);
+  }
+
+  return merged.sort((left, right) => {
+    const leftRank = left.isSource ? 99 : renditionSortOrder(left.label);
+    const rightRank = right.isSource ? 99 : renditionSortOrder(right.label);
+    return leftRank - rightRank;
+  });
 }
 
 function buildTrackingEventUrls(engagementUrl) {
@@ -177,6 +193,77 @@ function buildTrackingEventUrls(engagementUrl) {
   }));
 }
 
+function estimateBitrateKbps(width, height) {
+  const w = Number(width || 0);
+  const h = Number(height || 0);
+  if (!w || !h) return null;
+  const pixels = w * h;
+  if (pixels >= 1920 * 1080) return 5000;
+  if (pixels >= 1280 * 720) return 2800;
+  if (pixels >= 854 * 480) return 1400;
+  return 800;
+}
+
+function renditionSortOrder(label = '') {
+  const normalized = trimText(label).toLowerCase();
+  if (normalized === '1080p' || normalized === 'high') return 10;
+  if (normalized === '720p' || normalized === 'mid') return 20;
+  if (normalized === '480p' || normalized === 'low') return 30;
+  if (normalized === '360p') return 40;
+  if (normalized === 'source') return 99;
+  return 50;
+}
+
+function normalizeRenditionLabel(label = '') {
+  const normalized = trimText(label);
+  if (!normalized) return '';
+  const lower = normalized.toLowerCase();
+  if (lower === 'high') return '1080p';
+  if (lower === 'mid') return '720p';
+  if (lower === 'low') return '480p';
+  return normalized;
+}
+
+function renditionLabelAliases(label = '') {
+  const normalized = normalizeRenditionLabel(label).toLowerCase();
+  if (normalized === '1080p') return ['1080p', 'high'];
+  if (normalized === '720p') return ['720p', 'mid'];
+  if (normalized === '480p') return ['480p', 'low'];
+  return [normalized];
+}
+
+function buildMetadataBackedRenditionPlan(version = {}) {
+  const versionMetadata = extractJsonObject(version?.metadata || version?.creative_version_metadata, {});
+  const processing = extractJsonObject(versionMetadata.videoProcessing, {});
+  const targetPlan = Array.isArray(processing.targetPlan) ? processing.targetPlan : [];
+  const processingRows = Array.isArray(processing.renditionProcessing) ? processing.renditionProcessing : [];
+  const byLabel = new Map(
+    processingRows.map((row) => [trimText(row.label).toLowerCase(), row]).filter(([key]) => key),
+  );
+
+  return targetPlan
+    .map((profile) => {
+      const row = renditionLabelAliases(profile.label)
+        .map((alias) => byLabel.get(alias))
+        .find(Boolean) || null;
+      const publicUrl = trimText(row?.publicUrl);
+      const status = trimText(row?.status).toLowerCase();
+      if (!publicUrl || !['active', 'ready', 'completed'].includes(status)) return null;
+      return {
+        label: normalizeRenditionLabel(profile.label),
+        url: publicUrl,
+        width: Number(profile.width || 0) || null,
+        height: Number(profile.height || 0) || null,
+        bitrateKbps: Number(profile.bitrateKbps || 0) || estimateBitrateKbps(profile.width, profile.height),
+        codec: 'h264',
+        mimeType: 'video/mp4',
+        isSource: false,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => renditionSortOrder(left.label) - renditionSortOrder(right.label));
+}
+
 function formatXmlAttributes(attributes = {}) {
   return Object.entries(attributes)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
@@ -187,7 +274,11 @@ function formatXmlAttributes(attributes = {}) {
 function buildXmlRootAttributes(xmlVersion) {
   const version = trimText(xmlVersion) || '4.2';
   if (version.startsWith('4')) {
-    return `version="${xmlEscapeText(version)}" xmlns="http://www.iab.com/VAST"`;
+    return [
+      `version="${xmlEscapeText(version)}"`,
+      'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+      'xsi:noNamespaceSchemaLocation="https://iabtechlab.com/wp-content/uploads/2019/06/VAST_4.2.xsd"',
+    ].join(' ');
   }
   return `version="${xmlEscapeText(version)}"`;
 }
@@ -205,7 +296,7 @@ function normalizeMediaFiles(mediaFiles = [], source = {}) {
       url,
       width: Number(file?.width || source.width || 0) || null,
       height: Number(file?.height || source.height || 0) || null,
-      bitrateKbps: Number(file?.bitrateKbps || 0) || null,
+      bitrateKbps: Number(file?.bitrateKbps || 0) || estimateBitrateKbps(file?.width || source.width, file?.height || source.height),
       codec: trimText(file?.codec || source.codec || ''),
       mimeType: trimText(file?.mimeType || source.mimeType || 'video/mp4') || 'video/mp4',
       isSource: Boolean(file?.isSource),
@@ -219,7 +310,7 @@ function normalizeMediaFiles(mediaFiles = [], source = {}) {
       url: trimText(source.url),
       width: Number(source.width || 0) || null,
       height: Number(source.height || 0) || null,
-      bitrateKbps: Number(source.bitrateKbps || 0) || null,
+      bitrateKbps: Number(source.bitrateKbps || 0) || estimateBitrateKbps(source.width, source.height),
       codec: trimText(source.codec || ''),
       mimeType: trimText(source.mimeType || 'video/mp4') || 'video/mp4',
       isSource: true,
@@ -318,6 +409,9 @@ function buildInlineXml({
     sequence: 1,
   });
   const hasUniversalId = trimText(xmlVersion).startsWith('4');
+  const hasVast4 = trimText(xmlVersion).startsWith('4');
+  const adServingId = randomUUID();
+  const viewableUrl = trackingEvents.find((row) => row.event === 'creativeView')?.url || impressionUrls[0] || '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <VAST ${rootAttributes}>
@@ -325,8 +419,10 @@ function buildInlineXml({
     <InLine>
       <AdSystem version="1.0">SMX Studio</AdSystem>
       <AdTitle>${cdata(adTitle)}</AdTitle>
+      ${hasVast4 ? `<AdServingId>${xmlEscapeText(adServingId)}</AdServingId>` : ''}
       ${errorUrl ? `<Error>${cdata(errorUrl)}</Error>` : ''}
 ${impressionXml}
+      ${hasVast4 && viewableUrl ? `<ViewableImpression><Viewable>${cdata(viewableUrl)}</Viewable></ViewableImpression>` : ''}
       <Creatives>
         <Creative ${creativeAttributes}>
           ${hasUniversalId ? `<UniversalAdId idRegistry="smx-studio">${xmlEscapeText(tagId)}</UniversalAdId>` : ''}
