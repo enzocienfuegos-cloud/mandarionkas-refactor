@@ -189,7 +189,27 @@ function estimateVideoProcessingPercent(videoProcessing: Record<string, any> | u
   return Math.min(97, 84 + Math.round((elapsedMs - 14000) / 1200));
 }
 
-function isVideoProcessingStale(videoProcessing: Record<string, any> | undefined) {
+function getCreativeVersionTranscodeStatus(creativeVersion: CreativeVersion | null | undefined) {
+  const status = String((creativeVersion as any)?.transcodeStatus ?? '').trim().toLowerCase();
+  return status || null;
+}
+
+function getCreativeVersionTranscodeJob(creativeVersion: CreativeVersion | null | undefined) {
+  const job = (creativeVersion as any)?.transcodeJob;
+  return job && typeof job === 'object' ? job as Record<string, any> : null;
+}
+
+function getCreativeVersionVideoProcessing(creativeVersion: CreativeVersion | null | undefined) {
+  const metadata = (creativeVersion?.metadata as Record<string, any> | undefined) ?? {};
+  return (metadata.videoProcessing as Record<string, any> | undefined) ?? {};
+}
+
+function isVideoProcessingStale(creativeVersion: CreativeVersion | null | undefined) {
+  const transcodeStatus = getCreativeVersionTranscodeStatus(creativeVersion);
+  if (['stalled', 'failed', 'no_job', 'blocked'].includes(String(transcodeStatus))) return true;
+  if (['pending', 'queued', 'processing', 'done'].includes(String(transcodeStatus))) return false;
+
+  const videoProcessing = getCreativeVersionVideoProcessing(creativeVersion);
   const status = String(videoProcessing?.status ?? '').trim().toLowerCase();
   if (!['queued', 'processing'].includes(status)) return false;
 
@@ -203,7 +223,11 @@ function isVideoProcessingStale(videoProcessing: Record<string, any> | undefined
   return elapsedMs >= 30 * 1000;
 }
 
-function isRenditionProcessingEntryStale(entry: Record<string, any> | undefined) {
+function isRenditionProcessingEntryStale(entry: Record<string, any> | undefined, creativeVersion: CreativeVersion | null | undefined) {
+  const transcodeStatus = getCreativeVersionTranscodeStatus(creativeVersion);
+  if (['processing', 'pending', 'queued', 'done'].includes(String(transcodeStatus))) return false;
+  if (['stalled', 'failed', 'no_job'].includes(String(transcodeStatus))) return true;
+
   const status = String(entry?.status ?? '').trim().toLowerCase();
   if (!['queued', 'processing', 'draft'].includes(status)) return false;
 
@@ -219,13 +243,18 @@ function isRenditionProcessingEntryStale(entry: Record<string, any> | undefined)
 
 function shouldPollVideoRenditions(state: VideoRenditionState | null) {
   if (!state || state.loading || !state.version) return false;
+  if (state.error && !state.loading) return false;
   if (state.awaitingPublish) return true;
   if (state.version.sourceKind !== 'video_mp4') return false;
+
+  const transcodeStatus = getCreativeVersionTranscodeStatus(state.version);
+  if (['pending', 'queued', 'processing'].includes(String(transcodeStatus))) return true;
+  if (['done', 'failed', 'stalled', 'no_job', 'blocked'].includes(String(transcodeStatus))) return false;
 
   const metadata = (state.version.metadata as Record<string, any> | undefined) ?? {};
   const videoProcessing = (metadata.videoProcessing as Record<string, any> | undefined) ?? {};
   const topLevelStatus = String(videoProcessing.status ?? '').toLowerCase();
-  if (['blocked', 'failed'].includes(topLevelStatus) || isVideoProcessingStale(videoProcessing)) return false;
+  if (['blocked', 'failed'].includes(topLevelStatus) || isVideoProcessingStale(state.version)) return false;
   const renditionProcessing = Array.isArray(videoProcessing.renditionProcessing)
     ? videoProcessing.renditionProcessing
     : [];
@@ -256,7 +285,7 @@ function humanizeVideoProcessingReason(reason: string | null | undefined) {
   }
 }
 
-function getVideoProcessingPanelSummary(videoProcessing: Record<string, any> | undefined, awaitingPublish: boolean) {
+function getVideoProcessingPanelSummary(creativeVersion: CreativeVersion | null | undefined, awaitingPublish: boolean) {
   if (awaitingPublish) {
     return {
       tone: 'info' as const,
@@ -265,11 +294,67 @@ function getVideoProcessingPanelSummary(videoProcessing: Record<string, any> | u
     };
   }
 
+  const transcodeStatus = getCreativeVersionTranscodeStatus(creativeVersion);
+  const transcodeJob = getCreativeVersionTranscodeJob(creativeVersion);
+  const videoProcessing = getCreativeVersionVideoProcessing(creativeVersion);
   const status = String(videoProcessing?.status ?? '').trim().toLowerCase();
   const reasonText = humanizeVideoProcessingReason(videoProcessing?.reason);
   const nextRetryAt = String(videoProcessing?.nextRetryAt || '').trim();
   const progressPercent = estimateVideoProcessingPercent(videoProcessing);
-  const stale = isVideoProcessingStale(videoProcessing);
+  const stale = isVideoProcessingStale(creativeVersion);
+
+  if (['pending', 'queued', 'processing'].includes(String(transcodeStatus))) {
+    if (transcodeStatus === 'queued' && nextRetryAt) {
+      return {
+        tone: 'info' as const,
+        title: 'Transcoding in progress',
+        message: `In progress (${progressPercent ?? 8}%). The worker will retry this job around ${nextRetryAt}.`,
+      };
+    }
+    return {
+      tone: 'info' as const,
+      title: 'Transcoding in progress',
+      message: transcodeStatus === 'processing'
+        ? `In progress (${progressPercent ?? 42}%). The worker is rendering the rendition ladder now.`
+        : `In progress (${progressPercent ?? 8}%). The worker is preparing this job for transcoding.`,
+    };
+  }
+
+  if (transcodeStatus === 'done') {
+    return {
+      tone: 'success' as const,
+      title: 'Transcoding complete',
+      message: 'The worker finished generating the rendition ladder for this video.',
+    };
+  }
+
+  if (transcodeStatus === 'stalled') {
+    return {
+      tone: 'warning' as const,
+      title: 'Transcoding stalled',
+      message: 'No active transcode job is running. Use Regenerate renditions to retry.',
+    };
+  }
+
+  if (transcodeStatus === 'failed') {
+    return {
+      tone: 'error' as const,
+      title: 'Transcoding failed',
+      message: String(transcodeJob?.errorMessage || reasonText || 'The worker failed to render the video ladder.'),
+    };
+  }
+
+  if (transcodeStatus === 'blocked') {
+    return {
+      tone: 'warning' as const,
+      title: 'Transcoding unavailable',
+      message: 'Source resolution is below the minimum required for transcoding.',
+    };
+  }
+
+  if (transcodeStatus === 'no_job') {
+    return null;
+  }
 
   if (stale) {
     return {
@@ -312,14 +397,14 @@ function getVideoProcessingPanelSummary(videoProcessing: Record<string, any> | u
   return null;
 }
 
-function getRenditionProgressLabel(entry: any) {
+function getRenditionProgressLabel(entry: any, creativeVersion: CreativeVersion | null | undefined) {
   if (entry?.available) return 'generated';
   const status = String(entry?.status ?? '').trim().toLowerCase();
   if (status === 'unavailable') return 'N/A';
   if (!['queued', 'processing', 'draft'].includes(status)) {
     return String(entry?.status ?? entry?.reason ?? 'failed');
   }
-  if (isRenditionProcessingEntryStale(entry)) {
+  if (isRenditionProcessingEntryStale(entry, creativeVersion)) {
     return 'Retry required';
   }
 
@@ -343,7 +428,11 @@ function getVideoRenditionToggleBlockedReason(rendition: VideoRendition, renditi
   return null;
 }
 
-function getVideoRenditionStatusBadge(rendition: VideoRendition, processingEntry?: Record<string, any> | null) {
+function getVideoRenditionStatusBadge(
+  rendition: VideoRendition,
+  processingEntry?: Record<string, any> | null,
+  creativeVersion?: CreativeVersion | null,
+) {
   const source: Record<string, any> = (processingEntry && !processingEntry.available)
     ? processingEntry
     : ((rendition.metadata && typeof rendition.metadata === 'object')
@@ -353,7 +442,7 @@ function getVideoRenditionStatusBadge(rendition: VideoRendition, processingEntry
   if (!['queued', 'processing', 'draft'].includes(normalizedStatus)) {
     return statusBadge(rendition.status);
   }
-  if (isRenditionProcessingEntryStale(source)) {
+  if (isRenditionProcessingEntryStale(source, creativeVersion)) {
     return (
       <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
         Stalled
@@ -1142,8 +1231,18 @@ export default function CreativeLibrary() {
               ? latestIngestion.errorDetail ?? 'Background publish failed'
               : current.error,
           } : current);
-        } catch {
+        } catch (pollError: any) {
           if (cancelled) return;
+          // Stop polling on 4xx errors — version not found or access denied.
+          // Don't stop on network errors (5xx, timeout) — those may be transient.
+          const status = pollError?.status ?? pollError?.statusCode ?? 0;
+          if (status >= 400 && status < 500) {
+            setVideoRenditionState(current => current ? {
+              ...current,
+              loading: false,
+              error: pollError?.message ?? 'Creative version not found.',
+            } : current);
+          }
         }
       })();
     }, 2500);
@@ -1197,7 +1296,7 @@ export default function CreativeLibrary() {
   const videoProcessing = (videoRenditionState?.version?.metadata as Record<string, any> | undefined)?.videoProcessing;
   const plannedRenditions = Array.isArray(videoProcessing?.targetPlan) ? videoProcessing.targetPlan : [];
   const renditionProcessing = Array.isArray(videoProcessing?.renditionProcessing) ? videoProcessing.renditionProcessing : [];
-  const videoProcessingSummary = getVideoProcessingPanelSummary(videoProcessing, videoRenditionState?.awaitingPublish ?? false);
+  const videoProcessingSummary = getVideoProcessingPanelSummary(videoRenditionState?.version, videoRenditionState?.awaitingPublish ?? false);
   const estimatedRemainingMs = regenerationFeedback
     ? estimateRemainingDuration(regenerationFeedback.elapsedMs, regenerationFeedback.progressPercent)
     : null;
@@ -2051,7 +2150,7 @@ export default function CreativeLibrary() {
                       <div key={entry.label} className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2">
                         <span className="font-medium text-slate-800">{entry.label}</span>
                         <span className={entry.available ? 'text-emerald-700' : ['queued', 'processing', 'draft'].includes(String(entry.status ?? '').toLowerCase()) ? 'text-amber-700' : String(entry.status ?? '').toLowerCase() === 'unavailable' ? 'text-slate-500' : 'text-rose-700'}>
-                          {getRenditionProgressLabel(entry)}
+                          {getRenditionProgressLabel(entry, videoRenditionState?.version)}
                         </span>
                       </div>
                     )) : videoRenditionState.awaitingPublish ? (
@@ -2116,7 +2215,7 @@ export default function CreativeLibrary() {
                         </td>
                         <td className="px-4 py-3 text-slate-600">{formatVideoBitrate(rendition.bitrateKbps)}</td>
                         <td className="px-4 py-3 text-slate-600">{rendition.codec || '—'}</td>
-                        <td className="px-4 py-3">{getVideoRenditionStatusBadge(rendition, matchingProcessingEntry)}</td>
+                        <td className="px-4 py-3">{getVideoRenditionStatusBadge(rendition, matchingProcessingEntry, videoRenditionState?.version)}</td>
                         <td className="px-4 py-3">
                           <div className="space-y-1 text-xs text-slate-500">
                             {rendition.publicUrl ? (
