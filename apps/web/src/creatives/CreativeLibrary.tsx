@@ -1275,8 +1275,19 @@ export default function CreativeLibrary() {
             loading: false,
             error: current.error,
           } : current);
-        } catch {
+        } catch (pollError: any) {
           if (cancelled) return;
+          const status = pollError?.status ?? pollError?.statusCode ?? 0;
+          const is4xx = (status >= 400 && status < 500)
+            || String(pollError?.message ?? '').includes('400')
+            || String(pollError?.message ?? '').toLowerCase().includes('not found');
+          if (is4xx) {
+            setVideoRenditionState(current => current ? {
+              ...current,
+              loading: false,
+              error: pollError?.message ?? 'Creative version not found.',
+            } : current);
+          }
         }
       })();
     }, 3000);
