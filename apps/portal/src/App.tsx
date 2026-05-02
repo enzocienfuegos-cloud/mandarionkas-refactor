@@ -5,12 +5,12 @@ import { loadPortalSession, login, logout, register, switchWorkspace, type Porta
 
 function getAdServerUrl(): string {
   const configured = import.meta.env.VITE_AD_SERVER_URL?.trim();
-  if (configured) return configured;
-  if (import.meta.env.DEV) return 'http://localhost:5173';
+  if (configured) return new URL('/overview', configured).toString();
+  if (import.meta.env.DEV) return 'http://localhost:5173/overview';
   if (typeof window !== 'undefined') {
     const { hostname, protocol } = window.location;
     if (hostname.startsWith('portal-')) {
-      return `${protocol}//${hostname.replace(/^portal-/, 'app-')}`;
+      return `${protocol}//${hostname.replace(/^portal-/, 'app-')}/overview`;
     }
   }
   return '/';
