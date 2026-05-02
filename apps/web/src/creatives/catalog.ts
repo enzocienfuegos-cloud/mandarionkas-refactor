@@ -160,7 +160,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
       ? payload.message ?? payload.error ?? null
       : null;
     const suffix = requestId ? ` (ref ${requestId})` : '';
-    throw new Error(message ? `${message}${suffix}` : `Request failed (${response.status})${suffix}`);
+    throw new Error(message ? message : `Request failed (${response.status})${suffix}`);
   }
   return response.json() as Promise<T>;
 }
@@ -486,7 +486,7 @@ export async function deleteCreativeById(creativeId: string) {
       ? payload.message ?? payload.error ?? null
       : null;
     const suffix = requestId ? ` (ref ${requestId})` : '';
-    throw new Error(message ? `${message}${suffix}` : `Request failed (${response.status})${suffix}`);
+    throw new Error(message ? message : `Request failed (${response.status})${suffix}`);
   }
 }
 
