@@ -18,6 +18,17 @@ function normalizeSearch(search) {
   return value.length >= 2 ? value : '';
 }
 
+function extractJsonObject(value, fallback = {}) {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'object') return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function hasPublishedRenditionAsset(rendition) {
   return (
     trimText(rendition?.public_url).length > 0
