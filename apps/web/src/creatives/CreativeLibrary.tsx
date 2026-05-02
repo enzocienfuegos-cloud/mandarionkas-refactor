@@ -2075,7 +2075,7 @@ export default function CreativeLibrary() {
                 <button
                   onClick={() => void handleRegenerateVideoRenditions()}
                   disabled={videoRenditionState.loading || videoRenditionState.awaitingPublish}
-                  className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+                  className="inline-flex w-48 shrink-0 justify-center rounded-lg border border-indigo-200 px-3 py-1.5 text-center text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
                 >
                   {videoRenditionState.awaitingPublish
                     ? 'Publishing in background…'
