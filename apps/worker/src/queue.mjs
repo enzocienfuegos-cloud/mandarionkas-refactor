@@ -123,6 +123,9 @@ export async function ensureBossStarted(source = process.env) {
     });
 
     await instance.start();
+    await instance.createQueue(QUEUE.TRANSCODE_VIDEO);
+    await instance.createQueue(QUEUE.IMAGE_DERIVATIVES);
+    await instance.createQueue(QUEUE.MAINTENANCE);
     boss = instance;
 
     console.log(JSON.stringify({
@@ -130,6 +133,7 @@ export async function ensureBossStarted(source = process.env) {
       time: new Date().toISOString(),
       service: 'smx-worker',
       event: 'pgboss_started',
+      queues: Object.values(QUEUE),
     }));
 
     return instance;
