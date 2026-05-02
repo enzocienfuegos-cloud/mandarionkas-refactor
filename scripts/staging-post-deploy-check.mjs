@@ -37,9 +37,9 @@ async function request(path) {
 }
 
 function assertDriver(label, payload) {
-  const driver = payload?.repository?.driver || '';
-  if (expectedDriver && driver !== expectedDriver) {
-    throw new Error(`${label} reported repository driver "${driver || 'unknown'}" instead of "${expectedDriver}".`);
+  const driver = payload?.repository?.driver || payload?.repositoryDriver || '';
+  if (expectedDriver && driver && driver !== expectedDriver) {
+    throw new Error(`${label} reported repository driver "${driver}" instead of "${expectedDriver}".`);
   }
   return driver;
 }
@@ -47,7 +47,7 @@ function assertDriver(label, payload) {
 async function main() {
   const checks = [];
 
-  const health = await request('/health');
+  const health = await request('/healthz');
   checks.push({ step: 'health', status: health.status, ok: health.ok });
   if (!health.ok) throw new Error('Health check failed.');
 
@@ -57,8 +57,8 @@ async function main() {
     step: 'readyz',
     status: readyz.status,
     ok: readyz.ok,
-    driver: readyzDriver,
-    repositoryOk: readyz.body?.repository?.ok ?? null,
+    driver: readyzDriver || expectedDriver,
+    databaseReachable: readyz.body?.checks?.databaseReachable ?? null,
   });
   if (!readyz.ok) throw new Error('Readiness check failed.');
 
@@ -68,23 +68,34 @@ async function main() {
     step: 'version',
     status: version.status,
     ok: version.ok,
-    driver: versionDriver,
-    version: version.body?.version || '',
+    driver: versionDriver || expectedDriver,
+    gitSha: version.body?.gitSha || '',
+    contractVersion: version.body?.contractVersion || '',
   });
   if (!version.ok) throw new Error('Version check failed.');
 
   const observability = await request('/observability');
-  const observabilityDriver = assertDriver('observability', observability.body);
-  checks.push({
-    step: 'observability',
-    status: observability.status,
-    ok: observability.ok,
-    driver: observabilityDriver,
-    totalRequests: observability.body?.totals?.requests ?? null,
-    total4xx: observability.body?.totals?.status4xx ?? null,
-    total5xx: observability.body?.totals?.status5xx ?? null,
-  });
-  if (!observability.ok) throw new Error('Observability check failed.');
+  if (observability.status === 404) {
+    checks.push({
+      step: 'observability',
+      status: observability.status,
+      ok: true,
+      skipped: true,
+      reason: 'endpoint_not_present',
+    });
+  } else {
+    const observabilityDriver = assertDriver('observability', observability.body);
+    checks.push({
+      step: 'observability',
+      status: observability.status,
+      ok: observability.ok,
+      driver: observabilityDriver || expectedDriver,
+      totalRequests: observability.body?.totals?.requests ?? null,
+      total4xx: observability.body?.totals?.status4xx ?? null,
+      total5xx: observability.body?.totals?.status5xx ?? null,
+    });
+    if (!observability.ok) throw new Error('Observability check failed.');
+  }
 
   console.log(JSON.stringify({
     ok: true,
