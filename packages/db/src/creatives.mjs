@@ -994,8 +994,13 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
   const ladderProfiles = buildVideoLadderProfiles(version);
   for (const profile of ladderProfiles.filter((entry) => entry.transcodePossible)) {
     const profileLabel = String(profile.label || '').trim();
-    const key = getVideoProfileOutputKey(profileLabel);
-    const derivative = derivatives[key];
+    const canonicalKey = getVideoProfileOutputKey(profileLabel);
+    const derivative = derivatives[profileLabel.toLowerCase()]
+      ?? derivatives[canonicalKey]
+      ?? null;
+    const outputEntry = outputPlan[profileLabel.toLowerCase()]
+      ?? outputPlan[canonicalKey]
+      ?? null;
     if (!derivative) continue;
     await pool.query(
       `UPDATE video_renditions
@@ -1020,8 +1025,8 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
         workspaceId,
         creativeVersionId,
         profileLabel.toLowerCase(),
-        derivative.src ?? outputPlan[key]?.publicUrl ?? null,
-        outputPlan[key]?.storageKey ?? null,
+        derivative.src ?? outputEntry?.publicUrl ?? null,
+        outputEntry?.storageKey ?? null,
         derivative.sizeBytes ?? null,
         derivative.mimeType ?? 'video/mp4',
         derivative.codec ?? 'h264',
@@ -1049,11 +1054,22 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
       updatedAt: new Date().toISOString(),
       mode: 'auto-on-publish',
       poster: derivatives.poster?.src ?? null,
-      generatedCount: 1 + ladderProfiles.filter((profile) => derivatives[getVideoProfileOutputKey(profile.label)]).length,
+      generatedCount: 1 + ladderProfiles.filter((profile) => {
+        const canonicalKey = getVideoProfileOutputKey(profile.label);
+        return derivatives[String(profile.label || '').trim().toLowerCase()]
+          ?? derivatives[canonicalKey]
+          ?? null;
+      }).length,
       targetPlan: ladderProfiles,
       renditionProcessing: ladderProfiles.map((profile) => {
-        const key = getVideoProfileOutputKey(profile.label);
-        const derivative = derivatives[key];
+        const canonicalKey = getVideoProfileOutputKey(profile.label);
+        const normalizedLabel = String(profile.label || '').trim().toLowerCase();
+        const derivative = derivatives[normalizedLabel]
+          ?? derivatives[canonicalKey]
+          ?? null;
+        const outputEntry = outputPlan[normalizedLabel]
+          ?? outputPlan[canonicalKey]
+          ?? null;
         const status = derivative
           ? 'active'
           : profile.transcodePossible
@@ -1063,8 +1079,8 @@ export async function syncCreativeVideoTranscodeOutputs(pool, {
           label: profile.label,
           status,
           available: Boolean(derivative),
-          publicUrl: derivative?.src ?? outputPlan[key]?.publicUrl ?? null,
-          storageKey: outputPlan[key]?.storageKey ?? null,
+          publicUrl: derivative?.src ?? outputEntry?.publicUrl ?? null,
+          storageKey: outputEntry?.storageKey ?? null,
           width: profile.width ?? null,
           height: profile.height ?? null,
           bitrateKbps: profile.bitrateKbps ?? null,

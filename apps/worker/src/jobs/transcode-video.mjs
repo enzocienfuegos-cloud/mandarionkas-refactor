@@ -94,7 +94,7 @@ function buildOutputPlan(job) {
   const profiles = targetPlan.length > 0
     ? targetPlan.map((profile) => ({
       label: String(profile.label || '').trim(),
-      key: String(profile.label || '').toLowerCase().replace(/[^a-z0-9]/g, ''),
+      key: String(profile.label || '').trim().toLowerCase(),
       maxHeight: Number(profile.height || profile.maxHeight || 480),
       videoBitrateKbps: Number(profile.bitrateKbps || 900),
       width: Number(profile.width || 0) || undefined,
@@ -266,11 +266,12 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
       for (const profile of completedProfiles) {
         const fileInfo = await _stat(profile.filePath);
         const uploaded = await _uploadToR2({ storageKey: profile.storageKey, filePath: profile.filePath, contentType: 'video/mp4' });
-        renditionRows.push({
-          label: profile.label,
-          publicUrl: profile.publicUrl,
-          storageKey: uploaded || profile.storageKey,
-          width: profile.width ?? null,
+    renditionRows.push({
+      label: profile.label,
+      key: profile.key,
+      publicUrl: profile.publicUrl,
+      storageKey: uploaded || profile.storageKey,
+      width: profile.width ?? null,
           height: profile.maxHeight,
           bitrateKbps: profile.videoBitrateKbps,
           codec: 'h264',
@@ -293,9 +294,12 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
         workspaceId: job.workspace_id,
         creativeVersionId: job.creative_version_id,
         outputPlan: {
-          low: completedProfiles.find((profile) => profile.key === 'low') ? { publicUrl: completedProfiles.find((profile) => profile.key === 'low').publicUrl } : null,
-          mid: completedProfiles.find((profile) => profile.key === 'mid') ? { publicUrl: completedProfiles.find((profile) => profile.key === 'mid').publicUrl } : null,
-          high: completedProfiles.find((profile) => profile.key === 'high') ? { publicUrl: completedProfiles.find((profile) => profile.key === 'high').publicUrl } : null,
+          ...Object.fromEntries(
+            completedProfiles.map((profile) => [profile.key, {
+              publicUrl: profile.publicUrl,
+              storageKey: profile.storageKey,
+            }]),
+          ),
           poster: { publicUrl: output.posterUrl || '' },
         },
         derivatives: Object.fromEntries(
