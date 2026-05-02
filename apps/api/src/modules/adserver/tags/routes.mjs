@@ -11,7 +11,7 @@ import {
   listTags,
   listTagsForUser,
   updateTag,
-} from '@smx/db/src/creatives.mjs';
+} from '@smx/db/src/tags.mjs';
 
 
 async function resolveTargetWorkspaceId(client, userId, fallbackWorkspaceId, requestedWorkspaceId) {
