@@ -299,7 +299,7 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
           poster: { publicUrl: output.posterUrl || '' },
         },
         derivatives: Object.fromEntries(
-          renditionRows.map((row) => [row.label, {
+          renditionRows.map((row) => [row.key, {
             src: row.publicUrl,
             mimeType: row.mimeType,
             sizeBytes: row.sizeBytes,
