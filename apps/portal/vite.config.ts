@@ -1,8 +1,10 @@
+// apps/portal/vite.config.ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { spa404Plugin } from '../../packages/vite-plugins/spa-404';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), spa404Plugin()],
   server: {
     port: 5175,
     proxy: {

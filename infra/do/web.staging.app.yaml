@@ -2,8 +2,20 @@
 #
 # Branch: codex/s50-staging-rc
 # Repo: enzocienfuegos-cloud/dusk
+#
+# S51 fix: catchall_document changed from index.html to 404.html.
+#
+# Why: DO App Platform static sites serve the catchall when a requested path
+# doesn't match a file in the output directory. The file must exist in the
+# dist output. Vite doesn't generate 404.html by default — the spa404Plugin
+# in vite.config.ts now copies index.html → 404.html after every build.
+#
+# Using 404.html (instead of index.html) is the correct DO pattern:
+#   https://docs.digitalocean.com/products/app-platform/how-to/manage-static-sites/
+#
+# Also fixed: app name was "smx-studio-web-staging" (wrong product label).
 
-name: smx-studio-web-staging
+name: smx-adserver-web-staging
 region: nyc
 
 alerts:
@@ -23,7 +35,9 @@ static_sites:
     environment_slug: node-js
     build_command: npm run build:web
     output_dir: apps/web/dist
-    catchall_document: index.html
+    # SPA fallback: any path not matching a real file gets served 404.html,
+    # which is a copy of index.html. React Router then handles the route.
+    catchall_document: 404.html
 
     envs:
       - key: VITE_API_BASE_URL

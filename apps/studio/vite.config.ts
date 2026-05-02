@@ -3,6 +3,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { spa404Plugin } from '../../packages/vite-plugins/spa-404';
 
 function normalizePublicBasePath(value) {
   const trimmed = (value ?? '').trim();
@@ -17,16 +18,12 @@ function normalizePublicBasePath(value) {
 }
 
 export default defineConfig(({ command }) => ({
-  // Production defaults to root because the editor is intended to live on its
-  // own host (for example studio-staging.duskplatform.co). Path prefixes remain
-  // opt-in through VITE_PUBLIC_BASE_PATH for temporary compatibility modes.
   base: command === 'serve'
     ? '/'
     : normalizePublicBasePath(process.env.VITE_PUBLIC_BASE_PATH ?? '/'),
-  plugins: [react()],
+  plugins: [react(), spa404Plugin()],
   resolve: {
     alias: {
-      // Resolve workspace packages directly from source
       '@smx/contracts': path.resolve(__dirname, '../../packages/contracts/src/index.ts'),
       '@smx/vast':      path.resolve(__dirname, '../../packages/vast/src/index.ts'),
     },
@@ -34,7 +31,6 @@ export default defineConfig(({ command }) => ({
   server: {
     port: 5174,
     proxy: {
-      // All /v1 calls → platform API (shared Fastify backend)
       '/v1': {
         target:       'http://localhost:4000',
         changeOrigin: true,
@@ -72,8 +68,6 @@ export default defineConfig(({ command }) => ({
   test: {
     environment: 'node',
     setupFiles:  ['./src/testing/setup.ts'],
-    // Vitest automatically loads .env.test — VITE_API_BASE_URL is intentionally
-    // empty there so repository tests that assert "throws when base is missing" work.
     envFiles: ['.env.test'],
   },
 }));
