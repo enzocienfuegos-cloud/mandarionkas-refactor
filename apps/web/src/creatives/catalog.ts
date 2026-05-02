@@ -34,6 +34,9 @@ export interface CreativeVersion {
   createdAt?: string;
   updatedAt?: string;
   creativeName?: string;
+  // Transcode job state — populated by GET /v1/creative-versions/:id
+  transcodeStatus?: string | null;
+  transcodeJob?: Record<string, unknown> | null;
 }
 
 export interface CreativeArtifact {
@@ -199,9 +202,15 @@ export async function loadCreativeVersionDetail(versionId: string): Promise<{
     artifacts: CreativeArtifact[];
     variants: CreativeSizeVariant[];
     videoRenditions: VideoRendition[];
+    transcodeStatus?: string | null;
+    transcodeJob?: Record<string, unknown> | null;
   }>(`/v1/creative-versions/${versionId}`);
   return {
-    creativeVersion: payload.creativeVersion,
+    creativeVersion: {
+      ...payload.creativeVersion,
+      transcodeStatus: (payload as any).transcodeStatus ?? null,
+      transcodeJob: (payload as any).transcodeJob ?? null,
+    },
     artifacts: payload.artifacts ?? [],
     variants: payload.variants ?? [],
     videoRenditions: payload.videoRenditions ?? [],
