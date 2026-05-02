@@ -16,17 +16,29 @@ function normalizeOrigin(value) {
 
 export function applyCors(req, res, env) {
   const requestOrigin = normalizeOrigin(getOrigin(req.headers));
+  const pathname = (() => {
+    try {
+      return new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`).pathname.replace(/\/$/, '') || '/';
+    } catch {
+      return '/';
+    }
+  })();
   const allowedOrigins = (Array.isArray(env.corsOrigins) && env.corsOrigins.length ? env.corsOrigins : [env.appOrigin])
     .map(normalizeOrigin)
     .filter(Boolean);
+  const isPublicTagRoute = /^\/v1\/tags\/(display|native|tracker)\//.test(pathname);
   const allowOrigin = requestOrigin && allowedOrigins.includes(requestOrigin)
     ? requestOrigin
-    : allowedOrigins[0];
+    : (isPublicTagRoute ? '*' : allowedOrigins[0]);
   if (allowOrigin) {
     res.setHeader('Access-Control-Allow-Origin', allowOrigin);
     res.setHeader('Vary', 'Origin');
   }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  if (allowOrigin === '*') {
+    res.removeHeader('Access-Control-Allow-Credentials');
+  } else {
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-Id');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
 }

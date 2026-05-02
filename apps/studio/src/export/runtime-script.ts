@@ -93,6 +93,23 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
     showScene((activeSceneIndex - 1 + scenes.length) % scenes.length);
   }
 
+  // ── MRAID 3.0 lifecycle ──────────────────────────────────────────────────
+  // IAB MRAID 3.0 §3.1: wait for 'ready' state before executing ad logic.
+  // Non-MRAID environments: execute immediately.
+  function smxBootstrap(fn) {
+    if (typeof window === 'undefined' || !window.mraid) { fn(); return; }
+    var mraid = window.mraid;
+    if (typeof mraid.getState === 'function' && mraid.getState() !== 'loading') {
+      fn();
+    } else {
+      mraid.addEventListener('ready', function onMraidReady() {
+        try { mraid.removeEventListener('ready', onMraidReady); } catch(_) {}
+        fn();
+      });
+    }
+  }
+  smxBootstrap(function() {
+
   document.querySelectorAll('.widget-cta[data-widget-id]').forEach((node) => {
     node.addEventListener('click', (event) => {
       event.preventDefault();
@@ -165,8 +182,12 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
 
   function requestMraidUserPosition(onSuccess, onError) {
     if (typeof window === 'undefined' || !window.mraid || typeof window.mraid.getLocation !== 'function') return false;
-    const mraidState = window.smxMraidState || {};
-    if (mraidState.supports && mraidState.supports.location === false) return false;
+    if (typeof window.mraid.supports === 'function') {
+      if (window.mraid.supports('location') === false) return false;
+    } else {
+      const mraidState = window.smxMraidState || {};
+      if (mraidState.supports && mraidState.supports.location === false) return false;
+    }
     let settled = false;
     const succeed = (payload) => {
       if (settled) return;
@@ -1028,5 +1049,6 @@ export function buildExportRuntimeScript(adapter: ExportHtmlAdapter): string {
       return activeSceneIndex;
     },
   };
+  }); // end smxBootstrap
 })();`;
 }

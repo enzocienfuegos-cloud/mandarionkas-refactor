@@ -52,6 +52,10 @@ static_sites:
         scope: BUILD_TIME
         type: GENERAL
         value: https://studio-staging.duskplatform.co
+      - key: VITE_TAGS_BASE_URL
+        scope: BUILD_TIME
+        type: GENERAL
+        value: https://api-staging.duskplatform.co
       - key: VITE_ASSETS_BASE_URL
         scope: BUILD_TIME
         type: GENERAL

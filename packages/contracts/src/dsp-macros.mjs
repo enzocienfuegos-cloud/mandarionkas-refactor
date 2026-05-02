@@ -403,11 +403,14 @@ function buildDestinationAwareClickUrl(clickTrackUrl, destinationUrl) {
   }
 }
 
-export function buildDspTrackedClickUrl(clickTrackUrl, macroValue, dsp = '') {
+export function buildDspTrackedClickUrl(clickTrackUrl, macroValue, dsp = '', { onUnresolved } = {}) {
   if (!clickTrackUrl) return clickTrackUrl;
   const mode = getDspMacroConfig(dsp)?.clickMacroMode || 'prefix_url';
   const resolvedMacroValue = resolveDspClickMacroValue(macroValue);
-  if (!resolvedMacroValue) return clickTrackUrl;
+  if (!resolvedMacroValue) {
+    if (typeof onUnresolved === 'function') onUnresolved({ dsp, macroValue });
+    return clickTrackUrl;
+  }
   if (mode === 'replace_destination') {
     return isHttpUrl(resolvedMacroValue)
       ? buildDestinationAwareClickUrl(clickTrackUrl, resolvedMacroValue)

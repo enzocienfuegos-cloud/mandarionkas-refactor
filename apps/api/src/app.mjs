@@ -13,6 +13,7 @@ import { handlePacingRoutes } from './modules/adserver/pacing/routes.mjs';
 import { handlePixelRoutes } from './modules/adserver/pixels/routes.mjs';
 import { handleReportingRoutes } from './modules/adserver/reporting/routes.mjs';
 import { handleSearchRoutes } from './modules/adserver/search/routes.mjs';
+import { handleDisplayRoutes } from './modules/adserver/display/routes.mjs';
 import { handleTagRoutes } from './modules/adserver/tags/routes.mjs';
 import { createTrackerRoutes } from './modules/adserver/tracker/routes.mjs';
 import { TrackerBuffer } from './modules/adserver/tracker/tracker-buffer.mjs';
@@ -66,6 +67,7 @@ function buildRouteHandlers(buffer) {
     handlePixelRoutes,
     handleReportingRoutes,
     handleSearchRoutes,
+    handleDisplayRoutes,
     createTrackerRoutes(buffer),
     handleVastRoutes,
     handleTagRoutes,

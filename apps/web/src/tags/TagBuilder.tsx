@@ -353,10 +353,10 @@ function buildTagSnippet(
     case 'vast-xml':
       return buildVastWrapperSnippet(tag.id, vastUrl);
     case 'display-iframe':
-      if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
+      if (useBasisNative) return buildBasisNativeSnippet({ ...basisNativeArgs, variant: 'display-iframe' });
       return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
     case 'display-ins':
-      if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
+      if (useBasisNative) return buildBasisNativeSnippet({ ...basisNativeArgs, variant: 'display-ins' });
       return `<ins id="smx-ad-slot-${tag.id}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    var iframe = document.createElement('iframe');\n    iframe.src = ${JSON.stringify(displayHtmlUrl)};\n    iframe.width = ${JSON.stringify(String(width))};\n    iframe.height = ${JSON.stringify(String(height))};\n    iframe.scrolling = 'no';\n    iframe.frameBorder = '0';\n    iframe.style.border = '0';\n    iframe.style.overflow = 'hidden';\n    slot.replaceWith(iframe);\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tag.id}`)}));\n</script>`;
     case 'native-js':
       return `<script>\n  window.SMX = window.SMX || {};\n  window.SMX.native = window.SMX.native || [];\n  window.SMX.native.push({ tagId: "${tag.id}", format: "native" });\n</script>\n<script src="${nativeJsUrl}" async></script>`;
@@ -366,7 +366,7 @@ function buildTagSnippet(
       return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : trackerClickUrl;
     case 'display-js':
     default:
-      if (useBasisNative) return buildBasisNativeSnippet(basisNativeArgs);
+      if (useBasisNative) return buildBasisNativeSnippet({ ...basisNativeArgs, variant: 'native-js' });
       return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
   }
 }
