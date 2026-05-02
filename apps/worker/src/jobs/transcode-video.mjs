@@ -244,16 +244,17 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
       const completedProfiles = [];
       for (const profile of outputProfiles) {
         const outPath = path.join(scratchDir, profile.fileName);
-        const args = [
-          '-y', '-i', sourcePath,
-          '-vf', `scale=-2:${profile.maxHeight}`,
-          '-c:v', 'libx264',
-          '-b:v', `${profile.videoBitrateKbps}k`,
-          '-preset', 'fast',
-          '-movflags', '+faststart',
-          '-an',
-          outPath,
-        ];
+      const args = [
+        '-y', '-i', sourcePath,
+        '-vf', `scale=-2:${profile.maxHeight}`,
+        '-c:v', 'libx264',
+        '-b:v', `${profile.videoBitrateKbps}k`,
+        '-preset', 'veryfast',
+        '-threads', '1',
+        '-movflags', '+faststart',
+        '-an',
+        outPath,
+      ];
         logInfo({ event: 'transcode_start', jobId: job.id, profile: profile.label });
         await _runFfmpeg(ffmpegBin, args, scratchDir);
         completedProfiles.push({ ...profile, filePath: outPath });
