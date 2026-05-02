@@ -1,7 +1,17 @@
 import { getPool } from '@smx/db/src/pool.mjs';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function trimText(value) {
   return String(value ?? '').trim();
+}
+
+function isValidTagId(id) {
+  return UUID_RE.test(String(id ?? ''));
+}
+
+function escapeScriptContext(jsonStr) {
+  return jsonStr.replace(/<\//g, '<\\/');
 }
 
 function resolveBaseUrl(ctx) {
@@ -68,8 +78,11 @@ async function resolveActiveCreativeForTag(pool, tagId) {
              AND b.status = 'active'
              AND (b.start_at IS NULL OR b.start_at <= NOW())
              AND (b.end_at   IS NULL OR b.end_at   >= NOW())
-       LEFT JOIN creative_versions cv ON cv.id = b.creative_version_id
+       LEFT JOIN creative_versions cv
+              ON cv.id = b.creative_version_id
+             AND cv.status = 'published'
        WHERE t.id = $1
+         AND t.status = 'active'
        ORDER BY b.weight DESC NULLS LAST, b.created_at DESC NULLS LAST
        LIMIT 1`,
       [tagId],
@@ -80,7 +93,7 @@ async function resolveActiveCreativeForTag(pool, tagId) {
   }
 }
 
-function buildDisplayHtml({ tagId, creativeUrl, width, height, clickTrackerUrl, impressionUrl }) {
+function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impressionUrl }) {
   const w = Number(width) || 300;
   const h = Number(height) || 250;
   const safeCreativeUrl = trimText(creativeUrl);
@@ -97,10 +110,13 @@ function buildDisplayHtml({ tagId, creativeUrl, width, height, clickTrackerUrl, 
 <style>*{margin:0;padding:0}html,body{width:${w}px;height:${h}px;overflow:hidden;background:transparent}</style>
 </head>
 <body>
-<!-- SMX: no active creative assigned to tag ${tagId} -->
+<!-- SMX: no active creative -->
 </body>
 </html>`;
   }
+
+  const safeImpressionJs = safeImpression ? escapeScriptContext(JSON.stringify(safeImpression)) : null;
+  const safeClickTrackerJs = safeClickTracker ? escapeScriptContext(JSON.stringify(safeClickTracker)) : 'null';
 
   return `<!DOCTYPE html>
 <html>
@@ -125,13 +141,13 @@ iframe{border:0;display:block;width:100%;height:100%}
   marginwidth="0"
   marginheight="0"
   allowfullscreen
-  sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation"
+  sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation"
 ></iframe>
 <script>
 (function(){
-  ${safeImpression ? `(new Image()).src = ${JSON.stringify(safeImpression)};` : '// no impression tracker'}
+  ${safeImpressionJs ? `(new Image()).src = ${safeImpressionJs};` : '// impression suppressed'}
 
-  var clickTracker = ${JSON.stringify(safeClickTracker)};
+  var clickTracker = ${safeClickTrackerJs};
   window.addEventListener('message', function(e) {
     try {
       var data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
@@ -154,12 +170,12 @@ iframe{border:0;display:block;width:100%;height:100%}
 </html>`;
 }
 
-function buildDisplayJs({ tagId, displayHtmlUrl, width, height }) {
+function buildDisplayJs({ displayHtmlUrl, width, height }) {
   const w = Number(width) || 300;
   const h = Number(height) || 250;
 
   return `(function(){
-  var src = ${JSON.stringify(displayHtmlUrl)};
+  var src = ${escapeScriptContext(JSON.stringify(displayHtmlUrl))};
   var w   = ${JSON.stringify(String(w))};
   var h   = ${JSON.stringify(String(h))};
   var script = document.currentScript;
@@ -177,14 +193,14 @@ function buildDisplayJs({ tagId, displayHtmlUrl, width, height }) {
   iframe.style.border   = '0';
   iframe.style.overflow = 'hidden';
   iframe.style.display  = 'block';
-  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation');
+  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation');
   parent.insertBefore(iframe, script);
   parent.removeChild(script);
 })();`;
 }
 
 export async function handleDisplayRoutes(ctx) {
-  const { method, pathname, res, req, env } = ctx;
+  const { method, pathname, res, req, env, url } = ctx;
 
   if (method === 'OPTIONS' && /^\/v1\/tags\/(display|native)\//.test(pathname)) {
     applyPublicCors(req, res);
@@ -194,22 +210,29 @@ export async function handleDisplayRoutes(ctx) {
   }
 
   if (method === 'GET' && /^\/v1\/tags\/display\/[^/]+\.html$/.test(pathname)) {
-    const tagId = pathname.split('/')[4].replace(/\.html$/, '');
+    const rawId = pathname.split('/')[4].replace(/\.html$/, '');
     applyPublicCors(req, res);
+
+    if (!isValidTagId(rawId)) {
+      res.statusCode = 400;
+      res.end();
+      return true;
+    }
+    const tagId = rawId;
 
     const pool = getDatabasePool(env);
     const row = await resolveActiveCreativeForTag(pool, tagId);
 
     if (!row) {
-      return sendHtml(res, `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><!-- smx: tag ${tagId} not found --></body></html>`);
+      return sendHtml(res, '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><!-- smx: no content --></body></html>');
     }
 
     const baseUrl = resolveBaseUrl(ctx);
-    const impressionUrl = `${baseUrl}/v1/tags/tracker/${tagId}/impression.gif`;
+    const suppressImpression = url.searchParams.get('smx_no_imp') === '1';
+    const impressionUrl = suppressImpression ? '' : `${baseUrl}/v1/tags/tracker/${tagId}/impression.gif`;
     const clickTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/click`;
 
     const html = buildDisplayHtml({
-      tagId,
       creativeUrl: row.public_url ?? '',
       width: row.width,
       height: row.height,
@@ -221,8 +244,15 @@ export async function handleDisplayRoutes(ctx) {
   }
 
   if (method === 'GET' && /^\/v1\/tags\/display\/[^/]+\.js$/.test(pathname)) {
-    const tagId = pathname.split('/')[4].replace(/\.js$/, '');
+    const rawId = pathname.split('/')[4].replace(/\.js$/, '');
     applyPublicCors(req, res);
+
+    if (!isValidTagId(rawId)) {
+      res.statusCode = 400;
+      res.end();
+      return true;
+    }
+    const tagId = rawId;
 
     const pool = getDatabasePool(env);
     const row = await resolveActiveCreativeForTag(pool, tagId);
@@ -232,13 +262,19 @@ export async function handleDisplayRoutes(ctx) {
     const width = row?.width || 300;
     const height = row?.height || 250;
 
-    const js = buildDisplayJs({ tagId, displayHtmlUrl, width, height });
-    return sendJs(res, js);
+    return sendJs(res, buildDisplayJs({ displayHtmlUrl, width, height }));
   }
 
   if (method === 'GET' && /^\/v1\/tags\/native\/[^/]+\.js$/.test(pathname)) {
-    const tagId = pathname.split('/')[4].replace(/\.js$/, '');
+    const rawId = pathname.split('/')[4].replace(/\.js$/, '');
     applyPublicCors(req, res);
+
+    if (!isValidTagId(rawId)) {
+      res.statusCode = 400;
+      res.end();
+      return true;
+    }
+    const tagId = rawId;
 
     const pool = getDatabasePool(env);
     const row = await resolveActiveCreativeForTag(pool, tagId);
@@ -248,8 +284,7 @@ export async function handleDisplayRoutes(ctx) {
     const width = row?.width || 300;
     const height = row?.height || 250;
 
-    const js = buildDisplayJs({ tagId, displayHtmlUrl, width, height });
-    return sendJs(res, js);
+    return sendJs(res, buildDisplayJs({ displayHtmlUrl, width, height }));
   }
 
   return false;
