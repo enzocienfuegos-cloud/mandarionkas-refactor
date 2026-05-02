@@ -24,7 +24,7 @@
     "dev:api": "npm run dev -w @smx/api",
     "dev:worker": "npm run dev -w @smx/worker",
     "build:web": "npm run build -w @smx/web",
-    "build:portal": "npm run build -w @smx/portal",
+    "build:portal": "npm run build -w @smx/portal && cp apps/portal/dist/index.html apps/portal/dist/404.html",
     "build:studio": "npm run build -w @smx/studio && cp apps/studio/dist/index.html apps/studio/dist/404.html",
     "typecheck:web": "npm run typecheck -w @smx/web",
     "test:web": "npm run test -w @smx/web",
