@@ -193,13 +193,10 @@ function normalizeServingBaseUrl(value: string) {
 }
 
 function resolveTagServingBaseUrl() {
-  const candidates = [
-    import.meta.env.VITE_TAGS_BASE_URL,
-    import.meta.env.VITE_API_BASE_URL,
-    typeof window !== 'undefined' ? window.location.origin : '',
-  ];
-
-  return normalizeServingBaseUrl(candidates.find((candidate) => candidate?.trim()) ?? '');
+  const resolved = import.meta.env.VITE_TAGS_BASE_URL?.trim()
+    || import.meta.env.VITE_API_BASE_URL?.trim()
+    || '';
+  return normalizeServingBaseUrl(resolved);
 }
 
 function getDefaultVastSnippetVariant(campaignDsp = ''): SnippetVariant {
@@ -322,7 +319,7 @@ function buildTagSnippet(
   const illuminMacroVastUrl = applyDspMacrosToDeliveryUrl(illuminDynamicVastUrl, 'illumin', DSP_DELIVERY_KINDS.VIDEO);
   const vastUrl = campaignVastUrl;
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
-  const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+  const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
   const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
   const width = tag.width ?? 300;
   const height = tag.height ?? 250;

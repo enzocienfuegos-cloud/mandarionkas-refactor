@@ -47,7 +47,7 @@ static_sites:
         type: GENERAL
         value: https://studio.YOUR_DOMAIN.com
       - key: VITE_TAGS_BASE_URL
-        scope: BUILD_TIME
+        scope: BUILD_AND_RUN_TIME
         type: GENERAL
         value: https://api.YOUR_DOMAIN.com
 
