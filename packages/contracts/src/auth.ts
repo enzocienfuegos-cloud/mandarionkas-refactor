@@ -1,19 +1,35 @@
-import type { PlatformPermission, SessionPersistenceMode, UserRole, WorkspaceRole } from './platform';
+// packages/contracts/src/auth.ts
 
-export type AuthUserDto = {
+import type {
+  PlatformPermission,
+  PlatformRole,
+  ProductAccess,
+  SessionPersistenceMode,
+  WorkspaceRole,
+} from './platform';
+
+export type { PlatformRole, WorkspaceRole, PlatformPermission, ProductAccess };
+
+// ---------------------------------------------------------------------------
+// Session payload
+// ---------------------------------------------------------------------------
+
+export interface AuthUserDto {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
-};
+  /** Always a valid PlatformRole — never a raw legacy string. */
+  role: PlatformRole;
+}
 
-export type AuthWorkspaceMemberDto = {
+export interface AuthWorkspaceMemberDto {
   userId: string;
   role: WorkspaceRole;
   addedAt: string;
-};
+  productAccess: ProductAccess;
+}
 
-export type AuthBrandDto = {
+export interface AuthBrandDto {
   id: string;
   name: string;
   primaryColor?: string;
@@ -21,37 +37,43 @@ export type AuthBrandDto = {
   accentColor?: string;
   logoUrl?: string;
   fontFamily?: string;
-};
+}
 
-export type AuthClientInviteDto = {
+export interface AuthClientInviteDto {
   id: string;
   email: string;
   role: WorkspaceRole;
   status: 'pending' | 'accepted';
   invitedAt: string;
-};
+}
 
-export type AuthWorkspaceDto = {
+export interface AuthWorkspaceDto {
   id: string;
   name: string;
   slug: string;
-  brandColor?: string;
   ownerUserId: string;
   memberUserIds: string[];
+  /** Effective access for the requesting user within this workspace. */
+  product_access: ProductAccess;
   members?: AuthWorkspaceMemberDto[];
   invites?: AuthClientInviteDto[];
   brands?: AuthBrandDto[];
-};
+}
 
-export type LoginRequestDto = {
+// ---------------------------------------------------------------------------
+// Login / logout
+// ---------------------------------------------------------------------------
+
+export interface LoginRequestDto {
   email: string;
   password: string;
   remember?: boolean;
-};
+}
 
-export type LoginResponseDto = {
+export interface LoginResponseDto {
   ok: boolean;
   message?: string;
+  authenticated: true;
   session: {
     sessionId: string;
     persistenceMode: SessionPersistenceMode;
@@ -60,54 +82,78 @@ export type LoginResponseDto = {
   };
   user: AuthUserDto;
   activeClientId?: string;
+  activeWorkspaceId?: string;
+  /** Resolved effective product access for the active workspace. */
+  productAccess: ProductAccess;
   permissions: PlatformPermission[];
   clients: AuthWorkspaceDto[];
-};
+  workspaces: AuthWorkspaceDto[];
+}
 
-export type LogoutResponseDto = {
+export interface UnauthenticatedResponseDto {
   ok: true;
-};
+  authenticated: false;
+  session: null;
+  user: null;
+  activeClientId: undefined;
+  activeWorkspaceId: undefined;
+  permissions: [];
+  productAccess: null;
+  clients: [];
+  workspaces: [];
+}
 
-export type UpdateActiveClientRequestDto = {
+export type SessionResponseDto = LoginResponseDto | UnauthenticatedResponseDto;
+
+export interface LogoutResponseDto {
+  ok: true;
+}
+
+// ---------------------------------------------------------------------------
+// Workspace / client operations
+// ---------------------------------------------------------------------------
+
+export interface UpdateActiveClientRequestDto {
   clientId: string;
-};
+}
 
-export type UpdateActiveClientResponseDto = {
+export interface UpdateActiveClientResponseDto {
   ok: true;
   activeClientId: string;
   clients: AuthWorkspaceDto[];
-};
+}
 
-export type CreateClientRequestDto = {
+export interface CreateClientRequestDto {
   name: string;
-};
+}
 
-export type CreateClientResponseDto = {
+export interface CreateClientResponseDto {
   ok: true;
   client: AuthWorkspaceDto;
   activeClientId: string;
   clients: AuthWorkspaceDto[];
-};
+}
 
-export type CreateBrandRequestDto = {
+export interface CreateBrandRequestDto {
   name: string;
   primaryColor: string;
-};
+}
 
-export type CreateBrandResponseDto = {
+export interface CreateBrandResponseDto {
   ok: true;
   client: AuthWorkspaceDto;
   clients: AuthWorkspaceDto[];
-};
+}
 
-export type InviteMemberRequestDto = {
+export interface InviteMemberRequestDto {
   email: string;
   role: WorkspaceRole;
-};
+  productAccess: ProductAccess;
+}
 
-export type InviteMemberResponseDto = {
+export interface InviteMemberResponseDto {
   ok: boolean;
   message?: string;
   client?: AuthWorkspaceDto;
   clients?: AuthWorkspaceDto[];
-};
+}

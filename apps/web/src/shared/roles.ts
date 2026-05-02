@@ -1,37 +1,35 @@
-export type PlatformRole = 'admin' | 'designer' | 'ad_ops' | 'reviewer';
+// apps/web/src/shared/roles.ts
+//
+// Thin re-export from the contracts package.
+// No role logic should be duplicated in apps/web.
 
-export function normalizePlatformRole(value: unknown): PlatformRole {
-  const role = String(value || '').trim().toLowerCase();
-  if (role === 'admin') return 'admin';
-  if (role === 'ad_ops') return 'ad_ops';
-  if (role === 'reviewer') return 'reviewer';
-  return 'designer';
-}
+import {
+  normalizePlatformRole,
+  getPlatformRoleLabel,
+  resolveProductAccess,
+  getPermissionsForRole,
+} from '../../../../packages/contracts/src/platform';
+import type {
+  PlatformRole,
+  WorkspaceRole,
+  PlatformPermission,
+  ProductAccess,
+} from '../../../../packages/contracts/src/platform';
 
-export function getPlatformRoleLabel(role: unknown) {
-  switch (normalizePlatformRole(role)) {
-    case 'admin':
-      return 'Admin';
-    case 'ad_ops':
-      return 'Ad Ops';
-    case 'reviewer':
-      return 'Reviewer';
-    case 'designer':
-    default:
-      return 'Designer';
-  }
-}
+export type {
+  PlatformRole,
+  WorkspaceRole,
+  PlatformPermission,
+  ProductAccess,
+};
 
-export function derivePlatformRoleFromAssignment(input: {
-  role?: string | null;
-  productAccess?: { ad_server: boolean; studio: boolean } | null;
-}): PlatformRole {
-  const role = String(input.role || '').trim().toLowerCase();
-  const access = input.productAccess ?? { ad_server: true, studio: true };
+export {
+  normalizePlatformRole,
+  getPlatformRoleLabel,
+  resolveProductAccess,
+  getPermissionsForRole,
+};
 
-  if (role === 'owner' || role === 'admin' || role === 'editor') return 'admin';
-  if (role === 'viewer' || role === 'reviewer') return 'reviewer';
-  if (access.studio !== false && access.ad_server === false) return 'designer';
-  if (access.ad_server !== false && access.studio === false) return 'ad_ops';
-  return 'designer';
+export function derivePlatformRoleFromAssignment(role: unknown): PlatformRole {
+  return normalizePlatformRole(role);
 }

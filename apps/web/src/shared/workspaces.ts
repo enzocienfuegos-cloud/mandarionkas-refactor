@@ -1,16 +1,23 @@
+// apps/web/src/shared/workspaces.ts
+//
+// All API calls that touch session/workspace state from apps/web.
+// No role inference here — roles come from the backend, not from this layer.
+
+import type { PlatformRole, ProductAccess } from '../../../../packages/contracts/src/platform';
+
 export interface WorkspaceOption {
   id: string;
   name: string;
   slug?: string;
   plan?: string;
   logo_url?: string | null;
-  product_access?: {
-    ad_server: boolean;
-    studio: boolean;
-  };
+  /** Resolved effective access for the current user in this workspace. */
+  product_access: ProductAccess;
 }
 
-export function getWorkspaceProductLabel(workspace: Pick<WorkspaceOption, 'product_access'> | null | undefined) {
+export function getWorkspaceProductLabel(
+  workspace: { product_access?: ProductAccess | null } | null | undefined,
+): string {
   const access = workspace?.product_access;
   if (!access) return 'Ad Server + Studio';
   if (access.ad_server && access.studio) return 'Ad Server + Studio';
@@ -19,43 +26,29 @@ export function getWorkspaceProductLabel(workspace: Pick<WorkspaceOption, 'produ
   return 'No product access';
 }
 
+// ---------------------------------------------------------------------------
+// Auth / session shape returned by /v1/auth/session
+// ---------------------------------------------------------------------------
+
 export interface AuthMeUser {
   id: string;
   email: string;
-  display_name?: string | null;
-  avatar_url?: string | null;
-  role?: 'admin' | 'designer' | 'ad_ops' | 'reviewer' | string | null;
+  name?: string | null;
+  /** Always a valid PlatformRole — normalised by the backend. */
+  role: PlatformRole;
 }
 
 export interface AuthMeResponse {
   user: AuthMeUser;
   workspace: WorkspaceOption | null;
-  role?: 'admin' | 'designer' | 'ad_ops' | 'reviewer' | string | null;
-  permissions?: string[];
-  productAccess?: {
-    ad_server: boolean;
-    studio: boolean;
-  } | null;
+  /** Resolved effective product access for the active workspace. */
+  productAccess: ProductAccess;
+  permissions: string[];
 }
 
-interface SessionWorkspacePayload {
-  ok: boolean;
-  authenticated: boolean;
-  permissions?: string[];
-  user?: {
-    id: string;
-    email: string;
-    name?: string | null;
-    role?: string | null;
-  } | null;
-  activeWorkspaceId?: string | null;
-  workspaces?: WorkspaceOption[];
-}
-
-interface WorkspaceListPayload {
-  workspaces?: WorkspaceOption[];
-  activeWorkspaceId?: string | null;
-}
+// ---------------------------------------------------------------------------
+// Internal fetch helper
+// ---------------------------------------------------------------------------
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -68,85 +61,116 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload?.message ?? `Request failed (${response.status})`);
+    const err = new Error(
+      (payload as any)?.message ?? `Request failed (${response.status})`,
+    ) as Error & { status: number };
+    err.status = response.status;
+    throw err;
   }
   return response.json() as Promise<T>;
 }
 
-function getMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
+// ---------------------------------------------------------------------------
+// API calls
+// ---------------------------------------------------------------------------
+
+interface SessionPayload {
+  ok: boolean;
+  authenticated: boolean;
+  permissions?: string[];
+  user?: AuthMeUser | null;
+  activeWorkspaceId?: string | null;
+  workspaces?: WorkspaceOption[];
+  productAccess?: ProductAccess | null;
 }
 
-export async function loadAuthMe() {
-  const payload = await fetchJson<SessionWorkspacePayload>('/v1/auth/session');
+/**
+ * Loads the current session from /v1/auth/session.
+ * Throws with status 401 if unauthenticated.
+ */
+export async function loadAuthMe(): Promise<AuthMeResponse> {
+  const payload = await fetchJson<SessionPayload>('/v1/auth/session');
+
   if (!payload.authenticated || !payload.user) {
-    throw new Error('Authentication required');
+    const err = new Error('Authentication required') as Error & { status: number };
+    err.status = 401;
+    throw err;
   }
 
-  const workspaces = payload.workspaces ?? [];
-  const activeWorkspace = workspaces.find((workspace) => workspace.id === payload.activeWorkspaceId) ?? workspaces[0] ?? null;
+  const workspaces      = payload.workspaces ?? [];
+  const activeWorkspace =
+    workspaces.find((ws) => ws.id === payload.activeWorkspaceId) ??
+    workspaces[0] ??
+    null;
+
+  // productAccess is resolved by the backend.
+  // If missing (old backend), fall back to what the workspace row says.
+  const productAccess: ProductAccess =
+    payload.productAccess ??
+    activeWorkspace?.product_access ?? { ad_server: true, studio: true };
 
   return {
     user: {
-      id: payload.user.id,
+      id:    payload.user.id,
       email: payload.user.email,
-      display_name: payload.user.name ?? payload.user.email.split('@')[0] ?? null,
-      avatar_url: null,
-      role: payload.user.role ?? null,
+      name:  payload.user.name ?? payload.user.email.split('@')[0] ?? null,
+      role:  payload.user.role,
     },
-    workspace: activeWorkspace,
-    role: payload.user.role ?? null,
-    permissions: payload.permissions ?? [],
-    productAccess: activeWorkspace?.product_access ?? null,
-  } satisfies AuthMeResponse;
-}
-
-export async function loadWorkspaces(product: 'ad_server' | 'studio' | 'all' = 'ad_server') {
-  const payload = await fetchJson<WorkspaceListPayload>('/v1/workspaces');
-  const workspaces = payload.workspaces ?? [];
-  if (product === 'all') return workspaces;
-  return workspaces.filter((workspace) => {
-    const access = workspace.product_access;
-    if (!access) return true;
-    return product === 'ad_server' ? access.ad_server !== false : access.studio !== false;
-  });
-}
-
-export async function switchWorkspace(workspaceId: string) {
-  const payload = await fetchJson<{
-    workspaces?: WorkspaceOption[];
-    activeWorkspaceId?: string | null;
-  }>('/v1/clients/active', {
-    method: 'POST',
-    body: JSON.stringify({ workspaceId }),
-  });
-  const workspace = (payload.workspaces ?? []).find((item) => item.id === payload.activeWorkspaceId) ?? null;
-  return {
-    workspace,
-    role: null,
-    productAccess: workspace?.product_access ?? null,
+    workspace:     activeWorkspace,
+    productAccess,
+    permissions:   payload.permissions ?? [],
   };
 }
 
-export async function createClientWorkspace(input: { name: string; website?: string } | string) {
+/**
+ * Returns workspaces visible to the current user.
+ * Filtering is advisory — the backend already enforces access.
+ */
+export async function loadWorkspaces(
+  product: 'ad_server' | 'studio' | 'all' = 'all',
+): Promise<WorkspaceOption[]> {
+  const payload = await fetchJson<{ workspaces?: WorkspaceOption[] }>('/v1/workspaces');
+  const workspaces = payload.workspaces ?? [];
+
+  if (product === 'all') return workspaces;
+
+  return workspaces.filter((ws) => {
+    const access = ws.product_access;
+    if (!access) return true;
+    return product === 'ad_server'
+      ? access.ad_server !== false
+      : access.studio !== false;
+  });
+}
+
+export async function switchWorkspace(workspaceId: string): Promise<AuthMeResponse> {
+  await fetchJson('/v1/clients/active', {
+    method: 'POST',
+    body:   JSON.stringify({ workspaceId }),
+  });
+  // Re-fetch the full session after the switch so the component always gets
+  // a consistent, backend-resolved payload.
+  return loadAuthMe();
+}
+
+export async function createClientWorkspace(
+  input: { name: string; website?: string } | string,
+) {
   const payload = typeof input === 'string'
     ? { name: input }
-    : {
-      name: input.name,
-      website: input.website ?? '',
-    };
+    : { name: input.name, website: input.website ?? '' };
+
   return fetchJson<{
     ok: boolean;
     client?: WorkspaceOption | null;
-    workspace?: WorkspaceOption | null;
     activeWorkspaceId?: string;
     workspaces?: WorkspaceOption[];
-  }>('/v1/clients', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  }>('/v1/clients', { method: 'POST', body: JSON.stringify(payload) });
 }
+
+// ---------------------------------------------------------------------------
+// Client access management
+// ---------------------------------------------------------------------------
 
 export interface ClientAccessUser {
   id: string;
@@ -157,10 +181,7 @@ export interface ClientAccessUser {
     workspace_id: string;
     workspace_name: string;
     role: string;
-    product_access: {
-      ad_server: boolean;
-      studio: boolean;
-    };
+    product_access: ProductAccess;
     status: string;
     invited_at?: string | null;
     joined_at?: string | null;
@@ -174,60 +195,45 @@ export async function loadClientAccess() {
       users: ClientAccessUser[];
     }>('/v1/clients/access');
   } catch (error) {
-    if (getMessage(error, '').includes('(404)')) {
-      return { clients: [], users: [] };
-    }
+    if ((error as any)?.status === 404) return { clients: [], users: [] };
     throw error;
   }
 }
 
 export async function grantClientAccess(input: {
   email: string;
-  role: 'admin' | 'designer' | 'ad_ops' | 'reviewer';
+  role: PlatformRole;
   workspaceIds: string[];
-  productAccess: { ad_server: boolean; studio: boolean };
+  productAccess: ProductAccess;
 }) {
-  try {
-    return await fetchJson<{ ok: boolean; message?: string }>('/v1/clients/access', {
-      method: 'POST',
-      body: JSON.stringify(input),
-    });
-  } catch (error) {
-    throw new Error(getMessage(error, 'Client access management is unavailable in this environment.'));
-  }
+  return fetchJson<{ ok: boolean; message?: string }>('/v1/clients/access', {
+    method: 'POST',
+    body:   JSON.stringify(input),
+  });
 }
 
 export async function removeClientAccess(clientId: string, userId: string) {
-  try {
-    return await fetch(`/v1/clients/${clientId}/access/${userId}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    }).then(async (response) => {
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.message ?? `Request failed (${response.status})`);
-      }
-    });
-  } catch (error) {
-    throw new Error(getMessage(error, 'Client access management is unavailable in this environment.'));
+  const response = await fetch(`/v1/clients/${clientId}/access/${userId}`, {
+    method:      'DELETE',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error((payload as any)?.message ?? `Request failed (${response.status})`);
   }
 }
 
 export async function updateClientAccess(input: {
   clientId: string;
   userId: string;
-  role: 'admin' | 'designer' | 'ad_ops' | 'reviewer';
-  productAccess: { ad_server: boolean; studio: boolean };
+  role: PlatformRole;
+  productAccess: ProductAccess;
 }) {
-  try {
-    return await fetchJson<{ ok: boolean; message?: string }>(`/v1/clients/${input.clientId}/access/${input.userId}`, {
+  return fetchJson<{ ok: boolean; message?: string }>(
+    `/v1/clients/${input.clientId}/access/${input.userId}`,
+    {
       method: 'PUT',
-      body: JSON.stringify({
-        role: input.role,
-        productAccess: input.productAccess,
-      }),
-    });
-  } catch (error) {
-    throw new Error(getMessage(error, 'Client access management is unavailable in this environment.'));
-  }
+      body:   JSON.stringify({ role: input.role, productAccess: input.productAccess }),
+    },
+  );
 }
