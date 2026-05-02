@@ -204,6 +204,37 @@ function getCreativeVersionVideoProcessing(creativeVersion: CreativeVersion | nu
   return (metadata.videoProcessing as Record<string, any> | undefined) ?? {};
 }
 
+function deriveTranscodeProgress(
+  renditions: VideoRendition[],
+  transcodeStatus: string | null | undefined,
+): { label: string; percent: number } | null {
+  if (!transcodeStatus || transcodeStatus === 'no_job') return null;
+  if (transcodeStatus === 'done') return null;
+  if (transcodeStatus !== 'processing' && transcodeStatus !== 'pending' && transcodeStatus !== 'queued') return null;
+
+  const nonSource = renditions.filter((r) => !r.isSource);
+  if (nonSource.length === 0) return null;
+
+  const done = nonSource.filter((r) => r.status === 'active' || r.status === 'paused').length;
+  const total = nonSource.filter((r) => r.status !== 'unavailable').length;
+  if (total === 0) return null;
+
+  const percent = Math.round((done / total) * 100);
+
+  if (done === 0) {
+    return { label: 'Preparing…', percent: 8 };
+  }
+  if (done < total) {
+    const next = nonSource.find((r) => r.status === 'queued' || r.status === 'processing' || r.status === 'draft');
+    const nextLabel = next?.label ?? '';
+    return {
+      label: `Transcoding ${nextLabel} (${done}/${total} done)`,
+      percent,
+    };
+  }
+  return { label: 'Finishing up…', percent: 95 };
+}
+
 function isVideoProcessingStale(creativeVersion: CreativeVersion | null | undefined) {
   const transcodeStatus = getCreativeVersionTranscodeStatus(creativeVersion);
   if (['stalled', 'failed', 'no_job', 'blocked'].includes(String(transcodeStatus))) return true;
@@ -285,7 +316,11 @@ function humanizeVideoProcessingReason(reason: string | null | undefined) {
   }
 }
 
-function getVideoProcessingPanelSummary(creativeVersion: CreativeVersion | null | undefined, awaitingPublish: boolean) {
+function getVideoProcessingPanelSummary(
+  creativeVersion: CreativeVersion | null | undefined,
+  awaitingPublish: boolean,
+  renditions: VideoRendition[] = [],
+) {
   if (awaitingPublish) {
     return {
       tone: 'info' as const,
@@ -304,6 +339,14 @@ function getVideoProcessingPanelSummary(creativeVersion: CreativeVersion | null 
   const stale = isVideoProcessingStale(creativeVersion);
 
   if (['pending', 'queued', 'processing'].includes(String(transcodeStatus))) {
+    const realProgress = deriveTranscodeProgress(renditions, transcodeStatus);
+    if (realProgress) {
+      return {
+        tone: 'info' as const,
+        title: 'Transcoding in progress',
+        message: `${realProgress.label}`,
+      };
+    }
     if (transcodeStatus === 'queued' && nextRetryAt) {
       return {
         tone: 'info' as const,
@@ -1307,7 +1350,11 @@ export default function CreativeLibrary() {
   const videoProcessing = (videoRenditionState?.version?.metadata as Record<string, any> | undefined)?.videoProcessing;
   const plannedRenditions = Array.isArray(videoProcessing?.targetPlan) ? videoProcessing.targetPlan : [];
   const renditionProcessing = Array.isArray(videoProcessing?.renditionProcessing) ? videoProcessing.renditionProcessing : [];
-  const videoProcessingSummary = getVideoProcessingPanelSummary(videoRenditionState?.version, videoRenditionState?.awaitingPublish ?? false);
+  const videoProcessingSummary = getVideoProcessingPanelSummary(
+    videoRenditionState?.version,
+    videoRenditionState?.awaitingPublish ?? false,
+    videoRenditionState?.renditions ?? [],
+  );
   const estimatedRemainingMs = regenerationFeedback
     ? estimateRemainingDuration(regenerationFeedback.elapsedMs, regenerationFeedback.progressPercent)
     : null;
