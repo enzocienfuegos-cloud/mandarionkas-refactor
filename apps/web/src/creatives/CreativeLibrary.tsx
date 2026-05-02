@@ -207,32 +207,45 @@ function getCreativeVersionVideoProcessing(creativeVersion: CreativeVersion | nu
 function deriveTranscodeProgress(
   renditions: VideoRendition[],
   transcodeStatus: string | null | undefined,
-): { label: string; percent: number } | null {
-  if (!transcodeStatus || transcodeStatus === 'no_job') return null;
-  if (transcodeStatus === 'done') return null;
-  if (transcodeStatus !== 'processing' && transcodeStatus !== 'pending' && transcodeStatus !== 'queued') return null;
+  sourceHeight: number | null | undefined,
+): { message: string } | null {
+  if (!transcodeStatus) return null;
+  if (!['processing', 'pending', 'queued'].includes(String(transcodeStatus))) return null;
 
-  const nonSource = renditions.filter((r) => !r.isSource);
+  const nonSource = renditions.filter((r) => !r.isSource && r.status !== 'unavailable');
   if (nonSource.length === 0) return null;
 
+  const total = nonSource.length;
   const done = nonSource.filter((r) => r.status === 'active' || r.status === 'paused').length;
-  const total = nonSource.filter((r) => r.status !== 'unavailable').length;
-  if (total === 0) return null;
+  const inProgress = nonSource.find((r) =>
+    r.status === 'queued' || r.status === 'processing' || r.status === 'draft'
+  );
 
-  const percent = Math.round((done / total) * 100);
+  const src = Number(sourceHeight || 0);
+  const secsPerProfile = src >= 2000 ? 90 : src >= 1000 ? 55 : 25;
+  const remaining = (total - done) * secsPerProfile;
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  const timeStr = mins > 0
+    ? `~${mins}m ${secs}s remaining`
+    : `~${secs}s remaining`;
 
   if (done === 0) {
-    return { label: 'Preparing…', percent: 8 };
-  }
-  if (done < total) {
-    const next = nonSource.find((r) => r.status === 'queued' || r.status === 'processing' || r.status === 'draft');
-    const nextLabel = next?.label ?? '';
     return {
-      label: `Transcoding ${nextLabel} (${done}/${total} done)`,
-      percent,
+      message: `Starting transcoding… ${timeStr}`,
     };
   }
-  return { label: 'Finishing up…', percent: 95 };
+
+  if (done < total) {
+    const profileLabel = inProgress?.label ?? '';
+    return {
+      message: `Transcoding ${profileLabel} (${done} of ${total} done) — ${timeStr}`,
+    };
+  }
+
+  return {
+    message: 'Finishing up, almost done…',
+  };
 }
 
 function isVideoProcessingStale(creativeVersion: CreativeVersion | null | undefined) {
@@ -339,14 +352,8 @@ function getVideoProcessingPanelSummary(
   const stale = isVideoProcessingStale(creativeVersion);
 
   if (['pending', 'queued', 'processing'].includes(String(transcodeStatus))) {
-    const realProgress = deriveTranscodeProgress(renditions, transcodeStatus);
-    if (realProgress) {
-      return {
-        tone: 'info' as const,
-        title: 'Transcoding in progress',
-        message: `${realProgress.label}`,
-      };
-    }
+    const sourceHeight = (creativeVersion as any)?.height ?? null;
+    const realProgress = deriveTranscodeProgress(renditions, transcodeStatus, sourceHeight);
     if (transcodeStatus === 'queued' && nextRetryAt) {
       return {
         tone: 'info' as const,
@@ -357,9 +364,11 @@ function getVideoProcessingPanelSummary(
     return {
       tone: 'info' as const,
       title: 'Transcoding in progress',
-      message: transcodeStatus === 'processing'
-        ? `In progress (${progressPercent ?? 42}%). The worker is rendering the rendition ladder now.`
-        : `In progress (${progressPercent ?? 8}%). The worker is preparing this job for transcoding.`,
+      message: realProgress
+        ? realProgress.message
+        : transcodeStatus === 'processing'
+          ? `In progress (${progressPercent ?? 42}%). The worker is rendering the rendition ladder now.`
+          : `In progress (${progressPercent ?? 8}%). The worker is preparing this job for transcoding.`,
     };
   }
 
