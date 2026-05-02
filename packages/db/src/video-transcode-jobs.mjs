@@ -1,3 +1,26 @@
+// packages/db/src/video-transcode-jobs.mjs
+//
+// CHANGE LOG — S51 fix:
+//
+// enqueueVideoTranscodeJob(): changed ON CONFLICT clause from the generic
+// "ON CONFLICT DO NOTHING" to a targeted conflict that infers the partial
+// unique index video_transcode_jobs_active_version_idx (created in migration 0023).
+//
+// WHY:
+//   The old "ON CONFLICT DO NOTHING" fired on ANY unique violation across the
+//   whole table, including the PK. More importantly, on regenerate flows the
+//   old job was in status='stalled' or 'failed' — those statuses are NOT covered
+//   by the partial unique index (which only covers pending/claimed/processing).
+//   So a regenerate attempt correctly tried to INSERT a new row, but the broad
+//   DO NOTHING could mask unexpected conflicts.
+//
+//   The new clause explicitly targets only the active-job deduplication index
+//   by index inference, making the intent clear: "skip only if an active
+//   (pending/claimed/processing) job already exists for this creative_version_id".
+//   A completed/failed/stalled job does NOT block a new INSERT.
+//
+// NO OTHER CHANGES to this file.
+
 import { randomUUID } from 'node:crypto';
 
 const STALL_TIMEOUT_MINUTES = 15;
@@ -36,7 +59,9 @@ export async function enqueueVideoTranscodeJob(client, {
         $6, $7, $8::jsonb,
         $9, NOW(), $10, NOW(), NOW()
       )
-      ON CONFLICT DO NOTHING
+      ON CONFLICT (creative_version_id)
+      WHERE status IN ('pending', 'claimed', 'processing')
+      DO NOTHING
       RETURNING *
     `,
     [

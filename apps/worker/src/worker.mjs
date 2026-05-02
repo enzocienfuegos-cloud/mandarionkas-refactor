@@ -15,13 +15,20 @@
 //   A lightweight heartbeat loop sends a maintenance job every 30s so
 //   the reconciler (stall detection, cap pruning, session cleanup) keeps running.
 //
+// S51 fix — notify-listener bridge:
+//   The API inserts into video_transcode_jobs but never calls boss.send().
+//   A PostgreSQL trigger (migration 0027) fires pg_notify('smx.transcode-video')
+//   on every pending INSERT. notify-listener.mjs receives this NOTIFY on a
+//   dedicated persistent pg.Client and calls sendTranscodeJob() → boss.send().
+//   This keeps the API fully decoupled from pgboss.
+//
 // The existing job functions (runTranscodeVideoJob, etc.) are unchanged.
 // pg-boss wraps them: it handles retry scheduling, deduplication, and
 // dead-letter archiving. The platform tables (video_transcode_jobs, etc.)
 // remain the canonical job state for the API and UI.
 //
 // Graceful shutdown:
-//   SIGTERM/SIGINT → set shuttingDown → boss.stop({ graceful: true, timeout: 10s })
+//   SIGTERM/SIGINT → set shuttingDown → stopNotifyListener → boss.stop({ graceful: true })
 //   pg-boss waits for in-flight handlers to complete before stopping.
 
 import { runGenerateImageDerivativesJob } from './jobs/generate-image-derivatives.mjs';
@@ -36,6 +43,7 @@ import {
   sendMaintenanceJob,
   QUEUE,
 } from './queue.mjs';
+import { startNotifyListener, stopNotifyListener } from './notify-listener.mjs';
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
 
@@ -132,6 +140,14 @@ async function main() {
 
     stopHeartbeat();
 
+    // Stop the NOTIFY listener before pg-boss so the bridge doesn't fire
+    // sendTranscodeJob() against a stopping boss instance.
+    try {
+      await stopNotifyListener();
+    } catch (e) {
+      log('error', { event: 'notify_listener_stop_error', message: e?.message });
+    }
+
     try {
       await stopBoss();
       log('info', { event: 'shutdown_complete' });
@@ -147,13 +163,18 @@ async function main() {
 
   log('info', { event: 'worker_boot' });
 
-  // Start pg-boss (creates/migrates pgboss schema on first run)
+  // 1. Start pg-boss (creates/migrates pgboss schema on first run)
   await ensureBossStarted();
 
-  // Register job handlers
+  // 2. Register job handlers
   await registerHandlers();
 
-  // Start maintenance heartbeat
+  // 3. Start the NOTIFY→pgboss bridge listener
+  //    Must be after ensureBossStarted() so sendTranscodeJob() can call getBoss().
+  await startNotifyListener();
+  log('info', { event: 'notify_listener_started', channel: 'smx.transcode-video' });
+
+  // 4. Start maintenance heartbeat
   const heartbeatIntervalMs = Number(process.env.WORKER_POLL_INTERVAL_MS ?? 30_000);
   stopHeartbeat = startMaintenanceHeartbeat(heartbeatIntervalMs);
 
