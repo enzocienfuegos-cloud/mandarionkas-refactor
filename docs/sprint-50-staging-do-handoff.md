@@ -79,6 +79,18 @@ node scripts/validate-portal-cutover.mjs
 npm run staging:post-deploy:check
 ```
 
+Current staging status after deployment:
+
+- `staging:post-deploy:check` passes
+- `validate-portal-cutover` passes
+- `api-staging`, `portal-staging`, `app-staging`, and `studio-staging` are reachable
+
+Important note on acceptance automation:
+
+- [scripts/staging-acceptance-matrix.mjs](/Users/enzocienfuegos/Documents/MandaRion/scripts/staging-acceptance-matrix.mjs) is currently stale versus the deployed `/v1/*` API contract
+- failures from that script should not be interpreted as staging downtime
+- see [docs/sprint-50-acceptance-matrix-realignment.md](/Users/enzocienfuegos/Documents/MandaRion/docs/sprint-50-acceptance-matrix-realignment.md) for the technical diagnosis and the recommended refactor path
+
 ## Notes
 
 - These specs intentionally disable `deploy_on_push` for staging to keep cutover controlled.

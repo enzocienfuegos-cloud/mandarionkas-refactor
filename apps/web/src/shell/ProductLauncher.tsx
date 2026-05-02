@@ -25,11 +25,11 @@ interface ShellUser {
 function getPortalUrl(): string {
   const configured = import.meta.env.VITE_PORTAL_URL?.trim();
   if (configured) return configured;
-  if (import.meta.env.DEV) return 'http://localhost:5175/launch';
+  if (import.meta.env.DEV) return 'http://localhost:5175';
   if (typeof window !== 'undefined') {
     const { hostname, protocol } = window.location;
     if (hostname.startsWith('app-')) {
-      return `${protocol}//${hostname.replace(/^app-/, 'portal-')}/launch`;
+      return `${protocol}//${hostname.replace(/^app-/, 'portal-')}`;
     }
   }
   return '';

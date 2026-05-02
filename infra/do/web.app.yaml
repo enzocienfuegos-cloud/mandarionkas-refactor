@@ -1,6 +1,6 @@
 # DigitalOcean App Platform — Ad Server Web Frontend (apps/web)
 #
-# S43: Added VITE_PORTAL_URL so ProductLauncher redirects to the portal
+# S43: Added VITE_PORTAL_URL so ProductLauncher redirects to the portal root
 # for users with Studio access or no Ad Server access.
 
 name: smx-studio-web
@@ -40,7 +40,7 @@ static_sites:
       - key: VITE_PORTAL_URL
         scope: BUILD_TIME
         type: GENERAL
-        value: https://portal.YOUR_DOMAIN.com/launch
+        value: https://portal.YOUR_DOMAIN.com
 
       - key: VITE_STUDIO_URL
         scope: BUILD_TIME

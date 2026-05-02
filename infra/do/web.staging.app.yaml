@@ -33,7 +33,7 @@ static_sites:
       - key: VITE_PORTAL_URL
         scope: BUILD_TIME
         type: GENERAL
-        value: https://portal-staging.duskplatform.co/launch
+        value: https://portal-staging.duskplatform.co
       - key: VITE_STUDIO_URL
         scope: BUILD_TIME
         type: GENERAL

@@ -102,7 +102,7 @@ function LoginPage() {
     setLoading(true);
     try {
       await login({ email: email.trim(), password, remember });
-      navigate('/launch', { replace: true });
+      navigate('/', { replace: true });
     } catch (caught: any) {
       setError(caught.message || 'Sign in failed.');
     } finally {
@@ -184,7 +184,7 @@ function RegisterPage() {
     setLoading(true);
     try {
       await register(form);
-      navigate('/launch', { replace: true });
+      navigate('/', { replace: true });
     } catch (caught: any) {
       setError(caught.message || 'Registration failed.');
     } finally {
@@ -381,7 +381,7 @@ export default function App() {
         <Route path="/launch" element={<PortalHome />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="*" element={<Navigate to="/launch" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

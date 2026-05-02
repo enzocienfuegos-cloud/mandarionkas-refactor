@@ -94,7 +94,7 @@ grep -r "YOUR_DOMAIN\|YOUR_ORG\|YOUR_REPO\|YOUR_ACCOUNT_ID\|REPLACE_ME" infra/do
 | `PGBOSS_DELETE_AFTER_DAYS` | pg-boss archive purge | `7` |
 
 **`infra/do/web.app.yaml`** — Added in S43:
-- `VITE_PORTAL_URL=https://portal.YOUR_DOMAIN.com/launch` — **Required** for `ProductLauncher` to redirect to portal instead of showing inline launcher
+- `VITE_PORTAL_URL=https://portal.YOUR_DOMAIN.com` — **Required** for `ProductLauncher` to redirect to the portal root instead of showing inline launcher
 
 **`infra/do/portal.app.yaml`** — All `example.com` replaced with `YOUR_DOMAIN.com`.
 

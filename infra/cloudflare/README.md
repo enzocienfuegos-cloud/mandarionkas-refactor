@@ -89,7 +89,7 @@ Enable **Cloudflare Managed Ruleset** for all four app hostnames.
 
 ### Pre-cutover
 - [ ] Deploy backend with `PLATFORM_ALLOWED_ORIGIN=https://portal.YOUR_DOMAIN.com`
-- [ ] Deploy web with `VITE_PORTAL_URL=https://portal.YOUR_DOMAIN.com/launch`
+- [ ] Deploy web with `VITE_PORTAL_URL=https://portal.YOUR_DOMAIN.com`
 - [ ] Deploy portal with real `VITE_*` URLs
 - [ ] Run: `PORTAL_URL=https://portal.YOUR_DOMAIN.com API_URL=https://api.YOUR_DOMAIN.com node scripts/validate-portal-cutover.mjs`
 
