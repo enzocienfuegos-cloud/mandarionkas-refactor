@@ -97,3 +97,7 @@ Important note on acceptance automation:
 - `apps/web` is now a product app, not the identity shell.
 - `apps/portal` is the canonical launcher and auth entrypoint.
 - `apps/studio` is included as a first-class DO app in staging; this was the missing deploy surface before this handoff.
+- Navigation ownership is now explicit:
+  - `portal` chooses the product
+  - `web` assumes Ad Server intent and lands Ad Server-capable users on `/overview`
+  - only users without Ad Server access should be handed back from `web` to `portal`

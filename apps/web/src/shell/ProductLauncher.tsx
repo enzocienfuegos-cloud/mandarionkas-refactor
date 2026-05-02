@@ -4,8 +4,9 @@
 // exclusively in apps/portal/src/App.tsx (PortalHome), not here.
 //
 // Logic:
-//   - Ad Ops pure (Ad Server only, no Studio) → /overview directly.
-//   - Everyone else → redirect to portal (unconditional when VITE_PORTAL_URL set).
+//   - Any user with Ad Server access (admins included) → /overview directly.
+//   - Users without Ad Server access → redirect to portal, which remains the
+//     cross-product selector and can route them into Studio.
 //   - No portal URL (local dev) → minimal dev fallback.
 
 import React, { useEffect } from 'react';
@@ -41,23 +42,23 @@ export default function ProductLauncher() {
 
   const access = user?.workspace?.productAccess ?? { ad_server: true, studio: true };
   const hasAdServerAccess = access.ad_server !== false;
-  const hasStudioAccess   = access.studio   !== false;
   const portalUrl = getPortalUrl();
 
   useEffect(() => {
-    // Pure Ad Ops — already in the right product, skip portal.
-    if (hasAdServerAccess && !hasStudioAccess) {
+    // If this user can operate Ad Server, the web app root should resolve
+    // into Ad Server itself, not bounce them back to the portal.
+    if (hasAdServerAccess) {
       navigate('/overview', { replace: true });
       return;
     }
-    // All other users → canonical portal launcher.
+    // No Ad Server access → hand back to the canonical portal launcher.
     if (portalUrl) {
       window.location.assign(portalUrl);
     }
-  }, [hasAdServerAccess, hasStudioAccess, navigate, portalUrl]);
+  }, [hasAdServerAccess, navigate, portalUrl]);
 
-  // Pure Ad Ops: navigate() handles it, render nothing.
-  if (hasAdServerAccess && !hasStudioAccess) return null;
+  // Ad Server-capable users navigate directly into the product.
+  if (hasAdServerAccess) return null;
 
   // Redirect in progress — show brief message.
   if (portalUrl) {
