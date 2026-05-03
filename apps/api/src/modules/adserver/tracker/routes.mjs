@@ -32,6 +32,21 @@ function trimText(value) {
   return String(value ?? '').trim();
 }
 
+function decodeStringSafe(value) {
+  if (!value) return '';
+  try { return decodeURIComponent(String(value)); } catch (_) { return String(value); }
+}
+
+function extractHostname(urlOrDomain) {
+  if (!urlOrDomain) return '';
+  try {
+    const s = urlOrDomain.startsWith('http') ? urlOrDomain : `https://${urlOrDomain}`;
+    return new URL(s).hostname;
+  } catch (_) {
+    return urlOrDomain.split('/')[0] || '';
+  }
+}
+
 function resolveBaseUrl(ctx) {
   const explicit = trimText(ctx.env.apiBaseUrl || ctx.env.apiPublicBaseUrl || ctx.env.baseUrl);
   if (explicit) return explicit.replace(/\/+$/, '');
@@ -92,11 +107,77 @@ export function createTrackerRoutes(buffer = null) {
       // Write impression to tracker buffer / DB (S40).
       queueImpressionWrite(buffer, pool, tagId, requestId);
 
-      // S46: Record frequency cap impression fire-and-forget.
-      if (pool && deviceId) {
+      // S46 + S61: Frequency cap + identity capture, fire-and-forget.
+      if (pool) {
         getTagWorkspaceId(pool, tagId).then((workspaceId) => {
-          if (workspaceId) {
+          if (!workspaceId) return;
+
+          if (deviceId) {
             recordFrequencyCapImpression(pool, { tagId, deviceId, workspaceId });
+          }
+
+          const p = url.searchParams;
+          const rawPageUrl = trimText(
+            p.get('purl') || p.get('pu') || p.get('pageUrlEnc') || p.get('site') || '',
+          );
+          const rawDomain = trimText(
+            p.get('dom') || p.get('sd') || p.get('domain') ||
+            p.get('sdmn') || p.get('siteid') || p.get('inventoryUnitReportingName') || '',
+          );
+          const siteDomain = rawDomain
+            ? extractHostname(decodeStringSafe(rawDomain))
+            : rawPageUrl
+              ? extractHostname(decodeStringSafe(rawPageUrl))
+              : extractHostname(trimText(req.headers.referer || req.headers.referrer || ''));
+
+          const referer = decodeStringSafe(rawPageUrl) ||
+            trimText(req.headers.referer || req.headers.referrer || '') || null;
+
+          const country = trimText(p.get('country') || '')
+            .toUpperCase()
+            .replace(/[^A-Z]/g, '')
+            .slice(0, 2) || null;
+
+          const deviceType = trimText(
+            p.get('devicetype') || p.get('device') || '',
+          ).toLowerCase() || null;
+          const deviceIdSignal = trimText(
+            p.get('adid') || p.get('ifa') ||
+            p.get('gadvid') || p.get('idfa') || p.get('googleAdvertisingId') || '',
+          ) || null;
+          const appId = trimText(p.get('appid') || '') || null;
+          const appBundle = trimText(p.get('appb') || '') || null;
+          const appName = decodeStringSafe(p.get('appn') || p.get('appne') || '') || null;
+          const exchangeId = trimText(p.get('excid') || '') || null;
+          const exchangePublisherId = trimText(p.get('excpubid') || '') || null;
+          const exchangeSiteIdOrDomain = trimText(p.get('excsiddmn') || '') || null;
+          const sourcePublisherId = trimText(p.get('srcpubid') || '') || null;
+          const networkId = trimText(p.get('nid') || '') || null;
+          const siteId = trimText(p.get('siteid') || '') || null;
+          const userAgent = trimText(req.headers['user-agent'] || '') || null;
+          const xForwardedFor = trimText(req.headers['x-forwarded-for'] || '');
+          const remoteIp = (xForwardedFor ? xForwardedFor.split(',')[0].trim() : '') ||
+            req.socket?.remoteAddress || null;
+
+          if (
+            siteDomain || country || userAgent || appId || appBundle || appName ||
+            deviceType || deviceIdSignal || exchangeId || exchangePublisherId ||
+            exchangeSiteIdOrDomain || sourcePublisherId || networkId || siteId
+          ) {
+            pool.query(
+              `INSERT INTO impression_events
+                 (tag_id, workspace_id, ip, user_agent, country, site_domain, referer)
+               VALUES ($1, $2, $3::inet, $4, $5, $6, $7)`,
+              [
+                tagId,
+                workspaceId,
+                remoteIp || null,
+                userAgent,
+                country,
+                siteDomain || null,
+                referer,
+              ],
+            ).catch(() => undefined);
           }
         }).catch(() => undefined);
       }

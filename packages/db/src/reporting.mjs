@@ -1,3 +1,40 @@
+// Lightweight UA parsing — no external dependencies.
+// Covers the most common cases visible in ad serving traffic.
+function parseDeviceTypeFromUA(ua) {
+  if (!ua) return '';
+  const s = ua.toLowerCase();
+  if (/smart.?tv|hbbtv|appletv|googletv|roku|firetv|tizen|webos|viera|bravia/.test(s)) return 'tv';
+  if (/tablet|ipad|kindle|playbook|silk/.test(s)) return 'tablet';
+  if (/mobile|iphone|ipod|android.*mobile|windows phone|blackberry|symbian/.test(s)) return 'phone';
+  if (/android/.test(s)) return 'tablet';
+  return 'desktop';
+}
+
+function parseBrowserFromUA(ua) {
+  if (!ua) return '';
+  const s = ua.toLowerCase();
+  if (/edg\/|edge\//.test(s)) return 'Edge';
+  if (/opr\/|opera\//.test(s)) return 'Opera';
+  if (/firefox\//.test(s)) return 'Firefox';
+  if (/chrome\//.test(s)) return 'Chrome';
+  if (/safari\//.test(s)) return 'Safari';
+  if (/msie |trident\//.test(s)) return 'IE';
+  return '';
+}
+
+function parseOsFromUA(ua) {
+  if (!ua) return '';
+  const s = ua.toLowerCase();
+  if (/windows phone/.test(s)) return 'Windows Phone';
+  if (/windows/.test(s)) return 'Windows';
+  if (/iphone|ipad|ipod|ios/.test(s)) return 'iOS';
+  if (/mac os x|macos/.test(s)) return 'macOS';
+  if (/android/.test(s)) return 'Android';
+  if (/linux/.test(s)) return 'Linux';
+  if (/cros/.test(s)) return 'ChromeOS';
+  return '';
+}
+
 function addDateFilters(params, conditions, alias, dateFrom, dateTo) {
   if (dateFrom) {
     params.push(dateFrom);
@@ -141,6 +178,7 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
        COALESCE(SUM(CASE WHEN event_type = 'hover_end' THEN event_count ELSE 0 END), 0)::bigint AS total_engagements,
        COALESCE(SUM(CASE WHEN event_type = 'hover_end' THEN total_duration_ms ELSE 0 END), 0)::bigint AS total_attention_duration_ms,
        COALESCE(SUM(CASE WHEN event_type = 'viewable' THEN event_count ELSE 0 END), 0)::bigint AS viewable_count,
+       COALESCE(SUM(CASE WHEN event_type = 'viewable' THEN total_duration_ms ELSE 0 END), 0)::bigint AS total_in_view_duration_ms,
        COALESCE(SUM(CASE WHEN event_type = 'start' THEN event_count ELSE 0 END), 0)::bigint AS video_starts,
        COALESCE(SUM(CASE WHEN event_type = 'complete' THEN event_count ELSE 0 END), 0)::bigint AS video_completions
      FROM tag_engagement_daily_stats
@@ -150,14 +188,21 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     statParams,
   );
 
+  // Identity signals now come from impression_events.
+  const durationParams = [workspaceId, tagId];
+  const durationConditions = ['ie.workspace_id = $1', 'ie.tag_id = $2'];
+  addTimestampFilters(durationParams, durationConditions, 'ie', dateFrom, dateTo);
   const durationQuery = pool.query(
     `SELECT
-       COALESCE(SUM(CASE WHEN event_type = 'viewable' THEN total_duration_ms ELSE 0 END), 0)::bigint AS total_in_view_duration_ms
-     FROM tag_engagement_daily_stats
-     WHERE tag_id = $1
-       ${dateFrom ? `AND date >= $2` : ''}
-       ${dateTo ? `AND date <= $${dateFrom ? 3 : 2}` : ''}`,
-    statParams,
+       MAX(ie.site_domain) FILTER (WHERE COALESCE(ie.site_domain, '') <> '') AS site_domain,
+       MAX(ie.country) FILTER (WHERE COALESCE(ie.country, '') <> '') AS country,
+       MAX(ie.region) FILTER (WHERE COALESCE(ie.region, '') <> '') AS region,
+       MAX(ie.city) FILTER (WHERE COALESCE(ie.city, '') <> '') AS city,
+       MAX(ie.referer) FILTER (WHERE COALESCE(ie.referer, '') <> '') AS referer,
+       MAX(ie.user_agent) FILTER (WHERE COALESCE(ie.user_agent, '') <> '') AS user_agent
+     FROM impression_events ie
+     WHERE ${durationConditions.join(' AND ')}`,
+    durationParams,
   );
 
   const last7dQuery = pool.query(
@@ -196,7 +241,7 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     engagementRate: totalImpressions > 0
       ? Number(((totalEngagements / totalImpressions) * 100).toFixed(4))
       : 0,
-    totalInViewDurationMs: Number(duration.total_in_view_duration_ms || 0),
+    totalInViewDurationMs: Number(engagement.total_in_view_duration_ms || 0),
     totalAttentionDurationMs: Number(engagement.total_attention_duration_ms || 0),
     impressionsLast7d: Number(last7d.impressions_7d || 0),
     videoStarts,
@@ -204,12 +249,12 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     videoCompletions,
     videoCompletionRate: videoStarts > 0 ? Number(((videoCompletions / videoStarts) * 100).toFixed(4)) : 0,
     latestContext: {
-      siteDomain: '',
-      pageUrl: '',
-      deviceType: '',
+      siteDomain: duration.site_domain || '',
+      pageUrl: duration.referer || '',
+      deviceType: parseDeviceTypeFromUA(duration.user_agent || ''),
       deviceModel: '',
-      browser: '',
-      os: '',
+      browser: parseBrowserFromUA(duration.user_agent || ''),
+      os: parseOsFromUA(duration.user_agent || ''),
       contextualIds: '',
       networkId: '',
       sourcePublisherId: '',
@@ -227,9 +272,9 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
       carrier: '',
       appStoreName: '',
       contentGenre: '',
-      country: '',
-      region: '',
-      city: '',
+      country: duration.country || '',
+      region: duration.region || '',
+      city: duration.city || '',
     },
   };
 }
