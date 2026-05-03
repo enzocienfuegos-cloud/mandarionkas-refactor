@@ -101,10 +101,19 @@ function getVideoMetadata(version: CreativeVersion | null) {
 }
 
 function resolveCreativePreviewHref(version: CreativeVersion | null | undefined) {
+  const sourceKind = String(version?.sourceKind || '').trim().toLowerCase();
+  const mimeType = String(version?.mimeType || '').trim().toLowerCase();
+  const allowsIngestionArtifactPreview = (
+    sourceKind === 'video_mp4'
+    || mimeType.startsWith('video/')
+  );
   const previewUrl = String(version?.previewUrl || '').trim();
   const isInvalidPreviewUrl = (value: string) => {
     const lower = value.toLowerCase();
-    return !value || lower.endsWith('.zip') || lower.includes('/creative-ingestions/');
+    if (!value) return true;
+    if (lower.endsWith('.zip')) return true;
+    if (!allowsIngestionArtifactPreview && lower.includes('/creative-ingestions/')) return true;
+    return false;
   };
   if (!isInvalidPreviewUrl(previewUrl)) return previewUrl;
   if (version?.sourceKind === 'html5_zip') return '';
