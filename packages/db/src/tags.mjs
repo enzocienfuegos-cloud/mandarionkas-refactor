@@ -38,6 +38,7 @@ function baseTagSelect() {
             t.targeting, t.frequency_cap, t.frequency_cap_window,
             t.geo_targets, t.device_targets, t.created_at, t.updated_at,
             c.name AS campaign_name,
+            c.metadata AS campaign_metadata,
             0::int AS assigned_count,
             ''::text AS assigned_names,
             COALESCE(tfc.display_width, 0) AS serving_width,

@@ -38,7 +38,9 @@ function normalizeTag(row) {
     workspaceId: row.workspace_id ?? null,
     workspaceName: row.workspace_name ?? null,
     campaignId: row.campaign_id ?? null,
-    campaign: row.campaign_id ? { id: row.campaign_id, name: row.campaign_name ?? '' } : null,
+    campaign: row.campaign_id
+      ? { id: row.campaign_id, name: row.campaign_name ?? '', metadata: row.campaign_metadata ?? null }
+      : null,
     clickUrl: String(normalizedFormat).toLowerCase() === 'tracker' && normalizedTrackerType === 'click'
       ? row.click_url ?? ''
       : '',

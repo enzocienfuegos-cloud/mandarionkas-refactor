@@ -1,8 +1,12 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { listSupportedDsps } from '@smx/contracts/dsp-macros';
 import { loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
 
-const DSP_OPTIONS = ['Basis', 'Illumin', 'Criteo'] as const;
+const DSP_OPTIONS = [
+  { value: '', label: '— None —' },
+  ...listSupportedDsps().map((dsp) => ({ value: dsp.label, label: dsp.label })),
+];
 
 interface CampaignForm {
   workspaceId: string;
@@ -200,9 +204,8 @@ export default function CampaignEditor() {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">DSP</label>
             <select value={form.dsp} onChange={set('dsp')} className={inputClass()}>
-              <option value="">SMX Standard</option>
-              {DSP_OPTIONS.map(option => (
-                <option key={option} value={option}>{option}</option>
+              {DSP_OPTIONS.map((option) => (
+                <option key={option.label} value={option.value}>{option.label}</option>
               ))}
             </select>
           </div>

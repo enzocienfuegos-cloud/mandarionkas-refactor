@@ -26,6 +26,7 @@ export interface SavedTag {
   format: TagFormat;
   name: string;
   workspaceId?: string | null;
+  campaign?: { id: string; name: string; metadata?: { dsp?: string | null; mediaType?: string | null } | null } | null;
   width?: number | null;
   height?: number | null;
   sizeLabel?: string;
@@ -143,6 +144,13 @@ export function normalizeTagRecord(payload: unknown): SavedTag | null {
     format,
     name: String(source.name ?? ''),
     workspaceId: source.workspaceId != null ? String(source.workspaceId) : null,
+    campaign: source.campaign && typeof source.campaign === 'object'
+      ? {
+          id: String((source.campaign as Record<string, unknown>).id ?? ''),
+          name: String((source.campaign as Record<string, unknown>).name ?? ''),
+          metadata: ((source.campaign as Record<string, unknown>).metadata as { dsp?: string | null; mediaType?: string | null } | null | undefined) ?? null,
+        }
+      : null,
     width: Number(source.servingWidth ?? firstCreative?.width ?? 0) || null,
     height: Number(source.servingHeight ?? firstCreative?.height ?? 0) || null,
     sizeLabel: String(source.sizeLabel ?? ''),

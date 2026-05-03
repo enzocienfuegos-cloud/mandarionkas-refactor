@@ -40,7 +40,9 @@ export default function TagBuilder() {
   const [queueingStaticDelivery, setQueueingStaticDelivery] = useState(false);
   const selectedCampaign = campaigns.find((campaign) => campaign.id === form.campaignId) ?? null;
   const selectedCampaignWorkspaceId = selectedCampaign?.workspaceId ?? selectedCampaign?.workspace_id ?? null;
-  const selectedCampaignDsp = readCampaignDsp(selectedCampaign?.metadata ?? null);
+  const selectedCampaignDsp = readCampaignDsp(
+    selectedCampaign?.metadata ?? savedTag?.campaign?.metadata ?? null,
+  );
   const selectedCampaignMediaType = String(selectedCampaign?.metadata?.mediaType ?? 'display').toLowerCase();
   const videoCampaign = selectedCampaignMediaType === 'video';
   const selectedCampaignMacroConfig = getDspMacroConfig(selectedCampaignDsp);
