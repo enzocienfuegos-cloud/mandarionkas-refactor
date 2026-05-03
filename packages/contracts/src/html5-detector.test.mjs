@@ -50,3 +50,23 @@ test('detects body style dimensions', () => {
 test('returns null when no dimensions found', () => {
   assert.equal(detectDimensionsInHtml('<html><body></body></html>'), null);
 });
+
+test('detects Creatopy processedVars bsClickTAG tight (no spaces, no key quotes)', () => {
+  const html = `window.creatopyEmbed={designData:{processedVars:{bsClickTAG:"https://www.brand.com/offer/"},soasLayersSlideLocation:[]}};`;
+  assert.equal(detectClickTagInHtml(html), 'https://www.brand.com/offer/');
+});
+
+test('detects Creatopy bsClickTAG with deeply nested objects before it', () => {
+  const html = `processedVars:{animations:[{id:1,elements:[{id:2,from:0}]}],bsClickTAG:"https://brand.com/lp"}`;
+  assert.equal(detectClickTagInHtml(html), 'https://brand.com/lp');
+});
+
+test('detects bsClickTAG with single-quoted key', () => {
+  const html = `processedVars:{'bsClickTAG':'https://brand.com/single'}`;
+  assert.equal(detectClickTagInHtml(html), 'https://brand.com/single');
+});
+
+test('does NOT match notBsClickTAG (false positive guard)', () => {
+  const html = `{notBsClickTAG:"https://shouldnotmatch.com"}`;
+  assert.equal(detectClickTagInHtml(html), null);
+});

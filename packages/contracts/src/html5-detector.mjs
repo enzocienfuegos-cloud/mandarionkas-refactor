@@ -3,6 +3,14 @@
  * and the worker job. Single source of truth.
  *
  * Returns the first detected http(s) URL or null.
+ *
+ * Platform coverage:
+ *   IAB standard        — var clickTag / window.clickTag / var clickTAG
+ *   CM360 / GWD         — Enabler.exit('name', 'https://...')
+ *   Celtra              — ExitApi.exit('name', 'https://...')
+ *   Adform DHTML        — dhtml.getVar(...) / processedVars:{bsClickTAG:"..."}
+ *   Creatopy            — processedVars:{bsClickTAG:"..."} (any nesting depth)
+ *   Xandr / generic     — window.bannerURL = "https://..."
  */
 export function detectClickTagInHtml(htmlSource) {
   if (!htmlSource || typeof htmlSource !== 'string') return null;
@@ -14,14 +22,24 @@ export function detectClickTagInHtml(htmlSource) {
   };
 
   const patterns = [
+    // IAB standard: var clickTag = "https://..."  /  window.clickTag = "https://..."
     [/(?:var\s+|window\.)clickTag\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    // IAB uppercase variant: var clickTAG = "https://..."
     [/(?:var\s+|window\.)clickTAG\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    // Bare assignment without var/window (GWD and similar)
     [/(?<![.\w])clickTag\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    // CM360 / GWD: Enabler.exit('exitName', 'https://...')
     [/Enabler\.exit\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    // Celtra / Connected Stories: ExitApi.exit('exitName', 'https://...')
     [/ExitApi\.exit\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
-    [/processedVars\s*:\s*\{[^}]{0,300}?["']?bsClickTAG["']?\s*:\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    // Adform / Creatopy: bsClickTAG:"https://..." or bsClickTAG:'https://...'
+    // Works at any nesting depth. Negative lookbehind prevents matching notBsClickTAG.
+    [/(?<!\w)bsClickTAG["']?\s*:\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    // Adform DHTML explicit: var bsClickTAG = dhtml.getVar('bsClickTAG', 'https://...')
     [/var\s+bsClickTAG\s*=\s*dhtml\.getVar\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']\s*\)/i, 1],
+    // Adform DHTML generic getVar with click/Click in the key name
     [/dhtml\.getVar\s*\(\s*["'][^"']{0,32}(?:click|Click)[^"']{0,32}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    // Xandr / generic: window.bannerURL = "https://..."
     [/window\.bannerURL\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
   ];
 
