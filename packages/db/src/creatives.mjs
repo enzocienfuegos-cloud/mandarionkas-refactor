@@ -439,23 +439,16 @@ function normalizeHtmlEntryPath(value) {
   return normalized;
 }
 
-function buildHtmlPreviewUrl(publicUrl, entryPath) {
+function resolvePublishedHtml5PreviewUrl(publicUrl, mimeType, metadata = {}) {
   const sourceUrl = trimText(publicUrl);
   if (!sourceUrl) return null;
-  const safeEntryPath = normalizeHtmlEntryPath(entryPath);
-  try {
-    const parsed = new URL(sourceUrl);
-    if (parsed.pathname.toLowerCase().endsWith(`/${safeEntryPath.toLowerCase()}`)) {
-      return parsed.toString();
-    }
-    const segments = parsed.pathname.split('/');
-    segments.pop();
-    segments.push(...safeEntryPath.split('/'));
-    parsed.pathname = segments.join('/').replace(/\/{2,}/g, '/');
-    return parsed.toString();
-  } catch (_) {
-    return sourceUrl;
-  }
+  const publishedPublicUrl = trimText(metadata?.html5Publish?.publicUrl || metadata?.publishJob?.publicUrl);
+  if (publishedPublicUrl) return publishedPublicUrl;
+  const normalizedMimeType = trimText(mimeType).toLowerCase();
+  const normalizedUrl = sourceUrl.toLowerCase();
+  if (normalizedMimeType === 'text/html' && normalizedUrl.endsWith('.html')) return sourceUrl;
+  if (normalizedUrl.includes('/creative-versions/') && normalizedUrl.endsWith('.html')) return sourceUrl;
+  return null;
 }
 
 function buildAutoVideoOutputPlan({ storageKey, publicUrl }) {
@@ -838,7 +831,7 @@ export async function createPublishedCreative(pool, input = {}) {
     : null;
   const shouldDeferHtml5ArchivePublish = normalizedSourceKind === 'html5_zip' && deferHtml5ArchivePublish === true;
   const resolvedPreviewUrl = normalizedSourceKind === 'html5_zip'
-    ? buildHtmlPreviewUrl(publicUrl, resolvedEntryPath)
+    ? resolvePublishedHtml5PreviewUrl(publicUrl, mimeType, metadata)
     : publicUrl;
   const initialCreativePublicUrl = shouldDeferHtml5ArchivePublish ? null : resolvedPreviewUrl;
   const creativeMetadata = {
