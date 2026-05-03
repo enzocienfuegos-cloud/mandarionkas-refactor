@@ -1,7 +1,7 @@
 # DigitalOcean App Platform — Backend staging (API + Worker + pre-deploy migration)
 #
 # Staging spec for branch: codex/s50-staging-rc
-# Repo: enzocienfuegos-cloud/dusk
+# Repo: enzocienfuegos-cloud/mandarionkas-refactor
 #
 # Apply with:
 #   doctl apps create --spec infra/do/backend.staging.app.yaml
@@ -28,7 +28,7 @@ features:
 services:
   - name: api
     github:
-      repo: enzocienfuegos-cloud/dusk
+      repo: enzocienfuegos-cloud/mandarionkas-refactor
       branch: codex/s50-staging-rc
       deploy_on_push: false
     source_dir: ./
@@ -164,7 +164,7 @@ services:
 workers:
   - name: worker
     github:
-      repo: enzocienfuegos-cloud/dusk
+      repo: enzocienfuegos-cloud/mandarionkas-refactor
       branch: codex/s50-staging-rc
       deploy_on_push: false
     source_dir: ./
@@ -220,7 +220,7 @@ jobs:
   - name: migrate
     kind: PRE_DEPLOY
     github:
-      repo: enzocienfuegos-cloud/dusk
+      repo: enzocienfuegos-cloud/mandarionkas-refactor
       branch: codex/s50-staging-rc
       deploy_on_push: false
     source_dir: ./

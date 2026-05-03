@@ -28,7 +28,7 @@ features:
 static_sites:
   - name: web
     github:
-      repo: enzocienfuegos-cloud/dusk
+      repo: enzocienfuegos-cloud/mandarionkas-refactor
       branch: codex/s50-staging-rc
       deploy_on_push: false
     source_dir: ./
@@ -53,7 +53,7 @@ static_sites:
         type: GENERAL
         value: https://studio-staging.duskplatform.co
       - key: VITE_TAGS_BASE_URL
-        scope: BUILD_AND_RUN_TIME
+        scope: BUILD_TIME
         type: GENERAL
         value: https://api-staging.duskplatform.co
       - key: VITE_ASSETS_BASE_URL

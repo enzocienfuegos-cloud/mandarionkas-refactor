@@ -1,7 +1,7 @@
 # DigitalOcean App Platform — Studio staging
 #
 # Branch: codex/s50-staging-rc
-# Repo: enzocienfuegos-cloud/dusk
+# Repo: enzocienfuegos-cloud/mandarionkas-refactor
 
 name: smx-studio-studio-staging
 region: nyc
@@ -16,7 +16,7 @@ features:
 static_sites:
   - name: studio
     github:
-      repo: enzocienfuegos-cloud/dusk
+      repo: enzocienfuegos-cloud/mandarionkas-refactor
       branch: codex/s50-staging-rc
       deploy_on_push: false
     source_dir: ./
