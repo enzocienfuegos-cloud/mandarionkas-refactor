@@ -1637,7 +1637,7 @@ export default function AnalyticsDashboard() {
         );
       case 'topInsights':
         return (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 mb-6">
             {activeTab === 'identity' ? (
               <>
                 <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -1661,6 +1661,7 @@ export default function AnalyticsDashboard() {
                     <div className="px-5 py-10 text-center text-sm text-slate-400">No delivery context available yet</div>
                   )}
                 </div>
+                <RankedList title="Top Countries" emptyLabel="No country data available" items={data?.topCountries ?? []} />
                 <RankedList title="Top Device Types" emptyLabel="No device type data available" items={data?.deviceTypes ?? []} />
                 <RankedList title="Top Device Models" emptyLabel="No device model data available" items={data?.deviceModels ?? []} />
               </>
