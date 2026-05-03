@@ -33,6 +33,14 @@ interface QaState {
   artifacts: CreativeArtifact[];
 }
 
+interface PreviewState {
+  url: string;
+  name: string;
+  width: number;
+  height: number;
+  kind: 'html' | 'video';
+}
+
 function formatBytes(value?: number | null) {
   if (!value) return '—';
   const units = ['B', 'KB', 'MB', 'GB'];
@@ -121,6 +129,22 @@ function resolveCreativePreviewHref(version: CreativeVersion | null | undefined)
   return isInvalidPreviewUrl(publicUrl) ? '' : publicUrl;
 }
 
+function resolveCreativePreviewKind(version: CreativeVersion | null | undefined) {
+  const sourceKind = String(version?.sourceKind || '').trim().toLowerCase();
+  const mimeType = String(version?.mimeType || '').trim().toLowerCase();
+  const previewUrl = resolveCreativePreviewHref(version).toLowerCase();
+  if (
+    sourceKind === 'video_mp4'
+    || mimeType.startsWith('video/')
+    || previewUrl.endsWith('.mp4')
+    || previewUrl.endsWith('.webm')
+    || previewUrl.endsWith('.mov')
+  ) {
+    return 'video' as const;
+  }
+  return 'html' as const;
+}
+
 export default function CreativeApproval() {
   const { user } = useOutletContext<{ user: User }>();
   const [versions, setVersions] = useState<CreativeVersion[]>([]);
@@ -128,6 +152,7 @@ export default function CreativeApproval() {
   const [error, setError] = useState('');
   const [actionState, setActionState] = useState<ActionState | null>(null);
   const [qaState, setQaState] = useState<QaState | null>(null);
+  const [previewState, setPreviewState] = useState<PreviewState | null>(null);
   const [processed, setProcessed] = useState<Set<string>>(new Set());
 
   const canAct = normalizePlatformRole(user?.role) === 'admin';
@@ -147,6 +172,17 @@ export default function CreativeApproval() {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    if (!previewState) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPreviewState(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [previewState]);
 
   const pending = versions.filter(version => !processed.has(version.id));
 
@@ -258,9 +294,24 @@ export default function CreativeApproval() {
                 </div>
                 <div className="flex gap-2">
                   {resolveCreativePreviewHref(version) && (
-                    <a href={resolveCreativePreviewHref(version)} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-indigo-200 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = resolveCreativePreviewHref(version);
+                        if (!url) return;
+                        const kind = resolveCreativePreviewKind(version);
+                        setPreviewState({
+                          url,
+                          name: version.creativeName ?? version.creativeId,
+                          width: Number(version?.width) > 0 ? Number(version?.width) : kind === 'video' ? 960 : 300,
+                          height: Number(version?.height) > 0 ? Number(version?.height) : kind === 'video' ? 540 : 250,
+                          kind,
+                        });
+                      }}
+                      className="rounded-lg border border-indigo-200 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50"
+                    >
                       Preview
-                    </a>
+                    </button>
                   )}
                   <button
                     onClick={() => void openQa(version.id)}
@@ -511,6 +562,65 @@ export default function CreativeApproval() {
                   </>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewState && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setPreviewState(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Preview: ${previewState.name}`}
+        >
+          <div
+            className="max-h-[92vh] max-w-[92vw] overflow-hidden rounded-2xl bg-slate-950 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3 text-white">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">{previewState.name}</div>
+                <div className="text-xs text-slate-300">{previewState.width} × {previewState.height}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewState.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  Open in tab ↗
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewState(null)}
+                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center bg-slate-950 p-4">
+              {previewState.kind === 'video' ? (
+                <video
+                  controls
+                  autoPlay
+                  className="max-h-[80vh] max-w-[88vw] rounded-lg bg-black"
+                  style={{ width: `${previewState.width}px`, height: `${previewState.height}px` }}
+                  src={previewState.url}
+                />
+              ) : (
+                <iframe
+                  title={`Preview: ${previewState.name}`}
+                  src={previewState.url}
+                  className="rounded-lg bg-white"
+                  style={{ width: `${previewState.width}px`, height: `${previewState.height}px`, maxWidth: '88vw', maxHeight: '80vh' }}
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                />
+              )}
             </div>
           </div>
         </div>
