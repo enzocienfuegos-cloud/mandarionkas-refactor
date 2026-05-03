@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import unzipper from 'unzipper';
 import { getPool } from '@smx/db/src/pool.mjs';
 import {
@@ -133,6 +133,19 @@ function mergePublishJob(metadata, patch) {
   };
 }
 
+async function downloadFromR2(source, storageKey) {
+  const client = getR2Client(source);
+  const response = await client.send(new GetObjectCommand({
+    Bucket: source.R2_BUCKET,
+    Key: storageKey,
+  }));
+  const chunks = [];
+  for await (const chunk of response.Body) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
 async function uploadBufferToR2(source, { storageKey, body, contentType, cacheControl = 'public, max-age=300' }) {
   const client = getR2Client(source);
   await client.send(new PutObjectCommand({
@@ -213,6 +226,7 @@ function buildDefaultDeps(source = process.env) {
     updateCreativeIngestion,
     updateCreativeVersion,
     fetchImpl: fetch,
+    downloadFromR2: (storageKey) => downloadFromR2(source, storageKey),
     loadArchiveEntries,
     uploadBufferToR2: (options) => uploadBufferToR2(source, options),
     logInfo,
@@ -279,16 +293,41 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
   });
 
   try {
+    const sourceStorageKey = trimText(ingestion.storage_key);
     const sourceUrl = trimText(ingestion.public_url);
-    if (!sourceUrl) {
-      throw new Error(`Creative ingestion ${ingestionId} has no source ZIP URL.`);
-    }
 
-    const response = await deps.fetchImpl(sourceUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to download source ZIP (${response.status} ${response.statusText}).`);
+    let archiveBuffer;
+    if (sourceStorageKey) {
+      try {
+        archiveBuffer = await deps.downloadFromR2(sourceStorageKey);
+        deps.logInfo({ event: 'zip_downloaded_r2_direct', ingestionId, storageKey: sourceStorageKey, sizeBytes: archiveBuffer.length });
+      } catch (r2Err) {
+        deps.logWarn({
+          event: 'r2_direct_download_failed',
+          ingestionId,
+          storageKey: sourceStorageKey,
+          message: r2Err?.message,
+          fallback: 'cdn_fetch',
+        });
+        if (!sourceUrl) {
+          throw new Error(`Creative ingestion ${ingestionId} has no source ZIP URL and R2 direct download failed: ${r2Err?.message}`);
+        }
+        const response = await deps.fetchImpl(sourceUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to download source ZIP via CDN fallback (${response.status} ${response.statusText}).`);
+        }
+        archiveBuffer = Buffer.from(await response.arrayBuffer());
+      }
+    } else {
+      if (!sourceUrl) {
+        throw new Error(`Creative ingestion ${ingestionId} has no source ZIP URL.`);
+      }
+      const response = await deps.fetchImpl(sourceUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download source ZIP (${response.status} ${response.statusText}).`);
+      }
+      archiveBuffer = Buffer.from(await response.arrayBuffer());
     }
-    const archiveBuffer = Buffer.from(await response.arrayBuffer());
     await deps.updateCreativeIngestion(pool, workspaceId, ingestionId, {
       metadata: mergePublishJob(initialMetadata, {
         stage: 'publishing_html5_archive',
