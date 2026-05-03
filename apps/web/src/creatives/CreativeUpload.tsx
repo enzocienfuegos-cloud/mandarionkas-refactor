@@ -130,6 +130,7 @@ export default function CreativeUpload() {
   const [sourceKind, setSourceKind] = useState<SourceKind>('html5_zip');
   const [files, setFiles] = useState<File[]>([]);
   const [clickUrlsByFileKey, setClickUrlsByFileKey] = useState<Record<string, string>>({});
+  const [detectedClickUrls, setDetectedClickUrls] = useState<Record<string, string>>({});
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -353,6 +354,26 @@ export default function CreativeUpload() {
           refreshProcessingProgress();
         }
 
+        if (latestIngestion?.status === 'published' && latestIngestion.creativeId) {
+          try {
+            const creativeRes = await fetch(
+              `/v1/creatives/${latestIngestion.creativeId}?workspaceId=${workspaceId}`,
+              { credentials: 'include' },
+            );
+            if (creativeRes.ok) {
+              const { creative } = await creativeRes.json();
+              if (creative?.clickUrl) {
+                const fileKey = buildFileKey(file);
+                setDetectedClickUrls((current) => ({ ...current, [fileKey]: creative.clickUrl }));
+                setClickUrlsByFileKey((current) => ({
+                  ...current,
+                  ...(current[fileKey] ? {} : { [fileKey]: creative.clickUrl }),
+                }));
+              }
+            }
+          } catch (_) {}
+        }
+
         if (latestIngestion?.status === 'failed') {
           throw new Error(latestIngestion.errorDetail ?? 'Creative publish failed');
         }
@@ -381,7 +402,7 @@ export default function CreativeUpload() {
       setCurrentProcessingMessage('Publish completed.');
       setOverallProgress(100);
       setClickUrlsByFileKey({});
-      navigate('/creatives');
+      window.setTimeout(() => navigate('/creatives'), 1200);
     } catch (submitError: any) {
       setError(submitError.message ?? 'Upload failed');
       setStatus('');
@@ -490,6 +511,7 @@ export default function CreativeUpload() {
                       onClick={() => {
                         setFiles([]);
                         setClickUrlsByFileKey({});
+                        setDetectedClickUrls({});
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
                       className="text-xs font-medium text-slate-600 hover:text-slate-800"
@@ -524,6 +546,17 @@ export default function CreativeUpload() {
                               ? 'Videos need a destination URL before publishing.'
                               : 'For HTML5, we auto-detect clickTag/click URL from the archive. If none is found, this fallback URL is required.'}
                           </p>
+                          {detectedClickUrls[buildFileKey(file)] && (
+                            <p className="mt-1 flex items-center gap-1 text-[11px] text-emerald-600">
+                              <span>✓</span>
+                              <span>
+                                clickTag auto-detected:{' '}
+                                <span className="break-all font-medium">
+                                  {detectedClickUrls[buildFileKey(file)]}
+                                </span>
+                              </span>
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}

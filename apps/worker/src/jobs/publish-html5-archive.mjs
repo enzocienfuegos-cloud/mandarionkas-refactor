@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import unzipper from 'unzipper';
+import { detectClickTagInHtml, detectDimensionsInHtml } from '@smx/contracts/src/html5-detector.mjs';
 import { getPool } from '@smx/db/src/pool.mjs';
 import {
   getCreativeIngestion,
@@ -218,43 +219,6 @@ function resolveEntryAsset(entries, desiredEntryPath) {
   return null;
 }
 
-function detectClickTagInHtml(htmlSource) {
-  if (!htmlSource || typeof htmlSource !== 'string') return null;
-
-  const isHttpUrl = (v) => Boolean(v && /^https?:\/\/.{4,}/.test(v.trim()));
-  const clean = (v) => {
-    const s = String(v ?? '').trim();
-    try {
-      return decodeURIComponent(s);
-    } catch {
-      return s;
-    }
-  };
-
-  const patterns = [
-    [/(?:var\s+|window\.)clickTag\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
-    [/(?:var\s+|window\.)clickTAG\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
-    [/(?<![.\w])clickTag\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
-    [/Enabler\.exit\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
-    [/ExitApi\.exit\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
-    [/processedVars\s*:\s*\{[^}]{0,300}?["']?bsClickTAG["']?\s*:\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
-    [/var\s+bsClickTAG\s*=\s*dhtml\.getVar\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']\s*\)/i, 1],
-    [/dhtml\.getVar\s*\(\s*["'][^"']{0,32}(?:click|Click)[^"']{0,32}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
-    [/window\.bannerURL\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
-  ];
-
-  for (const [pattern, group] of patterns) {
-    const match = htmlSource.match(pattern);
-    if (match?.[group]) {
-      const candidate = clean(match[group]);
-      if (isHttpUrl(candidate)) {
-        return candidate;
-      }
-    }
-  }
-  return null;
-}
-
 function buildDefaultDeps(source = process.env) {
   return {
     getPool: () => getPool(getConnectionString(source)),
@@ -413,6 +377,7 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
     const publishedEntry = uploaded.find((entry) => entry.publishedPath === entryAsset.publishedPath) || uploaded[0];
     const entryHtmlSource = entryAsset.body ? entryAsset.body.toString('utf-8') : null;
     const detectedClickUrl = detectClickTagInHtml(entryHtmlSource);
+    const detectedDimensions = detectDimensionsInHtml(entryHtmlSource);
 
     if (detectedClickUrl) {
       deps.logInfo({
@@ -447,6 +412,8 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
            entry_path = $4,
            mime_type = COALESCE($5, mime_type),
            file_size = COALESCE($6, file_size),
+           width = COALESCE($7, width),
+           height = COALESCE($8, height),
            updated_at = NOW()
        WHERE workspace_id = $1 AND id = $2`,
       [
@@ -456,6 +423,8 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
         publishedEntry.publishedPath,
         publishedEntry.mimeType,
         creativeVersion.file_size ?? ingestion.size_bytes ?? null,
+        detectedDimensions?.width ?? null,
+        detectedDimensions?.height ?? null,
       ],
     );
 
@@ -467,9 +436,18 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
              WHEN $4 IS NOT NULL AND (click_url IS NULL OR click_url = '') THEN $4
              ELSE click_url
            END,
+           width         = COALESCE($5, width),
+           height        = COALESCE($6, height),
            updated_at    = NOW()
        WHERE workspace_id = $1 AND id = $2`,
-      [workspaceId, creativeVersion.creative_id, publishedEntry.publicUrl, detectedClickUrl ?? null],
+      [
+        workspaceId,
+        creativeVersion.creative_id,
+        publishedEntry.publicUrl,
+        detectedClickUrl ?? null,
+        detectedDimensions?.width ?? null,
+        detectedDimensions?.height ?? null,
+      ],
     );
 
     const artifactUpdate = await pool.query(

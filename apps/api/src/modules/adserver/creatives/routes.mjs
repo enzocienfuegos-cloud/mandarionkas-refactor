@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { detectClickTagInHtml, detectDimensionsInHtml } from '@smx/contracts/src/html5-detector.mjs';
 import { getPool } from '@smx/db/src/pool.mjs';
 import unzipper from 'unzipper';
 import { badRequest, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
@@ -188,28 +189,6 @@ function stripHtml5ArchiveRoot(paths) {
   return valid.map((p) => p.slice(commonRoot.length + 1)).filter(Boolean);
 }
 
-function detectClickTagInHtml(htmlSource) {
-  if (!htmlSource || typeof htmlSource !== 'string') return null;
-
-  const patterns = [
-    /(?:var\s+|window\.)clickTag\s*=\s*["']([^"']{8,512})["']/i,
-    /Enabler\.exit\s*\(\s*["'][^"']*["']\s*,\s*["']([^"']{8,512})["']\s*\)/i,
-    /ExitApi\.exit\s*\(\s*["'][^"']*["']\s*,\s*["']([^"']{8,512})["']\s*\)/i,
-    /ClickTag\.track\s*\(\s*["']([^"']{8,512})["']/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = htmlSource.match(pattern);
-    if (match?.[1]) {
-      const candidate = match[1].trim();
-      if (/^https?:\/\/.{4,}/.test(candidate)) {
-        return candidate;
-      }
-    }
-  }
-  return null;
-}
-
 async function publishHtml5ArchiveInProcess(env, pool, {
   ingestionId,
   workspaceId,
@@ -299,6 +278,7 @@ async function publishHtml5ArchiveInProcess(env, pool, {
   const publishedEntry = uploaded.find((e) => e.publishedPath === entryAsset.publishedPath) || uploaded[0];
   const entryHtmlSource = entryAsset.body ? entryAsset.body.toString('utf-8') : null;
   const detectedClickUrl = detectClickTagInHtml(entryHtmlSource);
+  const detectedDimensions = detectDimensionsInHtml(entryHtmlSource);
   const publishMetadata = {
     ...(initialMetadata || {}),
     html5Publish: {
@@ -321,7 +301,9 @@ async function publishHtml5ArchiveInProcess(env, pool, {
      SET public_url = $3,
          entry_path = $4,
          mime_type  = $5,
-         metadata   = $6::jsonb,
+         width      = COALESCE($6, width),
+         height     = COALESCE($7, height),
+         metadata   = $8::jsonb,
          status     = 'draft',
          updated_at = NOW()
      WHERE workspace_id = $1 AND id = $2`,
@@ -331,6 +313,8 @@ async function publishHtml5ArchiveInProcess(env, pool, {
       publishedEntry.publicUrl,
       publishedEntry.publishedPath,
       publishedEntry.mimeType,
+      detectedDimensions?.width ?? null,
+      detectedDimensions?.height ?? null,
       JSON.stringify(publishMetadata),
     ],
   );
@@ -343,10 +327,19 @@ async function publishHtml5ArchiveInProcess(env, pool, {
            WHEN $4 IS NOT NULL AND (click_url IS NULL OR click_url = '') THEN $4
            ELSE click_url
          END,
+         width         = COALESCE($5, width),
+         height        = COALESCE($6, height),
          updated_at    = NOW()
      WHERE workspace_id = $1
        AND id = (SELECT creative_id FROM creative_versions WHERE workspace_id = $1 AND id = $2)`,
-    [workspaceId, creativeVersionId, publishedEntry.publicUrl, detectedClickUrl],
+    [
+      workspaceId,
+      creativeVersionId,
+      publishedEntry.publicUrl,
+      detectedClickUrl ?? null,
+      detectedDimensions?.width ?? null,
+      detectedDimensions?.height ?? null,
+    ],
   );
 
   const artifactMeta = JSON.stringify({

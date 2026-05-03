@@ -5,6 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./html5-detector": "./src/html5-detector.mjs",
+    "./src/html5-detector.mjs": "./src/html5-detector.mjs",
     "./dsp-macros": {
       "types": "./src/dsp-macros.d.ts",
       "import": "./src/dsp-macros.mjs",
