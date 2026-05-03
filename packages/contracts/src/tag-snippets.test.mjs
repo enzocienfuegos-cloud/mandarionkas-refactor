@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { buildTagSnippet, buildDisplayIframeSnippet } from './tag-snippets.mjs';
+import { listSupportedDsps } from './dsp-macros.mjs';
 
 const BASE = 'https://api-staging.duskplatform.co';
 const TAG = { id: '11111111-1111-1111-1111-111111111111', format: 'display', width: 300, height: 250 };
@@ -38,4 +39,15 @@ test('tagId injection does not produce XSS', () => {
   const maliciousTag = { ...TAG, id: '11111111-1111-1111-1111-111111111111' };
   const out = buildTagSnippet(maliciousTag, 'display-js', BASE, '', null);
   assert.ok(!out.includes('<script>alert'), 'no XSS');
+});
+
+test('INS tag includes MutationObserver fallback', () => {
+  const out = buildTagSnippet(TAG, 'display-ins', BASE, '', null);
+  assert.ok(out.includes('MutationObserver'), 'INS tag should watch for deferred slot mount');
+  assert.ok(out.includes('dataset.smxMounted'), 'INS tag should prevent duplicate mounts');
+});
+
+test('supported DSP list includes Basis, Illumin, TTD, DV360, and Xandr', () => {
+  const values = listSupportedDsps().map((entry) => entry.value).sort();
+  assert.deepEqual(values, ['basis', 'dv360', 'illumin', 'ttd', 'xandr']);
 });
