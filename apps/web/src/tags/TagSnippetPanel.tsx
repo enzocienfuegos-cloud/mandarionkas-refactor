@@ -146,9 +146,10 @@ function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp 
 }
 
 function resolveTagServingBaseUrl(): string {
-  const resolved = import.meta.env.VITE_TAGS_BASE_URL?.trim()
-    || import.meta.env.VITE_API_BASE_URL?.trim()
-    || '';
+  const resolved =
+    import.meta.env.VITE_TAGS_BASE_URL?.trim() ||
+    import.meta.env.VITE_API_BASE_URL?.trim() ||
+    (typeof window !== 'undefined' ? window.location.origin : '');
   return resolved.replace(/\/+$/, '').replace(/\/v1$/, '');
 }
 
@@ -172,9 +173,12 @@ export default function TagSnippetPanel({
     ));
   }, [tag.format, tag.trackerType, campaignDsp]);
 
+  const servingBaseUrl = resolveTagServingBaseUrl();
+  const isBaseUrlValid = /^https?:\/\//.test(servingBaseUrl);
+
   const handleCopy = () => {
     navigator.clipboard.writeText(
-      buildTagSnippet(tag, snippetVariant, resolveTagServingBaseUrl(), campaignDsp, diagnostics),
+      buildTagSnippet(tag, snippetVariant, servingBaseUrl, campaignDsp, diagnostics),
     ).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -215,8 +219,13 @@ export default function TagSnippetPanel({
       <p className="text-xs text-slate-500 mb-3">
         {getSnippetHelpText(tag, snippetVariant, campaignDsp)}
       </p>
+      {!isBaseUrlValid && (
+        <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+          {'\u26A0'} Serving base URL is not configured. Set <code>VITE_TAGS_BASE_URL</code> in your environment before copying this snippet.
+        </div>
+      )}
       <pre className="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">
-        {buildTagSnippet(tag, snippetVariant, resolveTagServingBaseUrl(), campaignDsp, diagnostics)}
+        {buildTagSnippet(tag, snippetVariant, servingBaseUrl, campaignDsp, diagnostics)}
       </pre>
     </div>
   );

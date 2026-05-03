@@ -85,3 +85,54 @@ test('Basis display-iframe stays a normal iframe tag', () => {
   assert.ok(out.includes(`${BASE}/v1/tags/display/${TAG.id}.html`), 'Basis iframe should use the clean serving HTML URL');
   assert.ok(!out.includes('dsp=Basis'), 'Basis iframe serving URL must not include DSP macros');
 });
+
+test('display-js with empty base URL produces relative URLs', () => {
+  const out = buildTagSnippet(TAG, 'display-js', '', '', null);
+  assert.ok(out.includes('/v1/tags/display/'), 'should produce relative URL when base is empty');
+  assert.ok(!out.includes('undefined'), 'should not include undefined in URL');
+});
+
+test('display-js noscript fallback has sandbox attribute', () => {
+  const out = buildTagSnippet(TAG, 'display-js', BASE, '', null);
+  const noscriptMatch = out.match(/<noscript>([\s\S]*?)<\/noscript>/);
+  assert.ok(noscriptMatch, 'display-js must have noscript fallback');
+  assert.ok(
+    noscriptMatch[1].includes('allow-top-navigation-by-user-activation'),
+    'noscript iframe must have sandbox attribute',
+  );
+});
+
+test('display-ins with Basis DSP stays standard INS tag without blob', () => {
+  const out = buildTagSnippet(TAG, 'display-ins', BASE, 'Basis', null);
+  assert.ok(out.startsWith('<ins '), 'Basis display-ins should be a standard INS tag');
+  assert.ok(out.includes('smx-ad-slot-'), 'INS tag should have smx-ad-slot prefix');
+  assert.ok(!out.includes('smx-basis-slot'), 'must not use basis slot prefix');
+  assert.ok(!out.startsWith('(function(){'), 'must not emit runtime blob');
+  assert.ok(!out.includes('engagementBase'), 'must not inject engagement tracker variable');
+});
+
+test('native-js produces correct SMX native loader snippet', () => {
+  const out = buildTagSnippet(TAG, 'native-js', BASE, '', null);
+  assert.ok(out.includes('window.SMX'), 'native-js should initialize window.SMX');
+  assert.ok(out.includes('window.SMX.native'), 'native-js should push to native array');
+  assert.ok(out.includes(TAG.id), 'native-js should include tag ID');
+  assert.ok(out.includes('/v1/tags/native/'), 'native-js should use native serving path');
+});
+
+test('tracker-impression with Illumin has Illumin macros', () => {
+  const out = buildTagSnippet(TAG, 'tracker-impression', BASE, 'illumin', null);
+  assert.ok(out.includes('impression.gif'), 'should be impression tracker URL');
+  assert.ok(out.includes('[CACHEBUSTER]'), 'should include Illumin cachebuster macro');
+  assert.ok(!out.includes('{domain}'), 'must not include Basis-style macros');
+});
+
+test('buildTagSnippet never returns undefined or null', () => {
+  const variants = [
+    'display-js', 'display-iframe', 'display-ins', 'native-js',
+    'tracker-click', 'tracker-impression',
+  ];
+  for (const variant of variants) {
+    const out = buildTagSnippet(TAG, variant, BASE, 'Basis', null);
+    assert.ok(typeof out === 'string' && out.length > 0, `variant ${variant} must return non-empty string`);
+  }
+});

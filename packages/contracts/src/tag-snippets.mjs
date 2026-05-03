@@ -16,7 +16,7 @@ function escapeScriptContext(jsonStr) {
 }
 
 export function buildDisplayJsSnippet({ displayJsUrl, displayHtmlUrl, width, height }) {
-  return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
+  return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;" sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation"></iframe>\n</noscript>`;
 }
 
 export function buildDisplayIframeSnippet({ displayHtmlUrl, width, height }) {
@@ -48,9 +48,8 @@ export function buildTagSnippet(tag, variant, servingBaseUrl, campaignDsp = '', 
   // Serving URLs are static — they deliver the HTML wrapper or JS loader to the browser.
   // They must NOT carry DSP macros because:
   //   1. The serving endpoint does not resolve macros ({domain}, {pageUrlEnc}, etc.)
-  //   2. The Basis blob enriches displayHtmlUrl at runtime via appendCtx(ctxToken)
-  //   3. Macro-laden URLs cannot be CDN-cached (every placement generates a unique URL)
-  //   4. URLs exceed 600 chars with 26 unused params — risk of truncation in some DSPs
+  //   2. Macro-laden URLs cannot be CDN-cached (every placement generates a unique URL)
+  //   3. URLs exceed 600 chars with 26 unused params — risk of truncation in some DSPs
   // DSP macros belong only on tracker URLs (impression.gif, click, engagement).
   const displayJsUrl   = `${base}/v1/tags/display/${id}.js`;
   const displayHtmlUrl = `${base}/v1/tags/display/${id}.html`;
@@ -58,7 +57,6 @@ export function buildTagSnippet(tag, variant, servingBaseUrl, campaignDsp = '', 
 
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${base}/v1/tags/tracker/${id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
   const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${base}/v1/tags/tracker/${id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
-  const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${base}/v1/tags/tracker/${id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
 
   const vastLiveProfiles = diagnostics?.deliveryDiagnostics?.vast?.liveProfiles ?? {};
   const basisDynamicVastUrl = vastLiveProfiles.basis || `${base}/v1/vast/tags/${id}/basis.xml`;

@@ -16,6 +16,6 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false, // Set to 'hidden' if uploading maps to an error tracking service
   },
 });

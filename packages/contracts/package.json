@@ -14,10 +14,6 @@
       "types": "./src/tag-snippets.d.ts",
       "import": "./src/tag-snippets.mjs",
       "default": "./src/tag-snippets.mjs"
-    },
-    "./basis-runtime": {
-      "import": "./src/basis-runtime.mjs",
-      "default": "./src/basis-runtime.mjs"
     }
   },
   "devDependencies": {
