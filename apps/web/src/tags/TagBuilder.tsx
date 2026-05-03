@@ -6,185 +6,21 @@ import {
   shouldUseBasisNativeDelivery,
   shouldUseDspVideoDelivery,
 } from '@smx/contracts/dsp-macros';
+import TagFormPanel from './TagFormPanel';
 import TagDiagnosticsPanel from './TagDiagnosticsPanel';
 import TagSnippetPanel from './TagSnippetPanel';
 import TagBindingsPanel from './TagBindingsPanel';
-
-interface Campaign {
-  id: string;
-  name: string;
-  workspaceId?: string | null;
-  workspace_id?: string | null;
-  metadata?: { dsp?: string | null; mediaType?: string | null } | null;
-}
-
-type TagFormat = 'VAST' | 'display' | 'native' | 'tracker';
-type TagStatus = 'draft' | 'active' | 'paused' | 'archived';
-type TrackerType = 'click' | 'impression';
-
-interface TagForm {
-  name: string;
-  campaignId: string;
-  format: TagFormat;
-  status: TagStatus;
-  clickUrl: string;
-  servingWidth: string;
-  servingHeight: string;
-  trackerType: TrackerType;
-}
-
-interface SavedTag {
-  id: string;
-  format: TagFormat;
-  name: string;
-  workspaceId?: string | null;
-  width?: number | null;
-  height?: number | null;
-  sizeLabel?: string;
-  trackerType?: TrackerType | null;
-}
-
-interface DeliveryDiagnosticEntry {
-  policy?: {
-    includeDspHint?: boolean;
-    includeClickMacro?: boolean;
-    measurementPath?: string;
-  } | null;
-  selectedProfile?: string | null;
-  url?: string;
-  jsUrl?: string;
-  htmlUrl?: string;
-  staticProfiles?: {
-    default?: string;
-    basis?: string;
-    illumin?: string;
-  } | null;
-  liveProfiles?: {
-    default?: string;
-    basis?: string;
-    illumin?: string;
-    vast4?: string;
-  } | null;
-  staticProfileStatus?: Record<string, {
-    publicUrl?: string | null;
-    storageKey?: string | null;
-    available?: boolean;
-    lastPublishedAt?: string | null;
-    contentLength?: number | null;
-    contentType?: string | null;
-    etag?: string | null;
-  }> | null;
-  staticManifest?: {
-    publicUrl?: string | null;
-    generatedAt?: string | null;
-    trigger?: string | null;
-    previousGeneratedAt?: string | null;
-    previousTrigger?: string | null;
-    profileCount?: number | null;
-    history?: Array<{
-      generatedAt?: string | null;
-      trigger?: string | null;
-      profileCount?: number | null;
-      profiles?: Array<{
-        profile?: string | null;
-        dsp?: string | null;
-        xmlVersion?: string | null;
-      }> | null;
-    }> | null;
-  } | null;
-  staticJob?: {
-    id?: string | null;
-    status?: string | null;
-    priority?: number | null;
-    attempts?: number | null;
-    maxAttempts?: number | null;
-    trigger?: string | null;
-    createdAt?: string | null;
-    updatedAt?: string | null;
-    runAt?: string | null;
-    startedAt?: string | null;
-    completedAt?: string | null;
-    failedAt?: string | null;
-    error?: string | null;
-  } | null;
-}
-
-interface DeliveryDiagnosticsPayload {
-  dsp?: {
-    selected?: string | null;
-  } | null;
-  deliverySummary?: {
-    basisNativeActive?: boolean;
-    deliveryMode?: string | null;
-    clickChain?: string | null;
-    previewStatus?: string | null;
-    previewNotes?: string | null;
-  } | null;
-  deliveryDiagnostics?: {
-    displayWrapper?: DeliveryDiagnosticEntry;
-    vast?: DeliveryDiagnosticEntry;
-    trackerClick?: DeliveryDiagnosticEntry;
-    trackerImpression?: DeliveryDiagnosticEntry;
-  } | null;
-}
-
-const DISPLAY_SIZE_PRESETS = [
-  { label: '300x250', width: 300, height: 250 },
-  { label: '320x50', width: 320, height: 50 },
-  { label: '320x100', width: 320, height: 100 },
-  { label: '336x280', width: 336, height: 280 },
-  { label: '728x90', width: 728, height: 90 },
-  { label: '970x250', width: 970, height: 250 },
-  { label: '160x600', width: 160, height: 600 },
-  { label: '300x600', width: 300, height: 600 },
-];
-
-const emptyForm: TagForm = {
-  name: '',
-  campaignId: '',
-  format: 'VAST',
-  status: 'draft',
-  clickUrl: '',
-  servingWidth: '',
-  servingHeight: '',
-  trackerType: 'click',
-};
-
-const STATUSES: TagStatus[] = ['draft', 'active', 'paused', 'archived'];
-
-function normalizeTagRecord(payload: unknown): SavedTag | null {
-  const source = (payload as { tag?: Record<string, unknown> } | null)?.tag
-    ?? (payload as Record<string, unknown> | null);
-  if (!source || typeof source !== 'object') return null;
-
-  const format = source.format === 'display' || source.format === 'native' || source.format === 'VAST' || source.format === 'tracker'
-    ? source.format
-    : 'display';
-  const creatives = Array.isArray(source.creatives) ? source.creatives : [];
-  const firstCreative = creatives[0] as Record<string, unknown> | undefined;
-
-  return {
-    id: String(source.id ?? ''),
-    format,
-    name: String(source.name ?? ''),
-    workspaceId: source.workspaceId != null ? String(source.workspaceId) : null,
-    width: Number(source.servingWidth ?? firstCreative?.width ?? 0) || null,
-    height: Number(source.servingHeight ?? firstCreative?.height ?? 0) || null,
-    sizeLabel: String(source.sizeLabel ?? ''),
-    trackerType: (source.trackerType === 'click' || source.trackerType === 'impression') ? source.trackerType : null,
-  };
-}
-
-function getDisplaySizePreset(width?: string, height?: string): string {
-  const normalized = `${Number(width) || 0}x${Number(height) || 0}`;
-  return DISPLAY_SIZE_PRESETS.some((preset) => preset.label === normalized) ? normalized : '';
-}
-
-function isBasisNativeEnabled(tag: SavedTag | null, campaignDsp = ''): boolean {
-  if (!tag) return false;
-  if (!shouldUseBasisNativeDelivery(campaignDsp)) return false;
-  return tag.format === 'display' || tag.format === 'tracker';
-}
+import {
+  emptyForm,
+  isBasisNativeEnabled,
+  normalizeTagRecord,
+  type Campaign,
+  type DeliveryDiagnosticsPayload,
+  type SavedTag,
+  type TagForm,
+  type TagFormat,
+  type TagStatus,
+} from './tag-builder-shared';
 
 export default function TagBuilder() {
   const { id } = useParams<{ id: string }>();
@@ -210,7 +46,8 @@ export default function TagBuilder() {
   const selectedCampaignMediaType = String(selectedCampaign?.metadata?.mediaType ?? 'display').toLowerCase();
   const videoCampaign = selectedCampaignMediaType === 'video';
   const selectedCampaignMacroConfig = getDspMacroConfig(selectedCampaignDsp);
-  const basisNativeEnabled = deliveryDiagnostics?.deliverySummary?.basisNativeActive ?? isBasisNativeEnabled(savedTag, selectedCampaignDsp);
+  const basisNativeEnabled = deliveryDiagnostics?.deliverySummary?.basisNativeActive
+    ?? isBasisNativeEnabled(savedTag, shouldUseBasisNativeDelivery(selectedCampaignDsp));
   const dspVideoEnabled = deliveryDiagnostics?.deliverySummary?.deliveryMode === 'dsp_video_contract'
     || Boolean(savedTag && savedTag.format === 'VAST' && shouldUseDspVideoDelivery(selectedCampaignDsp));
   const basisDiagnosticPath = deliveryDiagnostics?.deliveryDiagnostics?.displayWrapper?.policy?.measurementPath
@@ -313,7 +150,16 @@ export default function TagBuilder() {
   }, [videoCampaign, form.format, isEdit]);
 
   const handleDisplaySizePresetChange = (value: string) => {
-    const preset = DISPLAY_SIZE_PRESETS.find((entry) => entry.label === value);
+    const preset = [
+      { label: '300x250', width: 300, height: 250 },
+      { label: '320x50', width: 320, height: 50 },
+      { label: '320x100', width: 320, height: 100 },
+      { label: '336x280', width: 336, height: 280 },
+      { label: '728x90', width: 728, height: 90 },
+      { label: '970x250', width: 970, height: 250 },
+      { label: '160x600', width: 160, height: 600 },
+      { label: '300x600', width: 300, height: 600 },
+    ].find((entry) => entry.label === value);
     if (!preset) return;
     setForm(prev => ({
       ...prev,
@@ -486,11 +332,6 @@ export default function TagBuilder() {
     }
   };
 
-  const inputClass = (err?: string) =>
-    `w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-      err ? 'border-red-400 bg-red-50' : 'border-slate-300'
-    }`;
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -527,218 +368,22 @@ export default function TagBuilder() {
         ) : null}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-        {generalError && (
-          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            {generalError}
-          </div>
-        )}
-        {successMessage && (
-          <div className="mb-4 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700">
-            {successMessage}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Tag Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={set('name')}
-              className={inputClass(errors.name)}
-              placeholder="Homepage Leaderboard VAST"
-            />
-            {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
-          </div>
-
-          {/* Campaign */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Campaign</label>
-            <select value={form.campaignId} onChange={set('campaignId')} className={inputClass()}>
-              <option value="">— No campaign —</option>
-              {campaigns.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {selectedCampaignMacroConfig && (
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs text-indigo-700">
-              {selectedCampaignMacroConfig.label} selected on this campaign. Generated tag URLs will auto-inject configured DSP macros like <code>{'{pageUrlEnc}'}</code>, <code>{'{domain}'}</code>, click macro passthrough, privacy strings, and identity hints where applicable.
-            </div>
-          )}
-
-          {videoCampaign && (
-            <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-700">
-              This campaign is marked as <strong>Video</strong>. Tag creation is limited to <code>VAST</code>; <code>display</code>, <code>native</code>, and <code>tracker</code> are hidden on purpose.
-            </div>
-          )}
-
-          {/* Format */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Format</label>
-            <div className="flex gap-3">
-              {(videoCampaign ? (['VAST'] as TagFormat[]) : (['VAST', 'display', 'native', 'tracker'] as TagFormat[])).map(f => (
-                <label
-                  key={f}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors ${
-                    form.format === f
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-slate-300 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="format"
-                    value={f}
-                    checked={form.format === f}
-                    onChange={() => setFormat(f)}
-                    disabled={isEdit}
-                    className="sr-only"
-                  />
-                  <span className="text-sm font-medium capitalize">{f}</span>
-                </label>
-              ))}
-            </div>
-            {isEdit && (
-              <p className="mt-2 text-xs text-slate-500">
-                Format is locked after a tag is created. Display tags remain display, and VAST tags remain VAST.
-              </p>
-            )}
-          </div>
-
-          {form.format === 'display' && (
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Display Size Preset <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={getDisplaySizePreset(form.servingWidth, form.servingHeight)}
-                  onChange={event => handleDisplaySizePresetChange(event.target.value)}
-                  className={inputClass(errors.servingWidth || errors.servingHeight)}
-                >
-                  <option value="">Select a size</option>
-                  {DISPLAY_SIZE_PRESETS.map((preset) => (
-                    <option key={preset.label} value={preset.label}>
-                      {preset.label}
-                    </option>
-                  ))}
-                </select>
-                {(errors.servingWidth || errors.servingHeight) && (
-                  <p className="mt-1 text-xs text-red-600">
-                    {errors.servingWidth ?? errors.servingHeight}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Width</label>
-                <input
-                  type="number"
-                  min="1"
-                  readOnly
-                  value={form.servingWidth}
-                  className={`${inputClass()} bg-slate-50 text-slate-500`}
-                  placeholder="300"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Height</label>
-                <input
-                  type="number"
-                  min="1"
-                  readOnly
-                  value={form.servingHeight}
-                  className={`${inputClass()} bg-slate-50 text-slate-500`}
-                  placeholder="250"
-                />
-              </div>
-            </div>
-          )}
-
-          {form.format === 'tracker' && (
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Tracker Type</label>
-                <select value={form.trackerType} onChange={set('trackerType')} className={inputClass()}>
-                  <option value="click">Click tracker</option>
-                  <option value="impression">Impression tracker</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Tracker Size</label>
-                <input
-                  type="text"
-                  readOnly
-                  value={form.trackerType === 'impression' ? '1x1' : 'N/A'}
-                  className={`${inputClass()} bg-slate-50 text-slate-500`}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select value={form.status} onChange={set('status')} className={inputClass()}>
-              {STATUSES.map(s => (
-                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-              ))}
-            </select>
-          </div>
-
-          <details className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3" open={form.format === 'tracker'}>
-            <summary className="cursor-pointer text-sm font-medium text-slate-700">
-              {form.format === 'tracker' ? 'Tracker Destination' : 'Click Override'}
-            </summary>
-            <p className="mt-2 text-xs text-slate-500">
-              {form.format === 'tracker'
-                ? 'Click trackers need a destination URL. Impression trackers ignore this field and only return a 1x1 measurement pixel.'
-                : <>HTML5 banners keep their own <code>clickTag</code> or <code>exit</code> by default. Set this only when the ad server must override that destination.</>}
-            </p>
-            <div className="mt-3">
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                {form.format === 'tracker' ? 'Destination URL' : 'Click URL Override (optional)'}
-              </label>
-              <input
-                type="url"
-                value={form.clickUrl}
-                onChange={set('clickUrl')}
-                className={inputClass(errors.clickUrl)}
-                placeholder="https://example.com/landing"
-              />
-              {errors.clickUrl && <p className="mt-1 text-xs text-red-600">{errors.clickUrl}</p>}
-            </div>
-          </details>
-
-          <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => navigate('/tags')}
-              className="px-4 py-2 text-sm text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 rounded-lg transition-colors flex items-center gap-2"
-            >
-              {saving && (
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                </svg>
-              )}
-              {saving ? 'Saving...' : isEdit ? 'Update Tag' : 'Create Tag'}
-            </button>
-          </div>
-        </form>
-      </div>
+      <TagFormPanel
+        isEdit={isEdit}
+        form={form}
+        campaigns={campaigns}
+        errors={errors}
+        saving={saving}
+        successMessage={successMessage}
+        generalError={generalError}
+        selectedCampaignMacroLabel={selectedCampaignMacroConfig?.label ?? null}
+        videoCampaign={videoCampaign}
+        onSet={set}
+        onSetFormat={setFormat}
+        onDisplaySizePresetChange={handleDisplaySizePresetChange}
+        onSubmit={handleSubmit}
+        onCancel={() => navigate('/tags')}
+      />
 
       {savedTag && (
         <TagSnippetPanel
