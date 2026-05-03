@@ -121,7 +121,7 @@ function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impress
   const safeImpressionJs = safeImpression ? escapeScriptContext(JSON.stringify(safeImpression)) : null;
   const safeClickTrackerJs = safeClickTracker ? escapeScriptContext(JSON.stringify(safeClickTracker)) : 'null';
   const omidBlock = omidVerification?.jsUrl
-    ? `<script src="https://cdn.omid.dev/omid-session-client.js" async></script>
+    ? `<script src="https://staticresources.iab-psl.org/omid/omid-session-client.js" async></script>
 <script>
 (function(){
   if(typeof OmidSessionClient === 'undefined') return;

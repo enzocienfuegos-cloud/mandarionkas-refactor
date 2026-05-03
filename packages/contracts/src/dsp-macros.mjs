@@ -238,23 +238,28 @@ export function applyDspMacrosToUrl(rawUrl, dsp, opts = {}) {
       return `${base}?${parts.join('&')}`;
     }
 
-    const url = new URL(String(rawUrl));
-    if (includeDspHint) {
-      url.searchParams.set('smx_dsp', normalizeDsp(dsp));
-    }
+    // Non-Basis DSPs: use string concat (same as Basis) to preserve macro
+    // literals verbatim. Using new URL() + searchParams.set() would
+    // percent-encode values like %%TTD_CLICK_URL%% or ${CLICK_URL_ESC},
+    // making them unresolvable by the DSP at impression time.
+    const base = String(rawUrl).replace(/[?&]+$/, '');
+    const parts = [];
+    if (includeDspHint) parts.push(`smx_dsp=${normalizeDsp(dsp)}`);
     for (const [key, value] of Object.entries(config.queryParams)) {
       if (!includeClickMacro && config.aliases?.clickMacro?.includes(key)) continue;
-      url.searchParams.set(key, value);
+      parts.push(`${key}=${value}`);
     }
     if (includeClickMacro) {
       const clickMacroKey = config.aliases?.clickMacro?.find((key) => key in config.queryParams);
       if (clickMacroKey) {
         const macroValue = String(clickMacroValue || config.queryParams[clickMacroKey] || '').trim();
-        url.searchParams.set(clickMacroKey, macroValue);
-        url.searchParams.set('smx_dsp_click', macroValue);
+        const nextParts = parts.filter((part) => !part.startsWith(`${clickMacroKey}=`) && !part.startsWith('smx_dsp_click='));
+        nextParts.push(`${clickMacroKey}=${macroValue}`);
+        nextParts.push(`smx_dsp_click=${macroValue}`);
+        return `${base}?${nextParts.join('&')}`;
       }
     }
-    return url.toString();
+    return `${base}?${parts.join('&')}`;
   } catch {
     return rawUrl;
   }
