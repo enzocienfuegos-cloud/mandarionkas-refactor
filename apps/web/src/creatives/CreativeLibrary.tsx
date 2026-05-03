@@ -153,6 +153,13 @@ interface RegenerationFeedbackState {
   progressPercent: number;
 }
 
+interface PreviewModal {
+  url: string;
+  width: number;
+  height: number;
+  name: string;
+}
+
 function parseTimestamp(value: unknown) {
   const text = String(value || '').trim();
   if (!text) return null;
@@ -666,6 +673,7 @@ export default function CreativeLibrary() {
   const [variantState, setVariantState] = useState<VariantState | null>(null);
   const [videoRenditionState, setVideoRenditionState] = useState<VideoRenditionState | null>(null);
   const [regenerationFeedback, setRegenerationFeedback] = useState<RegenerationFeedbackState | null>(null);
+  const [previewModal, setPreviewModal] = useState<PreviewModal | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -1374,6 +1382,43 @@ export default function CreativeLibrary() {
   }, [regenerationFeedback?.active]);
 
   useEffect(() => {
+    const hasProcessing = filteredCreatives.some((creative) => {
+      const version = latestVersions[creative.id];
+      return version?.sourceKind === 'html5_zip' && String(version?.status ?? '') === 'processing';
+    });
+    if (!hasProcessing) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      void (async () => {
+        try {
+          const [{ creatives: nextCreatives, latestVersions: nextVersions }, nextIngestions] = await Promise.all([
+            loadCreativesWithLatestVersion({ scope: 'all' }),
+            loadCreativeIngestions(),
+          ]);
+          setCreatives(nextCreatives);
+          setLatestVersions(nextVersions);
+          setIngestions(nextIngestions);
+        } catch (_) {
+          // silent — manual refresh is still available
+        }
+      })();
+    }, 4000);
+
+    return () => window.clearInterval(intervalId);
+  }, [filteredCreatives, latestVersions]);
+
+  useEffect(() => {
+    if (!previewModal) return undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPreviewModal(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewModal]);
+
+  useEffect(() => {
     if (!videoRenditionState?.awaitingPublish || !videoRenditionState.pendingIngestion?.id) return undefined;
 
     let cancelled = false;
@@ -1944,18 +1989,44 @@ export default function CreativeLibrary() {
                     </td>
                     <td className="px-4 py-3">
                       {resolveCreativePreviewHref(version) ? (
-                        <a
-                          href={resolveCreativePreviewHref(version)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium text-indigo-600 hover:text-indigo-700"
-                        >
-                          Open
-                        </a>
+                        <div className="flex flex-col gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const url = resolveCreativePreviewHref(version);
+                              if (!url) return;
+                              const width = Number(version?.width) || 0;
+                              const height = Number(version?.height) || 0;
+                              setPreviewModal({
+                                url,
+                                width: width > 0 ? width : 300,
+                                height: height > 0 ? height : 250,
+                                name: creative.name,
+                              });
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+                          >
+                            <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                              <path d="M8 3a5 5 0 1 1 0 10A5 5 0 0 1 8 3zm0 1.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zM8 6a2 2 0 1 1 0 4A2 2 0 0 1 8 6z"/>
+                            </svg>
+                            Preview
+                          </button>
+                          <a
+                            href={resolveCreativePreviewHref(version) ?? ''}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-slate-400 hover:text-indigo-600 hover:underline"
+                          >
+                            Open in tab ↗
+                          </a>
+                        </div>
                       ) : version?.sourceKind === 'html5_zip' && String(version?.status ?? '') === 'processing' ? (
-                        <span className="text-amber-600">Publishing…</span>
+                        <div className="flex flex-col gap-1 text-xs">
+                          <span className="text-amber-600">Publishing…</span>
+                          <span className="text-slate-400">Auto-refreshing</span>
+                        </div>
                       ) : (
-                        <span className="text-slate-400">No public artifact</span>
+                        <span className="text-xs text-slate-400">No artifact</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -2690,6 +2761,72 @@ export default function CreativeLibrary() {
                 </table>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {previewModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setPreviewModal(null);
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Preview: ${previewModal.name}`}
+        >
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex w-full items-center justify-between gap-4 rounded-lg bg-white/10 px-4 py-2 backdrop-blur-sm">
+              <div className="text-sm font-medium text-white">
+                {previewModal.name}
+                <span className="ml-2 text-xs font-normal text-white/60">
+                  {previewModal.width}×{previewModal.height}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewModal.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
+                >
+                  Open in tab ↗
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewModal(null)}
+                  className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
+                  aria-label="Close preview"
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+
+            <div
+              className="overflow-hidden rounded-lg shadow-2xl"
+              style={{ width: previewModal.width, height: previewModal.height }}
+            >
+              <iframe
+                src={previewModal.url}
+                width={previewModal.width}
+                height={previewModal.height}
+                style={{
+                  width: previewModal.width,
+                  height: previewModal.height,
+                  border: 'none',
+                  display: 'block',
+                }}
+                title={`Preview: ${previewModal.name}`}
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+              />
+            </div>
+
+            <p className="text-xs text-white/40">
+              Click outside or press Esc to close
+            </p>
           </div>
         </div>
       )}
