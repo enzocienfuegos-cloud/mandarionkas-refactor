@@ -40,6 +40,9 @@ interface TagSummary {
 interface TagContextSnapshot {
   siteDomain: string;
   pageUrl: string;
+  country: string;
+  region: string;
+  city: string;
   deviceType: string;
   deviceModel: string;
   browser: string;
@@ -206,6 +209,9 @@ function normalizeContextSnapshot(source: any): TagContextSnapshot | null {
   const snapshot: TagContextSnapshot = {
     siteDomain: toText(source.siteDomain ?? source.site_domain),
     pageUrl: toText(source.pageUrl ?? source.page_url),
+    country: toText(source.country),
+    region: toText(source.region),
+    city: toText(source.city),
     deviceType: toText(source.deviceType ?? source.device_type),
     deviceModel: toText(source.deviceModel ?? source.device_model),
     browser: toText(source.browser),
@@ -495,6 +501,9 @@ export default function TagReportingDashboard() {
         ? [
             { Field: 'Site Domain', Value: summary.latestContext.siteDomain || 'n/a' },
             { Field: 'Page URL', Value: summary.latestContext.pageUrl || 'n/a' },
+            { Field: 'Country', Value: summary.latestContext.country || 'n/a' },
+            { Field: 'Region', Value: summary.latestContext.region || 'n/a' },
+            { Field: 'City', Value: summary.latestContext.city || 'n/a' },
             { Field: 'Device Type', Value: summary.latestContext.deviceType || 'n/a' },
             { Field: 'Device Model', Value: summary.latestContext.deviceModel || 'n/a' },
             { Field: 'Browser', Value: summary.latestContext.browser || 'n/a' },
@@ -805,10 +814,11 @@ export default function TagReportingDashboard() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                         <KpiCard label="Inventory Environment" value={inventoryEnvironment} sub={identitySource} />
+                        <KpiCard label="Country" value={summary?.latestContext?.country || 'Unknown'} sub={summary?.latestContext?.region || 'Region unknown'} />
                         <KpiCard label="Device Type" value={summary?.latestContext?.deviceType ? titleCase(summary.latestContext.deviceType) : 'Unknown'} sub="Inferred from request" />
                         <KpiCard label="Device Model" value={summary?.latestContext?.deviceModel || 'Unknown'} sub="User-agent or DSP reported" />
                         <KpiCard label="Unique Devices" value={summary ? fmtNum(summary.uniqueIdentities) : '—'} sub="From tracker identity cookie" />
-                        <KpiCard label="Avg Frequency" value={summary ? summary.avgFrequency.toFixed(2) : '—'} sub="Impressions per device" />
+                        <KpiCard label="Avg Frequency" value={summary ? summary.avgFrequency.toFixed(2) : '—'} sub="Impressions per identity" />
                         <KpiCard label="Site / App Type" value={summary?.latestContext?.appId || summary?.latestContext?.appBundle || summary?.latestContext?.appName ? 'App' : summary?.latestContext?.siteDomain || summary?.latestContext?.pageUrl ? 'Web Site' : 'Unknown'} />
                       </div>
 
@@ -819,6 +829,9 @@ export default function TagReportingDashboard() {
                             <div>
                               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Identity</p>
                               <DetailRow label="Inventory Environment" value={inventoryEnvironment} />
+                              <DetailRow label="Country" value={summary.latestContext.country || 'Unknown'} />
+                              <DetailRow label="Region" value={summary.latestContext.region || 'Unknown'} />
+                              <DetailRow label="City" value={summary.latestContext.city || 'Unknown'} />
                               <DetailRow label="Device Type" value={titleCase(summary.latestContext.deviceType || 'Unknown')} />
                               <DetailRow label="Device Model" value={summary.latestContext.deviceModel || 'Unknown'} />
                               <DetailRow label="Browser" value={summary.latestContext.browser || 'Unknown'} />

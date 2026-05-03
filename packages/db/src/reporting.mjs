@@ -135,7 +135,7 @@ function addIdentityBreakdownFilters(params, conditions, alias, opts = {}) {
     return;
   }
 
-  conditions.push(`COALESCE(${alias}.device_id, '') <> ''`);
+  conditions.push(`${identityKeyExpression(alias)} <> ''`);
 
   if (siteDomain) {
     params.push(siteDomain.trim().toLowerCase());
@@ -180,6 +180,21 @@ function addIdentityBreakdownFilters(params, conditions, alias, opts = {}) {
        )`,
     );
   }
+}
+
+function identityKeyExpression(alias) {
+  return `COALESCE(
+    NULLIF(
+      CASE
+        WHEN COALESCE(${alias}.ip::text, '') <> '' AND COALESCE(${alias}.user_agent, '') <> ''
+          THEN md5(COALESCE(${alias}.ip::text, '') || '|' || COALESCE(${alias}.user_agent, '') || '|' || COALESCE(${alias}.site_domain, ''))
+        ELSE ''
+      END,
+      ''
+    ),
+    NULLIF(${alias}.device_id, ''),
+    ''
+  )`;
 }
 
 export async function getTagStats(pool, workspaceId, tagId, opts = {}) {
@@ -954,7 +969,7 @@ export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}
   const { rows } = await pool.query(
     `WITH impressions AS (
        SELECT
-         ie.device_id,
+         ${identityKeyExpression('ie')} AS identity_key,
          COUNT(*)::bigint AS impressions,
          (ARRAY_AGG(NULLIF(ie.city, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.city, '') <> ''))[1] AS last_city,
          (ARRAY_AGG(NULLIF(ie.region, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.region, '') <> ''))[1] AS last_region,
@@ -962,22 +977,22 @@ export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}
        FROM impression_events ie
        JOIN ad_tags t ON t.id = ie.tag_id
        WHERE ${impressionConditions.join(' AND ')}
-       GROUP BY ie.device_id
+       GROUP BY 1
      ),
      clicks AS (
-       SELECT ce.device_id, COUNT(*)::bigint AS clicks
+       SELECT ${identityKeyExpression('ce')} AS identity_key, COUNT(*)::bigint AS clicks
        FROM click_events ce
        JOIN ad_tags t_click ON t_click.id = ce.tag_id
        WHERE ${clickConditions.join(' AND ')}
-       GROUP BY ce.device_id
+       GROUP BY 1
      ),
      identities AS (
-       SELECT device_id FROM impressions
+       SELECT identity_key FROM impressions
        UNION
-       SELECT device_id FROM clicks
+       SELECT identity_key FROM clicks
      )
      SELECT
-       ids.device_id AS canonical_value,
+       ids.identity_key AS canonical_value,
        ${canonicalType === 'cookie_id' ? "'cookie_id'" : "'device_id'"} AS canonical_type,
        COALESCE(i.impressions, 0)::bigint AS impressions,
        COALESCE(c.clicks, 0)::bigint AS clicks,
@@ -988,8 +1003,8 @@ export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}
        i.last_region,
        i.last_country
      FROM identities ids
-     LEFT JOIN impressions i ON i.device_id = ids.device_id
-     LEFT JOIN clicks c ON c.device_id = ids.device_id
+     LEFT JOIN impressions i ON i.identity_key = ids.identity_key
+     LEFT JOIN clicks c ON c.identity_key = ids.identity_key
      WHERE ${havingClauses.join(' AND ')}
      ORDER BY impressions DESC, clicks DESC, canonical_value ASC
      LIMIT $${params.length}`,
@@ -1014,26 +1029,26 @@ export async function getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, op
 
   const { rows } = await pool.query(
     `WITH impressions AS (
-       SELECT ie.device_id, COUNT(*)::bigint AS impressions
+       SELECT ${identityKeyExpression('ie')} AS identity_key, COUNT(*)::bigint AS impressions
        FROM impression_events ie
        JOIN ad_tags t ON t.id = ie.tag_id
        WHERE ${impressionConditions.join(' AND ')}
-       GROUP BY ie.device_id
+       GROUP BY 1
      ),
      clicks AS (
-       SELECT ce.device_id, COUNT(*)::bigint AS clicks
+       SELECT ${identityKeyExpression('ce')} AS identity_key, COUNT(*)::bigint AS clicks
        FROM click_events ce
        JOIN ad_tags t_click ON t_click.id = ce.tag_id
        WHERE ${clickConditions.join(' AND ')}
-       GROUP BY ce.device_id
+       GROUP BY 1
      ),
      per_identity AS (
        SELECT
-         i.device_id,
+         i.identity_key,
          i.impressions,
          COALESCE(c.clicks, 0)::bigint AS clicks
        FROM impressions i
-       LEFT JOIN clicks c ON c.device_id = i.device_id
+       LEFT JOIN clicks c ON c.identity_key = i.identity_key
      )
      SELECT
        CASE
@@ -1075,20 +1090,20 @@ export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts
   const { rows } = await pool.query(
     `WITH per_identity AS (
        SELECT
-         ie.device_id,
+         ${identityKeyExpression('ie')} AS identity_key,
          COUNT(*)::bigint AS impressions,
          COALESCE(c.clicks, 0)::bigint AS clicks
        FROM impression_events ie
        JOIN ad_tags t ON t.id = ie.tag_id
        LEFT JOIN (
-         SELECT ce.device_id, COUNT(*)::bigint AS clicks
+         SELECT ${identityKeyExpression('ce')} AS identity_key, COUNT(*)::bigint AS clicks
          FROM click_events ce
          JOIN ad_tags t_click ON t_click.id = ce.tag_id
          WHERE ${clickConditions.join(' AND ')}
-         GROUP BY ce.device_id
-       ) c ON c.device_id = ie.device_id
+         GROUP BY 1
+       ) c ON c.identity_key = ${identityKeyExpression('ie')}
        WHERE ${impressionConditions.join(' AND ')}
-       GROUP BY ie.device_id
+       GROUP BY 1
               , c.clicks
      ),
      summary AS (
@@ -1222,14 +1237,14 @@ export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, 
 
   const { rows } = await pool.query(
     `WITH latest_seen AS (
-       SELECT ie.device_id, MAX(ie.timestamp) AS last_seen_at
+       SELECT ${identityKeyExpression('ie')} AS identity_key, MAX(ie.timestamp) AS last_seen_at
        FROM impression_events ie
        JOIN ad_tags t ON t.id = ie.tag_id
        WHERE ${impressionConditions.join(' AND ')}
-       GROUP BY ie.device_id
+       GROUP BY 1
      ),
      clickers AS (
-       SELECT DISTINCT ce.device_id
+       SELECT DISTINCT ${identityKeyExpression('ce')} AS identity_key
        FROM click_events ce
        JOIN ad_tags t_click ON t_click.id = ce.tag_id
        WHERE ${clickConditions.join(' AND ')}
@@ -1251,7 +1266,7 @@ export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, 
            ELSE 0 END AS click_through_rate,
          0::numeric AS engagement_through_rate
        FROM latest_seen ls
-       LEFT JOIN clickers c ON c.device_id = ls.device_id
+       LEFT JOIN clickers c ON c.identity_key = ls.identity_key
        GROUP BY 1
      ) buckets
      ORDER BY
