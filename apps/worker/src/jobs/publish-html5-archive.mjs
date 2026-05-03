@@ -221,18 +221,33 @@ function resolveEntryAsset(entries, desiredEntryPath) {
 function detectClickTagInHtml(htmlSource) {
   if (!htmlSource || typeof htmlSource !== 'string') return null;
 
+  const isHttpUrl = (v) => Boolean(v && /^https?:\/\/.{4,}/.test(v.trim()));
+  const clean = (v) => {
+    const s = String(v ?? '').trim();
+    try {
+      return decodeURIComponent(s);
+    } catch {
+      return s;
+    }
+  };
+
   const patterns = [
-    /(?:var\s+|window\.)clickTag\s*=\s*["']([^"']{8,512})["']/i,
-    /Enabler\.exit\s*\(\s*["'][^"']*["']\s*,\s*["']([^"']{8,512})["']\s*\)/i,
-    /ExitApi\.exit\s*\(\s*["'][^"']*["']\s*,\s*["']([^"']{8,512})["']\s*\)/i,
-    /ClickTag\.track\s*\(\s*["']([^"']{8,512})["']/i,
+    [/(?:var\s+|window\.)clickTag\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/(?:var\s+|window\.)clickTAG\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/(?<![.\w])clickTag\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/Enabler\.exit\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/ExitApi\.exit\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/processedVars\s*:\s*\{[^}]{0,300}?["']?bsClickTAG["']?\s*:\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/var\s+bsClickTAG\s*=\s*dhtml\.getVar\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']\s*\)/i, 1],
+    [/dhtml\.getVar\s*\(\s*["'][^"']{0,32}(?:click|Click)[^"']{0,32}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/window\.bannerURL\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
   ];
 
-  for (const pattern of patterns) {
+  for (const [pattern, group] of patterns) {
     const match = htmlSource.match(pattern);
-    if (match?.[1]) {
-      const candidate = match[1].trim();
-      if (/^https?:\/\/.{4,}/.test(candidate)) {
+    if (match?.[group]) {
+      const candidate = clean(match[group]);
+      if (isHttpUrl(candidate)) {
         return candidate;
       }
     }
@@ -398,6 +413,16 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
     const publishedEntry = uploaded.find((entry) => entry.publishedPath === entryAsset.publishedPath) || uploaded[0];
     const entryHtmlSource = entryAsset.body ? entryAsset.body.toString('utf-8') : null;
     const detectedClickUrl = detectClickTagInHtml(entryHtmlSource);
+
+    if (detectedClickUrl) {
+      deps.logInfo({
+        event: 'clicktag_detected',
+        ingestionId,
+        creativeVersionId: creativeVersion.id,
+        detectedClickUrl,
+      });
+    }
+
     const publishMetadata = {
       ...(creativeVersion.metadata || {}),
       html5Publish: {
@@ -410,10 +435,6 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
         ...(detectedClickUrl ? { detectedClickUrl } : {}),
       },
     };
-
-    if (detectedClickUrl) {
-      deps.logInfo({ event: 'clicktag_detected', ingestionId, detectedClickUrl });
-    }
 
     await deps.updateCreativeVersion(pool, workspaceId, creativeVersion.id, {
       status: 'draft',
@@ -446,9 +467,9 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
              WHEN $4 IS NOT NULL AND (click_url IS NULL OR click_url = '') THEN $4
              ELSE click_url
            END,
-           updated_at = NOW()
+           updated_at    = NOW()
        WHERE workspace_id = $1 AND id = $2`,
-      [workspaceId, creativeVersion.creative_id, publishedEntry.publicUrl, detectedClickUrl],
+      [workspaceId, creativeVersion.creative_id, publishedEntry.publicUrl, detectedClickUrl ?? null],
     );
 
     const artifactUpdate = await pool.query(
