@@ -8,12 +8,13 @@
     "start": "node src/server.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1029.0",
+    "@aws-sdk/s3-request-presigner": "^3.1029.0",
     "@smx/config": "*",
     "@smx/contracts": "*",
     "@smx/db": "*",
     "@smx/r2": "*",
-    "@aws-sdk/client-s3": "^3.1029.0",
-    "@aws-sdk/s3-request-presigner": "^3.1029.0",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "unzipper": "^0.12.3"
   }
 }

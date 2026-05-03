@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getPool } from '@smx/db/src/pool.mjs';
+import unzipper from 'unzipper';
 import { badRequest, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
 import { logWarn } from '../../../lib/logger.mjs';
 import { withSession, hasPermission } from '../../../lib/session.mjs';
@@ -87,30 +88,21 @@ function resolveCreativeVersionPreviewUrl(row) {
   const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
   const publishedPublicUrl = trimText(metadata?.html5Publish?.publicUrl || metadata?.publishJob?.publicUrl);
 
-  // Non-HTML5 types: return public_url directly (could be video, image, etc.)
   if (sourceKind !== 'html5_zip') return publicUrl;
 
-  // For html5_zip: the preview URL must point to the published HTML entry,
-  // never to the original ZIP. The ZIP lives in creative-ingestions/; the
-  // published HTML lives in creative-versions/*/html5/.
-  const isZipOrIngestionUrl = (u) => {
-    if (!u) return false;
+  const isUnpublishedUrl = (u) => {
+    if (!u) return true;
     const lower = u.toLowerCase();
-    if (lower.endsWith('.zip')) return true;
-    if (lower.includes('/creative-ingestions/')) return true;
-    return false;
+    return lower.endsWith('.zip') || lower.includes('/creative-ingestions/');
   };
 
-  if (publishedPublicUrl && !isZipOrIngestionUrl(publishedPublicUrl)) {
-    return publishedPublicUrl;
-  }
+  if (!isUnpublishedUrl(publishedPublicUrl)) return publishedPublicUrl;
 
-  if (publicUrl && !isZipOrIngestionUrl(publicUrl)) {
+  if (!isUnpublishedUrl(publicUrl)) {
     if (mimeType.startsWith('text/html') || publicUrl.toLowerCase().endsWith('.html')) {
       return publicUrl;
     }
   }
-
   return null;
 }
 
@@ -146,6 +138,241 @@ function getR2Client(env) {
   });
   cachedR2Key = cacheKey;
   return cachedR2Client;
+}
+
+function guessHtml5ContentType(filename) {
+  const ext = String(filename || '').toLowerCase().split('.').pop();
+  const map = {
+    html: 'text/html; charset=utf-8',
+    htm: 'text/html; charset=utf-8',
+    js: 'application/javascript; charset=utf-8',
+    mjs: 'application/javascript; charset=utf-8',
+    css: 'text/css; charset=utf-8',
+    json: 'application/json; charset=utf-8',
+    svg: 'image/svg+xml',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    avif: 'image/avif',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    woff: 'font/woff',
+    woff2: 'font/woff2',
+    ttf: 'font/ttf',
+    otf: 'font/otf',
+    txt: 'text/plain; charset=utf-8',
+  };
+  return map[ext] || 'application/octet-stream';
+}
+
+function normalizeHtml5ArchivePath(rawPath) {
+  const trimmed = String(rawPath ?? '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!trimmed) return null;
+  if (trimmed.startsWith('__MACOSX/') || trimmed.endsWith('.DS_Store')) return null;
+  if (trimmed.includes('../') || trimmed.includes('/..')) return null;
+  return trimmed;
+}
+
+function stripHtml5ArchiveRoot(paths) {
+  const valid = paths.filter(Boolean);
+  if (!valid.length) return valid;
+  const roots = valid.map((p) => p.split('/')[0]);
+  const commonRoot = roots.every((r) => r === roots[0]) ? roots[0] : '';
+  if (!commonRoot) return valid;
+  const allNested = valid.every((p) => p.startsWith(`${commonRoot}/`));
+  if (!allNested) return valid;
+  return valid.map((p) => p.slice(commonRoot.length + 1)).filter(Boolean);
+}
+
+async function publishHtml5ArchiveInProcess(env, pool, {
+  ingestionId,
+  workspaceId,
+  creativeVersionId,
+  ingestionStorageKey,
+  ingestionPublicUrl,
+  creativeVersionEntryPath,
+  initialMetadata,
+}) {
+  let archiveBuffer;
+  const r2Client = getR2Client(env);
+  if (ingestionStorageKey) {
+    try {
+      const r2Response = await r2Client.send(new GetObjectCommand({
+        Bucket: env.r2Bucket,
+        Key: ingestionStorageKey,
+      }));
+      const chunks = [];
+      for await (const chunk of r2Response.Body) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+      }
+      archiveBuffer = Buffer.concat(chunks);
+    } catch (r2Err) {
+      logWarn({ event: 'html5_inprocess_r2_download_failed', ingestionId, message: r2Err?.message, fallback: 'cdn_fetch' });
+      if (!ingestionPublicUrl) throw new Error('No ZIP URL available for in-process publish.');
+      const fetchResponse = await fetch(ingestionPublicUrl);
+      if (!fetchResponse.ok) throw new Error(`Failed to download ZIP: ${fetchResponse.status}`);
+      archiveBuffer = Buffer.from(await fetchResponse.arrayBuffer());
+    }
+  } else {
+    if (!ingestionPublicUrl) throw new Error('No ZIP URL available for in-process publish.');
+    const fetchResponse = await fetch(ingestionPublicUrl);
+    if (!fetchResponse.ok) throw new Error(`Failed to download ZIP: ${fetchResponse.status}`);
+    archiveBuffer = Buffer.from(await fetchResponse.arrayBuffer());
+  }
+
+  const directory = await unzipper.Open.buffer(archiveBuffer);
+  const rawEntries = [];
+  for (const entry of directory.files || []) {
+    if (entry.type !== 'File') continue;
+    const archivePath = normalizeHtml5ArchivePath(entry.path);
+    if (!archivePath) continue;
+    const body = await entry.buffer();
+    rawEntries.push({ archivePath, body });
+  }
+  if (!rawEntries.length) throw new Error('HTML5 archive contains no publishable files.');
+
+  const strippedPaths = stripHtml5ArchiveRoot(rawEntries.map((e) => e.archivePath));
+  const entries = rawEntries.map((entry, i) => ({
+    ...entry,
+    publishedPath: normalizeHtml5ArchivePath(strippedPaths[i]) || entry.archivePath,
+  }));
+
+  const desiredEntry = trimText(creativeVersionEntryPath || initialMetadata?.entryPath || 'index.html')
+    .replace(/^\//, '') || 'index.html';
+  const entryAsset = entries.find((e) => e.publishedPath === desiredEntry)
+    || entries.find((e) => e.publishedPath.toLowerCase() === desiredEntry.toLowerCase())
+    || entries.find((e) => e.publishedPath.toLowerCase().endsWith('/index.html') || e.publishedPath.toLowerCase() === 'index.html')
+    || entries[0];
+  if (!entryAsset) throw new Error(`HTML5 archive is missing entry point: ${desiredEntry}`);
+
+  const storagePrefix = `workspaces/${workspaceId}/creative-versions/${creativeVersionId}/html5`;
+  const publicBase = trimBaseUrl(env.assetsPublicBaseUrl);
+  const uploaded = [];
+
+  for (const entry of entries) {
+    const storageKey = `${storagePrefix}/${entry.publishedPath}`;
+    const contentType = guessHtml5ContentType(entry.publishedPath);
+    const isHtml = entry.publishedPath.toLowerCase().endsWith('.html') || entry.publishedPath.toLowerCase().endsWith('.htm');
+    await r2Client.send(new PutObjectCommand({
+      Bucket: env.r2Bucket,
+      Key: storageKey,
+      Body: entry.body,
+      ContentType: contentType,
+      ContentLength: entry.body.length,
+      CacheControl: isHtml ? 'no-store, no-cache, must-revalidate' : 'public, max-age=300',
+    }));
+    uploaded.push({
+      ...entry,
+      storageKey,
+      publicUrl: publicBase ? `${publicBase}/${storageKey}` : null,
+      mimeType: contentType,
+      sizeBytes: entry.body.length,
+    });
+  }
+
+  const publishedEntry = uploaded.find((e) => e.publishedPath === entryAsset.publishedPath) || uploaded[0];
+  const publishMetadata = {
+    ...(initialMetadata || {}),
+    html5Publish: {
+      status: 'completed',
+      publishedAt: new Date().toISOString(),
+      assetCount: uploaded.length,
+      storagePrefix,
+      entryPath: publishedEntry.publishedPath,
+      publicUrl: publishedEntry.publicUrl,
+    },
+  };
+
+  await pool.query(
+    `UPDATE creative_versions
+     SET public_url = $3,
+         entry_path = $4,
+         mime_type  = $5,
+         metadata   = $6::jsonb,
+         status     = 'draft',
+         updated_at = NOW()
+     WHERE workspace_id = $1 AND id = $2`,
+    [
+      workspaceId,
+      creativeVersionId,
+      publishedEntry.publicUrl,
+      publishedEntry.publishedPath,
+      publishedEntry.mimeType,
+      JSON.stringify(publishMetadata),
+    ],
+  );
+
+  await pool.query(
+    `UPDATE creatives
+     SET file_url      = $3,
+         thumbnail_url = $3,
+         updated_at    = NOW()
+     WHERE workspace_id = $1
+       AND id = (SELECT creative_id FROM creative_versions WHERE workspace_id = $1 AND id = $2)`,
+    [workspaceId, creativeVersionId, publishedEntry.publicUrl],
+  );
+
+  const artifactMeta = JSON.stringify({
+    ingestionId,
+    assetCount: uploaded.length,
+    entryPath: publishedEntry.publishedPath,
+    storagePrefix,
+  });
+  const artifactUpdate = await pool.query(
+    `UPDATE creative_artifacts
+     SET storage_key = $4,
+         public_url  = $5,
+         mime_type   = $6,
+         size_bytes  = $7,
+         metadata    = $8::jsonb,
+         updated_at  = NOW()
+     WHERE workspace_id = $1 AND creative_version_id = $2 AND kind = 'published_html'
+     RETURNING id`,
+    [workspaceId, creativeVersionId, 'published_html', publishedEntry.storageKey, publishedEntry.publicUrl, publishedEntry.mimeType, publishedEntry.sizeBytes, artifactMeta],
+  );
+  if (!artifactUpdate.rowCount) {
+    await pool.query(
+      `INSERT INTO creative_artifacts
+         (workspace_id, creative_version_id, kind, storage_key, public_url, mime_type, size_bytes, checksum, metadata)
+       VALUES ($1, $2, 'published_html', $3, $4, $5, $6, NULL, $7::jsonb)`,
+      [workspaceId, creativeVersionId, publishedEntry.storageKey, publishedEntry.publicUrl, publishedEntry.mimeType, publishedEntry.sizeBytes, artifactMeta],
+    );
+  }
+
+  await pool.query(
+    `UPDATE creative_ingestions
+     SET status            = 'published',
+         metadata          = metadata || $3::jsonb,
+         validation_report = validation_report || $4::jsonb,
+         error_code        = NULL,
+         error_detail      = NULL,
+         updated_at        = NOW()
+     WHERE workspace_id = $1 AND id = $2`,
+    [
+      workspaceId,
+      ingestionId,
+      JSON.stringify({
+        publishJob: {
+          stage: 'completed',
+          progressPercent: 100,
+          message: 'Published in-process (pgboss unavailable).',
+          updatedAt: new Date().toISOString(),
+          publicUrl: publishedEntry.publicUrl,
+        },
+      }),
+      JSON.stringify({
+        readyToPublish: true,
+        published: true,
+        publishedPublicUrl: publishedEntry.publicUrl,
+      }),
+    ],
+  );
+
+  return { publicUrl: publishedEntry.publicUrl, assetCount: uploaded.length };
 }
 
 function buildCreativeStorageKey({ workspaceId, ingestionId, filename }) {
@@ -926,6 +1153,8 @@ export async function handleCreativeRoutes(ctx) {
 
         const backgroundEnv = ctx.env;
         const backgroundBody = ctx.body;
+        const snapshotExisting = { ...existing };
+
         void (async () => {
           const pool = getDbPool(backgroundEnv);
           if (!pool) {
@@ -934,55 +1163,76 @@ export async function handleCreativeRoutes(ctx) {
           }
 
           const queuedPublishMetadata = {
-            ...(existing.metadata || {}),
-            entryPath: normalizeHtmlEntryPath(existing.metadata?.entryPath || 'index.html'),
+            ...(snapshotExisting.metadata || {}),
+            entryPath: normalizeHtmlEntryPath(snapshotExisting.metadata?.entryPath || 'index.html'),
             publishJob: buildPublishJobState('queued'),
           };
 
-          try {
-            await createPublishedCreative(pool, {
-              workspaceId,
-              createdBy: session.user.id,
-              ingestionId,
-              sourceKind: existing.source_kind,
-              name: trimText(backgroundBody?.name) || existing.metadata?.requestedName || existing.original_filename,
-              clickUrl: trimText(backgroundBody?.clickUrl ?? backgroundBody?.click_url) || existing.metadata?.clickUrl || null,
-              publicUrl: existing.public_url,
-              storageKey: existing.storage_key || inferStorageKeyFromPublicUrl(backgroundEnv, existing.public_url),
-              originalFilename: existing.original_filename,
-              mimeType: existing.mime_type,
-              sizeBytes: existing.size_bytes,
-              width: normalizeOptionalPositiveInteger(backgroundBody?.width) ?? existing.metadata?.width ?? null,
-              height: normalizeOptionalPositiveInteger(backgroundBody?.height) ?? existing.metadata?.height ?? null,
-              durationMs: normalizeOptionalPositiveInteger(backgroundBody?.durationMs ?? backgroundBody?.duration_ms) ?? existing.metadata?.durationMs ?? null,
-              metadata: queuedPublishMetadata,
-              deferHtml5ArchivePublish: true,
-              ingestionStatus: 'processing',
-              ingestionMetadata: queuedPublishMetadata,
-              ingestionValidationReport: {
-                ...(existing.validation_report || {}),
-                readyToPublish: true,
-                publishQueued: true,
-              },
-            });
+          let creativeVersionId = snapshotExisting.creative_version_id;
 
-            const dispatched = await dispatchHtml5ArchivePublishJob(pool, ingestionId);
-            if (!dispatched) {
-              await updateCreativeIngestion(pool, workspaceId, ingestionId, {
-                status: 'failed',
-                error_code: 'publish_queue_unavailable',
-                error_detail: 'HTML5 publish queue is unavailable right now.',
-                metadata: {
-                  ...queuedPublishMetadata,
-                  publishJob: buildPublishJobState('failed', {
-                    progressPercent: 0,
-                    message: 'HTML5 publish queue is unavailable right now.',
-                    errorCode: 'publish_queue_unavailable',
-                  }),
+          try {
+            if (!creativeVersionId) {
+              const result = await createPublishedCreative(pool, {
+                workspaceId,
+                createdBy: session.user.id,
+                ingestionId,
+                sourceKind: snapshotExisting.source_kind,
+                name: trimText(backgroundBody?.name) || snapshotExisting.metadata?.requestedName || snapshotExisting.original_filename,
+                clickUrl: trimText(backgroundBody?.clickUrl ?? backgroundBody?.click_url) || snapshotExisting.metadata?.clickUrl || null,
+                publicUrl: snapshotExisting.public_url,
+                storageKey: snapshotExisting.storage_key || inferStorageKeyFromPublicUrl(backgroundEnv, snapshotExisting.public_url),
+                originalFilename: snapshotExisting.original_filename,
+                mimeType: snapshotExisting.mime_type,
+                sizeBytes: snapshotExisting.size_bytes,
+                width: normalizeOptionalPositiveInteger(backgroundBody?.width) ?? snapshotExisting.metadata?.width ?? null,
+                height: normalizeOptionalPositiveInteger(backgroundBody?.height) ?? snapshotExisting.metadata?.height ?? null,
+                durationMs: normalizeOptionalPositiveInteger(backgroundBody?.durationMs ?? backgroundBody?.duration_ms) ?? snapshotExisting.metadata?.durationMs ?? null,
+                metadata: queuedPublishMetadata,
+                deferHtml5ArchivePublish: true,
+                ingestionStatus: 'processing',
+                ingestionMetadata: queuedPublishMetadata,
+                ingestionValidationReport: {
+                  ...(snapshotExisting.validation_report || {}),
+                  readyToPublish: true,
+                  publishQueued: true,
                 },
               });
-              logWarn({ event: 'html5_publish_dispatch_failed', ingestionId, workspaceId });
+              creativeVersionId = result.creativeVersion?.id;
+            } else {
+              await pool.query(
+                `UPDATE creative_ingestions
+                 SET status = 'processing', metadata = $3::jsonb, error_code = NULL, error_detail = NULL, updated_at = NOW()
+                 WHERE workspace_id = $1 AND id = $2`,
+                [workspaceId, ingestionId, JSON.stringify(queuedPublishMetadata)],
+              );
             }
+
+            if (!creativeVersionId) throw new Error('Failed to resolve creative_version_id for HTML5 publish.');
+
+            const dispatched = await dispatchHtml5ArchivePublishJob(pool, ingestionId);
+
+            if (dispatched) {
+              logWarn({ event: 'html5_publish_dispatched_to_worker', ingestionId, creativeVersionId });
+              return;
+            }
+
+            logWarn({ event: 'html5_publish_pgboss_unavailable', ingestionId, fallback: 'in_process' });
+
+            if (!isR2SigningReady(backgroundEnv)) {
+              throw new Error('R2 is not configured — cannot publish HTML5 archive in-process.');
+            }
+
+            await publishHtml5ArchiveInProcess(backgroundEnv, pool, {
+              ingestionId,
+              workspaceId,
+              creativeVersionId,
+              ingestionStorageKey: trimText(snapshotExisting.storage_key),
+              ingestionPublicUrl: trimText(snapshotExisting.public_url),
+              creativeVersionEntryPath: snapshotExisting.metadata?.entryPath || 'index.html',
+              initialMetadata: queuedPublishMetadata,
+            });
+
+            logWarn({ event: 'html5_publish_inprocess_completed', ingestionId, creativeVersionId });
           } catch (err) {
             logWarn({
               event: 'html5_publish_bg_error',
@@ -991,14 +1241,14 @@ export async function handleCreativeRoutes(ctx) {
               message: err?.message ?? String(err),
             });
             try {
-              await updateCreativeIngestion(pool, workspaceId, ingestionId, {
-                status: 'failed',
-                error_code: 'publish_background_error',
-                error_detail: err?.message || 'HTML5 publish failed in background.',
-              });
-            } catch (_) {
-              // Ignore secondary failure.
-            }
+              await pool.query(
+                `UPDATE creative_ingestions
+                 SET status = 'failed', error_code = 'html5_publish_failed',
+                     error_detail = $3, updated_at = NOW()
+                 WHERE workspace_id = $1 AND id = $2`,
+                [workspaceId, ingestionId, err?.message || 'HTML5 publish failed in background.'],
+              );
+            } catch (_) { /* ignore secondary failure */ }
           }
         })();
 
