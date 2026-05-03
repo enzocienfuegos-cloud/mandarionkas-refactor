@@ -60,11 +60,14 @@ async function resolveActiveCreativeForTag(pool, tagId) {
   if (!pool || !tagId) return null;
   try {
     const { rows } = await pool.query(
-      `SELECT
+       `SELECT
          t.id            AS tag_id,
          t.click_url,
          t.frequency_cap,
          t.frequency_cap_window,
+         t.omid_verification_vendor,
+         t.omid_verification_js_url,
+         t.omid_verification_params,
          COALESCE(tfc.display_width, 0)  AS width,
          COALESCE(tfc.display_height, 0) AS height,
          cv.public_url,
@@ -93,7 +96,7 @@ async function resolveActiveCreativeForTag(pool, tagId) {
   }
 }
 
-function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impressionUrl }) {
+function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impressionUrl, omidVerification }) {
   const w = Number(width) || 300;
   const h = Number(height) || 250;
   const safeCreativeUrl = trimText(creativeUrl);
@@ -117,6 +120,19 @@ function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impress
 
   const safeImpressionJs = safeImpression ? escapeScriptContext(JSON.stringify(safeImpression)) : null;
   const safeClickTrackerJs = safeClickTracker ? escapeScriptContext(JSON.stringify(safeClickTracker)) : 'null';
+  const omidBlock = omidVerification?.jsUrl
+    ? `<script src="https://cdn.omid.dev/omid-session-client.js" async></script>
+<script>
+(function(){
+  if(typeof OmidSessionClient === 'undefined') return;
+  var v = OmidSessionClient.default;
+  var ctx = new v.Context(v.PartnerName('${omidVerification.vendor || 'SMX'}'), v.PartnerVersion('1.0'));
+  var vRes = ${omidVerification.params ? escapeScriptContext(JSON.stringify(omidVerification.params)) : '{}'};
+  ctx.setVerificationResources([{ vendorKey: '${omidVerification.vendor || 'smx'}', verificationParameters: JSON.stringify(vRes), resourceUrl: ${escapeScriptContext(JSON.stringify(omidVerification.jsUrl))} }]);
+  new v.AdSession(ctx);
+})();
+</script>`
+    : '';
 
   return `<!DOCTYPE html>
 <html>
@@ -129,6 +145,7 @@ function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impress
 html,body{width:${w}px;height:${h}px;overflow:hidden;background:transparent}
 iframe{border:0;display:block;width:100%;height:100%}
 </style>
+${omidBlock}
 </head>
 <body>
 <iframe
@@ -238,6 +255,11 @@ export async function handleDisplayRoutes(ctx) {
       height: row.height,
       clickTrackerUrl,
       impressionUrl,
+      omidVerification: {
+        vendor: trimText(row.omid_verification_vendor),
+        jsUrl: trimText(row.omid_verification_js_url),
+        params: row.omid_verification_params,
+      },
     });
 
     return sendHtml(res, html);

@@ -9,9 +9,21 @@
       "types": "./src/dsp-macros.d.ts",
       "import": "./src/dsp-macros.mjs",
       "default": "./src/dsp-macros.mjs"
+    },
+    "./tag-snippets": {
+      "types": "./src/tag-snippets.d.ts",
+      "import": "./src/tag-snippets.mjs",
+      "default": "./src/tag-snippets.mjs"
+    },
+    "./basis-runtime": {
+      "import": "./src/basis-runtime.mjs",
+      "default": "./src/basis-runtime.mjs"
     }
   },
   "devDependencies": {
     "typescript": "^5.4.5"
+  },
+  "scripts": {
+    "test": "node --test src/tag-snippets.test.mjs"
   }
 }

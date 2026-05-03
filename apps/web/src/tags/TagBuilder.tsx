@@ -1,24 +1,13 @@
-import React, { useEffect, useState, FormEvent, useMemo } from 'react';
+import React, { useEffect, useState, FormEvent } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
-  applyDspMacrosToDeliveryUrl,
-  buildBasisNativeSnippet,
-  buildVastWrapperSnippet,
-  DSP_DELIVERY_KINDS,
   getDspMacroConfig,
   readCampaignDsp,
   shouldUseBasisNativeDelivery,
   shouldUseDspVideoDelivery,
 } from '@smx/contracts/dsp-macros';
-import {
-  assignCreativeVersionToTag,
-  loadCreativesWithLatestVersion,
-  loadTagBindings,
-  updateTagBinding,
-  type Creative,
-  type CreativeVersion,
-  type TagBinding,
-} from '../creatives/catalog';
+import TagSnippetPanel from './TagSnippetPanel';
+import TagBindingsPanel from './TagBindingsPanel';
 
 interface Campaign {
   id: string;
@@ -53,13 +42,6 @@ interface SavedTag {
   sizeLabel?: string;
   trackerType?: TrackerType | null;
 }
-
-interface CreativeAssignmentOption {
-  creative: Creative;
-  latestVersion: CreativeVersion;
-}
-
-type TagBindingStatus = TagBinding['status'];
 
 interface DeliveryDiagnosticEntry {
   policy?: {
@@ -150,20 +132,6 @@ interface DeliveryDiagnosticSection {
   entry?: DeliveryDiagnosticEntry;
 }
 
-type SnippetVariant =
-  | 'vast-url-basis-dynamic'
-  | 'vast-url-basis-macro'
-  | 'vast-url-illumin-dynamic'
-  | 'vast-url-illumin-macro'
-  | 'vast-url-vast4-dynamic'
-  | 'vast-xml'
-  | 'display-js'
-  | 'display-iframe'
-  | 'display-ins'
-  | 'native-js'
-  | 'tracker-click'
-  | 'tracker-impression';
-
 const DISPLAY_SIZE_PRESETS = [
   { label: '300x250', width: 300, height: 250 },
   { label: '320x50', width: 320, height: 50 },
@@ -188,81 +156,6 @@ const emptyForm: TagForm = {
 
 const STATUSES: TagStatus[] = ['draft', 'active', 'paused', 'archived'];
 
-function normalizeServingBaseUrl(value: string) {
-  return value.replace(/\/+$/, '').replace(/\/v1$/, '');
-}
-
-function resolveTagServingBaseUrl() {
-  const resolved = import.meta.env.VITE_TAGS_BASE_URL?.trim()
-    || import.meta.env.VITE_API_BASE_URL?.trim()
-    || '';
-  return normalizeServingBaseUrl(resolved);
-}
-
-function getDefaultVastSnippetVariant(campaignDsp = ''): SnippetVariant {
-  const normalized = readCampaignDsp({ dsp: campaignDsp });
-  if (normalized === 'basis') return 'vast-url-basis-macro';
-  if (normalized === 'illumin') return 'vast-url-illumin-dynamic';
-  return 'vast-url-vast4-dynamic';
-}
-
-function getDefaultSnippetVariant(
-  format: TagFormat,
-  trackerType: TrackerType | null = null,
-  campaignDsp = '',
-): SnippetVariant {
-  if (format === 'VAST') return getDefaultVastSnippetVariant(campaignDsp);
-  if (format === 'display') return 'display-js';
-  if (format === 'tracker') return trackerType === 'impression' ? 'tracker-impression' : 'tracker-click';
-  return 'native-js';
-}
-
-function getSnippetOptions(
-  format: TagFormat,
-  trackerType: TrackerType | null = null,
-  campaignDsp = '',
-): Array<{ value: SnippetVariant; label: string }> {
-  if (format === 'VAST') {
-    const optionMap: Record<string, { value: SnippetVariant; label: string }> = {
-      basisMacro: { value: 'vast-url-basis-macro', label: 'Basis Macro URL' },
-      basis: { value: 'vast-url-basis-dynamic', label: 'Basis Live XML' },
-      illuminMacro: { value: 'vast-url-illumin-macro', label: 'Illumin Macro URL (Trafficking)' },
-      illumin: { value: 'vast-url-illumin-dynamic', label: 'Illumin Live XML' },
-      vast4: { value: 'vast-url-vast4-dynamic', label: 'VAST 4.x Live XML' },
-    };
-    const prioritizedKeys = [
-      readCampaignDsp({ dsp: campaignDsp }) === 'basis'
-        ? 'basisMacro'
-        : readCampaignDsp({ dsp: campaignDsp }) === 'illumin'
-          ? 'illumin'
-          : 'vast4',
-      'basisMacro',
-      'basis',
-      'illumin',
-      'illuminMacro',
-      'vast4',
-    ];
-
-    return [
-      ...Array.from(new Set(prioritizedKeys)).map((key) => optionMap[key]).filter(Boolean),
-      { value: 'vast-xml', label: 'XML Wrapper' },
-    ];
-  }
-  if (format === 'display') {
-    return [
-      { value: 'display-js', label: 'JS Tag' },
-      { value: 'display-iframe', label: 'Iframe Tag' },
-      { value: 'display-ins', label: 'Ins Tag' },
-    ];
-  }
-  if (format === 'tracker') {
-    return trackerType === 'impression'
-      ? [{ value: 'tracker-impression', label: 'Impression Pixel URL' }]
-      : [{ value: 'tracker-click', label: 'Click Tracker URL' }];
-  }
-  return [{ value: 'native-js', label: 'JS Tag' }];
-}
-
 function normalizeTagRecord(payload: unknown): SavedTag | null {
   const source = (payload as { tag?: Record<string, unknown> } | null)?.tag
     ?? (payload as Record<string, unknown> | null);
@@ -284,128 +177,6 @@ function normalizeTagRecord(payload: unknown): SavedTag | null {
     sizeLabel: String(source.sizeLabel ?? ''),
     trackerType: (source.trackerType === 'click' || source.trackerType === 'impression') ? source.trackerType : null,
   };
-}
-
-function getSelectedLiveVastUrl(campaignDsp = '', diagnostics?: DeliveryDiagnosticsPayload | null) {
-  const normalized = readCampaignDsp({ dsp: campaignDsp });
-  if (normalized === 'basis' || normalized === 'illumin') {
-    return diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.[normalized] ?? '';
-  }
-  return diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.default
-    ?? diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.vast4
-    ?? '';
-}
-
-function buildTagSnippet(
-  tag: SavedTag,
-  variant: SnippetVariant,
-  campaignDsp = '',
-  diagnostics?: DeliveryDiagnosticsPayload | null,
-): string {
-  const servingBaseUrl = resolveTagServingBaseUrl();
-  const useBasisNative = shouldUseBasisNativeDelivery(campaignDsp);
-  const displayJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
-  const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/display/${tag.id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
-  const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/native/${tag.id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
-  const campaignVastUrl = getSelectedLiveVastUrl(campaignDsp, diagnostics)
-    || `${servingBaseUrl}/v1/vast/tags/${tag.id}/default.xml`;
-  const basisDynamicVastUrl = diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.basis
-    || `${servingBaseUrl}/v1/vast/tags/${tag.id}/basis.xml`;
-  const illuminDynamicVastUrl = diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.illumin
-    || `${servingBaseUrl}/v1/vast/tags/${tag.id}/illumin.xml`;
-  const vast4DynamicUrl = diagnostics?.deliveryDiagnostics?.vast?.liveProfiles?.vast4
-    || `${servingBaseUrl}/v1/vast/tags/${tag.id}/vast4.xml`;
-  const basisMacroVastUrl = applyDspMacrosToDeliveryUrl(basisDynamicVastUrl, 'basis', DSP_DELIVERY_KINDS.VIDEO);
-  const illuminMacroVastUrl = applyDspMacrosToDeliveryUrl(illuminDynamicVastUrl, 'illumin', DSP_DELIVERY_KINDS.VIDEO);
-  const vastUrl = campaignVastUrl;
-  const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
-  const trackerEngagementUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/engagement`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
-  const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${servingBaseUrl}/v1/tags/tracker/${tag.id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
-  const width = tag.width ?? 300;
-  const height = tag.height ?? 250;
-  const basisNativeArgs = {
-    variant,
-    tagId: tag.id,
-    displayHtmlUrl,
-    nativeJsUrl,
-    vastUrl,
-    trackerClickUrl,
-    trackerEngagementUrl,
-    trackerImpressionUrl,
-    width,
-    height,
-  };
-
-  switch (variant) {
-    case 'vast-url-basis-dynamic':
-      return basisDynamicVastUrl;
-    case 'vast-url-basis-macro':
-      return basisMacroVastUrl;
-    case 'vast-url-illumin-dynamic':
-      return illuminDynamicVastUrl;
-    case 'vast-url-illumin-macro':
-      return illuminMacroVastUrl;
-    case 'vast-url-vast4-dynamic':
-      return vast4DynamicUrl;
-    case 'vast-xml':
-      return buildVastWrapperSnippet(tag.id, vastUrl);
-    case 'display-iframe':
-      if (useBasisNative) return buildBasisNativeSnippet({ ...basisNativeArgs, variant: 'display-iframe' });
-      return `<iframe\n  src="${displayHtmlUrl}"\n  width="${width}"\n  height="${height}"\n  scrolling="no"\n  frameborder="0"\n  marginwidth="0"\n  marginheight="0"\n  style="border:0;overflow:hidden;"\n></iframe>`;
-    case 'display-ins':
-      if (useBasisNative) return buildBasisNativeSnippet({ ...basisNativeArgs, variant: 'display-ins' });
-      return `<ins id="smx-ad-slot-${tag.id}" style="display:inline-block;width:${width}px;height:${height}px;"></ins>\n<script>\n  (function(slot) {\n    if (!slot) return;\n    var iframe = document.createElement('iframe');\n    iframe.src = ${JSON.stringify(displayHtmlUrl)};\n    iframe.width = ${JSON.stringify(String(width))};\n    iframe.height = ${JSON.stringify(String(height))};\n    iframe.scrolling = 'no';\n    iframe.frameBorder = '0';\n    iframe.style.border = '0';\n    iframe.style.overflow = 'hidden';\n    slot.replaceWith(iframe);\n  })(document.getElementById(${JSON.stringify(`smx-ad-slot-${tag.id}`)}));\n</script>`;
-    case 'native-js':
-      return `<script>\n  window.SMX = window.SMX || {};\n  window.SMX.native = window.SMX.native || [];\n  window.SMX.native.push({ tagId: "${tag.id}", format: "native" });\n</script>\n<script src="${nativeJsUrl}" async></script>`;
-    case 'tracker-impression':
-      return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : trackerImpressionUrl;
-    case 'tracker-click':
-      return useBasisNative ? buildBasisNativeSnippet(basisNativeArgs) : trackerClickUrl;
-    case 'display-js':
-    default:
-      if (useBasisNative) return buildBasisNativeSnippet({ ...basisNativeArgs, variant: 'native-js' });
-      return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;"></iframe>\n</noscript>`;
-  }
-}
-
-function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp = ''): string {
-  const selectedConfig = getDspMacroConfig(campaignDsp);
-  const dspNote = selectedConfig
-    ? ` ${selectedConfig.label} macros are auto-injected for delivery context and click passthrough.`
-    : '';
-  if (tag.format === 'VAST') {
-    if (variant === 'vast-url-basis-macro') {
-      return 'Use this Basis-compatible live URL when the DSP expects visible Basis macros on the tag itself. It still resolves through the stable live Basis XML profile.';
-    }
-    if (variant === 'vast-url-basis-dynamic') {
-      return 'Use this stable API endpoint when you want the live Basis-compatible XML to reflect ad-server changes without republishing.';
-    }
-    if (variant === 'vast-url-illumin-macro') {
-      return 'Use this Illumin-compatible live URL only when trafficking into Illumin requires visible click macros on the tag itself. Illumin preview tools can leave those placeholders unresolved, so prefer Illumin Live XML for validation and QA.';
-    }
-    if (variant === 'vast-url-illumin-dynamic') {
-      return 'Use this stable API endpoint when you want the live Illumin-compatible XML to reflect ad-server changes without republishing.';
-    }
-    if (variant === 'vast-url-vast4-dynamic') {
-      return 'Use this stable API endpoint when you want the live VAST 4.x / OMID-capable XML without relying on a published artifact.';
-    }
-    return 'Use this XML wrapper only if your integration explicitly requires inline VAST XML. It wraps the currently selected live VAST URL option.';
-  }
-  if (tag.format === 'display') {
-    if (variant === 'display-iframe') {
-      return `Use the iframe tag for sandboxed display placements or when a publisher requests iframe delivery.${dspNote}`;
-    }
-    if (variant === 'display-ins') {
-      return `Use the ins tag when the publisher expects a slot placeholder plus inline bootstrap code.${dspNote}`;
-    }
-    return `Use the JavaScript tag for standard display placements. This is not a VAST tag.${dspNote}`;
-  }
-  if (tag.format === 'tracker') {
-    return variant === 'tracker-impression'
-      ? `Use this 1x1 GIF URL as a pure impression tracker in external platforms.${dspNote}`
-      : `Use this click tracker URL in Meta or other platforms when you only need click measurement.${dspNote}`;
-  }
-  return `Use the JavaScript tag to initialize the native placement loader.${dspNote}`;
 }
 
 function getDisplaySizePreset(width?: string, height?: string): string {
@@ -478,19 +249,8 @@ export default function TagBuilder() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [savedTag, setSavedTag] = useState<SavedTag | null>(null);
-  const [snippetVariant, setSnippetVariant] = useState<SnippetVariant>(getDefaultSnippetVariant(emptyForm.format, emptyForm.trackerType, ''));
-  const [copied, setCopied] = useState(false);
   const [copiedStaticProfile, setCopiedStaticProfile] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
-  const [bindings, setBindings] = useState<TagBinding[]>([]);
-  const [bindingsLoading, setBindingsLoading] = useState(false);
-  const [bindingDrafts, setBindingDrafts] = useState<Record<string, { weight: string; status: TagBindingStatus }>>({});
-  const [updatingBindingId, setUpdatingBindingId] = useState<string | null>(null);
-  const [creativeOptions, setCreativeOptions] = useState<CreativeAssignmentOption[]>([]);
-  const [creativeOptionsLoading, setCreativeOptionsLoading] = useState(false);
-  const [assignmentVersionId, setAssignmentVersionId] = useState('');
-  const [assignmentBusy, setAssignmentBusy] = useState(false);
-  const [assignmentError, setAssignmentError] = useState('');
   const [deliveryDiagnostics, setDeliveryDiagnostics] = useState<DeliveryDiagnosticsPayload | null>(null);
   const [deliveryDiagnosticsLoading, setDeliveryDiagnosticsLoading] = useState(false);
   const [republishingStaticDelivery, setRepublishingStaticDelivery] = useState(false);
@@ -563,11 +323,6 @@ export default function TagBuilder() {
         });
         const normalized = normalizeTagRecord(payload);
         setSavedTag(normalized);
-        setSnippetVariant(getDefaultSnippetVariant(
-          ((data.format as TagFormat | undefined) ?? 'VAST'),
-          data.trackerType === 'impression' ? 'impression' : data.trackerType === 'click' ? 'click' : null,
-          readCampaignDsp((data.campaign as { metadata?: { dsp?: string | null } } | undefined)?.metadata ?? null),
-        ));
         setSuccessMessage('');
       })
       .catch(() => setGeneralError('Failed to load tag.'))
@@ -576,96 +331,8 @@ export default function TagBuilder() {
 
   useEffect(() => {
     if (!isEdit || !id) return;
-    setBindingsLoading(true);
-    setAssignmentError('');
-    void loadTagBindings(id)
-      .then(nextBindings => setBindings(nextBindings))
-      .catch(() => setAssignmentError('Failed to load assigned creatives.'))
-      .finally(() => setBindingsLoading(false));
-  }, [id, isEdit]);
-
-  useEffect(() => {
-    setBindingDrafts(
-      Object.fromEntries(
-        bindings.map(binding => [
-          binding.id,
-          { weight: String(Math.max(1, Number(binding.weight) || 1)), status: binding.status },
-        ]),
-      ),
-    );
-  }, [bindings]);
-
-  useEffect(() => {
-    if (!isEdit) return;
-    setCreativeOptionsLoading(true);
-    void loadCreativesWithLatestVersion()
-      .then(({ creatives, latestVersions }) => {
-        const nextOptions = creatives
-          .map(creative => {
-            const latestVersion = latestVersions[creative.id];
-            return latestVersion ? { creative, latestVersion } : null;
-          })
-          .filter((entry): entry is CreativeAssignmentOption => Boolean(entry))
-          .sort((left, right) => left.creative.name.localeCompare(right.creative.name));
-        setCreativeOptions(nextOptions);
-        setAssignmentVersionId(current => current || nextOptions[0]?.latestVersion.id || '');
-      })
-      .catch(() => setAssignmentError('Failed to load available creatives.'))
-      .finally(() => setCreativeOptionsLoading(false));
-  }, [isEdit]);
-
-  const filteredCreativeOptions = useMemo(() => {
-    const targetWorkspaceId = selectedCampaignWorkspaceId ?? savedTag?.workspaceId ?? null;
-    const tagWidth = Number(form.servingWidth) || savedTag?.width || 0;
-    const tagHeight = Number(form.servingHeight) || savedTag?.height || 0;
-
-    return creativeOptions.filter((option) => {
-      if (targetWorkspaceId && option.creative.workspaceId && option.creative.workspaceId !== targetWorkspaceId) {
-        return false;
-      }
-
-      if (form.format === 'VAST') {
-        return option.latestVersion.servingFormat === 'vast_video';
-      }
-      if (form.format === 'native') {
-        return option.latestVersion.servingFormat === 'native';
-      }
-      if (form.format === 'display') {
-        if (!['display_html', 'display_image'].includes(option.latestVersion.servingFormat)) {
-          return false;
-        }
-        const creativeWidth = Number(option.latestVersion.width) || 0;
-        const creativeHeight = Number(option.latestVersion.height) || 0;
-        if (tagWidth > 0 && tagHeight > 0) {
-          return creativeWidth === tagWidth && creativeHeight === tagHeight;
-        }
-        return true;
-      }
-
-      return true;
-    });
-  }, [creativeOptions, form.format, form.servingWidth, form.servingHeight, savedTag?.height, savedTag?.width, savedTag?.workspaceId, selectedCampaignWorkspaceId]);
-
-  useEffect(() => {
-    setAssignmentVersionId((current) => (
-      current && filteredCreativeOptions.some((option) => option.latestVersion.id === current)
-        ? current
-        : filteredCreativeOptions[0]?.latestVersion.id || ''
-    ));
-  }, [filteredCreativeOptions]);
-
-  useEffect(() => {
-    if (!isEdit || !id) return;
     void refreshDeliveryDiagnostics();
   }, [id, isEdit]);
-
-  useEffect(() => {
-    if (!savedTag) return;
-    const availableVariants = getSnippetOptions(savedTag.format, savedTag.trackerType ?? null, selectedCampaignDsp)
-      .map((option) => option.value);
-    if (availableVariants.includes(snippetVariant)) return;
-    setSnippetVariant(getDefaultSnippetVariant(savedTag.format, savedTag.trackerType ?? null, selectedCampaignDsp));
-  }, [savedTag, selectedCampaignDsp, snippetVariant]);
 
   const set = (field: keyof TagForm) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -684,7 +351,6 @@ export default function TagBuilder() {
       servingHeight: f === 'display' ? prev.servingHeight : '',
       trackerType: f === 'tracker' ? prev.trackerType : 'click',
     }));
-    setSnippetVariant(getDefaultSnippetVariant(f, f === 'tracker' ? form.trackerType : null, selectedCampaignDsp));
     setErrors(er => ({ ...er, format: undefined }));
     setSuccessMessage('');
   };
@@ -700,7 +366,6 @@ export default function TagBuilder() {
       servingHeight: '',
       trackerType: 'click',
     }));
-    setSnippetVariant(getDefaultSnippetVariant('VAST', null, selectedCampaignDsp));
     setErrors(er => ({ ...er, format: undefined }));
   }, [videoCampaign, form.format, isEdit]);
 
@@ -763,11 +428,6 @@ export default function TagBuilder() {
         const payload = await res.json();
         const normalized = normalizeTagRecord(payload);
         setSavedTag(normalized);
-        setSnippetVariant(getDefaultSnippetVariant(
-          normalized?.format ?? form.format,
-          normalized?.trackerType ?? null,
-          selectedCampaignDsp,
-        ));
         setSuccessMessage(isEdit ? 'Tag updated successfully.' : 'Tag created successfully.');
       } else {
         const data = await res.json().catch(() => ({}));
@@ -778,14 +438,6 @@ export default function TagBuilder() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleCopy = () => {
-    if (!savedTag) return;
-    navigator.clipboard.writeText(buildTagSnippet(savedTag, snippetVariant, selectedCampaignDsp, deliveryDiagnostics)).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
   };
 
   const handleCopyStaticProfile = (profileKey: string, url?: string) => {
@@ -817,12 +469,6 @@ export default function TagBuilder() {
     });
   };
 
-  const refreshBindings = async () => {
-    if (!id) return;
-    const nextBindings = await loadTagBindings(id);
-    setBindings(nextBindings);
-  };
-
   const refreshDeliveryDiagnostics = async () => {
     if (!id) return;
     setDeliveryDiagnosticsLoading(true);
@@ -835,108 +481,6 @@ export default function TagBuilder() {
       setDeliveryDiagnostics(null);
     } finally {
       setDeliveryDiagnosticsLoading(false);
-    }
-  };
-
-  const handleAssignCreative = async () => {
-    if (!id || !assignmentVersionId) {
-      setAssignmentError('Select a creative to assign.');
-      return;
-    }
-
-    setAssignmentBusy(true);
-    setAssignmentError('');
-
-    try {
-      await assignCreativeVersionToTag({
-        creativeVersionId: assignmentVersionId,
-        tagId: id,
-      });
-      await refreshBindings();
-      const selectedOption = filteredCreativeOptions.find(option => option.latestVersion.id === assignmentVersionId);
-      setSuccessMessage(
-        selectedOption
-          ? `Creative "${selectedOption.creative.name}" assigned successfully.`
-          : 'Creative assigned successfully.',
-      );
-    } catch (error: any) {
-      setAssignmentError(error?.message ?? 'Failed to assign creative.');
-    } finally {
-      setAssignmentBusy(false);
-    }
-  };
-
-  const handleBindingDraftChange = (
-    bindingId: string,
-    field: 'weight' | 'status',
-    value: string,
-  ) => {
-    setBindingDrafts(current => ({
-      ...current,
-      [bindingId]: {
-        weight: current[bindingId]?.weight ?? '1',
-        status: current[bindingId]?.status ?? 'active',
-        [field]: value,
-      } as { weight: string; status: TagBindingStatus },
-    }));
-    setAssignmentError('');
-    setSuccessMessage('');
-  };
-
-  const handleSaveBinding = async (binding: TagBinding) => {
-    if (!id) return;
-    const draft = bindingDrafts[binding.id] ?? {
-      weight: String(Math.max(1, Number(binding.weight) || 1)),
-      status: binding.status,
-    };
-    const parsedWeight = Math.max(1, Number.parseInt(draft.weight, 10) || 1);
-
-    setUpdatingBindingId(binding.id);
-    setAssignmentError('');
-    setSuccessMessage('');
-
-    try {
-      await updateTagBinding({
-        tagId: id,
-        bindingId: binding.id,
-        status: draft.status,
-        weight: parsedWeight,
-      });
-      await refreshBindings();
-      await refreshDeliveryDiagnostics();
-      setSuccessMessage(`Rotation updated for "${binding.creativeName}".`);
-    } catch (error: any) {
-      setAssignmentError(error?.message ?? 'Failed to update creative rotation.');
-    } finally {
-      setUpdatingBindingId(null);
-    }
-  };
-
-  const handleToggleBindingStatus = async (binding: TagBinding) => {
-    const nextStatus: TagBindingStatus = binding.status === 'active' ? 'paused' : 'active';
-    handleBindingDraftChange(binding.id, 'status', nextStatus);
-    setUpdatingBindingId(binding.id);
-    setAssignmentError('');
-    setSuccessMessage('');
-
-    try {
-      await updateTagBinding({
-        tagId: binding.tagId,
-        bindingId: binding.id,
-        status: nextStatus,
-        weight: Math.max(1, Number(bindingDrafts[binding.id]?.weight ?? binding.weight) || 1),
-      });
-      await refreshBindings();
-      await refreshDeliveryDiagnostics();
-      setSuccessMessage(
-        nextStatus === 'active'
-          ? `Creative "${binding.creativeName}" activated for rotation.`
-          : `Creative "${binding.creativeName}" paused from rotation.`,
-      );
-    } catch (error: any) {
-      setAssignmentError(error?.message ?? 'Failed to update creative status.');
-    } finally {
-      setUpdatingBindingId(null);
     }
   };
 
@@ -1253,194 +797,29 @@ export default function TagBuilder() {
         </form>
       </div>
 
-      {/* Generated Snippet */}
       {savedTag && (
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-slate-800">Generated Tag Snippet</h2>
-            <button
-              onClick={handleCopy}
-              className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                copied
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              {copied ? '✓ Copied!' : '📋 Copy'}
-            </button>
-          </div>
-          <div className="mb-3 flex flex-wrap gap-2">
-            {getSnippetOptions(savedTag.format, savedTag.trackerType ?? null, selectedCampaignDsp).map(option => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setSnippetVariant(option.value)}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  snippetVariant === option.value
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                    : 'border-slate-300 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-slate-500 mb-3">
-            {getSnippetHelpText(savedTag, snippetVariant, selectedCampaignDsp)}
-          </p>
-          <pre className="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">
-            {buildTagSnippet(savedTag, snippetVariant, selectedCampaignDsp, deliveryDiagnostics)}
-          </pre>
-        </div>
+        <TagSnippetPanel
+          tag={savedTag}
+          campaignDsp={selectedCampaignDsp}
+          diagnostics={deliveryDiagnostics}
+        />
       )}
 
       {isEdit && savedTag && (
-        <div className="mt-6 bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex flex-col gap-1 mb-5">
-            <h2 className="text-base font-semibold text-slate-800">Creative Assignments</h2>
-            <p className="text-sm text-slate-500">
-              Assign creatives directly from this tag. For display tags, only compatible sizes can be attached.
-            </p>
-          </div>
-
-          {assignmentError && (
-            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-              {assignmentError}
-            </div>
-          )}
-
-          <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
-            <section className="rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <h3 className="text-sm font-semibold text-slate-800">Assigned Creatives</h3>
-                {bindingsLoading && <span className="text-xs text-slate-500">Loading…</span>}
-              </div>
-
-              {bindings.length === 0 && !bindingsLoading ? (
-                <div className="rounded-lg border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-                  No creatives assigned yet.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {bindings.map(binding => (
-                    <div key={binding.id} className="rounded-lg border border-slate-200 px-4 py-3">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">{binding.creativeName}</p>
-                          <p className="text-xs text-slate-500">
-                            {binding.variantLabel
-                              ? `${binding.variantLabel} • ${binding.variantWidth ?? '?'}x${binding.variantHeight ?? '?'}`
-                              : binding.servingFormat}
-                          </p>
-                        </div>
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                          {binding.status}
-                        </span>
-                      </div>
-                      <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,110px)_minmax(0,140px)_1fr]">
-                        <label className="block">
-                          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Weight</span>
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={bindingDrafts[binding.id]?.weight ?? String(binding.weight)}
-                            onChange={(event) => handleBindingDraftChange(binding.id, 'weight', event.target.value)}
-                            className={inputClass()}
-                            disabled={updatingBindingId === binding.id}
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Status</span>
-                          <select
-                            value={bindingDrafts[binding.id]?.status ?? binding.status}
-                            onChange={(event) => handleBindingDraftChange(binding.id, 'status', event.target.value)}
-                            className={inputClass()}
-                            disabled={updatingBindingId === binding.id}
-                          >
-                            <option value="active">active</option>
-                            <option value="paused">paused</option>
-                            <option value="draft">draft</option>
-                            <option value="archived">archived</option>
-                          </select>
-                        </label>
-                        <div className="flex flex-wrap items-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => { void handleSaveBinding(binding); }}
-                            disabled={updatingBindingId === binding.id}
-                            className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {updatingBindingId === binding.id ? 'Saving…' : 'Save Rotation'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { void handleToggleBindingStatus(binding); }}
-                            disabled={updatingBindingId === binding.id}
-                            className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                              binding.status === 'active'
-                                ? 'border-amber-300 bg-white text-amber-800 hover:bg-amber-50'
-                                : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50'
-                            }`}
-                          >
-                            {binding.status === 'active' ? 'Pause' : 'Activate'}
-                          </button>
-                          <div className="text-xs text-slate-500">
-                            Higher weight means this creative is selected more often during rotation.
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-xl border border-slate-200 p-4">
-              <h3 className="text-sm font-semibold text-slate-800 mb-4">Assign Creative</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Creative</label>
-                  <select
-                    value={assignmentVersionId}
-                    onChange={event => {
-                      setAssignmentVersionId(event.target.value);
-                      setAssignmentError('');
-                      setSuccessMessage('');
-                    }}
-                    className={inputClass()}
-                    disabled={creativeOptionsLoading || assignmentBusy}
-                  >
-                    <option value="">Select a creative</option>
-                    {filteredCreativeOptions.map(option => (
-                      <option key={option.latestVersion.id} value={option.latestVersion.id}>
-                        {option.creative.name} · v{option.latestVersion.versionNumber}
-                      </option>
-                    ))}
-                  </select>
-                  {filteredCreativeOptions.length === 0 && (
-                    <p className="mt-2 text-xs text-amber-700">
-                      No creatives match this tag yet. We only show creatives from the selected client and, for display tags, only the exact assigned size.
-                    </p>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleAssignCreative}
-                  disabled={assignmentBusy || creativeOptionsLoading || !assignmentVersionId}
-                  className="w-full px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 rounded-lg transition-colors"
-                >
-                  {assignmentBusy ? 'Assigning…' : 'Assign Creative'}
-                </button>
-
-                <p className="text-xs text-slate-500">
-                  This uses the latest published version available for the selected creative and respects format and size constraints on the API side.
-                </p>
-              </div>
-            </section>
-          </div>
-        </div>
+        <TagBindingsPanel
+          tagId={id!}
+          savedTag={savedTag}
+          campaignDsp={selectedCampaignDsp}
+          selectedCampaignWorkspaceId={selectedCampaignWorkspaceId}
+          tagFormat={savedTag.format}
+          tagWidth={Number(form.servingWidth) || savedTag.width || 0}
+          tagHeight={Number(form.servingHeight) || savedTag.height || 0}
+          onSuccess={(message) => {
+            setSuccessMessage(message);
+            void refreshDeliveryDiagnostics();
+          }}
+          onError={(message) => setGeneralError(message)}
+        />
       )}
 
       {isEdit && savedTag && (

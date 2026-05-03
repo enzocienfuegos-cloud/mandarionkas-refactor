@@ -32,7 +32,12 @@ export declare function readDspMacroValue(
 ): string | null;
 export declare function isResolvedDspMacroValue(value: unknown): boolean;
 export declare function resolveDspClickMacroValue(value: unknown): string;
-export declare function buildDspTrackedClickUrl(clickTrackUrl: string, macroValue: unknown, dsp?: unknown): string;
+export declare function buildDspTrackedClickUrl(
+  clickTrackUrl: string,
+  macroValue: unknown,
+  dsp?: unknown,
+  opts?: { onUnresolved?: (details: { dsp?: unknown; macroValue: unknown }) => void },
+): string;
 export declare function buildDspLiteralClickUrl(clickTrackUrl: string, macroValue: unknown, dsp?: unknown): string;
 export declare function getDspDeliveryPolicy(
   dsp: unknown,
@@ -50,19 +55,6 @@ export declare function applyDspMacrosToDeliveryUrl(
   opts?: { includeClickMacro?: boolean; includeDspHint?: boolean; clickMacroValue?: string },
 ): string;
 export declare function buildDspNativeClickHref(clickTrackUrl: string, dsp: unknown): string;
-export declare function buildBasisNativeSnippet(input: {
-  variant: string;
-  tagId?: string;
-  displayHtmlUrl?: string;
-  nativeJsUrl?: string;
-  vastUrl?: string;
-  trackerClickUrl?: string;
-  trackerEngagementUrl?: string;
-  trackerImpressionUrl?: string;
-  trackerViewabilityUrl?: string;
-  width?: number;
-  height?: number;
-}): string;
 export declare function buildVastWrapperSnippet(tagId: string, vastUrl: string): string;
 export declare function buildDspVideoContractExamples(baseUrl: string, tagId: string): {
   standard: { label: string; url: string; xmlWrapper: string };
