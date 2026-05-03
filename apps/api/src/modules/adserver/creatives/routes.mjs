@@ -70,6 +70,42 @@ function trimBaseUrl(value) {
   return trimText(value).replace(/\/+$/, '');
 }
 
+function normalizeHtmlEntryPath(value) {
+  const normalized = trimText(value).replace(/^\/+/, '');
+  if (!normalized || normalized.toLowerCase().endsWith('.zip')) return 'index.html';
+  return normalized;
+}
+
+function buildHtmlPreviewUrl(publicUrl, entryPath) {
+  const sourceUrl = trimText(publicUrl);
+  if (!sourceUrl) return null;
+  const safeEntryPath = normalizeHtmlEntryPath(entryPath);
+  try {
+    const parsed = new URL(sourceUrl);
+    if (parsed.pathname.toLowerCase().endsWith(`/${safeEntryPath.toLowerCase()}`)) {
+      return parsed.toString();
+    }
+    const segments = parsed.pathname.split('/');
+    segments.pop();
+    segments.push(...safeEntryPath.split('/'));
+    parsed.pathname = segments.join('/').replace(/\/{2,}/g, '/');
+    return parsed.toString();
+  } catch (_) {
+    return sourceUrl;
+  }
+}
+
+function resolveCreativeVersionPreviewUrl(row) {
+  if (!row) return null;
+  const sourceKind = trimText(row.source_kind).toLowerCase();
+  const publicUrl = trimText(row.public_url);
+  const mimeType = trimText(row.mime_type).toLowerCase();
+  if (!publicUrl) return null;
+  if (sourceKind !== 'html5_zip') return publicUrl;
+  if (mimeType === 'text/html' || publicUrl.toLowerCase().endsWith('.html')) return publicUrl;
+  return buildHtmlPreviewUrl(publicUrl, row.entry_path);
+}
+
 function isR2SigningReady(env) {
   return Boolean(env.r2Endpoint && env.r2Bucket && env.r2AccessKeyId && env.r2SecretAccessKey);
 }
@@ -176,6 +212,7 @@ function normalizeCreativeVersion(row) {
     servingFormat: row.serving_format,
     status: row.status,
     publicUrl: row.public_url ?? null,
+    previewUrl: resolveCreativeVersionPreviewUrl(row),
     entryPath: row.entry_path ?? null,
     mimeType: row.mime_type ?? null,
     width: row.width ?? null,

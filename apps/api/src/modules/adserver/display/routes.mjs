@@ -51,6 +51,28 @@ function sendJs(res, js, status = 200) {
   return true;
 }
 
+export function pickWeightedCreativeRow(rows, random = Math.random) {
+  const candidates = (Array.isArray(rows) ? rows : [])
+    .filter((row) => trimText(row?.public_url))
+    .map((row) => ({
+      ...row,
+      weight: Math.max(1, Number(row?.weight) || 1),
+    }));
+
+  if (!candidates.length) return null;
+  if (candidates.length === 1) return candidates[0];
+
+  const totalWeight = candidates.reduce((sum, row) => sum + row.weight, 0);
+  let cursor = Math.max(0, Number(random()) || 0) * totalWeight;
+
+  for (const row of candidates) {
+    cursor -= row.weight;
+    if (cursor < 0) return row;
+  }
+
+  return candidates[candidates.length - 1];
+}
+
 async function resolveActiveCreativeForTag(pool, tagId) {
   if (!pool || !tagId) return null;
   try {
@@ -65,27 +87,29 @@ async function resolveActiveCreativeForTag(pool, tagId) {
          t.omid_verification_params,
          COALESCE(tfc.display_width, 0)  AS width,
          COALESCE(tfc.display_height, 0) AS height,
+         b.id AS binding_id,
+         b.weight,
+         b.created_at AS binding_created_at,
          cv.public_url,
          cv.entry_path,
          cv.source_kind,
          cv.serving_format
        FROM ad_tags t
        LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
-       LEFT JOIN creative_tag_bindings b
-              ON b.tag_id = t.id
-             AND b.status = 'active'
-             AND (b.start_at IS NULL OR b.start_at <= NOW())
-             AND (b.end_at   IS NULL OR b.end_at   >= NOW())
-       LEFT JOIN creative_versions cv
-              ON cv.id = b.creative_version_id
-             AND cv.status = 'published'
+       JOIN creative_tag_bindings b
+         ON b.tag_id = t.id
+        AND b.status = 'active'
+        AND (b.start_at IS NULL OR b.start_at <= NOW())
+        AND (b.end_at   IS NULL OR b.end_at   >= NOW())
+       JOIN creative_versions cv
+         ON cv.id = b.creative_version_id
+             AND cv.status IN ('published', 'approved', 'draft')
        WHERE t.id = $1
          AND t.status = 'active'
-       ORDER BY b.weight DESC NULLS LAST, b.created_at DESC NULLS LAST
-       LIMIT 1`,
+       ORDER BY b.created_at DESC NULLS LAST`,
       [tagId],
     );
-    return rows[0] ?? null;
+    return pickWeightedCreativeRow(rows);
   } catch {
     return null;
   }

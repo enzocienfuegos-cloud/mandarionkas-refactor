@@ -80,6 +80,12 @@ function formatVideoBitrate(value?: number | null) {
   return `${Math.round(value)} kbps`;
 }
 
+function resolveCreativePreviewHref(version: CreativeVersion | null | undefined) {
+  const previewUrl = String(version?.previewUrl || '').trim();
+  if (previewUrl) return previewUrl;
+  return String(version?.publicUrl || '').trim();
+}
+
 type LatestVersionMap = Record<string, CreativeVersion | null>;
 
 const VARIANT_PRESETS = [
@@ -1791,9 +1797,9 @@ export default function CreativeLibrary() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {version?.publicUrl ? (
+                      {resolveCreativePreviewHref(version) ? (
                         <a
-                          href={version.publicUrl}
+                          href={resolveCreativePreviewHref(version)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-medium text-indigo-600 hover:text-indigo-700"

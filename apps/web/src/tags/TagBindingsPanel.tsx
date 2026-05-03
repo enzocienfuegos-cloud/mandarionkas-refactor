@@ -388,7 +388,7 @@ export default function TagBindingsPanel({
             </button>
 
             <p className="text-xs text-slate-500">
-              This uses the latest published version available for the selected creative and respects format and size constraints on the API side.
+              This uses the latest available version for the selected creative and respects format and size constraints on the API side.
             </p>
           </div>
         </section>

@@ -433,6 +433,31 @@ function inferArtifactKind(sourceKind) {
   return 'source_zip';
 }
 
+function normalizeHtmlEntryPath(value) {
+  const normalized = trimText(value).replace(/^\/+/, '');
+  if (!normalized || normalized.toLowerCase().endsWith('.zip')) return 'index.html';
+  return normalized;
+}
+
+function buildHtmlPreviewUrl(publicUrl, entryPath) {
+  const sourceUrl = trimText(publicUrl);
+  if (!sourceUrl) return null;
+  const safeEntryPath = normalizeHtmlEntryPath(entryPath);
+  try {
+    const parsed = new URL(sourceUrl);
+    if (parsed.pathname.toLowerCase().endsWith(`/${safeEntryPath.toLowerCase()}`)) {
+      return parsed.toString();
+    }
+    const segments = parsed.pathname.split('/');
+    segments.pop();
+    segments.push(...safeEntryPath.split('/'));
+    parsed.pathname = segments.join('/').replace(/\/{2,}/g, '/');
+    return parsed.toString();
+  } catch (_) {
+    return sourceUrl;
+  }
+}
+
 function buildAutoVideoOutputPlan({ storageKey, publicUrl }) {
   const safeStorageKey = String(storageKey || '').trim();
   const safePublicUrl = String(publicUrl || '').trim();
@@ -804,10 +829,17 @@ export async function createPublishedCreative(pool, input = {}) {
   const resolvedWidth = width ?? normalizePositiveInteger(metadata?.width);
   const resolvedHeight = height ?? normalizePositiveInteger(metadata?.height);
   const resolvedDurationMs = durationMs ?? normalizePositiveInteger(metadata?.durationMs);
+  const resolvedEntryPath = normalizedSourceKind === 'html5_zip'
+    ? normalizeHtmlEntryPath(metadata?.entryPath || 'index.html')
+    : null;
+  const resolvedPreviewUrl = normalizedSourceKind === 'html5_zip'
+    ? buildHtmlPreviewUrl(publicUrl, resolvedEntryPath)
+    : publicUrl;
   const creativeMetadata = {
     ...(metadata || {}),
     ingestionId,
     sourceKind: normalizedSourceKind,
+    ...(resolvedEntryPath ? { entryPath: resolvedEntryPath } : {}),
   };
 
   const creativeResult = await pool.query(
@@ -824,8 +856,8 @@ export async function createPublishedCreative(pool, input = {}) {
       workspaceId,
       creativeName,
       creativeType,
-      publicUrl,
-      publicUrl,
+      resolvedPreviewUrl,
+      resolvedPreviewUrl,
       sizeBytes,
       mimeType,
       resolvedWidth,
@@ -856,8 +888,8 @@ export async function createPublishedCreative(pool, input = {}) {
       normalizedSourceKind,
       servingFormat,
       normalizeCreativeStatus('draft'),
-      publicUrl,
-      normalizedSourceKind === 'html5_zip' ? originalFilename : null,
+      resolvedPreviewUrl,
+      resolvedEntryPath,
       mimeType,
       resolvedWidth,
       resolvedHeight,
@@ -883,7 +915,7 @@ export async function createPublishedCreative(pool, input = {}) {
       publicUrl,
       mimeType,
       sizeBytes,
-      JSON.stringify({ ingestionId, originalFilename }),
+      JSON.stringify({ ingestionId, originalFilename, entryPath: resolvedEntryPath }),
     ],
   );
 

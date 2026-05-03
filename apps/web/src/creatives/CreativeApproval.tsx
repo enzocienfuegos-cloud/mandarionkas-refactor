@@ -100,6 +100,12 @@ function getVideoMetadata(version: CreativeVersion | null) {
   };
 }
 
+function resolveCreativePreviewHref(version: CreativeVersion | null | undefined) {
+  const previewUrl = String(version?.previewUrl || '').trim();
+  if (previewUrl) return previewUrl;
+  return String(version?.publicUrl || '').trim();
+}
+
 export default function CreativeApproval() {
   const { user } = useOutletContext<{ user: User }>();
   const [versions, setVersions] = useState<CreativeVersion[]>([]);
@@ -236,8 +242,8 @@ export default function CreativeApproval() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  {version.publicUrl && (
-                    <a href={version.publicUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-indigo-200 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50">
+                  {resolveCreativePreviewHref(version) && (
+                    <a href={resolveCreativePreviewHref(version)} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-indigo-200 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50">
                       Preview
                     </a>
                   )}

@@ -24,6 +24,7 @@ export interface CreativeVersion {
   servingFormat: string;
   status: ApprovalStatus;
   publicUrl?: string;
+  previewUrl?: string;
   entryPath?: string;
   mimeType?: string;
   width?: number | null;
