@@ -1389,7 +1389,20 @@ export default function CreativeLibrary() {
     if (!hasProcessing) return undefined;
 
     const intervalId = window.setInterval(() => {
-      void load();
+      void (async () => {
+        try {
+          const { latestVersions: nextVersions } = await loadCreativesWithLatestVersion({ scope: 'all' });
+          setLatestVersions((current) => {
+            const patch: LatestVersionMap = {};
+            for (const [id, version] of Object.entries(nextVersions)) {
+              if (String(current[id]?.status ?? '') === 'processing') {
+                patch[id] = version;
+              }
+            }
+            return Object.keys(patch).length > 0 ? { ...current, ...patch } : current;
+          });
+        } catch (_) {}
+      })();
     }, 4000);
 
     return () => window.clearInterval(intervalId);
