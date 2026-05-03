@@ -130,46 +130,91 @@ function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">SMX Portal</p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">Sign in</h1>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#07010f] px-4 py-10 text-white sm:px-6">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+      >
+        <div className="absolute left-0 top-0 h-[32rem] w-[32rem] -translate-x-1/4 -translate-y-1/4 rounded-full bg-[radial-gradient(circle,_rgba(236,72,153,0.22)_0%,_rgba(236,72,153,0.08)_35%,_transparent_72%)]" />
+        <div className="absolute bottom-0 right-0 h-[34rem] w-[34rem] translate-x-1/4 translate-y-1/4 rounded-full bg-[radial-gradient(circle,_rgba(126,34,206,0.20)_0%,_rgba(126,34,206,0.08)_36%,_transparent_74%)]" />
+      </div>
+
+      <section className="relative z-10 w-full max-w-[440px] rounded-[28px] border border-white/10 bg-[rgba(17,18,26,0.9)] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:p-8">
+        <header className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/12 text-sm font-semibold uppercase tracking-[0.24em] text-fuchsia-300">
+              SMX
+            </div>
+            <div>
+              <p className="text-base font-semibold tracking-[0.01em] text-fuchsia-200">SMX Portal</p>
+              <span className="mt-1 block text-sm text-white/55">User Administration</span>
+            </div>
+          </div>
+          <span className="inline-flex rounded-full border border-fuchsia-400/25 bg-fuchsia-500/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-200">
+            Internal
+          </span>
+        </header>
+
+        <div className="mt-8">
+          <h1 className="text-3xl font-semibold tracking-tight text-white">Sign in</h1>
+          <p className="mt-2 text-sm text-white/55">Access the admin workspace.</p>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+
+        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           <input
             type="email"
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/25 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
+            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-sm text-white outline-none placeholder:text-white/28 focus:border-fuchsia-400/80 focus:ring-2 focus:ring-fuchsia-500/25"
           />
           <input
             type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/25 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
+            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-sm text-white outline-none placeholder:text-white/28 focus:border-fuchsia-400/80 focus:ring-2 focus:ring-fuchsia-500/25"
           />
-          <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-white/55">
-            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="rounded" />
-            Remember me
-          </label>
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+          <div className="flex items-center justify-between gap-4 pt-1">
+            <label className="flex items-center gap-3 text-sm text-white/62">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="h-4 w-4 rounded border-white/20 bg-white/5 text-fuchsia-500 focus:ring-fuchsia-500/30"
+              />
+              Remember me
+            </label>
+            <a
+              href="#"
+              onClick={(event) => event.preventDefault()}
+              className="text-sm font-medium text-fuchsia-300 transition hover:text-fuchsia-200"
+            >
+              Forgot password?
+            </a>
+          </div>
+
+          {error && (
+            <p className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </p>
+          )}
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-fuchsia-500 py-2.5 text-sm font-semibold text-white shadow-[0_10px_28px_rgba(241,0,139,0.24)] transition hover:bg-fuchsia-600 disabled:opacity-60"
+            className="w-full rounded-2xl bg-gradient-to-r from-[#ec4899] to-[#c026d3] px-4 py-3.5 text-sm font-semibold text-white shadow-[0_18px_45px_rgba(192,38,211,0.28)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-        <p className="text-center text-sm text-slate-500 dark:text-white/45">
-          Need an account?{' '}
-          <a href="/register" className="font-medium text-fuchsia-500 hover:underline">Register</a>
-        </p>
-      </div>
-    </div>
+
+        <div className="mt-8 border-t border-white/8 pt-5 text-xs leading-6 text-white/35">
+          Authorized users only. Activity may be monitored.
+        </div>
+      </section>
+    </main>
   );
 }
 
