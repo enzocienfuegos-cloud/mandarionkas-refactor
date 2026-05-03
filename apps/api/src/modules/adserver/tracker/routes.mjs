@@ -197,6 +197,68 @@ async function getTagWorkspaceId(pool, tagId) {
   }
 }
 
+function extractTrackingContext(req, url, geo) {
+  const p = url.searchParams;
+  const rawPageUrl = trimText(
+    p.get('purl') || p.get('pu') || p.get('pageUrlEnc') || p.get('site') || '',
+  );
+  const rawDomain = trimText(
+    p.get('dom') || p.get('sd') || p.get('domain') ||
+    p.get('sdmn') || p.get('siteid') || p.get('inventoryUnitReportingName') || '',
+  );
+  const siteDomain = rawDomain
+    ? extractHostname(decodeStringSafe(rawDomain))
+    : rawPageUrl
+      ? extractHostname(decodeStringSafe(rawPageUrl))
+      : extractHostname(trimText(req.headers.referer || req.headers.referrer || ''));
+
+  const referer = decodeStringSafe(rawPageUrl) ||
+    trimText(req.headers.referer || req.headers.referrer || '') || null;
+
+  return {
+    siteDomain: siteDomain || null,
+    referer,
+    country: geo.country,
+    region: geo.region,
+    city: geo.city,
+    userAgent: trimText(req.headers['user-agent'] || '') || null,
+    remoteIp: geo.ip,
+  };
+}
+
+function queueClickEventWrite(pool, {
+  tagId,
+  workspaceId,
+  deviceId,
+  ip,
+  userAgent,
+  country,
+  region,
+  city,
+  siteDomain,
+  referer,
+}) {
+  if (!pool || !tagId || !workspaceId) return;
+  pool.query(
+    `INSERT INTO click_events
+       (tag_id, workspace_id, device_id, ip, user_agent, country, region, city, site_domain, referer)
+     VALUES
+       ($1, $2, $3, $4::inet, $5, $6, $7, $8, $9, $10)`,
+    [
+      tagId,
+      workspaceId,
+      deviceId || null,
+      ip || null,
+      userAgent || null,
+      country || null,
+      region || null,
+      city || null,
+      siteDomain || null,
+      referer || null,
+    ],
+  ).catch(() => undefined);
+}
+
 export function createTrackerRoutes(buffer = null) {
   return async function handleTrackerDeliveryRoutes(ctx) {
     const { method, pathname, res, req, requestId, url, env } = ctx;
@@ -213,7 +275,7 @@ export function createTrackerRoutes(buffer = null) {
       const tagId = pathname.split('/')[4];
 
       // S46: Resolve/generate smx_uid cookie before sending response.
-      const { deviceId, cookie } = resolveDeviceId(req, env);
+      const { cookie } = resolveDeviceId(req, env);
 
       applyPublicCors(req, res);
       res.statusCode = 200;
@@ -239,26 +301,11 @@ export function createTrackerRoutes(buffer = null) {
           }
 
           const p = url.searchParams;
-          const rawPageUrl = trimText(
-            p.get('purl') || p.get('pu') || p.get('pageUrlEnc') || p.get('site') || '',
-          );
-          const rawDomain = trimText(
-            p.get('dom') || p.get('sd') || p.get('domain') ||
-            p.get('sdmn') || p.get('siteid') || p.get('inventoryUnitReportingName') || '',
-          );
-          const siteDomain = rawDomain
-            ? extractHostname(decodeStringSafe(rawDomain))
-            : rawPageUrl
-              ? extractHostname(decodeStringSafe(rawPageUrl))
-              : extractHostname(trimText(req.headers.referer || req.headers.referrer || ''));
-
-          const referer = decodeStringSafe(rawPageUrl) ||
-            trimText(req.headers.referer || req.headers.referrer || '') || null;
-
           const geo = resolveGeoContext(req, url);
-          const country = geo.country;
-          const region = geo.region;
-          const city = geo.city;
+          const trackingContext = extractTrackingContext(req, url, geo);
+          const country = trackingContext.country;
+          const region = trackingContext.region;
+          const city = trackingContext.city;
 
           const deviceTypeSignal = trimText(
             p.get('devicetype') || p.get('device') || '',
@@ -293,10 +340,10 @@ export function createTrackerRoutes(buffer = null) {
           const browser = trimQuotedHeader(req.headers['sec-ch-ua'] || '') || parseBrowserFromUA(userAgent);
           const os = trimQuotedHeader(req.headers['sec-ch-ua-platform'] || '') || parseOsFromUA(userAgent);
           const deviceType = deviceTypeSignal || parseDeviceTypeFromUA(userAgent);
-          const remoteIp = geo.ip;
+          const remoteIp = trackingContext.remoteIp;
 
           if (
-            siteDomain || country || userAgent || appId || appBundle || appName ||
+            trackingContext.siteDomain || country || userAgent || appId || appBundle || appName ||
             deviceType || deviceIdSignal || deviceModel || exchangeId || exchangePublisherId ||
             exchangeSiteIdOrDomain || sourcePublisherId || networkId || siteId || browser || os ||
             pagePosition || contentLanguage || contentTitle || contentSeries || carrier ||
@@ -322,8 +369,8 @@ export function createTrackerRoutes(buffer = null) {
                 country,
                 region,
                 city,
-                siteDomain || null,
-                referer,
+                trackingContext.siteDomain,
+                trackingContext.referer,
                 deviceId || deviceIdSignal,
                 deviceType || null,
                 deviceModel,
@@ -362,7 +409,7 @@ export function createTrackerRoutes(buffer = null) {
       const playhead = Number(url.searchParams.get('t') || url.searchParams.get('playhead') || 0);
 
       // S46: Issue/refresh smx_uid on engagement too (keeps cookie alive).
-      const { cookie } = resolveDeviceId(req, env);
+      const { deviceId, cookie } = resolveDeviceId(req, env);
 
       applyPublicCors(req, res);
       res.statusCode = 204;
@@ -387,6 +434,25 @@ export function createTrackerRoutes(buffer = null) {
       res.end();
 
       queueClickWrite(buffer, pool, tagId, requestId);
+      if (pool) {
+        const geo = resolveGeoContext(req, url);
+        const trackingContext = extractTrackingContext(req, url, geo);
+        getTagWorkspaceId(pool, tagId).then((workspaceId) => {
+          if (!workspaceId) return;
+          queueClickEventWrite(pool, {
+            tagId,
+            workspaceId,
+            deviceId,
+            ip: trackingContext.remoteIp,
+            userAgent: trackingContext.userAgent,
+            country: trackingContext.country,
+            region: trackingContext.region,
+            city: trackingContext.city,
+            siteDomain: trackingContext.siteDomain,
+            referer: trackingContext.referer,
+          });
+        }).catch(() => undefined);
+      }
       return true;
     }
 
@@ -402,7 +468,7 @@ export function createTrackerRoutes(buffer = null) {
         resolveBaseUrl(ctx);
 
       // S46: Issue/refresh smx_uid on click.
-      const { cookie } = resolveDeviceId(req, env);
+      const { deviceId, cookie } = resolveDeviceId(req, env);
 
       applyPublicCors(req, res);
       res.statusCode = 302;
@@ -412,6 +478,25 @@ export function createTrackerRoutes(buffer = null) {
       res.end();
 
       queueClickWrite(buffer, pool, tagId, requestId);
+      if (pool) {
+        const geo = resolveGeoContext(req, url);
+        const trackingContext = extractTrackingContext(req, url, geo);
+        getTagWorkspaceId(pool, tagId).then((workspaceId) => {
+          if (!workspaceId) return;
+          queueClickEventWrite(pool, {
+            tagId,
+            workspaceId,
+            deviceId,
+            ip: trackingContext.remoteIp,
+            userAgent: trackingContext.userAgent,
+            country: trackingContext.country,
+            region: trackingContext.region,
+            city: trackingContext.city,
+            siteDomain: trackingContext.siteDomain,
+            referer: trackingContext.referer,
+          });
+        }).catch(() => undefined);
+      }
       return true;
     }
 

@@ -931,35 +931,67 @@ export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}
   const { dateFrom, dateTo, limit = 25, campaignId = '', tagIds: rawTagIds = [], tagId = '', minImpressions = 1, minClicks = 0, canonicalType = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
-  const conditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds);
-  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
-  addIdentityBreakdownFilters(params, conditions, 'ie', opts);
+  const impressionConditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds);
+  addTimestampFilters(params, impressionConditions, 'ie', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, impressionConditions, 'ie', opts);
+
+  const clickConditions = ['ce.workspace_id = $1'];
+  addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds);
+  addTimestampFilters(params, clickConditions, 'ce', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, clickConditions, 'ce', opts);
+
   const minimumImpressions = Math.max(normalizeNonNegativeInt(minImpressions), 1);
   const minimumClicks = normalizeNonNegativeInt(minClicks);
   params.push(minimumImpressions);
-  const havingClauses = [`COUNT(*) >= $${params.length}`];
+  const havingClauses = [`COALESCE(i.impressions, 0) >= $${params.length}`];
   if (minimumClicks > 0) {
-    havingClauses.push(`${minimumClicks} <= 0`);
+    params.push(minimumClicks);
+    havingClauses.push(`COALESCE(c.clicks, 0) >= $${params.length}`);
   }
   params.push(normalizeLimit(limit, 25, 250));
 
   const { rows } = await pool.query(
-    `SELECT
-       ie.device_id AS canonical_value,
+    `WITH impressions AS (
+       SELECT
+         ie.device_id,
+         COUNT(*)::bigint AS impressions,
+         (ARRAY_AGG(NULLIF(ie.city, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.city, '') <> ''))[1] AS last_city,
+         (ARRAY_AGG(NULLIF(ie.region, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.region, '') <> ''))[1] AS last_region,
+         (ARRAY_AGG(NULLIF(ie.country, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.country, '') <> ''))[1] AS last_country
+       FROM impression_events ie
+       JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${impressionConditions.join(' AND ')}
+       GROUP BY ie.device_id
+     ),
+     clicks AS (
+       SELECT ce.device_id, COUNT(*)::bigint AS clicks
+       FROM click_events ce
+       JOIN ad_tags t_click ON t_click.id = ce.tag_id
+       WHERE ${clickConditions.join(' AND ')}
+       GROUP BY ce.device_id
+     ),
+     identities AS (
+       SELECT device_id FROM impressions
+       UNION
+       SELECT device_id FROM clicks
+     )
+     SELECT
+       ids.device_id AS canonical_value,
        ${canonicalType === 'cookie_id' ? "'cookie_id'" : "'device_id'"} AS canonical_type,
-       COUNT(*)::bigint AS impressions,
-       0::bigint AS clicks,
-       0::numeric AS ctr,
-       (ARRAY_AGG(NULLIF(ie.city, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.city, '') <> ''))[1] AS last_city,
-       (ARRAY_AGG(NULLIF(ie.region, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.region, '') <> ''))[1] AS last_region,
-       (ARRAY_AGG(NULLIF(ie.country, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.country, '') <> ''))[1] AS last_country
-     FROM impression_events ie
-     JOIN ad_tags t ON t.id = ie.tag_id
-     WHERE ${conditions.join(' AND ')}
-     GROUP BY ie.device_id
-     HAVING ${havingClauses.join(' AND ')}
-     ORDER BY impressions DESC, canonical_value ASC
+       COALESCE(i.impressions, 0)::bigint AS impressions,
+       COALESCE(c.clicks, 0)::bigint AS clicks,
+       CASE WHEN COALESCE(i.impressions, 0) > 0
+         THEN ROUND(COALESCE(c.clicks, 0)::numeric / i.impressions * 100, 4)
+         ELSE 0 END AS ctr,
+       i.last_city,
+       i.last_region,
+       i.last_country
+     FROM identities ids
+     LEFT JOIN impressions i ON i.device_id = ids.device_id
+     LEFT JOIN clicks c ON c.device_id = ids.device_id
+     WHERE ${havingClauses.join(' AND ')}
+     ORDER BY impressions DESC, clicks DESC, canonical_value ASC
      LIMIT $${params.length}`,
     params,
   );
@@ -970,18 +1002,38 @@ export async function getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, op
   const { dateFrom, dateTo, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
-  const conditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds);
-  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
-  addIdentityBreakdownFilters(params, conditions, 'ie', opts);
+  const impressionConditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds);
+  addTimestampFilters(params, impressionConditions, 'ie', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, impressionConditions, 'ie', opts);
+
+  const clickConditions = ['ce.workspace_id = $1'];
+  addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds);
+  addTimestampFilters(params, clickConditions, 'ce', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, clickConditions, 'ce', opts);
 
   const { rows } = await pool.query(
-    `WITH per_identity AS (
+    `WITH impressions AS (
        SELECT ie.device_id, COUNT(*)::bigint AS impressions
        FROM impression_events ie
        JOIN ad_tags t ON t.id = ie.tag_id
-       WHERE ${conditions.join(' AND ')}
+       WHERE ${impressionConditions.join(' AND ')}
        GROUP BY ie.device_id
+     ),
+     clicks AS (
+       SELECT ce.device_id, COUNT(*)::bigint AS clicks
+       FROM click_events ce
+       JOIN ad_tags t_click ON t_click.id = ce.tag_id
+       WHERE ${clickConditions.join(' AND ')}
+       GROUP BY ce.device_id
+     ),
+     per_identity AS (
+       SELECT
+         i.device_id,
+         i.impressions,
+         COALESCE(c.clicks, 0)::bigint AS clicks
+       FROM impressions i
+       LEFT JOIN clicks c ON c.device_id = i.device_id
      )
      SELECT
        CASE
@@ -994,8 +1046,10 @@ export async function getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, op
        END AS bucket_label,
        COUNT(*)::bigint AS identity_count,
        SUM(impressions)::bigint AS impressions,
-       0::bigint AS clicks,
-       0::numeric AS ctr
+       SUM(clicks)::bigint AS clicks,
+       CASE WHEN SUM(impressions) > 0
+         THEN ROUND(SUM(clicks)::numeric / SUM(impressions) * 100, 4)
+         ELSE 0 END AS ctr
      FROM per_identity
      GROUP BY 1
      ORDER BY MIN(impressions) ASC`,
@@ -1008,18 +1062,34 @@ export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts
   const { dateFrom, dateTo, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
-  const conditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds);
-  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
-  addIdentityBreakdownFilters(params, conditions, 'ie', opts);
+  const impressionConditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds);
+  addTimestampFilters(params, impressionConditions, 'ie', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, impressionConditions, 'ie', opts);
+
+  const clickConditions = ['ce.workspace_id = $1'];
+  addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds);
+  addTimestampFilters(params, clickConditions, 'ce', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, clickConditions, 'ce', opts);
 
   const { rows } = await pool.query(
     `WITH per_identity AS (
-       SELECT ie.device_id, COUNT(*)::bigint AS impressions
+       SELECT
+         ie.device_id,
+         COUNT(*)::bigint AS impressions,
+         COALESCE(c.clicks, 0)::bigint AS clicks
        FROM impression_events ie
        JOIN ad_tags t ON t.id = ie.tag_id
-       WHERE ${conditions.join(' AND ')}
+       LEFT JOIN (
+         SELECT ce.device_id, COUNT(*)::bigint AS clicks
+         FROM click_events ce
+         JOIN ad_tags t_click ON t_click.id = ce.tag_id
+         WHERE ${clickConditions.join(' AND ')}
+         GROUP BY ce.device_id
+       ) c ON c.device_id = ie.device_id
+       WHERE ${impressionConditions.join(' AND ')}
        GROUP BY ie.device_id
+              , c.clicks
      )
      SELECT *
      FROM (
@@ -1028,16 +1098,16 @@ export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts
          'High-frequency exposed' AS label,
          COUNT(*) FILTER (WHERE impressions >= 5)::bigint AS identity_count,
          COALESCE(SUM(impressions) FILTER (WHERE impressions >= 5), 0)::bigint AS impressions,
-         0::bigint AS clicks,
+         COALESCE(SUM(clicks) FILTER (WHERE impressions >= 5), 0)::bigint AS clicks,
          0::bigint AS engagements
        FROM per_identity
        UNION ALL
        SELECT
          'clicked_users' AS preset,
          'Clicked users' AS label,
-         0::bigint AS identity_count,
-         0::bigint AS impressions,
-         0::bigint AS clicks,
+         COUNT(*) FILTER (WHERE clicks > 0)::bigint AS identity_count,
+         COALESCE(SUM(impressions) FILTER (WHERE clicks > 0), 0)::bigint AS impressions,
+         COALESCE(SUM(clicks) FILTER (WHERE clicks > 0), 0)::bigint AS clicks,
          0::bigint AS engagements
        UNION ALL
        SELECT
@@ -1128,18 +1198,29 @@ export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, 
   const { dateFrom, dateTo, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
-  const conditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds);
-  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
-  addIdentityBreakdownFilters(params, conditions, 'ie', opts);
+  const impressionConditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds);
+  addTimestampFilters(params, impressionConditions, 'ie', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, impressionConditions, 'ie', opts);
+
+  const clickConditions = ['ce.workspace_id = $1'];
+  addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds);
+  addTimestampFilters(params, clickConditions, 'ce', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, clickConditions, 'ce', opts);
 
   const { rows } = await pool.query(
     `WITH latest_seen AS (
        SELECT ie.device_id, MAX(ie.timestamp) AS last_seen_at
        FROM impression_events ie
        JOIN ad_tags t ON t.id = ie.tag_id
-       WHERE ${conditions.join(' AND ')}
+       WHERE ${impressionConditions.join(' AND ')}
        GROUP BY ie.device_id
+     ),
+     clickers AS (
+       SELECT DISTINCT ce.device_id
+       FROM click_events ce
+       JOIN ad_tags t_click ON t_click.id = ce.tag_id
+       WHERE ${clickConditions.join(' AND ')}
      )
      SELECT *
      FROM (
@@ -1151,11 +1232,14 @@ export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, 
            ELSE '31+ days'
          END AS label,
          COUNT(*)::bigint AS exposed_identities,
-         0::bigint AS clicked_identities,
+         COUNT(*) FILTER (WHERE c.device_id IS NOT NULL)::bigint AS clicked_identities,
          0::bigint AS engaged_identities,
-         0::numeric AS click_through_rate,
+         CASE WHEN COUNT(*) > 0
+           THEN ROUND((COUNT(*) FILTER (WHERE c.device_id IS NOT NULL))::numeric / COUNT(*) * 100, 4)
+           ELSE 0 END AS click_through_rate,
          0::numeric AS engagement_through_rate
-       FROM latest_seen
+       FROM latest_seen ls
+       LEFT JOIN clickers c ON c.device_id = ls.device_id
        GROUP BY 1
      ) buckets
      ORDER BY
