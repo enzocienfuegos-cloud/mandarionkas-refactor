@@ -891,59 +891,32 @@ export async function handleCreativeRoutes(ctx) {
           requestId,
         });
       }
+      const isHtml5 = trimText(existing.source_kind).toLowerCase() === 'html5_zip';
+      const queuedPublishMetadata = isHtml5
+        ? {
+            ...(existing.metadata || {}),
+            entryPath: normalizeHtmlEntryPath(existing.metadata?.entryPath || 'index.html'),
+            publishJob: buildPublishJobState('queued'),
+          }
+        : (existing.metadata || {});
 
-      if (existing.source_kind === 'html5_zip' && existing.creative_id && existing.creative_version_id && existing.status !== 'published') {
-        const queuedPublishMetadata = {
-          ...(existing.metadata || {}),
-          entryPath: normalizeHtmlEntryPath(existing.metadata?.entryPath || 'index.html'),
-          publishJob: buildPublishJobState('queued'),
-        };
-        const refreshedIngestion = await updateCreativeIngestion(session.client, workspaceId, ingestionId, {
-          status: 'processing',
-          metadata: queuedPublishMetadata,
-          validation_report: {
-            ...(existing.validation_report || {}),
-            readyToPublish: true,
-            publishQueued: true,
-          },
-          error_code: null,
-          error_detail: null,
-        });
-        await dispatchHtml5ArchivePublishJob(session.client, ingestionId);
-        const creative = await getCreative(session.client, workspaceId, existing.creative_id);
-        const creativeVersion = await getCreativeVersion(session.client, workspaceId, existing.creative_version_id);
-        return sendJson(res, 200, {
-          ingestion: normalizeCreativeIngestion(refreshedIngestion),
-          creative: normalizeCreative(creative),
-          creativeVersion: normalizeCreativeVersion(creativeVersion),
-          queued: true,
-          processing: true,
-          requestId,
-        });
-      }
-
-      if (existing.source_kind === 'html5_zip') {
-        const queuedPublishMetadata = {
-          ...(existing.metadata || {}),
-          entryPath: normalizeHtmlEntryPath(existing.metadata?.entryPath || 'index.html'),
-          publishJob: buildPublishJobState('queued'),
-        };
-        const result = await createPublishedCreative(session.client, {
-          workspaceId,
-          createdBy: session.user.id,
-          ingestionId,
-          sourceKind: existing.source_kind,
-          name: trimText(ctx.body?.name) || existing.metadata?.requestedName || existing.original_filename,
-          clickUrl: trimText(ctx.body?.clickUrl ?? ctx.body?.click_url) || existing.metadata?.clickUrl || null,
-          publicUrl: existing.public_url,
-          storageKey: existing.storage_key || inferStorageKeyFromPublicUrl(ctx.env, existing.public_url),
-          originalFilename: existing.original_filename,
-          mimeType: existing.mime_type,
-          sizeBytes: existing.size_bytes,
-          width: normalizeOptionalPositiveInteger(ctx.body?.width) ?? existing.metadata?.width ?? null,
-          height: normalizeOptionalPositiveInteger(ctx.body?.height) ?? existing.metadata?.height ?? null,
-          durationMs: normalizeOptionalPositiveInteger(ctx.body?.durationMs ?? ctx.body?.duration_ms) ?? existing.metadata?.durationMs ?? null,
-          metadata: existing.metadata || {},
+      const result = await createPublishedCreative(session.client, {
+        workspaceId,
+        createdBy: session.user.id,
+        ingestionId,
+        sourceKind: existing.source_kind,
+        name: trimText(ctx.body?.name) || existing.metadata?.requestedName || existing.original_filename,
+        clickUrl: trimText(ctx.body?.clickUrl ?? ctx.body?.click_url) || existing.metadata?.clickUrl || null,
+        publicUrl: existing.public_url,
+        storageKey: existing.storage_key || inferStorageKeyFromPublicUrl(ctx.env, existing.public_url),
+        originalFilename: existing.original_filename,
+        mimeType: existing.mime_type,
+        sizeBytes: existing.size_bytes,
+        width: normalizeOptionalPositiveInteger(ctx.body?.width) ?? existing.metadata?.width ?? null,
+        height: normalizeOptionalPositiveInteger(ctx.body?.height) ?? existing.metadata?.height ?? null,
+        durationMs: normalizeOptionalPositiveInteger(ctx.body?.durationMs ?? ctx.body?.duration_ms) ?? existing.metadata?.durationMs ?? null,
+        metadata: queuedPublishMetadata,
+        ...(isHtml5 ? {
           deferHtml5ArchivePublish: true,
           ingestionStatus: 'processing',
           ingestionMetadata: queuedPublishMetadata,
@@ -952,7 +925,10 @@ export async function handleCreativeRoutes(ctx) {
             readyToPublish: true,
             publishQueued: true,
           },
-        });
+        } : {}),
+      });
+
+      if (isHtml5) {
         const dispatched = await dispatchHtml5ArchivePublishJob(session.client, ingestionId);
         if (!dispatched) {
           const failedIngestion = await updateCreativeIngestion(session.client, workspaceId, ingestionId, {
@@ -970,39 +946,14 @@ export async function handleCreativeRoutes(ctx) {
           });
           return serviceUnavailable(res, requestId, failedIngestion?.error_detail || 'HTML5 publish queue is unavailable right now.');
         }
-        return sendJson(res, 200, {
-          ingestion: normalizeCreativeIngestion(result.ingestion),
-          creative: normalizeCreative(result.creative),
-          creativeVersion: normalizeCreativeVersion(result.creativeVersion),
-          queued: true,
-          processing: true,
-          requestId,
-        });
       }
 
-      const result = await createPublishedCreative(session.client, {
-        workspaceId,
-        createdBy: session.user.id,
-        ingestionId,
-        sourceKind: existing.source_kind,
-        name: trimText(ctx.body?.name) || existing.metadata?.requestedName || existing.original_filename,
-        clickUrl: trimText(ctx.body?.clickUrl ?? ctx.body?.click_url) || existing.metadata?.clickUrl || null,
-        publicUrl: existing.public_url,
-        storageKey: existing.storage_key || inferStorageKeyFromPublicUrl(ctx.env, existing.public_url),
-        originalFilename: existing.original_filename,
-        mimeType: existing.mime_type,
-        sizeBytes: existing.size_bytes,
-        width: normalizeOptionalPositiveInteger(ctx.body?.width) ?? existing.metadata?.width ?? null,
-        height: normalizeOptionalPositiveInteger(ctx.body?.height) ?? existing.metadata?.height ?? null,
-        durationMs: normalizeOptionalPositiveInteger(ctx.body?.durationMs ?? ctx.body?.duration_ms) ?? existing.metadata?.durationMs ?? null,
-        metadata: existing.metadata || {},
-      });
       return sendJson(res, 200, {
         ingestion: normalizeCreativeIngestion(result.ingestion),
         creative: normalizeCreative(result.creative),
         creativeVersion: normalizeCreativeVersion(result.creativeVersion),
-        queued: Boolean(result.transcode?.queued),
-        processing: Boolean(result.transcode?.queued),
+        queued: isHtml5 || Boolean(result.transcode?.queued),
+        processing: isHtml5 || Boolean(result.transcode?.queued),
         transcode: result.transcode ?? null,
         requestId,
       });
