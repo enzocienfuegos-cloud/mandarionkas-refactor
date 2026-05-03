@@ -1382,30 +1382,18 @@ export default function CreativeLibrary() {
   }, [regenerationFeedback?.active]);
 
   useEffect(() => {
-    const hasProcessing = filteredCreatives.some((creative) => {
+    const hasProcessing = creatives.some((creative) => {
       const version = latestVersions[creative.id];
       return version?.sourceKind === 'html5_zip' && String(version?.status ?? '') === 'processing';
     });
     if (!hasProcessing) return undefined;
 
     const intervalId = window.setInterval(() => {
-      void (async () => {
-        try {
-          const [{ creatives: nextCreatives, latestVersions: nextVersions }, nextIngestions] = await Promise.all([
-            loadCreativesWithLatestVersion({ scope: 'all' }),
-            loadCreativeIngestions(),
-          ]);
-          setCreatives(nextCreatives);
-          setLatestVersions(nextVersions);
-          setIngestions(nextIngestions);
-        } catch (_) {
-          // silent — manual refresh is still available
-        }
-      })();
+      void load();
     }, 4000);
 
     return () => window.clearInterval(intervalId);
-  }, [filteredCreatives, latestVersions]);
+  }, [creatives, latestVersions]);
 
   useEffect(() => {
     if (!previewModal) return undefined;
@@ -1995,20 +1983,15 @@ export default function CreativeLibrary() {
                             onClick={() => {
                               const url = resolveCreativePreviewHref(version);
                               if (!url) return;
-                              const width = Number(version?.width) || 0;
-                              const height = Number(version?.height) || 0;
                               setPreviewModal({
                                 url,
-                                width: width > 0 ? width : 300,
-                                height: height > 0 ? height : 250,
+                                width: Number(version?.width) > 0 ? Number(version?.width) : 300,
+                                height: Number(version?.height) > 0 ? Number(version?.height) : 250,
                                 name: creative.name,
                               });
                             }}
                             className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
                           >
-                            <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                              <path d="M8 3a5 5 0 1 1 0 10A5 5 0 0 1 8 3zm0 1.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zM8 6a2 2 0 1 1 0 4A2 2 0 0 1 8 6z"/>
-                            </svg>
                             Preview
                           </button>
                           <a
@@ -2021,9 +2004,9 @@ export default function CreativeLibrary() {
                           </a>
                         </div>
                       ) : version?.sourceKind === 'html5_zip' && String(version?.status ?? '') === 'processing' ? (
-                        <div className="flex flex-col gap-1 text-xs">
-                          <span className="text-amber-600">Publishing…</span>
-                          <span className="text-slate-400">Auto-refreshing</span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs text-amber-600">Publishing…</span>
+                          <span className="text-[11px] text-slate-400">Auto-refreshing</span>
                         </div>
                       ) : (
                         <span className="text-xs text-slate-400">No artifact</span>
@@ -2778,7 +2761,7 @@ export default function CreativeLibrary() {
           aria-label={`Preview: ${previewModal.name}`}
         >
           <div className="flex flex-col items-center gap-3">
-            <div className="flex w-full items-center justify-between gap-4 rounded-lg bg-white/10 px-4 py-2 backdrop-blur-sm">
+            <div className="flex w-full items-center justify-between gap-4 rounded-lg bg-white/10 px-4 py-2">
               <div className="text-sm font-medium text-white">
                 {previewModal.name}
                 <span className="ml-2 text-xs font-normal text-white/60">
