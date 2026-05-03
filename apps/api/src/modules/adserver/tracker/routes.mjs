@@ -23,15 +23,9 @@ const PIXEL_GIF = Buffer.from(
 );
 
 function applyPublicCors(req, res) {
-  const origin = String(req?.headers?.origin ?? '').trim();
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.removeHeader('Access-Control-Allow-Credentials');
-  }
-  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.removeHeader('Access-Control-Allow-Credentials');
+  res.removeHeader('Vary');
 }
 
 function trimText(value) {

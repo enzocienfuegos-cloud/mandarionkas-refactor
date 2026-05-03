@@ -24,7 +24,6 @@
     "typescript": "^5.4.5"
   },
   "scripts": {
-    "test": "node --test src/tag-snippets.test.mjs",
-    "build:basis-runtime": "node ../../scripts/build-basis-runtime.mjs"
+    "test": "node --test src/tag-snippets.test.mjs"
   }
 }

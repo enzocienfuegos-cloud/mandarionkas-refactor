@@ -42,15 +42,6 @@ export function buildNativeJsSnippet(args: {
   nativeJsUrl: string;
   tagId: string;
 }): string;
-export function buildBasisNativeDisplaySnippet(args: {
-  tagId: string;
-  displayHtmlUrl: string;
-  trackerEngagementUrl: string;
-  trackerImpressionUrl: string;
-  trackerViewabilityUrl?: string;
-  width: number | string;
-  height: number | string;
-}): string;
 export function buildTagSnippet(
   tag: TagRecord,
   variant: SnippetVariant,

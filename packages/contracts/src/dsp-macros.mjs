@@ -196,6 +196,9 @@ export function getDspMacroConfig(dsp) {
 }
 
 export function shouldUseBasisNativeDelivery(dsp) {
+  // Legacy helper kept for non-display consumers. The Basis native display blob
+  // was removed in S57, so HTML/display tags must not use this as a signal to
+  // change snippet shape.
   return normalizeDsp(dsp) === 'basis';
 }
 

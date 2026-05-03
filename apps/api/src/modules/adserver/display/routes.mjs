@@ -28,22 +28,17 @@ function getDatabasePool(env) {
 }
 
 function applyPublicCors(req, res) {
-  const origin = trimText(req?.headers?.origin);
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.removeHeader('Access-Control-Allow-Credentials');
-  }
-  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.removeHeader('Access-Control-Allow-Credentials');
+  res.removeHeader('Vary');
 }
 
 function sendHtml(res, html, status = 200) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.setHeader('Content-Security-Policy', "frame-ancestors *");
+  res.removeHeader('X-Frame-Options');
   res.end(html);
   return true;
 }
@@ -170,14 +165,17 @@ ${omidBlock}
       var data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
       if (!data || data.type !== 'smx:exit') return;
       var dest = (typeof data.url === 'string' && data.url) ? data.url : '';
+      var navigateTo = dest || clickTracker || '';
       if (clickTracker) {
         var t = clickTracker + (clickTracker.indexOf('?') === -1 ? '?' : '&') + 'url=' + encodeURIComponent(dest || clickTracker);
-        (new Image()).src = t;
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(t);
+        } else {
+          (new Image()).src = t;
+        }
       }
-      if (dest) {
-        try { window.top.location.href = dest; } catch(_) { window.open(dest, '_blank'); }
-      } else if (clickTracker) {
-        try { window.top.location.href = clickTracker; } catch(_) { window.open(clickTracker, '_blank'); }
+      if (navigateTo) {
+        try { window.top.location.href = navigateTo; } catch(_) { window.open(navigateTo, '_blank'); }
       }
     } catch(_) {}
   });
