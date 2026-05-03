@@ -83,6 +83,7 @@ function formatVideoBitrate(value?: number | null) {
 function resolveCreativePreviewHref(version: CreativeVersion | null | undefined) {
   const previewUrl = String(version?.previewUrl || '').trim();
   if (previewUrl) return previewUrl;
+  if (version?.sourceKind === 'html5_zip') return '';
   return String(version?.publicUrl || '').trim();
 }
 

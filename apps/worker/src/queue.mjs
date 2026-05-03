@@ -50,6 +50,7 @@ import PgBoss from 'pg-boss';
 export const QUEUE = Object.freeze({
   TRANSCODE_VIDEO:    'smx.transcode-video',
   IMAGE_DERIVATIVES:  'smx.image-derivatives',
+  PUBLISH_HTML5_ARCHIVE: 'smx.publish-html5-archive',
   MAINTENANCE:        'smx.maintenance',
 });
 
@@ -125,6 +126,7 @@ export async function ensureBossStarted(source = process.env) {
     await instance.start();
     await instance.createQueue(QUEUE.TRANSCODE_VIDEO);
     await instance.createQueue(QUEUE.IMAGE_DERIVATIVES);
+    await instance.createQueue(QUEUE.PUBLISH_HTML5_ARCHIVE);
     await instance.createQueue(QUEUE.MAINTENANCE);
     boss = instance;
 
@@ -208,6 +210,25 @@ export async function sendImageDerivativesJob(assetId, opts = {}) {
     retryLimit:        3,
     retryDelay:        30,
     expireInSeconds:   600,
+    retryBackoff:      true,
+    ...opts,
+  });
+}
+
+/**
+ * Enqueue an HTML5 archive publish job.
+ * Deduplicated by ingestionId.
+ *
+ * @param {string} ingestionId
+ * @param {object} [opts]
+ */
+export async function sendHtml5ArchivePublishJob(ingestionId, opts = {}) {
+  const b = getBoss();
+  return b.send(QUEUE.PUBLISH_HTML5_ARCHIVE, { ingestionId }, {
+    singletonKey:      ingestionId,
+    retryLimit:        3,
+    retryDelay:        30,
+    expireInSeconds:   900,
     retryBackoff:      true,
     ...opts,
   });

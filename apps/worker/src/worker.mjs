@@ -35,6 +35,7 @@ import { runGenerateImageDerivativesJob } from './jobs/generate-image-derivative
 import { runExtractMetadataJob } from './jobs/extract-metadata.mjs';
 import { runGenerateThumbnailsJob } from './jobs/generate-thumbnails.mjs';
 import { runMaintenanceJob } from './jobs/maintenance.mjs';
+import { runPublishHtml5ArchiveJob } from './jobs/publish-html5-archive.mjs';
 import { runTranscodeVideoJob } from './jobs/transcode-video.mjs';
 import {
   ensureBossStarted,
@@ -69,6 +70,13 @@ async function handleImageDerivatives(job) {
   log('info', { event: 'job_done', queue: QUEUE.IMAGE_DERIVATIVES, pgbossJobId: job.id, ...result });
 }
 
+async function handlePublishHtml5Archive(job) {
+  const ingestionId = String(job?.data?.ingestionId || '').trim();
+  log('info', { event: 'job_start', queue: QUEUE.PUBLISH_HTML5_ARCHIVE, pgbossJobId: job.id, ingestionId });
+  const result = await runPublishHtml5ArchiveJob(ingestionId);
+  log('info', { event: 'job_done', queue: QUEUE.PUBLISH_HTML5_ARCHIVE, pgbossJobId: job.id, ingestionId, ...result });
+}
+
 async function handleMaintenance(job) {
   log('info', { event: 'job_start', queue: QUEUE.MAINTENANCE, pgbossJobId: job.id });
   const result = await runMaintenanceJob();
@@ -85,6 +93,9 @@ async function registerHandlers() {
 
   // Image derivatives: up to 2 concurrent per worker (CPU/IO bound, not memory-heavy)
   await boss.work(QUEUE.IMAGE_DERIVATIVES, { teamSize: 2, teamConcurrency: 2 }, handleImageDerivatives);
+
+  // HTML5 archive publish: moderate IO work, safe to process in small parallelism
+  await boss.work(QUEUE.PUBLISH_HTML5_ARCHIVE, { teamSize: 2, teamConcurrency: 2 }, handlePublishHtml5Archive);
 
   // Maintenance: at most 1 at a time
   await boss.work(QUEUE.MAINTENANCE, { teamSize: 1, teamConcurrency: 1 }, handleMaintenance);

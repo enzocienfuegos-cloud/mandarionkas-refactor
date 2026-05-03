@@ -819,6 +819,10 @@ export async function createPublishedCreative(pool, input = {}) {
     height = null,
     durationMs = null,
     metadata = {},
+    deferHtml5ArchivePublish = false,
+    ingestionStatus = null,
+    ingestionMetadata = null,
+    ingestionValidationReport = null,
   } = input;
 
   const normalizedSourceKind = normalizeSourceKind(sourceKind);
@@ -832,9 +836,11 @@ export async function createPublishedCreative(pool, input = {}) {
   const resolvedEntryPath = normalizedSourceKind === 'html5_zip'
     ? normalizeHtmlEntryPath(metadata?.entryPath || 'index.html')
     : null;
+  const shouldDeferHtml5ArchivePublish = normalizedSourceKind === 'html5_zip' && deferHtml5ArchivePublish === true;
   const resolvedPreviewUrl = normalizedSourceKind === 'html5_zip'
     ? buildHtmlPreviewUrl(publicUrl, resolvedEntryPath)
     : publicUrl;
+  const initialCreativePublicUrl = shouldDeferHtml5ArchivePublish ? null : resolvedPreviewUrl;
   const creativeMetadata = {
     ...(metadata || {}),
     ingestionId,
@@ -856,8 +862,8 @@ export async function createPublishedCreative(pool, input = {}) {
       workspaceId,
       creativeName,
       creativeType,
-      resolvedPreviewUrl,
-      resolvedPreviewUrl,
+      initialCreativePublicUrl,
+      initialCreativePublicUrl,
       sizeBytes,
       mimeType,
       resolvedWidth,
@@ -887,8 +893,8 @@ export async function createPublishedCreative(pool, input = {}) {
       creative.id,
       normalizedSourceKind,
       servingFormat,
-      normalizeCreativeStatus('draft'),
-      resolvedPreviewUrl,
+      normalizeCreativeStatus(shouldDeferHtml5ArchivePublish ? 'processing' : 'draft'),
+      initialCreativePublicUrl,
       resolvedEntryPath,
       mimeType,
       resolvedWidth,
@@ -1009,9 +1015,9 @@ export async function createPublishedCreative(pool, input = {}) {
   const ingestion = await updateCreativeIngestion(pool, workspaceId, ingestionId, {
     creative_id: creative.id,
     creative_version_id: creativeVersion.id,
-    status: 'published',
-    metadata: creativeMetadata,
-    validation_report: { published: true },
+    status: ingestionStatus || (shouldDeferHtml5ArchivePublish ? 'processing' : 'published'),
+    metadata: ingestionMetadata || creativeMetadata,
+    validation_report: ingestionValidationReport || { published: true },
   });
 
   const latestCreative = await getCreative(pool, workspaceId, creative.id);

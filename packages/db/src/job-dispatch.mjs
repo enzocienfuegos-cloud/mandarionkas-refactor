@@ -82,3 +82,34 @@ export async function dispatchImageDerivativesJob(pool, assetId) {
     return false;
   }
 }
+
+/**
+ * Dispatch an html5 archive publish job to the pg-boss queue.
+ * Safe to call from apps/api. Fails silently if pg-boss schema is absent.
+ *
+ * @param {object} pool - pg pool
+ * @param {string} ingestionId
+ */
+export async function dispatchHtml5ArchivePublishJob(pool, ingestionId) {
+  if (!ingestionId) return false;
+  try {
+    await pool.query(
+      `INSERT INTO pgboss.job (name, data, singleton_key, retry_limit, retry_backoff, expire_in)
+       VALUES (
+         'smx.publish-html5-archive',
+         $1::jsonb,
+         $2,
+         3,
+         true,
+         interval '15 minutes'
+       )
+       ON CONFLICT (name, singleton_key)
+         WHERE state < 'active'
+       DO NOTHING`,
+      [JSON.stringify({ ingestionId }), ingestionId],
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
