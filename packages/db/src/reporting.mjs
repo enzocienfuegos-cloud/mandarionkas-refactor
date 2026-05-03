@@ -194,14 +194,16 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
   addTimestampFilters(durationParams, durationConditions, 'ie', dateFrom, dateTo);
   const durationQuery = pool.query(
     `SELECT
-       MAX(ie.site_domain) FILTER (WHERE COALESCE(ie.site_domain, '') <> '') AS site_domain,
-       MAX(ie.country) FILTER (WHERE COALESCE(ie.country, '') <> '') AS country,
-       MAX(ie.region) FILTER (WHERE COALESCE(ie.region, '') <> '') AS region,
-       MAX(ie.city) FILTER (WHERE COALESCE(ie.city, '') <> '') AS city,
-       MAX(ie.referer) FILTER (WHERE COALESCE(ie.referer, '') <> '') AS referer,
-       MAX(ie.user_agent) FILTER (WHERE COALESCE(ie.user_agent, '') <> '') AS user_agent
+       ie.site_domain,
+       ie.country,
+       ie.region,
+       ie.city,
+       ie.referer,
+       ie.user_agent
      FROM impression_events ie
-     WHERE ${durationConditions.join(' AND ')}`,
+     WHERE ${durationConditions.join(' AND ')}
+     ORDER BY ie.timestamp DESC
+     LIMIT 1`,
     durationParams,
   );
 
@@ -213,17 +215,35 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     [tagId],
   );
 
-  const [summaryResult, engagementResult, durationResult, last7dResult] = await Promise.all([
+  const frequencyParams = [workspaceId, tagId];
+  const frequencyConditions = ['f.workspace_id = $1', 'f.tag_id = $2'];
+  addDateFilters(frequencyParams, frequencyConditions, 'f', dateFrom, dateTo);
+  const frequencyQuery = pool.query(
+    `SELECT
+       COALESCE(COUNT(*), 0)::bigint AS unique_identities,
+       COALESCE(AVG(freq.device_impressions), 0)::numeric AS avg_frequency
+     FROM (
+       SELECT f.device_id, SUM(f.impressions)::numeric AS device_impressions
+       FROM tag_frequency_cap_events f
+       WHERE ${frequencyConditions.join(' AND ')}
+       GROUP BY f.device_id
+     ) freq`,
+    frequencyParams,
+  );
+
+  const [summaryResult, engagementResult, durationResult, last7dResult, frequencyResult] = await Promise.all([
     summaryQuery,
     engagementQuery,
     durationQuery,
     last7dQuery,
+    frequencyQuery,
   ]);
 
   const summary = summaryResult.rows[0] ?? {};
   const engagement = engagementResult.rows[0] ?? {};
   const duration = durationResult.rows[0] ?? {};
   const last7d = last7dResult.rows[0] ?? {};
+  const frequency = frequencyResult.rows[0] ?? {};
 
   const videoStarts = Number(engagement.video_starts || 0);
   const videoCompletions = Number(engagement.video_completions || 0);
@@ -244,6 +264,8 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     totalInViewDurationMs: Number(engagement.total_in_view_duration_ms || 0),
     totalAttentionDurationMs: Number(engagement.total_attention_duration_ms || 0),
     impressionsLast7d: Number(last7d.impressions_7d || 0),
+    uniqueIdentities: Number(frequency.unique_identities || 0),
+    avgFrequency: Number(frequency.avg_frequency || 0),
     videoStarts,
     videoStartRate: totalImpressions > 0 ? Number(((videoStarts / totalImpressions) * 100).toFixed(4)) : 0,
     videoCompletions,

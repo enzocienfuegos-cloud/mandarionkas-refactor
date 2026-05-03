@@ -186,7 +186,7 @@ export function createTrackerRoutes(buffer = null) {
     }
 
     // ── engagement ───────────────────────────────────────────────────────
-    if (method === 'GET' && /^\/v1\/tags\/tracker\/[^/]+\/engagement$/.test(pathname)) {
+    if ((method === 'GET' || method === 'POST') && /^\/v1\/tags\/tracker\/[^/]+\/engagement$/.test(pathname)) {
       const tagId = pathname.split('/')[4];
       const event = trimText(url.searchParams.get('event'));
       const playhead = Number(url.searchParams.get('t') || url.searchParams.get('playhead') || 0);
@@ -201,6 +201,22 @@ export function createTrackerRoutes(buffer = null) {
       res.end();
 
       if (event) queueEngagementWrite(buffer, getDatabasePool(env), tagId, event, playhead, requestId);
+      return true;
+    }
+
+    if (method === 'POST' && /^\/v1\/tags\/tracker\/[^/]+\/click$/.test(pathname)) {
+      const tagId = pathname.split('/')[4];
+      const pool = getDatabasePool(env);
+
+      const { cookie } = resolveDeviceId(req, env);
+
+      applyPublicCors(req, res);
+      res.statusCode = 204;
+      res.setHeader('Cache-Control', 'private, no-store');
+      if (cookie) res.setHeader('Set-Cookie', cookie);
+      res.end();
+
+      queueClickWrite(buffer, pool, tagId, requestId);
       return true;
     }
 

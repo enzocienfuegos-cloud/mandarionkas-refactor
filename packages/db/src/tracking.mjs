@@ -88,6 +88,7 @@ const VALID_ENGAGEMENT_EVENTS = new Set([
   'acceptInvitationLinear',
   'progress',
   'viewable',
+  'hover_end',
   'error',
   'click',
   'interaction',

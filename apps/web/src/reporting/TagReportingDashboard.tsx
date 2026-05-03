@@ -28,6 +28,8 @@ interface TagSummary {
   totalInViewDurationMs: number;
   totalAttentionDurationMs: number;
   impressionsLast7d: number;
+  uniqueIdentities: number;
+  avgFrequency: number;
   videoStarts: number;
   videoStartRate: number;
   videoCompletions: number;
@@ -240,6 +242,8 @@ function normalizeTagSummary(source: any): TagSummary | null {
     totalInViewDurationMs: toNumber(source.totalInViewDurationMs ?? source.total_in_view_duration_ms),
     totalAttentionDurationMs: toNumber(source.totalAttentionDurationMs ?? source.total_attention_duration_ms ?? source.totalHoverDurationMs ?? source.total_hover_duration_ms),
     impressionsLast7d: toNumber(source.impressionsLast7d ?? source.impressions_7d),
+    uniqueIdentities: toNumber(source.uniqueIdentities ?? source.unique_identities),
+    avgFrequency: toNumber(source.avgFrequency ?? source.avg_frequency),
     videoStarts: toNumber(source.videoStarts ?? source.video_starts),
     videoStartRate: toNumber(source.videoStartRate ?? source.video_start_rate),
     videoCompletions: toNumber(source.videoCompletions ?? source.video_completions),
@@ -799,10 +803,12 @@ export default function TagReportingDashboard() {
 
                   {activeTab === 'identity' ? (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                         <KpiCard label="Inventory Environment" value={inventoryEnvironment} sub={identitySource} />
                         <KpiCard label="Device Type" value={summary?.latestContext?.deviceType ? titleCase(summary.latestContext.deviceType) : 'Unknown'} sub="Inferred from request" />
                         <KpiCard label="Device Model" value={summary?.latestContext?.deviceModel || 'Unknown'} sub="User-agent or DSP reported" />
+                        <KpiCard label="Unique Devices" value={summary ? fmtNum(summary.uniqueIdentities) : '—'} sub="From tracker identity cookie" />
+                        <KpiCard label="Avg Frequency" value={summary ? summary.avgFrequency.toFixed(2) : '—'} sub="Impressions per device" />
                         <KpiCard label="Site / App Type" value={summary?.latestContext?.appId || summary?.latestContext?.appBundle || summary?.latestContext?.appName ? 'App' : summary?.latestContext?.siteDomain || summary?.latestContext?.pageUrl ? 'Web Site' : 'Unknown'} />
                       </div>
 

@@ -220,9 +220,9 @@ ${omidBlock}
       var isAlreadyTracked = clickTracker && resolvedClickUrl && resolvedClickUrl.indexOf(clickTracker) === 0;
       if (clickTracker && !isAlreadyTracked) {
         var t = clickTracker + (clickTracker.indexOf('?') === -1 ? '?' : '&') + 'url=' + encodeURIComponent(resolvedClickUrl || clickTracker);
-        if (navigator.sendBeacon) {
-          navigator.sendBeacon(t);
-        } else {
+        try {
+          fetch(t, { method: 'POST', keepalive: true, mode: 'no-cors', credentials: 'include' });
+        } catch(_) {
           (new Image()).src = t;
         }
       }
@@ -237,27 +237,58 @@ ${omidBlock}
 
     var frame = document.getElementById('smx-creative-frame');
     var viewStart = null;
-    var totalViewMs = 0;
     var hoverStart = null;
-    var totalHoverMs = 0;
     var flushed = false;
 
     function sendBeacon(url) {
-      if (navigator.sendBeacon) { navigator.sendBeacon(url); }
-      else { (new Image()).src = url; }
+      try {
+        fetch(url, { method: 'GET', keepalive: true, mode: 'no-cors', credentials: 'include' });
+      } catch(_) {
+        (new Image()).src = url;
+      }
+    }
+
+    function flushViewSegment() {
+      if (!viewStart) return;
+      var duration = Date.now() - viewStart;
+      viewStart = null;
+      if (duration > 0) {
+        sendBeacon(engagementTracker + '?event=viewable&t=' + Math.round(duration));
+      }
+    }
+
+    function flushHoverSegment() {
+      if (!hoverStart) return;
+      var duration = Date.now() - hoverStart;
+      hoverStart = null;
+      if (duration > 0) {
+        sendBeacon(engagementTracker + '?event=hover_end&t=' + Math.round(duration));
+      }
+    }
+
+    function flushActiveSegmentsIncrementally() {
+      if (flushed) return;
+      if (viewStart) {
+        var viewDuration = Date.now() - viewStart;
+        if (viewDuration > 0) {
+          sendBeacon(engagementTracker + '?event=viewable&t=' + Math.round(viewDuration));
+          viewStart = Date.now();
+        }
+      }
+      if (hoverStart) {
+        var hoverDuration = Date.now() - hoverStart;
+        if (hoverDuration > 0) {
+          sendBeacon(engagementTracker + '?event=hover_end&t=' + Math.round(hoverDuration));
+          hoverStart = Date.now();
+        }
+      }
     }
 
     function flush() {
       if (flushed) return;
       flushed = true;
-      if (viewStart) { totalViewMs += Date.now() - viewStart; viewStart = null; }
-      if (hoverStart) { totalHoverMs += Date.now() - hoverStart; hoverStart = null; }
-      if (totalViewMs > 0) {
-        sendBeacon(engagementTracker + '?event=viewable&t=' + Math.round(totalViewMs));
-      }
-      if (totalHoverMs > 0) {
-        sendBeacon(engagementTracker + '?event=hover_end&t=' + Math.round(totalHoverMs));
-      }
+      flushViewSegment();
+      flushHoverSegment();
     }
 
     if (frame && typeof IntersectionObserver !== 'undefined') {
@@ -276,10 +307,7 @@ ${omidBlock}
         } else {
           clearTimeout(mrcTimer);
           mrcTimer = null;
-          if (isMRC && viewStart) {
-            totalViewMs += Date.now() - viewStart;
-            viewStart = null;
-          }
+          if (isMRC) flushViewSegment();
           isMRC = false;
         }
       }, { threshold: [0, 0.5, 1.0] });
@@ -289,18 +317,17 @@ ${omidBlock}
 
     if (frame) {
       frame.addEventListener('mouseenter', function() {
+        flushed = false;
         hoverStart = Date.now();
       });
       frame.addEventListener('mouseleave', function() {
-        if (hoverStart) {
-          totalHoverMs += Date.now() - hoverStart;
-          hoverStart = null;
-        }
+        flushHoverSegment();
       });
     }
 
     window.addEventListener('pagehide', flush);
     window.addEventListener('beforeunload', flush);
+    setInterval(flushActiveSegmentsIncrementally, 5000);
   })();
 })();
 </script>

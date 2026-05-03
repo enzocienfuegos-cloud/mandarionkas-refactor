@@ -80,7 +80,10 @@ function formatVideoBitrate(value?: number | null) {
   return `${Math.round(value)} kbps`;
 }
 
-function resolveCreativePreviewHref(version: CreativeVersion | null | undefined) {
+function resolveCreativePreviewHref(
+  creative: Creative | null | undefined,
+  version: CreativeVersion | null | undefined,
+) {
   const previewUrl = String(version?.previewUrl || '').trim();
   const isInvalidPreviewUrl = (value: string) => {
     const lower = value.toLowerCase();
@@ -89,7 +92,30 @@ function resolveCreativePreviewHref(version: CreativeVersion | null | undefined)
   if (!isInvalidPreviewUrl(previewUrl)) return previewUrl;
   if (version?.sourceKind === 'html5_zip') return '';
   const publicUrl = String(version?.publicUrl || '').trim();
-  return isInvalidPreviewUrl(publicUrl) ? '' : publicUrl;
+  if (!isInvalidPreviewUrl(publicUrl)) return publicUrl;
+  const creativePreviewUrl = String(creative?.previewUrl || '').trim();
+  if (!isInvalidPreviewUrl(creativePreviewUrl)) return creativePreviewUrl;
+  const thumbnailUrl = String(creative?.thumbnailUrl || '').trim();
+  return isInvalidPreviewUrl(thumbnailUrl) ? '' : thumbnailUrl;
+}
+
+function resolveCreativePreviewKind(
+  creative: Creative | null | undefined,
+  version: CreativeVersion | null | undefined,
+) {
+  const mimeType = String(version?.mimeType || '').trim().toLowerCase();
+  const sourceKind = String(version?.sourceKind || '').trim().toLowerCase();
+  const previewUrl = resolveCreativePreviewHref(creative, version).toLowerCase();
+  if (
+    sourceKind === 'video_mp4' ||
+    mimeType.startsWith('video/') ||
+    previewUrl.endsWith('.mp4') ||
+    previewUrl.endsWith('.webm') ||
+    previewUrl.endsWith('.mov')
+  ) {
+    return 'video' as const;
+  }
+  return 'html' as const;
 }
 
 type LatestVersionMap = Record<string, CreativeVersion | null>;
@@ -158,6 +184,7 @@ interface PreviewModal {
   width: number;
   height: number;
   name: string;
+  kind: 'html' | 'video';
 }
 
 function parseTimestamp(value: unknown) {
@@ -1989,18 +2016,20 @@ export default function CreativeLibrary() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {resolveCreativePreviewHref(version) ? (
+                      {resolveCreativePreviewHref(creative, version) ? (
                         <div className="flex flex-col gap-1.5">
                           <button
                             type="button"
                             onClick={() => {
-                              const url = resolveCreativePreviewHref(version);
+                              const url = resolveCreativePreviewHref(creative, version);
                               if (!url) return;
+                              const kind = resolveCreativePreviewKind(creative, version);
                               setPreviewModal({
                                 url,
-                                width: Number(version?.width) > 0 ? Number(version?.width) : 300,
-                                height: Number(version?.height) > 0 ? Number(version?.height) : 250,
+                                width: Number(version?.width) > 0 ? Number(version?.width) : kind === 'video' ? 960 : 300,
+                                height: Number(version?.height) > 0 ? Number(version?.height) : kind === 'video' ? 540 : 250,
                                 name: creative.name,
+                                kind,
                               });
                             }}
                             className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
@@ -2008,7 +2037,7 @@ export default function CreativeLibrary() {
                             Preview
                           </button>
                           <a
-                            href={resolveCreativePreviewHref(version) ?? ''}
+                            href={resolveCreativePreviewHref(creative, version) ?? ''}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[11px] text-slate-400 hover:text-indigo-600 hover:underline"
@@ -2805,19 +2834,35 @@ export default function CreativeLibrary() {
               className="overflow-hidden rounded-lg shadow-2xl"
               style={{ width: previewModal.width, height: previewModal.height }}
             >
-              <iframe
-                src={previewModal.url}
-                width={previewModal.width}
-                height={previewModal.height}
-                style={{
-                  width: previewModal.width,
-                  height: previewModal.height,
-                  border: 'none',
-                  display: 'block',
-                }}
-                title={`Preview: ${previewModal.name}`}
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-              />
+              {previewModal.kind === 'video' ? (
+                <video
+                  src={previewModal.url}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  style={{
+                    width: previewModal.width,
+                    height: previewModal.height,
+                    display: 'block',
+                    background: '#000',
+                  }}
+                  title={`Preview: ${previewModal.name}`}
+                />
+              ) : (
+                <iframe
+                  src={previewModal.url}
+                  width={previewModal.width}
+                  height={previewModal.height}
+                  style={{
+                    width: previewModal.width,
+                    height: previewModal.height,
+                    border: 'none',
+                    display: 'block',
+                  }}
+                  title={`Preview: ${previewModal.name}`}
+                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                />
+              )}
             </div>
 
             <p className="text-xs text-white/40">
