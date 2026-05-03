@@ -83,18 +83,45 @@ function CardButton({
   disabled?: boolean;
   tone: 'fuchsia' | 'emerald' | 'slate';
 }) {
+  const accents = {
+    fuchsia: {
+      badge: 'border-fuchsia-400/25 bg-fuchsia-500/12 text-fuchsia-200',
+      mark: 'border-fuchsia-400/30 bg-fuchsia-500/12 text-fuchsia-200',
+    },
+    emerald: {
+      badge: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200',
+      mark: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-200',
+    },
+    slate: {
+      badge: 'border-white/10 bg-white/[0.04] text-white/50',
+      mark: 'border-white/10 bg-white/[0.04] text-white/45',
+    },
+  }[tone];
+
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`portal-card rounded-[22px] p-6 text-left transition ${
-        disabled ? 'cursor-not-allowed opacity-65' : 'hover:-translate-y-0.5 hover:shadow-lg'
+      className={`rounded-[24px] border border-white/10 bg-[rgba(17,18,26,0.9)] p-6 text-left shadow-[0_22px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl transition ${
+        disabled
+          ? 'cursor-not-allowed opacity-65'
+          : 'cursor-pointer hover:-translate-y-1 hover:border-fuchsia-400/40 hover:bg-[rgba(24,25,35,0.96)]'
       }`}
     >
-      <ProductBadge label={title} tone={tone} />
-      <h2 className="mt-4 text-2xl font-semibold text-slate-900 dark:text-white">{label}</h2>
-      <p className="mt-3 text-sm text-slate-500 dark:text-white/45">{copy}</p>
+      <div className="flex items-start justify-between gap-4">
+        <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${accents.badge}`}>
+          {title}
+        </span>
+        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border text-xs font-semibold uppercase tracking-[0.22em] ${accents.mark}`}>
+          {title === 'Ad Server' ? 'ADS' : title === 'Studio' ? 'STU' : 'SMX'}
+        </div>
+      </div>
+      <h2 className="mt-6 text-2xl font-semibold tracking-tight text-white">{label}</h2>
+      <p className="mt-3 text-sm leading-6 text-white/55">{copy}</p>
+      <div className={`mt-8 text-sm font-medium ${disabled ? 'text-white/28' : 'text-fuchsia-200'}`}>
+        Open workspace →
+      </div>
     </button>
   );
 }
@@ -378,26 +405,26 @@ function PortalHome() {
   }
 
   return (
-    <div className="min-h-screen px-6 py-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="portal-card rounded-[28px] p-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">SMX Portal</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                Choose where to work, {session?.user.name?.split(/\s+/)[0] || 'there'}
-              </h1>
-              <p className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                Active workspace:{' '}
-                <span className="font-medium text-slate-800 dark:text-white">{workspaceLabel}</span>
-                {' '}· role:{' '}
-                <span className="font-medium text-slate-800 dark:text-white">
-                  {getPlatformRoleLabel(session?.user.role)}
-                </span>
-              </p>
+    <main className="relative min-h-screen overflow-hidden bg-[#07010f] px-4 py-6 text-white sm:px-6 lg:px-8">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div className="absolute left-0 top-0 h-[34rem] w-[34rem] -translate-x-1/4 -translate-y-1/4 rounded-full bg-[radial-gradient(circle,_rgba(236,72,153,0.18)_0%,_rgba(236,72,153,0.07)_34%,_transparent_74%)]" />
+        <div className="absolute bottom-0 right-0 h-[36rem] w-[36rem] translate-x-1/4 translate-y-1/4 rounded-full bg-[radial-gradient(circle,_rgba(126,34,206,0.18)_0%,_rgba(126,34,206,0.07)_36%,_transparent_76%)]" />
+      </div>
+
+      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl items-center">
+        <div className="w-full">
+          <header className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ec4899] to-[#c026d3] text-sm font-semibold uppercase tracking-[0.24em] text-white shadow-[0_16px_38px_rgba(192,38,211,0.28)]">
+                SMX
+              </div>
+              <div>
+                <p className="text-lg font-semibold tracking-[0.01em] text-fuchsia-200">SMX Portal</p>
+                <span className="mt-1 block text-sm text-white/55">Workspace Access</span>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 lg:justify-end">
               <select
                 value={session?.activeWorkspaceId ?? ''}
                 disabled={switching}
@@ -414,7 +441,7 @@ function PortalHome() {
                     setSwitching(false);
                   }
                 }}
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/25 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
+                className="min-w-[220px] rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-fuchsia-400/80 focus:ring-2 focus:ring-fuchsia-500/25"
               >
                 {(session?.workspaces ?? []).map((ws) => (
                   <option key={ws.id} value={ws.id}>{ws.name}</option>
@@ -424,7 +451,7 @@ function PortalHome() {
               <button
                 type="button"
                 onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70"
+                className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/72 transition hover:bg-white/[0.07]"
               >
                 {theme === 'dark' ? 'Light mode' : 'Dark mode'}
               </button>
@@ -432,31 +459,45 @@ function PortalHome() {
               <button
                 type="button"
                 onClick={async () => { await logout(); navigate('/login', { replace: true }); }}
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70"
+                className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/72 transition hover:bg-white/[0.07]"
               >
                 Log out
               </button>
             </div>
+          </header>
+
+          <div className="mt-10">
+            <span className="inline-flex rounded-full border border-fuchsia-400/25 bg-fuchsia-500/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-200">
+              Admin access
+            </span>
+            <h1 className="mt-5 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+              Choose where to work
+            </h1>
+            <p className="mt-3 text-sm text-white/58 sm:text-base">
+              Active workspace: <span className="font-medium text-white">{workspaceLabel}</span>
+              {' '}· Role: <span className="font-medium text-white">{getPlatformRoleLabel(session?.user.role)}</span>
+            </p>
           </div>
 
           {switchError && (
-            <p className="mt-4 text-sm text-red-600 dark:text-red-300">{switchError}</p>
+            <p className="mt-6 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {switchError}
+            </p>
           )}
 
           {shouldAutoRedirect && (
-            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+            <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
               Only one product is available for this workspace. Redirecting automatically.
             </div>
           )}
-        </div>
 
-        <div className="mt-6 grid gap-5 md:grid-cols-2">
+          <div className="mt-10 grid gap-5 md:grid-cols-2">
           <CardButton
             title="Ad Server"
-            label="Campaigns, tags, delivery, reporting"
+            label="Campaign operations"
             copy={
               hasAdServer
-                ? 'Open the Ad Server workspace for trafficking, diagnostics, and delivery operations.'
+                ? 'Manage campaigns, tags, delivery, diagnostics, and reporting.'
                 : 'Your role does not include Ad Server access for this workspace.'
             }
             onClick={hasAdServer ? () => window.location.assign(getAdServerUrl()) : undefined}
@@ -465,19 +506,24 @@ function PortalHome() {
           />
           <CardButton
             title="Studio"
-            label="Creative production and review"
+            label="Creative workflow"
             copy={
               hasStudio
-                ? 'Open Studio for creative generation, review, publishing, and handoff.'
+                ? 'Review, publish, and hand off creative production tasks.'
                 : 'Your role does not include Studio access for this workspace.'
             }
             onClick={hasStudio ? () => window.location.assign(getStudioUrl()) : undefined}
             disabled={!hasStudio}
             tone={hasStudio ? 'emerald' : 'slate'}
           />
+          </div>
+
+          <div className="mt-8 text-sm text-white/38">
+            Authorized internal users only. Access depends on your assigned workspace and role.
+          </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 
