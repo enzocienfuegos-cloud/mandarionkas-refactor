@@ -1141,25 +1141,28 @@ export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, 
        WHERE ${conditions.join(' AND ')}
        GROUP BY ie.device_id
      )
-     SELECT
-       CASE
-         WHEN last_seen_at >= NOW() - INTERVAL '1 day' THEN '0-1 days'
-         WHEN last_seen_at >= NOW() - INTERVAL '7 days' THEN '2-7 days'
-         WHEN last_seen_at >= NOW() - INTERVAL '30 days' THEN '8-30 days'
-         ELSE '31+ days'
-       END AS label,
-       COUNT(*)::bigint AS exposed_identities,
-       0::bigint AS clicked_identities,
-       0::bigint AS engaged_identities,
-       0::numeric AS click_through_rate,
-       0::numeric AS engagement_through_rate
-     FROM latest_seen
-     GROUP BY 1
+     SELECT *
+     FROM (
+       SELECT
+         CASE
+           WHEN last_seen_at >= NOW() - INTERVAL '1 day' THEN '0-1 days'
+           WHEN last_seen_at >= NOW() - INTERVAL '7 days' THEN '2-7 days'
+           WHEN last_seen_at >= NOW() - INTERVAL '30 days' THEN '8-30 days'
+           ELSE '31+ days'
+         END AS label,
+         COUNT(*)::bigint AS exposed_identities,
+         0::bigint AS clicked_identities,
+         0::bigint AS engaged_identities,
+         0::numeric AS click_through_rate,
+         0::numeric AS engagement_through_rate
+       FROM latest_seen
+       GROUP BY 1
+     ) buckets
      ORDER BY
-       CASE
-         WHEN last_seen_at >= NOW() - INTERVAL '1 day' THEN 1
-         WHEN last_seen_at >= NOW() - INTERVAL '7 days' THEN 2
-         WHEN last_seen_at >= NOW() - INTERVAL '30 days' THEN 3
+       CASE buckets.label
+         WHEN '0-1 days' THEN 1
+         WHEN '2-7 days' THEN 2
+         WHEN '8-30 days' THEN 3
          ELSE 4
        END`,
     params,
