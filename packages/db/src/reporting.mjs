@@ -46,6 +46,17 @@ function addDateFilters(params, conditions, alias, dateFrom, dateTo) {
   }
 }
 
+function addEventDateFilters(params, conditions, alias, dateFrom, dateTo) {
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`${alias}.event_date >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    conditions.push(`${alias}.event_date <= $${params.length}`);
+  }
+}
+
 function addTimestampFilters(params, conditions, alias, dateFrom, dateTo) {
   if (dateFrom) {
     params.push(`${dateFrom}T00:00:00.000Z`);
@@ -238,7 +249,7 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
 
   const frequencyParams = [workspaceId, tagId];
   const frequencyConditions = ['f.workspace_id = $1', 'f.tag_id = $2'];
-  addDateFilters(frequencyParams, frequencyConditions, 'f', dateFrom, dateTo);
+  addEventDateFilters(frequencyParams, frequencyConditions, 'f', dateFrom, dateTo);
   const frequencyQuery = pool.query(
     `SELECT
        COALESCE(COUNT(*), 0)::bigint AS unique_identities,
@@ -446,7 +457,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     frequencyParams.push(tagIds);
     frequencyConditions.push(`f.tag_id = ANY($${frequencyParams.length}::text[])`);
   }
-  addDateFilters(frequencyParams, frequencyConditions, 'f', dateFrom, dateTo);
+  addEventDateFilters(frequencyParams, frequencyConditions, 'f', dateFrom, dateTo);
   const frequencyQuery = pool.query(
     `SELECT
        COALESCE(COUNT(*), 0)::bigint AS unique_identities,
