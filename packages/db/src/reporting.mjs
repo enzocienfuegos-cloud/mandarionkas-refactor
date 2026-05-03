@@ -1109,6 +1109,7 @@ export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts
          COALESCE(SUM(impressions) FILTER (WHERE clicks > 0), 0)::bigint AS impressions,
          COALESCE(SUM(clicks) FILTER (WHERE clicks > 0), 0)::bigint AS clicks,
          0::bigint AS engagements
+       FROM per_identity
        UNION ALL
        SELECT
          'engaged_non_clickers' AS preset,
@@ -1117,6 +1118,7 @@ export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts
          0::bigint AS impressions,
          0::bigint AS clicks,
          0::bigint AS engagements
+       FROM per_identity
      ) presets
      ORDER BY label ASC`,
     params,
