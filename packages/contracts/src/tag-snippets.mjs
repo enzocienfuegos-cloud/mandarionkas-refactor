@@ -81,9 +81,16 @@ export function buildTagSnippet(tag, variant, servingBaseUrl, campaignDsp = '', 
   const width = tag.width ?? 300;
   const height = tag.height ?? 250;
 
-  const displayJsUrl = applyDspMacrosToDeliveryUrl(`${base}/v1/tags/display/${id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
-  const displayHtmlUrl = applyDspMacrosToDeliveryUrl(`${base}/v1/tags/display/${id}.html`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
-  const nativeJsUrl = applyDspMacrosToDeliveryUrl(`${base}/v1/tags/native/${id}.js`, campaignDsp, DSP_DELIVERY_KINDS.DISPLAY_WRAPPER);
+  // Serving URLs are static — they deliver the HTML wrapper or JS loader to the browser.
+  // They must NOT carry DSP macros because:
+  //   1. The serving endpoint does not resolve macros ({domain}, {pageUrlEnc}, etc.)
+  //   2. The Basis blob enriches displayHtmlUrl at runtime via appendCtx(ctxToken)
+  //   3. Macro-laden URLs cannot be CDN-cached (every placement generates a unique URL)
+  //   4. URLs exceed 600 chars with 26 unused params — risk of truncation in some DSPs
+  // DSP macros belong only on tracker URLs (impression.gif, click, engagement).
+  const displayJsUrl   = `${base}/v1/tags/display/${id}.js`;
+  const displayHtmlUrl = `${base}/v1/tags/display/${id}.html`;
+  const nativeJsUrl    = `${base}/v1/tags/native/${id}.js`;
 
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${base}/v1/tags/tracker/${id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
   const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${base}/v1/tags/tracker/${id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);

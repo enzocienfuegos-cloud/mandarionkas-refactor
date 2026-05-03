@@ -51,3 +51,34 @@ test('supported DSP list includes Basis, Illumin, TTD, DV360, and Xandr', () => 
   const values = listSupportedDsps().map((entry) => entry.value).sort();
   assert.deepEqual(values, ['basis', 'dv360', 'illumin', 'ttd', 'xandr']);
 });
+
+test('displayHtmlUrl must not carry DSP macros for Basis', () => {
+  const out = buildTagSnippet(TAG, 'display-js', BASE, 'Basis', null);
+  const match = out.match(/var displayHtmlUrl="([^"]+)"/);
+  assert.ok(match, 'displayHtmlUrl var must be present in blob');
+  const displayUrl = match[1];
+  assert.ok(displayUrl.startsWith(`${BASE}/v1/tags/display/`), 'displayHtmlUrl must use serving base URL');
+  assert.ok(!displayUrl.includes('{domain}'), 'displayHtmlUrl must not have {domain} macro');
+  assert.ok(!displayUrl.includes('{pageUrlEnc}'), 'displayHtmlUrl must not have {pageUrlEnc} macro');
+  assert.ok(!displayUrl.includes('cuu='), 'displayHtmlUrl must not have click macro');
+  assert.ok(!displayUrl.includes('dsp=Basis'), 'displayHtmlUrl must not have dsp param');
+  assert.ok(displayUrl.length < 120, `displayHtmlUrl must be short, got ${displayUrl.length} chars`);
+});
+
+test('displayHtmlUrl must not carry DSP macros for TTD', () => {
+  const out = buildTagSnippet(TAG, 'display-js', BASE, 'ttd', null);
+  const displayUrl = out.match(/src="([^"]+)"/)?.at(1) ?? '';
+  assert.ok(!displayUrl.includes('%%TTD_CLICK_URL%%'), 'displayJsUrl must not have TTD macros');
+  assert.ok(!displayUrl.includes('%%TTD_CACHEBUSTER%%'), 'displayJsUrl must not have TTD macros');
+  assert.ok(displayUrl.startsWith(`${BASE}/v1/tags/display/`), 'displayJsUrl must use serving base URL');
+});
+
+test('tracker URLs still carry DSP macros for Basis', () => {
+  const out = buildTagSnippet(TAG, 'display-js', BASE, 'Basis', null);
+  const impMatch = out.match(/var impressionBase="([^"]+)"/);
+  assert.ok(impMatch, 'impressionBase must be present');
+  const impUrl = impMatch[1];
+  assert.ok(impUrl.includes('dsp=Basis'), 'impressionBase must have dsp=Basis');
+  assert.ok(impUrl.includes('{domain}'), 'impressionBase must have {domain} macro');
+  assert.ok(impUrl.includes('{pageUrlEnc}'), 'impressionBase must have {pageUrlEnc} macro');
+});

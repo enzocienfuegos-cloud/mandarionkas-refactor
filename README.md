@@ -52,6 +52,17 @@ The goal is to prove that adding a new widget now touches a small, predictable s
   - `VITE_ASSET_API_BASE_URL`
 - See `.env.example` and [docs/sprint-01-cloud-baseline.md](/Users/enzocienfuegos/Documents/New%20project/docs/sprint-01-cloud-baseline.md).
 
+## Setup local (web app)
+
+```bash
+cp apps/web/.env.local.example apps/web/.env.local
+# Editar apps/web/.env.local con los valores de staging o local
+npm run dev:web
+```
+
+Sin este paso, los snippets de tags generados en el UI apuntarán al host
+del browser en lugar del API correcto.
+
 ## Session model
 
 - Frontend API requests use `credentials: include`.
