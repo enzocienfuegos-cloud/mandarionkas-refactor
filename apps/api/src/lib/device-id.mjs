@@ -21,10 +21,6 @@
 import { randomUUID } from 'node:crypto';
 import { parseCookies, serializeCookie } from './cookies.mjs';
 
-const COOKIE_NAME   = 'smx_uid';
-const MAX_AGE_S     = 30 * 24 * 60 * 60; // 30 days
-const TRACKER_PATH  = '/v1/tags/tracker';
-
 /**
  * Read or generate a device ID from the smx_uid cookie.
  *
@@ -35,8 +31,11 @@ const TRACKER_PATH  = '/v1/tags/tracker';
  *   cookie:   the Set-Cookie string to attach, or null if cookie already existed
  */
 export function resolveDeviceId(req, env) {
+  const cookieName = env?.trackerCookieName || 'smx_uid';
+  const maxAge = env?.trackerCookieMaxAge || 30 * 24 * 60 * 60;
+  const path = env?.trackerCookiePath || '/v1/tags/tracker';
   const cookies = parseCookies(req.headers);
-  const existing = String(cookies[COOKIE_NAME] || '').trim();
+  const existing = String(cookies[cookieName] || '').trim();
 
   if (existing && isValidUid(existing)) {
     // Already have a valid cookie — no need to set it again.
@@ -46,9 +45,9 @@ export function resolveDeviceId(req, env) {
   const deviceId = randomUUID();
   const secure   = env?.cookieSecure !== false; // default true in production
 
-  const cookie = serializeCookie(COOKIE_NAME, deviceId, {
-    maxAge:   MAX_AGE_S,
-    path:     TRACKER_PATH,
+  const cookie = serializeCookie(cookieName, deviceId, {
+    maxAge,
+    path,
     httpOnly: false,           // must be readable by JS in MRAID/WebView contexts
     secure,
     sameSite: secure ? 'None' : 'Lax',
@@ -64,9 +63,10 @@ export function resolveDeviceId(req, env) {
  * @param {IncomingMessage} req
  * @returns {string}
  */
-export function readDeviceId(req) {
+export function readDeviceId(req, env) {
+  const cookieName = env?.trackerCookieName || 'smx_uid';
   const cookies = parseCookies(req.headers);
-  const value = String(cookies[COOKIE_NAME] || '').trim();
+  const value = String(cookies[cookieName] || '').trim();
   return isValidUid(value) ? value : '';
 }
 

@@ -4,6 +4,7 @@
 // S46: Added pruneFrequencyCapEvents.
 
 import { getPool, closeAllPools } from '@smx/db/src/pool.mjs';
+import { runIdentityStitching } from '@smx/db/src/identity-stitching.mjs';
 import { expirePendingUploadSessions, pruneOldDrafts, revokeExpiredSessions } from '@smx/db/src/maintenance.mjs';
 import { reconcileStalledVideoTranscodeJobs } from '@smx/db/src/video-transcode-jobs.mjs';
 import { pruneFrequencyCapEvents } from '@smx/db/src/frequency-cap.mjs';
@@ -66,6 +67,24 @@ export async function runMaintenanceJob(source = process.env) {
       logError({ event: 'frequency_cap_prune_error', message: pruneError?.message });
     }
 
+    let stitchedEdges = 0;
+    try {
+      const { rows: activeWs } = await client.query(
+        `SELECT DISTINCT workspace_id
+         FROM impression_events
+         WHERE timestamp > NOW() - INTERVAL '7 days'`,
+      );
+      const workspaceIds = activeWs.map((row) => row.workspace_id).filter(Boolean);
+      if (workspaceIds.length > 0) {
+        stitchedEdges = await runIdentityStitching(client, { workspaceIds });
+        if (stitchedEdges > 0) {
+          logInfo({ event: 'identity_stitching_completed', stitchedEdges, workspaceCount: workspaceIds.length });
+        }
+      }
+    } catch (stitchError) {
+      logError({ event: 'identity_stitching_error', message: stitchError?.message });
+    }
+
     const summary = {
       expiredUploadSessions,
       revokedSessions,
@@ -74,6 +93,7 @@ export async function runMaintenanceJob(source = process.env) {
       requeuedTranscodes:  stalledTranscodeResult.requeued,
       exhaustedTranscodes: stalledTranscodeResult.exhausted,
       prunedCapEvents,
+      stitchedEdges,
       skipped: false,
     };
 

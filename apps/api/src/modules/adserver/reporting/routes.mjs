@@ -5,6 +5,7 @@ import {
   getWorkspaceCampaignBreakdown,
   getWorkspaceCityBreakdown,
   getWorkspaceContextSnapshot,
+  getWorkspaceContextBreakdown,
   getWorkspaceCountryBreakdown,
   getWorkspaceCreativeBreakdown,
   getWorkspaceEngagementBreakdown,
@@ -137,6 +138,13 @@ export async function handleReportingRoutes(ctx) {
     return withSession(ctx, async (session) => {
       const payload = await getWorkspaceContextSnapshot(session.client, session.session.activeWorkspaceId, getOpts(url));
       return sendJson(res, 200, { ...payload, requestId });
+    });
+  }
+
+  if (method === 'GET' && pathname === '/v1/reporting/workspace/context') {
+    return withSession(ctx, async (session) => {
+      const breakdown = await getWorkspaceContextBreakdown(session.client, session.session.activeWorkspaceId, getOpts(url));
+      return sendJson(res, 200, { breakdown, requestId });
     });
   }
 

@@ -128,9 +128,9 @@ function buildNoAdVast(tagId) {
  * Returns { blocked: true } if capped, { blocked: false } otherwise.
  * Never throws — fails open (uncapped) on any error.
  */
-async function runFrequencyCapCheck(pool, req, tagId) {
+async function runFrequencyCapCheck(pool, req, tagId, env) {
   try {
-    const deviceId = readDeviceId(req);
+    const deviceId = readDeviceId(req, env);
     if (!deviceId) return { blocked: false };
 
     const { cap, capWindow } = await getTagFrequencyCap(pool, tagId);
@@ -186,7 +186,7 @@ export async function handleVastRoutes(ctx) {
     const pool  = getDatabasePool(ctx.env);
 
     // S46: cap check before generating VAST.
-    const capResult = await runFrequencyCapCheck(pool, ctx.req, tagId);
+    const capResult = await runFrequencyCapCheck(pool, ctx.req, tagId, ctx.env);
     if (capResult.blocked) {
       applyPublicCors(ctx.req, res);
       return sendXml(res, buildNoAdVast(tagId), { 'Cache-Control': 'private, no-store' });
@@ -205,7 +205,7 @@ export async function handleVastRoutes(ctx) {
     const pool    = getDatabasePool(ctx.env);
 
     // S46: cap check.
-    const capResult = await runFrequencyCapCheck(pool, ctx.req, tagId);
+    const capResult = await runFrequencyCapCheck(pool, ctx.req, tagId, ctx.env);
     if (capResult.blocked) {
       applyPublicCors(ctx.req, res);
       return sendXml(res, buildNoAdVast(tagId), { 'Cache-Control': 'private, no-store' });

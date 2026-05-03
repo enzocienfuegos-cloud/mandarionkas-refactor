@@ -12,10 +12,13 @@
 
 import { getPool } from '@smx/db/src/pool.mjs';
 import geoip from 'geoip-lite';
+import { inferContext } from '@smx/db/src/context-classifier.mjs';
 import { recordClick, recordEngagement, recordImpression } from '@smx/db/src/tracking.mjs';
+import { parseBrowserFromUA, parseDeviceTypeFromUA, parseOsFromUA } from '@smx/db/src/ua-parser.mjs';
 import { getTagClickDestination } from '@smx/db/src/vast.mjs';
 import { recordFrequencyCapImpression } from '@smx/db/src/frequency-cap.mjs';
 import { resolveDeviceId } from '../../../lib/device-id.mjs';
+import { hashIp } from '../../../lib/ip-fingerprint.mjs';
 import { logWarn } from '../../../lib/logger.mjs';
 
 const PIXEL_GIF = Buffer.from(
@@ -134,41 +137,6 @@ function resolveGeoContext(req, url) {
   };
 }
 
-function parseDeviceTypeFromUA(ua) {
-  if (!ua) return '';
-  const s = ua.toLowerCase();
-  if (/smart.?tv|hbbtv|appletv|googletv|roku|firetv|tizen|webos|viera|bravia/.test(s)) return 'tv';
-  if (/tablet|ipad|kindle|playbook|silk/.test(s)) return 'tablet';
-  if (/mobile|iphone|ipod|android.*mobile|windows phone|blackberry|symbian/.test(s)) return 'phone';
-  if (/android/.test(s)) return 'tablet';
-  return 'desktop';
-}
-
-function parseBrowserFromUA(ua) {
-  if (!ua) return '';
-  const s = ua.toLowerCase();
-  if (/edg\/|edge\//.test(s)) return 'Edge';
-  if (/opr\/|opera\//.test(s)) return 'Opera';
-  if (/firefox\//.test(s)) return 'Firefox';
-  if (/chrome\//.test(s)) return 'Chrome';
-  if (/safari\//.test(s)) return 'Safari';
-  if (/msie |trident\//.test(s)) return 'IE';
-  return '';
-}
-
-function parseOsFromUA(ua) {
-  if (!ua) return '';
-  const s = ua.toLowerCase();
-  if (/windows phone/.test(s)) return 'Windows Phone';
-  if (/windows/.test(s)) return 'Windows';
-  if (/iphone|ipad|ipod|ios/.test(s)) return 'iOS';
-  if (/mac os x|macos/.test(s)) return 'macOS';
-  if (/android/.test(s)) return 'Android';
-  if (/linux/.test(s)) return 'Linux';
-  if (/cros/.test(s)) return 'ChromeOS';
-  return '';
-}
-
 function resolveBaseUrl(ctx) {
   const explicit = trimText(ctx.env.apiBaseUrl || ctx.env.apiPublicBaseUrl || ctx.env.baseUrl);
   if (explicit) return explicit.replace(/\/+$/, '');
@@ -237,13 +205,14 @@ function queueClickEventWrite(pool, {
   city,
   siteDomain,
   referer,
+  ipFingerprint,
 }) {
   if (!pool || !tagId || !workspaceId) return;
   pool.query(
     `INSERT INTO click_events
-       (tag_id, workspace_id, device_id, ip, user_agent, country, region, city, site_domain, referer)
+       (tag_id, workspace_id, device_id, ip, user_agent, country, region, city, site_domain, referer, ip_fingerprint)
      VALUES
-       ($1, $2, $3, $4::inet, $5, $6, $7, $8, $9, $10)`,
+       ($1, $2, $3, $4::inet, $5, $6, $7, $8, $9, $10, $11)`,
     [
       tagId,
       workspaceId,
@@ -255,8 +224,14 @@ function queueClickEventWrite(pool, {
       city || null,
       siteDomain || null,
       referer || null,
+      ipFingerprint || null,
     ],
-  ).catch(() => undefined);
+  ).catch((err) => logWarn({
+    service: 'smx-tracker',
+    fn: 'click_identity_write',
+    tagId,
+    message: err?.message ?? String(err),
+  }));
 }
 
 export function createTrackerRoutes(buffer = null) {
@@ -341,26 +316,44 @@ export function createTrackerRoutes(buffer = null) {
           const os = trimQuotedHeader(req.headers['sec-ch-ua-platform'] || '') || parseOsFromUA(userAgent);
           const deviceType = deviceTypeSignal || parseDeviceTypeFromUA(userAgent);
           const remoteIp = trackingContext.remoteIp;
+          const ipFingerprint = hashIp(remoteIp, env?.sessionSecret);
+          const sfTz = trimText(p.get('sf_tz') || '') || null;
+          const sfLang = trimText(p.get('sf_lang') || '') || null;
+          const sfScr = trimText(p.get('sf_scr') || '') || null;
+          const sfTouch = p.get('sf_touch') === '1' ? true : p.get('sf_touch') === '0' ? false : null;
+          const sfMem = p.get('sf_mem') ? Number(p.get('sf_mem')) || null : null;
+          const sfCpu = p.get('sf_cpu') ? Number.parseInt(p.get('sf_cpu'), 10) || null : null;
 
-          if (
+          inferContext(pool, {
+            siteDomain: trackingContext.siteDomain,
+            referer: trackingContext.referer,
+            appBundle,
+            appName,
+            contentGenre,
+          }).catch(() => 'unknown').then((inferredContext) => {
+            if (
             trackingContext.siteDomain || country || userAgent || appId || appBundle || appName ||
             deviceType || deviceIdSignal || deviceModel || exchangeId || exchangePublisherId ||
             exchangeSiteIdOrDomain || sourcePublisherId || networkId || siteId || browser || os ||
             pagePosition || contentLanguage || contentTitle || contentSeries || carrier ||
-            appStoreName || contentGenre || contextualIds || region || city || deviceId
-          ) {
+            appStoreName || contentGenre || contextualIds || region || city || deviceId ||
+            ipFingerprint || sfTz || sfLang || sfScr || sfTouch !== null || sfMem !== null || sfCpu !== null ||
+            inferredContext !== 'unknown'
+            ) {
             pool.query(
               `INSERT INTO impression_events
                  (tag_id, workspace_id, ip, user_agent, country, region, city, site_domain, referer,
                   device_id, device_type, device_model, browser, os, network_id, source_publisher_id,
                   app_id, site_id, exchange_id, exchange_publisher_id, exchange_site_id_or_domain,
                   app_bundle, app_name, page_position, content_language, content_title, content_series,
-                  carrier, app_store_name, content_genre, contextual_ids)
+                  carrier, app_store_name, content_genre, contextual_ids, ip_fingerprint,
+                  sf_timezone, sf_language, sf_screen, sf_touch, sf_mem_gb, sf_cpu_cores, inferred_context)
                VALUES ($1, $2, $3::inet, $4, $5, $6, $7, $8, $9,
                        $10, $11, $12, $13, $14, $15, $16,
                        $17, $18, $19, $20, $21,
                        $22, $23, $24, $25, $26, $27,
-                       $28, $29, $30, $31)`,
+                       $28, $29, $30, $31, $32,
+                       $33, $34, $35, $36, $37, $38, $39)`,
               [
                 tagId,
                 workspaceId,
@@ -393,9 +386,23 @@ export function createTrackerRoutes(buffer = null) {
                 appStoreName,
                 contentGenre,
                 contextualIds,
+                ipFingerprint,
+                sfTz,
+                sfLang,
+                sfScr,
+                sfTouch,
+                sfMem,
+                sfCpu,
+                inferredContext || 'unknown',
               ],
-            ).catch(() => undefined);
-          }
+            ).catch((err) => logWarn({
+              service: 'smx-tracker',
+              fn: 'impression_identity_write',
+              tagId,
+              message: err?.message ?? String(err),
+            }));
+            }
+          });
         }).catch(() => undefined);
       }
 
@@ -450,6 +457,7 @@ export function createTrackerRoutes(buffer = null) {
             city: trackingContext.city,
             siteDomain: trackingContext.siteDomain,
             referer: trackingContext.referer,
+            ipFingerprint: hashIp(trackingContext.remoteIp, env?.sessionSecret),
           });
         }).catch(() => undefined);
       }
@@ -494,6 +502,7 @@ export function createTrackerRoutes(buffer = null) {
             city: trackingContext.city,
             siteDomain: trackingContext.siteDomain,
             referer: trackingContext.referer,
+            ipFingerprint: hashIp(trackingContext.remoteIp, env?.sessionSecret),
           });
         }).catch(() => undefined);
       }

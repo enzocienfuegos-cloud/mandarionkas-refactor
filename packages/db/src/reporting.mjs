@@ -1,39 +1,4 @@
-// Lightweight UA parsing — no external dependencies.
-// Covers the most common cases visible in ad serving traffic.
-function parseDeviceTypeFromUA(ua) {
-  if (!ua) return '';
-  const s = ua.toLowerCase();
-  if (/smart.?tv|hbbtv|appletv|googletv|roku|firetv|tizen|webos|viera|bravia/.test(s)) return 'tv';
-  if (/tablet|ipad|kindle|playbook|silk/.test(s)) return 'tablet';
-  if (/mobile|iphone|ipod|android.*mobile|windows phone|blackberry|symbian/.test(s)) return 'phone';
-  if (/android/.test(s)) return 'tablet';
-  return 'desktop';
-}
-
-function parseBrowserFromUA(ua) {
-  if (!ua) return '';
-  const s = ua.toLowerCase();
-  if (/edg\/|edge\//.test(s)) return 'Edge';
-  if (/opr\/|opera\//.test(s)) return 'Opera';
-  if (/firefox\//.test(s)) return 'Firefox';
-  if (/chrome\//.test(s)) return 'Chrome';
-  if (/safari\//.test(s)) return 'Safari';
-  if (/msie |trident\//.test(s)) return 'IE';
-  return '';
-}
-
-function parseOsFromUA(ua) {
-  if (!ua) return '';
-  const s = ua.toLowerCase();
-  if (/windows phone/.test(s)) return 'Windows Phone';
-  if (/windows/.test(s)) return 'Windows';
-  if (/iphone|ipad|ipod|ios/.test(s)) return 'iOS';
-  if (/mac os x|macos/.test(s)) return 'macOS';
-  if (/android/.test(s)) return 'Android';
-  if (/linux/.test(s)) return 'Linux';
-  if (/cros/.test(s)) return 'ChromeOS';
-  return '';
-}
+import { parseBrowserFromUA, parseDeviceTypeFromUA, parseOsFromUA } from './ua-parser.mjs';
 
 function addDateFilters(params, conditions, alias, dateFrom, dateTo) {
   if (dateFrom) {
@@ -195,6 +160,10 @@ function identityKeyExpression(alias) {
     NULLIF(${alias}.device_id, ''),
     ''
   )`;
+}
+
+function resolvedIdentityExpression(alias, edgeAlias) {
+  return `COALESCE(NULLIF(${edgeAlias}.canonical_id, ''), NULLIF(${alias}.device_id, ''), ${identityKeyExpression(alias)})`;
 }
 
 export async function getTagStats(pool, workspaceId, tagId, opts = {}) {
@@ -942,6 +911,36 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
   };
 }
 
+export async function getWorkspaceContextBreakdown(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, tagId = '', campaignId = '' } = opts;
+  const params = [workspaceId];
+  const conditions = ['ie.workspace_id = $1'];
+  if (tagId) {
+    params.push(tagId);
+    conditions.push(`ie.tag_id = $${params.length}`);
+  }
+  if (campaignId) {
+    params.push(campaignId);
+    conditions.push(`t.campaign_id = $${params.length}`);
+  }
+  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
+
+  const { rows } = await pool.query(
+    `SELECT
+       COALESCE(ie.inferred_context, 'unknown') AS context_type,
+       COUNT(*)::bigint AS impressions,
+       COUNT(DISTINCT ie.device_id)::bigint AS unique_devices,
+       ROUND(COUNT(*)::numeric / SUM(COUNT(*)) OVER () * 100, 2) AS share_pct
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY 1
+     ORDER BY impressions DESC`,
+    params,
+  );
+  return rows;
+}
+
 export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, limit = 25, campaignId = '', tagIds: rawTagIds = [], tagId = '', minImpressions = 1, minClicks = 0, canonicalType = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
@@ -969,20 +968,26 @@ export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}
   const { rows } = await pool.query(
     `WITH impressions AS (
        SELECT
-         ${identityKeyExpression('ie')} AS identity_key,
+         ${resolvedIdentityExpression('ie', 'e')} AS identity_key,
          COUNT(*)::bigint AS impressions,
          (ARRAY_AGG(NULLIF(ie.city, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.city, '') <> ''))[1] AS last_city,
          (ARRAY_AGG(NULLIF(ie.region, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.region, '') <> ''))[1] AS last_region,
          (ARRAY_AGG(NULLIF(ie.country, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.country, '') <> ''))[1] AS last_country
        FROM impression_events ie
        JOIN ad_tags t ON t.id = ie.tag_id
+       LEFT JOIN identity_edges e
+         ON e.workspace_id = ie.workspace_id
+        AND e.aliased_id = ie.device_id
        WHERE ${impressionConditions.join(' AND ')}
        GROUP BY 1
      ),
      clicks AS (
-       SELECT ${identityKeyExpression('ce')} AS identity_key, COUNT(*)::bigint AS clicks
+       SELECT ${resolvedIdentityExpression('ce', 'e_click')} AS identity_key, COUNT(*)::bigint AS clicks
        FROM click_events ce
        JOIN ad_tags t_click ON t_click.id = ce.tag_id
+       LEFT JOIN identity_edges e_click
+         ON e_click.workspace_id = ce.workspace_id
+        AND e_click.aliased_id = ce.device_id
        WHERE ${clickConditions.join(' AND ')}
        GROUP BY 1
      ),
@@ -1029,16 +1034,22 @@ export async function getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, op
 
   const { rows } = await pool.query(
     `WITH impressions AS (
-       SELECT ${identityKeyExpression('ie')} AS identity_key, COUNT(*)::bigint AS impressions
+       SELECT ${resolvedIdentityExpression('ie', 'e')} AS identity_key, COUNT(*)::bigint AS impressions
        FROM impression_events ie
        JOIN ad_tags t ON t.id = ie.tag_id
+       LEFT JOIN identity_edges e
+         ON e.workspace_id = ie.workspace_id
+        AND e.aliased_id = ie.device_id
        WHERE ${impressionConditions.join(' AND ')}
        GROUP BY 1
      ),
      clicks AS (
-       SELECT ${identityKeyExpression('ce')} AS identity_key, COUNT(*)::bigint AS clicks
+       SELECT ${resolvedIdentityExpression('ce', 'e_click')} AS identity_key, COUNT(*)::bigint AS clicks
        FROM click_events ce
        JOIN ad_tags t_click ON t_click.id = ce.tag_id
+       LEFT JOIN identity_edges e_click
+         ON e_click.workspace_id = ce.workspace_id
+        AND e_click.aliased_id = ce.device_id
        WHERE ${clickConditions.join(' AND ')}
        GROUP BY 1
      ),
@@ -1090,18 +1101,24 @@ export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts
   const { rows } = await pool.query(
     `WITH per_identity AS (
        SELECT
-         ${identityKeyExpression('ie')} AS identity_key,
+         ${resolvedIdentityExpression('ie', 'e')} AS identity_key,
          COUNT(*)::bigint AS impressions,
          COALESCE(c.clicks, 0)::bigint AS clicks
        FROM impression_events ie
        JOIN ad_tags t ON t.id = ie.tag_id
+       LEFT JOIN identity_edges e
+         ON e.workspace_id = ie.workspace_id
+        AND e.aliased_id = ie.device_id
        LEFT JOIN (
-         SELECT ${identityKeyExpression('ce')} AS identity_key, COUNT(*)::bigint AS clicks
+         SELECT ${resolvedIdentityExpression('ce', 'e_click')} AS identity_key, COUNT(*)::bigint AS clicks
          FROM click_events ce
          JOIN ad_tags t_click ON t_click.id = ce.tag_id
+         LEFT JOIN identity_edges e_click
+           ON e_click.workspace_id = ce.workspace_id
+          AND e_click.aliased_id = ce.device_id
          WHERE ${clickConditions.join(' AND ')}
          GROUP BY 1
-       ) c ON c.identity_key = ${identityKeyExpression('ie')}
+       ) c ON c.identity_key = ${resolvedIdentityExpression('ie', 'e')}
        WHERE ${impressionConditions.join(' AND ')}
        GROUP BY 1
               , c.clicks
@@ -1237,16 +1254,22 @@ export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, 
 
   const { rows } = await pool.query(
     `WITH latest_seen AS (
-       SELECT ${identityKeyExpression('ie')} AS identity_key, MAX(ie.timestamp) AS last_seen_at
+       SELECT ${resolvedIdentityExpression('ie', 'e')} AS identity_key, MAX(ie.timestamp) AS last_seen_at
        FROM impression_events ie
        JOIN ad_tags t ON t.id = ie.tag_id
+       LEFT JOIN identity_edges e
+         ON e.workspace_id = ie.workspace_id
+        AND e.aliased_id = ie.device_id
        WHERE ${impressionConditions.join(' AND ')}
        GROUP BY 1
      ),
      clickers AS (
-       SELECT DISTINCT ${identityKeyExpression('ce')} AS identity_key
+       SELECT DISTINCT ${resolvedIdentityExpression('ce', 'e_click')} AS identity_key
        FROM click_events ce
        JOIN ad_tags t_click ON t_click.id = ce.tag_id
+       LEFT JOIN identity_edges e_click
+         ON e_click.workspace_id = ce.workspace_id
+        AND e_click.aliased_id = ce.device_id
        WHERE ${clickConditions.join(' AND ')}
      )
      SELECT *
@@ -1259,10 +1282,10 @@ export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, 
            ELSE '31+ days'
          END AS label,
          COUNT(*)::bigint AS exposed_identities,
-         COUNT(*) FILTER (WHERE c.device_id IS NOT NULL)::bigint AS clicked_identities,
+         COUNT(*) FILTER (WHERE c.identity_key IS NOT NULL)::bigint AS clicked_identities,
          0::bigint AS engaged_identities,
          CASE WHEN COUNT(*) > 0
-           THEN ROUND((COUNT(*) FILTER (WHERE c.device_id IS NOT NULL))::numeric / COUNT(*) * 100, 4)
+           THEN ROUND((COUNT(*) FILTER (WHERE c.identity_key IS NOT NULL))::numeric / COUNT(*) * 100, 4)
            ELSE 0 END AS click_through_rate,
          0::numeric AS engagement_through_rate
        FROM latest_seen ls

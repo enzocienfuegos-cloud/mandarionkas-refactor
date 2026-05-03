@@ -49,6 +49,9 @@ export function readApiEnv(source = process.env) {
     r2PublicBaseUrl: normalize(source.R2_PUBLIC_BASE) || '',
     trackerFlushIntervalMs: parseInteger(source.TRACKER_FLUSH_INTERVAL_MS, 5000),
     trackerFlushThreshold: parseInteger(source.TRACKER_FLUSH_THRESHOLD, 1000),
+    trackerCookieName: normalize(source.TRACKER_COOKIE_NAME) || 'smx_uid',
+    trackerCookieMaxAge: parseInteger(source.TRACKER_COOKIE_MAX_AGE_S, 30 * 24 * 60 * 60),
+    trackerCookiePath: normalize(source.TRACKER_COOKIE_PATH) || '/v1/tags/tracker',
   });
 }
 

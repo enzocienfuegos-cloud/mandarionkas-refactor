@@ -164,6 +164,31 @@
     return next;
   }
 
+  function collectDeviceSignals() {
+    var signals = {};
+    try {
+      signals.sf_tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      signals.sf_lang = navigator.language || '';
+      signals.sf_scr = String(screen.width) + 'x' + String(screen.height) + 'x' + String(window.devicePixelRatio || 1);
+      signals.sf_touch = String(navigator.maxTouchPoints > 0 ? 1 : 0);
+      if ('deviceMemory' in navigator && navigator.deviceMemory) signals.sf_mem = String(navigator.deviceMemory);
+      if ('hardwareConcurrency' in navigator && navigator.hardwareConcurrency) signals.sf_cpu = String(navigator.hardwareConcurrency);
+    } catch (_e) {}
+    return signals;
+  }
+
+  function appendDeviceSignals(url) {
+    if (!url) return url;
+    var next = url;
+    var signals = collectDeviceSignals();
+    Object.keys(signals).forEach(function (key) {
+      var value = signals[key];
+      if (!value) return;
+      next += (next.indexOf('?') === -1 ? '?' : '&') + encodeURIComponent(key) + '=' + encodeURIComponent(value);
+    });
+    return next;
+  }
+
   // ── DOM: iframe + container ───────────────────────────────────────────────
   //
   // smx_no_imp=1 tells the .html serving endpoint to suppress its own impression
@@ -220,7 +245,7 @@
 
   // ── Impression fire ───────────────────────────────────────────────────────
 
-  var impressionUrl = appendIdentity(appendCtx(impressionBase, ctxToken));
+  var impressionUrl = appendDeviceSignals(appendIdentity(appendCtx(impressionBase, ctxToken)));
   if (impressionUrl) fire(impressionUrl);
 
   // ── Viewability (MRC: 50% for 1000ms continuous) ──────────────────────────
