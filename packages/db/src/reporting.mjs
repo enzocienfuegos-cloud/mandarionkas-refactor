@@ -1156,10 +1156,10 @@ export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, 
      FROM latest_seen
      GROUP BY 1
      ORDER BY
-       CASE label
-         WHEN '0-1 days' THEN 1
-         WHEN '2-7 days' THEN 2
-         WHEN '8-30 days' THEN 3
+       CASE
+         WHEN last_seen_at >= NOW() - INTERVAL '1 day' THEN 1
+         WHEN last_seen_at >= NOW() - INTERVAL '7 days' THEN 2
+         WHEN last_seen_at >= NOW() - INTERVAL '30 days' THEN 3
          ELSE 4
        END`,
     params,
