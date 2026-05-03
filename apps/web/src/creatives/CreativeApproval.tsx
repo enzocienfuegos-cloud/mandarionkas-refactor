@@ -102,9 +102,14 @@ function getVideoMetadata(version: CreativeVersion | null) {
 
 function resolveCreativePreviewHref(version: CreativeVersion | null | undefined) {
   const previewUrl = String(version?.previewUrl || '').trim();
-  if (previewUrl) return previewUrl;
+  const isInvalidPreviewUrl = (value: string) => {
+    const lower = value.toLowerCase();
+    return !value || lower.endsWith('.zip') || lower.includes('/creative-ingestions/');
+  };
+  if (!isInvalidPreviewUrl(previewUrl)) return previewUrl;
   if (version?.sourceKind === 'html5_zip') return '';
-  return String(version?.publicUrl || '').trim();
+  const publicUrl = String(version?.publicUrl || '').trim();
+  return isInvalidPreviewUrl(publicUrl) ? '' : publicUrl;
 }
 
 export default function CreativeApproval() {

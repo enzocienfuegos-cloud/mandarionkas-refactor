@@ -644,7 +644,7 @@ export default function Shell() {
 
         <main className={`flex-1 overflow-y-auto ${isOverviewRoute ? 'p-0' : 'p-6'} ${isDark ? 'bg-[#0c0c0e]' : 'bg-[#f6f3f8]'}`}>
           {canRenderCurrentRoute ? (
-            <Outlet key={user?.workspace.id ?? 'shell'} context={{ user }} />
+            <Outlet key={user?.workspace.id ?? 'shell'} context={{ user, theme, toggleTheme: handleThemeToggle }} />
           ) : (
             <div className={`mx-auto max-w-2xl rounded-[18px] p-8 ${isDark ? 'border border-white/[0.08] bg-[#18181c] shadow-[0_18px_50px_rgba(0,0,0,0.32)]' : 'border border-slate-200 bg-white shadow-sm'}`}>
               <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>No Ad Server access</h1>

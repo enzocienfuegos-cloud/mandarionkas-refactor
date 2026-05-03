@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../shared/workspaces';
 
 interface Campaign {
@@ -109,13 +109,15 @@ function getCampaignMetric(campaign: Campaign, key: MetricKey) {
 
 export default function CampaignList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const searchQueryParam = searchParams.get('search') ?? '';
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
   const [bulkStatus, setBulkStatus] = useState<Campaign['status']>('active');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => searchQueryParam);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -142,6 +144,10 @@ export default function CampaignList() {
   useEffect(load, []);
 
   useEffect(() => {
+    setSearch(searchQueryParam);
+  }, [searchQueryParam]);
+
+  useEffect(() => {
     setSelectedCampaignIds(current => current.filter(id => campaigns.some(campaign => campaign.id === id)));
   }, [campaigns]);
 
@@ -149,7 +155,8 @@ export default function CampaignList() {
     const clientMatch = !selectedClientIds.length || selectedClientIds.includes(campaign.workspace_id ?? '');
     const searchMatch = !search.trim()
       || campaign.name.toLowerCase().includes(search.trim().toLowerCase())
-      || (campaign.workspace_name ?? '').toLowerCase().includes(search.trim().toLowerCase());
+      || (campaign.workspace_name ?? '').toLowerCase().includes(search.trim().toLowerCase())
+      || (campaign.advertiser?.name ?? '').toLowerCase().includes(search.trim().toLowerCase());
     return clientMatch && searchMatch;
   });
   const visibleMetricColumns = metricsCollapsed
@@ -234,6 +241,38 @@ export default function CampaignList() {
       }
     } catch (error: any) {
       alert(error.message ?? 'Failed to update selected campaigns.');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const selectedCampaigns = campaigns.filter(campaign => selectedCampaignIds.includes(campaign.id));
+    if (!selectedCampaigns.length) return;
+    if (!window.confirm(`Delete ${selectedCampaigns.length} selected campaign${selectedCampaigns.length === 1 ? '' : 's'}? This cannot be undone.`)) {
+      return;
+    }
+
+    setBulkUpdating(true);
+    try {
+      for (const campaign of selectedCampaigns) {
+        if (campaign.workspace_id && campaign.workspace_id !== activeWorkspaceId) {
+          await switchWorkspace(campaign.workspace_id);
+          setActiveWorkspaceId(campaign.workspace_id);
+        }
+        const res = await fetch(`/v1/campaigns/${campaign.id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error(payload?.message ?? `Failed to delete ${campaign.name}`);
+        }
+      }
+      setCampaigns(current => current.filter(campaign => !selectedCampaignIds.includes(campaign.id)));
+      setSelectedCampaignIds([]);
+    } catch (error: any) {
+      alert(error.message ?? 'Failed to delete selected campaigns.');
     } finally {
       setBulkUpdating(false);
     }
@@ -430,6 +469,14 @@ export default function CampaignList() {
             className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {bulkUpdating ? 'Archiving…' : 'Archive selected'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleBulkDelete()}
+            disabled={!selectedCampaignIds.length || bulkUpdating}
+            className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {bulkUpdating ? 'Deleting…' : 'Delete selected'}
           </button>
         </div>
       </div>

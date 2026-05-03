@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { loadCreatives, type Creative } from '../creatives/catalog';
 import { loadPreference, savePreference } from '../shared/preferences';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
-import { THEME_PREFERENCE_KEY, applyTheme, getInitialTheme, persistTheme, type ThemeMode } from '../shared/theme';
+import { type ThemeMode } from '../shared/theme';
 
 type DateRange = 7 | 30 | 90;
 type TrendDirection = 'up' | 'down' | 'flat';
@@ -343,25 +343,6 @@ function NotificationButton({ count }: { count: number }) {
   );
 }
 
-function UserChip({ name, email }: { name: string; email: string }) {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('') || 'AU';
-  return (
-    <div className="inline-flex min-h-[46px] items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/86">
-      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[linear-gradient(180deg,#c026d3,#7c3aed)] text-sm font-semibold text-white">{initials}</span>
-      <span className="flex flex-col text-left leading-tight">
-        <span className="font-medium">{name}</span>
-        <span className="text-xs text-slate-500 dark:text-white/45">{email}</span>
-      </span>
-      <ChevronDownIcon className="text-slate-400 dark:text-white/36" />
-    </div>
-  );
-}
-
 function AttentionCard({ item }: { item: AttentionItem }) {
   const severityMap: Record<AttentionSeverity, { shell: string; accent: string; button: string }> = {
     critical: {
@@ -687,6 +668,7 @@ function cardLabel(cardId: OverviewCardId) {
 }
 
 export default function AdOpsOverview() {
+  const { theme, toggleTheme } = useOutletContext<{ theme: ThemeMode; toggleTheme: () => void }>();
   const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_DATE_RANGE);
   const [campaignId, setCampaignId] = useState('');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -694,8 +676,6 @@ export default function AdOpsOverview() {
   const [creatives, setCreatives] = useState<Creative[]>([]);
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
-  const [userName, setUserName] = useState('Admin User');
-  const [userEmail, setUserEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentStats, setCurrentStats] = useState<WorkspaceStats>({});
@@ -705,7 +685,6 @@ export default function AdOpsOverview() {
   const [tagBreakdown, setTagBreakdown] = useState<BreakdownItem[]>([]);
   const [creativeBreakdown, setCreativeBreakdown] = useState<BreakdownItem[]>([]);
   const [identitySegments, setIdentitySegments] = useState<SegmentBreakdownItem[]>([]);
-  const [theme, setTheme] = useState<ThemeMode>(() => getInitialTheme());
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [visibleCards, setVisibleCards] = useState<OverviewCardId[]>(getDefaultVisibleCards());
   const [savedSetups, setSavedSetups] = useState<SavedOverviewSetup[]>([]);
@@ -713,15 +692,6 @@ export default function AdOpsOverview() {
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const [setupName, setSetupName] = useState('');
   const preferenceSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const syncTheme = () => setTheme(root.classList.contains('dark') ? 'dark' : 'light');
-    syncTheme();
-    const observer = new MutationObserver(syncTheme);
-    observer.observe(root, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -734,9 +704,6 @@ export default function AdOpsOverview() {
     ])
       .then(([authMe, workspaceList, campaignPayload, tagPayload, creativeList]) => {
         if (!active) return;
-        const displayName = String(authMe?.user?.display_name ?? '').trim() || String(authMe?.user?.email ?? '').split('@')[0] || 'Admin';
-        setUserName(displayName);
-        setUserEmail(String(authMe?.user?.email ?? ''));
         setActiveWorkspaceId(authMe?.workspace?.id ?? '');
         setWorkspaces(workspaceList);
         setCampaigns(campaignPayload.campaigns ?? []);
@@ -744,12 +711,6 @@ export default function AdOpsOverview() {
         setCreatives(creativeList);
         const layout = loadPreference<OverviewPreferences>(OVERVIEW_LAYOUT_PREFERENCE_KEY)
           ?? loadPreference<OverviewPreferences>(OVERVIEW_LAYOUT_STORAGE_KEY);
-        const preferredTheme = loadPreference<ThemeMode>(THEME_PREFERENCE_KEY);
-        if (preferredTheme === 'dark' || preferredTheme === 'light') {
-          applyTheme(preferredTheme);
-          persistTheme(preferredTheme);
-          setTheme(preferredTheme);
-        }
         setVisibleCards(normalizeCardOrder(layout?.visibleCards));
         setSavedSetups(sanitizeSetups(layout?.savedSetups));
         setActiveSetupId(typeof layout?.activeSetupId === 'string' ? layout.activeSetupId : DEFAULT_SETUP_ID);
@@ -1027,14 +988,6 @@ export default function AdOpsOverview() {
   const issueCount = attentionItems.filter((item) => item.severity !== 'healthy').length;
   const selectedWorkspaceName = workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.name ?? 'Workspace';
 
-  const toggleTheme = async () => {
-    const nextTheme: ThemeMode = theme === 'dark' ? 'light' : 'dark';
-    applyTheme(nextTheme);
-    persistTheme(nextTheme);
-    savePreference(THEME_PREFERENCE_KEY, nextTheme);
-    setTheme(nextTheme);
-  };
-
   const toggleVisibleCard = (cardId: OverviewCardId) => {
     setVisibleCards((current) => {
       if (current.includes(cardId)) {
@@ -1158,7 +1111,6 @@ export default function AdOpsOverview() {
               {theme === 'dark' ? 'Light mode' : 'Dark mode'}
             </button>
             <NotificationButton count={issueCount} />
-            <UserChip name={userName} email={userEmail} />
             <Link to="/campaigns/new" className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#c026d3,#7c3aed)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(168,85,247,0.35)] transition hover:translate-y-[-1px] hover:shadow-[0_18px_42px_rgba(168,85,247,0.42)]">
               + New campaign
             </Link>
@@ -1171,7 +1123,7 @@ export default function AdOpsOverview() {
             <span className="h-1 w-1 rounded-full bg-current opacity-60" />
             {selectedWorkspaceName}
           </div>
-          <h1 className="text-5xl font-semibold tracking-tight text-slate-950 dark:text-white">Good morning, {userName.split(' ')[0] || 'Admin'}</h1>
+          <h1 className="text-5xl font-semibold tracking-tight text-slate-950 dark:text-white">Good morning</h1>
           <p className="mt-3 text-xl text-slate-600 dark:text-white/62">This is your command center across clients. Use the client selector to pivot the overview, alerts, and health signals.</p>
         </header>
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   type Creative,
   type CreativeVersion,
@@ -82,9 +82,14 @@ function formatVideoBitrate(value?: number | null) {
 
 function resolveCreativePreviewHref(version: CreativeVersion | null | undefined) {
   const previewUrl = String(version?.previewUrl || '').trim();
-  if (previewUrl) return previewUrl;
+  const isInvalidPreviewUrl = (value: string) => {
+    const lower = value.toLowerCase();
+    return !value || lower.endsWith('.zip') || lower.includes('/creative-ingestions/');
+  };
+  if (!isInvalidPreviewUrl(previewUrl)) return previewUrl;
   if (version?.sourceKind === 'html5_zip') return '';
-  return String(version?.publicUrl || '').trim();
+  const publicUrl = String(version?.publicUrl || '').trim();
+  return isInvalidPreviewUrl(publicUrl) ? '' : publicUrl;
 }
 
 type LatestVersionMap = Record<string, CreativeVersion | null>;
@@ -632,6 +637,8 @@ function findPendingIngestionForCreative(
 
 export default function CreativeLibrary() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const searchQueryParam = searchParams.get('search') ?? '';
   const [creatives, setCreatives] = useState<Creative[]>([]);
   const [latestVersions, setLatestVersions] = useState<LatestVersionMap>({});
   const [ingestions, setIngestions] = useState<CreativeIngestion[]>([]);
@@ -639,7 +646,7 @@ export default function CreativeLibrary() {
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => searchQueryParam);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'pending_review' | 'rejected'>('all');
   const [formatFilter, setFormatFilter] = useState<'all' | 'video' | 'display' | 'native'>('all');
   const [sizeFilter, setSizeFilter] = useState('all');
@@ -651,6 +658,8 @@ export default function CreativeLibrary() {
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [bulkClickUrlSaving, setBulkClickUrlSaving] = useState(false);
   const [bulkAssignSaving, setBulkAssignSaving] = useState(false);
+  const [bulkStatusSaving, setBulkStatusSaving] = useState(false);
+  const [bulkDeleteSaving, setBulkDeleteSaving] = useState(false);
   const [statusUpdateCreativeId, setStatusUpdateCreativeId] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [bindingState, setBindingState] = useState<BindingState | null>(null);
@@ -685,6 +694,10 @@ export default function CreativeLibrary() {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    setSearchTerm(searchQueryParam);
+  }, [searchQueryParam]);
 
   const getCreativeOperationalState = (creative: Creative) => {
     const version = latestVersions[creative.id];
@@ -784,16 +797,6 @@ export default function CreativeLibrary() {
       current && bulkAssignableTags.some((tag) => tag.id === current) ? current : ''
     ));
   }, [bulkAssignableTags]);
-
-  const summary = useMemo(() => {
-    const versions = filteredCreatives.map(creative => latestVersions[creative.id]).filter(Boolean) as CreativeVersion[];
-    return {
-      totalCreatives: filteredCreatives.length,
-      pendingReview: versions.filter(version => version.status === 'rejected').length,
-      approved: versions.filter(version => ['approved', 'draft'].includes(version.status)).length,
-      ingestions: ingestions.length,
-    };
-  }, [filteredCreatives, latestVersions, ingestions]);
 
   const handleAssign = async () => {
     if (!bindingState?.tagId) {
@@ -1002,6 +1005,88 @@ export default function CreativeLibrary() {
     } finally {
       setWorkspaceBusy(false);
       setBulkAssignSaving(false);
+    }
+  };
+
+  const handleBulkCreativeStatusUpdate = async (nextStatus: 'approved' | 'archived') => {
+    if (!selectedCreativeIds.length) {
+      setError('Select at least one creative first.');
+      return;
+    }
+
+    setBulkStatusSaving(true);
+    setError('');
+    setSuccessMessage('');
+    try {
+      const selectedCreatives = creatives.filter((creative) => selectedCreativeIds.includes(creative.id));
+      let updatedCount = 0;
+      let skippedCount = 0;
+
+      for (const creative of selectedCreatives) {
+        const version = latestVersions[creative.id];
+        if (!version) {
+          skippedCount += 1;
+          continue;
+        }
+        if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
+          setWorkspaceBusy(true);
+          await switchWorkspace(creative.workspaceId);
+          setActiveWorkspaceId(creative.workspaceId);
+        }
+        const response = await updateCreativeVersionById({
+          creativeVersionId: version.id,
+          status: nextStatus,
+        });
+        setLatestVersions((current) => ({
+          ...current,
+          [creative.id]: response.creativeVersion,
+        }));
+        updatedCount += 1;
+      }
+
+      setSelectedCreativeIds([]);
+      const suffix = skippedCount ? ` ${skippedCount} creative${skippedCount === 1 ? '' : 's'} skipped because they had no latest version.` : '';
+      setSuccessMessage(`${nextStatus === 'approved' ? 'Activated' : 'Deactivated'} ${updatedCount} creative${updatedCount === 1 ? '' : 's'}.${suffix}`);
+      window.setTimeout(() => setSuccessMessage(''), 3500);
+    } catch (updateError: any) {
+      setError(updateError.message ?? 'Failed to update selected creatives.');
+    } finally {
+      setWorkspaceBusy(false);
+      setBulkStatusSaving(false);
+    }
+  };
+
+  const handleBulkDeleteCreatives = async () => {
+    if (!selectedCreativeIds.length) {
+      setError('Select at least one creative first.');
+      return;
+    }
+    const selectedCreatives = creatives.filter((creative) => selectedCreativeIds.includes(creative.id));
+    if (!window.confirm(`Delete ${selectedCreatives.length} selected creative${selectedCreatives.length === 1 ? '' : 's'}? This will remove published versions and assignments.`)) {
+      return;
+    }
+
+    setBulkDeleteSaving(true);
+    setError('');
+    setSuccessMessage('');
+    try {
+      for (const creative of selectedCreatives) {
+        if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
+          setWorkspaceBusy(true);
+          await switchWorkspace(creative.workspaceId);
+          setActiveWorkspaceId(creative.workspaceId);
+        }
+        await deleteCreativeById(creative.id);
+      }
+      await load();
+      setSelectedCreativeIds([]);
+      setSuccessMessage(`Deleted ${selectedCreatives.length} creative${selectedCreatives.length === 1 ? '' : 's'}.`);
+      window.setTimeout(() => setSuccessMessage(''), 3500);
+    } catch (deleteError: any) {
+      setError(deleteError.message ?? 'Failed to delete selected creatives.');
+    } finally {
+      setWorkspaceBusy(false);
+      setBulkDeleteSaving(false);
     }
   };
 
@@ -1724,28 +1809,43 @@ export default function CreativeLibrary() {
                 )}
               </div>
             </div>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="rounded-lg border border-indigo-100 bg-white/70 p-3">
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-indigo-700">Bulk active state</div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleBulkCreativeStatusUpdate('approved')}
+                    disabled={bulkStatusSaving}
+                    className="rounded-lg border border-emerald-200 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                  >
+                    {bulkStatusSaving ? 'Saving…' : 'Set active'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleBulkCreativeStatusUpdate('archived')}
+                    disabled={bulkStatusSaving}
+                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {bulkStatusSaving ? 'Saving…' : 'Set inactive'}
+                  </button>
+                </div>
+              </div>
+              <div className="rounded-lg border border-red-100 bg-white/70 p-3">
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-red-700">Bulk delete</div>
+                <button
+                  type="button"
+                  onClick={() => void handleBulkDeleteCreatives()}
+                  disabled={bulkDeleteSaving}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {bulkDeleteSaving ? 'Deleting…' : 'Delete selected'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
-
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Creatives</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{summary.totalCreatives}</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Needs attention</p>
-          <p className="mt-2 text-2xl font-semibold text-yellow-700">{summary.pendingReview}</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Ready to Tag</p>
-          <p className="mt-2 text-2xl font-semibold text-green-700">{summary.approved}</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Ingestions</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{summary.ingestions}</p>
-        </div>
-      </div>
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
@@ -1943,37 +2043,6 @@ export default function CreativeLibrary() {
               })}
             </tbody>
           </table>
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-slate-800">Recent Ingestions</h2>
-        <div className="grid gap-4 lg:grid-cols-2">
-          {ingestions.map(ingestion => (
-            <div key={ingestion.id} className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="font-medium text-slate-800">{ingestion.originalFilename}</div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    {ingestion.sourceKind} · {formatBytes(ingestion.sizeBytes)} · {new Date(ingestion.createdAt).toLocaleString()}
-                  </div>
-                </div>
-                {statusBadge(ingestion.status)}
-              </div>
-              {ingestion.errorDetail && (
-                <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{ingestion.errorDetail}</p>
-              )}
-              <div className="mt-3 flex items-center gap-3 text-xs text-slate-500">
-                <span>creative: {ingestion.creativeId ?? '—'}</span>
-                <span>version: {ingestion.creativeVersionId ?? '—'}</span>
-              </div>
-            </div>
-          ))}
-          {ingestions.length === 0 && (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
-              No ingestions yet. Upload an HTML5 zip or MP4 to seed the new catalog.
-            </div>
-          )}
         </div>
       </section>
 

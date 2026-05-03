@@ -16,10 +16,10 @@ interface SearchResponse {
 }
 
 const TYPE_PATHS: Record<SearchResult['type'], (id: string) => string> = {
-  tag:        id => `/tags/${id}/edit`,
-  campaign:   id => `/campaigns/${id}/edit`,
-  advertiser: id => `/advertisers/${id}`,
-  creative:   id => `/creatives/${id}`,
+  tag:        id => `/tags/${id}`,
+  campaign:   id => `/campaigns/${id}`,
+  advertiser: () => '/campaigns',
+  creative:   () => '/creatives',
 };
 
 const TYPE_ICONS: Record<SearchResult['type'], string> = {
@@ -109,6 +109,16 @@ export default function GlobalSearch() {
   }, [query, typeFilter, doSearch]);
 
   const handleSelect = (result: SearchResult) => {
+    if (result.type === 'creative') {
+      navigate(`/creatives?search=${encodeURIComponent(result.name)}`);
+      closeModal();
+      return;
+    }
+    if (result.type === 'advertiser') {
+      navigate(`/campaigns?search=${encodeURIComponent(result.name)}`);
+      closeModal();
+      return;
+    }
     navigate(TYPE_PATHS[result.type](result.id));
     closeModal();
   };
@@ -142,6 +152,12 @@ export default function GlobalSearch() {
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && results.length > 0) {
+                    e.preventDefault();
+                    handleSelect(results[0]);
+                  }
+                }}
                 placeholder="Search tags, campaigns, creatives..."
                 className="flex-1 text-sm text-slate-800 placeholder-slate-400 focus:outline-none bg-transparent"
               />
