@@ -1090,26 +1090,36 @@ export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts
        WHERE ${impressionConditions.join(' AND ')}
        GROUP BY ie.device_id
               , c.clicks
+     ),
+     summary AS (
+       SELECT
+         COUNT(*) FILTER (WHERE impressions >= 5)::bigint AS high_frequency_identity_count,
+         COALESCE(SUM(impressions) FILTER (WHERE impressions >= 5), 0)::bigint AS high_frequency_impressions,
+         COALESCE(SUM(clicks) FILTER (WHERE impressions >= 5), 0)::bigint AS high_frequency_clicks,
+         COUNT(*) FILTER (WHERE clicks > 0)::bigint AS clicked_identity_count,
+         COALESCE(SUM(impressions) FILTER (WHERE clicks > 0), 0)::bigint AS clicked_impressions,
+         COALESCE(SUM(clicks) FILTER (WHERE clicks > 0), 0)::bigint AS clicked_clicks
+       FROM per_identity
      )
      SELECT *
      FROM (
        SELECT
          'high_frequency_exposed' AS preset,
          'High-frequency exposed' AS label,
-         COUNT(*) FILTER (WHERE impressions >= 5)::bigint AS identity_count,
-         COALESCE(SUM(impressions) FILTER (WHERE impressions >= 5), 0)::bigint AS impressions,
-         COALESCE(SUM(clicks) FILTER (WHERE impressions >= 5), 0)::bigint AS clicks,
+         high_frequency_identity_count AS identity_count,
+         high_frequency_impressions AS impressions,
+         high_frequency_clicks AS clicks,
          0::bigint AS engagements
-       FROM per_identity
+       FROM summary
        UNION ALL
        SELECT
          'clicked_users' AS preset,
          'Clicked users' AS label,
-         COUNT(*) FILTER (WHERE clicks > 0)::bigint AS identity_count,
-         COALESCE(SUM(impressions) FILTER (WHERE clicks > 0), 0)::bigint AS impressions,
-         COALESCE(SUM(clicks) FILTER (WHERE clicks > 0), 0)::bigint AS clicks,
+         clicked_identity_count AS identity_count,
+         clicked_impressions AS impressions,
+         clicked_clicks AS clicks,
          0::bigint AS engagements
-       FROM per_identity
+       FROM summary
        UNION ALL
        SELECT
          'engaged_non_clickers' AS preset,
@@ -1118,7 +1128,7 @@ export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts
          0::bigint AS impressions,
          0::bigint AS clicks,
          0::bigint AS engagements
-       FROM per_identity
+       FROM summary
      ) presets
      ORDER BY label ASC`,
     params,
