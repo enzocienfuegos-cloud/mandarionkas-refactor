@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { getPool } from '@smx/db/src/pool.mjs';
 import { badRequest, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
+import { logWarn } from '../../../lib/logger.mjs';
 import { withSession, hasPermission } from '../../../lib/session.mjs';
 import {
   createCreativeSizeVariant,
@@ -84,11 +86,31 @@ function resolveCreativeVersionPreviewUrl(row) {
   const mimeType = trimText(row.mime_type).toLowerCase();
   const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
   const publishedPublicUrl = trimText(metadata?.html5Publish?.publicUrl || metadata?.publishJob?.publicUrl);
+
+  // Non-HTML5 types: return public_url directly (could be video, image, etc.)
   if (sourceKind !== 'html5_zip') return publicUrl;
-  if (publishedPublicUrl) return publishedPublicUrl;
-  if (!publicUrl) return null;
-  if (mimeType === 'text/html' && publicUrl.toLowerCase().endsWith('.html')) return publicUrl;
-  if (publicUrl.toLowerCase().includes('/creative-versions/') && publicUrl.toLowerCase().endsWith('.html')) return publicUrl;
+
+  // For html5_zip: the preview URL must point to the published HTML entry,
+  // never to the original ZIP. The ZIP lives in creative-ingestions/; the
+  // published HTML lives in creative-versions/*/html5/.
+  const isZipOrIngestionUrl = (u) => {
+    if (!u) return false;
+    const lower = u.toLowerCase();
+    if (lower.endsWith('.zip')) return true;
+    if (lower.includes('/creative-ingestions/')) return true;
+    return false;
+  };
+
+  if (publishedPublicUrl && !isZipOrIngestionUrl(publishedPublicUrl)) {
+    return publishedPublicUrl;
+  }
+
+  if (publicUrl && !isZipOrIngestionUrl(publicUrl)) {
+    if (mimeType.startsWith('text/html') || publicUrl.toLowerCase().endsWith('.html')) {
+      return publicUrl;
+    }
+  }
+
   return null;
 }
 
@@ -100,6 +122,11 @@ function buildPublishJobState(stage, overrides = {}) {
     updatedAt: new Date().toISOString(),
     ...overrides,
   };
+}
+
+function getDbPool(env) {
+  const cs = trimText(env.databasePoolUrl || env.databaseUrl);
+  return cs ? getPool(cs) : null;
 }
 
 function isR2SigningReady(env) {
@@ -880,80 +907,102 @@ export async function handleCreativeRoutes(ctx) {
       const existing = await getCreativeIngestion(session.client, workspaceId, ingestionId);
       if (!existing) return badRequest(res, requestId, 'Creative ingestion not found.');
 
+      if (existing.creative_id && existing.creative_version_id && existing.status === 'published') {
+        return sendJson(res, 200, {
+          ingestion: normalizeCreativeIngestion(existing),
+          queued: false,
+          processing: false,
+          requestId,
+        });
+      }
+
       const isHtml5 = trimText(existing.source_kind).toLowerCase() === 'html5_zip';
-      const queuedPublishMetadata = isHtml5
-        ? {
+
+      if (isHtml5) {
+        res.statusCode = 202;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store');
+        res.end(JSON.stringify({ queued: true, processing: true, requestId }));
+
+        const backgroundEnv = ctx.env;
+        const backgroundBody = ctx.body;
+        void (async () => {
+          const pool = getDbPool(backgroundEnv);
+          if (!pool) {
+            logWarn({ event: 'html5_publish_bg_skipped', reason: 'no_db_pool', ingestionId });
+            return;
+          }
+
+          const queuedPublishMetadata = {
             ...(existing.metadata || {}),
             entryPath: normalizeHtmlEntryPath(existing.metadata?.entryPath || 'index.html'),
             publishJob: buildPublishJobState('queued'),
-          }
-        : (existing.metadata || {});
+          };
 
-      if (existing.creative_id && existing.creative_version_id) {
-        const creative = await getCreative(session.client, workspaceId, existing.creative_id);
-        const creativeVersion = await getCreativeVersion(session.client, workspaceId, existing.creative_version_id);
-        const html5PreviewUrl = isHtml5 ? resolveCreativeVersionPreviewUrl(creativeVersion) : '';
-
-        if (!isHtml5 && existing.status === 'published') {
-          return sendJson(res, 200, {
-            ingestion: normalizeCreativeIngestion(existing),
-            creative: normalizeCreative(creative),
-            creativeVersion: normalizeCreativeVersion(creativeVersion),
-            queued: false,
-            processing: false,
-            requestId,
-          });
-        }
-
-        if (isHtml5 && existing.status === 'published' && html5PreviewUrl) {
-          return sendJson(res, 200, {
-            ingestion: normalizeCreativeIngestion(existing),
-            creative: normalizeCreative(creative),
-            creativeVersion: normalizeCreativeVersion(creativeVersion),
-            queued: false,
-            processing: false,
-            requestId,
-          });
-        }
-
-        if (isHtml5) {
-          const refreshedIngestion = await updateCreativeIngestion(session.client, workspaceId, ingestionId, {
-            status: 'processing',
-            metadata: queuedPublishMetadata,
-            validation_report: {
-              ...(existing.validation_report || {}),
-              readyToPublish: true,
-              publishQueued: true,
-            },
-            error_code: null,
-            error_detail: null,
-          });
-          const dispatched = await dispatchHtml5ArchivePublishJob(session.client, ingestionId);
-          if (!dispatched) {
-            const failedIngestion = await updateCreativeIngestion(session.client, workspaceId, ingestionId, {
-              status: 'failed',
-              error_code: 'publish_queue_unavailable',
-              error_detail: 'HTML5 publish queue is unavailable right now.',
-              metadata: {
-                ...queuedPublishMetadata,
-                publishJob: buildPublishJobState('failed', {
-                  progressPercent: 0,
-                  message: 'HTML5 publish queue is unavailable right now.',
-                  errorCode: 'publish_queue_unavailable',
-                }),
+          try {
+            await createPublishedCreative(pool, {
+              workspaceId,
+              createdBy: session.user.id,
+              ingestionId,
+              sourceKind: existing.source_kind,
+              name: trimText(backgroundBody?.name) || existing.metadata?.requestedName || existing.original_filename,
+              clickUrl: trimText(backgroundBody?.clickUrl ?? backgroundBody?.click_url) || existing.metadata?.clickUrl || null,
+              publicUrl: existing.public_url,
+              storageKey: existing.storage_key || inferStorageKeyFromPublicUrl(backgroundEnv, existing.public_url),
+              originalFilename: existing.original_filename,
+              mimeType: existing.mime_type,
+              sizeBytes: existing.size_bytes,
+              width: normalizeOptionalPositiveInteger(backgroundBody?.width) ?? existing.metadata?.width ?? null,
+              height: normalizeOptionalPositiveInteger(backgroundBody?.height) ?? existing.metadata?.height ?? null,
+              durationMs: normalizeOptionalPositiveInteger(backgroundBody?.durationMs ?? backgroundBody?.duration_ms) ?? existing.metadata?.durationMs ?? null,
+              metadata: queuedPublishMetadata,
+              deferHtml5ArchivePublish: true,
+              ingestionStatus: 'processing',
+              ingestionMetadata: queuedPublishMetadata,
+              ingestionValidationReport: {
+                ...(existing.validation_report || {}),
+                readyToPublish: true,
+                publishQueued: true,
               },
             });
-            return serviceUnavailable(res, requestId, failedIngestion?.error_detail || 'HTML5 publish queue is unavailable right now.');
+
+            const dispatched = await dispatchHtml5ArchivePublishJob(pool, ingestionId);
+            if (!dispatched) {
+              await updateCreativeIngestion(pool, workspaceId, ingestionId, {
+                status: 'failed',
+                error_code: 'publish_queue_unavailable',
+                error_detail: 'HTML5 publish queue is unavailable right now.',
+                metadata: {
+                  ...queuedPublishMetadata,
+                  publishJob: buildPublishJobState('failed', {
+                    progressPercent: 0,
+                    message: 'HTML5 publish queue is unavailable right now.',
+                    errorCode: 'publish_queue_unavailable',
+                  }),
+                },
+              });
+              logWarn({ event: 'html5_publish_dispatch_failed', ingestionId, workspaceId });
+            }
+          } catch (err) {
+            logWarn({
+              event: 'html5_publish_bg_error',
+              ingestionId,
+              workspaceId,
+              message: err?.message ?? String(err),
+            });
+            try {
+              await updateCreativeIngestion(pool, workspaceId, ingestionId, {
+                status: 'failed',
+                error_code: 'publish_background_error',
+                error_detail: err?.message || 'HTML5 publish failed in background.',
+              });
+            } catch (_) {
+              // Ignore secondary failure.
+            }
           }
-          return sendJson(res, 200, {
-            ingestion: normalizeCreativeIngestion(refreshedIngestion),
-            creative: normalizeCreative(creative),
-            creativeVersion: normalizeCreativeVersion(creativeVersion),
-            queued: true,
-            processing: true,
-            requestId,
-          });
-        }
+        })();
+
+        return true;
       }
 
       const result = await createPublishedCreative(session.client, {
@@ -971,45 +1020,15 @@ export async function handleCreativeRoutes(ctx) {
         width: normalizeOptionalPositiveInteger(ctx.body?.width) ?? existing.metadata?.width ?? null,
         height: normalizeOptionalPositiveInteger(ctx.body?.height) ?? existing.metadata?.height ?? null,
         durationMs: normalizeOptionalPositiveInteger(ctx.body?.durationMs ?? ctx.body?.duration_ms) ?? existing.metadata?.durationMs ?? null,
-        metadata: queuedPublishMetadata,
-        ...(isHtml5 ? {
-          deferHtml5ArchivePublish: true,
-          ingestionStatus: 'processing',
-          ingestionMetadata: queuedPublishMetadata,
-          ingestionValidationReport: {
-            ...(existing.validation_report || {}),
-            readyToPublish: true,
-            publishQueued: true,
-          },
-        } : {}),
+        metadata: existing.metadata || {},
       });
-
-      if (isHtml5) {
-        const dispatched = await dispatchHtml5ArchivePublishJob(session.client, ingestionId);
-        if (!dispatched) {
-          const failedIngestion = await updateCreativeIngestion(session.client, workspaceId, ingestionId, {
-            status: 'failed',
-            error_code: 'publish_queue_unavailable',
-            error_detail: 'HTML5 publish queue is unavailable right now.',
-            metadata: {
-              ...queuedPublishMetadata,
-              publishJob: buildPublishJobState('failed', {
-                progressPercent: 0,
-                message: 'HTML5 publish queue is unavailable right now.',
-                errorCode: 'publish_queue_unavailable',
-              }),
-            },
-          });
-          return serviceUnavailable(res, requestId, failedIngestion?.error_detail || 'HTML5 publish queue is unavailable right now.');
-        }
-      }
 
       return sendJson(res, 200, {
         ingestion: normalizeCreativeIngestion(result.ingestion),
         creative: normalizeCreative(result.creative),
         creativeVersion: normalizeCreativeVersion(result.creativeVersion),
-        queued: isHtml5 || Boolean(result.transcode?.queued),
-        processing: isHtml5 || Boolean(result.transcode?.queued),
+        queued: Boolean(result.transcode?.queued),
+        processing: Boolean(result.transcode?.queued),
         transcode: result.transcode ?? null,
         requestId,
       });
