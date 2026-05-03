@@ -84,28 +84,24 @@ export default function TagBuilder() {
   useEffect(() => {
     if (!isEdit) return;
     setLoading(true);
-    Promise.all([
-      fetch(`/v1/tags/${id}`, { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); }),
-      fetch(`/v1/tags/${id}/bindings`, { credentials: 'include' })
-        .then(r => (r.ok ? r.json() : { bindings: [] }))
-        .catch(() => ({ bindings: [] })),
-    ])
-      .then(([tagPayload, bindingsPayload]) => {
+    fetch(`/v1/tags/${id}`, { credentials: 'include' })
+      .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
+      .then((tagPayload) => {
         const data = (tagPayload?.tag ?? tagPayload) as Record<string, unknown>;
-        const tagClickUrl = String(data.clickUrl ?? '').trim();
-        const bindings = (bindingsPayload?.bindings ?? []) as Array<Record<string, unknown>>;
-        const firstActiveBinding = bindings.find(b => b.status === 'active') ?? bindings[0];
-        const creativeClickUrl = String(firstActiveBinding?.creativeClickUrl ?? '').trim();
+        const trackerType = data.trackerType === 'impression' ? 'impression' : 'click';
+        const format = (data.format as TagFormat | undefined) ?? 'VAST';
 
         setForm({
           name: String(data.name ?? ''),
           campaignId: String((data.campaign as { id?: string } | undefined)?.id ?? data.campaignId ?? ''),
-          format: (data.format as TagFormat | undefined) ?? 'VAST',
+          format,
           status: (data.status as TagStatus | undefined) ?? 'draft',
-          clickUrl: tagClickUrl || creativeClickUrl,
+          clickUrl: format === 'tracker' && trackerType === 'click'
+            ? String(data.clickUrl ?? '').trim()
+            : '',
           servingWidth: String(data.servingWidth ?? data.width ?? ''),
           servingHeight: String(data.servingHeight ?? data.height ?? ''),
-          trackerType: data.trackerType === 'impression' ? 'impression' : 'click',
+          trackerType,
         });
         const normalized = normalizeTagRecord(tagPayload);
         setSavedTag(normalized);
@@ -155,6 +151,12 @@ export default function TagBuilder() {
     setErrors(er => ({ ...er, format: undefined }));
   }, [videoCampaign, form.format, isEdit]);
 
+  useEffect(() => {
+    if (form.format === 'tracker' && form.trackerType === 'click') return;
+    if (!form.clickUrl) return;
+    setForm((prev) => ({ ...prev, clickUrl: '' }));
+  }, [form.format, form.trackerType, form.clickUrl]);
+
   const handleDisplaySizePresetChange = (value: string) => {
     const preset = [
       { label: '300x250', width: 300, height: 250 },
@@ -203,7 +205,7 @@ export default function TagBuilder() {
       campaignId: form.campaignId || null,
       format: form.format,
       status: form.status,
-      clickUrl: form.clickUrl.trim() || null,
+      clickUrl: form.format === 'tracker' && form.trackerType === 'click' ? form.clickUrl.trim() || null : null,
       servingWidth: form.format === 'display' ? Number(form.servingWidth) || null : null,
       servingHeight: form.format === 'display' ? Number(form.servingHeight) || null : null,
       trackerType: form.format === 'tracker' ? form.trackerType : null,

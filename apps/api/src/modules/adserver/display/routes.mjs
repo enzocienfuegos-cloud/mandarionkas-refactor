@@ -79,7 +79,6 @@ async function resolveActiveCreativeForTag(pool, tagId) {
     const { rows } = await pool.query(
        `SELECT
          t.id            AS tag_id,
-         t.click_url     AS tag_click_url,
          t.frequency_cap,
          t.frequency_cap_window,
          t.omid_verification_vendor,
@@ -291,7 +290,7 @@ export async function handleDisplayRoutes(ctx) {
     const suppressImpression = url.searchParams.get('smx_no_imp') === '1';
     const impressionUrl = suppressImpression ? '' : `${baseUrl}/v1/tags/tracker/${tagId}/impression.gif`;
     const clickTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/click`;
-    const resolvedClickUrl = trimText(row.tag_click_url) || trimText(row.creative_click_url) || '';
+    const resolvedClickUrl = trimText(row.creative_click_url) || '';
 
     const html = buildDisplayHtml({
       creativeUrl: row.public_url ?? '',

@@ -902,6 +902,49 @@ export default function CreativeLibrary() {
     }
   };
 
+  const handleEditCreativeClickUrl = async (creative: Creative) => {
+    const rawValue = window.prompt(
+      `Set the destination URL for "${creative.name}". Leave blank to clear it.`,
+      creative.clickUrl ?? '',
+    );
+    if (rawValue == null) return;
+
+    const normalized = rawValue.trim();
+    if (normalized) {
+      try {
+        new URL(normalized);
+      } catch (_) {
+        setError('Enter a valid http(s) destination URL for the creative.');
+        return;
+      }
+    }
+
+    setError('');
+    setSuccessMessage('');
+    try {
+      if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
+        setWorkspaceBusy(true);
+        await switchWorkspace(creative.workspaceId);
+        setActiveWorkspaceId(creative.workspaceId);
+      }
+      await updateCreativeById({
+        creativeId: creative.id,
+        clickUrl: normalized || null,
+      });
+      setCreatives((current) => current.map((entry) => (
+        entry.id === creative.id
+          ? { ...entry, clickUrl: normalized || null }
+          : entry
+      )));
+      setSuccessMessage(normalized ? 'Creative destination URL updated.' : 'Creative destination URL cleared.');
+      window.setTimeout(() => setSuccessMessage(''), 3500);
+    } catch (updateError: any) {
+      setError(updateError.message ?? 'Failed to update creative destination URL');
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
+
   const handleBulkAssignToTag = async () => {
     if (!selectedCreativeIds.length) {
       setError('Select at least one creative first.');
@@ -1829,6 +1872,12 @@ export default function CreativeLibrary() {
                                 : getCreativeOperationalState(creative) === 'inactive'
                                   ? 'Set active'
                                   : 'Set inactive'}
+                            </button>
+                            <button
+                              onClick={() => void handleEditCreativeClickUrl(creative)}
+                              className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+                            >
+                              {creative.clickUrl ? 'Edit URL' : 'Set URL'}
                             </button>
                             <button
                               onClick={() => void (

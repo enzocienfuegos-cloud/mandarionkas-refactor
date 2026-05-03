@@ -30,7 +30,11 @@ function normalizeOffset(offset) {
 
 function baseTagSelect() {
   return `SELECT t.id, t.workspace_id, t.campaign_id, t.name, t.format, t.status,
-            t.click_url, t.impression_url, t.tag_code, t.description,
+            CASE
+              WHEN t.format = 'tracker' AND tfc.tracker_type = 'click' THEN t.click_url
+              ELSE NULL
+            END AS click_url,
+            t.impression_url, t.tag_code, t.description,
             t.targeting, t.frequency_cap, t.frequency_cap_window,
             t.geo_targets, t.device_targets, t.created_at, t.updated_at,
             c.name AS campaign_name,

@@ -239,29 +239,35 @@ export default function TagFormPanel({
           </select>
         </div>
 
-        <details className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3" open={form.format === 'tracker'}>
-          <summary className="cursor-pointer text-sm font-medium text-slate-700">
-            {form.format === 'tracker' ? 'Tracker Destination' : 'Click Override'}
-          </summary>
-          <p className="mt-2 text-xs text-slate-500">
-            {form.format === 'tracker'
-              ? 'Click trackers need a destination URL. Impression trackers ignore this field and only return a 1x1 measurement pixel.'
-              : <>HTML5 banners keep their own <code>clickTag</code> or <code>exit</code> by default. Set this only when the ad server must override that destination.</>}
-          </p>
-          <div className="mt-3">
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              {form.format === 'tracker' ? 'Destination URL' : 'Click URL Override (optional)'}
-            </label>
-            <input
-              type="url"
-              value={form.clickUrl}
-              onChange={onSet('clickUrl')}
-              className={inputClass(errors.clickUrl)}
-              placeholder="https://example.com/landing"
-            />
-            {errors.clickUrl && <p className="mt-1 text-xs text-red-600">{errors.clickUrl}</p>}
+        {form.format === 'tracker' ? (
+          <details className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3" open>
+            <summary className="cursor-pointer text-sm font-medium text-slate-700">
+              Tracker Destination
+            </summary>
+            <p className="mt-2 text-xs text-slate-500">
+              Click trackers need a destination URL. Impression trackers ignore this field and only return a 1x1 measurement pixel.
+            </p>
+            {form.trackerType === 'click' && (
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Destination URL
+                </label>
+                <input
+                  type="url"
+                  value={form.clickUrl}
+                  onChange={onSet('clickUrl')}
+                  className={inputClass(errors.clickUrl)}
+                  placeholder="https://example.com/landing"
+                />
+                {errors.clickUrl && <p className="mt-1 text-xs text-red-600">{errors.clickUrl}</p>}
+              </div>
+            )}
+          </details>
+        ) : (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+            Destination URL is defined by the assigned creative. Tags do not override click destinations for display, native, or VAST delivery.
           </div>
-        </details>
+        )}
 
         <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
           <button

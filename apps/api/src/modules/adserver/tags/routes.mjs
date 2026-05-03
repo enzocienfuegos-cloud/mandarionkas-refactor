@@ -32,13 +32,16 @@ async function resolveTargetWorkspaceId(client, userId, fallbackWorkspaceId, req
 function normalizeTag(row) {
   if (!row) return null;
   const normalizedFormat = String(row.format ?? '').toLowerCase() === 'vast' ? 'VAST' : row.format;
+  const normalizedTrackerType = row.tracker_type ?? null;
   return {
     ...row,
     workspaceId: row.workspace_id ?? null,
     workspaceName: row.workspace_name ?? null,
     campaignId: row.campaign_id ?? null,
     campaign: row.campaign_id ? { id: row.campaign_id, name: row.campaign_name ?? '' } : null,
-    clickUrl: row.click_url ?? '',
+    clickUrl: String(normalizedFormat).toLowerCase() === 'tracker' && normalizedTrackerType === 'click'
+      ? row.click_url ?? ''
+      : '',
     impressionUrl: row.impression_url ?? '',
     description: row.description ?? '',
     targeting: row.targeting ?? {},
@@ -48,7 +51,7 @@ function normalizeTag(row) {
     deviceTargets: row.device_targets ?? [],
     servingWidth: row.serving_width || null,
     servingHeight: row.serving_height || null,
-    trackerType: row.tracker_type ?? null,
+    trackerType: normalizedTrackerType,
     sizeLabel: String(normalizedFormat).toLowerCase() === 'tracker'
       ? (row.tracker_type === 'impression' ? '1x1' : '')
       : (row.serving_width && row.serving_height ? `${row.serving_width}x${row.serving_height}` : ''),
@@ -116,6 +119,15 @@ function parseTagInput(body = {}, mode = 'create') {
     input.tracker_type = body.trackerType ?? body.tracker_type ?? null;
   }
 
+  return input;
+}
+
+function applyTagClickUrlPolicy(input, { format, trackerType }) {
+  const normalizedFormat = String(format ?? '').trim().toLowerCase();
+  const normalizedTrackerType = String(trackerType ?? '').trim().toLowerCase();
+  if (normalizedFormat !== 'tracker' || normalizedTrackerType !== 'click') {
+    input.click_url = null;
+  }
   return input;
 }
 
@@ -242,6 +254,10 @@ export async function handleTagRoutes(ctx) {
         return forbidden(res, requestId, 'You do not have permission to create tags.');
       }
       const input = parseTagInput(body, 'create');
+      applyTagClickUrlPolicy(input, {
+        format: input.format,
+        trackerType: input.tracker_type,
+      });
       if (!input.name) return badRequest(res, requestId, 'Tag name is required.');
       try {
         const workspaceId = await resolveTargetWorkspaceId(
@@ -267,6 +283,10 @@ export async function handleTagRoutes(ctx) {
       const baseTag = await getTagById(session.client, id);
       if (!baseTag) return badRequest(res, requestId, 'Tag not found.');
       const input = parseTagInput(body, 'update');
+      applyTagClickUrlPolicy(input, {
+        format: input.format ?? baseTag.format,
+        trackerType: input.tracker_type ?? baseTag.tracker_type,
+      });
       try {
         const workspaceId = await resolveTargetWorkspaceId(
           session.client,
