@@ -116,11 +116,12 @@ async function resolveActiveCreativeForTag(pool, tagId) {
   }
 }
 
-export function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impressionUrl, clickUrl, omidVerification }) {
+export function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, engagementTrackerUrl, impressionUrl, clickUrl, omidVerification }) {
   const w = Number(width) || 300;
   const h = Number(height) || 250;
   const safeCreativeUrl = trimText(creativeUrl);
   const safeClickTracker = trimText(clickTrackerUrl);
+  const safeEngagementTracker = trimText(engagementTrackerUrl);
   const safeImpression = trimText(impressionUrl);
   const safeClickUrl = trimText(clickUrl);
 
@@ -196,6 +197,7 @@ ${omidBlock}
   ${safeImpressionJs ? `(new Image()).src = ${safeImpressionJs};` : '// impression suppressed'}
 
   var clickTracker = ${safeClickTrackerJs};
+  var engagementTracker = ${safeEngagementTracker ? escapeScriptContext(JSON.stringify(safeEngagementTracker)) : 'null'};
   var injectedClickTag = ${trackedClickTag ? escapeScriptContext(JSON.stringify(trackedClickTag)) : 'null'};
   var frame = document.getElementById('smx-creative-frame');
   if (frame && injectedClickTag) {
@@ -229,6 +231,77 @@ ${omidBlock}
       }
     } catch(_) {}
   });
+
+  (function() {
+    if (!engagementTracker) return;
+
+    var frame = document.getElementById('smx-creative-frame');
+    var viewStart = null;
+    var totalViewMs = 0;
+    var hoverStart = null;
+    var totalHoverMs = 0;
+    var flushed = false;
+
+    function sendBeacon(url) {
+      if (navigator.sendBeacon) { navigator.sendBeacon(url); }
+      else { (new Image()).src = url; }
+    }
+
+    function flush() {
+      if (flushed) return;
+      flushed = true;
+      if (viewStart) { totalViewMs += Date.now() - viewStart; viewStart = null; }
+      if (hoverStart) { totalHoverMs += Date.now() - hoverStart; hoverStart = null; }
+      if (totalViewMs > 0) {
+        sendBeacon(engagementTracker + '?event=viewable&t=' + Math.round(totalViewMs));
+      }
+      if (totalHoverMs > 0) {
+        sendBeacon(engagementTracker + '?event=hover_end&t=' + Math.round(totalHoverMs));
+      }
+    }
+
+    if (frame && typeof IntersectionObserver !== 'undefined') {
+      var isMRC = false;
+      var mrcTimer = null;
+
+      var observer = new IntersectionObserver(function(entries) {
+        var ratio = entries[0].intersectionRatio;
+        if (ratio >= 0.5) {
+          if (!isMRC) {
+            mrcTimer = setTimeout(function() {
+              isMRC = true;
+              viewStart = Date.now();
+            }, 1000);
+          }
+        } else {
+          clearTimeout(mrcTimer);
+          mrcTimer = null;
+          if (isMRC && viewStart) {
+            totalViewMs += Date.now() - viewStart;
+            viewStart = null;
+          }
+          isMRC = false;
+        }
+      }, { threshold: [0, 0.5, 1.0] });
+
+      observer.observe(frame);
+    }
+
+    if (frame) {
+      frame.addEventListener('mouseenter', function() {
+        hoverStart = Date.now();
+      });
+      frame.addEventListener('mouseleave', function() {
+        if (hoverStart) {
+          totalHoverMs += Date.now() - hoverStart;
+          hoverStart = null;
+        }
+      });
+    }
+
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', flush);
+  })();
 })();
 </script>
 </body>
@@ -296,6 +369,7 @@ export async function handleDisplayRoutes(ctx) {
     const suppressImpression = url.searchParams.get('smx_no_imp') === '1';
     const impressionUrl = suppressImpression ? '' : `${baseUrl}/v1/tags/tracker/${tagId}/impression.gif`;
     const clickTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/click`;
+    const engagementTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/engagement`;
     const resolvedClickUrl = trimText(row.creative_click_url) || '';
 
     const html = buildDisplayHtml({
@@ -303,6 +377,7 @@ export async function handleDisplayRoutes(ctx) {
       width: row.width,
       height: row.height,
       clickTrackerUrl,
+      engagementTrackerUrl,
       impressionUrl,
       clickUrl: resolvedClickUrl,
       omidVerification: {

@@ -48,6 +48,7 @@ test('buildDisplayHtml passes tracker URL as clickTag to the creative iframe', (
     width: 300,
     height: 250,
     clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    engagementTrackerUrl: '',
     impressionUrl: '',
     clickUrl: 'https://advertiser.com/landing',
     omidVerification: {},
@@ -73,6 +74,7 @@ test('buildDisplayHtml uses tracker URL as clickTag even when clickUrl is empty'
     width: 300,
     height: 250,
     clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    engagementTrackerUrl: '',
     impressionUrl: '',
     clickUrl: '',
     omidVerification: {},
@@ -81,5 +83,53 @@ test('buildDisplayHtml uses tracker URL as clickTag even when clickUrl is empty'
   assert.ok(
     html.includes('clickTag=https%3A%2F%2Fapi.example.com%2Fv1%2Ftags%2Ftracker%2Ftag-1%2Fclick'),
     'iframeSrc should still route through the tracker when clickUrl is empty',
+  );
+});
+
+test('buildDisplayHtml includes engagementTracker variable when engagementTrackerUrl is provided', () => {
+  const html = buildDisplayHtml({
+    creativeUrl: 'https://cdn.example.com/index.html',
+    width: 300,
+    height: 250,
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    engagementTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/engagement',
+    impressionUrl: '',
+    clickUrl: 'https://advertiser.com',
+    omidVerification: {},
+  });
+
+  assert.ok(
+    html.includes('engagementTracker') && html.includes('/engagement'),
+    'HTML should contain engagementTracker variable pointing to engagement endpoint',
+  );
+  assert.ok(
+    html.includes('IntersectionObserver'),
+    'HTML should contain IntersectionObserver for viewability measurement',
+  );
+  assert.ok(
+    html.includes('event=viewable'),
+    'HTML should beacon viewable event',
+  );
+  assert.ok(
+    html.includes('event=hover_end'),
+    'HTML should beacon hover_end event for attention time',
+  );
+});
+
+test('buildDisplayHtml does not add measurement block when engagementTrackerUrl is empty', () => {
+  const html = buildDisplayHtml({
+    creativeUrl: 'https://cdn.example.com/index.html',
+    width: 300,
+    height: 250,
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    engagementTrackerUrl: '',
+    impressionUrl: '',
+    clickUrl: '',
+    omidVerification: {},
+  });
+
+  assert.ok(
+    html.includes('var engagementTracker = null'),
+    'engagementTracker should be null when no URL provided',
   );
 });
