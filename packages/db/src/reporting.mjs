@@ -195,10 +195,31 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
   const durationQuery = pool.query(
     `SELECT
        ie.site_domain,
-       ie.country,
        ie.region,
        ie.city,
+       ie.country,
        ie.referer,
+       ie.device_type,
+       ie.device_model,
+       ie.browser,
+       ie.os,
+       ie.contextual_ids,
+       ie.network_id,
+       ie.source_publisher_id,
+       ie.app_id,
+       ie.site_id,
+       ie.exchange_id,
+       ie.exchange_publisher_id,
+       ie.exchange_site_id_or_domain,
+       ie.app_bundle,
+       ie.app_name,
+       ie.page_position,
+       ie.content_language,
+       ie.content_title,
+       ie.content_series,
+       ie.carrier,
+       ie.app_store_name,
+       ie.content_genre,
        ie.user_agent
      FROM impression_events ie
      WHERE ${durationConditions.join(' AND ')}
@@ -231,12 +252,23 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     frequencyParams,
   );
 
-  const [summaryResult, engagementResult, durationResult, last7dResult, frequencyResult] = await Promise.all([
+  const identityParams = [workspaceId, tagId];
+  const identityConditions = ['ie.workspace_id = $1', 'ie.tag_id = $2', "COALESCE(ie.device_id, '') <> ''"];
+  addTimestampFilters(identityParams, identityConditions, 'ie', dateFrom, dateTo);
+  const identityFallbackQuery = pool.query(
+    `SELECT COALESCE(COUNT(DISTINCT ie.device_id), 0)::bigint AS unique_device_ids
+     FROM impression_events ie
+     WHERE ${identityConditions.join(' AND ')}`,
+    identityParams,
+  );
+
+  const [summaryResult, engagementResult, durationResult, last7dResult, frequencyResult, identityFallbackResult] = await Promise.all([
     summaryQuery,
     engagementQuery,
     durationQuery,
     last7dQuery,
     frequencyQuery,
+    identityFallbackQuery,
   ]);
 
   const summary = summaryResult.rows[0] ?? {};
@@ -244,12 +276,22 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
   const duration = durationResult.rows[0] ?? {};
   const last7d = last7dResult.rows[0] ?? {};
   const frequency = frequencyResult.rows[0] ?? {};
+  const identityFallback = identityFallbackResult.rows[0] ?? {};
 
   const videoStarts = Number(engagement.video_starts || 0);
   const videoCompletions = Number(engagement.video_completions || 0);
   const totalImpressions = Number(summary.total_impressions || 0);
-  const viewableCount = Number(engagement.viewable_count || 0);
+  const viewableCount = Math.min(Number(engagement.viewable_count || 0), totalImpressions);
   const totalEngagements = Number(engagement.total_engagements || 0);
+  const uniqueIdentityCount = Math.max(
+    Number(frequency.unique_identities || 0),
+    Number(identityFallback.unique_device_ids || 0),
+  );
+  const avgFrequency = Number(frequency.avg_frequency || 0) > 0
+    ? Number(frequency.avg_frequency || 0)
+    : uniqueIdentityCount > 0
+      ? Number((totalImpressions / uniqueIdentityCount).toFixed(4))
+      : 0;
 
   return {
     totalImpressions,
@@ -264,8 +306,8 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     totalInViewDurationMs: Number(engagement.total_in_view_duration_ms || 0),
     totalAttentionDurationMs: Number(engagement.total_attention_duration_ms || 0),
     impressionsLast7d: Number(last7d.impressions_7d || 0),
-    uniqueIdentities: Number(frequency.unique_identities || 0),
-    avgFrequency: Number(frequency.avg_frequency || 0),
+    uniqueIdentities: uniqueIdentityCount,
+    avgFrequency,
     videoStarts,
     videoStartRate: totalImpressions > 0 ? Number(((videoStarts / totalImpressions) * 100).toFixed(4)) : 0,
     videoCompletions,
@@ -273,27 +315,27 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     latestContext: {
       siteDomain: duration.site_domain || '',
       pageUrl: duration.referer || '',
-      deviceType: parseDeviceTypeFromUA(duration.user_agent || ''),
-      deviceModel: '',
-      browser: parseBrowserFromUA(duration.user_agent || ''),
-      os: parseOsFromUA(duration.user_agent || ''),
-      contextualIds: '',
-      networkId: '',
-      sourcePublisherId: '',
-      appId: '',
-      siteId: '',
-      exchangeId: '',
-      exchangePublisherId: '',
-      exchangeSiteIdOrDomain: '',
-      appBundle: '',
-      appName: '',
-      pagePosition: '',
-      contentLanguage: '',
-      contentTitle: '',
-      contentSeries: '',
-      carrier: '',
-      appStoreName: '',
-      contentGenre: '',
+      deviceType: duration.device_type || parseDeviceTypeFromUA(duration.user_agent || ''),
+      deviceModel: duration.device_model || '',
+      browser: duration.browser || parseBrowserFromUA(duration.user_agent || ''),
+      os: duration.os || parseOsFromUA(duration.user_agent || ''),
+      contextualIds: duration.contextual_ids || '',
+      networkId: duration.network_id || '',
+      sourcePublisherId: duration.source_publisher_id || '',
+      appId: duration.app_id || '',
+      siteId: duration.site_id || '',
+      exchangeId: duration.exchange_id || '',
+      exchangePublisherId: duration.exchange_publisher_id || '',
+      exchangeSiteIdOrDomain: duration.exchange_site_id_or_domain || '',
+      appBundle: duration.app_bundle || '',
+      appName: duration.app_name || '',
+      pagePosition: duration.page_position || '',
+      contentLanguage: duration.content_language || '',
+      contentTitle: duration.content_title || '',
+      contentSeries: duration.content_series || '',
+      carrier: duration.carrier || '',
+      appStoreName: duration.app_store_name || '',
+      contentGenre: duration.content_genre || '',
       country: duration.country || '',
       region: duration.region || '',
       city: duration.city || '',
@@ -344,19 +386,13 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     `SELECT
        COALESCE(SUM(ds.impressions), 0)::bigint AS total_impressions,
        COALESCE(SUM(ds.clicks), 0)::bigint AS total_clicks,
-       COALESCE(SUM(ds.viewable_imps), 0)::bigint AS total_viewable_impressions,
-       COALESCE(SUM(ds.measured_imps), 0)::bigint AS total_measured_impressions,
-       COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS total_undetermined_impressions,
        COALESCE(SUM(ds.spend), 0) AS total_spend,
        CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
          THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
          ELSE 0 END AS avg_ctr,
        CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
-         THEN ROUND(COALESCE(SUM(ds.measured_imps), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
-         ELSE 0 END AS measurable_rate,
-       CASE WHEN COALESCE(SUM(ds.measured_imps), 0) > 0
-         THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
-         ELSE 0 END AS viewability_rate
+         THEN 100
+         ELSE 0 END AS measurable_rate
      FROM tag_daily_stats ds
      JOIN ad_tags t ON t.id = ds.tag_id
      WHERE ${summaryConditions.join(' AND ')}`,
@@ -369,8 +405,10 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   addDateFilters(engagementParams, engagementConditions, 'es', dateFrom, dateTo);
   const engagementQuery = pool.query(
     `SELECT
-       COALESCE(SUM(es.event_count), 0)::bigint AS total_engagements,
+       COALESCE(SUM(CASE WHEN es.event_type = 'hover_end' THEN es.event_count ELSE 0 END), 0)::bigint AS total_engagements,
        COALESCE(SUM(CASE WHEN es.event_type = 'hover_end' THEN es.total_duration_ms ELSE 0 END), 0)::bigint AS total_hover_duration_ms,
+       COALESCE(SUM(CASE WHEN es.event_type = 'viewable' THEN es.event_count ELSE 0 END), 0)::bigint AS viewable_count,
+       COALESCE(SUM(CASE WHEN es.event_type = 'viewable' THEN es.total_duration_ms ELSE 0 END), 0)::bigint AS total_in_view_duration_ms,
        COALESCE(SUM(CASE WHEN es.event_type = 'start' THEN es.event_count ELSE 0 END), 0)::bigint AS video_starts,
        COALESCE(SUM(CASE WHEN es.event_type = 'firstQuartile' THEN es.event_count ELSE 0 END), 0)::bigint AS video_first_quartile,
        COALESCE(SUM(CASE WHEN es.event_type = 'midpoint' THEN es.event_count ELSE 0 END), 0)::bigint AS video_midpoint,
@@ -387,11 +425,39 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   addImpressionScopeFilters(durationParams, durationConditions, 't', 'ie', campaignId, tagIds);
   addTimestampFilters(durationParams, durationConditions, 'ie', dateFrom, dateTo);
   const durationQuery = pool.query(
-    `SELECT COALESCE(SUM(COALESCE(ie.viewability_duration_ms, 0)), 0)::bigint AS total_in_view_duration_ms
+    `SELECT
+       COALESCE(COUNT(DISTINCT ie.device_id), 0)::bigint AS unique_device_ids
      FROM impression_events ie
      JOIN ad_tags t ON t.id = ie.tag_id
      WHERE ${durationConditions.join(' AND ')}`,
     durationParams,
+  );
+
+  const frequencyParams = [workspaceId];
+  const frequencyConditions = ['f.workspace_id = $1'];
+  if (campaignId) {
+    frequencyParams.push(campaignId);
+    frequencyConditions.push(`EXISTS (SELECT 1 FROM ad_tags t2 WHERE t2.id = f.tag_id AND t2.workspace_id = f.workspace_id AND t2.campaign_id = $${frequencyParams.length})`);
+  }
+  if (tagIds.length === 1) {
+    frequencyParams.push(tagIds[0]);
+    frequencyConditions.push(`f.tag_id = $${frequencyParams.length}`);
+  } else if (tagIds.length > 1) {
+    frequencyParams.push(tagIds);
+    frequencyConditions.push(`f.tag_id = ANY($${frequencyParams.length}::text[])`);
+  }
+  addDateFilters(frequencyParams, frequencyConditions, 'f', dateFrom, dateTo);
+  const frequencyQuery = pool.query(
+    `SELECT
+       COALESCE(COUNT(*), 0)::bigint AS unique_identities,
+       COALESCE(AVG(freq.device_impressions), 0)::numeric AS avg_frequency
+     FROM (
+       SELECT f.device_id, SUM(f.impressions)::numeric AS device_impressions
+       FROM tag_frequency_cap_events f
+       WHERE ${frequencyConditions.join(' AND ')}
+       GROUP BY f.device_id
+     ) freq`,
+    frequencyParams,
   );
 
   const activeCampaignParams = [workspaceId];
@@ -413,10 +479,11 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     activeTagParams,
   );
 
-  const [summaryRes, engagementRes, durationRes, activeCampaignsRes, activeTagsRes] = await Promise.all([
+  const [summaryRes, engagementRes, durationRes, frequencyRes, activeCampaignsRes, activeTagsRes] = await Promise.all([
     summaryQuery,
     engagementQuery,
     durationQuery,
+    frequencyQuery,
     activeCampaignsQuery,
     activeTagsQuery,
   ]);
@@ -424,21 +491,32 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   const summary = summaryRes.rows[0] ?? {};
   const engagement = engagementRes.rows[0] ?? {};
   const duration = durationRes.rows[0] ?? {};
+  const frequency = frequencyRes.rows[0] ?? {};
   const activeCampaigns = activeCampaignsRes.rows[0] ?? {};
   const activeTags = activeTagsRes.rows[0] ?? {};
   const totalImpressions = Number(summary.total_impressions ?? 0);
   const videoStarts = Number(engagement.video_starts ?? 0);
   const videoCompletions = Number(engagement.video_completions ?? 0);
+  const viewableCount = Math.min(Number(engagement.viewable_count ?? 0), totalImpressions);
+  const uniqueIdentityCount = Math.max(
+    Number(frequency.unique_identities ?? 0),
+    Number(duration.unique_device_ids ?? 0),
+  );
+  const avgIdentityFrequency = Number(frequency.avg_frequency ?? 0) > 0
+    ? Number(frequency.avg_frequency ?? 0)
+    : uniqueIdentityCount > 0
+      ? Number((totalImpressions / uniqueIdentityCount).toFixed(4))
+      : 0;
 
   return {
     total_impressions: totalImpressions,
     total_clicks: Number(summary.total_clicks ?? 0),
     total_spend: Number(summary.total_spend ?? 0),
-    total_viewable_impressions: Number(summary.total_viewable_impressions ?? 0),
-    total_measured_impressions: Number(summary.total_measured_impressions ?? 0),
-    total_undetermined_impressions: Number(summary.total_undetermined_impressions ?? 0),
+    total_viewable_impressions: viewableCount,
+    total_measured_impressions: totalImpressions,
+    total_undetermined_impressions: 0,
     measurable_rate: Number(summary.measurable_rate ?? 0),
-    viewability_rate: Number(summary.viewability_rate ?? 0),
+    viewability_rate: totalImpressions > 0 ? Number(((viewableCount / totalImpressions) * 100).toFixed(4)) : 0,
     avg_ctr: Number(summary.avg_ctr ?? 0),
     total_engagements: Number(engagement.total_engagements ?? 0),
     engagement_rate: totalImpressions > 0 ? Number(((Number(engagement.total_engagements ?? 0) / totalImpressions) * 100).toFixed(4)) : 0,
@@ -449,9 +527,9 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     video_third_quartile: Number(engagement.video_third_quartile ?? 0),
     video_completions: videoCompletions,
     video_completion_rate: videoStarts > 0 ? Number(((videoCompletions / videoStarts) * 100).toFixed(4)) : 0,
-    total_in_view_duration_ms: Number(duration.total_in_view_duration_ms ?? 0),
-    total_identities: 0,
-    avg_identity_frequency: 0,
+    total_in_view_duration_ms: Number(engagement.total_in_view_duration_ms ?? 0),
+    total_identities: uniqueIdentityCount,
+    avg_identity_frequency: avgIdentityFrequency,
     avg_identity_clicks: 0,
     active_campaigns: Number(activeCampaigns.active_campaigns ?? 0),
     active_tags: Number(activeTags.active_tags ?? 0),
@@ -686,22 +764,27 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
        ie.country,
        ie.region,
        ie.city,
-       NULL::text AS device_type,
-       NULL::text AS device_model,
-       NULL::text AS browser,
-       NULL::text AS os,
-       NULL::text AS app_bundle,
-       NULL::text AS app_name,
-       NULL::text AS app_id,
-       NULL::text AS exchange_id,
-       NULL::text AS network_id,
-       NULL::text AS page_position,
-       NULL::text AS content_language,
-       NULL::text AS content_title,
-       NULL::text AS content_series,
-       NULL::text AS carrier,
-       NULL::text AS app_store_name,
-       NULL::text AS content_genre
+       ie.device_type,
+       ie.device_model,
+       ie.browser,
+       ie.os,
+       ie.app_bundle,
+       ie.app_name,
+       ie.app_id,
+       ie.site_id,
+       ie.source_publisher_id,
+       ie.exchange_id,
+       ie.exchange_publisher_id,
+       ie.exchange_site_id_or_domain,
+       ie.contextual_ids,
+       ie.network_id,
+       ie.page_position,
+       ie.content_language,
+       ie.content_title,
+       ie.content_series,
+       ie.carrier,
+       ie.app_store_name,
+       ie.content_genre
      FROM impression_events ie
      JOIN ad_tags t ON t.id = ie.tag_id
      WHERE ${latestConditions.join(' AND ')}
@@ -710,13 +793,63 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
     latestParams,
   );
 
-  const [latestResult] = await Promise.all([latestQuery]);
+  const deviceTypeParams = [...latestParams];
+  const deviceTypeQuery = pool.query(
+    `SELECT COALESCE(NULLIF(ie.device_type, ''), 'Unknown') AS label,
+            COUNT(*)::bigint AS value
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     WHERE ${latestConditions.join(' AND ')}
+     GROUP BY 1
+     ORDER BY value DESC, label ASC
+     LIMIT 10`,
+    deviceTypeParams,
+  );
+
+  const deviceModelParams = [...latestParams];
+  const deviceModelQuery = pool.query(
+    `SELECT COALESCE(NULLIF(ie.device_model, ''), 'Unknown') AS label,
+            COUNT(*)::bigint AS value
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     WHERE ${latestConditions.join(' AND ')}
+     GROUP BY 1
+     ORDER BY value DESC, label ASC
+     LIMIT 10`,
+    deviceModelParams,
+  );
+
+  const inventoryParams = [...latestParams];
+  const inventoryQuery = pool.query(
+    `SELECT
+       CASE
+         WHEN COALESCE(ie.app_id, '') <> '' OR COALESCE(ie.app_bundle, '') <> '' OR COALESCE(ie.app_name, '') <> '' THEN
+           CASE WHEN COALESCE(ie.device_type, '') = 'tv' THEN 'ctv_app' ELSE 'app' END
+         WHEN COALESCE(ie.device_type, '') = 'tv' THEN 'ctv'
+         WHEN COALESCE(ie.site_domain, '') <> '' OR COALESCE(ie.referer, '') <> '' THEN 'web'
+         ELSE 'unknown'
+       END AS label,
+       COUNT(*)::bigint AS value
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     WHERE ${latestConditions.join(' AND ')}
+     GROUP BY 1
+     ORDER BY value DESC, label ASC`,
+    inventoryParams,
+  );
+
+  const [latestResult, deviceTypeResult, deviceModelResult, inventoryResult] = await Promise.all([
+    latestQuery,
+    deviceTypeQuery,
+    deviceModelQuery,
+    inventoryQuery,
+  ]);
 
   return {
     latest_context: latestResult.rows[0] ?? null,
-    device_types: [],
-    device_models: [],
-    inventory_environments: [{ label: 'web', value: Number(latestResult.rowCount || 0) }],
+    device_types: deviceTypeResult.rows,
+    device_models: deviceModelResult.rows,
+    inventory_environments: inventoryResult.rows,
   };
 }
 

@@ -47,6 +47,45 @@ function extractHostname(urlOrDomain) {
   }
 }
 
+function trimQuotedHeader(value) {
+  return trimText(value).replace(/^"+|"+$/g, '');
+}
+
+function parseDeviceTypeFromUA(ua) {
+  if (!ua) return '';
+  const s = ua.toLowerCase();
+  if (/smart.?tv|hbbtv|appletv|googletv|roku|firetv|tizen|webos|viera|bravia/.test(s)) return 'tv';
+  if (/tablet|ipad|kindle|playbook|silk/.test(s)) return 'tablet';
+  if (/mobile|iphone|ipod|android.*mobile|windows phone|blackberry|symbian/.test(s)) return 'phone';
+  if (/android/.test(s)) return 'tablet';
+  return 'desktop';
+}
+
+function parseBrowserFromUA(ua) {
+  if (!ua) return '';
+  const s = ua.toLowerCase();
+  if (/edg\/|edge\//.test(s)) return 'Edge';
+  if (/opr\/|opera\//.test(s)) return 'Opera';
+  if (/firefox\//.test(s)) return 'Firefox';
+  if (/chrome\//.test(s)) return 'Chrome';
+  if (/safari\//.test(s)) return 'Safari';
+  if (/msie |trident\//.test(s)) return 'IE';
+  return '';
+}
+
+function parseOsFromUA(ua) {
+  if (!ua) return '';
+  const s = ua.toLowerCase();
+  if (/windows phone/.test(s)) return 'Windows Phone';
+  if (/windows/.test(s)) return 'Windows';
+  if (/iphone|ipad|ipod|ios/.test(s)) return 'iOS';
+  if (/mac os x|macos/.test(s)) return 'macOS';
+  if (/android/.test(s)) return 'Android';
+  if (/linux/.test(s)) return 'Linux';
+  if (/cros/.test(s)) return 'ChromeOS';
+  return '';
+}
+
 function resolveBaseUrl(ctx) {
   const explicit = trimText(ctx.env.apiBaseUrl || ctx.env.apiPublicBaseUrl || ctx.env.baseUrl);
   if (explicit) return explicit.replace(/\/+$/, '');
@@ -137,13 +176,18 @@ export function createTrackerRoutes(buffer = null) {
             .toUpperCase()
             .replace(/[^A-Z]/g, '')
             .slice(0, 2) || null;
+          const region = decodeStringSafe(p.get('region') || p.get('subdivision_1') || p.get('state') || '') || null;
+          const city = decodeStringSafe(p.get('city') || p.get('metro') || '') || null;
 
-          const deviceType = trimText(
+          const deviceTypeSignal = trimText(
             p.get('devicetype') || p.get('device') || '',
           ).toLowerCase() || null;
           const deviceIdSignal = trimText(
             p.get('adid') || p.get('ifa') ||
             p.get('gadvid') || p.get('idfa') || p.get('googleAdvertisingId') || '',
+          ) || null;
+          const deviceModel = trimQuotedHeader(
+            p.get('devicemodel') || p.get('deviceModel') || req.headers['sec-ch-ua-model'] || '',
           ) || null;
           const appId = trimText(p.get('appid') || '') || null;
           const appBundle = trimText(p.get('appb') || '') || null;
@@ -154,28 +198,75 @@ export function createTrackerRoutes(buffer = null) {
           const sourcePublisherId = trimText(p.get('srcpubid') || '') || null;
           const networkId = trimText(p.get('nid') || '') || null;
           const siteId = trimText(p.get('siteid') || '') || null;
+          const pagePosition = trimText(p.get('ppos') || p.get('pos') || p.get('position') || '') || null;
+          const contentLanguage = trimText(p.get('lang') || p.get('contentlang') || '') || null;
+          const contentTitle = decodeStringSafe(p.get('title') || p.get('contenttitle') || '') || null;
+          const contentSeries = decodeStringSafe(p.get('series') || p.get('contentseries') || '') || null;
+          const carrier = trimText(p.get('carrier') || p.get('isp') || '') || null;
+          const appStoreName = trimText(p.get('appstore') || p.get('store') || '') || null;
+          const contentGenre = decodeStringSafe(p.get('genre') || p.get('contentgenre') || '') || null;
+          const contextualIds = trimText(
+            p.get('ctxid') || p.get('ctxids') || p.get('contextualid') || p.get('contextualids') || '',
+          ) || null;
           const userAgent = trimText(req.headers['user-agent'] || '') || null;
+          const browser = trimQuotedHeader(req.headers['sec-ch-ua'] || '') || parseBrowserFromUA(userAgent);
+          const os = trimQuotedHeader(req.headers['sec-ch-ua-platform'] || '') || parseOsFromUA(userAgent);
+          const deviceType = deviceTypeSignal || parseDeviceTypeFromUA(userAgent);
           const xForwardedFor = trimText(req.headers['x-forwarded-for'] || '');
           const remoteIp = (xForwardedFor ? xForwardedFor.split(',')[0].trim() : '') ||
             req.socket?.remoteAddress || null;
 
           if (
             siteDomain || country || userAgent || appId || appBundle || appName ||
-            deviceType || deviceIdSignal || exchangeId || exchangePublisherId ||
-            exchangeSiteIdOrDomain || sourcePublisherId || networkId || siteId
+            deviceType || deviceIdSignal || deviceModel || exchangeId || exchangePublisherId ||
+            exchangeSiteIdOrDomain || sourcePublisherId || networkId || siteId || browser || os ||
+            pagePosition || contentLanguage || contentTitle || contentSeries || carrier ||
+            appStoreName || contentGenre || contextualIds || region || city || deviceId
           ) {
             pool.query(
               `INSERT INTO impression_events
-                 (tag_id, workspace_id, ip, user_agent, country, site_domain, referer)
-               VALUES ($1, $2, $3::inet, $4, $5, $6, $7)`,
+                 (tag_id, workspace_id, ip, user_agent, country, region, city, site_domain, referer,
+                  device_id, device_type, device_model, browser, os, network_id, source_publisher_id,
+                  app_id, site_id, exchange_id, exchange_publisher_id, exchange_site_id_or_domain,
+                  app_bundle, app_name, page_position, content_language, content_title, content_series,
+                  carrier, app_store_name, content_genre, contextual_ids)
+               VALUES ($1, $2, $3::inet, $4, $5, $6, $7, $8, $9,
+                       $10, $11, $12, $13, $14, $15, $16,
+                       $17, $18, $19, $20, $21,
+                       $22, $23, $24, $25, $26, $27,
+                       $28, $29, $30, $31)`,
               [
                 tagId,
                 workspaceId,
                 remoteIp || null,
                 userAgent,
                 country,
+                region,
+                city,
                 siteDomain || null,
                 referer,
+                deviceId || deviceIdSignal,
+                deviceType || null,
+                deviceModel,
+                browser || null,
+                os || null,
+                networkId,
+                sourcePublisherId,
+                appId,
+                siteId,
+                exchangeId,
+                exchangePublisherId,
+                exchangeSiteIdOrDomain,
+                appBundle,
+                appName,
+                pagePosition,
+                contentLanguage,
+                contentTitle,
+                contentSeries,
+                carrier,
+                appStoreName,
+                contentGenre,
+                contextualIds,
               ],
             ).catch(() => undefined);
           }
