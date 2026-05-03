@@ -3,7 +3,6 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   getDspMacroConfig,
   readCampaignDsp,
-  shouldUseBasisNativeDelivery,
   shouldUseDspVideoDelivery,
 } from '@smx/contracts/dsp-macros';
 import TagFormPanel from './TagFormPanel';
@@ -12,7 +11,6 @@ import TagSnippetPanel from './TagSnippetPanel';
 import TagBindingsPanel from './TagBindingsPanel';
 import {
   emptyForm,
-  isBasisNativeEnabled,
   normalizeTagRecord,
   type Campaign,
   type DeliveryDiagnosticsPayload,
@@ -46,8 +44,7 @@ export default function TagBuilder() {
   const selectedCampaignMediaType = String(selectedCampaign?.metadata?.mediaType ?? 'display').toLowerCase();
   const videoCampaign = selectedCampaignMediaType === 'video';
   const selectedCampaignMacroConfig = getDspMacroConfig(selectedCampaignDsp);
-  const basisNativeEnabled = deliveryDiagnostics?.deliverySummary?.basisNativeActive
-    ?? isBasisNativeEnabled(savedTag, shouldUseBasisNativeDelivery(selectedCampaignDsp));
+  const basisNativeEnabled = deliveryDiagnostics?.deliverySummary?.basisNativeActive ?? false;
   const dspVideoEnabled = deliveryDiagnostics?.deliverySummary?.deliveryMode === 'dsp_video_contract'
     || Boolean(savedTag && savedTag.format === 'VAST' && shouldUseDspVideoDelivery(selectedCampaignDsp));
   const basisDiagnosticPath = deliveryDiagnostics?.deliveryDiagnostics?.displayWrapper?.policy?.measurementPath

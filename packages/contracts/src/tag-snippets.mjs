@@ -11,7 +11,6 @@ import {
   applyDspMacrosToDeliveryUrl,
   buildVastWrapperSnippet,
   DSP_DELIVERY_KINDS,
-  shouldUseBasisNativeDelivery,
 } from './dsp-macros.mjs';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -75,7 +74,6 @@ export function normalizeServingBaseUrl(value) {
 }
 
 export function buildTagSnippet(tag, variant, servingBaseUrl, campaignDsp = '', diagnostics = null) {
-  const useBasisNative = shouldUseBasisNativeDelivery(campaignDsp);
   const base = normalizeServingBaseUrl(servingBaseUrl);
   const id = tag.id;
   const width = tag.width ?? 300;
@@ -118,20 +116,17 @@ export function buildTagSnippet(tag, variant, servingBaseUrl, campaignDsp = '', 
     case 'vast-xml':
       return buildVastWrapperSnippet(id, campaignVastUrl);
     case 'display-iframe':
-      if (useBasisNative) return buildBasisNativeDisplaySnippet({ tagId: id, displayHtmlUrl, trackerEngagementUrl, trackerImpressionUrl, width, height });
       return buildDisplayIframeSnippet({ displayHtmlUrl, width, height });
     case 'display-ins':
-      if (useBasisNative) return buildBasisNativeDisplaySnippet({ tagId: id, displayHtmlUrl, trackerEngagementUrl, trackerImpressionUrl, width, height });
       return buildDisplayInsSnippet({ displayHtmlUrl, tagId: id, width, height });
     case 'native-js':
       return buildNativeJsSnippet({ nativeJsUrl, tagId: id });
     case 'tracker-impression':
-      return useBasisNative ? buildBasisNativeDisplaySnippet({ tagId: id, displayHtmlUrl, trackerEngagementUrl, trackerImpressionUrl, width, height }) : trackerImpressionUrl;
+      return trackerImpressionUrl;
     case 'tracker-click':
-      return useBasisNative ? buildBasisNativeDisplaySnippet({ tagId: id, displayHtmlUrl, trackerEngagementUrl, trackerImpressionUrl, width, height }) : trackerClickUrl;
+      return trackerClickUrl;
     case 'display-js':
     default:
-      if (useBasisNative) return buildBasisNativeDisplaySnippet({ tagId: id, displayHtmlUrl, trackerEngagementUrl, trackerImpressionUrl, width, height });
       return buildDisplayJsSnippet({ displayJsUrl, displayHtmlUrl, width, height });
   }
 }

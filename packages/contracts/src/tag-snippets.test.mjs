@@ -20,19 +20,18 @@ test('display-iframe: has sandbox attribute', () => {
   assert.ok(!out.includes('allow-top-navigation"'), 'must not have deprecated token');
 });
 
-test('Basis display-js: generates native blob, not script src', () => {
+test('Basis display-js: stays on standard JS tag and does not emit native blob', () => {
   const out = buildTagSnippet(TAG, 'display-js', BASE, 'Basis', null);
-  assert.ok(out.startsWith('(function(){'), 'Basis should generate IIFE blob');
-  assert.ok(out.includes('smx_no_imp=1'), 'Basis blob must have smx_no_imp');
-  assert.ok(out.includes('allow-top-navigation-by-user-activation'), 'Basis blob must have correct sandbox');
+  assert.ok(out.includes('<script src='), 'Basis display-js should stay on standard script delivery');
+  assert.ok(out.includes('/v1/tags/display/'), 'Basis display-js should still use display serving path');
+  assert.ok(!out.startsWith('(function(){'), 'Basis display-js must not emit runtime blob');
 });
 
-test('engagement URL has no cuu macro', () => {
-  const out = buildTagSnippet(TAG, 'display-js', BASE, 'Basis', null);
-  const engIdx = out.indexOf('engagementBase=');
-  const engEnd = out.indexOf(';', engIdx);
-  const engUrl = out.slice(engIdx, engEnd);
-  assert.ok(!engUrl.includes('cuu='), 'engagement URL must not have click macro');
+test('Basis tracker-click stays a plain tracker URL with macros', () => {
+  const out = buildTagSnippet(TAG, 'tracker-click', BASE, 'Basis', null);
+  assert.ok(out.startsWith(`${BASE}/v1/tags/tracker/${TAG.id}/click`), 'tracker-click should be a click URL');
+  assert.ok(out.includes('dsp=Basis'), 'tracker-click should retain Basis DSP macros');
+  assert.ok(!out.startsWith('(function(){'), 'tracker-click must not emit runtime blob');
 });
 
 test('tagId injection does not produce XSS', () => {
@@ -54,9 +53,9 @@ test('supported DSP list includes Basis, Illumin, TTD, DV360, and Xandr', () => 
 
 test('displayHtmlUrl must not carry DSP macros for Basis', () => {
   const out = buildTagSnippet(TAG, 'display-js', BASE, 'Basis', null);
-  const match = out.match(/var displayHtmlUrl="([^"]+)"/);
-  assert.ok(match, 'displayHtmlUrl var must be present in blob');
-  const displayUrl = match[1];
+  const scriptMatch = out.match(/<script src="([^"]+)"/);
+  assert.ok(scriptMatch, 'display-js should expose a standard script src');
+  const displayUrl = scriptMatch[1];
   assert.ok(displayUrl.startsWith(`${BASE}/v1/tags/display/`), 'displayHtmlUrl must use serving base URL');
   assert.ok(!displayUrl.includes('{domain}'), 'displayHtmlUrl must not have {domain} macro');
   assert.ok(!displayUrl.includes('{pageUrlEnc}'), 'displayHtmlUrl must not have {pageUrlEnc} macro');
@@ -74,11 +73,15 @@ test('displayHtmlUrl must not carry DSP macros for TTD', () => {
 });
 
 test('tracker URLs still carry DSP macros for Basis', () => {
-  const out = buildTagSnippet(TAG, 'display-js', BASE, 'Basis', null);
-  const impMatch = out.match(/var impressionBase="([^"]+)"/);
-  assert.ok(impMatch, 'impressionBase must be present');
-  const impUrl = impMatch[1];
+  const impUrl = buildTagSnippet(TAG, 'tracker-impression', BASE, 'Basis', null);
   assert.ok(impUrl.includes('dsp=Basis'), 'impressionBase must have dsp=Basis');
   assert.ok(impUrl.includes('{domain}'), 'impressionBase must have {domain} macro');
   assert.ok(impUrl.includes('{pageUrlEnc}'), 'impressionBase must have {pageUrlEnc} macro');
+});
+
+test('Basis display-iframe stays a normal iframe tag', () => {
+  const out = buildTagSnippet(TAG, 'display-iframe', BASE, 'Basis', null);
+  assert.ok(out.startsWith('<iframe'), 'Basis iframe variant should stay a regular iframe tag');
+  assert.ok(out.includes(`${BASE}/v1/tags/display/${TAG.id}.html`), 'Basis iframe should use the clean serving HTML URL');
+  assert.ok(!out.includes('dsp=Basis'), 'Basis iframe serving URL must not include DSP macros');
 });
