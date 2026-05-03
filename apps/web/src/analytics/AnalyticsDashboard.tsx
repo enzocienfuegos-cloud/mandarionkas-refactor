@@ -126,6 +126,9 @@ interface VideoCompletionStep {
 interface DeliveryContextSnapshot {
   site_domain?: string | null;
   page_url?: string | null;
+  country?: string | null;
+  region?: string | null;
+  city?: string | null;
   device_type?: string | null;
   device_model?: string | null;
   browser?: string | null;
@@ -1644,6 +1647,9 @@ export default function AnalyticsDashboard() {
                   </div>
                   {data?.latestContext ? (
                     <div className="grid grid-cols-1 gap-3 px-5 py-4 text-sm text-slate-700">
+                      <div><span className="font-medium text-slate-800">Country:</span> {data.latestContext.country || 'Unknown'}</div>
+                      <div><span className="font-medium text-slate-800">Region:</span> {data.latestContext.region || 'Unknown'}</div>
+                      <div><span className="font-medium text-slate-800">City:</span> {data.latestContext.city || 'Unknown'}</div>
                       <div><span className="font-medium text-slate-800">Device Type:</span> {data.latestContext.device_type || 'Unknown'}</div>
                       <div><span className="font-medium text-slate-800">Device Model:</span> {data.latestContext.device_model || 'Unknown'}</div>
                       <div><span className="font-medium text-slate-800">Site / App Type:</span> {inferSiteAppType(data.latestContext)}</div>

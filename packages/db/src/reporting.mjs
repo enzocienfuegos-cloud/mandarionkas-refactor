@@ -152,7 +152,7 @@ function identityKeyExpression(alias) {
     NULLIF(
       CASE
         WHEN COALESCE(${alias}.ip::text, '') <> '' AND COALESCE(${alias}.user_agent, '') <> ''
-          THEN md5(COALESCE(${alias}.ip::text, '') || '|' || COALESCE(${alias}.user_agent, '') || '|' || COALESCE(${alias}.site_domain, ''))
+          THEN md5(COALESCE(${alias}.ip::text, '') || '|' || COALESCE(${alias}.user_agent, ''))
         ELSE ''
       END,
       ''
