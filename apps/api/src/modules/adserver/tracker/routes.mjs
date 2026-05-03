@@ -275,7 +275,7 @@ export function createTrackerRoutes(buffer = null) {
       const tagId = pathname.split('/')[4];
 
       // S46: Resolve/generate smx_uid cookie before sending response.
-      const { cookie } = resolveDeviceId(req, env);
+      const { deviceId, cookie } = resolveDeviceId(req, env);
 
       applyPublicCors(req, res);
       res.statusCode = 200;
@@ -425,7 +425,7 @@ export function createTrackerRoutes(buffer = null) {
       const tagId = pathname.split('/')[4];
       const pool = getDatabasePool(env);
 
-      const { cookie } = resolveDeviceId(req, env);
+      const { deviceId, cookie } = resolveDeviceId(req, env);
 
       applyPublicCors(req, res);
       res.statusCode = 204;
