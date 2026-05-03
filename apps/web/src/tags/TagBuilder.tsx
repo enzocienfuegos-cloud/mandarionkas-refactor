@@ -6,6 +6,7 @@ import {
   shouldUseBasisNativeDelivery,
   shouldUseDspVideoDelivery,
 } from '@smx/contracts/dsp-macros';
+import TagDiagnosticsPanel from './TagDiagnosticsPanel';
 import TagSnippetPanel from './TagSnippetPanel';
 import TagBindingsPanel from './TagBindingsPanel';
 
@@ -127,11 +128,6 @@ interface DeliveryDiagnosticsPayload {
   } | null;
 }
 
-interface DeliveryDiagnosticSection {
-  label: string;
-  entry?: DeliveryDiagnosticEntry;
-}
-
 const DISPLAY_SIZE_PRESETS = [
   { label: '300x250', width: 300, height: 250 },
   { label: '320x50', width: 320, height: 50 },
@@ -190,53 +186,6 @@ function isBasisNativeEnabled(tag: SavedTag | null, campaignDsp = ''): boolean {
   return tag.format === 'display' || tag.format === 'tracker';
 }
 
-function getMeasurementPathTone(measurementPath?: string | null): string {
-  const path = String(measurementPath ?? '').toLowerCase();
-  if (!path) return 'bg-slate-100 text-slate-700 border-slate-200';
-  if (path.includes('fallback')) return 'bg-amber-50 text-amber-700 border-amber-200';
-  if (path.includes('basis')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  return 'bg-slate-100 text-slate-700 border-slate-200';
-}
-
-function formatArtifactTimestamp(value?: string | null): string {
-  if (!value) return 'n/a';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return 'n/a';
-  return parsed.toLocaleString();
-}
-
-function formatArtifactBytes(value?: number | null): string {
-  const size = Number(value ?? 0);
-  if (!Number.isFinite(size) || size <= 0) return 'n/a';
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-function formatTriggerLabel(value?: string | null): string {
-  if (!value) return 'n/a';
-  return String(value)
-    .split('_')
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function getJobStatusTone(value?: string | null): string {
-  switch (String(value ?? '').toLowerCase()) {
-    case 'running':
-      return 'border-sky-300 bg-sky-100 text-sky-800';
-    case 'pending':
-      return 'border-amber-300 bg-amber-100 text-amber-800';
-    case 'completed':
-      return 'border-emerald-300 bg-emerald-100 text-emerald-800';
-    case 'failed':
-      return 'border-rose-300 bg-rose-100 text-rose-800';
-    default:
-      return 'border-slate-300 bg-slate-100 text-slate-800';
-  }
-}
-
 export default function TagBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -261,12 +210,6 @@ export default function TagBuilder() {
   const selectedCampaignMediaType = String(selectedCampaign?.metadata?.mediaType ?? 'display').toLowerCase();
   const videoCampaign = selectedCampaignMediaType === 'video';
   const selectedCampaignMacroConfig = getDspMacroConfig(selectedCampaignDsp);
-  const deliveryDiagnosticSections: DeliveryDiagnosticSection[] = [
-    { label: 'Display Wrapper', entry: deliveryDiagnostics?.deliveryDiagnostics?.displayWrapper },
-    { label: 'VAST', entry: deliveryDiagnostics?.deliveryDiagnostics?.vast },
-    { label: 'Tracker Click', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerClick },
-    { label: 'Tracker Impression', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerImpression },
-  ];
   const basisNativeEnabled = deliveryDiagnostics?.deliverySummary?.basisNativeActive ?? isBasisNativeEnabled(savedTag, selectedCampaignDsp);
   const dspVideoEnabled = deliveryDiagnostics?.deliverySummary?.deliveryMode === 'dsp_video_contract'
     || Boolean(savedTag && savedTag.format === 'VAST' && shouldUseDspVideoDelivery(selectedCampaignDsp));
@@ -440,7 +383,7 @@ export default function TagBuilder() {
     }
   };
 
-  const handleCopyStaticProfile = (profileKey: string, url?: string) => {
+  const handleCopyStaticProfile = (profileKey: string, url?: string | null) => {
     if (!url) return;
     navigator.clipboard.writeText(url).then(() => {
       setCopiedStaticProfile(profileKey);
@@ -450,7 +393,7 @@ export default function TagBuilder() {
     });
   };
 
-  const handleDownloadStaticProfile = (profileKey: string, url?: string) => {
+  const handleDownloadStaticProfile = (profileKey: string, url?: string | null) => {
     if (!savedTag || !url) return;
     const link = document.createElement('a');
     link.href = url;
@@ -823,341 +766,25 @@ export default function TagBuilder() {
       )}
 
       {isEdit && savedTag && (
-        <div className="mt-6 bg-white rounded-xl border border-slate-200 p-6">
-          <details className="group rounded-lg border border-slate-200 px-4 py-3">
-            <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-slate-800">Delivery Diagnostics</h2>
-                <p className="text-sm text-slate-500">
-                  Inspect the effective Basis/SMX delivery policy and generated URLs for this tag.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                {deliveryDiagnosticsLoading && <span className="text-xs text-slate-500">Loading…</span>}
-                <span className="text-slate-400 transition-transform group-open:rotate-180">▾</span>
-              </div>
-            </summary>
-
-            <div className="mt-4">
-              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                <span className="font-medium text-slate-800">DSP:</span>{' '}
-                {deliveryDiagnostics?.dsp?.selected || selectedCampaignDsp || 'none'}
-              </div>
-
-              <div className="mb-4 grid gap-3 md:grid-cols-3">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                  <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Delivery Mode</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-800">
-                    {deliveryDiagnostics?.deliverySummary?.deliveryMode === 'basis_native'
-                      ? 'Basis Native'
-                      : deliveryDiagnostics?.deliverySummary?.deliveryMode === 'dsp_video_contract'
-                        ? 'DSP Video Contract'
-                      : deliveryDiagnostics?.deliverySummary?.deliveryMode === 'smx_standard'
-                        ? 'SMX Standard'
-                        : basisNativeEnabled ? 'Basis Native' : dspVideoEnabled ? 'DSP Video Contract' : 'SMX Standard'}
-                  </div>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                  <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Preview Status</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-800">
-                    {deliveryDiagnostics?.deliverySummary?.previewStatus === 'basis_preview_may_fallback'
-                      ? 'Fallback Possible'
-                      : deliveryDiagnostics?.deliverySummary?.previewStatus === 'dsp_video_contract_ready'
-                        ? 'DSP Video Ready'
-                      : basisFallbackActive
-                        ? 'Fallback Possible'
-                        : basisNativeEnabled ? 'Basis First-Hop Ready' : dspVideoEnabled ? 'DSP Video Ready' : 'Standard Delivery'}
-                  </div>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                  <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Measurement Path</div>
-                  <div className="mt-2">
-                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getMeasurementPathTone(basisDiagnosticPath)}`}>
-                      {basisDiagnosticPath || 'n/a'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {savedTag.format === 'VAST' && deliveryDiagnostics?.deliveryDiagnostics?.vast?.staticProfiles && (
-                <details className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                  <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm font-semibold text-emerald-900">Static Delivery URLs</h3>
-                      <p className="text-xs text-emerald-800">
-                        Public XML artifacts served from storage for DSP delivery and validator-safe testing.
-                      </p>
-                    </div>
-                    <span className="text-emerald-700">▾</span>
-                  </summary>
-                  <div className="mt-3">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                      <div className="text-xs text-emerald-800">
-                        Copy each profile independently or download all XMLs in one shot.
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleDownloadAllStaticProfiles}
-                          disabled={!staticDeliveryEntries.length}
-                          className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                            staticDeliveryEntries.length
-                              ? 'border-indigo-300 bg-white text-indigo-800 hover:bg-indigo-100'
-                              : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
-                          }`}
-                        >
-                          Download All XMLs
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { void handleQueueStaticDelivery(); }}
-                          disabled={queueingStaticDelivery}
-                          className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                            queueingStaticDelivery
-                              ? 'cursor-not-allowed border-sky-200 bg-sky-100 text-sky-500'
-                              : 'border-sky-300 bg-white text-sky-800 hover:bg-sky-100'
-                          }`}
-                        >
-                          {queueingStaticDelivery ? 'Queueing…' : 'Queue Background Publish'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { void handleRepublishStaticDelivery(); }}
-                          disabled={republishingStaticDelivery}
-                          className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                            republishingStaticDelivery
-                              ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
-                              : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
-                          }`}
-                        >
-                          {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest && (
-                  <div className="rounded-lg border border-emerald-200 bg-white/70 px-3 py-3 text-[11px] text-emerald-900">
-                    {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob && (
-                      <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50/50 px-2.5 py-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="font-medium">Latest Static Publish Job</div>
-                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${getJobStatusTone(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.status)}`}>
-                            {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.status || 'unknown'}
-                          </span>
-                        </div>
-                        <div className="mt-2 grid gap-2 md:grid-cols-4">
-                          <div>
-                            <div className="font-medium">Trigger</div>
-                            <div className="mt-1">{formatTriggerLabel(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.trigger)}</div>
-                          </div>
-                          <div>
-                            <div className="font-medium">Attempts</div>
-                            <div className="mt-1">
-                              {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.attempts ?? 0}
-                              {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.maxAttempts
-                                ? ` / ${deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.maxAttempts}`
-                                : ''}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="font-medium">Updated</div>
-                            <div className="mt-1">{formatArtifactTimestamp(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.updatedAt)}</div>
-                          </div>
-                          <div>
-                            <div className="font-medium">Run At</div>
-                            <div className="mt-1">{formatArtifactTimestamp(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.runAt)}</div>
-                          </div>
-                        </div>
-                        {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.error && (
-                          <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 text-rose-800">
-                            {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.error}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <div className="grid gap-2 md:grid-cols-4">
-                      <div>
-                        <div className="font-medium">Last Trigger</div>
-                        <div className="mt-1">{formatTriggerLabel(deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.trigger)}</div>
-                      </div>
-                      <div>
-                        <div className="font-medium">Generated At</div>
-                        <div className="mt-1">{formatArtifactTimestamp(deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.generatedAt)}</div>
-                      </div>
-                      <div>
-                        <div className="font-medium">Previous Trigger</div>
-                        <div className="mt-1">{formatTriggerLabel(deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.previousTrigger)}</div>
-                      </div>
-                      <div>
-                        <div className="font-medium">Profiles Published</div>
-                        <div className="mt-1">{deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.profileCount ?? 0}</div>
-                      </div>
-                    </div>
-                    {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.history && deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.history.length > 0 && (
-                      <div className="mt-3 border-t border-emerald-200 pt-3">
-                        <div className="mb-2 font-medium">Recent Publish History</div>
-                        <div className="space-y-2">
-                          {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.history.slice(0, 5).map((entry, index) => (
-                            <div key={`${entry.generatedAt ?? 'entry'}-${index}`} className="rounded-md border border-emerald-200 bg-emerald-50/40 px-2.5 py-2">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div className="font-medium">{formatTriggerLabel(entry.trigger)}</div>
-                                <div>{formatArtifactTimestamp(entry.generatedAt)}</div>
-                              </div>
-                              <div className="mt-1 text-emerald-800">
-                                Profiles: {entry.profileCount ?? 0}
-                                {Array.isArray(entry.profiles) && entry.profiles.length > 0
-                                  ? ` • ${entry.profiles.map((profile) => `${profile.profile ?? 'unknown'} (${profile.xmlVersion ?? 'n/a'})`).join(', ')}`
-                                  : ''}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                        {staticDeliveryEntries.map((entry) => (
-                  <div key={entry.key}>
-                    <div className="mb-1 flex items-center justify-between gap-3">
-                      <div className="text-xs font-medium text-emerald-900">{entry.label}</div>
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleCopyStaticProfile(entry.key, entry.url)}
-                          className="rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-medium text-emerald-800 transition-colors hover:bg-emerald-100"
-                        >
-                          {copiedStaticProfile === entry.key ? 'Copied' : 'Copy URL'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadStaticProfile(entry.key, entry.url)}
-                          className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-100"
-                        >
-                          Download XML
-                        </button>
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${
-                          entry.status?.available
-                            ? 'border-emerald-300 bg-emerald-100 text-emerald-800'
-                            : 'border-amber-300 bg-amber-100 text-amber-800'
-                        }`}>
-                          {entry.status?.available ? 'Available' : 'Pending'}
-                        </span>
-                      </div>
-                    </div>
-                    <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{entry.url}</pre>
-                    <div className="mt-2 grid gap-2 md:grid-cols-3 text-[11px] text-emerald-900">
-                      <div className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2">
-                        <div className="font-medium">Last Published</div>
-                        <div className="mt-1">{formatArtifactTimestamp(entry.status?.lastPublishedAt)}</div>
-                      </div>
-                      <div className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2">
-                        <div className="font-medium">Artifact Size</div>
-                        <div className="mt-1">{formatArtifactBytes(entry.status?.contentLength)}</div>
-                      </div>
-                      <div className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2">
-                        <div className="font-medium">Content Type</div>
-                        <div className="mt-1">{entry.status?.contentType || 'n/a'}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                    </div>
-                  </div>
-                </details>
-              )}
-          {savedTag.format === 'VAST' && !deliveryDiagnostics?.deliveryDiagnostics?.vast?.staticProfiles && (
-            <details className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-              <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-emerald-900">Static Delivery URLs</h3>
-                  <p className="text-xs text-emerald-800">
-                    Public XML artifacts served from storage for DSP delivery and validator-safe testing.
-                  </p>
-                </div>
-                <span className="text-emerald-700">▾</span>
-              </summary>
-              <div className="mt-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs text-emerald-900">
-                    No static delivery artifacts are visible yet. Republish to generate or refresh the public XML profiles.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { void handleQueueStaticDelivery(); }}
-                      disabled={queueingStaticDelivery}
-                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                        queueingStaticDelivery
-                          ? 'cursor-not-allowed border-sky-200 bg-sky-100 text-sky-500'
-                          : 'border-sky-300 bg-white text-sky-800 hover:bg-sky-100'
-                      }`}
-                    >
-                      {queueingStaticDelivery ? 'Queueing…' : 'Queue Background Publish'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { void handleRepublishStaticDelivery(); }}
-                      disabled={republishingStaticDelivery}
-                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                        republishingStaticDelivery
-                          ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
-                          : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
-                      }`}
-                    >
-                      {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </details>
-          )}
-
-          <div className="space-y-4">
-            {deliveryDiagnosticSections.map(section => (
-              <details key={section.label} className="rounded-lg border border-slate-200 px-4 py-3">
-                <summary className="cursor-pointer text-sm font-medium text-slate-800">{section.label}</summary>
-                <div className="mt-3 space-y-3">
-                  <div className="grid gap-3 md:grid-cols-3 text-xs">
-                    <div className="rounded-md bg-slate-50 px-3 py-2">
-                      <div className="text-slate-500">Measurement Path</div>
-                      <div className="mt-1 font-medium text-slate-800">{section.entry?.policy?.measurementPath ?? 'n/a'}</div>
-                    </div>
-                    <div className="rounded-md bg-slate-50 px-3 py-2">
-                      <div className="text-slate-500">DSP Hint</div>
-                      <div className="mt-1 font-medium text-slate-800">{section.entry?.policy?.includeDspHint ? 'enabled' : 'disabled'}</div>
-                    </div>
-                    <div className="rounded-md bg-slate-50 px-3 py-2">
-                      <div className="text-slate-500">Click Macro</div>
-                      <div className="mt-1 font-medium text-slate-800">{section.entry?.policy?.includeClickMacro ? 'enabled' : 'disabled'}</div>
-                    </div>
-                  </div>
-
-                  {section.entry?.jsUrl && (
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-slate-700">JS URL</div>
-                      <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{section.entry.jsUrl}</pre>
-                    </div>
-                  )}
-                  {section.entry?.htmlUrl && (
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-slate-700">HTML URL</div>
-                      <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{section.entry.htmlUrl}</pre>
-                    </div>
-                  )}
-                  {section.entry?.url && (
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-slate-700">URL</div>
-                      <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{section.entry.url}</pre>
-                    </div>
-                  )}
-                </div>
-              </details>
-            ))}
-          </div>
-            </div>
-          </details>
-
-        </div>
+        <TagDiagnosticsPanel
+          savedTag={savedTag}
+          selectedCampaignDsp={selectedCampaignDsp}
+          deliveryDiagnostics={deliveryDiagnostics}
+          deliveryDiagnosticsLoading={deliveryDiagnosticsLoading}
+          basisNativeEnabled={basisNativeEnabled}
+          dspVideoEnabled={dspVideoEnabled}
+          basisFallbackActive={basisFallbackActive}
+          basisDiagnosticPath={basisDiagnosticPath}
+          staticDeliveryEntries={staticDeliveryEntries}
+          copiedStaticProfile={copiedStaticProfile}
+          queueingStaticDelivery={queueingStaticDelivery}
+          republishingStaticDelivery={republishingStaticDelivery}
+          onCopyStaticProfile={handleCopyStaticProfile}
+          onDownloadStaticProfile={handleDownloadStaticProfile}
+          onDownloadAllStaticProfiles={handleDownloadAllStaticProfiles}
+          onQueueStaticDelivery={() => { void handleQueueStaticDelivery(); }}
+          onRepublishStaticDelivery={() => { void handleRepublishStaticDelivery(); }}
+        />
       )}
     </div>
   );
