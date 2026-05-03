@@ -11,6 +11,7 @@
 //     but do NOT record frequency cap events (only impressions count toward cap).
 
 import { getPool } from '@smx/db/src/pool.mjs';
+import geoip from 'geoip-lite';
 import { recordClick, recordEngagement, recordImpression } from '@smx/db/src/tracking.mjs';
 import { getTagClickDestination } from '@smx/db/src/vast.mjs';
 import { recordFrequencyCapImpression } from '@smx/db/src/frequency-cap.mjs';
@@ -49,6 +50,88 @@ function extractHostname(urlOrDomain) {
 
 function trimQuotedHeader(value) {
   return trimText(value).replace(/^"+|"+$/g, '');
+}
+
+function readHeader(req, name) {
+  const value = req?.headers?.[name];
+  return Array.isArray(value) ? trimText(value[0] || '') : trimText(value || '');
+}
+
+function normalizeCountryCode(value) {
+  const normalized = trimText(value).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+  if (!normalized || normalized === 'XX' || normalized === 'T1') return '';
+  return normalized;
+}
+
+function sanitizeGeoLabel(value) {
+  const normalized = decodeStringSafe(value).trim();
+  if (!normalized) return '';
+  if (/^(unknown|null|undefined|n\/a|xx|t1)$/i.test(normalized)) return '';
+  return normalized;
+}
+
+function normalizeLookupIp(value) {
+  const normalized = trimText(value).replace(/^\[|\]$/g, '');
+  if (!normalized) return '';
+  const v4Mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  if (v4Mapped?.[1]) return v4Mapped[1];
+  const zoneIndex = normalized.indexOf('%');
+  return zoneIndex === -1 ? normalized : normalized.slice(0, zoneIndex);
+}
+
+function resolveClientIp(req) {
+  const candidates = [
+    readHeader(req, 'do-connecting-ip'),
+    readHeader(req, 'cf-connecting-ip'),
+    readHeader(req, 'true-client-ip'),
+    readHeader(req, 'x-real-ip'),
+    trimText(readHeader(req, 'x-forwarded-for').split(',')[0] || ''),
+    trimText(req?.socket?.remoteAddress || ''),
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeLookupIp(candidate);
+    if (normalized) return normalized;
+  }
+  return null;
+}
+
+function resolveGeoContext(req, url) {
+  const p = url.searchParams;
+  const ip = resolveClientIp(req);
+  const lookup = ip ? geoip.lookup(ip) : null;
+
+  const countryFromMacros = normalizeCountryCode(p.get('country') || '');
+  const regionFromMacros = sanitizeGeoLabel(p.get('region') || p.get('subdivision_1') || p.get('state') || '');
+  const cityFromMacros = sanitizeGeoLabel(p.get('city') || p.get('metro') || '');
+
+  const countryFromHeaders = normalizeCountryCode(
+    readHeader(req, 'cf-ipcountry') ||
+    readHeader(req, 'x-vercel-ip-country') ||
+    readHeader(req, 'x-country-code') ||
+    '',
+  );
+  const regionFromHeaders = sanitizeGeoLabel(
+    readHeader(req, 'cf-region') ||
+    readHeader(req, 'cf-region-code') ||
+    readHeader(req, 'x-vercel-ip-country-region') ||
+    '',
+  );
+  const cityFromHeaders = sanitizeGeoLabel(
+    readHeader(req, 'cf-ipcity') ||
+    readHeader(req, 'x-vercel-ip-city') ||
+    '',
+  );
+
+  const countryFromIp = normalizeCountryCode(lookup?.country || '');
+  const regionFromIp = sanitizeGeoLabel(lookup?.region || '');
+  const cityFromIp = sanitizeGeoLabel(lookup?.city || '');
+
+  return {
+    ip,
+    country: countryFromMacros || countryFromHeaders || countryFromIp || null,
+    region: regionFromMacros || regionFromHeaders || regionFromIp || null,
+    city: cityFromMacros || cityFromHeaders || cityFromIp || null,
+  };
 }
 
 function parseDeviceTypeFromUA(ua) {
@@ -172,12 +255,10 @@ export function createTrackerRoutes(buffer = null) {
           const referer = decodeStringSafe(rawPageUrl) ||
             trimText(req.headers.referer || req.headers.referrer || '') || null;
 
-          const country = trimText(p.get('country') || '')
-            .toUpperCase()
-            .replace(/[^A-Z]/g, '')
-            .slice(0, 2) || null;
-          const region = decodeStringSafe(p.get('region') || p.get('subdivision_1') || p.get('state') || '') || null;
-          const city = decodeStringSafe(p.get('city') || p.get('metro') || '') || null;
+          const geo = resolveGeoContext(req, url);
+          const country = geo.country;
+          const region = geo.region;
+          const city = geo.city;
 
           const deviceTypeSignal = trimText(
             p.get('devicetype') || p.get('device') || '',
@@ -212,9 +293,7 @@ export function createTrackerRoutes(buffer = null) {
           const browser = trimQuotedHeader(req.headers['sec-ch-ua'] || '') || parseBrowserFromUA(userAgent);
           const os = trimQuotedHeader(req.headers['sec-ch-ua-platform'] || '') || parseOsFromUA(userAgent);
           const deviceType = deviceTypeSignal || parseDeviceTypeFromUA(userAgent);
-          const xForwardedFor = trimText(req.headers['x-forwarded-for'] || '');
-          const remoteIp = (xForwardedFor ? xForwardedFor.split(',')[0].trim() : '') ||
-            req.socket?.remoteAddress || null;
+          const remoteIp = geo.ip;
 
           if (
             siteDomain || country || userAgent || appId || appBundle || appName ||
