@@ -103,12 +103,20 @@ function CardButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-[24px] border border-white/10 bg-[rgba(17,18,26,0.9)] p-6 text-left shadow-[0_22px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl transition ${
+      className={`group relative overflow-hidden rounded-[28px] border border-white/10 bg-[rgba(17,18,26,0.9)] p-6 text-left shadow-[0_22px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl transition ${
         disabled
           ? 'cursor-not-allowed opacity-65'
           : 'cursor-pointer hover:-translate-y-1 hover:border-fuchsia-400/40 hover:bg-[rgba(24,25,35,0.96)]'
       }`}
     >
+      <div
+        aria-hidden="true"
+        className={`absolute inset-x-0 top-0 h-px opacity-80 transition ${disabled ? 'bg-transparent' : tone === 'emerald' ? 'bg-gradient-to-r from-emerald-400/0 via-emerald-300/70 to-emerald-400/0' : 'bg-gradient-to-r from-fuchsia-400/0 via-fuchsia-300/80 to-violet-300/0'}`}
+      />
+      <div
+        aria-hidden="true"
+        className={`absolute -right-16 -top-16 h-40 w-40 rounded-full blur-3xl transition ${disabled ? 'bg-transparent' : tone === 'emerald' ? 'bg-emerald-500/10 group-hover:bg-emerald-400/20' : 'bg-fuchsia-500/12 group-hover:bg-fuchsia-400/20'}`}
+      />
       <div className="flex items-start justify-between gap-4">
         <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${accents.badge}`}>
           {title}
@@ -409,11 +417,12 @@ function PortalHome() {
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute left-0 top-0 h-[34rem] w-[34rem] -translate-x-1/4 -translate-y-1/4 rounded-full bg-[radial-gradient(circle,_rgba(236,72,153,0.18)_0%,_rgba(236,72,153,0.07)_34%,_transparent_74%)]" />
         <div className="absolute bottom-0 right-0 h-[36rem] w-[36rem] translate-x-1/4 translate-y-1/4 rounded-full bg-[radial-gradient(circle,_rgba(126,34,206,0.18)_0%,_rgba(126,34,206,0.07)_36%,_transparent_76%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_18%,transparent_82%,rgba(255,255,255,0.02))]" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl items-center">
-        <div className="w-full">
-          <header className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-7xl items-center">
+        <div className="w-full rounded-[32px] border border-white/8 bg-[rgba(10,11,18,0.58)] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:p-7 lg:p-8">
+          <header className="flex flex-col gap-5 rounded-[28px] border border-white/8 bg-[rgba(17,18,26,0.72)] p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ec4899] to-[#c026d3] text-sm font-semibold uppercase tracking-[0.24em] text-white shadow-[0_16px_38px_rgba(192,38,211,0.28)]">
                 SMX
@@ -441,7 +450,7 @@ function PortalHome() {
                     setSwitching(false);
                   }
                 }}
-                className="min-w-[220px] rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-fuchsia-400/80 focus:ring-2 focus:ring-fuchsia-500/25"
+                className="min-w-[220px] rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white outline-none focus:border-fuchsia-400/80 focus:ring-2 focus:ring-fuchsia-500/25"
               >
                 {(session?.workspaces ?? []).map((ws) => (
                   <option key={ws.id} value={ws.id}>{ws.name}</option>
@@ -451,7 +460,7 @@ function PortalHome() {
               <button
                 type="button"
                 onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-                className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/72 transition hover:bg-white/[0.07]"
+                className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-medium text-white/72 transition hover:bg-white/[0.08]"
               >
                 {theme === 'dark' ? 'Light mode' : 'Dark mode'}
               </button>
@@ -459,21 +468,21 @@ function PortalHome() {
               <button
                 type="button"
                 onClick={async () => { await logout(); navigate('/login', { replace: true }); }}
-                className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/72 transition hover:bg-white/[0.07]"
+                className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-medium text-white/72 transition hover:bg-white/[0.08]"
               >
                 Log out
               </button>
             </div>
           </header>
 
-          <div className="mt-10">
+          <div className="mt-6 rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] px-5 py-8 sm:px-7 sm:py-10">
             <span className="inline-flex rounded-full border border-fuchsia-400/25 bg-fuchsia-500/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-200">
               Admin access
             </span>
-            <h1 className="mt-5 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+            <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-[3.6rem] lg:leading-[1.02]">
               Choose where to work
             </h1>
-            <p className="mt-3 text-sm text-white/58 sm:text-base">
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/60 sm:text-base">
               Active workspace: <span className="font-medium text-white">{workspaceLabel}</span>
               {' '}· Role: <span className="font-medium text-white">{getPlatformRoleLabel(session?.user.role)}</span>
             </p>
@@ -518,7 +527,7 @@ function PortalHome() {
           />
           </div>
 
-          <div className="mt-8 text-sm text-white/38">
+          <div className="mt-8 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white/38">
             Authorized internal users only. Access depends on your assigned workspace and role.
           </div>
         </div>
