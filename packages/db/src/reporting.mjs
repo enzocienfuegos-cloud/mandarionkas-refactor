@@ -140,6 +140,7 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     `SELECT
        COALESCE(SUM(CASE WHEN event_type = 'hover_end' THEN event_count ELSE 0 END), 0)::bigint AS total_engagements,
        COALESCE(SUM(CASE WHEN event_type = 'hover_end' THEN total_duration_ms ELSE 0 END), 0)::bigint AS total_attention_duration_ms,
+       COALESCE(SUM(CASE WHEN event_type = 'viewable' THEN event_count ELSE 0 END), 0)::bigint AS viewable_count,
        COALESCE(SUM(CASE WHEN event_type = 'start' THEN event_count ELSE 0 END), 0)::bigint AS video_starts,
        COALESCE(SUM(CASE WHEN event_type = 'complete' THEN event_count ELSE 0 END), 0)::bigint AS video_completions
      FROM tag_engagement_daily_stats
@@ -149,22 +150,14 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     statParams,
   );
 
-  const durationParams = [workspaceId, tagId];
-  const durationConditions = ['ie.workspace_id = $1', 'ie.tag_id = $2'];
-  addTimestampFilters(durationParams, durationConditions, 'ie', dateFrom, dateTo);
   const durationQuery = pool.query(
     `SELECT
-       COALESCE(SUM(COALESCE(ie.viewability_duration_ms, 0)), 0)::bigint AS total_in_view_duration_ms,
-       MAX(ie.timestamp) AS latest_timestamp,
-       MAX(ie.site_domain) FILTER (WHERE COALESCE(ie.site_domain, '') <> '') AS site_domain,
-       MAX(ie.country) FILTER (WHERE COALESCE(ie.country, '') <> '') AS country,
-       MAX(ie.region) FILTER (WHERE COALESCE(ie.region, '') <> '') AS region,
-       MAX(ie.city) FILTER (WHERE COALESCE(ie.city, '') <> '') AS city,
-       MAX(ie.referer) FILTER (WHERE COALESCE(ie.referer, '') <> '') AS referer,
-       MAX(ie.user_agent) FILTER (WHERE COALESCE(ie.user_agent, '') <> '') AS user_agent
-     FROM impression_events ie
-     WHERE ${durationConditions.join(' AND ')}`,
-    durationParams,
+       COALESCE(SUM(CASE WHEN event_type = 'viewable' THEN total_duration_ms ELSE 0 END), 0)::bigint AS total_in_view_duration_ms
+     FROM tag_engagement_daily_stats
+     WHERE tag_id = $1
+       ${dateFrom ? `AND date >= $2` : ''}
+       ${dateTo ? `AND date <= $${dateFrom ? 3 : 2}` : ''}`,
+    statParams,
   );
 
   const last7dQuery = pool.query(
@@ -190,12 +183,19 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
   const videoStarts = Number(engagement.video_starts || 0);
   const videoCompletions = Number(engagement.video_completions || 0);
   const totalImpressions = Number(summary.total_impressions || 0);
+  const viewableCount = Number(engagement.viewable_count || 0);
+  const totalEngagements = Number(engagement.total_engagements || 0);
 
   return {
     totalImpressions,
     totalClicks: Number(summary.total_clicks || 0),
     ctr: Number(summary.ctr || 0),
-    viewabilityRate: Number(summary.viewability_rate || 0),
+    viewabilityRate: totalImpressions > 0
+      ? Number(((viewableCount / totalImpressions) * 100).toFixed(4))
+      : 0,
+    engagementRate: totalImpressions > 0
+      ? Number(((totalEngagements / totalImpressions) * 100).toFixed(4))
+      : 0,
     totalInViewDurationMs: Number(duration.total_in_view_duration_ms || 0),
     totalAttentionDurationMs: Number(engagement.total_attention_duration_ms || 0),
     impressionsLast7d: Number(last7d.impressions_7d || 0),
@@ -204,8 +204,8 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     videoCompletions,
     videoCompletionRate: videoStarts > 0 ? Number(((videoCompletions / videoStarts) * 100).toFixed(4)) : 0,
     latestContext: {
-      siteDomain: duration.site_domain || '',
-      pageUrl: duration.referer || '',
+      siteDomain: '',
+      pageUrl: '',
       deviceType: '',
       deviceModel: '',
       browser: '',
@@ -227,9 +227,9 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
       carrier: '',
       appStoreName: '',
       contentGenre: '',
-      country: duration.country || '',
-      region: duration.region || '',
-      city: duration.city || '',
+      country: '',
+      region: '',
+      city: '',
     },
   };
 }

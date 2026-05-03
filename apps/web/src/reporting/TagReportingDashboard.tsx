@@ -24,6 +24,7 @@ interface TagSummary {
   totalClicks: number;
   ctr: number;
   viewabilityRate: number;
+  engagementRate: number;
   totalInViewDurationMs: number;
   totalAttentionDurationMs: number;
   impressionsLast7d: number;
@@ -235,6 +236,7 @@ function normalizeTagSummary(source: any): TagSummary | null {
     totalClicks: toNumber(source.totalClicks ?? source.total_clicks),
     ctr: toNumber(source.ctr ?? source.overall_ctr),
     viewabilityRate: toNumber(source.viewabilityRate ?? source.viewability_rate ?? source.overallViewability ?? source.overall_viewability),
+    engagementRate: toNumber(source.engagementRate ?? source.engagement_rate),
     totalInViewDurationMs: toNumber(source.totalInViewDurationMs ?? source.total_in_view_duration_ms),
     totalAttentionDurationMs: toNumber(source.totalAttentionDurationMs ?? source.total_attention_duration_ms ?? source.totalHoverDurationMs ?? source.total_hover_duration_ms),
     impressionsLast7d: toNumber(source.impressionsLast7d ?? source.impressions_7d),
@@ -716,11 +718,12 @@ export default function TagReportingDashboard() {
 
                   {activeTab === 'display' ? (
                     <>
-                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 mb-6">
                         <KpiCard label="Total Impressions" value={summary ? fmtNum(summary.totalImpressions) : '—'} />
                         <KpiCard label="Total Clicks" value={summary ? fmtNum(summary.totalClicks) : '—'} />
                         <KpiCard label="CTR" value={summary ? `${summary.ctr.toFixed(2)}%` : '—'} />
-                        <KpiCard label="Viewability" value={summary ? `${summary.viewabilityRate.toFixed(2)}%` : '—'} />
+                        <KpiCard label="Viewability" value={summary ? `${summary.viewabilityRate.toFixed(2)}%` : '—'} sub="MRC: 50% visible ≥1s" />
+                        <KpiCard label="Engagement Rate" value={summary ? `${summary.engagementRate.toFixed(2)}%` : '—'} sub="Hover interactions / imps" />
                         <KpiCard label="In-View Time" value={summary ? fmtDurationFromMs(summary.totalInViewDurationMs) : '—'} />
                         <KpiCard label="Attention Time" value={summary ? fmtDurationFromMs(summary.totalAttentionDurationMs) : '—'} />
                       </div>
