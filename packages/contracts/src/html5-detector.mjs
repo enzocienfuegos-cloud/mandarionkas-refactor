@@ -11,6 +11,7 @@
  *   Adform DHTML        — dhtml.getVar(...) / processedVars:{bsClickTAG:"..."}
  *   Creatopy            — processedVars:{bsClickTAG:"..."} (any nesting depth)
  *   Xandr / generic     — window.bannerURL = "https://..."
+ *   Xandr fallback      — if (bsClickTAG === '') { bsClickTAG = "https://..." }
  */
 export function detectClickTagInHtml(htmlSource) {
   if (!htmlSource || typeof htmlSource !== 'string') return null;
@@ -37,6 +38,8 @@ export function detectClickTagInHtml(htmlSource) {
     [/(?<!\w)bsClickTAG["']?\s*:\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
     // Adform DHTML explicit: var bsClickTAG = dhtml.getVar('bsClickTAG', 'https://...')
     [/var\s+bsClickTAG\s*=\s*dhtml\.getVar\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']\s*\)/i, 1],
+    // Xandr / Creatopy runtime fallback: if (bsClickTAG === '') { bsClickTAG = "https://..." }
+    [/if\s*\(\s*bsClickTAG\s*===\s*["']{2}\s*\)\s*\{\s*bsClickTAG\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
     // Adform DHTML generic getVar with click/Click in the key name
     [/dhtml\.getVar\s*\(\s*["'][^"']{0,32}(?:click|Click)[^"']{0,32}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
     // Xandr / generic: window.bannerURL = "https://..."

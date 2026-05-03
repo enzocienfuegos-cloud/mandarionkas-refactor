@@ -32,6 +32,11 @@ test('detects Adform bsClickTAG getVar pattern', () => {
   assert.equal(detectClickTagInHtml(html), 'https://adform.com/click');
 });
 
+test('detects Xandr-style bsClickTAG fallback assignment after getClickTagValue', () => {
+  const html = `<script>var bsClickTAG = decodeURIComponent(getClickTagValue()); if(bsClickTAG === '') {bsClickTAG = "https://wa.me/50325058000"} else {var encUrl = encodeURIComponent("https://wa.me/50325058000"); if (bsClickTAG.indexOf("https://wa.me/50325058000") === -1) bsClickTAG += encUrl; } window.bannerURL = "bsClickTAG";</script>`;
+  assert.equal(detectClickTagInHtml(html), 'https://wa.me/50325058000');
+});
+
 test('rejects non-http values', () => {
   const html = `<script>var clickTag = "javascript:void(0)";</script>`;
   assert.equal(detectClickTagInHtml(html), null);
