@@ -110,6 +110,7 @@ export interface TagOption {
 export interface TagBinding {
   id: string;
   tagId: string;
+  creativeId?: string;
   creativeVersionId: string;
   creativeSizeVariantId?: string | null;
   status: 'draft' | 'active' | 'paused' | 'archived';
@@ -119,6 +120,7 @@ export interface TagBinding {
   createdAt: string;
   updatedAt: string;
   creativeName: string;
+  creativeClickUrl?: string | null;
   creativeVersionStatus: string;
   sourceKind: SourceKind | string;
   servingFormat: string;

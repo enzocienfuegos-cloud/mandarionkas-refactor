@@ -1232,6 +1232,7 @@ export async function listTagBindings(pool, workspaceId, tagId) {
             cv.creative_id, cv.status AS creative_version_status, cv.source_kind, cv.serving_format,
             cv.public_url, cv.entry_path,
             c.name AS creative_name,
+            c.click_url AS creative_click_url,
             v.label AS variant_label,
             v.width AS variant_width,
             v.height AS variant_height,

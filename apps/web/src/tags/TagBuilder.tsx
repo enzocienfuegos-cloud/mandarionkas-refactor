@@ -84,21 +84,30 @@ export default function TagBuilder() {
   useEffect(() => {
     if (!isEdit) return;
     setLoading(true);
-    fetch(`/v1/tags/${id}`, { credentials: 'include' })
-      .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
-      .then(payload => {
-        const data = (payload?.tag ?? payload) as Record<string, unknown>;
+    Promise.all([
+      fetch(`/v1/tags/${id}`, { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); }),
+      fetch(`/v1/tags/${id}/bindings`, { credentials: 'include' })
+        .then(r => (r.ok ? r.json() : { bindings: [] }))
+        .catch(() => ({ bindings: [] })),
+    ])
+      .then(([tagPayload, bindingsPayload]) => {
+        const data = (tagPayload?.tag ?? tagPayload) as Record<string, unknown>;
+        const tagClickUrl = String(data.clickUrl ?? '').trim();
+        const bindings = (bindingsPayload?.bindings ?? []) as Array<Record<string, unknown>>;
+        const firstActiveBinding = bindings.find(b => b.status === 'active') ?? bindings[0];
+        const creativeClickUrl = String(firstActiveBinding?.creativeClickUrl ?? '').trim();
+
         setForm({
           name: String(data.name ?? ''),
           campaignId: String((data.campaign as { id?: string } | undefined)?.id ?? data.campaignId ?? ''),
           format: (data.format as TagFormat | undefined) ?? 'VAST',
           status: (data.status as TagStatus | undefined) ?? 'draft',
-          clickUrl: String(data.clickUrl ?? ''),
+          clickUrl: tagClickUrl || creativeClickUrl,
           servingWidth: String(data.servingWidth ?? data.width ?? ''),
           servingHeight: String(data.servingHeight ?? data.height ?? ''),
           trackerType: data.trackerType === 'impression' ? 'impression' : 'click',
         });
-        const normalized = normalizeTagRecord(payload);
+        const normalized = normalizeTagRecord(tagPayload);
         setSavedTag(normalized);
         setSuccessMessage('');
       })

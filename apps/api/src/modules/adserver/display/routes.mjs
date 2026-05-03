@@ -79,7 +79,7 @@ async function resolveActiveCreativeForTag(pool, tagId) {
     const { rows } = await pool.query(
        `SELECT
          t.id            AS tag_id,
-         t.click_url,
+         t.click_url     AS tag_click_url,
          t.frequency_cap,
          t.frequency_cap_window,
          t.omid_verification_vendor,
@@ -93,7 +93,8 @@ async function resolveActiveCreativeForTag(pool, tagId) {
          cv.public_url,
          cv.entry_path,
          cv.source_kind,
-         cv.serving_format
+         cv.serving_format,
+         c.click_url     AS creative_click_url
        FROM ad_tags t
        LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
        JOIN creative_tag_bindings b
@@ -104,6 +105,7 @@ async function resolveActiveCreativeForTag(pool, tagId) {
        JOIN creative_versions cv
          ON cv.id = b.creative_version_id
              AND cv.status IN ('published', 'approved', 'draft')
+       JOIN creatives c ON c.id = cv.creative_id
        WHERE t.id = $1
          AND t.status = 'active'
        ORDER BY b.created_at DESC NULLS LAST`,
@@ -115,12 +117,13 @@ async function resolveActiveCreativeForTag(pool, tagId) {
   }
 }
 
-function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impressionUrl, omidVerification }) {
+function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impressionUrl, clickUrl, omidVerification }) {
   const w = Number(width) || 300;
   const h = Number(height) || 250;
   const safeCreativeUrl = trimText(creativeUrl);
   const safeClickTracker = trimText(clickTrackerUrl);
   const safeImpression = trimText(impressionUrl);
+  const safeClickUrl = trimText(clickUrl);
 
   if (!safeCreativeUrl) {
     return `<!DOCTYPE html>
@@ -139,6 +142,10 @@ function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impress
 
   const safeImpressionJs = safeImpression ? escapeScriptContext(JSON.stringify(safeImpression)) : null;
   const safeClickTrackerJs = safeClickTracker ? escapeScriptContext(JSON.stringify(safeClickTracker)) : 'null';
+  const clickTagBlock = safeClickUrl
+    ? `<script>var clickTag=${escapeScriptContext(JSON.stringify(safeClickUrl))};window.clickTag=clickTag;</script>`
+    : '';
+  const iframeSrc = `${safeCreativeUrl}${safeClickUrl ? `${safeCreativeUrl.includes('?') ? '&' : '?'}clickTag=${encodeURIComponent(safeClickUrl)}` : ''}`;
   const omidBlock = omidVerification?.jsUrl
     ? `<script src="https://staticresources.iab-psl.org/omid/omid-session-client.js" async></script>
 <script>
@@ -164,12 +171,13 @@ function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impress
 html,body{width:${w}px;height:${h}px;overflow:hidden;background:transparent}
 iframe{border:0;display:block;width:100%;height:100%}
 </style>
+${clickTagBlock}
 ${omidBlock}
 </head>
 <body>
 <iframe
   id="smx-creative-frame"
-  src="${safeCreativeUrl}"
+  src="${iframeSrc}"
   width="${w}"
   height="${h}"
   scrolling="no"
@@ -184,14 +192,27 @@ ${omidBlock}
   ${safeImpressionJs ? `(new Image()).src = ${safeImpressionJs};` : '// impression suppressed'}
 
   var clickTracker = ${safeClickTrackerJs};
+  var injectedClickTag = ${safeClickUrl ? escapeScriptContext(JSON.stringify(safeClickUrl)) : 'null'};
+  var frame = document.getElementById('smx-creative-frame');
+  if (frame && injectedClickTag) {
+    frame.addEventListener('load', function() {
+      try {
+        frame.contentWindow.postMessage(
+          JSON.stringify({ type: 'smx:init', clickTag: injectedClickTag }),
+          '*'
+        );
+      } catch(_) {}
+    });
+  }
   window.addEventListener('message', function(e) {
     try {
       var data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
       if (!data || data.type !== 'smx:exit') return;
       var dest = (typeof data.url === 'string' && data.url) ? data.url : '';
-      var navigateTo = dest || clickTracker || '';
+      var resolvedClickUrl = dest || injectedClickTag || '';
+      var navigateTo = resolvedClickUrl || clickTracker || '';
       if (clickTracker) {
-        var t = clickTracker + (clickTracker.indexOf('?') === -1 ? '?' : '&') + 'url=' + encodeURIComponent(dest || clickTracker);
+        var t = clickTracker + (clickTracker.indexOf('?') === -1 ? '?' : '&') + 'url=' + encodeURIComponent(resolvedClickUrl || clickTracker);
         if (navigator.sendBeacon) {
           navigator.sendBeacon(t);
         } else {
@@ -270,6 +291,7 @@ export async function handleDisplayRoutes(ctx) {
     const suppressImpression = url.searchParams.get('smx_no_imp') === '1';
     const impressionUrl = suppressImpression ? '' : `${baseUrl}/v1/tags/tracker/${tagId}/impression.gif`;
     const clickTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/click`;
+    const resolvedClickUrl = trimText(row.tag_click_url) || trimText(row.creative_click_url) || '';
 
     const html = buildDisplayHtml({
       creativeUrl: row.public_url ?? '',
@@ -277,6 +299,7 @@ export async function handleDisplayRoutes(ctx) {
       height: row.height,
       clickTrackerUrl,
       impressionUrl,
+      clickUrl: resolvedClickUrl,
       omidVerification: {
         vendor: trimText(row.omid_verification_vendor),
         jsUrl: trimText(row.omid_verification_js_url),

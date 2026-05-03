@@ -134,6 +134,7 @@ function normalizeTagBinding(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     creativeName: row.creative_name ?? '',
+    creativeClickUrl: row.creative_click_url ?? null,
     creativeVersionStatus: row.creative_version_status ?? '',
     sourceKind: row.source_kind ?? '',
     servingFormat: row.serving_format ?? '',

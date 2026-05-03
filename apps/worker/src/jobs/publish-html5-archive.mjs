@@ -218,6 +218,28 @@ function resolveEntryAsset(entries, desiredEntryPath) {
   return null;
 }
 
+function detectClickTagInHtml(htmlSource) {
+  if (!htmlSource || typeof htmlSource !== 'string') return null;
+
+  const patterns = [
+    /(?:var\s+|window\.)clickTag\s*=\s*["']([^"']{8,512})["']/i,
+    /Enabler\.exit\s*\(\s*["'][^"']*["']\s*,\s*["']([^"']{8,512})["']\s*\)/i,
+    /ExitApi\.exit\s*\(\s*["'][^"']*["']\s*,\s*["']([^"']{8,512})["']\s*\)/i,
+    /ClickTag\.track\s*\(\s*["']([^"']{8,512})["']/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = htmlSource.match(pattern);
+    if (match?.[1]) {
+      const candidate = match[1].trim();
+      if (/^https?:\/\/.{4,}/.test(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  return null;
+}
+
 function buildDefaultDeps(source = process.env) {
   return {
     getPool: () => getPool(getConnectionString(source)),
@@ -374,6 +396,8 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
     }
 
     const publishedEntry = uploaded.find((entry) => entry.publishedPath === entryAsset.publishedPath) || uploaded[0];
+    const entryHtmlSource = entryAsset.body ? entryAsset.body.toString('utf-8') : null;
+    const detectedClickUrl = detectClickTagInHtml(entryHtmlSource);
     const publishMetadata = {
       ...(creativeVersion.metadata || {}),
       html5Publish: {
@@ -383,8 +407,13 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
         storagePrefix,
         entryPath: publishedEntry.publishedPath,
         publicUrl: publishedEntry.publicUrl,
+        ...(detectedClickUrl ? { detectedClickUrl } : {}),
       },
     };
+
+    if (detectedClickUrl) {
+      deps.logInfo({ event: 'clicktag_detected', ingestionId, detectedClickUrl });
+    }
 
     await deps.updateCreativeVersion(pool, workspaceId, creativeVersion.id, {
       status: 'draft',
@@ -411,11 +440,15 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
 
     await pool.query(
       `UPDATE creatives
-       SET file_url = $3,
+       SET file_url      = $3,
            thumbnail_url = $3,
+           click_url     = CASE
+             WHEN $4 IS NOT NULL AND (click_url IS NULL OR click_url = '') THEN $4
+             ELSE click_url
+           END,
            updated_at = NOW()
        WHERE workspace_id = $1 AND id = $2`,
-      [workspaceId, creativeVersion.creative_id, publishedEntry.publicUrl],
+      [workspaceId, creativeVersion.creative_id, publishedEntry.publicUrl, detectedClickUrl],
     );
 
     const artifactUpdate = await pool.query(
