@@ -8,6 +8,11 @@ import {
   getWorkspaceCountryBreakdown,
   getWorkspaceCreativeBreakdown,
   getWorkspaceEngagementBreakdown,
+  getWorkspaceIdentityAttributionWindows,
+  getWorkspaceIdentityBreakdown,
+  getWorkspaceIdentityFrequencyBuckets,
+  getWorkspaceIdentityKeyBreakdown,
+  getWorkspaceIdentitySegmentPresets,
   getWorkspaceOverview,
   getWorkspaceRegionBreakdown,
   getWorkspaceTimeline,
@@ -26,6 +31,16 @@ function getOpts(url) {
     campaignId: url.searchParams.get('campaignId') || undefined,
     tagId: url.searchParams.get('tagId') || undefined,
     tagIds: (url.searchParams.get('tagIds') || '').split(',').map((item) => item.trim()).filter(Boolean),
+    canonicalType: url.searchParams.get('canonicalType') || undefined,
+    creativeId: url.searchParams.get('creativeId') || undefined,
+    variantId: url.searchParams.get('variantId') || undefined,
+    siteDomain: url.searchParams.get('siteDomain') || undefined,
+    country: url.searchParams.get('country') || undefined,
+    region: url.searchParams.get('region') || undefined,
+    city: url.searchParams.get('city') || undefined,
+    segmentPreset: url.searchParams.get('segmentPreset') || undefined,
+    minImpressions: url.searchParams.get('minImpressions') || undefined,
+    minClicks: url.searchParams.get('minClicks') || undefined,
     limit: url.searchParams.get('limit') || undefined,
   };
 }
@@ -125,16 +140,39 @@ export async function handleReportingRoutes(ctx) {
     });
   }
 
-  if (
-    method === 'GET' && (
-    pathname === '/v1/reporting/workspace/identity-breakdown'
-    || pathname === '/v1/reporting/workspace/identity-frequency-buckets'
-    || pathname === '/v1/reporting/workspace/identity-segment-presets'
-    || pathname === '/v1/reporting/workspace/identity-key-breakdown'
-    || pathname === '/v1/reporting/workspace/identity-attribution-windows'
-    )
-  ) {
-    return withSession(ctx, async () => sendJson(res, 200, emptyBreakdown(requestId)));
+  if (method === 'GET' && pathname === '/v1/reporting/workspace/identity-breakdown') {
+    return withSession(ctx, async (session) => {
+      const breakdown = await getWorkspaceIdentityBreakdown(session.client, session.session.activeWorkspaceId, getOpts(url));
+      return sendJson(res, 200, { breakdown, requestId });
+    });
+  }
+
+  if (method === 'GET' && pathname === '/v1/reporting/workspace/identity-frequency-buckets') {
+    return withSession(ctx, async (session) => {
+      const breakdown = await getWorkspaceIdentityFrequencyBuckets(session.client, session.session.activeWorkspaceId, getOpts(url));
+      return sendJson(res, 200, { breakdown, requestId });
+    });
+  }
+
+  if (method === 'GET' && pathname === '/v1/reporting/workspace/identity-segment-presets') {
+    return withSession(ctx, async (session) => {
+      const breakdown = await getWorkspaceIdentitySegmentPresets(session.client, session.session.activeWorkspaceId, getOpts(url));
+      return sendJson(res, 200, { breakdown, requestId });
+    });
+  }
+
+  if (method === 'GET' && pathname === '/v1/reporting/workspace/identity-key-breakdown') {
+    return withSession(ctx, async (session) => {
+      const breakdown = await getWorkspaceIdentityKeyBreakdown(session.client, session.session.activeWorkspaceId, getOpts(url));
+      return sendJson(res, 200, { breakdown, requestId });
+    });
+  }
+
+  if (method === 'GET' && pathname === '/v1/reporting/workspace/identity-attribution-windows') {
+    return withSession(ctx, async (session) => {
+      const breakdown = await getWorkspaceIdentityAttributionWindows(session.client, session.session.activeWorkspaceId, getOpts(url));
+      return sendJson(res, 200, { breakdown, requestId });
+    });
   }
 
   if (method === 'GET' && pathname === '/v1/reporting/workspace/saved-audiences') {

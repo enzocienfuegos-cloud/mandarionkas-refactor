@@ -119,6 +119,69 @@ function addImpressionScopeFilters(params, conditions, tagAlias, eventAlias, cam
   }
 }
 
+function addIdentityBreakdownFilters(params, conditions, alias, opts = {}) {
+  const {
+    canonicalType = '',
+    siteDomain = '',
+    country = '',
+    region = '',
+    city = '',
+    creativeId = '',
+    variantId = '',
+  } = opts;
+
+  if (canonicalType === 'external_user_id') {
+    conditions.push('1 = 0');
+    return;
+  }
+
+  conditions.push(`COALESCE(${alias}.device_id, '') <> ''`);
+
+  if (siteDomain) {
+    params.push(siteDomain.trim().toLowerCase());
+    conditions.push(`LOWER(COALESCE(${alias}.site_domain, '')) = $${params.length}`);
+  }
+  if (country) {
+    params.push(country.trim().toUpperCase());
+    conditions.push(`UPPER(COALESCE(${alias}.country, '')) = $${params.length}`);
+  }
+  if (region) {
+    params.push(region.trim().toLowerCase());
+    conditions.push(`LOWER(COALESCE(${alias}.region, '')) = $${params.length}`);
+  }
+  if (city) {
+    params.push(city.trim().toLowerCase());
+    conditions.push(`LOWER(COALESCE(${alias}.city, '')) = $${params.length}`);
+  }
+
+  if (creativeId || variantId) {
+    const creativeConditions = [
+      `b.workspace_id = ${alias}.workspace_id`,
+      `b.tag_id = ${alias}.tag_id`,
+      "b.status = 'active'",
+      '(b.start_at IS NULL OR b.start_at <= NOW())',
+      '(b.end_at IS NULL OR b.end_at >= NOW())',
+      'cv.id = b.creative_version_id',
+    ];
+    if (creativeId) {
+      params.push(creativeId);
+      creativeConditions.push(`cv.creative_id = $${params.length}`);
+    }
+    if (variantId) {
+      params.push(variantId);
+      creativeConditions.push(`COALESCE(b.creative_size_variant_id, '') = $${params.length}`);
+    }
+    conditions.push(
+      `EXISTS (
+         SELECT 1
+         FROM creative_tag_bindings b
+         JOIN creative_versions cv ON cv.id = b.creative_version_id
+         WHERE ${creativeConditions.join(' AND ')}
+       )`,
+    );
+  }
+}
+
 export async function getTagStats(pool, workspaceId, tagId, opts = {}) {
   const { dateFrom, dateTo, limit = 30 } = opts;
   const { rows: tagRows } = await pool.query(
@@ -862,6 +925,246 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
     device_models: deviceModelResult.rows,
     inventory_environments: inventoryResult.rows,
   };
+}
+
+export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, limit = 25, campaignId = '', tagIds: rawTagIds = [], tagId = '', minImpressions = 1, minClicks = 0, canonicalType = '' } = opts;
+  const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
+  const params = [workspaceId];
+  const conditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds);
+  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, conditions, 'ie', opts);
+  const minimumImpressions = Math.max(normalizeNonNegativeInt(minImpressions), 1);
+  const minimumClicks = normalizeNonNegativeInt(minClicks);
+  params.push(minimumImpressions);
+  const havingClauses = [`COUNT(*) >= $${params.length}`];
+  if (minimumClicks > 0) {
+    havingClauses.push(`${minimumClicks} <= 0`);
+  }
+  params.push(normalizeLimit(limit, 25, 250));
+
+  const { rows } = await pool.query(
+    `SELECT
+       ie.device_id AS canonical_value,
+       ${canonicalType === 'cookie_id' ? "'cookie_id'" : "'device_id'"} AS canonical_type,
+       COUNT(*)::bigint AS impressions,
+       0::bigint AS clicks,
+       0::numeric AS ctr,
+       (ARRAY_AGG(NULLIF(ie.city, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.city, '') <> ''))[1] AS last_city,
+       (ARRAY_AGG(NULLIF(ie.region, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.region, '') <> ''))[1] AS last_region,
+       (ARRAY_AGG(NULLIF(ie.country, '') ORDER BY ie.timestamp DESC) FILTER (WHERE COALESCE(ie.country, '') <> ''))[1] AS last_country
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY ie.device_id
+     HAVING ${havingClauses.join(' AND ')}
+     ORDER BY impressions DESC, canonical_value ASC
+     LIMIT $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
+export async function getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
+  const params = [workspaceId];
+  const conditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds);
+  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, conditions, 'ie', opts);
+
+  const { rows } = await pool.query(
+    `WITH per_identity AS (
+       SELECT ie.device_id, COUNT(*)::bigint AS impressions
+       FROM impression_events ie
+       JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${conditions.join(' AND ')}
+       GROUP BY ie.device_id
+     )
+     SELECT
+       CASE
+         WHEN impressions = 1 THEN '1 impression'
+         WHEN impressions BETWEEN 2 AND 3 THEN '2-3 impressions'
+         WHEN impressions BETWEEN 4 AND 5 THEN '4-5 impressions'
+         WHEN impressions BETWEEN 6 AND 10 THEN '6-10 impressions'
+         WHEN impressions BETWEEN 11 AND 20 THEN '11-20 impressions'
+         ELSE '21+ impressions'
+       END AS bucket_label,
+       COUNT(*)::bigint AS identity_count,
+       SUM(impressions)::bigint AS impressions,
+       0::bigint AS clicks,
+       0::numeric AS ctr
+     FROM per_identity
+     GROUP BY 1
+     ORDER BY MIN(impressions) ASC`,
+    params,
+  );
+  return rows;
+}
+
+export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
+  const params = [workspaceId];
+  const conditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds);
+  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, conditions, 'ie', opts);
+
+  const { rows } = await pool.query(
+    `WITH per_identity AS (
+       SELECT ie.device_id, COUNT(*)::bigint AS impressions
+       FROM impression_events ie
+       JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${conditions.join(' AND ')}
+       GROUP BY ie.device_id
+     )
+     SELECT *
+     FROM (
+       SELECT
+         'high_frequency_exposed' AS preset,
+         'High-frequency exposed' AS label,
+         COUNT(*) FILTER (WHERE impressions >= 5)::bigint AS identity_count,
+         COALESCE(SUM(impressions) FILTER (WHERE impressions >= 5), 0)::bigint AS impressions,
+         0::bigint AS clicks,
+         0::bigint AS engagements
+       FROM per_identity
+       UNION ALL
+       SELECT
+         'clicked_users' AS preset,
+         'Clicked users' AS label,
+         0::bigint AS identity_count,
+         0::bigint AS impressions,
+         0::bigint AS clicks,
+         0::bigint AS engagements
+       UNION ALL
+       SELECT
+         'engaged_non_clickers' AS preset,
+         'Engaged non-clickers' AS label,
+         0::bigint AS identity_count,
+         0::bigint AS impressions,
+         0::bigint AS clicks,
+         0::bigint AS engagements
+     ) presets
+     ORDER BY label ASC`,
+    params,
+  );
+  return rows;
+}
+
+export async function getWorkspaceIdentityKeyBreakdown(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, limit = 25, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
+  const params = [workspaceId];
+  const conditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds);
+  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, conditions, 'ie', opts);
+  params.push(normalizeLimit(limit, 25, 100));
+  const sharedWhere = conditions.join(' AND ');
+
+  const { rows } = await pool.query(
+    `SELECT *
+     FROM (
+       SELECT 'device_id' AS key_type, 'impression' AS event_type, COUNT(*)::bigint AS key_observations, COUNT(DISTINCT ie.device_id)::bigint AS unique_values, COUNT(DISTINCT ie.device_id)::bigint AS identity_count
+       FROM impression_events ie JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${sharedWhere}
+       UNION ALL
+       SELECT 'device_type', 'impression', COUNT(*)::bigint, COUNT(DISTINCT ie.device_type)::bigint, COUNT(DISTINCT ie.device_id)::bigint
+       FROM impression_events ie JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${sharedWhere} AND COALESCE(ie.device_type, '') <> ''
+       UNION ALL
+       SELECT 'device_model', 'impression', COUNT(*)::bigint, COUNT(DISTINCT ie.device_model)::bigint, COUNT(DISTINCT ie.device_id)::bigint
+       FROM impression_events ie JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${sharedWhere} AND COALESCE(ie.device_model, '') <> ''
+       UNION ALL
+       SELECT 'browser', 'impression', COUNT(*)::bigint, COUNT(DISTINCT ie.browser)::bigint, COUNT(DISTINCT ie.device_id)::bigint
+       FROM impression_events ie JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${sharedWhere} AND COALESCE(ie.browser, '') <> ''
+       UNION ALL
+       SELECT 'os', 'impression', COUNT(*)::bigint, COUNT(DISTINCT ie.os)::bigint, COUNT(DISTINCT ie.device_id)::bigint
+       FROM impression_events ie JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${sharedWhere} AND COALESCE(ie.os, '') <> ''
+       UNION ALL
+       SELECT 'site_domain', 'impression', COUNT(*)::bigint, COUNT(DISTINCT ie.site_domain)::bigint, COUNT(DISTINCT ie.device_id)::bigint
+       FROM impression_events ie JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${sharedWhere} AND COALESCE(ie.site_domain, '') <> ''
+       UNION ALL
+       SELECT 'app_id', 'impression', COUNT(*)::bigint, COUNT(DISTINCT ie.app_id)::bigint, COUNT(DISTINCT ie.device_id)::bigint
+       FROM impression_events ie JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${sharedWhere} AND COALESCE(ie.app_id, '') <> ''
+       UNION ALL
+       SELECT 'app_bundle', 'impression', COUNT(*)::bigint, COUNT(DISTINCT ie.app_bundle)::bigint, COUNT(DISTINCT ie.device_id)::bigint
+       FROM impression_events ie JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${sharedWhere} AND COALESCE(ie.app_bundle, '') <> ''
+       UNION ALL
+       SELECT 'exchange_id', 'impression', COUNT(*)::bigint, COUNT(DISTINCT ie.exchange_id)::bigint, COUNT(DISTINCT ie.device_id)::bigint
+       FROM impression_events ie JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${sharedWhere} AND COALESCE(ie.exchange_id, '') <> ''
+       UNION ALL
+       SELECT 'network_id', 'impression', COUNT(*)::bigint, COUNT(DISTINCT ie.network_id)::bigint, COUNT(DISTINCT ie.device_id)::bigint
+       FROM impression_events ie JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${sharedWhere} AND COALESCE(ie.network_id, '') <> ''
+       UNION ALL
+       SELECT 'carrier', 'impression', COUNT(*)::bigint, COUNT(DISTINCT ie.carrier)::bigint, COUNT(DISTINCT ie.device_id)::bigint
+       FROM impression_events ie JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${sharedWhere} AND COALESCE(ie.carrier, '') <> ''
+       UNION ALL
+       SELECT 'contextual_ids', 'impression', COUNT(*)::bigint, COUNT(DISTINCT ie.contextual_ids)::bigint, COUNT(DISTINCT ie.device_id)::bigint
+       FROM impression_events ie JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${sharedWhere} AND COALESCE(ie.contextual_ids, '') <> ''
+     ) keyed
+     WHERE key_observations > 0
+     ORDER BY key_observations DESC, key_type ASC
+     LIMIT $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
+export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
+  const params = [workspaceId];
+  const conditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds);
+  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
+  addIdentityBreakdownFilters(params, conditions, 'ie', opts);
+
+  const { rows } = await pool.query(
+    `WITH latest_seen AS (
+       SELECT ie.device_id, MAX(ie.timestamp) AS last_seen_at
+       FROM impression_events ie
+       JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${conditions.join(' AND ')}
+       GROUP BY ie.device_id
+     )
+     SELECT
+       CASE
+         WHEN last_seen_at >= NOW() - INTERVAL '1 day' THEN '0-1 days'
+         WHEN last_seen_at >= NOW() - INTERVAL '7 days' THEN '2-7 days'
+         WHEN last_seen_at >= NOW() - INTERVAL '30 days' THEN '8-30 days'
+         ELSE '31+ days'
+       END AS label,
+       COUNT(*)::bigint AS exposed_identities,
+       0::bigint AS clicked_identities,
+       0::bigint AS engaged_identities,
+       0::numeric AS click_through_rate,
+       0::numeric AS engagement_through_rate
+     FROM latest_seen
+     GROUP BY 1
+     ORDER BY
+       CASE label
+         WHEN '0-1 days' THEN 1
+         WHEN '2-7 days' THEN 2
+         WHEN '8-30 days' THEN 3
+         ELSE 4
+       END`,
+    params,
+  );
+  return rows;
 }
 
 export async function listSavedAudiences(pool, workspaceId) {
