@@ -1099,29 +1099,43 @@ export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts
   addIdentityBreakdownFilters(params, clickConditions, 'ce', opts);
 
   const { rows } = await pool.query(
-    `WITH per_identity AS (
+    `WITH impressions AS (
        SELECT
          ${resolvedIdentityExpression('ie', 'e')} AS identity_key,
-         COUNT(*)::bigint AS impressions,
-         COALESCE(c.clicks, 0)::bigint AS clicks
+         COUNT(*)::bigint AS impressions
        FROM impression_events ie
        JOIN ad_tags t ON t.id = ie.tag_id
        LEFT JOIN identity_edges e
          ON e.workspace_id = ie.workspace_id
         AND e.aliased_id = ie.device_id
-       LEFT JOIN (
-         SELECT ${resolvedIdentityExpression('ce', 'e_click')} AS identity_key, COUNT(*)::bigint AS clicks
-         FROM click_events ce
-         JOIN ad_tags t_click ON t_click.id = ce.tag_id
-         LEFT JOIN identity_edges e_click
-           ON e_click.workspace_id = ce.workspace_id
-          AND e_click.aliased_id = ce.device_id
-         WHERE ${clickConditions.join(' AND ')}
-         GROUP BY 1
-       ) c ON c.identity_key = ${resolvedIdentityExpression('ie', 'e')}
        WHERE ${impressionConditions.join(' AND ')}
        GROUP BY 1
-              , c.clicks
+     ),
+     clicks AS (
+       SELECT
+         ${resolvedIdentityExpression('ce', 'e_click')} AS identity_key,
+         COUNT(*)::bigint AS clicks
+       FROM click_events ce
+       JOIN ad_tags t_click ON t_click.id = ce.tag_id
+       LEFT JOIN identity_edges e_click
+         ON e_click.workspace_id = ce.workspace_id
+        AND e_click.aliased_id = ce.device_id
+       WHERE ${clickConditions.join(' AND ')}
+       GROUP BY 1
+     ),
+     identities AS (
+       SELECT identity_key FROM impressions
+       UNION
+       SELECT identity_key FROM clicks
+     ),
+     per_identity AS (
+       SELECT
+         ids.identity_key,
+         COALESCE(i.impressions, 0)::bigint AS impressions,
+         COALESCE(c.clicks, 0)::bigint AS clicks
+       FROM identities ids
+       LEFT JOIN impressions i ON i.identity_key = ids.identity_key
+       LEFT JOIN clicks c ON c.identity_key = ids.identity_key
      ),
      summary AS (
        SELECT
