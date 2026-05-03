@@ -116,7 +116,7 @@ async function resolveActiveCreativeForTag(pool, tagId) {
   }
 }
 
-function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impressionUrl, clickUrl, omidVerification }) {
+export function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impressionUrl, clickUrl, omidVerification }) {
   const w = Number(width) || 300;
   const h = Number(height) || 250;
   const safeCreativeUrl = trimText(creativeUrl);
@@ -141,10 +141,15 @@ function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, impress
 
   const safeImpressionJs = safeImpression ? escapeScriptContext(JSON.stringify(safeImpression)) : null;
   const safeClickTrackerJs = safeClickTracker ? escapeScriptContext(JSON.stringify(safeClickTracker)) : 'null';
-  const clickTagBlock = safeClickUrl
-    ? `<script>var clickTag=${escapeScriptContext(JSON.stringify(safeClickUrl))};window.clickTag=clickTag;</script>`
+  const trackedClickTag = safeClickTracker
+    ? (safeClickUrl
+        ? `${safeClickTracker}?url=${encodeURIComponent(safeClickUrl)}`
+        : safeClickTracker)
+    : safeClickUrl;
+  const clickTagBlock = trackedClickTag
+    ? `<script>var clickTag=${escapeScriptContext(JSON.stringify(trackedClickTag))};window.clickTag=clickTag;</script>`
     : '';
-  const iframeSrc = `${safeCreativeUrl}${safeClickUrl ? `${safeCreativeUrl.includes('?') ? '&' : '?'}clickTag=${encodeURIComponent(safeClickUrl)}` : ''}`;
+  const iframeSrc = `${safeCreativeUrl}${trackedClickTag ? `${safeCreativeUrl.includes('?') ? '&' : '?'}clickTag=${encodeURIComponent(trackedClickTag)}` : ''}`;
   const omidBlock = omidVerification?.jsUrl
     ? `<script src="https://staticresources.iab-psl.org/omid/omid-session-client.js" async></script>
 <script>
@@ -191,7 +196,7 @@ ${omidBlock}
   ${safeImpressionJs ? `(new Image()).src = ${safeImpressionJs};` : '// impression suppressed'}
 
   var clickTracker = ${safeClickTrackerJs};
-  var injectedClickTag = ${safeClickUrl ? escapeScriptContext(JSON.stringify(safeClickUrl)) : 'null'};
+  var injectedClickTag = ${trackedClickTag ? escapeScriptContext(JSON.stringify(trackedClickTag)) : 'null'};
   var frame = document.getElementById('smx-creative-frame');
   if (frame && injectedClickTag) {
     frame.addEventListener('load', function() {
@@ -210,7 +215,8 @@ ${omidBlock}
       var dest = (typeof data.url === 'string' && data.url) ? data.url : '';
       var resolvedClickUrl = dest || injectedClickTag || '';
       var navigateTo = resolvedClickUrl || clickTracker || '';
-      if (clickTracker) {
+      var isAlreadyTracked = clickTracker && resolvedClickUrl && resolvedClickUrl.indexOf(clickTracker) === 0;
+      if (clickTracker && !isAlreadyTracked) {
         var t = clickTracker + (clickTracker.indexOf('?') === -1 ? '?' : '&') + 'url=' + encodeURIComponent(resolvedClickUrl || clickTracker);
         if (navigator.sendBeacon) {
           navigator.sendBeacon(t);

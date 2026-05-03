@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { pickWeightedCreativeRow } from './routes.mjs';
+import { buildDisplayHtml, pickWeightedCreativeRow } from './routes.mjs';
 
 test('pickWeightedCreativeRow ignores rows without public_url', () => {
   const row = pickWeightedCreativeRow([
@@ -40,4 +40,46 @@ test('pickWeightedCreativeRow treats invalid weights as 1', () => {
 
   assert.equal(pickWeightedCreativeRow(rows, () => 0.10)?.binding_id, 'a');
   assert.equal(pickWeightedCreativeRow(rows, () => 0.90)?.binding_id, 'b');
+});
+
+test('buildDisplayHtml passes tracker URL as clickTag to the creative iframe', () => {
+  const html = buildDisplayHtml({
+    creativeUrl: 'https://cdn.example.com/index.html',
+    width: 300,
+    height: 250,
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    impressionUrl: '',
+    clickUrl: 'https://advertiser.com/landing',
+    omidVerification: {},
+  });
+
+  assert.ok(
+    html.includes('clickTag=https%3A%2F%2Fapi.example.com%2Fv1%2Ftags%2Ftracker%2Ftag-1%2Fclick'),
+    'iframeSrc should route through the click tracker',
+  );
+  assert.ok(
+    !html.includes('clickTag=https%3A%2F%2Fadvertiser.com'),
+    'iframeSrc must NOT expose the raw advertiser URL as clickTag',
+  );
+  assert.ok(
+    html.includes('url%3Dhttps%253A%252F%252Fadvertiser.com'),
+    'tracker URL should include the destination as encoded ?url= param',
+  );
+});
+
+test('buildDisplayHtml uses tracker URL as clickTag even when clickUrl is empty', () => {
+  const html = buildDisplayHtml({
+    creativeUrl: 'https://cdn.example.com/index.html',
+    width: 300,
+    height: 250,
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    impressionUrl: '',
+    clickUrl: '',
+    omidVerification: {},
+  });
+
+  assert.ok(
+    html.includes('clickTag=https%3A%2F%2Fapi.example.com%2Fv1%2Ftags%2Ftracker%2Ftag-1%2Fclick'),
+    'iframeSrc should still route through the tracker when clickUrl is empty',
+  );
 });
