@@ -85,16 +85,16 @@ function CardButton({
 }) {
   const accents = {
     fuchsia: {
-      badge: 'border-fuchsia-400/25 bg-fuchsia-500/12 text-fuchsia-200',
-      mark: 'border-fuchsia-400/30 bg-fuchsia-500/12 text-fuchsia-200',
+      mark: 'border-pink-500/20 bg-pink-500/10 text-pink-400',
+      footer: 'text-pink-400',
     },
     emerald: {
-      badge: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200',
-      mark: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-200',
+      mark: 'border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-400',
+      footer: 'text-pink-400',
     },
     slate: {
-      badge: 'border-white/10 bg-white/[0.04] text-white/50',
       mark: 'border-white/10 bg-white/[0.04] text-white/45',
+      footer: 'text-white/35',
     },
   }[tone];
 
@@ -103,32 +103,23 @@ function CardButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-[28px] border border-white/10 bg-[rgba(17,18,26,0.9)] p-6 text-left shadow-[0_22px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl transition ${
+      className={`group rounded-[24px] border border-white/10 bg-[rgba(17,18,26,0.9)] p-6 text-left shadow-2xl backdrop-blur-xl transition ${
         disabled
           ? 'cursor-not-allowed opacity-65'
-          : 'cursor-pointer hover:-translate-y-1 hover:border-fuchsia-400/40 hover:bg-[rgba(24,25,35,0.96)]'
+          : 'cursor-pointer hover:-translate-y-1 hover:border-pink-500/40 hover:bg-white/[0.07]'
       }`}
     >
-      <div
-        aria-hidden="true"
-        className={`absolute inset-x-0 top-0 h-px opacity-80 transition ${disabled ? 'bg-transparent' : tone === 'emerald' ? 'bg-gradient-to-r from-emerald-400/0 via-emerald-300/70 to-emerald-400/0' : 'bg-gradient-to-r from-fuchsia-400/0 via-fuchsia-300/80 to-violet-300/0'}`}
-      />
-      <div
-        aria-hidden="true"
-        className={`absolute -right-16 -top-16 h-40 w-40 rounded-full blur-3xl transition ${disabled ? 'bg-transparent' : tone === 'emerald' ? 'bg-emerald-500/10 group-hover:bg-emerald-400/20' : 'bg-fuchsia-500/12 group-hover:bg-fuchsia-400/20'}`}
-      />
-      <div className="flex items-start justify-between gap-4">
-        <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${accents.badge}`}>
-          {title}
-        </span>
-        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border text-xs font-semibold uppercase tracking-[0.22em] ${accents.mark}`}>
+      <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border text-xs font-semibold uppercase tracking-[0.22em] transition ${
+        disabled ? accents.mark : `${accents.mark} group-hover:shadow-lg ${tone === 'emerald' ? 'group-hover:shadow-fuchsia-500/20' : 'group-hover:shadow-pink-500/20'}`
+      }`}>
           {title === 'Ad Server' ? 'ADS' : title === 'Studio' ? 'STU' : 'SMX'}
-        </div>
       </div>
-      <h2 className="mt-6 text-2xl font-semibold tracking-tight text-white">{label}</h2>
-      <p className="mt-3 text-sm leading-6 text-white/55">{copy}</p>
-      <div className={`mt-8 text-sm font-medium ${disabled ? 'text-white/28' : 'text-fuchsia-200'}`}>
-        Open workspace →
+      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">{title}</p>
+      <h2 className="mt-2 text-2xl font-bold text-white">{label}</h2>
+      <p className="mt-3 text-sm leading-6 text-slate-400">{copy}</p>
+      <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4 text-sm">
+        <span className={disabled ? 'text-white/28' : 'text-slate-500'}>Open workspace</span>
+        <span className={`transition ${disabled ? 'text-white/28' : `${accents.footer} group-hover:translate-x-1`}`}>→</span>
       </div>
     </button>
   );
@@ -165,73 +156,71 @@ function LoginPage() {
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#07010f] px-4 py-10 text-white sm:px-6">
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#070b18] p-6 text-white">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
       >
-        <div className="absolute left-0 top-0 h-[32rem] w-[32rem] -translate-x-1/4 -translate-y-1/4 rounded-full bg-[radial-gradient(circle,_rgba(236,72,153,0.22)_0%,_rgba(236,72,153,0.08)_35%,_transparent_72%)]" />
-        <div className="absolute bottom-0 right-0 h-[34rem] w-[34rem] translate-x-1/4 translate-y-1/4 rounded-full bg-[radial-gradient(circle,_rgba(126,34,206,0.20)_0%,_rgba(126,34,206,0.08)_36%,_transparent_74%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.26),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(6,182,212,0.18),transparent_34%)]" />
       </div>
 
-      <section className="relative z-10 w-full max-w-[440px] rounded-[28px] border border-white/10 bg-[rgba(17,18,26,0.9)] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:p-8">
-        <header className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/12 text-sm font-semibold uppercase tracking-[0.24em] text-fuchsia-300">
+      <section className="relative w-full max-w-[420px] rounded-[24px] border border-white/10 bg-slate-900/80 p-8 shadow-2xl backdrop-blur-xl">
+        <div className="mb-7 flex items-center gap-3 font-semibold text-slate-300">
+          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-purple-500 to-cyan-400 text-xs font-black text-white shadow-lg shadow-cyan-500/10">
               SMX
-            </div>
-            <div>
-              <p className="text-base font-semibold tracking-[0.01em] text-fuchsia-200">SMX Portal</p>
-              <span className="mt-1 block text-sm text-white/55">User Administration</span>
-            </div>
           </div>
-          <span className="inline-flex rounded-full border border-fuchsia-400/25 bg-fuchsia-500/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-200">
-            Internal
-          </span>
-        </header>
-
-        <div className="mt-8">
-          <h1 className="text-3xl font-semibold tracking-tight text-white">Sign in</h1>
-          <p className="mt-2 text-sm text-white/55">Access the admin workspace.</p>
+          <span>SMX Portal</span>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-sm text-white outline-none placeholder:text-white/28 focus:border-fuchsia-400/80 focus:ring-2 focus:ring-fuchsia-500/25"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-sm text-white outline-none placeholder:text-white/28 focus:border-fuchsia-400/80 focus:ring-2 focus:ring-fuchsia-500/25"
-          />
+        <div>
+          <h1 className="text-4xl font-extrabold tracking-tight text-white">Sign in</h1>
+          <p className="mt-2 mb-7 text-slate-400">Access the admin workspace.</p>
+        </div>
 
-          <div className="flex items-center justify-between gap-4 pt-1">
-            <label className="flex items-center gap-3 text-sm text-white/62">
+        <form onSubmit={handleSubmit} className="grid gap-5">
+          <label className="grid gap-2 text-sm font-semibold text-slate-300">
+            Email
+            <input
+              type="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-12 rounded-xl border border-slate-500/30 bg-slate-950/60 px-4 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-400/10"
+            />
+          </label>
+
+          <label className="grid gap-2 text-sm font-semibold text-slate-300">
+            Password
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="h-12 rounded-xl border border-slate-500/30 bg-slate-950/60 px-4 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-400/10"
+            />
+          </label>
+
+          <div className="flex items-center justify-between text-sm">
+            <label className="flex items-center gap-2 text-slate-300">
               <input
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
-                className="h-4 w-4 rounded border-white/20 bg-white/5 text-fuchsia-500 focus:ring-fuchsia-500/30"
+                className="h-4 w-4 accent-cyan-400"
               />
               Remember me
             </label>
             <a
               href="#"
               onClick={(event) => event.preventDefault()}
-              className="text-sm font-medium text-fuchsia-300 transition hover:text-fuchsia-200"
+              className="font-medium text-cyan-300 hover:underline"
             >
               Forgot password?
             </a>
           </div>
 
           {error && (
-            <p className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <p className="rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
               {error}
             </p>
           )}
@@ -239,13 +228,20 @@ function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-2xl bg-gradient-to-r from-[#ec4899] to-[#c026d3] px-4 py-3.5 text-sm font-semibold text-white shadow-[0_18px_45px_rgba(192,38,211,0.28)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-1 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-cyan-400 font-extrabold text-white shadow-lg shadow-cyan-500/10 transition hover:-translate-y-0.5 hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
-        <div className="mt-8 border-t border-white/8 pt-5 text-xs leading-6 text-white/35">
+        <p className="mt-6 text-center text-slate-400">
+          Need an account?{' '}
+          <a href="/register" className="font-semibold text-cyan-300 hover:underline">
+            Register
+          </a>
+        </p>
+
+        <div className="mt-6 border-t border-white/8 pt-5 text-center text-xs leading-6 text-slate-500">
           Authorized users only. Activity may be monitored.
         </div>
       </section>
@@ -413,27 +409,22 @@ function PortalHome() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#07010f] px-4 py-6 text-white sm:px-6 lg:px-8">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div className="absolute left-0 top-0 h-[34rem] w-[34rem] -translate-x-1/4 -translate-y-1/4 rounded-full bg-[radial-gradient(circle,_rgba(236,72,153,0.18)_0%,_rgba(236,72,153,0.07)_34%,_transparent_74%)]" />
-        <div className="absolute bottom-0 right-0 h-[36rem] w-[36rem] translate-x-1/4 translate-y-1/4 rounded-full bg-[radial-gradient(circle,_rgba(126,34,206,0.18)_0%,_rgba(126,34,206,0.07)_36%,_transparent_76%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_18%,transparent_82%,rgba(255,255,255,0.02))]" />
-      </div>
+    <main className="min-h-screen overflow-hidden bg-[#07010f] text-white relative">
+      <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(126,34,206,0.18),transparent_36%)]" />
 
-      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-7xl items-center">
-        <div className="w-full rounded-[32px] border border-white/8 bg-[rgba(10,11,18,0.58)] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:p-7 lg:p-8">
-          <header className="flex flex-col gap-5 rounded-[28px] border border-white/8 bg-[rgba(17,18,26,0.72)] p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+      <section className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-8">
+        <header className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ec4899] to-[#c026d3] text-sm font-semibold uppercase tracking-[0.24em] text-white shadow-[0_16px_38px_rgba(192,38,211,0.28)]">
+              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-pink-500 to-fuchsia-600 text-xs font-black shadow-lg shadow-pink-500/20">
                 SMX
               </div>
               <div>
-                <p className="text-lg font-semibold tracking-[0.01em] text-fuchsia-200">SMX Portal</p>
-                <span className="mt-1 block text-sm text-white/55">Workspace Access</span>
+                <p className="font-bold leading-none text-white">SMX Portal</p>
+                <span className="mt-1 block text-xs text-slate-500">Workspace Access</span>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+            <div className="flex flex-wrap items-center gap-2">
               <select
                 value={session?.activeWorkspaceId ?? ''}
                 disabled={switching}
@@ -450,7 +441,7 @@ function PortalHome() {
                     setSwitching(false);
                   }
                 }}
-                className="min-w-[220px] rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white outline-none focus:border-fuchsia-400/80 focus:ring-2 focus:ring-fuchsia-500/25"
+                className="h-10 min-w-[180px] rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-slate-300 outline-none focus:border-pink-500"
               >
                 {(session?.workspaces ?? []).map((ws) => (
                   <option key={ws.id} value={ws.id}>{ws.name}</option>
@@ -460,7 +451,7 @@ function PortalHome() {
               <button
                 type="button"
                 onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-                className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-medium text-white/72 transition hover:bg-white/[0.08]"
+                className="h-10 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-semibold text-slate-300 transition hover:bg-white/10"
               >
                 {theme === 'dark' ? 'Light mode' : 'Dark mode'}
               </button>
@@ -468,25 +459,27 @@ function PortalHome() {
               <button
                 type="button"
                 onClick={async () => { await logout(); navigate('/login', { replace: true }); }}
-                className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-medium text-white/72 transition hover:bg-white/[0.08]"
+                className="h-10 rounded-xl border border-pink-500/20 bg-pink-500/10 px-4 text-sm font-semibold text-pink-400 transition hover:bg-pink-500/15"
               >
                 Log out
               </button>
             </div>
           </header>
 
-          <div className="mt-6 rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] px-5 py-8 sm:px-7 sm:py-10">
-            <span className="inline-flex rounded-full border border-fuchsia-400/25 bg-fuchsia-500/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-200">
-              Admin access
-            </span>
-            <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-[3.6rem] lg:leading-[1.02]">
-              Choose where to work
-            </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/60 sm:text-base">
-              Active workspace: <span className="font-medium text-white">{workspaceLabel}</span>
-              {' '}· Role: <span className="font-medium text-white">{getPlatformRoleLabel(session?.user.role)}</span>
-            </p>
-          </div>
+        <div className="flex flex-1 items-center justify-center py-14">
+          <div className="w-full max-w-4xl">
+            <div className="mb-8 text-center">
+              <span className="inline-flex rounded-full border border-pink-500/20 bg-pink-500/10 px-3 py-1 text-xs font-semibold text-pink-400">
+                Admin access
+              </span>
+              <h1 className="mt-5 text-4xl font-extrabold tracking-tight md:text-5xl">
+                Choose where to work
+              </h1>
+              <p className="mt-3 text-slate-400">
+                Active workspace: <span className="font-semibold text-white">{workspaceLabel}</span>
+                {' '}· Role: <span className="font-semibold text-white">{getPlatformRoleLabel(session?.user.role)}</span>
+              </p>
+            </div>
 
           {switchError && (
             <p className="mt-6 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -500,7 +493,7 @@ function PortalHome() {
             </div>
           )}
 
-          <div className="mt-10 grid gap-5 md:grid-cols-2">
+          <div className="grid gap-5 md:grid-cols-2">
           <CardButton
             title="Ad Server"
             label="Campaign operations"
@@ -527,11 +520,12 @@ function PortalHome() {
           />
           </div>
 
-          <div className="mt-8 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white/38">
-            Authorized internal users only. Access depends on your assigned workspace and role.
+            <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 text-center text-xs text-slate-500">
+              Authorized internal users only. Access depends on your assigned workspace and role.
+            </div>
           </div>
         </div>
-      </div>
+      </section>
     </main>
   );
 }
