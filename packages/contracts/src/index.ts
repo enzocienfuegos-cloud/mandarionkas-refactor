@@ -214,7 +214,7 @@ export type AssetAccessScopeDto       = 'client' | 'private';
 export type AssetQualityPreferenceDto = 'auto' | 'low' | 'mid' | 'high';
 export type AssetProcessingStatusDto  = 'queued' | 'processing' | 'planned' | 'blocked' | 'completed' | 'failed' | 'skipped';
 
-export { detectClickTagInHtml, detectDimensionsInHtml } from './html5-detector.mjs';
+export { detectClickTagInHtml, detectDimensionsInHtml } from './html5-detector';
 
 export type AssetDerivativeDto = {
   src:           string;

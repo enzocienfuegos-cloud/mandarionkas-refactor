@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { strFromU8, unzipSync } from 'fflate';
+import { detectClickTagInHtml } from '@smx/contracts';
 import {
   completeCreativeIngestion,
   createCreativeIngestionUpload,
@@ -20,6 +22,56 @@ const MAX_PARALLEL_UPLOADS = 4;
 
 function buildFileKey(file: File) {
   return `${file.name}-${file.size}-${file.lastModified}`;
+}
+
+function normalizeArchiveMemberPath(rawPath: string) {
+  const trimmed = String(rawPath ?? '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!trimmed) return null;
+  if (trimmed.startsWith('__MACOSX/') || trimmed.endsWith('.DS_Store')) return null;
+  if (trimmed.includes('../') || trimmed.includes('/..')) return null;
+  return trimmed;
+}
+
+function stripCommonArchiveRoot(paths: string[]) {
+  const valid = paths.filter(Boolean);
+  if (!valid.length) return valid;
+  const roots = valid.map((path) => path.split('/')[0]);
+  const commonRoot = roots.every((root) => root === roots[0]) ? roots[0] : '';
+  if (!commonRoot) return valid;
+  const allNested = valid.every((path) => path.startsWith(`${commonRoot}/`));
+  if (!allNested) return valid;
+  return valid.map((path) => path.slice(commonRoot.length + 1)).filter(Boolean);
+}
+
+async function detectHtml5ZipClickUrl(file: File) {
+  try {
+    const archive = unzipSync(new Uint8Array(await file.arrayBuffer()));
+    const rawEntries = Object.entries(archive)
+      .filter(([name, body]) => !name.endsWith('/') && body && body.length > 0)
+      .map(([archivePath, body]) => ({
+        archivePath: normalizeArchiveMemberPath(archivePath),
+        body,
+      }))
+      .filter((entry): entry is { archivePath: string; body: Uint8Array } => Boolean(entry.archivePath));
+
+    if (!rawEntries.length) return '';
+
+    const strippedPaths = stripCommonArchiveRoot(rawEntries.map((entry) => entry.archivePath));
+    const entries = rawEntries.map((entry, index) => ({
+      ...entry,
+      publishedPath: normalizeArchiveMemberPath(strippedPaths[index]) || entry.archivePath,
+    }));
+
+    const entryAsset = entries.find((entry) => entry.publishedPath.toLowerCase() === 'index.html')
+      || entries.find((entry) => entry.publishedPath.toLowerCase().endsWith('/index.html'))
+      || entries.find((entry) => entry.publishedPath.toLowerCase().endsWith('.html') || entry.publishedPath.toLowerCase().endsWith('.htm'))
+      || null;
+
+    if (!entryAsset) return '';
+    return detectClickTagInHtml(strFromU8(entryAsset.body)) || '';
+  } catch (_) {
+    return '';
+  }
 }
 
 function normalizeHttpUrl(value: string) {
@@ -131,6 +183,7 @@ export default function CreativeUpload() {
   const [files, setFiles] = useState<File[]>([]);
   const [clickUrlsByFileKey, setClickUrlsByFileKey] = useState<Record<string, string>>({});
   const [detectedClickUrls, setDetectedClickUrls] = useState<Record<string, string>>({});
+  const [detectingFileKeys, setDetectingFileKeys] = useState<string[]>([]);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -156,11 +209,32 @@ export default function CreativeUpload() {
     setFiles((current) => {
       const next = [...current];
       const seen = new Set(current.map(file => buildFileKey(file)));
+      const queuedForDetection: File[] = [];
       for (const file of incomingFiles) {
         const key = buildFileKey(file);
         if (seen.has(key)) continue;
         seen.add(key);
         next.push(file);
+        if (sourceKind === 'html5_zip') {
+          queuedForDetection.push(file);
+        }
+      }
+      if (queuedForDetection.length) {
+        const keys = queuedForDetection.map(buildFileKey);
+        setDetectingFileKeys((currentKeys) => Array.from(new Set([...currentKeys, ...keys])));
+        void Promise.all(queuedForDetection.map(async (file) => {
+          const fileKey = buildFileKey(file);
+          const detectedClickUrl = await detectHtml5ZipClickUrl(file);
+          if (detectedClickUrl) {
+            setDetectedClickUrls((currentUrls) => ({ ...currentUrls, [fileKey]: detectedClickUrl }));
+            setClickUrlsByFileKey((currentUrls) => ({
+              ...currentUrls,
+              ...(currentUrls[fileKey] ? {} : { [fileKey]: detectedClickUrl }),
+            }));
+          }
+        })).finally(() => {
+          setDetectingFileKeys((currentKeys) => currentKeys.filter((key) => !keys.includes(key)));
+        });
       }
       return next;
     });
@@ -191,6 +265,10 @@ export default function CreativeUpload() {
         setError(`"${missingVideoClickUrl.name}" needs a destination URL before upload.`);
         return;
       }
+    }
+    if (sourceKind === 'html5_zip' && detectingFileKeys.length > 0) {
+      setError('Please wait for HTML5 clickTag detection to finish before uploading.');
+      return;
     }
 
     setLoading(true);
@@ -512,6 +590,7 @@ export default function CreativeUpload() {
                         setFiles([]);
                         setClickUrlsByFileKey({});
                         setDetectedClickUrls({});
+                        setDetectingFileKeys([]);
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
                       className="text-xs font-medium text-slate-600 hover:text-slate-800"
@@ -546,6 +625,11 @@ export default function CreativeUpload() {
                               ? 'Videos need a destination URL before publishing.'
                               : 'For HTML5, we auto-detect clickTag/click URL from the archive. If none is found, this fallback URL is required.'}
                           </p>
+                          {sourceKind === 'html5_zip' && detectingFileKeys.includes(buildFileKey(file)) && (
+                            <p className="mt-1 text-[11px] text-amber-600">
+                              Detecting clickTag from archive…
+                            </p>
+                          )}
                           {detectedClickUrls[buildFileKey(file)] && (
                             <p className="mt-1 flex items-center gap-1 text-[11px] text-emerald-600">
                               <span>✓</span>

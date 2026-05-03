@@ -1936,6 +1936,8 @@ export default function CreativeLibrary() {
                         >
                           {creative.clickUrl}
                         </a>
+                      ) : version?.sourceKind === 'html5_zip' && String(version?.status ?? '') === 'processing' ? (
+                        <span className="text-amber-600">Detecting…</span>
                       ) : (
                         <span className="text-rose-600">Missing URL</span>
                       )}
@@ -1950,6 +1952,8 @@ export default function CreativeLibrary() {
                         >
                           Open
                         </a>
+                      ) : version?.sourceKind === 'html5_zip' && String(version?.status ?? '') === 'processing' ? (
+                        <span className="text-amber-600">Publishing…</span>
                       ) : (
                         <span className="text-slate-400">No public artifact</span>
                       )}
