@@ -152,6 +152,16 @@ test('successful transcode completes and syncs outputs', async () => {
   assert.equal(calls.upload.length, 3);
   assert.equal(calls.complete.length, 1);
   assert.equal(calls.syncOutputs.length, 1);
+  const videoArgs = calls.ffmpeg.filter((call) => !call.args.includes('-frames:v'));
+  assert.ok(videoArgs.length > 0, 'must have at least one video transcode ffmpeg call');
+  for (const call of videoArgs) {
+    assert.ok(!call.args.includes('-an'), `ffmpeg call must not strip audio: ${call.args}`);
+    assert.ok(call.args.includes('-c:a'), `ffmpeg call must encode audio (-c:a): ${call.args}`);
+    assert.ok(call.args.includes('aac'), `ffmpeg call must use AAC codec: ${call.args}`);
+    assert.ok(call.args.includes('-b:a'), `ffmpeg call must set audio bitrate: ${call.args}`);
+    assert.ok(call.args.includes('128k'), `ffmpeg call must use 128k audio bitrate: ${call.args}`);
+    assert.ok(call.args.includes('-ac'), `ffmpeg call must set audio channels (-ac): ${call.args}`);
+  }
 });
 
 test('on ffmpeg error: fails job without completing', async () => {
@@ -176,4 +186,37 @@ test('uses target_plan from job when provided', async () => {
   await runTranscodeVideoJobWithDeps(baseEnv(), deps);
   assert.equal(calls.ffmpeg.length, 2);
   assert.equal(calls.upload.length, 2);
+});
+
+test('ffmpeg args include AAC audio and exclude -an for all video profiles', async () => {
+  const { deps, calls } = createDeps(baseJob({
+    target_plan: [
+      { label: '480p', height: 480, bitrateKbps: 900 },
+      { label: '720p', height: 720, bitrateKbps: 1500 },
+      { label: '1080p', height: 1080, bitrateKbps: 2400 },
+    ],
+  }));
+
+  await runTranscodeVideoJobWithDeps(baseEnv(), deps);
+
+  assert.equal(calls.ffmpeg.length, 4, 'must have 3 video + 1 poster ffmpeg calls');
+
+  const videoTranscodeCalls = calls.ffmpeg.filter((call) => !call.args.includes('-frames:v'));
+  assert.equal(videoTranscodeCalls.length, 3, 'must have exactly 3 video transcode calls');
+
+  for (const call of videoTranscodeCalls) {
+    assert.ok(!call.args.includes('-an'),
+      `Video transcode must not strip audio. Got: ${call.args}`);
+    assert.ok(call.args.includes('-c:a aac'),
+      `Video transcode must encode to AAC. Got: ${call.args}`);
+    assert.ok(call.args.includes('-b:a 128k'),
+      `Video transcode must set 128k audio bitrate. Got: ${call.args}`);
+    assert.ok(call.args.includes('-ac 2'),
+      `Video transcode must set stereo channels. Got: ${call.args}`);
+  }
+
+  const posterCall = calls.ffmpeg.find((call) => call.args.includes('-frames:v'));
+  assert.ok(posterCall, 'must have a poster ffmpeg call');
+  assert.ok(!posterCall.args.includes('-c:a'),
+    'Poster extraction must not include audio encoding');
 });

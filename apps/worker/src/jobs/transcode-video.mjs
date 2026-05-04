@@ -252,7 +252,9 @@ export async function runTranscodeVideoJobWithDeps(source = process.env, deps = 
         '-preset', 'veryfast',
         '-threads', '1',
         '-movflags', '+faststart',
-        '-an',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-ac', '2',
         outPath,
       ];
         logInfo({ event: 'transcode_start', jobId: job.id, profile: profile.label });
