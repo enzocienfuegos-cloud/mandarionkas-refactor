@@ -233,3 +233,45 @@ export async function materializeRemoteExportAssetFiles(
 
   return materialized.flatMap((file) => (file !== null ? [file as ExportBundleFile] : []));
 }
+
+function encodeBase64(bytes: Uint8Array): string {
+  const maybeBuffer = (globalThis as { Buffer?: { from(input: Uint8Array): { toString(encoding: string): string } } }).Buffer;
+  if (maybeBuffer) {
+    return maybeBuffer.from(bytes).toString('base64');
+  }
+  let binary = '';
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+}
+
+export async function inlineAllAssetsAsDataUris(
+  assetPlan: ExportAssetPlanEntry[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<Record<string, string>> {
+  const result: Record<string, string> = {};
+  await Promise.all(
+    assetPlan
+      .filter((entry) => entry.strategy === 'bundled-copy' || entry.strategy === 'inline-data-uri')
+      .map(async (entry) => {
+        if (entry.strategy === 'inline-data-uri') {
+          result[entry.sourceUrl] = entry.sourceUrl;
+          return;
+        }
+        try {
+          const response = await fetchImpl(entry.sourceUrl);
+          if (!response.ok) {
+            result[entry.sourceUrl] = entry.sourceUrl;
+            return;
+          }
+          const mime = response.headers.get('content-type') || 'application/octet-stream';
+          const buffer = new Uint8Array(await response.arrayBuffer());
+          result[entry.sourceUrl] = `data:${mime};base64,${encodeBase64(buffer)}`;
+        } catch {
+          result[entry.sourceUrl] = entry.sourceUrl;
+        }
+      }),
+  );
+  return result;
+}

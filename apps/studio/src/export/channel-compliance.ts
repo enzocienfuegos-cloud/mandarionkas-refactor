@@ -3,6 +3,7 @@ import type { ChannelRequirement } from './types';
 import type { PortableExportProject } from './portable';
 import type { ExportRuntimeModel } from './runtime-model';
 import { getMraidProjectCompatibility } from './mraid-compatibility';
+import { getIabStandardPresets, getMraidStandardPresets } from '../domain/document/canvas-presets';
 
 export function getPortableChannelRequirements(
   target: ReleaseTarget,
@@ -37,7 +38,7 @@ export function getPortableChannelRequirements(
         {
           id: 'gwd-size',
           label: 'Canvas uses a standard display size',
-          passed: [[300, 250], [300, 600], [970, 250], [320, 480]].some(([w, h]) => w === canvas.width && h === canvas.height),
+          passed: getIabStandardPresets().some((preset) => preset.width === canvas.width && preset.height === canvas.height),
           severity: 'warning',
         },
         {
@@ -103,7 +104,7 @@ export function getPortableChannelRequirements(
         {
           id: 'mraid-size',
           label: 'Canvas uses an MRAID profile size (320x480 or 300x600)',
-          passed: [[320, 480], [300, 600]].some(([w, h]) => w === canvas.width && h === canvas.height),
+          passed: getMraidStandardPresets().some((preset) => preset.width === canvas.width && preset.height === canvas.height),
           severity: 'warning',
         },
         {
@@ -197,6 +198,33 @@ export function getPortableChannelRequirements(
           severity: 'warning',
         },
       ];
+    case 'vast-simid':
+      return [
+        {
+          id: 'simid-clickthrough',
+          label: 'SIMID creative has at least one clickthrough interaction',
+          passed: hasClickthrough,
+          severity: 'error',
+        },
+        {
+          id: 'simid-scene-duration',
+          label: 'Creative has a defined total duration (required by VAST)',
+          passed: project.scenes.every((scene) => scene.durationMs > 0),
+          severity: 'error',
+        },
+        {
+          id: 'simid-video-fallback',
+          label: 'SIMID creative should include a video fallback for non-SIMID players',
+          passed: hasVideoHero,
+          severity: 'warning',
+        },
+        {
+          id: 'simid-size',
+          label: 'Canvas uses a standard video ad size (16:9 or known IAB video size)',
+          passed: isStandardVideoSize(canvas.width, canvas.height),
+          severity: 'warning',
+        },
+      ];
     case 'generic-html5':
     default:
       return [
@@ -226,4 +254,14 @@ export function getPortableChannelRequirements(
         },
       ];
   }
+}
+
+function isStandardVideoSize(width: number, height: number): boolean {
+  return (
+    (width === 640 && height === 480) ||
+    (width === 1280 && height === 720) ||
+    (width === 1920 && height === 1080) ||
+    (width === 300 && height === 250) ||
+    (width === 640 && height === 360)
+  );
 }

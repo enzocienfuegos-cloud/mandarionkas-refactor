@@ -1,5 +1,6 @@
 import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
+import { renderImageCarouselExport } from '../export-renderers';
 import { renderImageCarouselStage } from '../image-carousel.renderer';
 import { ImageCarouselInspector } from '../image-carousel.inspector';
 
@@ -23,4 +24,5 @@ export const ImageCarouselDefinition = createModuleDefinition({
   renderInspector: (widget) => createElement(ImageCarouselInspector, { widget }),
   style: { backgroundColor: '#0f172a', accentColor: '#f8fafc', color: '#ffffff', borderRadius: 20 },
   renderStage: renderImageCarouselStage,
+  renderExport: (node, state, assetPathMap) => renderImageCarouselExport(node, state, assetPathMap),
 });

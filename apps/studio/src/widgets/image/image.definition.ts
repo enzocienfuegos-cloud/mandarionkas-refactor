@@ -27,7 +27,7 @@ export const imageDefinition: WidgetDefinition = {
   inspectorTitle: 'Image source',
   inspectorFields: [{ key: 'src', label: 'Source URL' }, { key: 'alt', label: 'Alt text' }],
   renderStage: renderImageWidget,
-  renderExport: (node) => renderImageExport(node, 'image'),
+  renderExport: (node, _state, assetPathMap) => renderImageExport(node, 'image', assetPathMap),
   buildPortableExport: (node) => ({
     props: {
       ...node.props,

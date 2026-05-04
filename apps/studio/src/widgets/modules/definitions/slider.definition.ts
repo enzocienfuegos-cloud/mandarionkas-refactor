@@ -1,4 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
+import { renderSliderExport } from '../export-renderers';
 import { renderSliderStage } from '../slider.renderer';
 
 export const SliderDefinition = createModuleDefinition({
@@ -9,4 +10,5 @@ export const SliderDefinition = createModuleDefinition({
   props: { title: 'Slider', beforeLabel: 'Before', afterLabel: 'After', value: 40 },
   style: { backgroundColor: '#ec4899', accentColor: '#ffffff', color: '#ffffff' },
   renderStage: renderSliderStage,
+  renderExport: (node) => renderSliderExport(node),
 });

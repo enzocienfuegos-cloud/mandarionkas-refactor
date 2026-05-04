@@ -1,7 +1,7 @@
 import { createId } from '../../domain/document/factories';
+import { renderVideoHeroExport } from '../modules/export-renderers';
 import { renderVideoHeroWidget } from './video-hero.renderer';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
-import { renderVideoExport } from '../registry/base-exporters';
 
 export const videoHeroDefinition: WidgetDefinition = {
   type: 'video-hero',
@@ -27,7 +27,7 @@ export const videoHeroDefinition: WidgetDefinition = {
   inspectorTitle: 'Video settings',
   inspectorFields: [{ key: 'src', label: 'Video URL' }, { key: 'posterSrc', label: 'Poster URL' }, { key: 'autoplay', type: 'checkbox' }, { key: 'muted', type: 'checkbox' }, { key: 'loop', type: 'checkbox' }, { key: 'controls', type: 'checkbox' }],
   renderStage: renderVideoHeroWidget,
-  renderExport: (node) => renderVideoExport(node),
+  renderExport: (node, state, assetPathMap) => renderVideoHeroExport(node, state, assetPathMap),
   buildPortableExport: (node) => ({
     props: {
       ...node.props,

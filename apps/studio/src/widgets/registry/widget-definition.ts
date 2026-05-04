@@ -47,6 +47,8 @@ export type WidgetDefinition = {
   type: WidgetType;
   label: string;
   category: 'content' | 'media' | 'interactive' | 'layout';
+  mraidCompatibility?: 'supported' | 'warning' | 'blocked';
+  mraidCompatibilityNote?: string;
   defaults: (sceneId: string, zIndex: number) => WidgetNode;
   inspectorSections: InspectorSectionKey[];
   inspectorTabs?: WidgetInspectorTabSpec[];
@@ -55,7 +57,7 @@ export type WidgetDefinition = {
   renderLabel: (node: WidgetNode) => string;
   renderStage?: (node: WidgetNode, ctx: RenderContext) => JSX.Element;
   renderInspector?: (node: WidgetNode) => JSX.Element;
-  renderExport?: (node: WidgetNode, state: StudioState) => string;
+  renderExport?: (node: WidgetNode, state: StudioState, assetPathMap?: Record<string, string>) => string;
   buildPortableExport?: (node: WidgetNode, state: StudioState) => Partial<PortableExportWidget> | void;
 };
 

@@ -1,5 +1,6 @@
 import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
+import { renderShoppableSidebarExport } from '../export-renderers';
 import { renderShoppableSidebarStage } from '../shoppable-sidebar.renderer';
 import { ShoppableSidebarInspector } from '../shoppable-sidebar.inspector';
 
@@ -31,4 +32,5 @@ export const ShoppableSidebarDefinition = createModuleDefinition({
     ctaTextColor: '#111827',
   },
   renderStage: renderShoppableSidebarStage,
+  renderExport: (node, state, assetPathMap) => renderShoppableSidebarExport(node, state, assetPathMap),
 });

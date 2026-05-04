@@ -1,4 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
+import { renderFormExport } from '../export-renderers';
 import { renderFormStage } from '../form.renderer';
 
 export const FormDefinition = createModuleDefinition({
@@ -37,4 +38,5 @@ export const FormDefinition = createModuleDefinition({
   ],
   style: { backgroundColor: '#ffffff', accentColor: '#ec4899', color: '#111827' },
   renderStage: renderFormStage,
+  renderExport: (node) => renderFormExport(node),
 });

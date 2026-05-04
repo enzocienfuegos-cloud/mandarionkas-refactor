@@ -1,5 +1,6 @@
 import { getCanvasPresetById } from '../domain/document/canvas-presets';
-import { PROJECT_STARTERS } from '../app/shell/topbar/project-starters';
+import { getProjectStarters } from '../app/shell/topbar/project-starters';
+import { ensureWorldCupStarterRegistered } from '../app/shell/topbar/world-cup-starter';
 import { useClientWorkspaceController } from './client-workspace/use-client-workspace-controller';
 
 type ClientWorkspaceShellProps = {
@@ -13,7 +14,9 @@ function formatDate(value?: string): string {
 }
 
 export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: ClientWorkspaceShellProps): JSX.Element {
+  ensureWorldCupStarterRegistered();
   const controller = useClientWorkspaceController();
+  const starters = getProjectStarters();
   const {
     workspace,
     projectSession,
@@ -119,7 +122,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
           <label>
             Starter
             <select value={projectSession.newProjectStarterId} onChange={(event) => projectSession.setNewProjectStarterId(event.target.value as typeof projectSession.newProjectStarterId)}>
-              {PROJECT_STARTERS.map((starter) => <option key={starter.id} value={starter.id}>{starter.label}</option>)}
+              {starters.map((starter) => <option key={starter.id} value={starter.id}>{starter.label}</option>)}
             </select>
           </label>
           <label>
@@ -133,7 +136,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
             </select>
           </label>
           <small>
-            {PROJECT_STARTERS.find((starter) => starter.id === projectSession.newProjectStarterId)?.description}
+            {starters.find((starter) => starter.id === projectSession.newProjectStarterId)?.description}
           </small>
           <button className="primary" type="button" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>Create and open editor</button>
         </div>

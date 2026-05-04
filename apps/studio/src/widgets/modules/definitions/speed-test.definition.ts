@@ -1,4 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
+import { renderSpeedTestExport } from '../export-renderers';
 import { renderSpeedTestStage } from '../speed-test.renderer';
 
 export const SpeedTestDefinition = createModuleDefinition({
@@ -56,4 +57,5 @@ export const SpeedTestDefinition = createModuleDefinition({
   ],
   style: { backgroundColor: '#0b3b7a', accentColor: '#2dd4bf', color: '#ffffff' },
   renderStage: renderSpeedTestStage,
+  renderExport: (node) => renderSpeedTestExport(node),
 });

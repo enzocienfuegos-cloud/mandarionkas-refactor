@@ -6,8 +6,10 @@ import type { ProjectSessionController, TopBarStudioSnapshot, WorkspaceControlle
 import { useStudioSessionActions } from '../../../hooks/use-studio-actions';
 import { getProjectRepositoryMode, setProjectRepositoryMode } from '../../../repositories/mode';
 import { createProjectStarterState } from './project-starters';
+import { ensureWorldCupStarterRegistered } from './world-cup-starter';
 
 export function useProjectSessionController(snapshot: TopBarStudioSnapshot, workspace: Pick<WorkspaceController, 'activeClientId' | 'clients' | 'canCreateProjects'>): ProjectSessionController {
+  ensureWorldCupStarterRegistered();
   const [projectTick, setProjectTick] = useState(0);
   const [newProjectName, setNewProjectName] = useState('');
   const [projects, setProjects] = useState<ProjectSessionController['projects']>([]);

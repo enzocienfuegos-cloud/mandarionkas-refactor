@@ -1,4 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
+import { renderInteractiveHotspotExport } from '../export-renderers';
 import { renderInteractiveHotspotStage } from '../interactive-hotspot.renderer';
 
 export const InteractiveHotspotDefinition = createModuleDefinition({
@@ -62,4 +63,5 @@ export const InteractiveHotspotDefinition = createModuleDefinition({
   ],
   style: { backgroundColor: 'transparent', accentColor: '#f59e0b', color: '#ffffff' },
   renderStage: renderInteractiveHotspotStage,
+  renderExport: (node) => renderInteractiveHotspotExport(node),
 });

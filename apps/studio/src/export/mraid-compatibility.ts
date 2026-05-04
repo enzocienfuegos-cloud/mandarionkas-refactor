@@ -1,5 +1,6 @@
 import type { WidgetType } from '../domain/document/types';
 import type { PortableExportProject, PortableExportWidget } from './portable';
+import { getWidgetDefinition } from '../widgets/registry/widget-registry';
 
 export type MraidCompatibilityLevel = 'supported' | 'warning' | 'blocked';
 
@@ -10,33 +11,14 @@ export type MraidWidgetCompatibility = {
   widgetId?: string;
 };
 
-const BASE_MRAID_WIDGET_COMPATIBILITY: Record<WidgetType, MraidCompatibilityLevel> = {
-  text: 'supported',
-  badge: 'supported',
-  image: 'supported',
-  'hero-image': 'supported',
+const LEGACY_MRAID_COMPAT: Partial<Record<string, MraidCompatibilityLevel>> = {
   'video-hero': 'warning',
   'interactive-video': 'warning',
-  'image-carousel': 'supported',
-  cta: 'supported',
-  shape: 'supported',
-  group: 'supported',
-  countdown: 'supported',
   'add-to-calendar': 'warning',
-  'shoppable-sidebar': 'supported',
   'speed-test': 'blocked',
   'scratch-reveal': 'blocked',
-  form: 'supported',
-  'dynamic-map': 'supported',
-  'weather-conditions': 'supported',
-  'range-slider': 'supported',
-  'interactive-hotspot': 'supported',
-  slider: 'supported',
-  'qr-code': 'supported',
   'travel-deal': 'warning',
-  'interactive-gallery': 'supported',
   'gen-ai-image': 'warning',
-  buttons: 'supported',
   'instagram-story': 'warning',
   'meta-carousel': 'warning',
   'teads-layout1': 'warning',
@@ -51,12 +33,22 @@ const BASE_MRAID_WIDGET_COMPATIBILITY: Record<WidgetType, MraidCompatibilityLeve
   'drop-zone': 'warning',
 };
 
+function getWidgetMraidLevel(type: WidgetType): MraidCompatibilityLevel {
+  try {
+    const definition = getWidgetDefinition(type);
+    if (definition.mraidCompatibility) return definition.mraidCompatibility;
+  } catch {
+    // ignore missing dynamic registrations and fall back below
+  }
+  return LEGACY_MRAID_COMPAT[type] ?? 'supported';
+}
+
 function formatWidgetType(type: WidgetType): string {
   return type.replace(/-/g, ' ');
 }
 
 function baseCompatibility(type: WidgetType, widgetId?: string): MraidWidgetCompatibility {
-  const level = BASE_MRAID_WIDGET_COMPATIBILITY[type] ?? 'warning';
+  const level = getWidgetMraidLevel(type);
   switch (level) {
     case 'blocked':
       return {

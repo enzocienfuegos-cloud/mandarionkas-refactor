@@ -2,6 +2,7 @@ import { createInitialState } from '../../../domain/document/factories';
 import type { ActionNode, SceneNode, StudioState, WidgetNode, WidgetType } from '../../../domain/document/types';
 import { registerBuiltins } from '../../../widgets/registry/register-builtins';
 import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
+import { registerProjectStarter, registerProjectStarterHandler } from './project-starters';
 
 type StarterOptions = {
   name: string;
@@ -205,6 +206,20 @@ export const DEFAULT_BOCADELI_WORLD_CUP_CONFIG: WorldCupStarterConfig = {
     buttonLabel: 'Play again',
   },
 };
+
+let worldCupStarterRegistered = false;
+
+export function ensureWorldCupStarterRegistered(): void {
+  if (worldCupStarterRegistered) return;
+  registerProjectStarter({
+    id: 'bocadeli-worldcup',
+    label: 'Bocadeli World Cup starter',
+    description: 'Seeds the World Cup interactive layout with configurable game widgets on 320×480.',
+    canvasPresetId: 'interstitial',
+  });
+  registerProjectStarterHandler('bocadeli-worldcup', createWorldCupStarterState);
+  worldCupStarterRegistered = true;
+}
 
 function buildTokenImage(label: string, accent: string, secondary: string): string {
   const svg = `

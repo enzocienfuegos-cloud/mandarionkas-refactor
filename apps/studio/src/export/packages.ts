@@ -1,5 +1,5 @@
 import type { StudioState } from '../domain/document/types';
-import { buildChannelHtml, buildStandaloneHtml } from './html';
+import { buildChannelHtml, buildPlayableSingleFileHtml, buildStandaloneHtml } from './html';
 import { buildExportAssetPlan, buildLocalizedPortableProject, buildRemoteAssetFetchPlan, materializeExportAssetFiles } from './assets';
 import { buildExportManifest } from './manifest';
 import { buildExportPackageMetrics } from './package-metrics';
@@ -15,7 +15,8 @@ import { buildGamHtml5Adapter } from './adapters/gam-html5';
 import { buildGoogleDisplayAdapter } from './adapters/google-display';
 import { buildMraidAdapter } from './adapters/mraid';
 import { buildPlayableExportAdapter } from './adapters/playable';
-import type { MraidAdapterResult } from './adapters';
+import { buildVastSimidAdapter } from './adapters/vast-simid';
+import { buildVastSimidXml, type MraidAdapterResult, type PlayableExportAdapterResult, type VastSimidAdapterResult } from './adapters';
 import { getMraidProjectCompatibility } from './mraid-compatibility';
 
 function buildChannelAdapter(state: StudioState) {
@@ -28,6 +29,8 @@ function buildChannelAdapter(state: StudioState) {
       return buildGamHtml5Adapter(state);
     case 'mraid':
       return buildMraidAdapter(state);
+    case 'vast-simid':
+      return buildVastSimidAdapter(state);
     case 'meta-story':
     case 'tiktok-vertical':
       return buildPlayableExportAdapter(state);
@@ -99,14 +102,26 @@ export function buildPublishPackage(state: StudioState, exportedState: StudioSta
   const remoteFetchPlan = buildRemoteAssetFetchPlan(assetPlan);
   const materializedAssetFiles = materializeExportAssetFiles(assetPlan);
   const localizedPortableProject = buildLocalizedPortableProject(portableProject, assetPlan);
-  const localizedAdapter = { ...channelAdapter, portableProject: localizedPortableProject };
+  const localizedAdapter = channelAdapter.adapter === 'playable-ad'
+    ? { ...channelAdapter, playableProject: localizedPortableProject }
+    : { ...channelAdapter, portableProject: localizedPortableProject };
   const packagingPlan = buildExportPackagingPlan(localizedAdapter);
   const exitConfig = buildExportExitConfig(localizedAdapter);
   const runtimeScript = buildExportRuntimeScript(channelAdapter);
+  const playableHtml = localizedAdapter.adapter === 'playable-ad'
+    ? buildPlayableSingleFileHtml(exportedState, localizedAdapter as PlayableExportAdapterResult, {})
+    : null;
+  const vastHtml = localizedAdapter.adapter === 'vast-simid'
+    ? buildChannelHtml(exportedState, { ...(localizedAdapter as VastSimidAdapterResult), adapter: 'generic-html5' } as any)
+    : null;
+  const primaryHtml = playableHtml ?? vastHtml ?? buildChannelHtml(exportedState, localizedAdapter as any);
   const packageMetrics = buildExportPackageMetrics({
     channel: exportedState.document.metadata.release.targetChannel,
     files: [
-      { path: 'index.html', mime: 'text/html;charset=utf-8', content: buildChannelHtml(exportedState, localizedAdapter) },
+      { path: 'index.html', mime: 'text/html;charset=utf-8', content: primaryHtml },
+      ...(localizedAdapter.adapter === 'vast-simid'
+        ? [{ path: 'vast.xml', mime: 'application/xml;charset=utf-8', content: buildVastSimidXml(localizedAdapter as VastSimidAdapterResult) }]
+        : []),
       { path: 'runtime.js', mime: 'text/javascript;charset=utf-8', content: runtimeScript },
       { path: 'manifest.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(buildExportManifest(exportedState), null, 2) },
       { path: 'portable-project.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(portableProject, null, 2) },
@@ -124,7 +139,10 @@ export function buildPublishPackage(state: StudioState, exportedState: StudioSta
   const packageProbe = {
     channel: exportedState.document.metadata.release.targetChannel,
     files: [
-      { path: 'index.html', mime: 'text/html;charset=utf-8', content: buildChannelHtml(exportedState, localizedAdapter) },
+      { path: 'index.html', mime: 'text/html;charset=utf-8', content: primaryHtml },
+      ...(localizedAdapter.adapter === 'vast-simid'
+        ? [{ path: 'vast.xml', mime: 'application/xml;charset=utf-8', content: '' }]
+        : []),
       { path: 'runtime.js', mime: 'text/javascript;charset=utf-8', content: runtimeScript },
       { path: 'manifest.json', mime: 'application/json;charset=utf-8', content: '' },
       { path: 'portable-project.json', mime: 'application/json;charset=utf-8', content: '' },
@@ -162,7 +180,7 @@ export function buildPublishPackage(state: StudioState, exportedState: StudioSta
     handoff: buildExportHandoff(exportedState),
     collaboration: exportedState.document.collaboration,
     document: exportedState.document,
-    html: buildChannelHtml(exportedState, localizedAdapter),
+    html: primaryHtml,
     previewHtml: buildStandaloneHtml(exportedState),
   }, null, 2);
 }

@@ -12,9 +12,27 @@ export function renderCtaExport(node: WidgetNode): string {
   return `<button class="widget widget-cta" data-widget-id="${node.id}" style="${base}">${escapeHtml(node.props.text ?? node.name)}</button>`;
 }
 
-export function renderImageExport(node: WidgetNode, kind: 'image' | 'hero-image' = 'image'): string {
-  const detail = escapeHtml(String(node.props.alt ?? (kind === 'hero-image' ? 'Hero image' : 'Image placeholder')));
-  return renderGenericExport(node, node.name, detail);
+export function renderImageExport(node: WidgetNode, kind: 'image' | 'hero-image' = 'image', assetPathMap: Record<string, string> = {}): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const borderRadius = Number(style.borderRadius ?? (kind === 'hero-image' ? 20 : 12));
+  const src = typeof node.props.src === 'string' ? (assetPathMap[node.props.src] ?? node.props.src) : '';
+  const alt = escapeHtml(String(node.props.alt ?? (kind === 'hero-image' ? 'Hero image' : 'Image')));
+  const fit = kind === 'hero-image' ? 'cover' : String(node.props.fit ?? node.style.fit ?? 'cover');
+  const base = [
+    `position:absolute`,
+    `left:${frame.x}px`,
+    `top:${frame.y}px`,
+    `width:${frame.width}px`,
+    `height:${frame.height}px`,
+    `transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,
+    `overflow:hidden`,
+    `box-sizing:border-box`,
+    `border-radius:${borderRadius}px`,
+    `background:${escapeHtml(String(style.backgroundColor ?? 'transparent'))}`,
+  ].join(';');
+  return `<div class="widget widget-${kind}" data-widget-id="${node.id}" style="${base}"><img src="${escapeHtml(src)}" alt="${alt}" style="width:100%;height:100%;display:block;object-fit:${escapeHtml(fit)};" /></div>`;
 }
 
 export function renderVideoExport(node: WidgetNode): string {
@@ -61,4 +79,3 @@ export function renderShapeExport(node: WidgetNode): string {
 
   return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base};display:flex;align-items:center;justify-content:center;padding:0;"><div style="${innerStyle}"></div></div>`;
 }
-

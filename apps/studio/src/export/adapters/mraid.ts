@@ -3,6 +3,7 @@ import { buildPortableProjectExport } from '../portable';
 import { buildExportRuntimeModelFromPortable } from '../runtime-model';
 import { validatePortableExport } from '../compliance';
 import { getPortableChannelRequirements } from '../channel-compliance';
+import { getMraidStandardPresets, getPresetForSize } from '../../domain/document/canvas-presets';
 
 export type MraidAdapterResult = {
   adapter: 'mraid';
@@ -14,9 +15,9 @@ export type MraidAdapterResult = {
   channelChecklist: ReturnType<typeof getPortableChannelRequirements>;
   mraid: {
     entry: 'index.html';
-    supportedSizes: Array<'320x480' | '300x600'>;
+    supportedSizes: string[];
     standardSize: boolean;
-    placement: 'inline' | 'interstitial';
+    placement: 'inline' | 'interstitial' | 'banner';
     apiVersion: '3.0';
     requiresMraidOpen: true;
     requiredHostFeatures: {
@@ -24,7 +25,7 @@ export type MraidAdapterResult = {
       location: boolean;
     };
     expectedHost: {
-      placementType: 'inline' | 'interstitial';
+      placementType: 'inline' | 'interstitial' | 'banner';
       maxSize: { width: number; height: number };
     };
   };
@@ -34,8 +35,9 @@ export function buildMraidAdapter(state: StudioState): MraidAdapterResult {
   const portableProject = buildPortableProjectExport(state);
   const runtimeModel = buildExportRuntimeModelFromPortable(portableProject);
   const sizeKey = `${portableProject.canvas.width}x${portableProject.canvas.height}`;
-  const standardSize = sizeKey === '320x480' || sizeKey === '300x600';
-  const placement = sizeKey === '320x480' ? 'interstitial' : 'inline';
+  const matchingPreset = getPresetForSize(portableProject.canvas.width, portableProject.canvas.height);
+  const standardSize = Boolean(matchingPreset?.mraidStandard);
+  const placement = matchingPreset?.mraidPlacement ?? (sizeKey === '320x480' ? 'interstitial' : 'inline');
   const requiresLocation = portableProject.scenes.some((scene) =>
     scene.widgets.some((widget) => widget.type === 'dynamic-map' && Boolean(widget.props.requestUserLocation ?? false)),
   );
@@ -50,7 +52,7 @@ export function buildMraidAdapter(state: StudioState): MraidAdapterResult {
     channelChecklist: getPortableChannelRequirements('mraid', portableProject, runtimeModel),
     mraid: {
       entry: 'index.html',
-      supportedSizes: ['320x480', '300x600'],
+      supportedSizes: getMraidStandardPresets().map((preset) => `${preset.width}x${preset.height}`),
       standardSize,
       placement,
       apiVersion: '3.0',

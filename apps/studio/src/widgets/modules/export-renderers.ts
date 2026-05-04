@@ -1,0 +1,648 @@
+import type { WidgetNode } from '../../domain/document/types';
+import { escapeHtml } from '../registry/export-helpers';
+import { buildQrPattern, getFlagEmoji, isFilenameLikeCaption } from './shared-styles';
+import { parseShoppableProducts } from './shoppable-sidebar.shared';
+import { resolveCornerRadius } from '../shared/corner-style';
+import { buildPlaceCtaUrl, parseNearbyPlaces } from './dynamic-map.shared';
+import { resolveWeatherIcon } from './weather-conditions.shared';
+
+const LEAFLET_CSS_URL = import.meta.env.VITE_LEAFLET_CSS_URL || 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+const LEAFLET_JS_URL = import.meta.env.VITE_LEAFLET_JS_URL || 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+const CARTO_TILE_URL = import.meta.env.VITE_CARTO_TILE_URL || 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+function resolveAssetPath(src: unknown, assetPathMap: Record<string, string>): string {
+  if (typeof src !== 'string') return '';
+  return assetPathMap[src] ?? src;
+}
+
+function parseCarouselSlidesWithAssets(raw: unknown, assetPathMap: Record<string, string>): Array<{ src: string; caption: string }> {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return [];
+  return raw
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const [src, caption] = item.split('|');
+      return {
+        src: resolveAssetPath((src ?? '').trim(), assetPathMap),
+        caption: (caption ?? '').trim(),
+      };
+    })
+    .filter((item) => item.src);
+}
+
+function locateIconMarkup(color: string): string {
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.2" stroke="${escapeHtml(color)}" stroke-width="2"></circle><path d="M12 2.5v3.2M12 18.3v3.2M2.5 12h3.2M18.3 12h3.2" stroke="${escapeHtml(color)}" stroke-width="2" stroke-linecap="round"></path></svg>`;
+}
+
+export function buildExportLeafletMapSrcdoc(input: {
+  places: Array<{ name: string; lat: number; lng: number; address?: string; badge?: string; mapsUrl?: string; wazeUrl?: string }>;
+  latitude: number;
+  longitude: number;
+  zoom: number;
+  accent: string;
+  routeVisible: boolean;
+}): string {
+  const places = input.places.filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lng)).slice(0, 25);
+  const placesJson = JSON.stringify(places);
+  const routeScript = input.routeVisible
+    ? `
+      if (places.length > 1) {
+        const latlngs = places.map((place) => [place.lat, place.lng]);
+        L.polyline(latlngs, { color: '${input.accent}', weight: 3, dashArray: '7 6', opacity: 0.9 }).addTo(map);
+      }
+    `
+    : '';
+  return `
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="${LEAFLET_CSS_URL}" />
+  <style>
+    html, body, #map { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #dbeafe; }
+    .leaflet-container { font-family: Inter, Arial, sans-serif; background: #dbeafe; }
+    .smx-export-map-label.leaflet-tooltip {
+      background: #111827;
+      border: none;
+      border-radius: 999px;
+      color: #fff;
+      padding: 4px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      box-shadow: none;
+    }
+    .smx-export-map-label.leaflet-tooltip:before { display: none; }
+    .smx-export-map-popup { font-family: Inter, Arial, sans-serif; min-width: 150px; }
+    .smx-export-map-popup__title { font-size: 12px; font-weight: 800; color: #0f172a; line-height: 1.2; }
+    .smx-export-map-popup__meta { margin-top: 4px; font-size: 10px; color: #475569; line-height: 1.25; }
+    .smx-export-map-popup__badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 800;
+      color: #fff;
+      background: ${input.accent};
+      margin-top: 6px;
+    }
+    .smx-export-map-popup__actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .smx-export-map-popup__actions a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      height: 24px;
+      border-radius: 999px;
+      padding: 0 10px;
+      color: #fff;
+      text-decoration: none;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .smx-export-map-popup__actions a[data-kind="waze"] { background: #08d4ff; }
+    .smx-export-map-popup__actions a[data-kind="maps"] { background: #4285f4; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="${LEAFLET_JS_URL}"></script>
+  <script>
+    const places = ${placesJson};
+    const map = L.map('map', { zoomControl: true, attributionControl: false, scrollWheelZoom: true }).setView([${input.latitude}, ${input.longitude}], ${input.zoom});
+    L.tileLayer('${CARTO_TILE_URL}', { maxZoom: 19 }).addTo(map);
+    let userMarker = null;
+    function popupHtml(place) {
+      const address = place.address ? '<div class="smx-export-map-popup__meta">' + String(place.address) + '</div>' : '';
+      const badge = place.badge ? '<div class="smx-export-map-popup__badge">' + String(place.badge) + '</div>' : '';
+      const actions = (place.wazeUrl || place.mapsUrl)
+        ? '<div class="smx-export-map-popup__actions">'
+          + (place.wazeUrl ? '<a href="' + String(place.wazeUrl) + '" target="_blank" rel="noopener noreferrer" data-kind="waze">Waze</a>' : '')
+          + (place.mapsUrl ? '<a href="' + String(place.mapsUrl) + '" target="_blank" rel="noopener noreferrer" data-kind="maps">Maps</a>' : '')
+          + '</div>'
+        : '';
+      return '<div class="smx-export-map-popup"><div class="smx-export-map-popup__title">' + String(place.name || '') + '</div>' + address + badge + actions + '</div>';
+    }
+    places.forEach((place) => {
+      const marker = L.circleMarker([place.lat, place.lng], {
+        radius: 7,
+        color: '${input.accent}',
+        weight: 3,
+        fillColor: '#111827',
+        fillOpacity: 1
+      }).addTo(map);
+      marker.bindPopup(popupHtml(place), { closeButton: true, autoPan: true, maxWidth: 220 });
+      marker.bindTooltip(place.name, {
+        permanent: true,
+        direction: 'top',
+        offset: [0, -10],
+        className: 'smx-export-map-label'
+      });
+    });
+    ${routeScript}
+    if (places.length) {
+      const bounds = L.latLngBounds(places.map((place) => [place.lat, place.lng]));
+      if (bounds.isValid()) map.fitBounds(bounds.pad(0.25));
+    }
+    window.addEventListener('message', (event) => {
+      const data = event && event.data ? event.data : null;
+      if (!data || data.type !== 'smx-map-center-user') return;
+      const latitude = Number(data.latitude);
+      const longitude = Number(data.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+      if (userMarker) map.removeLayer(userMarker);
+      userMarker = L.circleMarker([latitude, longitude], {
+        radius: 7,
+        color: '#111827',
+        weight: 3,
+        fillColor: '#ffffff',
+        fillOpacity: 1
+      }).addTo(map);
+      userMarker.bindPopup('<div class="smx-export-map-popup"><div class="smx-export-map-popup__title">' + String(data.label || 'Your location') + '</div></div>');
+      map.setView([latitude, longitude], Math.max(map.getZoom(), ${input.zoom}));
+      userMarker.openPopup();
+    });
+  </script>
+</body>
+</html>`.trim();
+}
+
+export function renderVideoHeroExport(node: WidgetNode, _state: unknown, assetPathMap: Record<string, string> = {}): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const src = resolveAssetPath(node.props.src, assetPathMap);
+  const posterSrc = resolveAssetPath(node.props.posterSrc, assetPathMap);
+  const base = [
+    `position:absolute`,
+    `left:${frame.x}px`,
+    `top:${frame.y}px`,
+    `width:${frame.width}px`,
+    `height:${frame.height}px`,
+    `transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,
+    `overflow:hidden`,
+    `box-sizing:border-box`,
+    `border-radius:${Number(style.borderRadius ?? 12)}px`,
+    `background:${String(style.backgroundColor ?? '#000000')}`,
+  ].join(';');
+
+  return `<div class="widget widget-video-hero" data-widget-id="${node.id}" style="${base}"><video src="${escapeHtml(src)}" ${posterSrc ? `poster="${escapeHtml(posterSrc)}"` : ''} ${Boolean(node.props.autoplay ?? true) ? 'autoplay' : ''} ${Boolean(node.props.muted ?? true) ? 'muted' : ''} ${Boolean(node.props.loop ?? true) ? 'loop' : ''} ${Boolean(node.props.controls ?? false) ? 'controls' : ''} playsinline style="width:100%;height:100%;display:block;object-fit:cover;"></video></div>`;
+}
+
+export function renderImageCarouselExport(node: WidgetNode, _state: unknown, assetPathMap: Record<string, string> = {}): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const borderRadius = resolveCornerRadius(node, 20);
+  const slides = parseCarouselSlidesWithAssets(node.props.slides, assetPathMap);
+  const accent = String(style.accentColor ?? '#ffffff');
+  const activeSlide = slides[0];
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,
+    `transform:rotate(${frame.rotation}deg)`,`opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,
+    `border-radius:${borderRadius}px`,`background:${String(style.backgroundColor ?? '#111827')}`,`color:${String(style.color ?? '#ffffff')}`,
+    `display:flex`,`flex-direction:column`,
+  ].join(';');
+  const slidesJson = escapeHtml(JSON.stringify(slides));
+  const showPrevButton = Boolean(node.props.showPrevButton ?? true);
+  const showNextButton = Boolean(node.props.showNextButton ?? true);
+  const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
+  const paginationDotSize = Math.max(2, Math.min(5, Number(node.props.paginationDotSize ?? 3)));
+  return `<div class="widget widget-image-carousel" data-widget-id="${node.id}" data-carousel-slides="${slidesJson}" data-carousel-index="0" data-carousel-accent="${escapeHtml(accent)}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="position:relative;flex:1;margin:8px 12px 12px;border-radius:12px;overflow:hidden;background:#111827;">
+      ${activeSlide ? `<img data-carousel-image src="${escapeHtml(activeSlide.src)}" alt="${escapeHtml(activeSlide.caption && !isFilenameLikeCaption(activeSlide.caption) ? activeSlide.caption : '')}" style="width:100%;height:100%;display:block;object-fit:cover;" />` : '<div style="width:100%;height:100%;display:grid;place-items:center;opacity:.7;">Add slides</div>'}
+      <div style="position:absolute;inset-inline:12px;bottom:10px;display:flex;justify-content:space-between;align-items:end;gap:8px;">
+        ${(activeSlide?.caption && !isFilenameLikeCaption(activeSlide.caption)) ? `<div data-carousel-caption style="border-radius:10px;padding:8px 10px;background:rgba(15,23,42,.68);font-size:12px;">${escapeHtml(activeSlide.caption)}</div>` : '<div data-carousel-caption style="display:none;"></div>'}
+        ${showPaginationDots ? `<div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">${slides.map((_, index) => `<button type="button" data-smx-action="carousel-dot" data-widget-id="${node.id}" data-carousel-target="${index}" style="width:${paginationDotSize}px;min-width:${paginationDotSize}px;height:${paginationDotSize}px;min-height:${paginationDotSize}px;border-radius:50%;border:none;padding:0;margin:0;background:${index === 0 ? escapeHtml(accent) : 'rgba(255,255,255,.45)'};cursor:pointer;appearance:none;-webkit-appearance:none;display:block;flex:0 0 auto;line-height:1;box-sizing:border-box;"></button>`).join('')}</div>` : ''}
+      </div>
+    </div>
+    ${showPrevButton || showNextButton ? `<div style="display:flex;gap:8px;padding:0 12px 12px;">${showPrevButton ? `<button type="button" data-smx-action="carousel-prev" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:1px solid ${escapeHtml(accent)};background:transparent;color:inherit;padding:8px 10px;">Prev</button>` : ''}${showNextButton ? `<button type="button" data-smx-action="carousel-next" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:none;background:${escapeHtml(accent)};color:#111827;font-weight:800;padding:8px 10px;">Next</button>` : ''}</div>` : ''}
+  </div>`;
+}
+
+export function renderInteractiveGalleryExport(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#111827');
+  const slides = parseCarouselSlidesWithAssets(node.props.slides ?? node.props.items, {});
+  const itemCount = Math.max(1, slides.length || Number(node.props.itemCount ?? 4));
+  const activeIndex = Math.max(0, Math.min(itemCount - 1, Number(node.props.activeIndex ?? 1) - 1));
+  const activeSlide = slides[activeIndex] ?? slides[0];
+  const slidesJson = escapeHtml(JSON.stringify(slides));
+  const showPrevButton = Boolean(node.props.showPrevButton ?? true);
+  const showNextButton = Boolean(node.props.showNextButton ?? true);
+  const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
+  const paginationDotSize = Math.max(2, Math.min(6, Number(node.props.paginationDotSize ?? 4)));
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,`border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#ffffff')}`,`color:${String(style.color ?? '#111827')}`,`display:flex`,`flex-direction:column`,
+  ].join(';');
+
+  return `<div class="widget widget-interactive-gallery" data-widget-id="${node.id}" data-gallery-count="${itemCount}" data-gallery-index="${activeIndex}" data-gallery-slides="${slidesJson}" data-gallery-accent="${escapeHtml(accent)}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;">
+      <div data-gallery-card style="flex:1;border-radius:12px;overflow:hidden;background:${activeSlide ? '#111827' : `linear-gradient(135deg, ${escapeHtml(accent)}55, rgba(255,255,255,.08))`};display:grid;place-items:center;font-size:26px;font-weight:900;position:relative;">
+        ${activeSlide ? `<img data-gallery-image src="${escapeHtml(activeSlide.src)}" alt="${escapeHtml(activeSlide.caption && !isFilenameLikeCaption(activeSlide.caption) ? activeSlide.caption : '')}" style="width:100%;height:100%;display:block;object-fit:cover;" />` : `${activeIndex + 1} / ${itemCount}`}
+        ${activeSlide ? `<div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;align-items:end;gap:8px;">${(activeSlide.caption && !isFilenameLikeCaption(activeSlide.caption)) ? `<div data-gallery-caption style="border-radius:10px;padding:8px 10px;background:rgba(15,23,42,.68);font-size:12px;color:#fff;">${escapeHtml(activeSlide.caption)}</div>` : '<div data-gallery-caption style="display:none;"></div>'}<div style="display:flex;align-items:center;gap:8px;">${showPaginationDots ? `<div style="display:flex;gap:6px;">${Array.from({ length: itemCount }, (_, index) => `<button type="button" data-smx-action="gallery-dot" data-widget-id="${node.id}" data-gallery-target="${index}" style="width:${paginationDotSize}px;height:${paginationDotSize}px;border-radius:50%;border:none;background:${index === activeIndex ? escapeHtml(accent) : 'rgba(255,255,255,.4)'};cursor:pointer;"></button>`).join('')}</div>` : ''}<div data-gallery-count style="border-radius:999px;padding:4px 8px;background:rgba(15,23,42,.68);font-size:12px;color:#fff;">${activeIndex + 1} / ${itemCount}</div></div></div>` : ''}
+      </div>
+      ${showPrevButton || showNextButton ? `<div style="display:flex;gap:8px;">${showPrevButton ? `<button type="button" data-smx-action="gallery-prev" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:1px solid ${escapeHtml(accent)};background:transparent;color:inherit;padding:8px 10px;">Prev</button>` : ''}${showNextButton ? `<button type="button" data-smx-action="gallery-next" data-widget-id="${node.id}" style="flex:1;border-radius:10px;border:none;background:${escapeHtml(accent)};color:${String(style.backgroundColor ?? '#ffffff')};padding:8px 10px;font-weight:800;">Next</button>` : ''}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+export function renderInteractiveHotspotExport(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#f59e0b');
+  const hotspotX = Number(node.props.hotspotX ?? 55);
+  const hotspotY = Number(node.props.hotspotY ?? 45);
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,`border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:transparent`,`color:${String(style.color ?? '#ffffff')}`,
+  ].join(';');
+
+  return `<div class="widget widget-interactive-hotspot" data-widget-id="${node.id}" data-hotspot-auto-close-ms="${Math.max(0, Number(node.props.autoCloseMs ?? 2000))}" style="${base}">
+    <button type="button" data-smx-action="hotspot-toggle" data-widget-id="${node.id}" style="position:absolute;left:${hotspotX}%;top:${hotspotY}%;transform:translate(-50%,-50%)${String(node.props.hotspotShape ?? 'circle') === 'diamond' ? ' rotate(45deg)' : ''};width:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};min-width:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};max-width:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};height:30px;min-height:30px;max-height:30px;inline-size:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};min-inline-size:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};max-inline-size:${String(node.props.hotspotShape ?? 'circle') === 'pill' ? '44px' : '30px'};block-size:30px;min-block-size:30px;max-block-size:30px;border-radius:${String(node.props.hotspotShape ?? 'circle') === 'square' ? '12px' : String(node.props.hotspotShape ?? 'circle') === 'pill' ? '999px' : String(node.props.hotspotShape ?? 'circle') === 'diamond' ? '10px' : '999px'};${String(node.props.hotspotShape ?? 'circle') === 'circle' ? 'clip-path:circle(50% at 50% 50%);' : ''}border:none;background:${escapeHtml(accent)};box-shadow:${String(node.props.hotspotEffect ?? 'pulse') === 'none' ? 'none' : `0 0 0 6px ${escapeHtml(accent)}33,0 0 0 18px ${escapeHtml(accent)}11`};cursor:pointer;font-weight:900;font-size:15px;line-height:1;padding:0;color:#111827;appearance:none;-webkit-appearance:none;display:grid;place-items:center;aspect-ratio:1 / 1;flex-shrink:0;box-sizing:border-box;overflow:hidden;">${escapeHtml(String(node.props.hotspotIcon ?? 'plus') === 'arrow-up' ? '↑' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-down' ? '↓' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-left' ? '←' : String(node.props.hotspotIcon ?? 'plus') === 'arrow-right' ? '→' : String(node.props.hotspotIcon ?? 'plus') === 'info' ? 'i' : '+')}</button>
+    <button type="button" data-hotspot-panel data-smx-action="hotspot-toggle" data-widget-id="${node.id}" style="position:absolute;left:12px;right:12px;bottom:12px;border-radius:14px;background:rgba(17,24,39,.94);padding:10px 12px;display:none;gap:6px;border:none;text-align:left;color:inherit;cursor:pointer;">
+      <div style="font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.header ?? 'Interactive hotspot'))}</div>
+      <div style="font-size:12px;line-height:1.45;">${escapeHtml(String(node.props.body ?? 'Add more context for this interactive point.'))}</div>
+    </button>
+    <div data-hotspot-label style="position:absolute;left:12px;bottom:12px;font-size:12px;">${escapeHtml(String(node.props.label ?? 'Tap point'))}</div>
+  </div>`;
+}
+
+export function renderRangeSliderExport(node: WidgetNode): string {
+  return renderRangeLikeExport(node, 'Range');
+}
+
+export function renderSliderExport(node: WidgetNode): string {
+  return renderRangeLikeExport(node, 'Slider');
+}
+
+function renderRangeLikeExport(node: WidgetNode, label: string): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#ffffff');
+  const min = Number(node.props.min ?? 0);
+  const max = Number(node.props.max ?? 100);
+  const value = Number(node.props.value ?? node.props.current ?? 50);
+  const units = String(node.props.units ?? '');
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,`border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#111827')}`,`color:${String(style.color ?? '#ffffff')}`,`display:flex`,`flex-direction:column`,
+  ].join(';');
+  return `<div class="widget widget-${escapeHtml(node.type)}" data-widget-id="${node.id}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;justify-content:center;gap:10px;">
+      <input type="range" min="${min}" max="${max}" value="${value}" data-smx-action="range-update" data-widget-id="${node.id}" data-units="${escapeHtml(units)}" style="accent-color:${escapeHtml(accent)};" />
+      <div data-range-value style="font-size:13px;font-weight:700;">${escapeHtml(label)}: ${value}${escapeHtml(units)}</div>
+    </div>
+  </div>`;
+}
+
+export function renderScratchRevealExport(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#f97316');
+  const coverLabel = String(node.props.coverLabel ?? 'Scratch to reveal');
+  const revealLabel = String(node.props.revealLabel ?? '20% off today');
+  const beforeImage = String(node.props.beforeImage ?? '');
+  const afterImage = String(node.props.afterImage ?? '');
+  const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 6));
+  const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
+  const revealBackground = afterImage ? '#111827' : `linear-gradient(135deg, ${accent}22, rgba(255,255,255,.12))`;
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,`border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#111827')}`,`color:${String(style.color ?? '#ffffff')}`,`display:flex`,`flex-direction:column`,
+  ].join(';');
+  return `<div class="widget widget-scratch-reveal" data-widget-id="${node.id}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;justify-content:center;gap:10px;">
+      <div class="scratch-reveal-shell" data-scratch-widget-id="${node.id}" data-scratch-cover-image="${escapeHtml(beforeImage)}" data-scratch-cover-blur="${coverBlur}" data-scratch-radius="${scratchRadius}" data-scratch-accent="${escapeHtml(accent)}" style="position:relative;flex:1;border-radius:12px;overflow:hidden;background:${escapeHtml(revealBackground)};">
+        ${afterImage ? `<img src="${escapeHtml(afterImage)}" alt="${escapeHtml(revealLabel)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" />` : ''}
+        <div style="position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:22px;text-align:center;padding:16px;">${escapeHtml(revealLabel)}</div>
+        <canvas data-scratch-canvas style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none;outline:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"></canvas>
+        <div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px;pointer-events:none;">
+          <div style="font-size:12px;">${escapeHtml(coverLabel)}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+export function renderQrCodeExport(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#111827');
+  const url = String(node.props.url ?? 'https://example.com');
+  const qrScale = Math.max(0.3, Math.min(1, Number(node.props.qrScale ?? 0.72)));
+  const qrPadding = Math.max(0, Number(node.props.qrPadding ?? 8));
+  const qrSize = Math.max(72, Math.min(frame.width, frame.height - 24) * qrScale);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
+  const pattern = buildQrPattern(url);
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,`border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#ffffff')}`,`color:${String(style.color ?? '#111827')}`,`display:flex`,`flex-direction:column`,`cursor:pointer`,
+  ].join(';');
+
+  return `<button type="button" class="widget widget-qr-code" data-widget-id="${node.id}" data-smx-action="qr-open" data-qr-url="${escapeHtml(url)}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+      <div style="width:${qrSize}px;height:${qrSize}px;border-radius:14px;background:#fff;padding:${qrPadding}px;display:grid;place-items:center;flex-shrink:0;">
+        <img src="${escapeHtml(qrUrl)}" alt="${escapeHtml(String(node.props.codeLabel ?? 'QR code'))}" style="width:100%;height:100%;object-fit:contain;border-radius:8px;" onerror="this.replaceWith(this.nextElementSibling)" />
+        <div style="display:none;grid-template-columns:repeat(9,1fr);gap:2px;width:100%;height:100%;">
+          ${pattern.map((filled) => `<div style="background:${filled ? escapeHtml(accent) : '#fff'};"></div>`).join('')}
+        </div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:${escapeHtml(String(style.color ?? '#111827'))};">${escapeHtml(String(node.props.codeLabel ?? 'Scan me'))}</div>
+    </div>
+  </button>`;
+}
+
+export function renderFormExport(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#ec4899');
+  const consentRequired = Boolean(node.props.consentRequired ?? true);
+  const consentLabel = String(node.props.consentLabel ?? 'I agree to share my data');
+  const fieldThree = String(node.props.fieldThree ?? 'Phone');
+  const userScale = Math.max(45, Math.min(140, Number(node.props.formScale ?? 100))) / 100;
+  const scale = Math.max(0.38, Math.min(1.1, Math.min(frame.width / 250, frame.height / 184) * userScale));
+  const headerPaddingTop = Math.max(6, Math.round(8 * scale));
+  const headerPaddingX = Math.max(8, Math.round(10 * scale));
+  const bodyPaddingTop = Math.max(4, Math.round(6 * scale));
+  const bodyPaddingBottom = Math.max(6, Math.round(8 * scale));
+  const inputPaddingY = Math.max(6, Math.round(8 * scale));
+  const inputPaddingX = Math.max(8, Math.round(10 * scale));
+  const compactFont = Math.max(10, Math.round(11 * scale));
+  const checkboxSize = Math.max(14, Math.round(16 * scale));
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,`border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#ffffff')}`,`color:${String(style.color ?? '#111827')}`,`display:flex`,`flex-direction:column`,
+  ].join(';');
+
+  return `<form class="widget widget-form" data-widget-id="${node.id}" data-form-target-type="${escapeHtml(String(node.props.submitTargetType ?? 'none'))}" data-form-submit-url="${escapeHtml(String(node.props.submitUrl ?? ''))}" data-form-method="${escapeHtml(String(node.props.method ?? 'POST').toUpperCase())}" data-form-success-message="${escapeHtml(String(node.props.successMessage ?? 'Submitted'))}" data-form-field-one="${escapeHtml(String(node.props.fieldOne ?? 'Name'))}" data-form-field-two="${escapeHtml(String(node.props.fieldTwo ?? 'Email'))}" data-form-field-three="${escapeHtml(fieldThree)}" data-form-consent-required="${String(consentRequired)}" style="${base}">
+    <div style="padding:${headerPaddingTop}px ${headerPaddingX}px 0;font-size:${Math.max(10, Math.round(12 * scale))}px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="padding:${bodyPaddingTop}px ${headerPaddingX}px ${bodyPaddingBottom}px;display:flex;flex:1;flex-direction:column;gap:${Math.max(4, Math.round(6 * scale))}px;overflow-y:auto;">
+      <input data-form-input="one" placeholder="${escapeHtml(String(node.props.fieldOne ?? 'Name'))}" style="border-radius:10px;padding:${inputPaddingY}px ${inputPaddingX}px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);font-size:${compactFont}px;" />
+      <input data-form-input="two" placeholder="${escapeHtml(String(node.props.fieldTwo ?? 'Email'))}" style="border-radius:10px;padding:${inputPaddingY}px ${inputPaddingX}px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);font-size:${compactFont}px;" />
+      <input data-form-input="three" placeholder="${escapeHtml(fieldThree)}" style="border-radius:10px;padding:${inputPaddingY}px ${inputPaddingX}px;background:#f8fafc;color:#0f172a;border:1px solid rgba(15,23,42,.12);font-size:${compactFont}px;" />
+      ${consentRequired ? `<label style="display:flex;gap:10px;align-items:center;font-size:${compactFont}px;line-height:1.35;color:#334155;"><input type="checkbox" data-form-consent style="margin:0;width:${checkboxSize}px;height:${checkboxSize}px;accent-color:${escapeHtml(accent)};flex:0 0 auto;" /><span>${escapeHtml(consentLabel)}</span></label>` : ''}
+      <div data-form-status style="font-size:11px;opacity:.7;"></div>
+      <button type="submit" style="margin-top:auto;padding:${inputPaddingY}px ${inputPaddingX}px;border-radius:12px;background:${escapeHtml(accent)};color:#111827;font-weight:800;border:none;cursor:pointer;font-size:${compactFont}px;">${escapeHtml(String(node.props.ctaLabel ?? 'Submit'))}</button>
+    </div>
+  </form>`;
+}
+
+export function renderDynamicMapExport(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#ef4444');
+  const latitude = Number(node.props.latitude ?? 13.6929);
+  const longitude = Number(node.props.longitude ?? -89.2182);
+  const zoom = Number(node.props.zoom ?? 13);
+  const provider = String(node.props.provider ?? 'manual');
+  const mode = String(node.props.mode ?? 'street');
+  const routeVisible = Boolean(node.props.showRoute ?? false);
+  const renderMode = String(node.props.renderMode ?? 'cards-map');
+  const mapPaneRatio = Math.max(35, Math.min(85, Number(node.props.mapPaneRatio ?? 72)));
+  const requestUserLocation = Boolean(node.props.requestUserLocation ?? false);
+  const sortByDistance = Boolean(node.props.sortByDistance ?? true);
+  const showOpenNow = Boolean(node.props.showOpenNow ?? true);
+  const showDistance = Boolean(node.props.showDistance ?? true);
+  const cardsAutoscroll = Boolean(node.props.cardsAutoscroll ?? false);
+  const cardsAutoscrollIntervalMs = Math.max(800, Number(node.props.cardsAutoscrollIntervalMs ?? 2200));
+  const scrollbarThumbColor = String(node.props.scrollbarThumbColor ?? '#ffffff');
+  const scrollbarTrackColor = String(node.props.scrollbarTrackColor ?? 'rgba(255,255,255,0.18)');
+  const defaultCtaType = String(node.props.ctaType ?? 'maps');
+  const defaultCtaLabel = String(node.props.ctaLabel ?? 'Open in Maps');
+  const heroImage = String(node.props.heroImage ?? '');
+  const logoImage = String(node.props.logoImage ?? '');
+  const headlineText = String(node.props.headlineText ?? 'Estamos cerca de ti');
+  const subheadlineText = String(node.props.subheadlineText ?? 'Visitanos hoy');
+  const infoLabelText = String(node.props.infoLabelText ?? 'Encuentranos aqui');
+  const brandText = String(node.props.brandText ?? 'Mi marca');
+  const primaryAddressText = String(node.props.primaryAddressText ?? '123 Calle Principal');
+  const primaryHoursText = String(node.props.primaryHoursText ?? 'Lun-Vie 8am-6pm');
+  const directionsCtaLabel = String(node.props.directionsCtaLabel ?? 'Como llegar?');
+  const locateMeLabel = String(node.props.locateMeLabel ?? 'Mi ubicacion');
+  const nearbyTitleText = String(node.props.nearbyTitleText ?? 'Las 3 ubicaciones mas cercanas');
+  const locatingText = String(node.props.locatingText ?? 'Buscando cerca de ti');
+  const locationFoundText = String(node.props.locationFoundText ?? 'Ubicacion encontrada');
+  const bottomBackgroundColor = String(node.props.bottomBackgroundColor ?? '#ffffff');
+  const searchBackgroundColor = String(node.props.searchBackgroundColor ?? '#ffffff');
+  const heroOverlayOpacity = Math.max(0, Math.min(1, Number(node.props.heroOverlayOpacity ?? 0.45)));
+  const parsedPlaces = parseNearbyPlaces(String(node.props.markersCsv ?? ''));
+  const places = (parsedPlaces.length ? parsedPlaces : [{
+    name: String(node.props.location ?? 'Main location'),
+    flag: '', lat: latitude, lng: longitude, address: '', badge: String(node.props.pinLabel ?? 'Store'),
+    openNow: null, ctaLabel: defaultCtaLabel, ctaType: defaultCtaType as any, ctaUrl: '',
+  }]).slice(0, 5);
+  const mapFramePlaces = places.map((place) => ({
+    name: place.name, lat: place.lat, lng: place.lng, address: place.address, badge: place.badge,
+    mapsUrl: buildPlaceCtaUrl(place, 'maps'), wazeUrl: buildPlaceCtaUrl(place, 'waze'),
+  }));
+  const exportMapSrcdoc = escapeHtml(buildExportLeafletMapSrcdoc({ places: mapFramePlaces, latitude, longitude, zoom, accent, routeVisible }));
+  const placesJson = escapeHtml(JSON.stringify(places.map((place) => ({
+    ...place, resolvedUrl: buildPlaceCtaUrl(place, (place.ctaType || defaultCtaType) as never),
+    mapsUrl: buildPlaceCtaUrl(place, 'maps'), wazeUrl: buildPlaceCtaUrl(place, 'waze'),
+  }))));
+  const cardsOnly = renderMode === 'cards-only';
+  const mapFirst = renderMode === 'map-first';
+  const searchBarMode = renderMode === 'search-bar';
+  const isVertical = frame.height > frame.width;
+  const stackedLayout = !cardsOnly && isVertical;
+  const mapShare = `${mapPaneRatio}fr`;
+  const cardsShare = `${Math.max(1, 100 - mapPaneRatio)}fr`;
+  const gridTemplateColumns = cardsOnly || stackedLayout ? '1fr' : mapFirst ? `${mapShare} ${cardsShare}` : `${cardsShare} ${mapShare}`;
+  const gridTemplateRows = stackedLayout ? (mapFirst ? `${mapShare} ${cardsShare}` : `${cardsShare} ${mapShare}`) : 'none';
+  const mapBackground = mode === 'dark' ? 'linear-gradient(135deg,#0f172a,#1e293b)' : mode === 'satellite' ? 'linear-gradient(135deg,#14532d,#365314)' : 'linear-gradient(135deg,#dbeafe,#bfdbfe)';
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,`border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#1f2937')}`,`color:${String(style.color ?? '#ffffff')}`,`display:flex`,`flex-direction:column`,
+  ].join(';');
+
+  if (searchBarMode) {
+    const heroHeight = isVertical ? '46%' : '60%';
+    const bottomHeight = isVertical ? '54%' : '40%';
+    const panelWidth = isVertical ? 'calc(100% - 20px)' : 'min(78%,280px)';
+    const panelMargin = isVertical ? 'margin:0 auto;' : 'margin-left:auto;';
+    return `<div class="widget widget-dynamic-map widget-dynamic-map-search" data-widget-id="${node.id}" data-map-render-mode="search-bar" data-map-places="${placesJson}" data-map-latitude="${latitude}" data-map-longitude="${longitude}" data-map-request-user-location="${String(requestUserLocation)}" data-map-sort-by-distance="${String(sortByDistance)}" data-map-show-open-now="${String(showOpenNow)}" data-map-show-distance="${String(showDistance)}" data-map-autoscroll="${String(cardsAutoscroll)}" data-map-autoscroll-interval="${cardsAutoscrollIntervalMs}" data-map-default-cta-type="${escapeHtml(defaultCtaType)}" data-map-default-cta-label="${escapeHtml(defaultCtaLabel)}" data-map-accent="${escapeHtml(accent)}" data-map-info-label="${escapeHtml(infoLabelText)}" data-map-primary-address="${escapeHtml(primaryAddressText)}" data-map-primary-hours="${escapeHtml(primaryHoursText)}" data-map-directions-label="${escapeHtml(directionsCtaLabel)}" data-map-locate-label="${escapeHtml(locateMeLabel)}" data-map-nearby-title="${escapeHtml(nearbyTitleText)}" data-map-locating-text="${escapeHtml(locatingText)}" data-map-location-found-text="${escapeHtml(locationFoundText)}" style="${base}">
+      <div style="position:relative;width:100%;height:100%;overflow:hidden;background:#0f172a;">
+        <div style="position:absolute;inset:0;height:${heroHeight};overflow:hidden;background:${heroImage ? '#111827' : 'linear-gradient(160deg,#0f172a,#1d4ed8)'};">
+          ${heroImage ? `<img src="${escapeHtml(heroImage)}" alt="${escapeHtml(headlineText)}" style="width:100%;height:100%;object-fit:cover;display:block;" />` : ''}
+          <div style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,.18), rgba(0,0,0,${heroOverlayOpacity}));"></div>
+          ${logoImage ? `<img src="${escapeHtml(logoImage)}" alt="${escapeHtml(brandText)}" style="position:absolute;top:12px;left:12px;height:28px;max-width:110px;object-fit:contain;" />` : ''}
+          <div style="position:absolute;left:16px;right:16px;bottom:16px;color:#fff;">
+            <div style="font-size:24px;font-weight:900;line-height:1.05;text-transform:uppercase;">${escapeHtml(headlineText)}</div>
+            <div style="font-size:12px;margin-top:6px;opacity:.92;">${escapeHtml(subheadlineText)}</div>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:${bottomHeight};background:${escapeHtml(bottomBackgroundColor)};color:#111827;padding:14px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:8px;"><div style="display:flex;align-items:center;gap:8px;background:${escapeHtml(searchBackgroundColor)};border:1px solid rgba(0,0,0,.08);border-radius:999px;padding:9px 12px;"><span style="font-size:14px;opacity:.6;">⌕</span><span style="font-size:11px;">${escapeHtml(infoLabelText)}</span></div></div>
+          <div style="display:flex;align-items:flex-start;gap:10px;">
+            <div style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${escapeHtml(accent)}22;color:${escapeHtml(accent)};font-size:16px;font-weight:900;flex:0 0 34px;">⌖</div>
+            <div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:900;line-height:1.2;text-transform:uppercase;color:#555;">${escapeHtml(brandText)}</div><div style="font-size:13px;font-weight:900;line-height:1.2;margin-top:4px;">${escapeHtml(primaryAddressText)}</div><div style="font-size:11px;color:#666;line-height:1.25;margin-top:4px;">${escapeHtml(primaryHoursText)}</div></div>
+            <button type="button" data-smx-action="map-open-panel" style="appearance:none;border:none;border-radius:14px;padding:10px 14px;background:${escapeHtml(accent)};color:#fff;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;">${escapeHtml(defaultCtaLabel)}</button>
+          </div>
+        </div>
+        <div data-map-search-panel="true" style="position:absolute;inset:0;display:none;background:rgba(15,23,42,.24);backdrop-filter:blur(2px);padding:10px;">
+          <div style="${panelMargin}width:${panelWidth};height:100%;background:#fff;border-radius:18px;box-shadow:0 14px 42px rgba(0,0,0,.24);overflow:hidden;display:flex;flex-direction:column;">
+            <div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid rgba(0,0,0,.08);background:${escapeHtml(searchBackgroundColor)};"><div style="display:flex;align-items:center;gap:8px;min-width:0;"><span style="font-size:14px;opacity:.68;">⌕</span><span style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(infoLabelText)}</span></div><button type="button" data-smx-action="map-close-panel" style="appearance:none;border:none;background:transparent;color:#334155;font-size:18px;line-height:1;cursor:pointer;">×</button></div>
+            <div style="position:relative;height:122px;background:${mapBackground};overflow:hidden;"><iframe title="Nearby locations map" srcdoc="${exportMapSrcdoc}" style="position:absolute;inset:0;width:100%;height:100%;border:0;background:${mapBackground};" loading="lazy"></iframe><button type="button" aria-label="${escapeHtml(locateMeLabel)}" title="${escapeHtml(locateMeLabel)}" data-smx-action="map-request-location" style="position:absolute;right:10px;top:10px;width:40px;height:40px;border-radius:999px;border:none;background:#fff;color:${escapeHtml(accent)};box-shadow:0 3px 14px rgba(0,0,0,.2);cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;z-index:2;touch-action:manipulation;">${locateIconMarkup(accent)}</button></div>
+            <div style="padding:10px 12px;border-bottom:1px solid rgba(0,0,0,.08);display:flex;align-items:flex-start;gap:10px;">${logoImage ? `<img src="${escapeHtml(logoImage)}" alt="${escapeHtml(brandText)}" style="height:22px;max-width:90px;object-fit:contain;" />` : `<div style="width:12px;height:12px;border-radius:50%;background:${escapeHtml(accent)};margin-top:4px;flex:0 0 12px;"></div>`}<div style="flex:1;min-width:0;"><div data-map-search-status style="font-size:12px;font-weight:900;line-height:1.2;">${escapeHtml(infoLabelText)}</div><div data-map-search-substatus style="font-size:11px;color:#555;line-height:1.25;margin-top:2px;"><b>${escapeHtml(primaryAddressText)}</b><br />${escapeHtml(primaryHoursText)}</div></div><a href="${escapeHtml(places[0] ? buildPlaceCtaUrl(places[0], 'maps') : '')}" target="_blank" rel="noopener noreferrer" data-smx-action="map-primary-directions" style="appearance:none;border:none;border-radius:12px;padding:10px 14px;background:${escapeHtml(accent)};color:#fff;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">${escapeHtml(directionsCtaLabel)}</a></div>
+            <div data-map-search-scroll style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:auto;flex:1;min-height:0;scrollbar-color:${escapeHtml(scrollbarThumbColor)} ${escapeHtml(scrollbarTrackColor)};scrollbar-width:thin;--map-scrollbar-thumb:${escapeHtml(scrollbarThumbColor)};--map-scrollbar-track:${escapeHtml(scrollbarTrackColor)};"><div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:#555;">${escapeHtml(nearbyTitleText)}</div><div data-map-search-list></div></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="widget widget-dynamic-map" data-widget-id="${node.id}" data-map-places="${placesJson}" data-map-latitude="${latitude}" data-map-longitude="${longitude}" data-map-request-user-location="${String(requestUserLocation)}" data-map-sort-by-distance="${String(sortByDistance)}" data-map-show-open-now="${String(showOpenNow)}" data-map-show-distance="${String(showDistance)}" data-map-autoscroll="${String(cardsAutoscroll)}" data-map-autoscroll-interval="${cardsAutoscrollIntervalMs}" data-map-default-cta-type="${escapeHtml(defaultCtaType)}" data-map-default-cta-label="${escapeHtml(defaultCtaLabel)}" data-map-accent="${escapeHtml(accent)}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};display:flex;align-items:center;justify-content:space-between;gap:8px;"><span>${escapeHtml(String(node.props.title ?? node.name))}</span></div>
+    <div style="padding:8px 12px 12px;flex:1;display:grid;grid-template-columns:${gridTemplateColumns};grid-template-rows:${gridTemplateRows};gap:10px;min-height:0;">
+      ${cardsOnly ? '' : `<div style="position:relative;min-height:${stackedLayout ? 150 : 110}px;border-radius:12px;overflow:hidden;background:${mapBackground};"><iframe title="Nearby locations map" srcdoc="${exportMapSrcdoc}" style="position:absolute;inset:0;width:100%;height:100%;border:0;background:${mapBackground};"></iframe>${requestUserLocation ? `<button type="button" aria-label="${escapeHtml(locateMeLabel)}" title="${escapeHtml(locateMeLabel)}" data-smx-action="map-request-location-inline" style="position:absolute;right:10px;top:10px;width:40px;height:40px;border-radius:999px;border:none;background:#fff;color:${escapeHtml(accent)};box-shadow:0 3px 14px rgba(0,0,0,.2);cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;z-index:2;touch-action:manipulation;">${locateIconMarkup(accent)}</button>` : ''}<div style="position:absolute;left:10px;right:10px;bottom:8px;display:flex;justify-content:space-between;font-size:10px;color:#0f172a;opacity:.82;pointer-events:none;"><span>${places.length} locations · zoom ${zoom}</span><span>${requestUserLocation ? 'Location ready on tap' : 'Location fixed'}</span></div></div>`}
+      <div data-map-cards data-map-scroll-region style="display:grid;gap:4px;overflow:auto;min-height:0;padding-right:2px;align-content:start;scrollbar-color:${escapeHtml(scrollbarThumbColor)} ${escapeHtml(scrollbarTrackColor)};scrollbar-width:thin;--map-scrollbar-thumb:${escapeHtml(scrollbarThumbColor)};--map-scrollbar-track:${escapeHtml(scrollbarTrackColor)};">${places.map((place) => `<div data-map-card data-place-name="${escapeHtml(place.name)}" style="border-radius:10px;background:rgba(255,255,255,.78);border:1px solid ${escapeHtml(accent)}22;padding:7px 8px;display:grid;gap:3px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:11px;line-height:1.1;">${escapeHtml(place.name)}</strong><span data-place-badge style="font-size:8px;border-radius:999px;padding:2px 5px;background:${escapeHtml(accent)}22;color:#0f172a;white-space:nowrap;">${escapeHtml(place.badge || (place.openNow ? 'Open now' : 'Store'))}</span></div><div style="font-size:9px;opacity:.78;line-height:1.15;">${escapeHtml(place.address || `${place.lat.toFixed(3)}, ${place.lng.toFixed(3)}`)}</div><div data-place-meta style="display:flex;gap:5px;flex-wrap:wrap;font-size:9px;">${showOpenNow && place.openNow != null ? `<span data-place-open-now>${place.openNow ? 'Open now' : 'Closed'}</span>` : ''}</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><a href="${escapeHtml(buildPlaceCtaUrl(place, 'waze'))}" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, 'waze'))}" style="display:inline-flex;flex:1;align-items:center;justify-content:center;height:30px;border-radius:12px;padding:0 10px;color:#fff;font-size:9px;font-weight:800;text-decoration:none;border:none;background:#08d4ff;cursor:pointer;">Waze</a><a href="${escapeHtml(buildPlaceCtaUrl(place, 'maps'))}" target="_blank" rel="noopener noreferrer" data-smx-action="map-place-cta" data-place-url="${escapeHtml(buildPlaceCtaUrl(place, 'maps'))}" style="display:inline-flex;flex:1;align-items:center;justify-content:center;height:30px;border-radius:12px;padding:0 10px;color:#fff;font-size:9px;font-weight:800;text-decoration:none;border:none;background:#4285f4;cursor:pointer;">Maps</a></div></div>`).join('')}</div>
+    </div>
+  </div>`;
+}
+
+export function renderCountdownExport(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#f59e0b');
+  const totalSeconds = Number(node.props.totalSeconds ?? (Number(node.props.days ?? 0) * 86400) + (Number(node.props.hours ?? 0) * 3600) + (Number(node.props.minutes ?? 0) * 60) + Number(node.props.seconds ?? 0));
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,`border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#1f2937')}`,`color:${String(style.color ?? '#ffffff')}`,`display:flex`,`flex-direction:column`,
+  ].join(';');
+  return `<div class="widget widget-countdown" data-widget-id="${node.id}" data-countdown-seconds="${totalSeconds}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    <div style="padding:8px 12px 12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex:1;align-content:center;">
+      ${['DD', 'HH', 'MM', 'SS'].map((label) => `<div data-countdown-segment="${label}" style="border-radius:12px;padding:12px 8px;background:rgba(255,255,255,0.08);display:grid;gap:4px;"><div data-countdown-value="${label}" style="font-size:20px;font-weight:800;text-align:center;">00</div><div style="font-size:10px;text-align:center;opacity:.75;">${label}</div></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+export function renderSpeedTestExport(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#2dd4bf');
+  const min = Number(node.props.min ?? 10);
+  const max = Number(node.props.max ?? 100);
+  const current = Math.max(min, Math.min(max, Number(node.props.current ?? 64)));
+  const durationMs = Math.max(300, Number(node.props.durationMs ?? 1800));
+  const units = String(node.props.units ?? 'Mbps');
+  const skin = String(node.props.skin ?? 'ookla');
+  const pingValue = Number(node.props.pingValue ?? 11);
+  const uploadValue = Number(node.props.uploadValue ?? 42);
+  const ctaLabel = String(node.props.ctaLabel ?? 'Start test');
+  const resultMode = String(node.props.resultMode ?? 'random');
+  const fastThreshold = Number(node.props.fastThreshold ?? 70);
+  const fastMessage = String(node.props.fastMessage ?? 'WOW, very fast network');
+  const slowMessage = String(node.props.slowMessage ?? 'Slow connection');
+  const initialTone = current >= fastThreshold ? '#22c55e' : '#ef4444';
+  const pct = Math.max(0, Math.min(100, (current / Math.max(1, max)) * 100));
+  const ooklaSkin = skin === 'ookla';
+  const fastSkin = skin === 'fast';
+  const compact = frame.width < 240 || frame.height < 150;
+  const statLabelFont = compact ? 9 : 11;
+  const statValueFont = compact ? 13 : 15;
+  const gaugeHeight = compact ? 132 : 156;
+  const gaugeBorder = compact ? 12 : 16;
+  const gaugeNeedleHeight = compact ? 72 : 88;
+  const gaugeNumberFont = compact ? 28 : 34;
+  const unitsFont = compact ? 11 : 13;
+  const topInset = compact ? 14 : 18;
+  const sideInset = compact ? 22 : 28;
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,`border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#0b3b7a')}`,`color:${String(style.color ?? '#ffffff')}`,`display:flex`,`flex-direction:column`,
+  ].join(';');
+  return `<div class="widget widget-speed-test" data-widget-id="${node.id}" data-speed-min="${min}" data-speed-max="${max}" data-speed-current="${current}" data-speed-duration="${durationMs}" data-speed-result-mode="${escapeHtml(resultMode)}" data-speed-units="${escapeHtml(units)}" data-speed-fast-threshold="${fastThreshold}" data-speed-fast-message="${escapeHtml(fastMessage)}" data-speed-slow-message="${escapeHtml(slowMessage)}" data-speed-skin="${escapeHtml(skin)}" style="${base}">
+    <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
+    ${(ooklaSkin || fastSkin) ? `<div style="padding:${compact ? '6px 10px 10px' : '8px 12px 12px'};display:flex;flex:1;flex-direction:column;gap:${compact ? 10 : 14}px;"><div style="display:grid;gap:6px;"><div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:${compact ? 8 : 10}px;font-size:${statLabelFont}px;letter-spacing:.08em;text-transform:uppercase;"><div style="display:grid;gap:2px;"><span style="opacity:.74;">Ping <span style="opacity:.5">ms</span></span><strong style="font-size:${statValueFont}px;letter-spacing:normal;">${pingValue}</strong></div><div style="display:grid;gap:2px;"><span style="opacity:.74;">Download <span style="opacity:.5">${escapeHtml(units)}</span></span><strong style="font-size:${statValueFont}px;letter-spacing:normal;">${current}</strong></div><div style="display:grid;gap:2px;"><span style="opacity:.74;">Upload <span style="opacity:.5">${escapeHtml(units)}</span></span><strong style="font-size:${statValueFont}px;letter-spacing:normal;">${uploadValue}</strong></div></div></div><div style="position:relative;height:${gaugeHeight}px;border-radius:999px;background:${fastSkin ? 'radial-gradient(circle at 50% 100%, rgba(34,197,94,.20), rgba(15,23,42,0) 68%)' : 'radial-gradient(circle at 50% 100%, rgba(45,212,191,.28), rgba(15,23,42,0) 68%)'};"><div style="position:absolute;inset:0;display:grid;place-items:center;"><div style="width:100%;height:100%;border-radius:999px 999px 36px 36px / 100% 100% 18px 18px;border:${gaugeBorder}px solid ${fastSkin ? 'rgba(120,255,196,.24)' : 'rgba(255,255,255,.08)'};border-bottom:none;transform:scaleX(.92);"></div><div style="position:absolute;top:${topInset}px;left:${sideInset}px;right:${sideInset}px;display:flex;justify-content:space-between;font-size:${compact ? 8 : 10}px;font-weight:900;opacity:.82;"><span>0</span><span>5</span><span>10</span><span>20</span><span>30</span><span>50</span><span>75</span><span>100</span></div><div data-speed-needle style="position:absolute;left:50%;bottom:${compact ? 16 : 18}px;width:${compact ? 5 : 6}px;height:${gaugeNeedleHeight}px;border-radius:999px;background:${initialTone};transform-origin:bottom center;transform:translateX(-50%) rotate(${(-92 + pct * 1.84).toFixed(1)}deg);box-shadow:0 0 16px ${initialTone};"></div><div style="position:absolute;bottom:${compact ? 10 : 10}px;width:${compact ? 14 : 16}px;height:${compact ? 14 : 16}px;border-radius:50%;background:#fff;"></div><div style="position:absolute;bottom:${compact ? 8 : 8}px;display:grid;place-items:center;gap:2px;"><div data-speed-value style="font-size:${gaugeNumberFont}px;line-height:1;font-weight:300;">${current.toFixed(2)}</div><div style="font-size:${unitsFont}px;opacity:.82;">${escapeHtml(units)}</div></div></div></div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><div data-speed-status style="font-size:${compact ? 11 : 12}px;font-weight:800;color:${initialTone};">${escapeHtml(current >= fastThreshold ? fastMessage : slowMessage)}</div><button type="button" data-smx-action="speed-test-start" data-widget-id="${node.id}" style="padding:9px 14px;border-radius:999px;background:#ffffff;color:#111827;font-weight:900;border:none;cursor:pointer;white-space:nowrap;">${escapeHtml(ctaLabel)}</button></div></div>` : `<div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;"><div data-speed-value style="font-size:26px;font-weight:900;">${current}<span style="font-size:13px;opacity:.8;"> ${escapeHtml(units)}</span></div><div data-speed-status style="font-size:12px;font-weight:800;color:${initialTone};">${escapeHtml(current >= fastThreshold ? fastMessage : slowMessage)}</div><div style="height:12px;border-radius:999px;background:rgba(255,255,255,0.12);overflow:hidden;"><div data-speed-bar style="width:${pct}%;height:100%;background:${initialTone};"></div></div><button type="button" data-smx-action="speed-test-start" data-widget-id="${node.id}" style="margin-top:auto;padding:10px 12px;border-radius:12px;background:${escapeHtml(accent)};color:#111827;font-weight:800;border:none;cursor:pointer;">${escapeHtml(ctaLabel)}</button></div>`}
+  </div>`;
+}
+
+export function renderButtonsExport(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#67e8f9');
+  const vertical = String(node.props.orientation ?? 'horizontal') === 'vertical';
+  const primaryLabel = String(node.props.primaryLabel ?? 'Primary');
+  const secondaryLabel = String(node.props.secondaryLabel ?? 'Secondary');
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,`border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#0f766e')}`,`color:${String(style.color ?? '#ffffff')}`,`display:flex`,`flex-direction:column`,
+  ].join(';');
+  return `<div class="widget widget-buttons" data-widget-id="${node.id}" style="${base}"><div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div><div style="padding:8px 12px 12px;display:flex;flex:1;align-items:center;justify-content:center;"><div style="display:flex;gap:8px;flex-direction:${vertical ? 'column' : 'row'};width:100%;"><button type="button" class="widget-buttons-action" data-smx-action="button-select" data-widget-id="${node.id}" data-button-kind="primary" style="flex:1;padding:10px 12px;border-radius:12px;text-align:center;font-weight:800;cursor:pointer;border:none;background:${escapeHtml(accent)};color:#111827;">${escapeHtml(primaryLabel)}</button><button type="button" class="widget-buttons-action" data-smx-action="button-select" data-widget-id="${node.id}" data-button-kind="secondary" style="flex:1;padding:10px 12px;border-radius:12px;text-align:center;font-weight:800;cursor:pointer;border:1px solid ${escapeHtml(accent)};background:transparent;color:inherit;">${escapeHtml(secondaryLabel)}</button></div></div></div>`;
+}
+
+export function renderShoppableSidebarExport(node: WidgetNode, _state: unknown, assetPathMap: Record<string, string> = {}): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#9a3412');
+  const ctaBackgroundColor = String((style as Record<string, unknown>).ctaBackgroundColor ?? accent);
+  const ctaTextColor = String((style as Record<string, unknown>).ctaTextColor ?? '#111827');
+  const orientation = String(node.props.orientation ?? 'horizontal');
+  const cardShape = String(node.props.cardShape ?? 'portrait');
+  const autoscroll = Boolean(node.props.autoscroll ?? true);
+  const intervalMs = Math.max(1000, Math.min(10000, Number(node.props.intervalMs ?? 2600)));
+  const showPrevButton = Boolean(node.props.showPrevButton ?? true);
+  const showNextButton = Boolean(node.props.showNextButton ?? true);
+  const products = parseShoppableProducts(String(node.props.products ?? '')).map((product: { src: string; [key: string]: unknown }) => ({ ...product, src: assetPathMap[product.src] ?? product.src }));
+  const baseCardSize = cardShape === 'landscape' ? { width: 168, height: 110 } : cardShape === 'square' ? { width: 132, height: 132 } : { width: 124, height: 164 };
+  const activeProducts = products.length ? products : [{ src: '', title: 'Product 1', subtitle: 'Featured item', price: '$0', rating: 4, ctaLabel: 'Shop now', url: '' }];
+  const visibleCount = orientation === 'vertical' ? 1 : Math.min(2, activeProducts.length || 1);
+  const availableWidth = Math.max(120, frame.width - 24);
+  const availableHeight = Math.max(88, frame.height - 58);
+  const gap = 12;
+  const effectiveCardSize = orientation === 'horizontal'
+    ? { width: Math.max(96, Math.floor((availableWidth - 24 * Math.max(0, visibleCount - 1)) / visibleCount)), height: Math.max(92, Math.min(Math.floor(availableHeight * 0.94), baseCardSize.height)) }
+    : { width: Math.max(110, Math.min(availableWidth, baseCardSize.width)), height: Math.max(96, Math.min(Math.floor(availableHeight * 0.94), baseCardSize.height)) };
+  const mediaHeight = Math.max(60, Math.min(cardShape === 'landscape' ? Math.floor(effectiveCardSize.height * 0.58) : Math.floor(effectiveCardSize.height * 0.68), effectiveCardSize.height - 44));
+  const productsJson = escapeHtml(JSON.stringify(activeProducts));
+  const cardBasis = orientation === 'horizontal' ? `calc((100% - ${gap * Math.max(0, visibleCount - 1)}px) / ${visibleCount})` : '100%';
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,`border-radius:${Number(style.borderRadius ?? 20)}px`,
+    `background:${String(style.backgroundColor ?? '#f8fafc')}`,`color:${String(style.color ?? '#1f2937')}`,`display:flex`,`flex-direction:column`,
+  ].join(';');
+  const cards = activeProducts.map((product: any, index: number) => `<article data-shoppable-card="${index}" style="width:${orientation === 'horizontal' ? cardBasis : '100%'};min-width:${orientation === 'horizontal' ? cardBasis : '100%'};max-width:${orientation === 'horizontal' ? cardBasis : '100%'};flex:${orientation === 'horizontal' ? `0 0 ${cardBasis}` : '0 0 auto'};height:100%;min-height:0;border-radius:10px;overflow:hidden;background:#ffffff;color:#1f2937;border:1px solid rgba(15,23,42,.10);box-shadow:0 4px 14px rgba(15,23,42,.08);display:flex;flex-direction:column;"><div style="position:relative;height:${mediaHeight}px;min-height:${mediaHeight}px;background:${product.src ? '#111827' : '#f8fafc'};flex-shrink:0;">${product.src ? `<img src="${escapeHtml(product.src)}" alt="${escapeHtml(product.title)}" style="width:100%;height:100%;object-fit:cover;display:block;" />` : ''}</div><div style="padding:8px 8px 10px;display:grid;gap:3px;flex:1;min-height:0;align-content:start;"><div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#0f172a;line-height:1.15;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">${escapeHtml(product.title)}</div><div style="font-size:12px;color:#475569;line-height:1.15;">${escapeHtml(product.price || '$0')}</div><button type="button" data-smx-action="shoppable-cta" data-widget-id="${node.id}" data-product-url="${escapeHtml(product.url)}" style="margin-top:auto;border:none;border-radius:10px;background:${escapeHtml(ctaBackgroundColor)};color:${escapeHtml(ctaTextColor)};font-weight:800;padding:7px 9px;font-size:11px;cursor:pointer;opacity:${product.ctaLabel ? '1' : '0'};">${escapeHtml(product.ctaLabel || 'Shop now')}</button></div></article>`).join('');
+  return `<div class="widget widget-shoppable-sidebar" data-widget-id="${node.id}" data-shoppable-products="${productsJson}" data-shoppable-index="0" data-shoppable-layout="${escapeHtml(orientation)}" data-shoppable-card-shape="${escapeHtml(cardShape)}" data-shoppable-autoscroll="${String(autoscroll)}" data-shoppable-interval="${intervalMs}" data-shoppable-card-width="${effectiveCardSize.width}" data-shoppable-card-height="${effectiveCardSize.height}" style="${base}"><div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div><div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;min-height:0;"><div style="position:relative;flex:1;overflow:hidden;"><div data-shoppable-track style="display:flex;${orientation === 'vertical' ? 'flex-direction:column;' : ''}gap:${gap}px;${orientation === 'horizontal' ? 'width:100%;height:100%;' : 'height:100%;'}transition:transform .28s ease;">${cards}</div>${activeProducts.length > 1 ? `${showPrevButton ? `<button type="button" data-smx-action="shoppable-prev" data-widget-id="${node.id}" style="position:absolute;left:4px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:none;background:rgba(255,255,255,.94);color:#111827;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.12);">‹</button>` : ''}${showNextButton ? `<button type="button" data-smx-action="shoppable-next" data-widget-id="${node.id}" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:none;background:rgba(255,255,255,.94);color:#111827;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.12);">›</button>` : ''}` : ''}</div></div></div>`;
+}
+
+export function renderWeatherConditionsExport(node: WidgetNode): string {
+  const frame = node.frame;
+  const style = node.style ?? {};
+  const accent = String(style.accentColor ?? '#60a5fa');
+  const condition = String(node.props.condition ?? 'Cloudy');
+  const temperature = Number(node.props.temperature ?? 24);
+  const location = String(node.props.location ?? 'San Salvador');
+  const latitude = Number(node.props.latitude ?? 13.6929);
+  const longitude = Number(node.props.longitude ?? -89.2182);
+  const provider = String(node.props.provider ?? 'open-meteo');
+  const fetchPolicy = String(node.props.fetchPolicy ?? 'cache-first');
+  const cacheTtlMs = Math.max(1000, Number(node.props.cacheTtlMs ?? 300000));
+  const liveWeather = Boolean(node.props.liveWeather ?? true);
+  const icon = resolveWeatherIcon(condition, true);
+  const base = [
+    `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
+    `opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,`border-radius:${Number(style.borderRadius ?? 14)}px`,
+    `background:${String(style.backgroundColor ?? '#f8fafc')}`,`color:${String(style.color ?? '#0f172a')}`,`display:flex`,`flex-direction:column`,
+  ].join(';');
+  return `<div class="widget widget-weather-conditions" data-widget-id="${node.id}" data-weather-location="${escapeHtml(location)}" data-weather-temperature="${temperature}" data-weather-condition="${escapeHtml(condition)}" data-weather-latitude="${latitude}" data-weather-longitude="${longitude}" data-weather-provider="${escapeHtml(provider)}" data-weather-fetch-policy="${escapeHtml(fetchPolicy)}" data-weather-cache-ttl="${cacheTtlMs}" data-weather-live="${String(liveWeather)}" style="${base}"><div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div><div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;gap:10px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div><div data-weather-temperature-display style="font-size:28px;font-weight:900;">${temperature}°</div><div data-weather-location-display style="font-size:12px;opacity:.78;">${escapeHtml(location)}</div></div><div data-weather-icon style="font-size:34px;">${icon}</div></div><div style="padding:8px 10px;border-radius:10px;background:${escapeHtml(accent)}22;font-size:12px;display:flex;justify-content:space-between;gap:8px;"><span data-weather-condition-display>${escapeHtml(condition)}</span><span data-weather-status style="opacity:.74;">${liveWeather && provider === 'open-meteo' ? 'Fetching live weather' : 'Static preview'}</span></div></div></div>`;
+}

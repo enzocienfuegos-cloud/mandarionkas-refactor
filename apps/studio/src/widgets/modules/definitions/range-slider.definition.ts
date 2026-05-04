@@ -1,4 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
+import { renderRangeSliderExport } from '../export-renderers';
 import { renderRangeSliderStage } from '../range-slider.renderer';
 
 export const RangeSliderDefinition = createModuleDefinition({
@@ -9,4 +10,5 @@ export const RangeSliderDefinition = createModuleDefinition({
   props: { title: 'Range Slider', min: 0, max: 100, value: 65, units: '%' },
   style: { backgroundColor: '#111827', accentColor: '#22c55e', color: '#ffffff' },
   renderStage: renderRangeSliderStage,
+  renderExport: (node) => renderRangeSliderExport(node),
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../../../domain/document/factories';
-import { buildChannelHtml, buildExportAssetPlan, buildExportBundle, buildExportBundleWithRemoteAssets, buildExportExitConfig, buildExportHandoff, buildExportManifest, buildExportPackagingPlan, buildExportPackageMetrics, buildExportPreflight, buildExportReadiness, buildExportRuntimeModel, buildExportRuntimeScript, buildGamHtml5Adapter, buildGenericHtml5Adapter, buildGoogleDisplayAdapter, buildMraidAdapter, buildPlayableExportAdapter, buildLocalizedPortableProject, buildPortableProjectExport, buildPublishPackage, buildRemoteAssetFetchPlan, buildReviewPackage, buildStandaloneHtml, buildZipFromBundle, getChannelRequirements, materializeExportAssetFiles, materializeRemoteExportAssetFiles, validateExport, validateExportPackage, validatePortableExport } from '../../../export/engine';
+import { buildChannelHtml, buildExportAssetPlan, buildExportBundle, buildExportBundleWithRemoteAssets, buildExportExitConfig, buildExportHandoff, buildExportManifest, buildExportPackagingPlan, buildExportPackageMetrics, buildExportPreflight, buildExportReadiness, buildExportRuntimeModel, buildExportRuntimeScript, buildGamHtml5Adapter, buildGenericHtml5Adapter, buildGoogleDisplayAdapter, buildMraidAdapter, buildPlayableExportAdapter, buildPlayableSingleFileHtml, buildLocalizedPortableProject, buildPortableProjectExport, buildPublishPackage, buildRemoteAssetFetchPlan, buildReviewPackage, buildStandaloneHtml, buildVastSimidAdapter, buildVastSimidXml, buildZipFromBundle, getChannelRequirements, materializeExportAssetFiles, materializeRemoteExportAssetFiles, validateExport, validateExportPackage, validatePortableExport } from '../../../export/engine';
 import { buildNearbyPlacesCsv, parseNearbyPlaces } from '../../../widgets/modules/dynamic-map.shared';
 
 describe('export engine', () => {
@@ -354,7 +354,8 @@ describe('export engine', () => {
 
     const html = buildChannelHtml(state, gam);
 
-    expect(html).toContain('window.clickTag = window.clickTag ||');
+    expect(html).toContain('window.ClickTag = window.ClickTag || window.clickTag ||');
+    expect(html).toContain('window.clickTag = window.ClickTag;');
     expect(html).toContain('window.smxExit = function smxExit');
     expect(html).toContain('data-adapter="gam-html5"');
     expect(html).toContain('<script src="./runtime.js"></script>');
@@ -402,7 +403,8 @@ describe('export engine', () => {
     const html = buildChannelHtml(state, google);
 
     expect(html).toContain('data-adapter="google-display"');
-    expect(html).toContain('window.clickTag = window.clickTag ||');
+    expect(html).toContain('window.ClickTag = window.ClickTag || window.clickTag ||');
+    expect(html).toContain('window.clickTag = window.ClickTag;');
     expect(html).toContain('class="banner-shell"');
   });
 
@@ -1687,7 +1689,7 @@ describe('export engine', () => {
       ...bundle,
       files: bundle.files.map((file) =>
         file.path === 'index.html' && file.content
-          ? { ...file, content: file.content.replace('window.clickTag = window.clickTag ||', 'window.__removedClickTag =') }
+          ? { ...file, content: file.content.replace('window.ClickTag = window.ClickTag ||', 'window.__removedClickTag =') }
           : file,
       ),
     };
@@ -1743,7 +1745,7 @@ describe('export engine', () => {
         { path: 'runtime.js', mime: 'text/javascript;charset=utf-8', content: 'console.log("runtime")' },
         { path: 'package-metrics.json', mime: 'application/json;charset=utf-8', content: '{}' },
         { path: 'remote-fetch-plan.json', mime: 'application/json;charset=utf-8', content: '[]' },
-        { path: 'hero.bin', mime: 'application/octet-stream', bytes: new Uint8Array(220 * 1024) },
+        { path: 'hero.bin', mime: 'application/octet-stream', bytes: new Uint8Array(320 * 1024) },
       ],
     };
     const gam = buildGamHtml5Adapter(state);
@@ -1755,6 +1757,114 @@ describe('export engine', () => {
       [],
     );
 
-    expect(issues.some((issue) => issue.code === 'bundle.channel-size-warning')).toBe(true);
+    expect(issues.some((issue) => issue.code === 'bundle.iab-total-size-warning')).toBe(true);
+  });
+
+  it('renders playable exports without external runtime and supports inlined assets', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'meta-story';
+    state.document.widgets.hero_1 = {
+      id: 'hero_1',
+      type: 'hero-image',
+      name: 'Hero',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 320, height: 180, rotation: 0 },
+      style: {},
+      props: { src: 'https://cdn.example.com/hero.png' },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('hero_1');
+
+    const playable = buildPlayableExportAdapter(state);
+    const html = buildChannelHtml(state, playable);
+    const inlineHtml = buildPlayableSingleFileHtml(state, playable, {
+      'https://cdn.example.com/hero.png': 'data:image/png;base64,AAAA',
+    });
+
+    expect(html).toContain('data-adapter="playable-ad"');
+    expect(inlineHtml).toContain('data:image/png;base64,AAAA');
+    expect(inlineHtml).not.toContain('<script src="./runtime.js"></script>');
+  });
+
+  it('includes MRAID custom close and version diagnostics in exported html', () => {
+    const state = createInitialState();
+    state.document.canvas.width = 320;
+    state.document.canvas.height = 480;
+    state.document.metadata.release.targetChannel = 'mraid';
+
+    const html = buildChannelHtml(state, buildMraidAdapter(state));
+
+    expect(html).toContain('window.mraid.useCustomClose(true);');
+    expect(html).toContain('Host reports MRAID v');
+  });
+
+  it('builds VAST SIMID html and xml artifacts', () => {
+    const state = createInitialState();
+    state.document.metadata.release.targetChannel = 'vast-simid';
+
+    const adapter = buildVastSimidAdapter(state);
+    const html = buildChannelHtml(state, adapter);
+    const xml = buildVastSimidXml(adapter);
+
+    expect(adapter.adapter).toBe('vast-simid');
+    expect(html).toContain('data-adapter="vast-simid"');
+    expect(xml).toContain('<InteractiveCreativeFile');
+    expect(xml).toContain('apiFramework="SIMID"');
+  });
+
+  it('warns when initial load exceeds the IAB initial budget', () => {
+    const state = createInitialState();
+    state.document.metadata.release.targetChannel = 'gam-html5';
+    const bundle = {
+      channel: 'gam-html5' as const,
+      files: [
+        { path: 'index.html', mime: 'text/html;charset=utf-8', content: 'x'.repeat(100 * 1024) },
+        { path: 'runtime.js', mime: 'text/javascript;charset=utf-8', content: 'y'.repeat(70 * 1024) },
+        { path: 'remote-fetch-plan.json', mime: 'application/json;charset=utf-8', content: '[]' },
+      ],
+    };
+
+    const issues = validateExportPackage(
+      bundle,
+      buildExportPackagingPlan(buildGamHtml5Adapter(state)),
+      buildExportExitConfig(buildGamHtml5Adapter(state)),
+      [],
+    );
+
+    expect(issues.some((issue) => issue.code === 'bundle.iab-initial-load-warning')).toBe(true);
+  });
+
+  it('does not warn on initial IAB load when html and js stay within budget', () => {
+    const state = createInitialState();
+    state.document.metadata.release.targetChannel = 'gam-html5';
+    const bundle = {
+      channel: 'gam-html5' as const,
+      files: [
+        { path: 'index.html', mime: 'text/html;charset=utf-8', content: 'x'.repeat(60 * 1024) },
+        { path: 'runtime.js', mime: 'text/javascript;charset=utf-8', content: 'y'.repeat(60 * 1024) },
+        { path: 'remote-fetch-plan.json', mime: 'application/json;charset=utf-8', content: '[]' },
+      ],
+    };
+
+    const issues = validateExportPackage(
+      bundle,
+      buildExportPackagingPlan(buildGamHtml5Adapter(state)),
+      buildExportExitConfig(buildGamHtml5Adapter(state)),
+      [],
+    );
+
+    expect(issues.some((issue) => issue.code === 'bundle.iab-initial-load-warning')).toBe(false);
+  });
+
+  it('uses an empty string instead of example.com when no clickthrough exists', () => {
+    const state = createInitialState();
+    state.document.metadata.release.targetChannel = 'gam-html5';
+
+    const html = buildChannelHtml(state, buildGamHtml5Adapter(state));
+
+    expect(html).not.toContain('https://example.com');
+    expect(html).toContain('window.ClickTag = window.ClickTag || window.clickTag || ""');
   });
 });

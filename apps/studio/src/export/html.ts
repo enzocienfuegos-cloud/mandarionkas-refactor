@@ -1,17 +1,32 @@
 import { getActiveFeedRecord } from '../domain/document/resolvers';
 import type { StudioState, WidgetNode } from '../domain/document/types';
 import { getWidgetDefinition } from '../widgets/registry/widget-registry';
-import type { GamHtml5AdapterResult, GenericHtml5AdapterResult, GoogleDisplayAdapterResult, MraidAdapterResult, PlayableExportAdapterResult } from './adapters';
+import type { GamHtml5AdapterResult, GenericHtml5AdapterResult, GoogleDisplayAdapterResult, MraidAdapterResult, PlayableExportAdapterResult, VastSimidAdapterResult } from './adapters';
 import { buildExportAssetPathMap, buildExportAssetPlan } from './assets';
 import { buildExportManifest } from './manifest';
 import { buildExportRuntimeModelFromPortable } from './runtime-model';
 import { buildExportExitConfig } from './packaging';
+import { buildExportRuntimeScript } from './runtime-script';
 import { buildPortableProjectExport, type PortableExportScene, type PortableExportWidget } from './portable';
 import { resolveCornerRadius } from '../widgets/shared/corner-style';
 import { buildQrPattern, getFlagEmoji, parseCsvMarkers } from '../widgets/modules/shared-styles';
 import { parseShoppableProducts } from '../widgets/modules/shoppable-sidebar.shared';
 import { resolveWeatherIcon } from '../widgets/modules/weather-conditions.shared';
 import { buildPlaceCtaUrl, parseNearbyPlaces } from '../widgets/modules/dynamic-map.shared';
+
+const LEAFLET_CSS_URL = import.meta.env.VITE_LEAFLET_CSS_URL || 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+const LEAFLET_JS_URL = import.meta.env.VITE_LEAFLET_JS_URL || 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+const CARTO_TILE_URL = import.meta.env.VITE_CARTO_TILE_URL || 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+const BANNER_BASE_CSS = `
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, Arial, sans-serif; background: transparent; color: #e5e7eb; }
+  .banner-shell { position: relative; overflow: hidden; }
+  html[data-mraid-ready="true"] .banner-shell[data-adapter="mraid"] { width: 100%; height: 100%; }
+  .banner-stage { width: 100%; height: 100%; position: relative; overflow: hidden; }
+  .scene { display: none; }
+  button.widget-cta:hover { filter: brightness(1.05); }
+`.trim();
 
 export function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -22,7 +37,7 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#39;');
 }
 
-function buildExportLeafletMapSrcdoc(input: {
+export function buildExportLeafletMapSrcdoc(input: {
   places: Array<{ name: string; lat: number; lng: number; address?: string; badge?: string; mapsUrl?: string; wazeUrl?: string }>;
   latitude: number;
   longitude: number;
@@ -46,7 +61,7 @@ function buildExportLeafletMapSrcdoc(input: {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="${LEAFLET_CSS_URL}" />
   <style>
     html, body, #map { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #dbeafe; }
     .leaflet-container { font-family: Inter, Arial, sans-serif; background: #dbeafe; }
@@ -95,11 +110,11 @@ function buildExportLeafletMapSrcdoc(input: {
 </head>
 <body>
   <div id="map"></div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="${LEAFLET_JS_URL}"></script>
   <script>
     const places = ${placesJson};
     const map = L.map('map', { zoomControl: true, attributionControl: false, scrollWheelZoom: true }).setView([${input.latitude}, ${input.longitude}], ${input.zoom});
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+    L.tileLayer('${CARTO_TILE_URL}', { maxZoom: 19 }).addTo(map);
     let userMarker = null;
     function popupHtml(place) {
       const address = place.address ? '<div class="smx-export-map-popup__meta">' + String(place.address) + '</div>' : '';
@@ -1009,26 +1024,9 @@ function renderWeatherConditionsWidget(node: WidgetNode): string {
 }
 
 function widgetHtml(node: PortableExportWidget, state: StudioState, assetPathMap: Record<string, string>): string {
-  if (node.type === 'image') return renderImageWidget(node, assetPathMap, 'image');
-  if (node.type === 'hero-image') return renderImageWidget(node, assetPathMap, 'hero-image');
-  if (node.type === 'video-hero') return renderVideoWidget(node, assetPathMap);
-  if (node.type === 'buttons') return renderButtonsWidget(node);
-  if (node.type === 'interactive-gallery') return renderInteractiveGalleryWidget(node);
-  if (node.type === 'shoppable-sidebar') return renderShoppableSidebarWidget(node, assetPathMap);
-  if (node.type === 'image-carousel') return renderCarouselWidget(node, assetPathMap);
-  if (node.type === 'qr-code') return renderQrCodeWidget(node);
-  if (node.type === 'form') return renderFormWidget(node);
-  if (node.type === 'dynamic-map') return renderDynamicMapWidget(node);
-  if (node.type === 'speed-test') return renderSpeedTestWidget(node);
-  if (node.type === 'weather-conditions') return renderWeatherConditionsWidget(node);
-  if (node.type === 'interactive-hotspot') return renderHotspotWidget(node);
-  if (node.type === 'countdown') return renderCountdownWidget(node);
-  if (node.type === 'range-slider') return renderRangeLikeWidget(node, 'Range');
-  if (node.type === 'slider') return renderRangeLikeWidget(node, 'Slider');
-  if (node.type === 'scratch-reveal') return renderScratchRevealWidget(node);
   const definition = getWidgetDefinition(node.type);
   if (definition.renderExport) {
-    return definition.renderExport(node as unknown as WidgetNode, state);
+    return definition.renderExport(node as unknown as WidgetNode, state, assetPathMap);
   }
   const frame = node.frame;
   const style = node.style ?? {};
@@ -1125,13 +1123,14 @@ export type ExportHtmlAdapter =
   | GoogleDisplayAdapterResult
   | GamHtml5AdapterResult
   | MraidAdapterResult
-  | PlayableExportAdapterResult;
+  | PlayableExportAdapterResult
+  | VastSimidAdapterResult;
 
 function getPrimaryClickthroughUrl(adapter: ExportHtmlAdapter): string {
   if (adapter.adapter === 'playable-ad') {
-    return adapter.bootstrap.clickthroughs[0]?.url ?? 'https://example.com';
+    return adapter.bootstrap.clickthroughs[0]?.url ?? '';
   }
-  return adapter.portableProject.interactions.find((interaction) => interaction.type === 'open-url')?.url ?? 'https://example.com';
+  return adapter.portableProject.interactions.find((interaction) => interaction.type === 'open-url')?.url ?? '';
 }
 
 function buildExitBootstrap(adapter: ExportHtmlAdapter): string {
@@ -1139,21 +1138,24 @@ function buildExitBootstrap(adapter: ExportHtmlAdapter): string {
   switch (adapter.adapter) {
     case 'gam-html5':
       return `
-    window.clickTag = window.clickTag || ${fallbackUrl};
+    window.ClickTag = window.ClickTag || window.clickTag || ${fallbackUrl};
+    window.clickTag = window.ClickTag;
     window.smxExit = function smxExit(url) {
-      var target = url || window.clickTag || ${fallbackUrl};
+      var target = url || window.ClickTag || window.clickTag || ${fallbackUrl};
       if (!target) return;
       if (typeof window.open === 'function') window.open(target, '_blank');
     };`;
     case 'google-display':
       return `
-    window.clickTag = window.clickTag || ${fallbackUrl};
+    window.ClickTag = window.ClickTag || window.clickTag || ${fallbackUrl};
+    window.clickTag = window.ClickTag;
     window.smxExit = function smxExit(url) {
-      var target = url || window.clickTag || ${fallbackUrl};
+      var target = url || window.ClickTag || window.clickTag || ${fallbackUrl};
       if (!target) return;
       if (typeof window.open === 'function') window.open(target, '_blank');
     };`;
     case 'generic-html5':
+    case 'vast-simid':
       return `
     window.smxExit = function smxExit(url) {
       var target = url || ${fallbackUrl};
@@ -1201,7 +1203,7 @@ function buildExitBootstrap(adapter: ExportHtmlAdapter): string {
       }
       function refreshMetrics() {
         try {
-          window.smxMraidState.version = typeof window.mraid.getVersion === 'function' ? window.mraid.getVersion() : null;
+          window.smxMraidState.version = typeof window.mraid.getVersion === 'function' ? window.mraid.getVersion() : '2.0';
           window.smxMraidState.placementType = typeof window.mraid.getPlacementType === 'function' ? window.mraid.getPlacementType() : 'inline';
           window.smxMraidState.viewable = typeof window.mraid.isViewable === 'function' ? Boolean(window.mraid.isViewable()) : Boolean(window.smxMraidState.viewable);
           window.smxMraidState.maxSize = typeof window.mraid.getMaxSize === 'function' ? window.mraid.getMaxSize() : null;
@@ -1216,6 +1218,9 @@ function buildExitBootstrap(adapter: ExportHtmlAdapter): string {
             inlineVideo: typeof window.mraid.supports === 'function' ? Boolean(window.mraid.supports('inlineVideo')) : false,
             location: typeof window.mraid.supports === 'function' ? Boolean(window.mraid.supports('location')) : false,
           };
+          if (window.smxMraidState.version && window.smxMraidState.version < '3.0') {
+            console.warn('[SMX MRAID] Host reports MRAID v' + window.smxMraidState.version + '. Some features require 3.0.');
+          }
         } catch (_error) {
           window.smxMraidState.lastError = 'metrics';
         }
@@ -1250,8 +1255,14 @@ function buildExitBootstrap(adapter: ExportHtmlAdapter): string {
       try {
         if (typeof window.mraid.getState === 'function' && window.mraid.getState() === 'loading') {
           window.mraid.addEventListener('ready', markReady);
+          if (typeof window.mraid.useCustomClose === 'function') {
+            window.mraid.useCustomClose(true);
+          }
         } else {
           markReady();
+          if (typeof window.mraid.useCustomClose === 'function') {
+            window.mraid.useCustomClose(true);
+          }
         }
         if (typeof window.mraid.addEventListener === 'function') {
           window.mraid.addEventListener('stateChange', handleStateChange);
@@ -1268,6 +1279,14 @@ function buildExitBootstrap(adapter: ExportHtmlAdapter): string {
     window.smxPlayableExit = function smxPlayableExit(url) {
       var target = url || ${fallbackUrl};
       if (!target) return;
+      if (typeof window.mraid !== 'undefined' && typeof window.mraid.open === 'function') {
+        window.mraid.open(target);
+        return;
+      }
+      if (typeof FbPlayableAd !== 'undefined' && typeof FbPlayableAd.onCTAClick === 'function') {
+        FbPlayableAd.onCTAClick();
+        return;
+      }
       if (typeof window.open === 'function') window.open(target, '_blank');
     };`;
     default:
@@ -1275,9 +1294,56 @@ function buildExitBootstrap(adapter: ExportHtmlAdapter): string {
   }
 }
 
+export function buildPlayableSingleFileHtml(
+  state: StudioState,
+  adapter: PlayableExportAdapterResult,
+  inlinedAssetMap: Record<string, string> = {},
+): string {
+  const exitConfig = buildExportExitConfig(adapter);
+  const runtimeModel = buildExportRuntimeModelFromPortable(adapter.playableProject);
+  const assetPlan = buildExportAssetPlan(adapter.playableProject);
+  const resolvedAssetPathMap = Object.fromEntries(
+    assetPlan.map((entry) => [entry.sourceUrl, inlinedAssetMap[entry.sourceUrl] ?? entry.sourceUrl]),
+  );
+  const canvas = adapter.playableProject.canvas;
+  const documentName = adapter.playableProject.name || state.document.name || 'SMX Playable';
+  const orderedScenes = [...adapter.playableProject.scenes].sort((left, right) => left.order - right.order);
+  const runtimeScript = buildExportRuntimeScript(adapter);
+  const exitBootstrap = buildExitBootstrap(adapter);
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>${escapeHtml(documentName)}</title>
+  <style>
+    ${BANNER_BASE_CSS}
+    html, body { width: 100%; height: 100%; overflow: hidden; touch-action: none; }
+    .banner-shell { width: 100%; height: 100%; background: ${escapeHtml(canvas.backgroundColor)}; }
+    .banner-stage { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div class="banner-shell" data-adapter="playable-ad" data-document-name="${escapeHtml(documentName)}">
+    <div class="banner-stage">
+      ${orderedScenes.map((scene, index) => sceneHtml(scene, canvas, state, resolvedAssetPathMap, index === 0)).join('\n')}
+    </div>
+  </div>
+  <script>
+  (function() {${exitBootstrap}
+  })();
+  </script>
+  <script type="application/json" id="smx-runtime-model">${escapeHtml(JSON.stringify(runtimeModel))}</script>
+  <script type="application/json" id="smx-exit-config">${escapeHtml(JSON.stringify(exitConfig))}</script>
+  <script>${runtimeScript}</script>
+</body>
+</html>`;
+}
+
 export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter): string {
   if (adapter.adapter === 'playable-ad') {
-    throw new Error('buildChannelHtml does not support playable-ad adapters. Use the playable export path instead.');
+    return buildPlayableSingleFileHtml(state, adapter);
   }
   const nonPlayableAdapter = adapter as Exclude<ExportHtmlAdapter, PlayableExportAdapterResult>;
   const manifest = buildExportManifest(state);
@@ -1297,14 +1363,8 @@ export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter)
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(documentName)}</title>
   <style>
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: Inter, Arial, sans-serif; background: transparent; color: #e5e7eb; }
-    .banner-shell { width: ${canvas.width}px; height: ${canvas.height}px; position: relative; overflow: hidden; background: ${escapeHtml(canvas.backgroundColor)}; }
-    html[data-mraid-ready="true"] .banner-shell[data-adapter="mraid"] { width: 100%; height: 100%; }
-    .banner-stage { width: 100%; height: 100%; position: relative; overflow: hidden; }
-    .scene { display: none; }
-    button.widget-cta:hover { filter: brightness(1.05); }
+    ${BANNER_BASE_CSS}
+    .banner-shell { width: ${canvas.width}px; height: ${canvas.height}px; background: ${escapeHtml(canvas.backgroundColor)}; }
   </style>
 </head>
 <body>

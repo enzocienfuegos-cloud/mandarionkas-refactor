@@ -1,8 +1,7 @@
 import { createInitialState } from '../../../domain/document/factories';
 import type { StudioState } from '../../../domain/document/types';
-import { createWorldCupStarterState } from './world-cup-starter';
 
-export type ProjectStarterId = 'blank' | 'bocadeli-worldcup';
+export type ProjectStarterId = 'blank' | string;
 
 export type ProjectStarterOption = {
   id: ProjectStarterId;
@@ -11,19 +10,15 @@ export type ProjectStarterOption = {
   canvasPresetId?: string;
 };
 
-export const PROJECT_STARTERS: ProjectStarterOption[] = [
+const BUILT_IN_STARTERS: ProjectStarterOption[] = [
   {
     id: 'blank',
     label: 'Blank canvas',
     description: 'Start from a clean project and pick any canvas size.',
   },
-  {
-    id: 'bocadeli-worldcup',
-    label: 'Bocadeli World Cup starter',
-    description: 'Seeds the World Cup interactive layout with configurable game widgets on 320×480.',
-    canvasPresetId: 'interstitial',
-  },
 ];
+
+const extraStarters: ProjectStarterOption[] = [];
 
 type StarterOptions = {
   starterId: ProjectStarterId;
@@ -34,6 +29,22 @@ type StarterOptions = {
   brandName?: string;
   campaignName?: string;
 };
+
+type StarterHandlerFn = (options: StarterOptions) => StudioState;
+const starterHandlers = new Map<string, StarterHandlerFn>();
+
+export function registerProjectStarter(option: ProjectStarterOption): void {
+  if (extraStarters.some((starter) => starter.id === option.id)) return;
+  extraStarters.push(option);
+}
+
+export function getProjectStarters(): ProjectStarterOption[] {
+  return [...BUILT_IN_STARTERS, ...extraStarters];
+}
+
+export function registerProjectStarterHandler(id: string, handler: StarterHandlerFn): void {
+  starterHandlers.set(id, handler);
+}
 
 function applyProjectPlatformMeta(state: StudioState, options: StarterOptions): StudioState {
   return {
@@ -55,8 +66,9 @@ function applyProjectPlatformMeta(state: StudioState, options: StarterOptions): 
 }
 
 export function createProjectStarterState(options: StarterOptions): StudioState {
-  if (options.starterId === 'bocadeli-worldcup') {
-    return createWorldCupStarterState(options);
+  const handler = starterHandlers.get(options.starterId);
+  if (handler) {
+    return handler(options);
   }
   return applyProjectPlatformMeta(
     createInitialState({

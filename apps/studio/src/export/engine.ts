@@ -8,6 +8,7 @@ export { buildExportPreflight } from './preflight';
 export {
   buildExportAssetPlan,
   buildLocalizedPortableProject,
+  inlineAllAssetsAsDataUris,
   buildRemoteAssetFetchPlan,
   materializeExportAssetFiles,
   materializeRemoteExportAssetFiles,
@@ -29,6 +30,8 @@ export {
   buildGoogleDisplayAdapter,
   buildMraidAdapter,
   buildPlayableExportAdapter,
+  buildVastSimidAdapter,
+  buildVastSimidXml,
 } from './adapters';
 export type {
   PortableExportAsset,
@@ -58,9 +61,10 @@ export type {
   GoogleDisplayAdapterResult,
   MraidAdapterResult,
   PlayableExportAdapterResult,
+  VastSimidAdapterResult,
 } from './adapters';
 export { buildExportReadiness } from './readiness';
-export { buildChannelHtml, buildStandaloneHtml, escapeHtml } from './html';
+export { buildChannelHtml, buildPlayableSingleFileHtml, buildStandaloneHtml, escapeHtml } from './html';
 export { buildExportHandoff, buildPublishPackage, buildReviewPackage } from './packages';
 export {
   downloadBlob,

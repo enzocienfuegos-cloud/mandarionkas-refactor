@@ -1,4 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
+import { renderWeatherConditionsExport } from '../export-renderers';
 import { renderWeatherConditionsStage } from '../weather-conditions.renderer';
 
 export const WeatherConditionsDefinition = createModuleDefinition({
@@ -37,4 +38,5 @@ export const WeatherConditionsDefinition = createModuleDefinition({
   ],
   style: { backgroundColor: '#f8fafc', accentColor: '#60a5fa', color: '#0f172a' },
   renderStage: renderWeatherConditionsStage,
+  renderExport: (node) => renderWeatherConditionsExport(node),
 });

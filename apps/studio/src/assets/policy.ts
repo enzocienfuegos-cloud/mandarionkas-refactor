@@ -74,6 +74,15 @@ const CHANNEL_POLICIES: Record<ReleaseTarget, AssetOptimizationPolicy> = {
     preferredVideoTier: 'high',
     requireVideoPoster: true,
   },
+  'vast-simid': {
+    ...DEFAULT_POLICY,
+    targetChannel: 'vast-simid',
+    maxInitialAssetBytes: 300 * 1024,
+    maxVideoBitrateKbps: 2200,
+    preferredImageTier: 'high',
+    preferredVideoTier: 'high',
+    requireVideoPoster: true,
+  },
 };
 
 function pickDerivativeFromTier(asset: AssetRecord, tier: AssetQualityTier): AssetDerivative | undefined {

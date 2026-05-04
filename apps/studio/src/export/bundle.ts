@@ -4,8 +4,10 @@ import { buildGamHtml5Adapter } from './adapters/gam-html5';
 import { buildGoogleDisplayAdapter } from './adapters/google-display';
 import { buildMraidAdapter } from './adapters/mraid';
 import { buildPlayableExportAdapter } from './adapters/playable';
+import { buildVastSimidAdapter } from './adapters/vast-simid';
+import { buildVastSimidXml, type PlayableExportAdapterResult, type VastSimidAdapterResult } from './adapters';
 import { buildExportAssetPlan, buildLocalizedPortableProject, buildRemoteAssetFetchPlan, materializeExportAssetFiles, materializeRemoteExportAssetFiles } from './assets';
-import { buildChannelHtml } from './html';
+import { buildChannelHtml, buildPlayableSingleFileHtml } from './html';
 import { buildExportManifest } from './manifest';
 import { buildExportPackageMetrics } from './package-metrics';
 import { validateExportPackage } from './package-compliance';
@@ -37,6 +39,8 @@ function buildChannelAdapter(state: StudioState) {
       return buildGamHtml5Adapter(state);
     case 'mraid':
       return buildMraidAdapter(state);
+    case 'vast-simid':
+      return buildVastSimidAdapter(state);
     case 'meta-story':
     case 'tiktok-vertical':
       return buildPlayableExportAdapter(state);
@@ -57,13 +61,22 @@ function buildBundleFromAssetFiles(
   const assetPlan = buildExportAssetPlan(portableProject);
   const remoteFetchPlan = buildRemoteAssetFetchPlan(assetPlan);
   const localizedPortableProject = buildLocalizedPortableProject(portableProject, assetPlan);
-  const localizedAdapter = { ...adapter, portableProject: localizedPortableProject };
-  const html = buildChannelHtml(state, localizedAdapter);
+  const localizedAdapter = adapter.adapter === 'playable-ad'
+    ? { ...adapter, playableProject: localizedPortableProject }
+    : { ...adapter, portableProject: localizedPortableProject };
+  const html = localizedAdapter.adapter === 'playable-ad'
+    ? buildPlayableSingleFileHtml(state, localizedAdapter as PlayableExportAdapterResult, {})
+    : localizedAdapter.adapter === 'vast-simid'
+      ? buildChannelHtml(state, { ...(localizedAdapter as VastSimidAdapterResult), adapter: 'generic-html5' } as any)
+      : buildChannelHtml(state, localizedAdapter as any);
   const packagingPlan = buildExportPackagingPlan(localizedAdapter);
   const exitConfig = buildExportExitConfig(localizedAdapter);
   const runtimeScript = buildExportRuntimeScript(adapter);
   const bundleFiles: ExportBundleFile[] = [
     { path: 'index.html', mime: 'text/html;charset=utf-8', content: html },
+    ...(localizedAdapter.adapter === 'vast-simid'
+      ? [{ path: 'vast.xml', mime: 'application/xml;charset=utf-8', content: buildVastSimidXml(localizedAdapter as VastSimidAdapterResult) }]
+      : []),
     { path: 'runtime.js', mime: 'text/javascript;charset=utf-8', content: runtimeScript },
     { path: 'manifest.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(manifest, null, 2) },
     { path: 'portable-project.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(portableProject, null, 2) },

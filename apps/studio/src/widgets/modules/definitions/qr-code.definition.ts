@@ -1,4 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
+import { renderQrCodeExport } from '../export-renderers';
 import { renderQrCodeStage } from '../qr-code.renderer';
 
 export const QrCodeDefinition = createModuleDefinition({
@@ -16,4 +17,5 @@ export const QrCodeDefinition = createModuleDefinition({
   ],
   style: { backgroundColor: '#ffffff', accentColor: '#111827', color: '#111827' },
   renderStage: renderQrCodeStage,
+  renderExport: (node) => renderQrCodeExport(node),
 });

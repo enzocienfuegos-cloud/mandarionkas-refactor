@@ -122,7 +122,7 @@ export function validateExportPackage(
         message: 'index.html does not reference runtime.js.',
       });
     }
-    if (clickTagChannel && !html.includes('window.clickTag = window.clickTag ||')) {
+    if (clickTagChannel && !html.includes('window.ClickTag = window.ClickTag ||')) {
       issues.push({
         level: 'error',
         code: 'exit.clicktag-bootstrap-missing',
@@ -240,22 +240,38 @@ export function validateExportPackage(
     });
   }
 
-  const recommendedBytesByChannel: Partial<Record<ExportBundle['channel'], number>> = {
-    'google-display': 200 * 1024,
-    'gam-html5': 200 * 1024,
-    'mraid': 500 * 1024,
+  const iabInitialLoadLimits: Partial<Record<ExportBundle['channel'], number>> = {
+    'google-display': 150 * 1024,
+    'gam-html5': 150 * 1024,
+    'generic-html5': 150 * 1024,
+    mraid: 150 * 1024,
+  };
+  const iabTotalLimits: Partial<Record<ExportBundle['channel'], number>> = {
+    'google-display': 300 * 1024,
+    'gam-html5': 300 * 1024,
+    'generic-html5': 2 * 1024 * 1024,
+    mraid: 500 * 1024,
     'meta-story': 5 * 1024 * 1024,
     'tiktok-vertical': 5 * 1024 * 1024,
-    'generic-html5': 2 * 1024 * 1024,
   };
-  const recommendedBytes = recommendedBytesByChannel[bundle.channel];
+  const initialLoadBytes = packageMetrics.htmlBytes + packageMetrics.javascriptBytes;
+  const initialLoadLimit = iabInitialLoadLimits[bundle.channel];
+  const totalLimit = iabTotalLimits[bundle.channel];
 
-  if (recommendedBytes != null && packageMetrics.totalBytes > recommendedBytes) {
+  if (initialLoadLimit != null && initialLoadBytes > initialLoadLimit) {
     issues.push({
       level: 'warning',
-      code: 'bundle.channel-size-warning',
+      code: 'bundle.iab-initial-load-warning',
       scope: 'bundle',
-      message: `${bundle.channel} package is ${Math.round(packageMetrics.totalBytes / 1024)} KB, above the current recommended budget of ${Math.round(recommendedBytes / 1024)} KB.`,
+      message: `Initial load (HTML + JS) is ${Math.round(initialLoadBytes / 1024)} KB, above the IAB recommended ${Math.round(initialLoadLimit / 1024)} KB. Consider deferring assets to polite load.`,
+    });
+  }
+  if (totalLimit != null && packageMetrics.totalBytes > totalLimit) {
+    issues.push({
+      level: 'warning',
+      code: 'bundle.iab-total-size-warning',
+      scope: 'bundle',
+      message: `Total bundle is ${Math.round(packageMetrics.totalBytes / 1024)} KB, above the recommended ${Math.round(totalLimit / 1024)} KB budget for ${bundle.channel}.`,
     });
   }
 

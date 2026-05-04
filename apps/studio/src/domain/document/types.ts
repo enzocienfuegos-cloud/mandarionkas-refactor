@@ -1,4 +1,4 @@
-export type WidgetType =
+export type BuiltinWidgetType =
   | 'text'
   | 'badge'
   | 'image'
@@ -37,6 +37,8 @@ export type WidgetType =
   | 'timer-bar'
   | 'drag-token-pool'
   | 'drop-zone';
+
+export type WidgetType = BuiltinWidgetType | `x-${string}`;
 
 export type WidgetFrame = { x: number; y: number; width: number; height: number; rotation: number; };
 export type KeyframeProperty = 'x' | 'y' | 'width' | 'height' | 'opacity';
@@ -133,7 +135,7 @@ export type SceneFlow = {
 export type WidgetNode = { id: string; type: WidgetType; name: string; sceneId: string; zIndex: number; hidden?: boolean; locked?: boolean; parentId?: string; childIds?: string[]; frame: WidgetFrame; props: Record<string, unknown>; style: Record<string, unknown>; bindings?: Record<string, WidgetBinding>; variants?: Partial<Record<VariantName, VariantOverride>>; conditions?: WidgetConditions; timeline: WidgetTimeline; };
 export type SceneNode = { id: string; name: string; order: number; widgetIds: string[]; durationMs: number; conditions?: SceneConditions; flow?: SceneFlow; transition?: SceneTransition; };
 export type CanvasNode = { width: number; height: number; backgroundColor: string; presetId?: string; };
-export type ReleaseTarget = 'generic-html5' | 'google-display' | 'gam-html5' | 'mraid' | 'meta-story' | 'tiktok-vertical';
+export type ReleaseTarget = 'generic-html5' | 'google-display' | 'gam-html5' | 'mraid' | 'meta-story' | 'tiktok-vertical' | 'vast-simid';
 export type QaStatus = 'draft' | 'ready-for-qa' | 'qa-passed';
 export type ReleaseSettings = {
   targetChannel: ReleaseTarget;

@@ -1,5 +1,6 @@
 import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
+import { renderDynamicMapExport } from '../export-renderers';
 import { renderDynamicMapStage } from '../dynamic-map.renderer';
 import { DynamicMapInspector } from '../dynamic-map.inspector';
 
@@ -55,4 +56,5 @@ export const DynamicMapDefinition = createModuleDefinition({
   style: { backgroundColor: '#dbeafe', accentColor: '#ef4444', color: '#0f172a' },
   renderStage: renderDynamicMapStage,
   renderInspector: (widget) => createElement(DynamicMapInspector, { widget }),
+  renderExport: (node) => renderDynamicMapExport(node),
 });

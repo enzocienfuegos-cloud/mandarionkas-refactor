@@ -42,7 +42,7 @@ export const heroImageDefinition: WidgetDefinition = {
     },
   ],
   renderStage: renderHeroImageWidget,
-  renderExport: (node) => renderImageExport(node, 'hero-image'),
+  renderExport: (node, _state, assetPathMap) => renderImageExport(node, 'hero-image', assetPathMap),
   buildPortableExport: (node) => ({
     props: {
       ...node.props,

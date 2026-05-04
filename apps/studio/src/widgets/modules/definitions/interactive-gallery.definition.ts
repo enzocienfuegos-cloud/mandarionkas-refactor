@@ -1,7 +1,8 @@
 import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
-import { renderInteractiveGalleryExport, renderInteractiveGalleryStage } from '../interactive-gallery.renderer';
+import { renderInteractiveGalleryStage } from '../interactive-gallery.renderer';
 import { InteractiveGalleryInspector } from '../interactive-gallery.inspector';
+import { renderInteractiveGalleryExport } from '../export-renderers';
 
 export const InteractiveGalleryDefinition = createModuleDefinition({
   type: 'interactive-gallery',

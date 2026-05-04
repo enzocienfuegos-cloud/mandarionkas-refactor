@@ -1,4 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
+import { renderButtonsExport } from '../export-renderers';
 import { renderButtonsStage } from '../buttons.renderer';
 
 export const ButtonsDefinition = createModuleDefinition({
@@ -10,4 +11,5 @@ export const ButtonsDefinition = createModuleDefinition({
   inspectorFields: [{ key: 'title' }, { key: 'primaryLabel', label: 'Primary label' }, { key: 'secondaryLabel', label: 'Secondary label' }, { key: 'orientation' }],
   style: { backgroundColor: '#0f766e', accentColor: '#67e8f9', color: '#ffffff' },
   renderStage: renderButtonsStage,
+  renderExport: (node) => renderButtonsExport(node),
 });

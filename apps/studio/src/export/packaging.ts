@@ -1,4 +1,4 @@
-import type { GamHtml5AdapterResult, GenericHtml5AdapterResult, GoogleDisplayAdapterResult, MraidAdapterResult, PlayableExportAdapterResult } from './adapters';
+import type { GamHtml5AdapterResult, GenericHtml5AdapterResult, GoogleDisplayAdapterResult, MraidAdapterResult, PlayableExportAdapterResult, VastSimidAdapterResult } from './adapters';
 import type { ExportHtmlAdapter } from './html';
 
 export type ExportPackagingPlan = {
@@ -105,6 +105,21 @@ function buildPlayablePackagingPlan(adapter: PlayableExportAdapterResult): Expor
   };
 }
 
+function buildVastSimidPackagingPlan(adapter: VastSimidAdapterResult): ExportPackagingPlan {
+  return {
+    adapter: adapter.adapter,
+    format: 'single-page-html',
+    entryFile: 'index.html',
+    bootstrapFile: 'inline',
+    exitStrategy: 'window-open',
+    requiresSingleRootDocument: true,
+    politeLoad: true,
+    sceneCount: adapter.portableProject.scenes.length,
+    externalAssetMode: 'localized-bundle',
+    emittedFiles: ['index.html', 'vast.xml', 'runtime.js', 'manifest.json', 'portable-project.json', 'portable-project.localized.json', 'runtime-model.json', 'adapter.json', 'packaging-plan.json', 'exit-config.json', 'asset-plan.json', 'remote-fetch-plan.json', 'readiness.json', 'package-metrics.json', 'package-compliance.json'],
+  };
+}
+
 export function buildExportPackagingPlan(adapter: ExportHtmlAdapter): ExportPackagingPlan {
   switch (adapter.adapter) {
     case 'generic-html5':
@@ -117,6 +132,8 @@ export function buildExportPackagingPlan(adapter: ExportHtmlAdapter): ExportPack
       return buildMraidPackagingPlan(adapter);
     case 'playable-ad':
       return buildPlayablePackagingPlan(adapter);
+    case 'vast-simid':
+      return buildVastSimidPackagingPlan(adapter);
     default:
       return buildGenericPackagingPlan(adapter);
   }
@@ -134,5 +151,7 @@ export function buildExportExitConfig(adapter: ExportHtmlAdapter): ExportExitCon
       return { adapter: adapter.adapter, strategy: 'mraid-open', primaryUrl: urls[0] ?? null, urls };
     case 'playable-ad':
       return { adapter: adapter.adapter, strategy: 'playable-bridge', primaryUrl: urls[0] ?? null, urls };
+    case 'vast-simid':
+      return { adapter: adapter.adapter, strategy: 'window-open', primaryUrl: urls[0] ?? null, urls };
   }
 }

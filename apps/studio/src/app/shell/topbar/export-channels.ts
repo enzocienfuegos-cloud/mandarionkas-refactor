@@ -9,6 +9,7 @@ export const EXPORT_CHANNELS: Array<{ value: ExportChannel; label: string }> = [
   { value: 'gam-html5', label: 'GAM HTML5' },
   { value: 'meta-story', label: 'Meta Story' },
   { value: 'tiktok-vertical', label: 'TikTok Vertical' },
+  { value: 'vast-simid', label: 'VAST 4.2 SIMID' },
 ];
 
 export function channelLabel(channel: ExportChannel): string {
