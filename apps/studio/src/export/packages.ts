@@ -111,10 +111,7 @@ export function buildPublishPackage(state: StudioState, exportedState: StudioSta
   const playableHtml = localizedAdapter.adapter === 'playable-ad'
     ? buildPlayableSingleFileHtml(exportedState, localizedAdapter as PlayableExportAdapterResult, {})
     : null;
-  const vastHtml = localizedAdapter.adapter === 'vast-simid'
-    ? buildChannelHtml(exportedState, { ...(localizedAdapter as VastSimidAdapterResult), adapter: 'generic-html5' } as any)
-    : null;
-  const primaryHtml = playableHtml ?? vastHtml ?? buildChannelHtml(exportedState, localizedAdapter as any);
+  const primaryHtml = playableHtml ?? buildChannelHtml(exportedState, localizedAdapter);
   const packageMetrics = buildExportPackageMetrics({
     channel: exportedState.document.metadata.release.targetChannel,
     files: [

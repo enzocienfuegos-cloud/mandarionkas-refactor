@@ -340,11 +340,11 @@ export function renderQrCodeExport(node: WidgetNode): string {
   const frame = node.frame;
   const style = node.style ?? {};
   const accent = String(style.accentColor ?? '#111827');
-  const url = String(node.props.url ?? 'https://example.com');
+  const url = String(node.props.url ?? '').trim();
   const qrScale = Math.max(0.3, Math.min(1, Number(node.props.qrScale ?? 0.72)));
   const qrPadding = Math.max(0, Number(node.props.qrPadding ?? 8));
   const qrSize = Math.max(72, Math.min(frame.width, frame.height - 24) * qrScale);
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
+  const qrUrl = url ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}` : '';
   const pattern = buildQrPattern(url);
   const base = [
     `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,`transform:rotate(${frame.rotation}deg)`,
@@ -356,7 +356,7 @@ export function renderQrCodeExport(node: WidgetNode): string {
     <div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(String(node.props.title ?? node.name))}</div>
     <div style="padding:8px 12px 12px;display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
       <div style="width:${qrSize}px;height:${qrSize}px;border-radius:14px;background:#fff;padding:${qrPadding}px;display:grid;place-items:center;flex-shrink:0;">
-        <img src="${escapeHtml(qrUrl)}" alt="${escapeHtml(String(node.props.codeLabel ?? 'QR code'))}" style="width:100%;height:100%;object-fit:contain;border-radius:8px;" onerror="this.replaceWith(this.nextElementSibling)" />
+        ${qrUrl ? `<img src="${escapeHtml(qrUrl)}" alt="${escapeHtml(String(node.props.codeLabel ?? 'QR code'))}" style="width:100%;height:100%;object-fit:contain;border-radius:8px;" onerror="this.replaceWith(this.nextElementSibling)" />` : ''}
         <div style="display:none;grid-template-columns:repeat(9,1fr);gap:2px;width:100%;height:100%;">
           ${pattern.map((filled) => `<div style="background:${filled ? escapeHtml(accent) : '#fff'};"></div>`).join('')}
         </div>
