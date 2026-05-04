@@ -109,6 +109,55 @@ test('buildDisplayHtml prefers explicit clickTag override when provided', () => 
   );
 });
 
+test('buildDisplayHtml does not double-encode click URL when resolvedClickUrl is already a tracker URL', () => {
+  const html = buildDisplayHtml({
+    creativeUrl: 'https://cdn.example.com/index.html',
+    width: 300,
+    height: 250,
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    engagementTrackerUrl: '',
+    impressionUrl: '',
+    clickUrl: 'https://advertiser.com/new-landing',
+    clickTag: 'https://api.example.com/v1/tags/tracker/tag-1/click?url=https%3A%2F%2Fadvertiser.com%2Fnew-landing',
+    omidVerification: {},
+  });
+
+  const trackerUrlParamCount = (html.match(/%3Furl%3D/g) || []).length;
+  assert.equal(
+    trackerUrlParamCount,
+    1,
+    'clickTag should contain exactly one encoded ?url= segment, not double-encoded',
+  );
+  assert.ok(
+    !html.includes('%253Furl%253D'),
+    'clickTag should not contain a doubly encoded nested ?url= segment',
+  );
+});
+
+test('buildDisplayHtml uses updated click URL after override — not stale value', () => {
+  const newUrl = 'https://advertiser.com/new-campaign';
+  const html = buildDisplayHtml({
+    creativeUrl: 'https://cdn.example.com/index.html',
+    width: 300,
+    height: 250,
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    engagementTrackerUrl: '',
+    impressionUrl: '',
+    clickUrl: newUrl,
+    clickTag: `https://api.example.com/v1/tags/tracker/tag-1/click?url=${encodeURIComponent(newUrl)}`,
+    omidVerification: {},
+  });
+
+  assert.ok(
+    html.includes(encodeURIComponent(encodeURIComponent(newUrl))),
+    'iframeSrc clickTag must include the new destination URL, not a stale one',
+  );
+  assert.ok(
+    !html.includes(encodeURIComponent('https://advertiser.com/old')),
+    'iframeSrc must not contain any reference to a previously stored URL',
+  );
+});
+
 test('buildDisplayHtml includes engagementTracker variable when engagementTrackerUrl is provided', () => {
   const html = buildDisplayHtml({
     creativeUrl: 'https://cdn.example.com/index.html',

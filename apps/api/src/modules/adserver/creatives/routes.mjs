@@ -28,6 +28,7 @@ import {
   listCreativesForUser,
   listCreativeVersions,
   listVideoRenditions,
+  normalizeRawClickUrl,
   regenerateVideoRenditions,
   updateCreativeIngestion,
   updateCreative,
@@ -79,6 +80,12 @@ function normalizeHtmlEntryPath(value) {
   const normalized = trimText(value).replace(/^\/+/, '');
   if (!normalized || normalized.toLowerCase().endsWith('.zip')) return 'index.html';
   return normalized;
+}
+
+function resolveRequestedClickUrl(body, existingValue = null) {
+  const sent = body?.clickUrl ?? body?.click_url;
+  if (sent === undefined) return existingValue || null;
+  return normalizeRawClickUrl(sent);
 }
 
 function resolveCreativeVersionPreviewUrl(row) {
@@ -324,7 +331,7 @@ async function publishHtml5ArchiveInProcess(env, pool, {
      SET file_url      = $3,
          thumbnail_url = $3,
          click_url     = CASE
-           WHEN $4 IS NOT NULL AND (click_url IS NULL OR click_url = '') THEN $4
+           WHEN $4 IS NOT NULL THEN $4
            ELSE click_url
          END,
          width         = COALESCE($5, width),
@@ -694,7 +701,7 @@ export async function handleCreativeRoutes(ctx) {
       );
       const creative = await updateCreative(session.client, workspaceId, creativeId, {
         name: ctx.body?.name,
-        click_url: ctx.body?.clickUrl ?? ctx.body?.click_url,
+        click_url: normalizeRawClickUrl(ctx.body?.clickUrl ?? ctx.body?.click_url ?? null),
       });
       if (!creative) return badRequest(res, requestId, 'Creative not found.');
       return sendJson(res, 200, { creative: normalizeCreative(creative), requestId });
@@ -1093,7 +1100,7 @@ export async function handleCreativeRoutes(ctx) {
         publicUrl,
         metadata: {
           requestedName: trimText(ctx.body?.name) || null,
-          clickUrl: trimText(ctx.body?.clickUrl ?? ctx.body?.click_url) || null,
+          clickUrl: resolveRequestedClickUrl(ctx.body, null),
           width: normalizeOptionalPositiveInteger(ctx.body?.width),
           height: normalizeOptionalPositiveInteger(ctx.body?.height),
           durationMs: normalizeOptionalPositiveInteger(ctx.body?.durationMs ?? ctx.body?.duration_ms),
@@ -1131,7 +1138,7 @@ export async function handleCreativeRoutes(ctx) {
         metadata: {
           ...(existing.metadata || {}),
           requestedName: trimText(ctx.body?.name) || existing.metadata?.requestedName || null,
-          clickUrl: trimText(ctx.body?.clickUrl ?? ctx.body?.click_url) || existing.metadata?.clickUrl || null,
+          clickUrl: resolveRequestedClickUrl(ctx.body, existing.metadata?.clickUrl || null),
           width: normalizeOptionalPositiveInteger(ctx.body?.width) ?? existing.metadata?.width ?? null,
           height: normalizeOptionalPositiveInteger(ctx.body?.height) ?? existing.metadata?.height ?? null,
           durationMs: normalizeOptionalPositiveInteger(ctx.body?.durationMs ?? ctx.body?.duration_ms) ?? existing.metadata?.durationMs ?? null,
@@ -1204,7 +1211,7 @@ export async function handleCreativeRoutes(ctx) {
                 ingestionId,
                 sourceKind: snapshotExisting.source_kind,
                 name: trimText(backgroundBody?.name) || snapshotExisting.metadata?.requestedName || snapshotExisting.original_filename,
-                clickUrl: trimText(backgroundBody?.clickUrl ?? backgroundBody?.click_url) || snapshotExisting.metadata?.clickUrl || null,
+                clickUrl: resolveRequestedClickUrl(backgroundBody, snapshotExisting.metadata?.clickUrl || null),
                 publicUrl: snapshotExisting.public_url,
                 storageKey: snapshotExisting.storage_key || inferStorageKeyFromPublicUrl(backgroundEnv, snapshotExisting.public_url),
                 originalFilename: snapshotExisting.original_filename,
@@ -1287,7 +1294,7 @@ export async function handleCreativeRoutes(ctx) {
         ingestionId,
         sourceKind: existing.source_kind,
         name: trimText(ctx.body?.name) || existing.metadata?.requestedName || existing.original_filename,
-        clickUrl: trimText(ctx.body?.clickUrl ?? ctx.body?.click_url) || existing.metadata?.clickUrl || null,
+        clickUrl: resolveRequestedClickUrl(ctx.body, existing.metadata?.clickUrl || null),
         publicUrl: existing.public_url,
         storageKey: existing.storage_key || inferStorageKeyFromPublicUrl(ctx.env, existing.public_url),
         originalFilename: existing.original_filename,

@@ -29,6 +29,29 @@ function extractJsonObject(value, fallback = {}) {
   }
 }
 
+export function normalizeRawClickUrl(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.pathname.includes('/v1/tags/tracker/') && parsed.searchParams.has('url')) {
+      const dest = parsed.searchParams.get('url');
+      if (dest) {
+        try {
+          const validated = new URL(dest);
+          if (validated.protocol === 'http:' || validated.protocol === 'https:') return dest;
+        } catch (_) {
+          // Fall through to store the original raw URL if the extracted destination is invalid.
+        }
+      }
+    }
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return raw;
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function hasPublishedRenditionAsset(rendition) {
   return (
     trimText(rendition?.public_url).length > 0
@@ -188,7 +211,7 @@ export async function updateCreative(pool, workspaceId, id, input = {}) {
     fields.push(`name = $${params.length}`);
   }
   if (Object.prototype.hasOwnProperty.call(input, 'click_url')) {
-    params.push(input.click_url || null);
+    params.push(normalizeRawClickUrl(input.click_url));
     fields.push(`click_url = $${params.length}`);
   }
   if (!fields.length) {
@@ -833,6 +856,7 @@ export async function createPublishedCreative(pool, input = {}) {
   const resolvedPreviewUrl = normalizedSourceKind === 'html5_zip'
     ? resolvePublishedHtml5PreviewUrl(publicUrl, mimeType, metadata)
     : publicUrl;
+  const normalizedClickUrl = normalizeRawClickUrl(clickUrl);
   const initialCreativePublicUrl = shouldDeferHtml5ArchivePublish ? null : resolvedPreviewUrl;
   const creativeMetadata = {
     ...(metadata || {}),
@@ -862,7 +886,7 @@ export async function createPublishedCreative(pool, input = {}) {
       resolvedWidth,
       resolvedHeight,
       resolvedDurationMs,
-      clickUrl,
+      normalizedClickUrl,
       JSON.stringify(creativeMetadata),
       'draft',
       normalizedSourceKind === 'video_mp4' ? 'queued' : 'ready',
