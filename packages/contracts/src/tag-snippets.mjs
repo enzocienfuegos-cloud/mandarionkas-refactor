@@ -18,7 +18,7 @@ function escapeScriptContext(jsonStr) {
 }
 
 export function buildDisplayJsSnippet({ displayJsUrl, displayHtmlUrl, width, height }) {
-  return `<script src="${displayJsUrl}" async></script>\n<noscript>\n  <iframe src="${displayHtmlUrl}" width="${width}" height="${height}" scrolling="no" frameborder="0" style="border:0;overflow:hidden;" sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation"></iframe>\n</noscript>`;
+  return `<script type="text/javascript" src="${displayJsUrl}"></script>`;
 }
 
 export function buildDisplayIframeSnippet({ displayHtmlUrl, width, height }) {

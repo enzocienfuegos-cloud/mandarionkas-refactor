@@ -6,12 +6,14 @@ import { listSupportedDsps } from './dsp-macros.mjs';
 const BASE = 'https://api-staging.duskplatform.co';
 const TAG = { id: '11111111-1111-1111-1111-111111111111', format: 'display', width: 300, height: 250 };
 
-test('display-js non-Basis: contains async script tag', () => {
+test('display-js non-Basis: contains standard script tag only', () => {
   const out = buildTagSnippet(TAG, 'display-js', BASE, '', null);
-  assert.ok(out.includes('<script src='), 'should have script tag');
-  assert.ok(out.includes('async'), 'should be async');
+  assert.ok(out.includes('<script'), 'should have script tag');
   assert.ok(out.includes('/v1/tags/display/'), 'should have display path');
   assert.ok(!out.includes('portal-staging'), 'should not have wrong host');
+  assert.ok(!out.includes('<noscript>'), 'display-js must not include noscript block');
+  assert.ok(!out.includes('<iframe'), 'display-js must not include an iframe element');
+  assert.ok(out.includes('type="text/javascript"'), 'must have type attribute like Connected Stories');
 });
 
 test('display-iframe: has sandbox attribute', () => {
@@ -22,9 +24,11 @@ test('display-iframe: has sandbox attribute', () => {
 
 test('Basis display-js: stays on standard JS tag and does not emit native blob', () => {
   const out = buildTagSnippet(TAG, 'display-js', BASE, 'Basis', null);
-  assert.ok(out.includes('<script src='), 'Basis display-js should stay on standard script delivery');
+  assert.ok(out.includes('<script'), 'Basis display-js should stay on standard script delivery');
   assert.ok(out.includes('/v1/tags/display/'), 'Basis display-js should still use display serving path');
   assert.ok(!out.startsWith('(function(){'), 'Basis display-js must not emit runtime blob');
+  assert.ok(!out.includes('<noscript>'), 'Basis display-js must not include noscript block');
+  assert.ok(!out.includes('<iframe'), 'Basis display-js must not include an iframe element');
 });
 
 test('Basis tracker-click stays a plain tracker URL with macros', () => {
@@ -54,7 +58,7 @@ test('supported DSP list includes Basis, Illumin, TTD, DV360, and Xandr', () => 
 test('displayHtmlUrl must carry DSP macros for Basis', () => {
   // NOTE: The display URL carries macros by design (Connected Stories model).
   const out = buildTagSnippet(TAG, 'display-js', BASE, 'Basis', null);
-  const scriptMatch = out.match(/<script src="([^"]+)"/);
+  const scriptMatch = out.match(/<script[^>]*src="([^"]+)"/);
   assert.ok(scriptMatch, 'display-js should expose a standard script src');
   const displayUrl = scriptMatch[1];
   assert.ok(displayUrl.startsWith(`${BASE}/v1/tags/display/`), 'displayHtmlUrl must use serving base URL');
@@ -92,16 +96,6 @@ test('display-js with empty base URL produces relative URLs', () => {
   const out = buildTagSnippet(TAG, 'display-js', '', '', null);
   assert.ok(out.includes('/v1/tags/display/'), 'should produce relative URL when base is empty');
   assert.ok(!out.includes('undefined'), 'should not include undefined in URL');
-});
-
-test('display-js noscript fallback has sandbox attribute', () => {
-  const out = buildTagSnippet(TAG, 'display-js', BASE, '', null);
-  const noscriptMatch = out.match(/<noscript>([\s\S]*?)<\/noscript>/);
-  assert.ok(noscriptMatch, 'display-js must have noscript fallback');
-  assert.ok(
-    noscriptMatch[1].includes('allow-top-navigation-by-user-activation'),
-    'noscript iframe must have sandbox attribute',
-  );
 });
 
 test('display-ins with Basis DSP stays standard INS tag without blob', () => {
@@ -143,7 +137,7 @@ test('display-js with Basis DSP embeds macros in script src URL', () => {
   const out = buildTagSnippet(TAG, 'display-js', BASE, 'Basis', null);
   assert.ok(!out.startsWith('<!--'), 'display-js with Basis must not start with HTML comment');
   assert.ok(out.startsWith('<script'), 'display-js must start directly with script tag');
-  const scriptSrc = out.match(/<script src="([^"]+)"/)?.[1] ?? '';
+  const scriptSrc = out.match(/<script[^>]*src="([^"]+)"/)?.[1] ?? '';
   assert.ok(scriptSrc.includes('dsp=Basis'), 'script src must carry dsp=Basis');
   assert.ok(scriptSrc.includes('{domain}'), 'script src must carry {domain} macro');
   assert.ok(scriptSrc.includes('{pageUrlEnc}'), 'script src must carry {pageUrlEnc} macro');
@@ -153,7 +147,7 @@ test('display-js with Basis DSP embeds macros in script src URL', () => {
 
 test('display-js with Illumin DSP embeds Illumin macros in script src URL', () => {
   const out = buildTagSnippet(TAG, 'display-js', BASE, 'illumin', null);
-  const scriptSrc = out.match(/<script src="([^"]+)"/)?.[1] ?? '';
+  const scriptSrc = out.match(/<script[^>]*src="([^"]+)"/)?.[1] ?? '';
   assert.ok(scriptSrc.includes('[CLICK_URL_ENCODED]'), 'Illumin script src must carry Illumin click macro');
   assert.ok(scriptSrc.includes('[EXCHANGE_ID]'), 'Illumin script src must carry exchange ID macro');
   assert.ok(scriptSrc.includes('dsp=Illumin'), 'Illumin script src must carry dsp hint');
@@ -161,7 +155,7 @@ test('display-js with Illumin DSP embeds Illumin macros in script src URL', () =
 
 test('display-js without DSP does not add macro params', () => {
   const out = buildTagSnippet(TAG, 'display-js', BASE, '', null);
-  const scriptSrc = out.match(/<script src="([^"]+)"/)?.[1] ?? '';
+  const scriptSrc = out.match(/<script[^>]*src="([^"]+)"/)?.[1] ?? '';
   assert.ok(!scriptSrc.includes('dsp='), 'clean display-js must not have dsp param');
   assert.ok(!scriptSrc.includes('{domain}'), 'clean display-js must not have macros');
   assert.ok(out.startsWith('<script'), 'clean display-js must start with script tag');
@@ -183,9 +177,9 @@ test('tracker-impression with Basis DSP returns raw tracker URL without display 
 
 test('Basis display-js existing test still passes — script stays standard JS tag', () => {
   const out = buildTagSnippet(TAG, 'display-js', BASE, 'Basis', null);
-  assert.ok(out.includes('<script src='), 'Basis display-js should have script tag');
+  assert.ok(out.includes('<script'), 'Basis display-js should have script tag');
   assert.ok(out.includes('/v1/tags/display/'), 'Basis display-js should use display path');
-  const scriptSrc = out.match(/<script src="([^"]+)"/)?.[1] ?? '';
+  const scriptSrc = out.match(/<script[^>]*src="([^"]+)"/)?.[1] ?? '';
   assert.ok(scriptSrc.includes('dsp=Basis'), 'script src must carry dsp param');
   assert.ok(!out.startsWith('(function(){'), 'Basis display-js must not emit runtime blob');
 });
