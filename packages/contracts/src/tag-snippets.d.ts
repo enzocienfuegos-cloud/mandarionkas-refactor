@@ -1,5 +1,6 @@
 export type SnippetVariant =
   | 'display-js'
+  | 'display-js-no-macro'
   | 'display-iframe'
   | 'display-ins'
   | 'native-js'

@@ -393,9 +393,26 @@ export async function handleDisplayRoutes(ctx) {
     }
 
     const baseUrl = resolveBaseUrl(ctx);
+    const DSP_TRACKER_KEYS = [
+      'dsp', 'dom', 'purl', 'cuu', 'ifa', 'idfa', 'gadvid', 'iuid',
+      'cmpid', 'netid', 'srcpubid', 'ppos', 'trftype', 'carr', 'appid',
+      'appb', 'appn', 'excid', 'excpubid', 'excsiddmn', 'sdmn', 'sid',
+      'cntlang', 'cnttitle', 'cntseries', 'cngen', 'ctxid', 'appstnm',
+      'gdpr', 'gdpr_consent', 'us_privacy',
+      'cb', 'tmp', 'cmpne', 'adgne', 'adgid', 'crene', 'wbrse', 'oprsye',
+      'lcc', 'lclat', 'lclong', 'dtyp',
+    ];
+    const trackerParams = new URLSearchParams();
+    for (const key of DSP_TRACKER_KEYS) {
+      const val = url.searchParams.get(key);
+      if (val !== null && val !== '') trackerParams.set(key, val);
+    }
+    const trackerSuffix = trackerParams.toString() ? `?${trackerParams.toString()}` : '';
     const suppressImpression = url.searchParams.get('smx_no_imp') === '1';
-    const impressionUrl = suppressImpression ? '' : `${baseUrl}/v1/tags/tracker/${tagId}/impression.gif`;
-    const clickTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/click`;
+    const impressionUrl = suppressImpression
+      ? ''
+      : `${baseUrl}/v1/tags/tracker/${tagId}/impression.gif${trackerSuffix}`;
+    const clickTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/click${trackerSuffix}`;
     const engagementTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/engagement`;
     const resolvedClickUrl = trimText(row.creative_click_url) || '';
 
@@ -432,7 +449,26 @@ export async function handleDisplayRoutes(ctx) {
     const row = await resolveActiveCreativeForTag(pool, tagId);
 
     const baseUrl = resolveBaseUrl(ctx);
-    const displayHtmlUrl = `${baseUrl}/v1/tags/display/${tagId}.html`;
+    const rawParams = url.searchParams;
+    const DSP_PASSTHROUGH_KEYS = [
+      'dsp', 'dom', 'purl', 'cuu', 'ifa', 'idfa', 'gadvid', 'iuid',
+      'cmpid', 'netid', 'srcpubid', 'ppos', 'trftype', 'carr', 'appid',
+      'appb', 'appn', 'appne', 'excid', 'excpubid', 'excsiddmn', 'sdmn',
+      'sid', 'cntlang', 'cnttitle', 'cntseries', 'cngen', 'ctxid', 'appstnm',
+      'gdpr', 'gdpr_consent', 'cs_gdpr', 'cs_gdpr_consent', 'us_privacy',
+      'cb', 'tmp', 'cmpne', 'cmpgrpid', 'adgne', 'adgid', 'crene', 'cresze',
+      'cretye', 'creid', 'wbrse', 'oprsye', 'lcc', 'lclat', 'lclong',
+      'dtyp', 'lcst',
+    ];
+    const forwardedParams = new URLSearchParams();
+    for (const key of DSP_PASSTHROUGH_KEYS) {
+      const val = rawParams.get(key);
+      if (val !== null && val !== '') forwardedParams.set(key, val);
+    }
+    const paramStr = forwardedParams.toString();
+    const displayHtmlUrl = paramStr
+      ? `${baseUrl}/v1/tags/display/${tagId}.html?${paramStr}`
+      : `${baseUrl}/v1/tags/display/${tagId}.html`;
     const width = row?.width || 300;
     const height = row?.height || 250;
 

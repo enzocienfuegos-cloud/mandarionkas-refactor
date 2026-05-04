@@ -5,6 +5,7 @@
 //
 import {
   applyDspMacrosToDeliveryUrl,
+  applyDspMacrosToUrl,
   buildVastWrapperSnippet,
   DSP_DELIVERY_KINDS,
   getDspMacroConfig,
@@ -40,24 +41,10 @@ export function normalizeServingBaseUrl(value) {
   return String(value ?? '').replace(/\/+$/, '').replace(/\/v1$/, '');
 }
 
-/**
- * Prepends macro-enriched tracker URL comments to a display snippet when a
- * recognized DSP is configured. The serving URL in the snippet itself is
- * always macro-free (CDN caching requirement). The comments let traffickers
- * inspect and copy the exact tracker URLs that the ad server fires internally.
- *
- * When no DSP is configured, returns the snippet unchanged.
- */
-function appendDisplayTrackerComments(snippet, impressionUrl, clickUrl, dsp) {
-  const config = getDspMacroConfig(dsp);
-  if (!dsp || !config) return snippet;
-  return (
-    `<!-- ${config.label} impression tracker (fired server-side at impression time):\n` +
-    `     ${impressionUrl} -->\n` +
-    `<!-- ${config.label} click tracker (fired server-side on click):\n` +
-    `     ${clickUrl} -->\n` +
-    snippet
-  );
+function getDefaultDisplayClickMacroValue(config) {
+  if (!config) return '';
+  const clickMacroKey = config.aliases?.clickMacro?.find((key) => key in (config.queryParams || {}));
+  return clickMacroKey ? String(config.queryParams[clickMacroKey] ?? '').trim() : '';
 }
 
 export function buildTagSnippet(tag, variant, servingBaseUrl, campaignDsp = '', diagnostics = null) {
@@ -66,15 +53,29 @@ export function buildTagSnippet(tag, variant, servingBaseUrl, campaignDsp = '', 
   const width = tag.width ?? 300;
   const height = tag.height ?? 250;
 
-  // Serving URLs are static — they deliver the HTML wrapper or JS loader to the browser.
-  // They must NOT carry DSP macros because:
-  //   1. The serving endpoint does not resolve macros ({domain}, {pageUrlEnc}, etc.)
-  //   2. Macro-laden URLs cannot be CDN-cached (every placement generates a unique URL)
-  //   3. URLs exceed 600 chars with 26 unused params — risk of truncation in some DSPs
-  // DSP macros belong only on tracker URLs (impression.gif, click, engagement).
+  // Display serving URLs can carry DSP macros so the DSP resolves them before
+  // handing the tag to the publisher. The .js loader then forwards the resolved
+  // values to the .html iframe, which appends them to impression/click trackers.
+  // Non-display tracker URLs still receive macro enrichment directly here.
   const displayJsUrl   = `${base}/v1/tags/display/${id}.js`;
   const displayHtmlUrl = `${base}/v1/tags/display/${id}.html`;
   const nativeJsUrl    = `${base}/v1/tags/native/${id}.js`;
+  const dspConfig = getDspMacroConfig(campaignDsp);
+  const displayClickMacroValue = getDefaultDisplayClickMacroValue(dspConfig);
+  const displayJsMacroUrl = dspConfig
+    ? applyDspMacrosToUrl(displayJsUrl, campaignDsp, {
+        includeDspHint: true,
+        includeClickMacro: true,
+        clickMacroValue: displayClickMacroValue,
+      })
+    : displayJsUrl;
+  const displayHtmlMacroUrl = dspConfig
+    ? applyDspMacrosToUrl(displayHtmlUrl, campaignDsp, {
+        includeDspHint: true,
+        includeClickMacro: true,
+        clickMacroValue: displayClickMacroValue,
+      })
+    : displayHtmlUrl;
 
   const trackerClickUrl = applyDspMacrosToDeliveryUrl(`${base}/v1/tags/tracker/${id}/click`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_CLICK);
   const trackerImpressionUrl = applyDspMacrosToDeliveryUrl(`${base}/v1/tags/tracker/${id}/impression.gif`, campaignDsp, DSP_DELIVERY_KINDS.TRACKER_IMPRESSION);
@@ -100,24 +101,20 @@ export function buildTagSnippet(tag, variant, servingBaseUrl, campaignDsp = '', 
       return vast4DynamicUrl;
     case 'vast-xml':
       return buildVastWrapperSnippet(id, campaignVastUrl);
-    case 'display-iframe': {
-      const baseSnippet = buildDisplayIframeSnippet({ displayHtmlUrl, width, height });
-      return appendDisplayTrackerComments(baseSnippet, trackerImpressionUrl, trackerClickUrl, campaignDsp);
-    }
-    case 'display-ins': {
-      const baseSnippet = buildDisplayInsSnippet({ displayHtmlUrl, tagId: id, width, height });
-      return appendDisplayTrackerComments(baseSnippet, trackerImpressionUrl, trackerClickUrl, campaignDsp);
-    }
+    case 'display-iframe':
+      return buildDisplayIframeSnippet({ displayHtmlUrl: displayHtmlMacroUrl, width, height });
+    case 'display-ins':
+      return buildDisplayInsSnippet({ displayHtmlUrl: displayHtmlMacroUrl, tagId: id, width, height });
     case 'native-js':
       return buildNativeJsSnippet({ nativeJsUrl, tagId: id });
     case 'tracker-impression':
       return trackerImpressionUrl;
     case 'tracker-click':
       return trackerClickUrl;
+    case 'display-js-no-macro':
+      return buildDisplayJsSnippet({ displayJsUrl, displayHtmlUrl, width, height });
     case 'display-js':
-    default: {
-      const baseSnippet = buildDisplayJsSnippet({ displayJsUrl, displayHtmlUrl, width, height });
-      return appendDisplayTrackerComments(baseSnippet, trackerImpressionUrl, trackerClickUrl, campaignDsp);
-    }
+    default:
+      return buildDisplayJsSnippet({ displayJsUrl: displayJsMacroUrl, displayHtmlUrl: displayHtmlMacroUrl, width, height });
   }
 }
