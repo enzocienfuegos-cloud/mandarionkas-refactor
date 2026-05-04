@@ -335,22 +335,51 @@ ${omidBlock}
 </html>`;
 }
 
-function buildDisplayJs({ displayHtmlUrl, width, height }) {
+export function buildDisplayJs({
+  creativeUrl,
+  impressionUrl,
+  clickTrackerUrl,
+  engagementTrackerUrl,
+  clickTag,
+  width,
+  height,
+}) {
   const w = Number(width) || 300;
   const h = Number(height) || 250;
+  const safeCreativeUrl = escapeScriptContext(JSON.stringify(creativeUrl || ''));
+  const safeImpression = impressionUrl ? escapeScriptContext(JSON.stringify(impressionUrl)) : 'null';
+  const safeClickTracker = clickTrackerUrl ? escapeScriptContext(JSON.stringify(clickTrackerUrl)) : 'null';
+  const safeEngagement = engagementTrackerUrl ? escapeScriptContext(JSON.stringify(engagementTrackerUrl)) : 'null';
+  const safeClickTag = clickTag ? escapeScriptContext(JSON.stringify(clickTag)) : 'null';
 
   return `(function(){
-  var src = ${escapeScriptContext(JSON.stringify(displayHtmlUrl))};
-  var w   = ${JSON.stringify(String(w))};
-  var h   = ${JSON.stringify(String(h))};
+  var creativeUrl       = ${safeCreativeUrl};
+  var impressionUrl     = ${safeImpression};
+  var clickTrackerUrl   = ${safeClickTracker};
+  var engagementUrl     = ${safeEngagement};
+  var clickTag          = ${safeClickTag};
+  var W = '${w}'; var H = '${h}';
+
+  if (!creativeUrl) return;
+
   var script = document.currentScript;
   if (!script) return;
   var parent = script.parentNode;
   if (!parent) return;
+
+  if (impressionUrl) (new Image()).src = impressionUrl;
+
+  if (clickTag) window.clickTag = clickTag;
+
+  var src = creativeUrl;
+  if (clickTag) {
+    src = creativeUrl + (creativeUrl.indexOf('?') === -1 ? '?' : '&') + 'clickTag=' + encodeURIComponent(clickTag);
+  }
+
   var iframe = document.createElement('iframe');
   iframe.src = src;
-  iframe.width  = w;
-  iframe.height = h;
+  iframe.width  = W;
+  iframe.height = H;
   iframe.scrolling = 'no';
   iframe.frameBorder = '0';
   iframe.marginWidth  = '0';
@@ -359,6 +388,64 @@ function buildDisplayJs({ displayHtmlUrl, width, height }) {
   iframe.style.overflow = 'hidden';
   iframe.style.display  = 'block';
   iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation');
+
+  if (clickTag) {
+    iframe.addEventListener('load', function() {
+      try {
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ type: 'smx:init', clickTag: clickTag }),
+          '*'
+        );
+      } catch(_) {}
+    });
+  }
+
+  window.addEventListener('message', function(e) {
+    try {
+      var data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+      if (!data || data.type !== 'smx:exit') return;
+      var dest = (typeof data.url === 'string' && data.url) ? data.url : '';
+      var resolvedClickUrl = dest || clickTag || '';
+      var navigateTo = resolvedClickUrl || clickTrackerUrl || '';
+      var isAlreadyTracked = clickTrackerUrl && resolvedClickUrl && resolvedClickUrl.indexOf(clickTrackerUrl) === 0;
+      if (clickTrackerUrl && !isAlreadyTracked) {
+        var t = clickTrackerUrl + (clickTrackerUrl.indexOf('?') === -1 ? '?' : '&') + 'url=' + encodeURIComponent(resolvedClickUrl || clickTrackerUrl);
+        try { fetch(t, { method: 'POST', keepalive: true, mode: 'no-cors', credentials: 'include' }); } catch(_) { (new Image()).src = t; }
+      }
+      if (navigateTo) {
+        try { window.top.location.href = navigateTo; } catch(_) { window.open(navigateTo, '_blank'); }
+      }
+    } catch(_) {}
+  });
+
+  (function() {
+    if (!engagementUrl) return;
+    var viewStart = null; var hoverStart = null; var flushed = false;
+    function sendBeacon(url) {
+      try { fetch(url, { method: 'GET', keepalive: true, mode: 'no-cors', credentials: 'include' }); } catch(_) { (new Image()).src = url; }
+    }
+    function flushView() { if (!viewStart) return; var d = Date.now() - viewStart; viewStart = null; if (d > 0) sendBeacon(engagementUrl + '?event=viewable&t=' + Math.round(d)); }
+    function flushHover() { if (!hoverStart) return; var d = Date.now() - hoverStart; hoverStart = null; if (d > 0) sendBeacon(engagementUrl + '?event=hover_end&t=' + Math.round(d)); }
+    function flush() { if (flushed) return; flushed = true; flushView(); flushHover(); }
+    if (typeof IntersectionObserver !== 'undefined') {
+      var isMRC = false; var mrcTimer = null;
+      new IntersectionObserver(function(entries) {
+        var ratio = entries[0].intersectionRatio;
+        if (ratio >= 0.5) { if (!isMRC) { mrcTimer = setTimeout(function() { isMRC = true; viewStart = Date.now(); }, 1000); } }
+        else { clearTimeout(mrcTimer); mrcTimer = null; if (isMRC) flushView(); isMRC = false; }
+      }, { threshold: [0, 0.5, 1.0] }).observe(iframe);
+    }
+    iframe.addEventListener('mouseenter', function() { flushed = false; hoverStart = Date.now(); });
+    iframe.addEventListener('mouseleave', flushHover);
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', flush);
+    setInterval(function() {
+      if (flushed) return;
+      if (viewStart) { var d = Date.now() - viewStart; if (d > 0) { sendBeacon(engagementUrl + '?event=viewable&t=' + Math.round(d)); viewStart = Date.now(); } }
+      if (hoverStart) { var d2 = Date.now() - hoverStart; if (d2 > 0) { sendBeacon(engagementUrl + '?event=hover_end&t=' + Math.round(d2)); hoverStart = Date.now(); } }
+    }, 5000);
+  })();
+
   parent.insertBefore(iframe, script);
   parent.removeChild(script);
 })();`;
@@ -449,30 +536,56 @@ export async function handleDisplayRoutes(ctx) {
     const row = await resolveActiveCreativeForTag(pool, tagId);
 
     const baseUrl = resolveBaseUrl(ctx);
-    const rawParams = url.searchParams;
-    const DSP_PASSTHROUGH_KEYS = [
+    const DSP_TRACKER_KEYS = [
       'dsp', 'dom', 'purl', 'cuu', 'ifa', 'idfa', 'gadvid', 'iuid',
       'cmpid', 'netid', 'srcpubid', 'ppos', 'trftype', 'carr', 'appid',
       'appb', 'appn', 'appne', 'excid', 'excpubid', 'excsiddmn', 'sdmn',
       'sid', 'cntlang', 'cnttitle', 'cntseries', 'cngen', 'ctxid', 'appstnm',
-      'gdpr', 'gdpr_consent', 'cs_gdpr', 'cs_gdpr_consent', 'us_privacy',
+      'gdpr', 'gdpr_consent', 'us_privacy',
       'cb', 'tmp', 'cmpne', 'cmpgrpid', 'adgne', 'adgid', 'crene', 'cresze',
       'cretye', 'creid', 'wbrse', 'oprsye', 'lcc', 'lclat', 'lclong',
       'dtyp', 'lcst',
     ];
-    const forwardedParams = new URLSearchParams();
-    for (const key of DSP_PASSTHROUGH_KEYS) {
-      const val = rawParams.get(key);
-      if (val !== null && val !== '') forwardedParams.set(key, val);
+    const trackerParams = new URLSearchParams();
+    for (const key of DSP_TRACKER_KEYS) {
+      const val = url.searchParams.get(key);
+      if (val !== null && val !== '') trackerParams.set(key, val);
     }
-    const paramStr = forwardedParams.toString();
-    const displayHtmlUrl = paramStr
-      ? `${baseUrl}/v1/tags/display/${tagId}.html?${paramStr}`
-      : `${baseUrl}/v1/tags/display/${tagId}.html`;
+    const trackerSuffix = trackerParams.toString() ? `?${trackerParams.toString()}` : '';
     const width = row?.width || 300;
     const height = row?.height || 250;
 
-    return sendJs(res, buildDisplayJs({ displayHtmlUrl, width, height }));
+    if (!row || !trimText(row.public_url)) {
+      return sendJs(res, `(function(){
+  var w='${width}',h='${height}';
+  var script=document.currentScript;if(!script)return;
+  var el=document.createElement('div');
+  el.style.cssText='display:inline-block;width:'+w+'px;height:'+h+'px;background:transparent;';
+  script.parentNode&&script.parentNode.insertBefore(el,script);
+  script.parentNode&&script.parentNode.removeChild(script);
+})();`);
+    }
+
+    const suppressImpression = url.searchParams.get('smx_no_imp') === '1';
+    const impressionUrl = suppressImpression ? '' : `${baseUrl}/v1/tags/tracker/${tagId}/impression.gif${trackerSuffix}`;
+    const clickTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/click${trackerSuffix}`;
+    const engagementTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/engagement`;
+    const resolvedClickUrl = trimText(row.creative_click_url) || '';
+    const clickTag = clickTrackerUrl
+      ? (resolvedClickUrl
+          ? `${clickTrackerUrl}?url=${encodeURIComponent(resolvedClickUrl)}`
+          : clickTrackerUrl)
+      : resolvedClickUrl;
+
+    return sendJs(res, buildDisplayJs({
+      creativeUrl: trimText(row.public_url),
+      impressionUrl,
+      clickTrackerUrl,
+      engagementTrackerUrl,
+      clickTag,
+      width,
+      height,
+    }));
   }
 
   if (method === 'GET' && /^\/v1\/tags\/native\/[^/]+\.js$/.test(pathname)) {
@@ -494,7 +607,15 @@ export async function handleDisplayRoutes(ctx) {
     const width = row?.width || 300;
     const height = row?.height || 250;
 
-    return sendJs(res, buildDisplayJs({ displayHtmlUrl, width, height }));
+    return sendJs(res, buildDisplayJs({
+      creativeUrl: displayHtmlUrl,
+      impressionUrl: '',
+      clickTrackerUrl: '',
+      engagementTrackerUrl: '',
+      clickTag: '',
+      width,
+      height,
+    }));
   }
 
   return false;

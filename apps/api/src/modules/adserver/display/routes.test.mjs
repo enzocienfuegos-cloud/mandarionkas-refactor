@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildDisplayHtml, pickWeightedCreativeRow } from './routes.mjs';
+import { buildDisplayHtml, buildDisplayJs, pickWeightedCreativeRow } from './routes.mjs';
 
 test('pickWeightedCreativeRow ignores rows without public_url', () => {
   const row = pickWeightedCreativeRow([
@@ -131,5 +131,164 @@ test('buildDisplayHtml does not add measurement block when engagementTrackerUrl 
   assert.ok(
     html.includes('var engagementTracker = null'),
     'engagementTracker should be null when no URL provided',
+  );
+});
+
+test('buildDisplayJs fires impression pixel immediately when impressionUrl is provided', () => {
+  const js = buildDisplayJs({
+    creativeUrl: 'https://cdn.example.com/banner/index.html',
+    impressionUrl: 'https://api.example.com/v1/tags/tracker/tag-1/impression.gif',
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    engagementTrackerUrl: '',
+    clickTag: 'https://api.example.com/v1/tags/tracker/tag-1/click?url=https%3A%2F%2Fadvertiser.com',
+    width: 300,
+    height: 250,
+  });
+
+  assert.ok(
+    js.includes('if (impressionUrl) (new Image()).src = impressionUrl;'),
+    'JS should fire impression pixel immediately',
+  );
+  assert.ok(
+    js.includes('var impressionUrl     = "https://api.example.com/v1/tags/tracker/tag-1/impression.gif";'),
+    'JS should embed the provided impression tracker URL',
+  );
+});
+
+test('buildDisplayJs creates iframe pointing directly to creative public_url', () => {
+  const js = buildDisplayJs({
+    creativeUrl: 'https://cdn.example.com/banner/index.html',
+    impressionUrl: '',
+    clickTrackerUrl: '',
+    engagementTrackerUrl: '',
+    clickTag: '',
+    width: 300,
+    height: 250,
+  });
+
+  assert.ok(
+    js.includes('var src = creativeUrl;'),
+    'JS should derive iframe src from the creative URL directly',
+  );
+  assert.ok(
+    js.includes('iframe.src = src;'),
+    'iframe should be assigned from the derived creative src',
+  );
+  assert.ok(
+    !js.includes('/v1/tags/display/') ,
+    'JS should not point iframe to display/{id}.html wrapper',
+  );
+});
+
+test('buildDisplayJs appends clickTag query param to creative URL', () => {
+  const js = buildDisplayJs({
+    creativeUrl: 'https://cdn.example.com/banner/index.html',
+    impressionUrl: '',
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    engagementTrackerUrl: '',
+    clickTag: 'https://api.example.com/v1/tags/tracker/tag-1/click?url=https%3A%2F%2Fadvertiser.com',
+    width: 300,
+    height: 250,
+  });
+
+  assert.ok(
+    js.includes('clickTag='),
+    'creative iframe URL should contain clickTag query param',
+  );
+  assert.ok(
+    js.includes("src = creativeUrl + (creativeUrl.indexOf('?') === -1 ? '?' : '&') + 'clickTag=' + encodeURIComponent(clickTag);"),
+    'clickTag query param should be the tracker URL with advertiser encoded',
+  );
+});
+
+test('buildDisplayJs includes postMessage listener for smx:exit', () => {
+  const js = buildDisplayJs({
+    creativeUrl: 'https://cdn.example.com/banner/index.html',
+    impressionUrl: '',
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    engagementTrackerUrl: '',
+    clickTag: 'https://api.example.com/v1/tags/tracker/tag-1/click?url=https%3A%2F%2Fadvertiser.com',
+    width: 300,
+    height: 250,
+  });
+
+  assert.ok(
+    js.includes("window.addEventListener('message'"),
+    'JS should listen for postMessage events from the banner',
+  );
+  assert.ok(
+    js.includes("data.type !== 'smx:exit'"),
+    'JS should handle smx:exit protocol',
+  );
+  assert.ok(
+    js.includes('window.top.location.href = navigateTo'),
+    'JS should navigate top window after click',
+  );
+});
+
+test('buildDisplayJs includes engagement tracking when engagementTrackerUrl is provided', () => {
+  const js = buildDisplayJs({
+    creativeUrl: 'https://cdn.example.com/banner/index.html',
+    impressionUrl: '',
+    clickTrackerUrl: '',
+    engagementTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/engagement',
+    clickTag: '',
+    width: 300,
+    height: 250,
+  });
+
+  assert.ok(
+    js.includes('IntersectionObserver'),
+    'JS should include IntersectionObserver for viewability tracking',
+  );
+  assert.ok(
+    js.includes('event=viewable'),
+    'JS should send viewable event beacons',
+  );
+  assert.ok(
+    js.includes('event=hover_end'),
+    'JS should send hover_end event beacons',
+  );
+});
+
+test('buildDisplayJs skips impression pixel when impressionUrl is empty', () => {
+  const js = buildDisplayJs({
+    creativeUrl: 'https://cdn.example.com/banner/index.html',
+    impressionUrl: '',
+    clickTrackerUrl: '',
+    engagementTrackerUrl: '',
+    clickTag: '',
+    width: 300,
+    height: 250,
+  });
+
+  assert.ok(
+    js.includes('var impressionUrl     = null;'),
+    'JS should null out impression tracking when no impressionUrl is provided',
+  );
+});
+
+test('buildDisplayJs removes the script tag and inserts the iframe in its place', () => {
+  const js = buildDisplayJs({
+    creativeUrl: 'https://cdn.example.com/banner/index.html',
+    impressionUrl: '',
+    clickTrackerUrl: '',
+    engagementTrackerUrl: '',
+    clickTag: '',
+    width: 300,
+    height: 250,
+  });
+
+  assert.ok(
+    js.includes('document.currentScript'),
+    'JS should locate the currently executing script tag',
+  );
+  assert.ok(
+    js.includes('parent.insertBefore(iframe, script)'),
+    'JS should insert iframe before script tag',
+  );
+  assert.ok(
+    js.includes('parent.removeChild(script)'),
+    'JS should remove the original script tag',
   );
 });
