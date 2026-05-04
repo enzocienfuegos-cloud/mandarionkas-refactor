@@ -1,4 +1,5 @@
 import { getPool } from '@smx/db/src/pool.mjs';
+import { wrapTrackedClickUrlWithDspMacro } from '../../../../../../packages/contracts/src/dsp-macros.mjs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -116,7 +117,7 @@ async function resolveActiveCreativeForTag(pool, tagId) {
   }
 }
 
-export function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, engagementTrackerUrl, impressionUrl, clickUrl, omidVerification }) {
+export function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, engagementTrackerUrl, impressionUrl, clickUrl, clickTag, omidVerification }) {
   const w = Number(width) || 300;
   const h = Number(height) || 250;
   const safeCreativeUrl = trimText(creativeUrl);
@@ -142,11 +143,13 @@ export function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, 
 
   const safeImpressionJs = safeImpression ? escapeScriptContext(JSON.stringify(safeImpression)) : null;
   const safeClickTrackerJs = safeClickTracker ? escapeScriptContext(JSON.stringify(safeClickTracker)) : 'null';
-  const trackedClickTag = safeClickTracker
-    ? (safeClickUrl
-        ? `${safeClickTracker}?url=${encodeURIComponent(safeClickUrl)}`
-        : safeClickTracker)
-    : safeClickUrl;
+  const trackedClickTag = trimText(clickTag) || (
+    safeClickTracker
+      ? (safeClickUrl
+          ? `${safeClickTracker}?url=${encodeURIComponent(safeClickUrl)}`
+          : safeClickTracker)
+      : safeClickUrl
+  );
   const clickTagBlock = trackedClickTag
     ? `<script>var clickTag=${escapeScriptContext(JSON.stringify(trackedClickTag))};window.clickTag=clickTag;</script>`
     : '';
@@ -494,6 +497,7 @@ export async function handleDisplayRoutes(ctx) {
       const val = url.searchParams.get(key);
       if (val !== null && val !== '') trackerParams.set(key, val);
     }
+    const dspQuery = Object.fromEntries(url.searchParams.entries());
     const trackerSuffix = trackerParams.toString() ? `?${trackerParams.toString()}` : '';
     const suppressImpression = url.searchParams.get('smx_no_imp') === '1';
     const impressionUrl = suppressImpression
@@ -502,6 +506,12 @@ export async function handleDisplayRoutes(ctx) {
     const clickTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/click${trackerSuffix}`;
     const engagementTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/engagement`;
     const resolvedClickUrl = trimText(row.creative_click_url) || '';
+    const baseClickTag = clickTrackerUrl
+      ? (resolvedClickUrl
+          ? `${clickTrackerUrl}${clickTrackerUrl.includes('?') ? '&' : '?'}url=${encodeURIComponent(resolvedClickUrl)}`
+          : clickTrackerUrl)
+      : resolvedClickUrl;
+    const wrappedClickTag = wrapTrackedClickUrlWithDspMacro(baseClickTag, dspQuery, dspQuery.smx_dsp || dspQuery.dsp);
 
     const html = buildDisplayHtml({
       creativeUrl: row.public_url ?? '',
@@ -511,6 +521,7 @@ export async function handleDisplayRoutes(ctx) {
       engagementTrackerUrl,
       impressionUrl,
       clickUrl: resolvedClickUrl,
+      clickTag: wrappedClickTag,
       omidVerification: {
         vendor: trimText(row.omid_verification_vendor),
         jsUrl: trimText(row.omid_verification_js_url),
@@ -551,6 +562,7 @@ export async function handleDisplayRoutes(ctx) {
       const val = url.searchParams.get(key);
       if (val !== null && val !== '') trackerParams.set(key, val);
     }
+    const dspQuery = Object.fromEntries(url.searchParams.entries());
     const trackerSuffix = trackerParams.toString() ? `?${trackerParams.toString()}` : '';
     const width = row?.width || 300;
     const height = row?.height || 250;
@@ -571,11 +583,12 @@ export async function handleDisplayRoutes(ctx) {
     const clickTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/click${trackerSuffix}`;
     const engagementTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/engagement`;
     const resolvedClickUrl = trimText(row.creative_click_url) || '';
-    const clickTag = clickTrackerUrl
+    const baseClickTag = clickTrackerUrl
       ? (resolvedClickUrl
-          ? `${clickTrackerUrl}?url=${encodeURIComponent(resolvedClickUrl)}`
+          ? `${clickTrackerUrl}${clickTrackerUrl.includes('?') ? '&' : '?'}url=${encodeURIComponent(resolvedClickUrl)}`
           : clickTrackerUrl)
       : resolvedClickUrl;
+    const clickTag = wrapTrackedClickUrlWithDspMacro(baseClickTag, dspQuery, dspQuery.smx_dsp || dspQuery.dsp);
 
     return sendJs(res, buildDisplayJs({
       creativeUrl: trimText(row.public_url),

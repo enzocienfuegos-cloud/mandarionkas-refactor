@@ -86,6 +86,29 @@ test('buildDisplayHtml uses tracker URL as clickTag even when clickUrl is empty'
   );
 });
 
+test('buildDisplayHtml prefers explicit clickTag override when provided', () => {
+  const html = buildDisplayHtml({
+    creativeUrl: 'https://cdn.example.com/index.html',
+    width: 300,
+    height: 250,
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    engagementTrackerUrl: '',
+    impressionUrl: '',
+    clickUrl: 'https://advertiser.com/landing',
+    clickTag: 'https://basis.example/click?redir=https%3A%2F%2Fapi.example.com%2Fv1%2Ftags%2Ftracker%2Ftag-1%2Fclick%3Furl%3Dhttps%253A%252F%252Fadvertiser.com%252Flanding',
+    omidVerification: {},
+  });
+
+  assert.ok(
+    html.includes('clickTag=https%3A%2F%2Fbasis.example%2Fclick'),
+    'iframeSrc should honor explicit macro-wrapped clickTag override',
+  );
+  assert.ok(
+    !html.includes('clickTag=https%3A%2F%2Fapi.example.com%2Fv1%2Ftags%2Ftracker%2Ftag-1%2Fclick'),
+    'explicit clickTag override should replace the default tracker URL',
+  );
+});
+
 test('buildDisplayHtml includes engagementTracker variable when engagementTrackerUrl is provided', () => {
   const html = buildDisplayHtml({
     creativeUrl: 'https://cdn.example.com/index.html',
