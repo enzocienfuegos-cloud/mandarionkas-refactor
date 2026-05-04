@@ -1,4 +1,4 @@
-export async function stitchByIfa(pool, workspaceId) {
+export async function stitchByIfa(pool, workspaceId, lookbackDays = 1) {
   const { rows } = await pool.query(
     `WITH ip_pairs AS (
        SELECT a.device_id AS older_id, b.device_id AS newer_id, a.workspace_id
@@ -10,6 +10,7 @@ export async function stitchByIfa(pool, workspaceId) {
          AND a.timestamp::date = b.timestamp::date
        WHERE a.workspace_id = $1
          AND a.ip_fingerprint IS NOT NULL
+         AND a.timestamp >= NOW() - ($2 || ' days')::interval
          AND COALESCE(a.device_id, '') <> ''
          AND COALESCE(b.device_id, '') <> ''
      )
@@ -19,7 +20,7 @@ export async function stitchByIfa(pool, workspaceId) {
        GREATEST(p.older_id, p.newer_id) AS aliased_id
      FROM ip_pairs p
      WHERE p.older_id <> p.newer_id`,
-    [workspaceId],
+    [workspaceId, lookbackDays],
   );
 
   if (rows.length === 0) return 0;
@@ -37,7 +38,7 @@ export async function stitchByIfa(pool, workspaceId) {
   return rows.length;
 }
 
-export async function stitchBySoftFingerprint(pool, workspaceId) {
+export async function stitchBySoftFingerprint(pool, workspaceId, lookbackDays = 1) {
   const { rows } = await pool.query(
     `SELECT DISTINCT
        a.workspace_id,
@@ -51,9 +52,10 @@ export async function stitchBySoftFingerprint(pool, workspaceId) {
        AND ABS(EXTRACT(EPOCH FROM (a.timestamp - b.timestamp))) < 86400
      WHERE a.workspace_id = $1
        AND a.soft_fingerprint IS NOT NULL
+       AND a.timestamp >= NOW() - ($2 || ' days')::interval
        AND COALESCE(a.device_id, '') <> ''
        AND COALESCE(b.device_id, '') <> ''`,
-    [workspaceId],
+    [workspaceId, lookbackDays],
   );
 
   if (rows.length === 0) return 0;

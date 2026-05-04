@@ -1,4 +1,4 @@
-import { flushTrackerBatch } from '@smx/db/src/tracking.mjs';
+import { writeTrackerEventsToStaging } from '@smx/db/src/tracking.mjs';
 import { logError, logInfo } from '../../../lib/logger.mjs';
 
 const DEFAULT_FLUSH_INTERVAL_MS = 5_000;
@@ -93,32 +93,41 @@ export class TrackerBuffer {
     if (this.#pendingCount === 0) return;
 
     this.#flushing = true;
-    const batch = {
-      impressions: this.#impressions,
-      clicks: this.#clicks,
-      engagements: this.#engagements,
-    };
+    const impressions = this.#impressions;
+    const clicks = this.#clicks;
+    const engagements = this.#engagements;
     this.#impressions = new Map();
     this.#clicks = new Map();
     this.#engagements = new Map();
     this.#pendingCount = 0;
 
     try {
-      const result = await flushTrackerBatch(this.#pool, batch);
-      logInfo({
-        service: 'smx-tracker-buffer',
-        event: 'flushed',
-        impressions: result.impressions,
-        clicks: result.clicks,
-        engagements: result.engagements,
-      });
+      await writeTrackerEventsToStaging(this.#pool, { impressions, clicks, engagements });
+      logInfo({ service: 'smx-tracker-buffer', event: 'staging_written' });
     } catch (err) {
       logError({
         service: 'smx-tracker-buffer',
-        event: 'flush_error',
+        event: 'staging_write_error',
         message: err?.message,
-        error: err,
       });
+      for (const [k, v] of impressions) {
+        this.#impressions.set(k, (this.#impressions.get(k) ?? 0) + v);
+        this.#pendingCount += v;
+      }
+      for (const [k, v] of clicks) {
+        this.#clicks.set(k, (this.#clicks.get(k) ?? 0) + v);
+        this.#pendingCount += v;
+      }
+      for (const [k, entry] of engagements) {
+        const existing = this.#engagements.get(k);
+        if (existing) {
+          existing.count += entry.count;
+          existing.durationMs += entry.durationMs;
+        } else {
+          this.#engagements.set(k, { ...entry });
+        }
+        this.#pendingCount += entry.count;
+      }
     } finally {
       this.#flushing = false;
     }

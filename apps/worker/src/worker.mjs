@@ -36,6 +36,7 @@ import { runExtractMetadataJob } from './jobs/extract-metadata.mjs';
 import { runGenerateThumbnailsJob } from './jobs/generate-thumbnails.mjs';
 import { runMaintenanceJob } from './jobs/maintenance.mjs';
 import { runPublishHtml5ArchiveJob } from './jobs/publish-html5-archive.mjs';
+import { JOB_NAME as TRACKER_FLUSH_JOB, runTrackerFlushJob } from './jobs/tracker-flush.mjs';
 import { runTranscodeVideoJob } from './jobs/transcode-video.mjs';
 import {
   ensureBossStarted,
@@ -83,6 +84,12 @@ async function handleMaintenance(job) {
   log('info', { event: 'job_done', queue: QUEUE.MAINTENANCE, pgbossJobId: job.id, ...result });
 }
 
+async function handleTrackerFlush(job) {
+  log('info', { event: 'job_start', queue: TRACKER_FLUSH_JOB, pgbossJobId: job.id });
+  const result = await runTrackerFlushJob();
+  log('info', { event: 'job_done', queue: TRACKER_FLUSH_JOB, pgbossJobId: job.id, ...result });
+}
+
 // ─── Work registration ────────────────────────────────────────────────────────
 
 async function registerHandlers() {
@@ -99,6 +106,8 @@ async function registerHandlers() {
 
   // Maintenance: at most 1 at a time
   await boss.work(QUEUE.MAINTENANCE, { teamSize: 1, teamConcurrency: 1 }, handleMaintenance);
+  await boss.work(TRACKER_FLUSH_JOB, { teamSize: 1, teamConcurrency: 1 }, handleTrackerFlush);
+  await boss.schedule(TRACKER_FLUSH_JOB, '*/10 * * * * *');
 
   log('info', { event: 'handlers_registered', queues: Object.values(QUEUE) });
 }

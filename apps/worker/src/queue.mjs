@@ -52,6 +52,7 @@ export const QUEUE = Object.freeze({
   IMAGE_DERIVATIVES:  'smx.image-derivatives',
   PUBLISH_HTML5_ARCHIVE: 'smx.publish-html5-archive',
   MAINTENANCE:        'smx.maintenance',
+  TRACKER_FLUSH:      'smx.tracker.flush',
 });
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
@@ -128,6 +129,7 @@ export async function ensureBossStarted(source = process.env) {
     await instance.createQueue(QUEUE.IMAGE_DERIVATIVES);
     await instance.createQueue(QUEUE.PUBLISH_HTML5_ARCHIVE);
     await instance.createQueue(QUEUE.MAINTENANCE);
+    await instance.createQueue(QUEUE.TRACKER_FLUSH);
     boss = instance;
 
     console.log(JSON.stringify({
@@ -247,6 +249,17 @@ export async function sendMaintenanceJob(opts = {}) {
     singletonSeconds:  25,     // deduplicate within 25s windows (matches 30s poll)
     retryLimit:        1,
     expireInSeconds:   120,
+    ...opts,
+  });
+}
+
+export async function sendTrackerFlushJob(opts = {}) {
+  const b = getBoss();
+  return b.send(QUEUE.TRACKER_FLUSH, {}, {
+    singletonKey: 'global',
+    singletonSeconds: 8,
+    retryLimit: 1,
+    expireInSeconds: 60,
     ...opts,
   });
 }

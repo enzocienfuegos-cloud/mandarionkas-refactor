@@ -299,3 +299,45 @@ export async function deleteTag(pool, workspaceId, id) {
   );
   return rowCount > 0;
 }
+
+export async function resolveActiveCreativeForTag(pool, tagId) {
+  if (!pool || !tagId) return null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+         t.id AS tag_id,
+         t.frequency_cap,
+         t.frequency_cap_window,
+         t.omid_verification_vendor,
+         t.omid_verification_js_url,
+         t.omid_verification_params,
+         COALESCE(tfc.display_width, 0) AS width,
+         COALESCE(tfc.display_height, 0) AS height,
+         b.id AS binding_id,
+         b.weight,
+         b.created_at AS binding_created_at,
+         cv.public_url,
+         cv.entry_path,
+         cv.source_kind,
+         cv.serving_format,
+         c.click_url AS creative_click_url
+       FROM ad_tags t
+       LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
+       JOIN creative_tag_bindings b
+         ON b.tag_id = t.id
+        AND b.status = 'active'
+        AND (b.start_at IS NULL OR b.start_at <= NOW())
+        AND (b.end_at IS NULL OR b.end_at >= NOW())
+       JOIN creative_versions cv
+         ON cv.id = b.creative_version_id
+        AND cv.status IN ('published', 'approved', 'draft')
+       JOIN creatives c ON c.id = cv.creative_id
+       WHERE t.id = $1 AND t.status = 'active'
+       ORDER BY b.created_at DESC NULLS LAST`,
+      [tagId],
+    );
+    return rows;
+  } catch {
+    return null;
+  }
+}

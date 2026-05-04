@@ -259,3 +259,38 @@ export async function flushTrackerBatch(pool, batch) {
     client.release();
   }
 }
+
+export async function writeTrackerEventsToStaging(pool, { impressions, clicks, engagements }) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const tagIds = new Set([...(impressions?.keys?.() ?? []), ...(clicks?.keys?.() ?? [])]);
+    for (const tagId of tagIds) {
+      const imp = impressions.get(tagId) ?? 0;
+      const clk = clicks.get(tagId) ?? 0;
+      if (imp === 0 && clk === 0) continue;
+      await client.query(
+        `INSERT INTO tracker_events_staging (tag_id, event_date, impressions, clicks)
+         VALUES ($1, CURRENT_DATE, $2, $3)`,
+        [tagId, imp, clk],
+      );
+    }
+
+    for (const [, entry] of engagements ?? new Map()) {
+      await client.query(
+        `INSERT INTO tracker_engagement_staging (tag_id, event_date, event_type, event_count, duration_ms)
+         VALUES ($1, CURRENT_DATE, $2, $3, $4)`,
+        [entry.tagId, entry.eventType, entry.count, entry.durationMs],
+      );
+    }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw err;
+  } finally {
+    client.release();
+  }
+}

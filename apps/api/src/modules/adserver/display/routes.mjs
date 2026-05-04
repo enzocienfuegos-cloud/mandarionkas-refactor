@@ -1,4 +1,5 @@
 import { getPool } from '@smx/db/src/pool.mjs';
+import { resolveActiveCreativeForTag as resolveActiveCreativeForTagRows } from '@smx/db/src/tags.mjs';
 import { wrapTrackedClickUrlWithDspMacro } from '../../../../../../packages/contracts/src/dsp-macros.mjs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -72,49 +73,6 @@ export function pickWeightedCreativeRow(rows, random = Math.random) {
   }
 
   return candidates[candidates.length - 1];
-}
-
-async function resolveActiveCreativeForTag(pool, tagId) {
-  if (!pool || !tagId) return null;
-  try {
-    const { rows } = await pool.query(
-       `SELECT
-         t.id            AS tag_id,
-         t.frequency_cap,
-         t.frequency_cap_window,
-         t.omid_verification_vendor,
-         t.omid_verification_js_url,
-         t.omid_verification_params,
-         COALESCE(tfc.display_width, 0)  AS width,
-         COALESCE(tfc.display_height, 0) AS height,
-         b.id AS binding_id,
-         b.weight,
-         b.created_at AS binding_created_at,
-         cv.public_url,
-         cv.entry_path,
-         cv.source_kind,
-         cv.serving_format,
-         c.click_url     AS creative_click_url
-       FROM ad_tags t
-       LEFT JOIN tag_format_configs tfc ON tfc.tag_id = t.id
-       JOIN creative_tag_bindings b
-         ON b.tag_id = t.id
-        AND b.status = 'active'
-        AND (b.start_at IS NULL OR b.start_at <= NOW())
-        AND (b.end_at   IS NULL OR b.end_at   >= NOW())
-       JOIN creative_versions cv
-         ON cv.id = b.creative_version_id
-             AND cv.status IN ('published', 'approved', 'draft')
-       JOIN creatives c ON c.id = cv.creative_id
-       WHERE t.id = $1
-         AND t.status = 'active'
-       ORDER BY b.created_at DESC NULLS LAST`,
-      [tagId],
-    );
-    return pickWeightedCreativeRow(rows);
-  } catch {
-    return null;
-  }
 }
 
 export function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, engagementTrackerUrl, impressionUrl, clickUrl, clickTag, omidVerification }) {
@@ -476,7 +434,8 @@ export async function handleDisplayRoutes(ctx) {
     const tagId = rawId;
 
     const pool = getDatabasePool(env);
-    const row = await resolveActiveCreativeForTag(pool, tagId);
+    const rows = await resolveActiveCreativeForTagRows(pool, tagId);
+    const row = pickWeightedCreativeRow(rows);
 
     if (!row) {
       return sendHtml(res, '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><!-- smx: no content --></body></html>');
@@ -544,7 +503,8 @@ export async function handleDisplayRoutes(ctx) {
     const tagId = rawId;
 
     const pool = getDatabasePool(env);
-    const row = await resolveActiveCreativeForTag(pool, tagId);
+    const rows = await resolveActiveCreativeForTagRows(pool, tagId);
+    const row = pickWeightedCreativeRow(rows);
 
     const baseUrl = resolveBaseUrl(ctx);
     const DSP_TRACKER_KEYS = [
@@ -613,7 +573,8 @@ export async function handleDisplayRoutes(ctx) {
     const tagId = rawId;
 
     const pool = getDatabasePool(env);
-    const row = await resolveActiveCreativeForTag(pool, tagId);
+    const rows = await resolveActiveCreativeForTagRows(pool, tagId);
+    const row = pickWeightedCreativeRow(rows);
 
     const baseUrl = resolveBaseUrl(ctx);
     const displayHtmlUrl = `${baseUrl}/v1/tags/display/${tagId}.html`;

@@ -20,6 +20,7 @@ import { recordFrequencyCapImpression } from '@smx/db/src/frequency-cap.mjs';
 import { resolveDeviceId } from '../../../lib/device-id.mjs';
 import { hashIp } from '../../../lib/ip-fingerprint.mjs';
 import { logWarn } from '../../../lib/logger.mjs';
+import { queueImpressionEventWrite, resolveTagWorkspaceId } from './service.mjs';
 
 const PIXEL_GIF = Buffer.from(
   'R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==',
@@ -150,21 +151,6 @@ function getDatabasePool(env) {
   return connectionString ? getPool(connectionString) : null;
 }
 
-// Fetch workspace_id for a tag — needed for frequency cap recording.
-// Returns null gracefully if DB is unavailable or tag not found.
-async function getTagWorkspaceId(pool, tagId) {
-  if (!pool || !tagId) return null;
-  try {
-    const { rows } = await pool.query(
-      `SELECT workspace_id FROM ad_tags WHERE id = $1 LIMIT 1`,
-      [tagId],
-    );
-    return rows[0]?.workspace_id ?? null;
-  } catch {
-    return null;
-  }
-}
-
 function extractTrackingContext(req, url, geo) {
   const p = url.searchParams;
   const rawPageUrl = trimText(
@@ -268,7 +254,7 @@ export function createTrackerRoutes(buffer = null) {
 
       // S46 + S61: Frequency cap + identity capture, fire-and-forget.
       if (pool) {
-        getTagWorkspaceId(pool, tagId).then((workspaceId) => {
+        resolveTagWorkspaceId(pool, tagId).then((workspaceId) => {
           if (!workspaceId) return;
 
           if (deviceId) {
@@ -340,67 +326,47 @@ export function createTrackerRoutes(buffer = null) {
             ipFingerprint || sfTz || sfLang || sfScr || sfTouch !== null || sfMem !== null || sfCpu !== null ||
             inferredContext !== 'unknown'
             ) {
-            pool.query(
-              `INSERT INTO impression_events
-                 (tag_id, workspace_id, ip, user_agent, country, region, city, site_domain, referer,
-                  device_id, device_type, device_model, browser, os, network_id, source_publisher_id,
-                  app_id, site_id, exchange_id, exchange_publisher_id, exchange_site_id_or_domain,
-                  app_bundle, app_name, page_position, content_language, content_title, content_series,
-                  carrier, app_store_name, content_genre, contextual_ids, ip_fingerprint,
-                  sf_timezone, sf_language, sf_screen, sf_touch, sf_mem_gb, sf_cpu_cores, inferred_context)
-               VALUES ($1, $2, $3::inet, $4, $5, $6, $7, $8, $9,
-                       $10, $11, $12, $13, $14, $15, $16,
-                       $17, $18, $19, $20, $21,
-                       $22, $23, $24, $25, $26, $27,
-                       $28, $29, $30, $31, $32,
-                       $33, $34, $35, $36, $37, $38, $39)`,
-              [
-                tagId,
-                workspaceId,
-                remoteIp || null,
-                userAgent,
-                country,
-                region,
-                city,
-                trackingContext.siteDomain,
-                trackingContext.referer,
-                deviceId || deviceIdSignal,
-                deviceType || null,
-                deviceModel,
-                browser || null,
-                os || null,
-                networkId,
-                sourcePublisherId,
-                appId,
-                siteId,
-                exchangeId,
-                exchangePublisherId,
-                exchangeSiteIdOrDomain,
-                appBundle,
-                appName,
-                pagePosition,
-                contentLanguage,
-                contentTitle,
-                contentSeries,
-                carrier,
-                appStoreName,
-                contentGenre,
-                contextualIds,
-                ipFingerprint,
-                sfTz,
-                sfLang,
-                sfScr,
-                sfTouch,
-                sfMem,
-                sfCpu,
-                inferredContext || 'unknown',
-              ],
-            ).catch((err) => logWarn({
-              service: 'smx-tracker',
-              fn: 'impression_identity_write',
+            queueImpressionEventWrite(pool, {
               tagId,
-              message: err?.message ?? String(err),
-            }));
+              workspaceId,
+              remoteIp,
+              userAgent,
+              country,
+              region,
+              city,
+              siteDomain: trackingContext.siteDomain,
+              referer: trackingContext.referer,
+              deviceId: deviceId || deviceIdSignal,
+              deviceType: deviceType || null,
+              deviceModel,
+              browser: browser || null,
+              os: os || null,
+              networkId,
+              sourcePublisherId,
+              appId,
+              siteId,
+              exchangeId,
+              exchangePublisherId,
+              exchangeSiteIdOrDomain,
+              appBundle,
+              appName,
+              pagePosition,
+              contentLanguage,
+              contentTitle,
+              contentSeries,
+              carrier,
+              appStoreName,
+              contentGenre,
+              contextualIds,
+              ipFingerprint,
+              sfTz,
+              sfLang,
+              sfScr,
+              sfTouch,
+              sfMem,
+              sfCpu,
+              inferredContext: inferredContext || 'unknown',
+            });
             }
           });
         }).catch(() => undefined);
@@ -444,7 +410,7 @@ export function createTrackerRoutes(buffer = null) {
       if (pool) {
         const geo = resolveGeoContext(req, url);
         const trackingContext = extractTrackingContext(req, url, geo);
-        getTagWorkspaceId(pool, tagId).then((workspaceId) => {
+        resolveTagWorkspaceId(pool, tagId).then((workspaceId) => {
           if (!workspaceId) return;
           queueClickEventWrite(pool, {
             tagId,
@@ -489,7 +455,7 @@ export function createTrackerRoutes(buffer = null) {
       if (pool) {
         const geo = resolveGeoContext(req, url);
         const trackingContext = extractTrackingContext(req, url, geo);
-        getTagWorkspaceId(pool, tagId).then((workspaceId) => {
+        resolveTagWorkspaceId(pool, tagId).then((workspaceId) => {
           if (!workspaceId) return;
           queueClickEventWrite(pool, {
             tagId,

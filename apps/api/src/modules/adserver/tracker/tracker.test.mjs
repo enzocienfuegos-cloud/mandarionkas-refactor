@@ -124,3 +124,26 @@ test('tracker routes use the buffer when provided', async () => {
   assert.equal(buffer.pendingCount, 1);
   await buffer.stop();
 });
+
+test('TrackerBuffer re-queues events on staging write failure', async () => {
+  let callCount = 0;
+  const faultyPool = {
+    async connect() {
+      return {
+        queries: [],
+        async query() {
+          callCount++;
+          if (callCount === 1) throw new Error('simulated staging failure');
+          return { rows: [] };
+        },
+        release() {},
+      };
+    },
+  };
+
+  const buffer = new TrackerBuffer(faultyPool, { flushIntervalMs: 60_000, flushThreshold: 100_000 });
+  buffer.addImpression('tag-requeue');
+  await buffer.stop();
+  await buffer.stop();
+  assert.equal(buffer.pendingCount, 0);
+});

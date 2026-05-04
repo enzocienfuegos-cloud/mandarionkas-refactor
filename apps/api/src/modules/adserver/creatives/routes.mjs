@@ -14,6 +14,8 @@ import {
   createPublishedCreative,
   createTagBinding,
   deleteCreative,
+  finalizePublishedHtml5Creative,
+  finalizePublishedHtml5Version,
   getCreative,
   getCreativeIngestion,
   getCreativeSizeVariant,
@@ -28,6 +30,8 @@ import {
   listCreativesForUser,
   listCreativeVersions,
   listVideoRenditions,
+  markCreativeIngestionPublishedState,
+  markCreativeIngestionStatus,
   normalizeRawClickUrl,
   regenerateVideoRenditions,
   updateCreativeIngestion,
@@ -36,6 +40,7 @@ import {
   updateCreativeSizeVariantsBulkStatus,
   updateCreativeVersion,
   updateVideoRendition,
+  upsertPublishedHtmlArtifact,
 } from '@smx/db/src/creatives.mjs';
 import { dispatchHtml5ArchivePublishJob } from '@smx/db/src/job-dispatch.mjs';
 import {
@@ -303,107 +308,48 @@ async function publishHtml5ArchiveInProcess(env, pool, {
     logWarn({ event: 'clicktag_detected_inprocess', ingestionId, detectedClickUrl });
   }
 
-  await pool.query(
-    `UPDATE creative_versions
-     SET public_url = $3,
-         entry_path = $4,
-         mime_type  = $5,
-         width      = COALESCE($6, width),
-         height     = COALESCE($7, height),
-         metadata   = $8::jsonb,
-         status     = 'draft',
-         updated_at = NOW()
-     WHERE workspace_id = $1 AND id = $2`,
-    [
-      workspaceId,
-      creativeVersionId,
-      publishedEntry.publicUrl,
-      publishedEntry.publishedPath,
-      publishedEntry.mimeType,
-      detectedDimensions?.width ?? null,
-      detectedDimensions?.height ?? null,
-      JSON.stringify(publishMetadata),
-    ],
-  );
-
-  await pool.query(
-    `UPDATE creatives
-     SET file_url      = $3,
-         thumbnail_url = $3,
-         click_url     = CASE
-           WHEN $4 IS NOT NULL THEN $4
-           ELSE click_url
-         END,
-         width         = COALESCE($5, width),
-         height        = COALESCE($6, height),
-         updated_at    = NOW()
-     WHERE workspace_id = $1
-       AND id = (SELECT creative_id FROM creative_versions WHERE workspace_id = $1 AND id = $2)`,
-    [
-      workspaceId,
-      creativeVersionId,
-      publishedEntry.publicUrl,
-      detectedClickUrl ?? null,
-      detectedDimensions?.width ?? null,
-      detectedDimensions?.height ?? null,
-    ],
-  );
-
-  const artifactMeta = JSON.stringify({
-    ingestionId,
-    assetCount: uploaded.length,
-    entryPath: publishedEntry.publishedPath,
-    storagePrefix,
+  await finalizePublishedHtml5Version(pool, workspaceId, creativeVersionId, {
+    publicUrl: publishedEntry.publicUrl,
+    publishedPath: publishedEntry.publishedPath,
+    mimeType: publishedEntry.mimeType,
+    width: detectedDimensions?.width ?? null,
+    height: detectedDimensions?.height ?? null,
+    metadata: publishMetadata,
   });
-  const artifactUpdate = await pool.query(
-    `UPDATE creative_artifacts
-     SET storage_key = $4,
-         public_url  = $5,
-         mime_type   = $6,
-         size_bytes  = $7,
-         metadata    = $8::jsonb,
-         updated_at  = NOW()
-     WHERE workspace_id = $1 AND creative_version_id = $2 AND kind = 'published_html'
-     RETURNING id`,
-    [workspaceId, creativeVersionId, 'published_html', publishedEntry.storageKey, publishedEntry.publicUrl, publishedEntry.mimeType, publishedEntry.sizeBytes, artifactMeta],
-  );
-  if (!artifactUpdate.rowCount) {
-    await pool.query(
-      `INSERT INTO creative_artifacts
-         (workspace_id, creative_version_id, kind, storage_key, public_url, mime_type, size_bytes, checksum, metadata)
-       VALUES ($1, $2, 'published_html', $3, $4, $5, $6, NULL, $7::jsonb)`,
-      [workspaceId, creativeVersionId, publishedEntry.storageKey, publishedEntry.publicUrl, publishedEntry.mimeType, publishedEntry.sizeBytes, artifactMeta],
-    );
-  }
 
-  await pool.query(
-    `UPDATE creative_ingestions
-     SET status            = 'published',
-         metadata          = metadata || $3::jsonb,
-         validation_report = validation_report || $4::jsonb,
-         error_code        = NULL,
-         error_detail      = NULL,
-         updated_at        = NOW()
-     WHERE workspace_id = $1 AND id = $2`,
-    [
-      workspaceId,
+  await finalizePublishedHtml5Creative(pool, workspaceId, creativeVersionId, {
+    publicUrl: publishedEntry.publicUrl,
+    detectedClickUrl: detectedClickUrl ?? null,
+    width: detectedDimensions?.width ?? null,
+    height: detectedDimensions?.height ?? null,
+  });
+
+  await upsertPublishedHtmlArtifact(pool, workspaceId, creativeVersionId, {
+    storageKey: publishedEntry.storageKey,
+    publicUrl: publishedEntry.publicUrl,
+    mimeType: publishedEntry.mimeType,
+    sizeBytes: publishedEntry.sizeBytes,
+    metadata: {
       ingestionId,
-      JSON.stringify({
-        publishJob: {
-          stage: 'completed',
-          progressPercent: 100,
-          message: 'Published in-process (pgboss unavailable).',
-          updatedAt: new Date().toISOString(),
-          publicUrl: publishedEntry.publicUrl,
-        },
-      }),
-      JSON.stringify({
-        readyToPublish: true,
-        published: true,
-        publishedPublicUrl: publishedEntry.publicUrl,
-      }),
-    ],
-  );
+      assetCount: uploaded.length,
+      entryPath: publishedEntry.publishedPath,
+      storagePrefix,
+    },
+  });
+
+  await markCreativeIngestionPublishedState(pool, workspaceId, ingestionId, {
+    publishJob: {
+      stage: 'completed',
+      progressPercent: 100,
+      message: 'Published in-process (pgboss unavailable).',
+      updatedAt: new Date().toISOString(),
+      publicUrl: publishedEntry.publicUrl,
+    },
+  }, {
+    readyToPublish: true,
+    published: true,
+    publishedPublicUrl: publishedEntry.publicUrl,
+  });
 
   return { publicUrl: publishedEntry.publicUrl, assetCount: uploaded.length };
 }
@@ -1232,12 +1178,10 @@ export async function handleCreativeRoutes(ctx) {
               });
               creativeVersionId = result.creativeVersion?.id;
             } else {
-              await pool.query(
-                `UPDATE creative_ingestions
-                 SET status = 'processing', metadata = $3::jsonb, error_code = NULL, error_detail = NULL, updated_at = NOW()
-                 WHERE workspace_id = $1 AND id = $2`,
-                [workspaceId, ingestionId, JSON.stringify(queuedPublishMetadata)],
-              );
+              await markCreativeIngestionStatus(pool, workspaceId, ingestionId, {
+                status: 'processing',
+                metadata: queuedPublishMetadata,
+              });
             }
 
             if (!creativeVersionId) throw new Error('Failed to resolve creative_version_id for HTML5 publish.');
@@ -1274,13 +1218,11 @@ export async function handleCreativeRoutes(ctx) {
               message: err?.message ?? String(err),
             });
             try {
-              await pool.query(
-                `UPDATE creative_ingestions
-                 SET status = 'failed', error_code = 'html5_publish_failed',
-                     error_detail = $3, updated_at = NOW()
-                 WHERE workspace_id = $1 AND id = $2`,
-                [workspaceId, ingestionId, err?.message || 'HTML5 publish failed in background.'],
-              );
+              await markCreativeIngestionStatus(pool, workspaceId, ingestionId, {
+                status: 'failed',
+                errorCode: 'html5_publish_failed',
+                errorDetail: err?.message || 'HTML5 publish failed in background.',
+              });
             } catch (_) { /* ignore secondary failure */ }
           }
         })();

@@ -1048,6 +1048,127 @@ export async function createPublishedCreative(pool, input = {}) {
   };
 }
 
+export async function finalizePublishedHtml5Version(pool, workspaceId, creativeVersionId, {
+  publicUrl,
+  publishedPath,
+  mimeType,
+  width = null,
+  height = null,
+  metadata = {},
+} = {}) {
+  await pool.query(
+    `UPDATE creative_versions
+     SET public_url = $3,
+         entry_path = $4,
+         mime_type  = $5,
+         width      = COALESCE($6, width),
+         height     = COALESCE($7, height),
+         metadata   = $8::jsonb,
+         status     = 'draft',
+         updated_at = NOW()
+     WHERE workspace_id = $1 AND id = $2`,
+    [workspaceId, creativeVersionId, publicUrl, publishedPath, mimeType, width, height, JSON.stringify(metadata || {})],
+  );
+}
+
+export async function finalizePublishedHtml5Creative(pool, workspaceId, creativeVersionId, {
+  publicUrl,
+  detectedClickUrl = null,
+  width = null,
+  height = null,
+} = {}) {
+  await pool.query(
+    `UPDATE creatives
+     SET file_url      = $3,
+         thumbnail_url = $3,
+         click_url     = CASE
+           WHEN $4 IS NOT NULL THEN $4
+           ELSE click_url
+         END,
+         width         = COALESCE($5, width),
+         height        = COALESCE($6, height),
+         updated_at    = NOW()
+     WHERE workspace_id = $1
+       AND id = (SELECT creative_id FROM creative_versions WHERE workspace_id = $1 AND id = $2)`,
+    [workspaceId, creativeVersionId, publicUrl, normalizeRawClickUrl(detectedClickUrl), width, height],
+  );
+}
+
+export async function upsertPublishedHtmlArtifact(pool, workspaceId, creativeVersionId, {
+  storageKey,
+  publicUrl,
+  mimeType,
+  sizeBytes,
+  metadata = {},
+} = {}) {
+  const artifactMeta = JSON.stringify(metadata || {});
+  const artifactUpdate = await pool.query(
+    `UPDATE creative_artifacts
+     SET storage_key = $4,
+         public_url  = $5,
+         mime_type   = $6,
+         size_bytes  = $7,
+         metadata    = $8::jsonb,
+         updated_at  = NOW()
+     WHERE workspace_id = $1 AND creative_version_id = $2 AND kind = 'published_html'
+     RETURNING id`,
+    [workspaceId, creativeVersionId, 'published_html', storageKey, publicUrl, mimeType, sizeBytes, artifactMeta],
+  );
+  if (!artifactUpdate.rowCount) {
+    await pool.query(
+      `INSERT INTO creative_artifacts
+         (workspace_id, creative_version_id, kind, storage_key, public_url, mime_type, size_bytes, checksum, metadata)
+       VALUES ($1, $2, 'published_html', $3, $4, $5, $6, NULL, $7::jsonb)`,
+      [workspaceId, creativeVersionId, storageKey, publicUrl, mimeType, sizeBytes, artifactMeta],
+    );
+  }
+}
+
+export async function markCreativeIngestionPublishedState(pool, workspaceId, ingestionId, metadataPatch = {}, validationReportPatch = {}) {
+  await pool.query(
+    `UPDATE creative_ingestions
+     SET status            = 'published',
+         metadata          = metadata || $3::jsonb,
+         validation_report = validation_report || $4::jsonb,
+         error_code        = NULL,
+         error_detail      = NULL,
+         updated_at        = NOW()
+     WHERE workspace_id = $1 AND id = $2`,
+    [workspaceId, ingestionId, JSON.stringify(metadataPatch || {}), JSON.stringify(validationReportPatch || {})],
+  );
+}
+
+export async function markCreativeIngestionStatus(pool, workspaceId, ingestionId, {
+  status,
+  metadata = undefined,
+  errorCode = null,
+  errorDetail = null,
+} = {}) {
+  if (metadata !== undefined) {
+    await pool.query(
+      `UPDATE creative_ingestions
+       SET status = $3,
+           metadata = $4::jsonb,
+           error_code = $5,
+           error_detail = $6,
+           updated_at = NOW()
+       WHERE workspace_id = $1 AND id = $2`,
+      [workspaceId, ingestionId, status, JSON.stringify(metadata || {}), errorCode, errorDetail],
+    );
+    return;
+  }
+
+  await pool.query(
+    `UPDATE creative_ingestions
+     SET status = $3,
+         error_code = $4,
+         error_detail = $5,
+         updated_at = NOW()
+     WHERE workspace_id = $1 AND id = $2`,
+    [workspaceId, ingestionId, status, errorCode, errorDetail],
+  );
+}
+
 export async function syncCreativeVideoTranscodeOutputs(pool, {
   workspaceId,
   creativeVersionId,
