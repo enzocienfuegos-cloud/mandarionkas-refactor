@@ -91,11 +91,23 @@ function getSnippetOptions(
     ];
   }
   if (format === 'display') {
-    return [
+    const options: Array<{ value: SnippetVariant; label: string }> = [
       { value: 'display-js', label: 'JS Tag' },
       { value: 'display-iframe', label: 'Iframe Tag' },
       { value: 'display-ins', label: 'Ins Tag' },
     ];
+    const dspConfig = getDspMacroConfig(campaignDsp);
+    if (dspConfig) {
+      options.push({
+        value: 'tracker-impression',
+        label: `Impression Tracker URL (${dspConfig.label} macros)`,
+      });
+      options.push({
+        value: 'tracker-click',
+        label: `Click Tracker URL (${dspConfig.label} macros)`,
+      });
+    }
+    return options;
   }
   if (format === 'tracker') {
     return trackerType === 'impression'
@@ -108,7 +120,7 @@ function getSnippetOptions(
 function getSnippetHelpText(tag: SavedTag, variant: SnippetVariant, campaignDsp = ''): string {
   const selectedConfig = getDspMacroConfig(campaignDsp);
   const dspNote = selectedConfig
-    ? ` ${selectedConfig.label} macros are auto-injected for delivery context and click passthrough.`
+    ? ` The serving URL above is macro-free (required for CDN caching). ${selectedConfig.label} macro-enriched tracker URLs are shown as comments at the top of the snippet.`
     : '';
   if (tag.format === 'VAST') {
     if (variant === 'vast-url-basis-macro') {

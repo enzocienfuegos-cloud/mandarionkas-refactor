@@ -81,9 +81,10 @@ test('tracker URLs still carry DSP macros for Basis', () => {
 
 test('Basis display-iframe stays a normal iframe tag', () => {
   const out = buildTagSnippet(TAG, 'display-iframe', BASE, 'Basis', null);
-  assert.ok(out.startsWith('<iframe'), 'Basis iframe variant should stay a regular iframe tag');
+  assert.ok(out.includes('<iframe'), 'Basis iframe variant should stay a regular iframe tag');
   assert.ok(out.includes(`${BASE}/v1/tags/display/${TAG.id}.html`), 'Basis iframe should use the clean serving HTML URL');
-  assert.ok(!out.includes('dsp=Basis'), 'Basis iframe serving URL must not include DSP macros');
+  const iframeSrc = out.match(/src="([^"]+)"/)?.[1] ?? '';
+  assert.ok(!iframeSrc.includes('dsp=Basis'), 'Basis iframe serving URL must not include DSP macros');
 });
 
 test('display-js with empty base URL produces relative URLs', () => {
@@ -104,7 +105,7 @@ test('display-js noscript fallback has sandbox attribute', () => {
 
 test('display-ins with Basis DSP stays standard INS tag without blob', () => {
   const out = buildTagSnippet(TAG, 'display-ins', BASE, 'Basis', null);
-  assert.ok(out.startsWith('<ins '), 'Basis display-ins should be a standard INS tag');
+  assert.ok(out.includes('<ins '), 'Basis display-ins should be a standard INS tag');
   assert.ok(out.includes('smx-ad-slot-'), 'INS tag should have smx-ad-slot prefix');
   assert.ok(!out.includes('smx-basis-slot'), 'must not use basis slot prefix');
   assert.ok(!out.startsWith('(function(){'), 'must not emit runtime blob');
@@ -135,4 +136,72 @@ test('buildTagSnippet never returns undefined or null', () => {
     const out = buildTagSnippet(TAG, variant, BASE, 'Basis', null);
     assert.ok(typeof out === 'string' && out.length > 0, `variant ${variant} must return non-empty string`);
   }
+});
+
+test('display-js with Basis DSP prepends macro tracker URL comments', () => {
+  const out = buildTagSnippet(TAG, 'display-js', BASE, 'Basis', null);
+  assert.ok(
+    out.startsWith('<!-- Basis impression tracker'),
+    'display-js with Basis must start with impression tracker comment',
+  );
+  assert.ok(out.includes('{domain}'), 'impression tracker comment must contain Basis {domain} macro');
+  assert.ok(out.includes('{pageUrlEnc}'), 'impression tracker comment must contain {pageUrlEnc}');
+  assert.ok(out.includes('{clickMacroEnc}'), 'click tracker comment must contain Basis click macro');
+  assert.ok(out.includes('<!-- Basis click tracker'), 'must include click tracker comment');
+  const scriptSrc = out.match(/<script src="([^"]+)"/)?.[1] ?? '';
+  assert.ok(scriptSrc.startsWith(`${BASE}/v1/tags/display/`), 'script src must use serving path');
+  assert.ok(!scriptSrc.includes('{domain}'), 'script src must be macro-free');
+  assert.ok(!scriptSrc.includes('dsp=Basis'), 'script src must not have dsp param');
+});
+
+test('display-iframe with Basis DSP prepends macro tracker URL comments', () => {
+  const out = buildTagSnippet(TAG, 'display-iframe', BASE, 'Basis', null);
+  assert.ok(
+    out.startsWith('<!-- Basis impression tracker'),
+    'display-iframe with Basis must start with impression tracker comment',
+  );
+  assert.ok(out.includes('<iframe'), 'must still contain the iframe element');
+  const iframeSrc = out.match(/src="([^"]+)"/)?.[1] ?? '';
+  assert.ok(!iframeSrc.includes('{domain}'), 'iframe src must be macro-free');
+});
+
+test('display-ins with Basis DSP prepends macro tracker URL comments', () => {
+  const out = buildTagSnippet(TAG, 'display-ins', BASE, 'Basis', null);
+  assert.ok(
+    out.startsWith('<!-- Basis impression tracker'),
+    'display-ins with Basis must start with impression tracker comment',
+  );
+  assert.ok(out.includes('<ins '), 'must still contain the ins element');
+});
+
+test('display-js with Illumin DSP prepends Illumin macro tracker URL comments', () => {
+  const out = buildTagSnippet(TAG, 'display-js', BASE, 'illumin', null);
+  assert.ok(
+    out.startsWith('<!-- Illumin impression tracker'),
+    'display-js with Illumin must start with Illumin impression tracker comment',
+  );
+  assert.ok(out.includes('[CLICK_URL_ENCODED]'), 'click tracker comment must contain Illumin click macro');
+  assert.ok(out.includes('[EXCHANGE_ID]'), 'impression tracker comment must contain Illumin exchange macro');
+});
+
+test('display-js without DSP does not prepend tracker comments', () => {
+  const out = buildTagSnippet(TAG, 'display-js', BASE, '', null);
+  assert.ok(!out.startsWith('<!--'), 'display-js without DSP must not prepend any comment');
+  assert.ok(out.startsWith('<script'), 'display-js without DSP must start directly with script tag');
+});
+
+test('tracker-impression with Basis DSP returns raw URL without comment wrapper', () => {
+  const out = buildTagSnippet(TAG, 'tracker-impression', BASE, 'Basis', null);
+  assert.ok(!out.startsWith('<!--'), 'tracker-impression must return raw URL without comment wrapper');
+  assert.ok(out.includes('impression.gif'), 'must be impression pixel URL');
+  assert.ok(out.includes('{domain}'), 'must contain Basis domain macro');
+});
+
+test('Basis display-js existing test still passes — script src stays macro-free', () => {
+  const out = buildTagSnippet(TAG, 'display-js', BASE, 'Basis', null);
+  assert.ok(out.includes('<script src='), 'Basis display-js should have script tag');
+  assert.ok(out.includes('/v1/tags/display/'), 'Basis display-js should use display path');
+  const scriptSrc = out.match(/<script src="([^"]+)"/)?.[1] ?? '';
+  assert.ok(!scriptSrc.includes('dsp=Basis'), 'script src must not have dsp param');
+  assert.ok(scriptSrc.length < 120, 'script src must be short');
 });

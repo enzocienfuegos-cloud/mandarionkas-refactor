@@ -7,6 +7,7 @@ import {
   applyDspMacrosToDeliveryUrl,
   buildVastWrapperSnippet,
   DSP_DELIVERY_KINDS,
+  getDspMacroConfig,
 } from './dsp-macros.mjs';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -37,6 +38,26 @@ export function buildNativeJsSnippet({ nativeJsUrl, tagId }) {
 
 export function normalizeServingBaseUrl(value) {
   return String(value ?? '').replace(/\/+$/, '').replace(/\/v1$/, '');
+}
+
+/**
+ * Prepends macro-enriched tracker URL comments to a display snippet when a
+ * recognized DSP is configured. The serving URL in the snippet itself is
+ * always macro-free (CDN caching requirement). The comments let traffickers
+ * inspect and copy the exact tracker URLs that the ad server fires internally.
+ *
+ * When no DSP is configured, returns the snippet unchanged.
+ */
+function appendDisplayTrackerComments(snippet, impressionUrl, clickUrl, dsp) {
+  const config = getDspMacroConfig(dsp);
+  if (!dsp || !config) return snippet;
+  return (
+    `<!-- ${config.label} impression tracker (fired server-side at impression time):\n` +
+    `     ${impressionUrl} -->\n` +
+    `<!-- ${config.label} click tracker (fired server-side on click):\n` +
+    `     ${clickUrl} -->\n` +
+    snippet
+  );
 }
 
 export function buildTagSnippet(tag, variant, servingBaseUrl, campaignDsp = '', diagnostics = null) {
@@ -79,10 +100,14 @@ export function buildTagSnippet(tag, variant, servingBaseUrl, campaignDsp = '', 
       return vast4DynamicUrl;
     case 'vast-xml':
       return buildVastWrapperSnippet(id, campaignVastUrl);
-    case 'display-iframe':
-      return buildDisplayIframeSnippet({ displayHtmlUrl, width, height });
-    case 'display-ins':
-      return buildDisplayInsSnippet({ displayHtmlUrl, tagId: id, width, height });
+    case 'display-iframe': {
+      const baseSnippet = buildDisplayIframeSnippet({ displayHtmlUrl, width, height });
+      return appendDisplayTrackerComments(baseSnippet, trackerImpressionUrl, trackerClickUrl, campaignDsp);
+    }
+    case 'display-ins': {
+      const baseSnippet = buildDisplayInsSnippet({ displayHtmlUrl, tagId: id, width, height });
+      return appendDisplayTrackerComments(baseSnippet, trackerImpressionUrl, trackerClickUrl, campaignDsp);
+    }
     case 'native-js':
       return buildNativeJsSnippet({ nativeJsUrl, tagId: id });
     case 'tracker-impression':
@@ -90,7 +115,9 @@ export function buildTagSnippet(tag, variant, servingBaseUrl, campaignDsp = '', 
     case 'tracker-click':
       return trackerClickUrl;
     case 'display-js':
-    default:
-      return buildDisplayJsSnippet({ displayJsUrl, displayHtmlUrl, width, height });
+    default: {
+      const baseSnippet = buildDisplayJsSnippet({ displayJsUrl, displayHtmlUrl, width, height });
+      return appendDisplayTrackerComments(baseSnippet, trackerImpressionUrl, trackerClickUrl, campaignDsp);
+    }
   }
 }
