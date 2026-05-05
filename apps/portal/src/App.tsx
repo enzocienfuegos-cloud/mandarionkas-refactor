@@ -407,6 +407,7 @@ function RegisterPage() {
 
 function PortalHome() {
   const navigate = useNavigate();
+  const [pointer, setPointer] = useState({ x: 50, y: 42 });
   const [theme, setTheme]       = useState<ThemeMode>(() => getInitialTheme());
   const [session, setSession]   = useState<PortalSession | null>(null);
   const [loading, setLoading]   = useState(true);
@@ -494,119 +495,200 @@ function PortalHome() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#07010f] text-white relative">
-      <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(126,34,206,0.18),transparent_36%)]" />
+    <main
+      className="relative min-h-screen overflow-hidden bg-[#08080b] px-4 py-8 text-white"
+      onPointerMove={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        setPointer({
+          x: ((event.clientX - rect.left) / rect.width) * 100,
+          y: ((event.clientY - rect.top) / rect.height) * 100,
+        });
+      }}
+      onPointerLeave={() => setPointer({ x: 50, y: 42 })}
+    >
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[#050507]" />
+        <div
+          className="absolute h-[920px] w-[920px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(241,0,139,0.11)_0%,rgba(241,0,139,0.045)_46%,transparent_76%)] blur-[145px] transition-[left,top] duration-700 ease-out"
+          style={{ left: `${pointer.x}%`, top: `${pointer.y}%` }}
+        />
+        <div
+          className="absolute h-[680px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(88,166,255,0.08)_0%,rgba(88,166,255,0.03)_44%,transparent_72%)] blur-[150px] transition-[left,top] duration-1000 ease-out"
+          style={{
+            left: `${Math.max(18, Math.min(82, 100 - pointer.x * 0.42))}%`,
+            top: `${Math.max(10, Math.min(80, pointer.y * 0.72 + 12))}%`,
+          }}
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(800px_400px_at_50%_-10%,rgba(255,255,255,0.06),transparent_70%)]" />
+        <div className="absolute inset-0 opacity-[0.025] mix-blend-overlay bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.55)_1px,transparent_0)] [background-size:22px_22px]" />
+      </div>
 
-      <section className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-8">
-        <header className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-pink-500 to-fuchsia-600 text-xs font-black shadow-lg shadow-pink-500/20">
-                SMX
-              </div>
-              <div>
-                <p className="font-bold leading-none text-white">SMX Portal</p>
-                <span className="mt-1 block text-xs text-slate-500">Workspace Access</span>
-              </div>
-            </div>
+      <style>{`
+        @keyframes panelLight {
+          0%, 100% { transform: translate3d(-18%, 0, 0); opacity: .18; }
+          50% { transform: translate3d(18%, 0, 0); opacity: .34; }
+        }
+      `}</style>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={session?.activeWorkspaceId ?? ''}
-                disabled={switching}
-                onChange={async (event) => {
-                  if (!event.target.value) return;
-                  setSwitching(true);
-                  setSwitchError('');
-                  try {
-                    const nextSession = await switchWorkspace(event.target.value);
-                    setSession(nextSession);
-                  } catch (caught: unknown) {
-                    setSwitchError((caught as Error)?.message ?? 'Workspace switch failed.');
-                  } finally {
-                    setSwitching(false);
-                  }
-                }}
-                className="h-10 min-w-[180px] rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-slate-300 outline-none focus:border-pink-500"
+      <section className="relative mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1240px] flex-col">
+        <header className="flex flex-wrap items-center justify-between gap-4 px-2 py-2">
+          <div className="flex items-center gap-[14px]" aria-label="Temple logo">
+            <div className="flex h-[42px] w-[42px] shrink-0 translate-y-[1px] items-center justify-center">
+              <svg
+                viewBox="180 735 585 585"
+                className="h-full w-full text-white/95"
+                fill="currentColor"
+                xmlns="http://www.w3.org/2000/svg"
+                role="img"
               >
-                {(session?.workspaces ?? []).map((ws) => (
-                  <option key={ws.id} value={ws.id}>{ws.name}</option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-                className="h-10 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-semibold text-slate-300 transition hover:bg-white/10"
-              >
-                {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-              </button>
-
-              <button
-                type="button"
-                onClick={async () => { await logout(); navigate('/login', { replace: true }); }}
-                className="h-10 rounded-xl border border-pink-500/20 bg-pink-500/10 px-4 text-sm font-semibold text-pink-400 transition hover:bg-pink-500/15"
-              >
-                Log out
-              </button>
-            </div>
-          </header>
-
-        <div className="flex flex-1 items-center justify-center py-14">
-          <div className="w-full max-w-4xl">
-            <div className="mb-8 text-center">
-              <span className="inline-flex rounded-full border border-pink-500/20 bg-pink-500/10 px-3 py-1 text-xs font-semibold text-pink-400">
-                Admin access
-              </span>
-              <h1 className="mt-5 text-4xl font-extrabold tracking-tight md:text-5xl">
-                Choose where to work
-              </h1>
-              <p className="mt-3 text-slate-400">
-                Active workspace: <span className="font-semibold text-white">{workspaceLabel}</span>
-                {' '}· Role: <span className="font-semibold text-white">{getPlatformRoleLabel(session?.user.role)}</span>
-              </p>
+                <title>Temple mark</title>
+                <path d="M307.749 738.419C318.003 736.714 340.86 737.844 351.845 737.888L424.967 737.903L567.195 737.884C621.678 737.853 671.417 730.522 715.605 768.272C767.914 812.96 763.112 868.176 762.97 929.631L762.946 1026.67L762.957 1126C762.96 1151.7 764.117 1181.09 759.304 1206.01C754.813 1228.09 744.736 1248.65 730.035 1265.73C706.39 1293.11 671.809 1307.21 636.248 1309.85C567.191 1311.8 493.945 1310.16 424.599 1310.24L348.062 1310.42C302.393 1310.3 269.687 1310.76 231.786 1280.5C192.864 1249.43 182.814 1205.13 182.677 1157.47C182.646 1146.78 183.453 1136.14 183.438 1125.56L183.471 1002.5C183.482 965.042 184.381 924.294 183.262 887.004C180.856 806.832 222.579 746.405 307.749 738.419Z" />
+                <path d="M265.447 840.068C402.831 838.64 543.172 839.987 680.751 840.012C681.829 887.154 680.776 938.589 680.752 986.015L604.543 985.878C602.972 1057.71 604.561 1135.61 604.614 1207.94L516.954 1208.01L516.984 898.492L622.879 898.521L622.981 927.706L546.223 927.653L546.052 1178.73C555.637 1178.85 565.46 1178.71 575.067 1178.69L575.205 956.697L651.056 956.288L651.241 869.499L487.627 869.601L487.667 1019.11L487.62 1208.17L458.196 1208.15L458.517 869.452L294.884 869.709L294.72 956.313C319.856 956.802 345.859 956.559 371.061 956.632L371.179 1178.75C380.608 1178.93 390.422 1178.68 399.879 1178.57L399.915 927.641L323.75 927.611L323.99 898.654C358.3 897.776 394.826 898.521 429.384 898.511C430.682 1000.35 429.314 1105.82 429.314 1207.95L341.505 1208.01L341.967 985.85L265.227 986.014C265.341 937.494 264.83 888.535 265.447 840.068Z" fill="#050507" />
+              </svg>
             </div>
 
-          {switchError && (
-            <p className="mt-6 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {switchError}
-            </p>
-          )}
-
-          {shouldAutoRedirect && (
-            <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-              Only one product is available for this workspace. Redirecting automatically.
+            <div className="flex flex-col justify-center">
+              <div className="text-[25px] font-semibold leading-[1] tracking-[-0.028em] text-white">Temple</div>
+              <div className="mt-[3px] text-[9.5px] font-medium uppercase leading-none tracking-[0.26em] text-white/30">Superadmin</div>
             </div>
-          )}
-
-          <div className="grid gap-5 md:grid-cols-2">
-          <CardButton
-            title="Ad Server"
-            label="Campaign operations"
-            copy={
-              hasAdServer
-                ? 'Manage campaigns, tags, delivery, diagnostics, and reporting.'
-                : 'Your role does not include Ad Server access for this workspace.'
-            }
-            onClick={hasAdServer ? () => window.location.assign(getAdServerUrl()) : undefined}
-            disabled={!hasAdServer}
-            tone={hasAdServer ? 'fuchsia' : 'slate'}
-          />
-          <CardButton
-            title="Studio"
-            label="Creative workflow"
-            copy={
-              hasStudio
-                ? 'Review, publish, and hand off creative production tasks.'
-                : 'Your role does not include Studio access for this workspace.'
-            }
-            onClick={hasStudio ? () => window.location.assign(getStudioUrl()) : undefined}
-            disabled={!hasStudio}
-            tone={hasStudio ? 'emerald' : 'slate'}
-          />
           </div>
 
-            <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 text-center text-xs text-slate-500">
-              Authorized internal users only. Access depends on your assigned workspace and role.
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={session?.activeWorkspaceId ?? ''}
+              disabled={switching}
+              onChange={async (event) => {
+                if (!event.target.value) return;
+                setSwitching(true);
+                setSwitchError('');
+                try {
+                  const nextSession = await switchWorkspace(event.target.value);
+                  setSession(nextSession);
+                } catch (caught: unknown) {
+                  setSwitchError((caught as Error)?.message ?? 'Workspace switch failed.');
+                } finally {
+                  setSwitching(false);
+                }
+              }}
+              className="h-10 min-w-[180px] rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-semibold text-slate-300 outline-none transition hover:bg-white/10 focus:border-[#f1008b]"
+            >
+              {(session?.workspaces ?? []).map((ws) => (
+                <option key={ws.id} value={ws.id}>{ws.name}</option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+              className="h-10 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-semibold text-slate-300 transition hover:bg-white/10"
+            >
+              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => { await logout(); navigate('/login', { replace: true }); }}
+              className="h-10 rounded-xl border border-pink-500/20 bg-pink-500/10 px-4 text-sm font-semibold text-pink-400 transition hover:bg-pink-500/15"
+            >
+              Log out
+            </button>
+          </div>
+        </header>
+
+        <div className="relative mt-6 overflow-hidden rounded-[30px] border border-white/[0.095] bg-[#111118]/72 p-[30px] shadow-[0_24px_90px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_24%_0%,rgba(255,255,255,0.10),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.07)_0%,transparent_28%,transparent_64%,rgba(241,0,139,0.07)_100%)]" />
+          <div className="pointer-events-none absolute -inset-x-20 top-0 h-28 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.10),transparent)] blur-xl animate-[panelLight_10s_ease-in-out_infinite]" />
+
+          <div className="relative z-10 flex min-h-[720px] flex-1 items-center justify-center py-8">
+            <div className="w-full max-w-[1160px]">
+              <div className="mb-[30px] text-center">
+                <div className="mb-[18px] inline-flex rounded-full border border-[#f1008b]/20 bg-[#f1008b]/10 px-[11px] py-[5px] text-[10.5px] font-semibold leading-none text-[#f1008b]">
+                  Admin access
+                </div>
+                <h1 className="text-[37px] font-semibold leading-[1.02] tracking-[-0.052em] text-white md:text-[41px]">
+                  Choose where to work
+                </h1>
+                <p className="mt-[14px] text-[13.5px] text-white/44">
+                  Active workspace: <span className="font-semibold text-white/78">{workspaceLabel}</span> · Role:{' '}
+                  <span className="font-semibold text-white/78">{getPlatformRoleLabel(session?.user.role)}</span>
+                </p>
+              </div>
+
+              {switchError && (
+                <p className="mx-auto mb-5 max-w-[760px] rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {switchError}
+                </p>
+              )}
+
+              {shouldAutoRedirect && (
+                <div className="mx-auto mb-5 max-w-[760px] rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  Only one product is available for this workspace. Redirecting automatically.
+                </div>
+              )}
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={hasAdServer ? () => window.location.assign(getAdServerUrl()) : undefined}
+                  disabled={!hasAdServer}
+                  className={`group relative min-h-[244px] overflow-hidden rounded-[24px] border border-white/[0.095] bg-[#0b0b12]/82 p-[22px] text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_18px_54px_rgba(0,0,0,0.18)] backdrop-blur-xl transition duration-300 ease-out ${
+                    hasAdServer
+                      ? 'cursor-pointer hover:-translate-y-[2px] hover:border-white/[0.16] hover:bg-[#101019] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_24px_70px_rgba(0,0,0,0.26)] focus:outline-none focus:ring-4 focus:ring-[#f1008b]/12'
+                      : 'cursor-not-allowed opacity-65'
+                  }`}
+                >
+                  <div className="mb-[18px] inline-flex h-[44px] w-[44px] items-center justify-center rounded-[14px] border border-[#f1008b]/20 bg-[#f1008b]/10 text-[10.5px] font-semibold tracking-[0.19em] text-[#f1008b]">
+                    ADS
+                  </div>
+                  <div className="mb-[11px] text-[10.5px] font-semibold uppercase tracking-[0.26em] text-white/28">Ad Server</div>
+                  <div className="text-[20px] font-semibold tracking-[-0.022em] text-white">Campaign operations</div>
+                  <p className="mt-[9px] min-h-[48px] text-[13.5px] leading-[1.72] text-white/43">
+                    {hasAdServer
+                      ? 'Manage campaigns, tags, delivery, diagnostics, and reporting.'
+                      : 'Your role does not include Ad Server access for this workspace.'}
+                  </p>
+                  <div className="mt-[22px] h-px bg-white/[0.075]" />
+                  <div className="mt-[-1px] h-px bg-gradient-to-r from-[#f1008b]/0 via-[#f1008b]/45 to-[#f1008b]/0 opacity-0 transition duration-300 group-hover:opacity-100" />
+                  <div className="mt-[17px] flex items-center justify-between text-[13.5px] font-medium text-white/36">
+                    <span className="transition group-hover:text-white/72">Open workspace</span>
+                    <span className="text-[#f1008b] transition group-hover:translate-x-1">→</span>
+                  </div>
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(241,0,139,0.18),transparent_64%)] opacity-0 transition duration-300 group-hover:opacity-100" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={hasStudio ? () => window.location.assign(getStudioUrl()) : undefined}
+                  disabled={!hasStudio}
+                  className={`group relative min-h-[244px] overflow-hidden rounded-[24px] border border-white/[0.095] bg-[#0b0b12]/82 p-[22px] text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_18px_54px_rgba(0,0,0,0.18)] backdrop-blur-xl transition duration-300 ease-out ${
+                    hasStudio
+                      ? 'cursor-pointer hover:-translate-y-[2px] hover:border-white/[0.16] hover:bg-[#101019] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_24px_70px_rgba(0,0,0,0.26)] focus:outline-none focus:ring-4 focus:ring-[#f1008b]/12'
+                      : 'cursor-not-allowed opacity-65'
+                  }`}
+                >
+                  <div className="mb-[18px] inline-flex h-[44px] w-[44px] items-center justify-center rounded-[14px] border border-[#a855f7]/20 bg-[#a855f7]/10 text-[10.5px] font-semibold tracking-[0.19em] text-[#c084fc]">
+                    STU
+                  </div>
+                  <div className="mb-[11px] text-[10.5px] font-semibold uppercase tracking-[0.26em] text-white/28">Studio</div>
+                  <div className="text-[20px] font-semibold tracking-[-0.022em] text-white">Creative workflow</div>
+                  <p className="mt-[9px] min-h-[48px] text-[13.5px] leading-[1.72] text-white/43">
+                    {hasStudio
+                      ? 'Review, publish, and hand off creative production tasks.'
+                      : 'Your role does not include Studio access for this workspace.'}
+                  </p>
+                  <div className="mt-[22px] h-px bg-white/[0.075]" />
+                  <div className="mt-[-1px] h-px bg-gradient-to-r from-[#a855f7]/0 via-[#a855f7]/45 to-[#a855f7]/0 opacity-0 transition duration-300 group-hover:opacity-100" />
+                  <div className="mt-[17px] flex items-center justify-between text-[13.5px] font-medium text-white/36">
+                    <span className="transition group-hover:text-white/72">Open workspace</span>
+                    <span className="text-[#f1008b] transition group-hover:translate-x-1">→</span>
+                  </div>
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_0%,rgba(168,85,247,0.18),transparent_64%)] opacity-0 transition duration-300 group-hover:opacity-100" />
+                </button>
+              </div>
+
+              <div className="mt-6 rounded-[18px] border border-white/[0.075] bg-black/18 px-5 py-[11px] text-center text-xs leading-5 text-white/30 backdrop-blur-xl">
+                Authorized internal users only. Access depends on your assigned workspace and role.
+              </div>
             </div>
           </div>
         </div>
