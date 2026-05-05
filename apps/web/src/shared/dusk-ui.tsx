@@ -416,6 +416,7 @@ function sidebarIcon(name: SidebarItemName) {
 export function AppShell({
   isDark,
   activeItem,
+  navigateTo,
   contextualFocus,
   badgeCounts,
   workspaceSlot,
@@ -430,6 +431,7 @@ export function AppShell({
 }: {
   isDark: boolean;
   activeItem: SidebarItemName;
+  navigateTo: (path: string) => void;
   contextualFocus?: ContextualFocusItem[];
   badgeCounts?: Partial<Record<SidebarItemName, string>>;
   workspaceSlot: React.ReactNode;
@@ -442,6 +444,19 @@ export function AppShell({
   user: DuskSidebarUser;
   children: React.ReactNode;
 }) {
+  const routeForItem: Record<SidebarItemName, string> = {
+    Overview: '/overview',
+    Campaigns: '/campaigns',
+    Tags: '/tags',
+    Creatives: '/creatives',
+    Pacing: '/pacing',
+    Discrepancies: '/discrepancies',
+    Reporting: '/reporting',
+    Experiments: '/experiments',
+    Tools: '/tools',
+    Settings: '/settings',
+  };
+
   const sections: DuskSidebarSection[] = [
     {
       label: 'Operations',
@@ -450,6 +465,7 @@ export function AppShell({
         icon: sidebarIcon(label),
         active: activeItem === label,
         badge: badgeCounts?.[label],
+        onClick: () => navigateTo(routeForItem[label]),
       })),
     },
     {
@@ -459,6 +475,7 @@ export function AppShell({
         icon: sidebarIcon(label),
         active: activeItem === label,
         badge: badgeCounts?.[label],
+        onClick: () => navigateTo(routeForItem[label]),
       })),
     },
   ];
@@ -486,7 +503,8 @@ export function AppShell({
         icon: sidebarIcon('Tools'),
         active: activeItem === 'Tools',
         trailing: toolsExpanded ? '−' : '+',
-        children: toolsChildren,
+        onClick: () => navigateTo(routeForItem.Tools),
+        children: toolsExpanded ? toolsChildren : undefined,
         badge: badgeCounts?.Tools,
       },
       {
@@ -494,7 +512,8 @@ export function AppShell({
         icon: sidebarIcon('Settings'),
         active: activeItem === 'Settings',
         trailing: settingsExpanded ? '−' : '+',
-        children: settingsChildren,
+        onClick: () => navigateTo(routeForItem.Settings),
+        children: settingsExpanded ? settingsChildren : undefined,
         badge: badgeCounts?.Settings,
       },
     ],

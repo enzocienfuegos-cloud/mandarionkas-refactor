@@ -396,6 +396,7 @@ export default function Shell() {
       <AppShell
         isDark={isDark}
         activeItem={activeItem}
+        navigateTo={navigate}
         contextualFocus={moduleFocusItems}
         badgeCounts={badgeCounts}
         workspaceSlot={
