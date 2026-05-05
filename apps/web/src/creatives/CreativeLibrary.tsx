@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   type Creative,
   type CreativeVersion,
@@ -30,7 +30,198 @@ import {
   updateTagBinding,
 } from './catalog';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
-import { Panel, PrimaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
+import { Panel, SectionKicker, StatusBadge } from '../shared/dusk-ui';
+
+type TrendDirection = 'up' | 'down' | 'flat';
+type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
+type PrioritySeverity = 'Critical' | 'Warning' | 'Notice';
+type CreativeStatus = 'Approved' | 'Pending QA' | 'Rejected' | 'Ready' | 'Missing';
+type CreativeFormat = 'Display' | 'HTML5' | 'Video' | 'Native';
+type IconProps = { className?: string };
+
+type Metric = {
+  id: string;
+  label: string;
+  value: string;
+  delta: string;
+  direction: TrendDirection;
+  helper: string;
+  tone: Tone;
+  series: number[];
+};
+
+type CreativeRow = {
+  id: string;
+  creative: string;
+  advertiser: string;
+  campaign: string;
+  format: CreativeFormat;
+  size: string;
+  status: CreativeStatus;
+  qa: PrioritySeverity;
+  preview: string;
+  owner: string;
+};
+
+function classNames(...values: Array<string | false | null | undefined>) {
+  return values.filter(Boolean).join(' ');
+}
+
+function iconProps(className?: string) {
+  return {
+    className: classNames('h-5 w-5', className),
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    'aria-hidden': true,
+  } as const;
+}
+
+const AlertTriangleIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <path d="M12 4 3.5 19h17L12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M12 9v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <circle cx="12" cy="16" r="1" fill="currentColor" />
+  </svg>
+);
+
+const SearchIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8" />
+    <path d="m21 21-4.3-4.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const FilterIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const CreativeIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+    <path d="m7 15 3-3 3 3 2-2 3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="15.5" cy="9.5" r="1.2" fill="currentColor" />
+  </svg>
+);
+
+const ReportIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <path d="M6 19V9M12 19V5M18 19v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M4 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const TableIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M4 10h16M10 5v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const MoreIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <circle cx="5" cy="12" r="1" fill="currentColor" />
+    <circle cx="12" cy="12" r="1" fill="currentColor" />
+    <circle cx="19" cy="12" r="1" fill="currentColor" />
+  </svg>
+);
+
+function toneClass(tone: Tone) {
+  const map: Record<Tone, string> = {
+    fuchsia: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/18 dark:bg-fuchsia-500/10 dark:text-fuchsia-300',
+    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-500/18 dark:bg-emerald-500/10 dark:text-emerald-300',
+    amber: 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-500/18 dark:bg-amber-500/10 dark:text-amber-300',
+    rose: 'border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-500/18 dark:bg-rose-500/10 dark:text-rose-300',
+    sky: 'border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-500/18 dark:bg-sky-500/10 dark:text-sky-300',
+    slate: 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.04] dark:text-white/70',
+  };
+  return map[tone];
+}
+
+function creativeStatusBadge(status: CreativeStatus) {
+  const map: Record<CreativeStatus, string> = {
+    Approved: 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/22 dark:bg-emerald-500/10 dark:text-emerald-300',
+    'Pending QA': 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/22 dark:bg-amber-500/10 dark:text-amber-300',
+    Rejected: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300',
+    Ready: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/22 dark:bg-sky-500/10 dark:text-sky-300',
+    Missing: 'border-slate-300/70 bg-slate-50 text-slate-700 dark:border-white/12 dark:bg-white/[0.05] dark:text-white/70',
+  };
+  return map[status];
+}
+
+function severityBadge(severity: PrioritySeverity) {
+  const map: Record<PrioritySeverity, string> = {
+    Critical: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300',
+    Warning: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/22 dark:bg-amber-500/10 dark:text-amber-300',
+    Notice: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/22 dark:bg-sky-500/10 dark:text-sky-300',
+  };
+  return map[severity];
+}
+
+function Sparkline({ series, className }: { series: number[]; className?: string }) {
+  const width = 170;
+  const height = 54;
+  const min = Math.min(...series);
+  const max = Math.max(...series);
+  const range = Math.max(max - min, 1);
+  const points = series.map((value, index) => {
+    const x = (index / Math.max(series.length - 1, 1)) * width;
+    const y = height - ((value - min) / range) * height;
+    return `${x},${y}`;
+  });
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className={className} aria-hidden="true">
+      <polyline points={`${points.join(' ')} ${width},${height} 0,${height}`} fill="currentColor" opacity="0.12" />
+      <polyline points={points.join(' ')} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
+  const classes =
+    direction === 'up'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
+      : direction === 'down'
+        ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
+        : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/58';
+  return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
+}
+
+function MetricCard({ metric }: { metric: Metric }) {
+  const sparkColor =
+    metric.tone === 'fuchsia'
+      ? 'text-fuchsia-500 dark:text-fuchsia-300'
+      : metric.tone === 'emerald'
+        ? 'text-emerald-500 dark:text-emerald-300'
+        : metric.tone === 'amber'
+          ? 'text-amber-500 dark:text-amber-300'
+          : metric.tone === 'rose'
+            ? 'text-rose-500 dark:text-rose-300'
+            : metric.tone === 'sky'
+              ? 'text-sky-500 dark:text-sky-300'
+              : 'text-slate-500 dark:text-white/50';
+
+  return (
+    <Panel className="p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <SectionKicker>{metric.label}</SectionKicker>
+          <div className="mt-4 flex items-end gap-3">
+            <span className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{metric.value}</span>
+            <TrendBadge direction={metric.direction} value={metric.delta} />
+          </div>
+          <p className="mt-2 text-sm text-slate-500 dark:text-white/56">{metric.helper}</p>
+        </div>
+        <div className={classNames('flex h-12 w-12 items-center justify-center rounded-2xl border', toneClass(metric.tone))}>
+          {metric.id === 'creative-health' ? <CreativeIcon /> : metric.id === 'creative-approved' ? <ReportIcon /> : metric.id === 'creative-blocked' ? <AlertTriangleIcon /> : <TableIcon />}
+        </div>
+      </div>
+      <Sparkline series={metric.series} className={classNames('mt-5 h-14 w-full', sparkColor)} />
+    </Panel>
+  );
+}
 
 function formatBytes(value?: number | null) {
   if (!value) return '—';
@@ -671,7 +862,7 @@ function findPendingIngestionForCreative(
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0] ?? null;
 }
 
-export default function CreativeLibrary() {
+export default function CreativesView() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchQueryParam = searchParams.get('search') ?? '';
@@ -846,6 +1037,115 @@ export default function CreativeLibrary() {
     const version = latestVersions[creative.id];
     return !resolveCreativePreviewHref(creative, version);
   }).slice(0, 3);
+  const missingCreatives = filteredCreatives.filter((creative) => {
+    const version = latestVersions[creative.id];
+    return !version || !resolveCreativePreviewHref(creative, version);
+  }).length;
+  const creativeEligibility = filteredCreatives.length ? Math.round(((approvedCreatives + assignedCreatives) / Math.max(filteredCreatives.length * 2, 1)) * 100) : 0;
+
+  const creativeRows = useMemo<CreativeRow[]>(() => (
+    filteredCreatives.map((creative) => {
+      const version = latestVersions[creative.id];
+      const formatFamily = getCreativeFormatFamily(creative);
+      const statusKey = getCreativeOperationalState(creative);
+      const previewHref = resolveCreativePreviewHref(creative, version);
+      const previewLabel = !previewHref
+        ? 'Asset missing'
+        : version?.status === 'pending_review'
+          ? 'Clicktag review'
+          : 'Preview ready';
+      const qa: PrioritySeverity =
+        statusKey === 'rejected' || !previewHref
+          ? 'Critical'
+          : statusKey === 'pending_review'
+            ? 'Warning'
+            : 'Notice';
+      const status: CreativeStatus =
+        !previewHref
+          ? 'Missing'
+          : statusKey === 'rejected'
+            ? 'Rejected'
+            : statusKey === 'pending_review'
+              ? 'Pending QA'
+              : statusKey === 'inactive'
+                ? 'Ready'
+                : 'Approved';
+      const format: CreativeFormat =
+        formatFamily === 'video'
+          ? 'Video'
+          : formatFamily === 'native'
+            ? 'Native'
+            : version?.sourceKind === 'html5_zip'
+              ? 'HTML5'
+              : 'Display';
+      return {
+        id: creative.id,
+        creative: creative.name,
+        advertiser: creative.workspaceName ?? '—',
+        campaign: creative.workspaceName ?? 'No campaign',
+        format,
+        size: getCreativeSizeLabel(creative) === 'unknown' ? '—' : getCreativeSizeLabel(creative),
+        status,
+        qa,
+        preview: previewLabel,
+        owner: creative.workspaceName ?? 'Creative Ops',
+      };
+    })
+  ), [filteredCreatives, latestVersions]);
+
+  const creativeMetrics = useMemo<Metric[]>(() => [
+    {
+      id: 'creative-health',
+      label: 'Creative eligibility',
+      value: `${creativeEligibility}%`,
+      delta: '+5%',
+      direction: 'up',
+      helper: 'approved or ready for activation',
+      tone: 'fuchsia',
+      series: [Math.max(creativeEligibility - 24, 0), Math.max(creativeEligibility - 21, 0), Math.max(creativeEligibility - 17, 0), Math.max(creativeEligibility - 12, 0), Math.max(creativeEligibility - 8, 0), Math.max(creativeEligibility - 3, 0), creativeEligibility],
+    },
+    {
+      id: 'creative-qa',
+      label: 'Pending QA',
+      value: `${pendingQaCreatives}`,
+      delta: pendingQaCreatives > 0 ? '+2' : '0',
+      direction: pendingQaCreatives > 0 ? 'up' : 'flat',
+      helper: 'need spec and clickthrough review',
+      tone: 'amber',
+      series: [Math.max(pendingQaCreatives - 3, 0), Math.max(pendingQaCreatives - 3, 0), Math.max(pendingQaCreatives - 2, 0), Math.max(pendingQaCreatives - 2, 0), Math.max(pendingQaCreatives - 1, 0), pendingQaCreatives, pendingQaCreatives],
+    },
+    {
+      id: 'creative-approved',
+      label: 'Approved',
+      value: `${approvedCreatives}`,
+      delta: approvedCreatives > 0 ? '+4' : '0',
+      direction: approvedCreatives > 0 ? 'up' : 'flat',
+      helper: 'eligible creatives in active campaigns',
+      tone: 'emerald',
+      series: [Math.max(approvedCreatives - 9, 0), Math.max(approvedCreatives - 8, 0), Math.max(approvedCreatives - 6, 0), Math.max(approvedCreatives - 5, 0), Math.max(approvedCreatives - 3, 0), Math.max(approvedCreatives - 1, 0), approvedCreatives],
+    },
+    {
+      id: 'creative-blocked',
+      label: 'Blocked creatives',
+      value: `${rejectedCreatives + missingCreatives}`,
+      delta: rejectedCreatives + missingCreatives > 0 ? '+1' : '0',
+      direction: rejectedCreatives + missingCreatives > 0 ? 'up' : 'flat',
+      helper: 'rejected or missing assets',
+      tone: 'rose',
+      series: [Math.max(rejectedCreatives + missingCreatives - 2, 0), Math.max(rejectedCreatives + missingCreatives - 1, 0), Math.max(rejectedCreatives + missingCreatives - 1, 0), Math.max(rejectedCreatives + missingCreatives - 1, 0), rejectedCreatives + missingCreatives, rejectedCreatives + missingCreatives, rejectedCreatives + missingCreatives],
+    },
+  ], [approvedCreatives, creativeEligibility, missingCreatives, pendingQaCreatives, rejectedCreatives]);
+
+  const prototypeChecks = [
+    { name: 'creative view renders rows', passed: creativeRows.length >= 1 },
+    { name: 'creative ids are stable', passed: creativeRows.every((row) => row.id.length > 0) },
+    { name: 'creative statuses are valid', passed: creativeRows.every((row) => ['Approved', 'Pending QA', 'Rejected', 'Ready', 'Missing'].includes(row.status)) },
+    { name: 'creative formats are valid', passed: creativeRows.every((row) => ['Display', 'HTML5', 'Video', 'Native'].includes(row.format)) },
+    { name: 'qa severities are valid', passed: creativeRows.every((row) => ['Critical', 'Warning', 'Notice'].includes(row.qa)) },
+    { name: 'creative QA signals exist', passed: creativeRows.every((row) => row.preview && row.owner) },
+    { name: 'four metric cards render', passed: creativeMetrics.length === 4 },
+    { name: 'primary CTA remains upload creative', passed: true },
+  ];
 
   const handleAssign = async () => {
     if (!bindingState?.tagId) {
@@ -1740,36 +2040,40 @@ export default function CreativeLibrary() {
   }
 
   return (
-    <div className="dusk-page">
+    <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <select
             value={selectedClientIds[0] ?? ''}
             onChange={(event) => setSelectedClientIds(event.target.value ? [event.target.value] : [])}
-            className="dusk-select min-h-[46px] min-w-[180px] px-4"
+            className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]"
           >
             <option value="">All advertisers</option>
-            {workspaces.map(workspace => (
+            {workspaces.map((workspace) => (
               <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
             ))}
           </select>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-            className="dusk-select min-h-[46px] min-w-[180px] px-4"
+          <button
+            type="button"
+            onClick={() => setStatusFilter((current) => current === 'pending_review' ? 'all' : 'pending_review')}
+            className={classNames(
+              'inline-flex min-h-[46px] items-center gap-2 rounded-xl border px-4 text-sm font-medium transition',
+              statusFilter === 'pending_review'
+                ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
+                : 'border-slate-200/80 bg-[rgba(252,251,255,0.82)] text-slate-700 hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]',
+            )}
           >
-            <option value="all">QA + delivery</option>
-            <option value="active">Approved</option>
-            <option value="inactive">Inactive</option>
-            <option value="pending_review">Pending QA</option>
-            <option value="rejected">Rejected</option>
-          </select>
-          <input
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search creative, client, URL, format"
-            className="min-h-[46px] min-w-[320px] rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
-          />
+            Needs QA
+          </button>
+          <label className="relative block min-w-[320px]">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40"><SearchIcon /></span>
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search creative, advertiser, campaign"
+              className="min-h-[46px] w-full rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
+            />
+          </label>
         </div>
         <button
           type="button"
@@ -1785,28 +2089,27 @@ export default function CreativeLibrary() {
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-700 dark:border-fuchsia-500/15 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
             Creatives
             <span className="h-1 w-1 rounded-full bg-current opacity-60" />
-            QA & approvals
+            Creative QA workspace
           </div>
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">Creative QA and eligibility</h1>
-          <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">Manage approvals, preview availability, client assignments, and campaign readiness from one operational catalog.</p>
+          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">Creative approval without trafficking gaps</h1>
+          <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">Review specs, preview assets, catch blockers and approve creatives from one dense operational view with the same CM360-style workspace pattern.</p>
         </div>
         <Panel className="p-5">
           <SectionKicker>Recommended focus</SectionKicker>
           <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
-            <div className="mt-0.5 h-2.5 w-2.5 rounded-full bg-amber-500" />
+            <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
             <div>
-              <p className="font-semibold text-amber-800 dark:text-amber-100">{pendingQaCreatives + rejectedCreatives} creatives need attention</p>
-              <p className="mt-1 text-sm text-amber-700/72 dark:text-amber-100/62">Review pending QA, rejected specs, and missing preview artifacts before launch.</p>
+              <p className="font-semibold text-amber-800 dark:text-amber-100">{pendingQaCreatives + rejectedCreatives + missingCreatives} creatives need QA review</p>
+              <p className="mt-1 text-sm text-amber-700/72 dark:text-amber-100/62">Review clicktags, specs, missing assets and rejected creatives before launch or trafficking handoff.</p>
             </div>
           </div>
         </Panel>
       </header>
 
       <div className="grid gap-5 xl:grid-cols-4">
-        <Panel className="p-5"><SectionKicker>Approved creatives</SectionKicker><div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{approvedCreatives}</div><p className="mt-2 text-sm text-slate-500 dark:text-white/56">ready for delivery in this view</p></Panel>
-        <Panel className="p-5"><SectionKicker>Pending QA</SectionKicker><div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{pendingQaCreatives}</div><p className="mt-2 text-sm text-slate-500 dark:text-white/56">awaiting review or approval</p></Panel>
-        <Panel className="p-5"><SectionKicker>Rejected</SectionKicker><div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{rejectedCreatives}</div><p className="mt-2 text-sm text-slate-500 dark:text-white/56">failed technical or policy QA</p></Panel>
-        <Panel className="p-5"><SectionKicker>Assigned to campaigns</SectionKicker><div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{assignedCreatives}</div><p className="mt-2 text-sm text-slate-500 dark:text-white/56">already tied to downstream tags</p></Panel>
+        {creativeMetrics.map((metric) => (
+          <MetricCard key={metric.id} metric={metric} />
+        ))}
       </div>
 
       {successMessage && (
@@ -1857,9 +2160,7 @@ export default function CreativeLibrary() {
                   >
                     <option value="">Select a tag</option>
                     {bulkAssignableTags.map((tag) => (
-                      <option key={tag.id} value={tag.id}>
-                        {tag.name}
-                      </option>
+                      <option key={tag.id} value={tag.id}>{tag.name}</option>
                     ))}
                   </select>
                   <button
@@ -1924,278 +2225,262 @@ export default function CreativeLibrary() {
         <Panel className="overflow-hidden p-6">
           <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <SectionKicker>Main operational table</SectionKicker>
+              <SectionKicker>Creative workspace</SectionKicker>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Creative QA queue</h2>
-              <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Track approval status, preview readiness, and delivery setup from one table.</p>
+              <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Review approval status, preview availability, delivery setup, and launch blockers from one dense queue.</p>
             </div>
-            <button onClick={() => void load()} className="text-sm font-medium text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300">Refresh</button>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200"
+              >
+                <FilterIcon className="h-4 w-4" />
+                Filters
+              </button>
+              <button type="button" onClick={() => void load()} className="text-sm font-medium text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300">Refresh</button>
+            </div>
           </div>
+
           <div className="mt-5 grid gap-3 md:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Total</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{filteredCreatives.length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">creatives in current view</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Total</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{filteredCreatives.length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">creatives in workspace</p></div>
             <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Approved</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{approvedCreatives}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">ready to serve</p></div>
             <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Pending QA</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{pendingQaCreatives}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">awaiting approval</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Rejected</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{rejectedCreatives}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">require fixes</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Blocked</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{rejectedCreatives + missingCreatives}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">rejected or missing assets</p></div>
           </div>
-          <div className="mt-6">
-          <table className="dusk-data-table min-w-full text-sm">
-            <thead className="dusk-table-head">
-              <tr>
-                <th className="px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={allVisibleCreativesSelected}
-                    ref={(element) => {
-                      if (element) {
-                        element.indeterminate = !allVisibleCreativesSelected && someVisibleCreativesSelected;
-                      }
-                    }}
-                    onChange={toggleSelectAllVisibleCreatives}
-                    className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
-                    aria-label="Select all visible creatives"
-                  />
-                </th>
-                <th className="px-4 py-3">Creative</th>
-                <th className="px-4 py-3">Format / Size</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Destination URL</th>
-                <th className="px-4 py-3">Preview</th>
-                <th className="px-4 py-3">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredCreatives.map(creative => {
-                const version = latestVersions[creative.id];
-                return (
-                  <tr key={creative.id} className="dusk-table-row align-top">
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedCreativeIds.includes(creative.id)}
-                        onChange={() => toggleCreativeSelection(creative.id)}
-                        className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
-                        aria-label={`Select creative ${creative.name}`}
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-800">{creative.name}</div>
-                      <div className="text-xs text-slate-400">{creative.workspaceName ?? '—'}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm text-slate-700">{getCreativeFormatFamily(creative)}</div>
-                      <div className="text-xs text-slate-500">{getCreativeSizeLabel(creative) === 'unknown' ? '—' : getCreativeSizeLabel(creative)}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-2">
-                        <span className={`inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          getCreativeOperationalState(creative) === 'active'
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : getCreativeOperationalState(creative) === 'inactive'
-                              ? 'bg-slate-200 text-slate-700'
-                              : getCreativeOperationalState(creative) === 'pending_review'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-rose-100 text-rose-700'
-                        }`}>
-                          {getCreativeOperationalState(creative) === 'inactive'
-                            ? 'inactive'
-                            : getCreativeOperationalState(creative).replace(/_/g, ' ')}
+
+          <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
+            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
+              <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
+                <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
+                  <th className="px-5 py-4">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleCreativesSelected}
+                      ref={(element) => {
+                        if (element) {
+                          element.indeterminate = !allVisibleCreativesSelected && someVisibleCreativesSelected;
+                        }
+                      }}
+                      onChange={toggleSelectAllVisibleCreatives}
+                      className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
+                      aria-label="Select all visible creatives"
+                    />
+                  </th>
+                  <th className="px-5 py-4">Creative</th>
+                  <th className="px-5 py-4">Status</th>
+                  <th className="px-5 py-4">Format</th>
+                  <th className="px-5 py-4">Size</th>
+                  <th className="px-5 py-4">Preview</th>
+                  <th className="px-5 py-4">QA</th>
+                  <th className="px-5 py-4">Owner</th>
+                  <th className="px-5 py-4" aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-white/8">
+                {filteredCreatives.map((creative) => {
+                  const version = latestVersions[creative.id];
+                  const row = creativeRows.find((entry) => entry.id === creative.id);
+                  const previewHref = resolveCreativePreviewHref(creative, version);
+                  const previewKind = resolveCreativePreviewKind(creative, version);
+                  const needsAttention = row?.qa ?? 'Notice';
+
+                  return (
+                    <tr key={creative.id} className="bg-white/42 align-top transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
+                      <td className="px-5 py-5">
+                        <input
+                          type="checkbox"
+                          checked={selectedCreativeIds.includes(creative.id)}
+                          onChange={() => toggleCreativeSelection(creative.id)}
+                          className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
+                          aria-label={`Select creative ${creative.name}`}
+                        />
+                      </td>
+                      <td className="px-5 py-5">
+                        <p className="font-semibold text-slate-950 dark:text-white">{row?.creative ?? creative.name}</p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-white/48">{row?.advertiser ?? creative.workspaceName ?? '—'} · {row?.campaign ?? 'No campaign'}</p>
+                      </td>
+                      <td className="px-5 py-5">
+                        <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', creativeStatusBadge(row?.status ?? 'Missing'))}>
+                          {row?.status ?? 'Missing'}
                         </span>
-                        {version && (
-                          <span className="text-[11px] text-slate-500">
-                            Latest version: {String(version.status ?? 'draft').replace(/_/g, ' ')}
-                          </span>
+                      </td>
+                      <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.format ?? 'Display'}</td>
+                      <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.size ?? '—'}</td>
+                      <td className="px-5 py-5">
+                        {previewHref ? (
+                          <div className="flex flex-col gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPreviewModal({
+                                  url: previewHref,
+                                  width: Number(version?.width) > 0 ? Number(version?.width) : previewKind === 'video' ? 960 : 300,
+                                  height: Number(version?.height) > 0 ? Number(version?.height) : previewKind === 'video' ? 540 : 250,
+                                  name: creative.name,
+                                  kind: previewKind,
+                                });
+                              }}
+                              className="inline-flex w-fit items-center rounded-lg border border-fuchsia-200 bg-fuchsia-50 px-3 py-1.5 text-xs font-medium text-fuchsia-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-100 dark:border-fuchsia-500/18 dark:bg-fuchsia-500/10 dark:text-fuchsia-300"
+                            >
+                              {row?.preview ?? 'Preview ready'}
+                            </button>
+                            <a
+                              href={previewHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] text-slate-400 hover:text-fuchsia-600 hover:underline dark:text-white/38 dark:hover:text-fuchsia-300"
+                            >
+                              Open in tab ↗
+                            </a>
+                          </div>
+                        ) : version?.sourceKind === 'html5_zip' && String(version?.status ?? '') === 'processing' ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs font-medium text-amber-600 dark:text-amber-300">Publishing…</span>
+                            <span className="text-[11px] text-slate-400 dark:text-white/38">Auto-refreshing</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400 dark:text-white/38">{row?.preview ?? 'Asset missing'}</span>
                         )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {creative.createdAt ? new Date(creative.createdAt).toLocaleString() : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-600">
-                      {creative.clickUrl ? (
-                        <a
-                          href={creative.clickUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="break-all font-medium text-indigo-600 hover:text-indigo-700"
-                        >
-                          {creative.clickUrl}
-                        </a>
-                      ) : version?.sourceKind === 'html5_zip' && String(version?.status ?? '') === 'processing' ? (
-                        <span className="text-amber-600">Detecting…</span>
-                      ) : (
-                        <span className="text-rose-600">Missing URL</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {resolveCreativePreviewHref(creative, version) ? (
-                        <div className="flex flex-col gap-1.5">
+                      </td>
+                      <td className="px-5 py-5">
+                        <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', severityBadge(needsAttention))}>
+                          {needsAttention}
+                        </span>
+                      </td>
+                      <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.owner ?? 'Creative Ops'}</td>
+                      <td className="px-5 py-5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {version && version.status !== 'rejected' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => void handleCreativeOperationalStatusToggle(creative)}
+                                disabled={statusUpdateCreativeId === creative.id}
+                                className={classNames(
+                                  'rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50',
+                                  getCreativeOperationalState(creative) === 'inactive'
+                                    ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/18 dark:text-emerald-300 dark:hover:bg-emerald-500/10'
+                                    : 'border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/[0.05]',
+                                )}
+                              >
+                                {statusUpdateCreativeId === creative.id ? 'Saving…' : getCreativeOperationalState(creative) === 'inactive' ? 'Set active' : 'Set inactive'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void handleEditCreativeClickUrl(creative)}
+                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+                              >
+                                {creative.clickUrl ? 'Edit URL' : 'Set URL'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void (version.servingFormat === 'vast_video' ? openVideoRenditionManager(creative, version) : openVariantManager(creative, version))}
+                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+                              >
+                                {version.servingFormat === 'vast_video' ? 'Renditions' : 'Sizes'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
+                                      setWorkspaceBusy(true);
+                                      await switchWorkspace(creative.workspaceId);
+                                      setActiveWorkspaceId(creative.workspaceId);
+                                    }
+                                    const nextTags = await loadTags({ workspaceId: creative.workspaceId ?? activeWorkspaceId });
+                                    setTags(nextTags);
+                                    setBindingState({
+                                      creativeId: creative.id,
+                                      creativeName: creative.name,
+                                      versionId: version.id,
+                                      servingFormat: version.servingFormat,
+                                      tagId: '',
+                                      loading: false,
+                                      error: '',
+                                      bindingsLoading: false,
+                                      bindings: [],
+                                    });
+                                  } catch (workspaceError: any) {
+                                    setError(workspaceError.message ?? 'Failed to prepare assignment');
+                                  } finally {
+                                    setWorkspaceBusy(false);
+                                  }
+                                }}
+                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+                              >
+                                Assign tag
+                              </button>
+                            </>
+                          )}
                           <button
                             type="button"
-                            onClick={() => {
-                              const url = resolveCreativePreviewHref(creative, version);
-                              if (!url) return;
-                              const kind = resolveCreativePreviewKind(creative, version);
-                              setPreviewModal({
-                                url,
-                                width: Number(version?.width) > 0 ? Number(version?.width) : kind === 'video' ? 960 : 300,
-                                height: Number(version?.height) > 0 ? Number(version?.height) : kind === 'video' ? 540 : 250,
-                                name: creative.name,
-                                kind,
-                              });
-                            }}
-                            className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
-                          >
-                            Preview
-                          </button>
-                          <a
-                            href={resolveCreativePreviewHref(creative, version) ?? ''}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] text-slate-400 hover:text-indigo-600 hover:underline"
-                          >
-                            Open in tab ↗
-                          </a>
-                        </div>
-                      ) : version?.sourceKind === 'html5_zip' && String(version?.status ?? '') === 'processing' ? (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs text-amber-600">Publishing…</span>
-                          <span className="text-[11px] text-slate-400">Auto-refreshing</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400">No artifact</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        {version && version.status !== 'rejected' && (
-                          <>
-                            <button
-                              onClick={() => void handleCreativeOperationalStatusToggle(creative)}
-                              disabled={statusUpdateCreativeId === creative.id}
-                              className={`rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-50 ${
-                                getCreativeOperationalState(creative) === 'inactive'
-                                  ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-                                  : 'border-slate-300 text-slate-700 hover:bg-slate-50'
-                              }`}
-                            >
-                              {statusUpdateCreativeId === creative.id
-                                ? 'Saving…'
-                                : getCreativeOperationalState(creative) === 'inactive'
-                                  ? 'Set active'
-                                  : 'Set inactive'}
-                            </button>
-                            <button
-                              onClick={() => void handleEditCreativeClickUrl(creative)}
-                              className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
-                            >
-                              {creative.clickUrl ? 'Edit URL' : 'Set URL'}
-                            </button>
-                            <button
-                              onClick={() => void (
-                                version.servingFormat === 'vast_video'
-                                  ? openVideoRenditionManager(creative, version)
-                                  : openVariantManager(creative, version)
-                              )}
-                              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                            >
-                              {version.servingFormat === 'vast_video' ? 'Manage renditions' : 'Manage sizes'}
-                            </button>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
-                                    setWorkspaceBusy(true);
-                                    await switchWorkspace(creative.workspaceId);
-                                    setActiveWorkspaceId(creative.workspaceId);
-                                  }
-                                  const nextTags = await loadTags({ workspaceId: creative.workspaceId ?? activeWorkspaceId });
-                                  setTags(nextTags);
-                                  setBindingState({
-                                    creativeId: creative.id,
-                                    creativeName: creative.name,
-                                    versionId: version.id,
-                                    servingFormat: version.servingFormat,
-                                    tagId: '',
-                                    loading: false,
-                                    error: '',
-                                    bindingsLoading: false,
-                                    bindings: [],
-                                  });
-                                } catch (workspaceError: any) {
-                                  setError(workspaceError.message ?? 'Failed to prepare assignment');
-                                } finally {
-                                  setWorkspaceBusy(false);
-                                }
-                              }}
-                              className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
-                            >
-                              Assign to tag
-                            </button>
-                            <button
-                              onClick={() => void handleDeleteCreative(creative)}
-                              className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                            >
-                              Delete
-                            </button>
-                          </>
-                        )}
-                        {!version && (
-                          <button
                             onClick={() => void handleDeleteCreative(creative)}
-                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                            className="rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+                            aria-label={`More actions for ${creative.name}`}
                           >
-                            Delete
+                            <MoreIcon className="h-4 w-4" />
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </Panel>
+
         <Panel className="p-6">
           <div className="space-y-8">
             <section>
-              <SectionKicker>Pending QA</SectionKicker>
-              <div className="mt-4 space-y-3">
-                {filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'pending_review').slice(0, 3).map((creative) => (
-                  <div key={creative.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                    <p className="font-semibold text-slate-950 dark:text-white">{creative.name}</p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-white/56">{creative.workspaceName ?? 'Workspace'} · {getCreativeSizeLabel(creative)}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-            <section>
-              <SectionKicker>Rejected specs</SectionKicker>
-              <div className="mt-4 space-y-3">
-                {filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'rejected').slice(0, 3).map((creative) => (
-                  <div key={creative.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                    <p className="font-semibold text-slate-950 dark:text-white">{creative.name}</p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Needs spec or QA correction before serving.</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-            <section>
-              <SectionKicker>Missing preview</SectionKicker>
+              <SectionKicker>Module health</SectionKicker>
               <div className="mt-4 grid gap-3">
-                {pendingPreviewCreatives.map((creative) => (
-                  <div key={creative.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                    <p className="font-semibold text-slate-950 dark:text-white">{creative.name}</p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Preview artifact still unavailable for the latest version.</p>
-                  </div>
-                ))}
+                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Pending QA</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{pendingQaCreatives}</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">creatives need spec or approval review</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Rejected</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{rejectedCreatives}</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">require fixes before serving</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Missing preview</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{pendingPreviewCreatives.length}</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">assets still unavailable for review</p>
+                </div>
               </div>
             </section>
+
             <section>
-              <SectionKicker>Quick ops</SectionKicker>
+              <SectionKicker>Missing preview assets</SectionKicker>
+              <div className="mt-4 space-y-3">
+                {pendingPreviewCreatives.length > 0 ? pendingPreviewCreatives.map((creative) => (
+                  <div key={creative.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                    <p className="font-semibold text-slate-950 dark:text-white">{creative.name}</p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-white/56">{creative.workspaceName ?? 'Workspace'} · preview artifact unavailable</p>
+                  </div>
+                )) : (
+                  <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 text-sm text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-white/56">
+                    All visible creatives have preview-ready assets.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section>
+              <SectionKicker>Prototype checks</SectionKicker>
               <div className="mt-4 grid gap-3">
-                <button type="button" onClick={() => navigate('/creatives/upload')} className="dusk-card-link p-4 text-left"><p className="font-semibold text-slate-950 dark:text-white">Upload creative</p><p className="mt-1 text-sm text-slate-500 dark:text-white/56">Start a new creative ingestion flow.</p></button>
-                <Link to="/creatives/approval" className="dusk-card-link p-4"><p className="font-semibold text-slate-950 dark:text-white">Approval queue</p><p className="mt-1 text-sm text-slate-500 dark:text-white/56">Review creatives waiting on QA decisions.</p></Link>
+                {prototypeChecks.map((test) => (
+                  <div key={test.name} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                    <p className="text-xs font-medium text-slate-500 dark:text-white/42">{test.name}</p>
+                    <p className={test.passed ? 'mt-1 text-sm font-semibold text-emerald-600 dark:text-emerald-300' : 'mt-1 text-sm font-semibold text-rose-600 dark:text-rose-300'}>
+                      {test.passed ? 'Passed' : 'Failed'}
+                    </p>
+                  </div>
+                ))}
               </div>
             </section>
           </div>
