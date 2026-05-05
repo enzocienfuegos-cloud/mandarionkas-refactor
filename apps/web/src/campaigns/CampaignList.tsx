@@ -126,12 +126,6 @@ const AlertTriangleIcon = ({ className }: IconProps) => (
   </svg>
 );
 
-const ArrowRightIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
 const SearchIcon = ({ className }: IconProps) => (
   <svg {...iconProps(className)}>
     <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8" />
@@ -150,21 +144,6 @@ const GaugeIcon = ({ className }: IconProps) => (
     <path d="M4 15a8 8 0 1 1 16 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     <path d="m12 15 4-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     <path d="M8 19h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
-const TagsIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <path d="M4 5h7l9 9-7 7-9-9V5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-    <circle cx="8" cy="9" r="1.2" fill="currentColor" />
-  </svg>
-);
-
-const CreativeIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
-    <path d="m7 15 3-3 3 3 2-2 3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    <circle cx="15.5" cy="9.5" r="1.2" fill="currentColor" />
   </svg>
 );
 
@@ -190,19 +169,6 @@ const MoreIcon = ({ className }: IconProps) => (
   </svg>
 );
 
-// ─── Logo ─────────────────────────────────────────────────────────────────────
-
-function DuskLogo({ className }: IconProps) {
-  return (
-    <svg viewBox="150 780 1760 480" preserveAspectRatio="xMinYMid meet" className={className} aria-label="DUSK logo" role="img">
-      <path fill="currentColor" d="M 172.307 828.906 L 291.688 828.909 C 343.041 828.897 394.658 825.173 443.902 839.993 C 472.745 848.712 498.998 864.398 520.342 885.667 C 591.476 956.148 594.786 1087.65 523.276 1158.67 C 497.882 1183.89 466.22 1201.88 431.555 1210.78 C 390.657 1221.61 337.928 1219.08 294.744 1219.06 L 172.07 1219.05 L 172.093 1107.25 L 172.076 971.079 C 195.267 970.457 220.324 971.014 243.744 970.844 C 245.092 1011.28 243.464 1052.91 243.978 1093.46 C 244.226 1112.99 243.155 1133.76 245.259 1153.12 C 269.254 1153.55 292.4 1153.08 316.389 1153.34 C 368.487 1154.62 421.248 1156.76 463.538 1120.04 C 514.191 1076.05 515.298 985.558 472.496 936.035 C 430.726 887.705 374.038 895.556 317.449 894.589 C 269.568 893.771 219.68 896.567 172.136 894.294 C 171.668 874.175 171.526 848.92 172.307 828.906 z" />
-      <path fill="currentColor" d="M 1179.72 829.372 C 1186.67 828.135 1238.91 829.01 1248.99 829.012 L 1419.86 828.933 C 1411.79 846.114 1395.67 878.848 1386.14 894.536 C 1372.94 895.568 1348.45 894.776 1334.35 894.754 L 1233.74 894.67 C 1197.14 894.701 1138.68 887.942 1137.72 941.923 C 1136.77 994.831 1196.61 989.988 1232.75 990.795 C 1272.46 991.682 1320.57 987.096 1358.67 998.002 C 1377.09 1003.39 1393.84 1013.38 1407.35 1027.01 C 1427.24 1046.84 1436.95 1073.62 1437.47 1101.46 C 1438.73 1168.66 1385.97 1214.11 1321.61 1218.68 C 1312.6 1219.32 1302.86 1219.1 1293.5 1219.05 L 1052.36 1219.1 C 1061.89 1199.29 1074.41 1172.27 1085.25 1153.42 C 1098.95 1154.22 1116.27 1153.24 1130.26 1153.18 L 1212 1153.35 L 1285.45 1153.48 C 1309.3 1153.31 1339.2 1156.7 1355.43 1135.77 C 1364.41 1124.18 1366.61 1108.83 1364.04 1094.95 C 1356.53 1054.43 1319.6 1056.22 1287.51 1057.04 C 1227.39 1055.68 1157 1065.94 1106.39 1027.35 C 1060.17 992.101 1053.86 918.801 1089.43 874.162 C 1113.21 844.109 1142.79 833.906 1179.72 829.372 z" />
-      <path fill="currentColor" d="M 635.256 828.662 C 658.543 829.198 682.876 828.997 706.258 829.172 C 705.685 873.038 705.863 917.714 705.976 961.705 C 706.34 998.905 703.778 1032.97 710.027 1070.01 C 728.656 1180.43 907.645 1186.89 934.512 1079.5 C 943.252 1044.57 940.007 1004.61 940.043 968.012 L 940.092 828.716 C 961.536 829.726 989.742 828.977 1011.8 829.111 C 1012.31 849.748 1012 871.06 1011.95 891.75 L 1011.97 1025.92 C 1011.69 1082.84 999.774 1130.65 957.808 1171.83 C 920.534 1208.41 866.667 1221.67 815.533 1220.99 C 765.807 1220.33 720.123 1202.65 684.771 1167.41 C 626.456 1109.28 635.291 1029.84 634.981 954.148 C 634.815 913.443 634.387 869.654 635.256 828.662 z" />
-      <path fill="currentColor" d="M 1782.78 829.015 C 1790.47 828.275 1803.38 828.767 1811.4 828.823 C 1829.91 829.098 1848.43 829.093 1866.94 828.809 C 1849.5 850.273 1822.43 876.865 1802.74 897.427 C 1764.38 937.432 1726.28 977.69 1688.46 1018.2 C 1696.83 1026.03 1706.22 1036.63 1714.19 1045.09 C 1732.05 1064.03 1749.78 1083.07 1767.39 1102.24 C 1778.58 1114.21 1873.67 1212.66 1875.41 1217.56 L 1874.22 1218.92 L 1869.25 1219.11 C 1850.28 1218.86 1831.18 1219.22 1812.21 1219.08 C 1801.31 1218.99 1788.79 1219.54 1778.07 1218.29 C 1770.27 1211.63 1757.71 1197.58 1750.24 1189.66 L 1699.9 1136.17 L 1640.11 1072.53 C 1627.71 1059.44 1607.42 1039.2 1597.39 1025.38 C 1604.99 1014.99 1623.92 996.048 1633.33 986.21 L 1691.9 924.466 L 1749.92 862.638 C 1758.11 853.907 1774.13 835.819 1782.78 829.015 z" />
-      <path fill="currentColor" d="M 1488.53 828.282 C 1497.81 829.856 1548.04 828.92 1559.84 828.874 C 1561.26 906.421 1559.88 988.274 1559.85 1066.18 L 1560.02 1159.98 C 1560.05 1167.48 1561.05 1213.21 1558.77 1217.84 C 1556.27 1219.69 1553.54 1219.16 1550.25 1219.12 L 1488.72 1219.04 C 1487.44 1201.01 1488.55 1172.17 1488.46 1153.01 L 1488.47 1007.5 C 1488.64 979.249 1488.38 950.696 1488.48 922.419 C 1488.59 891.859 1486.87 858.603 1488.53 828.282 z" />
-    </svg>
-  );
-}
 
 // ─── Shared UI primitives ─────────────────────────────────────────────────────
 
@@ -307,158 +273,6 @@ function MetricCard({ metric }: { metric: Metric }) {
       </div>
       <Sparkline series={metric.series} className={classNames('mt-5 h-14 w-full', sparkColor)} />
     </Panel>
-  );
-}
-
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
-
-function Sidebar() {
-  const primaryItems = [
-    { label: 'Overview', icon: <GaugeIcon />, helper: 'Ops cockpit', badge: '3' },
-    { label: 'Campaigns', icon: <ReportIcon />, helper: 'Delivery & setup', badge: '2', active: true },
-    { label: 'Tags', icon: <TagsIcon />, helper: 'Pixels & firing', badge: '1' },
-    { label: 'Creatives', icon: <CreativeIcon />, helper: 'QA & approvals', badge: '6' },
-  ] as const;
-
-  const monitorItems = [
-    { label: 'Pacing', icon: <GaugeIcon />, helper: 'Budget health', badge: '!' },
-    { label: 'Discrepancies', icon: <AlertTriangleIcon />, helper: 'Publisher gaps', badge: '1' },
-    { label: 'Reporting', icon: <TableIcon />, helper: 'Insights & export' },
-  ] as const;
-
-  const campaignFocus: readonly { label: string; count: string; active?: boolean }[] = [
-    { label: 'Needs attention', count: '2', active: true },
-    { label: 'Ready to launch', count: '1' },
-    { label: 'Draft setup', count: '1' },
-  ] as const;
-
-  function NavGroup({ title, items }: { title: string; items: readonly { label: string; icon: JSX.Element; helper: string; active?: boolean; badge?: string }[] }) {
-    return (
-      <div className="space-y-2">
-        <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-white/32">{title}</p>
-        <div className="space-y-1">
-          {items.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              className={classNames(
-                'group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition',
-                item.active
-                  ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
-                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/66 dark:hover:bg-white/[0.05] dark:hover:text-white',
-              )}
-            >
-              {item.active ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
-              <span
-                className={classNames(
-                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition',
-                  item.active
-                    ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-                    : 'border-slate-200 bg-white/60 text-slate-500 group-hover:border-fuchsia-200 group-hover:text-fuchsia-600 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/56 dark:group-hover:border-fuchsia-500/20 dark:group-hover:text-fuchsia-300',
-                )}
-              >
-                {item.icon}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">{item.label}</span>
-                <span className="mt-0.5 block truncate text-xs text-slate-400 dark:text-white/36">{item.helper}</span>
-              </span>
-              {item.badge ? (
-                <span
-                  className={classNames(
-                    'rounded-full px-2 py-0.5 text-xs font-bold',
-                    item.active
-                      ? 'bg-fuchsia-600 text-white'
-                      : 'bg-slate-100 text-slate-500 dark:bg-white/8 dark:text-white/56',
-                  )}
-                >
-                  {item.badge}
-                </span>
-              ) : null}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <aside className="app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white/84 px-3 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#0b1020]/90 lg:block">
-      <div className="flex min-h-full flex-col">
-        <div className="flex items-center gap-3 px-2 pb-5">
-          <div className="flex min-w-0 flex-1 flex-col justify-center">
-            <DuskLogo className="h-[34px] w-[136px] text-slate-950 dark:text-white" />
-            <p className="mt-1 text-xs font-medium text-slate-500 dark:text-white/40">Adserver workspace</p>
-          </div>
-          <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white/60 text-slate-400 transition hover:border-fuchsia-300 hover:text-fuchsia-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/38 dark:hover:border-fuchsia-500/24 dark:hover:text-fuchsia-300" aria-label="Collapse sidebar">
-            <ArrowRightIcon className="h-4 w-4 rotate-180" />
-          </button>
-        </div>
-
-        <button type="button" className="mb-3 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white/58 px-3 py-2.5 text-left transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/8 dark:bg-white/[0.025] dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]">
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold text-slate-800 dark:text-white/86">All advertisers</span>
-            <span className="block truncate text-xs text-slate-500 dark:text-white/38">5 active clients</span>
-          </span>
-          <ArrowRightIcon className="h-4 w-4 rotate-90 text-slate-400 dark:text-white/34" />
-        </button>
-
-        <label className="relative mb-5 block">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/36"><SearchIcon className="h-4 w-4" /></span>
-          <input className="h-10 w-full rounded-xl border border-slate-200 bg-white/58 pl-9 pr-10 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/8 dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/26" placeholder="Jump to campaign" />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 dark:border-white/8 dark:bg-white/[0.04] dark:text-white/34">K</span>
-        </label>
-
-        <nav className="space-y-5">
-          <NavGroup title="Operations" items={primaryItems} />
-          <NavGroup title="Monitoring" items={monitorItems} />
-        </nav>
-
-        <div className="mt-5 border-t border-slate-200 pt-4 dark:border-white/8">
-          <div className="flex items-center justify-between px-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-white/32">Campaign focus</p>
-            <span className="text-[10px] font-semibold text-fuchsia-600 dark:text-fuchsia-300">Saved</span>
-          </div>
-          <div className="mt-2 space-y-1 text-sm">
-            {campaignFocus.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                className={classNames(
-                  'flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition',
-                  item.active
-                    ? 'bg-fuchsia-50 font-semibold text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-                    : 'text-slate-600 hover:bg-slate-100 dark:text-white/58 dark:hover:bg-white/[0.05]',
-                )}
-              >
-                <span>{item.label}</span>
-                <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs text-slate-500 dark:bg-white/8 dark:text-white/52">{item.count}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-auto border-t border-slate-200 pt-4 dark:border-white/8">
-          <div className="flex items-center justify-between px-2 pb-3">
-            <div>
-              <p className="text-xs font-medium text-slate-500 dark:text-white/38">Serving online</p>
-              <p className="text-sm font-semibold text-slate-800 dark:text-white/82">System healthy</p>
-            </div>
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-45" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            </span>
-          </div>
-          <button type="button" className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-slate-100 dark:hover:bg-white/[0.05]">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-600 dark:bg-white/8 dark:text-white/70">EC</div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-800 dark:text-white/82">Enzo Cienfuegos</p>
-              <p className="truncate text-xs text-slate-500 dark:text-white/36">Admin · Ad Ops</p>
-            </div>
-          </button>
-        </div>
-      </div>
-    </aside>
   );
 }
 
@@ -723,44 +537,6 @@ function PrototypeChecks({ campaignRows }: { campaignRows: CampaignRow[] }) {
   );
 }
 
-// ─── Scrollbar styles ─────────────────────────────────────────────────────────
-
-function GlobalScrollbarStyles() {
-  return (
-    <style>{`
-      .app-scrollbar {
-        scrollbar-width: thin;
-        scrollbar-color: rgba(148, 163, 184, 0.38) transparent;
-      }
-      .app-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
-      .app-scrollbar::-webkit-scrollbar-track { background: transparent; }
-      .app-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(148, 163, 184, 0.28);
-        border-radius: 999px;
-        border: 2px solid transparent;
-        background-clip: padding-box;
-      }
-      .app-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: rgba(241, 0, 139, 0.36);
-        border: 2px solid transparent;
-        background-clip: padding-box;
-      }
-      .app-scrollbar::-webkit-scrollbar-corner { background: transparent; }
-      .dark .app-scrollbar { scrollbar-color: rgba(255, 255, 255, 0.22) transparent; }
-      .dark .app-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.16);
-        border: 2px solid transparent;
-        background-clip: padding-box;
-      }
-      .dark .app-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: rgba(241, 0, 139, 0.42);
-        border: 2px solid transparent;
-        background-clip: padding-box;
-      }
-    `}</style>
-  );
-}
-
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export default function CampaignList() {
@@ -911,12 +687,7 @@ export default function CampaignList() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f6f3fb] text-slate-950 dark:bg-[#0b1020] dark:text-white">
-      <GlobalScrollbarStyles />
-      <Sidebar />
-
-      <main className="min-w-0 flex-1 px-6 py-6">
-        <div className="mx-auto max-w-7xl space-y-8">
+    <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
 
           {/* ── Toolbar ── */}
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -996,9 +767,7 @@ export default function CampaignList() {
 
           {/* ── Prototype checks ── */}
           <PrototypeChecks campaignRows={campaignRows} />
-
-        </div>
-      </main>
+ 
     </div>
   );
 }
