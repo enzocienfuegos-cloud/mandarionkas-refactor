@@ -39,7 +39,7 @@ import {
   type ThemeMode,
 } from '../shared/theme';
 import type { PlatformRole, ProductAccess } from '../shared/roles';
-import { AppShell, type SidebarItemName } from '../shared/dusk-ui';
+import { AppShell, type SidebarFocusItem, type SidebarItemName } from '../shared/dusk-ui';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -215,6 +215,55 @@ export default function Shell() {
   }, [hasAdServerAccess, location.pathname]);
 
   const isOverviewRoute = location.pathname.startsWith('/overview');
+  const campaignFocus: SidebarFocusItem[] = useMemo(() => {
+    if (location.pathname.startsWith('/campaigns')) {
+      return [
+        { label: 'Needs attention', count: '2', active: true },
+        { label: 'Ready to launch', count: '1' },
+        { label: 'Draft setup', count: '1' },
+      ];
+    }
+    if (location.pathname.startsWith('/tags')) {
+      return [
+        { label: 'Low firing', count: '3', active: true },
+        { label: 'Missing cachebuster', count: '1' },
+        { label: 'Recently updated' },
+      ];
+    }
+    if (location.pathname.startsWith('/creatives')) {
+      return [
+        { label: 'Pending QA', count: '4', active: true },
+        { label: 'Rejected specs', count: '2' },
+        { label: 'Missing preview', count: '1' },
+      ];
+    }
+    if (location.pathname.startsWith('/pacing')) {
+      return [
+        { label: 'Behind target', count: '2', active: true },
+        { label: 'Overpacing', count: '1' },
+        { label: 'Ending soon' },
+      ];
+    }
+    if (location.pathname.startsWith('/discrepancies')) {
+      return [
+        { label: 'Above threshold', count: '2', active: true },
+        { label: 'Pending reconciliation', count: '1' },
+        { label: 'Recently resolved' },
+      ];
+    }
+    if (location.pathname.startsWith('/reporting')) {
+      return [
+        { label: 'Scheduled reports', count: '3', active: true },
+        { label: 'Failed exports', count: '1' },
+        { label: 'Favorite reports' },
+      ];
+    }
+    return [
+      { label: 'Needs attention', count: '2', active: true },
+      { label: 'Ready to launch', count: '1' },
+      { label: 'Draft setup', count: '1' },
+    ];
+  }, [location.pathname]);
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -330,6 +379,12 @@ export default function Shell() {
           value: jumpSearch,
           onChange: setJumpSearch,
           placeholder: 'Jump to campaign',
+        }}
+        campaignFocus={campaignFocus}
+        userSummary={{
+          initials: `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}` || 'SA',
+          name: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'SMX Admin',
+          subtitle: user?.email ?? 'admin@smx.studio',
         }}
       >
         {!isOverviewRoute && (

@@ -2,6 +2,7 @@ import React from 'react';
 import {
   BarChart3,
   ChevronDown,
+  ChevronLeft,
   Gauge,
   Image,
   LayoutDashboard,
@@ -225,6 +226,18 @@ export type AdvertiserOption = {
   meta?: string;
 };
 
+export type SidebarFocusItem = {
+  label: string;
+  count?: string;
+  active?: boolean;
+};
+
+export type SidebarUserSummary = {
+  initials: string;
+  name: string;
+  subtitle: string;
+};
+
 type SidebarNavItem = {
   label: SidebarItemName;
   icon: React.ReactNode;
@@ -244,11 +257,11 @@ function SidebarNavGroup({
   onNavigate: (item: SidebarItemName) => void;
 }) {
   return (
-    <div className="space-y-1">
-      <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 dark:text-white/[0.22]">
+    <div className="space-y-2">
+      <div className="px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-white/32">
         {title}
       </div>
-      <div className="space-y-0.5">
+      <div className="space-y-1">
         {items.map((item) => (
           <DuskSidebarItemRow
             key={item.label}
@@ -270,6 +283,8 @@ export function Sidebar({
   badgeCounts,
   advertiserSelector,
   search,
+  campaignFocus,
+  userSummary,
 }: {
   activeItem: SidebarItemName;
   badgeCounts?: Partial<Record<SidebarItemName, string>>;
@@ -283,6 +298,8 @@ export function Sidebar({
     onChange: (value: string) => void;
     placeholder?: string;
   };
+  campaignFocus?: SidebarFocusItem[];
+  userSummary?: SidebarUserSummary;
 }) {
   const navigate = useNavigate();
   const operations = [
@@ -311,9 +328,18 @@ export function Sidebar({
       className="app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white/84 px-3 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#0b1020]/90 lg:block"
     >
       <div className="flex min-h-full flex-col">
-        <div className="px-2 pb-5">
-          <DuskLogo className="h-[34px] w-[136px] text-slate-950 dark:text-white" />
-          <p className="mt-1 text-xs font-medium text-slate-500 dark:text-white/40">Adserver workspace</p>
+        <div className="flex items-center gap-3 px-2 pb-5">
+          <div className="flex min-w-0 flex-1 flex-col justify-center">
+            <DuskLogo className="h-[34px] w-[136px] text-slate-950 dark:text-white" />
+            <p className="mt-1 text-xs font-medium text-slate-500 dark:text-white/40">Adserver workspace</p>
+          </div>
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white/60 text-slate-400 transition hover:border-fuchsia-300 hover:text-fuchsia-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/38 dark:hover:border-fuchsia-500/24 dark:hover:text-fuchsia-300"
+            aria-label="Collapse sidebar"
+          >
+            <ChevronLeft className="h-4 w-4" strokeWidth={1.8} />
+          </button>
         </div>
 
         <button
@@ -344,6 +370,7 @@ export function Sidebar({
               <span className="block truncate text-xs text-slate-500 dark:text-white/38">5 active clients</span>
             </span>
           )}
+          <ChevronDown className="h-4 w-4 rotate-[-90deg] text-slate-400 dark:text-white/34" strokeWidth={1.8} />
         </button>
 
         <label className="relative mb-5 block">
@@ -354,6 +381,7 @@ export function Sidebar({
             onChange={(event) => search?.onChange(event.target.value)}
             placeholder={search?.placeholder ?? 'Jump to campaign'}
           />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 dark:border-white/8 dark:bg-white/[0.04] dark:text-white/34">K</span>
         </label>
 
         <nav className="space-y-5">
@@ -372,6 +400,58 @@ export function Sidebar({
             onNavigate={(item) => navigate(routeForItem[item])}
           />
         </nav>
+
+        {campaignFocus?.length ? (
+          <div className="mt-5 border-t border-slate-200 pt-4 dark:border-white/8">
+            <div className="flex items-center justify-between px-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-white/32">Campaign focus</p>
+              <span className="text-[10px] font-semibold text-fuchsia-600 dark:text-fuchsia-300">Saved</span>
+            </div>
+            <div className="mt-2 space-y-1 text-sm">
+              {campaignFocus.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  className={cn(
+                    'flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition',
+                    item.active
+                      ? 'bg-fuchsia-50 font-semibold text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
+                      : 'text-slate-600 hover:bg-slate-100 dark:text-white/58 dark:hover:bg-white/[0.05]',
+                  )}
+                >
+                  <span>{item.label}</span>
+                  {item.count ? (
+                    <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs text-slate-500 dark:bg-white/8 dark:text-white/52">{item.count}</span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {userSummary ? (
+          <div className="mt-auto border-t border-slate-200 pt-4 dark:border-white/8">
+            <div className="flex items-center justify-between px-2 pb-3">
+              <div>
+                <p className="text-xs font-medium text-slate-500 dark:text-white/38">Serving online</p>
+                <p className="text-sm font-semibold text-slate-800 dark:text-white/82">System healthy</p>
+              </div>
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-45" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              </span>
+            </div>
+            <button type="button" className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-slate-100 dark:hover:bg-white/[0.05]">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-600 dark:bg-white/8 dark:text-white/70">
+                {userSummary.initials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-800 dark:text-white/82">{userSummary.name}</p>
+                <p className="truncate text-xs text-slate-500 dark:text-white/36">{userSummary.subtitle}</p>
+              </div>
+            </button>
+          </div>
+        ) : null}
       </div>
     </aside>
   );
@@ -382,6 +462,8 @@ export function AppShell({
   badgeCounts,
   advertiserSelector,
   search,
+  campaignFocus,
+  userSummary,
   children,
 }: {
   activeItem: SidebarItemName;
@@ -396,12 +478,21 @@ export function AppShell({
     onChange: (value: string) => void;
     placeholder?: string;
   };
+  campaignFocus?: SidebarFocusItem[];
+  userSummary?: SidebarUserSummary;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex min-h-screen overflow-hidden bg-[#f6f3fb] text-slate-950 dark:bg-[#0b1020] dark:text-white">
       <GlobalScrollbarStyles />
-      <Sidebar activeItem={activeItem} badgeCounts={badgeCounts} advertiserSelector={advertiserSelector} search={search} />
+      <Sidebar
+        activeItem={activeItem}
+        badgeCounts={badgeCounts}
+        advertiserSelector={advertiserSelector}
+        search={search}
+        campaignFocus={campaignFocus}
+        userSummary={userSummary}
+      />
       <div className="flex min-w-0 flex-1 flex-col bg-[#f6f3fb] dark:bg-[#0b1020]">
         {children}
       </div>
