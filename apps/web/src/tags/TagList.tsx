@@ -351,7 +351,7 @@ export default function TagList() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="dusk-page">
       <div className="dusk-page-header">
         <div>
           <SectionKicker>Tag operations</SectionKicker>
@@ -360,7 +360,7 @@ export default function TagList() {
             Build placement infrastructure, review assignments, and move directly into diagnostics or reporting.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="dusk-toolbar-group">
           <Link to="/tags/bindings"><SecondaryButton>Assignments</SecondaryButton></Link>
           <Link to="/tags/health"><SecondaryButton>Health</SecondaryButton></Link>
           <PrimaryButton onClick={() => setCreating(true)}>New Tag</PrimaryButton>
@@ -384,12 +384,12 @@ export default function TagList() {
             value={clientSearch}
             onChange={event => setClientSearch(event.target.value)}
             placeholder="Search client"
-            className="mb-2 w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
+            className="dusk-select mb-2 w-full px-3 py-2"
           />
           <select
             value={selectedClientId}
             onChange={event => setSelectedClientId(event.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
+            className="dusk-select w-full px-3 py-2"
           >
             <option value="">All clients</option>
             {visibleClients.map(client => (
@@ -403,7 +403,7 @@ export default function TagList() {
             value={tagSearch}
             onChange={event => setTagSearch(event.target.value)}
             placeholder="Search by tag, campaign, client, or assigned creative"
-            className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
+            className="dusk-select w-full px-3 py-2"
           />
         </div>
         </div>

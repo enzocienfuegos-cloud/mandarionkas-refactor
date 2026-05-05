@@ -1719,16 +1719,16 @@ export default function CreativeLibrary() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+      <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
         <p className="font-medium">Error loading creative catalog</p>
         <p className="mt-1 text-sm">{error}</p>
-        <button onClick={() => void load()} className="mt-3 text-sm text-red-600 underline">Retry</button>
-      </div>
+        <button onClick={() => void load()} className="mt-3 text-sm font-semibold text-rose-600 underline dark:text-rose-300">Retry</button>
+      </Panel>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="dusk-page">
       <div className="dusk-page-header">
         <div>
           <SectionKicker>Creative operations</SectionKicker>
@@ -1737,7 +1737,7 @@ export default function CreativeLibrary() {
             Upload to a specific client, publish technically valid creatives, and assign them to tags.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="dusk-toolbar-group">
           <PrimaryButton onClick={() => navigate('/creatives/upload')}>
             Upload Creative
           </PrimaryButton>
@@ -1761,7 +1761,7 @@ export default function CreativeLibrary() {
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="Search by creative, client, URL, format..."
-            className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
+            className="dusk-select w-full px-3 py-2"
           />
         </label>
         <label className="block">
@@ -1769,7 +1769,7 @@ export default function CreativeLibrary() {
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-            className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
+            className="dusk-select w-full px-3 py-2"
           >
             <option value="all">All statuses</option>
             <option value="active">Active</option>
@@ -1783,7 +1783,7 @@ export default function CreativeLibrary() {
           <select
             value={formatFilter}
             onChange={(event) => setFormatFilter(event.target.value as typeof formatFilter)}
-            className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
+            className="dusk-select w-full px-3 py-2"
           >
             <option value="all">All formats</option>
             <option value="display">Display</option>
@@ -1796,7 +1796,7 @@ export default function CreativeLibrary() {
           <select
             value={sizeFilter}
             onChange={(event) => setSizeFilter(event.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
+            className="dusk-select w-full px-3 py-2"
           >
             <option value="all">All sizes</option>
             {availableSizeOptions.map((sizeOption) => (
@@ -1810,7 +1810,7 @@ export default function CreativeLibrary() {
             multiple
             value={selectedClientIds}
             onChange={(event) => setSelectedClientIds(Array.from(event.target.selectedOptions, option => option.value))}
-            className="min-h-[110px] w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
+            className="dusk-select min-h-[110px] w-full px-3 py-2"
           >
             {workspaces.map(workspace => (
               <option key={workspace.id} value={workspace.id}>{workspace.name}</option>

@@ -346,7 +346,7 @@ export default function CampaignList() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="dusk-page">
       <div className="dusk-page-header">
         <div>
           <SectionKicker>Operations</SectionKicker>
@@ -356,7 +356,7 @@ export default function CampaignList() {
             {' '}<span className="font-semibold text-slate-700 dark:text-white/74">{filteredCampaigns.length} campaign{filteredCampaigns.length !== 1 ? 's' : ''}</span> in the current view.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="dusk-toolbar-group">
           <Link
             to="/clients"
             className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]"
@@ -379,7 +379,7 @@ export default function CampaignList() {
             multiple
             value={selectedClientIds}
             onChange={event => setSelectedClientIds(Array.from(event.target.selectedOptions, option => option.value))}
-            className="min-h-[110px] w-full rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-3 py-2 text-sm outline-none dark:border-white/[0.06] dark:bg-white/[0.025]"
+            className="dusk-select min-h-[110px] w-full px-3 py-2"
           >
             {clients.map(client => (
               <option key={client.id} value={client.id}>{client.name}</option>
@@ -393,7 +393,7 @@ export default function CampaignList() {
             value={search}
             onChange={event => setSearch(event.target.value)}
             placeholder="Filter by campaign or client name"
-            className="min-h-[46px] w-full rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
+            className="dusk-select min-h-[46px] w-full px-3 text-slate-800 placeholder:text-slate-400 focus:ring-4 focus:ring-fuchsia-500/10 dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
           />
         </div>
       </Panel>
@@ -449,7 +449,7 @@ export default function CampaignList() {
           <select
             value={bulkStatus}
             onChange={event => setBulkStatus(event.target.value as Campaign['status'])}
-            className="min-h-[46px] rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-3 text-sm dark:border-white/[0.06] dark:bg-white/[0.025]"
+            className="dusk-select min-h-[46px] px-3"
             disabled={!selectedCampaignIds.length || bulkUpdating}
           >
             <option value="active">Active</option>

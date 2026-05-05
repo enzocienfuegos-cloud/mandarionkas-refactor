@@ -578,7 +578,7 @@ export default function TagReportingDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="dusk-page">
       <div className="dusk-page-header">
         <div>
           <SectionKicker>Reporting</SectionKicker>
@@ -587,7 +587,7 @@ export default function TagReportingDashboard() {
         </div>
       </div>
 
-      <div className="flex gap-6">
+      <div className="grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
         <div className="w-72 flex-shrink-0">
           <Panel className="overflow-hidden">
             <div className="space-y-2 border-b border-slate-100 bg-slate-50/80 px-3 py-3 dark:border-white/[0.07] dark:bg-white/[0.03]">
@@ -597,7 +597,7 @@ export default function TagReportingDashboard() {
                 value={tagSearch}
                 onChange={event => setTagSearch(event.target.value)}
                 placeholder="Filter by tag name"
-                className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
+                className="dusk-select w-full px-3 py-2"
               />
             </div>
             {filteredTags.length === 0 ? (
@@ -638,7 +638,7 @@ export default function TagReportingDashboard() {
                   <h2 className="mt-2 text-lg font-semibold text-slate-800 dark:text-white">{selectedTag.name}</h2>
                   <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Filter by assigned creative and exported size variant.</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="dusk-toolbar-group">
                   {DATE_RANGES.map(range => (
                     <button
                       key={range.days}
@@ -649,9 +649,9 @@ export default function TagReportingDashboard() {
                           : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white/70 dark:hover:bg-white/[0.05]'
                       }`}
                     >
-                      {range.label}
-                    </button>
-                  ))}
+                        {range.label}
+                      </button>
+                    ))}
                   <PrimaryButton
                     onClick={() => void handleExport()}
                     disabled={exporting || loadingStats || !summary}
@@ -671,7 +671,7 @@ export default function TagReportingDashboard() {
                     value={selectedCreativeId}
                     onChange={event => setSelectedCreativeId(event.target.value)}
                     disabled={loadingBindings}
-                    className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white disabled:bg-slate-50 dark:disabled:bg-white/[0.03]"
+                    className="dusk-select w-full px-3 py-2 disabled:bg-slate-50 dark:disabled:bg-white/[0.03]"
                   >
                     <option value="">All creatives</option>
                     {creativeOptions.map(option => (
@@ -687,7 +687,7 @@ export default function TagReportingDashboard() {
                     value={selectedVariantId}
                     onChange={event => setSelectedVariantId(event.target.value)}
                     disabled={loadingBindings}
-                    className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white disabled:bg-slate-50 dark:disabled:bg-white/[0.03]"
+                    className="dusk-select w-full px-3 py-2 disabled:bg-slate-50 dark:disabled:bg-white/[0.03]"
                   >
                     <option value="">All sizes</option>
                     {variantOptions.map(option => (
@@ -719,7 +719,7 @@ export default function TagReportingDashboard() {
                 </div>
               ) : (
                 <>
-                  <div className="mb-6 flex flex-wrap gap-2">
+                <div className="dusk-toolbar-group mb-6">
                     {REPORTING_TABS.map(tab => (
                       <button
                         key={tab.id}
@@ -748,7 +748,7 @@ export default function TagReportingDashboard() {
                         <KpiCard label="Country" value={summary?.latestContext?.country || 'Unknown'} sub={summary?.latestContext?.region || 'Region unknown'} />
                       </div>
 
-                      <div className="bg-white rounded-xl border border-slate-200 p-5">
+                      <Panel className="p-5">
                         <h3 className="text-sm font-semibold text-slate-700 mb-4">
                           Daily Impressions — Last {dateRange} days
                         </h3>
@@ -759,7 +759,7 @@ export default function TagReportingDashboard() {
                         ) : (
                           <BarChart data={stats} />
                         )}
-                      </div>
+                      </Panel>
                     </>
                   ) : null}
 
