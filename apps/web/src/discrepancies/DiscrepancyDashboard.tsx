@@ -1,4 +1,5 @@
 import React, { useEffect, useState, FormEvent } from 'react';
+import { Panel, PrimaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
 
 type Severity = 'ok' | 'warning' | 'critical';
 
@@ -32,24 +33,20 @@ interface Filters {
 }
 
 const severityBadge = (severity: Severity) => {
-  const cfg: Record<Severity, { cls: string; label: string }> = {
-    ok:       { cls: 'bg-green-100 text-green-800',   label: 'OK' },
-    warning:  { cls: 'bg-yellow-100 text-yellow-800', label: 'Warning' },
-    critical: { cls: 'bg-red-100 text-red-800',       label: 'Critical' },
+  const cfg: Record<Severity, { tone: 'healthy' | 'warning' | 'critical'; label: string }> = {
+    ok:       { tone: 'healthy',  label: 'OK' },
+    warning:  { tone: 'warning',  label: 'Warning' },
+    critical: { tone: 'critical', label: 'Critical' },
   };
-  const { cls, label } = cfg[severity] ?? { cls: 'bg-slate-100 text-slate-600', label: severity };
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>
-      {label}
-    </span>
-  );
+  const { tone, label } = cfg[severity] ?? { tone: 'warning' as const, label: severity };
+  return <StatusBadge tone={tone}>{label}</StatusBadge>;
 };
 
 const KpiCard = ({ label, value, colorClass = 'text-slate-800' }: { label: string; value: string | number; colorClass?: string }) => (
-  <div className="bg-white rounded-xl border border-slate-200 p-5">
-    <p className="text-sm text-slate-500 font-medium">{label}</p>
-    <p className={`text-3xl font-bold mt-1 ${colorClass}`}>{value}</p>
-  </div>
+  <Panel className="p-5">
+    <p className="text-sm font-medium text-slate-500 dark:text-white/[0.48]">{label}</p>
+    <p className={`mt-1 text-3xl font-bold ${colorClass}`}>{value}</p>
+  </Panel>
 );
 
 export default function DiscrepancyDashboard() {
@@ -120,27 +117,28 @@ export default function DiscrepancyDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-fuchsia-500"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+      <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
         <p className="font-medium">Error loading discrepancies</p>
         <p className="text-sm mt-1">{error}</p>
         <button onClick={load} className="mt-3 text-sm text-red-600 underline">Retry</button>
-      </div>
+      </Panel>
     );
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      <div className="dusk-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Discrepancy Reports</h1>
-          <p className="text-sm text-slate-500 mt-1">Impression count differences between systems</p>
+          <SectionKicker>Reconciliation</SectionKicker>
+          <h1 className="dusk-title mt-3">Discrepancy Reports</h1>
+          <p className="dusk-copy mt-2">Monitor impression gaps between systems and control the thresholds that trigger operational alerts.</p>
         </div>
       </div>
 
@@ -152,7 +150,7 @@ export default function DiscrepancyDashboard() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6">
+      <Panel className="mb-6 p-4">
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Date From</label>
@@ -185,27 +183,26 @@ export default function DiscrepancyDashboard() {
               <option value="critical">Critical</option>
             </select>
           </div>
-          <button
+          <PrimaryButton
             onClick={load}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
           >
             Apply Filters
-          </button>
+          </PrimaryButton>
         </div>
-      </div>
+      </Panel>
 
       {/* Table */}
       {discrepancies.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-slate-200 mb-6">
-          <p className="text-4xl mb-3">⚠️</p>
-          <h3 className="text-lg font-medium text-slate-700">No discrepancies found</h3>
-          <p className="text-sm text-slate-500 mt-1">No reports match your current filters.</p>
-        </div>
+        <Panel className="mb-6 px-6 py-16 text-center">
+          <SectionKicker>No active gaps</SectionKicker>
+          <h3 className="mt-3 text-lg font-medium text-slate-700 dark:text-white">No discrepancies found</h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-white/[0.56]">No reports match your current filters.</p>
+        </Panel>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
+        <Panel className="mb-6 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+              <thead className="dusk-table-head">
                 <tr>
                   {['Tag', 'Date', 'Source', 'Served', 'Reported', 'Delta', 'Severity'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -216,7 +213,7 @@ export default function DiscrepancyDashboard() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {discrepancies.map(d => (
-                  <tr key={d.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={d.id} className="dusk-table-row transition-colors">
                     <td className="px-4 py-3 text-sm font-medium text-slate-800">{d.tagName}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{new Date(d.date).toLocaleDateString()}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{d.source}</td>
@@ -235,12 +232,13 @@ export default function DiscrepancyDashboard() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Panel>
       )}
 
       {/* Thresholds form */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <h2 className="text-base font-semibold text-slate-800 mb-4">Alert Thresholds</h2>
+      <Panel className="p-6">
+        <SectionKicker>Thresholds</SectionKicker>
+        <h2 className="mb-4 mt-2 text-base font-semibold text-slate-800 dark:text-white">Alert Thresholds</h2>
         <form onSubmit={handleSaveThresholds} className="flex flex-wrap items-end gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Warning Threshold (%)</label>
@@ -266,13 +264,12 @@ export default function DiscrepancyDashboard() {
               className="w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
-          <button
+          <PrimaryButton
             type="submit"
             disabled={savingThresholds}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
           >
             {savingThresholds ? 'Saving...' : 'Save Thresholds'}
-          </button>
+          </PrimaryButton>
           {thresholdMsg && (
             <span className={`text-sm ${thresholdMsg.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
               {thresholdMsg}
@@ -282,7 +279,7 @@ export default function DiscrepancyDashboard() {
         <p className="mt-3 text-xs text-slate-400">
           Discrepancies exceeding these percentages will trigger the corresponding alert level.
         </p>
-      </div>
+      </Panel>
     </div>
   );
 }

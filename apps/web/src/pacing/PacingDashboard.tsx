@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { Panel, PrimaryButton, SectionKicker, StatusBadge as DuskStatusBadge } from '../shared/dusk-ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,13 +46,13 @@ interface BreakdownDay {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUS_CFG: Record<PacingStatus, { label: string; cls: string; dot: string }> = {
-  on_track:    { label: 'On Track',    cls: 'bg-green-100 text-green-800',   dot: 'bg-green-500' },
-  behind:      { label: 'Behind',      cls: 'bg-red-100 text-red-800',       dot: 'bg-red-500' },
-  ahead:       { label: 'Ahead',       cls: 'bg-blue-100 text-blue-800',     dot: 'bg-blue-500' },
-  completed:   { label: 'Completed',   cls: 'bg-slate-100 text-slate-600',   dot: 'bg-slate-400' },
-  not_started: { label: 'Not Started', cls: 'bg-yellow-100 text-yellow-800', dot: 'bg-yellow-500' },
-  no_goal:     { label: 'No Goal',     cls: 'bg-slate-100 text-slate-500',   dot: 'bg-slate-300' },
+const STATUS_CFG: Record<PacingStatus, { label: string; tone: 'healthy' | 'critical' | 'info' | 'neutral' | 'warning'; dot: string }> = {
+  on_track:    { label: 'On Track',    tone: 'healthy',  dot: 'bg-green-500' },
+  behind:      { label: 'Behind',      tone: 'critical', dot: 'bg-red-500' },
+  ahead:       { label: 'Ahead',       tone: 'info',     dot: 'bg-blue-500' },
+  completed:   { label: 'Completed',   tone: 'neutral',  dot: 'bg-slate-400' },
+  not_started: { label: 'Not Started', tone: 'warning',  dot: 'bg-yellow-500' },
+  no_goal:     { label: 'No Goal',     tone: 'neutral',  dot: 'bg-slate-300' },
 };
 
 const BREAKDOWN_RANGES = [7, 14, 30, 60];
@@ -104,10 +105,10 @@ function normalizePacingAlert(raw: any): PacingAlert {
 function StatusBadge({ status }: { status: PacingStatus }) {
   const cfg = STATUS_CFG[status] ?? STATUS_CFG.no_goal;
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg.cls}`}>
+    <DuskStatusBadge tone={cfg.tone}>
       <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
       {cfg.label}
-    </span>
+    </DuskStatusBadge>
   );
 }
 
@@ -141,11 +142,11 @@ function KpiCard({ label, value, sub, colorClass = 'text-slate-800' }: {
   label: string; value: string | number; sub?: string; colorClass?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5">
-      <p className="text-sm text-slate-500 font-medium">{label}</p>
-      <p className={`text-3xl font-bold mt-1 ${colorClass}`}>{value}</p>
-      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
-    </div>
+    <Panel className="p-5">
+      <p className="text-sm font-medium text-slate-500 dark:text-white/[0.48]">{label}</p>
+      <p className={`mt-1 text-3xl font-bold ${colorClass}`}>{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-slate-400 dark:text-white/[0.36]">{sub}</p>}
+    </Panel>
   );
 }
 
@@ -263,7 +264,7 @@ function SparklineModal({ campaign, onClose }: { campaign: PacingCampaign; onClo
                         y={PAD.t + chartH - bH}
                         width={barW * 0.45}
                         height={bH}
-                        fill="#6366f1"
+                        fill="#f1008b"
                         rx="1"
                       >
                         <title>{d.date}: {d.impressions.toLocaleString()} served / {d.expected.toLocaleString()} expected</title>
@@ -281,7 +282,7 @@ function SparklineModal({ campaign, onClose }: { campaign: PacingCampaign; onClo
               {/* Legend */}
               <div className="flex gap-4 text-xs text-slate-500 mb-4">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-sm bg-indigo-500 inline-block"/>Actual
+                  <span className="w-3 h-3 rounded-sm bg-fuchsia-500 inline-block"/>Actual
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-sm bg-indigo-200 inline-block"/>Expected
@@ -377,36 +378,36 @@ export default function PacingDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-fuchsia-500"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+      <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
         <p className="font-medium">Error loading pacing data</p>
         <p className="text-sm mt-1">{error}</p>
         <button onClick={load} className="mt-3 text-sm text-red-600 underline">Retry</button>
-      </div>
+      </Panel>
     );
   }
 
   const s = data?.summary;
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      <div className="dusk-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Pacing Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-1">Campaign delivery vs. expected pacing</p>
+          <SectionKicker>Delivery pacing</SectionKicker>
+          <h1 className="dusk-title mt-3">Pacing Dashboard</h1>
+          <p className="dusk-copy mt-2">Compare real delivery against time elapsed and surface campaigns that need budget or goal intervention.</p>
         </div>
-        <button
+        <PrimaryButton
           onClick={load}
-          className="px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
         >
-          🔄 Refresh
-        </button>
+          Refresh data
+        </PrimaryButton>
       </div>
 
       {/* KPI cards */}
@@ -420,8 +421,11 @@ export default function PacingDashboard() {
 
       {/* Alerts panel */}
       {alerts.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-700 mb-2">⚠️ Alerts ({alerts.length})</h2>
+        <Panel className="p-5">
+          <div className="mb-4">
+            <SectionKicker>Attention queue</SectionKicker>
+            <h2 className="mt-2 text-lg font-semibold text-slate-800 dark:text-white">Alerts ({alerts.length})</h2>
+          </div>
           <div className="space-y-2">
             {alerts.map(a => (
               <div
@@ -442,21 +446,27 @@ export default function PacingDashboard() {
               </div>
             ))}
           </div>
-        </div>
+        </Panel>
       )}
 
       {/* Campaign table */}
       {sorted.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
-          <p className="text-4xl mb-3">⏱️</p>
-          <h3 className="text-lg font-medium text-slate-700">No campaigns with pacing data</h3>
-          <p className="text-sm text-slate-500 mt-1">Campaigns with impression goals will appear here.</p>
-        </div>
+        <Panel className="px-6 py-20 text-center">
+          <SectionKicker>No pacing data</SectionKicker>
+          <h3 className="mt-3 text-lg font-medium text-slate-700 dark:text-white">No campaigns with pacing data</h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-white/[0.56]">Campaigns with impression goals will appear here.</p>
+        </Panel>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <Panel className="overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-white/[0.07]">
+            <div>
+              <SectionKicker>Operational table</SectionKicker>
+              <h2 className="mt-2 text-lg font-semibold text-slate-800 dark:text-white">Campaign pacing</h2>
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+              <thead className="dusk-table-head">
                 <tr>
                   <SortHeader col="name" label="Campaign" />
                   <SortHeader col="advertiser" label="Advertiser" />
@@ -474,7 +484,7 @@ export default function PacingDashboard() {
                 {sorted.map(c => (
                   <tr
                     key={c.id}
-                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="dusk-table-row cursor-pointer transition-colors"
                     onClick={() => setSelectedCampaign(c)}
                   >
                     <td className="px-4 py-3 text-sm font-medium text-slate-800 max-w-[180px] truncate">{c.name}</td>
@@ -492,7 +502,7 @@ export default function PacingDashboard() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Panel>
       )}
 
       {selectedCampaign && (

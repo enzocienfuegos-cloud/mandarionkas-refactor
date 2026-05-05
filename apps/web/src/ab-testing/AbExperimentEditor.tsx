@@ -1,4 +1,5 @@
 import React, { useEffect, useState, FormEvent } from 'react';
+import { Panel, PrimaryButton, SectionKicker, StatusBadge as DuskStatusBadge } from '../shared/dusk-ui';
 
 type ExperimentStatus = 'active' | 'paused' | 'ended';
 
@@ -40,13 +41,13 @@ interface Tag {
 }
 
 const statusBadge = (status: ExperimentStatus) => {
-  const cfg: Record<ExperimentStatus, { cls: string; label: string }> = {
-    active: { cls: 'bg-green-100 text-green-800',   label: '● Active' },
-    paused: { cls: 'bg-yellow-100 text-yellow-800', label: '⏸ Paused' },
-    ended:  { cls: 'bg-slate-100 text-slate-600',   label: '■ Ended' },
+  const cfg: Record<ExperimentStatus, { tone: 'healthy' | 'warning' | 'neutral'; label: string }> = {
+    active: { tone: 'healthy', label: 'Active' },
+    paused: { tone: 'warning', label: 'Paused' },
+    ended:  { tone: 'neutral', label: 'Ended' },
   };
-  const { cls, label } = cfg[status];
-  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>;
+  const { tone, label } = cfg[status];
+  return <DuskStatusBadge tone={tone}>{label}</DuskStatusBadge>;
 };
 
 function normalizeExperimentStatus(status: unknown): ExperimentStatus {
@@ -412,52 +413,45 @@ export default function AbExperimentEditor() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-fuchsia-500"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+      <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
         <p className="font-medium">Error loading experiments</p>
         <p className="text-sm mt-1">{error}</p>
         <button onClick={load} className="mt-3 text-sm text-red-600 underline">Retry</button>
-      </div>
+      </Panel>
     );
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      <div className="dusk-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">A/B Experiments</h1>
-          <p className="text-sm text-slate-500 mt-1">Test creative variants and measure performance</p>
+          <SectionKicker>Experiments</SectionKicker>
+          <h1 className="dusk-title mt-3">A/B Experiments</h1>
+          <p className="dusk-copy mt-2">Test creative variants and compare lift from one consistent operations surface.</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
-        >
-          + New Experiment
-        </button>
+        <PrimaryButton onClick={() => setShowCreateModal(true)}>New Experiment</PrimaryButton>
       </div>
 
       {experiments.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
-          <p className="text-4xl mb-3">🧪</p>
-          <h3 className="text-lg font-medium text-slate-700">No experiments yet</h3>
-          <p className="text-sm text-slate-500 mt-1 mb-4">Create an A/B test to optimize your ad performance.</p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-indigo-600 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition-colors"
-          >
-            + New Experiment
-          </button>
-        </div>
+        <Panel className="px-6 py-20 text-center">
+          <SectionKicker>No experiments</SectionKicker>
+          <h3 className="mt-3 text-lg font-medium text-slate-700 dark:text-white">No experiments yet</h3>
+          <p className="mt-1 mb-4 text-sm text-slate-500 dark:text-white/[0.56]">Create an A/B test to optimize your ad performance.</p>
+          <div className="flex justify-center">
+            <PrimaryButton onClick={() => setShowCreateModal(true)}>New Experiment</PrimaryButton>
+          </div>
+        </Panel>
       ) : (
         <div className="space-y-4">
           {experiments.map(exp => (
-            <div key={exp.id} className="bg-white rounded-xl border border-slate-200 p-5">
+            <Panel key={exp.id} className="p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
@@ -515,7 +509,7 @@ export default function AbExperimentEditor() {
                   )}
                 </div>
               </div>
-            </div>
+            </Panel>
           ))}
         </div>
       )}
