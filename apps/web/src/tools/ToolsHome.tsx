@@ -35,8 +35,8 @@ export default function ToolsHome() {
             <Link to={card.href} className="group block">
               <SectionKicker>{card.title.includes('Chain') ? 'Wrapper analysis' : 'Creative validation'}</SectionKicker>
               <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">{card.title}</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/62">{card.description}</p>
-              <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4 text-sm font-medium text-slate-500 dark:border-white/8 dark:text-white/48">
+              <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/[0.62]">{card.description}</p>
+              <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4 text-sm font-medium text-slate-500 dark:border-white/[0.08] dark:text-white/[0.48]">
                 <span>Open tool</span>
                 <span className="text-[#f1008b] transition group-hover:translate-x-1">→</span>
               </div>

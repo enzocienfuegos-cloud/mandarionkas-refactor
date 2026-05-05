@@ -140,7 +140,7 @@ function NavGlyph({ active, name }: { active: boolean; name: NavIconName }) {
     <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border text-[11px] font-semibold transition ${
       active
         ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-        : 'border-slate-200 bg-white/60 text-slate-500 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/56'
+        : 'border-slate-200 bg-white/60 text-slate-500 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/[0.56]'
     }`}>
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">{icon}</svg>
     </span>
@@ -151,12 +151,12 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
   return `group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
     isActive
       ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
-      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/66 dark:hover:bg-white/[0.05] dark:hover:text-white'
+      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white'
   }`;
 }
 
 const SectionLabel = ({ label }: { label: string }) => (
-  <div className="px-3 pb-1 pt-5 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 dark:text-white/22">
+  <div className="px-3 pb-1 pt-5 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 dark:text-white/[0.22]">
     {label}
   </div>
 );

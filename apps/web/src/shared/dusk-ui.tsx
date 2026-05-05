@@ -86,7 +86,7 @@ export function Panel({ children, className }: { children: React.ReactNode; clas
 
 export function SectionKicker({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <p className={cn('text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-white/42', className)}>
+    <p className={cn('text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-white/[0.42]', className)}>
       {children}
     </p>
   );
@@ -110,7 +110,7 @@ export function SecondaryButton({ children, className = '', ...props }: React.Bu
   return (
     <button
       className={cn(
-        'inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045] disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/[0.86] dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045] disabled:cursor-not-allowed disabled:opacity-60',
         className,
       )}
       {...props}
@@ -127,7 +127,7 @@ const statusToneClass: Record<StatusTone, string> = {
   warning: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/22 dark:bg-amber-500/10 dark:text-amber-300',
   critical: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300',
   info: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/22 dark:bg-sky-500/10 dark:text-sky-300',
-  neutral: 'border-slate-300/70 bg-slate-50 text-slate-700 dark:border-white/12 dark:bg-white/[0.05] dark:text-white/70',
+  neutral: 'border-slate-300/70 bg-slate-50 text-slate-700 dark:border-white/12 dark:bg-white/[0.05] dark:text-white/[0.70]',
 };
 
 export function StatusBadge({

@@ -247,7 +247,7 @@ html.dark .mandarion-shell h3 {
   }
 
   .dusk-kicker {
-    @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-white/42;
+    @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-white/[0.42];
   }
 
   .dusk-title {
@@ -255,7 +255,7 @@ html.dark .mandarion-shell h3 {
   }
 
   .dusk-copy {
-    @apply mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-white/62 md:text-base;
+    @apply mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-white/[0.62] md:text-base;
   }
 
   .dusk-panel {
@@ -267,7 +267,7 @@ html.dark .mandarion-shell h3 {
   }
 
   .dusk-data-table {
-    @apply app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8;
+    @apply mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/[0.08];
   }
 
   .dusk-table-head {
@@ -275,10 +275,10 @@ html.dark .mandarion-shell h3 {
   }
 
   .dusk-table-head-row {
-    @apply text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42;
+    @apply text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/[0.42];
   }
 
   .dusk-table-row {
-    @apply bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04];
+    @apply bg-white/[0.42] transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04];
   }
 }
