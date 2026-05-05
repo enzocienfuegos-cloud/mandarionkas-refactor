@@ -194,6 +194,31 @@ function WorkspaceAccessBadge({
   );
 }
 
+function getModuleFocusItems(pathname: string) {
+  if (pathname.startsWith('/overview')) {
+    return ['Needs review', 'Launch readiness', 'Quick ops'];
+  }
+  if (pathname.startsWith('/campaigns')) {
+    return ['Needs attention', 'Ready to launch', 'Draft setup'];
+  }
+  if (pathname.startsWith('/tags')) {
+    return ['Low firing', 'Missing cachebuster', 'Recently updated'];
+  }
+  if (pathname.startsWith('/creatives')) {
+    return ['Pending QA', 'Rejected specs', 'Missing preview'];
+  }
+  if (pathname.startsWith('/pacing')) {
+    return ['Behind target', 'Overpacing', 'Ending soon'];
+  }
+  if (pathname.startsWith('/discrepancies')) {
+    return ['Above threshold', 'Pending reconciliation', 'Recently resolved'];
+  }
+  if (pathname.startsWith('/reporting')) {
+    return ['Scheduled reports', 'Failed exports', 'Favorite reports'];
+  }
+  return ['Operational tools', 'Workspace controls', 'System defaults'];
+}
+
 // ---------------------------------------------------------------------------
 // Shell
 // ---------------------------------------------------------------------------
@@ -338,6 +363,7 @@ export default function Shell() {
   const toolsOpen    = location.pathname.startsWith('/tools');
   const settingsOpen = location.pathname.startsWith('/settings');
   const isOverviewRoute = location.pathname.startsWith('/overview');
+  const moduleFocusItems = useMemo(() => getModuleFocusItems(location.pathname), [location.pathname]);
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -416,12 +442,12 @@ export default function Shell() {
       <GlobalScrollbarStyles />
       {/* Sidebar */}
       <aside className={`app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto border-r px-3 py-4 backdrop-blur-xl lg:block ${isDark ? 'border-white/10 bg-[#0b1020]/90' : 'border-slate-200/80 bg-white/84'}`}>
-        <div className={`rounded-[24px] px-4 py-4 ${isDark ? 'border border-white/[0.06] bg-white/[0.025]' : 'border border-slate-200/80 bg-[rgba(255,255,255,0.72)]'}`}>
-          <DuskLogo />
+        <div className="px-2 pb-4">
+          <DuskLogo className={isDark ? 'h-[34px] w-[136px] text-white' : 'h-[34px] w-[136px] text-slate-950'} />
           <p className={`mt-1 text-xs font-medium ${isDark ? 'text-white/40' : 'text-slate-500'}`}>Adserver workspace</p>
         </div>
 
-        <div className={`mt-4 rounded-[24px] px-4 py-4 ${isDark ? 'border border-white/[0.06] bg-white/[0.025]' : 'border border-slate-200/80 bg-[rgba(255,255,255,0.72)]'}`}>
+        <div className={`rounded-[24px] border px-4 py-4 ${isDark ? 'border-white/[0.07] bg-white/[0.025]' : 'border-slate-200/80 bg-white/72'}`}>
           <SectionKicker>Advertiser</SectionKicker>
           <div className="relative mt-3">
             <select
@@ -484,6 +510,18 @@ export default function Shell() {
               ))}
             </>
           )}
+
+          <SectionLabel label="Module focus" />
+          <div className="space-y-1 px-3">
+            {moduleFocusItems.map((item) => (
+              <div
+                key={item}
+                className={`rounded-xl px-3 py-2 text-sm ${isDark ? 'text-white/56 hover:bg-white/[0.04]' : 'text-slate-500 hover:bg-slate-100/80'}`}
+              >
+                {item}
+              </div>
+            ))}
+          </div>
 
           <SectionLabel label="Connected" />
           {hasStudioAccess && (

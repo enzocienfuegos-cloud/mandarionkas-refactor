@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { loadCreatives, type Creative } from '../creatives/catalog';
-import { loadPreference, savePreference } from '../shared/preferences';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 import { type ThemeMode } from '../shared/theme';
 import { Panel, PrimaryButton, SecondaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
@@ -9,28 +8,7 @@ import { Panel, PrimaryButton, SecondaryButton, SectionKicker, StatusBadge } fro
 type DateRange = 7 | 30 | 90;
 type TrendDirection = 'up' | 'down' | 'flat';
 type AttentionSeverity = 'critical' | 'warning' | 'notice' | 'healthy';
-type OverviewCardId =
-  | 'spend'
-  | 'impressions'
-  | 'ctr'
-  | 'engagements'
-  | 'viewability'
-  | 'topCampaigns'
-  | 'quickNavigation'
-  | 'systemHealth'
-  | 'audienceInsights';
-
-type SavedOverviewSetup = {
-  id: string;
-  name: string;
-  cards: OverviewCardId[];
-};
-
-type OverviewPreferences = {
-  visibleCards?: OverviewCardId[];
-  savedSetups?: SavedOverviewSetup[];
-  activeSetupId?: string;
-};
+type OverviewCardId = 'spend' | 'impressions' | 'ctr' | 'engagements';
 
 type WorkspaceStats = {
   total_impressions?: number;
@@ -167,22 +145,7 @@ type WorkQueueRow = {
   severity: AttentionSeverity;
 };
 
-const OVERVIEW_LAYOUT_PREFERENCE_KEY = 'overviewLayout';
-const OVERVIEW_LAYOUT_STORAGE_KEY = 'smx-overview-layout-v1';
-const OVERVIEW_CARD_ORDER: OverviewCardId[] = [
-  'spend',
-  'impressions',
-  'ctr',
-  'engagements',
-  'viewability',
-  'topCampaigns',
-  'quickNavigation',
-  'systemHealth',
-  'audienceInsights',
-];
 const DEFAULT_DATE_RANGE: DateRange = 7;
-const DEFAULT_SETUP_ID = 'default';
-const DEFAULT_SETUP_NAME = 'Default setup';
 
 function toNumber(value: unknown): number {
   const numeric = Number(value ?? 0);
@@ -255,32 +218,6 @@ function computeDelta(current: number, previous: number): { direction: TrendDire
     direction: change >= 0 ? 'up' : 'down',
     label: `${change >= 0 ? '+' : ''}${change.toFixed(0)}%`,
   };
-}
-
-function normalizeCardOrder(candidate: unknown): OverviewCardId[] {
-  if (!Array.isArray(candidate)) return OVERVIEW_CARD_ORDER;
-  const allowed = new Set(OVERVIEW_CARD_ORDER);
-  const normalized = candidate.filter((item): item is OverviewCardId => typeof item === 'string' && allowed.has(item as OverviewCardId));
-  return normalized.length
-    ? [...normalized, ...OVERVIEW_CARD_ORDER.filter((item) => !normalized.includes(item))]
-    : OVERVIEW_CARD_ORDER;
-}
-
-function sanitizeSetups(candidate: unknown): SavedOverviewSetup[] {
-  if (!Array.isArray(candidate)) return [];
-  return candidate
-    .map((item) => {
-      const name = typeof item?.name === 'string' ? item.name.trim() : '';
-      const id = typeof item?.id === 'string' ? item.id : '';
-      const cards = normalizeCardOrder(item?.cards);
-      if (!id || !name) return null;
-      return { id, name, cards } satisfies SavedOverviewSetup;
-    })
-    .filter((item): item is SavedOverviewSetup => Boolean(item));
-}
-
-function getDefaultVisibleCards() {
-  return [...OVERVIEW_CARD_ORDER];
 }
 
 async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
@@ -623,94 +560,6 @@ function WorkQueueTable({ rows }: { rows: WorkQueueRow[] }) {
   );
 }
 
-function CardCustomizationPanel({
-  open,
-  visibleCards,
-  activeSetupId,
-  savedSetups,
-  setupName,
-  onSetupNameChange,
-  onToggleCard,
-  onApplySetup,
-  onCreateSetup,
-  onUpdateSetup,
-  onReset,
-}: {
-  open: boolean;
-  visibleCards: OverviewCardId[];
-  activeSetupId: string;
-  savedSetups: SavedOverviewSetup[];
-  setupName: string;
-  onSetupNameChange: (value: string) => void;
-  onToggleCard: (cardId: OverviewCardId) => void;
-  onApplySetup: (setupId: string) => void;
-  onCreateSetup: () => void;
-  onUpdateSetup: () => void;
-  onReset: () => void;
-}) {
-  if (!open) return null;
-  return (
-    <Panel className="absolute right-0 top-[calc(100%+12px)] z-30 w-[360px] p-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">Customize cards</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-white/55">Show, hide, and save your overview setups.</p>
-        </div>
-        <button type="button" onClick={onReset} className="text-xs font-medium text-fuchsia-600 dark:text-fuchsia-300">Reset</button>
-      </div>
-      <div className="mt-4 space-y-3">
-        <label className="block text-xs font-medium text-slate-500 dark:text-white/55">Saved setup</label>
-        <select
-          value={activeSetupId}
-          onChange={(event) => onApplySetup(event.target.value)}
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
-        >
-          <option value={DEFAULT_SETUP_ID}>{DEFAULT_SETUP_NAME}</option>
-          {savedSetups.map((setup) => (
-            <option key={setup.id} value={setup.id}>{setup.name}</option>
-          ))}
-        </select>
-      </div>
-      <div className="mt-5 grid gap-2">
-        {OVERVIEW_CARD_ORDER.map((cardId) => (
-          <label key={cardId} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 text-sm dark:border-white/8 dark:bg-white/[0.03]">
-            <span className="font-medium text-slate-800 dark:text-white/88">{cardLabel(cardId)}</span>
-            <input type="checkbox" checked={visibleCards.includes(cardId)} onChange={() => onToggleCard(cardId)} className="h-4 w-4 accent-fuchsia-500" />
-          </label>
-        ))}
-      </div>
-      <div className="mt-5 space-y-3 border-t border-slate-200 pt-4 dark:border-white/8">
-        <label className="block text-xs font-medium text-slate-500 dark:text-white/55">Save current setup</label>
-        <input
-          value={setupName}
-          onChange={(event) => onSetupNameChange(event.target.value)}
-          placeholder="Ad ops morning view"
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
-        />
-        <div className="flex gap-3">
-          <button type="button" onClick={onCreateSetup} className="inline-flex flex-1 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#c026d3,#7c3aed)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(168,85,247,0.3)] transition hover:opacity-95">Save as new</button>
-          <button type="button" onClick={onUpdateSetup} disabled={activeSetupId === DEFAULT_SETUP_ID} className="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-fuchsia-300 hover:text-fuchsia-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-white dark:hover:border-fuchsia-500/30 dark:hover:text-fuchsia-300">Update current</button>
-        </div>
-      </div>
-    </Panel>
-  );
-}
-
-function cardLabel(cardId: OverviewCardId) {
-  const labels: Record<OverviewCardId, string> = {
-    spend: 'Spend',
-    impressions: 'Impressions',
-    ctr: 'CTR',
-    engagements: 'Engagements',
-    viewability: 'Viewability',
-    topCampaigns: 'Top campaigns',
-    quickNavigation: 'Quick navigation',
-    systemHealth: 'System health',
-    audienceInsights: 'Audience insights',
-  };
-  return labels[cardId];
-}
-
 export default function AdOpsOverview() {
   const { theme, toggleTheme } = useOutletContext<{ theme: ThemeMode; toggleTheme: () => void }>();
   const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_DATE_RANGE);
@@ -730,13 +579,6 @@ export default function AdOpsOverview() {
   const [tagBreakdown, setTagBreakdown] = useState<BreakdownItem[]>([]);
   const [creativeBreakdown, setCreativeBreakdown] = useState<BreakdownItem[]>([]);
   const [identitySegments, setIdentitySegments] = useState<SegmentBreakdownItem[]>([]);
-  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
-  const [visibleCards, setVisibleCards] = useState<OverviewCardId[]>(getDefaultVisibleCards());
-  const [savedSetups, setSavedSetups] = useState<SavedOverviewSetup[]>([]);
-  const [activeSetupId, setActiveSetupId] = useState(DEFAULT_SETUP_ID);
-  const [customizerOpen, setCustomizerOpen] = useState(false);
-  const [setupName, setSetupName] = useState('');
-  const preferenceSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -754,12 +596,6 @@ export default function AdOpsOverview() {
         setCampaigns(campaignPayload.campaigns ?? []);
         setTags(tagPayload.tags ?? []);
         setCreatives(creativeList);
-        const layout = loadPreference<OverviewPreferences>(OVERVIEW_LAYOUT_PREFERENCE_KEY)
-          ?? loadPreference<OverviewPreferences>(OVERVIEW_LAYOUT_STORAGE_KEY);
-        setVisibleCards(normalizeCardOrder(layout?.visibleCards));
-        setSavedSetups(sanitizeSetups(layout?.savedSetups));
-        setActiveSetupId(typeof layout?.activeSetupId === 'string' ? layout.activeSetupId : DEFAULT_SETUP_ID);
-        setPreferencesLoaded(true);
       })
       .catch((loadError: any) => {
         if (!active) return;
@@ -769,26 +605,6 @@ export default function AdOpsOverview() {
       active = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (!preferencesLoaded) return;
-    if (preferenceSaveTimer.current) clearTimeout(preferenceSaveTimer.current);
-    preferenceSaveTimer.current = setTimeout(() => {
-      savePreference(OVERVIEW_LAYOUT_PREFERENCE_KEY, {
-        visibleCards,
-        savedSetups,
-        activeSetupId,
-      });
-      savePreference(OVERVIEW_LAYOUT_STORAGE_KEY, {
-        visibleCards,
-        savedSetups,
-        activeSetupId,
-      });
-    }, 300);
-    return () => {
-      if (preferenceSaveTimer.current) clearTimeout(preferenceSaveTimer.current);
-    };
-  }, [preferencesLoaded, visibleCards, savedSetups, activeSetupId]);
 
   useEffect(() => {
     const dateFrom = getDateFrom(dateRange);
@@ -1053,59 +869,7 @@ export default function AdOpsOverview() {
   const readyCreativeCount = creatives.filter((creative) => creative.latestVersion?.status === 'approved').length;
   const draftSetupCount = campaigns.filter((campaign) => campaign.status === 'draft').length;
 
-  const visibleMetricCards = metricCards.filter((metric) => visibleCards.includes(metric.id));
-  const showCard = (cardId: OverviewCardId) => visibleCards.includes(cardId);
   const issueCount = attentionItems.filter((item) => item.severity !== 'healthy').length;
-
-  const toggleVisibleCard = (cardId: OverviewCardId) => {
-    setVisibleCards((current) => {
-      if (current.includes(cardId)) {
-        if (current.length === 1) return current;
-        return current.filter((item) => item !== cardId);
-      }
-      return normalizeCardOrder([...current, cardId]);
-    });
-    setActiveSetupId(DEFAULT_SETUP_ID);
-  };
-
-  const applySetup = (setupId: string) => {
-    if (setupId === DEFAULT_SETUP_ID) {
-      setVisibleCards(getDefaultVisibleCards());
-      setActiveSetupId(DEFAULT_SETUP_ID);
-      return;
-    }
-    const setup = savedSetups.find((item) => item.id === setupId);
-    if (!setup) return;
-    setVisibleCards(normalizeCardOrder(setup.cards));
-    setActiveSetupId(setup.id);
-    setSetupName(setup.name);
-  };
-
-  const createSetup = () => {
-    const name = setupName.trim();
-    if (!name) return;
-    const id = `setup-${Date.now()}`;
-    const nextSetup = { id, name, cards: visibleCards } satisfies SavedOverviewSetup;
-    setSavedSetups((current) => [...current, nextSetup]);
-    setActiveSetupId(id);
-    setSetupName('');
-  };
-
-  const updateSetup = () => {
-    if (activeSetupId === DEFAULT_SETUP_ID) return;
-    setSavedSetups((current) => current.map((setup) => (
-      setup.id === activeSetupId
-        ? { ...setup, cards: visibleCards, name: setupName.trim() || setup.name }
-        : setup
-    )));
-    setSetupName('');
-  };
-
-  const resetLayout = () => {
-    setVisibleCards(getDefaultVisibleCards());
-    setActiveSetupId(DEFAULT_SETUP_ID);
-    setSetupName('');
-  };
 
   const handleWorkspaceChange = async (nextWorkspaceId: string) => {
     if (!nextWorkspaceId || nextWorkspaceId === activeWorkspaceId) return;
@@ -1119,7 +883,7 @@ export default function AdOpsOverview() {
   };
 
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.06),transparent_24%),radial-gradient(circle_at_70%_18%,rgba(124,58,237,0.08),transparent_22%)] text-slate-950 dark:bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.08),transparent_26%),radial-gradient(circle_at_70%_20%,rgba(124,58,237,0.1),transparent_24%)] dark:text-white">
+    <div className="min-h-full text-slate-950 dark:text-white">
       <div className="dusk-page">
         <div className="dusk-toolbar">
           <div className="dusk-toolbar-group">
@@ -1175,27 +939,18 @@ export default function AdOpsOverview() {
           </div>
         </div>
 
-        <header className="dusk-page-header">
-          <div>
+        <header className="dusk-page-header items-start">
+          <div className="min-w-0 flex-1">
             <SectionKicker>Overview</SectionKicker>
             <h1 className="dusk-title mt-4">Launches, delivery and QA in one place</h1>
             <p className="dusk-copy">Use one daily command center to spot blockers, review tag activity, and move launch and delivery issues into action quickly.</p>
           </div>
-          <Panel className="w-full max-w-md px-5 py-4">
-            <SectionKicker>Recommended focus</SectionKicker>
-            <div className="mt-4 rounded-[24px] border border-amber-500/20 bg-amber-500/10 px-4 py-4">
-              <p className="text-base font-semibold text-amber-200">{issueCount} launch and delivery items need attention</p>
-              <p className="mt-2 text-sm text-amber-100/80">Review blocked delivery, low-firing tags, and creative QA issues before making trafficking changes.</p>
-            </div>
-            <div className="mt-4">
-              <Link
-                to="/campaigns/new"
-                className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
-              >
-                New trafficking task
-              </Link>
-            </div>
-          </Panel>
+          <Link
+            to="/campaigns/new"
+            className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
+          >
+            New trafficking task
+          </Link>
         </header>
 
         {error ? <div className="mt-6 rounded-2xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">{error}</div> : null}
@@ -1203,13 +958,14 @@ export default function AdOpsOverview() {
         {loading ? <div className="mt-8 text-sm text-slate-500 dark:text-white/56">Loading overview…</div> : null}
 
         <div className="mt-8 grid gap-5 xl:grid-cols-4">
-          {visibleMetricCards.map((metric) => <MetricCard key={metric.id} metric={metric} />)}
+          {metricCards.map((metric) => <MetricCard key={metric.id} metric={metric} />)}
         </div>
 
         <div className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
           <WorkQueueTable rows={workQueueRows} />
-          <div className="grid gap-5">
-            <Panel className="p-6">
+          <Panel className="p-6">
+            <div className="space-y-8">
+              <section>
               <SectionKicker>Today blockers</SectionKicker>
               <div className="mt-4 space-y-3">
                 {attentionItems.slice(0, 3).map((item) => (
@@ -1219,8 +975,8 @@ export default function AdOpsOverview() {
                   </div>
                 ))}
               </div>
-            </Panel>
-            <Panel className="p-6">
+              </section>
+              <section>
               <SectionKicker>Launch readiness</SectionKicker>
               <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
                 <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
@@ -1236,8 +992,8 @@ export default function AdOpsOverview() {
                   <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{draftSetupCount}</p>
                 </div>
               </div>
-            </Panel>
-            <Panel className="p-6">
+              </section>
+              <section>
               <SectionKicker>Quick ops</SectionKicker>
               <div className="mt-4 grid gap-3">
                 <Link to="/campaigns" className="dusk-card-link p-4">
@@ -1253,8 +1009,9 @@ export default function AdOpsOverview() {
                   <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Handle approvals, previews, and assignment gaps.</p>
                 </Link>
               </div>
-            </Panel>
-          </div>
+              </section>
+            </div>
+          </Panel>
         </div>
       </div>
     </div>
