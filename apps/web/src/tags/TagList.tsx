@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../shared/workspaces';
+import { Panel, PrimaryButton, SecondaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
 
 interface Tag {
   id: string;
@@ -29,30 +30,26 @@ const DISPLAY_SIZE_PRESETS = [
 ];
 
 const formatBadge = (format: Tag['format']) => {
-  const cls: Record<Tag['format'], string> = {
-    VAST: 'bg-purple-100 text-purple-800',
-    display: 'bg-blue-100 text-blue-800',
-    native: 'bg-orange-100 text-orange-800',
-    tracker: 'bg-emerald-100 text-emerald-800',
+  const tone: Record<Tag['format'], 'info' | 'neutral' | 'warning' | 'healthy'> = {
+    VAST: 'info',
+    display: 'neutral',
+    native: 'warning',
+    tracker: 'healthy',
   };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls[format]}`}>
-      {format}
-    </span>
+    <StatusBadge tone={tone[format]}>{format}</StatusBadge>
   );
 };
 
 const statusBadge = (status: Tag['status']) => {
-  const cls: Record<Tag['status'], string> = {
-    active: 'bg-green-100 text-green-800',
-    paused: 'bg-yellow-100 text-yellow-800',
-    archived: 'bg-slate-100 text-slate-600',
-    draft: 'bg-blue-100 text-blue-800',
+  const tone: Record<Tag['status'], 'healthy' | 'warning' | 'neutral' | 'info'> = {
+    active: 'healthy',
+    paused: 'warning',
+    archived: 'neutral',
+    draft: 'info',
   };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${cls[status]}`}>
-      {status}
-    </span>
+    <StatusBadge tone={tone[status]} className="capitalize">{status}</StatusBadge>
   );
 };
 
@@ -338,63 +335,61 @@ export default function TagList() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+      <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
         <p className="font-medium">Error loading tags</p>
         <p className="text-sm mt-1">{error}</p>
         <button onClick={load} className="mt-3 text-sm text-red-600 underline">Retry</button>
-      </div>
+      </Panel>
     );
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      <div className="dusk-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Tags</h1>
-          <p className="text-sm text-slate-500 mt-1">{filteredTags.length} tag{filteredTags.length !== 1 ? 's' : ''}</p>
+          <SectionKicker>Tag operations</SectionKicker>
+          <h1 className="dusk-title mt-3">Tags</h1>
+          <p className="dusk-copy mt-2">
+            Build placement infrastructure, review assignments, and move directly into diagnostics or reporting.
+          </p>
         </div>
         <div className="flex gap-2">
-          <Link
-            to="/tags/bindings"
-            className="inline-flex items-center gap-2 border border-slate-300 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm hover:bg-slate-50 transition-colors"
-          >
-            🔗 Assignments
-          </Link>
-          <Link
-            to="/tags/health"
-            className="inline-flex items-center gap-2 border border-slate-300 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm hover:bg-slate-50 transition-colors"
-          >
-            🩺 Health
-          </Link>
-          <button
-            onClick={() => setCreating(true)}
-            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
-          >
-            + New Tag
-          </button>
+          <Link to="/tags/bindings"><SecondaryButton>Assignments</SecondaryButton></Link>
+          <Link to="/tags/health"><SecondaryButton>Health</SecondaryButton></Link>
+          <PrimaryButton onClick={() => setCreating(true)}>New Tag</PrimaryButton>
         </div>
       </div>
 
-      <div className="mb-4 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-[minmax(220px,280px)_minmax(260px,1fr)]">
+      <Panel className="p-5">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <SectionKicker>Filters</SectionKicker>
+            <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">Scope the tag inventory</h2>
+          </div>
+          <StatusBadge tone="neutral">
+            {filteredTags.length} tag{filteredTags.length !== 1 ? 's' : ''}
+          </StatusBadge>
+        </div>
+        <div className="grid gap-4 md:grid-cols-[minmax(220px,280px)_minmax(260px,1fr)]">
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Client</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Client</label>
           <input
             value={clientSearch}
             onChange={event => setClientSearch(event.target.value)}
             placeholder="Search client"
-            className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+            className="mb-2 w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
           />
           <select
             value={selectedClientId}
             onChange={event => setSelectedClientId(event.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+            className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
           >
             <option value="">All clients</option>
             {visibleClients.map(client => (
@@ -403,62 +398,71 @@ export default function TagList() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Tag Filter</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Tag Filter</label>
           <input
             value={tagSearch}
             onChange={event => setTagSearch(event.target.value)}
             placeholder="Search by tag, campaign, client, or assigned creative"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+            className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
           />
         </div>
-      </div>
+        </div>
+      </Panel>
 
       {selectedCount > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
-          <span className="text-sm font-medium text-indigo-900">
+        <Panel className="border-fuchsia-200 bg-fuchsia-50/80 px-4 py-3 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10">
+          <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm font-medium text-fuchsia-900 dark:text-fuchsia-200">
             {selectedCount} tag{selectedCount !== 1 ? 's' : ''} selected
           </span>
           <button
             onClick={() => void handleBulkStatus('active')}
             disabled={bulkActionLoading}
-            className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/20 dark:bg-white/[0.04] dark:text-emerald-300 dark:hover:bg-white/[0.07]"
           >
             Activate
           </button>
           <button
             onClick={() => void handleBulkStatus('paused')}
             disabled={bulkActionLoading}
-            className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-500/20 dark:bg-white/[0.04] dark:text-amber-300 dark:hover:bg-white/[0.07]"
           >
             Deactivate
           </button>
           <button
             onClick={() => void handleBulkDelete()}
             disabled={bulkActionLoading}
-            className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-500/20 dark:bg-white/[0.04] dark:text-rose-300 dark:hover:bg-white/[0.07]"
           >
             Delete
           </button>
-          {bulkActionLoading && <span className="text-xs text-slate-500">Applying changes...</span>}
-        </div>
+          {bulkActionLoading && <span className="text-xs text-slate-500 dark:text-white/52">Applying changes...</span>}
+          </div>
+        </Panel>
       )}
 
       {filteredTags.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
-          <p className="text-4xl mb-3">🏷️</p>
-          <h3 className="text-lg font-medium text-slate-700">No tags yet</h3>
-          <p className="text-sm text-slate-500 mt-1 mb-4">No tags match the current client or tag filter.</p>
-          <button onClick={() => setCreating(true)} className="inline-flex items-center gap-2 bg-indigo-600 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition-colors">
-            + New Tag
-          </button>
-        </div>
+        <Panel className="px-6 py-20 text-center">
+          <SectionKicker>No matches</SectionKicker>
+          <h3 className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">No tags yet</h3>
+          <p className="mt-2 text-sm text-slate-500 dark:text-white/56">No tags match the current client or tag filter.</p>
+          <div className="mt-5 flex justify-center">
+            <PrimaryButton onClick={() => setCreating(true)}>New Tag</PrimaryButton>
+          </div>
+        </Panel>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <Panel className="overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-white/[0.07]">
+            <div>
+              <SectionKicker>Operational table</SectionKicker>
+              <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">Tag inventory</h2>
+            </div>
+          </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <table className="dusk-data-table min-w-full">
+              <thead className="dusk-table-head">
+                <tr className="dusk-table-head-row">
+                  <th className="px-4 py-3 text-left">
                     <input
                       type="checkbox"
                       checked={allVisibleSelected}
@@ -468,47 +472,47 @@ export default function TagList() {
                         }
                       }}
                       onChange={toggleSelectAllVisible}
-                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
                       aria-label="Select all visible tags"
                     />
                   </th>
                   {['Tag', 'Client / Campaign', 'Assigned', 'Format', 'Size', 'Status', 'Created At', 'Actions'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <th key={h} className="px-4 py-3 text-left">
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {filteredTags.map(t => (
-                  <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={t.id} className="dusk-table-row">
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
                         checked={selectedTagIds.includes(t.id)}
                         onChange={() => toggleTagSelection(t.id)}
-                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
                         aria-label={`Select tag ${t.name}`}
                       />
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600">
-                      <div className="font-medium text-slate-800">{t.name}</div>
-                      <div className="text-xs text-slate-400">{t.id}</div>
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-white/72">
+                      <div className="font-medium text-slate-800 dark:text-white">{t.name}</div>
+                      <div className="text-xs text-slate-400 dark:text-white/36">{t.id}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600">
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-white/72">
                       <div>{t.workspaceName ?? '—'}</div>
-                      <div className="text-xs text-slate-400">{t.campaign?.name ?? 'No campaign'}</div>
+                      <div className="text-xs text-slate-400 dark:text-white/36">{t.campaign?.name ?? 'No campaign'}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600">
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-white/72">
                       <div>{t.assignedCount ? `${t.assignedCount} assigned` : 'No assignments'}</div>
-                      <div className="text-xs text-slate-400">
+                      <div className="text-xs text-slate-400 dark:text-white/36">
                         {t.assignedNames?.trim() ? t.assignedNames : 'No creatives assigned'}
                       </div>
                     </td>
                     <td className="px-4 py-3">{formatBadge(t.format)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{t.sizeLabel || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-white/72">{t.sizeLabel || '—'}</td>
                     <td className="px-4 py-3">{statusBadge(t.status)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600">
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-white/72">
                       {new Date(t.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">
@@ -527,7 +531,7 @@ export default function TagList() {
                         </button>
                         <button
                           onClick={() => navigate(`/tags/${t.id}`)}
-                          className="text-xs text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors"
+                          className="rounded-lg px-2 py-1 text-xs font-medium text-fuchsia-600 transition-colors hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:hover:bg-white/[0.05]"
                         >
                           Edit
                         </button>
@@ -563,7 +567,7 @@ export default function TagList() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Panel>
       )}
 
       {creating && (

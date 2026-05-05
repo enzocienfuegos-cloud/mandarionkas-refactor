@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Panel, PrimaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
 
 interface Tag {
   id: string;
@@ -126,11 +127,11 @@ function BarChart({ data }: { data: DailyStat[] }) {
 }
 
 const KpiCard = ({ label, value, sub }: { label: string; value: string; sub?: string }) => (
-  <div className="bg-white rounded-xl border border-slate-200 p-5">
-    <p className="text-xs text-slate-500 uppercase tracking-wider font-medium">{label}</p>
-    <p className="text-2xl font-bold text-slate-800 mt-1">{value}</p>
-    {sub ? <p className="text-xs text-slate-400 mt-0.5">{sub}</p> : null}
-  </div>
+  <Panel className="p-5">
+    <p className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-white/42">{label}</p>
+    <p className="mt-1 text-2xl font-bold text-slate-800 dark:text-white">{value}</p>
+    {sub ? <p className="mt-0.5 text-xs text-slate-400 dark:text-white/36">{sub}</p> : null}
+  </Panel>
 );
 
 const DATE_RANGES = [
@@ -562,75 +563,80 @@ export default function TagReportingDashboard() {
   if (loadingTags) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500" />
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+      <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
         <p className="font-medium">Error loading tags</p>
         <p className="text-sm mt-1">{error}</p>
-      </div>
+      </Panel>
     );
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Tag Reporting</h1>
-        <p className="text-sm text-slate-500 mt-1">Tag-level impression, click, and video analytics</p>
+    <div className="space-y-6">
+      <div className="dusk-page-header">
+        <div>
+          <SectionKicker>Reporting</SectionKicker>
+          <h1 className="dusk-title mt-3">Tag Reporting</h1>
+          <p className="dusk-copy mt-2">Tag-level impression, click, identity, and video analytics in one operational view.</p>
+        </div>
       </div>
 
       <div className="flex gap-6">
         <div className="w-72 flex-shrink-0">
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="px-3 py-2.5 border-b border-slate-100 bg-slate-50 space-y-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tags</p>
+          <Panel className="overflow-hidden">
+            <div className="space-y-2 border-b border-slate-100 bg-slate-50/80 px-3 py-3 dark:border-white/[0.07] dark:bg-white/[0.03]">
+              <SectionKicker>Tags</SectionKicker>
               <input
                 type="search"
                 value={tagSearch}
                 onChange={event => setTagSearch(event.target.value)}
                 placeholder="Filter by tag name"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
               />
             </div>
             {filteredTags.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-slate-400 text-center">No matching tags</p>
+              <p className="px-4 py-6 text-center text-sm text-slate-400 dark:text-white/36">No matching tags</p>
             ) : (
-              <ul className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
+              <ul className="app-scrollbar max-h-[600px] divide-y divide-slate-100 overflow-y-auto dark:divide-white/[0.07]">
                 {filteredTags.map(tag => (
                   <li key={tag.id}>
                     <button
                       onClick={() => setSelectedTag(tag)}
                       className={`w-full text-left px-4 py-3 text-sm transition-colors ${
                         selectedTag?.id === tag.id
-                          ? 'bg-indigo-50 text-indigo-700 font-medium'
-                          : 'text-slate-700 hover:bg-slate-50'
+                          ? 'bg-fuchsia-50 text-fuchsia-700 font-medium dark:bg-fuchsia-500/10 dark:text-fuchsia-200'
+                          : 'text-slate-700 hover:bg-slate-50 dark:text-white/76 dark:hover:bg-white/[0.04]'
                       }`}
                     >
                       <div>{tag.name}</div>
-                      <div className="mt-1 text-xs uppercase tracking-wide text-slate-400">{tag.format}</div>
+                      <div className="mt-1 text-xs uppercase tracking-wide text-slate-400 dark:text-white/36">{tag.format}</div>
                     </button>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
+          </Panel>
         </div>
 
         <div className="flex-1 min-w-0">
           {!selectedTag ? (
-            <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
-              <p className="text-slate-500">Select a tag to view statistics</p>
-            </div>
+            <Panel className="py-20 text-center">
+              <SectionKicker>Awaiting selection</SectionKicker>
+              <p className="mt-3 text-slate-500 dark:text-white/56">Select a tag to view statistics</p>
+            </Panel>
           ) : (
             <>
               <div className="flex flex-col gap-4 mb-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-800">{selectedTag.name}</h2>
-                  <p className="text-sm text-slate-500 mt-1">Filter by assigned creative and exported size variant.</p>
+                  <SectionKicker>Selected tag</SectionKicker>
+                  <h2 className="mt-2 text-lg font-semibold text-slate-800 dark:text-white">{selectedTag.name}</h2>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Filter by assigned creative and exported size variant.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {DATE_RANGES.map(range => (
@@ -639,66 +645,66 @@ export default function TagReportingDashboard() {
                       onClick={() => setDateRange(range.days)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                         dateRange === range.days
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                          ? 'bg-[linear-gradient(135deg,#F1008B,#c026d3)] text-white'
+                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white/70 dark:hover:bg-white/[0.05]'
                       }`}
                     >
                       {range.label}
                     </button>
                   ))}
-                  <button
+                  <PrimaryButton
                     onClick={() => void handleExport()}
                     disabled={exporting || loadingStats || !summary}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                    className="min-h-[36px] px-3 py-1.5 text-xs disabled:cursor-not-allowed"
                   >
                     {exporting ? 'Exporting…' : 'Download Excel'}
-                  </button>
+                  </PrimaryButton>
                 </div>
               </div>
 
               <div className="mb-6 grid gap-3 md:grid-cols-3">
-                <div className="bg-white rounded-xl border border-slate-200 p-4">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                <Panel className="p-4">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
                     Assigned Creative
                   </label>
                   <select
                     value={selectedCreativeId}
                     onChange={event => setSelectedCreativeId(event.target.value)}
                     disabled={loadingBindings}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50"
+                    className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white disabled:bg-slate-50 dark:disabled:bg-white/[0.03]"
                   >
                     <option value="">All creatives</option>
                     {creativeOptions.map(option => (
                       <option key={option.id} value={option.id}>{option.name}</option>
                     ))}
                   </select>
-                </div>
-                <div className="bg-white rounded-xl border border-slate-200 p-4">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                </Panel>
+                <Panel className="p-4">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
                     Creative Size
                   </label>
                   <select
                     value={selectedVariantId}
                     onChange={event => setSelectedVariantId(event.target.value)}
                     disabled={loadingBindings}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50"
+                    className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white disabled:bg-slate-50 dark:disabled:bg-white/[0.03]"
                   >
                     <option value="">All sizes</option>
                     {variantOptions.map(option => (
                       <option key={option.id} value={option.id}>{option.name}</option>
                     ))}
                   </select>
-                </div>
-                <div className="bg-white rounded-xl border border-slate-200 p-4">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                </Panel>
+                <Panel className="p-4">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
                     Filter Summary
                   </label>
-                  <div className="text-sm text-slate-600 space-y-1">
+                  <div className="space-y-1 text-sm text-slate-600 dark:text-white/62">
                     <div>{loadingBindings ? 'Loading bindings…' : `${bindings.length} binding${bindings.length === 1 ? '' : 's'} available`}</div>
                     <div>{selectedCreativeId ? 'Creative filter active' : 'No creative filter'}</div>
                     <div>{selectedVariantId ? 'Size filter active' : 'No size filter'}</div>
                   </div>
-                </div>
+                </Panel>
               </div>
 
               {statsError ? (
@@ -709,7 +715,7 @@ export default function TagReportingDashboard() {
 
               {loadingStats ? (
                 <div className="flex items-center justify-center h-48">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500" />
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
                 </div>
               ) : (
                 <>
@@ -720,8 +726,8 @@ export default function TagReportingDashboard() {
                         onClick={() => setActiveTab(tab.id)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                           activeTab === tab.id
-                            ? 'bg-slate-800 text-white'
-                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                            ? 'bg-[linear-gradient(135deg,#F1008B,#c026d3)] text-white'
+                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white/70 dark:hover:bg-white/[0.05]'
                         }`}
                       >
                         {tab.label}
@@ -731,7 +737,7 @@ export default function TagReportingDashboard() {
 
                   {activeTab === 'display' ? (
                     <>
-                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 mb-6">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8 gap-4 mb-6">
                         <KpiCard label="Total Impressions" value={summary ? fmtNum(summary.totalImpressions) : '—'} />
                         <KpiCard label="Total Clicks" value={summary ? fmtNum(summary.totalClicks) : '—'} />
                         <KpiCard label="CTR" value={summary ? `${summary.ctr.toFixed(2)}%` : '—'} />
@@ -739,6 +745,7 @@ export default function TagReportingDashboard() {
                         <KpiCard label="Engagement Rate" value={summary ? `${summary.engagementRate.toFixed(2)}%` : '—'} sub="Hover interactions / imps" />
                         <KpiCard label="In-View Time" value={summary ? fmtDurationFromMs(summary.totalInViewDurationMs) : '—'} />
                         <KpiCard label="Attention Time" value={summary ? fmtDurationFromMs(summary.totalAttentionDurationMs) : '—'} />
+                        <KpiCard label="Country" value={summary?.latestContext?.country || 'Unknown'} sub={summary?.latestContext?.region || 'Region unknown'} />
                       </div>
 
                       <div className="bg-white rounded-xl border border-slate-200 p-5">
@@ -758,12 +765,13 @@ export default function TagReportingDashboard() {
 
                   {activeTab === 'video' ? (
                     <>
-                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
                         <KpiCard label="Last 7d Imps" value={summary ? fmtNum(summary.impressionsLast7d) : '—'} />
                         <KpiCard label="Video Starts" value={summary ? fmtNum(summary.videoStarts) : '—'} />
                         <KpiCard label="Start Rate" value={summary ? `${summary.videoStartRate.toFixed(2)}%` : '—'} />
                         <KpiCard label="Plays Completed" value={summary ? fmtNum(summary.videoCompletions) : '—'} />
                         <KpiCard label="Completion Rate" value={summary ? `${summary.videoCompletionRate.toFixed(2)}%` : '—'} />
+                        <KpiCard label="Country" value={summary?.latestContext?.country || 'Unknown'} sub={summary?.latestContext?.region || 'Region unknown'} />
                       </div>
 
                       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">

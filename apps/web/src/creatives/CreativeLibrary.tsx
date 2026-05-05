@@ -30,6 +30,7 @@ import {
   updateTagBinding,
 } from './catalog';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
+import { Panel, PrimaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
 
 function formatBytes(value?: number | null) {
   if (!value) return '—';
@@ -44,34 +45,26 @@ function formatBytes(value?: number | null) {
 }
 
 function statusBadge(status?: string) {
-  const map: Record<string, string> = {
-    draft: 'bg-slate-100 text-slate-600',
-    pending_review: 'bg-yellow-100 text-yellow-800',
-    approved: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-700',
-    published: 'bg-blue-100 text-blue-700',
-    validated: 'bg-emerald-100 text-emerald-700',
-    failed: 'bg-rose-100 text-rose-700',
-    processing: 'bg-purple-100 text-purple-700',
-    queued: 'bg-amber-100 text-amber-800',
-    unavailable: 'bg-slate-100 text-slate-500',
-    uploaded: 'bg-slate-100 text-slate-500',
+  const map: Record<string, 'neutral' | 'warning' | 'healthy' | 'critical' | 'info'> = {
+    draft: 'neutral',
+    pending_review: 'warning',
+    approved: 'healthy',
+    rejected: 'critical',
+    published: 'info',
+    validated: 'healthy',
+    failed: 'critical',
+    processing: 'info',
+    queued: 'warning',
+    unavailable: 'neutral',
+    uploaded: 'neutral',
   };
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${map[status ?? 'draft'] ?? map.draft}`}>
-      {(status ?? 'draft').replace(/_/g, ' ')}
-    </span>
-  );
+  return <StatusBadge tone={map[status ?? 'draft'] ?? map.draft} className="capitalize">{(status ?? 'draft').replace(/_/g, ' ')}</StatusBadge>;
 }
 
 function readinessBadge(variant: CreativeSizeVariant) {
   const ready = Boolean(variant.publicUrl) && (variant.status === 'active' || variant.status === 'draft' || variant.status === 'paused');
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-      ready ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
-    }`}>
-      {ready ? 'Ready' : 'Needs artifact'}
-    </span>
+    <StatusBadge tone={ready ? 'healthy' : 'neutral'}>{ready ? 'Ready' : 'Needs artifact'}</StatusBadge>
   );
 }
 
@@ -1736,39 +1729,47 @@ export default function CreativeLibrary() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-start justify-between gap-4">
+      <div className="dusk-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Creative Catalog</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <SectionKicker>Creative operations</SectionKicker>
+          <h1 className="dusk-title mt-3">Creative Catalog</h1>
+          <p className="dusk-copy mt-2">
             Upload to a specific client, publish technically valid creatives, and assign them to tags.
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => navigate('/creatives/upload')}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
-          >
+          <PrimaryButton onClick={() => navigate('/creatives/upload')}>
             Upload Creative
-          </button>
+          </PrimaryButton>
         </div>
       </div>
 
-      <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 lg:grid-cols-[minmax(0,1.2fr)_220px_220px_220px_minmax(0,1fr)]">
+      <Panel className="p-5">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <SectionKicker>Filters</SectionKicker>
+            <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">Scope the catalog</h2>
+          </div>
+          <StatusBadge tone="neutral">
+            {filteredCreatives.length} creative{filteredCreatives.length === 1 ? '' : 's'}
+          </StatusBadge>
+        </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_220px_220px_220px_minmax(0,1fr)]">
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Search creatives</span>
+          <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Search creatives</span>
           <input
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="Search by creative, client, URL, format..."
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Status</span>
+          <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Status</span>
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
           >
             <option value="all">All statuses</option>
             <option value="active">Active</option>
@@ -1778,11 +1779,11 @@ export default function CreativeLibrary() {
           </select>
         </label>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Format</span>
+          <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Format</span>
           <select
             value={formatFilter}
             onChange={(event) => setFormatFilter(event.target.value as typeof formatFilter)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
           >
             <option value="all">All formats</option>
             <option value="display">Display</option>
@@ -1791,11 +1792,11 @@ export default function CreativeLibrary() {
           </select>
         </label>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Size</span>
+          <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Size</span>
           <select
             value={sizeFilter}
             onChange={(event) => setSizeFilter(event.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
           >
             <option value="all">All sizes</option>
             {availableSizeOptions.map((sizeOption) => (
@@ -1804,12 +1805,12 @@ export default function CreativeLibrary() {
           </select>
         </label>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Client</span>
+          <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Client</span>
           <select
             multiple
             value={selectedClientIds}
             onChange={(event) => setSelectedClientIds(Array.from(event.target.selectedOptions, option => option.value))}
-            className="min-h-[110px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+            className="min-h-[110px] w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-2 text-sm text-slate-700 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white"
           >
             {workspaces.map(workspace => (
               <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
@@ -1817,52 +1818,53 @@ export default function CreativeLibrary() {
           </select>
         </label>
       </div>
+      </Panel>
 
       {successMessage && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <Panel className="border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
           {successMessage}
-        </div>
+        </Panel>
       )}
 
       {selectedCreativeIds.length > 0 && (
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+        <Panel className="border-fuchsia-200 bg-fuchsia-50/80 px-4 py-3 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10">
           <div className="space-y-4">
             <div>
-              <div className="text-sm font-medium text-indigo-900">
+              <div className="text-sm font-medium text-fuchsia-900 dark:text-fuchsia-200">
                 {selectedCreativeIds.length} creative{selectedCreativeIds.length === 1 ? '' : 's'} selected
               </div>
-              <div className="mt-1 text-xs text-indigo-700">
+              <div className="mt-1 text-xs text-fuchsia-700 dark:text-fuchsia-200/80">
                 Update landing pages in bulk or assign the selected creatives to one tag when they belong to the same client and share the same delivery type.
               </div>
             </div>
             <div className="grid gap-4 xl:grid-cols-2">
               <div className="rounded-lg border border-indigo-100 bg-white/70 p-3">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-indigo-700">Bulk destination URL</div>
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fuchsia-700 dark:text-fuchsia-200">Bulk destination URL</div>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     value={bulkClickUrl}
                     onChange={(event) => setBulkClickUrl(event.target.value)}
                     placeholder="https://example.com/landing"
-                    className="min-w-0 flex-1 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="min-w-0 flex-1 rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-500/30 dark:border-fuchsia-500/20 dark:bg-white/[0.04]"
                   />
                   <button
                     type="button"
                     onClick={() => void handleBulkClickUrlUpdate()}
                     disabled={bulkClickUrlSaving}
-                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                    className="rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-4 py-2 text-sm font-medium text-white hover:opacity-95 disabled:opacity-50"
                   >
                     {bulkClickUrlSaving ? 'Saving…' : 'Update URL'}
                   </button>
                 </div>
               </div>
               <div className="rounded-lg border border-indigo-100 bg-white/70 p-3">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-indigo-700">Bulk tag assignment</div>
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fuchsia-700 dark:text-fuchsia-200">Bulk tag assignment</div>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <select
                     value={bulkAssignTagId}
                     onChange={(event) => setBulkAssignTagId(event.target.value)}
                     disabled={selectedCreativeWorkspaceIds.length !== 1 || selectedCreativeFormatFamilies.length !== 1 || selectedCreativeFormatFamilies[0] === 'unknown'}
-                    className="min-w-0 flex-1 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+                    className="min-w-0 flex-1 rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-500/30 disabled:opacity-60 dark:border-fuchsia-500/20 dark:bg-white/[0.04]"
                   >
                     <option value="">Select a tag</option>
                     {bulkAssignableTags.map((tag) => (
@@ -1875,7 +1877,7 @@ export default function CreativeLibrary() {
                     type="button"
                     onClick={() => void handleBulkAssignToTag()}
                     disabled={bulkAssignSaving || !bulkAssignTagId}
-                    className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+                    className="rounded-xl border border-sky-200 bg-white px-4 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-50 dark:border-sky-500/20 dark:bg-white/[0.04] dark:text-sky-300 dark:hover:bg-white/[0.07]"
                   >
                     {bulkAssignSaving ? 'Assigning…' : 'Assign to tag'}
                   </button>
@@ -1893,7 +1895,7 @@ export default function CreativeLibrary() {
             </div>
             <div className="grid gap-4 xl:grid-cols-2">
               <div className="rounded-lg border border-indigo-100 bg-white/70 p-3">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-indigo-700">Bulk active state</div>
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fuchsia-700 dark:text-fuchsia-200">Bulk active state</div>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -1926,17 +1928,20 @@ export default function CreativeLibrary() {
               </div>
             </div>
           </div>
-        </div>
+        </Panel>
       )}
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-800">Creative Versions</h2>
-          <button onClick={() => void load()} className="text-sm text-indigo-600 hover:text-indigo-700">Refresh</button>
+          <div>
+            <SectionKicker>Operational table</SectionKicker>
+            <h2 className="mt-2 text-lg font-semibold text-slate-800 dark:text-white">Creative Versions</h2>
+          </div>
+          <button onClick={() => void load()} className="text-sm font-medium text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300">Refresh</button>
         </div>
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+        <Panel className="overflow-hidden">
+          <table className="dusk-data-table min-w-full text-sm">
+            <thead className="dusk-table-head">
               <tr>
                 <th className="px-4 py-3">
                   <input
@@ -1948,7 +1953,7 @@ export default function CreativeLibrary() {
                       }
                     }}
                     onChange={toggleSelectAllVisibleCreatives}
-                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
                     aria-label="Select all visible creatives"
                   />
                 </th>
@@ -1961,17 +1966,17 @@ export default function CreativeLibrary() {
                 <th className="px-4 py-3">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {filteredCreatives.map(creative => {
                 const version = latestVersions[creative.id];
                 return (
-                  <tr key={creative.id} className="align-top">
+                  <tr key={creative.id} className="dusk-table-row align-top">
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
                         checked={selectedCreativeIds.includes(creative.id)}
                         onChange={() => toggleCreativeSelection(creative.id)}
-                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
                         aria-label={`Select creative ${creative.name}`}
                       />
                     </td>
@@ -2152,7 +2157,7 @@ export default function CreativeLibrary() {
               })}
             </tbody>
           </table>
-        </div>
+        </Panel>
       </section>
 
       {bindingState && (

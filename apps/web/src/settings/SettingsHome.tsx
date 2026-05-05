@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
+import { Panel, SectionKicker } from '../shared/dusk-ui';
 
 const cards: Array<{
   title: string;
@@ -35,22 +36,26 @@ export default function SettingsHome() {
   const visibleCards = cards.filter((card) => !card.permission || user?.permissions?.includes(card.permission));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Settings</h1>
-        <p className="mt-1 text-sm text-slate-500">Agency-level controls and operational setup.</p>
+        <SectionKicker>Platform controls</SectionKicker>
+        <h1 className="dusk-title">Settings for access, audit and delivery setup</h1>
+        <p className="dusk-copy">Agency-level controls and operational setup for teams, integrations and outbound notifications.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-5 xl:grid-cols-2">
         {visibleCards.map(card => (
-          <Link
-            key={card.title}
-            to={card.href}
-            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
-          >
-            <h2 className="text-lg font-semibold text-slate-900">{card.title}</h2>
-            <p className="mt-2 text-sm text-slate-500">{card.description}</p>
-          </Link>
+          <Panel key={card.title} className="p-6">
+            <Link to={card.href} className="group block">
+              <SectionKicker>{card.permission ? 'Protected area' : 'Workspace setup'}</SectionKicker>
+              <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">{card.title}</h2>
+              <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/62">{card.description}</p>
+              <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4 text-sm font-medium text-slate-500 dark:border-white/8 dark:text-white/48">
+                <span>Open settings</span>
+                <span className="text-[#f1008b] transition group-hover:translate-x-1">→</span>
+              </div>
+            </Link>
+          </Panel>
         ))}
       </div>
     </div>

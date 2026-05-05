@@ -236,3 +236,49 @@ html.dark .mandarion-shell h2,
 html.dark .mandarion-shell h3 {
   letter-spacing: -0.02em;
 }
+
+@layer components {
+  .dusk-page {
+    @apply mx-auto max-w-7xl space-y-8;
+  }
+
+  .dusk-page-header {
+    @apply flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between;
+  }
+
+  .dusk-kicker {
+    @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-white/42;
+  }
+
+  .dusk-title {
+    @apply text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl;
+  }
+
+  .dusk-copy {
+    @apply mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-white/62 md:text-base;
+  }
+
+  .dusk-panel {
+    @apply rounded-[28px] border border-slate-200 bg-white/85 shadow-[0_18px_60px_rgba(28,18,41,0.08)] backdrop-blur-xl dark:border-white/[0.07] dark:bg-white/[0.035] dark:shadow-[0_22px_70px_rgba(0,0,0,0.28)];
+  }
+
+  .dusk-card-link {
+    @apply dusk-panel block p-6 transition hover:-translate-y-[1px] hover:border-fuchsia-300/70 hover:bg-fuchsia-50/55 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045];
+  }
+
+  .dusk-data-table {
+    @apply app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8;
+  }
+
+  .dusk-table-head {
+    @apply bg-slate-50/80 dark:bg-white/[0.02];
+  }
+
+  .dusk-table-head-row {
+    @apply text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42;
+  }
+
+  .dusk-table-row {
+    @apply bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04];
+  }
+}

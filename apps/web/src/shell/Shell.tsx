@@ -39,6 +39,7 @@ import {
   type ThemeMode,
 } from '../shared/theme';
 import type { PlatformRole, ProductAccess } from '../shared/roles';
+import { DuskLogo, GlobalScrollbarStyles, SectionKicker } from '../shared/dusk-ui';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -138,8 +139,8 @@ function NavGlyph({ active, name }: { active: boolean; name: NavIconName }) {
   return (
     <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border text-[11px] font-semibold transition ${
       active
-        ? 'border-fuchsia-500/30 bg-fuchsia-500/14 text-fuchsia-500 dark:text-fuchsia-400'
-        : 'border-slate-200 bg-white text-slate-400 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/35'
+        ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
+        : 'border-slate-200 bg-white/60 text-slate-500 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/56'
     }`}>
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">{icon}</svg>
     </span>
@@ -147,10 +148,10 @@ function NavGlyph({ active, name }: { active: boolean; name: NavIconName }) {
 }
 
 function navLinkClass({ isActive }: { isActive: boolean }) {
-  return `group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+  return `group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
     isActive
-      ? 'bg-fuchsia-500/12 text-fuchsia-500 dark:text-fuchsia-400'
-      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-white/55 dark:hover:bg-white/[0.04] dark:hover:text-white'
+      ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
+      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/66 dark:hover:bg-white/[0.05] dark:hover:text-white'
   }`;
 }
 
@@ -411,39 +412,46 @@ export default function Shell() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className={`mandarion-shell flex h-screen overflow-hidden ${isDark ? 'bg-[#0b1020] text-white' : 'bg-[#f6f3fb] text-slate-900'}`}>
+    <div className={`mandarion-shell flex min-h-screen overflow-hidden ${isDark ? 'bg-[#0b1020] text-white' : 'bg-[#f6f3fb] text-slate-900'}`}>
+      <GlobalScrollbarStyles />
       {/* Sidebar */}
-      <aside className={`flex w-[220px] flex-shrink-0 flex-col ${isDark ? 'border-r border-white/[0.05] bg-[#0f1422]' : 'border-r border-slate-200/80 bg-[rgba(252,251,255,0.92)]'}`}>
-        <div className={`px-5 py-5 ${isDark ? 'border-b border-white/[0.05]' : 'border-b border-slate-200/80'}`}>
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-[10px] text-white" style={{ background: BRAND, boxShadow: '0 6px 18px rgba(241, 0, 139, 0.24)' }}>
-              <ZapIcon />
-            </div>
-            <div>
-              <div className={`font-semibold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>MandaRion</div>
-              <div className={`text-[11px] ${isDark ? 'text-white/28' : 'text-slate-400'}`}>Ad Platform</div>
-            </div>
-          </div>
+      <aside className={`app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto px-3 py-4 backdrop-blur-xl lg:flex lg:flex-col ${isDark ? 'border-r border-white/10 bg-[#0b1020]/90' : 'border-r border-slate-200/80 bg-white/84'}`}>
+        <div className={`rounded-[24px] px-4 py-4 ${isDark ? 'border border-white/[0.06] bg-white/[0.025]' : 'border border-slate-200/80 bg-[rgba(255,255,255,0.72)]'}`}>
+          <DuskLogo />
+          <p className={`mt-1 text-xs font-medium ${isDark ? 'text-white/40' : 'text-slate-500'}`}>Adserver workspace</p>
         </div>
 
-        <div className={`mx-3 mt-3 rounded-xl px-3 py-3 ${isDark ? 'border border-white/[0.05] bg-white/[0.025]' : 'border border-slate-200/80 bg-[rgba(243,239,248,0.85)]'}`}>
-          <div className="flex items-center gap-3">
-            <div className="h-5 w-5 rounded-md bg-fuchsia-500/90" />
+        <div className={`mt-4 rounded-[24px] px-4 py-4 ${isDark ? 'border border-white/[0.06] bg-white/[0.025]' : 'border border-slate-200/80 bg-[rgba(255,255,255,0.72)]'}`}>
+          <SectionKicker>Workspace</SectionKicker>
+          <div className="mt-3 flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] shadow-[0_16px_30px_rgba(241,0,139,0.2)]" />
             <div className="min-w-0 flex-1">
-              <div className={`truncate text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{user?.workspace.name ?? 'Workspace'}</div>
-              <div className={`text-[11px] ${isDark ? 'text-white/28' : 'text-slate-400'}`}>{getPlatformRoleLabel(user?.role)}</div>
+              <div className={`truncate text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-950'}`}>{user?.workspace.name ?? 'Workspace'}</div>
+              <div className={`text-[11px] uppercase tracking-[0.16em] ${isDark ? 'text-white/28' : 'text-slate-400'}`}>{getPlatformRoleLabel(user?.role)}</div>
             </div>
           </div>
+          <label className="relative mt-4 block">
+            <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/36' : 'text-slate-400'}`}>
+              <SearchIcon />
+            </span>
+            <input
+              readOnly
+              value=""
+              placeholder="Jump to campaign"
+              className={`h-10 w-full rounded-xl border pl-9 pr-10 text-sm outline-none transition ${isDark ? 'border-white/8 bg-white/[0.025] text-white placeholder:text-white/30 focus:border-fuchsia-500/26' : 'border-slate-200 bg-white/58 text-slate-800 placeholder:text-slate-400 focus:border-fuchsia-300'} `}
+            />
+          </label>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-2 pb-3">
+        <nav className="app-scrollbar flex-1 overflow-y-auto px-2 pb-3">
           {hasAdServerAccess && (
             <>
-              <SectionLabel label="Main" />
+              <SectionLabel label="Operations" />
               {(['overview', 'campaigns', 'tags', 'creatives'] as const).map((name) => (
                 <NavLink key={name} to={`/${name}`} className={navLinkClass}>
                   {({ isActive }) => (
                     <>
+                      {isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
                       <NavGlyph active={isActive} name={name} />
                       <span className="font-medium capitalize">{name}</span>
                     </>
@@ -451,11 +459,12 @@ export default function Shell() {
                 </NavLink>
               ))}
 
-              <SectionLabel label="Analytics" />
+              <SectionLabel label="Monitoring" />
               {(['reporting', 'pacing', 'discrepancies', 'experiments'] as const).map((name) => (
                 <NavLink key={name} to={`/${name}`} className={navLinkClass}>
                   {({ isActive }) => (
                     <>
+                      {isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
                       <NavGlyph active={isActive} name={name} />
                       <span className="font-medium capitalize">{name}</span>
                     </>
@@ -465,7 +474,7 @@ export default function Shell() {
             </>
           )}
 
-          <SectionLabel label="Creative Studio" />
+          <SectionLabel label="Connected" />
           {hasStudioAccess && (
             <a
               href={getStudioUrl()}
@@ -485,6 +494,7 @@ export default function Shell() {
               <NavLink to="/tools" className={navLinkClass}>
                 {({ isActive }) => (
                   <>
+                    {isActive || toolsOpen ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
                     <NavGlyph active={isActive || toolsOpen} name="tools" />
                     <span className="font-medium">Tools</span>
                     <span className={`ml-auto transition ${toolsOpen ? 'rotate-180' : ''} ${isDark ? 'text-white/25' : 'text-slate-300'}`}><ChevronDownIcon /></span>
@@ -494,11 +504,12 @@ export default function Shell() {
               {toolsOpen && (
                 <div className="space-y-1 pl-5">
                   {[['vast-validator', 'VAST Validator'], ['chain-validator', 'Chain Validator']].map(([slug, label]) => (
-                    <NavLink key={slug} to={`/tools/${slug}`} className={navLinkClass}>
-                      {({ isActive }) => (
-                        <>
-                          <NavGlyph active={isActive} name="tools" />
-                          <span className="font-medium">{label}</span>
+                  <NavLink key={slug} to={`/tools/${slug}`} className={navLinkClass}>
+                    {({ isActive }) => (
+                      <>
+                        {isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
+                        <NavGlyph active={isActive} name="tools" />
+                        <span className="font-medium">{label}</span>
                         </>
                       )}
                     </NavLink>
@@ -509,6 +520,7 @@ export default function Shell() {
               <NavLink to="/settings" className={navLinkClass}>
                 {({ isActive }) => (
                   <>
+                    {isActive || settingsOpen ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
                     <NavGlyph active={isActive || settingsOpen} name="settings" />
                     <span className="font-medium">Settings</span>
                     <span className={`ml-auto transition ${settingsOpen ? 'rotate-180' : ''} ${isDark ? 'text-white/25' : 'text-slate-300'}`}><ChevronDownIcon /></span>
@@ -518,18 +530,18 @@ export default function Shell() {
               {settingsOpen && (
                 <div className="space-y-1 pl-5">
                   <NavLink to="/settings/api-keys" className={navLinkClass}>
-                    {({ isActive }) => (<><NavGlyph active={isActive} name="keys" /><span className="font-medium">API Keys</span></>)}
+                    {({ isActive }) => (<>{isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}<NavGlyph active={isActive} name="keys" /><span className="font-medium">API Keys</span></>)}
                   </NavLink>
                   {canReadAudit && (
                     <NavLink to="/settings/audit-log" className={navLinkClass}>
-                      {({ isActive }) => (<><NavGlyph active={isActive} name="audit" /><span className="font-medium">Audit Log</span></>)}
+                      {({ isActive }) => (<>{isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}<NavGlyph active={isActive} name="audit" /><span className="font-medium">Audit Log</span></>)}
                     </NavLink>
                   )}
                   <NavLink to="/settings/workspace" className={navLinkClass}>
-                    {({ isActive }) => (<><NavGlyph active={isActive} name="workspace" /><span className="font-medium">Workspace</span></>)}
+                    {({ isActive }) => (<>{isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}<NavGlyph active={isActive} name="workspace" /><span className="font-medium">Workspace</span></>)}
                   </NavLink>
                   <NavLink to="/settings/webhooks" className={navLinkClass}>
-                    {({ isActive }) => (<><NavGlyph active={isActive} name="webhooks" /><span className="font-medium">Webhooks</span></>)}
+                    {({ isActive }) => (<>{isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}<NavGlyph active={isActive} name="webhooks" /><span className="font-medium">Webhooks</span></>)}
                   </NavLink>
                 </div>
               )}
@@ -537,7 +549,7 @@ export default function Shell() {
           )}
         </nav>
 
-        <div className={`px-3 py-3 ${isDark ? 'border-t border-white/[0.06]' : 'border-t border-slate-200'}`}>
+        <div className={`mt-3 px-3 py-3 ${isDark ? 'border-t border-white/[0.06]' : 'border-t border-slate-200'}`}>
           <div className="flex items-center gap-3 rounded-xl px-2 py-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f1008b_0%,#8b5cf6_100%)] text-xs font-bold text-white">
               {user?.firstName?.[0]}{user?.lastName?.[0]}
@@ -553,9 +565,9 @@ export default function Shell() {
       </aside>
 
       {/* Main area */}
-      <div className={`flex min-w-0 flex-1 flex-col ${isDark ? 'bg-[#0c0c0e]' : 'bg-[#f6f3f8]'}`}>
+      <div className={`flex min-w-0 flex-1 flex-col ${isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]'}`}>
         {!isOverviewRoute && (
-          <header className={`flex h-14 flex-shrink-0 items-center justify-between px-7 ${isDark ? 'border-b border-white/[0.06] bg-[#0c0c0e]' : 'border-b border-slate-200 bg-[#f6f3f8]'}`}>
+          <header className={`flex h-14 flex-shrink-0 items-center justify-between px-7 ${isDark ? 'border-b border-white/[0.06] bg-[#0b1020]' : 'border-b border-slate-200/80 bg-[#f6f3fb]'}`}>
             <div className="flex items-center gap-3">
               <div className={`hidden max-w-[360px] items-center gap-2 rounded-xl px-3 py-2 text-sm md:flex ${isDark ? 'border border-white/[0.08] bg-white/[0.03] text-white/35' : 'border border-slate-200 bg-white text-slate-400'}`}>
                 <SearchIcon />
@@ -642,9 +654,11 @@ export default function Shell() {
           </header>
         )}
 
-        <main className={`flex-1 overflow-y-auto ${isOverviewRoute ? 'p-0' : 'p-6'} ${isDark ? 'bg-[#0c0c0e]' : 'bg-[#f6f3f8]'}`}>
+        <main className={`app-scrollbar flex-1 overflow-y-auto px-6 py-6 ${isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]'}`}>
           {canRenderCurrentRoute ? (
-            <Outlet key={user?.workspace.id ?? 'shell'} context={{ user, theme, toggleTheme: handleThemeToggle }} />
+            <div className="dusk-page">
+              <Outlet key={user?.workspace.id ?? 'shell'} context={{ user, theme, toggleTheme: handleThemeToggle }} />
+            </div>
           ) : (
             <div className={`mx-auto max-w-2xl rounded-[18px] p-8 ${isDark ? 'border border-white/[0.08] bg-[#18181c] shadow-[0_18px_50px_rgba(0,0,0,0.32)]' : 'border border-slate-200 bg-white shadow-sm'}`}>
               <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>No Ad Server access</h1>
