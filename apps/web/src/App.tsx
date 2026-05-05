@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useOutletContext } from 'react-router-dom';
 
 import Shell   from './shell/Shell';
-import ProductLauncher from './shell/ProductLauncher';
+import ProductLauncher, { type ShellUser as ProductLauncherUser } from './shell/ProductLauncher';
 import Login    from './auth/Login';
 import Register from './auth/Register';
 
@@ -40,6 +40,19 @@ const Spinner = () => (
   </div>
 );
 
+function ProductLauncherRoute() {
+  const navigate = useNavigate();
+  const { user } = useOutletContext<{ user?: ProductLauncherUser }>();
+
+  return (
+    <ProductLauncher
+      user={user}
+      navigateTo={(path, options) => navigate(path, options)}
+      autoRedirect
+    />
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -51,8 +64,8 @@ export default function App() {
 
           {/* Protected — Shell provides sidebar + topbar via Outlet */}
           <Route path="/" element={<Shell />}>
-            <Route index element={<ProductLauncher />} />
-            <Route path="launch" element={<ProductLauncher />} />
+            <Route index element={<ProductLauncherRoute />} />
+            <Route path="launch" element={<ProductLauncherRoute />} />
 
             {/* Overview */}
             <Route path="overview" element={<AdOpsOverview />} />
