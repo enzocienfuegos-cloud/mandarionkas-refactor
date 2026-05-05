@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useOutletContext } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 
 import Shell   from './shell/Shell';
 import ProductLauncher, { type ShellUser as ProductLauncherUser } from './shell/ProductLauncher';
@@ -41,14 +41,16 @@ const Spinner = () => (
 );
 
 function ProductLauncherRoute() {
+  const location = useLocation();
   const navigate = useNavigate();
   const { user } = useOutletContext<{ user?: ProductLauncherUser }>();
+  const shouldAutoRedirect = location.pathname === '/';
 
   return (
     <ProductLauncher
       user={user}
       navigateTo={(path, options) => navigate(path, options)}
-      autoRedirect
+      autoRedirect={shouldAutoRedirect}
     />
   );
 }
