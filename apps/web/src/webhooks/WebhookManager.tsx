@@ -290,7 +290,7 @@ export default function WebhookManager() {
 
           {/* Delivery history panel */}
           {selectedWebhookId && (
-            <div className="w-72 flex-shrink-0">
+            <div className="basis-[18rem] flex-shrink-0">
               <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
                   <h3 className="text-sm font-semibold text-slate-700">Delivery History</h3>

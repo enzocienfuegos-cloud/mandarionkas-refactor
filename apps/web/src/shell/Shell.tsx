@@ -22,7 +22,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronDown, KeyRound, Search, Shield, Webhook, Wrench } from 'lucide-react';
+import { ChevronDown, Search, Shield } from 'lucide-react';
 import {
   getWorkspaceProductLabel,
   loadAuthMe,
@@ -234,8 +234,6 @@ export default function Shell() {
     );
   }, [hasAdServerAccess, location.pathname]);
 
-  const toolsOpen    = location.pathname.startsWith('/tools');
-  const settingsOpen = location.pathname.startsWith('/settings');
   const isOverviewRoute = location.pathname.startsWith('/overview');
   const moduleFocusItems: ContextualFocusItem[] = useMemo(() => {
     if (location.pathname.startsWith('/overview')) {
@@ -330,9 +328,6 @@ export default function Shell() {
     if (location.pathname.startsWith('/pacing')) return 'Pacing';
     if (location.pathname.startsWith('/discrepancies')) return 'Discrepancies';
     if (location.pathname.startsWith('/reporting')) return 'Reporting';
-    if (location.pathname.startsWith('/experiments')) return 'Experiments';
-    if (location.pathname.startsWith('/tools')) return 'Tools';
-    if (location.pathname.startsWith('/settings')) return 'Settings';
     return 'Overview';
   }, [location.pathname]);
 
@@ -434,67 +429,6 @@ export default function Shell() {
               />
             </label>
           </div>
-        }
-        hasStudioAccess={hasStudioAccess}
-        studioUrl={getStudioUrl()}
-        toolsExpanded={toolsOpen}
-        settingsExpanded={settingsOpen}
-        toolsChildren={
-          <>
-            {[['vast-validator', 'VAST Validator'], ['chain-validator', 'Chain Validator']].map(([slug, label]) => (
-              <button
-                key={slug}
-                type="button"
-                onClick={() => navigate(`/tools/${slug}`)}
-                className={`group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left text-sm transition ${
-                  location.pathname === `/tools/${slug}`
-                    ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
-                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white'
-                }`}
-              >
-                {location.pathname === `/tools/${slug}` ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
-                  location.pathname === `/tools/${slug}`
-                    ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-                    : 'border-slate-200 bg-white/60 text-slate-500 group-hover:border-fuchsia-200 group-hover:text-fuchsia-600 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/[0.56] dark:group-hover:border-fuchsia-500/20 dark:group-hover:text-fuchsia-300'
-                }`}>
-                  <Wrench className="h-5 w-5" strokeWidth={1.8} />
-                </span>
-                <span className="font-medium">{label}</span>
-              </button>
-            ))}
-          </>
-        }
-        settingsChildren={
-          <>
-            {([
-              ['/settings/api-keys', 'API Keys', KeyRound],
-              ...(canReadAudit ? [['/settings/audit-log', 'Audit Log', Shield]] : []),
-              ['/settings/workspace', 'Workspace', Shield],
-              ['/settings/webhooks', 'Webhooks', Webhook],
-            ] as Array<[string, string, typeof KeyRound]>).map(([path, label, Icon]) => (
-              <button
-                key={path}
-                type="button"
-                onClick={() => navigate(path)}
-                className={`group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left text-sm transition ${
-                  location.pathname === path
-                    ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
-                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white'
-                }`}
-              >
-                {location.pathname === path ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
-                  location.pathname === path
-                    ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-                    : 'border-slate-200 bg-white/60 text-slate-500 group-hover:border-fuchsia-200 group-hover:text-fuchsia-600 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/[0.56] dark:group-hover:border-fuchsia-500/20 dark:group-hover:text-fuchsia-300'
-                }`}>
-                  <Icon className="h-5 w-5" strokeWidth={1.8} />
-                </span>
-                <span className="font-medium">{label}</span>
-              </button>
-            ))}
-          </>
         }
         user={{
           initials: `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`,
@@ -606,7 +540,7 @@ export default function Shell() {
               </p>
               {hasStudioAccess && (
                 <a href={getStudioUrl()} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-fuchsia-500 px-4 py-2 text-sm font-medium text-white shadow-[0_10px_28px_rgba(241,0,139,0.24)]">
-                  Open Studio
+                  Launch Studio
                 </a>
               )}
             </div>

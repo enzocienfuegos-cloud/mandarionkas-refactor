@@ -1,19 +1,13 @@
 import React from 'react';
 import {
   BarChart3,
-  FlaskConical,
   Gauge,
   Image,
-  KeyRound,
   LayoutDashboard,
-  Link2,
   Search,
-  Settings,
   SquareKanban,
   Tag,
   TriangleAlert,
-  Webhook,
-  Wrench,
 } from 'lucide-react';
 
 export function cn(...values: Array<string | false | null | undefined>) {
@@ -49,8 +43,8 @@ export function GlobalScrollbarStyles() {
         scrollbar-color: rgba(148, 163, 184, 0.38) transparent;
       }
       .app-scrollbar::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
       }
       .app-scrollbar::-webkit-scrollbar-track {
         background: transparent;
@@ -277,10 +271,7 @@ export function DuskSidebar({
 }) {
   return (
     <aside
-      className={cn(
-        'app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto border-r px-3 py-4 backdrop-blur-xl lg:block',
-        isDark ? 'border-white/10 bg-[#0b1020]/90' : 'border-slate-200/80 bg-white/84',
-      )}
+      className="app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white/84 px-3 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#0b1020]/90 lg:block"
     >
       <div className="flex min-h-full flex-col">
         <div className="px-1 pb-3">
@@ -376,10 +367,7 @@ export type SidebarItemName =
   | 'Creatives'
   | 'Pacing'
   | 'Discrepancies'
-  | 'Reporting'
-  | 'Experiments'
-  | 'Tools'
-  | 'Settings';
+  | 'Reporting';
 
 export type ContextualFocusItem = {
   label: string;
@@ -404,12 +392,6 @@ function sidebarIcon(name: SidebarItemName) {
       return <TriangleAlert className={className} strokeWidth={1.8} />;
     case 'Reporting':
       return <BarChart3 className={className} strokeWidth={1.8} />;
-    case 'Experiments':
-      return <FlaskConical className={className} strokeWidth={1.8} />;
-    case 'Tools':
-      return <Wrench className={className} strokeWidth={1.8} />;
-    case 'Settings':
-      return <Settings className={className} strokeWidth={1.8} />;
   }
 }
 
@@ -420,12 +402,6 @@ export function AppShell({
   contextualFocus,
   badgeCounts,
   workspaceSlot,
-  hasStudioAccess,
-  studioUrl,
-  toolsExpanded,
-  settingsExpanded,
-  toolsChildren,
-  settingsChildren,
   user,
   children,
 }: {
@@ -435,12 +411,6 @@ export function AppShell({
   contextualFocus?: ContextualFocusItem[];
   badgeCounts?: Partial<Record<SidebarItemName, string>>;
   workspaceSlot: React.ReactNode;
-  hasStudioAccess?: boolean;
-  studioUrl?: string;
-  toolsExpanded?: boolean;
-  settingsExpanded?: boolean;
-  toolsChildren?: React.ReactNode;
-  settingsChildren?: React.ReactNode;
   user: DuskSidebarUser;
   children: React.ReactNode;
 }) {
@@ -452,9 +422,6 @@ export function AppShell({
     Pacing: '/pacing',
     Discrepancies: '/discrepancies',
     Reporting: '/reporting',
-    Experiments: '/experiments',
-    Tools: '/tools',
-    Settings: '/settings',
   };
 
   const sections: DuskSidebarSection[] = [
@@ -479,45 +446,6 @@ export function AppShell({
       })),
     },
   ];
-
-  if (hasStudioAccess && studioUrl) {
-    sections.push({
-      label: 'Connected',
-      items: [
-        {
-          label: 'Open Studio',
-          icon: <Link2 className="h-5 w-5" strokeWidth={1.8} />,
-          href: studioUrl,
-          target: '_blank',
-          rel: 'noopener noreferrer',
-        },
-      ],
-    });
-  }
-
-  sections.push({
-    label: 'System',
-    items: [
-      {
-        label: 'Tools',
-        icon: sidebarIcon('Tools'),
-        active: activeItem === 'Tools',
-        trailing: toolsExpanded ? '−' : '+',
-        onClick: () => navigateTo(routeForItem.Tools),
-        children: toolsExpanded ? toolsChildren : undefined,
-        badge: badgeCounts?.Tools,
-      },
-      {
-        label: 'Settings',
-        icon: sidebarIcon('Settings'),
-        active: activeItem === 'Settings',
-        trailing: settingsExpanded ? '−' : '+',
-        onClick: () => navigateTo(routeForItem.Settings),
-        children: settingsExpanded ? settingsChildren : undefined,
-        badge: badgeCounts?.Settings,
-      },
-    ],
-  });
 
   return (
     <div className={cn('flex min-h-screen overflow-hidden', isDark ? 'bg-[#0b1020] text-white' : 'bg-[#f6f3fb] text-slate-950')}>

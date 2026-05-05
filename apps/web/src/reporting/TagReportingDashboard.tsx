@@ -588,7 +588,7 @@ export default function TagReportingDashboard() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
-        <div className="w-72 flex-shrink-0">
+        <div className="basis-[18rem] flex-shrink-0">
           <Panel className="overflow-hidden">
             <div className="space-y-2 border-b border-slate-100 bg-slate-50/80 px-3 py-3 dark:border-white/[0.07] dark:bg-white/[0.03]">
               <SectionKicker>Tags</SectionKicker>
