@@ -412,24 +412,35 @@ export default function Shell() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className={`mandarion-shell flex min-h-screen gap-4 overflow-hidden px-4 py-4 ${isDark ? 'bg-[#0b1020] text-white' : 'bg-[#f6f3fb] text-slate-900'}`}>
+    <div className={`mandarion-shell flex min-h-screen overflow-hidden ${isDark ? 'bg-[#0b1020] text-white' : 'bg-[#f6f3fb] text-slate-900'}`}>
       <GlobalScrollbarStyles />
       {/* Sidebar */}
-      <aside className={`app-scrollbar sticky top-0 hidden h-[calc(100vh-2rem)] w-[264px] shrink-0 self-start overflow-y-auto rounded-[32px] px-3 py-4 backdrop-blur-xl lg:flex lg:flex-col ${isDark ? 'border border-white/[0.06] bg-[#0f1424]/86' : 'border border-slate-200/80 bg-white/84'}`}>
+      <aside className={`app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto border-r px-3 py-4 backdrop-blur-xl lg:block ${isDark ? 'border-white/10 bg-[#0b1020]/90' : 'border-slate-200/80 bg-white/84'}`}>
         <div className={`rounded-[24px] px-4 py-4 ${isDark ? 'border border-white/[0.06] bg-white/[0.025]' : 'border border-slate-200/80 bg-[rgba(255,255,255,0.72)]'}`}>
           <DuskLogo />
           <p className={`mt-1 text-xs font-medium ${isDark ? 'text-white/40' : 'text-slate-500'}`}>Adserver workspace</p>
         </div>
 
         <div className={`mt-4 rounded-[24px] px-4 py-4 ${isDark ? 'border border-white/[0.06] bg-white/[0.025]' : 'border border-slate-200/80 bg-[rgba(255,255,255,0.72)]'}`}>
-          <SectionKicker>Workspace</SectionKicker>
-          <div className="mt-3 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] shadow-[0_16px_30px_rgba(241,0,139,0.2)]" />
-            <div className="min-w-0 flex-1">
-              <div className={`truncate text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-950'}`}>{user?.workspace.name ?? 'Workspace'}</div>
-              <div className={`text-[11px] uppercase tracking-[0.16em] ${isDark ? 'text-white/28' : 'text-slate-400'}`}>{getPlatformRoleLabel(user?.role)}</div>
-            </div>
+          <SectionKicker>Advertiser</SectionKicker>
+          <div className="relative mt-3">
+            <select
+              value={user?.workspace.id ?? ''}
+              onChange={(e) => void handleWorkspaceSwitch(e.target.value)}
+              disabled={workspaceBusy}
+              className={`h-14 w-full appearance-none rounded-2xl border px-4 pr-10 text-sm font-medium outline-none transition ${isDark ? 'border-white/[0.08] bg-white/[0.03] text-white' : 'border-slate-200 bg-white text-slate-800'} disabled:opacity-60`}
+            >
+              {workspaces.map((ws) => (
+                <option key={ws.id} value={ws.id} className={isDark ? 'bg-[#111114] text-white' : 'bg-white text-slate-900'}>
+                  {ws.name}
+                </option>
+              ))}
+            </select>
+            <span className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>
+              <ChevronDownIcon />
+            </span>
           </div>
+          <p className={`mt-2 text-xs ${isDark ? 'text-white/34' : 'text-slate-500'}`}>{workspaces.length} active clients</p>
           <label className="relative mt-4 block">
             <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/36' : 'text-slate-400'}`}>
               <SearchIcon />
@@ -460,7 +471,7 @@ export default function Shell() {
               ))}
 
               <SectionLabel label="Monitoring" />
-              {(['reporting', 'pacing', 'discrepancies', 'experiments'] as const).map((name) => (
+              {(['pacing', 'discrepancies', 'reporting', 'experiments'] as const).map((name) => (
                 <NavLink key={name} to={`/${name}`} className={navLinkClass}>
                   {({ isActive }) => (
                     <>
@@ -565,7 +576,7 @@ export default function Shell() {
       </aside>
 
       {/* Main area */}
-      <div className={`flex min-w-0 flex-1 flex-col rounded-[32px] ${isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]'}`}>
+      <div className={`flex min-w-0 flex-1 flex-col ${isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]'}`}>
         {!isOverviewRoute && (
           <header className={`flex h-14 flex-shrink-0 items-center justify-between px-7 ${isDark ? 'border-b border-white/[0.06] bg-[#0b1020]' : 'border-b border-slate-200/80 bg-[#f6f3fb]'}`}>
             <div className="flex items-center gap-3">
@@ -654,7 +665,7 @@ export default function Shell() {
           </header>
         )}
 
-        <main className={`app-scrollbar flex-1 overflow-y-auto px-6 py-6 lg:px-8 lg:py-8 ${isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]'}`}>
+        <main className={`app-scrollbar min-w-0 flex-1 overflow-y-auto px-6 py-6 ${isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]'}`}>
           {canRenderCurrentRoute ? (
             <div className="dusk-page">
               <Outlet key={user?.workspace.id ?? 'shell'} context={{ user, theme, toggleTheme: handleThemeToggle }} />
