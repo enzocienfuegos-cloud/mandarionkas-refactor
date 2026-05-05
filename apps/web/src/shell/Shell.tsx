@@ -87,6 +87,7 @@ export default function Shell() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [clientError, setClientError] = useState('');
+  const [jumpSearch, setJumpSearch] = useState('');
   const [theme, setTheme] = useState<ThemeMode>(() => getInitialTheme());
 
   // Prevent the initialisation effect from running twice in React StrictMode
@@ -312,46 +313,24 @@ export default function Shell() {
   return (
     <>
       <AppShell
-        isDark={isDark}
         activeItem={activeItem}
-        navigateTo={navigate}
         badgeCounts={badgeCounts}
-        workspaceSlot={
-          <div className={isDark ? 'rounded-[20px] border border-white/[0.07] bg-white/[0.025] px-4 py-3' : 'rounded-[20px] border border-slate-200/80 bg-white/72 px-4 py-3'}>
-            <div className={isDark ? 'text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.22]' : 'text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400'}>
-              Advertiser
-            </div>
-            <div className="relative mt-2.5">
-              <select
-                value={user?.workspace.id ?? ''}
-                onChange={(e) => void handleWorkspaceSwitch(e.target.value)}
-                disabled={workspaceBusy}
-                className={`h-12 w-full appearance-none rounded-xl border px-4 pr-10 text-sm font-medium outline-none transition ${isDark ? 'border-white/[0.08] bg-white/[0.03] text-white' : 'border-slate-200 bg-white text-slate-800'} disabled:opacity-60`}
-              >
-                {workspaces.map((ws) => (
-                  <option key={ws.id} value={ws.id} className={isDark ? 'bg-[#111114] text-white' : 'bg-white text-slate-900'}>
-                    {ws.name}
-                  </option>
-                ))}
-              </select>
-              <span className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>
-                <ChevronDown className="h-4 w-4" strokeWidth={1.8} />
-              </span>
-            </div>
-            <p className={`mt-1.5 text-xs ${isDark ? 'text-white/34' : 'text-slate-500'}`}>{workspaces.length} active clients</p>
-            <label className="relative mt-3 block">
-              <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/36' : 'text-slate-400'}`}>
-                <Search className="h-4 w-4" strokeWidth={1.8} />
-              </span>
-              <input
-                readOnly
-                value=""
-                placeholder="Jump to campaign"
-                className={`h-10 w-full rounded-xl border pl-9 pr-10 text-sm outline-none transition ${isDark ? 'border-white/8 bg-white/[0.025] text-white placeholder:text-white/30 focus:border-fuchsia-500/26' : 'border-slate-200 bg-white/58 text-slate-800 placeholder:text-slate-400 focus:border-fuchsia-300'}`}
-              />
-            </label>
-          </div>
-        }
+        advertiserSelector={{
+          value: user?.workspace.id ?? '',
+          options: workspaces.map((ws) => ({
+            id: ws.id,
+            name: ws.name,
+            meta: `${workspaces.length} active clients`,
+          })),
+          onChange: (advertiserId) => {
+            void handleWorkspaceSwitch(advertiserId);
+          },
+        }}
+        search={{
+          value: jumpSearch,
+          onChange: setJumpSearch,
+          placeholder: 'Jump to campaign',
+        }}
       >
         {!isOverviewRoute && (
           <header className={`flex h-14 flex-shrink-0 items-center justify-between px-7 ${isDark ? 'border-b border-white/[0.06] bg-[#0b1020]' : 'border-b border-slate-200/80 bg-[#f6f3fb]'}`}>

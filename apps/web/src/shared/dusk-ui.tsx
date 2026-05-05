@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   BarChart3,
+  ChevronDown,
   Gauge,
   Image,
   LayoutDashboard,
@@ -9,6 +10,7 @@ import {
   Tag,
   TriangleAlert,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export function cn(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(' ');
@@ -161,28 +163,25 @@ type DuskSidebarItem = {
   icon: React.ReactNode;
   active?: boolean;
   badge?: string;
-  trailing?: React.ReactNode;
-  href?: string;
-  target?: string;
-  rel?: string;
-  onClick?: React.MouseEventHandler<HTMLElement>;
-  children?: React.ReactNode;
-};
-
-type DuskSidebarSection = {
-  label: string;
-  items: DuskSidebarItem[];
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
 };
 
 function DuskSidebarItemRow({
   item,
-  isDark,
 }: {
   item: DuskSidebarItem;
-  isDark: boolean;
 }) {
-  const content = (
-    <>
+  return (
+    <button
+      type="button"
+      className={cn(
+        'group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left text-sm transition',
+        item.active
+          ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
+          : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white',
+      )}
+      onClick={item.onClick}
+    >
       {item.active ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
       <span
         className={cn(
@@ -207,81 +206,7 @@ function DuskSidebarItemRow({
           {item.badge}
         </span>
       ) : null}
-      {item.trailing ? (
-        <span className={cn('ml-auto text-xs transition', isDark ? 'text-white/[0.25]' : 'text-slate-300')}>
-          {item.trailing}
-        </span>
-      ) : null}
-    </>
-  );
-
-  const className = cn(
-    'group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left text-sm transition',
-    item.active
-      ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
-      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white',
-  );
-
-  if (item.href) {
-    return (
-      <a
-        href={item.href}
-        target={item.target}
-        rel={item.rel}
-        className={className}
-      >
-        {content}
-      </a>
-    );
-  }
-
-  return (
-    <button type="button" className={cn(className, 'w-full text-left')} onClick={item.onClick}>
-      {content}
     </button>
-  );
-}
-
-export function DuskSidebar({
-  isDark,
-  workspaceSlot,
-  sections,
-}: {
-  isDark: boolean;
-  workspaceSlot: React.ReactNode;
-  sections: DuskSidebarSection[];
-}) {
-  return (
-    <aside
-      className="app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white/84 px-3 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#0b1020]/90 lg:block"
-    >
-      <div className="flex min-h-full flex-col">
-        <div className="px-1 pb-3">
-          <DuskLogo className={isDark ? 'h-[34px] w-[136px] text-white' : 'h-[34px] w-[136px] text-slate-950'} />
-          <p className={cn('mt-1 text-xs font-medium', isDark ? 'text-white/40' : 'text-slate-500')}>Adserver workspace</p>
-        </div>
-
-        {workspaceSlot}
-
-        <nav className="mt-3">
-          {sections.map((section) => (
-            <div key={section.label} className="mt-3 first:mt-0">
-              <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 dark:text-white/[0.22]">
-                {section.label}
-              </div>
-              <div className="space-y-0.5">
-                {section.items.map((item) => (
-                  <div key={item.label}>
-                    <DuskSidebarItemRow item={item} isDark={isDark} />
-                    {item.children ? <div className="space-y-0.5 pl-5">{item.children}</div> : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </nav>
-      </div>
-    </aside>
   );
 }
 
@@ -294,41 +219,83 @@ export type SidebarItemName =
   | 'Discrepancies'
   | 'Reporting';
 
-function sidebarIcon(name: SidebarItemName) {
-  const className = 'h-5 w-5';
-  switch (name) {
-    case 'Overview':
-      return <LayoutDashboard className={className} strokeWidth={1.8} />;
-    case 'Campaigns':
-      return <SquareKanban className={className} strokeWidth={1.8} />;
-    case 'Tags':
-      return <Tag className={className} strokeWidth={1.8} />;
-    case 'Creatives':
-      return <Image className={className} strokeWidth={1.8} />;
-    case 'Pacing':
-      return <Gauge className={className} strokeWidth={1.8} />;
-    case 'Discrepancies':
-      return <TriangleAlert className={className} strokeWidth={1.8} />;
-    case 'Reporting':
-      return <BarChart3 className={className} strokeWidth={1.8} />;
-  }
+export type AdvertiserOption = {
+  id: string;
+  name: string;
+  meta?: string;
+};
+
+type SidebarNavItem = {
+  label: SidebarItemName;
+  icon: React.ReactNode;
+};
+
+function SidebarNavGroup({
+  title,
+  items,
+  activeItem,
+  badgeCounts,
+  onNavigate,
+}: {
+  title: string;
+  items: readonly SidebarNavItem[];
+  activeItem: SidebarItemName;
+  badgeCounts?: Partial<Record<SidebarItemName, string>>;
+  onNavigate: (item: SidebarItemName) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 dark:text-white/[0.22]">
+        {title}
+      </div>
+      <div className="space-y-0.5">
+        {items.map((item) => (
+          <DuskSidebarItemRow
+            key={item.label}
+            item={{
+              ...item,
+              active: activeItem === item.label,
+              badge: badgeCounts?.[item.label],
+              onClick: () => onNavigate(item.label),
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
-export function AppShell({
-  isDark,
+export function Sidebar({
   activeItem,
-  navigateTo,
   badgeCounts,
-  workspaceSlot,
-  children,
+  advertiserSelector,
+  search,
 }: {
-  isDark: boolean;
   activeItem: SidebarItemName;
-  navigateTo: (path: string) => void;
   badgeCounts?: Partial<Record<SidebarItemName, string>>;
-  workspaceSlot: React.ReactNode;
-  children: React.ReactNode;
+  advertiserSelector?: {
+    value: string;
+    options: AdvertiserOption[];
+    onChange: (advertiserId: string) => void;
+  };
+  search?: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+  };
 }) {
+  const navigate = useNavigate();
+  const operations = [
+    { label: 'Overview', icon: <LayoutDashboard className="h-5 w-5" strokeWidth={1.8} /> },
+    { label: 'Campaigns', icon: <SquareKanban className="h-5 w-5" strokeWidth={1.8} /> },
+    { label: 'Tags', icon: <Tag className="h-5 w-5" strokeWidth={1.8} /> },
+    { label: 'Creatives', icon: <Image className="h-5 w-5" strokeWidth={1.8} /> },
+  ] as const satisfies readonly SidebarNavItem[];
+  const monitoring = [
+    { label: 'Pacing', icon: <Gauge className="h-5 w-5" strokeWidth={1.8} /> },
+    { label: 'Discrepancies', icon: <TriangleAlert className="h-5 w-5" strokeWidth={1.8} /> },
+    { label: 'Reporting', icon: <BarChart3 className="h-5 w-5" strokeWidth={1.8} /> },
+  ] as const satisfies readonly SidebarNavItem[];
   const routeForItem: Record<SidebarItemName, string> = {
     Overview: '/overview',
     Campaigns: '/campaigns',
@@ -339,38 +306,103 @@ export function AppShell({
     Reporting: '/reporting',
   };
 
-  const sections: DuskSidebarSection[] = [
-    {
-      label: 'Operations',
-      items: (['Overview', 'Campaigns', 'Tags', 'Creatives'] as const).map((label) => ({
-        label,
-        icon: sidebarIcon(label),
-        active: activeItem === label,
-        badge: badgeCounts?.[label],
-        onClick: () => navigateTo(routeForItem[label]),
-      })),
-    },
-    {
-      label: 'Monitoring',
-      items: (['Pacing', 'Discrepancies', 'Reporting'] as const).map((label) => ({
-        label,
-        icon: sidebarIcon(label),
-        active: activeItem === label,
-        badge: badgeCounts?.[label],
-        onClick: () => navigateTo(routeForItem[label]),
-      })),
-    },
-  ];
-
   return (
-    <div className={cn('flex min-h-screen overflow-hidden', isDark ? 'bg-[#0b1020] text-white' : 'bg-[#f6f3fb] text-slate-950')}>
+    <aside
+      className="app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white/84 px-3 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#0b1020]/90 lg:block"
+    >
+      <div className="flex min-h-full flex-col">
+        <div className="px-2 pb-5">
+          <DuskLogo className="h-[34px] w-[136px] text-slate-950 dark:text-white" />
+          <p className="mt-1 text-xs font-medium text-slate-500 dark:text-white/40">Adserver workspace</p>
+        </div>
+
+        <button
+          type="button"
+          className="mb-3 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white/58 px-3 py-2.5 text-left transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/8 dark:bg-white/[0.025] dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]"
+        >
+          {advertiserSelector ? (
+            <div className="relative w-full">
+              <select
+                value={advertiserSelector.value}
+                onChange={(event) => advertiserSelector.onChange(event.target.value)}
+                className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-white/58 px-3 pr-10 text-sm font-semibold text-slate-800 outline-none transition hover:border-fuchsia-300 focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/8 dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:focus:border-fuchsia-500/26"
+              >
+                {advertiserSelector.options.map((option) => (
+                  <option key={option.id} value={option.id} className="bg-white text-slate-900 dark:bg-[#111114] dark:text-white">
+                    {option.name}
+                    {option.meta ? ` · ${option.meta}` : ''}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/36">
+                <ChevronDown className="h-4 w-4" strokeWidth={1.8} />
+              </span>
+            </div>
+          ) : (
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-slate-800 dark:text-white/86">All advertisers</span>
+              <span className="block truncate text-xs text-slate-500 dark:text-white/38">5 active clients</span>
+            </span>
+          )}
+        </button>
+
+        <label className="relative mb-5 block">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-white/36" />
+          <input
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white/58 pl-9 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/8 dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/26"
+            value={search?.value ?? ''}
+            onChange={(event) => search?.onChange(event.target.value)}
+            placeholder={search?.placeholder ?? 'Jump to campaign'}
+          />
+        </label>
+
+        <nav className="space-y-5">
+          <SidebarNavGroup
+            title="Operations"
+            items={operations}
+            activeItem={activeItem}
+            badgeCounts={badgeCounts}
+            onNavigate={(item) => navigate(routeForItem[item])}
+          />
+          <SidebarNavGroup
+            title="Monitoring"
+            items={monitoring}
+            activeItem={activeItem}
+            badgeCounts={badgeCounts}
+            onNavigate={(item) => navigate(routeForItem[item])}
+          />
+        </nav>
+      </div>
+    </aside>
+  );
+}
+
+export function AppShell({
+  activeItem,
+  badgeCounts,
+  advertiserSelector,
+  search,
+  children,
+}: {
+  activeItem: SidebarItemName;
+  badgeCounts?: Partial<Record<SidebarItemName, string>>;
+  advertiserSelector?: {
+    value: string;
+    options: AdvertiserOption[];
+    onChange: (advertiserId: string) => void;
+  };
+  search?: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+  };
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-screen overflow-hidden bg-[#f6f3fb] text-slate-950 dark:bg-[#0b1020] dark:text-white">
       <GlobalScrollbarStyles />
-      <DuskSidebar
-        isDark={isDark}
-        workspaceSlot={workspaceSlot}
-        sections={sections}
-      />
-      <div className={cn('flex min-w-0 flex-1 flex-col', isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]')}>
+      <Sidebar activeItem={activeItem} badgeCounts={badgeCounts} advertiserSelector={advertiserSelector} search={search} />
+      <div className="flex min-w-0 flex-1 flex-col bg-[#f6f3fb] dark:bg-[#0b1020]">
         {children}
       </div>
     </div>
