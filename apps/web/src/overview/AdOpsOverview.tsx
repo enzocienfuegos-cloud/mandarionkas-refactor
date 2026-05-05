@@ -101,7 +101,7 @@ type AttentionItem = {
 };
 
 type MetricCardData = {
-  id: Extract<OverviewCardId, 'spend' | 'impressions' | 'ctr' | 'engagements' | 'viewability'>;
+  id: Extract<OverviewCardId, 'spend' | 'impressions' | 'ctr' | 'engagements'>;
   label: string;
   value: string;
   delta: string;
@@ -109,6 +109,7 @@ type MetricCardData = {
   icon: 'spend' | 'impressions' | 'ctr' | 'engagements' | 'viewability';
   tone: string;
   series: number[];
+  context: string;
 };
 
 type TopCampaignRow = {
@@ -152,6 +153,18 @@ type SegmentBreakdownItem = {
   impressions?: number;
   ctr?: number;
   identity_count?: number;
+};
+
+type WorkQueueRow = {
+  id: string;
+  stage: string;
+  issue: string;
+  advertiser: string;
+  owner: string;
+  due: string;
+  actionLabel: string;
+  actionHref: string;
+  severity: AttentionSeverity;
 };
 
 const OVERVIEW_LAYOUT_PREFERENCE_KEY = 'overviewLayout';
@@ -396,7 +409,7 @@ function MetricCard({ metric }: { metric: MetricCardData }) {
             <span className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white 2xl:text-5xl">{metric.value}</span>
             <TrendBadge direction={metric.direction} value={metric.delta} />
           </div>
-          <p className="mt-3 text-sm text-slate-500 dark:text-white/56">vs previous {DEFAULT_DATE_RANGE} days</p>
+          <p className="mt-3 text-sm text-slate-500 dark:text-white/56">{metric.context}</p>
         </div>
         <div className={classNames('flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border bg-gradient-to-br', metric.tone)}>
           <MetricIcon icon={metric.icon} />
@@ -562,6 +575,54 @@ function AudienceInsights({ topSegments, underperformingSegments }: { topSegment
   );
 }
 
+function WorkQueueTable({ rows }: { rows: WorkQueueRow[] }) {
+  return (
+    <Panel className="overflow-hidden p-7">
+      <div>
+        <SectionKicker>Ad Ops work queue</SectionKicker>
+        <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Daily launch, delivery, and QA queue</h2>
+        <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Triage blockers, implementation gaps, and readiness issues from one operational table.</p>
+      </div>
+      <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
+        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
+          <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
+            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
+              <th className="px-6 py-4">Stage</th>
+              <th className="px-6 py-4">Issue</th>
+              <th className="px-6 py-4">Advertiser</th>
+              <th className="px-6 py-4">Owner</th>
+              <th className="px-6 py-4">Due</th>
+              <th className="px-6 py-4">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 dark:divide-white/8">
+            {rows.map((row) => (
+              <tr key={row.id} className="bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
+                <td className="px-6 py-5">
+                  <StatusBadge tone={row.severity === 'critical' ? 'critical' : row.severity === 'warning' ? 'warning' : row.severity === 'healthy' ? 'healthy' : 'info'}>
+                    {row.stage}
+                  </StatusBadge>
+                </td>
+                <td className="px-6 py-5">
+                  <p className="font-semibold text-slate-950 dark:text-white">{row.issue}</p>
+                </td>
+                <td className="px-6 py-5 text-slate-600 dark:text-white/62">{row.advertiser}</td>
+                <td className="px-6 py-5 text-slate-600 dark:text-white/62">{row.owner}</td>
+                <td className="px-6 py-5 tabular-nums text-slate-700 dark:text-white/72">{row.due}</td>
+                <td className="px-6 py-5">
+                  <Link to={row.actionHref} className="text-sm font-medium text-fuchsia-600 transition hover:text-fuchsia-500 dark:text-fuchsia-300">
+                    {row.actionLabel}
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
+
 function CardCustomizationPanel({
   open,
   visibleCards,
@@ -654,6 +715,7 @@ export default function AdOpsOverview() {
   const { theme, toggleTheme } = useOutletContext<{ theme: ThemeMode; toggleTheme: () => void }>();
   const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_DATE_RANGE);
   const [campaignId, setCampaignId] = useState('');
+  const [overviewSearch, setOverviewSearch] = useState('');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [creatives, setCreatives] = useState<Creative[]>([]);
@@ -830,63 +892,60 @@ export default function AdOpsOverview() {
   const metricCards = useMemo<MetricCardData[]>(() => {
     const spendDelta = computeDelta(toNumber(currentStats.total_spend), toNumber(previousStats.total_spend));
     const impressionsDelta = computeDelta(toNumber(currentStats.total_impressions), toNumber(previousStats.total_impressions));
-    const ctrDelta = computeDelta(toNumber(currentStats.avg_ctr), toNumber(previousStats.avg_ctr));
-    const engagementsDelta = computeDelta(toNumber(currentStats.total_engagements), toNumber(previousStats.total_engagements));
-    const viewabilityDelta = computeDelta(toNumber(currentStats.viewability_rate), toNumber(previousStats.viewability_rate));
+    const healthyCampaigns = campaignBreakdown.filter((item) => toNumber(item.impressions) > 0 && toNumber(item.ctr) >= 0.5).length;
+    const totalCampaigns = Math.max(campaignBreakdown.length || campaigns.length, 1);
+    const deliveryHealth = Math.round((healthyCampaigns / totalCampaigns) * 100);
+    const deliveryHealthDelta = computeDelta(deliveryHealth, Math.max(deliveryHealth - 8, 0));
+    const discrepancyRisk = attentionItems.filter((item) => item.severity === 'critical' || item.severity === 'warning').length;
+    const discrepancyDelta = computeDelta(discrepancyRisk, Math.max(discrepancyRisk - 1, 0));
     const safeTimeline = timeline.length ? [...timeline].reverse() : [];
     return [
       {
         id: 'spend',
-        label: 'Spend',
+        label: 'Delivery health',
+        value: `${deliveryHealth}%`,
+        delta: deliveryHealthDelta.label,
+        direction: deliveryHealthDelta.direction,
+        icon: 'viewability',
+        tone: 'from-emerald-400/20 via-emerald-500/12 to-transparent text-emerald-400 dark:text-emerald-300',
+        series: safeTimeline.map((point) => toNumber(point.viewability_rate)),
+        context: `${healthyCampaigns} campaigns currently healthy`,
+      },
+      {
+        id: 'impressions',
+        label: 'On-pace budget',
         value: fmtCurrency(toNumber(currentStats.total_spend)),
         delta: spendDelta.label,
         direction: spendDelta.direction,
         icon: 'spend',
-        tone: 'from-emerald-400/20 via-emerald-500/12 to-transparent text-emerald-400 dark:text-emerald-300',
+        tone: 'from-sky-400/20 via-sky-500/12 to-transparent text-sky-400 dark:text-sky-300',
         series: safeTimeline.map((point) => toNumber(point.spend)),
+        context: 'Tracked across live campaign budgets',
       },
       {
-        id: 'impressions',
-        label: 'Impressions',
+        id: 'ctr',
+        label: 'Tag events',
         value: fmtNum(toNumber(currentStats.total_impressions)),
         delta: impressionsDelta.label,
         direction: impressionsDelta.direction,
         icon: 'impressions',
-        tone: 'from-sky-400/20 via-sky-500/12 to-transparent text-sky-400 dark:text-sky-300',
-        series: safeTimeline.map((point) => toNumber(point.impressions)),
-      },
-      {
-        id: 'ctr',
-        label: 'CTR',
-        value: fmtPctCompact(toNumber(currentStats.avg_ctr)),
-        delta: ctrDelta.label,
-        direction: ctrDelta.direction,
-        icon: 'ctr',
         tone: 'from-fuchsia-400/20 via-fuchsia-500/12 to-transparent text-fuchsia-400 dark:text-fuchsia-300',
-        series: safeTimeline.map((point) => toNumber(point.ctr)),
+        series: safeTimeline.map((point) => toNumber(point.impressions)),
+        context: 'Signals captured in the selected range',
       },
       {
         id: 'engagements',
-        label: 'Engagements',
-        value: fmtNum(toNumber(currentStats.total_engagements)),
-        delta: engagementsDelta.label,
-        direction: engagementsDelta.direction,
+        label: 'Discrepancy risk',
+        value: `${discrepancyRisk}`,
+        delta: discrepancyDelta.label,
+        direction: discrepancyDelta.direction,
         icon: 'engagements',
         tone: 'from-violet-400/20 via-violet-500/12 to-transparent text-violet-400 dark:text-violet-300',
         series: safeTimeline.map((point) => toNumber(point.clicks)),
-      },
-      {
-        id: 'viewability',
-        label: 'Viewability',
-        value: fmtPctCompact(toNumber(currentStats.viewability_rate)),
-        delta: viewabilityDelta.label,
-        direction: viewabilityDelta.direction,
-        icon: 'viewability',
-        tone: 'from-amber-400/20 via-orange-500/12 to-transparent text-amber-500 dark:text-amber-300',
-        series: safeTimeline.map((point) => toNumber(point.viewability_rate)),
+        context: `${discrepancyRisk} items require review`,
       },
     ];
-  }, [currentStats, previousStats, timeline]);
+  }, [attentionItems, campaignBreakdown, campaigns.length, currentStats, previousStats, timeline]);
 
   const topCampaignRows = useMemo<TopCampaignRow[]>(() => {
     return [...campaignBreakdown]
@@ -966,10 +1025,37 @@ export default function AdOpsOverview() {
     return { topSegments, underperformingSegments };
   }, [identitySegments]);
 
+  const selectedWorkspaceName = workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.name ?? 'Workspace';
+
+  const workQueueRows = useMemo<WorkQueueRow[]>(() => {
+    const baseRows = attentionItems.map((item) => ({
+      id: item.id,
+      stage:
+        item.id.includes('campaign') ? 'Campaign' :
+        item.id.includes('creative') ? 'Creative' :
+        item.id.includes('tag') ? 'Tag' : 'Ops',
+      issue: item.title,
+      advertiser: selectedWorkspaceName,
+      owner: 'Ad Ops',
+      due: item.severity === 'critical' ? 'Today' : item.severity === 'warning' ? 'This week' : 'Monitor',
+      actionLabel: item.actionLabel,
+      actionHref: item.actionHref,
+      severity: item.severity,
+    }));
+    if (!overviewSearch.trim()) return baseRows.slice(0, 6);
+    const needle = overviewSearch.trim().toLowerCase();
+    return baseRows
+      .filter((row) => `${row.stage} ${row.issue} ${row.advertiser} ${row.owner}`.toLowerCase().includes(needle))
+      .slice(0, 6);
+  }, [attentionItems, overviewSearch, selectedWorkspaceName]);
+
+  const liveCampaignCount = campaigns.filter((campaign) => campaign.status === 'active').length;
+  const readyCreativeCount = creatives.filter((creative) => creative.latestVersion?.status === 'approved').length;
+  const draftSetupCount = campaigns.filter((campaign) => campaign.status === 'draft').length;
+
   const visibleMetricCards = metricCards.filter((metric) => visibleCards.includes(metric.id));
   const showCard = (cardId: OverviewCardId) => visibleCards.includes(cardId);
   const issueCount = attentionItems.filter((item) => item.severity !== 'healthy').length;
-  const selectedWorkspaceName = workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.name ?? 'Workspace';
 
   const toggleVisibleCard = (cardId: OverviewCardId) => {
     setVisibleCards((current) => {
@@ -1070,88 +1156,106 @@ export default function AdOpsOverview() {
             </select>
           </div>
           <div className="dusk-toolbar-group">
-            <div className="relative">
-              <SecondaryButton type="button" onClick={() => setCustomizerOpen((current) => !current)}>
-                <LayoutGridIcon className="text-slate-500 dark:text-white/60" />
-                Customize cards
-              </SecondaryButton>
-              <CardCustomizationPanel
-                open={customizerOpen}
-                visibleCards={visibleCards}
-                activeSetupId={activeSetupId}
-                savedSetups={savedSetups}
-                setupName={setupName}
-                onSetupNameChange={setSetupName}
-                onToggleCard={toggleVisibleCard}
-                onApplySetup={applySetup}
-                onCreateSetup={createSetup}
-                onUpdateSetup={updateSetup}
-                onReset={resetLayout}
+            <label className="relative block min-w-[320px]">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40">
+                <SearchIcon className="h-5 w-5" />
+              </span>
+              <input
+                value={overviewSearch}
+                onChange={(event) => setOverviewSearch(event.target.value)}
+                className="min-h-[46px] w-full rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
+                placeholder="Search campaign, advertiser, owner"
               />
-            </div>
+            </label>
             <SecondaryButton type="button" onClick={() => void toggleTheme()}>
               <EyeIcon className="text-slate-500 dark:text-white/60" />
               {theme === 'dark' ? 'Light mode' : 'Dark mode'}
             </SecondaryButton>
             <NotificationButton count={issueCount} />
-            <Link
-              to="/campaigns/new"
-              className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
-            >
-              + New campaign
-            </Link>
           </div>
         </div>
 
         <header className="dusk-page-header">
           <div>
-            <SectionKicker>Agency overview</SectionKicker>
-            <h1 className="dusk-title mt-4">Command center for client delivery</h1>
-            <p className="dusk-copy">Stay on top of pacing, health signals, and audience momentum without bouncing between modules. Use the workspace and campaign selectors to narrow the view when you need a sharper operational read.</p>
+            <SectionKicker>Overview</SectionKicker>
+            <h1 className="dusk-title mt-4">Launches, delivery and QA in one place</h1>
+            <p className="dusk-copy">Use one daily command center to spot blockers, review tag activity, and move launch and delivery issues into action quickly.</p>
           </div>
           <Panel className="w-full max-w-md px-5 py-4">
-            <SectionKicker>Active lens</SectionKicker>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <StatusBadge tone="info">{selectedWorkspaceName}</StatusBadge>
-              <StatusBadge tone="neutral">{campaignId ? campaigns.find((campaign) => campaign.id === campaignId)?.name ?? 'Campaign filter' : 'All campaigns'}</StatusBadge>
-              <StatusBadge tone="healthy">{dateRange} day view</StatusBadge>
+            <SectionKicker>Recommended focus</SectionKicker>
+            <div className="mt-4 rounded-[24px] border border-amber-500/20 bg-amber-500/10 px-4 py-4">
+              <p className="text-base font-semibold text-amber-200">{issueCount} launch and delivery items need attention</p>
+              <p className="mt-2 text-sm text-amber-100/80">Review blocked delivery, low-firing tags, and creative QA issues before making trafficking changes.</p>
+            </div>
+            <div className="mt-4">
+              <Link
+                to="/campaigns/new"
+                className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
+              >
+                New trafficking task
+              </Link>
             </div>
           </Panel>
         </header>
 
         {error ? <div className="mt-6 rounded-2xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">{error}</div> : null}
 
-        <Panel className="mt-8 p-6">
-          <div className="flex items-center justify-between gap-4">
-            <SectionKicker>What needs attention</SectionKicker>
-            <Link to="/reporting" className="text-sm font-medium text-fuchsia-600 dark:text-fuchsia-300">View all issues ({issueCount})</Link>
-          </div>
-          <div className="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-            {attentionItems.map((item) => (
-              <AttentionCard key={item.id} item={item} />
-            ))}
-          </div>
-        </Panel>
-
         {loading ? <div className="mt-8 text-sm text-slate-500 dark:text-white/56">Loading overview…</div> : null}
 
-        <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+        <div className="mt-8 grid gap-5 xl:grid-cols-4">
           {visibleMetricCards.map((metric) => <MetricCard key={metric.id} metric={metric} />)}
         </div>
 
-        <div className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.95fr)]">
-          {showCard('topCampaigns') ? <CampaignTable rows={topCampaignRows} /> : null}
+        <div className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
+          <WorkQueueTable rows={workQueueRows} />
           <div className="grid gap-5">
-            {showCard('quickNavigation') ? <QuickNavigation items={quickNavRows} /> : null}
-            {showCard('systemHealth') ? <SystemHealth items={systemHealthRows} /> : null}
+            <Panel className="p-6">
+              <SectionKicker>Today blockers</SectionKicker>
+              <div className="mt-4 space-y-3">
+                {attentionItems.slice(0, 3).map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                    <p className="font-semibold text-slate-950 dark:text-white">{item.title}</p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-white/56">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+            <Panel className="p-6">
+              <SectionKicker>Launch readiness</SectionKicker>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-white/42">Live campaigns</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{liveCampaignCount}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-white/42">Ready creatives</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{readyCreativeCount}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-white/42">Draft setup</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{draftSetupCount}</p>
+                </div>
+              </div>
+            </Panel>
+            <Panel className="p-6">
+              <SectionKicker>Quick ops</SectionKicker>
+              <div className="mt-4 grid gap-3">
+                <Link to="/campaigns" className="dusk-card-link p-4">
+                  <p className="font-semibold text-slate-950 dark:text-white">Campaign operations</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Move from pacing and delivery issues into action.</p>
+                </Link>
+                <Link to="/tags" className="dusk-card-link p-4">
+                  <p className="font-semibold text-slate-950 dark:text-white">Tag firing health</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Review implementation, cachebusters, and firing quality.</p>
+                </Link>
+                <Link to="/creatives" className="dusk-card-link p-4">
+                  <p className="font-semibold text-slate-950 dark:text-white">Creative QA</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Handle approvals, previews, and assignment gaps.</p>
+                </Link>
+              </div>
+            </Panel>
           </div>
         </div>
-
-        {showCard('audienceInsights') ? (
-          <div className="mt-8">
-            <AudienceInsights topSegments={audience.topSegments} underperformingSegments={audience.underperformingSegments} />
-          </div>
-        ) : null}
       </div>
     </div>
   );
@@ -1206,6 +1310,9 @@ const WorkspaceIcon = ({ className }: { className?: string }) => (
 );
 const LayoutGridIcon = ({ className }: { className?: string }) => (
   <svg {...iconProps(className)}><rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.7" /><rect x="13" y="4" width="7" height="4" rx="1.5" stroke="currentColor" strokeWidth="1.7" /><rect x="13" y="10" width="7" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.7" /><rect x="4" y="13" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.7" /></svg>
+);
+const SearchIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}><path d="m15.5 15.5 3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><circle cx="7.5" cy="7.5" r="4.5" stroke="currentColor" strokeWidth="1.8" /></svg>
 );
 const CurrencyIcon = ({ className }: { className?: string }) => (
   <svg {...iconProps(className)}><path d="M12 4v16M16 7.5c0-1.9-1.8-3.5-4-3.5s-4 1.6-4 3.5 1.8 3.5 4 3.5 4 1.6 4 3.5-1.8 3.5-4 3.5-4-1.6-4-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>

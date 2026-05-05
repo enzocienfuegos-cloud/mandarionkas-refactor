@@ -275,7 +275,7 @@ html.dark .mandarion-shell h3 {
   }
 
   .dusk-card-link {
-    @apply dusk-panel block p-6 transition hover:-translate-y-[1px] hover:border-fuchsia-300/70 hover:bg-fuchsia-50/55 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045];
+    @apply dusk-panel block p-6 transition hover:-translate-y-[1px] hover:border-fuchsia-300/[0.70] hover:bg-fuchsia-50/[0.55] dark:hover:border-fuchsia-500/[0.22] dark:hover:bg-white/[0.045];
   }
 
   .dusk-data-table {
