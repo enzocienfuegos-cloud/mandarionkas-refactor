@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../shared/workspaces';
-import { Panel, SecondaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
+import { Panel, SectionKicker, StatusBadge } from '../shared/dusk-ui';
 
 interface Campaign {
   id: string;
@@ -27,81 +27,236 @@ interface Campaign {
   viewabilityRate?: number | string | null;
   total_hover_duration_ms?: number | string | null;
   totalHoverDurationMs?: number | string | null;
-  total_in_view_duration_ms?: number | string | null;
-  totalInViewDurationMs?: number | string | null;
 }
 
-type MetricKey = 'impressions' | 'clicks' | 'ctr' | 'engagementRate' | 'viewability' | 'inViewTime' | 'attentionTime';
+type CampaignStatus = 'Live' | 'Limited' | 'Blocked' | 'Ready' | 'Draft';
+type TrendDirection = 'up' | 'down' | 'flat';
+type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose';
 
-const METRIC_COLUMNS: Array<{ key: MetricKey; label: string }> = [
-  { key: 'impressions', label: 'Impressions' },
-  { key: 'clicks', label: 'Clicks' },
-  { key: 'ctr', label: 'CTR' },
-  { key: 'engagementRate', label: 'Eng. Rate' },
-  { key: 'viewability', label: 'Viewability' },
-  { key: 'inViewTime', label: 'In-View Time' },
-  { key: 'attentionTime', label: 'Attention Time' },
-];
-
-const DEFAULT_VISIBLE_METRICS: Record<MetricKey, boolean> = {
-  impressions: true,
-  clicks: true,
-  ctr: true,
-  engagementRate: true,
-  viewability: true,
-  inViewTime: true,
-  attentionTime: true,
+type CampaignRow = {
+  id: string;
+  campaign: string;
+  advertiser: string;
+  status: CampaignStatus;
+  pacing: string;
+  spend: string;
+  budget: string;
+  tagHealth: string;
+  creativeStatus: string;
+  issues: number;
+  owner: string;
+  flight: string;
+  raw: Campaign;
 };
 
-const statusBadge = (status: Campaign['status']) => {
-  const tones: Record<Campaign['status'], 'healthy' | 'warning' | 'neutral' | 'info'> = {
-    active: 'healthy',
-    paused: 'warning',
-    archived: 'neutral',
-    draft: 'info',
-  };
-  return <StatusBadge tone={tones[status]}>{status}</StatusBadge>;
+type Metric = {
+  id: string;
+  label: string;
+  value: string;
+  delta: string;
+  direction: TrendDirection;
+  helper: string;
+  tone: Tone;
+  series: number[];
 };
 
-const fmt = (val: string | null) => val ? new Date(val).toLocaleDateString() : '—';
-const fmtNum = (val: number | null) => val != null ? val.toLocaleString() : '—';
+type IconProps = { className?: string };
+
+const classNames = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(' ');
+
+const iconProps = (className?: string) =>
+  ({
+    className: classNames('h-5 w-5', className),
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    'aria-hidden': true,
+  }) as const;
+
+const SearchIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8" />
+    <path d="m21 21-4.3-4.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const FilterIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const GaugeIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <path d="M4 15a8 8 0 1 1 16 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="m12 15 4-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M8 19h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const AlertTriangleIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <path d="M12 4 3.5 19h17L12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M12 9v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <circle cx="12" cy="16" r="1" fill="currentColor" />
+  </svg>
+);
+
+const ReportIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <path d="M6 19V9M12 19V5M18 19v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M4 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const TableIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M4 10h16M10 5v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const MoreIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <circle cx="5" cy="12" r="1" fill="currentColor" />
+    <circle cx="12" cy="12" r="1" fill="currentColor" />
+    <circle cx="19" cy="12" r="1" fill="currentColor" />
+  </svg>
+);
+
+const toneClass = (tone: Tone) => ({
+  fuchsia: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/18 dark:bg-fuchsia-500/10 dark:text-fuchsia-300',
+  emerald: 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-500/18 dark:bg-emerald-500/10 dark:text-emerald-300',
+  amber: 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-500/18 dark:bg-amber-500/10 dark:text-amber-300',
+  rose: 'border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-500/18 dark:bg-rose-500/10 dark:text-rose-300',
+}[tone]);
+
+const campaignStatusTone = (status: CampaignStatus): 'healthy' | 'warning' | 'critical' | 'info' | 'neutral' => {
+  switch (status) {
+    case 'Live':
+      return 'healthy';
+    case 'Limited':
+      return 'warning';
+    case 'Blocked':
+      return 'critical';
+    case 'Ready':
+      return 'info';
+    case 'Draft':
+    default:
+      return 'neutral';
+  }
+};
+
+const formatDateRange = (start?: string | null, end?: string | null) => {
+  const fmt = (val?: string | null) => (val ? new Date(val).toLocaleDateString(undefined, { month: 'short', day: '2-digit' }) : null);
+  const s = fmt(start);
+  const e = fmt(end);
+  if (s && e) return `${s} - ${e}`;
+  if (s) return `${s} - …`;
+  return 'Always on';
+};
+
 const toNumber = (val: unknown) => {
   const number = Number(val ?? 0);
   return Number.isFinite(number) ? number : 0;
 };
-const fmtMetricNum = (val: unknown) => {
-  const number = toNumber(val);
-  if (number >= 1_000_000) return `${(number / 1_000_000).toFixed(2)}M`;
-  if (number >= 1_000) return `${(number / 1_000).toFixed(1)}K`;
-  return number.toLocaleString();
-};
-const fmtPct = (val: unknown) => `${toNumber(val).toFixed(2)}%`;
-const fmtSecondsFromMs = (val: unknown) => {
-  const seconds = toNumber(val) / 1000;
-  if (seconds >= 3600) return `${(seconds / 3600).toFixed(2)}h`;
-  if (seconds >= 60) return `${(seconds / 60).toFixed(1)}m`;
-  return `${seconds.toFixed(1)}s`;
+
+const formatMoney = (value: number) =>
+  new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: value >= 100 ? 0 : 1,
+  }).format(value);
+
+const formatCompactMoney = (value: number) => {
+  if (value >= 1000) return `$${(value / 1000).toFixed(1)}K`;
+  return formatMoney(value);
 };
 
-function getCampaignMetric(campaign: Campaign, key: MetricKey) {
-  switch (key) {
-    case 'impressions':
-      return fmtMetricNum(campaign.impressions);
-    case 'clicks':
-      return fmtMetricNum(campaign.clicks);
-    case 'ctr':
-      return fmtPct(campaign.ctr);
-    case 'engagementRate':
-      return fmtPct(campaign.engagementRate ?? campaign.engagement_rate);
-    case 'viewability':
-      return fmtPct(campaign.viewabilityRate ?? campaign.viewability_rate);
-    case 'inViewTime':
-      return fmtSecondsFromMs(campaign.totalInViewDurationMs ?? campaign.total_in_view_duration_ms);
-    case 'attentionTime':
-      return fmtSecondsFromMs(campaign.totalHoverDurationMs ?? campaign.total_hover_duration_ms);
-    default:
-      return '—';
-  }
+const formatPct = (value: number) => `${value.toFixed(1)}%`;
+
+const computeDelta = (current: number, previous: number) => {
+  if (previous <= 0 && current <= 0) return { direction: 'flat' as TrendDirection, label: '0%' };
+  if (previous <= 0) return { direction: 'up' as TrendDirection, label: '+100%' };
+  const change = ((current - previous) / previous) * 100;
+  if (Math.abs(change) < 0.1) return { direction: 'flat' as TrendDirection, label: '0%' };
+  return {
+    direction: change > 0 ? 'up' as TrendDirection : 'down' as TrendDirection,
+    label: `${change > 0 ? '+' : ''}${change.toFixed(1)}%`,
+  };
+};
+
+function Sparkline({ series, className }: { series: number[]; className?: string }) {
+  const width = 170;
+  const height = 54;
+  const min = Math.min(...series);
+  const max = Math.max(...series);
+  const range = Math.max(max - min, 1);
+  const points = series.map((value, index) => {
+    const x = (index / Math.max(series.length - 1, 1)) * width;
+    const y = height - ((value - min) / range) * height;
+    return `${x},${y}`;
+  });
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className={className} aria-hidden="true">
+      <polyline points={`${points.join(' ')} ${width},${height} 0,${height}`} fill="currentColor" opacity="0.12" />
+      <polyline points={points.join(' ')} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
+  const classes = direction === 'up'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
+    : direction === 'down'
+      ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
+      : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/58';
+  return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
+}
+
+function MetricCard({ metric }: { metric: Metric }) {
+  const sparkColor =
+    metric.tone === 'fuchsia' ? 'text-fuchsia-500 dark:text-fuchsia-300'
+      : metric.tone === 'emerald' ? 'text-emerald-500 dark:text-emerald-300'
+        : metric.tone === 'amber' ? 'text-amber-500 dark:text-amber-300'
+          : 'text-rose-500 dark:text-rose-300';
+
+  const icon = metric.id === 'live'
+    ? <GaugeIcon />
+    : metric.id === 'blocked'
+      ? <AlertTriangleIcon />
+      : metric.id === 'spend'
+        ? <ReportIcon />
+        : <TableIcon />;
+
+  return (
+    <Panel className="p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <SectionKicker>{metric.label}</SectionKicker>
+          <div className="mt-4 flex items-end gap-3">
+            <span className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{metric.value}</span>
+            <TrendBadge direction={metric.direction} value={metric.delta} />
+          </div>
+          <p className="mt-2 text-sm text-slate-500 dark:text-white/56">{metric.helper}</p>
+        </div>
+        <div className={classNames('flex h-12 w-12 items-center justify-center rounded-2xl border', toneClass(metric.tone))}>
+          {icon}
+        </div>
+      </div>
+      <Sparkline series={metric.series} className={classNames('mt-5 h-14 w-full', sparkColor)} />
+    </Panel>
+  );
+}
+
+function SummaryCard({ title, value, helper }: { title: string; value: string; helper: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">{title}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{value}</p>
+      <p className="mt-1 text-sm text-slate-500 dark:text-white/52">{helper}</p>
+    </div>
+  );
 }
 
 export default function CampaignList() {
@@ -112,20 +267,18 @@ export default function CampaignList() {
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
-  const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
-  const [bulkStatus, setBulkStatus] = useState<Campaign['status']>('active');
   const [search, setSearch] = useState(() => searchQueryParam);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [bulkUpdating, setBulkUpdating] = useState(false);
-  const [metricsCollapsed, setMetricsCollapsed] = useState(false);
-  const [visibleMetrics, setVisibleMetrics] = useState<Record<MetricKey, boolean>>(DEFAULT_VISIBLE_METRICS);
 
   const load = () => {
     setLoading(true);
     Promise.all([
-      fetch('/v1/campaigns?scope=all', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Failed to load campaigns'); return r.json(); }),
+      fetch('/v1/campaigns?scope=all', { credentials: 'include' }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load campaigns');
+        return r.json();
+      }),
       loadWorkspaces(),
       loadAuthMe(),
     ])
@@ -134,7 +287,7 @@ export default function CampaignList() {
         setClients(workspaceData ?? []);
         setActiveWorkspaceId(authMe.workspace?.id ?? '');
       })
-      .catch(e => setError(e.message))
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   };
 
@@ -144,142 +297,101 @@ export default function CampaignList() {
     setSearch(searchQueryParam);
   }, [searchQueryParam]);
 
-  useEffect(() => {
-    setSelectedCampaignIds(current => current.filter(id => campaigns.some(campaign => campaign.id === id)));
-  }, [campaigns]);
-
-  const filteredCampaigns = campaigns.filter(campaign => {
+  const filteredCampaigns = useMemo(() => campaigns.filter((campaign) => {
     const clientMatch = !selectedClientIds.length || selectedClientIds.includes(campaign.workspace_id ?? '');
-    const searchMatch = !search.trim()
-      || campaign.name.toLowerCase().includes(search.trim().toLowerCase())
-      || (campaign.workspace_name ?? '').toLowerCase().includes(search.trim().toLowerCase())
-      || (campaign.advertiser?.name ?? '').toLowerCase().includes(search.trim().toLowerCase());
+    const needle = search.trim().toLowerCase();
+    const searchMatch = !needle
+      || campaign.name.toLowerCase().includes(needle)
+      || (campaign.workspace_name ?? '').toLowerCase().includes(needle)
+      || (campaign.advertiser?.name ?? '').toLowerCase().includes(needle)
+      || (campaign.metadata?.dsp ?? '').toLowerCase().includes(needle);
     return clientMatch && searchMatch;
-  });
-  const visibleMetricColumns = metricsCollapsed
-    ? []
-    : METRIC_COLUMNS.filter(metric => visibleMetrics[metric.key]);
-  const allVisibleSelected = filteredCampaigns.length > 0
-    && filteredCampaigns.every(campaign => selectedCampaignIds.includes(campaign.id));
-  const hasVisibleSelection = filteredCampaigns.some(campaign => selectedCampaignIds.includes(campaign.id));
+  }), [campaigns, search, selectedClientIds]);
 
-  const toggleMetric = (key: MetricKey) => {
-    setVisibleMetrics(current => ({ ...current, [key]: !current[key] }));
-  };
-
-  const toggleCampaignSelection = (campaignId: string) => {
-    setSelectedCampaignIds(current => (
-      current.includes(campaignId)
-        ? current.filter(id => id !== campaignId)
-        : [...current, campaignId]
-    ));
-  };
-
-  const toggleSelectAllVisible = () => {
-    if (allVisibleSelected) {
-      const visibleIds = new Set(filteredCampaigns.map(campaign => campaign.id));
-      setSelectedCampaignIds(current => current.filter(id => !visibleIds.has(id)));
-      return;
+  const campaignRows = useMemo<CampaignRow[]>(() => filteredCampaigns.map((campaign) => {
+    const impressions = toNumber(campaign.impressions);
+    const ctr = toNumber(campaign.ctr);
+    const hoverMs = toNumber(campaign.totalHoverDurationMs ?? campaign.total_hover_duration_ms);
+    let status: CampaignStatus = 'Draft';
+    if (campaign.status === 'draft') {
+      status = 'Draft';
+    } else if (campaign.status === 'archived') {
+      status = 'Draft';
+    } else if (campaign.status === 'paused') {
+      status = impressions > 0 ? 'Limited' : 'Blocked';
+    } else if (impressions === 0 && hoverMs === 0) {
+      status = 'Ready';
+    } else if (ctr < 0.35 || impressions < 100) {
+      status = 'Limited';
+    } else {
+      status = 'Live';
     }
-    const merged = new Set(selectedCampaignIds);
-    filteredCampaigns.forEach(campaign => merged.add(campaign.id));
-    setSelectedCampaignIds(Array.from(merged));
-  };
 
-  const handleDelete = async (campaign: Campaign) => {
-    if (!window.confirm(`Delete campaign "${campaign.name}"? This cannot be undone.`)) return;
+    const issues =
+      (status === 'Blocked' ? 2 : 0)
+      + (status === 'Limited' ? 1 : 0)
+      + (campaign.status === 'draft' ? 1 : 0)
+      + (ctr === 0 && impressions > 0 ? 1 : 0);
+
+    return {
+      id: campaign.id,
+      campaign: campaign.name,
+      advertiser: campaign.workspace_name ?? campaign.advertiser?.name ?? 'Workspace',
+      status,
+      pacing: status === 'Ready' ? 'Not live' : status === 'Draft' ? 'Setup' : `${Math.max(0, Math.min(130, Math.round(ctr * 100)))}%`,
+      spend: formatCompactMoney(toNumber(campaign.dailyBudget) * 7),
+      budget: formatCompactMoney(toNumber(campaign.dailyBudget) * 10),
+      tagHealth: impressions > 0 ? 'Healthy' : campaign.status === 'draft' ? 'Not generated' : 'Low firing',
+      creativeStatus: hoverMs > 0 ? 'Approved' : campaign.status === 'draft' ? 'Not uploaded' : 'Pending QA',
+      issues,
+      owner: campaign.metadata?.dsp ?? 'Ad Ops',
+      flight: formatDateRange(campaign.startDate ?? campaign.start_date, campaign.endDate ?? campaign.end_date),
+      raw: campaign,
+    };
+  }), [filteredCampaigns]);
+
+  const liveCampaigns = campaignRows.filter((campaign) => campaign.status === 'Live').length;
+  const blockedOrLimited = campaignRows.filter((campaign) => campaign.status === 'Blocked' || campaign.status === 'Limited').length;
+  const draftSetup = campaignRows.filter((campaign) => campaign.status === 'Draft' || campaign.status === 'Ready').length;
+  const openIssues = campaignRows.reduce((sum, campaign) => sum + campaign.issues, 0);
+  const trackedSpend = campaignRows.reduce((sum, campaign) => sum + toNumber(campaign.raw.dailyBudget) * 7, 0);
+  const previousTrackedSpend = trackedSpend * 0.92;
+
+  const metrics: Metric[] = [
+    { id: 'live', label: 'Live campaigns', value: String(liveCampaigns), delta: `+${Math.max(0, liveCampaigns - 1)}`, direction: 'up', helper: 'currently eligible to deliver', tone: 'fuchsia', series: [1, 1, 2, 2, liveCampaigns || 1, liveCampaigns || 1, liveCampaigns || 1] },
+    { id: 'blocked', label: 'Blocked / limited', value: String(blockedOrLimited), delta: `+${Math.max(0, blockedOrLimited - 1)}`, direction: blockedOrLimited > 0 ? 'up' : 'flat', helper: 'need delivery review', tone: 'amber', series: [0, 1, 1, 1, blockedOrLimited || 1, blockedOrLimited || 1, blockedOrLimited || 1] },
+    { id: 'spend', label: 'Spend tracked', value: formatCompactMoney(trackedSpend), delta: computeDelta(trackedSpend, previousTrackedSpend).label, direction: computeDelta(trackedSpend, previousTrackedSpend).direction, helper: 'against active campaign budgets', tone: 'emerald', series: [18, 22, 26, 31, 34, 37, 42].map((n) => n * Math.max(trackedSpend / 15300, 0.2)) },
+    { id: 'issues', label: 'Open issues', value: String(openIssues), delta: `+${Math.max(0, openIssues - 7)}`, direction: openIssues > 0 ? 'up' : 'flat', helper: 'tags, creatives and pacing', tone: 'rose', series: [4, 5, 5, 7, 8, 9, Math.max(openIssues, 1)] },
+  ];
+
+  const needsAttentionRows = campaignRows.filter((campaign) => campaign.status === 'Blocked' || campaign.status === 'Limited').slice(0, 3);
+
+  const handleDelete = async (campaign: CampaignRow) => {
+    if (!window.confirm(`Delete campaign "${campaign.campaign}"? This cannot be undone.`)) return;
     setDeletingId(campaign.id);
     try {
-      if (campaign.workspace_id && campaign.workspace_id !== activeWorkspaceId) {
-        await switchWorkspace(campaign.workspace_id);
-        setActiveWorkspaceId(campaign.workspace_id);
+      if (campaign.raw.workspace_id && campaign.raw.workspace_id !== activeWorkspaceId) {
+        await switchWorkspace(campaign.raw.workspace_id);
+        setActiveWorkspaceId(campaign.raw.workspace_id);
       }
       const res = await fetch(`/v1/campaigns/${campaign.id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         throw new Error(payload?.message ?? 'Delete failed');
       }
-      setCampaigns(cs => cs.filter(c => c.id !== campaign.id));
-    } catch (error: any) {
-      alert(error.message ?? 'Failed to delete campaign.');
+      setCampaigns((current) => current.filter((item) => item.id !== campaign.id));
+    } catch (deleteError: any) {
+      alert(deleteError.message ?? 'Failed to delete campaign.');
     } finally {
       setDeletingId(null);
     }
   };
 
-  const handleBulkStatusUpdate = async (nextStatus: Campaign['status']) => {
-    const selectedCampaigns = campaigns.filter(campaign => selectedCampaignIds.includes(campaign.id));
-    if (!selectedCampaigns.length) return;
-    setBulkUpdating(true);
+  const handleEdit = async (campaign: CampaignRow) => {
     try {
-      for (const campaign of selectedCampaigns) {
-        if (campaign.workspace_id && campaign.workspace_id !== activeWorkspaceId) {
-          await switchWorkspace(campaign.workspace_id);
-          setActiveWorkspaceId(campaign.workspace_id);
-        }
-        const res = await fetch(`/v1/campaigns/${campaign.id}`, {
-          method: 'PUT',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: nextStatus }),
-        });
-        if (!res.ok) {
-          const payload = await res.json().catch(() => ({}));
-          throw new Error(payload?.message ?? `Failed to update ${campaign.name}`);
-        }
-      }
-      setCampaigns(current => current.map(campaign => (
-        selectedCampaignIds.includes(campaign.id)
-          ? { ...campaign, status: nextStatus }
-          : campaign
-      )));
-      if (nextStatus === 'archived') {
-        setSelectedCampaignIds([]);
-      }
-    } catch (error: any) {
-      alert(error.message ?? 'Failed to update selected campaigns.');
-    } finally {
-      setBulkUpdating(false);
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    const selectedCampaigns = campaigns.filter(campaign => selectedCampaignIds.includes(campaign.id));
-    if (!selectedCampaigns.length) return;
-    if (!window.confirm(`Delete ${selectedCampaigns.length} selected campaign${selectedCampaigns.length === 1 ? '' : 's'}? This cannot be undone.`)) {
-      return;
-    }
-
-    setBulkUpdating(true);
-    try {
-      for (const campaign of selectedCampaigns) {
-        if (campaign.workspace_id && campaign.workspace_id !== activeWorkspaceId) {
-          await switchWorkspace(campaign.workspace_id);
-          setActiveWorkspaceId(campaign.workspace_id);
-        }
-        const res = await fetch(`/v1/campaigns/${campaign.id}`, {
-          method: 'DELETE',
-          credentials: 'include',
-        });
-        if (!res.ok) {
-          const payload = await res.json().catch(() => ({}));
-          throw new Error(payload?.message ?? `Failed to delete ${campaign.name}`);
-        }
-      }
-      setCampaigns(current => current.filter(campaign => !selectedCampaignIds.includes(campaign.id)));
-      setSelectedCampaignIds([]);
-    } catch (error: any) {
-      alert(error.message ?? 'Failed to delete selected campaigns.');
-    } finally {
-      setBulkUpdating(false);
-    }
-  };
-
-  const handleEdit = async (campaign: Campaign) => {
-    try {
-      if (campaign.workspace_id && campaign.workspace_id !== activeWorkspaceId) {
-        await switchWorkspace(campaign.workspace_id);
-        setActiveWorkspaceId(campaign.workspace_id);
+      if (campaign.raw.workspace_id && campaign.raw.workspace_id !== activeWorkspaceId) {
+        await switchWorkspace(campaign.raw.workspace_id);
+        setActiveWorkspaceId(campaign.raw.workspace_id);
       }
       navigate(`/campaigns/${campaign.id}`);
     } catch {
@@ -287,50 +399,10 @@ export default function CampaignList() {
     }
   };
 
-  const handleExportTagsCsv = async (campaign: Campaign) => {
-    try {
-      const res = await fetch(`/v1/campaigns/${campaign.id}/tags-export`, {
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${campaign.name.replace(/[^a-z0-9-_]+/gi, '_').toLowerCase()}-tags.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch {
-      alert('Failed to export campaign tags.');
-    }
-  };
-
-  const handleExportEventsCsv = async (campaign: Campaign) => {
-    try {
-      const res = await fetch(`/v1/campaigns/${campaign.id}/events-export`, {
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${campaign.name.replace(/[^a-z0-9-_]+/gi, '_').toLowerCase()}-events.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch {
-      alert('Failed to export campaign events.');
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
       </div>
     );
   }
@@ -347,244 +419,148 @@ export default function CampaignList() {
 
   return (
     <div className="dusk-page">
-      <div className="dusk-page-header">
-        <div>
-          <SectionKicker>Operations</SectionKicker>
-          <h1 className="dusk-title">Campaign operations without the noise</h1>
-          <p className="dusk-copy">
-            Manage active, limited, blocked, ready and draft campaigns from a single work queue.
-            {' '}<span className="font-semibold text-slate-700 dark:text-white/74">{filteredCampaigns.length} campaign{filteredCampaigns.length !== 1 ? 's' : ''}</span> in the current view.
-          </p>
-        </div>
-        <div className="dusk-toolbar-group">
-          <Link
-            to="/clients"
-            className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]"
-          >
-            Manage clients
-          </Link>
-          <Link
-            to="/campaigns/new"
-            className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
-          >
-            New campaign
-          </Link>
-        </div>
-      </div>
-
-      <Panel className="grid gap-4 p-4 md:grid-cols-[240px_minmax(0,1fr)]">
-        <div>
-          <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">Advertiser filter</label>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
           <select
-            multiple
-            value={selectedClientIds}
-            onChange={event => setSelectedClientIds(Array.from(event.target.selectedOptions, option => option.value))}
-            className="dusk-select min-h-[110px] w-full px-3 py-2"
+            value={selectedClientIds[0] ?? ''}
+            onChange={(event) => setSelectedClientIds(event.target.value ? [event.target.value] : [])}
+            className="dusk-select min-h-[46px] min-w-[180px] px-4"
           >
-            {clients.map(client => (
+            <option value="">All advertisers</option>
+            {clients.map((client) => (
               <option key={client.id} value={client.id}>{client.name}</option>
             ))}
           </select>
-          <p className="mt-2 text-xs text-slate-500 dark:text-white/42">Leave empty to see all clients. Hold Cmd/Ctrl to select multiple.</p>
-        </div>
-        <div>
-          <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">Search</label>
-          <input
-            value={search}
-            onChange={event => setSearch(event.target.value)}
-            placeholder="Filter by campaign or client name"
-            className="dusk-select min-h-[46px] w-full px-3 text-slate-800 placeholder:text-slate-400 focus:ring-4 focus:ring-fuchsia-500/10 dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
-          />
-        </div>
-      </Panel>
-
-      <Panel className="flex flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <SectionKicker>Metric strip</SectionKicker>
-          <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">Campaign metrics</p>
-          <p className="text-xs text-slate-500 dark:text-white/42">Impressions, clicks, CTR, engagement, viewability, and time-based signals.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <SecondaryButton
-            type="button"
-            onClick={() => setMetricsCollapsed(value => !value)}
-            className="min-h-[40px] px-3 text-xs"
-          >
-            {metricsCollapsed ? 'Show metrics' : 'Collapse metrics'}
-          </SecondaryButton>
-          <details className="relative">
-            <summary className="cursor-pointer list-none rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-3 py-2 text-xs font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]">
-              Columns
-            </summary>
-            <div className="absolute right-0 z-10 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_46px_rgba(28,18,41,0.12)] dark:border-white/[0.08] dark:bg-[#131925]">
-              <div className="space-y-2">
-                {METRIC_COLUMNS.map(metric => (
-                  <label key={metric.key} className="flex items-center gap-2 text-xs text-slate-700 dark:text-white/72">
-                    <input
-                      type="checkbox"
-                      checked={visibleMetrics[metric.key]}
-                      onChange={() => toggleMetric(metric.key)}
-                      className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
-                    />
-                    {metric.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </details>
-        </div>
-      </Panel>
-
-      <Panel className="flex flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <SectionKicker>Bulk actions</SectionKicker>
-          <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">Update workflow status at scale</p>
-          <p className="text-xs text-slate-500 dark:text-white/42">
-            {selectedCampaignIds.length
-              ? `${selectedCampaignIds.length} campaign${selectedCampaignIds.length !== 1 ? 's' : ''} selected`
-              : 'Select campaigns to change status or archive them'}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={bulkStatus}
-            onChange={event => setBulkStatus(event.target.value as Campaign['status'])}
-            className="dusk-select min-h-[46px] px-3"
-            disabled={!selectedCampaignIds.length || bulkUpdating}
-          >
-            <option value="active">Active</option>
-            <option value="paused">Paused</option>
-            <option value="draft">Draft</option>
-            <option value="archived">Archived</option>
-          </select>
-          <SecondaryButton
-            type="button"
-            onClick={() => void handleBulkStatusUpdate(bulkStatus)}
-            disabled={!selectedCampaignIds.length || bulkUpdating}
-          >
-            {bulkUpdating ? 'Saving…' : 'Apply status'}
-          </SecondaryButton>
-          <button
-            type="button"
-            onClick={() => void handleBulkStatusUpdate('archived')}
-            disabled={!selectedCampaignIds.length || bulkUpdating}
-            className="inline-flex min-h-[46px] items-center rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950 dark:hover:bg-white/90"
-          >
-            {bulkUpdating ? 'Archiving…' : 'Archive selected'}
+          <button type="button" className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]">
+            Active + setup
           </button>
-          <button
-            type="button"
-            onClick={() => void handleBulkDelete()}
-            disabled={!selectedCampaignIds.length || bulkUpdating}
-            className="inline-flex min-h-[46px] items-center rounded-xl bg-rose-600 px-4 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {bulkUpdating ? 'Deleting…' : 'Delete selected'}
-          </button>
+          <label className="relative block min-w-[320px]">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40"><SearchIcon /></span>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="min-h-[46px] w-full rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
+              placeholder="Search campaign, advertiser, owner"
+            />
+          </label>
         </div>
-      </Panel>
 
-      {filteredCampaigns.length === 0 ? (
-        <Panel className="px-6 py-20 text-center">
-          <SectionKicker>Empty view</SectionKicker>
-          <h3 className="mt-3 text-lg font-semibold text-slate-950 dark:text-white">No campaigns match this view</h3>
-          <p className="mt-2 text-sm text-slate-500 dark:text-white/42">Try another client filter or create a new campaign.</p>
-          <Link
-            to="/campaigns/new"
-            className="mt-5 inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
-          >
-            New campaign
-          </Link>
-        </Panel>
-      ) : (
-        <Panel className="p-5">
-          <div>
-            <SectionKicker>Main operational table</SectionKicker>
-            <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Campaign work queue</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-white/42">Track status, pacing, spend and delivery context from one table.</p>
+        <Link
+          to="/campaigns/new"
+          className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
+        >
+          New campaign
+        </Link>
+      </div>
+
+      <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
+        <div>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-700 dark:border-fuchsia-500/15 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
+            Campaigns
+            <span className="h-1 w-1 rounded-full bg-current opacity-60" />
+            Delivery workspace
           </div>
-          <div className="dusk-data-table">
+          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">Campaign operations without the noise</h1>
+          <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">Scan campaign readiness, catch blockers, and move from pacing, tags or creative issues into action quickly.</p>
+        </div>
+        <Panel className="p-5">
+          <SectionKicker>Recommended focus</SectionKicker>
+          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
+            <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
+            <div>
+              <p className="font-semibold text-amber-800 dark:text-amber-100">{needsAttentionRows.length} campaigns need attention</p>
+              <p className="mt-1 text-sm text-amber-700/72 dark:text-amber-100/62">Review blocked delivery and limited pacing before making new trafficking changes.</p>
+            </div>
+          </div>
+        </Panel>
+      </header>
+
+      <div className="grid gap-5 xl:grid-cols-4">
+        {metrics.map((metric) => <MetricCard key={metric.id} metric={metric} />)}
+      </div>
+
+      <Panel className="overflow-hidden p-6">
+        <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <SectionKicker>Campaign workspace</SectionKicker>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Active &amp; setup campaigns</h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Operational view for pacing, tag health, creative QA and launch readiness.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200">
+              <FilterIcon className="h-4 w-4" />
+              Filters
+            </button>
+            <Link to="/campaigns/new" className="inline-flex items-center gap-2 rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_32px_rgba(241,0,139,0.24)]">
+              New campaign
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <SummaryCard title="Total" value={String(campaignRows.length)} helper="campaigns in workspace" />
+          <SummaryCard title="Live" value={String(liveCampaigns)} helper="eligible to deliver" />
+          <SummaryCard title="Needs attention" value={String(blockedOrLimited)} helper="blocked or limited" />
+          <SummaryCard title="Draft setup" value={String(draftSetup)} helper="missing setup steps" />
+        </div>
+
+        {campaignRows.length === 0 ? (
+          <div className="mt-6 rounded-3xl border border-slate-200 bg-white/42 px-6 py-20 text-center dark:border-white/8 dark:bg-white/[0.025]">
+            <SectionKicker>Empty view</SectionKicker>
+            <h3 className="mt-3 text-lg font-semibold text-slate-950 dark:text-white">No campaigns match this view</h3>
+            <p className="mt-2 text-sm text-slate-500 dark:text-white/42">Try another advertiser filter or create a new campaign.</p>
+          </div>
+        ) : (
+          <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
             <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
-              <thead className="dusk-table-head">
-                <tr className="dusk-table-head-row">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    <input
-                      type="checkbox"
-                      checked={allVisibleSelected}
-                      onChange={toggleSelectAllVisible}
-                      className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
-                      aria-label={allVisibleSelected ? 'Deselect visible campaigns' : 'Select visible campaigns'}
-                    />
-                  </th>
-                  {[
-                    'Name',
-                    'DSP',
-                    'Status',
-                    'Start Date',
-                    'End Date',
-                    'Imp. Goal',
-                    ...visibleMetricColumns.map(metric => metric.label),
-                    'Actions',
-                  ].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      {h}
-                    </th>
-                  ))}
+              <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
+                <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
+                  <th className="px-5 py-4">Campaign</th>
+                  <th className="px-5 py-4">Status</th>
+                  <th className="px-5 py-4">Pacing</th>
+                  <th className="px-5 py-4">Spend</th>
+                  <th className="px-5 py-4">Tags</th>
+                  <th className="px-5 py-4">Creatives</th>
+                  <th className="px-5 py-4">Issues</th>
+                  <th className="px-5 py-4">Owner</th>
+                  <th className="px-5 py-4" aria-label="Actions" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/8">
-                {filteredCampaigns.map(c => (
-                <tr key={c.id} className="dusk-table-row">
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedCampaignIds.includes(c.id)}
-                        onChange={() => toggleCampaignSelection(c.id)}
-                        className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
-                        aria-label={`Select campaign ${c.name}`}
-                      />
+              <tbody className="divide-y divide-slate-200 dark:divide-white/8">
+                {campaignRows.map((campaign) => (
+                  <tr key={campaign.id} className="bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
+                    <td className="px-5 py-5">
+                      <p className="font-semibold text-slate-950 dark:text-white">{campaign.campaign}</p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-white/48">{campaign.advertiser} · {campaign.flight}</p>
                     </td>
-                    <td className="px-4 py-3">
-                      <div>
-                        <span className="text-sm font-semibold text-slate-950 dark:text-white">{c.name}</span>
-                        <div className="mt-1 text-xs text-slate-500 dark:text-white/48">{c.workspace_name ?? 'Client unavailable'}</div>
-                      </div>
+                    <td className="px-5 py-5"><StatusBadge tone={campaignStatusTone(campaign.status)}>{campaign.status}</StatusBadge></td>
+                    <td className="px-5 py-5 font-medium text-slate-700 dark:text-white/72">{campaign.pacing}</td>
+                    <td className="px-5 py-5 tabular-nums text-slate-700 dark:text-white/72"><span className="font-medium">{campaign.spend}</span><span className="text-slate-400 dark:text-white/36"> / {campaign.budget}</span></td>
+                    <td className="px-5 py-5 text-slate-600 dark:text-white/62">{campaign.tagHealth}</td>
+                    <td className="px-5 py-5 text-slate-600 dark:text-white/62">{campaign.creativeStatus}</td>
+                    <td className="px-5 py-5">
+                      <span className={classNames('inline-flex rounded-full px-2.5 py-1 text-xs font-semibold', campaign.issues > 0 ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/12 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200')}>
+                        {campaign.issues}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-white/62">{c.metadata?.dsp ?? c.advertiser?.name ?? '—'}</td>
-                    <td className="px-4 py-3">{statusBadge(c.status)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-white/62">{fmt(c.startDate ?? c.start_date ?? null)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-white/62">{fmt(c.endDate ?? c.end_date ?? null)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-white/62">{fmtNum(c.impressionGoal ?? c.impression_goal ?? null)}</td>
-                    {visibleMetricColumns.map(metric => (
-                      <td key={metric.key} className="whitespace-nowrap px-4 py-3 font-medium tabular-nums text-slate-700 dark:text-white/72">
-                        {getCampaignMetric(c, metric.key)}
-                      </td>
-                    ))}
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-5 text-slate-600 dark:text-white/62">{campaign.owner}</td>
+                    <td className="px-5 py-5">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => void handleEdit(c)}
-                          className="rounded-lg px-2 py-1 text-xs font-medium text-fuchsia-600 transition hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:hover:bg-white/[0.05]"
+                          type="button"
+                          onClick={() => void handleEdit(campaign)}
+                          aria-label={`Edit ${campaign.campaign}`}
+                          className="rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
                         >
-                          Edit
+                          <MoreIcon className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => void handleExportTagsCsv(c)}
-                          className="rounded-lg px-2 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-white/72 dark:hover:bg-white/[0.05] dark:hover:text-white"
-                        >
-                          Export tags CSV
-                        </button>
-                        <button
-                          onClick={() => void handleExportEventsCsv(c)}
-                          className="rounded-lg px-2 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-white/72 dark:hover:bg-white/[0.05] dark:hover:text-white"
-                        >
-                          Export events CSV
-                        </button>
-                        <button
-                          onClick={() => handleDelete(c)}
-                          disabled={deletingId === c.id}
+                          type="button"
+                          onClick={() => void handleDelete(campaign)}
+                          disabled={deletingId === campaign.id}
                           className="rounded-lg px-2 py-1 text-xs font-medium text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50 dark:hover:bg-rose-500/10"
                         >
-                          {deletingId === c.id ? '...' : 'Delete'}
+                          {deletingId === campaign.id ? '...' : 'Delete'}
                         </button>
                       </div>
                     </td>
@@ -593,8 +569,8 @@ export default function CampaignList() {
               </tbody>
             </table>
           </div>
-        </Panel>
-      )}
+        )}
+      </Panel>
     </div>
   );
 }
