@@ -262,6 +262,18 @@ html.dark .mandarion-shell h3 {
     @apply rounded-[28px] border border-slate-200 bg-white/85 shadow-[0_18px_60px_rgba(28,18,41,0.08)] backdrop-blur-xl dark:border-white/[0.07] dark:bg-white/[0.035] dark:shadow-[0_22px_70px_rgba(0,0,0,0.28)];
   }
 
+  .dusk-toolbar {
+    @apply flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between;
+  }
+
+  .dusk-toolbar-group {
+    @apply flex flex-wrap items-center gap-3;
+  }
+
+  .dusk-select {
+    @apply min-h-[46px] rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white;
+  }
+
   .dusk-card-link {
     @apply dusk-panel block p-6 transition hover:-translate-y-[1px] hover:border-fuchsia-300/70 hover:bg-fuchsia-50/55 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045];
   }

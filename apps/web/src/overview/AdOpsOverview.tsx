@@ -4,6 +4,7 @@ import { loadCreatives, type Creative } from '../creatives/catalog';
 import { loadPreference, savePreference } from '../shared/preferences';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 import { type ThemeMode } from '../shared/theme';
+import { Panel, PrimaryButton, SecondaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
 
 type DateRange = 7 | 30 | 90;
 type TrendDirection = 'up' | 'down' | 'flat';
@@ -285,23 +286,6 @@ async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-function SectionKicker({ children }: { children: React.ReactNode }) {
-  return <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-white/38">{children}</p>;
-}
-
-function Panel({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <section
-      className={classNames(
-        'rounded-[28px] border border-slate-200/70 bg-[rgba(252,251,255,0.86)] shadow-[0_16px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.04] dark:bg-[linear-gradient(180deg,rgba(18,24,38,0.88),rgba(11,16,32,0.94))] dark:shadow-[0_16px_42px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.02)]',
-        className,
-      )}
-    >
-      {children}
-    </section>
-  );
-}
-
 function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
   const classes =
     direction === 'up'
@@ -424,13 +408,8 @@ function MetricCard({ metric }: { metric: MetricCardData }) {
 }
 
 function CampaignStatusBadge({ status }: { status: TopCampaignRow['status'] }) {
-  const theme =
-    status === 'Healthy'
-      ? 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/22 dark:bg-emerald-500/10 dark:text-emerald-300'
-      : status === 'Needs optimization'
-        ? 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/22 dark:bg-amber-500/10 dark:text-amber-300'
-        : 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300';
-  return <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', theme)}>{status}</span>;
+  const tone = status === 'Healthy' ? 'healthy' : status === 'Needs optimization' ? 'warning' : 'critical';
+  return <StatusBadge tone={tone}>{status}</StatusBadge>;
 }
 
 function CampaignTable({ rows }: { rows: TopCampaignRow[] }) {
@@ -506,14 +485,6 @@ function SystemHealth({ items }: { items: SystemHealthRow[] }) {
       </div>
       <div className="mt-6 space-y-3">
         {items.map((item) => {
-          const tone =
-            item.severity === 'positive'
-              ? 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/22 dark:bg-emerald-500/10 dark:text-emerald-300'
-              : item.severity === 'critical'
-                ? 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300'
-                : item.severity === 'warning'
-                  ? 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/22 dark:bg-amber-500/10 dark:text-amber-300'
-                  : 'border-orange-300/70 bg-orange-50 text-orange-700 dark:border-orange-500/22 dark:bg-orange-500/10 dark:text-orange-300';
           return (
             <div key={item.id} className="flex items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white/60 px-5 py-4 dark:border-white/8 dark:bg-white/[0.03]">
               <div>
@@ -522,7 +493,19 @@ function SystemHealth({ items }: { items: SystemHealthRow[] }) {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-lg font-semibold text-slate-900 dark:text-white">{item.value}</span>
-                <span className={classNames('rounded-full border px-3 py-1 text-xs font-semibold', tone)}>{item.note}</span>
+                <StatusBadge
+                  tone={
+                    item.severity === 'positive'
+                      ? 'healthy'
+                      : item.severity === 'critical'
+                        ? 'critical'
+                        : item.severity === 'warning'
+                          ? 'warning'
+                          : 'info'
+                  }
+                >
+                  {item.note}
+                </StatusBadge>
               </div>
             </div>
           );
@@ -1050,15 +1033,15 @@ export default function AdOpsOverview() {
   };
 
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.06),transparent_24%),radial-gradient(circle_at_70%_18%,rgba(124,58,237,0.08),transparent_22%)] px-8 py-8 text-slate-950 dark:bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.08),transparent_26%),radial-gradient(circle_at_70%_20%,rgba(124,58,237,0.1),transparent_24%)] dark:text-white">
-      <div className="mx-auto max-w-[1680px]">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
+    <div className="min-h-full bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.06),transparent_24%),radial-gradient(circle_at_70%_18%,rgba(124,58,237,0.08),transparent_22%)] px-6 py-6 text-slate-950 dark:bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.08),transparent_26%),radial-gradient(circle_at_70%_20%,rgba(124,58,237,0.1),transparent_24%)] dark:text-white md:px-8 md:py-8">
+      <div className="dusk-page">
+        <div className="dusk-toolbar">
+          <div className="dusk-toolbar-group">
             <div className="relative min-w-[230px]">
               <select
                 value={activeWorkspaceId}
                 onChange={(event) => void handleWorkspaceChange(event.target.value)}
-                className="w-full appearance-none rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 py-3 pr-10 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.05] dark:bg-white/[0.025] dark:text-white"
+                className="dusk-select w-full appearance-none pr-10"
               >
                 {workspaces.map((workspace) => (
                   <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
@@ -1069,7 +1052,7 @@ export default function AdOpsOverview() {
             <select
               value={String(dateRange)}
               onChange={(event) => setDateRange(Number(event.target.value) as DateRange)}
-              className="rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.05] dark:bg-white/[0.025] dark:text-white"
+              className="dusk-select"
             >
               <option value="7">Last 7 days</option>
               <option value="30">Last 30 days</option>
@@ -1078,7 +1061,7 @@ export default function AdOpsOverview() {
             <select
               value={campaignId}
               onChange={(event) => setCampaignId(event.target.value)}
-              className="rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-fuchsia-400 dark:border-white/[0.05] dark:bg-white/[0.025] dark:text-white"
+              className="dusk-select"
             >
               <option value="">All campaigns</option>
               {campaigns.map((campaign) => (
@@ -1086,12 +1069,12 @@ export default function AdOpsOverview() {
               ))}
             </select>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="dusk-toolbar-group">
             <div className="relative">
-              <button type="button" onClick={() => setCustomizerOpen((current) => !current)} className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.05] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/20 dark:hover:bg-white/[0.04]">
+              <SecondaryButton type="button" onClick={() => setCustomizerOpen((current) => !current)}>
                 <LayoutGridIcon className="text-slate-500 dark:text-white/60" />
                 Customize cards
-              </button>
+              </SecondaryButton>
               <CardCustomizationPanel
                 open={customizerOpen}
                 visibleCards={visibleCards}
@@ -1106,25 +1089,34 @@ export default function AdOpsOverview() {
                 onReset={resetLayout}
               />
             </div>
-            <button type="button" onClick={() => void toggleTheme()} className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.05] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/20 dark:hover:bg-white/[0.04]">
+            <SecondaryButton type="button" onClick={() => void toggleTheme()}>
               <EyeIcon className="text-slate-500 dark:text-white/60" />
               {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-            </button>
+            </SecondaryButton>
             <NotificationButton count={issueCount} />
-            <Link to="/campaigns/new" className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#c026d3,#7c3aed)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(168,85,247,0.35)] transition hover:translate-y-[-1px] hover:shadow-[0_18px_42px_rgba(168,85,247,0.42)]">
+            <Link
+              to="/campaigns/new"
+              className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
+            >
               + New campaign
             </Link>
           </div>
         </div>
 
-        <header className="mt-10">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-700 dark:border-fuchsia-500/15 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
-            Agency overview
-            <span className="h-1 w-1 rounded-full bg-current opacity-60" />
-            {selectedWorkspaceName}
+        <header className="dusk-page-header">
+          <div>
+            <SectionKicker>Agency overview</SectionKicker>
+            <h1 className="dusk-title mt-4">Command center for client delivery</h1>
+            <p className="dusk-copy">Stay on top of pacing, health signals, and audience momentum without bouncing between modules. Use the workspace and campaign selectors to narrow the view when you need a sharper operational read.</p>
           </div>
-          <h1 className="text-5xl font-semibold tracking-tight text-slate-950 dark:text-white">Good morning</h1>
-          <p className="mt-3 text-xl text-slate-600 dark:text-white/62">This is your command center across clients. Use the client selector to pivot the overview, alerts, and health signals.</p>
+          <Panel className="max-w-md px-5 py-4">
+            <SectionKicker>Active lens</SectionKicker>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <StatusBadge tone="info">{selectedWorkspaceName}</StatusBadge>
+              <StatusBadge tone="neutral">{campaignId ? campaigns.find((campaign) => campaign.id === campaignId)?.name ?? 'Campaign filter' : 'All campaigns'}</StatusBadge>
+              <StatusBadge tone="healthy">{dateRange} day view</StatusBadge>
+            </div>
+          </Panel>
         </header>
 
         {error ? <div className="mt-6 rounded-2xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">{error}</div> : null}
