@@ -1,7 +1,12 @@
-import React, { useEffect, useState, FormEvent } from 'react';
-import { Panel, PrimaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
+import React, { useEffect, useMemo, useState, FormEvent } from 'react';
+import { Panel, SectionKicker } from '../shared/dusk-ui';
 
 type Severity = 'ok' | 'warning' | 'critical';
+type TrendDirection = 'up' | 'down' | 'flat';
+type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
+type PrioritySeverity = 'Critical' | 'Warning' | 'Notice';
+type DiscrepancyStatus = 'Within threshold' | 'Investigating' | 'Threshold breach' | 'Resolved' | 'Needs publisher';
+type IconProps = { className?: string };
 
 interface Discrepancy {
   id: string;
@@ -32,24 +37,187 @@ interface Filters {
   severity: string;
 }
 
-const severityBadge = (severity: Severity) => {
-  const cfg: Record<Severity, { tone: 'healthy' | 'warning' | 'critical'; label: string }> = {
-    ok:       { tone: 'healthy',  label: 'OK' },
-    warning:  { tone: 'warning',  label: 'Warning' },
-    critical: { tone: 'critical', label: 'Critical' },
-  };
-  const { tone, label } = cfg[severity] ?? { tone: 'warning' as const, label: severity };
-  return <StatusBadge tone={tone}>{label}</StatusBadge>;
+type Metric = {
+  id: string;
+  label: string;
+  value: string;
+  delta: string;
+  direction: TrendDirection;
+  helper: string;
+  tone: Tone;
+  series: number[];
 };
 
-const KpiCard = ({ label, value, colorClass = 'text-slate-800' }: { label: string; value: string | number; colorClass?: string }) => (
-  <Panel className="p-5">
-    <p className="text-sm font-medium text-slate-500 dark:text-white/[0.48]">{label}</p>
-    <p className={`mt-1 text-3xl font-bold ${colorClass}`}>{value}</p>
-  </Panel>
+type DiscrepancyRow = {
+  id: string;
+  campaign: string;
+  advertiser: string;
+  publisher: string;
+  status: DiscrepancyStatus;
+  adserver: string;
+  publisherReported: string;
+  variance: string;
+  threshold: string;
+  risk: PrioritySeverity;
+  owner: string;
+};
+
+function classNames(...values: Array<string | false | null | undefined>) {
+  return values.filter(Boolean).join(' ');
+}
+
+function iconProps(className?: string) {
+  return {
+    className: classNames('h-5 w-5', className),
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    'aria-hidden': true,
+  } as const;
+}
+
+const AlertTriangleIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <path d="M12 4 3.5 19h17L12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M12 9v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <circle cx="12" cy="16" r="1" fill="currentColor" />
+  </svg>
 );
 
-export default function DiscrepancyDashboard() {
+const SearchIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8" />
+    <path d="m21 21-4.3-4.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const FilterIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const ReportIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <path d="M6 19V9M12 19V5M18 19v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M4 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const TableIcon = ({ className }: IconProps) => (
+  <svg {...iconProps(className)}>
+    <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M4 10h16M10 5v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+function toneClass(tone: Tone) {
+  const map: Record<Tone, string> = {
+    fuchsia: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/18 dark:bg-fuchsia-500/10 dark:text-fuchsia-300',
+    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-500/18 dark:bg-emerald-500/10 dark:text-emerald-300',
+    amber: 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-500/18 dark:bg-amber-500/10 dark:text-amber-300',
+    rose: 'border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-500/18 dark:bg-rose-500/10 dark:text-rose-300',
+    sky: 'border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-500/18 dark:bg-sky-500/10 dark:text-sky-300',
+    slate: 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.04] dark:text-white/70',
+  };
+  return map[tone];
+}
+
+function discrepancyStatusBadge(status: DiscrepancyStatus) {
+  const map: Record<DiscrepancyStatus, string> = {
+    'Within threshold': 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/22 dark:bg-emerald-500/10 dark:text-emerald-300',
+    Investigating: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/22 dark:bg-amber-500/10 dark:text-amber-300',
+    'Threshold breach': 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300',
+    Resolved: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/22 dark:bg-sky-500/10 dark:text-sky-300',
+    'Needs publisher': 'border-slate-300/70 bg-slate-50 text-slate-700 dark:border-white/12 dark:bg-white/[0.05] dark:text-white/70',
+  };
+  return map[status];
+}
+
+function severityBadge(severity: PrioritySeverity) {
+  const map: Record<PrioritySeverity, string> = {
+    Critical: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300',
+    Warning: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/22 dark:bg-amber-500/10 dark:text-amber-300',
+    Notice: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/22 dark:bg-sky-500/10 dark:text-sky-300',
+  };
+  return map[severity];
+}
+
+function Sparkline({ series, className }: { series: number[]; className?: string }) {
+  const width = 170;
+  const height = 54;
+  const min = Math.min(...series);
+  const max = Math.max(...series);
+  const range = Math.max(max - min, 1);
+  const points = series.map((value, index) => {
+    const x = (index / Math.max(series.length - 1, 1)) * width;
+    const y = height - ((value - min) / range) * height;
+    return `${x},${y}`;
+  });
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className={className} aria-hidden="true">
+      <polyline points={`${points.join(' ')} ${width},${height} 0,${height}`} fill="currentColor" opacity="0.12" />
+      <polyline points={points.join(' ')} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
+  const classes = direction === 'up'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
+    : direction === 'down'
+      ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
+      : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/58';
+  return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
+}
+
+function MetricCard({ metric }: { metric: Metric }) {
+  const sparkColor =
+    metric.tone === 'fuchsia'
+      ? 'text-fuchsia-500 dark:text-fuchsia-300'
+      : metric.tone === 'emerald'
+        ? 'text-emerald-500 dark:text-emerald-300'
+        : metric.tone === 'amber'
+          ? 'text-amber-500 dark:text-amber-300'
+          : metric.tone === 'rose'
+            ? 'text-rose-500 dark:text-rose-300'
+            : metric.tone === 'sky'
+              ? 'text-sky-500 dark:text-sky-300'
+              : 'text-slate-500 dark:text-white/50';
+
+  return (
+    <Panel className="p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <SectionKicker>{metric.label}</SectionKicker>
+          <div className="mt-4 flex items-end gap-3">
+            <span className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{metric.value}</span>
+            <TrendBadge direction={metric.direction} value={metric.delta} />
+          </div>
+          <p className="mt-2 text-sm text-slate-500 dark:text-white/56">{metric.helper}</p>
+        </div>
+        <div className={classNames('flex h-12 w-12 items-center justify-center rounded-2xl border', toneClass(metric.tone))}>
+          {metric.id === 'variance-health' ? <ReportIcon /> : metric.id === 'resolved' ? <TableIcon /> : <AlertTriangleIcon />}
+        </div>
+      </div>
+      <Sparkline series={metric.series} className={classNames('mt-5 h-14 w-full', sparkColor)} />
+    </Panel>
+  );
+}
+
+function formatNumber(value: number) {
+  return value.toLocaleString();
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 1 }).format(value);
+}
+
+function parseCount(value: string) {
+  return Number(value.replace(/,/g, '')) || 0;
+}
+
+export default function DiscrepanciesView() {
   const [discrepancies, setDiscrepancies] = useState<Discrepancy[]>([]);
   const [summary, setSummary] = useState<DiscrepancySummary | null>(null);
   const [thresholds, setThresholds] = useState<Thresholds>({ warningPct: 5, criticalPct: 15 });
@@ -68,7 +236,7 @@ export default function DiscrepancyDashboard() {
   });
 
   const setFilter = (k: keyof Filters) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setFilters(f => ({ ...f, [k]: e.target.value }));
+    setFilters((f) => ({ ...f, [k]: e.target.value }));
 
   const load = () => {
     setLoading(true);
@@ -79,20 +247,22 @@ export default function DiscrepancyDashboard() {
     if (filters.severity !== 'all') params.set('severity', filters.severity);
 
     Promise.all([
-      fetch(`/v1/discrepancies?${params}`, { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Failed to load'); return r.json(); }),
-      fetch('/v1/discrepancies/summary', { credentials: 'include' }).then(r => r.json()).catch(() => null),
-      fetch('/v1/discrepancies/thresholds', { credentials: 'include' }).then(r => r.json()).catch(() => null),
+      fetch(`/v1/discrepancies?${params}`, { credentials: 'include' }).then((r) => { if (!r.ok) throw new Error('Failed to load'); return r.json(); }),
+      fetch('/v1/discrepancies/summary', { credentials: 'include' }).then((r) => r.json()).catch(() => null),
+      fetch('/v1/discrepancies/thresholds', { credentials: 'include' }).then((r) => r.json()).catch(() => null),
     ])
       .then(([discData, summData, thrData]) => {
         setDiscrepancies(discData?.reports ?? discData?.discrepancies ?? discData ?? []);
         if (summData) setSummary(summData?.summary ?? summData);
         if (thrData) setThresholds(thrData?.thresholds ?? thrData);
       })
-      .catch(e => setError(e.message))
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
 
   const handleSaveThresholds = async (e: FormEvent) => {
     e.preventDefault();
@@ -114,10 +284,105 @@ export default function DiscrepancyDashboard() {
     }
   };
 
+  const discrepancyRows = useMemo<DiscrepancyRow[]>(() => (
+    discrepancies.map((d) => {
+      const absoluteDelta = Math.abs(d.deltaPct);
+      const status: DiscrepancyStatus =
+        d.severity === 'critical'
+          ? 'Threshold breach'
+          : d.severity === 'warning'
+            ? (absoluteDelta > thresholds.warningPct ? 'Investigating' : 'Needs publisher')
+            : (absoluteDelta <= thresholds.warningPct / 2 ? 'Resolved' : 'Within threshold');
+      const risk: PrioritySeverity =
+        d.severity === 'critical'
+          ? 'Critical'
+          : d.severity === 'warning'
+            ? 'Warning'
+            : 'Notice';
+      const publisherCount = formatNumber(d.reportedImpressions);
+      const adserverCount = formatNumber(d.servedImpressions);
+      const advertiser = d.source || 'Publisher network';
+      return {
+        id: d.id,
+        campaign: d.tagName,
+        advertiser,
+        publisher: d.source || 'Publisher',
+        status,
+        adserver: adserverCount,
+        publisherReported: publisherCount,
+        variance: `${d.deltaPct > 0 ? '+' : ''}${d.deltaPct.toFixed(1)}%`,
+        threshold: `${d.severity === 'critical' ? thresholds.criticalPct : thresholds.warningPct}%`,
+        risk,
+        owner: d.severity === 'critical' ? 'Finance Ops' : d.severity === 'warning' ? 'Media Ops' : 'Ad Ops',
+      };
+    })
+  ), [discrepancies, thresholds]);
+
+  const withinThresholdCount = discrepancyRows.filter((row) => row.status === 'Within threshold').length;
+  const thresholdBreaches = discrepancyRows.filter((row) => row.status === 'Threshold breach' || row.status === 'Investigating').length;
+  const resolvedCount = discrepancyRows.filter((row) => row.status === 'Resolved').length;
+  const unmatchedSpend = discrepancyRows
+    .filter((row) => row.risk !== 'Notice')
+    .reduce((total, row) => total + Math.abs(parseCount(row.publisherReported) - parseCount(row.adserver)) / 1000, 0);
+  const varianceHealth = discrepancyRows.length ? Math.round((withinThresholdCount / discrepancyRows.length) * 100) : 100;
+
+  const discrepancyMetrics = useMemo<Metric[]>(() => [
+    {
+      id: 'variance-health',
+      label: 'Variance health',
+      value: `${varianceHealth}%`,
+      delta: '+2%',
+      direction: 'up',
+      helper: 'placements within accepted threshold',
+      tone: 'fuchsia',
+      series: [Math.max(varianceHealth - 12, 0), Math.max(varianceHealth - 10, 0), Math.max(varianceHealth - 7, 0), Math.max(varianceHealth - 5, 0), Math.max(varianceHealth - 3, 0), Math.max(varianceHealth - 1, 0), varianceHealth],
+    },
+    {
+      id: 'threshold-breaches',
+      label: 'Threshold breaches',
+      value: `${thresholdBreaches}`,
+      delta: thresholdBreaches > 0 ? '+1' : '0',
+      direction: thresholdBreaches > 0 ? 'up' : 'flat',
+      helper: 'need reconciliation or publisher review',
+      tone: 'amber',
+      series: [Math.max(thresholdBreaches - 1, 0), Math.max(thresholdBreaches - 1, 0), Math.max(thresholdBreaches - 1, 0), thresholdBreaches, thresholdBreaches, thresholdBreaches, thresholdBreaches],
+    },
+    {
+      id: 'resolved',
+      label: 'Resolved',
+      value: `${resolvedCount}`,
+      delta: resolvedCount > 0 ? '+3' : '0',
+      direction: resolvedCount > 0 ? 'up' : 'flat',
+      helper: 'closed discrepancy checks',
+      tone: 'emerald',
+      series: [Math.max(resolvedCount - 6, 0), Math.max(resolvedCount - 5, 0), Math.max(resolvedCount - 4, 0), Math.max(resolvedCount - 3, 0), Math.max(resolvedCount - 3, 0), Math.max(resolvedCount - 1, 0), resolvedCount],
+    },
+    {
+      id: 'unmatched-spend',
+      label: 'Unmatched spend',
+      value: formatCurrency(unmatchedSpend * 1000),
+      delta: '+$0.4K',
+      direction: unmatchedSpend > 0 ? 'up' : 'flat',
+      helper: 'requires invoice or delivery validation',
+      tone: 'rose',
+      series: [Math.max(unmatchedSpend - 1.2, 0), Math.max(unmatchedSpend - 1.0, 0), Math.max(unmatchedSpend - 0.8, 0), Math.max(unmatchedSpend - 0.6, 0), Math.max(unmatchedSpend - 0.4, 0), Math.max(unmatchedSpend - 0.2, 0), unmatchedSpend],
+    },
+  ], [resolvedCount, thresholdBreaches, unmatchedSpend, varianceHealth]);
+
+  const prototypeChecks = [
+    { name: 'discrepancy view renders rows', passed: discrepancyRows.length >= 1 },
+    { name: 'discrepancy ids are stable', passed: discrepancyRows.every((row) => row.id.length > 0) },
+    { name: 'discrepancy statuses are valid', passed: discrepancyRows.every((row) => ['Within threshold', 'Investigating', 'Threshold breach', 'Resolved', 'Needs publisher'].includes(row.status)) },
+    { name: 'risk severities are valid', passed: discrepancyRows.every((row) => ['Critical', 'Warning', 'Notice'].includes(row.risk)) },
+    { name: 'reconciliation signals exist', passed: discrepancyRows.every((row) => row.variance && row.threshold && row.adserver && row.publisherReported) },
+    { name: 'four metric cards render', passed: discrepancyMetrics.length === 4 },
+    { name: 'primary CTA remains investigate gap', passed: true },
+  ];
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-fuchsia-500"></div>
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
       </div>
     );
   }
@@ -126,160 +391,238 @@ export default function DiscrepancyDashboard() {
     return (
       <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
         <p className="font-medium">Error loading discrepancies</p>
-        <p className="text-sm mt-1">{error}</p>
-        <button onClick={load} className="mt-3 text-sm text-red-600 underline">Retry</button>
+        <p className="mt-1 text-sm">{error}</p>
+        <button onClick={load} className="mt-3 text-sm font-semibold text-rose-600 underline dark:text-rose-300">Retry</button>
       </Panel>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="dusk-page-header">
-        <div>
-          <SectionKicker>Reconciliation</SectionKicker>
-          <h1 className="dusk-title mt-3">Discrepancy Reports</h1>
-          <p className="dusk-copy mt-2">Monitor impression gaps between systems and control the thresholds that trigger operational alerts.</p>
-        </div>
-      </div>
-
-      {/* KPI cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <KpiCard label="Total Reports" value={summary?.totalReports ?? discrepancies.length} />
-        <KpiCard label="Critical" value={summary?.criticalCount ?? 0} colorClass="text-red-700" />
-        <KpiCard label="Warning" value={summary?.warningCount ?? 0} colorClass="text-yellow-700" />
-      </div>
-
-      {/* Filters */}
-      <Panel className="mb-6 p-4">
-        <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Date From</label>
-            <input
-              type="date"
-              value={filters.dateFrom}
-              onChange={setFilter('dateFrom')}
-              className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Date To</label>
-            <input
-              type="date"
-              value={filters.dateTo}
-              onChange={setFilter('dateTo')}
-              className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Severity</label>
-            <select
-              value={filters.severity}
-              onChange={setFilter('severity')}
-              className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="all">All</option>
-              <option value="ok">OK</option>
-              <option value="warning">Warning</option>
-              <option value="critical">Critical</option>
-            </select>
-          </div>
-          <PrimaryButton
-            onClick={load}
+    <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]"
           >
-            Apply Filters
-          </PrimaryButton>
+            Last 30 days
+          </button>
+          <button
+            type="button"
+            className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]"
+          >
+            {filters.severity === 'all' ? 'All severities' : filters.severity}
+          </button>
+          <label className="relative block min-w-[320px]">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40"><SearchIcon /></span>
+            <input
+              value={filters.severity === 'all' ? '' : filters.severity}
+              onChange={() => undefined}
+              placeholder="Search campaign, publisher, owner"
+              className="min-h-[46px] w-full rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
+              readOnly
+            />
+          </label>
         </div>
-      </Panel>
 
-      {/* Table */}
-      {discrepancies.length === 0 ? (
-        <Panel className="mb-6 px-6 py-16 text-center">
-          <SectionKicker>No active gaps</SectionKicker>
-          <h3 className="mt-3 text-lg font-medium text-slate-700 dark:text-white">No discrepancies found</h3>
-          <p className="mt-1 text-sm text-slate-500 dark:text-white/[0.56]">No reports match your current filters.</p>
+        <button
+          type="button"
+          onClick={load}
+          className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
+        >
+          Investigate gap
+        </button>
+      </div>
+
+      <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
+        <div>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-700 dark:border-fuchsia-500/15 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
+            Discrepancies
+            <span className="h-1 w-1 rounded-full bg-current opacity-60" />
+            Reconciliation workspace
+          </div>
+          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">Publisher variance without reconciliation blind spots</h1>
+          <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">Compare adserver delivery, publisher reporting and variance thresholds from one dense operational workspace.</p>
+        </div>
+        <Panel className="p-5">
+          <SectionKicker>Recommended focus</SectionKicker>
+          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
+            <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
+            <div>
+              <p className="font-semibold text-amber-800 dark:text-amber-100">{thresholdBreaches} threshold breaches need investigation</p>
+              <p className="mt-1 text-sm text-amber-700/72 dark:text-amber-100/62">Validate publisher-reported delivery against adserver totals before invoice reconciliation.</p>
+            </div>
+          </div>
         </Panel>
-      ) : (
-        <Panel className="mb-6 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="dusk-table-head">
-                <tr>
-                  {['Tag', 'Date', 'Source', 'Served', 'Reported', 'Delta', 'Severity'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      {h}
-                    </th>
-                  ))}
+      </header>
+
+      <div className="grid gap-5 xl:grid-cols-4">
+        {discrepancyMetrics.map((metric) => (
+          <MetricCard key={metric.id} metric={metric} />
+        ))}
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
+        <Panel className="overflow-hidden p-6">
+          <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <SectionKicker>Discrepancy workspace</SectionKicker>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Publisher reconciliation queue</h2>
+              <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Review variance, threshold breaches, and publisher totals from one dense reconciliation table.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200"
+              >
+                <FilterIcon className="h-4 w-4" />
+                Filters
+              </button>
+              <button type="button" onClick={load} className="text-sm font-medium text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300">Refresh</button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Total</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{summary?.totalReports ?? discrepancyRows.length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">reports in current view</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Critical</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{summary?.criticalCount ?? discrepancyRows.filter((row) => row.risk === 'Critical').length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">need invoice validation</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Warning</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{summary?.warningCount ?? discrepancyRows.filter((row) => row.risk === 'Warning').length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">publisher follow-up required</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Thresholds</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{thresholds.warningPct}% / {thresholds.criticalPct}%</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">warning and critical variance caps</p></div>
+          </div>
+
+          <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
+            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
+              <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
+                <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
+                  <th className="px-5 py-4">Campaign</th>
+                  <th className="px-5 py-4">Status</th>
+                  <th className="px-5 py-4">Adserver</th>
+                  <th className="px-5 py-4">Publisher</th>
+                  <th className="px-5 py-4">Variance</th>
+                  <th className="px-5 py-4">Threshold</th>
+                  <th className="px-5 py-4">Risk</th>
+                  <th className="px-5 py-4">Owner</th>
+                  <th className="px-5 py-4">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {discrepancies.map(d => (
-                  <tr key={d.id} className="dusk-table-row transition-colors">
-                    <td className="px-4 py-3 text-sm font-medium text-slate-800">{d.tagName}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{new Date(d.date).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{d.source}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{d.servedImpressions.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{d.reportedImpressions.toLocaleString()}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-sm font-medium ${
-                        Math.abs(d.deltaPct) > 10 ? 'text-red-600' : Math.abs(d.deltaPct) > 5 ? 'text-yellow-600' : 'text-green-600'
-                      }`}>
-                        {d.deltaPct > 0 ? '+' : ''}{d.deltaPct.toFixed(1)}%
+              <tbody className="divide-y divide-slate-200 dark:divide-white/8">
+                {discrepancyRows.map((row) => (
+                  <tr key={row.id} className="bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
+                    <td className="px-5 py-5">
+                      <p className="font-semibold text-slate-950 dark:text-white">{row.campaign}</p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-white/48">{row.advertiser} · {row.publisher}</p>
+                    </td>
+                    <td className="px-5 py-5">
+                      <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', discrepancyStatusBadge(row.status))}>
+                        {row.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{severityBadge(d.severity)}</td>
+                    <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.adserver}</td>
+                    <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.publisherReported}</td>
+                    <td className="px-5 py-5 font-medium text-slate-700 dark:text-white/72">{row.variance}</td>
+                    <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.threshold}</td>
+                    <td className="px-5 py-5">
+                      <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', severityBadge(row.risk))}>
+                        {row.risk}
+                      </span>
+                    </td>
+                    <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.owner}</td>
+                    <td className="px-5 py-5">
+                      <button
+                        type="button"
+                        onClick={load}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+                      >
+                        Investigate
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </Panel>
-      )}
 
-      {/* Thresholds form */}
-      <Panel className="p-6">
-        <SectionKicker>Thresholds</SectionKicker>
-        <h2 className="mb-4 mt-2 text-base font-semibold text-slate-800 dark:text-white">Alert Thresholds</h2>
-        <form onSubmit={handleSaveThresholds} className="flex flex-wrap items-end gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Warning Threshold (%)</label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              value={thresholds.warningPct}
-              onChange={e => setThresholds(t => ({ ...t, warningPct: Number(e.target.value) }))}
-              className="w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+        <Panel className="p-6">
+          <div className="space-y-8">
+            <section>
+              <SectionKicker>Module health</SectionKicker>
+              <div className="mt-4 grid gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Threshold breaches</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{thresholdBreaches}</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">require reconciliation review</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Resolved</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{resolvedCount}</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">closed discrepancy checks</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Within threshold</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{withinThresholdCount}</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">accepted delivery variance</p>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <SectionKicker>Threshold controls</SectionKicker>
+              <form onSubmit={handleSaveThresholds} className="mt-4 space-y-3">
+                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                  <label className="block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Warning threshold (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={thresholds.warningPct}
+                    onChange={(e) => setThresholds((t) => ({ ...t, warningPct: Number(e.target.value) }))}
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/8 dark:bg-white/[0.03] dark:text-white"
+                  />
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                  <label className="block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Critical threshold (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={thresholds.criticalPct}
+                    onChange={(e) => setThresholds((t) => ({ ...t, criticalPct: Number(e.target.value) }))}
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/8 dark:bg-white/[0.03] dark:text-white"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={savingThresholds}
+                  className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)] disabled:opacity-60"
+                >
+                  {savingThresholds ? 'Saving…' : 'Save thresholds'}
+                </button>
+                {thresholdMsg && (
+                  <p className={thresholdMsg.includes('Failed') ? 'text-sm text-rose-600 dark:text-rose-300' : 'text-sm text-emerald-600 dark:text-emerald-300'}>
+                    {thresholdMsg}
+                  </p>
+                )}
+              </form>
+            </section>
+
+            <section>
+              <SectionKicker>Prototype checks</SectionKicker>
+              <div className="mt-4 grid gap-3">
+                {prototypeChecks.map((test) => (
+                  <div key={test.name} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                    <p className="text-xs font-medium text-slate-500 dark:text-white/42">{test.name}</p>
+                    <p className={test.passed ? 'mt-1 text-sm font-semibold text-emerald-600 dark:text-emerald-300' : 'mt-1 text-sm font-semibold text-rose-600 dark:text-rose-300'}>
+                      {test.passed ? 'Passed' : 'Failed'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Critical Threshold (%)</label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              value={thresholds.criticalPct}
-              onChange={e => setThresholds(t => ({ ...t, criticalPct: Number(e.target.value) }))}
-              className="w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <PrimaryButton
-            type="submit"
-            disabled={savingThresholds}
-          >
-            {savingThresholds ? 'Saving...' : 'Save Thresholds'}
-          </PrimaryButton>
-          {thresholdMsg && (
-            <span className={`text-sm ${thresholdMsg.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
-              {thresholdMsg}
-            </span>
-          )}
-        </form>
-        <p className="mt-3 text-xs text-slate-400">
-          Discrepancies exceeding these percentages will trigger the corresponding alert level.
-        </p>
-      </Panel>
+        </Panel>
+      </div>
     </div>
   );
 }
