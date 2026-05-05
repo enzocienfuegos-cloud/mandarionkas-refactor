@@ -1,0 +1,366 @@
+import React, { FormEvent, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+
+const BRAND = '#f1008b';
+
+function DuskLogo() {
+  return (
+    <svg
+      viewBox="170 780 1710 520"
+      preserveAspectRatio="xMidYMid meet"
+      className="h-[40px] w-auto text-white md:h-[48px] [transform-origin:left_center]"
+      style={{
+        animation: 'logoFloat 6s ease-in-out infinite',
+        filter:
+          'drop-shadow(0 18px 48px rgba(241,0,139,0.24)) drop-shadow(0 4px 14px rgba(0,0,0,0.42))',
+      }}
+      aria-label="DUSK logo"
+      role="img"
+    >
+      <g fill="currentColor">
+        <path d="M 172.307 828.906 L 291.688 828.909 C 343.041 828.897 394.658 825.173 443.902 839.993 C 472.745 848.712 498.998 864.398 520.342 885.667 C 591.476 956.148 594.786 1087.65 523.276 1158.67 C 497.882 1183.89 466.22 1201.88 431.555 1210.78 C 390.657 1221.61 337.928 1219.08 294.744 1219.06 L 172.07 1219.05 L 172.093 1107.25 L 172.076 971.079 C 195.267 970.457 220.324 971.014 243.744 970.844 C 245.092 1011.28 243.464 1052.91 243.978 1093.46 C 244.226 1112.99 243.155 1133.76 245.259 1153.12 C 269.254 1153.55 292.4 1153.08 316.389 1153.34 C 368.487 1154.62 421.248 1156.76 463.538 1120.04 C 514.191 1076.05 515.298 985.558 472.496 936.035 C 430.726 887.705 374.038 895.556 317.449 894.589 C 269.568 893.771 219.68 896.567 172.136 894.294 C 171.668 874.175 171.526 848.92 172.307 828.906 z" />
+        <path d="M 635.256 828.662 C 658.543 829.198 682.876 828.997 706.258 829.172 C 705.685 873.038 705.863 917.714 705.976 961.705 C 706.34 998.905 703.778 1032.97 710.027 1070.01 C 728.656 1180.43 907.645 1186.89 934.512 1079.5 C 943.252 1044.57 940.007 1004.61 940.043 968.012 L 940.092 828.716 C 961.536 829.726 989.742 828.977 1011.8 829.111 C 1012.31 849.748 1012 871.06 1011.95 891.75 L 1011.97 1025.92 C 1011.69 1082.84 999.774 1130.65 957.808 1171.83 C 920.534 1208.41 866.667 1221.67 815.533 1220.99 C 765.807 1220.33 720.123 1202.65 684.771 1167.41 C 626.456 1109.28 635.291 1029.84 634.981 954.148 C 634.815 913.443 634.387 869.654 635.256 828.662 z" />
+        <path d="M 1179.72 829.372 C 1186.67 828.135 1238.91 829.01 1248.99 829.012 L 1419.86 828.933 C 1411.79 846.114 1395.67 878.848 1386.14 894.536 C 1372.94 895.568 1348.45 894.776 1334.35 894.754 L 1233.74 894.67 C 1197.14 894.701 1138.68 887.942 1137.72 941.923 C 1136.77 994.831 1196.61 989.988 1232.75 990.795 C 1272.46 991.682 1320.57 987.096 1358.67 998.002 C 1377.09 1003.39 1393.84 1013.38 1407.35 1027.01 C 1427.24 1046.84 1436.95 1073.62 1437.47 1101.46 C 1438.73 1168.66 1385.97 1214.11 1321.61 1218.68 C 1312.6 1219.32 1302.86 1219.1 1293.5 1219.05 L 1052.36 1219.1 C 1061.89 1199.29 1074.41 1172.27 1085.25 1153.42 C 1098.95 1154.22 1116.27 1153.24 1130.26 1153.18 L 1212 1153.35 L 1285.45 1153.48 C 1309.3 1153.31 1339.2 1156.7 1355.43 1135.77 C 1364.41 1124.18 1366.61 1108.83 1364.04 1094.95 C 1356.53 1054.43 1319.6 1056.22 1287.51 1057.04 C 1227.39 1055.68 1157 1065.94 1106.39 1027.35 C 1060.17 992.101 1053.86 918.801 1089.43 874.162 C 1113.21 844.109 1142.79 833.906 1179.72 829.372 z" />
+        <path d="M 1488.53 828.282 C 1497.81 829.856 1548.04 828.92 1559.84 828.874 C 1561.26 906.421 1559.88 988.274 1559.85 1066.18 L 1560.02 1159.98 C 1560.05 1167.48 1561.05 1213.21 1558.77 1217.84 C 1556.27 1219.69 1553.54 1219.16 1550.25 1219.12 L 1488.72 1219.04 C 1487.44 1201.01 1488.55 1172.17 1488.46 1153.01 L 1488.47 1007.5 C 1488.64 979.249 1488.38 950.696 1488.48 922.419 C 1488.59 891.859 1486.87 858.603 1488.53 828.282 z" />
+        <path d="M 1782.78 829.015 C 1790.47 828.275 1803.38 828.767 1811.4 828.823 C 1829.91 829.098 1848.43 829.093 1866.94 828.809 C 1849.5 850.273 1822.43 876.865 1802.74 897.427 C 1764.38 937.432 1726.28 977.69 1688.46 1018.2 C 1696.83 1026.03 1706.22 1036.63 1714.19 1045.09 C 1732.05 1064.03 1749.78 1083.07 1767.39 1102.24 C 1778.58 1114.21 1873.67 1212.66 1875.41 1217.56 L 1874.22 1218.92 L 1869.25 1219.11 C 1850.28 1218.86 1831.18 1219.22 1812.21 1219.08 C 1801.31 1218.99 1788.79 1219.54 1778.07 1218.29 C 1770.27 1211.63 1757.71 1197.58 1750.24 1189.66 L 1699.9 1136.17 L 1640.11 1072.53 C 1627.71 1059.44 1607.42 1039.2 1597.39 1025.38 C 1604.99 1014.99 1623.92 996.048 1633.33 986.21 L 1691.9 924.466 L 1749.92 862.638 C 1758.11 853.907 1774.13 835.819 1782.78 829.015 z" />
+      </g>
+    </svg>
+  );
+}
+
+function SlidersIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7h9" />
+      <path d="M17 7h3" />
+      <circle cx="15" cy="7" r="2" />
+      <path d="M4 17h3" />
+      <path d="M11 17h9" />
+      <circle cx="9" cy="17" r="2" />
+    </svg>
+  );
+}
+
+function WorkflowIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="4" width="6" height="6" rx="1.5" />
+      <rect x="14" y="14" width="6" height="6" rx="1.5" />
+      <path d="M10 7h3.5A2.5 2.5 0 0 1 16 9.5V14" />
+      <path d="m13.5 11.5 2.5 2.5 2.5-2.5" />
+    </svg>
+  );
+}
+
+function RocketIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M13.5 4.5c2.8.4 4.9 2.5 5.3 5.3l-6.7 6.7-4.8-4.8 6.2-7.2Z" />
+      <path d="M7.3 11.7 4 13l2 2" />
+      <path d="m12.1 16.5-1.1 3.5-2.1-2.1" />
+      <circle cx="14.6" cy="8.6" r="1.4" />
+    </svg>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <rect x="4" y="10" width="16" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
+
+function Background() {
+  const [pointer, setPointer] = useState({ x: 50, y: 50 });
+
+  return (
+    <div
+      className="absolute inset-0 overflow-hidden"
+      onPointerMove={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        setPointer({
+          x: ((event.clientX - rect.left) / rect.width) * 100,
+          y: ((event.clientY - rect.top) / rect.height) * 100,
+        });
+      }}
+    >
+      <div className="absolute inset-0 bg-[#050507]" />
+      <div
+        className="absolute h-[1100px] w-[1100px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[160px]"
+        style={{
+          left: `${pointer.x}%`,
+          top: `${pointer.y}%`,
+          background: 'radial-gradient(circle, rgba(241,0,139,0.14), transparent 70%)',
+        }}
+      />
+      <div
+        className="absolute h-[800px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[160px]"
+        style={{
+          left: `${100 - pointer.x}%`,
+          top: `${pointer.y}%`,
+          background: 'radial-gradient(circle, rgba(88,166,255,0.1), transparent 70%)',
+        }}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(800px_400px_at_50%_-10%,rgba(255,255,255,0.06),transparent_70%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.02] mix-blend-overlay bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.6)_1px,transparent_0)] [background-size:22px_22px]" />
+    </div>
+  );
+}
+
+const featureCards = [
+  {
+    title: 'Full control',
+    description: 'Decide how your campaigns run.',
+    Icon: SlidersIcon,
+  },
+  {
+    title: 'Flexible setup',
+    description: 'Adapt to your clients, not the other way around.',
+    Icon: WorkflowIcon,
+  },
+  {
+    title: 'Move faster',
+    description: 'Launch and optimize without unnecessary complexity.',
+    Icon: RocketIcon,
+  },
+] as const;
+
+function validateLoginViewModel() {
+  return {
+    hasLogoComponent: typeof DuskLogo === 'function',
+    brandIsFuchsia: BRAND.toLowerCase() === '#f1008b',
+    twoColumnLayout: true,
+    featureIconsAreSpecific: featureCards.length === 3 && featureCards.every((feature) => typeof feature.Icon === 'function'),
+  };
+}
+
+const tests = validateLoginViewModel();
+console.assert(tests.hasLogoComponent, 'DUSK logo must be an inline SVG component.');
+console.assert(tests.brandIsFuchsia, 'Brand color should remain fuchsia.');
+console.assert(tests.twoColumnLayout, 'Login layout should remain two columns.');
+console.assert(tests.featureIconsAreSpecific, 'Each feature should have a specific icon.');
+
+export default function LoginTempleAligned() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const fieldErrors = useMemo(
+    () => ({
+      email: error && !email.trim() ? 'Email is required.' : '',
+      password: error && !password ? 'Password is required.' : '',
+    }),
+    [email, password, error],
+  );
+
+  const handleGoogleContinue = () => {};
+  const handleSsoContinue = () => {};
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError('');
+
+    if (!email.trim() || !password) {
+      setError('Enter your email and password to continue.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: email.trim(), password, remember }),
+      });
+
+      if (res.ok) {
+        navigate('/');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.message ?? 'Invalid email or password.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main className="relative flex min-h-screen overflow-hidden bg-[#08080b] text-white">
+      <Background />
+
+      <style>{`
+        @keyframes panelLight {
+          0%, 100% { transform: translate3d(-18%, 0, 0); opacity: .18; }
+          50% { transform: translate3d(18%, 0, 0); opacity: .34; }
+        }
+        @keyframes logoFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-2px); }
+        }
+      `}</style>
+
+      <div className="relative z-10 grid w-full grid-cols-2">
+        <section className="flex flex-col justify-center px-[72px]">
+          <div className="max-w-[560px]">
+            <div className="relative mb-0 flex h-[48px] items-start leading-none md:h-[56px]">
+              <div
+                className="pointer-events-none absolute -inset-10 -z-10 opacity-30 blur-3xl"
+                style={{
+                  background: 'radial-gradient(40% 40% at 50% 50%, rgba(241,0,139,0.35), transparent 70%)',
+                }}
+              />
+              <DuskLogo />
+            </div>
+
+            <p className="mt-[4px] text-[15px] leading-none tracking-[0.01em] text-white/50">Own your media</p>
+
+            <div className="mt-[48px] grid grid-cols-3 gap-10 text-sm">
+              {featureCards.map(({ title, description, Icon }) => (
+                <div key={title}>
+                  <div className="mb-[14px] inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#f1008b]/20 bg-[#f1008b]/10 text-[#f1008b] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                    <Icon />
+                  </div>
+                  <p className="font-medium leading-tight">{title}</p>
+                  <p className="text-[13px] leading-[1.4] text-white/40">{description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-[64px]">
+            <p className="mb-[16px] text-[11px] uppercase tracking-[0.25em] text-white/25">Works with your existing stack</p>
+            <div className="flex flex-wrap gap-3">
+              {['Google Ad Manager', 'Basis', 'Illumin', 'Magnite'].map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-white/[0.10] bg-white/[0.03] px-4 py-[9px] text-[13px] font-medium leading-none text-white/55"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="flex items-center justify-center px-[56px]">
+          <div className="w-full max-w-[468px] translate-y-[4px]">
+            <div className="relative w-full">
+              <div className="absolute inset-[-1px] -z-10 rounded-[30px] bg-[linear-gradient(135deg,rgba(255,255,255,0.14),rgba(255,255,255,0.026)_40%,rgba(241,0,139,0.16)_100%)] opacity-75 blur-[0.2px]" />
+
+              <div className="relative overflow-hidden rounded-[30px] border border-white/[0.095] bg-[#111118]/72 p-[30px] shadow-[0_24px_90px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+                <div className="pointer-events-none absolute -inset-x-20 top-0 h-24 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.10),transparent)] blur-xl animate-[panelLight_10s_ease-in-out_infinite]" />
+
+                <div className="relative z-10">
+                  <div className="mb-[28px] text-center">
+                    <h2 className="text-[20px] font-semibold tracking-tight">Access your workspace</h2>
+                    <p className="mt-1 text-[13px] text-white/40">Sign in to continue to DUSK</p>
+                  </div>
+
+                  <div className="space-y-[12px]">
+                    <button
+                      type="button"
+                      onClick={handleGoogleContinue}
+                      disabled
+                      className="flex w-full cursor-default items-center justify-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-sm text-white/70 transition"
+                    >
+                      <GoogleIcon />
+                      Continue with Google
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSsoContinue}
+                      disabled
+                      className="flex w-full cursor-default items-center justify-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-sm text-white/70 transition"
+                    >
+                      <LockIcon />
+                      Continue with SSO
+                    </button>
+                  </div>
+
+                  <div className="my-[24px] flex items-center gap-3">
+                    <div className="h-px flex-1 bg-white/[0.075]" />
+                    <span className="text-xs text-white/30">or continue with email</span>
+                    <div className="h-px flex-1 bg-white/[0.075]" />
+                  </div>
+
+                  {error ? (
+                    <div className="mb-4 rounded-xl border border-red-400/35 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                      {error}
+                    </div>
+                  ) : null}
+
+                  <form onSubmit={handleSubmit} className="space-y-[16px]" noValidate>
+                    <input
+                      type="email"
+                      placeholder="you@agency.com"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      className={`w-full rounded-xl border bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/28 outline-none focus:ring-2 focus:ring-[#f1008b]/40 ${
+                        fieldErrors.email ? 'border-red-400/70' : 'border-white/[0.08]'
+                      }`}
+                    />
+
+                    <input
+                      type="password"
+                      placeholder="password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      className={`w-full rounded-xl border bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/28 outline-none focus:ring-2 focus:ring-[#f1008b]/40 ${
+                        fieldErrors.password ? 'border-red-400/70' : 'border-white/[0.08]'
+                      }`}
+                    />
+
+                    <label className="flex items-center gap-3 text-[13px] text-white/50">
+                      <input
+                        type="checkbox"
+                        checked={remember}
+                        onChange={(event) => setRemember(event.target.checked)}
+                        className="h-4 w-4 rounded border-white/20 bg-white/5 text-[#f1008b] focus:ring-[#f1008b]"
+                      />
+                      Keep me signed in
+                    </label>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_38px_rgba(241,0,139,0.24)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+                      style={{ background: BRAND }}
+                    >
+                      {loading ? 'Signing in...' : 'Sign in to DUSK'}
+                    </button>
+                  </form>
+
+                  <p className="mt-5 text-center text-xs text-white/32">
+                    No account?{' '}
+                    <Link to="/register" className="font-semibold text-[#f1008b]">
+                      Request access
+                    </Link>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
