@@ -1,5 +1,5 @@
 import { getPool } from '@smx/db/src/pool.mjs';
-import { JOB_NAME, runTrackerFlushJob as run } from '../../../apps/api/src/modules/adserver/tracker/tracker-flush-job.mjs';
+import { JOB_NAME, runTrackerFlushJob as run } from '../../../api/src/modules/adserver/tracker/tracker-flush-job.mjs';
 
 export { JOB_NAME };
 
