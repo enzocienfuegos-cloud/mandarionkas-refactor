@@ -352,15 +352,15 @@ function AttentionCard({ item }: { item: AttentionItem }) {
   };
   const theme = severityMap[item.severity];
   return (
-    <article className="flex min-w-0 flex-1 items-center gap-4 px-2 py-3">
-      <div className={classNames('flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br', theme.shell)}>
+    <article className="rounded-[26px] border border-slate-200 bg-white/50 p-5 dark:border-white/[0.07] dark:bg-white/[0.02]">
+      <div className={classNames('flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br', theme.shell)}>
         <AlertTriangleIcon className={classNames('h-5 w-5', theme.accent)} />
       </div>
-      <div className="min-w-0 flex-1">
-        <p className={classNames('truncate text-lg font-semibold', theme.accent)}>{item.title}</p>
-        <p className="mt-1 text-sm text-slate-500 dark:text-white/58">{item.detail}</p>
+      <div className="mt-4 min-w-0">
+        <p className={classNames('text-lg font-semibold leading-tight', theme.accent)}>{item.title}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/58">{item.detail}</p>
       </div>
-      <Link to={item.actionHref} className={classNames('inline-flex shrink-0 items-center rounded-xl border px-5 py-3 text-sm font-semibold transition', theme.button)}>{item.actionLabel}</Link>
+      <Link to={item.actionHref} className={classNames('mt-5 inline-flex items-center rounded-xl border px-5 py-3 text-sm font-semibold transition', theme.button)}>{item.actionLabel}</Link>
     </article>
   );
 }
@@ -392,17 +392,17 @@ function MetricCard({ metric }: { metric: MetricCardData }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <SectionKicker>{metric.label}</SectionKicker>
-          <div className="mt-5 flex items-end gap-3">
-            <span className="text-5xl font-semibold tracking-tight text-slate-950 dark:text-white">{metric.value}</span>
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <span className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white 2xl:text-5xl">{metric.value}</span>
             <TrendBadge direction={metric.direction} value={metric.delta} />
           </div>
           <p className="mt-3 text-sm text-slate-500 dark:text-white/56">vs previous {DEFAULT_DATE_RANGE} days</p>
         </div>
-        <div className={classNames('flex h-16 w-16 items-center justify-center rounded-[22px] border bg-gradient-to-br', metric.tone)}>
+        <div className={classNames('flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border bg-gradient-to-br', metric.tone)}>
           <MetricIcon icon={metric.icon} />
         </div>
       </div>
-      <Sparkline series={metric.series.length ? metric.series : [0, 0, 0, 0, 0]} className={classNames('mt-6 h-16 w-full', metric.tone.split(' ').slice(-1).join(' '))} />
+      <Sparkline series={metric.series.length ? metric.series : [0, 0, 0, 0, 0]} className={classNames('mt-6 h-14 w-full', metric.tone.split(' ').slice(-1).join(' '))} />
     </Panel>
   );
 }
@@ -1033,7 +1033,7 @@ export default function AdOpsOverview() {
   };
 
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.06),transparent_24%),radial-gradient(circle_at_70%_18%,rgba(124,58,237,0.08),transparent_22%)] px-6 py-6 text-slate-950 dark:bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.08),transparent_26%),radial-gradient(circle_at_70%_20%,rgba(124,58,237,0.1),transparent_24%)] dark:text-white md:px-8 md:py-8">
+    <div className="min-h-full bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.06),transparent_24%),radial-gradient(circle_at_70%_18%,rgba(124,58,237,0.08),transparent_22%)] text-slate-950 dark:bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.08),transparent_26%),radial-gradient(circle_at_70%_20%,rgba(124,58,237,0.1),transparent_24%)] dark:text-white">
       <div className="dusk-page">
         <div className="dusk-toolbar">
           <div className="dusk-toolbar-group">
@@ -1109,7 +1109,7 @@ export default function AdOpsOverview() {
             <h1 className="dusk-title mt-4">Command center for client delivery</h1>
             <p className="dusk-copy">Stay on top of pacing, health signals, and audience momentum without bouncing between modules. Use the workspace and campaign selectors to narrow the view when you need a sharper operational read.</p>
           </div>
-          <Panel className="max-w-md px-5 py-4">
+          <Panel className="w-full max-w-md px-5 py-4">
             <SectionKicker>Active lens</SectionKicker>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <StatusBadge tone="info">{selectedWorkspaceName}</StatusBadge>
@@ -1126,7 +1126,7 @@ export default function AdOpsOverview() {
             <SectionKicker>What needs attention</SectionKicker>
             <Link to="/reporting" className="text-sm font-medium text-fuchsia-600 dark:text-fuchsia-300">View all issues ({issueCount})</Link>
           </div>
-          <div className="mt-4 grid gap-4 xl:grid-cols-3">
+          <div className="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {attentionItems.map((item) => (
               <AttentionCard key={item.id} item={item} />
             ))}
@@ -1135,14 +1135,16 @@ export default function AdOpsOverview() {
 
         {loading ? <div className="mt-8 text-sm text-slate-500 dark:text-white/56">Loading overview…</div> : null}
 
-        <div className="mt-8 grid gap-5 xl:grid-cols-5">
+        <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
           {visibleMetricCards.map((metric) => <MetricCard key={metric.id} metric={metric} />)}
         </div>
 
-        <div className="mt-8 grid gap-5 xl:grid-cols-[1.45fr_1fr_1fr]">
+        <div className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.95fr)]">
           {showCard('topCampaigns') ? <CampaignTable rows={topCampaignRows} /> : null}
-          {showCard('quickNavigation') ? <QuickNavigation items={quickNavRows} /> : null}
-          {showCard('systemHealth') ? <SystemHealth items={systemHealthRows} /> : null}
+          <div className="grid gap-5">
+            {showCard('quickNavigation') ? <QuickNavigation items={quickNavRows} /> : null}
+            {showCard('systemHealth') ? <SystemHealth items={systemHealthRows} /> : null}
+          </div>
         </div>
 
         {showCard('audienceInsights') ? (
