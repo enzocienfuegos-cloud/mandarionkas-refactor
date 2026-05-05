@@ -1,15 +1,8 @@
 import React from 'react';
 import {
-  BarChart3,
   ChevronDown,
   ChevronLeft,
-  Gauge,
-  Image,
-  LayoutDashboard,
   Search,
-  SquareKanban,
-  Tag,
-  TriangleAlert,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,8 +13,8 @@ export function cn(...values: Array<string | false | null | undefined>) {
 export function DuskLogo({ className = 'h-[34px] w-[136px] text-slate-950 dark:text-white' }: { className?: string }) {
   return (
     <svg
-      viewBox="170 780 1710 520"
-      preserveAspectRatio="xMidYMid meet"
+      viewBox="150 780 1760 480"
+      preserveAspectRatio="xMinYMid meet"
       className={className}
       aria-label="DUSK logo"
       role="img"
@@ -164,8 +157,63 @@ type DuskSidebarItem = {
   icon: React.ReactNode;
   active?: boolean;
   badge?: string;
+  helper?: string;
   onClick?: React.MouseEventHandler<HTMLButtonElement>;
 };
+
+function sidebarIconProps(className?: string) {
+  return {
+    className: cn('h-5 w-5', className),
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    'aria-hidden': true,
+  } as const;
+}
+
+const GaugeIcon = ({ className }: { className?: string }) => (
+  <svg {...sidebarIconProps(className)}>
+    <path d="M4 15a8 8 0 1 1 16 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="m12 15 4-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M8 19h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const TagsIcon = ({ className }: { className?: string }) => (
+  <svg {...sidebarIconProps(className)}>
+    <path d="M4 5h7l9 9-7 7-9-9V5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <circle cx="8" cy="9" r="1.2" fill="currentColor" />
+  </svg>
+);
+
+const CreativeIcon = ({ className }: { className?: string }) => (
+  <svg {...sidebarIconProps(className)}>
+    <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+    <path d="m7 15 3-3 3 3 2-2 3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="15.5" cy="9.5" r="1.2" fill="currentColor" />
+  </svg>
+);
+
+const ReportIcon = ({ className }: { className?: string }) => (
+  <svg {...sidebarIconProps(className)}>
+    <path d="M6 19V9M12 19V5M18 19v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M4 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const AlertTriangleIcon = ({ className }: { className?: string }) => (
+  <svg {...sidebarIconProps(className)}>
+    <path d="M12 4 3.5 19h17L12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M12 9v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <circle cx="12" cy="16" r="1" fill="currentColor" />
+  </svg>
+);
+
+const TableIcon = ({ className }: { className?: string }) => (
+  <svg {...sidebarIconProps(className)}>
+    <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M4 10h16M10 5v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
 
 function DuskSidebarItemRow({
   item,
@@ -194,7 +242,10 @@ function DuskSidebarItemRow({
       >
         {item.icon}
       </span>
-      <span className="min-w-0 flex-1 truncate font-medium">{item.label}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold">{item.label}</span>
+        {item.helper && <span className="mt-0.5 block truncate text-xs text-slate-400 dark:text-white/36">{item.helper}</span>}
+      </span>
       {item.badge ? (
         <span
           className={cn(
@@ -241,6 +292,7 @@ export type SidebarUserSummary = {
 type SidebarNavItem = {
   label: SidebarItemName;
   icon: React.ReactNode;
+  helper?: string;
 };
 
 function SidebarNavGroup({
@@ -303,15 +355,15 @@ export function Sidebar({
 }) {
   const navigate = useNavigate();
   const operations = [
-    { label: 'Overview', icon: <LayoutDashboard className="h-5 w-5" strokeWidth={1.8} /> },
-    { label: 'Campaigns', icon: <SquareKanban className="h-5 w-5" strokeWidth={1.8} /> },
-    { label: 'Tags', icon: <Tag className="h-5 w-5" strokeWidth={1.8} /> },
-    { label: 'Creatives', icon: <Image className="h-5 w-5" strokeWidth={1.8} /> },
+    { label: 'Overview', icon: <GaugeIcon />, helper: 'Ops cockpit' },
+    { label: 'Campaigns', icon: <ReportIcon />, helper: 'Delivery & setup' },
+    { label: 'Tags', icon: <TagsIcon />, helper: 'Pixels & firing' },
+    { label: 'Creatives', icon: <CreativeIcon />, helper: 'QA & approvals' },
   ] as const satisfies readonly SidebarNavItem[];
   const monitoring = [
-    { label: 'Pacing', icon: <Gauge className="h-5 w-5" strokeWidth={1.8} /> },
-    { label: 'Discrepancies', icon: <TriangleAlert className="h-5 w-5" strokeWidth={1.8} /> },
-    { label: 'Reporting', icon: <BarChart3 className="h-5 w-5" strokeWidth={1.8} /> },
+    { label: 'Pacing', icon: <GaugeIcon />, helper: 'Budget health' },
+    { label: 'Discrepancies', icon: <AlertTriangleIcon />, helper: 'Publisher gaps' },
+    { label: 'Reporting', icon: <TableIcon />, helper: 'Insights & export' },
   ] as const satisfies readonly SidebarNavItem[];
   const routeForItem: Record<SidebarItemName, string> = {
     Overview: '/overview',
