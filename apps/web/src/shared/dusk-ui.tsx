@@ -483,7 +483,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen overflow-hidden bg-[#f6f3fb] text-slate-950 dark:bg-[#0b1020] dark:text-white">
+    <div className="flex h-screen overflow-hidden bg-[#f6f3fb] text-slate-950 dark:bg-[#0b1020] dark:text-white">
       <GlobalScrollbarStyles />
       <Sidebar
         activeItem={activeItem}
@@ -493,7 +493,7 @@ export function AppShell({
         campaignFocus={campaignFocus}
         userSummary={userSummary}
       />
-      <div className="flex min-w-0 flex-1 flex-col bg-[#f6f3fb] dark:bg-[#0b1020]">
+      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-[#f6f3fb] dark:bg-[#0b1020]">
         {children}
       </div>
     </div>
