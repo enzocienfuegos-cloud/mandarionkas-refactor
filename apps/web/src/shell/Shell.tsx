@@ -22,6 +22,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { ChevronDown, KeyRound, Search, Shield, Webhook, Wrench } from 'lucide-react';
 import {
   getWorkspaceProductLabel,
   loadAuthMe,
@@ -39,7 +40,7 @@ import {
   type ThemeMode,
 } from '../shared/theme';
 import type { PlatformRole, ProductAccess } from '../shared/roles';
-import { DuskSidebar, GlobalScrollbarStyles } from '../shared/dusk-ui';
+import { AppShell, type ContextualFocusItem, type SidebarItemName } from '../shared/dusk-ui';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,94 +58,6 @@ interface ShellUser {
     name: string;
     productAccess: ProductAccess;
   };
-}
-
-// ---------------------------------------------------------------------------
-// Brand
-// ---------------------------------------------------------------------------
-
-const BRAND = '#f1008b';
-
-// ---------------------------------------------------------------------------
-// Icons (unchanged from S50)
-// ---------------------------------------------------------------------------
-
-const ChevronDownIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-    <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const SearchIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-    <path d="m11.5 11.5 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
-  </svg>
-);
-
-const ShieldIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-    <path d="M12 3l7 3v6c0 5-3.5 8.5-7 9-3.5-.5-7-4-7-9V6l7-3Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="m9 12 2 2 4-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const ZapIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-    <path fill="currentColor" d="M13 2 3 14h7l-1 8 12-14h-8l2-6Z" />
-  </svg>
-);
-
-type NavIconName =
-  | 'overview' | 'campaigns' | 'tags' | 'creatives' | 'reporting'
-  | 'pacing' | 'discrepancies' | 'experiments' | 'studio' | 'tools'
-  | 'settings' | 'keys' | 'audit' | 'workspace' | 'webhooks';
-
-function NavGlyph({ active, name }: { active: boolean; name: NavIconName }) {
-  const icon = (() => {
-    switch (name) {
-      case 'overview':
-        return <path d="M3.5 10.5 8 6l4.5 4.5V16H3.5z" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinejoin="round" />;
-      case 'campaigns':
-        return <><rect x="3.5" y="4.5" width="9" height="2.5" rx="1" stroke="currentColor" strokeWidth="1.4" fill="none" /><rect x="3.5" y="8.75" width="9" height="2.5" rx="1" stroke="currentColor" strokeWidth="1.4" fill="none" /><rect x="3.5" y="13" width="6" height="2.5" rx="1" stroke="currentColor" strokeWidth="1.4" fill="none" /></>;
-      case 'tags':
-        return <path d="M3.5 8V4.5h3.5L12.5 10 8 14.5 3.5 10Z" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinejoin="round" />;
-      case 'creatives':
-        return <><rect x="3.5" y="4" width="9" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" /><path d="m5.2 11.8 2.1-2.2 1.8 1.8 1.7-2 1.2 2.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></>;
-      case 'reporting':
-        return <><path d="M4 12.5 6.5 10l2 1.5L12 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M11.9 7.5h-2.7V4.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></>;
-      case 'pacing':
-        return <><circle cx="8" cy="8" r="4.5" stroke="currentColor" strokeWidth="1.4" fill="none" /><path d="M8 8 10.5 6.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></>;
-      case 'discrepancies':
-        return <><path d="M8 3.5 12.5 12H3.5Z" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinejoin="round" /><path d="M8 6.6v2.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><circle cx="8" cy="10.6" r=".45" fill="currentColor" /></>;
-      case 'experiments':
-        return <><path d="M5 3.5h6M8 3.5v2m-2 7.5h4m-4-7.5 2 3 2-3m-2 3v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></>;
-      case 'studio':
-        return <><rect x="3.5" y="4" width="9" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" /><path d="m6.7 6.2 3 1.8-3 1.8Z" fill="currentColor" /></>;
-      case 'tools':
-        return <path d="M5 4.2a2 2 0 1 0 2.8 2.8l3 3-1.2 1.2-3-3A2 2 0 0 0 3.8 5Z" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />;
-      case 'settings':
-        return <><circle cx="8" cy="8" r="2.2" stroke="currentColor" strokeWidth="1.4" fill="none" /><path d="M8 3.3v1.2M8 11.5v1.2M12.7 8h-1.2M4.5 8H3.3M11.3 4.7l-.9.9M5.6 10.4l-.9.9M11.3 11.3l-.9-.9M5.6 5.6l-.9-.9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></>;
-      case 'keys':
-        return <><circle cx="5.5" cy="8" r="2" stroke="currentColor" strokeWidth="1.4" fill="none" /><path d="M7.5 8H12.5M10.5 6.8v2.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></>;
-      case 'audit':
-        return <><rect x="4" y="3.8" width="8" height="10.2" rx="1.4" stroke="currentColor" strokeWidth="1.4" fill="none" /><path d="M6 6.3h4M6 8.4h4M6 10.5h2.7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></>;
-      case 'workspace':
-        return <><rect x="3.8" y="4" width="3.5" height="3.5" rx="0.8" stroke="currentColor" strokeWidth="1.3" fill="none" /><rect x="8.7" y="4" width="3.5" height="3.5" rx="0.8" stroke="currentColor" strokeWidth="1.3" fill="none" /><rect x="3.8" y="8.9" width="3.5" height="3.5" rx="0.8" stroke="currentColor" strokeWidth="1.3" fill="none" /><rect x="8.7" y="8.9" width="3.5" height="3.5" rx="0.8" stroke="currentColor" strokeWidth="1.3" fill="none" /></>;
-      case 'webhooks':
-        return <><path d="M5.5 6.3a2.5 2.5 0 1 1 0 5" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" /><path d="M10.5 6.3a2.5 2.5 0 1 0 0 5" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" /><path d="M5.8 8.8h4.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></>;
-    }
-  })();
-
-  return (
-    <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border text-[11px] font-semibold transition ${
-      active
-        ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-        : 'border-slate-200 bg-white/60 text-slate-500 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/[0.56]'
-    }`}>
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">{icon}</svg>
-    </span>
-  );
 }
 
 function getStudioUrl(): string {
@@ -324,7 +237,7 @@ export default function Shell() {
   const toolsOpen    = location.pathname.startsWith('/tools');
   const settingsOpen = location.pathname.startsWith('/settings');
   const isOverviewRoute = location.pathname.startsWith('/overview');
-  const moduleFocusItems = useMemo(() => {
+  const moduleFocusItems: ContextualFocusItem[] = useMemo(() => {
     if (location.pathname.startsWith('/overview')) {
       return [
         { label: 'Needs review', count: '2', active: true },
@@ -449,15 +362,42 @@ export default function Shell() {
     isLauncherRoute   ||
     isWorkspaceRoute;
 
+  const activeItem: SidebarItemName = useMemo(() => {
+    if (location.pathname.startsWith('/campaigns')) return 'Campaigns';
+    if (location.pathname.startsWith('/tags')) return 'Tags';
+    if (location.pathname.startsWith('/creatives')) return 'Creatives';
+    if (location.pathname.startsWith('/pacing')) return 'Pacing';
+    if (location.pathname.startsWith('/discrepancies')) return 'Discrepancies';
+    if (location.pathname.startsWith('/reporting')) return 'Reporting';
+    if (location.pathname.startsWith('/experiments')) return 'Experiments';
+    if (location.pathname.startsWith('/tools')) return 'Tools';
+    if (location.pathname.startsWith('/settings')) return 'Settings';
+    return 'Overview';
+  }, [location.pathname]);
+
+  const badgeCounts = useMemo(
+    () => ({
+      Overview: '3',
+      Campaigns: '2',
+      Tags: '1',
+      Creatives: '6',
+      Pacing: '!',
+      Discrepancies: '1',
+    }),
+    [],
+  );
+
   // ---------------------------------------------------------------------------
   // Full shell render
   // ---------------------------------------------------------------------------
 
   return (
-    <div className={`mandarion-shell flex min-h-screen overflow-hidden ${isDark ? 'bg-[#0b1020] text-white' : 'bg-[#f6f3fb] text-slate-900'}`}>
-      <GlobalScrollbarStyles />
-      <DuskSidebar
+    <>
+      <AppShell
         isDark={isDark}
+        activeItem={activeItem}
+        contextualFocus={moduleFocusItems}
+        badgeCounts={badgeCounts}
         workspaceSlot={
           <div className={isDark ? 'rounded-[20px] border border-white/[0.07] bg-white/[0.025] px-4 py-3' : 'rounded-[20px] border border-slate-200/80 bg-white/72 px-4 py-3'}>
             <div className={isDark ? 'text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.22]' : 'text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400'}>
@@ -477,13 +417,13 @@ export default function Shell() {
                 ))}
               </select>
               <span className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>
-                <ChevronDownIcon />
+                <ChevronDown className="h-4 w-4" strokeWidth={1.8} />
               </span>
             </div>
             <p className={`mt-1.5 text-xs ${isDark ? 'text-white/34' : 'text-slate-500'}`}>{workspaces.length} active clients</p>
             <label className="relative mt-3 block">
               <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/36' : 'text-slate-400'}`}>
-                <SearchIcon />
+                <Search className="h-4 w-4" strokeWidth={1.8} />
               </span>
               <input
                 readOnly
@@ -494,136 +434,80 @@ export default function Shell() {
             </label>
           </div>
         }
-        sections={[
-          ...(hasAdServerAccess
-            ? [
-                {
-                  label: 'Operations',
-                  items: ([
-                    ['overview', 'Overview'],
-                    ['campaigns', 'Campaigns'],
-                    ['tags', 'Tags'],
-                    ['creatives', 'Creatives'],
-                  ] as const).map(([name, label]) => ({
-                    label,
-                    icon: <NavGlyph active={location.pathname.startsWith(`/${name}`)} name={name} />,
-                    active: location.pathname.startsWith(`/${name}`),
-                  })),
-                },
-                {
-                  label: 'Monitoring',
-                  items: ([
-                    ['pacing', 'Pacing'],
-                    ['discrepancies', 'Discrepancies'],
-                    ['reporting', 'Reporting'],
-                    ['experiments', 'Experiments'],
-                  ] as const).map(([name, label]) => ({
-                    label,
-                    icon: <NavGlyph active={location.pathname.startsWith(`/${name}`)} name={name} />,
-                    active: location.pathname.startsWith(`/${name}`),
-                  })),
-                },
-              ]
-            : []),
-          ...(hasStudioAccess
-            ? [
-                {
-                  label: 'Connected',
-                  items: [
-                    {
-                      label: 'Open Studio',
-                      icon: <NavGlyph active={false} name="studio" />,
-                      href: getStudioUrl(),
-                      target: '_blank',
-                      rel: 'noopener noreferrer',
-                      trailing: '↗',
-                    },
-                  ],
-                },
-              ]
-            : []),
-          ...(hasAdServerAccess
-            ? [
-                {
-                  label: 'System',
-                  items: [
-                    {
-                      label: 'Tools',
-                      icon: <NavGlyph active={toolsOpen} name="tools" />,
-                      active: toolsOpen,
-                      trailing: <span className={toolsOpen ? 'rotate-180 inline-flex' : 'inline-flex'}><ChevronDownIcon /></span>,
-                      children: (
-                        <>
-                          {[['vast-validator', 'VAST Validator'], ['chain-validator', 'Chain Validator']].map(([slug, label]) => (
-                            <button
-                              key={slug}
-                              type="button"
-                              onClick={() => navigate(`/tools/${slug}`)}
-                              className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition ${
-                                location.pathname === `/tools/${slug}`
-                                  ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
-                                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white'
-                              }`}
-                            >
-                              {location.pathname === `/tools/${slug}` ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
-                              <NavGlyph active={location.pathname === `/tools/${slug}`} name="tools" />
-                              <span className="font-medium">{label}</span>
-                            </button>
-                          ))}
-                        </>
-                      ),
-                    },
-                    {
-                      label: 'Settings',
-                      icon: <NavGlyph active={settingsOpen} name="settings" />,
-                      active: settingsOpen,
-                      trailing: <span className={settingsOpen ? 'rotate-180 inline-flex' : 'inline-flex'}><ChevronDownIcon /></span>,
-                      children: (
-                        <>
-                          {[
-                            ['/settings/api-keys', 'API Keys', 'keys'],
-                            ...(canReadAudit ? [['/settings/audit-log', 'Audit Log', 'audit']] as const : []),
-                            ['/settings/workspace', 'Workspace', 'workspace'],
-                            ['/settings/webhooks', 'Webhooks', 'webhooks'],
-                          ].map(([path, label, name]) => (
-                            <button
-                              key={path}
-                              type="button"
-                              onClick={() => navigate(path)}
-                              className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition ${
-                                location.pathname === path
-                                  ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
-                                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white'
-                              }`}
-                            >
-                              {location.pathname === path ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
-                              <NavGlyph active={location.pathname === path} name={name as NavIconName} />
-                              <span className="font-medium">{label}</span>
-                            </button>
-                          ))}
-                        </>
-                      ),
-                    },
-                  ],
-                },
-              ]
-            : []),
-        ]}
-        moduleFocusItems={moduleFocusItems}
+        hasStudioAccess={hasStudioAccess}
+        studioUrl={getStudioUrl()}
+        toolsExpanded={toolsOpen}
+        settingsExpanded={settingsOpen}
+        toolsChildren={
+          <>
+            {[['vast-validator', 'VAST Validator'], ['chain-validator', 'Chain Validator']].map(([slug, label]) => (
+              <button
+                key={slug}
+                type="button"
+                onClick={() => navigate(`/tools/${slug}`)}
+                className={`group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left text-sm transition ${
+                  location.pathname === `/tools/${slug}`
+                    ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
+                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white'
+                }`}
+              >
+                {location.pathname === `/tools/${slug}` ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
+                  location.pathname === `/tools/${slug}`
+                    ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
+                    : 'border-slate-200 bg-white/60 text-slate-500 group-hover:border-fuchsia-200 group-hover:text-fuchsia-600 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/[0.56] dark:group-hover:border-fuchsia-500/20 dark:group-hover:text-fuchsia-300'
+                }`}>
+                  <Wrench className="h-5 w-5" strokeWidth={1.8} />
+                </span>
+                <span className="font-medium">{label}</span>
+              </button>
+            ))}
+          </>
+        }
+        settingsChildren={
+          <>
+            {([
+              ['/settings/api-keys', 'API Keys', KeyRound],
+              ...(canReadAudit ? [['/settings/audit-log', 'Audit Log', Shield]] : []),
+              ['/settings/workspace', 'Workspace', Shield],
+              ['/settings/webhooks', 'Webhooks', Webhook],
+            ] as Array<[string, string, typeof KeyRound]>).map(([path, label, Icon]) => (
+              <button
+                key={path}
+                type="button"
+                onClick={() => navigate(path)}
+                className={`group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left text-sm transition ${
+                  location.pathname === path
+                    ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
+                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white'
+                }`}
+              >
+                {location.pathname === path ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
+                  location.pathname === path
+                    ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
+                    : 'border-slate-200 bg-white/60 text-slate-500 group-hover:border-fuchsia-200 group-hover:text-fuchsia-600 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/[0.56] dark:group-hover:border-fuchsia-500/20 dark:group-hover:text-fuchsia-300'
+                }`}>
+                  <Icon className="h-5 w-5" strokeWidth={1.8} />
+                </span>
+                <span className="font-medium">{label}</span>
+              </button>
+            ))}
+          </>
+        }
         user={{
           initials: `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`,
           name: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim(),
           subtitle: user?.email ?? '',
+          systemLabel: 'Serving online',
+          systemValue: 'System healthy',
         }}
-      />
-
-      {/* Main area */}
-      <div className={`flex min-w-0 flex-1 flex-col ${isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]'}`}>
+      >
         {!isOverviewRoute && (
           <header className={`flex h-14 flex-shrink-0 items-center justify-between px-7 ${isDark ? 'border-b border-white/[0.06] bg-[#0b1020]' : 'border-b border-slate-200/80 bg-[#f6f3fb]'}`}>
             <div className="flex items-center gap-3">
               <div className={`hidden max-w-[360px] items-center gap-2 rounded-xl px-3 py-2 text-sm md:flex ${isDark ? 'border border-white/[0.08] bg-white/[0.03] text-white/35' : 'border border-slate-200 bg-white text-slate-400'}`}>
-                <SearchIcon />
+                <Search className="h-4 w-4" strokeWidth={1.8} />
                 <span className="truncate">Search campaigns, creatives, segments…</span>
                 <span className={`ml-auto rounded-md px-1.5 py-0.5 text-[11px] ${isDark ? 'bg-white/[0.05] text-white/22' : 'bg-slate-100 text-slate-400'}`}>⌘K</span>
               </div>
@@ -681,7 +565,7 @@ export default function Shell() {
                   <span className={`hidden text-sm md:block ${isDark ? 'text-white/75' : 'text-slate-700'}`}>
                     {user?.firstName} {user?.lastName}
                   </span>
-                  <span className={isDark ? 'text-white/25' : 'text-slate-400'}><ChevronDownIcon /></span>
+                  <span className={isDark ? 'text-white/25' : 'text-slate-400'}><ChevronDown className="h-4 w-4" strokeWidth={1.8} /></span>
                 </button>
 
                 {userMenuOpen && (
@@ -692,13 +576,13 @@ export default function Shell() {
                       <p className={`mt-1 text-[11px] uppercase tracking-[0.14em] ${isDark ? 'text-white/22' : 'text-slate-400'}`}>{getPlatformRoleLabel(user?.role)}</p>
                     </div>
                     <NavLink to="/settings/workspace" className={`mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition ${isDark ? 'text-white/65 hover:bg-white/[0.05] hover:text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`} onClick={() => setUserMenuOpen(false)}>
-                      <ShieldIcon />Settings
+                      <Shield className="h-4 w-4" strokeWidth={1.8} />Settings
                     </NavLink>
                     <button type="button" className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition ${isDark ? 'text-white/65 hover:bg-white/[0.05] hover:text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`} onClick={handleThemeToggle}>
-                      <ShieldIcon />{theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+                      <Shield className="h-4 w-4" strokeWidth={1.8} />{theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
                     </button>
                     <button className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition ${isDark ? 'text-red-300 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50'}`} onClick={handleLogout}>
-                      <ShieldIcon />Log out
+                      <Shield className="h-4 w-4" strokeWidth={1.8} />Log out
                     </button>
                   </div>
                 )}
@@ -727,9 +611,9 @@ export default function Shell() {
             </div>
           )}
         </main>
-      </div>
+      </AppShell>
 
       {userMenuOpen && <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />}
-    </div>
+    </>
   );
 }

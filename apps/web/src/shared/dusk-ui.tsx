@@ -1,4 +1,20 @@
 import React from 'react';
+import {
+  BarChart3,
+  FlaskConical,
+  Gauge,
+  Image,
+  KeyRound,
+  LayoutDashboard,
+  Link2,
+  Search,
+  Settings,
+  SquareKanban,
+  Tag,
+  TriangleAlert,
+  Webhook,
+  Wrench,
+} from 'lucide-react';
 
 export function cn(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(' ');
@@ -174,6 +190,8 @@ type DuskSidebarUser = {
   initials: string;
   name: string;
   subtitle: string;
+  systemLabel?: string;
+  systemValue?: string;
 };
 
 function DuskSidebarItemRow({
@@ -188,10 +206,10 @@ function DuskSidebarItemRow({
       {item.active ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
       <span
         className={cn(
-          'inline-flex h-9 w-9 items-center justify-center rounded-lg border transition',
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition',
           item.active
             ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-            : 'border-slate-200 bg-white/60 text-slate-500 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/[0.56]',
+            : 'border-slate-200 bg-white/60 text-slate-500 group-hover:border-fuchsia-200 group-hover:text-fuchsia-600 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/[0.56] dark:group-hover:border-fuchsia-500/20 dark:group-hover:text-fuchsia-300',
         )}
       >
         {item.icon}
@@ -218,7 +236,7 @@ function DuskSidebarItemRow({
   );
 
   const className = cn(
-    'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition',
+    'group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left text-sm transition',
     item.active
       ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
       : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white',
@@ -289,7 +307,7 @@ export function DuskSidebar({
             </div>
           ))}
 
-          <div className={cn('mt-4 border-t pt-3', isDark ? 'border-white/[0.08]' : 'border-slate-200')}>
+          <div className={cn('mt-5 border-t pt-4', isDark ? 'border-white/[0.08]' : 'border-slate-200')}>
             <div className="px-3 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 dark:text-white/[0.22]">
               Module focus
             </div>
@@ -318,6 +336,20 @@ export function DuskSidebar({
         </nav>
 
         <div className={cn('mt-3 border-t px-2 pt-3', isDark ? 'border-white/[0.06]' : 'border-slate-200')}>
+          <div className="flex items-center justify-between px-1 pb-2">
+            <div>
+              <p className={cn('text-[11px] font-medium', isDark ? 'text-white/[0.38]' : 'text-slate-500')}>
+                {user.systemLabel ?? 'Serving online'}
+              </p>
+              <p className={cn('text-sm font-semibold', isDark ? 'text-white/[0.82]' : 'text-slate-800')}>
+                {user.systemValue ?? 'System healthy'}
+              </p>
+            </div>
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-45" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            </span>
+          </div>
           <div className="flex items-center gap-3 rounded-xl px-1 py-1.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f1008b_0%,#8b5cf6_100%)] text-xs font-bold text-white">
               {user.initials}
@@ -334,5 +366,153 @@ export function DuskSidebar({
         </div>
       </div>
     </aside>
+  );
+}
+
+export type SidebarItemName =
+  | 'Overview'
+  | 'Campaigns'
+  | 'Tags'
+  | 'Creatives'
+  | 'Pacing'
+  | 'Discrepancies'
+  | 'Reporting'
+  | 'Experiments'
+  | 'Tools'
+  | 'Settings';
+
+export type ContextualFocusItem = {
+  label: string;
+  count?: string;
+  active?: boolean;
+};
+
+function sidebarIcon(name: SidebarItemName) {
+  const className = 'h-5 w-5';
+  switch (name) {
+    case 'Overview':
+      return <LayoutDashboard className={className} strokeWidth={1.8} />;
+    case 'Campaigns':
+      return <SquareKanban className={className} strokeWidth={1.8} />;
+    case 'Tags':
+      return <Tag className={className} strokeWidth={1.8} />;
+    case 'Creatives':
+      return <Image className={className} strokeWidth={1.8} />;
+    case 'Pacing':
+      return <Gauge className={className} strokeWidth={1.8} />;
+    case 'Discrepancies':
+      return <TriangleAlert className={className} strokeWidth={1.8} />;
+    case 'Reporting':
+      return <BarChart3 className={className} strokeWidth={1.8} />;
+    case 'Experiments':
+      return <FlaskConical className={className} strokeWidth={1.8} />;
+    case 'Tools':
+      return <Wrench className={className} strokeWidth={1.8} />;
+    case 'Settings':
+      return <Settings className={className} strokeWidth={1.8} />;
+  }
+}
+
+export function AppShell({
+  isDark,
+  activeItem,
+  contextualFocus,
+  badgeCounts,
+  workspaceSlot,
+  hasStudioAccess,
+  studioUrl,
+  toolsExpanded,
+  settingsExpanded,
+  toolsChildren,
+  settingsChildren,
+  user,
+  children,
+}: {
+  isDark: boolean;
+  activeItem: SidebarItemName;
+  contextualFocus?: ContextualFocusItem[];
+  badgeCounts?: Partial<Record<SidebarItemName, string>>;
+  workspaceSlot: React.ReactNode;
+  hasStudioAccess?: boolean;
+  studioUrl?: string;
+  toolsExpanded?: boolean;
+  settingsExpanded?: boolean;
+  toolsChildren?: React.ReactNode;
+  settingsChildren?: React.ReactNode;
+  user: DuskSidebarUser;
+  children: React.ReactNode;
+}) {
+  const sections: DuskSidebarSection[] = [
+    {
+      label: 'Operations',
+      items: (['Overview', 'Campaigns', 'Tags', 'Creatives'] as const).map((label) => ({
+        label,
+        icon: sidebarIcon(label),
+        active: activeItem === label,
+        badge: badgeCounts?.[label],
+      })),
+    },
+    {
+      label: 'Monitoring',
+      items: (['Pacing', 'Discrepancies', 'Reporting'] as const).map((label) => ({
+        label,
+        icon: sidebarIcon(label),
+        active: activeItem === label,
+        badge: badgeCounts?.[label],
+      })),
+    },
+  ];
+
+  if (hasStudioAccess && studioUrl) {
+    sections.push({
+      label: 'Connected',
+      items: [
+        {
+          label: 'Open Studio',
+          icon: <Link2 className="h-5 w-5" strokeWidth={1.8} />,
+          href: studioUrl,
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        },
+      ],
+    });
+  }
+
+  sections.push({
+    label: 'System',
+    items: [
+      {
+        label: 'Tools',
+        icon: sidebarIcon('Tools'),
+        active: activeItem === 'Tools',
+        trailing: toolsExpanded ? '−' : '+',
+        children: toolsChildren,
+        badge: badgeCounts?.Tools,
+      },
+      {
+        label: 'Settings',
+        icon: sidebarIcon('Settings'),
+        active: activeItem === 'Settings',
+        trailing: settingsExpanded ? '−' : '+',
+        children: settingsChildren,
+        badge: badgeCounts?.Settings,
+      },
+    ],
+  });
+
+  return (
+    <div className={cn('flex min-h-screen overflow-hidden', isDark ? 'bg-[#0b1020] text-white' : 'bg-[#f6f3fb] text-slate-950')}>
+      <GlobalScrollbarStyles />
+      <DuskSidebar
+        isDark={isDark}
+        workspaceSlot={workspaceSlot}
+        sections={sections}
+        moduleFocusItems={contextualFocus ?? []}
+        user={user}
+      />
+      <div className={cn('flex min-w-0 flex-1 flex-col', isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]')}>
+        {children}
+      </div>
+    </div>
   );
 }
