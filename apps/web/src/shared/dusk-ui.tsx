@@ -145,3 +145,194 @@ export function StatusBadge({
     </span>
   );
 }
+
+type DuskSidebarItem = {
+  label: string;
+  icon: React.ReactNode;
+  active?: boolean;
+  badge?: string;
+  trailing?: React.ReactNode;
+  href?: string;
+  target?: string;
+  rel?: string;
+  onClick?: React.MouseEventHandler<HTMLElement>;
+  children?: React.ReactNode;
+};
+
+type DuskSidebarSection = {
+  label: string;
+  items: DuskSidebarItem[];
+};
+
+type DuskSidebarFocusItem = {
+  label: string;
+  count?: string;
+  active?: boolean;
+};
+
+type DuskSidebarUser = {
+  initials: string;
+  name: string;
+  subtitle: string;
+};
+
+function DuskSidebarItemRow({
+  item,
+  isDark,
+}: {
+  item: DuskSidebarItem;
+  isDark: boolean;
+}) {
+  const content = (
+    <>
+      {item.active ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
+      <span
+        className={cn(
+          'inline-flex h-9 w-9 items-center justify-center rounded-lg border transition',
+          item.active
+            ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
+            : 'border-slate-200 bg-white/60 text-slate-500 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/[0.56]',
+        )}
+      >
+        {item.icon}
+      </span>
+      <span className="min-w-0 flex-1 truncate font-medium">{item.label}</span>
+      {item.badge ? (
+        <span
+          className={cn(
+            'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+            item.active
+              ? 'bg-fuchsia-600 text-white'
+              : 'bg-slate-100 text-slate-500 dark:bg-white/[0.08] dark:text-white/[0.56]',
+          )}
+        >
+          {item.badge}
+        </span>
+      ) : null}
+      {item.trailing ? (
+        <span className={cn('ml-auto text-xs transition', isDark ? 'text-white/[0.25]' : 'text-slate-300')}>
+          {item.trailing}
+        </span>
+      ) : null}
+    </>
+  );
+
+  const className = cn(
+    'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition',
+    item.active
+      ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
+      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white',
+  );
+
+  if (item.href) {
+    return (
+      <a
+        href={item.href}
+        target={item.target}
+        rel={item.rel}
+        className={className}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button type="button" className={cn(className, 'w-full text-left')} onClick={item.onClick}>
+      {content}
+    </button>
+  );
+}
+
+export function DuskSidebar({
+  isDark,
+  workspaceSlot,
+  sections,
+  moduleFocusItems,
+  user,
+}: {
+  isDark: boolean;
+  workspaceSlot: React.ReactNode;
+  sections: DuskSidebarSection[];
+  moduleFocusItems: DuskSidebarFocusItem[];
+  user: DuskSidebarUser;
+}) {
+  return (
+    <aside
+      className={cn(
+        'app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto border-r px-3 py-4 backdrop-blur-xl lg:block',
+        isDark ? 'border-white/10 bg-[#0b1020]/90' : 'border-slate-200/80 bg-white/84',
+      )}
+    >
+      <div className="flex min-h-full flex-col">
+        <div className="px-1 pb-3">
+          <DuskLogo className={isDark ? 'h-[34px] w-[136px] text-white' : 'h-[34px] w-[136px] text-slate-950'} />
+          <p className={cn('mt-1 text-xs font-medium', isDark ? 'text-white/40' : 'text-slate-500')}>Adserver workspace</p>
+        </div>
+
+        {workspaceSlot}
+
+        <nav className="mt-3 flex-1">
+          {sections.map((section) => (
+            <div key={section.label} className="mt-3 first:mt-0">
+              <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 dark:text-white/[0.22]">
+                {section.label}
+              </div>
+              <div className="space-y-0.5">
+                {section.items.map((item) => (
+                  <div key={item.label}>
+                    <DuskSidebarItemRow item={item} isDark={isDark} />
+                    {item.children ? <div className="space-y-0.5 pl-5">{item.children}</div> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <div className={cn('mt-4 border-t pt-3', isDark ? 'border-white/[0.08]' : 'border-slate-200')}>
+            <div className="px-3 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 dark:text-white/[0.22]">
+              Module focus
+            </div>
+            <div className="mt-1 space-y-0.5 px-1">
+              {moduleFocusItems.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  className={cn(
+                    'flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition',
+                    item.active
+                      ? 'text-fuchsia-700 dark:text-fuchsia-300'
+                      : 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800 dark:text-white/[0.48] dark:hover:bg-white/[0.04] dark:hover:text-white/[0.72]',
+                  )}
+                >
+                  <span>{item.label}</span>
+                  {item.count ? (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-white/[0.08] dark:text-white/[0.46]">
+                      {item.count}
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        </nav>
+
+        <div className={cn('mt-3 border-t px-2 pt-3', isDark ? 'border-white/[0.06]' : 'border-slate-200')}>
+          <div className="flex items-center gap-3 rounded-xl px-1 py-1.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f1008b_0%,#8b5cf6_100%)] text-xs font-bold text-white">
+              {user.initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className={cn('truncate text-sm font-medium', isDark ? 'text-white' : 'text-slate-900')}>
+                {user.name}
+              </div>
+              <div className={cn('truncate text-[11px]', isDark ? 'text-white/[0.28]' : 'text-slate-400')}>
+                {user.subtitle}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}

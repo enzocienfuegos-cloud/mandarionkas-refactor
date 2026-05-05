@@ -39,7 +39,7 @@ import {
   type ThemeMode,
 } from '../shared/theme';
 import type { PlatformRole, ProductAccess } from '../shared/roles';
-import { DuskLogo, GlobalScrollbarStyles, SectionKicker } from '../shared/dusk-ui';
+import { DuskSidebar, GlobalScrollbarStyles } from '../shared/dusk-ui';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -147,20 +147,6 @@ function NavGlyph({ active, name }: { active: boolean; name: NavIconName }) {
   );
 }
 
-function navLinkClass({ isActive }: { isActive: boolean }) {
-  return `group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-    isActive
-      ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
-      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white'
-  }`;
-}
-
-const SectionLabel = ({ label }: { label: string }) => (
-  <div className="px-3 pb-1 pt-5 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 dark:text-white/[0.22]">
-    {label}
-  </div>
-);
-
 function getStudioUrl(): string {
   const configured = import.meta.env.VITE_STUDIO_URL?.trim();
   if (configured) return configured;
@@ -192,31 +178,6 @@ function WorkspaceAccessBadge({
       {label}
     </span>
   );
-}
-
-function getModuleFocusItems(pathname: string) {
-  if (pathname.startsWith('/overview')) {
-    return ['Needs review', 'Launch readiness', 'Quick ops'];
-  }
-  if (pathname.startsWith('/campaigns')) {
-    return ['Needs attention', 'Ready to launch', 'Draft setup'];
-  }
-  if (pathname.startsWith('/tags')) {
-    return ['Low firing', 'Missing cachebuster', 'Recently updated'];
-  }
-  if (pathname.startsWith('/creatives')) {
-    return ['Pending QA', 'Rejected specs', 'Missing preview'];
-  }
-  if (pathname.startsWith('/pacing')) {
-    return ['Behind target', 'Overpacing', 'Ending soon'];
-  }
-  if (pathname.startsWith('/discrepancies')) {
-    return ['Above threshold', 'Pending reconciliation', 'Recently resolved'];
-  }
-  if (pathname.startsWith('/reporting')) {
-    return ['Scheduled reports', 'Failed exports', 'Favorite reports'];
-  }
-  return ['Operational tools', 'Workspace controls', 'System defaults'];
 }
 
 // ---------------------------------------------------------------------------
@@ -363,7 +324,62 @@ export default function Shell() {
   const toolsOpen    = location.pathname.startsWith('/tools');
   const settingsOpen = location.pathname.startsWith('/settings');
   const isOverviewRoute = location.pathname.startsWith('/overview');
-  const moduleFocusItems = useMemo(() => getModuleFocusItems(location.pathname), [location.pathname]);
+  const moduleFocusItems = useMemo(() => {
+    if (location.pathname.startsWith('/overview')) {
+      return [
+        { label: 'Needs review', count: '2', active: true },
+        { label: 'Launch readiness', count: '1' },
+        { label: 'Quick ops' },
+      ];
+    }
+    if (location.pathname.startsWith('/campaigns')) {
+      return [
+        { label: 'Needs attention', count: '2', active: true },
+        { label: 'Ready to launch', count: '1' },
+        { label: 'Draft setup', count: '1' },
+      ];
+    }
+    if (location.pathname.startsWith('/tags')) {
+      return [
+        { label: 'Low firing', count: '3', active: true },
+        { label: 'Missing cachebuster', count: '1' },
+        { label: 'Recently updated' },
+      ];
+    }
+    if (location.pathname.startsWith('/creatives')) {
+      return [
+        { label: 'Pending QA', count: '4', active: true },
+        { label: 'Rejected specs', count: '2' },
+        { label: 'Missing preview', count: '1' },
+      ];
+    }
+    if (location.pathname.startsWith('/pacing')) {
+      return [
+        { label: 'Behind target', count: '2', active: true },
+        { label: 'Overpacing', count: '1' },
+        { label: 'Ending soon' },
+      ];
+    }
+    if (location.pathname.startsWith('/discrepancies')) {
+      return [
+        { label: 'Above threshold', count: '2', active: true },
+        { label: 'Pending reconciliation', count: '1' },
+        { label: 'Recently resolved' },
+      ];
+    }
+    if (location.pathname.startsWith('/reporting')) {
+      return [
+        { label: 'Scheduled reports', count: '3', active: true },
+        { label: 'Failed exports', count: '1' },
+        { label: 'Favorite reports' },
+      ];
+    }
+    return [
+      { label: 'Operational tools', active: true },
+      { label: 'Workspace controls' },
+      { label: 'System defaults' },
+    ];
+  }, [location.pathname]);
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -440,178 +456,166 @@ export default function Shell() {
   return (
     <div className={`mandarion-shell flex min-h-screen overflow-hidden ${isDark ? 'bg-[#0b1020] text-white' : 'bg-[#f6f3fb] text-slate-900'}`}>
       <GlobalScrollbarStyles />
-      {/* Sidebar */}
-      <aside className={`app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto border-r px-3 py-4 backdrop-blur-xl lg:block ${isDark ? 'border-white/10 bg-[#0b1020]/90' : 'border-slate-200/80 bg-white/84'}`}>
-        <div className="px-2 pb-4">
-          <DuskLogo className={isDark ? 'h-[34px] w-[136px] text-white' : 'h-[34px] w-[136px] text-slate-950'} />
-          <p className={`mt-1 text-xs font-medium ${isDark ? 'text-white/40' : 'text-slate-500'}`}>Adserver workspace</p>
-        </div>
-
-        <div className={`rounded-[24px] border px-4 py-4 ${isDark ? 'border-white/[0.07] bg-white/[0.025]' : 'border-slate-200/80 bg-white/72'}`}>
-          <SectionKicker>Advertiser</SectionKicker>
-          <div className="relative mt-3">
-            <select
-              value={user?.workspace.id ?? ''}
-              onChange={(e) => void handleWorkspaceSwitch(e.target.value)}
-              disabled={workspaceBusy}
-              className={`h-14 w-full appearance-none rounded-2xl border px-4 pr-10 text-sm font-medium outline-none transition ${isDark ? 'border-white/[0.08] bg-white/[0.03] text-white' : 'border-slate-200 bg-white text-slate-800'} disabled:opacity-60`}
-            >
-              {workspaces.map((ws) => (
-                <option key={ws.id} value={ws.id} className={isDark ? 'bg-[#111114] text-white' : 'bg-white text-slate-900'}>
-                  {ws.name}
-                </option>
-              ))}
-            </select>
-            <span className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>
-              <ChevronDownIcon />
-            </span>
-          </div>
-          <p className={`mt-2 text-xs ${isDark ? 'text-white/34' : 'text-slate-500'}`}>{workspaces.length} active clients</p>
-          <label className="relative mt-4 block">
-            <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/36' : 'text-slate-400'}`}>
-              <SearchIcon />
-            </span>
-            <input
-              readOnly
-              value=""
-              placeholder="Jump to campaign"
-              className={`h-10 w-full rounded-xl border pl-9 pr-10 text-sm outline-none transition ${isDark ? 'border-white/8 bg-white/[0.025] text-white placeholder:text-white/30 focus:border-fuchsia-500/26' : 'border-slate-200 bg-white/58 text-slate-800 placeholder:text-slate-400 focus:border-fuchsia-300'} `}
-            />
-          </label>
-        </div>
-
-        <nav className="app-scrollbar flex-1 overflow-y-auto px-2 pb-3">
-          {hasAdServerAccess && (
-            <>
-              <SectionLabel label="Operations" />
-              {(['overview', 'campaigns', 'tags', 'creatives'] as const).map((name) => (
-                <NavLink key={name} to={`/${name}`} className={navLinkClass}>
-                  {({ isActive }) => (
-                    <>
-                      {isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
-                      <NavGlyph active={isActive} name={name} />
-                      <span className="font-medium capitalize">{name}</span>
-                    </>
-                  )}
-                </NavLink>
-              ))}
-
-              <SectionLabel label="Monitoring" />
-              {(['pacing', 'discrepancies', 'reporting', 'experiments'] as const).map((name) => (
-                <NavLink key={name} to={`/${name}`} className={navLinkClass}>
-                  {({ isActive }) => (
-                    <>
-                      {isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
-                      <NavGlyph active={isActive} name={name} />
-                      <span className="font-medium capitalize">{name}</span>
-                    </>
-                  )}
-                </NavLink>
-              ))}
-            </>
-          )}
-
-          <SectionLabel label="Module focus" />
-          <div className="space-y-1 px-3">
-            {moduleFocusItems.map((item) => (
-              <div
-                key={item}
-                className={`rounded-xl px-3 py-2 text-sm ${isDark ? 'text-white/56 hover:bg-white/[0.04]' : 'text-slate-500 hover:bg-slate-100/80'}`}
+      <DuskSidebar
+        isDark={isDark}
+        workspaceSlot={
+          <div className={isDark ? 'rounded-[20px] border border-white/[0.07] bg-white/[0.025] px-4 py-3' : 'rounded-[20px] border border-slate-200/80 bg-white/72 px-4 py-3'}>
+            <div className={isDark ? 'text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.22]' : 'text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400'}>
+              Advertiser
+            </div>
+            <div className="relative mt-2.5">
+              <select
+                value={user?.workspace.id ?? ''}
+                onChange={(e) => void handleWorkspaceSwitch(e.target.value)}
+                disabled={workspaceBusy}
+                className={`h-12 w-full appearance-none rounded-xl border px-4 pr-10 text-sm font-medium outline-none transition ${isDark ? 'border-white/[0.08] bg-white/[0.03] text-white' : 'border-slate-200 bg-white text-slate-800'} disabled:opacity-60`}
               >
-                {item}
-              </div>
-            ))}
+                {workspaces.map((ws) => (
+                  <option key={ws.id} value={ws.id} className={isDark ? 'bg-[#111114] text-white' : 'bg-white text-slate-900'}>
+                    {ws.name}
+                  </option>
+                ))}
+              </select>
+              <span className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>
+                <ChevronDownIcon />
+              </span>
+            </div>
+            <p className={`mt-1.5 text-xs ${isDark ? 'text-white/34' : 'text-slate-500'}`}>{workspaces.length} active clients</p>
+            <label className="relative mt-3 block">
+              <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/36' : 'text-slate-400'}`}>
+                <SearchIcon />
+              </span>
+              <input
+                readOnly
+                value=""
+                placeholder="Jump to campaign"
+                className={`h-10 w-full rounded-xl border pl-9 pr-10 text-sm outline-none transition ${isDark ? 'border-white/8 bg-white/[0.025] text-white placeholder:text-white/30 focus:border-fuchsia-500/26' : 'border-slate-200 bg-white/58 text-slate-800 placeholder:text-slate-400 focus:border-fuchsia-300'}`}
+              />
+            </label>
           </div>
-
-          <SectionLabel label="Connected" />
-          {hasStudioAccess && (
-            <a
-              href={getStudioUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${isDark ? 'text-white/55 hover:bg-white/[0.04] hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
-            >
-              <NavGlyph active={false} name="studio" />
-              <span className="font-medium">Open Studio</span>
-              <span className={`ml-auto text-xs transition ${isDark ? 'text-white/25 group-hover:text-white/45' : 'text-slate-300 group-hover:text-slate-500'}`}>↗</span>
-            </a>
-          )}
-
-          {hasAdServerAccess && (
-            <>
-              <SectionLabel label="System" />
-              <NavLink to="/tools" className={navLinkClass}>
-                {({ isActive }) => (
-                  <>
-                    {isActive || toolsOpen ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
-                    <NavGlyph active={isActive || toolsOpen} name="tools" />
-                    <span className="font-medium">Tools</span>
-                    <span className={`ml-auto transition ${toolsOpen ? 'rotate-180' : ''} ${isDark ? 'text-white/25' : 'text-slate-300'}`}><ChevronDownIcon /></span>
-                  </>
-                )}
-              </NavLink>
-              {toolsOpen && (
-                <div className="space-y-1 pl-5">
-                  {[['vast-validator', 'VAST Validator'], ['chain-validator', 'Chain Validator']].map(([slug, label]) => (
-                  <NavLink key={slug} to={`/tools/${slug}`} className={navLinkClass}>
-                    {({ isActive }) => (
-                      <>
-                        {isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
-                        <NavGlyph active={isActive} name="tools" />
-                        <span className="font-medium">{label}</span>
+        }
+        sections={[
+          ...(hasAdServerAccess
+            ? [
+                {
+                  label: 'Operations',
+                  items: ([
+                    ['overview', 'Overview'],
+                    ['campaigns', 'Campaigns'],
+                    ['tags', 'Tags'],
+                    ['creatives', 'Creatives'],
+                  ] as const).map(([name, label]) => ({
+                    label,
+                    icon: <NavGlyph active={location.pathname.startsWith(`/${name}`)} name={name} />,
+                    active: location.pathname.startsWith(`/${name}`),
+                  })),
+                },
+                {
+                  label: 'Monitoring',
+                  items: ([
+                    ['pacing', 'Pacing'],
+                    ['discrepancies', 'Discrepancies'],
+                    ['reporting', 'Reporting'],
+                    ['experiments', 'Experiments'],
+                  ] as const).map(([name, label]) => ({
+                    label,
+                    icon: <NavGlyph active={location.pathname.startsWith(`/${name}`)} name={name} />,
+                    active: location.pathname.startsWith(`/${name}`),
+                  })),
+                },
+              ]
+            : []),
+          ...(hasStudioAccess
+            ? [
+                {
+                  label: 'Connected',
+                  items: [
+                    {
+                      label: 'Open Studio',
+                      icon: <NavGlyph active={false} name="studio" />,
+                      href: getStudioUrl(),
+                      target: '_blank',
+                      rel: 'noopener noreferrer',
+                      trailing: '↗',
+                    },
+                  ],
+                },
+              ]
+            : []),
+          ...(hasAdServerAccess
+            ? [
+                {
+                  label: 'System',
+                  items: [
+                    {
+                      label: 'Tools',
+                      icon: <NavGlyph active={toolsOpen} name="tools" />,
+                      active: toolsOpen,
+                      trailing: <span className={toolsOpen ? 'rotate-180 inline-flex' : 'inline-flex'}><ChevronDownIcon /></span>,
+                      children: (
+                        <>
+                          {[['vast-validator', 'VAST Validator'], ['chain-validator', 'Chain Validator']].map(([slug, label]) => (
+                            <button
+                              key={slug}
+                              type="button"
+                              onClick={() => navigate(`/tools/${slug}`)}
+                              className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition ${
+                                location.pathname === `/tools/${slug}`
+                                  ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
+                                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white'
+                              }`}
+                            >
+                              {location.pathname === `/tools/${slug}` ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
+                              <NavGlyph active={location.pathname === `/tools/${slug}`} name="tools" />
+                              <span className="font-medium">{label}</span>
+                            </button>
+                          ))}
                         </>
-                      )}
-                    </NavLink>
-                  ))}
-                </div>
-              )}
-
-              <NavLink to="/settings" className={navLinkClass}>
-                {({ isActive }) => (
-                  <>
-                    {isActive || settingsOpen ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
-                    <NavGlyph active={isActive || settingsOpen} name="settings" />
-                    <span className="font-medium">Settings</span>
-                    <span className={`ml-auto transition ${settingsOpen ? 'rotate-180' : ''} ${isDark ? 'text-white/25' : 'text-slate-300'}`}><ChevronDownIcon /></span>
-                  </>
-                )}
-              </NavLink>
-              {settingsOpen && (
-                <div className="space-y-1 pl-5">
-                  <NavLink to="/settings/api-keys" className={navLinkClass}>
-                    {({ isActive }) => (<>{isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}<NavGlyph active={isActive} name="keys" /><span className="font-medium">API Keys</span></>)}
-                  </NavLink>
-                  {canReadAudit && (
-                    <NavLink to="/settings/audit-log" className={navLinkClass}>
-                      {({ isActive }) => (<>{isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}<NavGlyph active={isActive} name="audit" /><span className="font-medium">Audit Log</span></>)}
-                    </NavLink>
-                  )}
-                  <NavLink to="/settings/workspace" className={navLinkClass}>
-                    {({ isActive }) => (<>{isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}<NavGlyph active={isActive} name="workspace" /><span className="font-medium">Workspace</span></>)}
-                  </NavLink>
-                  <NavLink to="/settings/webhooks" className={navLinkClass}>
-                    {({ isActive }) => (<>{isActive ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}<NavGlyph active={isActive} name="webhooks" /><span className="font-medium">Webhooks</span></>)}
-                  </NavLink>
-                </div>
-              )}
-            </>
-          )}
-        </nav>
-
-        <div className={`mt-3 px-3 py-3 ${isDark ? 'border-t border-white/[0.06]' : 'border-t border-slate-200'}`}>
-          <div className="flex items-center gap-3 rounded-xl px-2 py-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f1008b_0%,#8b5cf6_100%)] text-xs font-bold text-white">
-              {user?.firstName?.[0]}{user?.lastName?.[0]}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className={`truncate text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                {user?.firstName} {user?.lastName}
-              </div>
-              <div className={`truncate text-[11px] ${isDark ? 'text-white/28' : 'text-slate-400'}`}>{user?.email}</div>
-            </div>
-          </div>
-        </div>
-      </aside>
+                      ),
+                    },
+                    {
+                      label: 'Settings',
+                      icon: <NavGlyph active={settingsOpen} name="settings" />,
+                      active: settingsOpen,
+                      trailing: <span className={settingsOpen ? 'rotate-180 inline-flex' : 'inline-flex'}><ChevronDownIcon /></span>,
+                      children: (
+                        <>
+                          {[
+                            ['/settings/api-keys', 'API Keys', 'keys'],
+                            ...(canReadAudit ? [['/settings/audit-log', 'Audit Log', 'audit']] as const : []),
+                            ['/settings/workspace', 'Workspace', 'workspace'],
+                            ['/settings/webhooks', 'Webhooks', 'webhooks'],
+                          ].map(([path, label, name]) => (
+                            <button
+                              key={path}
+                              type="button"
+                              onClick={() => navigate(path)}
+                              className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition ${
+                                location.pathname === path
+                                  ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
+                                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white'
+                              }`}
+                            >
+                              {location.pathname === path ? <span className="absolute left-0 top-2.5 h-9 w-1 rounded-r-full bg-fuchsia-500" /> : null}
+                              <NavGlyph active={location.pathname === path} name={name as NavIconName} />
+                              <span className="font-medium">{label}</span>
+                            </button>
+                          ))}
+                        </>
+                      ),
+                    },
+                  ],
+                },
+              ]
+            : []),
+        ]}
+        moduleFocusItems={moduleFocusItems}
+        user={{
+          initials: `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`,
+          name: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim(),
+          subtitle: user?.email ?? '',
+        }}
+      />
 
       {/* Main area */}
       <div className={`flex min-w-0 flex-1 flex-col ${isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]'}`}>
