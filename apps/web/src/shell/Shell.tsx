@@ -21,8 +21,7 @@
 //      No client-side inference from workspace rows.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronDown, Search, Shield } from 'lucide-react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   loadAuthMe,
   loadWorkspaces,
@@ -84,9 +83,6 @@ export default function Shell() {
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [loading, setLoading]     = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [workspaceBusy, setWorkspaceBusy] = useState(false);
-  const [clientError, setClientError] = useState('');
   const [jumpSearch, setJumpSearch] = useState('');
   const [theme, setTheme] = useState<ThemeMode>(() => getInitialTheme());
 
@@ -203,18 +199,6 @@ export default function Shell() {
   const canReadAudit      = Boolean(user?.permissions.includes('audit:read'));
   const isDark            = theme === 'dark';
 
-  const showClientSwitcher = useMemo(() => {
-    const agnosticPrefixes = [
-      '/overview', '/campaigns', '/tags', '/creatives', '/reporting',
-      '/pacing', '/discrepancies', '/experiments', '/clients', '/tools', '/settings',
-    ];
-    return (
-      !agnosticPrefixes.some((p) => location.pathname.startsWith(p)) ||
-      !hasAdServerAccess
-    );
-  }, [hasAdServerAccess, location.pathname]);
-
-  const isOverviewRoute = location.pathname.startsWith('/overview');
   const campaignFocus: SidebarFocusItem[] = useMemo(() => {
     if (location.pathname.startsWith('/campaigns')) {
       return [
@@ -223,13 +207,7 @@ export default function Shell() {
         { label: 'Draft setup', count: '1' },
       ];
     }
-    if (location.pathname.startsWith('/tags')) {
-      return [
-        { label: 'Low firing', count: '3', active: true },
-        { label: 'Missing cachebuster', count: '1' },
-        { label: 'Recently updated' },
-      ];
-    }
+    if (location.pathname.startsWith('/tags')) return [];
     if (location.pathname.startsWith('/creatives')) {
       return [
         { label: 'Pending QA', count: '4', active: true },
@@ -269,24 +247,15 @@ export default function Shell() {
   // Handlers
   // ---------------------------------------------------------------------------
 
-  const handleLogout = async () => {
-    await fetch('/v1/auth/logout', { method: 'POST', credentials: 'include' });
-    navigate('/login');
-  };
-
   const handleWorkspaceSwitch = async (workspaceId: string) => {
     if (!workspaceId || workspaceId === user?.workspace.id) return;
-    setWorkspaceBusy(true);
-    setClientError('');
     try {
       const authMe = await switchWorkspace(workspaceId);
       const wsList = await loadWorkspaces('all');
       setUser(buildShellUser(authMe));
       setWorkspaces(wsList);
-    } catch (error: unknown) {
-      setClientError((error as Error)?.message ?? 'Failed to switch client');
-    } finally {
-      setWorkspaceBusy(false);
+    } catch {
+      // Keep the current workspace selected when switch fails.
     }
   };
 
@@ -409,7 +378,6 @@ export default function Shell() {
         </main>
       </AppShell>
 
-      {userMenuOpen && <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />}
     </>
   );
 }

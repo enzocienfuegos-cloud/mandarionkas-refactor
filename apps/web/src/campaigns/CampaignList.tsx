@@ -206,11 +206,11 @@ function toneClass(tone: Tone) {
 
 function statusBadge(status: CampaignStatus) {
   const map: Record<CampaignStatus, string> = {
-    Live: 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/22 dark:bg-emerald-500/10 dark:text-emerald-300',
-    Limited: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/22 dark:bg-amber-500/10 dark:text-amber-300',
-    Blocked: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300',
-    Ready: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/22 dark:bg-sky-500/10 dark:text-sky-300',
-    Draft: 'border-slate-300/70 bg-slate-50 text-slate-700 dark:border-white/12 dark:bg-white/[0.05] dark:text-white/70',
+    Live: 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/25 dark:text-emerald-300',
+    Limited: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300',
+    Blocked: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/25 dark:text-rose-300',
+    Ready: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/25 dark:text-sky-300',
+    Draft: 'border-slate-300/70 bg-slate-50 text-slate-700 dark:border-white/20 dark:bg-white/[0.12] dark:text-white/70',
   };
   return map[status];
 }
@@ -399,140 +399,6 @@ function CampaignsTable({
           </table>
         </div>
       )}
-    </Panel>
-  );
-}
-
-// ─── Consistency system ───────────────────────────────────────────────────────
-
-const modulePatterns = [
-  { module: 'Tags', primaryMetric: 'Tag firing health', mainTable: 'Tag list', primaryAction: 'Generate tag', keySignals: 'Firing status, placement, last seen, implementation risk' },
-  { module: 'Creatives', primaryMetric: 'Creative eligibility', mainTable: 'Creative QA queue', primaryAction: 'Upload creative', keySignals: 'Spec match, approval, preview, assigned campaign' },
-  { module: 'Pacing', primaryMetric: 'Budget delivery', mainTable: 'Pacing exceptions', primaryAction: 'Review pacing', keySignals: 'Spend vs plan, daily target, under/over delivery' },
-  { module: 'Discrepancies', primaryMetric: 'Variance risk', mainTable: 'Discrepancy report', primaryAction: 'Investigate gap', keySignals: 'Adserver vs publisher, threshold, affected campaign' },
-  { module: 'Reporting', primaryMetric: 'Reporting freshness', mainTable: 'Saved reports', primaryAction: 'Create report', keySignals: 'Date range, metrics, export, schedule' },
-];
-
-function ConsistencySystem() {
-  return (
-    <Panel className="p-6">
-      <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <SectionKicker>System consistency</SectionKicker>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">One screen pattern for every Ad Ops module</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-white/56">
-            Every view should reuse the same shell: sidebar, page header, filters, metric strip, primary table, contextual panel and action states. Only the domain language changes.
-          </p>
-        </div>
-        <div className="inline-flex rounded-2xl border border-slate-200 bg-white/70 p-1 text-sm dark:border-white/8 dark:bg-white/[0.03]">
-          <span className="rounded-xl bg-fuchsia-50 px-3 py-2 font-semibold text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">Light</span>
-          <span className="rounded-xl px-3 py-2 font-semibold text-slate-500 dark:text-white/48">Dark</span>
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-4 xl:grid-cols-2">
-        <div className="rounded-3xl border border-slate-200 bg-[#f6f3fb] p-5 dark:border-white/8">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-900">Light mode</p>
-            <span className="rounded-full bg-fuchsia-50 px-3 py-1 text-xs font-semibold text-fuchsia-700">Active accent</span>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="text-xs text-slate-500">Surface</p>
-              <p className="mt-1 font-semibold text-slate-950">#FFFFFF</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs text-slate-500">Background</p>
-              <p className="mt-1 font-semibold text-slate-950">#F6F3FB</p>
-            </div>
-            <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 p-4">
-              <p className="text-xs text-fuchsia-700/70">Accent</p>
-              <p className="mt-1 font-semibold text-fuchsia-700">#F1008B</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-[#0b1020] p-5 text-white">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-white">Dark mode</p>
-            <span className="rounded-full border border-fuchsia-500/18 bg-fuchsia-500/10 px-3 py-1 text-xs font-semibold text-fuchsia-300">Active accent</span>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4">
-              <p className="text-xs text-white/42">Surface</p>
-              <p className="mt-1 font-semibold text-white">white / 3.5%</p>
-            </div>
-            <div className="rounded-2xl border border-white/8 bg-[#0f172a] p-4">
-              <p className="text-xs text-white/42">Background</p>
-              <p className="mt-1 font-semibold text-white">#0B1020</p>
-            </div>
-            <div className="rounded-2xl border border-fuchsia-500/18 bg-fuchsia-500/10 p-4">
-              <p className="text-xs text-fuchsia-200/70">Accent</p>
-              <p className="mt-1 font-semibold text-fuchsia-300">#F1008B</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
-        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
-          <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
-            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
-              <th className="px-5 py-4">Module</th>
-              <th className="px-5 py-4">Primary metric</th>
-              <th className="px-5 py-4">Main table</th>
-              <th className="px-5 py-4">Primary action</th>
-              <th className="px-5 py-4">Operational signals</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-white/8">
-            {modulePatterns.map((item) => (
-              <tr key={item.module} className="bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
-                <td className="px-5 py-5 font-semibold text-slate-950 dark:text-white">{item.module}</td>
-                <td className="px-5 py-5 text-slate-600 dark:text-white/62">{item.primaryMetric}</td>
-                <td className="px-5 py-5 text-slate-600 dark:text-white/62">{item.mainTable}</td>
-                <td className="px-5 py-5"><span className="rounded-full border border-fuchsia-200 bg-fuchsia-50 px-3 py-1 text-xs font-semibold text-fuchsia-700 dark:border-fuchsia-500/18 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">{item.primaryAction}</span></td>
-                <td className="px-5 py-5 text-slate-500 dark:text-white/52">{item.keySignals}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
-  );
-}
-
-// ─── Prototype checks ─────────────────────────────────────────────────────────
-
-function PrototypeChecks({ campaignRows }: { campaignRows: CampaignRow[] }) {
-  const testCases = [
-    { name: 'campaigns view renders rows', passed: campaignRows.length >= 0 },
-    { name: 'campaign ids are stable', passed: campaignRows.every((c) => c.id.length > 0) },
-    { name: 'campaign status values are valid', passed: campaignRows.every((c) => ['Live', 'Limited', 'Blocked', 'Ready', 'Draft'].includes(c.status)) },
-    { name: 'campaigns include ad ops signals', passed: campaignRows.every((c) => c.tagHealth && c.creativeStatus && c.pacing) },
-    { name: 'sidebar active item is campaigns', passed: true },
-    { name: 'sidebar colors are reduced to neutral plus fuchsia', passed: true },
-    { name: 'fuchsia remains primary accent', passed: true },
-    { name: 'no duplicate default export', passed: true },
-    { name: 'module pattern works across ad ops views', passed: true },
-    { name: 'light mode tokens are visible', passed: true },
-    { name: 'dark mode tokens are visible', passed: true },
-  ];
-
-  return (
-    <Panel className="p-5">
-      <div className="flex items-center justify-between gap-4">
-        <SectionKicker>Prototype checks</SectionKicker>
-        <span className="text-xs text-slate-500 dark:text-white/42">Campaigns view · live data</span>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-4">
-        {testCases.map((test) => (
-          <div key={test.name} className="rounded-2xl border border-slate-200 bg-white/55 p-4 dark:border-white/8 dark:bg-white/[0.025]">
-            <p className="text-xs font-medium text-slate-500 dark:text-white/42">{test.name}</p>
-            <p className={test.passed ? 'mt-1 text-sm font-semibold text-emerald-600 dark:text-emerald-300' : 'mt-1 text-sm font-semibold text-rose-600 dark:text-rose-300'}>{test.passed ? 'Passed' : 'Failed'}</p>
-          </div>
-        ))}
-      </div>
     </Panel>
   );
 }
@@ -761,13 +627,6 @@ export default function CampaignList() {
             onDelete={(row) => void handleDelete(row)}
             deletingId={deletingId}
           />
-
-          {/* ── Consistency system ── */}
-          <ConsistencySystem />
-
-          {/* ── Prototype checks ── */}
-          <PrototypeChecks campaignRows={campaignRows} />
- 
     </div>
   );
 }
