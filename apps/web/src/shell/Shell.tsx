@@ -24,7 +24,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown, Search, Shield } from 'lucide-react';
 import {
-  getWorkspaceProductLabel,
   loadAuthMe,
   loadWorkspaces,
   switchWorkspace,
@@ -40,7 +39,7 @@ import {
   type ThemeMode,
 } from '../shared/theme';
 import type { PlatformRole, ProductAccess } from '../shared/roles';
-import { AppShell, type ContextualFocusItem, type SidebarItemName } from '../shared/dusk-ui';
+import { AppShell, type SidebarItemName } from '../shared/dusk-ui';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,26 +70,6 @@ function getStudioUrl(): string {
     }
   }
   return '/';
-}
-
-function WorkspaceAccessBadge({
-  workspace,
-}: {
-  workspace: { product_access?: ProductAccess };
-}) {
-  const label = getWorkspaceProductLabel(workspace);
-  const access = workspace.product_access;
-  const badgeClass =
-    access?.ad_server && access?.studio
-      ? 'bg-emerald-500/12 text-emerald-300 border-emerald-500/20'
-      : access?.ad_server
-        ? 'bg-fuchsia-500/12 text-fuchsia-300 border-fuchsia-500/20'
-        : 'bg-amber-500/12 text-amber-300 border-amber-500/20';
-  return (
-    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${badgeClass}`}>
-      {label}
-    </span>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -235,62 +214,6 @@ export default function Shell() {
   }, [hasAdServerAccess, location.pathname]);
 
   const isOverviewRoute = location.pathname.startsWith('/overview');
-  const moduleFocusItems: ContextualFocusItem[] = useMemo(() => {
-    if (location.pathname.startsWith('/overview')) {
-      return [
-        { label: 'Needs review', count: '2', active: true },
-        { label: 'Launch readiness', count: '1' },
-        { label: 'Quick ops' },
-      ];
-    }
-    if (location.pathname.startsWith('/campaigns')) {
-      return [
-        { label: 'Needs attention', count: '2', active: true },
-        { label: 'Ready to launch', count: '1' },
-        { label: 'Draft setup', count: '1' },
-      ];
-    }
-    if (location.pathname.startsWith('/tags')) {
-      return [
-        { label: 'Low firing', count: '3', active: true },
-        { label: 'Missing cachebuster', count: '1' },
-        { label: 'Recently updated' },
-      ];
-    }
-    if (location.pathname.startsWith('/creatives')) {
-      return [
-        { label: 'Pending QA', count: '4', active: true },
-        { label: 'Rejected specs', count: '2' },
-        { label: 'Missing preview', count: '1' },
-      ];
-    }
-    if (location.pathname.startsWith('/pacing')) {
-      return [
-        { label: 'Behind target', count: '2', active: true },
-        { label: 'Overpacing', count: '1' },
-        { label: 'Ending soon' },
-      ];
-    }
-    if (location.pathname.startsWith('/discrepancies')) {
-      return [
-        { label: 'Above threshold', count: '2', active: true },
-        { label: 'Pending reconciliation', count: '1' },
-        { label: 'Recently resolved' },
-      ];
-    }
-    if (location.pathname.startsWith('/reporting')) {
-      return [
-        { label: 'Scheduled reports', count: '3', active: true },
-        { label: 'Failed exports', count: '1' },
-        { label: 'Favorite reports' },
-      ];
-    }
-    return [
-      { label: 'Operational tools', active: true },
-      { label: 'Workspace controls' },
-      { label: 'System defaults' },
-    ];
-  }, [location.pathname]);
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -392,7 +315,6 @@ export default function Shell() {
         isDark={isDark}
         activeItem={activeItem}
         navigateTo={navigate}
-        contextualFocus={moduleFocusItems}
         badgeCounts={badgeCounts}
         workspaceSlot={
           <div className={isDark ? 'rounded-[20px] border border-white/[0.07] bg-white/[0.025] px-4 py-3' : 'rounded-[20px] border border-slate-200/80 bg-white/72 px-4 py-3'}>
@@ -430,13 +352,6 @@ export default function Shell() {
             </label>
           </div>
         }
-        user={{
-          initials: `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`,
-          name: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim(),
-          subtitle: user?.email ?? '',
-          systemLabel: 'Serving online',
-          systemValue: 'System healthy',
-        }}
       >
         {!isOverviewRoute && (
           <header className={`flex h-14 flex-shrink-0 items-center justify-between px-7 ${isDark ? 'border-b border-white/[0.06] bg-[#0b1020]' : 'border-b border-slate-200/80 bg-[#f6f3fb]'}`}>
@@ -456,14 +371,9 @@ export default function Shell() {
                     className={`min-w-[220px] rounded-xl px-3 py-2 text-sm font-medium outline-none ${isDark ? 'border border-white/[0.08] bg-white/[0.03] text-white' : 'border border-slate-200 bg-white text-slate-800'}`}
                   >
                     {workspaces.map((ws) => (
-                      <option key={ws.id} value={ws.id} className={isDark ? 'bg-[#111114] text-white' : 'bg-white text-slate-900'}>
-                        {ws.name} · {getWorkspaceProductLabel(ws)}
-                      </option>
+                      <option key={ws.id} value={ws.id} className={isDark ? 'bg-[#111114] text-white' : 'bg-white text-slate-900'}>{ws.name}</option>
                     ))}
                   </select>
-                  {user?.workspace.id && (
-                    <WorkspaceAccessBadge workspace={{ product_access: user.workspace.productAccess }} />
-                  )}
                   {hasAdServerAccess && (
                     <button
                       onClick={() => navigate('/clients')}

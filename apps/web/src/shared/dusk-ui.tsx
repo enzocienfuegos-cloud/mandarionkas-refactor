@@ -174,20 +174,6 @@ type DuskSidebarSection = {
   items: DuskSidebarItem[];
 };
 
-type DuskSidebarFocusItem = {
-  label: string;
-  count?: string;
-  active?: boolean;
-};
-
-type DuskSidebarUser = {
-  initials: string;
-  name: string;
-  subtitle: string;
-  systemLabel?: string;
-  systemValue?: string;
-};
-
 function DuskSidebarItemRow({
   item,
   isDark,
@@ -260,14 +246,10 @@ export function DuskSidebar({
   isDark,
   workspaceSlot,
   sections,
-  moduleFocusItems,
-  user,
 }: {
   isDark: boolean;
   workspaceSlot: React.ReactNode;
   sections: DuskSidebarSection[];
-  moduleFocusItems: DuskSidebarFocusItem[];
-  user: DuskSidebarUser;
 }) {
   return (
     <aside
@@ -281,7 +263,7 @@ export function DuskSidebar({
 
         {workspaceSlot}
 
-        <nav className="mt-3 flex-1">
+        <nav className="mt-3">
           {sections.map((section) => (
             <div key={section.label} className="mt-3 first:mt-0">
               <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 dark:text-white/[0.22]">
@@ -297,64 +279,7 @@ export function DuskSidebar({
               </div>
             </div>
           ))}
-
-          <div className={cn('mt-5 border-t pt-4', isDark ? 'border-white/[0.08]' : 'border-slate-200')}>
-            <div className="px-3 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 dark:text-white/[0.22]">
-              Module focus
-            </div>
-            <div className="mt-1 space-y-0.5 px-1">
-              {moduleFocusItems.map((item) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  className={cn(
-                    'flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition',
-                    item.active
-                      ? 'text-fuchsia-700 dark:text-fuchsia-300'
-                      : 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800 dark:text-white/[0.48] dark:hover:bg-white/[0.04] dark:hover:text-white/[0.72]',
-                  )}
-                >
-                  <span>{item.label}</span>
-                  {item.count ? (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-white/[0.08] dark:text-white/[0.46]">
-                      {item.count}
-                    </span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-          </div>
         </nav>
-
-        <div className={cn('mt-3 border-t px-2 pt-3', isDark ? 'border-white/[0.06]' : 'border-slate-200')}>
-          <div className="flex items-center justify-between px-1 pb-2">
-            <div>
-              <p className={cn('text-[11px] font-medium', isDark ? 'text-white/[0.38]' : 'text-slate-500')}>
-                {user.systemLabel ?? 'Serving online'}
-              </p>
-              <p className={cn('text-sm font-semibold', isDark ? 'text-white/[0.82]' : 'text-slate-800')}>
-                {user.systemValue ?? 'System healthy'}
-              </p>
-            </div>
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-45" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            </span>
-          </div>
-          <div className="flex items-center gap-3 rounded-xl px-1 py-1.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f1008b_0%,#8b5cf6_100%)] text-xs font-bold text-white">
-              {user.initials}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className={cn('truncate text-sm font-medium', isDark ? 'text-white' : 'text-slate-900')}>
-                {user.name}
-              </div>
-              <div className={cn('truncate text-[11px]', isDark ? 'text-white/[0.28]' : 'text-slate-400')}>
-                {user.subtitle}
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </aside>
   );
@@ -368,12 +293,6 @@ export type SidebarItemName =
   | 'Pacing'
   | 'Discrepancies'
   | 'Reporting';
-
-export type ContextualFocusItem = {
-  label: string;
-  count?: string;
-  active?: boolean;
-};
 
 function sidebarIcon(name: SidebarItemName) {
   const className = 'h-5 w-5';
@@ -399,19 +318,15 @@ export function AppShell({
   isDark,
   activeItem,
   navigateTo,
-  contextualFocus,
   badgeCounts,
   workspaceSlot,
-  user,
   children,
 }: {
   isDark: boolean;
   activeItem: SidebarItemName;
   navigateTo: (path: string) => void;
-  contextualFocus?: ContextualFocusItem[];
   badgeCounts?: Partial<Record<SidebarItemName, string>>;
   workspaceSlot: React.ReactNode;
-  user: DuskSidebarUser;
   children: React.ReactNode;
 }) {
   const routeForItem: Record<SidebarItemName, string> = {
@@ -454,8 +369,6 @@ export function AppShell({
         isDark={isDark}
         workspaceSlot={workspaceSlot}
         sections={sections}
-        moduleFocusItems={contextualFocus ?? []}
-        user={user}
       />
       <div className={cn('flex min-w-0 flex-1 flex-col', isDark ? 'bg-[#0b1020]' : 'bg-[#f6f3fb]')}>
         {children}
