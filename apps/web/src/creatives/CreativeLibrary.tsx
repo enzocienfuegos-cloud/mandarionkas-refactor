@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   type Creative,
   type CreativeVersion,
@@ -834,6 +834,18 @@ export default function CreativeLibrary() {
       current && bulkAssignableTags.some((tag) => tag.id === current) ? current : ''
     ));
   }, [bulkAssignableTags]);
+
+  const approvedCreatives = filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'active').length;
+  const pendingQaCreatives = filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'pending_review').length;
+  const rejectedCreatives = filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'rejected').length;
+  const assignedCreatives = filteredCreatives.filter((creative) => {
+    const version = latestVersions[creative.id];
+    return Boolean(version?.servingFormat);
+  }).length;
+  const pendingPreviewCreatives = filteredCreatives.filter((creative) => {
+    const version = latestVersions[creative.id];
+    return !resolveCreativePreviewHref(creative, version);
+  }).slice(0, 3);
 
   const handleAssign = async () => {
     if (!bindingState?.tagId) {
@@ -1729,96 +1741,73 @@ export default function CreativeLibrary() {
 
   return (
     <div className="dusk-page">
-      <div className="dusk-page-header">
-        <div>
-          <SectionKicker>Creative operations</SectionKicker>
-          <h1 className="dusk-title mt-3">Creative Catalog</h1>
-          <p className="dusk-copy mt-2">
-            Upload to a specific client, publish technically valid creatives, and assign them to tags.
-          </p>
-        </div>
-        <div className="dusk-toolbar-group">
-          <PrimaryButton onClick={() => navigate('/creatives/upload')}>
-            Upload Creative
-          </PrimaryButton>
-        </div>
-      </div>
-
-      <Panel className="p-5">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <SectionKicker>Filters</SectionKicker>
-            <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">Scope the catalog</h2>
-          </div>
-          <StatusBadge tone="neutral">
-            {filteredCreatives.length} creative{filteredCreatives.length === 1 ? '' : 's'}
-          </StatusBadge>
-        </div>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_220px_220px_220px_minmax(0,1fr)]">
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Search creatives</span>
-          <input
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search by creative, client, URL, format..."
-            className="dusk-select w-full px-3 py-2"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Status</span>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
           <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-            className="dusk-select w-full px-3 py-2"
+            value={selectedClientIds[0] ?? ''}
+            onChange={(event) => setSelectedClientIds(event.target.value ? [event.target.value] : [])}
+            className="dusk-select min-h-[46px] min-w-[180px] px-4"
           >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="pending_review">Pending review</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Format</span>
-          <select
-            value={formatFilter}
-            onChange={(event) => setFormatFilter(event.target.value as typeof formatFilter)}
-            className="dusk-select w-full px-3 py-2"
-          >
-            <option value="all">All formats</option>
-            <option value="display">Display</option>
-            <option value="video">Video</option>
-            <option value="native">Native</option>
-          </select>
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Size</span>
-          <select
-            value={sizeFilter}
-            onChange={(event) => setSizeFilter(event.target.value)}
-            className="dusk-select w-full px-3 py-2"
-          >
-            <option value="all">All sizes</option>
-            {availableSizeOptions.map((sizeOption) => (
-              <option key={sizeOption} value={sizeOption}>{sizeOption}</option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Client</span>
-          <select
-            multiple
-            value={selectedClientIds}
-            onChange={(event) => setSelectedClientIds(Array.from(event.target.selectedOptions, option => option.value))}
-            className="dusk-select min-h-[110px] w-full px-3 py-2"
-          >
+            <option value="">All advertisers</option>
             {workspaces.map(workspace => (
               <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
             ))}
           </select>
-        </label>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+            className="dusk-select min-h-[46px] min-w-[180px] px-4"
+          >
+            <option value="all">QA + delivery</option>
+            <option value="active">Approved</option>
+            <option value="inactive">Inactive</option>
+            <option value="pending_review">Pending QA</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search creative, client, URL, format"
+            className="min-h-[46px] min-w-[320px] rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/creatives/upload')}
+          className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
+        >
+          Upload creative
+        </button>
       </div>
-      </Panel>
+
+      <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
+        <div>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-700 dark:border-fuchsia-500/15 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
+            Creatives
+            <span className="h-1 w-1 rounded-full bg-current opacity-60" />
+            QA & approvals
+          </div>
+          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">Creative QA and eligibility</h1>
+          <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">Manage approvals, preview availability, client assignments, and campaign readiness from one operational catalog.</p>
+        </div>
+        <Panel className="p-5">
+          <SectionKicker>Recommended focus</SectionKicker>
+          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
+            <div className="mt-0.5 h-2.5 w-2.5 rounded-full bg-amber-500" />
+            <div>
+              <p className="font-semibold text-amber-800 dark:text-amber-100">{pendingQaCreatives + rejectedCreatives} creatives need attention</p>
+              <p className="mt-1 text-sm text-amber-700/72 dark:text-amber-100/62">Review pending QA, rejected specs, and missing preview artifacts before launch.</p>
+            </div>
+          </div>
+        </Panel>
+      </header>
+
+      <div className="grid gap-5 xl:grid-cols-4">
+        <Panel className="p-5"><SectionKicker>Approved creatives</SectionKicker><div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{approvedCreatives}</div><p className="mt-2 text-sm text-slate-500 dark:text-white/56">ready for delivery in this view</p></Panel>
+        <Panel className="p-5"><SectionKicker>Pending QA</SectionKicker><div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{pendingQaCreatives}</div><p className="mt-2 text-sm text-slate-500 dark:text-white/56">awaiting review or approval</p></Panel>
+        <Panel className="p-5"><SectionKicker>Rejected</SectionKicker><div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{rejectedCreatives}</div><p className="mt-2 text-sm text-slate-500 dark:text-white/56">failed technical or policy QA</p></Panel>
+        <Panel className="p-5"><SectionKicker>Assigned to campaigns</SectionKicker><div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{assignedCreatives}</div><p className="mt-2 text-sm text-slate-500 dark:text-white/56">already tied to downstream tags</p></Panel>
+      </div>
 
       {successMessage && (
         <Panel className="border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
@@ -1931,15 +1920,23 @@ export default function CreativeLibrary() {
         </Panel>
       )}
 
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <SectionKicker>Operational table</SectionKicker>
-            <h2 className="mt-2 text-lg font-semibold text-slate-800 dark:text-white">Creative Versions</h2>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
+        <Panel className="overflow-hidden p-6">
+          <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <SectionKicker>Main operational table</SectionKicker>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Creative QA queue</h2>
+              <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Track approval status, preview readiness, and delivery setup from one table.</p>
+            </div>
+            <button onClick={() => void load()} className="text-sm font-medium text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300">Refresh</button>
           </div>
-          <button onClick={() => void load()} className="text-sm font-medium text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300">Refresh</button>
-        </div>
-        <Panel className="overflow-hidden">
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Total</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{filteredCreatives.length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">creatives in current view</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Approved</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{approvedCreatives}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">ready to serve</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Pending QA</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{pendingQaCreatives}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">awaiting approval</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Rejected</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{rejectedCreatives}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">require fixes</p></div>
+          </div>
+          <div className="mt-6">
           <table className="dusk-data-table min-w-full text-sm">
             <thead className="dusk-table-head">
               <tr>
@@ -2157,8 +2154,53 @@ export default function CreativeLibrary() {
               })}
             </tbody>
           </table>
+          </div>
         </Panel>
-      </section>
+        <Panel className="p-6">
+          <div className="space-y-8">
+            <section>
+              <SectionKicker>Pending QA</SectionKicker>
+              <div className="mt-4 space-y-3">
+                {filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'pending_review').slice(0, 3).map((creative) => (
+                  <div key={creative.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                    <p className="font-semibold text-slate-950 dark:text-white">{creative.name}</p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-white/56">{creative.workspaceName ?? 'Workspace'} · {getCreativeSizeLabel(creative)}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section>
+              <SectionKicker>Rejected specs</SectionKicker>
+              <div className="mt-4 space-y-3">
+                {filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'rejected').slice(0, 3).map((creative) => (
+                  <div key={creative.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                    <p className="font-semibold text-slate-950 dark:text-white">{creative.name}</p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Needs spec or QA correction before serving.</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section>
+              <SectionKicker>Missing preview</SectionKicker>
+              <div className="mt-4 grid gap-3">
+                {pendingPreviewCreatives.map((creative) => (
+                  <div key={creative.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                    <p className="font-semibold text-slate-950 dark:text-white">{creative.name}</p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Preview artifact still unavailable for the latest version.</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section>
+              <SectionKicker>Quick ops</SectionKicker>
+              <div className="mt-4 grid gap-3">
+                <button type="button" onClick={() => navigate('/creatives/upload')} className="dusk-card-link p-4 text-left"><p className="font-semibold text-slate-950 dark:text-white">Upload creative</p><p className="mt-1 text-sm text-slate-500 dark:text-white/56">Start a new creative ingestion flow.</p></button>
+                <Link to="/creatives/approval" className="dusk-card-link p-4"><p className="font-semibold text-slate-950 dark:text-white">Approval queue</p><p className="mt-1 text-sm text-slate-500 dark:text-white/56">Review creatives waiting on QA decisions.</p></Link>
+              </div>
+            </section>
+          </div>
+        </Panel>
+      </div>
 
       {bindingState && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

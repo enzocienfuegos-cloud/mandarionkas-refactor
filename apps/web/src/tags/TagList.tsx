@@ -138,6 +138,17 @@ export default function TagList() {
   const selectedCount = selectedTagIds.length;
   const allVisibleSelected = filteredTags.length > 0 && filteredTags.every(tag => selectedTagIds.includes(tag.id));
   const someVisibleSelected = filteredTags.some(tag => selectedTagIds.includes(tag.id));
+  const liveTags = filteredTags.filter((tag) => tag.status === 'active').length;
+  const lowFiringTags = filteredTags.filter((tag) => tag.status === 'paused').length;
+  const notInstalledTags = filteredTags.filter((tag) => tag.status === 'draft').length;
+  const seenTodayTags = filteredTags.filter((tag) => {
+    const created = new Date(tag.createdAt);
+    const now = new Date();
+    return created.toDateString() === now.toDateString();
+  }).length;
+  const recentlyUpdated = [...filteredTags]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 3);
 
   useEffect(() => {
     setSelectedTagIds(current => current.filter(id => filteredTags.some(tag => tag.id === id)));
@@ -352,62 +363,65 @@ export default function TagList() {
 
   return (
     <div className="dusk-page">
-      <div className="dusk-page-header">
-        <div>
-          <SectionKicker>Tag operations</SectionKicker>
-          <h1 className="dusk-title mt-3">Tags</h1>
-          <p className="dusk-copy mt-2">
-            Build placement infrastructure, review assignments, and move directly into diagnostics or reporting.
-          </p>
-        </div>
-        <div className="dusk-toolbar-group">
-          <Link to="/tags/bindings"><SecondaryButton>Assignments</SecondaryButton></Link>
-          <Link to="/tags/health"><SecondaryButton>Health</SecondaryButton></Link>
-          <PrimaryButton onClick={() => setCreating(true)}>New Tag</PrimaryButton>
-        </div>
-      </div>
-
-      <Panel className="p-5">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <SectionKicker>Filters</SectionKicker>
-            <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">Scope the tag inventory</h2>
-          </div>
-          <StatusBadge tone="neutral">
-            {filteredTags.length} tag{filteredTags.length !== 1 ? 's' : ''}
-          </StatusBadge>
-        </div>
-        <div className="grid gap-4 md:grid-cols-[minmax(220px,280px)_minmax(260px,1fr)]">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Client</label>
-          <input
-            value={clientSearch}
-            onChange={event => setClientSearch(event.target.value)}
-            placeholder="Search client"
-            className="dusk-select mb-2 w-full px-3 py-2"
-          />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
           <select
             value={selectedClientId}
             onChange={event => setSelectedClientId(event.target.value)}
-            className="dusk-select w-full px-3 py-2"
+            className="dusk-select min-h-[46px] min-w-[180px] px-4"
           >
-            <option value="">All clients</option>
+            <option value="">All advertisers</option>
             {visibleClients.map(client => (
               <option key={client.id} value={client.id}>{client.name}</option>
             ))}
           </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">Tag Filter</label>
+          <button type="button" className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]">
+            Active + firing
+          </button>
           <input
-            value={tagSearch}
-            onChange={event => setTagSearch(event.target.value)}
-            placeholder="Search by tag, campaign, client, or assigned creative"
-            className="dusk-select w-full px-3 py-2"
+            value={clientSearch}
+            onChange={event => setClientSearch(event.target.value)}
+            placeholder="Search campaign, placement, client"
+            className="min-h-[46px] min-w-[320px] rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
           />
         </div>
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
+        >
+          Generate tag
+        </button>
+      </div>
+
+      <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
+        <div>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-700 dark:border-fuchsia-500/15 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
+            Tags
+            <span className="h-1 w-1 rounded-full bg-current opacity-60" />
+            Pixels & firing
+          </div>
+          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">Tag firing and implementation health</h1>
+          <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">Validate generation, implementation and firing health from one operational queue instead of bouncing between utilities.</p>
         </div>
-      </Panel>
+        <Panel className="p-5">
+          <SectionKicker>Recommended focus</SectionKicker>
+          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
+            <div className="mt-0.5 h-2.5 w-2.5 rounded-full bg-amber-500" />
+            <div>
+              <p className="font-semibold text-amber-800 dark:text-amber-100">{lowFiringTags + notInstalledTags} tags need attention</p>
+              <p className="mt-1 text-sm text-amber-700/72 dark:text-amber-100/62">Review low-firing tags, missing installs, and recently changed placements before publishing new trafficking.</p>
+            </div>
+          </div>
+        </Panel>
+      </header>
+
+      <div className="grid gap-5 xl:grid-cols-4">
+        <Panel className="p-5"><SectionKicker>Tags firing</SectionKicker><div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{liveTags}</div><p className="mt-2 text-sm text-slate-500 dark:text-white/56">healthy tags live in the current view</p></Panel>
+        <Panel className="p-5"><SectionKicker>Low firing</SectionKicker><div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{lowFiringTags}</div><p className="mt-2 text-sm text-slate-500 dark:text-white/56">paused or degraded placements</p></Panel>
+        <Panel className="p-5"><SectionKicker>Not installed</SectionKicker><div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{notInstalledTags}</div><p className="mt-2 text-sm text-slate-500 dark:text-white/56">draft tags still missing implementation</p></Panel>
+        <Panel className="p-5"><SectionKicker>Last seen today</SectionKicker><div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{seenTodayTags}</div><p className="mt-2 text-sm text-slate-500 dark:text-white/56">tags updated or seen in today&apos;s window</p></Panel>
+      </div>
 
       {selectedCount > 0 && (
         <Panel className="border-fuchsia-200 bg-fuchsia-50/80 px-4 py-3 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10">
@@ -451,14 +465,26 @@ export default function TagList() {
           </div>
         </Panel>
       ) : (
-        <Panel className="overflow-hidden">
-          <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-white/[0.07]">
-            <div>
-              <SectionKicker>Operational table</SectionKicker>
-              <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">Tag inventory</h2>
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
+          <Panel className="overflow-hidden p-6">
+            <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <SectionKicker>Main operational table</SectionKicker>
+                <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Tag inventory</h2>
+                <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Track placement health, campaign assignment, and implementation state from one table.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link to="/tags/bindings" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200">Assignments</Link>
+                <Link to="/tags/health" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200">Health</Link>
+              </div>
             </div>
-          </div>
-          <div className="overflow-x-auto">
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
+              <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Total</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{filteredTags.length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">tags in current view</p></div>
+              <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Firing</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{liveTags}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">healthy placements</p></div>
+              <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Low firing</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{lowFiringTags}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">require investigation</p></div>
+              <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Not installed</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{notInstalledTags}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">still in setup</p></div>
+            </div>
+            <div className="app-scrollbar mt-6 overflow-x-auto">
             <table className="dusk-data-table min-w-full">
               <thead className="dusk-table-head">
                 <tr className="dusk-table-head-row">
@@ -567,7 +593,52 @@ export default function TagList() {
               </tbody>
             </table>
           </div>
-        </Panel>
+          </Panel>
+          <Panel className="p-6">
+            <div className="space-y-8">
+              <section>
+                <SectionKicker>Low firing</SectionKicker>
+                <div className="mt-4 space-y-3">
+                  {filteredTags.filter((tag) => tag.status === 'paused').slice(0, 3).map((tag) => (
+                    <div key={tag.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                      <p className="font-semibold text-slate-950 dark:text-white">{tag.name}</p>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-white/56">{tag.workspaceName ?? 'Workspace'} · {tag.campaign?.name ?? 'No campaign'}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <SectionKicker>Missing cachebuster</SectionKicker>
+                <div className="mt-4 space-y-3">
+                  {filteredTags.filter((tag) => tag.format === 'display' && !tag.sizeLabel).slice(0, 3).map((tag) => (
+                    <div key={tag.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                      <p className="font-semibold text-slate-950 dark:text-white">{tag.name}</p>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Display placement needs implementation review.</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <SectionKicker>Recently updated</SectionKicker>
+                <div className="mt-4 grid gap-3">
+                  {recentlyUpdated.map((tag) => (
+                    <Link key={tag.id} to={`/tags/${tag.id}`} className="dusk-card-link p-4">
+                      <p className="font-semibold text-slate-950 dark:text-white">{tag.name}</p>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-white/56">{new Date(tag.createdAt).toLocaleDateString()} · {tag.workspaceName ?? 'Workspace'}</p>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <SectionKicker>Quick ops</SectionKicker>
+                <div className="mt-4 grid gap-3">
+                  <Link to="/tags/health" className="dusk-card-link p-4"><p className="font-semibold text-slate-950 dark:text-white">Health dashboard</p><p className="mt-1 text-sm text-slate-500 dark:text-white/56">Review low firing placements and stale inventory.</p></Link>
+                  <Link to="/tags/bindings" className="dusk-card-link p-4"><p className="font-semibold text-slate-950 dark:text-white">Assignments</p><p className="mt-1 text-sm text-slate-500 dark:text-white/56">Inspect campaign and creative bindings.</p></Link>
+                </div>
+              </section>
+            </div>
+          </Panel>
+        </div>
       )}
 
       {creating && (
