@@ -323,6 +323,31 @@ export default function Shell() {
     setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
   };
 
+  const activeItem: SidebarItemName = useMemo(() => {
+    if (location.pathname.startsWith('/campaigns')) return 'Campaigns';
+    if (location.pathname.startsWith('/tags')) return 'Tags';
+    if (location.pathname.startsWith('/creatives')) return 'Creatives';
+    if (location.pathname.startsWith('/pacing')) return 'Pacing';
+    if (location.pathname.startsWith('/discrepancies')) return 'Discrepancies';
+    if (location.pathname.startsWith('/reporting')) return 'Reporting';
+    if (location.pathname.startsWith('/experiments')) return 'Experiments';
+    if (location.pathname.startsWith('/tools')) return 'Tools';
+    if (location.pathname.startsWith('/settings')) return 'Settings';
+    return 'Overview';
+  }, [location.pathname]);
+
+  const badgeCounts = useMemo(
+    () => ({
+      Overview: '3',
+      Campaigns: '2',
+      Tags: '1',
+      Creatives: '6',
+      Pacing: '!',
+      Discrepancies: '1',
+    }),
+    [],
+  );
+
   // ---------------------------------------------------------------------------
   // Render states
   // ---------------------------------------------------------------------------
@@ -361,31 +386,6 @@ export default function Shell() {
     hasAdServerAccess ||
     isLauncherRoute   ||
     isWorkspaceRoute;
-
-  const activeItem: SidebarItemName = useMemo(() => {
-    if (location.pathname.startsWith('/campaigns')) return 'Campaigns';
-    if (location.pathname.startsWith('/tags')) return 'Tags';
-    if (location.pathname.startsWith('/creatives')) return 'Creatives';
-    if (location.pathname.startsWith('/pacing')) return 'Pacing';
-    if (location.pathname.startsWith('/discrepancies')) return 'Discrepancies';
-    if (location.pathname.startsWith('/reporting')) return 'Reporting';
-    if (location.pathname.startsWith('/experiments')) return 'Experiments';
-    if (location.pathname.startsWith('/tools')) return 'Tools';
-    if (location.pathname.startsWith('/settings')) return 'Settings';
-    return 'Overview';
-  }, [location.pathname]);
-
-  const badgeCounts = useMemo(
-    () => ({
-      Overview: '3',
-      Campaigns: '2',
-      Tags: '1',
-      Creatives: '6',
-      Pacing: '!',
-      Discrepancies: '1',
-    }),
-    [],
-  );
 
   // ---------------------------------------------------------------------------
   // Full shell render
