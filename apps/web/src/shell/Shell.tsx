@@ -415,7 +415,7 @@ export default function Shell() {
     <div className={`mandarion-shell flex min-h-screen overflow-hidden ${isDark ? 'bg-[#0b1020] text-white' : 'bg-[#f6f3fb] text-slate-900'}`}>
       <GlobalScrollbarStyles />
       {/* Sidebar */}
-      <aside className={`app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto px-3 py-4 backdrop-blur-xl lg:flex lg:flex-col ${isDark ? 'border-r border-white/10 bg-[#0b1020]/90' : 'border-r border-slate-200/80 bg-white/84'}`}>
+      <aside className={`app-scrollbar sticky top-4 hidden h-[calc(100vh-2rem)] w-[280px] shrink-0 self-start overflow-y-auto px-3 py-4 backdrop-blur-xl lg:flex lg:flex-col ${isDark ? 'border-r border-white/10 bg-[#0b1020]/90' : 'border-r border-slate-200/80 bg-white/84'}`}>
         <div className={`rounded-[24px] px-4 py-4 ${isDark ? 'border border-white/[0.06] bg-white/[0.025]' : 'border border-slate-200/80 bg-[rgba(255,255,255,0.72)]'}`}>
           <DuskLogo />
           <p className={`mt-1 text-xs font-medium ${isDark ? 'text-white/40' : 'text-slate-500'}`}>Adserver workspace</p>
