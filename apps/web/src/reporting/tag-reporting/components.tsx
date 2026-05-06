@@ -140,16 +140,39 @@ export function TagSelectorPanel({
   onSearchChange: (value: string) => void;
   onSelectTag: (tag: Tag) => void;
 }) {
+  const formatTone = (format: string): 'brand' | 'info' | 'success' | 'warning' | 'neutral' => {
+    const normalized = format.trim().toLowerCase();
+    if (normalized.includes('video')) return 'info';
+    if (normalized.includes('identity')) return 'success';
+    if (normalized.includes('display')) return 'brand';
+    if (normalized.includes('native')) return 'warning';
+    return 'neutral';
+  };
+
+  const selectedTag = selectedTagId ? filteredTags.find((tag) => tag.id === selectedTagId) ?? null : null;
+
   return (
     <Panel className="overflow-hidden">
       <div className="space-y-2 border-b border-slate-100 bg-slate-50/80 px-3 py-3 dark:border-white/[0.07] dark:bg-white/[0.03]">
-        <Kicker>Tags</Kicker>
+        <div className="flex items-center justify-between gap-3">
+          <Kicker>Tags</Kicker>
+          <Badge tone="neutral" size="sm">{filteredTags.length} visible</Badge>
+        </div>
         <Input
           type="search"
           value={tagSearch}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Filter by tag name"
         />
+        {selectedTag ? (
+          <div className="rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--dusk-text-soft)]">Selected</p>
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <p className="min-w-0 truncate text-sm font-medium text-[color:var(--dusk-text-primary)]">{selectedTag.name}</p>
+              <Badge tone={formatTone(selectedTag.format)} size="sm">{selectedTag.format || 'Tag'}</Badge>
+            </div>
+          </div>
+        ) : null}
       </div>
       {filteredTags.length === 0 ? (
         <EmptyState
@@ -171,8 +194,17 @@ export function TagSelectorPanel({
                     : 'text-slate-700 hover:bg-slate-50 dark:text-white/76 dark:hover:bg-white/[0.04]'
                 }`}
               >
-                <div>{tag.name}</div>
-                <div className="mt-1 text-xs uppercase tracking-wide text-slate-400 dark:text-white/36">{tag.format}</div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate">{tag.name}</div>
+                    <div className="mt-1 text-xs text-slate-400 dark:text-white/36">
+                      {selectedTagId === tag.id ? 'Active reporting view' : 'Open reporting'}
+                    </div>
+                  </div>
+                  <Badge tone={formatTone(tag.format)} size="sm">
+                    {tag.format || 'Tag'}
+                  </Badge>
+                </div>
               </button>
             </li>
           ))}
