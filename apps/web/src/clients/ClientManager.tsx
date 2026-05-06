@@ -12,7 +12,7 @@ import {
   type WorkspaceOption,
 } from '../shared/workspaces';
 import { derivePlatformRoleFromAssignment, type PlatformRole } from '../shared/roles';
-import { Badge, Button, CenteredSpinner, Input, Kicker, Panel } from '../system';
+import { Badge, Button, CenteredSpinner, EmptyState, Input, Kicker, Panel, Select } from '../system';
 
 function ProductAccessBadges({ productAccess }: { productAccess?: { ad_server: boolean; studio: boolean } | null }) {
   const access = productAccess ?? { ad_server: true, studio: true };
@@ -22,9 +22,7 @@ function ProductAccessBadges({ productAccess }: { productAccess?: { ad_server: b
         <Badge tone="brand" size="sm">Ad Server</Badge>
       ) : null}
       {access.studio ? (
-        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-          Studio
-        </span>
+        <Badge tone="success" size="sm">Studio</Badge>
       ) : null}
       {!access.ad_server && !access.studio ? (
         <Badge tone="neutral" size="sm">No product access</Badge>
@@ -33,17 +31,30 @@ function ProductAccessBadges({ productAccess }: { productAccess?: { ad_server: b
   );
 }
 
+type CreateClientForm = {
+  name: string;
+  website: string;
+};
+
+type AccessGrantForm = {
+  userEmail: string;
+  userRole: PlatformRole;
+  selectedClientIds: string[];
+  productAccess: { ad_server: boolean; studio: boolean };
+};
+
 export default function ClientManager() {
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [accessClients, setAccessClients] = useState<Array<{ id: string; name: string; role: string }>>([]);
   const [accessUsers, setAccessUsers] = useState<ClientAccessUser[]>([]);
-  const [name, setName] = useState('');
-  const [website, setWebsite] = useState('');
-  const [userEmail, setUserEmail] = useState('');
-  const [userRole, setUserRole] = useState<PlatformRole>('ad_ops');
-  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
-  const [productAccess, setProductAccess] = useState({ ad_server: true, studio: true });
+  const [createForm, setCreateForm] = useState<CreateClientForm>({ name: '', website: '' });
+  const [accessForm, setAccessForm] = useState<AccessGrantForm>({
+    userEmail: '',
+    userRole: 'ad_ops',
+    selectedClientIds: [],
+    productAccess: { ad_server: true, studio: true },
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingAccess, setSavingAccess] = useState(false);
@@ -72,22 +83,25 @@ export default function ClientManager() {
   };
 
   const toggleClient = (workspaceId: string) => {
-    setSelectedClientIds((current) => current.includes(workspaceId)
-      ? current.filter((id) => id !== workspaceId)
-      : [...current, workspaceId]);
+    setAccessForm((current) => ({
+      ...current,
+      selectedClientIds: current.selectedClientIds.includes(workspaceId)
+        ? current.selectedClientIds.filter((id) => id !== workspaceId)
+        : [...current.selectedClientIds, workspaceId],
+    }));
   };
 
   const handleGrantAccess = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!userEmail.trim()) {
+    if (!accessForm.userEmail.trim()) {
       setError('User email is required.');
       return;
     }
-    if (!selectedClientIds.length) {
+    if (!accessForm.selectedClientIds.length) {
       setError('Select at least one client for the user.');
       return;
     }
-    if (!productAccess.ad_server && !productAccess.studio) {
+    if (!accessForm.productAccess.ad_server && !accessForm.productAccess.studio) {
       setError('Select at least one product access.');
       return;
     }
@@ -96,15 +110,17 @@ export default function ClientManager() {
     setError('');
     try {
       await grantClientAccess({
-        email: userEmail.trim(),
-        role: userRole,
-        workspaceIds: selectedClientIds,
-        productAccess,
+        email: accessForm.userEmail.trim(),
+        role: accessForm.userRole,
+        workspaceIds: accessForm.selectedClientIds,
+        productAccess: accessForm.productAccess,
       });
-      setUserEmail('');
-      setUserRole('ad_ops');
-      setSelectedClientIds([]);
-      setProductAccess({ ad_server: true, studio: true });
+      setAccessForm({
+        userEmail: '',
+        userRole: 'ad_ops',
+        selectedClientIds: [],
+        productAccess: { ad_server: true, studio: true },
+      });
       await load();
     } catch (saveError: any) {
       setError(saveError.message ?? 'Failed to grant access');
@@ -192,7 +208,7 @@ export default function ClientManager() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!name.trim()) {
+    if (!createForm.name.trim()) {
       setError('Client name is required.');
       return;
     }
@@ -201,11 +217,10 @@ export default function ClientManager() {
     setError('');
     try {
       await createClientWorkspace({
-        name: name.trim(),
-        website: website.trim(),
+        name: createForm.name.trim(),
+        website: createForm.website.trim(),
       });
-      setName('');
-      setWebsite('');
+      setCreateForm({ name: '', website: '' });
       await load();
     } catch (saveError: any) {
       setError(saveError.message ?? 'Failed to create client');
@@ -218,37 +233,37 @@ export default function ClientManager() {
     <div className="space-y-6">
       <div>
         <Kicker>Clients</Kicker>
-        <h1 className="mt-3 text-2xl font-semibold text-slate-800 dark:text-white">Client Setup</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="mt-3 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">Client Setup</h1>
+        <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">
           Manage client workspaces separately from trafficking screens. Only the client name is required.
         </p>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-lg border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-sm text-[color:var(--dusk-status-critical-fg)]">
           {error}
         </div>
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_1.1fr]">
         <Panel as="form" onSubmit={handleSubmit} className="rounded-2xl">
-          <h2 className="text-lg font-semibold text-slate-900">Add client</h2>
+          <h2 className="text-lg font-semibold text-[color:var(--dusk-text-primary)]">Add client</h2>
           <div className="mt-5 space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Client name <span className="text-red-500">*</span>
+              <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">
+                Client name <span className="text-[color:var(--dusk-status-critical-fg)]">*</span>
               </label>
               <Input
-                value={name}
-                onChange={event => setName(event.target.value)}
+                value={createForm.name}
+                onChange={event => setCreateForm((current) => ({ ...current, name: event.target.value }))}
                 placeholder="Banco Agricola"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Website</label>
+              <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Website</label>
               <Input
-                value={website}
-                onChange={event => setWebsite(event.target.value)}
+                value={createForm.website}
+                onChange={event => setCreateForm((current) => ({ ...current, website: event.target.value }))}
                 placeholder="https://example.com"
               />
             </div>
@@ -259,20 +274,20 @@ export default function ClientManager() {
         </Panel>
 
         <Panel className="rounded-2xl">
-          <h2 className="text-lg font-semibold text-slate-900">Available clients</h2>
+          <h2 className="text-lg font-semibold text-[color:var(--dusk-text-primary)]">Available clients</h2>
           {loading ? (
             <CenteredSpinner label="Loading clients…" />
           ) : (
             <div className="mt-4 space-y-3">
                 {workspaces.map(workspace => (
-                  <div key={workspace.id} className="rounded-xl border border-slate-200 px-4 py-3">
+                  <div key={workspace.id} className="rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium text-slate-900">{workspace.name}</p>
+                          <p className="text-sm font-medium text-[color:var(--dusk-text-primary)]">{workspace.name}</p>
                           <ProductAccessBadges productAccess={workspace.product_access} />
                         </div>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-[color:var(--dusk-text-muted)]">
                           {workspace.id === activeWorkspaceId
                             ? `Active client · ${getWorkspaceProductLabel(workspace)}`
                             : `Available for trafficking filters · ${getWorkspaceProductLabel(workspace)}`}
@@ -285,9 +300,7 @@ export default function ClientManager() {
                 </div>
               ))}
               {!workspaces.length && (
-                <div className="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-                  No clients yet.
-                </div>
+                <EmptyState title="No clients yet" description="Create your first client workspace to start trafficking against it." />
               )}
             </div>
           )}
@@ -296,78 +309,82 @@ export default function ClientManager() {
 
       <div className="grid gap-6 xl:grid-cols-[0.95fr_1.25fr]">
         <Panel as="form" onSubmit={handleGrantAccess} className="rounded-2xl">
-          <h2 className="text-lg font-semibold text-slate-900">User access</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <h2 className="text-lg font-semibold text-[color:var(--dusk-text-primary)]">User access</h2>
+          <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">
             Create a user by email and assign one or more clients. With those assignments they can view everything related to those clients.
           </p>
           <div className="mt-5 space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">User email</label>
+              <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">User email</label>
               <Input
-                value={userEmail}
-                onChange={(event) => setUserEmail(event.target.value)}
+                value={accessForm.userEmail}
+                onChange={(event) => setAccessForm((current) => ({ ...current, userEmail: event.target.value }))}
                 placeholder="trafficker@example.com"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Role across selected clients</label>
-              <select
-                value={userRole}
-                onChange={(event) => setUserRole(event.target.value as PlatformRole)}
-                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500"
-              >
-                <option value="ad_ops">Ad Ops</option>
-                <option value="designer">Designer</option>
-                <option value="reviewer">Reviewer</option>
-                <option value="admin">Admin</option>
-              </select>
+              <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Role across selected clients</label>
+              <Select
+                value={accessForm.userRole}
+                onChange={(event) => setAccessForm((current) => ({ ...current, userRole: event.target.value as PlatformRole }))}
+                options={[
+                  { value: 'ad_ops', label: 'Ad Ops' },
+                  { value: 'designer', label: 'Designer' },
+                  { value: 'reviewer', label: 'Reviewer' },
+                  { value: 'admin', label: 'Admin' },
+                ]}
+              />
             </div>
             <div>
-              <p className="mb-2 block text-sm font-medium text-slate-700">Assign clients</p>
-              <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-slate-200 p-3">
+              <p className="mb-2 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Assign clients</p>
+              <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-[color:var(--dusk-border-default)] p-3">
                 {accessClients.length ? accessClients.map((client) => (
-                  <label key={client.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700">
+                  <label key={client.id} className="flex items-center justify-between gap-3 rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-secondary)]">
                     <span className="flex items-center gap-3">
                       <input
                         type="checkbox"
-                        checked={selectedClientIds.includes(client.id)}
+                        checked={accessForm.selectedClientIds.includes(client.id)}
                         onChange={() => toggleClient(client.id)}
-                        className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
+                        className="h-4 w-4 rounded border-[color:var(--dusk-border-default)] text-brand-500 focus:ring-brand-500"
                       />
                       <span>{client.name}</span>
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                        Managed client
-                      </span>
+                      <Badge tone="neutral" size="sm">Managed client</Badge>
                       <ProductAccessBadges
                         productAccess={workspaces.find((workspace) => workspace.id === client.id)?.product_access}
                       />
                     </div>
                   </label>
                 )) : (
-                  <div className="text-sm text-slate-500">No manageable clients available.</div>
+                  <div className="text-sm text-[color:var(--dusk-text-muted)]">No manageable clients available.</div>
                 )}
               </div>
             </div>
             <div>
-              <p className="mb-2 block text-sm font-medium text-slate-700">Product access</p>
+              <p className="mb-2 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Product access</p>
               <div className="grid gap-2 sm:grid-cols-2">
-                <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2 rounded-lg border border-[color:var(--dusk-border-default)] px-3 py-2 text-sm text-[color:var(--dusk-text-secondary)]">
                   <input
                     type="checkbox"
-                    checked={productAccess.ad_server}
-                    onChange={() => setProductAccess((current) => ({ ...current, ad_server: !current.ad_server }))}
-                    className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
+                    checked={accessForm.productAccess.ad_server}
+                    onChange={() => setAccessForm((current) => ({
+                      ...current,
+                      productAccess: { ...current.productAccess, ad_server: !current.productAccess.ad_server },
+                    }))}
+                    className="h-4 w-4 rounded border-[color:var(--dusk-border-default)] text-brand-500 focus:ring-brand-500"
                   />
                   <span>Ad Server</span>
                 </label>
-                <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2 rounded-lg border border-[color:var(--dusk-border-default)] px-3 py-2 text-sm text-[color:var(--dusk-text-secondary)]">
                   <input
                     type="checkbox"
-                    checked={productAccess.studio}
-                    onChange={() => setProductAccess((current) => ({ ...current, studio: !current.studio }))}
-                    className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
+                    checked={accessForm.productAccess.studio}
+                    onChange={() => setAccessForm((current) => ({
+                      ...current,
+                      productAccess: { ...current.productAccess, studio: !current.productAccess.studio },
+                    }))}
+                    className="h-4 w-4 rounded border-[color:var(--dusk-border-default)] text-brand-500 focus:ring-brand-500"
                   />
                   <span>Studio</span>
                 </label>
@@ -380,8 +397,8 @@ export default function ClientManager() {
         </Panel>
 
         <Panel className="rounded-2xl">
-          <h2 className="text-lg font-semibold text-slate-900">Assigned users</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <h2 className="text-lg font-semibold text-[color:var(--dusk-text-primary)]">Assigned users</h2>
+          <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">
             Users only see the clients they are assigned to.
           </p>
           {loading ? (
@@ -389,11 +406,11 @@ export default function ClientManager() {
           ) : (
             <div className="mt-4 space-y-3">
               {accessUsers.map((user) => (
-                <div key={user.id} className="rounded-xl border border-slate-200 px-4 py-4">
+                <div key={user.id} className="rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 px-4 py-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium text-slate-900">{user.display_name || user.email}</p>
-                      <p className="mt-1 text-xs text-slate-500">{user.email}</p>
+                      <p className="text-sm font-medium text-[color:var(--dusk-text-primary)]">{user.display_name || user.email}</p>
+                      <p className="mt-1 text-xs text-[color:var(--dusk-text-muted)]">{user.email}</p>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -401,19 +418,19 @@ export default function ClientManager() {
                       const key = `${assignment.workspace_id}:${user.id}`;
                       const draft = getAssignmentDraft(assignment, user.id);
                       return (
-                        <div key={key} className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                        <div key={key} className="flex flex-wrap items-center gap-2 rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-muted px-3 py-2 text-xs text-[color:var(--dusk-text-secondary)]">
                           <span className="font-medium">{assignment.workspace_name}</span>
                           <ProductAccessBadges productAccess={assignment.product_access} />
-                          <select
+                          <Select
                             value={draft.role}
                             onChange={(event) => updateAssignmentDraft(assignment, user.id, { role: event.target.value as PlatformRole })}
-                            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
-                          >
-                            <option value="ad_ops">Ad Ops</option>
-                            <option value="designer">Designer</option>
-                            <option value="reviewer">Reviewer</option>
-                            <option value="admin">Admin</option>
-                          </select>
+                            options={[
+                              { value: 'ad_ops', label: 'Ad Ops' },
+                              { value: 'designer', label: 'Designer' },
+                              { value: 'reviewer', label: 'Reviewer' },
+                              { value: 'admin', label: 'Admin' },
+                            ]}
+                          />
                           <label className="flex items-center gap-1">
                             <input
                               type="checkbox"
@@ -440,22 +457,22 @@ export default function ClientManager() {
                             />
                             <span>Studio</span>
                           </label>
-                          <button
-                            type="button"
+                          <Button
                             onClick={() => void handleUpdateAccess(assignment, user.id)}
                             disabled={updatingAccessKey === key}
-                            className="rounded-md bg-brand-gradient px-2 py-1 text-xs font-medium text-white disabled:opacity-60"
+                            size="sm"
+                            variant="primary"
                           >
                             {updatingAccessKey === key ? 'Saving…' : 'Save'}
-                          </button>
-                          <button
-                            type="button"
+                          </Button>
+                          <Button
                             onClick={() => void handleRemoveAccess(assignment.workspace_id, user.id)}
                             disabled={removingAccessKey === key}
-                            className="font-medium text-rose-600 hover:text-rose-700 disabled:opacity-50"
+                            size="sm"
+                            variant="ghost"
                           >
                             {removingAccessKey === key ? '...' : 'Remove'}
-                          </button>
+                          </Button>
                         </div>
                       );
                     })}
@@ -463,9 +480,7 @@ export default function ClientManager() {
                 </div>
               ))}
               {!accessUsers.length && (
-                <div className="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-                  No users assigned yet.
-                </div>
+                <EmptyState title="No users assigned yet" description="Grant client access to a user to start routing workspaces and permissions." />
               )}
             </div>
           )}
