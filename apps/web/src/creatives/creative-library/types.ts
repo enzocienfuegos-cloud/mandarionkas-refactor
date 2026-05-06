@@ -37,6 +37,11 @@ export type CreativeRow = {
   owner: string;
 };
 
+export type PrototypeCheck = {
+  name: string;
+  passed: boolean;
+};
+
 export interface BindingState {
   creativeId: string;
   creativeName: string;
