@@ -1,22 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Panel,
-  Button,
   Kicker,
-  Select,
   EmptyState,
   CenteredSpinner,
 } from '../system';
-import type { DailyStat, ReportingTab, Tag, TagBindingOption, TagSummary } from './tag-reporting/types';
+import type { ReportingTab } from './tag-reporting/types';
 import {
   DATE_RANGE_OPTIONS,
   REPORTING_TAB_OPTIONS,
   exportTagReportingWorkbook,
-  formatVariantName,
-  normalizeBindings,
-  normalizeDailyStats,
-  normalizeTagSummary,
 } from './tag-reporting/utils';
 import {
   DisplayReportingView,
@@ -24,165 +18,37 @@ import {
   VideoReportingView,
 } from './tag-reporting/views';
 import { ReportingWorkspaceControls, TagSelectorPanel } from './tag-reporting/components';
+import { useTagReportingData } from './tag-reporting/hooks';
 
 export default function TagReportingDashboard() {
   const { id: routeTagId = '' } = useParams();
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
-  const [summary, setSummary] = useState<TagSummary | null>(null);
-  const [stats, setStats] = useState<DailyStat[]>([]);
-  const [bindings, setBindings] = useState<TagBindingOption[]>([]);
-  const [loadingTags, setLoadingTags] = useState(true);
-  const [loadingBindings, setLoadingBindings] = useState(false);
-  const [loadingStats, setLoadingStats] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [error, setError] = useState('');
-  const [statsError, setStatsError] = useState('');
-  const [dateRange, setDateRange] = useState(7);
-  const [tagSearch, setTagSearch] = useState('');
-  const [selectedCreativeId, setSelectedCreativeId] = useState('');
-  const [selectedVariantId, setSelectedVariantId] = useState('');
   const [activeTab, setActiveTab] = useState<ReportingTab>('display');
-
-  useEffect(() => {
-    fetch('/v1/tags?scope=all&limit=500', { credentials: 'include' })
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to load tags');
-        return r.json();
-      })
-      .then(d => {
-        const list: Tag[] = d?.tags ?? d ?? [];
-        setTags(list);
-        if (!list.length) return;
-        const initial = routeTagId
-          ? list.find(tag => tag.id === routeTagId) ?? list[0]
-          : list[0];
-        setSelectedTag(initial);
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoadingTags(false));
-  }, [routeTagId]);
-
-  useEffect(() => {
-    if (!routeTagId) return;
-    fetch(`/v1/tags/${routeTagId}`, { credentials: 'include' })
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to load selected tag');
-        return r.json();
-      })
-      .then(data => {
-        const rawTag = data?.tag ?? data;
-        if (!rawTag?.id) return;
-        const normalizedTag: Tag = {
-          id: String(rawTag.id),
-          name: String(rawTag.name ?? ''),
-          format: String(rawTag.format ?? ''),
-        };
-        setTags(prev => prev.some(tag => tag.id === normalizedTag.id) ? prev : [normalizedTag, ...prev]);
-        setSelectedTag(normalizedTag);
-      })
-      .catch(() => {
-        // Leave the list-selected fallback in place if the direct fetch fails.
-      });
-  }, [routeTagId]);
-
-  useEffect(() => {
-    if (!selectedTag) {
-      setBindings([]);
-      return;
-    }
-
-    setLoadingBindings(true);
-    fetch(`/v1/tags/${selectedTag.id}/bindings`, { credentials: 'include' })
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to load tag bindings');
-        return r.json();
-      })
-      .then(data => {
-        setBindings(normalizeBindings(data?.bindings ?? data ?? []));
-      })
-      .catch(() => setBindings([]))
-      .finally(() => setLoadingBindings(false));
-  }, [selectedTag]);
-
-  useEffect(() => {
-    setSelectedCreativeId('');
-    setSelectedVariantId('');
-  }, [selectedTag?.id]);
-
-  const creativeOptions = useMemo(() => {
-    const map = new Map<string, { id: string; name: string }>();
-    bindings.forEach(binding => {
-      if (!binding.creativeId || map.has(binding.creativeId)) return;
-      map.set(binding.creativeId, { id: binding.creativeId, name: binding.creativeName || binding.creativeId });
-    });
-    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [bindings]);
-
-  const variantOptions = useMemo(() => {
-    const base = selectedCreativeId
-      ? bindings.filter(binding => binding.creativeId === selectedCreativeId)
-      : bindings;
-    const map = new Map<string, { id: string; name: string }>();
-    base.forEach(binding => {
-      if (!binding.creativeSizeVariantId || map.has(binding.creativeSizeVariantId)) return;
-      map.set(binding.creativeSizeVariantId, {
-        id: binding.creativeSizeVariantId,
-        name: formatVariantName(binding),
-      });
-    });
-    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [bindings, selectedCreativeId]);
-
-  useEffect(() => {
-    if (selectedVariantId && !variantOptions.some(option => option.id === selectedVariantId)) {
-      setSelectedVariantId('');
-    }
-  }, [selectedVariantId, variantOptions]);
-
-  const filteredTags = useMemo(() => {
-    const needle = tagSearch.trim().toLowerCase();
-    if (!needle) return tags;
-    return tags.filter(tag => tag.name.toLowerCase().includes(needle));
-  }, [tags, tagSearch]);
-
-  const loadTagData = useCallback((tag: Tag, days: number, filters: { creativeId: string; creativeSizeVariantId: string }) => {
-    setLoadingStats(true);
-    setStatsError('');
-
-    const dateFrom = new Date();
-    dateFrom.setDate(dateFrom.getDate() - days);
-    const from = dateFrom.toISOString().slice(0, 10);
-    const params = new URLSearchParams({ dateFrom: from });
-    if (filters.creativeId) params.set('creativeId', filters.creativeId);
-    if (filters.creativeSizeVariantId) params.set('creativeSizeVariantId', filters.creativeSizeVariantId);
-
-    Promise.all([
-      fetch(`/v1/tags/${tag.id}/summary?${params.toString()}`, { credentials: 'include' }).then(r => {
-        if (!r.ok) throw new Error('Failed to load summary');
-        return r.json();
-      }),
-      fetch(`/v1/tags/${tag.id}/stats?${params.toString()}`, { credentials: 'include' }).then(r => {
-        if (!r.ok) throw new Error('Failed to load stats');
-        return r.json();
-      }),
-    ])
-      .then(([sumData, statData]) => {
-        setSummary(normalizeTagSummary(sumData?.summary ?? sumData ?? null));
-        setStats(normalizeDailyStats(statData?.stats ?? statData ?? []));
-      })
-      .catch(() => setStatsError('Failed to load tag statistics.'))
-      .finally(() => setLoadingStats(false));
-  }, []);
-
-  useEffect(() => {
-    if (selectedTag) {
-      loadTagData(selectedTag, dateRange, {
-        creativeId: selectedCreativeId,
-        creativeSizeVariantId: selectedVariantId,
-      });
-    }
-  }, [selectedTag, dateRange, selectedCreativeId, selectedVariantId, loadTagData]);
+  const {
+    selectedTag,
+    setSelectedTag,
+    summary,
+    stats,
+    bindings,
+    loadingTags,
+    loadingBindings,
+    loadingStats,
+    error,
+    statsError,
+    setStatsError,
+    dateRange,
+    setDateRange,
+    tagSearch,
+    setTagSearch,
+    selectedCreativeId,
+    setSelectedCreativeId,
+    selectedVariantId,
+    setSelectedVariantId,
+    creativeOptions,
+    variantOptions,
+    filteredTags,
+    loadTagData,
+  } = useTagReportingData(routeTagId);
 
   const handleExport = useCallback(async () => {
     if (!selectedTag || !summary) return;
