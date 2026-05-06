@@ -44,6 +44,8 @@ import type {
   VideoRenditionState,
 } from './creative-library/types';
 import { CreativePreviewLightbox } from './creative-library/CreativePreviewLightbox';
+import { QuickCreateTagModal } from './creative-library/QuickCreateTagModal';
+import { TagBindingModal } from './creative-library/TagBindingModal';
 import { VariantManagerModal } from './creative-library/VariantManagerModal';
 import { VideoRenditionsModal } from './creative-library/VideoRenditionsModal';
 import {
@@ -2279,158 +2281,25 @@ export default function CreativesView() {
       )}
 
       {quickCreateTagState && (
-        <Modal
-          open
+        <QuickCreateTagModal
+          state={quickCreateTagState}
           onClose={() => setQuickCreateTagState(null)}
-          title="Quick create tag"
-          description={`Create a draft ${quickCreateTagState.suggestedFormat} tag for ${quickCreateTagState.creativeName}.`}
-          size="md"
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setQuickCreateTagState(null)}>
-                Cancel
-              </Button>
-              <Button onClick={() => void handleConfirmQuickCreateTag()} loading={quickCreateTagState.loading}>
-                Create tag
-              </Button>
-            </>
-          }
-        >
-          {quickCreateTagState.error && (
-            <div className="mb-4 rounded-lg border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-3 py-2 text-sm text-[color:var(--dusk-status-critical-fg)]">
-              {quickCreateTagState.error}
-            </div>
-          )}
-          <Input
-            value={quickCreateTagState.name}
-            onChange={(event) => setQuickCreateTagState((current) => current ? { ...current, name: event.target.value, error: '' } : current)}
-            placeholder="Tag name"
-            autoFocus
-          />
-        </Modal>
+          onConfirm={handleConfirmQuickCreateTag}
+          onNameChange={(value) => setQuickCreateTagState((current) => current ? { ...current, name: value, error: '' } : current)}
+        />
       )}
 
       {bindingState && (
-        <Modal
-          open
+        <TagBindingModal
+          bindingState={bindingState}
+          tags={tags}
           onClose={() => setBindingState(null)}
-          size="md"
-          title="Assign creative version to tag"
-          description="Assign this creative version to one or more delivery tags."
-          footer={(
-            <>
-              <Button variant="ghost" onClick={() => setBindingState(null)}>Cancel</Button>
-              <Button onClick={() => void handleAssign()} loading={bindingState.loading}>Assign</Button>
-            </>
-          )}
-        >
-            {bindingState.error && (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {bindingState.error}
-              </div>
-            )}
-            <div className="mt-4">
-              <label className="mb-1 block text-sm font-medium text-slate-700">Tag</label>
-              <select
-                value={bindingState.tagId}
-                onChange={event => setBindingState(current => current ? { ...current, tagId: event.target.value } : current)}
-                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-500/20"
-              >
-                <option value="">Select a tag</option>
-                {tags.map(tag => (
-                  <option key={tag.id} value={tag.id}>
-                    {tag.name} · {tag.format} · {tag.status}
-                  </option>
-                ))}
-              </select>
-              {tags.length === 0 && (
-                <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-                  <p>No tags exist yet for this client.</p>
-                  <div className="mt-3 flex gap-2">
-                    <Button
-                      onClick={() => void handleQuickCreateTag()}
-                      variant="secondary"
-                      size="sm"
-                      disabled={bindingState.loading}
-                    >
-                      Quick create tag
-                    </Button>
-                    <Button
-                      onClick={() => navigate('/tags?create=1')}
-                      variant="ghost"
-                      size="sm"
-                    >
-                      Open tags
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-            {bindingState.tagId && (
-              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-medium text-slate-800">Current assignments</h3>
-                    <p className="text-xs text-slate-500">Review what this tag is already serving before you change it.</p>
-                  </div>
-                  {bindingState.bindingsLoading && (
-                    <span className="text-xs text-slate-500">Loading…</span>
-                  )}
-                </div>
-                <div className="mt-3 space-y-2">
-                  {bindingState.bindings.map(binding => {
-                    const isCurrentVersion = binding.creativeVersionId === bindingState.versionId;
-                    return (
-                      <div key={binding.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="truncate text-sm font-medium text-slate-800">{binding.creativeName}</span>
-                              {statusBadge(binding.status)}
-                              {isCurrentVersion && (
-                                <span className="inline-flex items-center rounded-full border border-fuchsia-200 bg-fuchsia-50 px-2 py-0.5 text-xs font-medium text-fuchsia-700 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
-                                  Selected version
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-1 text-xs text-slate-500">
-                              {binding.sourceKind} · {binding.servingFormat} · weight {binding.weight}
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            {binding.status === 'active' ? (
-                              <Button
-                                onClick={() => void handleBindingStatusChange(binding.id, 'paused')}
-                                disabled={bindingState.loading}
-                                variant="secondary"
-                                size="sm"
-                              >
-                                Pause
-                              </Button>
-                            ) : (
-                              <Button
-                                onClick={() => void handleBindingStatusChange(binding.id, 'active')}
-                                disabled={bindingState.loading}
-                                variant="secondary"
-                                size="sm"
-                              >
-                                Activate
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {!bindingState.bindingsLoading && bindingState.bindings.length === 0 && (
-                    <div className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-sm text-slate-500">
-                      This tag has no assignments yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-        </Modal>
+          onAssign={handleAssign}
+          onTagChange={(tagId) => setBindingState((current) => current ? { ...current, tagId } : current)}
+          onQuickCreateTag={handleQuickCreateTag}
+          onOpenTags={() => navigate('/tags?create=1')}
+          onBindingStatusChange={handleBindingStatusChange}
+        />
       )}
 
       {videoRenditionState && (
