@@ -12,11 +12,11 @@ import type { DailyStat, ReportingTab, Tag, TagBindingOption, TagSummary } from 
 import {
   DATE_RANGE_OPTIONS,
   REPORTING_TAB_OPTIONS,
+  exportTagReportingWorkbook,
   formatVariantName,
   normalizeBindings,
   normalizeDailyStats,
   normalizeTagSummary,
-  slugify,
 } from './tag-reporting/utils';
 import {
   DisplayReportingView,
@@ -188,83 +188,14 @@ export default function TagReportingDashboard() {
     if (!selectedTag || !summary) return;
     setExporting(true);
     try {
-      const XLSX = await import('xlsx');
-      const workbook = XLSX.utils.book_new();
-
-      const filterSummary = [
-        { Filter: 'Tag', Value: selectedTag.name },
-        { Filter: 'Date Range', Value: `Last ${dateRange} days` },
-        { Filter: 'Assigned Creative', Value: creativeOptions.find(option => option.id === selectedCreativeId)?.name ?? 'All' },
-        { Filter: 'Creative Size', Value: variantOptions.find(option => option.id === selectedVariantId)?.name ?? 'All' },
-      ];
-      const summaryRows = [
-        { Metric: 'Total Impressions', Value: summary.totalImpressions },
-        { Metric: 'Total Clicks', Value: summary.totalClicks },
-        { Metric: 'CTR (%)', Value: Number(summary.ctr.toFixed(2)) },
-        { Metric: 'Viewability (%)', Value: Number(summary.viewabilityRate.toFixed(2)) },
-        { Metric: 'In-View Time (ms)', Value: summary.totalInViewDurationMs },
-        { Metric: 'Attention Time (ms)', Value: summary.totalAttentionDurationMs },
-        { Metric: 'Last 7d Impressions', Value: summary.impressionsLast7d },
-        { Metric: 'Video Starts', Value: summary.videoStarts },
-        { Metric: 'Start Rate (%)', Value: Number(summary.videoStartRate.toFixed(2)) },
-        { Metric: 'Plays Completed', Value: summary.videoCompletions },
-        { Metric: 'Completion Rate (%)', Value: Number(summary.videoCompletionRate.toFixed(2)) },
-      ];
-      const contextRows = summary.latestContext
-        ? [
-            { Field: 'Site Domain', Value: summary.latestContext.siteDomain || 'n/a' },
-            { Field: 'Page URL', Value: summary.latestContext.pageUrl || 'n/a' },
-            { Field: 'Country', Value: summary.latestContext.country || 'n/a' },
-            { Field: 'Region', Value: summary.latestContext.region || 'n/a' },
-            { Field: 'City', Value: summary.latestContext.city || 'n/a' },
-            { Field: 'Device Type', Value: summary.latestContext.deviceType || 'n/a' },
-            { Field: 'Device Model', Value: summary.latestContext.deviceModel || 'n/a' },
-            { Field: 'Browser', Value: summary.latestContext.browser || 'n/a' },
-            { Field: 'OS', Value: summary.latestContext.os || 'n/a' },
-            { Field: 'Contextual IDs', Value: summary.latestContext.contextualIds || 'n/a' },
-            { Field: 'Network ID', Value: summary.latestContext.networkId || 'n/a' },
-            { Field: 'Source Publisher ID', Value: summary.latestContext.sourcePublisherId || 'n/a' },
-            { Field: 'App ID', Value: summary.latestContext.appId || 'n/a' },
-            { Field: 'Site ID', Value: summary.latestContext.siteId || 'n/a' },
-            { Field: 'Exchange ID', Value: summary.latestContext.exchangeId || 'n/a' },
-            { Field: 'Exchange Publisher ID', Value: summary.latestContext.exchangePublisherId || 'n/a' },
-            { Field: 'Exchange Site/Domain', Value: summary.latestContext.exchangeSiteIdOrDomain || 'n/a' },
-            { Field: 'App Bundle', Value: summary.latestContext.appBundle || 'n/a' },
-            { Field: 'App Name', Value: summary.latestContext.appName || 'n/a' },
-            { Field: 'Page Position', Value: summary.latestContext.pagePosition || 'n/a' },
-            { Field: 'Content Language', Value: summary.latestContext.contentLanguage || 'n/a' },
-            { Field: 'Content Title', Value: summary.latestContext.contentTitle || 'n/a' },
-            { Field: 'Content Series', Value: summary.latestContext.contentSeries || 'n/a' },
-            { Field: 'Carrier', Value: summary.latestContext.carrier || 'n/a' },
-            { Field: 'App Store Name', Value: summary.latestContext.appStoreName || 'n/a' },
-            { Field: 'Content Genre', Value: summary.latestContext.contentGenre || 'n/a' },
-          ]
-        : [];
-      const breakdownRows = [...stats]
-        .reverse()
-        .map(row => {
-          const ctr = row.impressions > 0 ? (row.clicks / row.impressions) * 100 : 0;
-          const startRate = row.impressions > 0 ? (row.videoStarts / row.impressions) * 100 : 0;
-          const completionRate = row.videoStarts > 0 ? (row.videoCompletions / row.videoStarts) * 100 : 0;
-          return {
-            Date: row.date,
-            Impressions: row.impressions,
-            Clicks: row.clicks,
-            'Play Starts': row.videoStarts,
-            'Plays Completed': row.videoCompletions,
-            'CTR (%)': Number(ctr.toFixed(2)),
-            'Start Rate (%)': Number(startRate.toFixed(2)),
-            'Completion Rate (%)': Number(completionRate.toFixed(2)),
-          };
-        });
-
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(filterSummary), 'Filters');
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), 'Summary');
-      if (contextRows.length) {
-        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(contextRows), 'Latest Context');
-      }
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(breakdownRows), 'Daily Breakdown');
-      XLSX.writeFile(workbook, `${slugify(selectedTag.name)}-report.xlsx`);
+      await exportTagReportingWorkbook({
+        tagName: selectedTag.name,
+        dateRange,
+        selectedCreativeName: creativeOptions.find(option => option.id === selectedCreativeId)?.name ?? 'All',
+        selectedVariantName: variantOptions.find(option => option.id === selectedVariantId)?.name ?? 'All',
+        summary,
+        stats,
+      });
     } catch (exportError) {
       setStatsError(exportError instanceof Error ? exportError.message : 'Failed to export Excel file.');
     } finally {

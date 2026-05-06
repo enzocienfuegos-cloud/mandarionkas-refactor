@@ -72,3 +72,12 @@ export interface DailyStat {
   videoStarts: number;
   videoCompletions: number;
 }
+
+export interface ReportingExportParams {
+  tagName: string;
+  dateRange: number;
+  selectedCreativeName: string;
+  selectedVariantName: string;
+  summary: TagSummary;
+  stats: DailyStat[];
+}
