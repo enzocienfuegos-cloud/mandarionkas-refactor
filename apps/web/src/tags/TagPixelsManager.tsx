@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useConfirm, useToast } from '../system';
+import { Button, CenteredSpinner, EmptyState, FormField, Input, Kicker, Panel, Select, useConfirm, useToast } from '../system';
 
 interface TagRecord {
   id: string;
@@ -141,18 +141,14 @@ export default function TagPixelsManager() {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-brand-500" />
-      </div>
-    );
+    return <CenteredSpinner label="Loading tag pixels" />;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--dusk-text-soft)]">Tag Pixels</p>
+          <Kicker>Tag Pixels</Kicker>
           <h1 className="mt-2 text-2xl font-bold text-text-primary">{tag?.name ?? 'Tag pixels'}</h1>
           <p className="mt-1 text-sm text-text-muted">
             Manage measurement and redirect pixels for this tag.
@@ -160,31 +156,34 @@ export default function TagPixelsManager() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to={`/tags/${id}`} className="rounded-lg border border-border-strong px-3 py-2 text-sm font-medium text-text-secondary hover:bg-[color:var(--dusk-surface-muted)]">
-            Back to tag
+          <Link to={`/tags/${id}`} className="inline-flex">
+            <Button variant="secondary">Back to tag</Button>
           </Link>
-          <Link to={`/tags/${id}/tracking`} className="rounded-lg border border-border-strong px-3 py-2 text-sm font-medium text-text-secondary hover:bg-[color:var(--dusk-surface-muted)]">
-            Tracking
+          <Link to={`/tags/${id}/tracking`} className="inline-flex">
+            <Button variant="secondary">Tracking</Button>
           </Link>
-          <Link to={`/tags/${id}/reporting`} className="rounded-lg border border-border-strong px-3 py-2 text-sm font-medium text-text-secondary hover:bg-[color:var(--dusk-surface-muted)]">
-            Reporting
+          <Link to={`/tags/${id}/reporting`} className="inline-flex">
+            <Button variant="secondary">Reporting</Button>
           </Link>
         </div>
       </div>
 
-      {error ? <div className="rounded-xl border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]">{error}</div> : null}
-      {success ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div> : null}
+      {error ? <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]" role="alert">{error}</Panel> : null}
+      {success ? <Panel className="border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-success-fg)]">{success}</Panel> : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.9fr)]">
-        <div className="rounded-2xl border border-border-default bg-surface-1 overflow-hidden">
+        <Panel className="overflow-hidden" padding="none">
           <div className="border-b border-border-default px-6 py-4">
             <h2 className="text-lg font-semibold text-text-primary">Configured pixels</h2>
             <p className="mt-1 text-sm text-text-muted">Pixels fire alongside tag delivery and should stay tightly scoped to the measurement path.</p>
           </div>
           {pixels.length === 0 ? (
-            <div className="px-6 py-10 text-sm text-text-muted">No pixels are configured for this tag yet.</div>
+            <EmptyState
+              title="No pixels configured yet"
+              description="Add impression, click, viewability, or custom measurement endpoints for this tag."
+            />
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-[color:var(--dusk-border-subtle)]">
               {pixels.map((pixel) => (
                 <div key={pixel.id} className="px-6 py-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -198,64 +197,60 @@ export default function TagPixelsManager() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => handleEdit(pixel)} className="rounded-lg px-3 py-2 text-xs font-medium text-text-brand hover:bg-brand-50">
+                      <Button type="button" onClick={() => handleEdit(pixel)} size="sm" variant="ghost">
                         Edit
-                      </button>
-                      <button type="button" onClick={() => void handleDelete(pixel)} className="rounded-lg px-3 py-2 text-xs font-medium text-[color:var(--dusk-status-critical-fg)] hover:bg-[color:var(--dusk-status-critical-bg)]">
+                      </Button>
+                      <Button type="button" onClick={() => void handleDelete(pixel)} size="sm" variant="danger">
                         Delete
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Panel>
 
-        <div className="rounded-2xl border border-border-default bg-surface-1 p-6">
+        <Panel className="p-6">
           <h2 className="text-lg font-semibold text-text-primary">{editingId ? 'Edit pixel' : 'Add pixel'}</h2>
           <p className="mt-1 text-sm text-text-muted">
             Use standard measurement endpoints and keep redirects deterministic.
           </p>
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-text-secondary">Pixel type</label>
-              <select
+            <FormField label="Pixel type">
+              <Select
                 value={form.pixelType}
                 onChange={(event) => setForm((current) => ({ ...current, pixelType: event.target.value as PixelRecord['pixelType'] }))}
-                className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
               >
                 {PIXEL_TYPES.map((type) => (
                   <option key={type} value={type}>{type}</option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-text-secondary">URL</label>
+              </Select>
+            </FormField>
+            <FormField label="URL">
               <textarea
                 value={form.url}
                 onChange={(event) => setForm((current) => ({ ...current, url: event.target.value }))}
                 rows={5}
                 placeholder="https://measurement.example.com/pixel?id=..."
-                className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-border-default bg-surface-1 px-3 py-2 text-sm text-text-primary"
               />
-            </div>
+            </FormField>
             <div className="flex items-center gap-2">
-              <button
+              <Button
                 type="submit"
                 disabled={saving}
-                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
               >
                 {saving ? 'Saving...' : editingId ? 'Update pixel' : 'Add pixel'}
-              </button>
+              </Button>
               {editingId ? (
-                <button type="button" onClick={resetForm} className="rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-text-secondary hover:bg-[color:var(--dusk-surface-muted)]">
+                <Button type="button" onClick={resetForm} variant="secondary">
                   Cancel
-                </button>
+                </Button>
               ) : null}
             </div>
           </form>
-        </div>
+        </Panel>
       </div>
     </div>
   );
