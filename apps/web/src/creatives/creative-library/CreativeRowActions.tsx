@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button, IconButton } from '../../system';
 import type { Creative, CreativeVersion } from '../catalog';
 import { MoreIcon } from './ui';
 
@@ -33,50 +34,56 @@ export function CreativeRowActions({
     <div className="flex flex-wrap items-center gap-2">
       {version.status !== 'rejected' && (
         <>
-          <button
-            type="button"
+          <Button
             onClick={() => void onToggleOperationalStatus(creative)}
             disabled={statusUpdateCreativeId === creative.id}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
+            variant={operationalState === 'inactive' ? 'secondary' : 'ghost'}
+            size="sm"
+            aria-label={`${operationalState === 'inactive' ? 'Set active' : 'Set inactive'} for ${creative.name}`}
+            className={`${
               operationalState === 'inactive'
                 ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/18 dark:text-emerald-300 dark:hover:bg-emerald-500/10'
                 : 'border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/[0.05]'
             }`}
           >
             {statusUpdateCreativeId === creative.id ? 'Saving…' : operationalState === 'inactive' ? 'Set active' : 'Set inactive'}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             onClick={() => void onEditClickUrl(creative)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+            variant="secondary"
+            size="sm"
+            aria-label={`${creative.clickUrl ? 'Edit' : 'Set'} destination URL for ${creative.name}`}
+            className="border-slate-200 text-slate-700 hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
           >
             {creative.clickUrl ? 'Edit URL' : 'Set URL'}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             onClick={() => void onOpenDeliveryManager(creative, version)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+            variant="secondary"
+            size="sm"
+            aria-label={`Open ${version.servingFormat === 'vast_video' ? 'renditions' : 'sizes'} manager for ${creative.name}`}
+            className="border-slate-200 text-slate-700 hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
           >
             {version.servingFormat === 'vast_video' ? 'Renditions' : 'Sizes'}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             onClick={() => void onAssignTag(creative, version)}
             disabled={workspaceBusy}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 disabled:opacity-50 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+            variant="secondary"
+            size="sm"
+            aria-label={`Assign ${creative.name} to a tag`}
+            className="border-slate-200 text-slate-700 hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
           >
             Assign tag
-          </button>
+          </Button>
         </>
       )}
-      <button
-        type="button"
+      <IconButton
         onClick={() => void onDeleteCreative(creative)}
-        className="rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
-        aria-label={`More actions for ${creative.name}`}
-      >
-        <MoreIcon className="h-4 w-4" />
-      </button>
+        className="border border-transparent text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+        aria-label={`Delete ${creative.name}`}
+        icon={<MoreIcon className="h-4 w-4" />}
+      />
     </div>
   );
 }

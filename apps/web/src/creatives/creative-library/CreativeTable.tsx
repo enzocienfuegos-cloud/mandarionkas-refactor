@@ -1,4 +1,5 @@
 import React from 'react';
+import { IconButton } from '../../system';
 import type { Creative, CreativeVersion } from '../catalog';
 import type { CreativeRow, PreviewModalState, PrioritySeverity } from './types';
 import { CreativePreviewCell } from './CreativePreviewCell';
@@ -47,9 +48,10 @@ export function CreativeTable({
   return (
     <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
       <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
+        <caption className="sr-only">Creative QA queue with selection, preview status, QA state and row actions.</caption>
         <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
           <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
-            <th className="px-5 py-4">
+            <th scope="col" className="px-5 py-4">
               <input
                 type="checkbox"
                 checked={allVisibleCreativesSelected}
@@ -63,14 +65,14 @@ export function CreativeTable({
                 aria-label="Select all visible creatives"
               />
             </th>
-            <th className="px-5 py-4">Creative</th>
-            <th className="px-5 py-4">Status</th>
-            <th className="px-5 py-4">Format</th>
-            <th className="px-5 py-4">Size</th>
-            <th className="px-5 py-4">Preview</th>
-            <th className="px-5 py-4">QA</th>
-            <th className="px-5 py-4">Owner</th>
-            <th className="px-5 py-4" aria-label="Actions" />
+            <th scope="col" className="px-5 py-4">Creative</th>
+            <th scope="col" className="px-5 py-4">Status</th>
+            <th scope="col" className="px-5 py-4">Format</th>
+            <th scope="col" className="px-5 py-4">Size</th>
+            <th scope="col" className="px-5 py-4">Preview</th>
+            <th scope="col" className="px-5 py-4">QA</th>
+            <th scope="col" className="px-5 py-4">Owner</th>
+            <th scope="col" className="px-5 py-4" aria-label="Actions" />
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200 dark:divide-white/8">
@@ -92,10 +94,10 @@ export function CreativeTable({
                     aria-label={`Select creative ${creative.name}`}
                   />
                 </td>
-                <td className="px-5 py-5">
+                <th scope="row" className="px-5 py-5 text-left">
                   <p className="font-semibold text-slate-950 dark:text-white">{row?.creative ?? creative.name}</p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-white/48">{row?.advertiser ?? creative.workspaceName ?? '—'} · {row?.campaign ?? 'No campaign'}</p>
-                </td>
+                </th>
                 <td className="px-5 py-5">
                   <CreativeStatusBadge status={row?.status ?? 'Missing'} />
                 </td>
@@ -134,14 +136,12 @@ export function CreativeTable({
                     />
                   ) : (
                     <div className="flex justify-end">
-                      <button
-                        type="button"
+                      <IconButton
                         onClick={() => void onDeleteCreative(creative)}
-                        className="rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
-                        aria-label={`More actions for ${creative.name}`}
-                      >
-                        <MoreIcon className="h-4 w-4" />
-                      </button>
+                        className="border border-transparent text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+                        aria-label={`Delete ${creative.name}`}
+                        icon={<MoreIcon className="h-4 w-4" />}
+                      />
                     </div>
                   )}
                 </td>

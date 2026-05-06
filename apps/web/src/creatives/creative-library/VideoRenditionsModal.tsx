@@ -63,12 +63,9 @@ export function VideoRenditionsModal({
             <h2 className="text-lg font-semibold text-slate-800">Video renditions</h2>
             <p className="mt-1 text-sm text-slate-500">{state.creativeName}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-          >
+          <Button onClick={onClose} variant="secondary" size="sm" aria-label="Close video renditions modal">
             Close
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-4 p-6">
@@ -237,6 +234,7 @@ export function VideoRenditionsModal({
 
           <div className="overflow-hidden rounded-xl border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <caption className="sr-only">Video renditions and delivery status for the selected creative version.</caption>
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Rendition</th>

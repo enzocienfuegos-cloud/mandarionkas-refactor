@@ -124,35 +124,42 @@ export function VariantManagerModal({
               </span>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button
+              <Button
                 onClick={() => void onBulkStatusChange('active')}
                 disabled={variantState.loading || variantState.selectedVariantIds.length === 0}
-                className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                variant="secondary"
+                size="sm"
+                aria-label="Activate selected size variants"
+                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
               >
                 Activate selected
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => void onBulkStatusChange('paused')}
                 disabled={variantState.loading || variantState.selectedVariantIds.length === 0}
-                className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-60"
+                variant="secondary"
+                size="sm"
+                aria-label="Pause selected size variants"
+                className="border-amber-200 text-amber-700 hover:bg-amber-50 disabled:opacity-60"
               >
                 Pause selected
-              </button>
+              </Button>
             </div>
           </div>
           <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <caption className="sr-only">Resolution variants for the selected creative version.</caption>
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">
+                <th scope="col" className="px-4 py-3">
                   <span className="sr-only">Select</span>
                 </th>
-                <th className="px-4 py-3">Variant</th>
-                <th className="px-4 py-3">Size</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Readiness</th>
-                <th className="px-4 py-3">Bindings</th>
-                <th className="px-4 py-3">Preview</th>
-                <th className="px-4 py-3">Actions</th>
+                <th scope="col" className="px-4 py-3">Variant</th>
+                <th scope="col" className="px-4 py-3">Size</th>
+                <th scope="col" className="px-4 py-3">Status</th>
+                <th scope="col" className="px-4 py-3">Readiness</th>
+                <th scope="col" className="px-4 py-3">Bindings</th>
+                <th scope="col" className="px-4 py-3">Preview</th>
+                <th scope="col" className="px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
@@ -166,7 +173,7 @@ export function VariantManagerModal({
                       className="rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
                     />
                   </td>
-                  <td className="px-4 py-3 font-medium text-slate-800">{variant.label}</td>
+                  <th scope="row" className="px-4 py-3 text-left font-medium text-slate-800">{variant.label}</th>
                   <td className="px-4 py-3 text-slate-600">{variant.width}×{variant.height}</td>
                   <td className="px-4 py-3">{statusBadge(variant.status)}</td>
                   <td className="px-4 py-3">{readinessBadge(variant)}</td>
