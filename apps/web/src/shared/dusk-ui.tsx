@@ -10,7 +10,7 @@ export function cn(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(' ');
 }
 
-export function DuskLogo({ className = 'h-[34px] w-[136px] text-slate-950 dark:text-white' }: { className?: string }) {
+export function DuskLogo({ className = 'h-[34px] w-[136px] text-[color:var(--dusk-text-primary)]' }: { className?: string }) {
   return (
     <svg
       viewBox="150 780 1760 480"
@@ -80,8 +80,8 @@ export function Panel({ children, className }: { children: React.ReactNode; clas
   return (
     <section
       className={cn(
-        'rounded-[28px] border border-slate-200 bg-white/85 shadow-[0_18px_60px_rgba(28,18,41,0.08)] backdrop-blur-xl',
-        'dark:border-white/[0.07] dark:bg-white/[0.035] dark:shadow-[0_22px_70px_rgba(0,0,0,0.28)]',
+        'rounded-[28px] border border-border-default bg-surface-1/85 shadow-[0_18px_60px_rgba(28,18,41,0.08)] backdrop-blur-xl',
+        'dark:border-white/[0.07] dark:bg-surface-1/[0.035] dark:shadow-[0_22px_70px_rgba(0,0,0,0.28)]',
         className,
       )}
     >
@@ -92,7 +92,7 @@ export function Panel({ children, className }: { children: React.ReactNode; clas
 
 export function SectionKicker({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <p className={cn('text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-white/[0.42]', className)}>
+    <p className={cn('text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted dark:text-white/[0.42]', className)}>
       {children}
     </p>
   );
@@ -116,7 +116,7 @@ export function SecondaryButton({ children, className = '', ...props }: React.Bu
   return (
     <button
       className={cn(
-        'inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/[0.86] dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045] disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-border-default/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-text-secondary transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white/[0.86] dark:hover:border-fuchsia-500/22 dark:hover:bg-surface-1/[0.045] disabled:cursor-not-allowed disabled:opacity-60',
         className,
       )}
       {...props}
@@ -130,10 +130,10 @@ type StatusTone = 'healthy' | 'warning' | 'critical' | 'info' | 'neutral';
 
 const statusToneClass: Record<StatusTone, string> = {
   healthy: 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/25 dark:text-emerald-300',
-  warning: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300',
+  warning: 'border-amber-300/70 bg-amber-50 text-[color:var(--dusk-status-warning-fg)] dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300',
   critical: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/25 dark:text-rose-300',
   info: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/25 dark:text-sky-300',
-  neutral: 'border-slate-300/70 bg-slate-50 text-slate-700 dark:border-white/20 dark:bg-white/[0.12] dark:text-white/[0.70]',
+  neutral: 'border-border-strong/70 bg-[color:var(--dusk-surface-muted)] text-text-secondary dark:border-white/20 dark:bg-surface-1/[0.12] dark:text-white/[0.70]',
 };
 
 export function StatusBadge({
@@ -227,7 +227,7 @@ function DuskSidebarItemRow({
         'group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left text-sm transition',
         item.active
           ? 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300'
-          : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-white/[0.66] dark:hover:bg-white/[0.05] dark:hover:text-white',
+          : 'text-text-muted hover:bg-[color:var(--dusk-surface-muted)]/80 hover:text-[color:var(--dusk-text-primary)]/[0.66] dark:hover:bg-surface-1/[0.05] dark:hover:text-white',
       )}
       onClick={item.onClick}
     >
@@ -237,14 +237,14 @@ function DuskSidebarItemRow({
           'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition',
           item.active
             ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-            : 'border-slate-200 bg-white/60 text-slate-500 group-hover:border-fuchsia-200 group-hover:text-fuchsia-600 dark:border-white/10 dark:bg-white/[0.025] dark:text-white/[0.56] dark:group-hover:border-fuchsia-500/20 dark:group-hover:text-fuchsia-300',
+            : 'border-border-default bg-surface-1/60 text-text-muted group-hover:border-fuchsia-200 group-hover:text-fuchsia-600 dark:border-white/10 dark:bg-surface-1/[0.025] dark:text-white/[0.56] dark:group-hover:border-fuchsia-500/20 dark:group-hover:text-fuchsia-300',
         )}
       >
         {item.icon}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold">{item.label}</span>
-        {item.helper && <span className="mt-0.5 block truncate text-xs text-slate-400 dark:text-white/36">{item.helper}</span>}
+        {item.helper && <span className="mt-0.5 block truncate text-xs text-[color:var(--dusk-text-soft)] dark:text-white/36">{item.helper}</span>}
       </span>
       {item.badge ? (
         <span
@@ -252,7 +252,7 @@ function DuskSidebarItemRow({
             'rounded-full px-2 py-0.5 text-[11px] font-semibold',
             item.active
               ? 'bg-fuchsia-600 text-white'
-              : 'bg-slate-100 text-slate-500 dark:bg-white/[0.08] dark:text-white/[0.56]',
+              : 'bg-[color:var(--dusk-surface-muted)] text-text-muted dark:bg-surface-1/[0.08] dark:text-white/[0.56]',
           )}
         >
           {item.badge}
@@ -310,7 +310,7 @@ function SidebarNavGroup({
 }) {
   return (
     <div className="space-y-2">
-      <div className="px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-white/32">
+      <div className="px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--dusk-text-soft)] dark:text-white/32">
         {title}
       </div>
       <div className="space-y-1">
@@ -377,17 +377,17 @@ export function Sidebar({
 
   return (
     <aside
-      className="app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white/84 px-3 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#0b1020]/90 lg:block"
+      className="app-scrollbar sticky top-0 hidden h-screen w-[280px] shrink-0 overflow-y-auto border-r border-border-default/80 bg-surface-1/84 px-3 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#0b1020]/90 lg:block"
     >
       <div className="flex min-h-full flex-col">
         <div className="flex items-center gap-3 px-2 pb-5">
           <div className="flex min-w-0 flex-1 flex-col justify-center">
-            <DuskLogo className="h-[34px] w-[136px] text-slate-950 dark:text-white" />
-            <p className="mt-1 text-xs font-medium text-slate-500 dark:text-white/40">Adserver workspace</p>
+            <DuskLogo className="h-[34px] w-[136px] text-[color:var(--dusk-text-primary)]" />
+            <p className="mt-1 text-xs font-medium text-text-muted dark:text-white/40">Adserver workspace</p>
           </div>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white/60 text-slate-400 transition hover:border-fuchsia-300 hover:text-fuchsia-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/38 dark:hover:border-fuchsia-500/24 dark:hover:text-fuchsia-300"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface-1/60 text-[color:var(--dusk-text-soft)] transition hover:border-fuchsia-300 hover:text-fuchsia-600 dark:border-white/8 dark:bg-surface-1/[0.03] dark:text-white/38 dark:hover:border-fuchsia-500/24 dark:hover:text-fuchsia-300"
             aria-label="Collapse sidebar"
           >
             <ChevronLeft className="h-4 w-4" strokeWidth={1.8} />
@@ -396,44 +396,44 @@ export function Sidebar({
 
         <button
           type="button"
-          className="mb-3 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white/58 px-3 py-2.5 text-left transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/8 dark:bg-white/[0.025] dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]"
+          className="mb-3 flex w-full items-center justify-between rounded-xl border border-border-default bg-surface-1/58 px-3 py-2.5 text-left transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/8 dark:bg-surface-1/[0.025] dark:hover:border-fuchsia-500/22 dark:hover:bg-surface-1/[0.045]"
         >
           {advertiserSelector ? (
             <div className="relative w-full">
               <select
                 value={advertiserSelector.value}
                 onChange={(event) => advertiserSelector.onChange(event.target.value)}
-                className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-white/58 px-3 pr-10 text-sm font-semibold text-slate-800 outline-none transition hover:border-fuchsia-300 focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/8 dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:focus:border-fuchsia-500/26"
+                className="h-12 w-full appearance-none rounded-xl border border-border-default bg-surface-1/58 px-3 pr-10 text-sm font-semibold text-text-primary outline-none transition hover:border-fuchsia-300 focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/8 dark:bg-surface-1/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:focus:border-fuchsia-500/26"
               >
                 {advertiserSelector.options.map((option) => (
-                  <option key={option.id} value={option.id} className="bg-white text-slate-900 dark:bg-[#111114] dark:text-white">
+                  <option key={option.id} value={option.id} className="bg-surface-1 text-text-primary dark:bg-[#111114] dark:text-white">
                     {option.name}
                     {option.meta ? ` · ${option.meta}` : ''}
                   </option>
                 ))}
               </select>
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/36">
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[color:var(--dusk-text-soft)] dark:text-white/36">
                 <ChevronDown className="h-4 w-4" strokeWidth={1.8} />
               </span>
             </div>
           ) : (
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-slate-800 dark:text-white/86">All advertisers</span>
-              <span className="block truncate text-xs text-slate-500 dark:text-white/38">5 active clients</span>
+              <span className="block truncate text-sm font-semibold text-text-primary dark:text-white/86">All advertisers</span>
+              <span className="block truncate text-xs text-text-muted dark:text-white/38">5 active clients</span>
             </span>
           )}
-          <ChevronDown className="h-4 w-4 rotate-[-90deg] text-slate-400 dark:text-white/34" strokeWidth={1.8} />
+          <ChevronDown className="h-4 w-4 rotate-[-90deg] text-[color:var(--dusk-text-soft)] dark:text-white/34" strokeWidth={1.8} />
         </button>
 
         <label className="relative mb-5 block">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-white/36" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--dusk-text-soft)] dark:text-white/36" />
           <input
-            className="h-10 w-full rounded-xl border border-slate-200 bg-white/58 pl-9 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/8 dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/26"
+            className="h-10 w-full rounded-xl border border-border-default bg-surface-1/58 pl-9 pr-3 text-sm text-text-primary outline-none placeholder:text-[color:var(--dusk-text-soft)] transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/8 dark:bg-surface-1/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/26"
             value={search?.value ?? ''}
             onChange={(event) => search?.onChange(event.target.value)}
             placeholder={search?.placeholder ?? 'Jump to campaign'}
           />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 dark:border-white/8 dark:bg-white/[0.04] dark:text-white/34">K</span>
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border-default bg-[color:var(--dusk-surface-muted)] px-1.5 py-0.5 text-[10px] font-semibold text-[color:var(--dusk-text-soft)] dark:border-white/8 dark:bg-surface-1/[0.04] dark:text-white/34">K</span>
         </label>
 
         <nav className="space-y-5">
@@ -454,9 +454,9 @@ export function Sidebar({
         </nav>
 
         {campaignFocus?.length ? (
-          <div className="mt-5 border-t border-slate-200 pt-4 dark:border-white/8">
+          <div className="mt-5 border-t border-border-default pt-4 dark:border-white/8">
             <div className="flex items-center justify-between px-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-white/32">Campaign focus</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--dusk-text-soft)] dark:text-white/32">Campaign focus</p>
               <span className="text-[10px] font-semibold text-fuchsia-600 dark:text-fuchsia-300">Saved</span>
             </div>
             <div className="mt-2 space-y-1 text-sm">
@@ -468,12 +468,12 @@ export function Sidebar({
                     'flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition',
                     item.active
                       ? 'bg-fuchsia-50 font-semibold text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-                      : 'text-slate-600 hover:bg-slate-100 dark:text-white/58 dark:hover:bg-white/[0.05]',
+                      : 'text-text-muted hover:bg-[color:var(--dusk-surface-muted)] dark:text-white/58 dark:hover:bg-surface-1/[0.05]',
                   )}
                 >
                   <span>{item.label}</span>
                   {item.count ? (
-                    <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs text-slate-500 dark:bg-white/8 dark:text-white/52">{item.count}</span>
+                    <span className="rounded-full bg-surface-1/70 px-2 py-0.5 text-xs text-text-muted dark:bg-surface-1/8 dark:text-white/52">{item.count}</span>
                   ) : null}
                 </button>
               ))}
@@ -482,24 +482,24 @@ export function Sidebar({
         ) : null}
 
         {userSummary ? (
-          <div className="mt-auto border-t border-slate-200 pt-4 dark:border-white/8">
+          <div className="mt-auto border-t border-border-default pt-4 dark:border-white/8">
             <div className="flex items-center justify-between px-2 pb-3">
               <div>
-                <p className="text-xs font-medium text-slate-500 dark:text-white/38">Serving online</p>
-                <p className="text-sm font-semibold text-slate-800 dark:text-white/82">System healthy</p>
+                <p className="text-xs font-medium text-text-muted dark:text-white/38">Serving online</p>
+                <p className="text-sm font-semibold text-text-primary dark:text-white/82">System healthy</p>
               </div>
               <span className="relative flex h-2.5 w-2.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-45" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
               </span>
             </div>
-            <button type="button" className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-slate-100 dark:hover:bg-white/[0.05]">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-600 dark:bg-white/8 dark:text-white/70">
+            <button type="button" className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-[color:var(--dusk-surface-muted)] dark:hover:bg-surface-1/[0.05]">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color:var(--dusk-surface-muted)] text-xs font-bold text-text-muted dark:bg-surface-1/8 dark:text-white/70">
                 {userSummary.initials}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-800 dark:text-white/82">{userSummary.name}</p>
-                <p className="truncate text-xs text-slate-500 dark:text-white/36">{userSummary.subtitle}</p>
+                <p className="truncate text-sm font-semibold text-text-primary dark:text-white/82">{userSummary.name}</p>
+                <p className="truncate text-xs text-text-muted dark:text-white/36">{userSummary.subtitle}</p>
               </div>
             </button>
           </div>
@@ -535,7 +535,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f6f3fb] text-slate-950 dark:bg-[#0b1020] dark:text-white">
+    <div className="flex h-screen overflow-hidden bg-[color:var(--dusk-bg)] text-[color:var(--dusk-text-primary)]">
       <GlobalScrollbarStyles />
       <Sidebar
         activeItem={activeItem}

@@ -1,6 +1,105 @@
-# Changelog — S56: Design System & Shell
+# Changelog — DUSK design system
 
-> Branch: `codex/s56-design-system` (target)
+## v2 fix (post-audit, 2026-05-06)
+
+After the bundle was applied to the repo, a post-implementation audit
+flagged 3 issues. This patch resolves all three.
+
+### Fixed
+
+- **Routing collision in `/settings/*`** — the bundle's `App.tsx`
+  declared `/settings/*` (mine, generic) AND `/settings/api-keys`,
+  `/settings/audit-log`, `/settings/workspace`, `/settings/webhooks`
+  (real repo modules) as siblings. Depending on react-router-dom's
+  matching behaviour either the real CRUD modules became unreachable,
+  or the placeholder tabs became dead links.
+  - **Fix:** rewrote `pages-refactored/Settings.tsx` as a tab shell that
+    lazy-loads the real repo modules (`team/WorkspaceSettings`,
+    `webhooks/WebhookManager`, `api-keys/ApiKeys`, `audit/AuditLog`)
+    into the matching tabs. Profile, Security and Notifications remain
+    owned by the shell since they're per-user preferences. Active tab
+    is derived from `location.pathname`.
+  - **Fix:** removed 4 colliding `<Route path="/settings/...">` entries
+    from `App.tsx`. Now there's a single `/settings/*` route plus a
+    redirect from `/settings` → `/settings/profile`.
+  - **Added:** `ScrollText` icon to the system barrel for the Audit log tab.
+
+- **Tag sub-pages were route-orphaned** — `/tags/:id/health`,
+  `/tags/:id/pixels`, `/tags/:id/tracking`, `/tags/:id/reporting` and
+  `/tags/bindings` were registered in `App.tsx` but nothing in the UI
+  linked to them.
+  - **Fix:** `TagBuilder.tsx` now shows a "More for this tag" panel
+    after the form, with 4 cards linking to each sub-page (Health,
+    Pixels, Tracking, Reporting). Visible only when editing an existing
+    tag (`isEdit && id`).
+  - **Fix:** `TagList.tsx` adds a "Bindings" button in the page header
+    linking to `/tags/bindings`.
+
+- **5 legacy pages still on the old style system** — `team/WorkspaceSettings`,
+  `webhooks/WebhookManager`, `api-keys/ApiKeys`, `tags/TagBindingDashboard`,
+  `tags/TagPixelsManager` (plus `tags/TagList`, `campaigns/CampaignList`,
+  and `shared/dusk-ui`) had `bg-indigo-*`, `bg-red-50`, `text-slate-*`
+  patterns instead of design system tokens.
+  - **New script:** `scripts/replace-status-and-slate.mjs` — stage-2
+    codemod handling status badges (`bg-green-100/text-green-800` →
+    `var(--dusk-status-success-{bg,fg})`), error banners, slate surface
+    variants (`bg-slate-50` → `var(--dusk-surface-muted)`), foreground
+    status text, and `bg-indigo-400`/`disabled:bg-indigo-400` leftovers
+    that the stage-1 codemod doesn't catch.
+  - **Migrated** with stage-1 + stage-2 codemod and minimal manual
+    cleanup (8 files):
+
+    | File | Stage-1 edits | Stage-2 edits | Manual fixes |
+    |---|---:|---:|---|
+    | `api-keys/ApiKeys.tsx` | 42 | 22 | none (terminal-style code block kept dark) |
+    | `team/WorkspaceSettings.tsx` | 46 | 19 | tab active state `border-indigo-600` → `border-brand-500` |
+    | `webhooks/WebhookManager.tsx` | 56 | 23 | none |
+    | `tags/TagBindingDashboard.tsx` | 47 | 12 | error banner `bg-red-50` → status tokens |
+    | `tags/TagPixelsManager.tsx` | 31 | 10 | error banner `bg-red-50` → status tokens |
+    | `tags/TagList.tsx` | 97 | 16 | `text-slate-950 dark:text-white` → `text-text-primary` |
+    | `campaigns/CampaignList.tsx` | 53 | 11 | same as above |
+    | `shared/dusk-ui.tsx` | 57 | 17 | wrapper `bg-[#f6f3fb] text-slate-950 dark:bg-[#0b1020] dark:text-white` → `bg-bg text-text-primary` |
+
+  - **Note:** the `bg-slate-900 text-green-400` block in `ApiKeys.tsx`
+    is intentionally preserved — it's a terminal-style code display
+    that should stay dark in both themes.
+
+### Verification
+
+```
+$ node scripts/smoke-test.mjs apps/web
+File presence: ✓
+System imports: ✓ 42 files, 70 exports
+Icon barrel: ✓ 97 icons
+Direct lucide: ✓
+Legacy colors: ✓ in refactored code
+Tokens dark mode: ✓
+✓ SMOKE TEST PASSED — package is ready to install
+```
+
+Was: 1 warning with 5 files flagged.
+Now: 0 errors, 0 warnings.
+
+### Known follow-up (not addressed in v2)
+
+`find-duplications.mjs` still reports 4 *structural* issues (not legacy
+colors):
+
+- Inline `<MetricCard>` definitions in `tags/TagList.tsx` (1 site) and
+  `campaigns/CampaignList.tsx` (1 site) — should reuse `<MetricCard>`
+  from `@/system`.
+- Inline `<Sparkline>` definitions in same 2 files — should reuse
+  `<Sparkline>` from `@/system`.
+- Hardcoded brand-gradient string (`linear-gradient(... #F1008B ...)`)
+  in `tags/TagList.tsx`, `campaigns/CampaignList.tsx`, `shared/dusk-ui.tsx`
+  — should use `var(--dusk-brand-gradient)`.
+
+These are component-level refactors, not regex substitutions, so they
+were left as-is to avoid scope creep. ~30 min each.
+
+---
+
+
 > Base: `codex/s50-staging-rc`
 
 ## Added

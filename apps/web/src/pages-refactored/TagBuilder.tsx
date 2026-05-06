@@ -5,6 +5,9 @@ import {
   Activity,
   LinkIcon,
   Tag as TagIcon,
+  Gauge,
+  Code,
+  ArrowRight,
 } from '../system/icons';
 import {
   Panel,
@@ -226,6 +229,42 @@ export default function TagBuilder() {
         </TabPanel>
       </Tabs>
 
+      {/* More tools for this tag — only when editing an existing tag */}
+      {isEdit && id && (
+        <Panel padding="lg" className="mt-4">
+          <PanelHeader
+            title="More for this tag"
+            subtitle="Dedicated dashboards for delivery health, pixels, tracking and reporting"
+          />
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <ToolLink
+              icon={<Gauge />}
+              title="Health"
+              description="Live delivery and serving signals"
+              onClick={() => navigate(`/tags/${id}/health`)}
+            />
+            <ToolLink
+              icon={<Code />}
+              title="Pixels"
+              description="Manage 3rd-party pixels for this tag"
+              onClick={() => navigate(`/tags/${id}/pixels`)}
+            />
+            <ToolLink
+              icon={<LinkIcon />}
+              title="Tracking"
+              description="Click and view tracking configuration"
+              onClick={() => navigate(`/tags/${id}/tracking`)}
+            />
+            <ToolLink
+              icon={<BarChart3 />}
+              title="Reporting"
+              description="Performance reports for this tag"
+              onClick={() => navigate(`/tags/${id}/reporting`)}
+            />
+          </div>
+        </Panel>
+      )}
+
       <div
         className="sticky bottom-0 mt-6 -mx-6 px-6 py-4 bg-surface-1 border-t border-[color:var(--dusk-border-default)] backdrop-blur-xl"
         style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.06)' }}
@@ -249,5 +288,54 @@ function Stat({ label, value }: { label: string; value: string }) {
         {value}
       </p>
     </div>
+  );
+}
+
+function ToolLink({
+  icon,
+  title,
+  description,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="
+        group text-left p-3 rounded-xl border bg-surface-1
+        border-[color:var(--dusk-border-default)]
+        hover:border-brand-500 hover:shadow-2 transition-all
+      "
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className="
+            shrink-0 h-9 w-9 rounded-lg flex items-center justify-center
+            bg-surface-muted text-text-secondary
+            group-hover:bg-brand-50 group-hover:text-text-brand transition-colors
+            [&>svg]:h-4 [&>svg]:w-4
+          "
+          aria-hidden
+        >
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-medium text-[color:var(--dusk-text-primary)]">
+              {title}
+            </h3>
+            <ArrowRight className="h-3.5 w-3.5 text-[color:var(--dusk-text-soft)] group-hover:text-text-brand group-hover:translate-x-0.5 transition-all" />
+          </div>
+          <p className="mt-0.5 text-xs text-[color:var(--dusk-text-muted)] leading-relaxed">
+            {description}
+          </p>
+        </div>
+      </div>
+    </button>
   );
 }

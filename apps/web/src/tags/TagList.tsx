@@ -116,7 +116,7 @@ function toneClass(tone: Tone) {
     amber: 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-500/18 dark:bg-amber-500/10 dark:text-amber-300',
     rose: 'border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-500/18 dark:bg-rose-500/10 dark:text-rose-300',
     sky: 'border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-500/18 dark:bg-sky-500/10 dark:text-sky-300',
-    slate: 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.04] dark:text-white/70',
+    slate: 'border-border-default bg-[color:var(--dusk-surface-muted)] text-text-muted dark:border-white/8 dark:bg-surface-1/[0.04] dark:text-white/70',
   };
   return map[tone];
 }
@@ -124,9 +124,9 @@ function toneClass(tone: Tone) {
 function tagStatusBadge(status: Tag['status']) {
   const map: Record<Tag['status'], string> = {
     active: 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/25 dark:text-emerald-300',
-    paused: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300',
+    paused: 'border-amber-300/70 bg-amber-50 text-[color:var(--dusk-status-warning-fg)] dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300',
     archived: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/25 dark:text-sky-300',
-    draft: 'border-slate-300/70 bg-slate-50 text-slate-700 dark:border-white/20 dark:bg-white/[0.12] dark:text-white/70',
+    draft: 'border-border-strong/70 bg-[color:var(--dusk-surface-muted)] text-text-secondary dark:border-white/20 dark:bg-surface-1/[0.12] dark:text-white/70',
   };
   return map[status];
 }
@@ -134,7 +134,7 @@ function tagStatusBadge(status: Tag['status']) {
 function severityBadge(severity: PrioritySeverity) {
   const map: Record<PrioritySeverity, string> = {
     Critical: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/25 dark:text-rose-300',
-    Warning: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300',
+    Warning: 'border-amber-300/70 bg-amber-50 text-[color:var(--dusk-status-warning-fg)] dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300',
     Notice: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/25 dark:text-sky-300',
   };
   return map[severity];
@@ -166,7 +166,7 @@ function TrendBadge({ direction, value }: { direction: TrendDirection; value: st
       ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
       : direction === 'down'
         ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
-        : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/58';
+        : 'border-border-default bg-[color:var(--dusk-surface-muted)] text-text-muted dark:border-white/8 dark:bg-surface-1/[0.03] dark:text-white/58';
 
   return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
 }
@@ -183,7 +183,7 @@ function MetricCard({ metric }: { metric: Metric }) {
             ? 'text-rose-500 dark:text-rose-300'
             : metric.tone === 'sky'
               ? 'text-sky-500 dark:text-sky-300'
-              : 'text-slate-500 dark:text-white/50';
+              : 'text-text-muted dark:text-white/50';
 
   return (
     <Panel className="p-5">
@@ -191,10 +191,10 @@ function MetricCard({ metric }: { metric: Metric }) {
         <div>
           <SectionKicker>{metric.label}</SectionKicker>
           <div className="mt-4 flex items-end gap-3">
-            <span className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{metric.value}</span>
+            <span className="text-3xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">{metric.value}</span>
             <TrendBadge direction={metric.direction} value={metric.delta} />
           </div>
-          <p className="mt-2 text-sm text-slate-500 dark:text-white/56">{metric.helper}</p>
+          <p className="mt-2 text-sm text-text-muted dark:text-white/56">{metric.helper}</p>
         </div>
         <div className={classNames('flex h-12 w-12 items-center justify-center rounded-2xl border', toneClass(metric.tone))}>
           {metric.id === 'tag-health' ? <TagsIcon /> : metric.id === 'ready-tags' ? <ReportIcon /> : <AlertTriangleIcon />}
@@ -637,7 +637,7 @@ export default function TagList() {
           <select
             value={selectedClientId}
             onChange={(event) => setSelectedClientId(event.target.value)}
-            className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]"
+            className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-border-default/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-text-secondary transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-surface-1/[0.045]"
           >
             <option value="">All advertisers</option>
             {clients.map((client) => (
@@ -653,19 +653,19 @@ export default function TagList() {
               'inline-flex min-h-[46px] items-center gap-2 rounded-xl border px-4 text-sm font-medium transition',
               needsQaOnly
                 ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/22 dark:bg-fuchsia-500/10 dark:text-fuchsia-200'
-                : 'border-slate-200/80 bg-[rgba(252,251,255,0.82)] text-slate-700 hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]',
+                : 'border-border-default/80 bg-[rgba(252,251,255,0.82)] text-text-secondary hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-surface-1/[0.045]',
             )}
           >
             Needs QA
           </button>
           <label className="relative block min-w-[300px]">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--dusk-text-soft)] dark:text-white/40">
               <SearchIcon />
             </span>
             <input
               value={tagSearch}
               onChange={(event) => setTagSearch(event.target.value)}
-              className="min-h-[46px] w-full rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
+              className="min-h-[46px] w-full rounded-xl border border-border-default/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-text-primary outline-none placeholder:text-[color:var(--dusk-text-soft)] transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
               placeholder="Search tag, advertiser, placement"
             />
           </label>
@@ -687,8 +687,8 @@ export default function TagList() {
             <span className="h-1 w-1 rounded-full bg-current opacity-60" />
             Pixel QA workspace
           </div>
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">Tag implementation without signal gaps</h1>
-          <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">
+          <h1 className="text-4xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)] md:text-5xl">Tag implementation without signal gaps</h1>
+          <p className="mt-3 max-w-3xl text-lg leading-8 text-text-muted dark:text-white/62">
             Generate, validate and monitor every tag from one dense operational view with the same CM360-style workspace pattern.
           </p>
         </div>
@@ -699,7 +699,7 @@ export default function TagList() {
             <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
             <div>
               <p className="font-semibold text-amber-800 dark:text-amber-100">{needsAttentionCount} tags need implementation QA</p>
-              <p className="mt-1 text-sm text-amber-700/72 dark:text-amber-100/62">
+              <p className="mt-1 text-sm text-[color:var(--dusk-status-warning-fg)]/72 dark:text-amber-100/62">
                 Review low firing, missing generation and no-firing tags before launching or scaling delivery.
               </p>
             </div>
@@ -722,25 +722,25 @@ export default function TagList() {
             <button
               onClick={() => void handleBulkStatus('active')}
               disabled={bulkActionLoading}
-              className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/20 dark:bg-white/[0.04] dark:text-emerald-300 dark:hover:bg-white/[0.07]"
+              className="rounded-xl border border-emerald-200 bg-surface-1 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/20 dark:bg-surface-1/[0.04] dark:text-emerald-300 dark:hover:bg-surface-1/[0.07]"
             >
               Activate
             </button>
             <button
               onClick={() => void handleBulkStatus('paused')}
               disabled={bulkActionLoading}
-              className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-500/20 dark:bg-white/[0.04] dark:text-amber-300 dark:hover:bg-white/[0.07]"
+              className="rounded-xl border border-amber-200 bg-surface-1 px-3 py-2 text-sm font-medium text-[color:var(--dusk-status-warning-fg)] hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-500/20 dark:bg-surface-1/[0.04] dark:text-amber-300 dark:hover:bg-surface-1/[0.07]"
             >
               Deactivate
             </button>
             <button
               onClick={() => void handleBulkDelete()}
               disabled={bulkActionLoading}
-              className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-500/20 dark:bg-white/[0.04] dark:text-rose-300 dark:hover:bg-white/[0.07]"
+              className="rounded-xl border border-rose-200 bg-surface-1 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-500/20 dark:bg-surface-1/[0.04] dark:text-rose-300 dark:hover:bg-surface-1/[0.07]"
             >
               Delete
             </button>
-            {bulkActionLoading && <span className="text-xs text-slate-500 dark:text-white/52">Applying changes...</span>}
+            {bulkActionLoading && <span className="text-xs text-text-muted dark:text-white/52">Applying changes...</span>}
           </div>
         </Panel>
       )}
@@ -748,33 +748,33 @@ export default function TagList() {
       {filteredTags.length === 0 ? (
         <Panel className="px-6 py-20 text-center">
           <SectionKicker>No matches</SectionKicker>
-          <h3 className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">No tags yet</h3>
-          <p className="mt-2 text-sm text-slate-500 dark:text-white/56">No tags match the current advertiser or search filter.</p>
+          <h3 className="mt-3 text-lg font-semibold text-text-primary dark:text-white">No tags yet</h3>
+          <p className="mt-2 text-sm text-text-muted dark:text-white/56">No tags match the current advertiser or search filter.</p>
           <div className="mt-5 flex justify-center">
             <PrimaryButton onClick={() => setCreating(true)}>Generate tag</PrimaryButton>
           </div>
         </Panel>
       ) : (
         <Panel className="overflow-hidden p-6">
-          <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-4 border-b border-border-default pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <SectionKicker>Tag workspace</SectionKicker>
-              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Pixels, firing status & implementation QA</h2>
-              <p className="mt-2 text-sm text-slate-500 dark:text-white/56">
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Pixels, firing status & implementation QA</h2>
+              <p className="mt-2 text-sm text-text-muted dark:text-white/56">
                 Dense operational view for tag generation, validation, firing health and implementation risk.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200"
+                className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-surface-1 px-3 py-2 text-sm font-medium text-text-secondary transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-surface-1/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200"
               >
                 <FilterIcon className="h-4 w-4" />
                 Filters
               </button>
               <Link
                 to="/tags/health"
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200"
+                className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-surface-1 px-3 py-2 text-sm font-medium text-text-secondary transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-surface-1/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200"
               >
                 Health
               </Link>
@@ -782,32 +782,32 @@ export default function TagList() {
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Total tags</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{totalTags}</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-white/52">tracked in workspace</p>
+            <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4 dark:border-white/8 dark:bg-surface-1/[0.025]">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted dark:text-white/40">Total tags</p>
+              <p className="mt-2 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{totalTags}</p>
+              <p className="mt-1 text-sm text-text-muted dark:text-white/52">tracked in workspace</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Firing</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{activeTags}</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-white/52">healthy signal flow</p>
+            <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4 dark:border-white/8 dark:bg-surface-1/[0.025]">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted dark:text-white/40">Firing</p>
+              <p className="mt-2 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{activeTags}</p>
+              <p className="mt-1 text-sm text-text-muted dark:text-white/52">healthy signal flow</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Needs QA</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{needsAttentionCount}</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-white/52">low or missing firing</p>
+            <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4 dark:border-white/8 dark:bg-surface-1/[0.025]">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted dark:text-white/40">Needs QA</p>
+              <p className="mt-2 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{needsAttentionCount}</p>
+              <p className="mt-1 text-sm text-text-muted dark:text-white/52">low or missing firing</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Archived</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{archivedTags}</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-white/52">retained for history</p>
+            <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4 dark:border-white/8 dark:bg-surface-1/[0.025]">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted dark:text-white/40">Archived</p>
+              <p className="mt-2 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{archivedTags}</p>
+              <p className="mt-1 text-sm text-text-muted dark:text-white/52">retained for history</p>
             </div>
           </div>
 
-          <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
+          <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-border-default dark:border-white/8">
             <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
-              <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
-                <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
+              <thead className="bg-[color:var(--dusk-surface-muted)]/80 dark:bg-surface-1/[0.02]">
+                <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted dark:text-white/42">
                   <th className="px-4 py-4 text-left">
                     <input
                       type="checkbox"
@@ -818,7 +818,7 @@ export default function TagList() {
                         }
                       }}
                       onChange={toggleSelectAllVisible}
-                      className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
+                      className="h-4 w-4 rounded border-border-strong text-fuchsia-600 focus:ring-fuchsia-500"
                       aria-label="Select all visible tags"
                     />
                   </th>
@@ -836,19 +836,19 @@ export default function TagList() {
                 {filteredTags.map((tag) => {
                   const risk = getRisk(tag);
                   return (
-                    <tr key={tag.id} className="bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
+                    <tr key={tag.id} className="bg-surface-1/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-surface-1/[0.04]">
                       <td className="px-4 py-5">
                         <input
                           type="checkbox"
                           checked={selectedTagIds.includes(tag.id)}
                           onChange={() => toggleTagSelection(tag.id)}
-                          className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
+                          className="h-4 w-4 rounded border-border-strong text-fuchsia-600 focus:ring-fuchsia-500"
                           aria-label={`Select tag ${tag.name}`}
                         />
                       </td>
                       <td className="px-5 py-5">
-                        <p className="font-semibold text-slate-950 dark:text-white">{tag.name}</p>
-                        <p className="mt-1 text-xs text-slate-500 dark:text-white/48">
+                        <p className="font-semibold text-[color:var(--dusk-text-primary)]">{tag.name}</p>
+                        <p className="mt-1 text-xs text-text-muted dark:text-white/48">
                           {tag.workspaceName ?? 'Workspace'} · {tag.campaign?.name ?? 'No campaign'}
                         </p>
                       </td>
@@ -857,24 +857,24 @@ export default function TagList() {
                           {tag.status}
                         </span>
                       </td>
-                      <td className="px-5 py-5 font-medium text-slate-700 dark:text-white/72">{getFiringLabel(tag)}</td>
+                      <td className="px-5 py-5 font-medium text-text-secondary dark:text-white/72">{getFiringLabel(tag)}</td>
                       <td className="px-5 py-5">
                         <div className="flex flex-col gap-2">
                           {formatBadge(tag.format)}
-                          <span className="text-xs text-slate-500 dark:text-white/48">{getDestinationLabel(tag)}</span>
+                          <span className="text-xs text-text-muted dark:text-white/48">{getDestinationLabel(tag)}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-5 text-slate-600 dark:text-white/62">{getLastSeenLabel(tag)}</td>
+                      <td className="px-5 py-5 text-text-muted dark:text-white/62">{getLastSeenLabel(tag)}</td>
                       <td className="px-5 py-5">
                         <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', severityBadge(risk))}>{risk}</span>
                       </td>
-                      <td className="px-5 py-5 text-slate-600 dark:text-white/62">{getOwner(tag)}</td>
+                      <td className="px-5 py-5 text-text-muted dark:text-white/62">{getOwner(tag)}</td>
                       <td className="px-5 py-5">
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleExportTagCsv(tag)}
-                            className="rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+                            className="rounded-xl border border-transparent p-2 text-[color:var(--dusk-text-soft)] transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
                             aria-label={`Export ${tag.name}`}
                           >
                             <ReportIcon className="h-4 w-4" />
@@ -882,7 +882,7 @@ export default function TagList() {
                           <button
                             type="button"
                             onClick={() => navigate(`/tags/${tag.id}`)}
-                            className="rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+                            className="rounded-xl border border-transparent p-2 text-[color:var(--dusk-text-soft)] transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
                             aria-label={`Edit ${tag.name}`}
                           >
                             <TableIcon className="h-4 w-4" />
@@ -891,7 +891,7 @@ export default function TagList() {
                             type="button"
                             onClick={() => handleDelete(tag)}
                             disabled={deletingId === tag.id}
-                            className="rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white/36 dark:hover:border-rose-500/20 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+                            className="rounded-xl border border-transparent p-2 text-[color:var(--dusk-text-soft)] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white/36 dark:hover:border-rose-500/20 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                             aria-label={`Delete ${tag.name}`}
                           >
                             {deletingId === tag.id ? <span className="text-xs font-semibold">...</span> : <MoreIcon className="h-4 w-4" />}
@@ -909,17 +909,17 @@ export default function TagList() {
 
       {creating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-slate-800">Create Tag</h2>
-            <p className="mt-1 text-sm text-slate-500">Create the tag first, then configure snippet variants and assignments from the tag workspace.</p>
-            {createError && <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{createError}</div>}
+          <div className="w-full max-w-lg rounded-xl bg-surface-1 p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-text-primary">Create Tag</h2>
+            <p className="mt-1 text-sm text-text-muted">Create the tag first, then configure snippet variants and assignments from the tag workspace.</p>
+            {createError && <div className="mt-4 rounded-lg border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-3 py-2 text-sm text-[color:var(--dusk-status-critical-fg)]">{createError}</div>}
             <div className="mt-4 space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Client</label>
+                <label className="mb-1 block text-sm font-medium text-text-secondary">Client</label>
                 <select
                   value={createForm.workspaceId}
                   onChange={(event) => setCreateForm((current) => ({ ...current, workspaceId: event.target.value }))}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
                 >
                   <option value="">Select a client</option>
                   {clients.map((client) => (
@@ -930,16 +930,16 @@ export default function TagList() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Tag Name</label>
+                <label className="mb-1 block text-sm font-medium text-text-secondary">Tag Name</label>
                 <input
                   value={createForm.name}
                   onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
                   placeholder="Homepage 300x250 display"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Format</label>
+                <label className="mb-1 block text-sm font-medium text-text-secondary">Format</label>
                 <div className="flex gap-2">
                   {(['VAST', 'display', 'native', 'tracker'] as Tag['format'][]).map((format) => (
                     <button
@@ -957,7 +957,7 @@ export default function TagList() {
                       className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                         createForm.format === format
                           ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700'
-                          : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                          : 'border-border-strong text-text-muted hover:bg-[color:var(--dusk-surface-muted)]'
                       }`}
                     >
                       {format}
@@ -967,7 +967,7 @@ export default function TagList() {
               </div>
               {createForm.format === 'display' && (
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Display Size</label>
+                  <label className="mb-1 block text-sm font-medium text-text-secondary">Display Size</label>
                   <select
                     value={createForm.servingWidth && createForm.servingHeight ? `${createForm.servingWidth}x${createForm.servingHeight}` : ''}
                     onChange={(event) => {
@@ -978,7 +978,7 @@ export default function TagList() {
                         servingHeight: preset ? String(preset.height) : '',
                       }));
                     }}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
                   >
                     <option value="">Select a size</option>
                     {DISPLAY_SIZE_PRESETS.map((preset) => (
@@ -992,11 +992,11 @@ export default function TagList() {
               {createForm.format === 'tracker' && (
                 <>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">Tracker Type</label>
+                    <label className="mb-1 block text-sm font-medium text-text-secondary">Tracker Type</label>
                     <select
                       value={createForm.trackerType}
                       onChange={(event) => setCreateForm((current) => ({ ...current, trackerType: event.target.value as 'click' | 'impression' }))}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
                     >
                       <option value="click">Click tracker</option>
                       <option value="impression">Impression tracker</option>
@@ -1004,11 +1004,11 @@ export default function TagList() {
                   </div>
                   {createForm.trackerType === 'click' && (
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-slate-700">Destination URL</label>
+                      <label className="mb-1 block text-sm font-medium text-text-secondary">Destination URL</label>
                       <input
                         value={createForm.clickUrl}
                         onChange={(event) => setCreateForm((current) => ({ ...current, clickUrl: event.target.value }))}
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
                         placeholder="https://example.com/landing"
                       />
                     </div>
@@ -1016,11 +1016,11 @@ export default function TagList() {
                 </>
               )}
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Status</label>
+                <label className="mb-1 block text-sm font-medium text-text-secondary">Status</label>
                 <select
                   value={createForm.status}
                   onChange={(event) => setCreateForm((current) => ({ ...current, status: event.target.value as Tag['status'] }))}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
                 >
                   <option value="draft">Draft</option>
                   <option value="active">Active</option>
@@ -1030,7 +1030,7 @@ export default function TagList() {
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={closeCreate} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+              <button onClick={closeCreate} className="rounded-lg border border-border-strong px-4 py-2 text-sm text-text-secondary hover:bg-[color:var(--dusk-surface-muted)]">
                 Cancel
               </button>
               <button onClick={() => void handleCreate()} className="rounded-lg bg-fuchsia-600 px-4 py-2 text-sm font-medium text-white hover:bg-fuchsia-700">

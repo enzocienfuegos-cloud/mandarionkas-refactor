@@ -177,8 +177,8 @@ function Panel({ children, className }: { children: React.ReactNode; className?:
   return (
     <section
       className={classNames(
-        'rounded-[28px] border border-slate-200 bg-white/85 shadow-[0_18px_60px_rgba(28,18,41,0.08)] backdrop-blur-xl',
-        'dark:border-white/[0.07] dark:bg-white/[0.035] dark:shadow-[0_22px_70px_rgba(0,0,0,0.28)]',
+        'rounded-[28px] border border-border-default bg-surface-1/85 shadow-[0_18px_60px_rgba(28,18,41,0.08)] backdrop-blur-xl',
+        'dark:border-white/[0.07] dark:bg-surface-1/[0.035] dark:shadow-[0_22px_70px_rgba(0,0,0,0.28)]',
         className,
       )}
     >
@@ -188,7 +188,7 @@ function Panel({ children, className }: { children: React.ReactNode; className?:
 }
 
 function SectionKicker({ children }: { children: React.ReactNode }) {
-  return <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-white/42">{children}</p>;
+  return <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted dark:text-white/42">{children}</p>;
 }
 
 // ─── Tone helpers ─────────────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ function toneClass(tone: Tone) {
     amber: 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-500/18 dark:bg-amber-500/10 dark:text-amber-300',
     rose: 'border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-500/18 dark:bg-rose-500/10 dark:text-rose-300',
     sky: 'border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-500/18 dark:bg-sky-500/10 dark:text-sky-300',
-    slate: 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.04] dark:text-white/70',
+    slate: 'border-border-default bg-[color:var(--dusk-surface-muted)] text-text-muted dark:border-white/8 dark:bg-surface-1/[0.04] dark:text-white/70',
   };
   return map[tone];
 }
@@ -208,10 +208,10 @@ function toneClass(tone: Tone) {
 function statusBadge(status: CampaignStatus) {
   const map: Record<CampaignStatus, string> = {
     Live: 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/25 dark:text-emerald-300',
-    Limited: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300',
+    Limited: 'border-amber-300/70 bg-amber-50 text-[color:var(--dusk-status-warning-fg)] dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300',
     Blocked: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/25 dark:text-rose-300',
     Ready: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/25 dark:text-sky-300',
-    Draft: 'border-slate-300/70 bg-slate-50 text-slate-700 dark:border-white/20 dark:bg-white/[0.12] dark:text-white/70',
+    Draft: 'border-border-strong/70 bg-[color:var(--dusk-surface-muted)] text-text-secondary dark:border-white/20 dark:bg-surface-1/[0.12] dark:text-white/70',
   };
   return map[status];
 }
@@ -243,7 +243,7 @@ function TrendBadge({ direction, value }: { direction: TrendDirection; value: st
       ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
       : direction === 'down'
         ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
-        : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/58';
+        : 'border-border-default bg-[color:var(--dusk-surface-muted)] text-text-muted dark:border-white/8 dark:bg-surface-1/[0.03] dark:text-white/58';
   return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
 }
 
@@ -256,17 +256,17 @@ function MetricCard({ metric }: { metric: Metric }) {
         : metric.tone === 'amber' ? 'text-amber-500 dark:text-amber-300'
           : metric.tone === 'rose' ? 'text-rose-500 dark:text-rose-300'
             : metric.tone === 'sky' ? 'text-sky-500 dark:text-sky-300'
-              : 'text-slate-500 dark:text-white/50';
+              : 'text-text-muted dark:text-white/50';
   return (
     <Panel className="p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <SectionKicker>{metric.label}</SectionKicker>
           <div className="mt-4 flex items-end gap-3">
-            <span className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{metric.value}</span>
+            <span className="text-3xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">{metric.value}</span>
             <TrendBadge direction={metric.direction} value={metric.delta} />
           </div>
-          <p className="mt-2 text-sm text-slate-500 dark:text-white/56">{metric.helper}</p>
+          <p className="mt-2 text-sm text-text-muted dark:text-white/56">{metric.helper}</p>
         </div>
         <div className={classNames('flex h-12 w-12 items-center justify-center rounded-2xl border', toneClass(metric.tone))}>
           {metric.id === 'live' ? <GaugeIcon /> : metric.id === 'blocked' ? <AlertTriangleIcon /> : metric.id === 'spend' ? <ReportIcon /> : <TableIcon />}
@@ -281,10 +281,10 @@ function MetricCard({ metric }: { metric: Metric }) {
 
 function CampaignStatusCard({ title, value, helper }: { title: string; value: string; helper: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">{title}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{value}</p>
-      <p className="mt-1 text-sm text-slate-500 dark:text-white/52">{helper}</p>
+    <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4 dark:border-white/8 dark:bg-surface-1/[0.025]">
+      <p className="text-xs font-medium uppercase tracking-wide text-text-muted dark:text-white/40">{title}</p>
+      <p className="mt-2 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{value}</p>
+      <p className="mt-1 text-sm text-text-muted dark:text-white/52">{helper}</p>
     </div>
   );
 }
@@ -310,14 +310,14 @@ function CampaignsTable({
 }) {
   return (
     <Panel className="overflow-hidden p-6">
-      <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
+      <div className="flex flex-col gap-4 border-b border-border-default pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <SectionKicker>Campaign workspace</SectionKicker>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Active &amp; setup campaigns</h2>
-          <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Operational view for pacing, tag health, creative QA and launch readiness.</p>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Active &amp; setup campaigns</h2>
+          <p className="mt-2 text-sm text-text-muted dark:text-white/56">Operational view for pacing, tag health, creative QA and launch readiness.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200">
+          <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-surface-1 px-3 py-2 text-sm font-medium text-text-secondary transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-surface-1/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200">
             <FilterIcon className="h-4 w-4" />
             Filters
           </button>
@@ -335,16 +335,16 @@ function CampaignsTable({
       </div>
 
       {campaignRows.length === 0 ? (
-        <div className="mt-6 rounded-3xl border border-slate-200 bg-white/42 px-6 py-20 text-center dark:border-white/8 dark:bg-white/[0.025]">
+        <div className="mt-6 rounded-3xl border border-border-default bg-surface-1/42 px-6 py-20 text-center dark:border-white/8 dark:bg-surface-1/[0.025]">
           <SectionKicker>Empty view</SectionKicker>
-          <h3 className="mt-3 text-lg font-semibold text-slate-950 dark:text-white">No campaigns match this view</h3>
-          <p className="mt-2 text-sm text-slate-500 dark:text-white/42">Try another advertiser filter or create a new campaign.</p>
+          <h3 className="mt-3 text-lg font-semibold text-[color:var(--dusk-text-primary)]">No campaigns match this view</h3>
+          <p className="mt-2 text-sm text-text-muted dark:text-white/42">Try another advertiser filter or create a new campaign.</p>
         </div>
       ) : (
-        <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
+        <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-border-default dark:border-white/8">
           <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
-            <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
-              <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
+            <thead className="bg-[color:var(--dusk-surface-muted)]/80 dark:bg-surface-1/[0.02]">
+              <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted dark:text-white/42">
                 <th className="px-5 py-4">Campaign</th>
                 <th className="px-5 py-4">Status</th>
                 <th className="px-5 py-4">Pacing</th>
@@ -358,29 +358,29 @@ function CampaignsTable({
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-white/8">
               {campaignRows.map((campaign) => (
-                <tr key={campaign.id} className="bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
+                <tr key={campaign.id} className="bg-surface-1/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-surface-1/[0.04]">
                   <td className="px-5 py-5">
-                    <p className="font-semibold text-slate-950 dark:text-white">{campaign.campaign}</p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-white/48">{campaign.advertiser} · {campaign.flight}</p>
+                    <p className="font-semibold text-[color:var(--dusk-text-primary)]">{campaign.campaign}</p>
+                    <p className="mt-1 text-xs text-text-muted dark:text-white/48">{campaign.advertiser} · {campaign.flight}</p>
                   </td>
                   <td className="px-5 py-5"><span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', statusBadge(campaign.status))}>{campaign.status}</span></td>
-                  <td className="px-5 py-5 font-medium text-slate-700 dark:text-white/72">{campaign.pacing}</td>
-                  <td className="px-5 py-5 tabular-nums text-slate-700 dark:text-white/72"><span className="font-medium">{campaign.spend}</span><span className="text-slate-400 dark:text-white/36"> / {campaign.budget}</span></td>
-                  <td className="px-5 py-5 text-slate-600 dark:text-white/62">{campaign.tagHealth}</td>
-                  <td className="px-5 py-5 text-slate-600 dark:text-white/62">{campaign.creativeStatus}</td>
+                  <td className="px-5 py-5 font-medium text-text-secondary dark:text-white/72">{campaign.pacing}</td>
+                  <td className="px-5 py-5 tabular-nums text-text-secondary dark:text-white/72"><span className="font-medium">{campaign.spend}</span><span className="text-[color:var(--dusk-text-soft)] dark:text-white/36"> / {campaign.budget}</span></td>
+                  <td className="px-5 py-5 text-text-muted dark:text-white/62">{campaign.tagHealth}</td>
+                  <td className="px-5 py-5 text-text-muted dark:text-white/62">{campaign.creativeStatus}</td>
                   <td className="px-5 py-5">
-                    <span className={classNames('inline-flex rounded-full px-2.5 py-1 text-xs font-semibold', campaign.issues > 0 ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/12 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200')}>
+                    <span className={classNames('inline-flex rounded-full px-2.5 py-1 text-xs font-semibold', campaign.issues > 0 ? 'bg-amber-100 text-[color:var(--dusk-status-warning-fg)] dark:bg-amber-500/12 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200')}>
                       {campaign.issues}
                     </span>
                   </td>
-                  <td className="px-5 py-5 text-slate-600 dark:text-white/62">{campaign.owner}</td>
+                  <td className="px-5 py-5 text-text-muted dark:text-white/62">{campaign.owner}</td>
                   <td className="px-5 py-5">
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => onEdit(campaign)}
                         aria-label={`Edit ${campaign.campaign}`}
-                        className="rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+                        className="rounded-xl border border-transparent p-2 text-[color:var(--dusk-text-soft)] transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
                       >
                         <MoreIcon className="h-4 w-4" />
                       </button>
@@ -572,22 +572,22 @@ export default function CampaignList() {
               <select
                 value={selectedClientIds[0] ?? ''}
                 onChange={(e) => setSelectedClientIds(e.target.value ? [e.target.value] : [])}
-                className="inline-flex min-h-[46px] min-w-[180px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 outline-none transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]"
+                className="inline-flex min-h-[46px] min-w-[180px] items-center gap-2 rounded-xl border border-border-default/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-text-secondary outline-none transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-surface-1/[0.045]"
               >
                 <option value="">All advertisers</option>
                 {clients.map((client) => (
                   <option key={client.id} value={client.id}>{client.name}</option>
                 ))}
               </select>
-              <button type="button" className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]">
+              <button type="button" className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-border-default/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-text-secondary transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-surface-1/[0.045]">
                 Active + setup
               </button>
               <label className="relative block min-w-[300px]">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40"><SearchIcon /></span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--dusk-text-soft)] dark:text-white/40"><SearchIcon /></span>
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="min-h-[46px] w-full rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
+                  className="min-h-[46px] w-full rounded-xl border border-border-default/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-text-primary outline-none placeholder:text-[color:var(--dusk-text-soft)] transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
                   placeholder="Search campaign, advertiser, owner"
                 />
               </label>
@@ -608,8 +608,8 @@ export default function CampaignList() {
                 <span className="h-1 w-1 rounded-full bg-current opacity-60" />
                 Delivery workspace
               </div>
-              <h1 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">Campaign operations without the noise</h1>
-              <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">Scan campaign readiness, catch blockers, and move from pacing, tags or creative issues into action quickly.</p>
+              <h1 className="text-4xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)] md:text-5xl">Campaign operations without the noise</h1>
+              <p className="mt-3 max-w-3xl text-lg leading-8 text-text-muted dark:text-white/62">Scan campaign readiness, catch blockers, and move from pacing, tags or creative issues into action quickly.</p>
             </div>
             <Panel className="p-5">
               <SectionKicker>Recommended focus</SectionKicker>
@@ -617,7 +617,7 @@ export default function CampaignList() {
                 <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
                 <div>
                   <p className="font-semibold text-amber-800 dark:text-amber-100">{needsAttentionRows.length} campaigns need attention</p>
-                  <p className="mt-1 text-sm text-amber-700/72 dark:text-amber-100/62">Review blocked delivery and limited pacing before making new trafficking changes.</p>
+                  <p className="mt-1 text-sm text-[color:var(--dusk-status-warning-fg)]/72 dark:text-amber-100/62">Review blocked delivery and limited pacing before making new trafficking changes.</p>
                 </div>
               </div>
             </Panel>

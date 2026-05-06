@@ -143,7 +143,7 @@ export default function TagPixelsManager() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-indigo-500" />
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-brand-500" />
       </div>
     );
   }
@@ -152,56 +152,56 @@ export default function TagPixelsManager() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Tag Pixels</p>
-          <h1 className="mt-2 text-2xl font-bold text-slate-800">{tag?.name ?? 'Tag pixels'}</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--dusk-text-soft)]">Tag Pixels</p>
+          <h1 className="mt-2 text-2xl font-bold text-text-primary">{tag?.name ?? 'Tag pixels'}</h1>
+          <p className="mt-1 text-sm text-text-muted">
             Manage measurement and redirect pixels for this tag.
             {tag?.workspaceName ? ` Workspace: ${tag.workspaceName}.` : ''}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to={`/tags/${id}`} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link to={`/tags/${id}`} className="rounded-lg border border-border-strong px-3 py-2 text-sm font-medium text-text-secondary hover:bg-[color:var(--dusk-surface-muted)]">
             Back to tag
           </Link>
-          <Link to={`/tags/${id}/tracking`} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link to={`/tags/${id}/tracking`} className="rounded-lg border border-border-strong px-3 py-2 text-sm font-medium text-text-secondary hover:bg-[color:var(--dusk-surface-muted)]">
             Tracking
           </Link>
-          <Link to={`/tags/${id}/reporting`} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link to={`/tags/${id}/reporting`} className="rounded-lg border border-border-strong px-3 py-2 text-sm font-medium text-text-secondary hover:bg-[color:var(--dusk-surface-muted)]">
             Reporting
           </Link>
         </div>
       </div>
 
-      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+      {error ? <div className="rounded-xl border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]">{error}</div> : null}
       {success ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div> : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.9fr)]">
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div className="border-b border-slate-200 px-6 py-4">
-            <h2 className="text-lg font-semibold text-slate-900">Configured pixels</h2>
-            <p className="mt-1 text-sm text-slate-500">Pixels fire alongside tag delivery and should stay tightly scoped to the measurement path.</p>
+        <div className="rounded-2xl border border-border-default bg-surface-1 overflow-hidden">
+          <div className="border-b border-border-default px-6 py-4">
+            <h2 className="text-lg font-semibold text-text-primary">Configured pixels</h2>
+            <p className="mt-1 text-sm text-text-muted">Pixels fire alongside tag delivery and should stay tightly scoped to the measurement path.</p>
           </div>
           {pixels.length === 0 ? (
-            <div className="px-6 py-10 text-sm text-slate-500">No pixels are configured for this tag yet.</div>
+            <div className="px-6 py-10 text-sm text-text-muted">No pixels are configured for this tag yet.</div>
           ) : (
             <div className="divide-y divide-slate-100">
               {pixels.map((pixel) => (
                 <div key={pixel.id} className="px-6 py-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                      <div className="inline-flex rounded-full bg-[color:var(--dusk-surface-muted)] px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
                         {pixel.pixelType}
                       </div>
-                      <p className="mt-3 break-all text-sm text-slate-700">{pixel.url}</p>
-                      <p className="mt-2 text-xs text-slate-400">
+                      <p className="mt-3 break-all text-sm text-text-secondary">{pixel.url}</p>
+                      <p className="mt-2 text-xs text-[color:var(--dusk-text-soft)]">
                         Added {pixel.createdAt ? new Date(pixel.createdAt).toLocaleString() : 'recently'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => handleEdit(pixel)} className="rounded-lg px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50">
+                      <button type="button" onClick={() => handleEdit(pixel)} className="rounded-lg px-3 py-2 text-xs font-medium text-text-brand hover:bg-brand-50">
                         Edit
                       </button>
-                      <button type="button" onClick={() => void handleDelete(pixel)} className="rounded-lg px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50">
+                      <button type="button" onClick={() => void handleDelete(pixel)} className="rounded-lg px-3 py-2 text-xs font-medium text-[color:var(--dusk-status-critical-fg)] hover:bg-[color:var(--dusk-status-critical-bg)]">
                         Delete
                       </button>
                     </div>
@@ -212,18 +212,18 @@ export default function TagPixelsManager() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <h2 className="text-lg font-semibold text-slate-900">{editingId ? 'Edit pixel' : 'Add pixel'}</h2>
-          <p className="mt-1 text-sm text-slate-500">
+        <div className="rounded-2xl border border-border-default bg-surface-1 p-6">
+          <h2 className="text-lg font-semibold text-text-primary">{editingId ? 'Edit pixel' : 'Add pixel'}</h2>
+          <p className="mt-1 text-sm text-text-muted">
             Use standard measurement endpoints and keep redirects deterministic.
           </p>
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Pixel type</label>
+              <label className="mb-1 block text-sm font-medium text-text-secondary">Pixel type</label>
               <select
                 value={form.pixelType}
                 onChange={(event) => setForm((current) => ({ ...current, pixelType: event.target.value as PixelRecord['pixelType'] }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
               >
                 {PIXEL_TYPES.map((type) => (
                   <option key={type} value={type}>{type}</option>
@@ -231,25 +231,25 @@ export default function TagPixelsManager() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">URL</label>
+              <label className="mb-1 block text-sm font-medium text-text-secondary">URL</label>
               <textarea
                 value={form.url}
                 onChange={(event) => setForm((current) => ({ ...current, url: event.target.value }))}
                 rows={5}
                 placeholder="https://measurement.example.com/pixel?id=..."
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
               />
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
               >
                 {saving ? 'Saving...' : editingId ? 'Update pixel' : 'Add pixel'}
               </button>
               {editingId ? (
-                <button type="button" onClick={resetForm} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <button type="button" onClick={resetForm} className="rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-text-secondary hover:bg-[color:var(--dusk-surface-muted)]">
                   Cancel
                 </button>
               ) : null}

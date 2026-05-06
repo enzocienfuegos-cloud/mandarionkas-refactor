@@ -7,6 +7,7 @@ import {
   Copy,
   Tags as TagsIcon,
   ExternalLink,
+  LinkIcon,
 } from '../system/icons';
 import {
   Panel,
@@ -176,9 +177,14 @@ export default function TagList() {
             {tags.length} total · {tags.filter((t) => t.status === 'active').length} serving
           </p>
         </div>
-        <Button variant="primary" leadingIcon={<Plus />} onClick={() => navigate('/tags/new')}>
-          New tag
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" leadingIcon={<LinkIcon />} onClick={() => navigate('/tags/bindings')}>
+            Bindings
+          </Button>
+          <Button variant="primary" leadingIcon={<Plus />} onClick={() => navigate('/tags/new')}>
+            New tag
+          </Button>
+        </div>
       </header>
 
       <Panel padding="md">

@@ -39,10 +39,10 @@ const PLATFORM_ROLE_PRODUCT_ACCESS: Record<PlatformRole, ProductAccess> = {
 
 const ROLE_BADGE_CLASS: Record<PlatformRole | 'owner', string> = {
   owner: 'bg-violet-100 text-violet-800',
-  admin: 'bg-blue-100 text-blue-800',
+  admin: 'bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]',
   designer: 'bg-emerald-100 text-emerald-800',
   ad_ops: 'bg-fuchsia-100 text-fuchsia-800',
-  reviewer: 'bg-slate-100 text-slate-600',
+  reviewer: 'bg-[color:var(--dusk-surface-muted)] text-text-muted',
 };
 
 function roleBadge(role: PlatformRole | 'owner') {
@@ -123,7 +123,7 @@ function ProductAccessBadge({ productAccess }: { productAccess: ProductAccess })
     ? 'bg-emerald-50 text-emerald-700'
     : productAccess.ad_server
       ? 'bg-fuchsia-50 text-fuchsia-700'
-      : 'bg-amber-50 text-amber-700';
+      : 'bg-amber-50 text-[color:var(--dusk-status-warning-fg)]';
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
       {productAccessLabel(productAccess)}
@@ -294,21 +294,21 @@ export default function WorkspaceSettings() {
   const tabClass = (nextTab: Tab) =>
     `px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
       tab === nextTab
-        ? 'border-indigo-600 text-indigo-600'
-        : 'border-transparent text-slate-500 hover:text-slate-700'
+        ? 'border-brand-500 text-text-brand'
+        : 'border-transparent text-text-muted hover:text-text-secondary'
     }`;
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-500"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+      <div className="bg-[color:var(--dusk-status-critical-bg)] border border-[color:var(--dusk-status-critical-border)] rounded-lg p-4 text-[color:var(--dusk-status-critical-fg)]">
         <p className="font-medium">Error loading workspace settings</p>
         <p className="text-sm mt-1">{error}</p>
       </div>
@@ -318,10 +318,10 @@ export default function WorkspaceSettings() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Workspace Settings</h1>
+        <h1 className="text-2xl font-bold text-text-primary">Workspace Settings</h1>
       </div>
 
-      <div className="flex border-b border-slate-200 mb-6">
+      <div className="flex border-b border-border-default mb-6">
         <button className={tabClass('profile')} onClick={() => setTab('profile')}>Profile</button>
         <button className={tabClass('members')} onClick={() => setTab('members')}>
           Members ({members.length})
@@ -330,47 +330,47 @@ export default function WorkspaceSettings() {
 
       {tab === 'profile' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-base font-semibold text-slate-800 mb-4">Workspace Profile</h2>
+          <div className="bg-surface-1 rounded-xl border border-border-default p-6">
+            <h2 className="text-base font-semibold text-text-primary mb-4">Workspace Profile</h2>
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Workspace Name</label>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Workspace Name</label>
                 <input
                   type="text"
                   value={wsName}
                   onChange={(event) => setWsName(event.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2.5 border border-border-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               {profileMsg && (
-                <p className={`text-sm ${profileMsg.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                <p className={`text-sm ${profileMsg.includes('Failed') ? 'text-[color:var(--dusk-status-critical-fg)]' : 'text-[color:var(--dusk-status-success-fg)]'}`}>
                   {profileMsg}
                 </p>
               )}
               <button
                 type="submit"
                 disabled={savingProfile}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:bg-brand-400 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 {savingProfile ? 'Saving...' : 'Save Changes'}
               </button>
             </form>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-base font-semibold text-slate-800 mb-4">Plan & Billing</h2>
+          <div className="bg-surface-1 rounded-xl border border-border-default p-6">
+            <h2 className="text-base font-semibold text-text-primary mb-4">Plan & Billing</h2>
             <div className="flex items-center gap-4">
               <div>
-                <p className="text-sm text-slate-500">Current Plan</p>
-                <p className="text-lg font-bold text-indigo-700 capitalize">{workspace?.plan ?? 'Free'}</p>
+                <p className="text-sm text-text-muted">Current Plan</p>
+                <p className="text-lg font-bold text-text-brand capitalize">{workspace?.plan ?? 'Free'}</p>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Workspace ID</p>
-                <code className="text-xs font-mono text-slate-600">{workspace?.id}</code>
+                <p className="text-sm text-text-muted">Workspace ID</p>
+                <code className="text-xs font-mono text-text-muted">{workspace?.id}</code>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Created</p>
-                <p className="text-sm text-slate-700">
+                <p className="text-sm text-text-muted">Created</p>
+                <p className="text-sm text-text-secondary">
                   {workspace?.createdAt ? new Date(workspace.createdAt).toLocaleDateString() : '—'}
                 </p>
               </div>
@@ -381,25 +381,25 @@ export default function WorkspaceSettings() {
 
       {tab === 'members' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-base font-semibold text-slate-800 mb-4">Invite Member</h2>
+          <div className="bg-surface-1 rounded-xl border border-border-default p-6">
+            <h2 className="text-base font-semibold text-text-primary mb-4">Invite Member</h2>
             <form onSubmit={handleInvite} className="flex flex-wrap gap-3 items-end">
               <div className="flex-1 min-w-48">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Email</label>
                 <input
                   type="email"
                   value={inviteEmail}
                   onChange={(event) => setInviteEmail(event.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2.5 border border-border-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="colleague@example.com"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Platform Role</label>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Platform Role</label>
                 <select
                   value={inviteRole}
                   onChange={(event) => setInviteRole(event.target.value as PlatformRole)}
-                  className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="px-3 py-2.5 border border-border-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   {PLATFORM_ROLES.map((role) => (
                     <option key={role} value={role}>{getPlatformRoleLabel(role)}</option>
@@ -409,27 +409,27 @@ export default function WorkspaceSettings() {
               <button
                 type="submit"
                 disabled={inviting}
-                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 disabled:bg-brand-400 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 {inviting ? 'Inviting...' : 'Send Invite'}
               </button>
             </form>
-            {inviteError && <p className="mt-2 text-sm text-red-600">{inviteError}</p>}
-            {inviteSuccess && <p className="mt-2 text-sm text-green-600">{inviteSuccess}</p>}
+            {inviteError && <p className="mt-2 text-sm text-[color:var(--dusk-status-critical-fg)]">{inviteError}</p>}
+            {inviteSuccess && <p className="mt-2 text-sm text-[color:var(--dusk-status-success-fg)]">{inviteSuccess}</p>}
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
-              <h2 className="text-sm font-semibold text-slate-700">Team Members ({members.length})</h2>
+          <div className="bg-surface-1 rounded-xl border border-border-default overflow-hidden">
+            <div className="px-5 py-3 border-b border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)]">
+              <h2 className="text-sm font-semibold text-text-secondary">Team Members ({members.length})</h2>
             </div>
             {members.length === 0 ? (
-              <div className="px-5 py-10 text-center text-sm text-slate-400">No members found</div>
+              <div className="px-5 py-10 text-center text-sm text-[color:var(--dusk-text-soft)]">No members found</div>
             ) : (
               <table className="min-w-full divide-y divide-slate-100">
-                <thead className="bg-slate-50">
+                <thead className="bg-[color:var(--dusk-surface-muted)]">
                   <tr>
                     {['Member', 'Email', 'Role', 'Product Access', 'Joined', 'Actions'].map((heading) => (
-                      <th key={heading} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <th key={heading} className="px-4 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wider">
                         {heading}
                       </th>
                     ))}
@@ -437,18 +437,18 @@ export default function WorkspaceSettings() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {members.map((member) => (
-                    <tr key={member.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={member.id} className="hover:bg-[color:var(--dusk-surface-muted)] transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-semibold">
+                          <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-text-brand text-xs font-semibold">
                             {member.firstName?.[0]}{member.lastName?.[0]}
                           </div>
-                          <span className="text-sm font-medium text-slate-800">
+                          <span className="text-sm font-medium text-text-primary">
                             {member.firstName} {member.lastName}
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{member.email}</td>
+                      <td className="px-4 py-3 text-sm text-text-muted">{member.email}</td>
                       <td className="px-4 py-3">
                         {member.role === 'owner' ? (
                           roleBadge('owner')
@@ -457,7 +457,7 @@ export default function WorkspaceSettings() {
                             value={member.platformRole}
                             onChange={(event) => handleRoleChange(member, event.target.value as PlatformRole)}
                             disabled={updatingRoleId === member.id}
-                            className="px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                            className="px-2 py-1 border border-border-default rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
                           >
                             {PLATFORM_ROLES.map((role) => (
                               <option key={role} value={role}>{getPlatformRoleLabel(role)}</option>
@@ -468,7 +468,7 @@ export default function WorkspaceSettings() {
                       <td className="px-4 py-3">
                         <ProductAccessBadge productAccess={member.productAccess} />
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
+                      <td className="px-4 py-3 text-xs text-text-muted">
                         {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString() : 'Pending'}
                       </td>
                       <td className="px-4 py-3">
@@ -476,7 +476,7 @@ export default function WorkspaceSettings() {
                           <button
                             onClick={() => handleRemoveMember(member)}
                             disabled={removingId === member.id}
-                            className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+                            className="text-xs text-[color:var(--dusk-status-critical-fg)] hover:text-[color:var(--dusk-status-critical-fg)] font-medium px-2 py-1 rounded hover:bg-[color:var(--dusk-status-critical-bg)] transition-colors disabled:opacity-50"
                           >
                             {removingId === member.id ? '...' : 'Remove'}
                           </button>

@@ -62,9 +62,9 @@ const SCOPE_CATEGORIES: ScopeCategory[] = [
 
 const statusBadge = (status: ApiKey['status']) => {
   const cfg: Record<ApiKey['status'], { cls: string; label: string }> = {
-    active:  { cls: 'bg-green-100 text-green-800',  label: 'Active' },
-    expired: { cls: 'bg-yellow-100 text-yellow-800', label: 'Expired' },
-    revoked: { cls: 'bg-red-100 text-red-800',       label: 'Revoked' },
+    active:  { cls: 'bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]',  label: 'Active' },
+    expired: { cls: 'bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]', label: 'Expired' },
+    revoked: { cls: 'bg-[color:var(--dusk-status-critical-bg)] text-[color:var(--dusk-status-critical-fg)]',       label: 'Revoked' },
   };
   const { cls, label } = cfg[status];
   return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>;
@@ -182,7 +182,7 @@ export default function ApiKeys() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-500"></div>
       </div>
     );
   }
@@ -191,40 +191,40 @@ export default function ApiKeys() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">API Keys</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage programmatic access to the SMX Studio API</p>
+          <h1 className="text-2xl font-bold text-text-primary">API Keys</h1>
+          <p className="text-sm text-text-muted mt-1">Manage programmatic access to the SMX Studio API</p>
         </div>
         <button
           onClick={openModal}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
+          className="bg-brand-500 hover:bg-brand-600 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
         >
           + Create Key
         </button>
       </div>
 
       {error && (
-        <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="mb-4 px-4 py-3 bg-[color:var(--dusk-status-critical-bg)] border border-[color:var(--dusk-status-critical-border)] rounded-lg text-sm text-[color:var(--dusk-status-critical-fg)]">
           {error}
         </div>
       )}
 
       {keys.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
+        <div className="text-center py-20 bg-surface-1 rounded-xl border border-border-default">
           <p className="text-4xl mb-3">🔑</p>
-          <h3 className="text-lg font-medium text-slate-700">No API keys</h3>
-          <p className="text-sm text-slate-500 mt-1 mb-4">Create an API key for programmatic access.</p>
-          <button onClick={openModal} className="bg-indigo-600 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition-colors">
+          <h3 className="text-lg font-medium text-text-secondary">No API keys</h3>
+          <p className="text-sm text-text-muted mt-1 mb-4">Create an API key for programmatic access.</p>
+          <button onClick={openModal} className="bg-brand-500 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-brand-600 transition-colors">
             + Create Key
           </button>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="bg-surface-1 rounded-xl border border-border-default overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+              <thead className="bg-[color:var(--dusk-surface-muted)]">
                 <tr>
                   {['Name', 'Prefix', 'Scopes', 'Created', 'Expires', 'Status', 'Actions'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wider">
                       {h}
                     </th>
                   ))}
@@ -232,24 +232,24 @@ export default function ApiKeys() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {keys.map(k => (
-                  <tr key={k.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-medium text-slate-800">{k.name}</td>
+                  <tr key={k.id} className="hover:bg-[color:var(--dusk-surface-muted)] transition-colors">
+                    <td className="px-4 py-3 text-sm font-medium text-text-primary">{k.name}</td>
                     <td className="px-4 py-3">
-                      <code className="text-xs font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">
+                      <code className="text-xs font-mono bg-[color:var(--dusk-surface-muted)] px-1.5 py-0.5 rounded text-text-secondary">
                         {k.prefix}...
                       </code>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1 max-w-xs">
                         {k.scopes.map(s => (
-                          <span key={s} className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
+                          <span key={s} className="text-xs bg-[color:var(--dusk-surface-muted)] text-text-muted px-1.5 py-0.5 rounded font-mono">
                             {s}
                           </span>
                         ))}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{new Date(k.createdAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">
+                    <td className="px-4 py-3 text-xs text-text-muted">{new Date(k.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-xs text-text-muted">
                       {k.expiresAt ? new Date(k.expiresAt).toLocaleDateString() : 'Never'}
                     </td>
                     <td className="px-4 py-3">{statusBadge(k.status)}</td>
@@ -258,7 +258,7 @@ export default function ApiKeys() {
                         <button
                           onClick={() => handleRevoke(k)}
                           disabled={revokingId === k.id}
-                          className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+                          className="text-xs text-[color:var(--dusk-status-critical-fg)] hover:text-[color:var(--dusk-status-critical-fg)] font-medium px-2 py-1 rounded hover:bg-[color:var(--dusk-status-critical-bg)] transition-colors disabled:opacity-50"
                         >
                           {revokingId === k.id ? '...' : 'Revoke'}
                         </button>
@@ -275,20 +275,20 @@ export default function ApiKeys() {
       {/* Create key modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="text-lg font-semibold text-slate-800">Create API Key</h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
+          <div className="bg-surface-1 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[color:var(--dusk-border-subtle)]">
+              <h2 className="text-lg font-semibold text-text-primary">Create API Key</h2>
+              <button onClick={() => setShowModal(false)} className="text-[color:var(--dusk-text-soft)] hover:text-text-muted text-xl">×</button>
             </div>
 
             <div className="p-6">
               {rawKey ? (
                 /* Show raw key after creation */
                 <div>
-                  <div className="mb-4 px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                  <div className="mb-4 px-4 py-3 bg-[color:var(--dusk-status-warning-bg)] border border-[color:var(--dusk-status-warning-border)] rounded-lg text-sm text-yellow-800">
                     ⚠️ <strong>Store this key securely — it won't be shown again.</strong>
                   </div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Your new API key</label>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">Your new API key</label>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 px-3 py-2.5 bg-slate-900 text-green-400 text-sm font-mono rounded-lg break-all">
                       {rawKey}
@@ -296,7 +296,7 @@ export default function ApiKeys() {
                     <button
                       onClick={handleCopy}
                       className={`flex-shrink-0 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                        copied ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        copied ? 'bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]' : 'bg-[color:var(--dusk-surface-muted)] text-text-secondary hover:bg-[color:var(--dusk-surface-hover)]'
                       }`}
                     >
                       {copied ? '✓' : '📋'}
@@ -304,7 +304,7 @@ export default function ApiKeys() {
                   </div>
                   <button
                     onClick={() => setShowModal(false)}
-                    className="mt-4 w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition-colors"
+                    className="mt-4 w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-lg text-sm transition-colors"
                   >
                     Done
                   </button>
@@ -312,32 +312,32 @@ export default function ApiKeys() {
               ) : (
                 <form onSubmit={handleCreate} className="space-y-5" noValidate>
                   {createError && (
-                    <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    <div className="px-4 py-3 bg-[color:var(--dusk-status-critical-bg)] border border-[color:var(--dusk-status-critical-border)] rounded-lg text-sm text-[color:var(--dusk-status-critical-fg)]">
                       {createError}
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
                       Key Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={newName}
                       onChange={e => setNewName(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2.5 border border-border-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                       placeholder="CI/CD Pipeline Key"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <label className="block text-sm font-medium text-text-secondary mb-2">
                       Scopes <span className="text-red-500">*</span>
                     </label>
                     <div className="space-y-3">
                       {SCOPE_CATEGORIES.map(cat => (
                         <div key={cat.label}>
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{cat.label}</p>
+                          <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">{cat.label}</p>
                           <div className="space-y-1 pl-2">
                             {cat.scopes.map(s => (
                               <label key={s.value} className="flex items-center gap-2 cursor-pointer">
@@ -345,10 +345,10 @@ export default function ApiKeys() {
                                   type="checkbox"
                                   checked={selectedScopes.has(s.value)}
                                   onChange={() => toggleScope(s.value)}
-                                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                  className="w-4 h-4 rounded border-border-strong text-text-brand focus:ring-brand-500"
                                 />
-                                <span className="text-sm text-slate-700">{s.label}</span>
-                                <code className="text-xs text-slate-400 font-mono">{s.value}</code>
+                                <span className="text-sm text-text-secondary">{s.label}</span>
+                                <code className="text-xs text-[color:var(--dusk-text-soft)] font-mono">{s.value}</code>
                               </label>
                             ))}
                           </div>
@@ -358,15 +358,15 @@ export default function ApiKeys() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Expiry Date <span className="text-slate-400">(optional)</span>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Expiry Date <span className="text-[color:var(--dusk-text-soft)]">(optional)</span>
                     </label>
                     <input
                       type="date"
                       value={expiryDate}
                       onChange={e => setExpiryDate(e.target.value)}
                       min={new Date().toISOString().slice(0, 10)}
-                      className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2.5 border border-border-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
 
@@ -374,14 +374,14 @@ export default function ApiKeys() {
                     <button
                       type="button"
                       onClick={() => setShowModal(false)}
-                      className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+                      className="flex-1 py-2.5 border border-border-strong text-text-secondary rounded-lg text-sm font-medium hover:bg-[color:var(--dusk-surface-muted)] transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={creating}
-                      className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                      className="flex-1 py-2.5 bg-brand-500 hover:bg-brand-600 disabled:bg-brand-400 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                     >
                       {creating && (
                         <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">

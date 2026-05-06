@@ -35,10 +35,6 @@ const TagTrackingDashboard = lazy(() => import('./tags/TagTrackingDashboard'));
 const TagReportingDashboard = lazy(() => import('./reporting/TagReportingDashboard'));
 const CreativeUpload = lazy(() => import('./creatives/CreativeUpload'));
 const GlobalSearch = lazy(() => import('./search/GlobalSearch'));
-const ApiKeys = lazy(() => import('./api-keys/ApiKeys'));
-const AuditLog = lazy(() => import('./audit/AuditLog'));
-const WorkspaceSettings = lazy(() => import('./team/WorkspaceSettings'));
-const WebhookManager = lazy(() => import('./webhooks/WebhookManager'));
 const VastValidator = lazy(() => import('./vast/VastValidator'));
 const VastChainValidator = lazy(() => import('./vast/VastChainValidator'));
 
@@ -95,12 +91,11 @@ export default function App() {
 
                   <Route path="/search" element={<GlobalSearch />} />
 
+                  {/* All /settings/* routes are owned by the Settings shell.
+                      It dispatches internally to ApiKeys, AuditLog,
+                      WorkspaceSettings, WebhookManager based on the URL. */}
                   <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
                   <Route path="/settings/*" element={<Settings />} />
-                  <Route path="/settings/api-keys" element={<ApiKeys />} />
-                  <Route path="/settings/audit-log" element={<AuditLog />} />
-                  <Route path="/settings/workspace" element={<WorkspaceSettings />} />
-                  <Route path="/settings/webhooks" element={<WebhookManager />} />
 
                   <Route path="/design-system" element={<DesignShowcase />} />
                   <Route path="*" element={<NotFound />} />

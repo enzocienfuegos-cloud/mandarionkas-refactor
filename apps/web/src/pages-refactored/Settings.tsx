@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   User,
@@ -7,7 +7,7 @@ import {
   Bell,
   Webhook,
   KeyRound,
-  Trash2,
+  ScrollText,
 } from '../system/icons';
 import {
   Panel,
@@ -17,62 +17,69 @@ import {
   Select,
   FormField,
   Kicker,
-  Badge,
   Tabs,
   TabsList,
   Tab,
-  TabPanel,
   CenteredSpinner,
   useToast,
-  useConfirm,
 } from '../system';
 
-type Section = 'profile' | 'workspace' | 'security' | 'notifications' | 'webhooks' | 'api-keys';
-
-interface UserProfile {
-  name: string;
-  email: string;
-  timezone: string;
-  locale: string;
-}
-
-interface WorkspaceSettings {
-  name: string;
-  brandColor: string;
-  defaultDsp: string;
-  defaultCurrency: string;
-  pacingThreshold: number;
-  discrepancyThreshold: number;
-}
-
-interface NotificationPrefs {
-  emailPacing: boolean;
-  emailDiscrepancies: boolean;
-  emailApprovals: boolean;
-  slackWebhookUrl: string;
-}
-
-interface ApiKey {
-  id: string;
-  name: string;
-  prefix: string;
-  createdAt: string;
-  lastUsedAt: string | null;
-}
-
 /**
- * Settings — refactored to the design system (S56).
+ * Settings — shell that hosts both owned sections and delegates to
+ * existing repo modules.
  *
- * Section-aware via URL: /settings/profile, /settings/workspace, etc.
- * Each section is its own form with sticky save bar (when dirty).
+ * This page is a SHELL that provides:
+ *   - Page header
+ *   - Tab navigation
+ *   - URL-driven section selection
+ *
+ * Each section either:
+ *   - is owned here (Profile, Security, Notifications — per-user prefs), or
+ *   - delegates to an existing repo module (Workspace, Webhooks, API keys,
+ *     Audit log) that has its own CRUD and contracts wiring.
+ *
+ * Routing model:
+ *   ONE route in App.tsx: `<Route path="/settings/*" element={<Settings />} />`
+ *   The active section is derived from `location.pathname`.
+ *
+ * Other `<Route path="/settings/...">` entries in App.tsx must be removed
+ * to avoid route collisions.
  */
+
+type Section =
+  | 'profile'
+  | 'workspace'
+  | 'security'
+  | 'notifications'
+  | 'webhooks'
+  | 'api-keys'
+  | 'audit-log';
+
+const VALID_SECTIONS: Section[] = [
+  'profile',
+  'workspace',
+  'security',
+  'notifications',
+  'webhooks',
+  'api-keys',
+  'audit-log',
+];
+
+// Lazy-load the heavy delegated sections — they are separate route bundles.
+const WorkspaceSettings = lazy(() => import('../team/WorkspaceSettings'));
+const WebhookManager    = lazy(() => import('../webhooks/WebhookManager'));
+const ApiKeys           = lazy(() => import('../api-keys/ApiKeys'));
+const AuditLog          = lazy(() => import('../audit/AuditLog'));
+
 export default function Settings() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
-  const confirm   = useConfirm();
 
-  const section = (location.pathname.split('/settings/')[1] || 'profile').split('/')[0] as Section;
+  // Derive active section from URL. Falls back to 'profile' for /settings or unknown.
+  const slug = location.pathname.replace(/^\/settings\/?/, '').split('/')[0];
+  const section: Section = (VALID_SECTIONS as string[]).includes(slug)
+    ? (slug as Section)
+    : 'profile';
 
   const handleTabChange = (next: string) => navigate(`/settings/${next}`);
 
@@ -96,20 +103,33 @@ export default function Settings() {
           <Tab value="notifications" leadingIcon={<Bell className="h-4 w-4" />}>Notifications</Tab>
           <Tab value="webhooks"      leadingIcon={<Webhook className="h-4 w-4" />}>Webhooks</Tab>
           <Tab value="api-keys"      leadingIcon={<KeyRound className="h-4 w-4" />}>API keys</Tab>
+          <Tab value="audit-log"     leadingIcon={<ScrollText className="h-4 w-4" />}>Audit log</Tab>
         </TabsList>
-
-        <TabPanel value="profile">      <ProfileSection /></TabPanel>
-        <TabPanel value="workspace">    <WorkspaceSection /></TabPanel>
-        <TabPanel value="security">     <SecuritySection /></TabPanel>
-        <TabPanel value="notifications"><NotificationsSection /></TabPanel>
-        <TabPanel value="webhooks">     <WebhooksSection /></TabPanel>
-        <TabPanel value="api-keys">     <ApiKeysSection /></TabPanel>
       </Tabs>
+
+      {/* Body — sections are siblings to TabsList because the heavy ones
+          are lazy-loaded modules from elsewhere in the repo. */}
+      <Suspense fallback={<CenteredSpinner label="Loading section…" />}>
+        {section === 'profile'       && <ProfileSection />}
+        {section === 'workspace'     && <WorkspaceSettings />}
+        {section === 'security'      && <SecuritySection />}
+        {section === 'notifications' && <NotificationsSection />}
+        {section === 'webhooks'      && <WebhookManager />}
+        {section === 'api-keys'      && <ApiKeys />}
+        {section === 'audit-log'     && <AuditLog />}
+      </Suspense>
     </div>
   );
 }
 
-// ─── Profile ──────────────────────────────────────────────────────────────
+// ─── Sections owned by this shell ─────────────────────────────────────────
+
+interface UserProfile {
+  name:     string;
+  email:    string;
+  timezone: string;
+  locale:   string;
+}
 
 function ProfileSection() {
   const { toast } = useToast();
@@ -183,7 +203,6 @@ function ProfileSection() {
             />
           </FormField>
         </div>
-
         <div className="flex justify-end pt-2">
           <Button variant="primary" loading={saving} onClick={handleSave}>Save changes</Button>
         </div>
@@ -192,121 +211,10 @@ function ProfileSection() {
   );
 }
 
-// ─── Workspace ────────────────────────────────────────────────────────────
-
-function WorkspaceSection() {
-  const { toast } = useToast();
-  const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetch('/v1/workspace/settings', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((data) => setSettings(data?.settings ?? data))
-      .catch(() => toast({ tone: 'critical', title: 'Could not load workspace' }));
-  }, [toast]);
-
-  if (!settings) return <CenteredSpinner label="Loading workspace…" />;
-
-  const set = <K extends keyof WorkspaceSettings>(field: K) =>
-    (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setSettings((current) => current
-        ? { ...current, [field]: typeof current[field] === 'number' ? Number(event.target.value) : event.target.value }
-        : current);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch('/v1/workspace/settings', {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      });
-      if (!res.ok) throw new Error('save failed');
-      toast({ tone: 'success', title: 'Workspace updated' });
-    } catch {
-      toast({ tone: 'critical', title: 'Could not save workspace' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <Panel padding="lg">
-        <PanelHeader title="General" subtitle="Identifies the workspace across the product" />
-        <div className="space-y-5 max-w-2xl">
-          <FormField label="Workspace name" required>
-            <Input value={settings.name} onChange={set('name')} />
-          </FormField>
-        </div>
-      </Panel>
-
-      <Panel padding="lg">
-        <PanelHeader title="Defaults" subtitle="Pre-selected when creating new campaigns" />
-        <div className="grid gap-5 md:grid-cols-2 max-w-2xl">
-          <FormField label="Default DSP">
-            <Select
-              value={settings.defaultDsp}
-              onChange={set('defaultDsp')}
-              options={[
-                { value: 'criteo',   label: 'Criteo' },
-                { value: 'teads',    label: 'Teads' },
-                { value: 'basis',    label: 'Basis DSP' },
-                { value: 'adform',   label: 'Adform' },
-                { value: 'cm360',    label: 'CM360' },
-              ]}
-            />
-          </FormField>
-          <FormField label="Default currency">
-            <Select
-              value={settings.defaultCurrency}
-              onChange={set('defaultCurrency')}
-              options={[
-                { value: 'USD', label: 'USD — US Dollar' },
-                { value: 'EUR', label: 'EUR — Euro' },
-                { value: 'MXN', label: 'MXN — Mexican Peso' },
-                { value: 'GTQ', label: 'GTQ — Guatemalan Quetzal' },
-                { value: 'CRC', label: 'CRC — Costa Rican Colón' },
-              ]}
-            />
-          </FormField>
-        </div>
-      </Panel>
-
-      <Panel padding="lg">
-        <PanelHeader title="Alert thresholds" subtitle="Trigger pacing and discrepancy alerts" />
-        <div className="grid gap-5 md:grid-cols-2 max-w-2xl">
-          <FormField label="Pacing alert threshold (%)" helper="Trigger when delivery deviates from goal by this much">
-            <Input type="number" min="1" max="50" value={settings.pacingThreshold} onChange={set('pacingThreshold')} />
-          </FormField>
-          <FormField label="Discrepancy threshold (%)" helper="Trigger when ad server vs DSP differs by this much">
-            <Input type="number" min="1" max="50" value={settings.discrepancyThreshold} onChange={set('discrepancyThreshold')} />
-          </FormField>
-        </div>
-      </Panel>
-
-      <div className="flex justify-end">
-        <Button variant="primary" loading={saving} onClick={handleSave}>Save workspace</Button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Security ─────────────────────────────────────────────────────────────
-
 function SecuritySection() {
   const { toast } = useToast();
-  const confirm   = useConfirm();
 
   const handleResetPassword = async () => {
-    const ok = await confirm({
-      title: 'Send password reset email?',
-      description: 'A reset link will be sent to your account email. Existing sessions remain active.',
-    });
-    if (!ok) return;
-
     try {
       const res = await fetch('/v1/me/reset-password', { method: 'POST', credentials: 'include' });
       if (!res.ok) throw new Error('failed');
@@ -316,54 +224,25 @@ function SecuritySection() {
     }
   };
 
-  const handleSignOutEverywhere = async () => {
-    const ok = await confirm({
-      title: 'Sign out of all sessions?',
-      description: 'You will be signed out everywhere except this browser.',
-      tone: 'danger',
-      confirmLabel: 'Sign out everywhere',
-    });
-    if (!ok) return;
-
-    try {
-      const res = await fetch('/v1/me/sessions', { method: 'DELETE', credentials: 'include' });
-      if (!res.ok) throw new Error('failed');
-      toast({ tone: 'warning', title: 'All other sessions signed out' });
-    } catch {
-      toast({ tone: 'critical', title: 'Could not sign out sessions' });
-    }
-  };
-
   return (
-    <div className="space-y-4">
-      <Panel padding="lg">
-        <PanelHeader title="Password" />
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm text-[color:var(--dusk-text-secondary)]">
-              We don't store your password directly. Reset it through the email flow.
-            </p>
-          </div>
-          <Button variant="secondary" onClick={handleResetPassword}>Send reset email</Button>
-        </div>
-      </Panel>
-
-      <Panel padding="lg">
-        <PanelHeader title="Sessions" subtitle="Manage active devices" />
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm text-[color:var(--dusk-text-secondary)]">
-              Sign out of every browser and device except this one.
-            </p>
-          </div>
-          <Button variant="danger" onClick={handleSignOutEverywhere}>Sign out everywhere</Button>
-        </div>
-      </Panel>
-    </div>
+    <Panel padding="lg">
+      <PanelHeader title="Password" />
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-sm text-[color:var(--dusk-text-secondary)]">
+          We don&apos;t store your password directly. Reset it through the email flow.
+        </p>
+        <Button variant="secondary" onClick={handleResetPassword}>Send reset email</Button>
+      </div>
+    </Panel>
   );
 }
 
-// ─── Notifications ────────────────────────────────────────────────────────
+interface NotificationPrefs {
+  emailPacing:        boolean;
+  emailDiscrepancies: boolean;
+  emailApprovals:     boolean;
+  slackWebhookUrl:    string;
+}
 
 function NotificationsSection() {
   const { toast } = useToast();
@@ -433,7 +312,9 @@ function NotificationsSection() {
           <FormField label="Webhook URL" helper="Leave blank to disable">
             <Input
               value={prefs.slackWebhookUrl}
-              onChange={(e) => setPrefs((current) => current ? { ...current, slackWebhookUrl: e.target.value } : current)}
+              onChange={(e) =>
+                setPrefs((current) => current ? { ...current, slackWebhookUrl: e.target.value } : current)
+              }
               placeholder="https://hooks.slack.com/services/…"
               className="font-mono"
             />
@@ -454,10 +335,10 @@ function ToggleRow({
   checked,
   onChange,
 }: {
-  label: string;
+  label:       string;
   description: string;
-  checked: boolean;
-  onChange: () => void;
+  checked:     boolean;
+  onChange:    () => void;
 }) {
   return (
     <label className="flex items-start gap-3 p-3 rounded-lg hover:bg-[color:var(--dusk-surface-hover)] cursor-pointer transition-colors">
@@ -472,105 +353,5 @@ function ToggleRow({
         <p className="mt-0.5 text-xs text-[color:var(--dusk-text-muted)]">{description}</p>
       </div>
     </label>
-  );
-}
-
-// ─── Webhooks ─────────────────────────────────────────────────────────────
-
-function WebhooksSection() {
-  return (
-    <Panel padding="lg">
-      <PanelHeader
-        title="Webhooks"
-        subtitle="Get notified about events in your workspace via HTTP"
-        actions={<Button variant="primary">Add webhook</Button>}
-      />
-      <p className="text-sm text-[color:var(--dusk-text-muted)]">
-        Webhooks fire on campaign status changes, creative approvals, and pacing alerts.
-      </p>
-    </Panel>
-  );
-}
-
-// ─── API keys ─────────────────────────────────────────────────────────────
-
-function ApiKeysSection() {
-  const { toast } = useToast();
-  const confirm   = useConfirm();
-  const [keys, setKeys] = useState<ApiKey[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    fetch('/v1/me/api-keys', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((data) => setKeys(data?.items ?? []))
-      .catch(() => toast({ tone: 'critical', title: 'Could not load API keys' }))
-      .finally(() => setLoading(false));
-  }, [toast]);
-
-  const handleRevoke = async (key: ApiKey) => {
-    const ok = await confirm({
-      title: 'Revoke API key?',
-      description: `Revoking "${key.name}" will immediately invalidate any client using it.`,
-      tone: 'danger',
-      confirmLabel: 'Revoke',
-      requireTypeToConfirm: key.name,
-    });
-    if (!ok) return;
-
-    try {
-      const res = await fetch(`/v1/me/api-keys/${key.id}`, { method: 'DELETE', credentials: 'include' });
-      if (!res.ok) throw new Error('failed');
-      setKeys((current) => current.filter((k) => k.id !== key.id));
-      toast({ tone: 'warning', title: 'API key revoked' });
-    } catch {
-      toast({ tone: 'critical', title: 'Could not revoke key' });
-    }
-  };
-
-  return (
-    <Panel padding="lg">
-      <PanelHeader
-        title="API keys"
-        subtitle="Programmatic access to the SignalMix API"
-        actions={<Button variant="primary" leadingIcon={<KeyRound />}>Generate key</Button>}
-      />
-
-      {loading ? (
-        <CenteredSpinner label="Loading keys…" />
-      ) : keys.length === 0 ? (
-        <p className="text-sm text-[color:var(--dusk-text-muted)] py-6 text-center">
-          No API keys yet. Generate one to start integrating.
-        </p>
-      ) : (
-        <ul className="space-y-2">
-          {keys.map((key) => (
-            <li
-              key={key.id}
-              className="flex items-center justify-between gap-3 p-3 rounded-lg border border-[color:var(--dusk-border-default)]"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-[color:var(--dusk-text-primary)]">{key.name}</p>
-                  <Badge tone="neutral" size="sm" variant="outline" className="dusk-mono text-[10px]">
-                    {key.prefix}…
-                  </Badge>
-                </div>
-                <p className="mt-0.5 text-xs text-[color:var(--dusk-text-soft)]">
-                  Created {new Date(key.createdAt).toLocaleDateString()} ·
-                  {key.lastUsedAt
-                    ? ` last used ${new Date(key.lastUsedAt).toLocaleDateString()}`
-                    : ' never used'}
-                </p>
-              </div>
-              <Button size="sm" variant="danger" leadingIcon={<Trash2 />} onClick={() => handleRevoke(key)}>
-                Revoke
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Panel>
   );
 }

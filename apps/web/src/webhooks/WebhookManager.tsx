@@ -33,7 +33,7 @@ const ALL_EVENTS = [
 
 const statusBadge = (status: Webhook['status']) => (
   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-    status === 'active' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
+    status === 'active' ? 'bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]' : 'bg-[color:var(--dusk-surface-muted)] text-text-muted'
   }`}>
     {status === 'active' ? '● Active' : '○ Inactive'}
   </span>
@@ -41,9 +41,9 @@ const statusBadge = (status: Webhook['status']) => (
 
 const deliveryBadge = (status: Delivery['status']) => {
   const cfg: Record<Delivery['status'], string> = {
-    success: 'bg-green-100 text-green-800',
-    failed:  'bg-red-100 text-red-800',
-    pending: 'bg-yellow-100 text-yellow-800',
+    success: 'bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]',
+    failed:  'bg-[color:var(--dusk-status-critical-bg)] text-[color:var(--dusk-status-critical-fg)]',
+    pending: 'bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]',
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${cfg[status]}`}>
@@ -211,7 +211,7 @@ export default function WebhookManager() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-500"></div>
       </div>
     );
   }
@@ -220,27 +220,27 @@ export default function WebhookManager() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Webhooks</h1>
-          <p className="text-sm text-slate-500 mt-1">Receive HTTP notifications for workspace events</p>
+          <h1 className="text-2xl font-bold text-text-primary">Webhooks</h1>
+          <p className="text-sm text-text-muted mt-1">Receive HTTP notifications for workspace events</p>
         </div>
         <button
           onClick={openNewModal}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
+          className="bg-brand-500 hover:bg-brand-600 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
         >
           + New Webhook
         </button>
       </div>
 
       {error && (
-        <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+        <div className="mb-4 px-4 py-3 bg-[color:var(--dusk-status-critical-bg)] border border-[color:var(--dusk-status-critical-border)] rounded-lg text-sm text-[color:var(--dusk-status-critical-fg)]">{error}</div>
       )}
 
       {webhooks.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
+        <div className="text-center py-20 bg-surface-1 rounded-xl border border-border-default">
           <p className="text-4xl mb-3">🔔</p>
-          <h3 className="text-lg font-medium text-slate-700">No webhooks configured</h3>
-          <p className="text-sm text-slate-500 mt-1 mb-4">Create a webhook to receive event notifications.</p>
-          <button onClick={openNewModal} className="bg-indigo-600 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition-colors">
+          <h3 className="text-lg font-medium text-text-secondary">No webhooks configured</h3>
+          <p className="text-sm text-text-muted mt-1 mb-4">Create a webhook to receive event notifications.</p>
+          <button onClick={openNewModal} className="bg-brand-500 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-brand-600 transition-colors">
             + New Webhook
           </button>
         </div>
@@ -248,12 +248,12 @@ export default function WebhookManager() {
         <div className="flex gap-6">
           {/* Webhook list */}
           <div className="flex-1 min-w-0">
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="bg-surface-1 rounded-xl border border-border-default overflow-hidden">
               <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
+                <thead className="bg-[color:var(--dusk-surface-muted)]">
                   <tr>
                     {['Name', 'URL', 'Events', 'Status', 'Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wider">
                         {h}
                       </th>
                     ))}
@@ -263,31 +263,31 @@ export default function WebhookManager() {
                   {webhooks.map(wh => (
                     <tr
                       key={wh.id}
-                      className={`hover:bg-slate-50 transition-colors cursor-pointer ${selectedWebhookId === wh.id ? 'bg-indigo-50' : ''}`}
+                      className={`hover:bg-[color:var(--dusk-surface-muted)] transition-colors cursor-pointer ${selectedWebhookId === wh.id ? 'bg-brand-50' : ''}`}
                       onClick={() => loadDeliveries(wh.id)}
                     >
-                      <td className="px-4 py-3 text-sm font-medium text-slate-800">{wh.name}</td>
-                      <td className="px-4 py-3 text-xs text-slate-600 max-w-[200px] truncate font-mono">{wh.url}</td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{wh.events.join(', ')}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-text-primary">{wh.name}</td>
+                      <td className="px-4 py-3 text-xs text-text-muted max-w-[200px] truncate font-mono">{wh.url}</td>
+                      <td className="px-4 py-3 text-xs text-text-muted">{wh.events.join(', ')}</td>
                       <td className="px-4 py-3">{statusBadge(wh.status)}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                           <button
                             onClick={() => handleToggleStatus(wh)}
-                            className="text-xs text-slate-600 hover:text-slate-800 font-medium px-2 py-1 rounded hover:bg-slate-100 transition-colors"
+                            className="text-xs text-text-muted hover:text-text-primary font-medium px-2 py-1 rounded hover:bg-[color:var(--dusk-surface-muted)] transition-colors"
                           >
                             {wh.status === 'active' ? 'Disable' : 'Enable'}
                           </button>
                           <button
                             onClick={() => openEditModal(wh)}
-                            className="text-xs text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors"
+                            className="text-xs text-text-brand hover:text-text-brand font-medium px-2 py-1 rounded hover:bg-brand-50 transition-colors"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleDelete(wh)}
                             disabled={deletingId === wh.id}
-                            className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+                            className="text-xs text-[color:var(--dusk-status-critical-fg)] hover:text-[color:var(--dusk-status-critical-fg)] font-medium px-2 py-1 rounded hover:bg-[color:var(--dusk-status-critical-bg)] transition-colors disabled:opacity-50"
                           >
                             {deletingId === wh.id ? '...' : 'Delete'}
                           </button>
@@ -303,25 +303,25 @@ export default function WebhookManager() {
           {/* Delivery history panel */}
           {selectedWebhookId && (
             <div className="basis-[18rem] flex-shrink-0">
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-                  <h3 className="text-sm font-semibold text-slate-700">Delivery History</h3>
+              <div className="bg-surface-1 rounded-xl border border-border-default overflow-hidden">
+                <div className="px-4 py-3 border-b border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)]">
+                  <h3 className="text-sm font-semibold text-text-secondary">Delivery History</h3>
                 </div>
                 {loadingDeliveries ? (
                   <div className="flex items-center justify-center h-24">
-                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-indigo-500"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-brand-500"></div>
                   </div>
                 ) : deliveries.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-sm text-slate-400">No deliveries yet</div>
+                  <div className="px-4 py-6 text-center text-sm text-[color:var(--dusk-text-soft)]">No deliveries yet</div>
                 ) : (
                   <ul className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
                     {deliveries.map(d => (
                       <li key={d.id} className="px-4 py-3">
                         <div className="flex items-center justify-between mb-1">
-                          <code className="text-xs font-mono text-slate-600">{d.event}</code>
+                          <code className="text-xs font-mono text-text-muted">{d.event}</code>
                           {deliveryBadge(d.status)}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                        <div className="flex items-center gap-2 text-xs text-[color:var(--dusk-text-soft)]">
                           <span>{new Date(d.sentAt).toLocaleString()}</span>
                           {d.statusCode && <span>· {d.statusCode}</span>}
                           {d.responseTime && <span>· {d.responseTime}ms</span>}
@@ -339,84 +339,84 @@ export default function WebhookManager() {
       {/* Create/Edit modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="text-lg font-semibold text-slate-800">
+          <div className="bg-surface-1 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[color:var(--dusk-border-subtle)]">
+              <h2 className="text-lg font-semibold text-text-primary">
                 {editingWebhook ? 'Edit Webhook' : 'New Webhook'}
               </h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
+              <button onClick={() => setShowModal(false)} className="text-[color:var(--dusk-text-soft)] hover:text-text-muted text-xl">×</button>
             </div>
             <div className="p-6">
               {formError && (
-                <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{formError}</div>
+                <div className="mb-4 px-4 py-3 bg-[color:var(--dusk-status-critical-bg)] border border-[color:var(--dusk-status-critical-border)] rounded-lg text-sm text-[color:var(--dusk-status-critical-fg)]">{formError}</div>
               )}
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Name <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">Name <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={form.name}
                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2.5 border border-border-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                     placeholder="Production Webhook"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Endpoint URL <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">Endpoint URL <span className="text-red-500">*</span></label>
                   <input
                     type="url"
                     value={form.url}
                     onChange={e => setForm(f => ({ ...f, url: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2.5 border border-border-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                     placeholder="https://your-app.com/webhooks/smx"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Events <span className="text-red-500">*</span></label>
-                  <div className="space-y-2 border border-slate-200 rounded-lg p-3">
+                  <label className="block text-sm font-medium text-text-secondary mb-2">Events <span className="text-red-500">*</span></label>
+                  <div className="space-y-2 border border-border-default rounded-lg p-3">
                     {ALL_EVENTS.map(ev => (
                       <label key={ev} className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={form.events.has(ev)}
                           onChange={() => toggleEvent(ev)}
-                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          className="w-4 h-4 rounded border-border-strong text-text-brand focus:ring-brand-500"
                         />
-                        <code className="text-xs font-mono text-slate-700">{ev}</code>
+                        <code className="text-xs font-mono text-text-secondary">{ev}</code>
                       </label>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Signing Secret</label>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">Signing Secret</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={form.secret}
                       onChange={e => setForm(f => ({ ...f, secret: e.target.value }))}
-                      className="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="flex-1 px-3 py-2.5 border border-border-strong rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
                       placeholder="whsec_..."
                     />
                     <button
                       type="button"
                       onClick={() => setForm(f => ({ ...f, secret: generateSecret() }))}
-                      className="px-3 py-2.5 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50 transition-colors"
+                      className="px-3 py-2.5 border border-border-strong text-text-muted rounded-lg text-sm hover:bg-[color:var(--dusk-surface-muted)] transition-colors"
                     >
                       Generate
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-slate-400">Used to verify webhook payloads via HMAC-SHA256 signature.</p>
+                  <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">Used to verify webhook payloads via HMAC-SHA256 signature.</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">Status</label>
                   <select
                     value={form.status}
                     onChange={e => setForm(f => ({ ...f, status: e.target.value as Webhook['status'] }))}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2.5 border border-border-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
@@ -427,14 +427,14 @@ export default function WebhookManager() {
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+                    className="flex-1 py-2.5 border border-border-strong text-text-secondary rounded-lg text-sm font-medium hover:bg-[color:var(--dusk-surface-muted)] transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={creating}
-                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 py-2.5 bg-brand-500 hover:bg-brand-600 disabled:bg-brand-400 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                   >
                     {creating && (
                       <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">

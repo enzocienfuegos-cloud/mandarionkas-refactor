@@ -129,4 +129,5 @@ export {
   FileCode,
   FolderOpen,
   Inbox,
+  ScrollText,
 } from 'lucide-react';
