@@ -51,20 +51,17 @@ import { CreativePreviewCell } from './creative-library/CreativePreviewCell';
 import { CreativeQueuePanel } from './creative-library/CreativeQueuePanel';
 import { CreativeRowActions } from './creative-library/CreativeRowActions';
 import { CreativeSidebarInsights } from './creative-library/CreativeSidebarInsights';
+import { CreativeTable } from './creative-library/CreativeTable';
 import { QuickCreateTagModal } from './creative-library/QuickCreateTagModal';
 import { TagBindingModal } from './creative-library/TagBindingModal';
 import { VariantManagerModal } from './creative-library/VariantManagerModal';
 import { VideoRenditionsModal } from './creative-library/VideoRenditionsModal';
 import { CreativeWorkspaceOverview } from './creative-library/CreativeWorkspaceOverview';
 import {
-  CreativeStatusBadge,
   formatBytes,
   formatVideoBitrate,
-  MoreIcon,
-  PrioritySeverityBadge,
   readinessBadge,
   resolveCreativePreviewHref,
-  resolveCreativePreviewKind,
   statusBadge,
 } from './creative-library/ui';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
@@ -1887,116 +1884,29 @@ export default function CreativesView() {
             onRefresh={() => void load()}
           />
 
-          <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
-            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
-              <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
-                <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
-                  <th className="px-5 py-4">
-                    <input
-                      type="checkbox"
-                      checked={allVisibleCreativesSelected}
-                      ref={(element) => {
-                        if (element) {
-                          element.indeterminate = !allVisibleCreativesSelected && someVisibleCreativesSelected;
-                        }
-                      }}
-                      onChange={toggleSelectAllVisibleCreatives}
-                      className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
-                      aria-label="Select all visible creatives"
-                    />
-                  </th>
-                  <th className="px-5 py-4">Creative</th>
-                  <th className="px-5 py-4">Status</th>
-                  <th className="px-5 py-4">Format</th>
-                  <th className="px-5 py-4">Size</th>
-                  <th className="px-5 py-4">Preview</th>
-                  <th className="px-5 py-4">QA</th>
-                  <th className="px-5 py-4">Owner</th>
-                  <th className="px-5 py-4" aria-label="Actions" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-white/8">
-                {filteredCreatives.map((creative) => {
-                  const version = latestVersions[creative.id];
-                  const row = creativeRows.find((entry) => entry.id === creative.id);
-                  const previewHref = resolveCreativePreviewHref(creative, version);
-                  const previewKind = resolveCreativePreviewKind(creative, version);
-                  const needsAttention = row?.qa ?? 'Notice';
-
-                  return (
-                    <tr key={creative.id} className="bg-white/42 align-top transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
-                      <td className="px-5 py-5">
-                        <input
-                          type="checkbox"
-                          checked={selectedCreativeIds.includes(creative.id)}
-                          onChange={() => toggleCreativeSelection(creative.id)}
-                          className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
-                          aria-label={`Select creative ${creative.name}`}
-                        />
-                      </td>
-                      <td className="px-5 py-5">
-                        <p className="font-semibold text-slate-950 dark:text-white">{row?.creative ?? creative.name}</p>
-                        <p className="mt-1 text-xs text-slate-500 dark:text-white/48">{row?.advertiser ?? creative.workspaceName ?? '—'} · {row?.campaign ?? 'No campaign'}</p>
-                      </td>
-                      <td className="px-5 py-5">
-                        <CreativeStatusBadge status={row?.status ?? 'Missing'} />
-                      </td>
-                      <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.format ?? 'Display'}</td>
-                      <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.size ?? '—'}</td>
-                      <td className="px-5 py-5">
-                        <CreativePreviewCell
-                          creativeName={creative.name}
-                          previewHref={previewHref}
-                          previewKind={previewKind}
-                          previewLabel={row?.preview ?? 'Asset missing'}
-                          versionStatus={version?.status}
-                          versionSourceKind={version?.sourceKind}
-                          width={version?.width}
-                          height={version?.height}
-                          onOpenPreview={setPreviewModal}
-                        />
-                      </td>
-                      <td className="px-5 py-5">
-                        <PrioritySeverityBadge severity={needsAttention} />
-                      </td>
-                      <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.owner ?? 'Creative Ops'}</td>
-                      <td className="px-5 py-5">
-                        {version ? (
-                          <CreativeRowActions
-                            creative={creative}
-                            version={version}
-                            statusUpdateCreativeId={statusUpdateCreativeId}
-                            workspaceBusy={workspaceBusy}
-                            getCreativeOperationalState={getCreativeOperationalState}
-                            onToggleOperationalStatus={handleCreativeOperationalStatusToggle}
-                            onEditClickUrl={handleEditCreativeClickUrl}
-                            onOpenDeliveryManager={(entry, creativeVersion) => (
-                              creativeVersion.servingFormat === 'vast_video'
-                                ? openVideoRenditionManager(entry, creativeVersion)
-                                : openVariantManager(entry, creativeVersion)
-                            )}
-                            onAssignTag={handlePrepareBinding}
-                            onDeleteCreative={handleDeleteCreative}
-                          />
-                        ) : (
-                          <div className="flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => void handleDeleteCreative(creative)}
-                              className="rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
-                              aria-label={`More actions for ${creative.name}`}
-                            >
-                              <MoreIcon className="h-4 w-4" />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <CreativeTable
+            creatives={filteredCreatives}
+            latestVersions={latestVersions}
+            creativeRows={creativeRows}
+            selectedCreativeIds={selectedCreativeIds}
+            allVisibleCreativesSelected={allVisibleCreativesSelected}
+            someVisibleCreativesSelected={someVisibleCreativesSelected}
+            onToggleSelectAllVisible={toggleSelectAllVisibleCreatives}
+            onToggleCreativeSelection={toggleCreativeSelection}
+            onOpenPreview={setPreviewModal}
+            statusUpdateCreativeId={statusUpdateCreativeId}
+            workspaceBusy={workspaceBusy}
+            getCreativeOperationalState={getCreativeOperationalState}
+            onToggleOperationalStatus={handleCreativeOperationalStatusToggle}
+            onEditClickUrl={handleEditCreativeClickUrl}
+            onOpenDeliveryManager={(entry, creativeVersion) => (
+              creativeVersion.servingFormat === 'vast_video'
+                ? openVideoRenditionManager(entry, creativeVersion)
+                : openVariantManager(entry, creativeVersion)
+            )}
+            onAssignTag={handlePrepareBinding}
+            onDeleteCreative={handleDeleteCreative}
+          />
         </Panel>
 
         <Panel className="p-6">
