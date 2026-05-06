@@ -1,5 +1,5 @@
 import React from 'react';
-import { Panel } from '../../system';
+import { EmptyState, Panel } from '../../system';
 import { BarChart, DetailRow, KpiCard, ReportingBreakdownTable } from './components';
 import type { DailyStat, TagSummary } from './types';
 import {
@@ -37,9 +37,12 @@ export function DisplayReportingView({
           Daily Impressions — Last {dateRange} days
         </h3>
         {stats.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-sm text-slate-400">
-            No data for this period
-          </div>
+          <EmptyState
+            kicker="Display data pending"
+            title="No display activity for this window"
+            description="This view fills once the selected tag records impressions or clicks for the active date range."
+            className="border-0 bg-transparent py-8 shadow-none"
+          />
         ) : (
           <BarChart data={stats} />
         )}
@@ -50,6 +53,7 @@ export function DisplayReportingView({
           title="Daily Breakdown"
           subtitle="Export uses the same filtered rows"
           emptyTitle="No data for this period"
+          emptyDescription="No display delivery rows matched the active filters yet. Try broadening the range or clearing creative/size filters."
           rows={stats}
           columns={[
             { key: 'date', header: 'Date', render: (row) => row.date },
@@ -89,6 +93,7 @@ export function VideoReportingView({
         title="Daily Video Breakdown"
         subtitle="Starts and completions for the active filters"
         emptyTitle="No video data for this period"
+        emptyDescription="Video metrics appear after the selected tag serves video starts or completions for the current filters."
         rows={stats}
         columns={[
           { key: 'date', header: 'Date', render: (row) => row.date },
@@ -168,9 +173,12 @@ export function IdentityReportingView({ summary }: { summary: TagSummary | null 
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 p-6 text-sm text-[color:var(--dusk-text-muted)]">
-          No identity context has been captured yet for the current filters. This tab fills from new traffic and can use inferred request data even when DSP macros are absent.
-        </div>
+        <EmptyState
+          kicker="Identity pending"
+          title="No identity context captured yet"
+          description="This mode fills from new traffic. Once the selected tag receives requests, we will surface device, site/app and supply context here."
+          className="py-10"
+        />
       )}
     </div>
   );

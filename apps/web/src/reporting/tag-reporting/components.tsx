@@ -362,12 +362,14 @@ export function ReportingBreakdownTable({
   title,
   subtitle,
   emptyTitle,
+  emptyDescription,
   rows,
   columns,
 }: {
   title: string;
   subtitle: string;
   emptyTitle: string;
+  emptyDescription?: string;
   rows: DailyStat[];
   columns: Array<{
     key: string;
@@ -386,7 +388,7 @@ export function ReportingBreakdownTable({
         <EmptyState
           kicker="No data"
           title={emptyTitle}
-          description="Adjust the tag filters or wait for new traffic to populate this table."
+          description={emptyDescription ?? 'Adjust the tag filters or wait for new traffic to populate this table.'}
           className="border-0 bg-transparent px-4 py-8 shadow-none"
         />
       ) : (
