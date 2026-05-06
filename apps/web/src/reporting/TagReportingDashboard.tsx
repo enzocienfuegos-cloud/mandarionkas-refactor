@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Panel, PrimaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
+import {
+  Panel,
+  Button,
+  Kicker,
+  Input,
+  Select,
+  EmptyState,
+  CenteredSpinner,
+} from '../system';
 
 interface Tag {
   id: string;
@@ -145,6 +153,16 @@ const REPORTING_TABS: Array<{ id: ReportingTab; label: string }> = [
   { id: 'video', label: 'Video' },
   { id: 'identity', label: 'Identity' },
 ];
+
+const DATE_RANGE_OPTIONS = DATE_RANGES.map((range) => ({
+  value: String(range.days),
+  label: range.label,
+}));
+
+const REPORTING_TAB_OPTIONS = REPORTING_TABS.map((tab) => ({
+  value: tab.id,
+  label: tab.label,
+}));
 
 function fmtNum(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -561,16 +579,12 @@ export default function TagReportingDashboard() {
   }, [creativeOptions, dateRange, selectedCreativeId, selectedTag, selectedVariantId, stats, summary, variantOptions]);
 
   if (loadingTags) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
-      </div>
-    );
+    return <CenteredSpinner label="Loading tag reporting…" />;
   }
 
   if (error) {
     return (
-      <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
+      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]">
         <p className="font-medium">Error loading tags</p>
         <p className="text-sm mt-1">{error}</p>
       </Panel>
@@ -578,12 +592,12 @@ export default function TagReportingDashboard() {
   }
 
   return (
-    <div className="dusk-page">
-      <div className="dusk-page-header">
+    <div className="mx-auto max-w-7xl space-y-6 px-6 py-6">
+      <div className="flex flex-col gap-3">
         <div>
-          <SectionKicker>Reporting</SectionKicker>
-          <h1 className="dusk-title mt-3">Tag Reporting</h1>
-          <p className="dusk-copy mt-2">Tag-level impression, click, identity, and video analytics in one operational view.</p>
+          <Kicker>Reporting</Kicker>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Tag Reporting</h1>
+          <p className="mt-2 text-sm leading-6 text-[color:var(--dusk-text-secondary)]">Tag-level impression, click, identity, and video analytics in one operational view.</p>
         </div>
       </div>
 
@@ -591,13 +605,12 @@ export default function TagReportingDashboard() {
         <div className="basis-[18rem] flex-shrink-0">
           <Panel className="overflow-hidden">
             <div className="space-y-2 border-b border-slate-100 bg-slate-50/80 px-3 py-3 dark:border-white/[0.07] dark:bg-white/[0.03]">
-              <SectionKicker>Tags</SectionKicker>
-              <input
+              <Kicker>Tags</Kicker>
+              <Input
                 type="search"
                 value={tagSearch}
-                onChange={event => setTagSearch(event.target.value)}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setTagSearch(event.target.value)}
                 placeholder="Filter by tag name"
-                className="dusk-select w-full px-3 py-2"
               />
             </div>
             {filteredTags.length === 0 ? (
@@ -626,39 +639,36 @@ export default function TagReportingDashboard() {
 
         <div className="flex-1 min-w-0">
           {!selectedTag ? (
-            <Panel className="py-20 text-center">
-              <SectionKicker>Awaiting selection</SectionKicker>
-              <p className="mt-3 text-slate-500 dark:text-white/56">Select a tag to view statistics</p>
-            </Panel>
+            <EmptyState
+              kicker="Awaiting selection"
+              title="Select a tag to view statistics"
+              description="Choose a tag from the list to load delivery, identity, and video reporting."
+            />
           ) : (
             <>
               <div className="flex flex-col gap-4 mb-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
-                  <SectionKicker>Selected tag</SectionKicker>
+                  <Kicker>Selected tag</Kicker>
                   <h2 className="mt-2 text-lg font-semibold text-slate-800 dark:text-white">{selectedTag.name}</h2>
                   <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Filter by assigned creative and exported size variant.</p>
                 </div>
-                <div className="dusk-toolbar-group">
-                  {DATE_RANGES.map(range => (
-                    <button
-                      key={range.days}
-                      onClick={() => setDateRange(range.days)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        dateRange === range.days
-                          ? 'bg-brand-gradient text-white'
-                          : 'bg-surface-1 border border-[color:var(--dusk-border-default)] text-[color:var(--dusk-text-secondary)] hover:bg-[color:var(--dusk-surface-muted)] dark:text-white/70 dark:hover:bg-white/[0.05]'
-                      }`}
-                    >
-                        {range.label}
-                      </button>
-                    ))}
-                  <PrimaryButton
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select
+                    value={String(dateRange)}
+                    onChange={(event) => setDateRange(Number(event.target.value))}
+                    options={DATE_RANGE_OPTIONS}
+                    selectSize="sm"
+                    className="min-w-[92px]"
+                    aria-label="Date range"
+                  />
+                  <Button
                     onClick={() => void handleExport()}
                     disabled={exporting || loadingStats || !summary}
-                    className="min-h-[36px] px-3 py-1.5 text-xs disabled:cursor-not-allowed"
+                    variant="primary"
+                    size="sm"
                   >
                     {exporting ? 'Exporting…' : 'Download Excel'}
-                  </PrimaryButton>
+                  </Button>
                 </div>
               </div>
 
@@ -667,33 +677,29 @@ export default function TagReportingDashboard() {
                   <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
                     Assigned Creative
                   </label>
-                  <select
+                  <Select
                     value={selectedCreativeId}
                     onChange={event => setSelectedCreativeId(event.target.value)}
                     disabled={loadingBindings}
-                    className="dusk-select w-full px-3 py-2 disabled:bg-slate-50 dark:disabled:bg-white/[0.03]"
-                  >
-                    <option value="">All creatives</option>
-                    {creativeOptions.map(option => (
-                      <option key={option.id} value={option.id}>{option.name}</option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: '', label: 'All creatives' },
+                      ...creativeOptions.map(option => ({ value: option.id, label: option.name })),
+                    ]}
+                  />
                 </Panel>
                 <Panel className="p-4">
                   <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
                     Creative Size
                   </label>
-                  <select
+                  <Select
                     value={selectedVariantId}
                     onChange={event => setSelectedVariantId(event.target.value)}
                     disabled={loadingBindings}
-                    className="dusk-select w-full px-3 py-2 disabled:bg-slate-50 dark:disabled:bg-white/[0.03]"
-                  >
-                    <option value="">All sizes</option>
-                    {variantOptions.map(option => (
-                      <option key={option.id} value={option.id}>{option.name}</option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: '', label: 'All sizes' },
+                      ...variantOptions.map(option => ({ value: option.id, label: option.name })),
+                    ]}
+                  />
                 </Panel>
                 <Panel className="p-4">
                   <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
@@ -714,25 +720,17 @@ export default function TagReportingDashboard() {
               ) : null}
 
               {loadingStats ? (
-                <div className="flex items-center justify-center h-48">
-                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
-                </div>
+                <CenteredSpinner label="Loading tag statistics…" />
               ) : (
                 <>
-                <div className="dusk-toolbar-group mb-6">
-                    {REPORTING_TABS.map(tab => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          activeTab === tab.id
-                            ? 'bg-brand-gradient text-white'
-                            : 'bg-surface-1 border border-[color:var(--dusk-border-default)] text-[color:var(--dusk-text-secondary)] hover:bg-[color:var(--dusk-surface-muted)] dark:text-white/70 dark:hover:bg-white/[0.05]'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+                <div className="mb-6 max-w-[180px]">
+                    <Select
+                      value={activeTab}
+                      onChange={(event) => setActiveTab(event.target.value as ReportingTab)}
+                      options={REPORTING_TAB_OPTIONS}
+                      selectSize="sm"
+                      aria-label="Reporting mode"
+                    />
                   </div>
 
                   {activeTab === 'display' ? (
