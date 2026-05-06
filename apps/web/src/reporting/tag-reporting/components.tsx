@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, EmptyState, Input, Kicker, Panel, Select } from '../../system';
+import { Button, EmptyState, Input, Kicker, Panel, Select, Tab, Tabs, TabsList } from '../../system';
 import type { DailyStat, ReportingTab, Tag } from './types';
 
 export function BarChart({ data }: { data: DailyStat[] }) {
@@ -269,13 +269,15 @@ export function ReportingWorkspaceControls({
       </div>
 
       <div className="mb-6 max-w-[180px]">
-        <Select
-          value={activeTab}
-          onChange={(event) => onActiveTabChange(event.target.value as ReportingTab)}
-          options={reportingTabOptions}
-          selectSize="sm"
-          aria-label="Reporting mode"
-        />
+        <Tabs value={activeTab} onValueChange={(value) => onActiveTabChange(value as ReportingTab)}>
+          <TabsList aria-label="Reporting mode" className="w-full justify-start">
+            {reportingTabOptions.map((option) => (
+              <Tab key={option.value} value={option.value} className="capitalize">
+                {option.label}
+              </Tab>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
     </>
   );
