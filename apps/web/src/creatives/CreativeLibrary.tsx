@@ -50,26 +50,21 @@ import { QuickCreateTagModal } from './creative-library/QuickCreateTagModal';
 import { TagBindingModal } from './creative-library/TagBindingModal';
 import { VariantManagerModal } from './creative-library/VariantManagerModal';
 import { VideoRenditionsModal } from './creative-library/VideoRenditionsModal';
+import { CreativeWorkspaceOverview } from './creative-library/CreativeWorkspaceOverview';
 import {
-  AlertTriangleIcon,
-  CreativeIcon,
   CreativeStatusBadge,
   FilterIcon,
   formatBytes,
   formatVideoBitrate,
-  mapMetricTone,
   MoreIcon,
   PrioritySeverityBadge,
   readinessBadge,
-  ReportIcon,
   resolveCreativePreviewHref,
   resolveCreativePreviewKind,
-  SearchIcon,
   statusBadge,
-  TableIcon,
 } from './creative-library/ui';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
-import { Button, CenteredSpinner, Input, Kicker, MetricCard, Panel, useConfirm } from '../system';
+import { Button, CenteredSpinner, Input, Kicker, Panel, useConfirm } from '../system';
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(' ');
@@ -1806,94 +1801,18 @@ export default function CreativesView() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={selectedClientIds[0] ?? ''}
-            onChange={(event) => setSelectedClientIds(event.target.value ? [event.target.value] : [])}
-            className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]"
-          >
-            <option value="">All advertisers</option>
-            {workspaces.map((workspace) => (
-              <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => setStatusFilter((current) => current === 'pending_review' ? 'all' : 'pending_review')}
-            className={classNames(
-              'inline-flex min-h-[46px] items-center gap-2 rounded-xl border px-4 text-sm font-medium transition',
-              statusFilter === 'pending_review'
-                ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-                : 'border-slate-200/80 bg-[rgba(252,251,255,0.82)] text-slate-700 hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]',
-            )}
-          >
-            Needs QA
-          </button>
-          <label className="relative block min-w-[320px]">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40"><SearchIcon /></span>
-            <input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search creative, advertiser, campaign"
-              className="min-h-[46px] w-full rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
-            />
-          </label>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate('/creatives/upload')}
-          className="inline-flex min-h-[46px] items-center rounded-xl bg-brand-gradient px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
-        >
-          Upload creative
-        </button>
-      </div>
-
-      <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
-        <div>
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-700 dark:border-fuchsia-500/15 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
-            Creatives
-            <span className="h-1 w-1 rounded-full bg-current opacity-60" />
-            Creative QA workspace
-          </div>
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">Creative approval without trafficking gaps</h1>
-          <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">Review specs, preview assets, catch blockers and approve creatives from one dense operational view with the same CM360-style workspace pattern.</p>
-        </div>
-        <Panel className="p-5">
-          <Kicker>Recommended focus</Kicker>
-          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
-            <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
-            <div>
-              <p className="font-semibold text-amber-800 dark:text-amber-100">{pendingQaCreatives + rejectedCreatives + missingCreatives} creatives need QA review</p>
-              <p className="mt-1 text-sm text-amber-700/72 dark:text-amber-100/62">Review clicktags, specs, missing assets and rejected creatives before launch or trafficking handoff.</p>
-            </div>
-          </div>
-        </Panel>
-      </header>
-
-      <div className="grid gap-5 xl:grid-cols-4">
-        {creativeMetrics.map((metric) => (
-          <MetricCard
-            key={metric.id}
-            label={metric.label}
-            value={metric.value}
-            delta={metric.delta}
-            trend={metric.direction}
-            context={metric.helper}
-            series={metric.series}
-            tone={mapMetricTone(metric.tone)}
-            icon={
-              metric.id === 'creative-health'
-                ? <CreativeIcon />
-                : metric.id === 'creative-approved'
-                  ? <ReportIcon />
-                  : metric.id === 'creative-blocked'
-                    ? <AlertTriangleIcon />
-                    : <TableIcon />
-            }
-          />
-        ))}
-      </div>
+      <CreativeWorkspaceOverview
+        workspaces={workspaces}
+        selectedWorkspaceId={selectedClientIds[0] ?? ''}
+        onWorkspaceChange={(workspaceId) => setSelectedClientIds(workspaceId ? [workspaceId] : [])}
+        needsQaOnly={statusFilter === 'pending_review'}
+        onToggleNeedsQa={() => setStatusFilter((current) => current === 'pending_review' ? 'all' : 'pending_review')}
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        onUploadCreative={() => navigate('/creatives/upload')}
+        pendingReviewCount={pendingQaCreatives + rejectedCreatives + missingCreatives}
+        creativeMetrics={creativeMetrics}
+      />
 
       {successMessage && (
         <Panel className="border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
