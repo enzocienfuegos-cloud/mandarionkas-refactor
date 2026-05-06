@@ -1,0 +1,429 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Badge, Kicker, Panel } from '../system';
+import {
+  type AttentionItem,
+  type AttentionSeverity,
+  type AudienceRow,
+  type MetricCardData,
+  type QuickNavRow,
+  type SystemHealthRow,
+  type TopCampaignRow,
+  type TrendDirection,
+  type WorkQueueRow,
+} from './overview.types';
+import { classNames } from './overview.utils';
+
+export function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
+  const classes =
+    direction === 'up'
+      ? 'text-emerald-500 dark:text-emerald-400'
+      : direction === 'down'
+        ? 'text-rose-500 dark:text-rose-400'
+        : 'text-slate-500 dark:text-white/45';
+  const arrow = direction === 'up' ? '↑' : direction === 'down' ? '↓' : '•';
+  return (
+    <span className={classNames('inline-flex items-center gap-1 text-sm font-semibold', classes)}>
+      <span aria-hidden="true">{arrow}</span>
+      {value}
+    </span>
+  );
+}
+
+export function NotificationButton({ count }: { count: number }) {
+  return (
+    <button
+      type="button"
+      className="relative inline-flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/80 dark:hover:border-fuchsia-500/30 dark:hover:bg-white/[0.05]"
+      aria-label="Notifications"
+    >
+      <BellIcon className="h-5 w-5" />
+      {count > 0 ? (
+        <span className="absolute right-2 top-2 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
+          {count}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+export function AttentionCard({ item }: { item: AttentionItem }) {
+  const severityMap: Record<AttentionSeverity, { shell: string; accent: string; button: string }> = {
+    critical: {
+      shell: 'from-rose-500/16 to-transparent text-rose-300 dark:text-rose-200',
+      accent: 'text-rose-500 dark:text-rose-300',
+      button: 'border-rose-300/60 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-500/20 dark:bg-rose-500/12 dark:text-rose-100 dark:hover:bg-rose-500/18',
+    },
+    warning: {
+      shell: 'from-amber-500/16 to-transparent text-amber-300 dark:text-amber-200',
+      accent: 'text-amber-500 dark:text-amber-300',
+      button: 'border-amber-300/60 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/12 dark:text-amber-100 dark:hover:bg-amber-500/18',
+    },
+    notice: {
+      shell: 'from-orange-500/16 to-transparent text-orange-300 dark:text-orange-200',
+      accent: 'text-orange-500 dark:text-orange-300',
+      button: 'border-orange-300/60 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-500/20 dark:bg-orange-500/12 dark:text-orange-100 dark:hover:bg-orange-500/18',
+    },
+    healthy: {
+      shell: 'from-emerald-500/16 to-transparent text-emerald-300 dark:text-emerald-200',
+      accent: 'text-emerald-500 dark:text-emerald-300',
+      button: 'border-emerald-300/60 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/12 dark:text-emerald-100 dark:hover:bg-emerald-500/18',
+    },
+  };
+  const theme = severityMap[item.severity];
+  return (
+    <article className="rounded-[26px] border border-slate-200 bg-white/50 p-5 dark:border-white/[0.07] dark:bg-white/[0.02]">
+      <div className={classNames('flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br', theme.shell)}>
+        <AlertTriangleIcon className={classNames('h-5 w-5', theme.accent)} />
+      </div>
+      <div className="mt-4 min-w-0">
+        <p className={classNames('text-lg font-semibold leading-tight', theme.accent)}>{item.title}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/58">{item.detail}</p>
+      </div>
+      <Link to={item.actionHref} className={classNames('mt-5 inline-flex items-center rounded-xl border px-5 py-3 text-sm font-semibold transition', theme.button)}>
+        {item.actionLabel}
+      </Link>
+    </article>
+  );
+}
+
+function CampaignStatusBadge({ status }: { status: TopCampaignRow['status'] }) {
+  const tone = status === 'Healthy' ? 'success' : status === 'Needs optimization' ? 'warning' : 'critical';
+  return <Badge tone={tone}>{status}</Badge>;
+}
+
+export function CampaignTable({ rows }: { rows: TopCampaignRow[] }) {
+  return (
+    <Panel className="overflow-hidden p-7">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <Kicker>Top Campaigns</Kicker>
+          <p className="mt-3 text-sm text-slate-500 dark:text-white/56">Campaigns demanding budget, optimization, and pacing attention.</p>
+        </div>
+        <Link to="/campaigns" className="text-sm font-medium text-fuchsia-600 transition hover:text-fuchsia-500 dark:text-fuchsia-300">
+          View all campaigns
+        </Link>
+      </div>
+      <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 dark:border-white/8">
+        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
+          <thead className="bg-slate-50/70 dark:bg-white/[0.02]">
+            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-white/35">
+              <th className="px-6 py-4">Campaign</th>
+              <th className="px-6 py-4">Spend</th>
+              <th className="px-6 py-4">CTR</th>
+              <th className="px-6 py-4">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 dark:divide-white/8">
+            {rows.map((row) => (
+              <tr key={row.id} className="bg-white/40 dark:bg-transparent">
+                <td className="px-6 py-5 font-medium text-slate-900 dark:text-white">{row.name}</td>
+                <td className="px-6 py-5 text-slate-700 dark:text-white/72">{row.spend}</td>
+                <td className="px-6 py-5 text-slate-700 dark:text-white/72">{row.ctr}</td>
+                <td className="px-6 py-5">
+                  <CampaignStatusBadge status={row.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
+
+function QuickNavIcon({ icon }: { icon: QuickNavRow['icon'] }) {
+  switch (icon) {
+    case 'campaigns':
+      return <CampaignIcon className="h-6 w-6" />;
+    case 'creatives':
+      return <CreativeIcon className="h-6 w-6" />;
+    case 'tags':
+      return <TagIcon className="h-6 w-6" />;
+    case 'analytics':
+      return <ChartIcon className="h-6 w-6" />;
+  }
+}
+
+export function QuickNavigation({ items }: { items: QuickNavRow[] }) {
+  return (
+    <Panel className="p-7">
+      <Kicker>Quick Navigation</Kicker>
+      <div className="mt-6 space-y-3">
+        {items.map((item) => (
+          <Link
+            key={item.id}
+            to={item.to}
+            className="group flex items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white/60 px-5 py-4 transition hover:border-fuchsia-300 hover:bg-fuchsia-50/70 dark:border-white/8 dark:bg-white/[0.03] dark:hover:border-fuchsia-500/30 dark:hover:bg-white/[0.05]"
+          >
+            <div className="flex items-center gap-4">
+              <div className={classNames('flex h-14 w-14 items-center justify-center rounded-2xl border bg-gradient-to-br', item.tone)}>
+                <QuickNavIcon icon={item.icon} />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-900 dark:text-white">{item.label}</p>
+                <p className="text-sm text-slate-500 dark:text-white/55">{item.detail}</p>
+              </div>
+            </div>
+            <ArrowRightIcon className="text-slate-400 transition group-hover:text-fuchsia-500 dark:text-white/30 dark:group-hover:text-fuchsia-300" />
+          </Link>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+export function SystemHealth({ items }: { items: SystemHealthRow[] }) {
+  return (
+    <Panel className="p-7">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <Kicker>Delivery &amp; System Health</Kicker>
+        </div>
+        <Link to="/reporting" className="text-sm font-medium text-fuchsia-600 transition hover:text-fuchsia-500 dark:text-fuchsia-300">
+          View system status
+        </Link>
+      </div>
+      <div className="mt-6 space-y-3">
+        {items.map((item) => (
+          <div key={item.id} className="flex items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white/60 px-5 py-4 dark:border-white/8 dark:bg-white/[0.03]">
+            <div>
+              <p className="font-medium text-slate-900 dark:text-white">{item.label}</p>
+              <p className="text-sm text-slate-500 dark:text-white/52">{item.note}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-lg font-semibold text-slate-900 dark:text-white">{item.value}</span>
+              <Badge
+                tone={
+                  item.severity === 'positive'
+                    ? 'success'
+                    : item.severity === 'critical'
+                      ? 'critical'
+                      : item.severity === 'warning'
+                        ? 'warning'
+                        : 'info'
+                }
+              >
+                {item.note}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function SegmentColumn({ title, items, positive }: { title: string; items: AudienceRow[]; positive: boolean }) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-slate-900 dark:text-white">{title}</p>
+      <div className="mt-5 space-y-4">
+        {items.map((item) => (
+          <div key={item.id} className="space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm font-medium text-slate-700 dark:text-white/82">{item.name}</span>
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-slate-500 dark:text-white/55">CTR {item.ctr}</span>
+                <TrendBadge direction={item.direction} value={item.delta} />
+              </div>
+            </div>
+            <div className="h-2.5 rounded-full bg-slate-200 dark:bg-white/8">
+              <div
+                className={classNames(
+                  'h-full rounded-full',
+                  positive ? 'bg-[linear-gradient(90deg,#22c55e,#86efac)]' : 'bg-[linear-gradient(90deg,#fb7185,#f97316)]',
+                )}
+                style={{ width: `${Math.max(8, Math.min(item.score, 100))}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function AudienceInsights({ topSegments, underperformingSegments }: { topSegments: AudienceRow[]; underperformingSegments: AudienceRow[] }) {
+  return (
+    <Panel className="p-7">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <Kicker>Audience Signal Insights</Kicker>
+        </div>
+        <Link to="/reporting" className="text-sm font-medium text-fuchsia-600 transition hover:text-fuchsia-500 dark:text-fuchsia-300">
+          Explore all segments
+        </Link>
+      </div>
+      <div className="mt-6 grid gap-10 xl:grid-cols-2">
+        <SegmentColumn title="Top performing segments" items={topSegments} positive />
+        <SegmentColumn title="Underperforming segments" items={underperformingSegments} positive={false} />
+      </div>
+    </Panel>
+  );
+}
+
+export function WorkQueueTable({ rows }: { rows: WorkQueueRow[] }) {
+  return (
+    <Panel className="overflow-hidden p-7">
+      <div>
+        <Kicker>Ad Ops work queue</Kicker>
+        <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Daily launch, delivery, and QA queue</h2>
+        <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Triage blockers, implementation gaps, and readiness issues from one operational table.</p>
+      </div>
+      <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
+        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
+          <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
+            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
+              <th className="px-6 py-4">Stage</th>
+              <th className="px-6 py-4">Issue</th>
+              <th className="px-6 py-4">Advertiser</th>
+              <th className="px-6 py-4">Owner</th>
+              <th className="px-6 py-4">Due</th>
+              <th className="px-6 py-4">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 dark:divide-white/8">
+            {rows.map((row) => (
+              <tr key={row.id} className="bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
+                <td className="px-6 py-5">
+                  <Badge tone={row.severity === 'critical' ? 'critical' : row.severity === 'warning' ? 'warning' : row.severity === 'healthy' ? 'success' : 'info'}>
+                    {row.stage}
+                  </Badge>
+                </td>
+                <td className="px-6 py-5">
+                  <p className="font-semibold text-slate-950 dark:text-white">{row.issue}</p>
+                </td>
+                <td className="px-6 py-5 text-slate-600 dark:text-white/62">{row.advertiser}</td>
+                <td className="px-6 py-5 text-slate-600 dark:text-white/62">{row.owner}</td>
+                <td className="px-6 py-5 tabular-nums text-slate-700 dark:text-white/72">{row.due}</td>
+                <td className="px-6 py-5">
+                  <Link to={row.actionHref} className="text-sm font-medium text-fuchsia-600 transition hover:text-fuchsia-500 dark:text-fuchsia-300">
+                    {row.actionLabel}
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
+
+export function MetricIcon({ icon }: { icon: MetricCardData['icon'] }) {
+  switch (icon) {
+    case 'spend':
+      return <CurrencyIcon className="h-7 w-7" />;
+    case 'impressions':
+      return <EyeIcon className="h-7 w-7" />;
+    case 'ctr':
+      return <TargetIcon className="h-7 w-7" />;
+    case 'engagements':
+      return <CursorClickIcon className="h-7 w-7" />;
+    case 'viewability':
+      return <VisibilityIcon className="h-7 w-7" />;
+  }
+}
+
+function iconProps(className?: string) {
+  return { className: classNames('h-5 w-5', className), viewBox: '0 0 24 24', fill: 'none' } as const;
+}
+
+export const ChevronDownIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const BellIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 0 1-6 0h6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const AlertTriangleIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <path d="M12 4 3.5 19h17L12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M12 9v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <circle cx="12" cy="16" r="1" fill="currentColor" />
+  </svg>
+);
+
+const ArrowRightIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const SearchIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <path d="m15.5 15.5 3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <circle cx="7.5" cy="7.5" r="4.5" stroke="currentColor" strokeWidth="1.8" />
+  </svg>
+);
+
+const CurrencyIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <path d="M12 4v16M16 7.5c0-1.9-1.8-3.5-4-3.5s-4 1.6-4 3.5 1.8 3.5 4 3.5 4 1.6 4 3.5-1.8 3.5-4 3.5-4-1.6-4-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const EyeIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+  </svg>
+);
+
+const TargetIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="1.8" />
+    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M12 2v3M22 12h-3M12 22v-3M2 12h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const CursorClickIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <path d="m8 4 8 8-4 1 1 5-3 1-1-5-3 1V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M16 4v3M19 7h-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const VisibilityIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M9 12a3 3 0 0 0 6 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const CampaignIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <rect x="4" y="5" width="16" height="4" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+    <rect x="4" y="11" width="16" height="4" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+    <rect x="4" y="17" width="10" height="3" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+  </svg>
+);
+
+const CreativeIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.8" />
+    <path d="m7 15 3-3 3 2 4-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="9" cy="9" r="1.5" fill="currentColor" />
+  </svg>
+);
+
+const TagIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <path d="M4 10V4h6l8 8-6 6-8-8Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" />
+  </svg>
+);
+
+const ChartIcon = ({ className }: { className?: string }) => (
+  <svg {...iconProps(className)}>
+    <path d="M5 17V9M12 17V5M19 17v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M3 20h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
