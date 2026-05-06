@@ -8,6 +8,7 @@ import {
   type CreativeVersion,
   type TagBinding,
 } from '../creatives/catalog';
+import { Badge, Button, EmptyState, FormField, Input, Kicker, Panel, Select } from '../system';
 
 type TagFormat = 'VAST' | 'display' | 'native' | 'tracker';
 type TagBindingStatus = TagBinding['status'];
@@ -34,10 +35,15 @@ interface TagBindingsPanelProps {
   onError: (message: string) => void;
 }
 
-function inputClass(err?: string) {
-  return `w-full rounded-lg border bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] focus:border-fuchsia-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 ${
-    err ? 'border-red-400 bg-red-50 dark:bg-red-500/10' : 'border-[color:var(--dusk-border-default)]'
-  }`;
+function getBindingStatusTone(status: TagBindingStatus): 'success' | 'warning' | 'neutral' {
+  switch (status) {
+    case 'active':
+      return 'success';
+    case 'paused':
+      return 'warning';
+    default:
+      return 'neutral';
+  }
 }
 
 export default function TagBindingsPanel({
@@ -249,35 +255,37 @@ export default function TagBindingsPanel({
   };
 
   return (
-    <div className="mt-6 rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 p-6">
+    <Panel className="mt-6 p-6">
       <div className="flex flex-col gap-1 mb-5">
-        <h2 className="text-base font-semibold text-[color:var(--dusk-text-primary)]">Creative Assignments</h2>
+        <Kicker>Trafficking</Kicker>
+        <h2 className="mt-2 text-base font-semibold text-[color:var(--dusk-text-primary)]">Creative Assignments</h2>
         <p className="text-sm text-[color:var(--dusk-text-secondary)]">
           Assign creatives directly from this tag. For display tags, only compatible sizes can be attached.
         </p>
       </div>
 
       {assignmentError && (
-        <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <Panel className="mb-4 border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]" role="alert">
           {assignmentError}
-        </div>
+        </Panel>
       )}
 
       <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
-        <section className="rounded-xl border border-[color:var(--dusk-border-default)] p-4">
+        <Panel className="p-4">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">Assigned Creatives</h3>
             {bindingsLoading && <span className="text-xs text-[color:var(--dusk-text-secondary)]">Loading…</span>}
           </div>
 
           {bindings.length === 0 && !bindingsLoading ? (
-            <div className="rounded-lg border border-dashed border-[color:var(--dusk-border-default)] px-4 py-6 text-sm text-[color:var(--dusk-text-secondary)]">
-              No creatives assigned yet.
-            </div>
+            <EmptyState
+              title="No creatives assigned yet"
+              description="Assign a compatible creative to start rotation on this tag."
+            />
           ) : (
             <div className="space-y-3">
               {bindings.map(binding => (
-                <div key={binding.id} className="rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-4 py-3">
+                <Panel key={binding.id} className="bg-[color:var(--dusk-surface-muted)] px-4 py-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium text-[color:var(--dusk-text-primary)]">{binding.creativeName}</p>
@@ -287,81 +295,73 @@ export default function TagBindingsPanel({
                           : binding.servingFormat}
                       </p>
                     </div>
-                    <span className="rounded-full border border-[color:var(--dusk-border-default)] bg-surface-1 px-2.5 py-1 text-xs font-medium text-[color:var(--dusk-text-secondary)]">
+                    <Badge tone={getBindingStatusTone(binding.status)} variant="soft">
                       {binding.status}
-                    </span>
+                    </Badge>
                   </div>
                   <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,110px)_minmax(0,140px)_1fr]">
-                    <label className="block">
-                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-tertiary)]">Weight</span>
-                      <input
+                    <FormField label="Weight">
+                      <Input
                         type="number"
                         min="1"
                         step="1"
                         value={bindingDrafts[binding.id]?.weight ?? String(binding.weight)}
                         onChange={(event) => handleBindingDraftChange(binding.id, 'weight', event.target.value)}
-                        className={inputClass()}
                         disabled={updatingBindingId === binding.id}
                       />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-tertiary)]">Status</span>
-                      <select
+                    </FormField>
+                    <FormField label="Status">
+                      <Select
                         value={bindingDrafts[binding.id]?.status ?? binding.status}
                         onChange={(event) => handleBindingDraftChange(binding.id, 'status', event.target.value)}
-                        className={inputClass()}
                         disabled={updatingBindingId === binding.id}
                       >
                         <option value="active">active</option>
                         <option value="paused">paused</option>
                         <option value="draft">draft</option>
                         <option value="archived">archived</option>
-                      </select>
-                    </label>
+                      </Select>
+                    </FormField>
                     <div className="flex flex-wrap items-end gap-2">
-                      <button
+                      <Button
                         type="button"
                         onClick={() => { void handleSaveBinding(binding); }}
                         disabled={updatingBindingId === binding.id}
-                        className="rounded-lg border border-fuchsia-300 bg-fuchsia-50 px-3 py-2 text-xs font-medium text-fuchsia-700 transition-colors hover:bg-fuchsia-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-fuchsia-500/25 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:hover:bg-fuchsia-500/20"
+                        size="sm"
+                        variant="secondary"
                       >
                         {updatingBindingId === binding.id ? 'Saving…' : 'Save Rotation'}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
                         onClick={() => { void handleToggleBindingStatus(binding); }}
                         disabled={updatingBindingId === binding.id}
-                        className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                          binding.status === 'active'
-                            ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/20'
-                            : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/20'
-                        }`}
+                        size="sm"
+                        variant={binding.status === 'active' ? 'ghost' : 'secondary'}
                       >
                         {binding.status === 'active' ? 'Pause' : 'Activate'}
-                      </button>
+                      </Button>
                       <div className="text-xs text-[color:var(--dusk-text-secondary)]">
                         Higher weight means this creative is selected more often during rotation.
                       </div>
                     </div>
                   </div>
-                </div>
+                </Panel>
               ))}
             </div>
           )}
-        </section>
+        </Panel>
 
-        <section className="rounded-xl border border-[color:var(--dusk-border-default)] p-4">
+        <Panel className="p-4">
           <h3 className="mb-4 text-sm font-semibold text-[color:var(--dusk-text-primary)]">Assign Creative</h3>
           <div className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-primary)]">Creative</label>
-              <select
+            <FormField label="Creative">
+              <Select
                 value={assignmentVersionId}
                 onChange={event => {
                   setAssignmentVersionId(event.target.value);
                   setAssignmentError('');
                 }}
-                className={inputClass()}
                 disabled={creativeOptionsLoading || assignmentBusy}
               >
                 <option value="">Select a creative</option>
@@ -370,29 +370,29 @@ export default function TagBindingsPanel({
                     {option.creative.name} · v{option.latestVersion.versionNumber}
                   </option>
                 ))}
-              </select>
+              </Select>
               {filteredCreativeOptions.length === 0 && (
                 <p className="mt-2 text-xs text-amber-700">
                   No creatives match this tag yet. We only show creatives from the selected client and, for display tags, only the exact assigned size.
                 </p>
               )}
-            </div>
+            </FormField>
 
-            <button
+            <Button
               type="button"
               onClick={handleAssignCreative}
               disabled={assignmentBusy || creativeOptionsLoading || !assignmentVersionId}
-              className="w-full px-4 py-2.5 text-sm font-medium text-white bg-brand-gradient hover:opacity-95 disabled:opacity-60 rounded-lg transition-colors"
+              className="w-full"
             >
               {assignmentBusy ? 'Assigning…' : 'Assign Creative'}
-            </button>
+            </Button>
 
             <p className="text-xs text-[color:var(--dusk-text-secondary)]">
               This uses the latest available version for the selected creative and respects format and size constraints on the API side.
             </p>
           </div>
-        </section>
+        </Panel>
       </div>
-    </div>
+    </Panel>
   );
 }

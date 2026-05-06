@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Badge, Button, CenteredSpinner, EmptyState, Kicker, Panel } from '../system';
 
 interface TagHealth {
   id: string;
@@ -17,27 +18,23 @@ interface HealthSummary {
 }
 
 const statusBadge = (status: TagHealth['status']) => {
-  const cfg: Record<TagHealth['status'], { cls: string; label: string }> = {
-    healthy:  { cls: 'bg-green-100 text-green-800',  label: 'Healthy' },
-    warning:  { cls: 'bg-yellow-100 text-yellow-800', label: 'Warning' },
-    critical: { cls: 'bg-red-100 text-red-800',      label: 'Critical' },
-    unknown:  { cls: 'bg-slate-100 text-slate-600',  label: 'Unknown' },
+  const cfg: Record<TagHealth['status'], { tone: 'success' | 'warning' | 'critical' | 'neutral'; label: string }> = {
+    healthy: { tone: 'success', label: 'Healthy' },
+    warning: { tone: 'warning', label: 'Warning' },
+    critical: { tone: 'critical', label: 'Critical' },
+    unknown: { tone: 'neutral', label: 'Unknown' },
   };
-  const { cls, label } = cfg[status];
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>
-      {label}
-    </span>
-  );
+  const { tone, label } = cfg[status];
+  return <Badge tone={tone}>{label}</Badge>;
 };
 
 const KpiCard = ({
   label, value, colorClass,
 }: { label: string; value: number; colorClass: string }) => (
-  <div className="bg-white rounded-xl border border-slate-200 p-5">
-    <p className="text-sm text-slate-500">{label}</p>
+  <Panel className="p-5">
+    <p className="text-sm text-text-muted">{label}</p>
     <p className={`text-3xl font-bold mt-1 ${colorClass}`}>{value}</p>
-  </div>
+  </Panel>
 );
 
 export default function TagHealthDashboard() {
@@ -64,20 +61,16 @@ export default function TagHealthDashboard() {
   useEffect(load, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-fuchsia-500"></div>
-      </div>
-    );
+    return <CenteredSpinner label="Loading tag health…" />;
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]">
         <p className="font-medium">Error loading tag health</p>
         <p className="text-sm mt-1">{error}</p>
-        <button onClick={load} className="mt-3 text-sm text-red-600 underline">Retry</button>
-      </div>
+        <Button onClick={load} variant="ghost" size="sm" className="mt-3">Retry</Button>
+      </Panel>
     );
   }
 
@@ -85,15 +78,13 @@ export default function TagHealthDashboard() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Tag Health</h1>
-          <p className="text-sm text-slate-500 mt-1">Real-time monitoring across all ad tags</p>
+          <Kicker>Tags</Kicker>
+          <h1 className="text-2xl font-bold text-text-primary mt-3">Tag Health</h1>
+          <p className="text-sm text-text-muted mt-1">Real-time monitoring across all ad tags</p>
         </div>
-        <button
-          onClick={load}
-          className="px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-        >
+        <Button onClick={load} variant="secondary">
           🔄 Refresh
-        </button>
+        </Button>
       </div>
 
       {/* Summary cards */}
@@ -106,36 +97,38 @@ export default function TagHealthDashboard() {
 
       {/* Tags table */}
       {tags.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
-          <p className="text-4xl mb-3">🩺</p>
-          <h3 className="text-lg font-medium text-slate-700">No health data available</h3>
-          <p className="text-sm text-slate-500 mt-1">Tag health data will appear once tags are active.</p>
-        </div>
+        <Panel className="py-20">
+          <EmptyState
+            title="No health data available"
+            description="Tag health data will appear once tags are active."
+          />
+        </Panel>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <Panel className="overflow-hidden p-0">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+            <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
+              <caption className="sr-only">Tag health status, delivery recency, 24h impressions and error rate</caption>
+              <thead className="bg-[color:var(--dusk-surface-muted)]">
                 <tr>
                   {['Tag Name', 'Status', 'Last Impression', 'Imps (24h)', 'Error Rate'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <th key={h} scope="col" className="px-4 py-3 text-left text-xs font-semibold text-text-soft uppercase tracking-wider">
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
                 {tags.map(t => (
-                  <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-medium text-slate-800">{t.name}</td>
+                  <tr key={t.id} className="hover:bg-[color:var(--dusk-surface-muted)] transition-colors">
+                    <th scope="row" className="px-4 py-3 text-left text-sm font-medium text-text-primary">{t.name}</th>
                     <td className="px-4 py-3">{statusBadge(t.status)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600">
+                    <td className="px-4 py-3 text-sm text-text-secondary">
                       {t.lastImpression
                         ? new Date(t.lastImpression).toLocaleString()
-                        : <span className="text-slate-400 italic">Never</span>
+                        : <span className="text-text-soft italic">Never</span>
                       }
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-700 font-medium">
+                    <td className="px-4 py-3 text-sm text-text-secondary font-medium">
                       {t.impressions24h.toLocaleString()}
                     </td>
                     <td className="px-4 py-3">
@@ -150,7 +143,7 @@ export default function TagHealthDashboard() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Panel>
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Button, Kicker, Panel } from '../system';
 import {
   buildTagSnippet,
   type SnippetVariant,
@@ -186,34 +187,31 @@ export default function TagSnippetPanel({
   };
 
   return (
-    <div className="rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 p-6">
+    <Panel className="p-6">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-base font-semibold text-[color:var(--dusk-text-primary)]">Generated Tag Snippet</h2>
-        <button
+        <div>
+          <Kicker>Snippet</Kicker>
+          <h2 className="text-base font-semibold text-[color:var(--dusk-text-primary)] mt-2">Generated Tag Snippet</h2>
+        </div>
+        <Button
           onClick={handleCopy}
-          className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-            copied
-              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
-              : 'bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)] hover:bg-[color:var(--dusk-border-subtle)] hover:text-[color:var(--dusk-text-primary)]'
-          }`}
+          variant={copied ? 'secondary' : 'ghost'}
+          size="sm"
         >
           {copied ? 'Copied' : 'Copy'}
-        </button>
+        </Button>
       </div>
       <div className="mb-3 flex flex-wrap gap-2">
         {getSnippetOptions(tag.format, tag.trackerType ?? null, campaignDsp).map(option => (
-          <button
+          <Button
             key={option.value}
             type="button"
             onClick={() => setSnippetVariant(option.value)}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-              snippetVariant === option.value
-                ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-                : 'border-[color:var(--dusk-border-default)] bg-surface-1 text-[color:var(--dusk-text-secondary)] hover:border-[color:var(--dusk-border-strong)] hover:bg-[color:var(--dusk-surface-muted)] hover:text-[color:var(--dusk-text-primary)]'
-            }`}
+            variant={snippetVariant === option.value ? 'secondary' : 'ghost'}
+            size="sm"
           >
             {option.label}
-          </button>
+          </Button>
         ))}
       </div>
       <p className="mb-3 text-xs text-[color:var(--dusk-text-secondary)]">
@@ -227,6 +225,6 @@ export default function TagSnippetPanel({
       <pre className="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">
         {buildTagSnippet(tag, snippetVariant, servingBaseUrl, campaignDsp, diagnostics)}
       </pre>
-    </div>
+    </Panel>
   );
 }

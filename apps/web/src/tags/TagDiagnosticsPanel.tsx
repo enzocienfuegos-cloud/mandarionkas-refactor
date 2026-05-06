@@ -1,4 +1,6 @@
 import React from 'react';
+import { Badge, Button, Kicker, Panel } from '../system';
+import type { BadgeTone } from '../system';
 
 type TagFormat = 'VAST' | 'display' | 'native' | 'tracker';
 
@@ -136,18 +138,18 @@ function formatTriggerLabel(value?: string | null): string {
     .join(' ');
 }
 
-function getJobStatusTone(value?: string | null): string {
+function getJobStatusTone(value?: string | null): BadgeTone {
   switch (String(value ?? '').toLowerCase()) {
     case 'running':
-      return 'border-sky-300 bg-sky-100 text-sky-800';
+      return 'info';
     case 'pending':
-      return 'border-amber-300 bg-amber-100 text-amber-800';
+      return 'warning';
     case 'completed':
-      return 'border-emerald-300 bg-emerald-100 text-emerald-800';
+      return 'success';
     case 'failed':
-      return 'border-rose-300 bg-rose-100 text-rose-800';
+      return 'critical';
     default:
-      return 'border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-primary)]';
+      return 'neutral';
   }
 }
 
@@ -178,11 +180,12 @@ export default function TagDiagnosticsPanel({
   ];
 
   return (
-    <div className="mt-6 rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 p-6">
+    <Panel className="mt-6 p-6">
+      <Kicker>Diagnostics</Kicker>
       <details className="group rounded-lg border border-[color:var(--dusk-border-default)] px-4 py-3">
         <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold text-[color:var(--dusk-text-primary)]">Delivery Diagnostics</h2>
+            <h2 className="mt-2 text-base font-semibold text-[color:var(--dusk-text-primary)]">Delivery Diagnostics</h2>
             <p className="text-sm text-[color:var(--dusk-text-secondary)]">
               Inspect the effective Basis/SMX delivery policy and generated URLs for this tag.
             </p>
@@ -235,70 +238,61 @@ export default function TagDiagnosticsPanel({
           </div>
 
           {savedTag.format === 'VAST' && deliveryDiagnostics?.deliveryDiagnostics?.vast?.staticProfiles && (
-            <details className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <details className="mb-4 rounded-lg border border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] p-4">
               <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-emerald-900">Static Delivery URLs</h3>
-                  <p className="text-xs text-emerald-800">
+                  <h3 className="text-sm font-semibold text-[color:var(--dusk-status-success-fg)]">Static Delivery URLs</h3>
+                  <p className="text-xs text-[color:var(--dusk-status-success-fg)]">
                     Public XML artifacts served from storage for DSP delivery and validator-safe testing.
                   </p>
                 </div>
-                <span className="text-emerald-700">▾</span>
+                <span className="text-[color:var(--dusk-status-success-fg)]">▾</span>
               </summary>
               <div className="mt-3">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-xs text-emerald-800">
+                  <div className="text-xs text-[color:var(--dusk-status-success-fg)]">
                     Copy each profile independently or download all XMLs in one shot.
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
+                    <Button
                       type="button"
                       onClick={onDownloadAllStaticProfiles}
                       disabled={!staticDeliveryEntries.length}
-                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                        staticDeliveryEntries.length
-                          ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-800 hover:bg-fuchsia-100 dark:border-fuchsia-500/25 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:hover:bg-fuchsia-500/20'
-                          : 'cursor-not-allowed border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-tertiary)]'
-                      }`}
+                      size="sm"
+                      variant="secondary"
                     >
                       Download All XMLs
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
                       onClick={onQueueStaticDelivery}
                       disabled={queueingStaticDelivery}
-                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                        queueingStaticDelivery
-                          ? 'cursor-not-allowed border-sky-200 bg-sky-100 text-sky-500'
-                          : 'border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/15 dark:text-sky-300 dark:hover:bg-sky-500/20'
-                      }`}
+                      size="sm"
+                      variant="secondary"
                     >
                       {queueingStaticDelivery ? 'Queueing…' : 'Queue Background Publish'}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
                       onClick={onRepublishStaticDelivery}
                       disabled={republishingStaticDelivery}
-                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                        republishingStaticDelivery
-                          ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
-                          : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/20'
-                      }`}
+                      size="sm"
+                      variant="secondary"
                     >
                       {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <div className="space-y-3">
                   {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest && (
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-3 text-[11px] text-emerald-900 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-200">
+                    <div className="rounded-lg border border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)]/80 px-3 py-3 text-[11px] text-[color:var(--dusk-status-success-fg)]">
                       {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob && (
-                        <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50/50 px-2.5 py-2">
+                        <div className="mb-3 rounded-md border border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)]/50 px-2.5 py-2">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="font-medium">Latest Static Publish Job</div>
-                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${getJobStatusTone(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.status)}`}>
+                            <Badge tone={getJobStatusTone(deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.status)} size="sm">
                               {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.status || 'unknown'}
-                            </span>
+                            </Badge>
                           </div>
                           <div className="mt-2 grid gap-2 md:grid-cols-4">
                             <div>
@@ -324,7 +318,7 @@ export default function TagDiagnosticsPanel({
                             </div>
                           </div>
                           {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.error && (
-                            <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 text-rose-800">
+                            <div className="mt-2 rounded-md border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-2.5 py-2 text-[color:var(--dusk-status-critical-fg)]">
                               {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob.error}
                             </div>
                           )}
@@ -349,16 +343,16 @@ export default function TagDiagnosticsPanel({
                         </div>
                       </div>
                       {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.history && deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.history.length > 0 && (
-                        <div className="mt-3 border-t border-emerald-200 pt-3">
+                        <div className="mt-3 border-t border-[color:var(--dusk-status-success-border)] pt-3">
                           <div className="mb-2 font-medium">Recent Publish History</div>
                           <div className="space-y-2">
                             {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest.history.slice(0, 5).map((entry, index) => (
-                              <div key={`${entry.generatedAt ?? 'entry'}-${index}`} className="rounded-md border border-emerald-200 bg-emerald-50/40 px-2.5 py-2">
+                              <div key={`${entry.generatedAt ?? 'entry'}-${index}`} className="rounded-md border border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)]/40 px-2.5 py-2">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <div className="font-medium">{formatTriggerLabel(entry.trigger)}</div>
                                   <div>{formatArtifactTimestamp(entry.generatedAt)}</div>
                                 </div>
-                                <div className="mt-1 text-emerald-800">
+                                <div className="mt-1 text-[color:var(--dusk-status-success-fg)]">
                                   Profiles: {entry.profileCount ?? 0}
                                   {Array.isArray(entry.profiles) && entry.profiles.length > 0
                                     ? ` • ${entry.profiles.map((profile) => `${profile.profile ?? 'unknown'} (${profile.xmlVersion ?? 'n/a'})`).join(', ')}`
@@ -376,40 +370,38 @@ export default function TagDiagnosticsPanel({
                       <div className="mb-1 flex items-center justify-between gap-3">
                         <div className="text-xs font-medium text-emerald-900">{entry.label}</div>
                         <div className="flex flex-wrap items-center justify-end gap-2">
-                          <button
+                          <Button
+                            size="sm"
+                            variant="secondary"
                             type="button"
                             onClick={() => onCopyStaticProfile(entry.key, entry.url)}
-                            className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 transition-colors hover:bg-emerald-100 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
                           >
                             {copiedStaticProfile === entry.key ? 'Copied' : 'Copy URL'}
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
                             onClick={() => onDownloadStaticProfile(entry.key, entry.url)}
-                            className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-2.5 py-1 text-[11px] font-medium text-[color:var(--dusk-text-secondary)] transition-colors hover:bg-[color:var(--dusk-surface-muted)] hover:text-[color:var(--dusk-text-primary)]"
+                            size="sm"
+                            variant="ghost"
                           >
                             Download XML
-                          </button>
-                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${
-                            entry.status?.available
-                              ? 'border-emerald-300 bg-emerald-100 text-emerald-800'
-                              : 'border-amber-300 bg-amber-100 text-amber-800'
-                          }`}>
+                          </Button>
+                          <Badge tone={entry.status?.available ? 'success' : 'warning'} size="sm">
                             {entry.status?.available ? 'Available' : 'Pending'}
-                          </span>
+                          </Badge>
                         </div>
                       </div>
                       <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{entry.url}</pre>
                       <div className="mt-2 grid gap-2 md:grid-cols-3 text-[11px] text-emerald-900">
-                        <div className="rounded-md border border-emerald-200 bg-emerald-50/80 px-2.5 py-2 dark:border-emerald-500/25 dark:bg-emerald-500/15">
+                        <div className="rounded-md border border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)]/80 px-2.5 py-2">
                           <div className="font-medium">Last Published</div>
                           <div className="mt-1">{formatArtifactTimestamp(entry.status?.lastPublishedAt)}</div>
                         </div>
-                        <div className="rounded-md border border-emerald-200 bg-emerald-50/80 px-2.5 py-2 dark:border-emerald-500/25 dark:bg-emerald-500/15">
+                        <div className="rounded-md border border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)]/80 px-2.5 py-2">
                           <div className="font-medium">Artifact Size</div>
                           <div className="mt-1">{formatArtifactBytes(entry.status?.contentLength)}</div>
                         </div>
-                        <div className="rounded-md border border-emerald-200 bg-emerald-50/80 px-2.5 py-2 dark:border-emerald-500/25 dark:bg-emerald-500/15">
+                        <div className="rounded-md border border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)]/80 px-2.5 py-2">
                           <div className="font-medium">Content Type</div>
                           <div className="mt-1">{entry.status?.contentType || 'n/a'}</div>
                         </div>
@@ -421,46 +413,40 @@ export default function TagDiagnosticsPanel({
             </details>
           )}
           {savedTag.format === 'VAST' && !deliveryDiagnostics?.deliveryDiagnostics?.vast?.staticProfiles && (
-            <details className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <details className="mb-4 rounded-lg border border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] p-4">
               <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-emerald-900">Static Delivery URLs</h3>
-                  <p className="text-xs text-emerald-800">
+                  <h3 className="text-sm font-semibold text-[color:var(--dusk-status-success-fg)]">Static Delivery URLs</h3>
+                  <p className="text-xs text-[color:var(--dusk-status-success-fg)]">
                     Public XML artifacts served from storage for DSP delivery and validator-safe testing.
                   </p>
                 </div>
-                <span className="text-emerald-700">▾</span>
+                <span className="text-[color:var(--dusk-status-success-fg)]">▾</span>
               </summary>
               <div className="mt-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs text-emerald-900">
+                  <p className="text-xs text-[color:var(--dusk-status-success-fg)]">
                     No static delivery artifacts are visible yet. Republish to generate or refresh the public XML profiles.
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
+                    <Button
                       type="button"
                       onClick={onQueueStaticDelivery}
                       disabled={queueingStaticDelivery}
-                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                        queueingStaticDelivery
-                          ? 'cursor-not-allowed border-sky-200 bg-sky-100 text-sky-500'
-                          : 'border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/15 dark:text-sky-300 dark:hover:bg-sky-500/20'
-                      }`}
+                      size="sm"
+                      variant="secondary"
                     >
                       {queueingStaticDelivery ? 'Queueing…' : 'Queue Background Publish'}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
                       onClick={onRepublishStaticDelivery}
                       disabled={republishingStaticDelivery}
-                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                        republishingStaticDelivery
-                          ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
-                          : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/20'
-                      }`}
+                      size="sm"
+                      variant="secondary"
                     >
                       {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -511,6 +497,6 @@ export default function TagDiagnosticsPanel({
           </div>
         </div>
       </details>
-    </div>
+    </Panel>
   );
 }
