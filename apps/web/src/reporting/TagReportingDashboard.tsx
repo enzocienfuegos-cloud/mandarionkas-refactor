@@ -4,7 +4,6 @@ import {
   Panel,
   Button,
   Kicker,
-  Input,
   Select,
   EmptyState,
   CenteredSpinner,
@@ -24,6 +23,7 @@ import {
   IdentityReportingView,
   VideoReportingView,
 } from './tag-reporting/views';
+import { ReportingFilterSummary, TagSelectorPanel } from './tag-reporting/components';
 
 export default function TagReportingDashboard() {
   const { id: routeTagId = '' } = useParams();
@@ -297,38 +297,13 @@ export default function TagReportingDashboard() {
 
       <div className="grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
         <div className="basis-[18rem] flex-shrink-0">
-          <Panel className="overflow-hidden">
-            <div className="space-y-2 border-b border-slate-100 bg-slate-50/80 px-3 py-3 dark:border-white/[0.07] dark:bg-white/[0.03]">
-              <Kicker>Tags</Kicker>
-              <Input
-                type="search"
-                value={tagSearch}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setTagSearch(event.target.value)}
-                placeholder="Filter by tag name"
-              />
-            </div>
-            {filteredTags.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-slate-400 dark:text-white/36">No matching tags</p>
-            ) : (
-              <ul className="app-scrollbar max-h-[600px] divide-y divide-slate-100 overflow-y-auto dark:divide-white/[0.07]">
-                {filteredTags.map(tag => (
-                  <li key={tag.id}>
-                    <button
-                      onClick={() => setSelectedTag(tag)}
-                      className={`w-full text-left px-4 py-3 text-sm transition-colors ${
-                        selectedTag?.id === tag.id
-                          ? 'bg-fuchsia-50 text-fuchsia-700 font-medium dark:bg-fuchsia-500/10 dark:text-fuchsia-200'
-                          : 'text-slate-700 hover:bg-slate-50 dark:text-white/76 dark:hover:bg-white/[0.04]'
-                      }`}
-                    >
-                      <div>{tag.name}</div>
-                      <div className="mt-1 text-xs uppercase tracking-wide text-slate-400 dark:text-white/36">{tag.format}</div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
+          <TagSelectorPanel
+            filteredTags={filteredTags}
+            selectedTagId={selectedTag?.id ?? null}
+            tagSearch={tagSearch}
+            onSearchChange={setTagSearch}
+            onSelectTag={setSelectedTag}
+          />
         </div>
 
         <div className="flex-1 min-w-0">
@@ -395,23 +370,21 @@ export default function TagReportingDashboard() {
                     ]}
                   />
                 </Panel>
-                <Panel className="p-4">
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
-                    Filter Summary
-                  </label>
-                  <div className="space-y-1 text-sm text-slate-600 dark:text-white/62">
-                    <div>{loadingBindings ? 'Loading bindings…' : `${bindings.length} binding${bindings.length === 1 ? '' : 's'} available`}</div>
-                    <div>{selectedCreativeId ? 'Creative filter active' : 'No creative filter'}</div>
-                    <div>{selectedVariantId ? 'Size filter active' : 'No size filter'}</div>
-                  </div>
-                </Panel>
+                <ReportingFilterSummary
+                  loadingBindings={loadingBindings}
+                  bindingCount={bindings.length}
+                  selectedCreativeId={selectedCreativeId}
+                  selectedVariantId={selectedVariantId}
+                  statsError={statsError}
+                  onRetry={() => {
+                    if (!selectedTag) return;
+                    loadTagData(selectedTag, dateRange, {
+                      creativeId: selectedCreativeId,
+                      creativeSizeVariantId: selectedVariantId,
+                    });
+                  }}
+                />
               </div>
-
-              {statsError ? (
-                <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                  {statsError}
-                </div>
-              ) : null}
 
               {loadingStats ? (
                 <CenteredSpinner label="Loading tag statistics…" />

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Panel } from '../../system';
-import type { DailyStat } from './types';
+import { Button, EmptyState, Input, Kicker, Panel } from '../../system';
+import type { DailyStat, Tag } from './types';
 
 export function BarChart({ data }: { data: DailyStat[] }) {
   const W = 600;
@@ -67,5 +67,97 @@ export function DetailRow({ label, value }: { label: string; value: string }) {
       <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span>
       <span className="break-all text-right text-sm text-slate-700">{value || 'n/a'}</span>
     </div>
+  );
+}
+
+export function TagSelectorPanel({
+  filteredTags,
+  selectedTagId,
+  tagSearch,
+  onSearchChange,
+  onSelectTag,
+}: {
+  filteredTags: Tag[];
+  selectedTagId: string | null;
+  tagSearch: string;
+  onSearchChange: (value: string) => void;
+  onSelectTag: (tag: Tag) => void;
+}) {
+  return (
+    <Panel className="overflow-hidden">
+      <div className="space-y-2 border-b border-slate-100 bg-slate-50/80 px-3 py-3 dark:border-white/[0.07] dark:bg-white/[0.03]">
+        <Kicker>Tags</Kicker>
+        <Input
+          type="search"
+          value={tagSearch}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Filter by tag name"
+        />
+      </div>
+      {filteredTags.length === 0 ? (
+        <EmptyState
+          kicker="No matches"
+          title="No matching tags"
+          description="Try a different tag name or clear the current filter."
+          className="border-0 bg-transparent px-4 py-6 shadow-none"
+        />
+      ) : (
+        <ul className="app-scrollbar max-h-[600px] divide-y divide-slate-100 overflow-y-auto dark:divide-white/[0.07]">
+          {filteredTags.map((tag) => (
+            <li key={tag.id}>
+              <button
+                type="button"
+                onClick={() => onSelectTag(tag)}
+                className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+                  selectedTagId === tag.id
+                    ? 'bg-fuchsia-50 text-fuchsia-700 font-medium dark:bg-fuchsia-500/10 dark:text-fuchsia-200'
+                    : 'text-slate-700 hover:bg-slate-50 dark:text-white/76 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <div>{tag.name}</div>
+                <div className="mt-1 text-xs uppercase tracking-wide text-slate-400 dark:text-white/36">{tag.format}</div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+export function ReportingFilterSummary({
+  loadingBindings,
+  bindingCount,
+  selectedCreativeId,
+  selectedVariantId,
+  statsError,
+  onRetry,
+}: {
+  loadingBindings: boolean;
+  bindingCount: number;
+  selectedCreativeId: string;
+  selectedVariantId: string;
+  statsError: string;
+  onRetry: () => void;
+}) {
+  return (
+    <Panel className="p-4">
+      <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
+        Filter Summary
+      </label>
+      <div className="space-y-1 text-sm text-slate-600 dark:text-white/62">
+        <div>{loadingBindings ? 'Loading bindings…' : `${bindingCount} binding${bindingCount === 1 ? '' : 's'} available`}</div>
+        <div>{selectedCreativeId ? 'Creative filter active' : 'No creative filter'}</div>
+        <div>{selectedVariantId ? 'Size filter active' : 'No size filter'}</div>
+      </div>
+      {statsError ? (
+        <div className="mt-4 rounded-xl border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-3 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]">
+          <p>{statsError}</p>
+          <Button onClick={onRetry} variant="ghost" size="sm" className="mt-3">
+            Retry
+          </Button>
+        </div>
+      ) : null}
+    </Panel>
   );
 }
