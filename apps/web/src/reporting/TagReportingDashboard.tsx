@@ -114,6 +114,7 @@ export default function TagReportingDashboard() {
             <>
               <ReportingWorkspaceControls
                 selectedTagName={selectedTag.name}
+                selectedTagFormat={selectedTag.format}
                 dateRange={dateRange}
                 onDateRangeChange={setDateRange}
                 exporting={exporting}

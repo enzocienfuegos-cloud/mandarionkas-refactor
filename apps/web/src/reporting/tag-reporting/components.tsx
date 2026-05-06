@@ -59,6 +59,15 @@ const MODE_META: Record<ReportingTab, { title: string; description: string; tone
   },
 };
 
+function tagFormatTone(format: string): 'brand' | 'info' | 'success' | 'warning' | 'neutral' {
+  const normalized = format.trim().toLowerCase();
+  if (normalized.includes('video')) return 'info';
+  if (normalized.includes('identity')) return 'success';
+  if (normalized.includes('display')) return 'brand';
+  if (normalized.includes('native')) return 'warning';
+  return 'neutral';
+}
+
 export function BarChart({ data }: { data: DailyStat[] }) {
   const W = 600;
   const H = 120;
@@ -140,15 +149,6 @@ export function TagSelectorPanel({
   onSearchChange: (value: string) => void;
   onSelectTag: (tag: Tag) => void;
 }) {
-  const formatTone = (format: string): 'brand' | 'info' | 'success' | 'warning' | 'neutral' => {
-    const normalized = format.trim().toLowerCase();
-    if (normalized.includes('video')) return 'info';
-    if (normalized.includes('identity')) return 'success';
-    if (normalized.includes('display')) return 'brand';
-    if (normalized.includes('native')) return 'warning';
-    return 'neutral';
-  };
-
   const selectedTag = selectedTagId ? filteredTags.find((tag) => tag.id === selectedTagId) ?? null : null;
 
   return (
@@ -169,7 +169,7 @@ export function TagSelectorPanel({
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--dusk-text-soft)]">Selected</p>
             <div className="mt-1 flex items-center justify-between gap-2">
               <p className="min-w-0 truncate text-sm font-medium text-[color:var(--dusk-text-primary)]">{selectedTag.name}</p>
-              <Badge tone={formatTone(selectedTag.format)} size="sm">{selectedTag.format || 'Tag'}</Badge>
+              <Badge tone={tagFormatTone(selectedTag.format)} size="sm">{selectedTag.format || 'Tag'}</Badge>
             </div>
           </div>
         ) : null}
@@ -197,11 +197,11 @@ export function TagSelectorPanel({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate">{tag.name}</div>
-                    <div className="mt-1 text-xs text-slate-400 dark:text-white/36">
+                  <div className="mt-1 text-xs text-slate-400 dark:text-white/36">
                       {selectedTagId === tag.id ? 'Active reporting view' : 'Open reporting'}
                     </div>
                   </div>
-                  <Badge tone={formatTone(tag.format)} size="sm">
+                  <Badge tone={tagFormatTone(tag.format)} size="sm">
                     {tag.format || 'Tag'}
                   </Badge>
                 </div>
@@ -270,6 +270,7 @@ export function ReportingFilterSummary({
 
 export function ReportingWorkspaceControls({
   selectedTagName,
+  selectedTagFormat,
   dateRange,
   onDateRangeChange,
   exporting,
@@ -294,6 +295,7 @@ export function ReportingWorkspaceControls({
   selectedVariantName,
 }: {
   selectedTagName: string;
+  selectedTagFormat: string;
   dateRange: number;
   onDateRangeChange: (value: number) => void;
   exporting: boolean;
@@ -324,8 +326,13 @@ export function ReportingWorkspaceControls({
       <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <Kicker>Selected tag</Kicker>
-          <h2 className="mt-2 text-lg font-semibold text-slate-800 dark:text-white">{selectedTagName}</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Filter by assigned creative and exported size variant.</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">{selectedTagName}</h2>
+            <Badge tone={tagFormatTone(selectedTagFormat)} size="sm">{selectedTagFormat || 'Tag'}</Badge>
+            <Badge tone="neutral" size="sm">{bindingCount} binding{bindingCount === 1 ? '' : 's'}</Badge>
+            <Badge tone="neutral" size="sm">Last {dateRange}d</Badge>
+          </div>
+          <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Filter by assigned creative and exported size variant.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select
