@@ -219,6 +219,8 @@ export function ReportingFilterSummary({
   bindingCount,
   selectedCreativeId,
   selectedVariantId,
+  selectedCreativeName,
+  selectedVariantName,
   statsError,
   onRetry,
 }: {
@@ -226,6 +228,8 @@ export function ReportingFilterSummary({
   bindingCount: number;
   selectedCreativeId: string;
   selectedVariantId: string;
+  selectedCreativeName: string;
+  selectedVariantName: string;
   statsError: string;
   onRetry: () => void;
 }) {
@@ -234,10 +238,23 @@ export function ReportingFilterSummary({
       <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
         Filter Summary
       </label>
-      <div className="space-y-1 text-sm text-slate-600 dark:text-white/62">
-        <div>{loadingBindings ? 'Loading bindings…' : `${bindingCount} binding${bindingCount === 1 ? '' : 's'} available`}</div>
-        <div>{selectedCreativeId ? 'Creative filter active' : 'No creative filter'}</div>
-        <div>{selectedVariantId ? 'Size filter active' : 'No size filter'}</div>
+      <div className="space-y-3">
+        <div className="text-sm text-slate-600 dark:text-white/62">
+          {loadingBindings ? 'Loading bindings…' : `${bindingCount} binding${bindingCount === 1 ? '' : 's'} available`}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge tone={selectedCreativeId ? 'brand' : 'neutral'} size="sm">
+            {selectedCreativeId ? `Creative: ${selectedCreativeName}` : 'All creatives'}
+          </Badge>
+          <Badge tone={selectedVariantId ? 'info' : 'neutral'} size="sm">
+            {selectedVariantId ? `Size: ${selectedVariantName}` : 'All sizes'}
+          </Badge>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-white/42">
+          {selectedCreativeId || selectedVariantId
+            ? 'Current reporting reflects the active scope above.'
+            : 'No narrowing filters are active right now.'}
+        </p>
       </div>
       {statsError ? (
         <div className="mt-4 rounded-xl border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-3 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]">
@@ -273,6 +290,8 @@ export function ReportingWorkspaceControls({
   onActiveTabChange,
   dateRangeOptions,
   reportingTabOptions,
+  selectedCreativeName,
+  selectedVariantName,
 }: {
   selectedTagName: string;
   dateRange: number;
@@ -295,6 +314,8 @@ export function ReportingWorkspaceControls({
   onActiveTabChange: (value: ReportingTab) => void;
   dateRangeOptions: Array<{ value: string; label: string }>;
   reportingTabOptions: Array<{ value: string; label: string }>;
+  selectedCreativeName: string;
+  selectedVariantName: string;
 }) {
   const modeMeta = MODE_META[activeTab];
 
@@ -354,6 +375,8 @@ export function ReportingWorkspaceControls({
           bindingCount={bindingCount}
           selectedCreativeId={selectedCreativeId}
           selectedVariantId={selectedVariantId}
+          selectedCreativeName={selectedCreativeName}
+          selectedVariantName={selectedVariantName}
           statsError={statsError}
           onRetry={onRetry}
         />

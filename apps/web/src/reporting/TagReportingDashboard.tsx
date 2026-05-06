@@ -126,6 +126,8 @@ export default function TagReportingDashboard() {
                 onSelectedVariantIdChange={setSelectedVariantId}
                 creativeOptions={creativeOptions.map((option) => ({ value: option.id, label: option.name }))}
                 variantOptions={variantOptions.map((option) => ({ value: option.id, label: option.name }))}
+                selectedCreativeName={creativeOptions.find((option) => option.id === selectedCreativeId)?.name ?? 'All creatives'}
+                selectedVariantName={variantOptions.find((option) => option.id === selectedVariantId)?.name ?? 'All sizes'}
                 loadingBindings={loadingBindings}
                 bindingCount={bindings.length}
                 statsError={statsError}
