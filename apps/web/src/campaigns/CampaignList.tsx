@@ -1,81 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../shared/workspaces';
-import { MetricCard as DuskMetricCard, useConfirm, useToast } from '../system';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type Severity = 'critical' | 'warning' | 'notice' | 'healthy';
-type TrendDirection = 'up' | 'down' | 'flat';
-type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
-type IconProps = { className?: string };
-type CampaignStatus = 'Live' | 'Limited' | 'Blocked' | 'Ready' | 'Draft';
-
-interface Campaign {
-  id: string;
-  workspace_id?: string;
-  workspace_name?: string;
-  name: string;
-  advertiser?: { id: string; name: string };
-  metadata?: { dsp?: string | null };
-  status: 'active' | 'paused' | 'archived' | 'draft';
-  startDate: string | null;
-  endDate: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  impressionGoal: number | null;
-  impression_goal?: number | null;
-  dailyBudget: number | null;
-  impressions?: number | string | null;
-  clicks?: number | string | null;
-  ctr?: number | string | null;
-  engagement_rate?: number | string | null;
-  engagementRate?: number | string | null;
-  viewability_rate?: number | string | null;
-  viewabilityRate?: number | string | null;
-  total_hover_duration_ms?: number | string | null;
-  totalHoverDurationMs?: number | string | null;
-}
-
-type CampaignRow = {
-  id: string;
-  campaign: string;
-  advertiser: string;
-  status: CampaignStatus;
-  pacing: string;
-  spend: string;
-  budget: string;
-  tagHealth: string;
-  creativeStatus: string;
-  issues: number;
-  owner: string;
-  flight: string;
-  raw: Campaign;
-};
-
-type Metric = {
-  id: string;
-  label: string;
-  value: string;
-  delta: string;
-  direction: TrendDirection;
-  helper: string;
-  tone: Tone;
-  series: number[];
-};
-
-type NavItem = {
-  label: string;
-  icon: JSX.Element;
-  active?: boolean;
-  badge?: string;
-};
-
-// ─── Utilities ────────────────────────────────────────────────────────────────
-
-function classNames(...values: Array<string | false | null | undefined>) {
-  return values.filter(Boolean).join(' ');
-}
+import {
+  Button,
+  CenteredSpinner,
+  EmptyState,
+  Input,
+  Kicker,
+  MetricCard,
+  Panel,
+  useConfirm,
+  useToast,
+} from '../system';
+import type { Campaign, CampaignRow, CampaignStatus, IconProps, Metric, Tone, TrendDirection } from './campaign-list/types';
+import { classNames, computeDelta, formatCompactMoney, formatDateRange, statusBadge, toNumber, toneClass } from './campaign-list/utils';
 
 function iconProps(className?: string) {
   return {
@@ -85,37 +23,6 @@ function iconProps(className?: string) {
     'aria-hidden': true,
   } as const;
 }
-
-const toNumber = (val: unknown) => {
-  const n = Number(val ?? 0);
-  return Number.isFinite(n) ? n : 0;
-};
-
-const formatCompactMoney = (value: number) => {
-  if (value >= 1000) return `$${(value / 1000).toFixed(1)}K`;
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: value >= 100 ? 0 : 1 }).format(value);
-};
-
-const formatDateRange = (start?: string | null, end?: string | null) => {
-  const fmt = (val?: string | null) =>
-    val ? new Date(val).toLocaleDateString(undefined, { month: 'short', day: '2-digit' }) : null;
-  const s = fmt(start);
-  const e = fmt(end);
-  if (s && e) return `${s} - ${e}`;
-  if (s) return `${s} - …`;
-  return 'Always on';
-};
-
-const computeDelta = (current: number, previous: number) => {
-  if (previous <= 0 && current <= 0) return { direction: 'flat' as TrendDirection, label: '0%' };
-  if (previous <= 0) return { direction: 'up' as TrendDirection, label: '+100%' };
-  const change = ((current - previous) / previous) * 100;
-  if (Math.abs(change) < 0.1) return { direction: 'flat' as TrendDirection, label: '0%' };
-  return {
-    direction: change > 0 ? 'up' as TrendDirection : 'down' as TrendDirection,
-    label: `${change > 0 ? '+' : ''}${change.toFixed(1)}%`,
-  };
-};
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -169,53 +76,6 @@ const MoreIcon = ({ className }: IconProps) => (
     <circle cx="19" cy="12" r="1" fill="currentColor" />
   </svg>
 );
-
-
-// ─── Shared UI primitives ─────────────────────────────────────────────────────
-
-function Panel({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <section
-      className={classNames(
-        'rounded-[28px] border border-border-default bg-surface-1/85 shadow-[0_18px_60px_rgba(28,18,41,0.08)] backdrop-blur-xl',
-        'dark:border-white/[0.07] dark:bg-surface-1/[0.035] dark:shadow-[0_22px_70px_rgba(0,0,0,0.28)]',
-        className,
-      )}
-    >
-      {children}
-    </section>
-  );
-}
-
-function SectionKicker({ children }: { children: React.ReactNode }) {
-  return <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted dark:text-white/42">{children}</p>;
-}
-
-// ─── Tone helpers ─────────────────────────────────────────────────────────────
-
-function toneClass(tone: Tone) {
-  const map: Record<Tone, string> = {
-    fuchsia: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/18 dark:bg-fuchsia-500/10 dark:text-fuchsia-300',
-    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-500/18 dark:bg-emerald-500/10 dark:text-emerald-300',
-    amber: 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-500/18 dark:bg-amber-500/10 dark:text-amber-300',
-    rose: 'border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-500/18 dark:bg-rose-500/10 dark:text-rose-300',
-    sky: 'border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-500/18 dark:bg-sky-500/10 dark:text-sky-300',
-    slate: 'border-border-default bg-[color:var(--dusk-surface-muted)] text-text-muted dark:border-white/8 dark:bg-surface-1/[0.04] dark:text-white/70',
-  };
-  return map[tone];
-}
-
-function statusBadge(status: CampaignStatus) {
-  const map: Record<CampaignStatus, string> = {
-    Live: 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/25 dark:text-emerald-300',
-    Limited: 'border-amber-300/70 bg-amber-50 text-[color:var(--dusk-status-warning-fg)] dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300',
-    Blocked: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/25 dark:text-rose-300',
-    Ready: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/25 dark:text-sky-300',
-    Draft: 'border-border-strong/70 bg-[color:var(--dusk-surface-muted)] text-text-secondary dark:border-white/20 dark:bg-surface-1/[0.12] dark:text-white/70',
-  };
-  return map[status];
-}
-
 function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
   const classes =
     direction === 'up'
@@ -261,7 +121,7 @@ function CampaignsTable({
     <Panel className="overflow-hidden p-6">
       <div className="flex flex-col gap-4 border-b border-border-default pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <SectionKicker>Campaign workspace</SectionKicker>
+          <Kicker>Campaign workspace</Kicker>
           <h2 className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Active &amp; setup campaigns</h2>
           <p className="mt-2 text-sm text-text-muted dark:text-white/56">Operational view for pacing, tag health, creative QA and launch readiness.</p>
         </div>
@@ -285,7 +145,7 @@ function CampaignsTable({
 
       {campaignRows.length === 0 ? (
         <div className="mt-6 rounded-3xl border border-border-default bg-surface-1/42 px-6 py-20 text-center dark:border-white/8 dark:bg-surface-1/[0.025]">
-          <SectionKicker>Empty view</SectionKicker>
+          <Kicker>Empty view</Kicker>
           <h3 className="mt-3 text-lg font-semibold text-[color:var(--dusk-text-primary)]">No campaigns match this view</h3>
           <p className="mt-2 text-sm text-text-muted dark:text-white/42">Try another advertiser filter or create a new campaign.</p>
         </div>
@@ -496,9 +356,7 @@ export default function CampaignList() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
-      </div>
+      <CenteredSpinner label="Loading campaigns workspace…" />
     );
   }
 
@@ -507,7 +365,7 @@ export default function CampaignList() {
       <Panel className="border-rose-200 bg-rose-50/70 p-4 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300">
         <p className="font-medium">Error loading campaigns</p>
         <p className="mt-1 text-sm">{error}</p>
-        <button onClick={load} className="mt-3 text-sm font-semibold text-rose-600 underline dark:text-rose-300">Retry</button>
+        <Button onClick={load} variant="ghost" size="sm" className="mt-3">Retry</Button>
       </Panel>
     );
   }
@@ -533,19 +391,16 @@ export default function CampaignList() {
               </button>
               <label className="relative block min-w-[300px]">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--dusk-text-soft)] dark:text-white/40"><SearchIcon /></span>
-                <input
+                <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="min-h-[46px] w-full rounded-xl border border-border-default/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-text-primary outline-none placeholder:text-[color:var(--dusk-text-soft)] transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
+                  className="min-h-[46px] border-border-default/80 bg-[rgba(252,251,255,0.82)] pl-10"
                   placeholder="Search campaign, advertiser, owner"
                 />
               </label>
             </div>
-            <Link
-              to="/campaigns/new"
-              className="inline-flex min-h-[46px] items-center rounded-xl bg-brand-gradient px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:translate-y-[-1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
-            >
-              New campaign
+            <Link to="/campaigns/new">
+              <Button variant="primary">New campaign</Button>
             </Link>
           </div>
 
@@ -561,7 +416,7 @@ export default function CampaignList() {
               <p className="mt-3 max-w-3xl text-lg leading-8 text-text-muted dark:text-white/62">Scan campaign readiness, catch blockers, and move from pacing, tags or creative issues into action quickly.</p>
             </div>
             <Panel className="p-5">
-              <SectionKicker>Recommended focus</SectionKicker>
+              <Kicker>Recommended focus</Kicker>
               <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
                 <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
                 <div>
@@ -575,7 +430,7 @@ export default function CampaignList() {
           {/* ── Metrics ── */}
           <div className="grid gap-5 xl:grid-cols-4">
             {metrics.map((metric) => (
-              <DuskMetricCard
+              <MetricCard
                 key={metric.id}
                 label={metric.label}
                 value={metric.value}
@@ -610,15 +465,24 @@ export default function CampaignList() {
           </div>
 
           {/* ── Campaigns table ── */}
-          <CampaignsTable
-            campaignRows={campaignRows}
-            liveCampaigns={liveCampaigns}
-            blockedOrLimited={blockedOrLimited}
-            draftSetup={draftSetup}
-            onEdit={(row) => void handleEdit(row)}
-            onDelete={(row) => void handleDelete(row)}
-            deletingId={deletingId}
-          />
+      {campaignRows.length === 0 ? (
+        <EmptyState
+          kicker="Empty view"
+          title="No campaigns match this view"
+          description="Try another advertiser filter or create a new campaign."
+          action={<Link to="/campaigns/new"><Button variant="primary">New campaign</Button></Link>}
+        />
+      ) : (
+        <CampaignsTable
+          campaignRows={campaignRows}
+          liveCampaigns={liveCampaigns}
+          blockedOrLimited={blockedOrLimited}
+          draftSetup={draftSetup}
+          onEdit={(row) => void handleEdit(row)}
+          onDelete={(row) => void handleDelete(row)}
+          deletingId={deletingId}
+        />
+      )}
     </div>
   );
 }
