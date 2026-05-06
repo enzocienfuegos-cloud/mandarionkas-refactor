@@ -1,15 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  assignCreativeVersionToTag,
   type Creative,
   type CreativeVersion,
   type CreativeIngestion,
   type CreativeSizeVariant,
   type VideoRendition,
   type TagOption,
-  type TagBinding,
-  assignCreativeVersionToTag,
-  createTag,
   deleteCreativeById,
   loadCreativeIngestion,
   loadCreativeVersionDetail,
@@ -17,15 +15,12 @@ import {
   loadCreativeIngestions,
   loadVideoRenditions,
   regenerateVideoRenditions,
-  loadTagBindings,
   loadTags,
   updateCreativeVersionById,
   updateCreativeById,
   updateVideoRenditionById,
-  updateTagBinding,
 } from './catalog';
 import type {
-  BindingState,
   ClickUrlEditorState,
   CreativeFormat,
   CreativeRow,
@@ -35,10 +30,6 @@ import type {
   PreviewModalState,
   PrototypeCheck,
   PrioritySeverity,
-  QuickCreateTagState,
-  RegenerationFeedbackState,
-  VariantState,
-  VideoRenditionState,
 } from './creative-library/types';
 import { CreativePreviewLightbox } from './creative-library/CreativePreviewLightbox';
 import { ClickUrlEditorModal } from './creative-library/ClickUrlEditorModal';
@@ -50,6 +41,7 @@ import { CreativeSidebarInsights } from './creative-library/CreativeSidebarInsig
 import { CreativeTable } from './creative-library/CreativeTable';
 import { QuickCreateTagModal } from './creative-library/QuickCreateTagModal';
 import { TagBindingModal } from './creative-library/TagBindingModal';
+import { useTagBindingManager } from './creative-library/useTagBindingManager';
 import { useVariantManager } from './creative-library/useVariantManager';
 import { useVideoRenditionManager } from './creative-library/useVideoRenditionManager';
 import { VariantManagerModal } from './creative-library/VariantManagerModal';
@@ -106,10 +98,8 @@ export default function CreativesView() {
   const [bulkDeleteSaving, setBulkDeleteSaving] = useState(false);
   const [statusUpdateCreativeId, setStatusUpdateCreativeId] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [bindingState, setBindingState] = useState<BindingState | null>(null);
   const [previewModal, setPreviewModal] = useState<PreviewModalState | null>(null);
   const [clickUrlEditor, setClickUrlEditor] = useState<ClickUrlEditorState | null>(null);
-  const [quickCreateTagState, setQuickCreateTagState] = useState<QuickCreateTagState | null>(null);
   const {
     variantState,
     setVariantState,
@@ -122,6 +112,25 @@ export default function CreativesView() {
     handleBulkVariantStatusChange,
     handleVariantFormChange,
   } = useVariantManager();
+  const {
+    bindingState,
+    setBindingState,
+    quickCreateTagState,
+    setQuickCreateTagState,
+    handleAssign,
+    handlePrepareBinding,
+    handleQuickCreateTag,
+    handleConfirmQuickCreateTag,
+    handleBindingStatusChange,
+  } = useTagBindingManager({
+    activeWorkspaceId,
+    setActiveWorkspaceId,
+    setWorkspaceBusy,
+    setError,
+    setSuccessMessage,
+    setTags,
+    tags,
+  });
   const load = async () => {
     setLoading(true);
     setError('');
@@ -407,27 +416,6 @@ export default function CreativesView() {
     { name: 'primary CTA remains upload creative', passed: true },
   ];
 
-  const handleAssign = async () => {
-    if (!bindingState?.tagId) {
-      setBindingState(current => current ? { ...current, error: 'Select a tag.' } : current);
-      return;
-    }
-    const selectedTag = tags.find(tag => tag.id === bindingState.tagId);
-    setBindingState(current => current ? { ...current, loading: true, error: '' } : current);
-    try {
-      await assignCreativeVersionToTag({
-        creativeVersionId: bindingState.versionId,
-        tagId: bindingState.tagId,
-      });
-      setBindingState(null);
-      setSuccessMessage(selectedTag ? `Assigned to tag "${selectedTag.name}".` : 'Creative assigned to tag.');
-      window.setTimeout(() => setSuccessMessage(''), 3500);
-    } catch (assignError: any) {
-      const message = assignError?.message ?? 'Assignment failed';
-      setBindingState(current => current ? { ...current, loading: false, error: message } : current);
-    }
-  };
-
   const handleDeleteCreative = async (creative: Creative) => {
     const confirmed = await confirm({
       title: `Delete "${creative.name}"?`,
@@ -531,32 +519,6 @@ export default function CreativesView() {
     });
   };
 
-  const handlePrepareBinding = async (creative: Creative, version: CreativeVersion) => {
-    try {
-      if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
-        setWorkspaceBusy(true);
-        await switchWorkspace(creative.workspaceId);
-        setActiveWorkspaceId(creative.workspaceId);
-      }
-      const nextTags = await loadTags({ workspaceId: creative.workspaceId ?? activeWorkspaceId });
-      setTags(nextTags);
-      setBindingState({
-        creativeId: creative.id,
-        creativeName: creative.name,
-        versionId: version.id,
-        servingFormat: version.servingFormat,
-        tagId: '',
-        loading: false,
-        error: '',
-        bindingsLoading: false,
-        bindings: [],
-      });
-    } catch (workspaceError: any) {
-      setError(workspaceError.message ?? 'Failed to prepare assignment');
-    } finally {
-      setWorkspaceBusy(false);
-    }
-  };
 
   const handleSaveCreativeClickUrl = async () => {
     if (!clickUrlEditor) return;
@@ -785,82 +747,6 @@ export default function CreativesView() {
     }
   };
 
-  const handleQuickCreateTag = async () => {
-    if (!bindingState) return;
-    const suggestedFormat =
-      bindingState.servingFormat === 'vast_video'
-        ? 'VAST'
-        : bindingState.servingFormat === 'native'
-          ? 'native'
-          : 'display';
-    const suggestedName = `${bindingState.creativeName} ${suggestedFormat}`.trim();
-    setQuickCreateTagState({
-      suggestedFormat,
-      creativeName: bindingState.creativeName,
-      name: suggestedName,
-      loading: false,
-      error: '',
-    });
-  };
-
-  const handleConfirmQuickCreateTag = async () => {
-    if (!bindingState || !quickCreateTagState) return;
-    const name = quickCreateTagState.name.trim();
-    if (!name) {
-      setQuickCreateTagState((current) => current ? { ...current, error: 'Tag name is required.' } : current);
-      return;
-    }
-
-    setQuickCreateTagState((current) => current ? { ...current, loading: true, error: '' } : current);
-    setBindingState(current => current ? { ...current, loading: true, error: '' } : current);
-    try {
-      const createdTag = await createTag({
-        name,
-        format: quickCreateTagState.suggestedFormat as 'display' | 'native' | 'VAST',
-        status: 'draft',
-      });
-      const [nextTags, bindings] = await Promise.all([
-        loadTags(),
-        createdTag?.id ? loadTagBindings(createdTag.id) : Promise.resolve([]),
-      ]);
-      setTags(nextTags);
-      setBindingState(current => current ? {
-        ...current,
-        loading: false,
-        tagId: createdTag?.id ?? '',
-        bindings,
-      } : current);
-      setQuickCreateTagState(null);
-    } catch (createError: any) {
-      setBindingState(current => current ? {
-        ...current,
-        loading: false,
-        error: createError.message ?? 'Failed to create tag',
-      } : current);
-      setQuickCreateTagState((current) => current ? {
-        ...current,
-        loading: false,
-        error: createError.message ?? 'Failed to create tag',
-      } : current);
-    }
-  };
-
-  const handleBindingStatusChange = async (bindingId: string, status: 'active' | 'paused') => {
-    if (!bindingState?.tagId) return;
-    setBindingState(current => current ? { ...current, loading: true, error: '' } : current);
-    try {
-      await updateTagBinding({
-        tagId: bindingState.tagId,
-        bindingId,
-        status,
-      });
-      const bindings = await loadTagBindings(bindingState.tagId);
-      setBindingState(current => current ? { ...current, loading: false, bindings } : current);
-    } catch (updateError: any) {
-      setBindingState(current => current ? { ...current, loading: false, error: updateError.message ?? 'Binding update failed' } : current);
-    }
-  };
-
   useEffect(() => {
     const hasProcessing = creatives.some((creative) => {
       const version = latestVersions[creative.id];
@@ -893,30 +779,6 @@ export default function CreativesView() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [previewModal]);
-
-  useEffect(() => {
-    if (!bindingState?.tagId) return;
-
-    let cancelled = false;
-    setBindingState(current => current ? { ...current, bindingsLoading: true, error: '' } : current);
-    void loadTagBindings(bindingState.tagId)
-      .then(bindings => {
-        if (cancelled) return;
-        setBindingState(current => current ? { ...current, bindingsLoading: false, bindings } : current);
-      })
-      .catch(loadError => {
-        if (cancelled) return;
-        setBindingState(current => current ? {
-          ...current,
-          bindingsLoading: false,
-          error: loadError.message ?? 'Failed to load tag bindings',
-        } : current);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [bindingState?.tagId]);
 
   if (loading) {
     return <CenteredSpinner label="Loading creative catalog…" />;
