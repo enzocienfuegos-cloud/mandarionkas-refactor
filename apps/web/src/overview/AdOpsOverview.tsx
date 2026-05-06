@@ -3,8 +3,7 @@ import { Link, useOutletContext } from 'react-router-dom';
 import { loadCreatives, type Creative } from '../creatives/catalog';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 import { type ThemeMode } from '../shared/theme';
-import { Panel, PrimaryButton, SecondaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
-import { MetricCard as DuskMetricCard } from '../system';
+import { Badge, Button, Kicker, MetricCard, Panel } from '../system';
 
 type DateRange = 7 | 30 | 90;
 type TrendDirection = 'up' | 'down' | 'flat';
@@ -317,8 +316,8 @@ function AttentionCard({ item }: { item: AttentionItem }) {
 }
 
 function CampaignStatusBadge({ status }: { status: TopCampaignRow['status'] }) {
-  const tone = status === 'Healthy' ? 'healthy' : status === 'Needs optimization' ? 'warning' : 'critical';
-  return <StatusBadge tone={tone}>{status}</StatusBadge>;
+  const tone = status === 'Healthy' ? 'success' : status === 'Needs optimization' ? 'warning' : 'critical';
+  return <Badge tone={tone}>{status}</Badge>;
 }
 
 function CampaignTable({ rows }: { rows: TopCampaignRow[] }) {
@@ -326,7 +325,7 @@ function CampaignTable({ rows }: { rows: TopCampaignRow[] }) {
     <Panel className="overflow-hidden p-7">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <SectionKicker>Top Campaigns</SectionKicker>
+          <Kicker>Top Campaigns</Kicker>
           <p className="mt-3 text-sm text-slate-500 dark:text-white/56">Campaigns demanding budget, optimization, and pacing attention.</p>
         </div>
         <Link to="/campaigns" className="text-sm font-medium text-fuchsia-600 transition hover:text-fuchsia-500 dark:text-fuchsia-300">View all campaigns</Link>
@@ -360,7 +359,7 @@ function CampaignTable({ rows }: { rows: TopCampaignRow[] }) {
 function QuickNavigation({ items }: { items: QuickNavRow[] }) {
   return (
     <Panel className="p-7">
-      <SectionKicker>Quick Navigation</SectionKicker>
+      <Kicker>Quick Navigation</Kicker>
       <div className="mt-6 space-y-3">
         {items.map((item) => (
           <Link
@@ -388,7 +387,7 @@ function SystemHealth({ items }: { items: SystemHealthRow[] }) {
     <Panel className="p-7">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <SectionKicker>Delivery &amp; System Health</SectionKicker>
+          <Kicker>Delivery &amp; System Health</Kicker>
         </div>
         <Link to="/reporting" className="text-sm font-medium text-fuchsia-600 transition hover:text-fuchsia-500 dark:text-fuchsia-300">View system status</Link>
       </div>
@@ -402,10 +401,10 @@ function SystemHealth({ items }: { items: SystemHealthRow[] }) {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-lg font-semibold text-slate-900 dark:text-white">{item.value}</span>
-                <StatusBadge
+                <Badge
                   tone={
                     item.severity === 'positive'
-                      ? 'healthy'
+                      ? 'success'
                       : item.severity === 'critical'
                         ? 'critical'
                         : item.severity === 'warning'
@@ -414,7 +413,7 @@ function SystemHealth({ items }: { items: SystemHealthRow[] }) {
                   }
                 >
                   {item.note}
-                </StatusBadge>
+                </Badge>
               </div>
             </div>
           );
@@ -459,7 +458,7 @@ function AudienceInsights({ topSegments, underperformingSegments }: { topSegment
     <Panel className="p-7">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <SectionKicker>Audience Signal Insights</SectionKicker>
+          <Kicker>Audience Signal Insights</Kicker>
         </div>
         <Link to="/reporting" className="text-sm font-medium text-fuchsia-600 transition hover:text-fuchsia-500 dark:text-fuchsia-300">Explore all segments</Link>
       </div>
@@ -475,7 +474,7 @@ function WorkQueueTable({ rows }: { rows: WorkQueueRow[] }) {
   return (
     <Panel className="overflow-hidden p-7">
       <div>
-        <SectionKicker>Ad Ops work queue</SectionKicker>
+        <Kicker>Ad Ops work queue</Kicker>
         <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Daily launch, delivery, and QA queue</h2>
         <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Triage blockers, implementation gaps, and readiness issues from one operational table.</p>
       </div>
@@ -495,9 +494,9 @@ function WorkQueueTable({ rows }: { rows: WorkQueueRow[] }) {
             {rows.map((row) => (
               <tr key={row.id} className="bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
                 <td className="px-6 py-5">
-                  <StatusBadge tone={row.severity === 'critical' ? 'critical' : row.severity === 'warning' ? 'warning' : row.severity === 'healthy' ? 'healthy' : 'info'}>
+                  <Badge tone={row.severity === 'critical' ? 'critical' : row.severity === 'warning' ? 'warning' : row.severity === 'healthy' ? 'success' : 'info'}>
                     {row.stage}
-                  </StatusBadge>
+                  </Badge>
                 </td>
                 <td className="px-6 py-5">
                   <p className="font-semibold text-slate-950 dark:text-white">{row.issue}</p>
@@ -890,17 +889,17 @@ export default function AdOpsOverview() {
                 placeholder="Search campaign, advertiser, owner"
               />
             </label>
-            <SecondaryButton type="button" onClick={() => void toggleTheme()}>
+            <Button type="button" variant="secondary" onClick={() => void toggleTheme()}>
               <EyeIcon className="text-slate-500 dark:text-white/60" />
               {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-            </SecondaryButton>
+            </Button>
             <NotificationButton count={issueCount} />
           </div>
         </div>
 
         <header className="dusk-page-header items-start">
           <div className="min-w-0 flex-1">
-            <SectionKicker>Overview</SectionKicker>
+            <Kicker>Overview</Kicker>
             <h1 className="dusk-title mt-4">Launches, delivery and QA in one place</h1>
             <p className="dusk-copy">Use one daily command center to spot blockers, review tag activity, and move launch and delivery issues into action quickly.</p>
           </div>
@@ -918,7 +917,7 @@ export default function AdOpsOverview() {
 
         <div className="mt-8 grid gap-5 xl:grid-cols-4">
           {metricCards.map((metric) => (
-            <DuskMetricCard
+            <MetricCard
               key={metric.id}
               label={metric.label}
               value={metric.value}
@@ -948,7 +947,7 @@ export default function AdOpsOverview() {
           <Panel className="p-6">
             <div className="space-y-8">
               <section>
-              <SectionKicker>Today blockers</SectionKicker>
+              <Kicker>Today blockers</Kicker>
               <div className="mt-4 space-y-3">
                 {attentionItems.slice(0, 3).map((item) => (
                   <div key={item.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
@@ -959,7 +958,7 @@ export default function AdOpsOverview() {
               </div>
               </section>
               <section>
-              <SectionKicker>Launch readiness</SectionKicker>
+              <Kicker>Launch readiness</Kicker>
               <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
                 <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
                   <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-white/42">Live campaigns</p>
@@ -976,7 +975,7 @@ export default function AdOpsOverview() {
               </div>
               </section>
               <section>
-              <SectionKicker>Quick ops</SectionKicker>
+              <Kicker>Quick ops</Kicker>
               <div className="mt-4 grid gap-3">
                 <Link to="/campaigns" className="dusk-card-link p-4">
                   <p className="font-semibold text-slate-950 dark:text-white">Campaign operations</p>

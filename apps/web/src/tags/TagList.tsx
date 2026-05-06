@@ -4,11 +4,13 @@ import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../shared/workspace
 import {
   Button,
   CenteredSpinner,
+  DataTable,
   EmptyState,
   Input,
   Kicker,
   MetricCard,
   Panel,
+  type ColumnDef,
   useConfirm,
   useToast,
 } from '../system';
@@ -184,8 +186,6 @@ export default function TagList() {
   });
 
   const selectedCount = selectedTagIds.length;
-  const allVisibleSelected = filteredTags.length > 0 && filteredTags.every((tag) => selectedTagIds.includes(tag.id));
-  const someVisibleSelected = filteredTags.some((tag) => selectedTagIds.includes(tag.id));
   const activeTags = filteredTags.filter((tag) => tag.status === 'active').length;
   const pausedTags = filteredTags.filter((tag) => tag.status === 'paused').length;
   const draftTags = filteredTags.filter((tag) => tag.status === 'draft').length;
@@ -242,6 +242,8 @@ export default function TagList() {
     setSelectedTagIds((current) => current.filter((id) => filteredTags.some((tag) => tag.id === id)));
   }, [filteredTags]);
 
+  const selectedKeySet = useMemo(() => new Set(selectedTagIds), [selectedTagIds]);
+
   const updateTagInState = (tagId: string, nextStatus: Tag['status']) => {
     setTags((current) => current.map((tag) => (tag.id === tagId ? { ...tag, status: nextStatus } : tag)));
   };
@@ -277,21 +279,6 @@ export default function TagList() {
     } finally {
       setDeletingId(null);
     }
-  };
-
-  const toggleTagSelection = (tagId: string) => {
-    setSelectedTagIds((current) => (current.includes(tagId) ? current.filter((id) => id !== tagId) : [...current, tagId]));
-  };
-
-  const toggleSelectAllVisible = () => {
-    setSelectedTagIds((current) => {
-      if (allVisibleSelected) {
-        return current.filter((id) => !filteredTags.some((tag) => tag.id === id));
-      }
-      const next = new Set(current);
-      filteredTags.forEach((tag) => next.add(tag.id));
-      return Array.from(next);
-    });
   };
 
   const handleBulkStatus = async (nextStatus: Extract<Tag['status'], 'active' | 'paused'>) => {
@@ -443,6 +430,118 @@ export default function TagList() {
     );
   }
 
+  const tagColumns = useMemo<ColumnDef<Tag>[]>(() => [
+    {
+      id: 'tag',
+      header: 'Tag',
+      sortAccessor: (tag) => tag.name,
+      cell: (tag) => (
+        <div>
+          <p className="font-semibold text-[color:var(--dusk-text-primary)]">{tag.name}</p>
+          <p className="mt-1 text-xs text-text-muted">
+            {tag.workspaceName ?? 'Workspace'} · {tag.campaign?.name ?? 'No campaign'}
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortAccessor: (tag) => tag.status,
+      cell: (tag) => (
+        <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize', tagStatusBadge(tag.status))}>
+          {tag.status}
+        </span>
+      ),
+    },
+    {
+      id: 'firing',
+      header: 'Firing',
+      sortAccessor: (tag) => getFiringLabel(tag),
+      cell: (tag) => <span className="font-medium text-text-secondary">{getFiringLabel(tag)}</span>,
+    },
+    {
+      id: 'destination',
+      header: 'Destination',
+      sortAccessor: (tag) => getDestinationLabel(tag),
+      cell: (tag) => (
+        <div className="flex flex-col gap-2">
+          {formatBadge(tag.format)}
+          <span className="text-xs text-text-muted">{getDestinationLabel(tag)}</span>
+        </div>
+      ),
+    },
+    {
+      id: 'last-seen',
+      header: 'Last seen',
+      sortAccessor: (tag) => tag.createdAt,
+      cell: (tag) => <span className="text-text-muted">{getLastSeenLabel(tag)}</span>,
+    },
+    {
+      id: 'risk',
+      header: 'Risk',
+      sortAccessor: (tag) => getRisk(tag),
+      cell: (tag) => {
+        const risk = getRisk(tag);
+        return <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', severityBadge(risk))}>{risk}</span>;
+      },
+    },
+    {
+      id: 'owner',
+      header: 'Owner',
+      sortAccessor: (tag) => getOwner(tag),
+      cell: (tag) => <span className="text-text-muted">{getOwner(tag)}</span>,
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      align: 'right',
+      cell: (tag) => (
+        <div className="flex items-center justify-end gap-1.5">
+          <Button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void handleExportTagCsv(tag);
+            }}
+            aria-label={`Export ${tag.name}`}
+            variant="ghost"
+            size="sm"
+            className="px-2"
+          >
+            <ReportIcon className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              navigate(`/tags/${tag.id}`);
+            }}
+            aria-label={`Edit ${tag.name}`}
+            variant="ghost"
+            size="sm"
+            className="px-2"
+          >
+            <TableIcon className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void handleDelete(tag);
+            }}
+            disabled={deletingId === tag.id}
+            aria-label={`Delete ${tag.name}`}
+            variant="danger"
+            size="sm"
+          >
+            {deletingId === tag.id ? 'Deleting…' : 'Delete'}
+          </Button>
+        </div>
+      ),
+    },
+  ], [deletingId, navigate, tags]);
+
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -537,49 +636,6 @@ export default function TagList() {
         ))}
       </div>
 
-      {selectedCount > 0 && (
-        <Panel className="border-fuchsia-200 bg-fuchsia-50/80 px-4 py-3 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium text-fuchsia-900 dark:text-fuchsia-200">
-              {selectedCount} tag{selectedCount !== 1 ? 's' : ''} selected
-            </span>
-            <Button
-              onClick={() => void handleBulkStatus('active')}
-              disabled={bulkActionLoading}
-              variant="secondary"
-              size="sm"
-            >
-              Activate
-            </Button>
-            <Button
-              onClick={() => void handleBulkStatus('paused')}
-              disabled={bulkActionLoading}
-              variant="secondary"
-              size="sm"
-            >
-              Deactivate
-            </Button>
-            <Button
-              onClick={() => void handleBulkDelete()}
-              disabled={bulkActionLoading}
-              variant="danger"
-              size="sm"
-            >
-              Delete
-            </Button>
-            <Button
-              onClick={() => setSelectedTagIds([])}
-              disabled={bulkActionLoading}
-              variant="ghost"
-              size="sm"
-            >
-              Clear selection
-            </Button>
-            {bulkActionLoading && <span className="text-xs text-text-muted dark:text-white/52">Applying changes...</span>}
-          </div>
-        </Panel>
-      )}
-
       {filteredTags.length === 0 ? (
         <EmptyState
           kicker="No matches"
@@ -631,110 +687,52 @@ export default function TagList() {
             </div>
           </div>
 
-          <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-border-default dark:border-white/8">
-            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
-              <thead className="bg-[color:var(--dusk-surface-muted)]/80 dark:bg-surface-1/[0.02]">
-                <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted dark:text-white/42">
-                  <th className="px-4 py-4 text-left">
-                    <input
-                      type="checkbox"
-                      checked={allVisibleSelected}
-                      ref={(element) => {
-                        if (element) {
-                          element.indeterminate = !allVisibleSelected && someVisibleSelected;
-                        }
-                      }}
-                      onChange={toggleSelectAllVisible}
-                      className="h-4 w-4 rounded border-border-strong text-fuchsia-600 focus:ring-fuchsia-500"
-                      aria-label="Select all visible tags"
-                    />
-                  </th>
-                  <th className="px-5 py-4">Tag</th>
-                  <th className="px-5 py-4">Status</th>
-                  <th className="px-5 py-4">Firing</th>
-                  <th className="px-5 py-4">Destination</th>
-                  <th className="px-5 py-4">Last seen</th>
-                  <th className="px-5 py-4">Risk</th>
-                  <th className="px-5 py-4">Owner</th>
-                  <th className="px-5 py-4" aria-label="Actions" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-white/8">
-                {filteredTags.map((tag) => {
-                  const risk = getRisk(tag);
-                  return (
-                    <tr key={tag.id} className="bg-surface-1/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-surface-1/[0.04]">
-                      <td className="px-4 py-5">
-                        <input
-                          type="checkbox"
-                          checked={selectedTagIds.includes(tag.id)}
-                          onChange={() => toggleTagSelection(tag.id)}
-                          className="h-4 w-4 rounded border-border-strong text-fuchsia-600 focus:ring-fuchsia-500"
-                          aria-label={`Select tag ${tag.name}`}
-                        />
-                      </td>
-                      <td className="px-5 py-5">
-                        <p className="font-semibold text-[color:var(--dusk-text-primary)]">{tag.name}</p>
-                        <p className="mt-1 text-xs text-text-muted dark:text-white/48">
-                          {tag.workspaceName ?? 'Workspace'} · {tag.campaign?.name ?? 'No campaign'}
-                        </p>
-                      </td>
-                      <td className="px-5 py-5">
-                        <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize', tagStatusBadge(tag.status))}>
-                          {tag.status}
-                        </span>
-                      </td>
-                      <td className="px-5 py-5 font-medium text-text-secondary dark:text-white/72">{getFiringLabel(tag)}</td>
-                      <td className="px-5 py-5">
-                        <div className="flex flex-col gap-2">
-                          {formatBadge(tag.format)}
-                          <span className="text-xs text-text-muted dark:text-white/48">{getDestinationLabel(tag)}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-5 text-text-muted dark:text-white/62">{getLastSeenLabel(tag)}</td>
-                      <td className="px-5 py-5">
-                        <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', severityBadge(risk))}>{risk}</span>
-                      </td>
-                      <td className="px-5 py-5 text-text-muted dark:text-white/62">{getOwner(tag)}</td>
-                      <td className="px-5 py-5">
-                        <div className="flex items-center gap-1.5">
-                          <Button
-                            type="button"
-                            onClick={() => handleExportTagCsv(tag)}
-                            aria-label={`Export ${tag.name}`}
-                            variant="ghost"
-                            size="sm"
-                            className="px-2"
-                          >
-                            <ReportIcon className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={() => navigate(`/tags/${tag.id}`)}
-                            aria-label={`Edit ${tag.name}`}
-                            variant="ghost"
-                            size="sm"
-                            className="px-2"
-                          >
-                            <TableIcon className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={() => handleDelete(tag)}
-                            disabled={deletingId === tag.id}
-                            aria-label={`Delete ${tag.name}`}
-                            variant="danger"
-                            size="sm"
-                          >
-                            {deletingId === tag.id ? 'Deleting…' : 'Delete'}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="mt-6">
+            <DataTable
+              columns={tagColumns}
+              data={filteredTags}
+              rowKey={(tag) => tag.id}
+              selectable
+              density="comfortable"
+              selectedKeys={selectedKeySet}
+              onSelectionChange={(keys) => setSelectedTagIds(Array.from(keys))}
+              renderBulkActions={() => (
+                <>
+                  <Button
+                    onClick={() => void handleBulkStatus('active')}
+                    disabled={bulkActionLoading}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    Activate
+                  </Button>
+                  <Button
+                    onClick={() => void handleBulkStatus('paused')}
+                    disabled={bulkActionLoading}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    Deactivate
+                  </Button>
+                  <Button
+                    onClick={() => void handleBulkDelete()}
+                    disabled={bulkActionLoading}
+                    variant="danger"
+                    size="sm"
+                  >
+                    Delete
+                  </Button>
+                  <Button
+                    onClick={() => setSelectedTagIds([])}
+                    disabled={bulkActionLoading}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    Clear selection
+                  </Button>
+                </>
+              )}
+            />
           </div>
         </Panel>
       )}

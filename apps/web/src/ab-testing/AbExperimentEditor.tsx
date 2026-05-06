@@ -1,6 +1,5 @@
 import React, { useEffect, useState, FormEvent } from 'react';
-import { Panel, PrimaryButton, SectionKicker, StatusBadge as DuskStatusBadge } from '../shared/dusk-ui';
-import { Button, CenteredSpinner, Input, Modal, useToast } from '../system';
+import { Badge, Button, CenteredSpinner, Input, Kicker, Modal, Panel, useToast } from '../system';
 
 type ExperimentStatus = 'active' | 'paused' | 'ended';
 
@@ -42,13 +41,13 @@ interface Tag {
 }
 
 const statusBadge = (status: ExperimentStatus) => {
-  const cfg: Record<ExperimentStatus, { tone: 'healthy' | 'warning' | 'neutral'; label: string }> = {
-    active: { tone: 'healthy', label: 'Active' },
+  const cfg: Record<ExperimentStatus, { tone: 'success' | 'warning' | 'neutral'; label: string }> = {
+    active: { tone: 'success', label: 'Active' },
     paused: { tone: 'warning', label: 'Paused' },
     ended:  { tone: 'neutral', label: 'Ended' },
   };
   const { tone, label } = cfg[status];
-  return <DuskStatusBadge tone={tone}>{label}</DuskStatusBadge>;
+  return <Badge tone={tone}>{label}</Badge>;
 };
 
 function normalizeExperimentStatus(status: unknown): ExperimentStatus {
@@ -395,20 +394,20 @@ export default function AbExperimentEditor() {
     <div className="space-y-6">
       <div className="dusk-page-header">
         <div>
-          <SectionKicker>Experiments</SectionKicker>
+          <Kicker>Experiments</Kicker>
           <h1 className="dusk-title mt-3">A/B Experiments</h1>
           <p className="dusk-copy mt-2">Test creative variants and compare lift from one consistent operations surface.</p>
         </div>
-        <PrimaryButton onClick={() => setShowCreateModal(true)}>New Experiment</PrimaryButton>
+        <Button variant="primary" onClick={() => setShowCreateModal(true)}>New Experiment</Button>
       </div>
 
       {experiments.length === 0 ? (
         <Panel className="px-6 py-20 text-center">
-          <SectionKicker>No experiments</SectionKicker>
+          <Kicker>No experiments</Kicker>
           <h3 className="mt-3 text-lg font-medium text-slate-700 dark:text-white">No experiments yet</h3>
           <p className="mt-1 mb-4 text-sm text-slate-500 dark:text-white/[0.56]">Create an A/B test to optimize your ad performance.</p>
           <div className="flex justify-center">
-            <PrimaryButton onClick={() => setShowCreateModal(true)}>New Experiment</PrimaryButton>
+            <Button variant="primary" onClick={() => setShowCreateModal(true)}>New Experiment</Button>
           </div>
         </Panel>
       ) : (

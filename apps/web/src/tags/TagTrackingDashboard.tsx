@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  Button,
+  CenteredSpinner,
+  DataTable,
+  EmptyState,
+  Kicker,
+  MetricCard,
+  Panel,
+  Select,
+  type ColumnDef,
+} from '../system';
 
 interface TagRecord {
   id: string;
@@ -46,6 +57,7 @@ function formatCurrency(value: number | string | null | undefined) {
 
 export default function TagTrackingDashboard() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [days, setDays] = useState(30);
   const [tag, setTag] = useState<TagRecord | null>(null);
   const [summary, setSummary] = useState<TrackingSummary | null>(null);
@@ -116,162 +128,214 @@ export default function TagTrackingDashboard() {
     }, {});
   }, [events]);
 
+  const dailyRows = useMemo(() => {
+    return dailyStats.map((row) => {
+      const impressions = Number(row.impressions || 0);
+      const clicks = Number(row.clicks || 0);
+      const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+      return {
+        ...row,
+        ctr,
+      };
+    });
+  }, [dailyStats]);
+
+  const dailyColumns = useMemo<ColumnDef<(typeof dailyRows)[number]>[]>(() => [
+    {
+      id: 'date',
+      header: 'Date',
+      sortAccessor: (row) => row.date,
+      cell: (row) => new Date(row.date).toLocaleDateString(),
+    },
+    {
+      id: 'impressions',
+      header: 'Impressions',
+      align: 'right',
+      numeric: true,
+      sortAccessor: (row) => Number(row.impressions || 0),
+      cell: (row) => formatNumber(row.impressions),
+    },
+    {
+      id: 'clicks',
+      header: 'Clicks',
+      align: 'right',
+      numeric: true,
+      sortAccessor: (row) => Number(row.clicks || 0),
+      cell: (row) => formatNumber(row.clicks),
+    },
+    {
+      id: 'ctr',
+      header: 'CTR',
+      align: 'right',
+      numeric: true,
+      sortAccessor: (row) => row.ctr,
+      cell: (row) => `${row.ctr.toFixed(2)}%`,
+    },
+    {
+      id: 'viewable',
+      header: 'Viewable',
+      align: 'right',
+      numeric: true,
+      sortAccessor: (row) => Number(row.viewable_imps || 0),
+      cell: (row) => formatNumber(row.viewable_imps),
+    },
+    {
+      id: 'measured',
+      header: 'Measured',
+      align: 'right',
+      numeric: true,
+      sortAccessor: (row) => Number(row.measured_imps || 0),
+      cell: (row) => formatNumber(row.measured_imps),
+    },
+    {
+      id: 'spend',
+      header: 'Spend',
+      align: 'right',
+      numeric: true,
+      sortAccessor: (row) => Number(row.spend || 0),
+      cell: (row) => formatCurrency(row.spend),
+    },
+  ], [dailyRows]);
+
+  const eventRows = useMemo(() => {
+    return events.map((event, index) => ({
+      ...event,
+      id: `${event.date}-${event.event_type}-${index}`,
+    }));
+  }, [events]);
+
+  const eventColumns = useMemo<ColumnDef<(typeof eventRows)[number]>[]>(() => [
+    {
+      id: 'date',
+      header: 'Date',
+      sortAccessor: (row) => row.date,
+      cell: (row) => new Date(row.date).toLocaleDateString(),
+    },
+    {
+      id: 'event',
+      header: 'Event',
+      sortAccessor: (row) => row.event_type,
+      cell: (row) => row.event_type.replace(/_/g, ' '),
+    },
+    {
+      id: 'count',
+      header: 'Count',
+      align: 'right',
+      numeric: true,
+      sortAccessor: (row) => Number(row.event_count || 0),
+      cell: (row) => formatNumber(row.event_count),
+    },
+    {
+      id: 'duration',
+      header: 'Duration',
+      align: 'right',
+      numeric: true,
+      sortAccessor: (row) => Number(row.total_duration_ms || 0),
+      cell: (row) => Number(row.total_duration_ms || 0) > 0 ? `${(Number(row.total_duration_ms || 0) / 1000).toFixed(1)}s` : '—',
+    },
+  ], [eventRows]);
+
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
-      </div>
-    );
+    return <CenteredSpinner label="Loading tracking dashboard…" />;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Tag Tracking</p>
-          <h1 className="mt-2 text-2xl font-bold text-slate-800">{tag?.name ?? 'Tracking insights'}</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <Kicker>Tag Tracking</Kicker>
+          <h1 className="mt-2 text-2xl font-bold text-[color:var(--dusk-text-primary)]">{tag?.name ?? 'Tracking insights'}</h1>
+          <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">
             Delivery, click-through, and engagement telemetry for this tag.
             {tag?.campaign?.name ? ` Campaign: ${tag.campaign.name}.` : ''}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select value={days} onChange={(event) => setDays(Number(event.target.value) || 30)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-            {DAY_OPTIONS.map((option) => (
-              <option key={option} value={option}>Last {option} days</option>
-            ))}
-          </select>
-          <Link to={`/tags/${id}`} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back to tag
-          </Link>
-          <Link to={`/tags/${id}/pixels`} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Pixels
-          </Link>
-          <Link to={`/tags/${id}/reporting`} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Reporting
-          </Link>
+          <Select
+            value={String(days)}
+            onChange={(event) => setDays(Number(event.target.value) || 30)}
+            options={DAY_OPTIONS.map((option) => ({ value: String(option), label: `Last ${option} days` }))}
+          />
+          <Button variant="secondary" onClick={() => navigate(`/tags/${id}`)}>Back to tag</Button>
+          <Button variant="secondary" onClick={() => navigate(`/tags/${id}/pixels`)}>Pixels</Button>
+          <Button variant="secondary" onClick={() => navigate(`/tags/${id}/reporting`)}>Reporting</Button>
         </div>
       </div>
 
-      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+      {error ? (
+        <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]">
+          <p className="font-medium">Tracking load failed</p>
+          <p className="mt-1 text-sm">{error}</p>
+        </Panel>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Impressions</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{formatNumber(summary?.impressions)}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">CTR</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{rates.ctr.toFixed(2)}%</p>
-          <p className="mt-1 text-sm text-slate-500">{formatNumber(summary?.clicks)} clicks</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Viewability</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{rates.viewability.toFixed(2)}%</p>
-          <p className="mt-1 text-sm text-slate-500">{formatNumber(summary?.viewable_impressions)} of {formatNumber(summary?.measured_impressions)} measured</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Spend</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{formatCurrency(summary?.spend)}</p>
-        </div>
+        <MetricCard label="Impressions" value={formatNumber(summary?.impressions)} tone="brand" />
+        <MetricCard label="CTR" value={`${rates.ctr.toFixed(2)}%`} context={`${formatNumber(summary?.clicks)} clicks`} tone="info" />
+        <MetricCard label="Viewability" value={`${rates.viewability.toFixed(2)}%`} context={`${formatNumber(summary?.viewable_impressions)} of ${formatNumber(summary?.measured_impressions)} measured`} tone="success" />
+        <MetricCard label="Spend" value={formatCurrency(summary?.spend)} tone="warning" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,0.8fr)]">
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div className="border-b border-slate-200 px-6 py-4">
-            <h2 className="text-lg font-semibold text-slate-900">Daily delivery trend</h2>
-            <p className="mt-1 text-sm text-slate-500">Use this to inspect whether performance changed after tag edits, pixel changes, or trafficking updates.</p>
+        <Panel className="overflow-hidden">
+          <div className="border-b border-[color:var(--dusk-border-default)] px-6 py-4">
+            <h2 className="text-lg font-semibold text-[color:var(--dusk-text-primary)]">Daily delivery trend</h2>
+            <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">Use this to inspect whether performance changed after tag edits, pixel changes, or trafficking updates.</p>
           </div>
-          {dailyStats.length === 0 ? (
-            <div className="px-6 py-10 text-sm text-slate-500">No delivery stats are available for the selected window.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
-                  <tr>
-                    {['Date', 'Impressions', 'Clicks', 'CTR', 'Viewable', 'Measured', 'Spend'].map((heading) => (
-                      <th key={heading} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">{heading}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {dailyStats.map((row) => {
-                    const impressions = Number(row.impressions || 0);
-                    const clicks = Number(row.clicks || 0);
-                    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-                    return (
-                      <tr key={row.date}>
-                        <td className="px-4 py-3 text-sm text-slate-700">{new Date(row.date).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-sm text-slate-700">{formatNumber(row.impressions)}</td>
-                        <td className="px-4 py-3 text-sm text-slate-700">{formatNumber(row.clicks)}</td>
-                        <td className="px-4 py-3 text-sm text-slate-700">{ctr.toFixed(2)}%</td>
-                        <td className="px-4 py-3 text-sm text-slate-700">{formatNumber(row.viewable_imps)}</td>
-                        <td className="px-4 py-3 text-sm text-slate-700">{formatNumber(row.measured_imps)}</td>
-                        <td className="px-4 py-3 text-sm text-slate-700">{formatCurrency(row.spend)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+          <DataTable
+            columns={dailyColumns}
+            data={dailyRows}
+            rowKey={(row) => row.date}
+            bordered={false}
+            emptyState={
+              <EmptyState
+                title="No delivery stats yet"
+                description="No delivery stats are available for the selected window."
+              />
+            }
+          />
+        </Panel>
 
         <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6">
-            <h2 className="text-lg font-semibold text-slate-900">Event mix</h2>
-            <p className="mt-1 text-sm text-slate-500">Aggregated engagement events captured for this tag.</p>
+          <Panel>
+            <h2 className="text-lg font-semibold text-[color:var(--dusk-text-primary)]">Event mix</h2>
+            <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">Aggregated engagement events captured for this tag.</p>
             <div className="mt-4 space-y-3">
               {Object.keys(groupedEvents).length === 0 ? (
-                <p className="text-sm text-slate-500">No event telemetry yet.</p>
+                <p className="text-sm text-[color:var(--dusk-text-muted)]">No event telemetry yet.</p>
               ) : (
                 Object.entries(groupedEvents).map(([eventType, bucket]) => (
-                  <div key={eventType} className="rounded-xl bg-slate-50 px-4 py-3">
+                  <div key={eventType} className="rounded-xl bg-surface-muted px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium capitalize text-slate-700">{eventType.replace(/_/g, ' ')}</span>
-                      <span className="text-sm font-semibold text-slate-900">{formatNumber(bucket.count)}</span>
+                      <span className="text-sm font-medium capitalize text-[color:var(--dusk-text-secondary)]">{eventType.replace(/_/g, ' ')}</span>
+                      <span className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">{formatNumber(bucket.count)}</span>
                     </div>
                     {bucket.durationMs > 0 ? (
-                      <p className="mt-1 text-xs text-slate-500">Total duration: {(bucket.durationMs / 1000).toFixed(1)}s</p>
+                      <p className="mt-1 text-xs text-[color:var(--dusk-text-muted)]">Total duration: {(bucket.durationMs / 1000).toFixed(1)}s</p>
                     ) : null}
                   </div>
                 ))
               )}
             </div>
-          </div>
+          </Panel>
 
-          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-            <div className="border-b border-slate-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-slate-900">Recent event rows</h2>
+          <Panel className="overflow-hidden">
+            <div className="border-b border-[color:var(--dusk-border-default)] px-6 py-4">
+              <h2 className="text-lg font-semibold text-[color:var(--dusk-text-primary)]">Recent event rows</h2>
             </div>
-            {events.length === 0 ? (
-              <div className="px-6 py-8 text-sm text-slate-500">No event rows in the selected window.</div>
-            ) : (
-              <div className="max-h-[380px] overflow-auto">
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      {['Date', 'Event', 'Count', 'Duration'].map((heading) => (
-                        <th key={heading} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">{heading}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {events.map((event, index) => (
-                      <tr key={`${event.date}-${event.event_type}-${index}`}>
-                        <td className="px-4 py-3 text-sm text-slate-700">{new Date(event.date).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-sm capitalize text-slate-700">{event.event_type.replace(/_/g, ' ')}</td>
-                        <td className="px-4 py-3 text-sm text-slate-700">{formatNumber(event.event_count)}</td>
-                        <td className="px-4 py-3 text-sm text-slate-700">
-                          {Number(event.total_duration_ms || 0) > 0 ? `${(Number(event.total_duration_ms || 0) / 1000).toFixed(1)}s` : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+            <DataTable
+              columns={eventColumns}
+              data={eventRows}
+              rowKey={(row) => row.id}
+              bordered={false}
+              emptyState={
+                <EmptyState
+                  title="No event rows yet"
+                  description="No event rows were captured in the selected window."
+                />
+              }
+            />
+          </Panel>
         </div>
       </div>
     </div>
