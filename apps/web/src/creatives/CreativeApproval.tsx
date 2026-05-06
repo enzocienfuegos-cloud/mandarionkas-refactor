@@ -9,6 +9,17 @@ import {
   rejectCreativeVersion,
 } from './catalog';
 import { normalizePlatformRole } from '../shared/roles';
+import {
+  Badge,
+  Button,
+  CenteredSpinner,
+  EmptyState,
+  Kicker,
+  Modal,
+  Panel,
+  useToast,
+} from '../system';
+import { CheckCircle2, ExternalLink, Eye, RefreshCw } from '../system/icons';
 
 interface User {
   id: string;
@@ -147,6 +158,7 @@ function resolveCreativePreviewKind(version: CreativeVersion | null | undefined)
 
 export default function CreativeApproval() {
   const { user } = useOutletContext<{ user: User }>();
+  const { toast } = useToast();
   const [versions, setVersions] = useState<CreativeVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -199,8 +211,16 @@ export default function CreativeApproval() {
         await rejectCreativeVersion(actionState.versionId, actionState.reason.trim());
       }
       setProcessed(current => new Set([...current, actionState.versionId]));
+      toast({
+        tone: 'success',
+        title: actionState.type === 'approve' ? 'Creative approved' : 'Creative rejected',
+      });
       setActionState(null);
     } catch (actionError: any) {
+      toast({
+        tone: 'critical',
+        title: actionError.message ?? 'Action failed',
+      });
       setActionState(current => current ? { ...current, loading: false, error: actionError.message ?? 'Action failed' } : current);
     }
   };
@@ -234,20 +254,20 @@ export default function CreativeApproval() {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-indigo-500" />
-      </div>
-    );
+    return <CenteredSpinner label="Loading creative review queue…" />;
   }
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-        <p className="font-medium">Error loading review queue</p>
-        <p className="mt-1 text-sm">{error}</p>
-        <button onClick={() => void load()} className="mt-3 text-sm text-red-600 underline">Retry</button>
-      </div>
+      <Panel padding="md" className="border-[color:var(--dusk-status-critical-border)]">
+        <p className="font-medium text-[color:var(--dusk-status-critical-fg)]">Error loading review queue</p>
+        <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">{error}</p>
+        <div className="mt-3">
+          <Button variant="secondary" size="sm" onClick={() => void load()}>
+            Retry
+          </Button>
+        </div>
+      </Panel>
     );
   }
 
@@ -255,46 +275,49 @@ export default function CreativeApproval() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Creative Version Review</h1>
-          <p className="mt-1 text-sm text-slate-500">{pending.length} version{pending.length !== 1 ? 's' : ''} awaiting review</p>
+          <Kicker>Creative Approval</Kicker>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Creative Version Review</h1>
+          <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">{pending.length} version{pending.length !== 1 ? 's' : ''} awaiting review</p>
         </div>
-        <button onClick={() => void load()} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Button variant="secondary" leadingIcon={<RefreshCw />} onClick={() => void load()}>
           Refresh
-        </button>
+        </Button>
       </div>
 
       {!canAct && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+        <Panel padding="md" className="border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]">
           You have read-only access. Only admins can approve or reject versions.
-        </div>
+        </Panel>
       )}
 
       {pending.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white py-20 text-center">
-          <div className="text-4xl">✅</div>
-          <h3 className="mt-3 text-lg font-medium text-slate-700">Queue is empty</h3>
-          <p className="mt-1 text-sm text-slate-500">All submitted versions have been reviewed.</p>
-        </div>
+        <Panel padding="none">
+          <EmptyState
+            icon={<CheckCircle2 />}
+            title="Queue is empty"
+            description="All submitted versions have been reviewed."
+          />
+        </Panel>
       ) : (
         <div className="space-y-4">
           {pending.map(version => (
-            <div key={version.id} className="rounded-xl border border-slate-200 bg-white p-5">
+            <Panel key={version.id} padding="md">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="text-base font-semibold text-slate-800">{version.creativeName ?? version.creativeId}</h3>
-                    <span className="rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">In review</span>
+                    <h3 className="text-base font-semibold text-[color:var(--dusk-text-primary)]">{version.creativeName ?? version.creativeId}</h3>
+                    <Badge tone="warning" size="sm">In review</Badge>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-500">
-                    <span>Version: <strong className="text-slate-700">v{version.versionNumber}</strong></span>
-                    <span>Source: <strong className="text-slate-700">{version.sourceKind}</strong></span>
-                    <span>Format: <strong className="text-slate-700">{version.servingFormat}</strong></span>
-                    <span>Created: <strong className="text-slate-700">{version.createdAt ? new Date(version.createdAt).toLocaleString() : '—'}</strong></span>
+                  <div className="mt-2 flex flex-wrap gap-4 text-sm text-[color:var(--dusk-text-muted)]">
+                    <span>Version: <strong className="text-[color:var(--dusk-text-secondary)]">v{version.versionNumber}</strong></span>
+                    <span>Source: <strong className="text-[color:var(--dusk-text-secondary)]">{version.sourceKind}</strong></span>
+                    <span>Format: <strong className="text-[color:var(--dusk-text-secondary)]">{version.servingFormat}</strong></span>
+                    <span>Created: <strong className="text-[color:var(--dusk-text-secondary)]">{version.createdAt ? new Date(version.createdAt).toLocaleString() : '—'}</strong></span>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   {resolveCreativePreviewHref(version) && (
-                    <button
+                    <Button
                       type="button"
                       onClick={() => {
                         const url = resolveCreativePreviewHref(version);
@@ -308,102 +331,105 @@ export default function CreativeApproval() {
                           kind,
                         });
                       }}
-                      className="rounded-lg border border-indigo-200 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50"
+                      variant="secondary"
+                      size="sm"
+                      leadingIcon={<Eye />}
                     >
                       Preview
-                    </button>
+                    </Button>
                   )}
-                  <button
+                  <Button
                     onClick={() => void openQa(version.id)}
-                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    variant="secondary"
+                    size="sm"
                   >
                     QA
-                  </button>
+                  </Button>
                   {canAct && (
                     <>
-                      <button onClick={() => setActionState({ versionId: version.id, type: 'approve', notes: '', reason: '', loading: false, error: '' })} className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700">
+                      <Button size="sm" onClick={() => setActionState({ versionId: version.id, type: 'approve', notes: '', reason: '', loading: false, error: '' })}>
                         Approve
-                      </button>
-                      <button onClick={() => setActionState({ versionId: version.id, type: 'reject', notes: '', reason: '', loading: false, error: '' })} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
+                      </Button>
+                      <Button size="sm" variant="danger" onClick={() => setActionState({ versionId: version.id, type: 'reject', notes: '', reason: '', loading: false, error: '' })}>
                         Reject
-                      </button>
+                      </Button>
                     </>
                   )}
                 </div>
               </div>
-            </div>
+            </Panel>
           ))}
         </div>
       )}
 
       {actionState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-slate-800">
-              {actionState.type === 'approve' ? 'Approve creative version' : 'Reject creative version'}
-            </h2>
+        <Modal
+          open
+          onClose={() => setActionState(null)}
+          title={actionState.type === 'approve' ? 'Approve creative version' : 'Reject creative version'}
+          size="md"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setActionState(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void handleAction()}
+                loading={actionState.loading}
+                variant={actionState.type === 'approve' ? 'primary' : 'danger'}
+              >
+                {actionState.type === 'approve' ? 'Approve' : 'Reject'}
+              </Button>
+            </>
+          }
+        >
             {actionState.error && (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <Panel padding="sm" className="mb-4 border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] text-[color:var(--dusk-status-critical-fg)]">
                 {actionState.error}
-              </div>
+              </Panel>
             )}
             {actionState.type === 'approve' ? (
-              <div className="mt-4">
-                <label className="mb-1 block text-sm font-medium text-slate-700">Notes</label>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Notes</label>
                 <textarea
                   value={actionState.notes}
                   onChange={event => setActionState(current => current ? { ...current, notes: event.target.value } : current)}
                   rows={3}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-primary)] focus:border-[color:var(--dusk-border-strong)] focus:outline-none focus:ring-2 focus:ring-[color:var(--dusk-brand-500)]/20"
                 />
               </div>
             ) : (
-              <div className="mt-4">
-                <label className="mb-1 block text-sm font-medium text-slate-700">Reason</label>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Reason</label>
                 <textarea
                   value={actionState.reason}
                   onChange={event => setActionState(current => current ? { ...current, reason: event.target.value } : current)}
                   rows={4}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-primary)] focus:border-[color:var(--dusk-border-strong)] focus:outline-none focus:ring-2 focus:ring-[color:var(--dusk-brand-500)]/20"
                 />
               </div>
             )}
-            <div className="mt-5 flex justify-end gap-3">
-              <button onClick={() => setActionState(null)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                Cancel
-              </button>
-              <button
-                onClick={() => void handleAction()}
-                disabled={actionState.loading}
-                className={`rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${actionState.type === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
-              >
-                {actionState.loading ? 'Saving…' : actionState.type === 'approve' ? 'Approve' : 'Reject'}
-              </button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {qaState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-800">Creative QA Preview</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Review artifact quality and readiness before approving.
-                </p>
-              </div>
-              <button onClick={() => setQaState(null)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
-                Close
-              </button>
-            </div>
-
+        <Modal
+          open
+          onClose={() => setQaState(null)}
+          title="Creative QA Preview"
+          description="Review artifact quality and readiness before approving."
+          size="xl"
+          footer={
+            <Button variant="secondary" onClick={() => setQaState(null)}>
+              Close
+            </Button>
+          }
+        >
             <div className="grid gap-0 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)]">
-              <div className="min-h-[420px] border-b border-slate-200 bg-slate-950 lg:border-b-0 lg:border-r">
+              <div className="min-h-[420px] border-b border-[color:var(--dusk-border-subtle)] bg-slate-950 lg:border-b-0 lg:border-r">
                 {qaState.loading ? (
-                  <div className="flex h-full min-h-[420px] items-center justify-center">
-                    <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-white" />
+                  <div className="flex h-full min-h-[420px] items-center justify-center text-white">
+                    <CenteredSpinner label="Loading QA detail…" />
                   </div>
                 ) : qaState.error ? (
                   <div className="p-6 text-sm text-red-300">{qaState.error}</div>
@@ -443,70 +469,70 @@ export default function CreativeApproval() {
                 {qaState.version && (
                   <>
                     {qaState.version.servingFormat === 'vast_video' && getVideoProcessingState(qaState.version) && (
-                      <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                        <h4 className="text-sm font-semibold text-slate-800">Video processing</h4>
-                        <div className="mt-3 space-y-2 text-sm">
+                      <Panel padding="md" className="mb-6">
+                        <h4 className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">Video processing</h4>
+                        <div className="mt-3 space-y-2 text-sm text-[color:var(--dusk-text-secondary)]">
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-600">ffprobe</span>
+                            <span>ffprobe</span>
                             <span className={getVideoProcessingState(qaState.version)?.ffprobeAvailable ? 'text-emerald-600' : 'text-amber-700'}>
                               {getVideoProcessingState(qaState.version)?.ffprobeAvailable ? 'Available' : (getVideoProcessingState(qaState.version)?.ffprobeReason ?? 'Unavailable')}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-600">ffmpeg</span>
+                            <span>ffmpeg</span>
                             <span className={getVideoProcessingState(qaState.version)?.ffmpegAvailable ? 'text-emerald-600' : 'text-amber-700'}>
                               {getVideoProcessingState(qaState.version)?.ffmpegAvailable ? 'Available' : (getVideoProcessingState(qaState.version)?.ffmpegReason ?? 'Unavailable')}
                             </span>
                           </div>
                         </div>
                         {(!getVideoProcessingState(qaState.version)?.ffprobeAvailable || !getVideoProcessingState(qaState.version)?.ffmpegAvailable) && (
-                          <p className="mt-3 text-xs text-slate-500">
+                          <p className="mt-3 text-xs text-[color:var(--dusk-text-muted)]">
                             This creative is still publishable. The environment just could not extract all video diagnostics automatically.
                           </p>
                         )}
-                      </div>
+                      </Panel>
                     )}
 
                     <div>
-                      <h3 className="text-base font-semibold text-slate-800">
+                      <h3 className="text-base font-semibold text-[color:var(--dusk-text-primary)]">
                         {qaState.version.creativeName ?? qaState.version.creativeId}
                       </h3>
                       <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                          <p className="text-xs uppercase tracking-wide text-slate-500">Format</p>
-                          <p className="mt-1 text-sm font-medium text-slate-800">{qaState.version.servingFormat}</p>
+                        <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-2 p-3">
+                          <p className="text-xs uppercase tracking-wide text-[color:var(--dusk-text-muted)]">Format</p>
+                          <p className="mt-1 text-sm font-medium text-[color:var(--dusk-text-primary)]">{qaState.version.servingFormat}</p>
                         </div>
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                          <p className="text-xs uppercase tracking-wide text-slate-500">Source</p>
-                          <p className="mt-1 text-sm font-medium text-slate-800">{qaState.version.sourceKind}</p>
+                        <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-2 p-3">
+                          <p className="text-xs uppercase tracking-wide text-[color:var(--dusk-text-muted)]">Source</p>
+                          <p className="mt-1 text-sm font-medium text-[color:var(--dusk-text-primary)]">{qaState.version.sourceKind}</p>
                         </div>
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                          <p className="text-xs uppercase tracking-wide text-slate-500">Dimensions</p>
-                          <p className="mt-1 text-sm font-medium text-slate-800">
+                        <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-2 p-3">
+                          <p className="text-xs uppercase tracking-wide text-[color:var(--dusk-text-muted)]">Dimensions</p>
+                          <p className="mt-1 text-sm font-medium text-[color:var(--dusk-text-primary)]">
                             {qaState.version.width && qaState.version.height ? `${qaState.version.width}×${qaState.version.height}` : '—'}
                           </p>
                         </div>
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                          <p className="text-xs uppercase tracking-wide text-slate-500">Duration</p>
-                          <p className="mt-1 text-sm font-medium text-slate-800">{formatDuration(qaState.version.durationMs)}</p>
+                        <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-2 p-3">
+                          <p className="text-xs uppercase tracking-wide text-[color:var(--dusk-text-muted)]">Duration</p>
+                          <p className="mt-1 text-sm font-medium text-[color:var(--dusk-text-primary)]">{formatDuration(qaState.version.durationMs)}</p>
                         </div>
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                          <p className="text-xs uppercase tracking-wide text-slate-500">Mime</p>
-                          <p className="mt-1 text-sm font-medium text-slate-800">{qaState.version.mimeType || '—'}</p>
+                        <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-2 p-3">
+                          <p className="text-xs uppercase tracking-wide text-[color:var(--dusk-text-muted)]">Mime</p>
+                          <p className="mt-1 text-sm font-medium text-[color:var(--dusk-text-primary)]">{qaState.version.mimeType || '—'}</p>
                         </div>
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                          <p className="text-xs uppercase tracking-wide text-slate-500">File size</p>
-                          <p className="mt-1 text-sm font-medium text-slate-800">{formatBytes(qaState.version.fileSize)}</p>
+                        <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-2 p-3">
+                          <p className="text-xs uppercase tracking-wide text-[color:var(--dusk-text-muted)]">File size</p>
+                          <p className="mt-1 text-sm font-medium text-[color:var(--dusk-text-primary)]">{formatBytes(qaState.version.fileSize)}</p>
                         </div>
                         {qaState.version.servingFormat === 'vast_video' && (
                           <>
-                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                              <p className="text-xs uppercase tracking-wide text-slate-500">Codec</p>
-                              <p className="mt-1 text-sm font-medium text-slate-800">{getVideoMetadata(qaState.version).codec || '—'}</p>
+                            <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-2 p-3">
+                              <p className="text-xs uppercase tracking-wide text-[color:var(--dusk-text-muted)]">Codec</p>
+                              <p className="mt-1 text-sm font-medium text-[color:var(--dusk-text-primary)]">{getVideoMetadata(qaState.version).codec || '—'}</p>
                             </div>
-                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                              <p className="text-xs uppercase tracking-wide text-slate-500">Bitrate</p>
-                              <p className="mt-1 text-sm font-medium text-slate-800">{formatBitRate(getVideoMetadata(qaState.version).bitRate)}</p>
+                            <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-2 p-3">
+                              <p className="text-xs uppercase tracking-wide text-[color:var(--dusk-text-muted)]">Bitrate</p>
+                              <p className="mt-1 text-sm font-medium text-[color:var(--dusk-text-primary)]">{formatBitRate(getVideoMetadata(qaState.version).bitRate)}</p>
                             </div>
                           </>
                         )}
@@ -514,11 +540,11 @@ export default function CreativeApproval() {
                     </div>
 
                     <div className="mt-6">
-                      <h4 className="text-sm font-semibold text-slate-800">Readiness checks</h4>
+                      <h4 className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">Readiness checks</h4>
                       <div className="mt-3 space-y-2">
                         {readinessChecks(qaState.version, qaState.artifacts).map(check => (
-                          <div key={check.label} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                            <span className="text-slate-700">{check.label}</span>
+                          <div key={check.label} className="flex items-center justify-between rounded-lg border border-[color:var(--dusk-border-default)] px-3 py-2 text-sm">
+                            <span className="text-[color:var(--dusk-text-secondary)]">{check.label}</span>
                             <span className={check.ok ? 'text-emerald-600' : 'text-rose-600'}>
                               {check.ok ? 'Ready' : 'Missing'}
                             </span>
@@ -528,14 +554,14 @@ export default function CreativeApproval() {
                     </div>
 
                     <div className="mt-6">
-                      <h4 className="text-sm font-semibold text-slate-800">Artifacts</h4>
+                      <h4 className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">Artifacts</h4>
                       <div className="mt-3 space-y-2">
                         {qaState.artifacts.map(artifact => (
-                          <div key={artifact.id} className="rounded-lg border border-slate-200 px-3 py-3">
+                          <div key={artifact.id} className="rounded-lg border border-[color:var(--dusk-border-default)] px-3 py-3">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <div className="text-sm font-medium text-slate-800">{artifact.kind}</div>
-                                <div className="mt-1 text-xs text-slate-500">
+                                <div className="text-sm font-medium text-[color:var(--dusk-text-primary)]">{artifact.kind}</div>
+                                <div className="mt-1 text-xs text-[color:var(--dusk-text-muted)]">
                                   {artifact.mimeType || 'unknown mime'} · {formatBytes(artifact.sizeBytes)}
                                 </div>
                               </div>
@@ -544,8 +570,9 @@ export default function CreativeApproval() {
                                   href={artifact.publicUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="rounded-lg border border-indigo-200 px-2.5 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 text-xs font-medium text-[color:var(--dusk-text-secondary)] transition hover:border-[color:var(--dusk-border-strong)] hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]"
                                 >
+                                  <ExternalLink className="h-4 w-4" />
                                   Open
                                 </a>
                               )}
@@ -553,7 +580,7 @@ export default function CreativeApproval() {
                           </div>
                         ))}
                         {qaState.artifacts.length === 0 && (
-                          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-500">
+                          <div className="rounded-lg border border-dashed border-[color:var(--dusk-border-default)] bg-surface-2 px-3 py-4 text-sm text-[color:var(--dusk-text-muted)]">
                             No artifacts registered for this version yet.
                           </div>
                         )}
@@ -563,46 +590,40 @@ export default function CreativeApproval() {
                 )}
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {previewState && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setPreviewState(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Preview: ${previewState.name}`}
-        >
-          <div
-            className="max-h-[92vh] max-w-[92vw] overflow-hidden rounded-2xl bg-slate-950 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3 text-white">
+        <Modal
+          open
+          onClose={() => setPreviewState(null)}
+          title={
+            <div className="text-white">
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold">{previewState.name}</div>
                 <div className="text-xs text-slate-300">{previewState.width} × {previewState.height}</div>
               </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={previewState.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800"
-                >
-                  Open in tab ↗
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setPreviewState(null)}
-                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800"
-                >
-                  Close
-                </button>
-              </div>
             </div>
-
+          }
+          size="xl"
+          footer={
+            <>
+              <a
+                href={previewState.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-4 text-sm font-medium text-[color:var(--dusk-text-primary)] transition hover:border-[color:var(--dusk-border-strong)] hover:bg-surface-hover"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open in tab
+              </a>
+              <Button variant="ghost" onClick={() => setPreviewState(null)}>
+                Close
+              </Button>
+            </>
+          }
+        >
+          <div className="-mx-6 -my-4 flex items-center justify-center bg-slate-950 p-4">
             <div className="flex items-center justify-center bg-slate-950 p-4">
               {previewState.kind === 'video' ? (
                 <video
@@ -623,7 +644,7 @@ export default function CreativeApproval() {
               )}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

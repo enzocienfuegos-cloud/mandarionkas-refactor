@@ -30,7 +30,7 @@ import {
   updateTagBinding,
 } from './catalog';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
-import { MetricCard as DuskMetricCard } from '../system';
+import { Button, CenteredSpinner, Input, MetricCard as DuskMetricCard, Modal, useConfirm } from '../system';
 import { Panel, SectionKicker, StatusBadge } from '../shared/dusk-ui';
 
 type TrendDirection = 'up' | 'down' | 'flat';
@@ -313,6 +313,23 @@ interface PreviewModal {
   height: number;
   name: string;
   kind: 'html' | 'video';
+}
+
+interface ClickUrlEditorState {
+  creativeId: string;
+  creativeName: string;
+  workspaceId?: string | null;
+  value: string;
+  loading: boolean;
+  error: string;
+}
+
+interface QuickCreateTagState {
+  suggestedFormat: string;
+  creativeName: string;
+  name: string;
+  loading: boolean;
+  error: string;
 }
 
 function parseTimestamp(value: unknown) {
@@ -799,6 +816,7 @@ function findPendingIngestionForCreative(
 
 export default function CreativesView() {
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [searchParams] = useSearchParams();
   const searchQueryParam = searchParams.get('search') ?? '';
   const [creatives, setCreatives] = useState<Creative[]>([]);
@@ -829,6 +847,8 @@ export default function CreativesView() {
   const [videoRenditionState, setVideoRenditionState] = useState<VideoRenditionState | null>(null);
   const [regenerationFeedback, setRegenerationFeedback] = useState<RegenerationFeedbackState | null>(null);
   const [previewModal, setPreviewModal] = useState<PreviewModal | null>(null);
+  const [clickUrlEditor, setClickUrlEditor] = useState<ClickUrlEditorState | null>(null);
+  const [quickCreateTagState, setQuickCreateTagState] = useState<QuickCreateTagState | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -1104,7 +1124,13 @@ export default function CreativesView() {
   };
 
   const handleDeleteCreative = async (creative: Creative) => {
-    const confirmed = window.confirm(`Delete "${creative.name}"? This will remove its published versions and assignments.`);
+    const confirmed = await confirm({
+      title: `Delete "${creative.name}"?`,
+      description: 'This will remove its published versions and assignments.',
+      tone: 'danger',
+      confirmLabel: 'Delete creative',
+      requireTypeToConfirm: creative.name,
+    });
     if (!confirmed) return;
 
     setError('');
@@ -1190,13 +1216,19 @@ export default function CreativesView() {
   };
 
   const handleEditCreativeClickUrl = async (creative: Creative) => {
-    const rawValue = window.prompt(
-      `Set the destination URL for "${creative.name}". Leave blank to clear it.`,
-      creative.clickUrl ?? '',
-    );
-    if (rawValue == null) return;
+    setClickUrlEditor({
+      creativeId: creative.id,
+      creativeName: creative.name,
+      workspaceId: creative.workspaceId ?? null,
+      value: creative.clickUrl ?? '',
+      loading: false,
+      error: '',
+    });
+  };
 
-    const normalized = rawValue.trim();
+  const handleSaveCreativeClickUrl = async () => {
+    if (!clickUrlEditor) return;
+    const normalized = clickUrlEditor.value.trim();
     if (normalized) {
       try {
         new URL(normalized);
@@ -1206,27 +1238,31 @@ export default function CreativesView() {
       }
     }
 
+    setClickUrlEditor((current) => current ? { ...current, loading: true, error: '' } : current);
     setError('');
     setSuccessMessage('');
     try {
-      if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
+      if (clickUrlEditor.workspaceId && clickUrlEditor.workspaceId !== activeWorkspaceId) {
         setWorkspaceBusy(true);
-        await switchWorkspace(creative.workspaceId);
-        setActiveWorkspaceId(creative.workspaceId);
+        await switchWorkspace(clickUrlEditor.workspaceId);
+        setActiveWorkspaceId(clickUrlEditor.workspaceId);
       }
       await updateCreativeById({
-        creativeId: creative.id,
+        creativeId: clickUrlEditor.creativeId,
         clickUrl: normalized || null,
       });
       setCreatives((current) => current.map((entry) => (
-        entry.id === creative.id
+        entry.id === clickUrlEditor.creativeId
           ? { ...entry, clickUrl: normalized || null }
           : entry
       )));
       setSuccessMessage(normalized ? 'Creative destination URL updated.' : 'Creative destination URL cleared.');
       window.setTimeout(() => setSuccessMessage(''), 3500);
+      setClickUrlEditor(null);
     } catch (updateError: any) {
-      setError(updateError.message ?? 'Failed to update creative destination URL');
+      const message = updateError.message ?? 'Failed to update creative destination URL';
+      setError(message);
+      setClickUrlEditor((current) => current ? { ...current, loading: false, error: message } : current);
     } finally {
       setWorkspaceBusy(false);
     }
@@ -1346,7 +1382,12 @@ export default function CreativesView() {
       return;
     }
     const selectedCreatives = creatives.filter((creative) => selectedCreativeIds.includes(creative.id));
-    if (!window.confirm(`Delete ${selectedCreatives.length} selected creative${selectedCreatives.length === 1 ? '' : 's'}? This will remove published versions and assignments.`)) {
+    if (!(await confirm({
+      title: `Delete ${selectedCreatives.length} selected creative${selectedCreatives.length === 1 ? '' : 's'}?`,
+      description: 'This will remove published versions and assignments.',
+      tone: 'danger',
+      confirmLabel: 'Delete selected',
+    }))) {
       return;
     }
 
@@ -1421,14 +1462,29 @@ export default function CreativesView() {
           ? 'native'
           : 'display';
     const suggestedName = `${bindingState.creativeName} ${suggestedFormat}`.trim();
-    const name = window.prompt('Tag name', suggestedName);
-    if (!name?.trim()) return;
+    setQuickCreateTagState({
+      suggestedFormat,
+      creativeName: bindingState.creativeName,
+      name: suggestedName,
+      loading: false,
+      error: '',
+    });
+  };
 
+  const handleConfirmQuickCreateTag = async () => {
+    if (!bindingState || !quickCreateTagState) return;
+    const name = quickCreateTagState.name.trim();
+    if (!name) {
+      setQuickCreateTagState((current) => current ? { ...current, error: 'Tag name is required.' } : current);
+      return;
+    }
+
+    setQuickCreateTagState((current) => current ? { ...current, loading: true, error: '' } : current);
     setBindingState(current => current ? { ...current, loading: true, error: '' } : current);
     try {
       const createdTag = await createTag({
-        name: name.trim(),
-        format: suggestedFormat,
+        name,
+        format: quickCreateTagState.suggestedFormat as 'display' | 'native' | 'VAST',
         status: 'draft',
       });
       const [nextTags, bindings] = await Promise.all([
@@ -1442,8 +1498,14 @@ export default function CreativesView() {
         tagId: createdTag?.id ?? '',
         bindings,
       } : current);
+      setQuickCreateTagState(null);
     } catch (createError: any) {
       setBindingState(current => current ? {
+        ...current,
+        loading: false,
+        error: createError.message ?? 'Failed to create tag',
+      } : current);
+      setQuickCreateTagState((current) => current ? {
         ...current,
         loading: false,
         error: createError.message ?? 'Failed to create tag',
@@ -1957,11 +2019,7 @@ export default function CreativesView() {
   }, [bindingState?.tagId]);
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-indigo-500" />
-      </div>
-    );
+    return <CenteredSpinner label="Loading creative catalog…" />;
   }
 
   if (error) {
@@ -2095,26 +2153,25 @@ export default function CreativesView() {
               </div>
             </div>
             <div className="grid gap-4 xl:grid-cols-2">
-              <div className="rounded-lg border border-indigo-100 bg-white/70 p-3">
+              <div className="rounded-lg border border-fuchsia-200/60 bg-white/70 p-3 dark:border-fuchsia-500/20 dark:bg-white/[0.03]">
                 <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fuchsia-700 dark:text-fuchsia-200">Bulk destination URL</div>
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <input
+                  <Input
                     value={bulkClickUrl}
                     onChange={(event) => setBulkClickUrl(event.target.value)}
                     placeholder="https://example.com/landing"
-                    className="min-w-0 flex-1 rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-500/30 dark:border-fuchsia-500/20 dark:bg-white/[0.04]"
+                    className="min-w-0 flex-1"
                   />
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => void handleBulkClickUrlUpdate()}
-                    disabled={bulkClickUrlSaving}
-                    className="rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white hover:opacity-95 disabled:opacity-50"
+                    loading={bulkClickUrlSaving}
+                    size="md"
                   >
-                    {bulkClickUrlSaving ? 'Saving…' : 'Update URL'}
-                  </button>
+                    Update URL
+                  </Button>
                 </div>
               </div>
-              <div className="rounded-lg border border-indigo-100 bg-white/70 p-3">
+              <div className="rounded-lg border border-fuchsia-200/60 bg-white/70 p-3 dark:border-fuchsia-500/20 dark:bg-white/[0.03]">
                 <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fuchsia-700 dark:text-fuchsia-200">Bulk tag assignment</div>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <select
@@ -2128,14 +2185,14 @@ export default function CreativesView() {
                       <option key={tag.id} value={tag.id}>{tag.name}</option>
                     ))}
                   </select>
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => void handleBulkAssignToTag()}
-                    disabled={bulkAssignSaving || !bulkAssignTagId}
-                    className="rounded-xl border border-sky-200 bg-white px-4 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-50 dark:border-sky-500/20 dark:bg-white/[0.04] dark:text-sky-300 dark:hover:bg-white/[0.07]"
+                    variant="secondary"
+                    loading={bulkAssignSaving}
+                    disabled={!bulkAssignTagId}
                   >
-                    {bulkAssignSaving ? 'Assigning…' : 'Assign to tag'}
-                  </button>
+                    Assign to tag
+                  </Button>
                 </div>
                 {selectedCreativeWorkspaceIds.length !== 1 && (
                   <p className="mt-1 text-[11px] text-amber-700">Select creatives from one client only to bulk assign them.</p>
@@ -2149,37 +2206,34 @@ export default function CreativesView() {
               </div>
             </div>
             <div className="grid gap-4 xl:grid-cols-2">
-              <div className="rounded-lg border border-indigo-100 bg-white/70 p-3">
+              <div className="rounded-lg border border-fuchsia-200/60 bg-white/70 p-3 dark:border-fuchsia-500/20 dark:bg-white/[0.03]">
                 <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fuchsia-700 dark:text-fuchsia-200">Bulk active state</div>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => void handleBulkCreativeStatusUpdate('approved')}
-                    disabled={bulkStatusSaving}
-                    className="rounded-lg border border-emerald-200 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                    variant="secondary"
+                    loading={bulkStatusSaving}
                   >
-                    {bulkStatusSaving ? 'Saving…' : 'Set active'}
-                  </button>
-                  <button
-                    type="button"
+                    Set active
+                  </Button>
+                  <Button
                     onClick={() => void handleBulkCreativeStatusUpdate('archived')}
-                    disabled={bulkStatusSaving}
-                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    variant="ghost"
+                    loading={bulkStatusSaving}
                   >
-                    {bulkStatusSaving ? 'Saving…' : 'Set inactive'}
-                  </button>
+                    Set inactive
+                  </Button>
                 </div>
               </div>
-              <div className="rounded-lg border border-red-100 bg-white/70 p-3">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-red-700">Bulk delete</div>
-                <button
-                  type="button"
+              <div className="rounded-lg border border-rose-200/70 bg-white/70 p-3 dark:border-rose-500/20 dark:bg-white/[0.03]">
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">Bulk delete</div>
+                <Button
                   onClick={() => void handleBulkDeleteCreatives()}
-                  disabled={bulkDeleteSaving}
-                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  variant="danger"
+                  loading={bulkDeleteSaving}
                 >
-                  {bulkDeleteSaving ? 'Deleting…' : 'Delete selected'}
-                </button>
+                  Delete selected
+                </Button>
               </div>
             </div>
           </div>
@@ -2452,13 +2506,84 @@ export default function CreativesView() {
         </Panel>
       </div>
 
+      {clickUrlEditor && (
+        <Modal
+          open
+          onClose={() => setClickUrlEditor(null)}
+          title={`Destination URL · ${clickUrlEditor.creativeName}`}
+          description="Leave blank to clear the creative destination URL."
+          size="md"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setClickUrlEditor(null)}>
+                Cancel
+              </Button>
+              <Button onClick={() => void handleSaveCreativeClickUrl()} loading={clickUrlEditor.loading}>
+                Save URL
+              </Button>
+            </>
+          }
+        >
+          {clickUrlEditor.error && (
+            <div className="mb-4 rounded-lg border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-3 py-2 text-sm text-[color:var(--dusk-status-critical-fg)]">
+              {clickUrlEditor.error}
+            </div>
+          )}
+          <Input
+            value={clickUrlEditor.value}
+            onChange={(event) => setClickUrlEditor((current) => current ? { ...current, value: event.target.value, error: '' } : current)}
+            placeholder="https://example.com/landing"
+            autoFocus
+          />
+        </Modal>
+      )}
+
+      {quickCreateTagState && (
+        <Modal
+          open
+          onClose={() => setQuickCreateTagState(null)}
+          title="Quick create tag"
+          description={`Create a draft ${quickCreateTagState.suggestedFormat} tag for ${quickCreateTagState.creativeName}.`}
+          size="md"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setQuickCreateTagState(null)}>
+                Cancel
+              </Button>
+              <Button onClick={() => void handleConfirmQuickCreateTag()} loading={quickCreateTagState.loading}>
+                Create tag
+              </Button>
+            </>
+          }
+        >
+          {quickCreateTagState.error && (
+            <div className="mb-4 rounded-lg border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-3 py-2 text-sm text-[color:var(--dusk-status-critical-fg)]">
+              {quickCreateTagState.error}
+            </div>
+          )}
+          <Input
+            value={quickCreateTagState.name}
+            onChange={(event) => setQuickCreateTagState((current) => current ? { ...current, name: event.target.value, error: '' } : current)}
+            placeholder="Tag name"
+            autoFocus
+          />
+        </Modal>
+      )}
+
       {bindingState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-slate-800">Assign creative version to tag</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Assign this creative version to one or more delivery tags.
-            </p>
+        <Modal
+          open
+          onClose={() => setBindingState(null)}
+          size="md"
+          title="Assign creative version to tag"
+          description="Assign this creative version to one or more delivery tags."
+          footer={(
+            <>
+              <Button variant="ghost" onClick={() => setBindingState(null)}>Cancel</Button>
+              <Button onClick={() => void handleAssign()} loading={bindingState.loading}>Assign</Button>
+            </>
+          )}
+        >
             {bindingState.error && (
               <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {bindingState.error}
@@ -2469,7 +2594,7 @@ export default function CreativesView() {
               <select
                 value={bindingState.tagId}
                 onChange={event => setBindingState(current => current ? { ...current, tagId: event.target.value } : current)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-500/20"
               >
                 <option value="">Select a tag</option>
                 {tags.map(tag => (
@@ -2482,21 +2607,21 @@ export default function CreativesView() {
                 <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
                   <p>No tags exist yet for this client.</p>
                   <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
+                    <Button
                       onClick={() => void handleQuickCreateTag()}
+                      variant="secondary"
+                      size="sm"
                       disabled={bindingState.loading}
-                      className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
                     >
                       Quick create tag
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
                       onClick={() => navigate('/tags?create=1')}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      variant="ghost"
+                      size="sm"
                     >
                       Open tags
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -2523,7 +2648,7 @@ export default function CreativesView() {
                               <span className="truncate text-sm font-medium text-slate-800">{binding.creativeName}</span>
                               {statusBadge(binding.status)}
                               {isCurrentVersion && (
-                                <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                                <span className="inline-flex items-center rounded-full border border-fuchsia-200 bg-fuchsia-50 px-2 py-0.5 text-xs font-medium text-fuchsia-700 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
                                   Selected version
                                 </span>
                               )}
@@ -2534,21 +2659,23 @@ export default function CreativesView() {
                           </div>
                           <div className="flex gap-2">
                             {binding.status === 'active' ? (
-                              <button
+                              <Button
                                 onClick={() => void handleBindingStatusChange(binding.id, 'paused')}
                                 disabled={bindingState.loading}
-                                className="rounded-lg border border-amber-200 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-60"
+                                variant="secondary"
+                                size="sm"
                               >
                                 Pause
-                              </button>
+                              </Button>
                             ) : (
-                              <button
+                              <Button
                                 onClick={() => void handleBindingStatusChange(binding.id, 'active')}
                                 disabled={bindingState.loading}
-                                className="rounded-lg border border-emerald-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                                variant="secondary"
+                                size="sm"
                               >
                                 Activate
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -2563,23 +2690,7 @@ export default function CreativesView() {
                 </div>
               </div>
             )}
-            <div className="mt-5 flex justify-end gap-3">
-              <button
-                onClick={() => setBindingState(null)}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => void handleAssign()}
-                disabled={bindingState.loading}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
-              >
-                {bindingState.loading ? 'Assigning…' : 'Assign'}
-              </button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {videoRenditionState && (
@@ -2603,17 +2714,19 @@ export default function CreativesView() {
                 <p className="max-w-2xl">
                   Manage which MP4 renditions are active for VAST delivery. The source file stays available as fallback, and transcoded renditions are served first when active.
                 </p>
-                <button
+                <Button
                   onClick={() => void handleRegenerateVideoRenditions()}
                   disabled={videoRenditionState.loading || videoRenditionState.awaitingPublish}
-                  className="inline-flex w-48 shrink-0 justify-center rounded-lg border border-indigo-200 px-3 py-1.5 text-center text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+                  variant="secondary"
+                  size="sm"
+                  className="w-48 shrink-0"
                 >
                   {videoRenditionState.awaitingPublish
                     ? 'Publishing in background…'
                     : videoRenditionState.loading
                       ? 'Regenerating…'
                       : 'Regenerate renditions'}
-                </button>
+                </Button>
               </div>
 
               {videoRenditionState.error && (
@@ -2623,7 +2736,7 @@ export default function CreativesView() {
               )}
 
               {videoRenditionState.awaitingPublish && (
-                <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-4">
+                <div className="rounded-xl border border-fuchsia-200/70 bg-fuchsia-50/80 px-4 py-4 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-slate-800">Video publish in progress</p>
@@ -2639,7 +2752,7 @@ export default function CreativesView() {
                   </div>
                   <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/80">
                     <div
-                      className="h-full rounded-full bg-indigo-500 transition-[width] duration-300"
+                      className="h-full rounded-full bg-fuchsia-500 transition-[width] duration-300"
                       style={{ width: `${Math.max(8, pendingPublishPercent)}%` }}
                     />
                   </div>
@@ -2650,7 +2763,7 @@ export default function CreativesView() {
                 <div className={`rounded-xl border px-4 py-4 ${
                   regenerationFeedback.progressPercent === 100
                     ? 'border-emerald-200 bg-emerald-50'
-                    : 'border-indigo-200 bg-indigo-50'
+                    : 'border-fuchsia-200/70 bg-fuchsia-50/80 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10'
                 }`}>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -2672,7 +2785,7 @@ export default function CreativesView() {
                     <div className="h-3 overflow-hidden rounded-full bg-white/80">
                       <div
                         className={`h-full rounded-full transition-[width] duration-300 ${
-                          regenerationFeedback.progressPercent === 100 ? 'bg-emerald-500' : 'bg-indigo-500'
+                          regenerationFeedback.progressPercent === 100 ? 'bg-emerald-500' : 'bg-fuchsia-500'
                         }`}
                         style={{ width: `${regenerationFeedback.progressPercent}%` }}
                       />
@@ -2821,7 +2934,7 @@ export default function CreativesView() {
                                 href={rendition.publicUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="font-medium text-indigo-600 hover:text-indigo-700"
+                                className="font-medium text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300 dark:hover:text-fuchsia-200"
                               >
                                 Open MP4
                               </a>
@@ -2891,76 +3004,71 @@ export default function CreativesView() {
       )}
 
       {variantState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-800">Resolution management</h2>
-                <p className="mt-1 text-sm text-slate-500">{variantState.creativeName}</p>
-              </div>
-              <button
-                onClick={() => setVariantState(null)}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="space-y-4 p-6">
+        <Modal
+          open
+          onClose={() => setVariantState(null)}
+          size="xl"
+          title="Resolution management"
+          description={variantState.creativeName}
+          showCloseButton
+        >
+            <div className="space-y-4">
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold text-slate-800">Preset sizes</h3>
                     <p className="mt-1 text-xs text-slate-500">Seed the matrix with common display resolutions in one action.</p>
                   </div>
-                  <button
+                  <Button
                     onClick={() => void handleCreatePresetVariants(VARIANT_PRESETS)}
                     disabled={variantState.loading}
-                    className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+                    variant="secondary"
+                    size="sm"
                   >
                     Add standard set
-                  </button>
+                  </Button>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {VARIANT_PRESETS.map(preset => (
-                    <button
+                    <Button
                       key={preset.label}
                       onClick={() => void handleCreatePresetVariants([preset])}
                       disabled={variantState.loading}
-                      className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full"
                     >
                       {preset.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
 
               <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-[minmax(0,1fr)_120px_120px_auto]">
-                <input
+                <Input
                   value={variantState.form.label}
                   onChange={event => setVariantState(current => current ? { ...current, form: { ...current.form, label: event.target.value } } : current)}
                   placeholder="300x250 · Mobile"
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="rounded-lg"
                 />
-                <input
+                <Input
                   value={variantState.form.width}
                   onChange={event => setVariantState(current => current ? { ...current, form: { ...current.form, width: event.target.value } } : current)}
                   placeholder="Width"
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="rounded-lg"
                 />
-                <input
+                <Input
                   value={variantState.form.height}
                   onChange={event => setVariantState(current => current ? { ...current, form: { ...current.form, height: event.target.value } } : current)}
                   placeholder="Height"
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="rounded-lg"
                 />
-                <button
+                <Button
                   onClick={() => void handleCreateVariant()}
-                  disabled={variantState.loading}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
+                  loading={variantState.loading}
                 >
                   Add size
-                </button>
+                </Button>
               </div>
 
               {variantState.error && (
@@ -2977,7 +3085,7 @@ export default function CreativesView() {
                         type="checkbox"
                         checked={variantState.variants.length > 0 && variantState.selectedVariantIds.length === variantState.variants.length}
                         onChange={toggleSelectAllVariants}
-                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        className="rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
                       />
                       Select all
                     </label>
@@ -3025,7 +3133,7 @@ export default function CreativesView() {
                             type="checkbox"
                             checked={variantState.selectedVariantIds.includes(variant.id)}
                             onChange={() => toggleVariantSelection(variant.id)}
-                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            className="rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
                           />
                         </td>
                         <td className="px-4 py-3 font-medium text-slate-800">{variant.label}</td>
@@ -3046,7 +3154,7 @@ export default function CreativesView() {
                         <td className="px-4 py-3">
                           <div className="space-y-1 text-xs">
                             {variant.publicUrl ? (
-                              <a href={variant.publicUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-indigo-600 hover:text-indigo-700">
+                              <a href={variant.publicUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300 dark:hover:text-fuchsia-200">
                                 Open
                               </a>
                             ) : (
@@ -3062,21 +3170,23 @@ export default function CreativesView() {
                         </td>
                         <td className="px-4 py-3">
                           {variant.status === 'active' ? (
-                            <button
+                            <Button
                               onClick={() => void handleVariantStatusChange(variant.id, 'paused')}
                               disabled={variantState.loading}
-                              className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                              variant="secondary"
+                              size="sm"
                             >
                               Pause
-                            </button>
+                            </Button>
                           ) : (
-                            <button
+                            <Button
                               onClick={() => void handleVariantStatusChange(variant.id, 'active')}
                               disabled={variantState.loading}
-                              className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+                              variant="secondary"
+                              size="sm"
                             >
                               Activate
-                            </button>
+                            </Button>
                           )}
                         </td>
                       </tr>
@@ -3092,8 +3202,7 @@ export default function CreativesView() {
                 </table>
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {previewModal && (
@@ -3125,14 +3234,15 @@ export default function CreativesView() {
                 >
                   Open in tab ↗
                 </a>
-                <button
-                  type="button"
+                <Button
                   onClick={() => setPreviewModal(null)}
-                  className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
+                  variant="ghost"
+                  size="sm"
+                  className="border border-white/20 text-white hover:bg-white/10 hover:text-white"
                   aria-label="Close preview"
                 >
-                  ✕ Close
-                </button>
+                  Close preview
+                </Button>
               </div>
             </div>
 
