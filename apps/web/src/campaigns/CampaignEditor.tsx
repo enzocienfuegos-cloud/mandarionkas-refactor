@@ -1,39 +1,10 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { listSupportedDsps } from '@smx/contracts/dsp-macros';
 import { loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
-import { Button, CenteredSpinner, Input, Panel, Kicker } from '../system';
-
-const DSP_OPTIONS = [
-  { value: '', label: '— None —' },
-  ...listSupportedDsps().map((dsp) => ({ value: dsp.label, label: dsp.label })),
-];
-
-interface CampaignForm {
-  workspaceId: string;
-  name: string;
-  dsp: string;
-  mediaType: string;
-  status: string;
-  startDate: string;
-  endDate: string;
-  impressionGoal: string;
-  dailyBudget: string;
-}
-
-const STATUSES = ['draft', 'active', 'paused', 'archived'];
-
-const emptyForm: CampaignForm = {
-  workspaceId: '',
-  name: '',
-  dsp: '',
-  mediaType: 'display',
-  status: 'draft',
-  startDate: '',
-  endDate: '',
-  impressionGoal: '',
-  dailyBudget: '',
-};
+import { CenteredSpinner, Kicker, Panel } from '../system';
+import { CampaignEditorForm } from './campaign-editor/CampaignEditorForm';
+import { emptyForm } from './campaign-editor/constants';
+import type { CampaignForm } from './campaign-editor/types';
 
 export default function CampaignEditor() {
   const { id } = useParams<{ id: string }>();
@@ -162,116 +133,16 @@ export default function CampaignEditor() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          {!isEdit && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Client <span className="text-red-500">*</span>
-              </label>
-              <select value={form.workspaceId} onChange={set('workspaceId')} className={`w-full rounded-lg border bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500 ${errors.workspaceId ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10' : 'border-[color:var(--dusk-border-default)]'}`}>
-                <option value="">Select a client</option>
-                {workspaces.map(workspace => (
-                  <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
-                ))}
-              </select>
-              {errors.workspaceId && <p className="mt-1 text-xs text-red-600">{errors.workspaceId}</p>}
-            </div>
-          )}
-
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Campaign Name <span className="text-red-500">*</span>
-            </label>
-            <Input
-              type="text"
-              value={form.name}
-              onChange={set('name')}
-              className={errors.name ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10' : undefined}
-              placeholder="Q4 Brand Awareness"
-            />
-            {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
-          </div>
-
-          {/* DSP */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">DSP</label>
-            <select value={form.dsp} onChange={set('dsp')} className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500">
-              {DSP_OPTIONS.map((option) => (
-                <option key={option.label} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Media Type</label>
-            <select value={form.mediaType} onChange={set('mediaType')} className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500">
-              <option value="display">Display / Interactive</option>
-              <option value="video">Video</option>
-            </select>
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select value={form.status} onChange={set('status')} className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500">
-              {STATUSES.map(s => (
-                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
-              <Input type="date" value={form.startDate} onChange={set('startDate')} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
-              <Input type="date" value={form.endDate} onChange={set('endDate')} className={errors.endDate ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10' : undefined} />
-              {errors.endDate && <p className="mt-1 text-xs text-red-600">{errors.endDate}</p>}
-            </div>
-          </div>
-
-          {/* Numbers */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Impression Goal</label>
-              <Input
-                type="number"
-                min="0"
-                value={form.impressionGoal}
-                onChange={set('impressionGoal')}
-                className={errors.impressionGoal ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10' : undefined}
-                placeholder="1000000"
-              />
-              {errors.impressionGoal && <p className="mt-1 text-xs text-red-600">{errors.impressionGoal}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Daily Budget ($)</label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.dailyBudget}
-                onChange={set('dailyBudget')}
-                className={errors.dailyBudget ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10' : undefined}
-                placeholder="500.00"
-              />
-              {errors.dailyBudget && <p className="mt-1 text-xs text-red-600">{errors.dailyBudget}</p>}
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-            <Button type="button" variant="ghost" onClick={() => navigate('/campaigns')}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={saving}>
-              {isEdit ? 'Update Campaign' : 'Create Campaign'}
-            </Button>
-          </div>
+        <form onSubmit={handleSubmit} noValidate>
+          <CampaignEditorForm
+            isEdit={isEdit}
+            form={form}
+            errors={errors}
+            workspaces={workspaces}
+            saving={saving}
+            onFieldChange={set}
+            onCancel={() => navigate('/campaigns')}
+          />
         </form>
       </Panel>
     </div>
