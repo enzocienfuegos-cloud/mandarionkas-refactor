@@ -10,21 +10,16 @@ import {
   type TagBinding,
   assignCreativeVersionToTag,
   createTag,
-  createCreativeSizeVariant,
-  createCreativeSizeVariantsBulk,
   deleteCreativeById,
   loadCreativeIngestion,
   loadCreativeVersionDetail,
   loadCreativesWithLatestVersion,
   loadCreativeIngestions,
-  loadCreativeSizeVariants,
   loadVideoRenditions,
   regenerateVideoRenditions,
   loadTagBindings,
   loadTags,
   updateCreativeVersionById,
-  updateCreativeSizeVariant,
-  updateCreativeSizeVariantsBulkStatus,
   updateCreativeById,
   updateVideoRenditionById,
   updateTagBinding,
@@ -55,6 +50,7 @@ import { CreativeSidebarInsights } from './creative-library/CreativeSidebarInsig
 import { CreativeTable } from './creative-library/CreativeTable';
 import { QuickCreateTagModal } from './creative-library/QuickCreateTagModal';
 import { TagBindingModal } from './creative-library/TagBindingModal';
+import { useVariantManager } from './creative-library/useVariantManager';
 import { VariantManagerModal } from './creative-library/VariantManagerModal';
 import { VideoRenditionsModal } from './creative-library/VideoRenditionsModal';
 import { CreativeWorkspaceOverview } from './creative-library/CreativeWorkspaceOverview';
@@ -113,12 +109,23 @@ export default function CreativesView() {
   const [statusUpdateCreativeId, setStatusUpdateCreativeId] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [bindingState, setBindingState] = useState<BindingState | null>(null);
-  const [variantState, setVariantState] = useState<VariantState | null>(null);
   const [videoRenditionState, setVideoRenditionState] = useState<VideoRenditionState | null>(null);
   const [regenerationFeedback, setRegenerationFeedback] = useState<RegenerationFeedbackState | null>(null);
   const [previewModal, setPreviewModal] = useState<PreviewModalState | null>(null);
   const [clickUrlEditor, setClickUrlEditor] = useState<ClickUrlEditorState | null>(null);
   const [quickCreateTagState, setQuickCreateTagState] = useState<QuickCreateTagState | null>(null);
+  const {
+    variantState,
+    setVariantState,
+    openVariantManager,
+    handleVariantStatusChange,
+    toggleVariantSelection,
+    toggleSelectAllVariants,
+    handleCreateVariant,
+    handleCreatePresetVariants,
+    handleBulkVariantStatusChange,
+    handleVariantFormChange,
+  } = useVariantManager();
 
   const load = async () => {
     setLoading(true);
@@ -838,34 +845,6 @@ export default function CreativesView() {
     }
   };
 
-  const openVariantManager = async (creative: Creative, version: CreativeVersion) => {
-    setVariantState({
-      creativeId: creative.id,
-      creativeName: creative.name,
-      versionId: version.id,
-      loading: true,
-      error: '',
-      variants: [],
-      selectedVariantIds: [],
-      form: {
-        label: version.width && version.height ? `${version.width}x${version.height}` : '',
-        width: version.width ? String(version.width) : '',
-        height: version.height ? String(version.height) : '',
-      },
-    });
-    try {
-      const variants = await loadCreativeSizeVariants(version.id);
-      setVariantState(current => current ? { ...current, loading: false, variants, selectedVariantIds: [] } : current);
-    } catch (loadError: any) {
-      setVariantState(current => current ? {
-        ...current,
-        loading: false,
-        error: loadError.message ?? 'Failed to load size variants',
-        selectedVariantIds: [],
-      } : current);
-    }
-  };
-
   const openVideoRenditionManager = async (creative: Creative, version: CreativeVersion) => {
     const pendingIngestion = findPendingIngestionForCreative(ingestions, creative, version);
     setVideoRenditionState({
@@ -900,17 +879,6 @@ export default function CreativesView() {
           : message,
         awaitingPublish: missingVersion && pendingIngestion?.status === 'processing',
       } : current);
-    }
-  };
-
-  const handleVariantStatusChange = async (variantId: string, status: 'active' | 'paused') => {
-    setVariantState(current => current ? { ...current, loading: true, error: '' } : current);
-    try {
-      await updateCreativeSizeVariant({ variantId, status });
-      const variants = await loadCreativeSizeVariants(variantState?.versionId ?? '');
-      setVariantState(current => current ? { ...current, loading: false, variants } : current);
-    } catch (updateError: any) {
-      setVariantState(current => current ? { ...current, loading: false, error: updateError.message ?? 'Failed to update variant' } : current);
     }
   };
 
@@ -1197,110 +1165,6 @@ export default function CreativesView() {
     pendingPublishJob?.message
     ?? getPublishStageLabel(pendingPublishStage),
   );
-
-  const toggleVariantSelection = (variantId: string) => {
-    setVariantState(current => {
-      if (!current) return current;
-      const selected = current.selectedVariantIds.includes(variantId)
-        ? current.selectedVariantIds.filter(id => id !== variantId)
-        : [...current.selectedVariantIds, variantId];
-      return { ...current, selectedVariantIds: selected };
-    });
-  };
-
-  const toggleSelectAllVariants = () => {
-    setVariantState(current => {
-      if (!current) return current;
-      const selectableIds = current.variants.map(variant => variant.id);
-      const selectedVariantIds = current.selectedVariantIds.length === selectableIds.length
-        ? []
-        : selectableIds;
-      return { ...current, selectedVariantIds };
-    });
-  };
-
-  const handleCreateVariant = async () => {
-    if (!variantState) return;
-    const width = Number(variantState.form.width);
-    const height = Number(variantState.form.height);
-    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
-      setVariantState(current => current ? { ...current, error: 'Width and height must be positive numbers.' } : current);
-      return;
-    }
-
-    setVariantState(current => current ? { ...current, loading: true, error: '' } : current);
-    try {
-      await createCreativeSizeVariant({
-        creativeVersionId: variantState.versionId,
-        label: variantState.form.label.trim() || `${width}x${height}`,
-        width,
-        height,
-        status: 'draft',
-      });
-      const variants = await loadCreativeSizeVariants(variantState.versionId);
-      setVariantState(current => current ? {
-        ...current,
-        loading: false,
-        variants,
-        selectedVariantIds: [],
-        form: { ...current.form, label: '', width: '', height: '' },
-      } : current);
-    } catch (createError: any) {
-      setVariantState(current => current ? { ...current, loading: false, error: createError.message ?? 'Failed to create variant' } : current);
-    }
-  };
-
-  const handleCreatePresetVariants = async (presets: typeof VARIANT_PRESETS) => {
-    if (!variantState || presets.length === 0) return;
-    setVariantState(current => current ? { ...current, loading: true, error: '' } : current);
-    try {
-      const response = await createCreativeSizeVariantsBulk({
-        creativeVersionId: variantState.versionId,
-        variants: presets.map(preset => ({
-          label: preset.label,
-          width: preset.width,
-          height: preset.height,
-          status: 'draft',
-        })),
-      });
-      setVariantState(current => current ? {
-        ...current,
-        loading: false,
-        variants: response.variants,
-        selectedVariantIds: [],
-        error: response.skippedCount > 0 ? `${response.skippedCount} duplicate size(s) skipped.` : '',
-      } : current);
-    } catch (createError: any) {
-      setVariantState(current => current ? { ...current, loading: false, error: createError.message ?? 'Failed to create preset sizes' } : current);
-    }
-  };
-
-  const handleBulkVariantStatusChange = async (status: 'active' | 'paused') => {
-    if (!variantState || variantState.selectedVariantIds.length === 0) {
-      setVariantState(current => current ? { ...current, error: 'Select at least one size first.' } : current);
-      return;
-    }
-    setVariantState(current => current ? { ...current, loading: true, error: '' } : current);
-    try {
-      const response = await updateCreativeSizeVariantsBulkStatus({
-        creativeVersionId: variantState.versionId,
-        variantIds: variantState.selectedVariantIds,
-        status,
-      });
-      setVariantState(current => current ? {
-        ...current,
-        loading: false,
-        variants: response.variants,
-        selectedVariantIds: [],
-      } : current);
-    } catch (updateError: any) {
-      setVariantState(current => current ? { ...current, loading: false, error: updateError.message ?? 'Failed to update selected sizes' } : current);
-    }
-  };
-
-  const handleVariantFormChange = (field: 'label' | 'width' | 'height', value: string) => {
-    setVariantState(current => current ? { ...current, form: { ...current.form, [field]: value } } : current);
-  };
 
   useEffect(() => {
     if (!bindingState?.tagId) return;
