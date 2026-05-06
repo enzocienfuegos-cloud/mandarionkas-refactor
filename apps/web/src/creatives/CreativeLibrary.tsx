@@ -46,6 +46,8 @@ import type {
 import { CreativePreviewLightbox } from './creative-library/CreativePreviewLightbox';
 import { ClickUrlEditorModal } from './creative-library/ClickUrlEditorModal';
 import { CreativeBulkActionsPanel } from './creative-library/CreativeBulkActionsPanel';
+import { CreativePreviewCell } from './creative-library/CreativePreviewCell';
+import { CreativeQueuePanel } from './creative-library/CreativeQueuePanel';
 import { CreativeRowActions } from './creative-library/CreativeRowActions';
 import { QuickCreateTagModal } from './creative-library/QuickCreateTagModal';
 import { TagBindingModal } from './creative-library/TagBindingModal';
@@ -54,7 +56,6 @@ import { VideoRenditionsModal } from './creative-library/VideoRenditionsModal';
 import { CreativeWorkspaceOverview } from './creative-library/CreativeWorkspaceOverview';
 import {
   CreativeStatusBadge,
-  FilterIcon,
   formatBytes,
   formatVideoBitrate,
   MoreIcon,
@@ -1876,30 +1877,13 @@ export default function CreativesView() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
         <Panel className="overflow-hidden p-6">
-          <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <Kicker>Creative workspace</Kicker>
-              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Creative QA queue</h2>
-              <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Review approval status, preview availability, delivery setup, and launch blockers from one dense queue.</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200"
-              >
-                <FilterIcon className="h-4 w-4" />
-                Filters
-              </button>
-              <button type="button" onClick={() => void load()} className="text-sm font-medium text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300">Refresh</button>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Total</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{filteredCreatives.length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">creatives in workspace</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Approved</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{approvedCreatives}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">ready to serve</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Pending QA</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{pendingQaCreatives}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">awaiting approval</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Blocked</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{rejectedCreatives + missingCreatives}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">rejected or missing assets</p></div>
-          </div>
+          <CreativeQueuePanel
+            totalCreatives={filteredCreatives.length}
+            approvedCreatives={approvedCreatives}
+            pendingQaCreatives={pendingQaCreatives}
+            blockedCreatives={rejectedCreatives + missingCreatives}
+            onRefresh={() => void load()}
+          />
 
           <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
             <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
@@ -1958,40 +1942,17 @@ export default function CreativesView() {
                       <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.format ?? 'Display'}</td>
                       <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.size ?? '—'}</td>
                       <td className="px-5 py-5">
-                        {previewHref ? (
-                          <div className="flex flex-col gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPreviewModal({
-                                  url: previewHref,
-                                  width: Number(version?.width) > 0 ? Number(version?.width) : previewKind === 'video' ? 960 : 300,
-                                  height: Number(version?.height) > 0 ? Number(version?.height) : previewKind === 'video' ? 540 : 250,
-                                  name: creative.name,
-                                  kind: previewKind,
-                                });
-                              }}
-                              className="inline-flex w-fit items-center rounded-lg border border-fuchsia-200 bg-fuchsia-50 px-3 py-1.5 text-xs font-medium text-fuchsia-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-100 dark:border-fuchsia-500/18 dark:bg-fuchsia-500/10 dark:text-fuchsia-300"
-                            >
-                              {row?.preview ?? 'Preview ready'}
-                            </button>
-                            <a
-                              href={previewHref}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[11px] text-slate-400 hover:text-fuchsia-600 hover:underline dark:text-white/38 dark:hover:text-fuchsia-300"
-                            >
-                              Open in tab ↗
-                            </a>
-                          </div>
-                        ) : version?.sourceKind === 'html5_zip' && String(version?.status ?? '') === 'processing' ? (
-                          <div className="flex flex-col gap-1">
-                            <span className="text-xs font-medium text-amber-600 dark:text-amber-300">Publishing…</span>
-                            <span className="text-[11px] text-slate-400 dark:text-white/38">Auto-refreshing</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-400 dark:text-white/38">{row?.preview ?? 'Asset missing'}</span>
-                        )}
+                        <CreativePreviewCell
+                          creativeName={creative.name}
+                          previewHref={previewHref}
+                          previewKind={previewKind}
+                          previewLabel={row?.preview ?? 'Asset missing'}
+                          versionStatus={version?.status}
+                          versionSourceKind={version?.sourceKind}
+                          width={version?.width}
+                          height={version?.height}
+                          onOpenPreview={setPreviewModal}
+                        />
                       </td>
                       <td className="px-5 py-5">
                         <PrioritySeverityBadge severity={needsAttention} />
