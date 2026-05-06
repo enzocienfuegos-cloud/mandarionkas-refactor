@@ -1,54 +1,30 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../shared/workspaces';
-import { Panel, PrimaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
-import { MetricCard as DuskMetricCard, useConfirm, useToast } from '../system';
-
-interface Tag {
-  id: string;
-  workspaceId?: string | null;
-  workspaceName?: string | null;
-  name: string;
-  campaign: { id: string; name: string } | null;
-  format: 'VAST' | 'display' | 'native' | 'tracker';
-  status: 'active' | 'paused' | 'archived' | 'draft';
-  sizeLabel?: string;
-  trackerType?: 'click' | 'impression' | null;
-  assignedCount?: number;
-  assignedNames?: string;
-  createdAt: string;
-}
-
-type TrendDirection = 'up' | 'down' | 'flat';
-type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
-type PrioritySeverity = 'Critical' | 'Warning' | 'Notice';
-type IconProps = { className?: string };
-
-type Metric = {
-  id: string;
-  label: string;
-  value: string;
-  delta: string;
-  direction: TrendDirection;
-  helper: string;
-  tone: Tone;
-  series: number[];
-};
-
-const DISPLAY_SIZE_PRESETS = [
-  { label: '300x250', width: 300, height: 250 },
-  { label: '320x50', width: 320, height: 50 },
-  { label: '320x100', width: 320, height: 100 },
-  { label: '336x280', width: 336, height: 280 },
-  { label: '728x90', width: 728, height: 90 },
-  { label: '970x250', width: 970, height: 250 },
-  { label: '160x600', width: 160, height: 600 },
-  { label: '300x600', width: 300, height: 600 },
-];
-
-function classNames(...values: Array<string | false | null | undefined>) {
-  return values.filter(Boolean).join(' ');
-}
+import {
+  Button,
+  CenteredSpinner,
+  EmptyState,
+  Input,
+  Kicker,
+  MetricCard,
+  Panel,
+  useConfirm,
+  useToast,
+} from '../system';
+import { TagCreateModal } from './tag-list/TagCreateModal';
+import { EMPTY_CREATE_FORM, type CreateTagForm, type IconProps, type Metric, type PrioritySeverity, type Tag, type Tone, type TrendDirection } from './tag-list/types';
+import {
+  classNames,
+  formatBadge,
+  getDestinationLabel,
+  getFiringLabel,
+  getLastSeenLabel,
+  getOwner,
+  getRisk,
+  severityBadge,
+  tagStatusBadge,
+} from './tag-list/utils';
 
 function iconProps(className?: string) {
   return {
@@ -121,25 +97,6 @@ function toneClass(tone: Tone) {
   return map[tone];
 }
 
-function tagStatusBadge(status: Tag['status']) {
-  const map: Record<Tag['status'], string> = {
-    active: 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/25 dark:text-emerald-300',
-    paused: 'border-amber-300/70 bg-amber-50 text-[color:var(--dusk-status-warning-fg)] dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300',
-    archived: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/25 dark:text-sky-300',
-    draft: 'border-border-strong/70 bg-[color:var(--dusk-surface-muted)] text-text-secondary dark:border-white/20 dark:bg-surface-1/[0.12] dark:text-white/70',
-  };
-  return map[status];
-}
-
-function severityBadge(severity: PrioritySeverity) {
-  const map: Record<PrioritySeverity, string> = {
-    Critical: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/25 dark:text-rose-300',
-    Warning: 'border-amber-300/70 bg-amber-50 text-[color:var(--dusk-status-warning-fg)] dark:border-amber-500/40 dark:bg-amber-500/25 dark:text-amber-300',
-    Notice: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/25 dark:text-sky-300',
-  };
-  return map[severity];
-}
-
 function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
   const classes =
     direction === 'up'
@@ -150,16 +107,6 @@ function TrendBadge({ direction, value }: { direction: TrendDirection; value: st
 
   return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
 }
-
-const formatBadge = (format: Tag['format']) => {
-  const tone: Record<Tag['format'], 'info' | 'neutral' | 'warning' | 'healthy'> = {
-    VAST: 'info',
-    display: 'neutral',
-    native: 'warning',
-    tracker: 'healthy',
-  };
-  return <StatusBadge tone={tone[format]}>{format}</StatusBadge>;
-};
 
 export default function TagList() {
   const confirm = useConfirm();
@@ -179,17 +126,7 @@ export default function TagList() {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
-  const [createForm, setCreateForm] = useState({
-    workspaceId: '',
-    name: '',
-    campaignId: '',
-    format: 'display' as Tag['format'],
-    status: 'draft' as Tag['status'],
-    servingWidth: '',
-    servingHeight: '',
-    trackerType: 'click' as 'click' | 'impression',
-    clickUrl: '',
-  });
+  const [createForm, setCreateForm] = useState<CreateTagForm>(EMPTY_CREATE_FORM);
 
   const load = () => {
     setLoading(true);
@@ -446,17 +383,7 @@ export default function TagList() {
   const closeCreate = () => {
     setCreating(false);
     setCreateError('');
-    setCreateForm({
-      workspaceId: '',
-      name: '',
-      campaignId: '',
-      format: 'display',
-      status: 'draft',
-      servingWidth: '',
-      servingHeight: '',
-      trackerType: 'click',
-      clickUrl: '',
-    });
+    setCreateForm(EMPTY_CREATE_FORM);
     if (searchParams.get('create') === '1') {
       setSearchParams({});
     }
@@ -510,58 +437,8 @@ export default function TagList() {
     }
   };
 
-  const getLastSeenLabel = (tag: Tag) => {
-    const createdAt = new Date(tag.createdAt);
-    const now = new Date();
-    if (createdAt.toDateString() === now.toDateString()) {
-      return 'Today';
-    }
-    return createdAt.toLocaleDateString();
-  };
-
-  const getFiringLabel = (tag: Tag) => {
-    switch (tag.status) {
-      case 'active':
-        return '98%';
-      case 'paused':
-        return '42%';
-      case 'draft':
-        return 'Missing';
-      case 'archived':
-      default:
-        return 'Ready';
-    }
-  };
-
-  const getDestinationLabel = (tag: Tag) => {
-    if (tag.format === 'tracker') {
-      return `Tracker${tag.trackerType ? ` · ${tag.trackerType}` : ''}`;
-    }
-    if (tag.format === 'display') {
-      return tag.sizeLabel ? `Display · ${tag.sizeLabel}` : 'Display container';
-    }
-    return tag.format;
-  };
-
-  const getRisk = (tag: Tag): PrioritySeverity => {
-    if (tag.status === 'draft') return 'Critical';
-    if (tag.status === 'paused') return 'Warning';
-    return 'Notice';
-  };
-
-  const getOwner = (tag: Tag) => {
-    if (tag.assignedNames?.trim()) {
-      return tag.assignedNames.split(',')[0]?.trim() || 'Ad Ops';
-    }
-    return tag.workspaceName ?? 'Ad Ops';
-  };
-
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
-      </div>
-    );
+    return <CenteredSpinner label="Loading tags workspace…" />;
   }
 
   if (error) {
@@ -569,9 +446,7 @@ export default function TagList() {
       <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
         <p className="font-medium">Error loading tags</p>
         <p className="mt-1 text-sm">{error}</p>
-        <button onClick={load} className="mt-3 text-sm text-rose-700 underline dark:text-rose-300">
-          Retry
-        </button>
+        <Button onClick={load} variant="ghost" size="sm" className="mt-3">Retry</Button>
       </Panel>
     );
   }
@@ -608,22 +483,18 @@ export default function TagList() {
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--dusk-text-soft)] dark:text-white/40">
               <SearchIcon />
             </span>
-            <input
+            <Input
               value={tagSearch}
               onChange={(event) => setTagSearch(event.target.value)}
-              className="min-h-[46px] w-full rounded-xl border border-border-default/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-text-primary outline-none placeholder:text-[color:var(--dusk-text-soft)] transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
+              className="min-h-[46px] border-border-default/80 bg-[rgba(252,251,255,0.82)] pl-10"
               placeholder="Search tag, advertiser, placement"
             />
           </label>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="inline-flex min-h-[46px] items-center rounded-xl bg-brand-gradient px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:translate-y-[-1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
-        >
+        <Button type="button" onClick={() => setCreating(true)} variant="primary">
           Generate tag
-        </button>
+        </Button>
       </div>
 
       <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
@@ -640,7 +511,7 @@ export default function TagList() {
         </div>
 
         <Panel className="p-5">
-          <SectionKicker>Recommended focus</SectionKicker>
+          <Kicker>Recommended focus</Kicker>
           <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
             <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
             <div>
@@ -655,7 +526,7 @@ export default function TagList() {
 
       <div className="grid gap-5 xl:grid-cols-4">
         {tagMetrics.map((metric) => (
-          <DuskMetricCard
+          <MetricCard
             key={metric.id}
             label={metric.label}
             value={metric.value}
@@ -663,19 +534,7 @@ export default function TagList() {
             trend={metric.direction}
             context={metric.helper}
             series={metric.series}
-            tone={
-              metric.tone === 'fuchsia'
-                ? 'brand'
-                : metric.tone === 'emerald'
-                  ? 'success'
-                  : metric.tone === 'amber'
-                    ? 'warning'
-                    : metric.tone === 'rose'
-                      ? 'critical'
-                      : metric.tone === 'sky'
-                        ? 'info'
-                        : 'neutral'
-            }
+            tone={metric.tone === 'fuchsia' ? 'brand' : metric.tone === 'emerald' ? 'success' : metric.tone === 'amber' ? 'warning' : metric.tone === 'rose' ? 'critical' : metric.tone === 'sky' ? 'info' : 'neutral'}
             icon={
               metric.id === 'tag-health'
                 ? <TagsIcon />
@@ -693,46 +552,47 @@ export default function TagList() {
             <span className="text-sm font-medium text-fuchsia-900 dark:text-fuchsia-200">
               {selectedCount} tag{selectedCount !== 1 ? 's' : ''} selected
             </span>
-            <button
+            <Button
               onClick={() => void handleBulkStatus('active')}
               disabled={bulkActionLoading}
-              className="rounded-xl border border-emerald-200 bg-surface-1 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/20 dark:bg-surface-1/[0.04] dark:text-emerald-300 dark:hover:bg-surface-1/[0.07]"
+              variant="secondary"
+              size="sm"
             >
               Activate
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => void handleBulkStatus('paused')}
               disabled={bulkActionLoading}
-              className="rounded-xl border border-amber-200 bg-surface-1 px-3 py-2 text-sm font-medium text-[color:var(--dusk-status-warning-fg)] hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-500/20 dark:bg-surface-1/[0.04] dark:text-amber-300 dark:hover:bg-surface-1/[0.07]"
+              variant="secondary"
+              size="sm"
             >
               Deactivate
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => void handleBulkDelete()}
               disabled={bulkActionLoading}
-              className="rounded-xl border border-rose-200 bg-surface-1 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-500/20 dark:bg-surface-1/[0.04] dark:text-rose-300 dark:hover:bg-surface-1/[0.07]"
+              variant="danger"
+              size="sm"
             >
               Delete
-            </button>
+            </Button>
             {bulkActionLoading && <span className="text-xs text-text-muted dark:text-white/52">Applying changes...</span>}
           </div>
         </Panel>
       )}
 
       {filteredTags.length === 0 ? (
-        <Panel className="px-6 py-20 text-center">
-          <SectionKicker>No matches</SectionKicker>
-          <h3 className="mt-3 text-lg font-semibold text-text-primary dark:text-white">No tags yet</h3>
-          <p className="mt-2 text-sm text-text-muted dark:text-white/56">No tags match the current advertiser or search filter.</p>
-          <div className="mt-5 flex justify-center">
-            <PrimaryButton onClick={() => setCreating(true)}>Generate tag</PrimaryButton>
-          </div>
-        </Panel>
+        <EmptyState
+          kicker="No matches"
+          title="No tags yet"
+          description="No tags match the current advertiser or search filter."
+          action={<Button onClick={() => setCreating(true)} variant="primary">Generate tag</Button>}
+        />
       ) : (
         <Panel className="overflow-hidden p-6">
           <div className="flex flex-col gap-4 border-b border-border-default pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <SectionKicker>Tag workspace</SectionKicker>
+              <Kicker>Tag workspace</Kicker>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Pixels, firing status & implementation QA</h2>
               <p className="mt-2 text-sm text-text-muted dark:text-white/56">
                 Dense operational view for tag generation, validation, firing health and implementation risk.
@@ -881,139 +741,16 @@ export default function TagList() {
         </Panel>
       )}
 
-      {creating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-surface-1 p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-text-primary">Create Tag</h2>
-            <p className="mt-1 text-sm text-text-muted">Create the tag first, then configure snippet variants and assignments from the tag workspace.</p>
-            {createError && <div className="mt-4 rounded-lg border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-3 py-2 text-sm text-[color:var(--dusk-status-critical-fg)]">{createError}</div>}
-            <div className="mt-4 space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-text-secondary">Client</label>
-                <select
-                  value={createForm.workspaceId}
-                  onChange={(event) => setCreateForm((current) => ({ ...current, workspaceId: event.target.value }))}
-                  className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
-                >
-                  <option value="">Select a client</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-text-secondary">Tag Name</label>
-                <input
-                  value={createForm.name}
-                  onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))}
-                  className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
-                  placeholder="Homepage 300x250 display"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-text-secondary">Format</label>
-                <div className="flex gap-2">
-                  {(['VAST', 'display', 'native', 'tracker'] as Tag['format'][]).map((format) => (
-                    <button
-                      key={format}
-                      type="button"
-                      onClick={() =>
-                        setCreateForm((current) => ({
-                          ...current,
-                          format,
-                          servingWidth: format === 'display' ? current.servingWidth : '',
-                          servingHeight: format === 'display' ? current.servingHeight : '',
-                          trackerType: format === 'tracker' ? current.trackerType : 'click',
-                        }))
-                      }
-                      className={`rounded-lg border px-3 py-2 text-sm font-medium ${
-                        createForm.format === format
-                          ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700'
-                          : 'border-border-strong text-text-muted hover:bg-[color:var(--dusk-surface-muted)]'
-                      }`}
-                    >
-                      {format}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {createForm.format === 'display' && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-text-secondary">Display Size</label>
-                  <select
-                    value={createForm.servingWidth && createForm.servingHeight ? `${createForm.servingWidth}x${createForm.servingHeight}` : ''}
-                    onChange={(event) => {
-                      const preset = DISPLAY_SIZE_PRESETS.find((entry) => entry.label === event.target.value);
-                      setCreateForm((current) => ({
-                        ...current,
-                        servingWidth: preset ? String(preset.width) : '',
-                        servingHeight: preset ? String(preset.height) : '',
-                      }));
-                    }}
-                    className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
-                  >
-                    <option value="">Select a size</option>
-                    {DISPLAY_SIZE_PRESETS.map((preset) => (
-                      <option key={preset.label} value={preset.label}>
-                        {preset.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {createForm.format === 'tracker' && (
-                <>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-text-secondary">Tracker Type</label>
-                    <select
-                      value={createForm.trackerType}
-                      onChange={(event) => setCreateForm((current) => ({ ...current, trackerType: event.target.value as 'click' | 'impression' }))}
-                      className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
-                    >
-                      <option value="click">Click tracker</option>
-                      <option value="impression">Impression tracker</option>
-                    </select>
-                  </div>
-                  {createForm.trackerType === 'click' && (
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-text-secondary">Destination URL</label>
-                      <input
-                        value={createForm.clickUrl}
-                        onChange={(event) => setCreateForm((current) => ({ ...current, clickUrl: event.target.value }))}
-                        className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
-                        placeholder="https://example.com/landing"
-                      />
-                    </div>
-                  )}
-                </>
-              )}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-text-secondary">Status</label>
-                <select
-                  value={createForm.status}
-                  onChange={(event) => setCreateForm((current) => ({ ...current, status: event.target.value as Tag['status'] }))}
-                  className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="active">Active</option>
-                  <option value="paused">Paused</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button onClick={closeCreate} className="rounded-lg border border-border-strong px-4 py-2 text-sm text-text-secondary hover:bg-[color:var(--dusk-surface-muted)]">
-                Cancel
-              </button>
-              <button onClick={() => void handleCreate()} className="rounded-lg bg-fuchsia-600 px-4 py-2 text-sm font-medium text-white hover:bg-fuchsia-700">
-                Create Tag
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {creating ? (
+        <TagCreateModal
+          clients={clients}
+          createError={createError}
+          createForm={createForm}
+          onClose={closeCreate}
+          onCreate={handleCreate}
+          setCreateForm={setCreateForm}
+        />
+      ) : null}
     </div>
   );
 }
