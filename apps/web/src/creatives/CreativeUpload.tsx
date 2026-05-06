@@ -1,495 +1,39 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { strFromU8, unzipSync } from 'fflate';
-import { detectClickTagInHtml } from '@smx/contracts';
-import {
-  completeCreativeIngestion,
-  createCreativeIngestionUpload,
-  loadCreativeIngestion,
-  publishCreativeIngestion,
-  uploadFileToSignedUrl,
-  type CreativeIngestion,
-} from './catalog';
-import { loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
 import { Button, Input, Kicker, Panel, Select } from '../system';
-
-type SourceKind = 'html5_zip' | 'video_mp4';
-
-const ACCEPTED_EXTENSIONS: Record<SourceKind, string> = {
-  html5_zip: '.zip',
-  video_mp4: '.mp4',
-};
-const MAX_PARALLEL_UPLOADS = 4;
-
-function buildFileKey(file: File) {
-  return `${file.name}-${file.size}-${file.lastModified}`;
-}
-
-function normalizeArchiveMemberPath(rawPath: string) {
-  const trimmed = String(rawPath ?? '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
-  if (!trimmed) return null;
-  if (trimmed.startsWith('__MACOSX/') || trimmed.endsWith('.DS_Store')) return null;
-  if (trimmed.includes('../') || trimmed.includes('/..')) return null;
-  return trimmed;
-}
-
-function stripCommonArchiveRoot(paths: string[]) {
-  const valid = paths.filter(Boolean);
-  if (!valid.length) return valid;
-  const roots = valid.map((path) => path.split('/')[0]);
-  const commonRoot = roots.every((root) => root === roots[0]) ? roots[0] : '';
-  if (!commonRoot) return valid;
-  const allNested = valid.every((path) => path.startsWith(`${commonRoot}/`));
-  if (!allNested) return valid;
-  return valid.map((path) => path.slice(commonRoot.length + 1)).filter(Boolean);
-}
-
-async function detectHtml5ZipClickUrl(file: File) {
-  try {
-    const archive = unzipSync(new Uint8Array(await file.arrayBuffer()));
-    const rawEntries = Object.entries(archive)
-      .filter(([name, body]) => !name.endsWith('/') && body && body.length > 0)
-      .map(([archivePath, body]) => ({
-        archivePath: normalizeArchiveMemberPath(archivePath),
-        body,
-      }))
-      .filter((entry): entry is { archivePath: string; body: Uint8Array } => Boolean(entry.archivePath));
-
-    if (!rawEntries.length) return '';
-
-    const strippedPaths = stripCommonArchiveRoot(rawEntries.map((entry) => entry.archivePath));
-    const entries = rawEntries.map((entry, index) => ({
-      ...entry,
-      publishedPath: normalizeArchiveMemberPath(strippedPaths[index]) || entry.archivePath,
-    }));
-
-    const entryAsset = entries.find((entry) => entry.publishedPath.toLowerCase() === 'index.html')
-      || entries.find((entry) => entry.publishedPath.toLowerCase().endsWith('/index.html'))
-      || entries.find((entry) => entry.publishedPath.toLowerCase().endsWith('.html') || entry.publishedPath.toLowerCase().endsWith('.htm'))
-      || null;
-
-    if (!entryAsset) return '';
-    return detectClickTagInHtml(strFromU8(entryAsset.body)) || '';
-  } catch (_) {
-    return '';
-  }
-}
-
-function normalizeHttpUrl(value: string) {
-  const text = value.trim();
-  if (!text) return '';
-  try {
-    const parsed = new URL(text);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
-    return parsed.toString();
-  } catch (_) {
-    return '';
-  }
-}
-
-function formatDuration(ms: number) {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
-}
-
-function estimateProcessingPercent(elapsedMs: number) {
-  if (elapsedMs < 2000) return 8 + Math.round((elapsedMs / 2000) * 12);
-  if (elapsedMs < 8000) return 20 + Math.round(((elapsedMs - 2000) / 6000) * 35);
-  if (elapsedMs < 18000) return 55 + Math.round(((elapsedMs - 8000) / 10000) * 25);
-  if (elapsedMs < 30000) return 80 + Math.round(((elapsedMs - 18000) / 12000) * 12);
-  return 94;
-}
-
-function getPublishJob(ingestion: CreativeIngestion | null | undefined) {
-  const metadata = ingestion?.metadata;
-  if (!metadata || typeof metadata !== 'object') return null;
-  const publishJob = (metadata as Record<string, unknown>).publishJob;
-  return publishJob && typeof publishJob === 'object'
-    ? publishJob as Record<string, unknown>
-    : null;
-}
-
-function getProcessingStageMessage(stage: string | null | undefined, fallback: string) {
-  switch (stage) {
-    case 'queued':
-      return 'Queued for worker pickup…';
-    case 'starting':
-      return 'Preparing background publish job…';
-    case 'creating_catalog_record':
-      return 'Creating creative and version records…';
-    case 'publishing_html5_archive':
-      return 'Publishing HTML5 assets…';
-    case 'transcoding_video':
-      return 'Transcoding video renditions with FFmpeg…';
-    case 'finalizing_publication':
-      return 'Finalizing published creative version…';
-    case 'completed':
-      return 'Publish completed.';
-    case 'failed':
-      return 'Publish failed.';
-    default:
-      return fallback;
-  }
-}
-
-function getDisplayProcessingPercent(ingestion: CreativeIngestion | null | undefined, elapsedMs: number) {
-  const publishJob = getPublishJob(ingestion);
-  const explicitPercent = Number(publishJob?.progressPercent ?? 0) || 0;
-  const stage = String(publishJob?.stage ?? '');
-  if (stage === 'transcoding_video') {
-    return Math.max(explicitPercent, estimateProcessingPercent(elapsedMs));
-  }
-  return Math.min(100, explicitPercent);
-}
-
-async function readVideoFileMetadata(file: File) {
-  if (!file.type.startsWith('video/')) {
-    return { width: null, height: null, durationMs: null };
-  }
-
-  return new Promise<{ width: number | null; height: number | null; durationMs: number | null }>((resolve) => {
-    const video = document.createElement('video');
-    const objectUrl = URL.createObjectURL(file);
-    const cleanup = () => {
-      video.removeAttribute('src');
-      video.load();
-      URL.revokeObjectURL(objectUrl);
-    };
-    video.preload = 'metadata';
-    video.onloadedmetadata = () => {
-      const width = Number.isFinite(video.videoWidth) && video.videoWidth > 0 ? Math.round(video.videoWidth) : null;
-      const height = Number.isFinite(video.videoHeight) && video.videoHeight > 0 ? Math.round(video.videoHeight) : null;
-      const durationSeconds = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null;
-      cleanup();
-      resolve({
-        width,
-        height,
-        durationMs: durationSeconds != null ? Math.round(durationSeconds * 1000) : null,
-      });
-    };
-    video.onerror = () => {
-      cleanup();
-      resolve({ width: null, height: null, durationMs: null });
-    };
-    video.src = objectUrl;
-  });
-}
+import { buildFileKey, normalizeHttpUrl, ACCEPTED_EXTENSIONS } from './creative-upload/utils';
+import { useCreativeUploadWorkspace } from './creative-upload/useCreativeUploadWorkspace';
 
 export default function CreativeUpload() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [sourceKind, setSourceKind] = useState<SourceKind>('html5_zip');
-  const [files, setFiles] = useState<File[]>([]);
-  const [clickUrlsByFileKey, setClickUrlsByFileKey] = useState<Record<string, string>>({});
-  const [detectedClickUrls, setDetectedClickUrls] = useState<Record<string, string>>({});
-  const [detectingFileKeys, setDetectingFileKeys] = useState<string[]>([]);
-  const [status, setStatus] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [currentFileName, setCurrentFileName] = useState('');
-  const [currentFileProgress, setCurrentFileProgress] = useState(0);
-  const [currentProcessingName, setCurrentProcessingName] = useState('');
-  const [currentProcessingProgress, setCurrentProcessingProgress] = useState(0);
-  const [currentProcessingEta, setCurrentProcessingEta] = useState('');
-  const [currentProcessingMessage, setCurrentProcessingMessage] = useState('');
-  const [overallProgress, setOverallProgress] = useState(0);
-  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
-  const [workspaceId, setWorkspaceId] = useState('');
-
-  useEffect(() => {
-    loadWorkspaces()
-      .then((workspaceList) => {
-        setWorkspaces(workspaceList);
-      })
-      .catch(() => {});
-  }, []);
-
-  const mergeFiles = (incomingFiles: File[]) => {
-    setFiles((current) => {
-      const next = [...current];
-      const seen = new Set(current.map(file => buildFileKey(file)));
-      const queuedForDetection: File[] = [];
-      for (const file of incomingFiles) {
-        const key = buildFileKey(file);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        next.push(file);
-        if (sourceKind === 'html5_zip') {
-          queuedForDetection.push(file);
-        }
-      }
-      if (queuedForDetection.length) {
-        const keys = queuedForDetection.map(buildFileKey);
-        setDetectingFileKeys((currentKeys) => Array.from(new Set([...currentKeys, ...keys])));
-        void Promise.all(queuedForDetection.map(async (file) => {
-          const fileKey = buildFileKey(file);
-          const detectedClickUrl = await detectHtml5ZipClickUrl(file);
-          if (detectedClickUrl) {
-            setDetectedClickUrls((currentUrls) => ({ ...currentUrls, [fileKey]: detectedClickUrl }));
-            setClickUrlsByFileKey((currentUrls) => ({
-              ...currentUrls,
-              ...(currentUrls[fileKey] ? {} : { [fileKey]: detectedClickUrl }),
-            }));
-          }
-        })).finally(() => {
-          setDetectingFileKeys((currentKeys) => currentKeys.filter((key) => !keys.includes(key)));
-        });
-      }
-      return next;
-    });
-    setError('');
-  };
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (files.length === 0) {
-      setError('Select at least one file first.');
-      return;
-    }
-    if (!workspaceId) {
-      setError('Select a client before uploading.');
-      return;
-    }
-    const invalidClickUrlFile = files.find((file) => {
-      const rawValue = clickUrlsByFileKey[buildFileKey(file)] ?? '';
-      return rawValue.trim() && !normalizeHttpUrl(rawValue);
-    });
-    if (invalidClickUrlFile) {
-      setError(`"${invalidClickUrlFile.name}" has an invalid destination URL. Use a full http(s) URL.`);
-      return;
-    }
-    if (sourceKind === 'video_mp4') {
-      const missingVideoClickUrl = files.find((file) => !normalizeHttpUrl(clickUrlsByFileKey[buildFileKey(file)] ?? ''));
-      if (missingVideoClickUrl) {
-        setError(`"${missingVideoClickUrl.name}" needs a destination URL before upload.`);
-        return;
-      }
-    }
-    if (sourceKind === 'html5_zip' && detectingFileKeys.length > 0) {
-      setError('Please wait for HTML5 clickTag detection to finish before uploading.');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setStatus('Preparing uploads…');
-    setCurrentFileName('');
-    setCurrentFileProgress(0);
-    setCurrentProcessingName('');
-    setCurrentProcessingProgress(0);
-    setCurrentProcessingEta('');
-    setCurrentProcessingMessage('');
-    setOverallProgress(0);
-
-    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-    const loadedBytesByIndex = files.map(() => 0);
-    const activeIndexes = new Set<number>();
-    const processingStartedAtByIndex = files.map(() => 0);
-    const activeProcessingIndexes = new Set<number>();
-    const processingStateByIndex = files.map<CreativeIngestion | null>(() => null);
-
-    const refreshOverallProgress = () => {
-      const combinedProgress = files.map((file, index) => {
-        const size = file.size || 0;
-        const uploadPercent = size > 0
-          ? Math.min(100, Math.round((loadedBytesByIndex[index] / size) * 100))
-          : 0;
-        if (uploadPercent < 100) {
-          return Math.round(uploadPercent * 0.5);
-        }
-        const processingPercent = getDisplayProcessingPercent(
-          processingStateByIndex[index],
-          Date.now() - (processingStartedAtByIndex[index] || Date.now()),
-        );
-        return Math.min(100, 50 + Math.round(processingPercent * 0.5));
-      });
-      const nextOverall = combinedProgress.length
-        ? Math.round(combinedProgress.reduce((sum, value) => sum + value, 0) / combinedProgress.length)
-        : (totalBytes > 0 ? 0 : 0);
-      setOverallProgress(nextOverall);
-    };
-
-    const refreshActiveProgress = () => {
-      if (activeIndexes.size === 0) {
-        setCurrentFileName('');
-        setCurrentFileProgress(0);
-        return;
-      }
-      const indexes = Array.from(activeIndexes.values()).sort((a, b) => a - b);
-      const names = indexes.map(index => files[index]?.name).filter(Boolean);
-      const averageProgress = Math.round(
-        indexes.reduce((sum, index) => {
-          const size = files[index]?.size || 0;
-          if (size <= 0) return sum;
-          return sum + Math.min(100, Math.round((loadedBytesByIndex[index] / size) * 100));
-        }, 0) / indexes.length,
-      );
-      setCurrentFileName(names[0] + (names.length > 1 ? ` +${names.length - 1} more` : ''));
-      setCurrentFileProgress(averageProgress);
-    };
-
-    const refreshProcessingProgress = () => {
-      if (activeProcessingIndexes.size === 0) {
-        setCurrentProcessingName('');
-        setCurrentProcessingProgress(0);
-        setCurrentProcessingEta('');
-        setCurrentProcessingMessage('');
-        return;
-      }
-      const indexes = Array.from(activeProcessingIndexes.values()).sort((a, b) => a - b);
-      const names = indexes.map(index => files[index]?.name).filter(Boolean);
-      const elapsedValues = indexes.map(index => Date.now() - (processingStartedAtByIndex[index] || Date.now()));
-      const averageProgress = Math.round(
-        indexes.reduce((sum, index) => (
-          sum + getDisplayProcessingPercent(
-            processingStateByIndex[index],
-            Date.now() - (processingStartedAtByIndex[index] || Date.now()),
-          )
-        ), 0) / indexes.length,
-      );
-      const averageRemainingMs = indexes.reduce((sum, index) => {
-        const elapsedMs = Date.now() - (processingStartedAtByIndex[index] || Date.now());
-        const progress = getDisplayProcessingPercent(processingStateByIndex[index], elapsedMs);
-        if (progress <= 0 || progress >= 100) return sum;
-        const estimatedTotalMs = (elapsedMs / progress) * 100;
-        return sum + Math.max(0, estimatedTotalMs - elapsedMs);
-      }, 0) / elapsedValues.length;
-      const primaryState = processingStateByIndex[indexes[0]];
-      const publishJob = getPublishJob(primaryState);
-      const stage = publishJob?.stage ? String(publishJob.stage) : '';
-      setCurrentProcessingName(names[0] + (names.length > 1 ? ` +${names.length - 1} more` : ''));
-      setCurrentProcessingProgress(averageProgress);
-      setCurrentProcessingEta(`Estimated remaining ${formatDuration(averageRemainingMs || 0)}`);
-      setCurrentProcessingMessage(
-        getProcessingStageMessage(
-          stage,
-          String(publishJob?.message ?? 'Transcoding and publishing creative…'),
-        ),
-      );
-    };
-
-    const processingInterval = window.setInterval(() => {
-      refreshProcessingProgress();
-    }, 300);
-
-    try {
-      const processFile = async (file: File, index: number) => {
-        const requestedClickUrl = normalizeHttpUrl(clickUrlsByFileKey[buildFileKey(file)] ?? '') || null;
-        const videoMetadata = sourceKind === 'video_mp4'
-          ? await readVideoFileMetadata(file)
-          : { width: null, height: null, durationMs: null };
-        activeIndexes.add(index);
-        refreshActiveProgress();
-
-        const upload = await createCreativeIngestionUpload({
-          workspaceId,
-          sourceKind,
-          file,
-          clickUrl: requestedClickUrl,
-          ...videoMetadata,
-        });
-
-        await uploadFileToSignedUrl(upload.upload.uploadUrl, file, ({ loadedBytes, totalBytes: fileTotalBytes }) => {
-          loadedBytesByIndex[index] = loadedBytes;
-          if (fileTotalBytes > 0 && loadedBytes >= fileTotalBytes) {
-            loadedBytesByIndex[index] = fileTotalBytes;
-          }
-          refreshOverallProgress();
-          refreshActiveProgress();
-        });
-
-        loadedBytesByIndex[index] = file.size;
-        refreshOverallProgress();
-        refreshActiveProgress();
-
-        await completeCreativeIngestion(upload.ingestion.id, {
-          workspaceId,
-          file,
-          publicUrl: upload.upload.publicUrl,
-          storageKey: upload.upload.storageKey,
-          clickUrl: requestedClickUrl,
-          ...videoMetadata,
-        });
-
-        processingStartedAtByIndex[index] = Date.now();
-        activeProcessingIndexes.add(index);
-        setStatus(`Upload complete. Processing ${files.length} creative${files.length === 1 ? '' : 's'} in the background…`);
-        const publishResult = await publishCreativeIngestion(upload.ingestion.id, {
-          workspaceId,
-          clickUrl: requestedClickUrl,
-        });
-        processingStateByIndex[index] = publishResult.ingestion ?? null;
-        refreshOverallProgress();
-        refreshProcessingProgress();
-
-        let latestIngestion = publishResult.ingestion;
-        while (latestIngestion?.status === 'processing') {
-          await new Promise(resolve => window.setTimeout(resolve, 2000));
-          latestIngestion = await loadCreativeIngestion(upload.ingestion.id, { workspaceId });
-          processingStateByIndex[index] = latestIngestion;
-          refreshOverallProgress();
-          refreshProcessingProgress();
-        }
-
-        if (latestIngestion?.status === 'published' && latestIngestion.creativeId) {
-          try {
-            const creativeRes = await fetch(
-              `/v1/creatives/${latestIngestion.creativeId}?workspaceId=${workspaceId}`,
-              { credentials: 'include' },
-            );
-            if (creativeRes.ok) {
-              const { creative } = await creativeRes.json();
-              if (creative?.clickUrl) {
-                const fileKey = buildFileKey(file);
-                setDetectedClickUrls((current) => ({ ...current, [fileKey]: creative.clickUrl }));
-                setClickUrlsByFileKey((current) => ({
-                  ...current,
-                  ...(current[fileKey] ? {} : { [fileKey]: creative.clickUrl }),
-                }));
-              }
-            }
-          } catch (_) {}
-        }
-
-        if (latestIngestion?.status === 'failed') {
-          throw new Error(latestIngestion.errorDetail ?? 'Creative publish failed');
-        }
-
-        processingStateByIndex[index] = latestIngestion ?? publishResult.ingestion ?? null;
-
-        activeProcessingIndexes.delete(index);
-        refreshProcessingProgress();
-        activeIndexes.delete(index);
-        refreshActiveProgress();
-        refreshOverallProgress();
-      };
-
-      const batchSize = Math.min(MAX_PARALLEL_UPLOADS, files.length);
-      setStatus(`Uploading ${files.length} creative${files.length === 1 ? '' : 's'} in batches of ${batchSize}…`);
-
-      for (let start = 0; start < files.length; start += MAX_PARALLEL_UPLOADS) {
-        const batch = files.slice(start, start + MAX_PARALLEL_UPLOADS);
-        await Promise.all(batch.map((file, offset) => processFile(file, start + offset)));
-      }
-
-      setStatus(`${files.length} creative${files.length === 1 ? '' : 's'} published.`);
-      setCurrentFileProgress(100);
-      setCurrentProcessingProgress(100);
-      setCurrentProcessingEta('Estimated remaining 0:00');
-      setCurrentProcessingMessage('Publish completed.');
-      setOverallProgress(100);
-      setClickUrlsByFileKey({});
-      window.setTimeout(() => navigate('/creatives'), 1200);
-    } catch (submitError: any) {
-      setError(submitError.message ?? 'Upload failed');
-      setStatus('');
-    } finally {
-      window.clearInterval(processingInterval);
-      setLoading(false);
-    }
-  };
+  const {
+    sourceKind,
+    files,
+    clickUrlsByFileKey,
+    detectedClickUrls,
+    detectingFileKeys,
+    status,
+    error,
+    loading,
+    currentFileName,
+    currentFileProgress,
+    currentProcessingName,
+    currentProcessingProgress,
+    currentProcessingEta,
+    currentProcessingMessage,
+    overallProgress,
+    workspaces,
+    workspaceId,
+    setWorkspaceId,
+    setSourceKindAndReset,
+    mergeFiles,
+    clearFiles,
+    setClickUrlForFile,
+    handleSubmit,
+  } = useCreativeUploadWorkspace({
+    onComplete: () => navigate('/creatives'),
+  });
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -530,9 +74,7 @@ export default function CreativeUpload() {
               <button
                 type="button"
                 onClick={() => {
-                  setSourceKind('html5_zip');
-                  setFiles([]);
-                  setError('');
+                  setSourceKindAndReset('html5_zip');
                   if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
                 className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'html5_zip' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'border-[color:var(--dusk-border-default)] bg-surface-1 text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
@@ -543,9 +85,7 @@ export default function CreativeUpload() {
               <button
                 type="button"
                 onClick={() => {
-                  setSourceKind('video_mp4');
-                  setFiles([]);
-                  setError('');
+                  setSourceKindAndReset('video_mp4');
                   if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
                 className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'video_mp4' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'border-[color:var(--dusk-border-default)] bg-surface-1 text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
@@ -585,10 +125,7 @@ export default function CreativeUpload() {
                     </div>
                     <Button
                       onClick={() => {
-                        setFiles([]);
-                        setClickUrlsByFileKey({});
-                        setDetectedClickUrls({});
-                        setDetectingFileKeys([]);
+                        clearFiles();
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
                       variant="ghost"
@@ -612,10 +149,7 @@ export default function CreativeUpload() {
                           </label>
                           <Input
                             value={clickUrlsByFileKey[buildFileKey(file)] ?? ''}
-                            onChange={(event) => setClickUrlsByFileKey((current) => ({
-                              ...current,
-                              [buildFileKey(file)]: event.target.value,
-                            }))}
+                            onChange={(event) => setClickUrlForFile(file, event.target.value)}
                             placeholder="https://example.com/landing"
                           />
                           <p className="mt-1 text-[11px] text-[color:var(--dusk-text-muted)]">
