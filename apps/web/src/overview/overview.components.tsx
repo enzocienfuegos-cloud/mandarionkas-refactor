@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Kicker, Panel } from '../system';
+import { Badge, Button, IconButton, Kicker, Panel } from '../system';
 import {
   type AttentionItem,
   type AttentionSeverity,
@@ -32,56 +32,57 @@ export function TrendBadge({ direction, value }: { direction: TrendDirection; va
 
 export function NotificationButton({ count }: { count: number }) {
   return (
-    <button
-      type="button"
-      className="relative inline-flex h-12 w-12 items-center justify-center rounded-xl border border-border-default bg-surface-1 text-text-secondary transition hover:border-brand/30 hover:bg-surface-muted"
-      aria-label="Notifications"
-    >
-      <BellIcon className="h-5 w-5" />
+    <div className="relative inline-flex">
+      <IconButton
+        icon={<BellIcon className="h-5 w-5" />}
+        aria-label="Notifications"
+        variant="secondary"
+      />
       {count > 0 ? (
         <span className="absolute right-2 top-2 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-critical px-1 text-[10px] font-semibold text-white">
           {count}
         </span>
       ) : null}
-    </button>
+    </div>
   );
 }
 
 export function AttentionCard({ item }: { item: AttentionItem }) {
-  const severityMap: Record<AttentionSeverity, { shell: string; accent: string; button: string }> = {
+  const severityMap: Record<AttentionSeverity, { tone: 'critical' | 'warning' | 'info' | 'success'; shell: string }> = {
     critical: {
-      shell: 'from-rose-500/16 to-transparent text-rose-300 dark:text-rose-200',
-      accent: 'text-rose-500 dark:text-rose-300',
-      button: 'border-rose-300/60 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-500/20 dark:bg-rose-500/12 dark:text-rose-100 dark:hover:bg-rose-500/18',
+      tone: 'critical',
+      shell: 'bg-[color:var(--dusk-status-critical-bg)] text-[color:var(--dusk-status-critical-fg)] border-[color:var(--dusk-status-critical-border)]',
     },
     warning: {
-      shell: 'from-amber-500/16 to-transparent text-amber-300 dark:text-amber-200',
-      accent: 'text-amber-500 dark:text-amber-300',
-      button: 'border-amber-300/60 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/12 dark:text-amber-100 dark:hover:bg-amber-500/18',
+      tone: 'warning',
+      shell: 'bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)] border-[color:var(--dusk-status-warning-border)]',
     },
     notice: {
-      shell: 'from-orange-500/16 to-transparent text-orange-300 dark:text-orange-200',
-      accent: 'text-orange-500 dark:text-orange-300',
-      button: 'border-orange-300/60 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-500/20 dark:bg-orange-500/12 dark:text-orange-100 dark:hover:bg-orange-500/18',
+      tone: 'info',
+      shell: 'bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)] border-[color:var(--dusk-status-info-border)]',
     },
     healthy: {
-      shell: 'from-emerald-500/16 to-transparent text-emerald-300 dark:text-emerald-200',
-      accent: 'text-emerald-500 dark:text-emerald-300',
-      button: 'border-emerald-300/60 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/12 dark:text-emerald-100 dark:hover:bg-emerald-500/18',
+      tone: 'success',
+      shell: 'bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)] border-[color:var(--dusk-status-success-border)]',
     },
   };
   const theme = severityMap[item.severity];
   return (
     <article className="rounded-[26px] border border-border-default bg-surface-1 p-5">
-      <div className={classNames('flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br', theme.shell)}>
-        <AlertTriangleIcon className={classNames('h-5 w-5', theme.accent)} />
+      <div className={classNames('flex h-12 w-12 items-center justify-center rounded-2xl border', theme.shell)}>
+        <AlertTriangleIcon className="h-5 w-5" />
       </div>
       <div className="mt-4 min-w-0">
-        <p className={classNames('text-lg font-semibold leading-tight', theme.accent)}>{item.title}</p>
+        <div className="mb-2">
+          <Badge tone={theme.tone} size="sm">{item.severity}</Badge>
+        </div>
+        <p className="text-lg font-semibold leading-tight text-text-primary">{item.title}</p>
         <p className="mt-2 text-sm leading-6 text-text-secondary">{item.detail}</p>
       </div>
-      <Link to={item.actionHref} className={classNames('mt-5 inline-flex items-center rounded-xl border px-5 py-3 text-sm font-semibold transition', theme.button)}>
-        {item.actionLabel}
+      <Link to={item.actionHref} className="mt-5 inline-flex">
+        <Button variant={item.severity === 'critical' ? 'danger' : 'secondary'}>
+          {item.actionLabel}
+        </Button>
       </Link>
     </article>
   );
@@ -100,8 +101,8 @@ export function CampaignTable({ rows }: { rows: TopCampaignRow[] }) {
           <Kicker>Top Campaigns</Kicker>
           <p className="mt-3 text-sm text-text-secondary">Campaigns demanding budget, optimization, and pacing attention.</p>
         </div>
-        <Link to="/campaigns" className="text-sm font-medium text-text-brand transition hover:opacity-80">
-          View all campaigns
+        <Link to="/campaigns" className="inline-flex">
+          <Button variant="ghost" size="sm">View all campaigns</Button>
         </Link>
       </div>
       <div className="mt-6 overflow-hidden rounded-3xl border border-border-default">
@@ -181,8 +182,8 @@ export function SystemHealth({ items }: { items: SystemHealthRow[] }) {
         <div>
           <Kicker>Delivery &amp; System Health</Kicker>
         </div>
-        <Link to="/reporting" className="text-sm font-medium text-text-brand transition hover:opacity-80">
-          View system status
+        <Link to="/reporting" className="inline-flex">
+          <Button variant="ghost" size="sm">View system status</Button>
         </Link>
       </div>
       <div className="mt-6 space-y-3">
@@ -252,8 +253,8 @@ export function AudienceInsights({ topSegments, underperformingSegments }: { top
         <div>
           <Kicker>Audience Signal Insights</Kicker>
         </div>
-        <Link to="/reporting" className="text-sm font-medium text-text-brand transition hover:opacity-80">
-          Explore all segments
+        <Link to="/reporting" className="inline-flex">
+          <Button variant="ghost" size="sm">Explore all segments</Button>
         </Link>
       </div>
       <div className="mt-6 grid gap-10 xl:grid-cols-2">
@@ -298,8 +299,8 @@ export function WorkQueueTable({ rows }: { rows: WorkQueueRow[] }) {
                 <td className="px-6 py-5 text-text-secondary">{row.owner}</td>
                 <td className="px-6 py-5 tabular-nums text-text-secondary">{row.due}</td>
                 <td className="px-6 py-5">
-                  <Link to={row.actionHref} className="text-sm font-medium text-text-brand transition hover:opacity-80">
-                    {row.actionLabel}
+                  <Link to={row.actionHref} className="inline-flex">
+                    <Button variant="ghost" size="sm">{row.actionLabel}</Button>
                   </Link>
                 </td>
               </tr>
