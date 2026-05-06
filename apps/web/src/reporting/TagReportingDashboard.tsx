@@ -646,7 +646,7 @@ export default function TagReportingDashboard() {
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                         dateRange === range.days
                           ? 'bg-brand-gradient text-white'
-                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white/70 dark:hover:bg-white/[0.05]'
+                          : 'bg-surface-1 border border-[color:var(--dusk-border-default)] text-[color:var(--dusk-text-secondary)] hover:bg-[color:var(--dusk-surface-muted)] dark:text-white/70 dark:hover:bg-white/[0.05]'
                       }`}
                     >
                         {range.label}
@@ -727,7 +727,7 @@ export default function TagReportingDashboard() {
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                           activeTab === tab.id
                             ? 'bg-brand-gradient text-white'
-                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white/70 dark:hover:bg-white/[0.05]'
+                            : 'bg-surface-1 border border-[color:var(--dusk-border-default)] text-[color:var(--dusk-text-secondary)] hover:bg-[color:var(--dusk-surface-muted)] dark:text-white/70 dark:hover:bg-white/[0.05]'
                         }`}
                       >
                         {tab.label}
@@ -774,39 +774,39 @@ export default function TagReportingDashboard() {
                         <KpiCard label="Country" value={summary?.latestContext?.country || 'Unknown'} sub={summary?.latestContext?.region || 'Region unknown'} />
                       </div>
 
-                      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                          <h3 className="text-sm font-semibold text-slate-700">Daily Video Breakdown</h3>
-                          <p className="text-xs text-slate-400">Starts and completions for the active filters</p>
+                      <div className="overflow-hidden rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1">
+                        <div className="flex items-center justify-between border-b border-[color:var(--dusk-border-subtle)] px-4 py-3">
+                          <h3 className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">Daily Video Breakdown</h3>
+                          <p className="text-xs text-[color:var(--dusk-text-soft)]">Starts and completions for the active filters</p>
                         </div>
                         {stats.length === 0 ? (
-                          <div className="flex items-center justify-center h-32 text-slate-400 text-sm">
+                          <div className="flex h-32 items-center justify-center text-sm text-[color:var(--dusk-text-soft)]">
                             No video data for this period
                           </div>
                         ) : (
                           <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-slate-100">
-                              <thead className="bg-slate-50">
+                            <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
+                              <thead className="bg-[color:var(--dusk-surface-muted)]">
                                 <tr>
                                   {['Date', 'Impressions', 'Play Starts', 'Plays Completed', 'Start Rate', 'Completion Rate'].map(header => (
-                                    <th key={header} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                    <th key={header} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[color:var(--dusk-text-soft)]">
                                       {header}
                                     </th>
                                   ))}
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-slate-100">
+                              <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
                                 {[...stats].reverse().map(row => {
                                   const startRate = row.impressions > 0 ? (row.videoStarts / row.impressions) * 100 : 0;
                                   const completionRate = row.videoStarts > 0 ? (row.videoCompletions / row.videoStarts) * 100 : 0;
                                   return (
-                                    <tr key={row.date} className="hover:bg-slate-50">
-                                      <td className="px-4 py-2.5 text-sm text-slate-600">{row.date}</td>
-                                      <td className="px-4 py-2.5 text-sm font-medium text-slate-800">{row.impressions.toLocaleString()}</td>
-                                      <td className="px-4 py-2.5 text-sm text-slate-700">{row.videoStarts.toLocaleString()}</td>
-                                      <td className="px-4 py-2.5 text-sm text-slate-700">{row.videoCompletions.toLocaleString()}</td>
-                                      <td className="px-4 py-2.5 text-sm text-slate-700">{startRate.toFixed(2)}%</td>
-                                      <td className="px-4 py-2.5 text-sm text-slate-700">{completionRate.toFixed(2)}%</td>
+                                    <tr key={row.date} className="hover:bg-[color:var(--dusk-surface-muted)]">
+                                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.date}</td>
+                                      <td className="px-4 py-2.5 text-sm font-medium text-[color:var(--dusk-text-primary)]">{row.impressions.toLocaleString()}</td>
+                                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.videoStarts.toLocaleString()}</td>
+                                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.videoCompletions.toLocaleString()}</td>
+                                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{startRate.toFixed(2)}%</td>
+                                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{completionRate.toFixed(2)}%</td>
                                     </tr>
                                   );
                                 })}
@@ -831,8 +831,8 @@ export default function TagReportingDashboard() {
                       </div>
 
                       {summary?.latestContext ? (
-                        <div className="bg-white rounded-xl border border-slate-200 p-5">
-                          <h3 className="text-sm font-semibold text-slate-700 mb-4">Latest Delivery Identity & Context</h3>
+                        <div className="rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 p-5">
+                          <h3 className="mb-4 text-sm font-semibold text-[color:var(--dusk-text-primary)]">Latest Delivery Identity & Context</h3>
                           <div className="grid gap-6 lg:grid-cols-3">
                             <div>
                               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Identity</p>
@@ -873,7 +873,7 @@ export default function TagReportingDashboard() {
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-white rounded-xl border border-slate-200 p-6 text-sm text-slate-500">
+                        <div className="rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 p-6 text-sm text-[color:var(--dusk-text-muted)]">
                           No identity context has been captured yet for the current filters. This tab fills from new traffic and can use inferred request data even when DSP macros are absent.
                         </div>
                       )}
@@ -881,37 +881,37 @@ export default function TagReportingDashboard() {
                   ) : null}
 
                   {activeTab === 'display' && stats.length > 0 ? (
-                    <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden">
-                      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-slate-700">Daily Breakdown</h3>
-                        <p className="text-xs text-slate-400">Export uses the same filtered rows</p>
+                    <div className="mt-4 overflow-hidden rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1">
+                      <div className="flex items-center justify-between border-b border-[color:var(--dusk-border-subtle)] px-4 py-3">
+                        <h3 className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">Daily Breakdown</h3>
+                        <p className="text-xs text-[color:var(--dusk-text-soft)]">Export uses the same filtered rows</p>
                       </div>
                       <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-slate-100">
-                          <thead className="bg-slate-50">
+                        <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
+                          <thead className="bg-[color:var(--dusk-surface-muted)]">
                             <tr>
                               {['Date', 'Impressions', 'Clicks', 'Play Starts', 'Plays Completed', 'CTR', 'Start Rate', 'Completion Rate'].map(header => (
-                                <th key={header} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                <th key={header} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[color:var(--dusk-text-soft)]">
                                   {header}
                                 </th>
                               ))}
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
+                          <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
                             {[...stats].reverse().map(row => {
                               const ctr = row.impressions > 0 ? (row.clicks / row.impressions) * 100 : 0;
                               const startRate = row.impressions > 0 ? (row.videoStarts / row.impressions) * 100 : 0;
                               const completionRate = row.videoStarts > 0 ? (row.videoCompletions / row.videoStarts) * 100 : 0;
                               return (
-                                <tr key={row.date} className="hover:bg-slate-50">
-                                  <td className="px-4 py-2.5 text-sm text-slate-600">{row.date}</td>
-                                  <td className="px-4 py-2.5 text-sm font-medium text-slate-800">{row.impressions.toLocaleString()}</td>
-                                  <td className="px-4 py-2.5 text-sm text-slate-700">{row.clicks.toLocaleString()}</td>
-                                  <td className="px-4 py-2.5 text-sm text-slate-700">{row.videoStarts.toLocaleString()}</td>
-                                  <td className="px-4 py-2.5 text-sm text-slate-700">{row.videoCompletions.toLocaleString()}</td>
-                                  <td className="px-4 py-2.5 text-sm text-slate-700">{ctr.toFixed(2)}%</td>
-                                  <td className="px-4 py-2.5 text-sm text-slate-700">{startRate.toFixed(2)}%</td>
-                                  <td className="px-4 py-2.5 text-sm text-slate-700">{completionRate.toFixed(2)}%</td>
+                                <tr key={row.date} className="hover:bg-[color:var(--dusk-surface-muted)]">
+                                  <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.date}</td>
+                                  <td className="px-4 py-2.5 text-sm font-medium text-[color:var(--dusk-text-primary)]">{row.impressions.toLocaleString()}</td>
+                                  <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.clicks.toLocaleString()}</td>
+                                  <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.videoStarts.toLocaleString()}</td>
+                                  <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.videoCompletions.toLocaleString()}</td>
+                                  <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{ctr.toFixed(2)}%</td>
+                                  <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{startRate.toFixed(2)}%</td>
+                                  <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{completionRate.toFixed(2)}%</td>
                                 </tr>
                               );
                             })}
