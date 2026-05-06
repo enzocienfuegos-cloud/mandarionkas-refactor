@@ -13,6 +13,12 @@ module.exports = {
           message: "Import icons from '@/system/icons' instead.",
         },
       ],
+      patterns: [
+        {
+          group: ['**/shared/dusk-ui', '@/shared/dusk-ui'],
+          message: "Do not import shared/dusk-ui in app surfaces. Use the public design-system barrel from '../system' instead.",
+        },
+      ],
     }],
   },
 };
