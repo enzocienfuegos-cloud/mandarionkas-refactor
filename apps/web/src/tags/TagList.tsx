@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../shared/workspaces';
 import {
   Button,
   CenteredSpinner,
@@ -10,22 +9,15 @@ import {
   Kicker,
   MetricCard,
   Panel,
-  type ColumnDef,
   useConfirm,
   useToast,
 } from '../system';
+import { useTagColumns } from './tag-list/columns';
 import { TagCreateModal } from './tag-list/TagCreateModal';
-import { EMPTY_CREATE_FORM, type CreateTagForm, type IconProps, type Metric, type PrioritySeverity, type Tag, type Tone, type TrendDirection } from './tag-list/types';
+import { type IconProps } from './tag-list/types';
+import { useTagListWorkspace } from './tag-list/useTagListWorkspace';
 import {
   classNames,
-  formatBadge,
-  getDestinationLabel,
-  getFiringLabel,
-  getLastSeenLabel,
-  getOwner,
-  getRisk,
-  severityBadge,
-  tagStatusBadge,
 } from './tag-list/utils';
 
 function iconProps(className?: string) {
@@ -65,13 +57,6 @@ const TagsIcon = ({ className }: IconProps) => (
   </svg>
 );
 
-const ReportIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <path d="M6 19V9M12 19V5M18 19v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    <path d="M4 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
 const TableIcon = ({ className }: IconProps) => (
   <svg {...iconProps(className)}>
     <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
@@ -79,342 +64,52 @@ const TableIcon = ({ className }: IconProps) => (
   </svg>
 );
 
-function toneClass(tone: Tone) {
-  const map: Record<Tone, string> = {
-    fuchsia: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/18 dark:bg-fuchsia-500/10 dark:text-fuchsia-300',
-    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-500/18 dark:bg-emerald-500/10 dark:text-emerald-300',
-    amber: 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-500/18 dark:bg-amber-500/10 dark:text-amber-300',
-    rose: 'border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-500/18 dark:bg-rose-500/10 dark:text-rose-300',
-    sky: 'border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-500/18 dark:bg-sky-500/10 dark:text-sky-300',
-    slate: 'border-border-default bg-[color:var(--dusk-surface-muted)] text-text-muted dark:border-white/8 dark:bg-surface-1/[0.04] dark:text-white/70',
-  };
-  return map[tone];
-}
-
-function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
-  const classes =
-    direction === 'up'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
-      : direction === 'down'
-        ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
-        : 'border-border-default bg-[color:var(--dusk-surface-muted)] text-text-muted dark:border-white/8 dark:bg-surface-1/[0.03] dark:text-white/58';
-
-  return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
-}
-
 export default function TagList() {
   const confirm = useConfirm();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
-  const [selectedClientId, setSelectedClientId] = useState('');
-  const [tagSearch, setTagSearch] = useState('');
-  const [needsQaOnly, setNeedsQaOnly] = useState(false);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [bulkActionLoading, setBulkActionLoading] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState('');
-  const [createForm, setCreateForm] = useState<CreateTagForm>(EMPTY_CREATE_FORM);
-
-  const load = () => {
-    setLoading(true);
-    setError('');
-    Promise.all([
-      fetch('/v1/tags?scope=all', { credentials: 'include' }).then((response) => {
-        if (!response.ok) throw new Error('Failed to load tags');
-        return response.json();
-      }),
-      loadWorkspaces(),
-      loadAuthMe(),
-    ])
-      .then(([payload, workspaceList, authMe]) => {
-        setTags(payload?.tags ?? payload ?? []);
-        setClients(workspaceList.map((workspace) => ({ id: workspace.id, name: workspace.name })));
-        setActiveWorkspaceId(authMe.workspace?.id ?? '');
-      })
-      .catch((loadError: Error) => setError(loadError.message))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(load, []);
-
-  useEffect(() => {
-    if (searchParams.get('create') === '1') {
-      setCreating(true);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (!creating) return;
-    setCreateForm((current) => ({
-      ...current,
-      workspaceId: current.workspaceId || selectedClientId || '',
-    }));
-  }, [creating, selectedClientId]);
-
-  const normalizedTagSearch = tagSearch.trim().toLowerCase();
-  const filteredTags = tags.filter((tag) => {
-    const matchesClient = !selectedClientId || (tag.workspaceId ?? '') === selectedClientId;
-    if (!matchesClient) return false;
-
-    if (needsQaOnly && !['paused', 'draft'].includes(tag.status)) {
-      return false;
-    }
-
-    if (!normalizedTagSearch) return true;
-
-    const haystack = [
-      tag.name,
-      tag.workspaceName,
-      tag.campaign?.name,
-      tag.assignedNames,
-      tag.format,
-      tag.status,
-      tag.sizeLabel,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-
-    return haystack.includes(normalizedTagSearch);
+  const {
+    clients,
+    selectedClientId,
+    setSelectedClientId,
+    tagSearch,
+    setTagSearch,
+    needsQaOnly,
+    setNeedsQaOnly,
+    selectedTagIds,
+    setSelectedTagIds,
+    loading,
+    error,
+    deletingId,
+    bulkActionLoading,
+    creating,
+    createError,
+    createForm,
+    setCreateForm,
+    filteredTags,
+    activeTags,
+    draftTags,
+    archivedTags,
+    totalTags,
+    needsAttentionCount,
+    tagMetrics,
+    selectedKeySet,
+    load,
+    openCreate,
+    closeCreate,
+    handleDelete,
+    handleBulkStatus,
+    handleBulkDelete,
+    handleExportTagCsv,
+    handleCreate,
+  } = useTagListWorkspace({
+    confirm,
+    toast,
+    openCreateFromQuery: searchParams.get('create') === '1',
+    clearCreateQuery: () => setSearchParams({}),
+    onCreatedTag: (tagId) => navigate(`/tags/${tagId}`),
   });
-
-  const selectedCount = selectedTagIds.length;
-  const activeTags = filteredTags.filter((tag) => tag.status === 'active').length;
-  const pausedTags = filteredTags.filter((tag) => tag.status === 'paused').length;
-  const draftTags = filteredTags.filter((tag) => tag.status === 'draft').length;
-  const archivedTags = filteredTags.filter((tag) => tag.status === 'archived').length;
-  const totalTags = filteredTags.length;
-  const healthyRate = totalTags ? Math.round((activeTags / totalTags) * 100) : 0;
-  const readyTags = filteredTags.filter((tag) => tag.status !== 'draft').length;
-  const needsAttentionCount = pausedTags + draftTags;
-
-  const tagMetrics = useMemo<Metric[]>(() => [
-    {
-      id: 'tag-health',
-      label: 'Tag health',
-      value: `${healthyRate}%`,
-      delta: activeTags > 0 ? `+${activeTags}` : '0',
-      direction: activeTags > 0 ? 'up' : 'flat',
-      helper: 'validated firing across active placements',
-      tone: 'fuchsia',
-      series: [Math.max(healthyRate - 18, 0), Math.max(healthyRate - 14, 0), Math.max(healthyRate - 10, 0), Math.max(healthyRate - 6, 0), Math.max(healthyRate - 3, 0), Math.max(healthyRate - 1, 0), healthyRate],
-    },
-    {
-      id: 'low-firing',
-      label: 'Low / no firing',
-      value: `${needsAttentionCount}`,
-      delta: needsAttentionCount > 0 ? `-${Math.min(needsAttentionCount, 2)}` : '0',
-      direction: needsAttentionCount > 0 ? 'down' : 'flat',
-      helper: 'need implementation review',
-      tone: 'amber',
-      series: [needsAttentionCount + 2, needsAttentionCount + 2, needsAttentionCount + 1, needsAttentionCount + 1, needsAttentionCount + 1, needsAttentionCount, needsAttentionCount],
-    },
-    {
-      id: 'ready-tags',
-      label: 'Ready tags',
-      value: `${readyTags}`,
-      delta: readyTags > 0 ? `+${Math.min(readyTags, 4)}` : '0',
-      direction: readyTags > 0 ? 'up' : 'flat',
-      helper: 'generated and ready to share',
-      tone: 'emerald',
-      series: [Math.max(readyTags - 5, 0), Math.max(readyTags - 4, 0), Math.max(readyTags - 3, 0), Math.max(readyTags - 2, 0), Math.max(readyTags - 1, 0), readyTags, readyTags],
-    },
-    {
-      id: 'missing-tags',
-      label: 'Missing tags',
-      value: `${draftTags}`,
-      delta: draftTags > 0 ? `+${Math.min(draftTags, 2)}` : '0',
-      direction: draftTags > 0 ? 'up' : 'flat',
-      helper: 'setup blockers before launch',
-      tone: 'rose',
-      series: [Math.max(draftTags - 1, 0), Math.max(draftTags - 1, 0), draftTags, draftTags, draftTags, draftTags, draftTags],
-    },
-  ], [activeTags, draftTags, healthyRate, needsAttentionCount, readyTags]);
-
-  useEffect(() => {
-    setSelectedTagIds((current) => current.filter((id) => filteredTags.some((tag) => tag.id === id)));
-  }, [filteredTags]);
-
-  const selectedKeySet = useMemo(() => new Set(selectedTagIds), [selectedTagIds]);
-
-  const updateTagInState = (tagId: string, nextStatus: Tag['status']) => {
-    setTags((current) => current.map((tag) => (tag.id === tagId ? { ...tag, status: nextStatus } : tag)));
-  };
-
-  const withWorkspaceContext = async (tag: Tag) => {
-    if (tag.workspaceId && tag.workspaceId !== activeWorkspaceId) {
-      await switchWorkspace(tag.workspaceId);
-      setActiveWorkspaceId(tag.workspaceId);
-    }
-  };
-
-  const handleDelete = async (tag: Tag) => {
-    const confirmed = await confirm({
-      title: `Delete tag "${tag.name}"?`,
-      description: 'This cannot be undone.',
-      tone: 'danger',
-      confirmLabel: 'Delete',
-      requireTypeToConfirm: tag.name,
-    });
-    if (!confirmed) return;
-    setDeletingId(tag.id);
-    try {
-      await withWorkspaceContext(tag);
-      const response = await fetch(`/v1/tags/${tag.id}`, { method: 'DELETE', credentials: 'include' });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.message ?? 'Delete failed');
-      }
-      setTags((current) => current.filter((item) => item.id !== tag.id));
-      toast({ tone: 'warning', title: `Tag "${tag.name}" deleted` });
-    } catch (deleteError: any) {
-      toast({ tone: 'critical', title: deleteError.message ?? 'Failed to delete tag.' });
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const handleBulkStatus = async (nextStatus: Extract<Tag['status'], 'active' | 'paused'>) => {
-    if (!selectedTagIds.length) return;
-    setBulkActionLoading(true);
-    try {
-      const selectedTags = tags.filter((tag) => selectedTagIds.includes(tag.id));
-      for (const tag of selectedTags) {
-        await withWorkspaceContext(tag);
-        const response = await fetch(`/v1/tags/${tag.id}`, {
-          method: 'PUT',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: nextStatus }),
-        });
-        if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          throw new Error(payload?.message ?? `Failed to update "${tag.name}"`);
-        }
-        updateTagInState(tag.id, nextStatus);
-      }
-      setSelectedTagIds([]);
-    } catch (bulkError: any) {
-      toast({ tone: 'critical', title: bulkError.message ?? 'Bulk update failed.' });
-    } finally {
-      setBulkActionLoading(false);
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (!selectedTagIds.length) return;
-    const confirmed = await confirm({
-      title: `Delete ${selectedTagIds.length} selected tag${selectedTagIds.length !== 1 ? 's' : ''}?`,
-      description: 'This cannot be undone.',
-      tone: 'danger',
-      confirmLabel: 'Delete',
-    });
-    if (!confirmed) {
-      return;
-    }
-
-    setBulkActionLoading(true);
-    try {
-      const selectedTags = tags.filter((tag) => selectedTagIds.includes(tag.id));
-      for (const tag of selectedTags) {
-        await withWorkspaceContext(tag);
-        const response = await fetch(`/v1/tags/${tag.id}`, { method: 'DELETE', credentials: 'include' });
-        if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          throw new Error(payload?.message ?? `Failed to delete "${tag.name}"`);
-        }
-      }
-      setTags((current) => current.filter((tag) => !selectedTagIds.includes(tag.id)));
-      setSelectedTagIds([]);
-      toast({ tone: 'warning', title: `${selectedTags.length} tag${selectedTags.length === 1 ? '' : 's'} deleted` });
-    } catch (bulkError: any) {
-      toast({ tone: 'critical', title: bulkError.message ?? 'Bulk delete failed.' });
-    } finally {
-      setBulkActionLoading(false);
-    }
-  };
-
-  const handleExportTagCsv = async (tag: Tag) => {
-    try {
-      const response = await fetch(`/v1/tags/${tag.id}/export`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Export failed');
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${tag.name.replace(/[^a-z0-9-_]+/gi, '_').toLowerCase()}-tag.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch {
-      toast({ tone: 'critical', title: 'Failed to export tag.' });
-    }
-  };
-
-  const closeCreate = () => {
-    setCreating(false);
-    setCreateError('');
-    setCreateForm(EMPTY_CREATE_FORM);
-    if (searchParams.get('create') === '1') {
-      setSearchParams({});
-    }
-  };
-
-  const handleCreate = async () => {
-    if (!createForm.workspaceId) {
-      setCreateError('Client is required.');
-      return;
-    }
-    if (!createForm.name.trim()) {
-      setCreateError('Tag name is required.');
-      return;
-    }
-    if (createForm.format === 'display' && (!createForm.servingWidth || !createForm.servingHeight)) {
-      setCreateError('Display tags require width and height.');
-      return;
-    }
-    if (createForm.format === 'tracker' && createForm.trackerType === 'click' && !createForm.clickUrl.trim()) {
-      setCreateError('Click trackers require a destination URL.');
-      return;
-    }
-
-    setCreateError('');
-
-    try {
-      const response = await fetch('/v1/tags', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workspaceId: createForm.workspaceId,
-          name: createForm.name.trim(),
-          campaignId: createForm.campaignId || null,
-          format: createForm.format,
-          status: createForm.status,
-          servingWidth: createForm.format === 'display' ? Number(createForm.servingWidth) || null : null,
-          servingHeight: createForm.format === 'display' ? Number(createForm.servingHeight) || null : null,
-          trackerType: createForm.format === 'tracker' ? createForm.trackerType : null,
-          clickUrl: createForm.format === 'tracker' && createForm.trackerType === 'click' ? createForm.clickUrl.trim() || null : null,
-        }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.message ?? 'Failed to create tag');
-      closeCreate();
-      await load();
-      const createdId = payload?.tag?.id ?? payload?.id;
-      if (createdId) navigate(`/tags/${createdId}`);
-    } catch (createErr: any) {
-      setCreateError(createErr.message ?? 'Failed to create tag');
-    }
-  };
 
   if (loading) {
     return <CenteredSpinner label="Loading tags workspace…" />;
@@ -430,117 +125,12 @@ export default function TagList() {
     );
   }
 
-  const tagColumns = useMemo<ColumnDef<Tag>[]>(() => [
-    {
-      id: 'tag',
-      header: 'Tag',
-      sortAccessor: (tag) => tag.name,
-      cell: (tag) => (
-        <div>
-          <p className="font-semibold text-[color:var(--dusk-text-primary)]">{tag.name}</p>
-          <p className="mt-1 text-xs text-text-muted">
-            {tag.workspaceName ?? 'Workspace'} · {tag.campaign?.name ?? 'No campaign'}
-          </p>
-        </div>
-      ),
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      sortAccessor: (tag) => tag.status,
-      cell: (tag) => (
-        <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize', tagStatusBadge(tag.status))}>
-          {tag.status}
-        </span>
-      ),
-    },
-    {
-      id: 'firing',
-      header: 'Firing',
-      sortAccessor: (tag) => getFiringLabel(tag),
-      cell: (tag) => <span className="font-medium text-text-secondary">{getFiringLabel(tag)}</span>,
-    },
-    {
-      id: 'destination',
-      header: 'Destination',
-      sortAccessor: (tag) => getDestinationLabel(tag),
-      cell: (tag) => (
-        <div className="flex flex-col gap-2">
-          {formatBadge(tag.format)}
-          <span className="text-xs text-text-muted">{getDestinationLabel(tag)}</span>
-        </div>
-      ),
-    },
-    {
-      id: 'last-seen',
-      header: 'Last seen',
-      sortAccessor: (tag) => tag.createdAt,
-      cell: (tag) => <span className="text-text-muted">{getLastSeenLabel(tag)}</span>,
-    },
-    {
-      id: 'risk',
-      header: 'Risk',
-      sortAccessor: (tag) => getRisk(tag),
-      cell: (tag) => {
-        const risk = getRisk(tag);
-        return <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', severityBadge(risk))}>{risk}</span>;
-      },
-    },
-    {
-      id: 'owner',
-      header: 'Owner',
-      sortAccessor: (tag) => getOwner(tag),
-      cell: (tag) => <span className="text-text-muted">{getOwner(tag)}</span>,
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      align: 'right',
-      cell: (tag) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <Button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              void handleExportTagCsv(tag);
-            }}
-            aria-label={`Export ${tag.name}`}
-            variant="ghost"
-            size="sm"
-            className="px-2"
-          >
-            <ReportIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              navigate(`/tags/${tag.id}`);
-            }}
-            aria-label={`Edit ${tag.name}`}
-            variant="ghost"
-            size="sm"
-            className="px-2"
-          >
-            <TableIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              void handleDelete(tag);
-            }}
-            disabled={deletingId === tag.id}
-            aria-label={`Delete ${tag.name}`}
-            variant="danger"
-            size="sm"
-          >
-            {deletingId === tag.id ? 'Deleting…' : 'Delete'}
-          </Button>
-        </div>
-      ),
-    },
-  ], [deletingId, navigate, tags]);
+  const tagColumns = useTagColumns({
+    deletingId,
+    onEdit: (tag) => navigate(`/tags/${tag.id}`),
+    onExport: handleExportTagCsv,
+    onDelete: handleDelete,
+  });
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
@@ -582,7 +172,7 @@ export default function TagList() {
           </label>
         </div>
 
-        <Button type="button" onClick={() => setCreating(true)} variant="primary">
+        <Button type="button" onClick={openCreate} variant="primary">
           Generate tag
         </Button>
       </div>
@@ -629,7 +219,7 @@ export default function TagList() {
               metric.id === 'tag-health'
                 ? <TagsIcon />
                 : metric.id === 'ready-tags'
-                  ? <ReportIcon />
+                  ? <TableIcon />
                   : <AlertTriangleIcon />
             }
           />
@@ -641,7 +231,7 @@ export default function TagList() {
           kicker="No matches"
           title="No tags yet"
           description="No tags match the current advertiser or search filter."
-          action={<Button onClick={() => setCreating(true)} variant="primary">Generate tag</Button>}
+          action={<Button onClick={openCreate} variant="primary">Generate tag</Button>}
         />
       ) : (
         <Panel className="overflow-hidden p-6">
