@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, FormEvent } from 'react';
 import {
   Button,
   CenteredSpinner,
+  IconButton,
   Input,
   Kicker,
   MetricCard,
@@ -26,63 +27,18 @@ import {
   formatCurrency,
   formatNumber,
   parseCount,
-  severityBadge,
 } from './discrepancy-view/utils';
-
-type IconProps = { className?: string };
-
-function iconProps(className?: string) {
-  return {
-    className: classNames('h-5 w-5', className),
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    'aria-hidden': true,
-  } as const;
-}
-
-const AlertTriangleIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <path d="M12 4 3.5 19h17L12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-    <path d="M12 9v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    <circle cx="12" cy="16" r="1" fill="currentColor" />
-  </svg>
-);
-
-const SearchIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8" />
-    <path d="m21 21-4.3-4.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
-const FilterIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
-const ReportIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <path d="M6 19V9M12 19V5M18 19v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    <path d="M4 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
-const TableIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
-    <path d="M4 10h16M10 5v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
-function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
-  const classes = direction === 'up'
-    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
-    : direction === 'down'
-      ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
-      : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/58';
-  return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
-}
+import {
+  AlertTriangleIcon,
+  DiscrepancyStatusPill,
+  FilterIcon,
+  ReportIcon,
+  SearchIcon,
+  SeverityPill,
+  TableIcon,
+  TrendBadge,
+  toneToMetricTone,
+} from './discrepancy-view/components';
 
 export default function DiscrepanciesView() {
   const [discrepancies, setDiscrepancies] = useState<Discrepancy[]>([]);
@@ -254,10 +210,10 @@ export default function DiscrepanciesView() {
 
   if (error) {
     return (
-      <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
+      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]" role="alert">
         <p className="font-medium">Error loading discrepancies</p>
         <p className="mt-1 text-sm">{error}</p>
-        <button onClick={load} className="mt-3 text-sm font-semibold text-rose-600 underline dark:text-rose-300">Retry</button>
+        <Button onClick={load} variant="ghost" size="sm" className="mt-3">Retry</Button>
       </Panel>
     );
   }
@@ -266,37 +222,27 @@ export default function DiscrepanciesView() {
     <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]"
-          >
+          <Button type="button" variant="secondary">
             Last 30 days
-          </button>
-          <button
-            type="button"
-            className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-white/[0.045]"
-          >
+          </Button>
+          <Button type="button" variant="secondary">
             {filters.severity === 'all' ? 'All severities' : filters.severity}
-          </button>
+          </Button>
           <label className="relative block min-w-[320px]">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40"><SearchIcon /></span>
-            <input
+            <span className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[color:var(--dusk-text-muted)]"><SearchIcon /></span>
+            <Input
               value={filters.severity === 'all' ? '' : filters.severity}
               onChange={() => undefined}
               placeholder="Search campaign, publisher, owner"
-              className="min-h-[46px] w-full rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
+              className="min-h-[46px] pl-10"
               readOnly
             />
           </label>
         </div>
 
-        <button
-          type="button"
-          onClick={load}
-          className="inline-flex min-h-[46px] items-center rounded-xl bg-brand-gradient px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
-        >
+        <Button type="button" onClick={load} variant="primary">
           Investigate gap
-        </button>
+        </Button>
       </div>
 
       <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
@@ -332,17 +278,7 @@ export default function DiscrepanciesView() {
             context={metric.helper}
             series={metric.series}
             tone={
-              metric.tone === 'fuchsia'
-                ? 'brand'
-                : metric.tone === 'emerald'
-                  ? 'success'
-                  : metric.tone === 'amber'
-                    ? 'warning'
-                    : metric.tone === 'rose'
-                      ? 'critical'
-                      : metric.tone === 'sky'
-                        ? 'info'
-                        : 'neutral'
+              toneToMetricTone(metric.tone)
             }
             icon={metric.id === 'variance-health' ? <ReportIcon /> : metric.id === 'resolved' ? <TableIcon /> : <AlertTriangleIcon />}
           />
@@ -400,28 +336,18 @@ export default function DiscrepanciesView() {
                       <p className="mt-1 text-xs text-slate-500 dark:text-white/48">{row.advertiser} · {row.publisher}</p>
                     </td>
                     <td className="px-5 py-5">
-                      <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', discrepancyStatusBadge(row.status))}>
-                        {row.status}
-                      </span>
+                      <DiscrepancyStatusPill status={row.status} />
                     </td>
                     <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.adserver}</td>
                     <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.publisherReported}</td>
                     <td className="px-5 py-5 font-medium text-slate-700 dark:text-white/72">{row.variance}</td>
                     <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.threshold}</td>
                     <td className="px-5 py-5">
-                      <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', severityBadge(row.risk))}>
-                        {row.risk}
-                      </span>
+                      <SeverityPill severity={row.risk} />
                     </td>
                     <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.owner}</td>
                     <td className="px-5 py-5">
-                      <button
-                        type="button"
-                        onClick={load}
-                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
-                      >
-                        Investigate
-                      </button>
+                      <Button type="button" onClick={load} variant="secondary" size="sm">Investigate</Button>
                     </td>
                   </tr>
                 ))}

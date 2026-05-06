@@ -428,11 +428,11 @@ export default function CreativeApproval() {
             <div className="grid gap-0 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)]">
               <div className="min-h-[420px] border-b border-[color:var(--dusk-border-subtle)] bg-slate-950 lg:border-b-0 lg:border-r">
                 {qaState.loading ? (
-                  <div className="flex h-full min-h-[420px] items-center justify-center text-white">
+                  <div className="flex h-full min-h-[420px] items-center justify-center text-text-primary">
                     <CenteredSpinner label="Loading QA detail…" />
                   </div>
                 ) : qaState.error ? (
-                  <div className="p-6 text-sm text-red-300">{qaState.error}</div>
+                  <Panel className="m-6 border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-sm text-[color:var(--dusk-status-critical-fg)]" role="alert">{qaState.error}</Panel>
                 ) : qaState.version?.servingFormat === 'vast_video' ? (
                   <div className="flex h-full min-h-[420px] items-center justify-center p-6">
                     <div className="w-full max-w-3xl space-y-4">
@@ -455,11 +455,11 @@ export default function CreativeApproval() {
                   <iframe
                     title={`QA preview ${qaState.version.creativeName ?? qaState.version.creativeId}`}
                     src={qaState.version.publicUrl}
-                    className="h-[70vh] min-h-[420px] w-full bg-white"
+                    className="h-[70vh] min-h-[420px] w-full bg-surface-1"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                   />
                 ) : (
-                  <div className="flex h-full min-h-[420px] items-center justify-center p-6 text-sm text-slate-300">
+                  <div className="flex h-full min-h-[420px] items-center justify-center p-6 text-sm text-[color:var(--dusk-text-muted)]">
                     No previewable public artifact available.
                   </div>
                 )}
@@ -601,7 +601,7 @@ export default function CreativeApproval() {
             <div className="text-white">
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold">{previewState.name}</div>
-                <div className="text-xs text-slate-300">{previewState.width} × {previewState.height}</div>
+                <div className="text-xs text-[color:var(--dusk-text-muted)]">{previewState.width} × {previewState.height}</div>
               </div>
             </div>
           }
@@ -623,8 +623,8 @@ export default function CreativeApproval() {
             </>
           }
         >
-          <div className="-mx-6 -my-4 flex items-center justify-center bg-slate-950 p-4">
-            <div className="flex items-center justify-center bg-slate-950 p-4">
+          <div className="-mx-6 -my-4 flex items-center justify-center bg-[color:var(--dusk-surface-muted)] p-4">
+            <div className="flex items-center justify-center bg-[color:var(--dusk-surface-muted)] p-4">
               {previewState.kind === 'video' ? (
                 <video
                   controls
@@ -637,7 +637,7 @@ export default function CreativeApproval() {
                 <iframe
                   title={`Preview: ${previewState.name}`}
                   src={previewState.url}
-                  className="rounded-lg bg-white"
+                  className="rounded-lg bg-surface-1"
                   style={{ width: `${previewState.width}px`, height: `${previewState.height}px`, maxWidth: '88vw', maxHeight: '80vh' }}
                   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                 />
