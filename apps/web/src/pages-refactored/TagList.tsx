@@ -22,7 +22,7 @@ import {
   useToast,
 } from '../system';
 
-type TagStatus = 'active' | 'paused' | 'archived';
+type TagStatus = 'active' | 'paused' | 'archived' | 'draft';
 
 interface Tag {
   id: string;
@@ -41,7 +41,40 @@ const STATUS_TONE: Record<TagStatus, 'success' | 'warning' | 'neutral'> = {
   active:   'success',
   paused:   'warning',
   archived: 'neutral',
+  draft: 'neutral',
 };
+
+function normalizeTag(row: any): Tag {
+  const rawStatus = String(row?.status ?? 'draft').toLowerCase();
+  const status: TagStatus =
+    rawStatus === 'active' || rawStatus === 'paused' || rawStatus === 'archived'
+      ? rawStatus
+      : 'draft';
+  const servingUrl =
+    String(
+      row?.servingUrl
+      ?? row?.publicUrl
+      ?? row?.impressionUrl
+      ?? row?.clickUrl
+      ?? '',
+    );
+  return {
+    id: String(row?.id ?? ''),
+    name: String(row?.name ?? ''),
+    campaignName: String(row?.campaign?.name ?? row?.campaignName ?? row?.campaign_name ?? 'No campaign'),
+    size: String(
+      row?.size
+      ?? row?.sizeLabel
+      ?? ((row?.servingWidth && row?.servingHeight) ? `${row.servingWidth}x${row.servingHeight}` : ''),
+    ),
+    format: String(row?.format ?? 'display'),
+    status,
+    impressions: Number(row?.impressions ?? 0),
+    clicks: Number(row?.clicks ?? 0),
+    ctr: Number(row?.ctr ?? 0),
+    servingUrl,
+  };
+}
 
 /**
  * Tag list — refactored to the design system (S56).
@@ -61,9 +94,9 @@ export default function TagList() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('/v1/tags', { credentials: 'include' })
+    fetch('/v1/tags?scope=all', { credentials: 'include' })
       .then((r) => r.json())
-      .then((data) => setTags(data?.items ?? []))
+      .then((data) => setTags((data?.tags ?? data ?? []).map(normalizeTag)))
       .catch(() => toast({ tone: 'critical', title: 'Could not load tags' }))
       .finally(() => setLoading(false));
   }, [toast]);
@@ -155,7 +188,10 @@ export default function TagList() {
             size="sm"
             variant="ghost"
             leadingIcon={<ExternalLink />}
-            onClick={(e) => { e.stopPropagation(); window.open(row.servingUrl, '_blank', 'noopener'); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (row.servingUrl) window.open(row.servingUrl, '_blank', 'noopener');
+            }}
             aria-label="Open in new tab"
           >
             Preview

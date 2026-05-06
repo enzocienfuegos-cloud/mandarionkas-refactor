@@ -39,6 +39,26 @@ interface Campaign {
   dsp?: string;
 }
 
+function normalizeCampaign(row: any): Campaign {
+  const rawStatus = String(row?.status ?? 'draft').toLowerCase();
+  const status: CampaignStatus =
+    rawStatus === 'active' || rawStatus === 'paused' || rawStatus === 'archived' || rawStatus === 'completed'
+      ? rawStatus
+      : 'draft';
+  return {
+    id: String(row?.id ?? ''),
+    name: String(row?.name ?? ''),
+    client: String(row?.workspaceName ?? row?.workspace_name ?? row?.client ?? 'Unknown client'),
+    status,
+    startDate: row?.startDate ?? row?.start_date ?? null,
+    endDate: row?.endDate ?? row?.end_date ?? null,
+    impressions: Number(row?.impressions ?? row?.impressionCount ?? 0),
+    goal: Number(row?.impressionGoal ?? row?.impression_goal ?? 0),
+    pacing: Number(row?.pacing ?? 0),
+    dsp: row?.metadata?.dsp ?? row?.dsp ?? undefined,
+  };
+}
+
 const STATUS_TONE: Record<CampaignStatus, 'success' | 'warning' | 'info' | 'neutral' | 'critical'> = {
   active:    'success',
   draft:     'neutral',
@@ -69,9 +89,9 @@ export default function CampaignList() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('/v1/campaigns', { credentials: 'include' })
+    fetch('/v1/campaigns?scope=all', { credentials: 'include' })
       .then((r) => r.json())
-      .then((data) => setCampaigns(data?.items ?? []))
+      .then((data) => setCampaigns((data?.campaigns ?? data ?? []).map(normalizeCampaign)))
       .catch(() => toast({ tone: 'critical', title: 'Could not load campaigns' }))
       .finally(() => setLoading(false));
   }, [toast]);
@@ -98,7 +118,7 @@ export default function CampaignList() {
       await Promise.all(
         rows.map((row) =>
           fetch(`/v1/campaigns/${row.id}`, {
-            method: 'PATCH',
+            method: 'PUT',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'paused' }),
@@ -128,7 +148,7 @@ export default function CampaignList() {
       await Promise.all(
         rows.map((row) =>
           fetch(`/v1/campaigns/${row.id}`, {
-            method: 'PATCH',
+            method: 'PUT',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'archived' }),
