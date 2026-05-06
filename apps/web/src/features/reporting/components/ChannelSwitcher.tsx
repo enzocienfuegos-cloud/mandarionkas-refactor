@@ -11,7 +11,7 @@ const reportingModes: Array<{ id: ReportingMode; label: string; icon: Parameters
 
 export function ChannelSwitcher({ mode, onModeChange }: { mode: ReportingMode; onModeChange: (mode: ReportingMode) => void }) {
   return (
-    <div className="flex flex-wrap rounded-2xl border border-white/10 bg-white/[0.035] p-1 text-sm font-bold text-slate-400">
+    <div className="flex flex-wrap rounded-2xl border border-[color:var(--dusk-border-default)] bg-surface-1 p-1 text-sm font-bold text-[color:var(--dusk-text-muted)]">
       {reportingModes.map((item) => {
         const active = item.id === mode;
         return (
@@ -22,7 +22,7 @@ export function ChannelSwitcher({ mode, onModeChange }: { mode: ReportingMode; o
             onClick={() => onModeChange(item.id)}
             className={[
               'flex items-center gap-2 rounded-xl px-4 py-2 transition',
-              active ? 'border border-fuchsia-400/40 bg-fuchsia-500/16 text-white shadow-[0_0_24px_rgba(217,70,239,.16)]' : 'hover:bg-white/[0.045] hover:text-white',
+              active ? 'border border-fuchsia-400/40 bg-fuchsia-500/16 text-[color:var(--dusk-text-primary)] shadow-[0_0_24px_rgba(217,70,239,.16)]' : 'hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]',
             ].join(' ')}
           >
             <IconGlyph name={item.icon} size={14} />

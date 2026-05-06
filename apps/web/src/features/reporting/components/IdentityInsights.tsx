@@ -7,12 +7,12 @@ export function IdentityInsights() {
     <WidgetPanel title="Identity insights" icon="identity" tone="emerald">
       <div className="space-y-3">
         {identityTypeRows.map((row) => (
-          <div key={row.key} className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.025] px-3 py-3">
+          <div key={row.key} className="flex items-center justify-between rounded-2xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-3">
             <div>
-              <p className="font-semibold text-white">{row.key.replace(/_/g, ' ')}</p>
-              <p className="text-xs text-slate-500">{row.value.toLocaleString()} matched events</p>
+              <p className="font-semibold text-[color:var(--dusk-text-primary)]">{row.key.replace(/_/g, ' ')}</p>
+              <p className="text-xs text-[color:var(--dusk-text-soft)]">{row.value.toLocaleString()} matched events</p>
             </div>
-            <span className="text-sm font-bold text-emerald-300">{row.percentage}%</span>
+            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-300">{row.percentage}%</span>
           </div>
         ))}
       </div>

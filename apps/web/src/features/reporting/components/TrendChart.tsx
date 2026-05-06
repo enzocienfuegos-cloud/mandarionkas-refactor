@@ -37,7 +37,7 @@ export function TrendChart({ mode }: { mode: ReportingMode }) {
     <WidgetPanel title="Performance over time" icon="spark" tone={mode === 'video' ? 'blue' : mode === 'identity' ? 'emerald' : 'fuchsia'}>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         {series.map((item) => (
-          <span key={item.id} className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400">
+          <span key={item.id} className="inline-flex items-center gap-2 text-xs font-semibold text-[color:var(--dusk-text-muted)]">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: strokeByTone[item.tone], opacity: item.dashed ? 0.7 : 1 }} />
             {item.label}
           </span>
@@ -69,7 +69,7 @@ export function TrendChart({ mode }: { mode: ReportingMode }) {
         })}
         {basePoints.map((point, index) => {
           const x = pad.l + (index / Math.max(basePoints.length - 1, 1)) * chartW;
-          return <text key={point.date} x={x} y={height - 6} textAnchor="middle" fontSize="11" fill="#64748b">{point.date}</text>;
+          return <text key={point.date} x={x} y={height - 6} textAnchor="middle" fontSize="11" fill="var(--dusk-text-soft)">{point.date}</text>;
         })}
       </svg>
     </WidgetPanel>

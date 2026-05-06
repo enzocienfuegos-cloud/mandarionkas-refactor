@@ -16,7 +16,7 @@ const CreativeLibrary = lazy(() => import('./pages-refactored/creative-library/C
 const CreativeApproval = lazy(() => import('./pages-refactored/CreativeApproval'));
 const PacingDashboard = lazy(() => import('./pages-refactored/PacingDashboard'));
 const Discrepancies = lazy(() => import('./pages-refactored/DiscrepancyDashboard'));
-const Reporting = lazy(() => import('./pages-refactored/Reporting'));
+const Reporting = lazy(() => import('./analytics/AnalyticsDashboard'));
 const AbExperimentEditor = lazy(() => import('./pages-refactored/AbExperimentEditor'));
 const Experiments = lazy(() => import('./pages-refactored/Experiments'));
 const Settings = lazy(() => import('./pages-refactored/Settings'));

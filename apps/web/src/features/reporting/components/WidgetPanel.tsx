@@ -17,18 +17,18 @@ export function WidgetPanel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[18px] border border-white/[0.075] bg-[linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.032))] shadow-[0_24px_80px_rgba(0,0,0,.23)] backdrop-blur-xl">
-      <header className="flex items-center justify-between border-b border-white/10 p-4">
+    <section className="rounded-[18px] border border-[color:var(--dusk-border-default)] bg-surface-1 shadow-2 backdrop-blur-xl">
+      <header className="flex items-center justify-between border-b border-[color:var(--dusk-border-subtle)] p-4">
         <div className="flex items-center gap-2">
-          <span className="rounded-lg border border-white/10 p-1.5 text-slate-500">
+          <span className="rounded-lg border border-[color:var(--dusk-border-subtle)] p-1.5 text-[color:var(--dusk-text-soft)]">
             <IconGlyph name="more" size={12} className="rotate-90" />
           </span>
           {icon ? <BrandIcon name={icon} tone={tone} compact size={14} /> : null}
-          <h3 className="font-black text-white">{title}</h3>
+          <h3 className="font-black text-[color:var(--dusk-text-primary)]">{title}</h3>
         </div>
         <div className="flex items-center gap-2">
           {action}
-          <button type="button" className="rounded-lg border border-white/10 p-1.5 text-slate-500">
+          <button type="button" className="rounded-lg border border-[color:var(--dusk-border-subtle)] p-1.5 text-[color:var(--dusk-text-soft)] transition hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]">
             <IconGlyph name="more" size={16} />
           </button>
         </div>

@@ -48,7 +48,7 @@ export function CreativePreviewModal({ creative, onClose }: CreativePreviewModal
             <iframe
               src={creative.previewUrl}
               title={creative.name}
-              className="w-full h-[420px] bg-white"
+              className="h-[420px] w-full bg-[color:var(--dusk-surface-muted)]"
               sandbox="allow-scripts allow-same-origin"
             />
           </div>

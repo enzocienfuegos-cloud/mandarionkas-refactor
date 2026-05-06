@@ -31,12 +31,12 @@ function GenericInfoPanel({ title, icon, tone, rows }: { title: string; icon: 'i
     <WidgetPanel title={title} icon={icon} tone={tone}>
       <div className="space-y-3">
         {rows.map((row) => (
-          <div key={row.label} className="rounded-2xl border border-white/8 bg-white/[0.025] px-3 py-3">
+          <div key={row.label} className="rounded-2xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-3">
             <div className="flex items-center justify-between gap-3">
-              <p className="font-semibold text-white">{row.label}</p>
-              <span className="text-sm font-bold text-white">{row.value}</span>
+              <p className="font-semibold text-[color:var(--dusk-text-primary)]">{row.label}</p>
+              <span className="text-sm font-bold text-[color:var(--dusk-text-primary)]">{row.value}</span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">{row.helper}</p>
+            <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">{row.helper}</p>
           </div>
         ))}
       </div>

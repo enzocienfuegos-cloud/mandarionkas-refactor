@@ -7,14 +7,14 @@ export function TopRegions() {
     <WidgetPanel title="Top regions" icon="geo" tone="violet">
       <div className="space-y-3">
         {topRegionsRows.map((row) => (
-          <div key={row.name} className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.025] px-3 py-3">
+          <div key={row.name} className="flex items-center justify-between rounded-2xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-3">
             <div>
-              <p className="font-semibold text-white">{row.name}</p>
-              <p className="text-xs text-slate-500">{row.impressions.toLocaleString()} impressions</p>
+              <p className="font-semibold text-[color:var(--dusk-text-primary)]">{row.name}</p>
+              <p className="text-xs text-[color:var(--dusk-text-soft)]">{row.impressions.toLocaleString()} impressions</p>
             </div>
             <div className="text-right">
-              <p className="font-bold text-white">{row.ctr}</p>
-              <p className="text-xs text-slate-500">{row.share} share</p>
+              <p className="font-bold text-[color:var(--dusk-text-primary)]">{row.ctr}</p>
+              <p className="text-xs text-[color:var(--dusk-text-soft)]">{row.share} share</p>
             </div>
           </div>
         ))}

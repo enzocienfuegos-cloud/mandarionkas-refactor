@@ -254,7 +254,7 @@ export default function CreativeApproval() {
               <iframe
                 src={previewing.previewUrl}
                 title={previewing.name}
-                className="w-full h-[420px] bg-white"
+                className="h-[420px] w-full bg-[color:var(--dusk-surface-muted)]"
                 sandbox="allow-scripts allow-same-origin"
               />
             </div>
