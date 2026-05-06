@@ -28,7 +28,7 @@ export function ApiKeysTable({
   return (
     <Panel className="overflow-hidden p-0">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200">
+        <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
           <caption className="sr-only">API keys and their scopes</caption>
           <thead className="bg-[color:var(--dusk-surface-muted)]">
             <tr>
@@ -39,7 +39,7 @@ export function ApiKeysTable({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
             {keys.map((key) => (
               <tr key={key.id} className="transition-colors hover:bg-[color:var(--dusk-surface-muted)]">
                 <th scope="row" className="px-4 py-3 text-left text-sm font-medium text-text-primary">{key.name}</th>

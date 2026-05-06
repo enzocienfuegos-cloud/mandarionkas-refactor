@@ -123,14 +123,14 @@ export default function CampaignEditor() {
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
         <Kicker>Campaigns</Kicker>
-        <h1 className="mt-3 text-2xl font-semibold text-slate-800 dark:text-white">{isEdit ? 'Edit Campaign' : 'New Campaign'}</h1>
+        <h1 className="mt-3 text-2xl font-semibold text-text-primary">{isEdit ? 'Edit Campaign' : 'New Campaign'}</h1>
       </div>
 
       <Panel className="rounded-xl">
         {generalError && (
-          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          <Panel className="mb-4 border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]" role="alert">
             {generalError}
-          </div>
+          </Panel>
         )}
 
         <form onSubmit={handleSubmit} noValidate>

@@ -1,6 +1,6 @@
 import React, { useState, type FormEvent } from 'react';
 import { getPlatformRoleLabel, type PlatformRole } from '../../shared/roles';
-import { Button, EmptyState, Input, Panel, Select } from '../../system';
+import { Button, EmptyState, FormField, Input, Panel, Select } from '../../system';
 import {
   ProductAccessBadge,
   PLATFORM_ROLES,
@@ -60,28 +60,25 @@ export function WorkspaceMembersSection({
       <Panel className="p-6">
         <h2 className="mb-4 text-base font-semibold text-text-primary">Invite Member</h2>
         <form onSubmit={handleInvite} className="flex flex-wrap items-end gap-3">
-          <div className="min-w-48 flex-1">
-            <label className="mb-1 block text-sm font-medium text-text-secondary">Email</label>
+          <FormField label="Email" className="min-w-48 flex-1" error={inviteError || undefined}>
             <Input
               type="email"
               value={inviteEmail}
               onChange={(event) => setInviteEmail(event.target.value)}
               placeholder="colleague@example.com"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-text-secondary">Platform Role</label>
+          </FormField>
+          <FormField label="Platform Role">
             <Select
               value={inviteRole}
               onChange={(event) => setInviteRole(event.target.value as PlatformRole)}
               options={PLATFORM_ROLES.map((role) => ({ value: role, label: getPlatformRoleLabel(role) }))}
             />
-          </div>
+          </FormField>
           <Button type="submit" disabled={inviting}>
             {inviting ? 'Inviting...' : 'Send Invite'}
           </Button>
         </form>
-        {inviteError && <p className="mt-2 text-sm text-[color:var(--dusk-status-critical-fg)]">{inviteError}</p>}
         {inviteSuccess && <p className="mt-2 text-sm text-[color:var(--dusk-status-success-fg)]">{inviteSuccess}</p>}
       </Panel>
 
@@ -97,7 +94,7 @@ export function WorkspaceMembersSection({
             />
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-slate-100">
+          <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
             <caption className="sr-only">Workspace team members and permissions</caption>
             <thead className="bg-[color:var(--dusk-surface-muted)]">
               <tr>
@@ -108,7 +105,7 @@ export function WorkspaceMembersSection({
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
               {members.map((member) => (
                 <tr key={member.id} className="transition-colors hover:bg-[color:var(--dusk-surface-muted)]">
                   <th scope="row" className="px-4 py-3 text-left">
