@@ -1,86 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Panel, SectionKicker } from '../shared/dusk-ui';
-import { MetricCard as DuskMetricCard } from '../system';
+import { CenteredSpinner, Kicker, MetricCard, Panel } from '../system';
+import { SparklineModal } from './pacing-view/SparklineModal';
+import type {
+  Metric,
+  PacingAlert,
+  PacingCampaign,
+  PacingData,
+  PacingRow,
+  PacingStatus,
+  PrioritySeverity,
+  RawPacingStatus,
+  SortKey,
+  Tone,
+  TrendDirection,
+} from './pacing-view/types';
+import {
+  buildPacingRow,
+  classNames,
+  fmtCurrency,
+  fmtNum,
+  normalizePacingAlert,
+  normalizePacingCampaign,
+} from './pacing-view/utils';
 
-type TrendDirection = 'up' | 'down' | 'flat';
-type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
-type PrioritySeverity = 'Critical' | 'Warning' | 'Notice';
-type PacingStatus = 'On pace' | 'Underpacing' | 'Overpacing' | 'At risk' | 'Paused';
 type IconProps = { className?: string };
-
-type Metric = {
-  id: string;
-  label: string;
-  value: string;
-  delta: string;
-  direction: TrendDirection;
-  helper: string;
-  tone: Tone;
-  series: number[];
-};
-
-type PacingRow = {
-  id: string;
-  campaign: string;
-  advertiser: string;
-  status: PacingStatus;
-  pacing: string;
-  spend: string;
-  budget: string;
-  dailyTarget: string;
-  projected: string;
-  risk: PrioritySeverity;
-  owner: string;
-};
-
-type RawPacingStatus = 'on_track' | 'behind' | 'ahead' | 'completed' | 'not_started' | 'no_goal';
-
-interface PacingCampaign {
-  id: string;
-  name: string;
-  advertiser: string;
-  status: RawPacingStatus;
-  pacingPct: number;
-  deliveryPct: number;
-  impressionsServed: number;
-  impressionGoal: number | null;
-  remainingDays: number;
-  startDate: string;
-  endDate: string;
-}
-
-interface PacingAlert {
-  campaignId: string;
-  campaignName: string;
-  status: RawPacingStatus;
-  message: string;
-  severity: 'warning' | 'critical';
-}
-
-interface PacingData {
-  campaigns: PacingCampaign[];
-  summary: {
-    total: number;
-    active: number;
-    onTrack: number;
-    behind: number;
-    totalServed: number;
-  };
-}
-
-interface BreakdownDay {
-  date: string;
-  impressions: number;
-  expected: number;
-}
-
-type SortKey = 'campaign' | 'advertiser' | 'pacingPct' | 'deliveryPct' | 'remainingDays' | 'impressionsServed';
-
-const BREAKDOWN_RANGES = [7, 14, 30, 60];
-
-function classNames(...values: Array<string | false | null | undefined>) {
-  return values.filter(Boolean).join(' ');
-}
 
 function iconProps(className?: string) {
   return {
@@ -182,257 +125,6 @@ function TrendBadge({ direction, value }: { direction: TrendDirection; value: st
         ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
         : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/58';
   return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
-}
-
-function fmtNum(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return value.toLocaleString();
-}
-
-function fmtCurrency(value: number): string {
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
-  return `$${value.toFixed(0)}`;
-}
-
-function normalizePacingCampaign(raw: any): PacingCampaign {
-  const pacing = raw?.pacing ?? {};
-  return {
-    id: String(raw?.id ?? ''),
-    name: String(raw?.name ?? 'Untitled campaign'),
-    advertiser: String(raw?.advertiser ?? raw?.advertiserName ?? '—'),
-    status: (raw?.status ?? pacing?.status ?? 'no_goal') as RawPacingStatus,
-    pacingPct: Number(raw?.pacingPct ?? pacing?.pacingPct ?? 0) || 0,
-    deliveryPct: Number(raw?.deliveryPct ?? pacing?.deliveryPct ?? 0) || 0,
-    impressionsServed: Number(raw?.impressionsServed ?? raw?.servedTotal ?? pacing?.servedTotal ?? 0) || 0,
-    impressionGoal: raw?.impressionGoal ?? pacing?.impressionGoal ?? null,
-    remainingDays: Number(raw?.remainingDays ?? pacing?.remainingDays ?? 0) || 0,
-    startDate: String(raw?.startDate ?? ''),
-    endDate: String(raw?.endDate ?? ''),
-  };
-}
-
-function normalizePacingAlert(raw: any): PacingAlert {
-  const campaign = normalizePacingCampaign(raw);
-  const severity = campaign.status === 'behind' ? 'critical' : 'warning';
-  const message =
-    raw?.message ??
-    (campaign.status === 'behind'
-      ? `Delivery is behind expected pacing at ${campaign.pacingPct.toFixed(1)}%.`
-      : `Campaign has ${campaign.remainingDays} day(s) left and ${campaign.deliveryPct.toFixed(1)}% delivered.`);
-  return {
-    campaignId: campaign.id,
-    campaignName: campaign.name,
-    status: campaign.status,
-    message,
-    severity,
-  };
-}
-
-function rawStatusToDenseStatus(status: RawPacingStatus): PacingStatus {
-  switch (status) {
-    case 'on_track':
-      return 'On pace';
-    case 'behind':
-      return 'Underpacing';
-    case 'ahead':
-      return 'Overpacing';
-    case 'completed':
-    case 'no_goal':
-      return 'On pace';
-    case 'not_started':
-    default:
-      return 'Paused';
-  }
-}
-
-function getRiskFromStatus(status: RawPacingStatus): PrioritySeverity {
-  switch (status) {
-    case 'behind':
-    case 'not_started':
-      return 'Critical';
-    case 'ahead':
-      return 'Warning';
-    default:
-      return 'Notice';
-  }
-}
-
-function getBudgetValue(campaign: PacingCampaign): number {
-  return campaign.impressionGoal ? campaign.impressionGoal / 1000 : 0;
-}
-
-function getSpendValue(campaign: PacingCampaign): number {
-  return campaign.impressionsServed / 1000;
-}
-
-function getProjectedValue(campaign: PacingCampaign): number {
-  if (!campaign.impressionGoal) return 0;
-  const projected = (campaign.impressionGoal * Math.max(campaign.deliveryPct, 0)) / 100;
-  return projected / 1000;
-}
-
-function getDailyTargetValue(campaign: PacingCampaign): number {
-  if (!campaign.impressionGoal) return 0;
-  const totalDays = Math.max(Math.ceil((new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / 86400000), 1);
-  return campaign.impressionGoal / totalDays / 1000;
-}
-
-function buildPacingRow(campaign: PacingCampaign): PacingRow {
-  const spend = getSpendValue(campaign);
-  const budget = getBudgetValue(campaign);
-  const projected = getProjectedValue(campaign);
-  const dailyTarget = getDailyTargetValue(campaign);
-  return {
-    id: campaign.id,
-    campaign: campaign.name,
-    advertiser: campaign.advertiser,
-    status: rawStatusToDenseStatus(campaign.status),
-    pacing: `${Math.round(campaign.deliveryPct)}%`,
-    spend: fmtCurrency(spend),
-    budget: fmtCurrency(budget),
-    dailyTarget: fmtCurrency(dailyTarget),
-    projected: fmtCurrency(projected),
-    risk: getRiskFromStatus(campaign.status),
-    owner: campaign.advertiser === '—' ? 'Ad Ops' : campaign.advertiser,
-  };
-}
-
-function SparklineModal({ campaign, onClose }: { campaign: PacingCampaign; onClose: () => void }) {
-  const [days, setDays] = useState(14);
-  const [breakdown, setBreakdown] = useState<BreakdownDay[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    setLoading(true);
-    setError('');
-    fetch(`/v1/pacing/${campaign.id}/breakdown?days=${days}`, { credentials: 'include' })
-      .then((response) => {
-        if (!response.ok) throw new Error('Failed to load breakdown');
-        return response.json();
-      })
-      .then((payload) => setBreakdown(payload?.breakdown ?? payload ?? []))
-      .catch((breakdownError: Error) => setError(breakdownError.message))
-      .finally(() => setLoading(false));
-  }, [campaign.id, days]);
-
-  const maxVal = Math.max(...breakdown.map((entry) => Math.max(entry.impressions, entry.expected)), 1);
-  const W = 560;
-  const H = 120;
-  const PAD = { l: 44, r: 10, t: 10, b: 28 };
-  const chartW = W - PAD.l - PAD.r;
-  const chartH = H - PAD.t - PAD.b;
-  const barW = breakdown.length > 0 ? Math.max(2, chartW / breakdown.length - 2) : 0;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-800">{campaign.name}</h2>
-            <p className="text-sm text-slate-500">{campaign.advertiser} · Daily breakdown</p>
-          </div>
-          <button onClick={onClose} className="text-xl leading-none text-slate-400 hover:text-slate-600">
-            ×
-          </button>
-        </div>
-
-        <div className="px-6 py-4">
-          <div className="mb-5 flex gap-1">
-            {BREAKDOWN_RANGES.map((range) => (
-              <button
-                key={range}
-                onClick={() => setDays(range)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  days === range ? 'bg-fuchsia-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {range}d
-              </button>
-            ))}
-          </div>
-
-          {error && <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>}
-
-          {loading ? (
-            <div className="flex h-32 items-center justify-center">
-              <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
-            </div>
-          ) : breakdown.length === 0 ? (
-            <div className="py-12 text-center text-sm text-slate-400">No data for this period</div>
-          ) : (
-            <>
-              <svg viewBox={`0 0 ${W} ${H}`} className="mb-1 w-full" style={{ height: H }}>
-                <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + chartH} stroke="#e2e8f0" strokeWidth="1" />
-                <line x1={PAD.l} y1={PAD.t + chartH} x2={PAD.l + chartW} y2={PAD.t + chartH} stroke="#e2e8f0" strokeWidth="1" />
-                {[0, 0.5, 1].map((fraction) => {
-                  const y = PAD.t + chartH - fraction * chartH;
-                  const value = Math.round(maxVal * fraction);
-                  return (
-                    <g key={fraction}>
-                      <line x1={PAD.l} y1={y} x2={PAD.l + chartW} y2={y} stroke="#f1f5f9" strokeWidth="1" />
-                      <text x={PAD.l - 4} y={y + 4} textAnchor="end" fontSize="9" fill="#94a3b8">
-                        {value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
-                      </text>
-                    </g>
-                  );
-                })}
-
-                {breakdown.map((entry, index) => {
-                  const slotW = chartW / breakdown.length;
-                  const x = PAD.l + index * slotW;
-                  const barHeight = (entry.impressions / maxVal) * chartH;
-                  const expectedHeight = (entry.expected / maxVal) * chartH;
-                  return (
-                    <g key={entry.date}>
-                      <rect x={x + slotW * 0.5} y={PAD.t + chartH - expectedHeight} width={barW * 0.45} height={expectedHeight} fill="#e0e7ff" rx="1" />
-                      <rect x={x + 1} y={PAD.t + chartH - barHeight} width={barW * 0.45} height={barHeight} fill="#f1008b" rx="1">
-                        <title>
-                          {entry.date}: {entry.impressions.toLocaleString()} served / {entry.expected.toLocaleString()} expected
-                        </title>
-                      </rect>
-                      {index % Math.ceil(breakdown.length / 7) === 0 && (
-                        <text x={x + slotW / 2} y={H - 4} textAnchor="middle" fontSize="8" fill="#94a3b8">
-                          {new Date(`${entry.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </text>
-                      )}
-                    </g>
-                  );
-                })}
-              </svg>
-
-              <div className="mb-4 flex gap-4 text-xs text-slate-500">
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded-sm bg-fuchsia-500" />
-                  Actual
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded-sm bg-fuchsia-200 dark:bg-fuchsia-500/30" />
-                  Expected
-                </span>
-              </div>
-            </>
-          )}
-
-          <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-4">
-            <div className="text-center">
-              <p className="text-xs text-slate-500">Delivery</p>
-              <p className="text-lg font-bold text-fuchsia-700">{campaign.deliveryPct.toFixed(1)}%</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-slate-500">Served</p>
-              <p className="text-lg font-bold text-slate-800">{fmtNum(campaign.impressionsServed)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-slate-500">Days Left</p>
-              <p className="text-lg font-bold text-slate-800">{campaign.remainingDays}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function PacingView() {
@@ -584,9 +276,7 @@ export default function PacingView() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
-      </div>
+      <CenteredSpinner label="Loading pacing workspace…" />
     );
   }
 
@@ -659,7 +349,7 @@ export default function PacingView() {
           </p>
         </div>
         <Panel className="p-5">
-          <SectionKicker>Recommended focus</SectionKicker>
+          <Kicker>Recommended focus</Kicker>
           <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
             <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
             <div>
@@ -674,7 +364,7 @@ export default function PacingView() {
 
       <div className="grid gap-5 xl:grid-cols-4">
         {pacingMetrics.map((metric) => (
-          <DuskMetricCard
+          <MetricCard
             key={metric.id}
             label={metric.label}
             value={metric.value}
@@ -709,8 +399,8 @@ export default function PacingView() {
       </div>
 
       {sortedRows.length === 0 ? (
-        <Panel className="px-6 py-20 text-center">
-          <SectionKicker>No pacing rows</SectionKicker>
+          <Panel className="px-6 py-20 text-center">
+          <Kicker>No pacing rows</Kicker>
           <h3 className="mt-3 text-lg font-medium text-slate-700 dark:text-white">No campaigns with pacing data</h3>
           <p className="mt-1 text-sm text-slate-500 dark:text-white/[0.56]">Campaigns with delivery goals will appear here.</p>
         </Panel>
@@ -719,7 +409,7 @@ export default function PacingView() {
           <Panel className="overflow-hidden p-6">
             <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <SectionKicker>Pacing workspace</SectionKicker>
+                <Kicker>Pacing workspace</Kicker>
                 <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Budget delivery & projected variance</h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-white/56">
                   Dense operational view for budget pacing, daily targets and delivery exceptions.
@@ -844,7 +534,7 @@ export default function PacingView() {
           <Panel className="p-6">
             <div className="space-y-8">
               <section>
-                <SectionKicker>Module health</SectionKicker>
+                <Kicker>Module health</Kicker>
                 <div className="mt-4 space-y-3">
                   <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
                     <p className="font-semibold text-slate-950 dark:text-white">Pacing exceptions</p>
@@ -862,7 +552,7 @@ export default function PacingView() {
               </section>
 
               <section>
-                <SectionKicker>Prototype checks</SectionKicker>
+                <Kicker>Prototype checks</Kicker>
                 <div className="mt-4 grid gap-3">
                   {prototypeChecks.map((test) => (
                     <div key={test.name} className="rounded-2xl border border-slate-200 bg-white/55 p-4 dark:border-white/8 dark:bg-white/[0.025]">
