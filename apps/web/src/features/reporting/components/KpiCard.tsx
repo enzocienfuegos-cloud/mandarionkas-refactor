@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ReportingKpi, Tone } from '../reporting.types';
+import { Sparkline as DuskSparkline } from '../../../system';
 import { BrandIcon } from '../icons/BrandIcon';
 
 const toneText: Record<Tone, string> = {
@@ -12,25 +13,6 @@ const toneText: Record<Tone, string> = {
   rose: 'text-rose-300',
   slate: 'text-slate-300',
 };
-
-function Sparkline({ data, tone }: { data: number[]; tone: Tone }) {
-  const width = 220;
-  const height = 42;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = Math.max(1, max - min);
-  const points = data.map((value, index) => {
-    const x = (index / Math.max(data.length - 1, 1)) * width;
-    const y = height - ((value - min) / range) * height;
-    return `${x},${y}`;
-  });
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className={`mt-3 h-8 w-full ${toneText[tone]}`} aria-hidden="true">
-      <polyline points={`${points.join(' ')} ${width},${height} 0,${height}`} fill="currentColor" opacity="0.12" />
-      <polyline points={points.join(' ')} fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 export function KpiCard({ item }: { item: ReportingKpi }) {
   return (
@@ -48,7 +30,25 @@ export function KpiCard({ item }: { item: ReportingKpi }) {
           <span className="ml-1 font-medium text-slate-500">{item.comparisonLabel}</span>
         </p>
       ) : null}
-      {item.sparkline ? <Sparkline data={item.sparkline} tone={item.tone} /> : null}
+      {item.sparkline ? (
+        <DuskSparkline
+          series={item.sparkline}
+          tone={
+            item.tone === 'fuchsia'
+              ? 'brand'
+              : item.tone === 'emerald'
+                ? 'success'
+                : item.tone === 'amber'
+                  ? 'warning'
+                  : item.tone === 'rose'
+                    ? 'critical'
+                    : item.tone === 'blue' || item.tone === 'cyan' || item.tone === 'violet'
+                      ? 'info'
+                      : 'neutral'
+          }
+          className={`mt-3 h-8 w-full ${toneText[item.tone]}`}
+        />
+      ) : null}
       {item.helper ? <p className="mt-2 text-xs text-slate-500">{item.helper}</p> : null}
     </section>
   );

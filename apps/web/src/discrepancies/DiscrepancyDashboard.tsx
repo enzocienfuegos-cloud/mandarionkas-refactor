@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, FormEvent } from 'react';
+import { MetricCard as DuskMetricCard } from '../system';
 import { Panel, SectionKicker } from '../shared/dusk-ui';
 
 type Severity = 'ok' | 'warning' | 'critical';
@@ -110,18 +111,6 @@ const TableIcon = ({ className }: IconProps) => (
   </svg>
 );
 
-function toneClass(tone: Tone) {
-  const map: Record<Tone, string> = {
-    fuchsia: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/18 dark:bg-fuchsia-500/10 dark:text-fuchsia-300',
-    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-500/18 dark:bg-emerald-500/10 dark:text-emerald-300',
-    amber: 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-500/18 dark:bg-amber-500/10 dark:text-amber-300',
-    rose: 'border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-500/18 dark:bg-rose-500/10 dark:text-rose-300',
-    sky: 'border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-500/18 dark:bg-sky-500/10 dark:text-sky-300',
-    slate: 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.04] dark:text-white/70',
-  };
-  return map[tone];
-}
-
 function discrepancyStatusBadge(status: DiscrepancyStatus) {
   const map: Record<DiscrepancyStatus, string> = {
     'Within threshold': 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/22 dark:bg-emerald-500/10 dark:text-emerald-300',
@@ -142,26 +131,6 @@ function severityBadge(severity: PrioritySeverity) {
   return map[severity];
 }
 
-function Sparkline({ series, className }: { series: number[]; className?: string }) {
-  const width = 170;
-  const height = 54;
-  const min = Math.min(...series);
-  const max = Math.max(...series);
-  const range = Math.max(max - min, 1);
-  const points = series.map((value, index) => {
-    const x = (index / Math.max(series.length - 1, 1)) * width;
-    const y = height - ((value - min) / range) * height;
-    return `${x},${y}`;
-  });
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className={className} aria-hidden="true">
-      <polyline points={`${points.join(' ')} ${width},${height} 0,${height}`} fill="currentColor" opacity="0.12" />
-      <polyline points={points.join(' ')} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
   const classes = direction === 'up'
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
@@ -169,40 +138,6 @@ function TrendBadge({ direction, value }: { direction: TrendDirection; value: st
       ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
       : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/58';
   return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
-}
-
-function MetricCard({ metric }: { metric: Metric }) {
-  const sparkColor =
-    metric.tone === 'fuchsia'
-      ? 'text-fuchsia-500 dark:text-fuchsia-300'
-      : metric.tone === 'emerald'
-        ? 'text-emerald-500 dark:text-emerald-300'
-        : metric.tone === 'amber'
-          ? 'text-amber-500 dark:text-amber-300'
-          : metric.tone === 'rose'
-            ? 'text-rose-500 dark:text-rose-300'
-            : metric.tone === 'sky'
-              ? 'text-sky-500 dark:text-sky-300'
-              : 'text-slate-500 dark:text-white/50';
-
-  return (
-    <Panel className="p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <SectionKicker>{metric.label}</SectionKicker>
-          <div className="mt-4 flex items-end gap-3">
-            <span className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{metric.value}</span>
-            <TrendBadge direction={metric.direction} value={metric.delta} />
-          </div>
-          <p className="mt-2 text-sm text-slate-500 dark:text-white/56">{metric.helper}</p>
-        </div>
-        <div className={classNames('flex h-12 w-12 items-center justify-center rounded-2xl border', toneClass(metric.tone))}>
-          {metric.id === 'variance-health' ? <ReportIcon /> : metric.id === 'resolved' ? <TableIcon /> : <AlertTriangleIcon />}
-        </div>
-      </div>
-      <Sparkline series={metric.series} className={classNames('mt-5 h-14 w-full', sparkColor)} />
-    </Panel>
-  );
 }
 
 function formatNumber(value: number) {
@@ -428,7 +363,7 @@ export default function DiscrepanciesView() {
         <button
           type="button"
           onClick={load}
-          className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
+          className="inline-flex min-h-[46px] items-center rounded-xl bg-brand-gradient px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
         >
           Investigate gap
         </button>
@@ -458,7 +393,29 @@ export default function DiscrepanciesView() {
 
       <div className="grid gap-5 xl:grid-cols-4">
         {discrepancyMetrics.map((metric) => (
-          <MetricCard key={metric.id} metric={metric} />
+          <DuskMetricCard
+            key={metric.id}
+            label={metric.label}
+            value={metric.value}
+            delta={metric.delta}
+            trend={metric.direction}
+            context={metric.helper}
+            series={metric.series}
+            tone={
+              metric.tone === 'fuchsia'
+                ? 'brand'
+                : metric.tone === 'emerald'
+                  ? 'success'
+                  : metric.tone === 'amber'
+                    ? 'warning'
+                    : metric.tone === 'rose'
+                      ? 'critical'
+                      : metric.tone === 'sky'
+                        ? 'info'
+                        : 'neutral'
+            }
+            icon={metric.id === 'variance-health' ? <ReportIcon /> : metric.id === 'resolved' ? <TableIcon /> : <AlertTriangleIcon />}
+          />
         ))}
       </div>
 
@@ -595,7 +552,7 @@ export default function DiscrepanciesView() {
                 <button
                   type="submit"
                   disabled={savingThresholds}
-                  className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)] disabled:opacity-60"
+                  className="inline-flex min-h-[46px] items-center rounded-xl bg-brand-gradient px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)] disabled:opacity-60"
                 >
                   {savingThresholds ? 'Saving…' : 'Save thresholds'}
                 </button>

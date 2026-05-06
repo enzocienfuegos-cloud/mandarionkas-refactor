@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Panel, SectionKicker } from '../shared/dusk-ui';
+import { MetricCard as DuskMetricCard } from '../system';
 
 type TrendDirection = 'up' | 'down' | 'flat';
 type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
@@ -173,26 +174,6 @@ function severityBadge(severity: PrioritySeverity) {
   return map[severity];
 }
 
-function Sparkline({ series, className }: { series: number[]; className?: string }) {
-  const width = 170;
-  const height = 54;
-  const min = Math.min(...series);
-  const max = Math.max(...series);
-  const range = Math.max(max - min, 1);
-  const points = series.map((value, index) => {
-    const x = (index / Math.max(series.length - 1, 1)) * width;
-    const y = height - ((value - min) / range) * height;
-    return `${x},${y}`;
-  });
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className={className} aria-hidden="true">
-      <polyline points={`${points.join(' ')} ${width},${height} 0,${height}`} fill="currentColor" opacity="0.12" />
-      <polyline points={points.join(' ')} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
   const classes =
     direction === 'up'
@@ -201,40 +182,6 @@ function TrendBadge({ direction, value }: { direction: TrendDirection; value: st
         ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
         : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/58';
   return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
-}
-
-function MetricCard({ metric }: { metric: Metric }) {
-  const sparkColor =
-    metric.tone === 'fuchsia'
-      ? 'text-fuchsia-500 dark:text-fuchsia-300'
-      : metric.tone === 'emerald'
-        ? 'text-emerald-500 dark:text-emerald-300'
-        : metric.tone === 'amber'
-          ? 'text-amber-500 dark:text-amber-300'
-          : metric.tone === 'rose'
-            ? 'text-rose-500 dark:text-rose-300'
-            : metric.tone === 'sky'
-              ? 'text-sky-500 dark:text-sky-300'
-              : 'text-slate-500 dark:text-white/50';
-
-  return (
-    <Panel className="p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <SectionKicker>{metric.label}</SectionKicker>
-          <div className="mt-4 flex items-end gap-3">
-            <span className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{metric.value}</span>
-            <TrendBadge direction={metric.direction} value={metric.delta} />
-          </div>
-          <p className="mt-2 text-sm text-slate-500 dark:text-white/56">{metric.helper}</p>
-        </div>
-        <div className={classNames('flex h-12 w-12 items-center justify-center rounded-2xl border', toneClass(metric.tone))}>
-          {metric.id === 'pacing-health' ? <GaugeIcon /> : metric.id === 'on-target' ? <ReportIcon /> : metric.id === 'budget-risk' ? <AlertTriangleIcon /> : <TableIcon />}
-        </div>
-      </div>
-      <Sparkline series={metric.series} className={classNames('mt-5 h-14 w-full', sparkColor)} />
-    </Panel>
-  );
 }
 
 function fmtNum(value: number): string {
@@ -693,7 +640,7 @@ export default function PacingView() {
         <button
           type="button"
           onClick={load}
-          className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:translate-y-[-1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
+          className="inline-flex min-h-[46px] items-center rounded-xl bg-brand-gradient px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:translate-y-[-1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
         >
           Review pacing
         </button>
@@ -727,7 +674,37 @@ export default function PacingView() {
 
       <div className="grid gap-5 xl:grid-cols-4">
         {pacingMetrics.map((metric) => (
-          <MetricCard key={metric.id} metric={metric} />
+          <DuskMetricCard
+            key={metric.id}
+            label={metric.label}
+            value={metric.value}
+            delta={metric.delta}
+            trend={metric.direction}
+            context={metric.helper}
+            series={metric.series}
+            tone={
+              metric.tone === 'fuchsia'
+                ? 'brand'
+                : metric.tone === 'emerald'
+                  ? 'success'
+                  : metric.tone === 'amber'
+                    ? 'warning'
+                    : metric.tone === 'rose'
+                      ? 'critical'
+                      : metric.tone === 'sky'
+                        ? 'info'
+                        : 'neutral'
+            }
+            icon={
+              metric.id === 'pacing-health'
+                ? <GaugeIcon />
+                : metric.id === 'on-target'
+                  ? <ReportIcon />
+                  : metric.id === 'budget-risk'
+                    ? <AlertTriangleIcon />
+                    : <TableIcon />
+            }
+          />
         ))}
       </div>
 
@@ -759,7 +736,7 @@ export default function PacingView() {
                 <button
                   type="button"
                   onClick={load}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_32px_rgba(241,0,139,0.24)]"
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_32px_rgba(241,0,139,0.24)]"
                 >
                   Review pacing
                 </button>

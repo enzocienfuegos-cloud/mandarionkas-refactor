@@ -102,7 +102,7 @@ export function PrimaryButton({ children, className = '', ...props }: React.Butt
   return (
     <button
       className={cn(
-        'inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)] disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex min-h-[46px] items-center rounded-xl bg-brand-gradient px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)] disabled:cursor-not-allowed disabled:opacity-60',
         className,
       )}
       {...props}

@@ -645,7 +645,7 @@ export default function TagReportingDashboard() {
                       onClick={() => setDateRange(range.days)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                         dateRange === range.days
-                          ? 'bg-[linear-gradient(135deg,#F1008B,#c026d3)] text-white'
+                          ? 'bg-brand-gradient text-white'
                           : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white/70 dark:hover:bg-white/[0.05]'
                       }`}
                     >
@@ -726,7 +726,7 @@ export default function TagReportingDashboard() {
                         onClick={() => setActiveTab(tab.id)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                           activeTab === tab.id
-                            ? 'bg-[linear-gradient(135deg,#F1008B,#c026d3)] text-white'
+                            ? 'bg-brand-gradient text-white'
                             : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-white/70 dark:hover:bg-white/[0.05]'
                         }`}
                       >

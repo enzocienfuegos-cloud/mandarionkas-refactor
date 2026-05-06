@@ -4,6 +4,7 @@ import { loadCreatives, type Creative } from '../creatives/catalog';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 import { type ThemeMode } from '../shared/theme';
 import { Panel, PrimaryButton, SecondaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
+import { MetricCard as DuskMetricCard } from '../system';
 
 type DateRange = 7 | 30 | 90;
 type TrendDirection = 'up' | 'down' | 'flat';
@@ -312,48 +313,6 @@ function AttentionCard({ item }: { item: AttentionItem }) {
       </div>
       <Link to={item.actionHref} className={classNames('mt-5 inline-flex items-center rounded-xl border px-5 py-3 text-sm font-semibold transition', theme.button)}>{item.actionLabel}</Link>
     </article>
-  );
-}
-
-function Sparkline({ series, className }: { series: number[]; className?: string }) {
-  const width = 160;
-  const height = 56;
-  const min = Math.min(...series);
-  const max = Math.max(...series);
-  const range = Math.max(max - min, 1);
-  const points = series.map((value, index) => {
-    const x = (index / Math.max(series.length - 1, 1)) * width;
-    const y = height - ((value - min) / range) * height;
-    return `${x},${y}`;
-  });
-  const linePath = points.join(' ');
-  const areaPath = `${points[0]} ${points.slice(1).join(' ')} ${width},${height} 0,${height}`;
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className={className} aria-hidden="true">
-      <polyline points={areaPath} fill="currentColor" opacity="0.15" />
-      <polyline points={linePath} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function MetricCard({ metric }: { metric: MetricCardData }) {
-  return (
-    <Panel className="p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <SectionKicker>{metric.label}</SectionKicker>
-          <div className="mt-4 flex flex-wrap items-end gap-3">
-            <span className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white 2xl:text-5xl">{metric.value}</span>
-            <TrendBadge direction={metric.direction} value={metric.delta} />
-          </div>
-          <p className="mt-3 text-sm text-slate-500 dark:text-white/56">{metric.context}</p>
-        </div>
-        <div className={classNames('flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border bg-gradient-to-br', metric.tone)}>
-          <MetricIcon icon={metric.icon} />
-        </div>
-      </div>
-      <Sparkline series={metric.series.length ? metric.series : [0, 0, 0, 0, 0]} className={classNames('mt-6 h-14 w-full', metric.tone.split(' ').slice(-1).join(' '))} />
-    </Panel>
   );
 }
 
@@ -947,7 +906,7 @@ export default function AdOpsOverview() {
           </div>
           <Link
             to="/campaigns/new"
-            className="inline-flex min-h-[46px] items-center rounded-xl bg-[linear-gradient(135deg,#F1008B,#c026d3)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
+            className="inline-flex min-h-[46px] items-center rounded-xl bg-brand-gradient px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
           >
             New trafficking task
           </Link>
@@ -958,7 +917,30 @@ export default function AdOpsOverview() {
         {loading ? <div className="mt-8 text-sm text-slate-500 dark:text-white/56">Loading overview…</div> : null}
 
         <div className="mt-8 grid gap-5 xl:grid-cols-4">
-          {metricCards.map((metric) => <MetricCard key={metric.id} metric={metric} />)}
+          {metricCards.map((metric) => (
+            <DuskMetricCard
+              key={metric.id}
+              label={metric.label}
+              value={metric.value}
+              delta={metric.delta}
+              trend={metric.direction}
+              context={metric.context}
+              series={metric.series.length ? metric.series : [0, 0, 0, 0, 0]}
+              tone={
+                metric.icon === 'spend'
+                  ? 'info'
+                  : metric.icon === 'impressions'
+                    ? 'brand'
+                    : metric.icon === 'ctr'
+                      ? 'success'
+                      : metric.icon === 'engagements'
+                        ? 'critical'
+                        : 'neutral'
+              }
+              icon={<MetricIcon icon={metric.icon} />}
+              className="p-1"
+            />
+          ))}
         </div>
 
         <div className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
