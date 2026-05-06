@@ -35,6 +35,7 @@ import { CreativeRowActions } from './creative-library/CreativeRowActions';
 import { CreativeSidebarInsights } from './creative-library/CreativeSidebarInsights';
 import { CreativeTable } from './creative-library/CreativeTable';
 import { useCreativeCatalogActions } from './creative-library/useCreativeCatalogActions';
+import { useCreativeCatalogData } from './creative-library/useCreativeCatalogData';
 import { QuickCreateTagModal } from './creative-library/QuickCreateTagModal';
 import { TagBindingModal } from './creative-library/TagBindingModal';
 import { useTagBindingManager } from './creative-library/useTagBindingManager';
@@ -63,7 +64,7 @@ import {
   resolveCreativePreviewHref,
   statusBadge,
 } from './creative-library/ui';
-import { loadAuthMe, loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
+import type { WorkspaceOption } from '../shared/workspaces';
 import { Button, CenteredSpinner, Input, Kicker, Panel, useConfirm } from '../system';
 
 export default function CreativesView() {
@@ -71,12 +72,6 @@ export default function CreativesView() {
   const confirm = useConfirm();
   const [searchParams] = useSearchParams();
   const searchQueryParam = searchParams.get('search') ?? '';
-  const [creatives, setCreatives] = useState<Creative[]>([]);
-  const [latestVersions, setLatestVersions] = useState<LatestVersionMap>({});
-  const [ingestions, setIngestions] = useState<CreativeIngestion[]>([]);
-  const [tags, setTags] = useState<TagOption[]>([]);
-  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState(() => searchQueryParam);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'pending_review' | 'rejected'>('all');
@@ -85,11 +80,26 @@ export default function CreativesView() {
   const [selectedCreativeIds, setSelectedCreativeIds] = useState<string[]>([]);
   const [bulkClickUrl, setBulkClickUrl] = useState('');
   const [bulkAssignTagId, setBulkAssignTagId] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [previewModal, setPreviewModal] = useState<PreviewModalState | null>(null);
+  const {
+    creatives,
+    setCreatives,
+    latestVersions,
+    setLatestVersions,
+    ingestions,
+    setIngestions,
+    tags,
+    setTags,
+    workspaces,
+    activeWorkspaceId,
+    setActiveWorkspaceId,
+    loading,
+    error,
+    setError,
+    load,
+  } = useCreativeCatalogData();
   const {
     variantState,
     setVariantState,
@@ -121,29 +131,6 @@ export default function CreativesView() {
     setTags,
     tags,
   });
-  const load = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [{ creatives, latestVersions }, ingestions, tags, authMe, workspaceList] = await Promise.all([
-        loadCreativesWithLatestVersion({ scope: 'all' }),
-        loadCreativeIngestions(),
-        loadTags({ scope: 'all' }),
-        loadAuthMe(),
-        loadWorkspaces(),
-      ]);
-      setCreatives(creatives);
-      setLatestVersions(latestVersions);
-      setIngestions(ingestions);
-      setTags(tags);
-      setWorkspaces(workspaceList);
-      setActiveWorkspaceId(authMe.workspace?.id ?? workspaceList[0]?.id ?? '');
-    } catch (loadError: any) {
-      setError(loadError.message ?? 'Failed to load creative catalog');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const {
     videoRenditionState,
@@ -165,10 +152,6 @@ export default function CreativesView() {
     setIngestions,
     onReloadCatalog: load,
   });
-
-  useEffect(() => {
-    void load();
-  }, []);
 
   useEffect(() => {
     setSearchTerm(searchQueryParam);
@@ -463,28 +446,6 @@ export default function CreativesView() {
       return Array.from(next);
     });
   };
-
-  useEffect(() => {
-    const hasProcessing = creatives.some((creative) => {
-      const version = latestVersions[creative.id];
-      return version?.sourceKind === 'html5_zip' && String(version?.status ?? '') === 'processing';
-    });
-    if (!hasProcessing) return undefined;
-
-    const intervalId = window.setInterval(() => {
-      void (async () => {
-        try {
-          const { latestVersions: nextVersions } = await loadCreativesWithLatestVersion({ scope: 'all' });
-          setLatestVersions((current) => {
-            const patch = buildLatestVersionPatch(current, nextVersions);
-            return Object.keys(patch).length > 0 ? { ...current, ...patch } : current;
-          });
-        } catch (_) {}
-      })();
-    }, 4000);
-
-    return () => window.clearInterval(intervalId);
-  }, [creatives, latestVersions]);
 
   useEffect(() => {
     if (!previewModal) return undefined;
