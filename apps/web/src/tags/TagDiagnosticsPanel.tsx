@@ -257,7 +257,7 @@ export default function TagDiagnosticsPanel({
                       disabled={!staticDeliveryEntries.length}
                       className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                         staticDeliveryEntries.length
-                          ? 'border-indigo-300 bg-white text-indigo-800 hover:bg-indigo-100'
+                          ? 'border-fuchsia-300 bg-white text-fuchsia-800 hover:bg-fuchsia-50 dark:border-fuchsia-500/20 dark:bg-white/[0.03] dark:text-fuchsia-300 dark:hover:bg-white/[0.07]'
                           : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
                       }`}
                     >

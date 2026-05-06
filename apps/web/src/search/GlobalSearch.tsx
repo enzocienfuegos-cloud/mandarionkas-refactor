@@ -23,10 +23,10 @@ const TYPE_PATHS: Record<SearchResult['type'], (id: string) => string> = {
 };
 
 const TYPE_ICONS: Record<SearchResult['type'], string> = {
-  tag:        '🏷️',
-  campaign:   '📋',
-  advertiser: '🏢',
-  creative:   '🎨',
+  tag:        'Tag',
+  campaign:   'Campaign',
+  advertiser: 'Advertiser',
+  creative:   'Creative',
 };
 
 const FILTERS: Array<{ value: SearchType; label: string }> = [
@@ -183,7 +183,7 @@ export default function GlobalSearch() {
                   onClick={() => setTypeFilter(f.value)}
                   className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                     typeFilter === f.value
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-brand-gradient text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -219,7 +219,7 @@ export default function GlobalSearch() {
                     <button
                       key={item.id}
                       onClick={() => handleSelect(item)}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-indigo-50 transition-colors border-b border-slate-50"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-fuchsia-50 transition-colors border-b border-slate-50 dark:hover:bg-white/[0.05]"
                     >
                       <span className="text-xl flex-shrink-0">{TYPE_ICONS[item.type]}</span>
                       <div className="flex-1 min-w-0">

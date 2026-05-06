@@ -2,6 +2,7 @@ import React, { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { listSupportedDsps } from '@smx/contracts/dsp-macros';
 import { loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
+import { Button, CenteredSpinner, Input, Panel, Kicker } from '../system';
 
 const DSP_OPTIONS = [
   { value: '', label: '— None —' },
@@ -144,25 +145,17 @@ export default function CampaignEditor() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
-      </div>
-    );
+    return <CenteredSpinner label="Loading campaign editor…" />;
   }
-
-  const inputClass = (err?: string) =>
-    `w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-      err ? 'border-red-400 bg-red-50' : 'border-slate-300'
-    }`;
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">{isEdit ? 'Edit Campaign' : 'New Campaign'}</h1>
+        <Kicker>Campaigns</Kicker>
+        <h1 className="mt-3 text-2xl font-semibold text-slate-800 dark:text-white">{isEdit ? 'Edit Campaign' : 'New Campaign'}</h1>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
+      <Panel className="rounded-xl">
         {generalError && (
           <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
             {generalError}
@@ -175,7 +168,7 @@ export default function CampaignEditor() {
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Client <span className="text-red-500">*</span>
               </label>
-              <select value={form.workspaceId} onChange={set('workspaceId')} className={inputClass(errors.workspaceId)}>
+              <select value={form.workspaceId} onChange={set('workspaceId')} className={`w-full rounded-lg border bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500 ${errors.workspaceId ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10' : 'border-[color:var(--dusk-border-default)]'}`}>
                 <option value="">Select a client</option>
                 {workspaces.map(workspace => (
                   <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
@@ -190,11 +183,11 @@ export default function CampaignEditor() {
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Campaign Name <span className="text-red-500">*</span>
             </label>
-            <input
+            <Input
               type="text"
               value={form.name}
               onChange={set('name')}
-              className={inputClass(errors.name)}
+              className={errors.name ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10' : undefined}
               placeholder="Q4 Brand Awareness"
             />
             {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
@@ -203,7 +196,7 @@ export default function CampaignEditor() {
           {/* DSP */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">DSP</label>
-            <select value={form.dsp} onChange={set('dsp')} className={inputClass()}>
+            <select value={form.dsp} onChange={set('dsp')} className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500">
               {DSP_OPTIONS.map((option) => (
                 <option key={option.label} value={option.value}>{option.label}</option>
               ))}
@@ -212,7 +205,7 @@ export default function CampaignEditor() {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Media Type</label>
-            <select value={form.mediaType} onChange={set('mediaType')} className={inputClass()}>
+            <select value={form.mediaType} onChange={set('mediaType')} className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500">
               <option value="display">Display / Interactive</option>
               <option value="video">Video</option>
             </select>
@@ -221,7 +214,7 @@ export default function CampaignEditor() {
           {/* Status */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select value={form.status} onChange={set('status')} className={inputClass()}>
+            <select value={form.status} onChange={set('status')} className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500">
               {STATUSES.map(s => (
                 <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
               ))}
@@ -232,11 +225,11 @@ export default function CampaignEditor() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
-              <input type="date" value={form.startDate} onChange={set('startDate')} className={inputClass()} />
+              <Input type="date" value={form.startDate} onChange={set('startDate')} />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
-              <input type="date" value={form.endDate} onChange={set('endDate')} className={inputClass(errors.endDate)} />
+              <Input type="date" value={form.endDate} onChange={set('endDate')} className={errors.endDate ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10' : undefined} />
               {errors.endDate && <p className="mt-1 text-xs text-red-600">{errors.endDate}</p>}
             </div>
           </div>
@@ -245,25 +238,25 @@ export default function CampaignEditor() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Impression Goal</label>
-              <input
+              <Input
                 type="number"
                 min="0"
                 value={form.impressionGoal}
                 onChange={set('impressionGoal')}
-                className={inputClass(errors.impressionGoal)}
+                className={errors.impressionGoal ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10' : undefined}
                 placeholder="1000000"
               />
               {errors.impressionGoal && <p className="mt-1 text-xs text-red-600">{errors.impressionGoal}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Daily Budget ($)</label>
-              <input
+              <Input
                 type="number"
                 min="0"
                 step="0.01"
                 value={form.dailyBudget}
                 onChange={set('dailyBudget')}
-                className={inputClass(errors.dailyBudget)}
+                className={errors.dailyBudget ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10' : undefined}
                 placeholder="500.00"
               />
               {errors.dailyBudget && <p className="mt-1 text-xs text-red-600">{errors.dailyBudget}</p>}
@@ -272,29 +265,15 @@ export default function CampaignEditor() {
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => navigate('/campaigns')}
-              className="px-4 py-2 text-sm text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-            >
+            <Button type="button" variant="ghost" onClick={() => navigate('/campaigns')}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 rounded-lg transition-colors flex items-center gap-2"
-            >
-              {saving && (
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                </svg>
-              )}
-              {saving ? 'Saving...' : isEdit ? 'Update Campaign' : 'Create Campaign'}
-            </button>
+            </Button>
+            <Button type="submit" loading={saving}>
+              {isEdit ? 'Update Campaign' : 'Create Campaign'}
+            </Button>
           </div>
         </form>
-      </div>
+      </Panel>
     </div>
   );
 }

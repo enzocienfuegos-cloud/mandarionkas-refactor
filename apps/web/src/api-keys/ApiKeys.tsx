@@ -286,7 +286,7 @@ export default function ApiKeys() {
                 /* Show raw key after creation */
                 <div>
                   <div className="mb-4 px-4 py-3 bg-[color:var(--dusk-status-warning-bg)] border border-[color:var(--dusk-status-warning-border)] rounded-lg text-sm text-yellow-800">
-                    ⚠️ <strong>Store this key securely — it won't be shown again.</strong>
+                    <strong>Store this key securely — it won't be shown again.</strong>
                   </div>
                   <label className="block text-sm font-medium text-text-secondary mb-2">Your new API key</label>
                   <div className="flex items-center gap-2">
@@ -299,7 +299,7 @@ export default function ApiKeys() {
                         copied ? 'bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]' : 'bg-[color:var(--dusk-surface-muted)] text-text-secondary hover:bg-[color:var(--dusk-surface-hover)]'
                       }`}
                     >
-                      {copied ? '✓' : '📋'}
+                      {copied ? 'Copied' : 'Copy'}
                     </button>
                   </div>
                   <button

@@ -77,7 +77,7 @@ export default function VastChainValidator() {
               type="url"
               value={url}
               onChange={e => setUrl(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
               placeholder="https://ad.example.com/vast?placement=12345"
             />
             <p className="mt-1 text-xs text-slate-400">
@@ -94,7 +94,7 @@ export default function VastChainValidator() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2.5 bg-brand-gradient hover:opacity-95 disabled:opacity-60 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
           >
             {loading && (
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
@@ -120,7 +120,7 @@ export default function VastChainValidator() {
           }`}>
             <div className="flex items-center gap-3">
               <span className="text-3xl">
-                {!result.resolved ? '❌' : depthWarning ? '⚠️' : '✅'}
+                {!result.resolved ? 'Invalid' : depthWarning ? 'Warning' : 'Valid'}
               </span>
               <div>
                 <p className={`font-bold text-lg ${
@@ -149,7 +149,7 @@ export default function VastChainValidator() {
 
           {depthWarning && (
             <div className="px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-              ⚠️ <strong>Depth warning:</strong> IAB recommends VAST wrapper chains be no deeper than 3 hops. Excessive depth increases latency and can cause ad serving failures.
+              <strong>Depth warning:</strong> IAB recommends VAST wrapper chains be no deeper than 3 hops. Excessive depth increases latency and can cause ad serving failures.
             </div>
           )}
 

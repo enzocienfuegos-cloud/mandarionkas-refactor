@@ -408,7 +408,7 @@ function SparklineModal({ campaign, onClose }: { campaign: PacingCampaign; onClo
                   Actual
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded-sm bg-indigo-200" />
+                  <span className="inline-block h-3 w-3 rounded-sm bg-fuchsia-200 dark:bg-fuchsia-500/30" />
                   Expected
                 </span>
               </div>

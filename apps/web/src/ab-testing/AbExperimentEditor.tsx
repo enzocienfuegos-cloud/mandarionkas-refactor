@@ -124,7 +124,7 @@ function ResultsModal({ experiment, onClose }: { experiment: Experiment; onClose
             <>
               {!results.enoughData && (
                 <div className="mb-4 px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-                  ⚠️ Not enough data for statistical significance. Keep the experiment running.
+                  Not enough data for statistical significance. Keep the experiment running.
                 </div>
               )}
 
@@ -142,7 +142,7 @@ function ResultsModal({ experiment, onClose }: { experiment: Experiment; onClose
                         <span className="text-sm font-semibold text-slate-800">{v.variantName}</span>
                         {v.isWinner && results.enoughData && (
                           <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
-                            🏆 Winner
+                            Winner
                           </span>
                         )}
                       </div>
@@ -275,7 +275,7 @@ function CreateModal({ tags, onClose, onCreated }: {
                     <span className="ml-2 text-xs text-red-500">Weights: {totalWeight}/100</span>
                   )}
                   {weightValid && (
-                    <span className="ml-2 text-xs text-green-600">✓ 100%</span>
+                    <span className="ml-2 text-xs text-green-600">100%</span>
                   )}
                 </label>
                 <Button type="button" variant="ghost" size="sm" onClick={addVariant} className="text-xs text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300 dark:hover:text-fuchsia-200">

@@ -19,6 +19,7 @@ import {
   type TagFormat,
   type TagStatus,
 } from './tag-builder-shared';
+import { Button, CenteredSpinner, Kicker } from '../system';
 
 export default function TagBuilder() {
   const { id } = useParams<{ id: string }>();
@@ -343,36 +344,35 @@ export default function TagBuilder() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
-      </div>
-    );
+    return <CenteredSpinner label="Loading tag builder…" />;
   }
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-slate-800">{isEdit ? 'Edit Tag' : 'New Tag'}</h1>
+        <div>
+          <Kicker>Tags</Kicker>
+          <h1 className="mt-3 text-2xl font-semibold text-slate-800 dark:text-white">{isEdit ? 'Edit Tag' : 'New Tag'}</h1>
+        </div>
         {isEdit && id ? (
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to={`/tags/${id}/reporting`}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
             >
-              📊 Reporting
+              Reporting
             </Link>
             <Link
               to={`/tags/${id}/tracking`}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
             >
-              📈 Tracking
+              Tracking
             </Link>
             <Link
               to={`/tags/${id}/pixels`}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
             >
-              🔗 Pixels
+              Pixels
             </Link>
           </div>
         ) : null}

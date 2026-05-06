@@ -18,10 +18,10 @@ interface HealthSummary {
 
 const statusBadge = (status: TagHealth['status']) => {
   const cfg: Record<TagHealth['status'], { cls: string; label: string }> = {
-    healthy:  { cls: 'bg-green-100 text-green-800',  label: '✓ Healthy' },
-    warning:  { cls: 'bg-yellow-100 text-yellow-800', label: '⚠ Warning' },
-    critical: { cls: 'bg-red-100 text-red-800',      label: '✕ Critical' },
-    unknown:  { cls: 'bg-slate-100 text-slate-600',  label: '? Unknown' },
+    healthy:  { cls: 'bg-green-100 text-green-800',  label: 'Healthy' },
+    warning:  { cls: 'bg-yellow-100 text-yellow-800', label: 'Warning' },
+    critical: { cls: 'bg-red-100 text-red-800',      label: 'Critical' },
+    unknown:  { cls: 'bg-slate-100 text-slate-600',  label: 'Unknown' },
   };
   const { cls, label } = cfg[status];
   return (
@@ -66,7 +66,7 @@ export default function TagHealthDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-fuchsia-500"></div>
       </div>
     );
   }

@@ -11,6 +11,7 @@ import {
   type CreativeIngestion,
 } from './catalog';
 import { loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
+import { Button, Input, Kicker, Panel } from '../system';
 
 type SourceKind = 'html5_zip' | 'video_mp4';
 
@@ -493,13 +494,14 @@ export default function CreativeUpload() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Upload External Creatives</h1>
+        <Kicker>Creatives</Kicker>
+        <h1 className="mt-3 text-2xl font-semibold text-slate-800 dark:text-white">Upload External Creatives</h1>
         <p className="mt-1 text-sm text-slate-500">
           Upload multiple HTML5 zip banners or MP4 videos and publish them into the versioned creative catalog.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6">
+      <Panel as="form" onSubmit={handleSubmit} className="space-y-6 rounded-2xl">
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">Client</label>
@@ -508,7 +510,7 @@ export default function CreativeUpload() {
                 value={workspaceId}
                 onChange={event => setWorkspaceId(event.target.value)}
                 disabled={loading}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500"
               >
                 <option value="">Select a client</option>
                 {workspaces.map(workspace => (
@@ -517,14 +519,15 @@ export default function CreativeUpload() {
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
+              <Button
                 onClick={() => navigate('/clients')}
                 disabled={loading}
-                className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                variant="ghost"
+                size="sm"
+                className="shrink-0"
               >
                 New client
-              </button>
+              </Button>
             </div>
             <label className="mb-2 block text-sm font-medium text-slate-700">Source Type</label>
             <div className="grid gap-3">
@@ -536,7 +539,7 @@ export default function CreativeUpload() {
                   setError('');
                   if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
-                className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'html5_zip' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}
+                className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'html5_zip' ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-300' : 'border-slate-200 hover:bg-slate-50'}`}
               >
                 <div className="font-medium text-slate-800">HTML5 ZIP</div>
                 <div className="text-sm text-slate-500">Publishes `index.html` and all packaged assets to hosted display creative artifacts.</div>
@@ -549,7 +552,7 @@ export default function CreativeUpload() {
                   setError('');
                   if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
-                className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'video_mp4' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}
+                className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'video_mp4' ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-300' : 'border-slate-200 hover:bg-slate-50'}`}
               >
                 <div className="font-medium text-slate-800">Video MP4</div>
                 <div className="text-sm text-slate-500">Creates a video creative version ready for VAST serving and review.</div>
@@ -611,14 +614,13 @@ export default function CreativeUpload() {
                           <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
                             {sourceKind === 'video_mp4' ? 'Destination URL *' : 'Fallback destination URL'}
                           </label>
-                          <input
+                          <Input
                             value={clickUrlsByFileKey[buildFileKey(file)] ?? ''}
                             onChange={(event) => setClickUrlsByFileKey((current) => ({
                               ...current,
                               [buildFileKey(file)]: event.target.value,
                             }))}
                             placeholder="https://example.com/landing"
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                           <p className="mt-1 text-[11px] text-slate-500">
                             {sourceKind === 'video_mp4'
@@ -632,7 +634,6 @@ export default function CreativeUpload() {
                           )}
                           {detectedClickUrls[buildFileKey(file)] && (
                             <p className="mt-1 flex items-center gap-1 text-[11px] text-emerald-600">
-                              <span>✓</span>
                               <span>
                                 clickTag auto-detected:{' '}
                                 <span className="break-all font-medium">
@@ -676,7 +677,7 @@ export default function CreativeUpload() {
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-blue-100">
                       <div
-                        className="h-full rounded-full bg-indigo-600 transition-all"
+                        className="h-full rounded-full bg-fuchsia-500 transition-all"
                         style={{ width: `${currentFileProgress}%` }}
                       />
                     </div>
@@ -714,22 +715,21 @@ export default function CreativeUpload() {
         )}
 
         <div className="flex justify-end gap-3">
-          <button
+          <Button
             type="button"
             onClick={() => navigate('/creatives')}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            variant="ghost"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            disabled={loading}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
+            loading={loading}
           >
             {loading ? 'Uploading…' : 'Upload and Publish'}
-          </button>
+          </Button>
         </div>
-      </form>
+      </Panel>
     </div>
   );
 }

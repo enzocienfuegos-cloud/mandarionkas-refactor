@@ -117,7 +117,7 @@ export default function AuditLog() {
               type="text"
               value={pendingFilters.action}
               onChange={setF('action')}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
               placeholder="e.g. campaign.created"
             />
           </div>
@@ -127,7 +127,7 @@ export default function AuditLog() {
               type="email"
               value={pendingFilters.actorEmail}
               onChange={setF('actorEmail')}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
               placeholder="user@example.com"
             />
           </div>
@@ -136,7 +136,7 @@ export default function AuditLog() {
             <select
               value={pendingFilters.resourceType}
               onChange={setF('resourceType')}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
             >
               {RESOURCE_TYPES.map(t => (
                 <option key={t} value={t}>{t === 'all' ? 'All Types' : t}</option>
@@ -149,7 +149,7 @@ export default function AuditLog() {
               type="date"
               value={pendingFilters.dateFrom}
               onChange={setF('dateFrom')}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
             />
           </div>
           <div>
@@ -158,13 +158,13 @@ export default function AuditLog() {
               type="date"
               value={pendingFilters.dateTo}
               onChange={setF('dateTo')}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
             />
           </div>
           <div className="flex items-end gap-2">
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+              className="flex-1 px-4 py-2 bg-brand-gradient text-white text-sm font-medium rounded-lg transition-colors hover:opacity-95"
             >
               Apply
             </button>
@@ -191,7 +191,7 @@ export default function AuditLog() {
 
       {loading ? (
         <div className="flex items-center justify-center h-48">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-fuchsia-500"></div>
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
@@ -200,7 +200,6 @@ export default function AuditLog() {
         </div>
       ) : events.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
-          <p className="text-4xl mb-3">📋</p>
           <h3 className="text-lg font-medium text-slate-700">No audit events found</h3>
           <p className="text-sm text-slate-500 mt-1">Try adjusting your filters.</p>
         </div>

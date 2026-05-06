@@ -12,15 +12,14 @@ import {
   type WorkspaceOption,
 } from '../shared/workspaces';
 import { derivePlatformRoleFromAssignment, type PlatformRole } from '../shared/roles';
+import { Badge, Button, CenteredSpinner, Input, Kicker, Panel } from '../system';
 
 function ProductAccessBadges({ productAccess }: { productAccess?: { ad_server: boolean; studio: boolean } | null }) {
   const access = productAccess ?? { ad_server: true, studio: true };
   return (
     <div className="flex flex-wrap gap-1.5">
       {access.ad_server ? (
-        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
-          Ad Server
-        </span>
+        <Badge tone="brand" size="sm">Ad Server</Badge>
       ) : null}
       {access.studio ? (
         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
@@ -28,9 +27,7 @@ function ProductAccessBadges({ productAccess }: { productAccess?: { ad_server: b
         </span>
       ) : null}
       {!access.ad_server && !access.studio ? (
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-          No product access
-        </span>
+        <Badge tone="neutral" size="sm">No product access</Badge>
       ) : null}
     </div>
   );
@@ -220,7 +217,8 @@ export default function ClientManager() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Client Setup</h1>
+        <Kicker>Clients</Kicker>
+        <h1 className="mt-3 text-2xl font-semibold text-slate-800 dark:text-white">Client Setup</h1>
         <p className="mt-1 text-sm text-slate-500">
           Manage client workspaces separately from trafficking screens. Only the client name is required.
         </p>
@@ -233,47 +231,37 @@ export default function ClientManager() {
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_1.1fr]">
-        <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <Panel as="form" onSubmit={handleSubmit} className="rounded-2xl">
           <h2 className="text-lg font-semibold text-slate-900">Add client</h2>
           <div className="mt-5 space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Client name <span className="text-red-500">*</span>
               </label>
-              <input
+              <Input
                 value={name}
                 onChange={event => setName(event.target.value)}
                 placeholder="Banco Agricola"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Website</label>
-              <input
+              <Input
                 value={website}
                 onChange={event => setWebsite(event.target.value)}
                 placeholder="https://example.com"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div className="pt-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
-              >
-                {saving ? 'Creating…' : 'Create client'}
-              </button>
+              <Button type="submit" loading={saving}>{saving ? 'Creating…' : 'Create client'}</Button>
             </div>
           </div>
-        </form>
+        </Panel>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <Panel className="rounded-2xl">
           <h2 className="text-lg font-semibold text-slate-900">Available clients</h2>
           {loading ? (
-            <div className="flex h-40 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-indigo-500" />
-            </div>
+            <CenteredSpinner label="Loading clients…" />
           ) : (
             <div className="mt-4 space-y-3">
                 {workspaces.map(workspace => (
@@ -291,9 +279,7 @@ export default function ClientManager() {
                         </p>
                       </div>
                       {workspace.id === activeWorkspaceId && (
-                      <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-medium text-indigo-700">
-                        Active
-                      </span>
+                      <Badge tone="brand">Active</Badge>
                     )}
                   </div>
                 </div>
@@ -305,11 +291,11 @@ export default function ClientManager() {
               )}
             </div>
           )}
-        </div>
+        </Panel>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[0.95fr_1.25fr]">
-        <form onSubmit={handleGrantAccess} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <Panel as="form" onSubmit={handleGrantAccess} className="rounded-2xl">
           <h2 className="text-lg font-semibold text-slate-900">User access</h2>
           <p className="mt-1 text-sm text-slate-500">
             Create a user by email and assign one or more clients. With those assignments they can view everything related to those clients.
@@ -317,11 +303,10 @@ export default function ClientManager() {
           <div className="mt-5 space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">User email</label>
-              <input
+              <Input
                 value={userEmail}
                 onChange={(event) => setUserEmail(event.target.value)}
                 placeholder="trafficker@example.com"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
@@ -329,7 +314,7 @@ export default function ClientManager() {
               <select
                 value={userRole}
                 onChange={(event) => setUserRole(event.target.value as PlatformRole)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500"
               >
                 <option value="ad_ops">Ad Ops</option>
                 <option value="designer">Designer</option>
@@ -347,7 +332,7 @@ export default function ClientManager() {
                         type="checkbox"
                         checked={selectedClientIds.includes(client.id)}
                         onChange={() => toggleClient(client.id)}
-                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
                       />
                       <span>{client.name}</span>
                     </span>
@@ -373,7 +358,7 @@ export default function ClientManager() {
                     type="checkbox"
                     checked={productAccess.ad_server}
                     onChange={() => setProductAccess((current) => ({ ...current, ad_server: !current.ad_server }))}
-                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
                   />
                   <span>Ad Server</span>
                 </label>
@@ -382,33 +367,25 @@ export default function ClientManager() {
                     type="checkbox"
                     checked={productAccess.studio}
                     onChange={() => setProductAccess((current) => ({ ...current, studio: !current.studio }))}
-                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
                   />
                   <span>Studio</span>
                 </label>
               </div>
             </div>
             <div className="pt-2">
-              <button
-                type="submit"
-                disabled={savingAccess}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
-              >
-                {savingAccess ? 'Saving…' : 'Grant access'}
-              </button>
+              <Button type="submit" loading={savingAccess}>{savingAccess ? 'Saving…' : 'Grant access'}</Button>
             </div>
           </div>
-        </form>
+        </Panel>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <Panel className="rounded-2xl">
           <h2 className="text-lg font-semibold text-slate-900">Assigned users</h2>
           <p className="mt-1 text-sm text-slate-500">
             Users only see the clients they are assigned to.
           </p>
           {loading ? (
-            <div className="flex h-40 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-indigo-500" />
-            </div>
+            <CenteredSpinner label="Loading assigned users…" />
           ) : (
             <div className="mt-4 space-y-3">
               {accessUsers.map((user) => (
@@ -467,7 +444,7 @@ export default function ClientManager() {
                             type="button"
                             onClick={() => void handleUpdateAccess(assignment, user.id)}
                             disabled={updatingAccessKey === key}
-                            className="rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
+                            className="rounded-md bg-brand-gradient px-2 py-1 text-xs font-medium text-white disabled:opacity-60"
                           >
                             {updatingAccessKey === key ? 'Saving…' : 'Save'}
                           </button>
@@ -492,7 +469,7 @@ export default function ClientManager() {
               )}
             </div>
           )}
-        </div>
+        </Panel>
       </div>
     </div>
   );

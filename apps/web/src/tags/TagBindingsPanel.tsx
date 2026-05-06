@@ -35,7 +35,7 @@ interface TagBindingsPanelProps {
 }
 
 function inputClass(err?: string) {
-  return `w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+  return `w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:border-transparent ${
     err ? 'border-red-400 bg-red-50' : 'border-slate-300'
   }`;
 }
@@ -323,7 +323,7 @@ export default function TagBindingsPanel({
                         type="button"
                         onClick={() => { void handleSaveBinding(binding); }}
                         disabled={updatingBindingId === binding.id}
-                        className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-lg border border-fuchsia-300 bg-white px-3 py-2 text-xs font-medium text-fuchsia-700 transition-colors hover:bg-fuchsia-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-fuchsia-500/20 dark:bg-white/[0.03] dark:text-fuchsia-300"
                       >
                         {updatingBindingId === binding.id ? 'Saving…' : 'Save Rotation'}
                       </button>
@@ -382,7 +382,7 @@ export default function TagBindingsPanel({
               type="button"
               onClick={handleAssignCreative}
               disabled={assignmentBusy || creativeOptionsLoading || !assignmentVersionId}
-              className="w-full px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 rounded-lg transition-colors"
+              className="w-full px-4 py-2.5 text-sm font-medium text-white bg-brand-gradient hover:opacity-95 disabled:opacity-60 rounded-lg transition-colors"
             >
               {assignmentBusy ? 'Assigning…' : 'Assign Creative'}
             </button>

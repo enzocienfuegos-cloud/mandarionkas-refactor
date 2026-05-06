@@ -93,7 +93,7 @@ export default function Register() {
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+        className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:border-transparent ${
           error ? 'border-red-400 bg-red-50 dark:bg-slate-800' : 'border-slate-300 dark:border-slate-600'
         }`}
       />
@@ -172,7 +172,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 mt-2"
+              className="w-full bg-brand-gradient hover:opacity-95 disabled:opacity-60 text-white font-medium py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 mt-2"
             >
               {loading && (
                 <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
@@ -186,7 +186,7 @@ export default function Register() {
 
           <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
             Already have an account?{' '}
-            <Link to="/login" className="text-indigo-600 hover:text-indigo-700 font-medium">
+            <Link to="/login" className="text-fuchsia-600 hover:text-fuchsia-700 font-medium dark:text-fuchsia-300 dark:hover:text-fuchsia-200">
               Sign in
             </Link>
           </p>

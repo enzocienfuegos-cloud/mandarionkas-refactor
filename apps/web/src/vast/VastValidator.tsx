@@ -18,9 +18,9 @@ interface ValidationResult {
 }
 
 const severityConfig: Record<IssueSeverity, { cls: string; icon: string }> = {
-  error:   { cls: 'bg-red-50 border-red-200 text-red-800',     icon: '✕' },
-  warning: { cls: 'bg-yellow-50 border-yellow-200 text-yellow-800', icon: '⚠' },
-  info:    { cls: 'bg-blue-50 border-blue-200 text-blue-800',   icon: 'ℹ' },
+  error:   { cls: 'bg-red-50 border-red-200 text-red-800',     icon: 'Error' },
+  warning: { cls: 'bg-yellow-50 border-yellow-200 text-yellow-800', icon: 'Warning' },
+  info:    { cls: 'bg-blue-50 border-blue-200 text-blue-800',   icon: 'Info' },
 };
 
 export default function VastValidator() {
@@ -107,7 +107,7 @@ export default function VastValidator() {
                 value={xmlInput}
                 onChange={e => setXmlInput(e.target.value)}
                 rows={12}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-y"
                 placeholder={'<?xml version="1.0" encoding="UTF-8"?>\n<VAST version="4.2">\n  ...\n</VAST>'}
                 spellCheck={false}
               />
@@ -119,7 +119,7 @@ export default function VastValidator() {
                 type="url"
                 value={urlInput}
                 onChange={e => setUrlInput(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
                 placeholder="https://ad.example.com/vast?placement=12345"
               />
               <p className="mt-1 text-xs text-slate-400">The URL will be fetched server-side to retrieve the VAST XML.</p>
@@ -135,7 +135,7 @@ export default function VastValidator() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2.5 bg-brand-gradient hover:opacity-95 disabled:opacity-60 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
           >
             {loading && (
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
@@ -157,7 +157,7 @@ export default function VastValidator() {
               ? 'bg-green-50 border-green-200'
               : 'bg-red-50 border-red-200'
           }`}>
-            <div className={`text-4xl`}>{result.valid ? '✅' : '❌'}</div>
+            <div className={`text-4xl`}>{result.valid ? 'OK' : 'Error'}</div>
             <div>
               <p className={`text-lg font-bold ${result.valid ? 'text-green-800' : 'text-red-800'}`}>
                 {result.valid ? 'Valid VAST' : 'Invalid VAST'}

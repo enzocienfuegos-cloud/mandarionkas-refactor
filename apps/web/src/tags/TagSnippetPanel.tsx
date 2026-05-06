@@ -197,7 +197,7 @@ export default function TagSnippetPanel({
               : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
         >
-          {copied ? '✓ Copied!' : '📋 Copy'}
+          {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
       <div className="mb-3 flex flex-wrap gap-2">
@@ -208,7 +208,7 @@ export default function TagSnippetPanel({
             onClick={() => setSnippetVariant(option.value)}
             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
               snippetVariant === option.value
-                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
                 : 'border-slate-300 text-slate-600 hover:bg-slate-50'
             }`}
           >
