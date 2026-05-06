@@ -44,6 +44,7 @@ import type {
   VideoRenditionState,
 } from './creative-library/types';
 import { CreativePreviewLightbox } from './creative-library/CreativePreviewLightbox';
+import { ClickUrlEditorModal } from './creative-library/ClickUrlEditorModal';
 import { QuickCreateTagModal } from './creative-library/QuickCreateTagModal';
 import { TagBindingModal } from './creative-library/TagBindingModal';
 import { VariantManagerModal } from './creative-library/VariantManagerModal';
@@ -67,7 +68,7 @@ import {
   TableIcon,
 } from './creative-library/ui';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
-import { Button, CenteredSpinner, Input, Kicker, MetricCard, Modal, Panel, useConfirm } from '../system';
+import { Button, CenteredSpinner, Input, Kicker, MetricCard, Panel, useConfirm } from '../system';
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(' ');
@@ -2249,35 +2250,12 @@ export default function CreativesView() {
       </div>
 
       {clickUrlEditor && (
-        <Modal
-          open
+        <ClickUrlEditorModal
+          state={clickUrlEditor}
           onClose={() => setClickUrlEditor(null)}
-          title={`Destination URL · ${clickUrlEditor.creativeName}`}
-          description="Leave blank to clear the creative destination URL."
-          size="md"
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setClickUrlEditor(null)}>
-                Cancel
-              </Button>
-              <Button onClick={() => void handleSaveCreativeClickUrl()} loading={clickUrlEditor.loading}>
-                Save URL
-              </Button>
-            </>
-          }
-        >
-          {clickUrlEditor.error && (
-            <div className="mb-4 rounded-lg border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-3 py-2 text-sm text-[color:var(--dusk-status-critical-fg)]">
-              {clickUrlEditor.error}
-            </div>
-          )}
-          <Input
-            value={clickUrlEditor.value}
-            onChange={(event) => setClickUrlEditor((current) => current ? { ...current, value: event.target.value, error: '' } : current)}
-            placeholder="https://example.com/landing"
-            autoFocus
-          />
-        </Modal>
+          onSave={handleSaveCreativeClickUrl}
+          onValueChange={(value) => setClickUrlEditor((current) => current ? { ...current, value, error: '' } : current)}
+        />
       )}
 
       {quickCreateTagState && (
