@@ -29,221 +29,30 @@ import {
   updateVideoRenditionById,
   updateTagBinding,
 } from './catalog';
+import type { CreativeFormat, CreativeRow, CreativeStatus, Metric, PrioritySeverity } from './creative-library/types';
+import {
+  AlertTriangleIcon,
+  CreativeIcon,
+  CreativeStatusBadge,
+  FilterIcon,
+  formatBytes,
+  formatVideoBitrate,
+  mapMetricTone,
+  MoreIcon,
+  PrioritySeverityBadge,
+  readinessBadge,
+  ReportIcon,
+  resolveCreativePreviewHref,
+  resolveCreativePreviewKind,
+  SearchIcon,
+  statusBadge,
+  TableIcon,
+} from './creative-library/ui';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
-import { Button, CenteredSpinner, Input, MetricCard as DuskMetricCard, Modal, useConfirm } from '../system';
-import { Panel, SectionKicker, StatusBadge } from '../shared/dusk-ui';
-
-type TrendDirection = 'up' | 'down' | 'flat';
-type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
-type PrioritySeverity = 'Critical' | 'Warning' | 'Notice';
-type CreativeStatus = 'Approved' | 'Pending QA' | 'Rejected' | 'Ready' | 'Missing';
-type CreativeFormat = 'Display' | 'HTML5' | 'Video' | 'Native';
-type IconProps = { className?: string };
-
-type Metric = {
-  id: string;
-  label: string;
-  value: string;
-  delta: string;
-  direction: TrendDirection;
-  helper: string;
-  tone: Tone;
-  series: number[];
-};
-
-type CreativeRow = {
-  id: string;
-  creative: string;
-  advertiser: string;
-  campaign: string;
-  format: CreativeFormat;
-  size: string;
-  status: CreativeStatus;
-  qa: PrioritySeverity;
-  preview: string;
-  owner: string;
-};
+import { Button, CenteredSpinner, Input, Kicker, MetricCard, Modal, Panel, useConfirm } from '../system';
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(' ');
-}
-
-function iconProps(className?: string) {
-  return {
-    className: classNames('h-5 w-5', className),
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    'aria-hidden': true,
-  } as const;
-}
-
-const AlertTriangleIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <path d="M12 4 3.5 19h17L12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-    <path d="M12 9v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    <circle cx="12" cy="16" r="1" fill="currentColor" />
-  </svg>
-);
-
-const SearchIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8" />
-    <path d="m21 21-4.3-4.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
-const FilterIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
-const CreativeIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
-    <path d="m7 15 3-3 3 3 2-2 3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    <circle cx="15.5" cy="9.5" r="1.2" fill="currentColor" />
-  </svg>
-);
-
-const ReportIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <path d="M6 19V9M12 19V5M18 19v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    <path d="M4 19h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
-const TableIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
-    <path d="M4 10h16M10 5v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
-const MoreIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <circle cx="5" cy="12" r="1" fill="currentColor" />
-    <circle cx="12" cy="12" r="1" fill="currentColor" />
-    <circle cx="19" cy="12" r="1" fill="currentColor" />
-  </svg>
-);
-
-function creativeStatusBadge(status: CreativeStatus) {
-  const map: Record<CreativeStatus, string> = {
-    Approved: 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/22 dark:bg-emerald-500/10 dark:text-emerald-300',
-    'Pending QA': 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/22 dark:bg-amber-500/10 dark:text-amber-300',
-    Rejected: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300',
-    Ready: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/22 dark:bg-sky-500/10 dark:text-sky-300',
-    Missing: 'border-slate-300/70 bg-slate-50 text-slate-700 dark:border-white/12 dark:bg-white/[0.05] dark:text-white/70',
-  };
-  return map[status];
-}
-
-function severityBadge(severity: PrioritySeverity) {
-  const map: Record<PrioritySeverity, string> = {
-    Critical: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300',
-    Warning: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/22 dark:bg-amber-500/10 dark:text-amber-300',
-    Notice: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/22 dark:bg-sky-500/10 dark:text-sky-300',
-  };
-  return map[severity];
-}
-
-function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
-  const classes =
-    direction === 'up'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
-      : direction === 'down'
-        ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
-        : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/58';
-  return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
-}
-
-function formatBytes(value?: number | null) {
-  if (!value) return '—';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = value;
-  let unit = units[0];
-  for (let index = 0; index < units.length - 1 && size >= 1024; index += 1) {
-    size /= 1024;
-    unit = units[index + 1];
-  }
-  return `${size.toFixed(size >= 10 ? 0 : 1)} ${unit}`;
-}
-
-function statusBadge(status?: string) {
-  const map: Record<string, 'neutral' | 'warning' | 'healthy' | 'critical' | 'info'> = {
-    draft: 'neutral',
-    pending_review: 'warning',
-    approved: 'healthy',
-    rejected: 'critical',
-    published: 'info',
-    validated: 'healthy',
-    failed: 'critical',
-    processing: 'info',
-    queued: 'warning',
-    unavailable: 'neutral',
-    uploaded: 'neutral',
-  };
-  return <StatusBadge tone={map[status ?? 'draft'] ?? map.draft} className="capitalize">{(status ?? 'draft').replace(/_/g, ' ')}</StatusBadge>;
-}
-
-function readinessBadge(variant: CreativeSizeVariant) {
-  const ready = Boolean(variant.publicUrl) && (variant.status === 'active' || variant.status === 'draft' || variant.status === 'paused');
-  return (
-    <StatusBadge tone={ready ? 'healthy' : 'neutral'}>{ready ? 'Ready' : 'Needs artifact'}</StatusBadge>
-  );
-}
-
-function formatVideoBitrate(value?: number | null) {
-  if (!value) return '—';
-  return `${Math.round(value)} kbps`;
-}
-
-function resolveCreativePreviewHref(
-  creative: Creative | null | undefined,
-  version: CreativeVersion | null | undefined,
-) {
-  const sourceKind = String(version?.sourceKind || '').trim().toLowerCase();
-  const mimeType = String(version?.mimeType || '').trim().toLowerCase();
-  const allowsIngestionArtifactPreview = (
-    sourceKind === 'video_mp4'
-    || mimeType.startsWith('video/')
-  );
-  const previewUrl = String(version?.previewUrl || '').trim();
-  const isInvalidPreviewUrl = (value: string) => {
-    const lower = value.toLowerCase();
-    if (!value) return true;
-    if (lower.endsWith('.zip')) return true;
-    if (!allowsIngestionArtifactPreview && lower.includes('/creative-ingestions/')) return true;
-    return false;
-  };
-  if (!isInvalidPreviewUrl(previewUrl)) return previewUrl;
-  if (version?.sourceKind === 'html5_zip') return '';
-  const publicUrl = String(version?.publicUrl || '').trim();
-  if (!isInvalidPreviewUrl(publicUrl)) return publicUrl;
-  const creativePreviewUrl = String(creative?.previewUrl || '').trim();
-  if (!isInvalidPreviewUrl(creativePreviewUrl)) return creativePreviewUrl;
-  const thumbnailUrl = String(creative?.thumbnailUrl || '').trim();
-  return isInvalidPreviewUrl(thumbnailUrl) ? '' : thumbnailUrl;
-}
-
-function resolveCreativePreviewKind(
-  creative: Creative | null | undefined,
-  version: CreativeVersion | null | undefined,
-) {
-  const mimeType = String(version?.mimeType || '').trim().toLowerCase();
-  const sourceKind = String(version?.sourceKind || '').trim().toLowerCase();
-  const previewUrl = resolveCreativePreviewHref(creative, version).toLowerCase();
-  if (
-    sourceKind === 'video_mp4' ||
-    mimeType.startsWith('video/') ||
-    previewUrl.endsWith('.mp4') ||
-    previewUrl.endsWith('.webm') ||
-    previewUrl.endsWith('.mov')
-  ) {
-    return 'video' as const;
-  }
-  return 'html' as const;
 }
 
 type LatestVersionMap = Record<string, CreativeVersion | null>;
@@ -2088,7 +1897,7 @@ export default function CreativesView() {
           <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">Review specs, preview assets, catch blockers and approve creatives from one dense operational view with the same CM360-style workspace pattern.</p>
         </div>
         <Panel className="p-5">
-          <SectionKicker>Recommended focus</SectionKicker>
+          <Kicker>Recommended focus</Kicker>
           <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
             <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
             <div>
@@ -2101,7 +1910,7 @@ export default function CreativesView() {
 
       <div className="grid gap-5 xl:grid-cols-4">
         {creativeMetrics.map((metric) => (
-          <DuskMetricCard
+          <MetricCard
             key={metric.id}
             label={metric.label}
             value={metric.value}
@@ -2109,19 +1918,7 @@ export default function CreativesView() {
             trend={metric.direction}
             context={metric.helper}
             series={metric.series}
-            tone={
-              metric.tone === 'fuchsia'
-                ? 'brand'
-                : metric.tone === 'emerald'
-                  ? 'success'
-                  : metric.tone === 'amber'
-                    ? 'warning'
-                    : metric.tone === 'rose'
-                      ? 'critical'
-                      : metric.tone === 'sky'
-                        ? 'info'
-                        : 'neutral'
-            }
+            tone={mapMetricTone(metric.tone)}
             icon={
               metric.id === 'creative-health'
                 ? <CreativeIcon />
@@ -2244,7 +2041,7 @@ export default function CreativesView() {
         <Panel className="overflow-hidden p-6">
           <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <SectionKicker>Creative workspace</SectionKicker>
+              <Kicker>Creative workspace</Kicker>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Creative QA queue</h2>
               <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Review approval status, preview availability, delivery setup, and launch blockers from one dense queue.</p>
             </div>
@@ -2319,9 +2116,7 @@ export default function CreativesView() {
                         <p className="mt-1 text-xs text-slate-500 dark:text-white/48">{row?.advertiser ?? creative.workspaceName ?? '—'} · {row?.campaign ?? 'No campaign'}</p>
                       </td>
                       <td className="px-5 py-5">
-                        <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', creativeStatusBadge(row?.status ?? 'Missing'))}>
-                          {row?.status ?? 'Missing'}
-                        </span>
+                        <CreativeStatusBadge status={row?.status ?? 'Missing'} />
                       </td>
                       <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.format ?? 'Display'}</td>
                       <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.size ?? '—'}</td>
@@ -2362,9 +2157,7 @@ export default function CreativesView() {
                         )}
                       </td>
                       <td className="px-5 py-5">
-                        <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', severityBadge(needsAttention))}>
-                          {needsAttention}
-                        </span>
+                        <PrioritySeverityBadge severity={needsAttention} />
                       </td>
                       <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.owner ?? 'Creative Ops'}</td>
                       <td className="px-5 py-5">
@@ -2453,7 +2246,7 @@ export default function CreativesView() {
         <Panel className="p-6">
           <div className="space-y-8">
             <section>
-              <SectionKicker>Module health</SectionKicker>
+              <Kicker>Module health</Kicker>
               <div className="mt-4 grid gap-3">
                 <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Pending QA</p>
@@ -2474,7 +2267,7 @@ export default function CreativesView() {
             </section>
 
             <section>
-              <SectionKicker>Missing preview assets</SectionKicker>
+              <Kicker>Missing preview assets</Kicker>
               <div className="mt-4 space-y-3">
                 {pendingPreviewCreatives.length > 0 ? pendingPreviewCreatives.map((creative) => (
                   <div key={creative.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
@@ -2490,7 +2283,7 @@ export default function CreativesView() {
             </section>
 
             <section>
-              <SectionKicker>Prototype checks</SectionKicker>
+              <Kicker>Prototype checks</Kicker>
               <div className="mt-4 grid gap-3">
                 {prototypeChecks.map((test) => (
                   <div key={test.name} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
