@@ -12,6 +12,7 @@ export type PrioritySeverity = 'Critical' | 'Warning' | 'Notice';
 export type CreativeStatus = 'Approved' | 'Pending QA' | 'Rejected' | 'Ready' | 'Missing';
 export type CreativeFormat = 'Display' | 'HTML5' | 'Video' | 'Native';
 export type IconProps = { className?: string };
+export type LatestVersionMap = Record<string, CreativeVersion | null>;
 
 export type Metric = {
   id: string;
