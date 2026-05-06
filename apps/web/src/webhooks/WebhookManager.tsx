@@ -1,4 +1,5 @@
 import React, { useEffect, useState, FormEvent } from 'react';
+import { useConfirm, useToast } from '../system';
 
 interface Webhook {
   id: string;
@@ -58,6 +59,8 @@ function generateSecret(): string {
 }
 
 export default function WebhookManager() {
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -166,15 +169,23 @@ export default function WebhookManager() {
   };
 
   const handleDelete = async (wh: Webhook) => {
-    if (!window.confirm(`Delete webhook "${wh.name}"?`)) return;
+    const confirmed = await confirm({
+      title: `Delete webhook "${wh.name}"?`,
+      description: 'This endpoint will stop receiving workspace events immediately.',
+      tone: 'danger',
+      confirmLabel: 'Delete',
+      requireTypeToConfirm: wh.name,
+    });
+    if (!confirmed) return;
     setDeletingId(wh.id);
     try {
       const res = await fetch(`/v1/webhooks/${wh.id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error('Delete failed');
       setWebhooks(ws => ws.filter(w => w.id !== wh.id));
       if (selectedWebhookId === wh.id) { setSelectedWebhookId(null); setDeliveries([]); }
+      toast({ tone: 'warning', title: `Webhook "${wh.name}" deleted` });
     } catch {
-      alert('Failed to delete webhook.');
+      toast({ tone: 'critical', title: 'Failed to delete webhook.' });
     } finally {
       setDeletingId(null);
     }
@@ -191,8 +202,9 @@ export default function WebhookManager() {
       });
       if (!res.ok) throw new Error('Update failed');
       setWebhooks(ws => ws.map(w => w.id === wh.id ? { ...w, status: newStatus } : w));
+      toast({ tone: 'success', title: `Webhook ${newStatus === 'active' ? 'activated' : 'paused'}` });
     } catch {
-      alert('Failed to update webhook status.');
+      toast({ tone: 'critical', title: 'Failed to update webhook status.' });
     }
   };
 

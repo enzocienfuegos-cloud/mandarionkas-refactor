@@ -1,4 +1,5 @@
 import React, { useEffect, useState, FormEvent } from 'react';
+import { useConfirm, useToast } from '../system';
 
 interface ApiKey {
   id: string;
@@ -70,6 +71,8 @@ const statusBadge = (status: ApiKey['status']) => {
 };
 
 export default function ApiKeys() {
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -148,14 +151,22 @@ export default function ApiKeys() {
   };
 
   const handleRevoke = async (key: ApiKey) => {
-    if (!window.confirm(`Revoke key "${key.name}"? This cannot be undone.`)) return;
+    const confirmed = await confirm({
+      title: `Revoke key "${key.name}"?`,
+      description: 'This cannot be undone.',
+      tone: 'danger',
+      confirmLabel: 'Revoke',
+      requireTypeToConfirm: key.name,
+    });
+    if (!confirmed) return;
     setRevokingId(key.id);
     try {
       const res = await fetch(`/v1/api-keys/${key.id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error('Revoke failed');
       setKeys(ks => ks.map(k => k.id === key.id ? { ...k, status: 'revoked' } : k));
+      toast({ tone: 'warning', title: `Key "${key.name}" revoked` });
     } catch {
-      alert('Failed to revoke API key.');
+      toast({ tone: 'critical', title: 'Failed to revoke API key.' });
     } finally {
       setRevokingId(null);
     }

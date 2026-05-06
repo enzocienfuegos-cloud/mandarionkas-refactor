@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../shared/workspaces';
+import { useConfirm, useToast } from '../system';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -406,6 +407,8 @@ function CampaignsTable({
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export default function CampaignList() {
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchQueryParam = searchParams.get('search') ?? '';
@@ -502,7 +505,14 @@ export default function CampaignList() {
   ];
 
   const handleDelete = async (campaign: CampaignRow) => {
-    if (!window.confirm(`Delete campaign "${campaign.campaign}"? This cannot be undone.`)) return;
+    const confirmed = await confirm({
+      title: `Delete campaign "${campaign.campaign}"?`,
+      description: 'This cannot be undone.',
+      tone: 'danger',
+      confirmLabel: 'Delete',
+      requireTypeToConfirm: campaign.campaign,
+    });
+    if (!confirmed) return;
     setDeletingId(campaign.id);
     try {
       if (campaign.raw.workspace_id && campaign.raw.workspace_id !== activeWorkspaceId) {
@@ -515,8 +525,9 @@ export default function CampaignList() {
         throw new Error((payload as any)?.message ?? 'Delete failed');
       }
       setCampaigns((current) => current.filter((item) => item.id !== campaign.id));
+      toast({ tone: 'warning', title: `Campaign "${campaign.campaign}" deleted` });
     } catch (deleteError: any) {
-      alert(deleteError.message ?? 'Failed to delete campaign.');
+      toast({ tone: 'critical', title: deleteError.message ?? 'Failed to delete campaign.' });
     } finally {
       setDeletingId(null);
     }
@@ -530,7 +541,7 @@ export default function CampaignList() {
       }
       navigate(`/campaigns/${campaign.id}`);
     } catch {
-      alert('Failed to open campaign in its client workspace.');
+      toast({ tone: 'critical', title: 'Failed to open campaign in its client workspace.' });
     }
   };
 

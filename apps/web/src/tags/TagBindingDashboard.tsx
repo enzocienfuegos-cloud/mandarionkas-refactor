@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { loadTagBindings, loadTags, type TagBinding, type TagOption, updateTagBinding } from '../creatives/catalog';
+import { useToast } from '../system';
 
 type BindingFilter = 'all' | 'active' | 'paused' | 'draft' | 'archived';
 
@@ -19,6 +20,7 @@ function statusBadge(status: TagBinding['status']) {
 }
 
 export default function TagBindingDashboard() {
+  const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const [tags, setTags] = useState<TagOption[]>([]);
   const [selectedTagId, setSelectedTagId] = useState('');
@@ -171,8 +173,9 @@ export default function TagBindingDashboard() {
         weight: Math.max(1, Number.parseInt(draft.weight, 10) || 1),
       });
       await refreshBindings(binding.tagId);
+      toast({ tone: 'success', title: 'Assignment updated' });
     } catch {
-      alert('Failed to update assignment status.');
+      toast({ tone: 'critical', title: 'Failed to update assignment status.' });
     } finally {
       setUpdatingBindingId(null);
     }
@@ -189,8 +192,9 @@ export default function TagBindingDashboard() {
         weight: Math.max(1, Number(bindingDrafts[binding.id]?.weight ?? binding.weight) || 1),
       });
       await refreshBindings(binding.tagId);
+      toast({ tone: 'success', title: `Assignment ${nextStatus === 'active' ? 'activated' : 'paused'}` });
     } catch {
-      alert('Failed to update assignment status.');
+      toast({ tone: 'critical', title: 'Failed to update assignment status.' });
     } finally {
       setUpdatingBindingId(null);
     }

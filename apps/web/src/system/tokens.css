@@ -1,0 +1,243 @@
+/* ==========================================================================
+ * DUSK Design Tokens
+ * --------------------------------------------------------------------------
+ * Single source of truth for all visual primitives. Every component must
+ * reference these tokens — never hardcoded color, spacing, radius, or shadow.
+ *
+ * Naming convention:
+ *   --dusk-{category}-{role}-{state?}
+ *
+ * Categories:
+ *   color    background, text, border, brand, status
+ *   space    4px-based scale (0..14)
+ *   radius   border-radius scale
+ *   shadow   elevation 1..4 + overlay
+ *   font     family + scale + weight
+ *   z        z-index scale
+ *
+ * Brand color: #F1008B (mandarionkas / dusk fuchsia)
+ * ========================================================================== */
+
+:root {
+  /* ─── Brand ─────────────────────────────────────────────────────────── */
+  --dusk-brand-50:  #fdf4ff;
+  --dusk-brand-100: #fae8ff;
+  --dusk-brand-200: #f5d0fe;
+  --dusk-brand-300: #f0abfc;
+  --dusk-brand-400: #e879f9;
+  --dusk-brand-500: #F1008B;   /* primary */
+  --dusk-brand-600: #c026d3;
+  --dusk-brand-700: #a21caf;
+  --dusk-brand-800: #86198f;
+  --dusk-brand-900: #701a75;
+  --dusk-brand-950: #4a044e;
+
+  --dusk-brand-gradient: linear-gradient(135deg, #F1008B 0%, #c026d3 100%);
+
+  /* ─── Surface (light) ───────────────────────────────────────────────── */
+  --dusk-bg:                #f6f3fb;
+  --dusk-surface-1:         rgba(255, 255, 255, 0.92);   /* main panel  */
+  --dusk-surface-2:         #fcfbff;                      /* raised      */
+  --dusk-surface-muted:     #f3eff8;                      /* sunken      */
+  --dusk-surface-hover:     #f5f0fa;
+  --dusk-surface-active:    rgba(241, 0, 139, 0.06);
+
+  /* ─── Text (light) ──────────────────────────────────────────────────── */
+  --dusk-text-primary:      #17141f;
+  --dusk-text-secondary:    #4a4456;
+  --dusk-text-muted:        #6f687b;
+  --dusk-text-soft:         #8f889a;
+  --dusk-text-inverse:      #ffffff;
+  --dusk-text-brand:        #c026d3;
+
+  /* ─── Border (light) ────────────────────────────────────────────────── */
+  --dusk-border-subtle:     rgba(56, 24, 76, 0.06);
+  --dusk-border-default:    rgba(56, 24, 76, 0.10);
+  --dusk-border-strong:     rgba(56, 24, 76, 0.16);
+  --dusk-border-focus:      var(--dusk-brand-500);
+
+  /* ─── Semantic / Status ─────────────────────────────────────────────── */
+  --dusk-status-success-bg:      #ecfdf5;
+  --dusk-status-success-border:  #a7f3d0;
+  --dusk-status-success-fg:      #047857;
+
+  --dusk-status-warning-bg:      #fffbeb;
+  --dusk-status-warning-border:  #fde68a;
+  --dusk-status-warning-fg:      #b45309;
+
+  --dusk-status-critical-bg:     #fef2f2;
+  --dusk-status-critical-border: #fecaca;
+  --dusk-status-critical-fg:     #b91c1c;
+
+  --dusk-status-info-bg:         #eff6ff;
+  --dusk-status-info-border:     #bfdbfe;
+  --dusk-status-info-fg:         #1d4ed8;
+
+  --dusk-status-neutral-bg:      #f8fafc;
+  --dusk-status-neutral-border:  #e2e8f0;
+  --dusk-status-neutral-fg:      #475569;
+
+  /* ─── Focus ring ────────────────────────────────────────────────────── */
+  --dusk-focus-ring:        0 0 0 3px rgba(241, 0, 139, 0.18);
+  --dusk-focus-ring-strong: 0 0 0 3px rgba(241, 0, 139, 0.32);
+
+  /* ─── Shadow scale (elevation) ──────────────────────────────────────── */
+  --dusk-shadow-1: 0 1px 2px rgba(28, 18, 41, 0.04);
+  --dusk-shadow-2: 0 4px 12px rgba(28, 18, 41, 0.06);
+  --dusk-shadow-3: 0 12px 32px rgba(28, 18, 41, 0.08);
+  --dusk-shadow-4: 0 24px 64px rgba(28, 18, 41, 0.10);
+  --dusk-shadow-overlay: 0 32px 80px rgba(28, 18, 41, 0.18);
+  --dusk-shadow-brand:   0 16px 36px rgba(241, 0, 139, 0.28);
+
+  /* ─── Spacing (4px base) ────────────────────────────────────────────── */
+  --dusk-space-0: 0;
+  --dusk-space-1: 4px;
+  --dusk-space-2: 8px;
+  --dusk-space-3: 12px;
+  --dusk-space-4: 16px;
+  --dusk-space-5: 20px;
+  --dusk-space-6: 24px;
+  --dusk-space-7: 28px;
+  --dusk-space-8: 32px;
+  --dusk-space-10: 40px;
+  --dusk-space-12: 48px;
+  --dusk-space-14: 56px;
+  --dusk-space-16: 64px;
+  --dusk-space-20: 80px;
+
+  /* ─── Radius scale ──────────────────────────────────────────────────── */
+  --dusk-radius-sm:  6px;     /* badges, pills */
+  --dusk-radius-md:  10px;    /* inputs, small buttons */
+  --dusk-radius-lg:  12px;    /* default buttons, selects */
+  --dusk-radius-xl:  16px;    /* cards inner */
+  --dusk-radius-2xl: 20px;    /* modal */
+  --dusk-radius-3xl: 24px;    /* panels */
+  --dusk-radius-full: 9999px;
+
+  /* ─── Typography ────────────────────────────────────────────────────── */
+  --dusk-font-display: 'Inter Display', 'Inter', system-ui, -apple-system, sans-serif;
+  --dusk-font-body:    'Inter', system-ui, -apple-system, sans-serif;
+  --dusk-font-mono:    'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Type scale (rem-based, 16px root) */
+  --dusk-text-xs:   0.75rem;    /* 12 */
+  --dusk-text-sm:   0.875rem;   /* 14 */
+  --dusk-text-base: 1rem;       /* 16 */
+  --dusk-text-lg:   1.125rem;   /* 18 */
+  --dusk-text-xl:   1.25rem;    /* 20 */
+  --dusk-text-2xl:  1.5rem;     /* 24 */
+  --dusk-text-3xl:  1.875rem;   /* 30 */
+  --dusk-text-4xl:  2.25rem;    /* 36 */
+  --dusk-text-5xl:  3rem;       /* 48 */
+
+  --dusk-leading-tight:  1.15;
+  --dusk-leading-snug:   1.35;
+  --dusk-leading-normal: 1.5;
+  --dusk-leading-relaxed: 1.65;
+
+  --dusk-tracking-tight:  -0.02em;
+  --dusk-tracking-normal: 0;
+  --dusk-tracking-wide:   0.06em;
+  --dusk-tracking-kicker: 0.18em;
+
+  /* ─── Z-index scale ─────────────────────────────────────────────────── */
+  --dusk-z-base:     0;
+  --dusk-z-dropdown: 100;
+  --dusk-z-sticky:   200;
+  --dusk-z-overlay:  900;
+  --dusk-z-modal:    1000;
+  --dusk-z-toast:    1100;
+  --dusk-z-tooltip:  1200;
+
+  /* ─── Motion ────────────────────────────────────────────────────────── */
+  --dusk-duration-fast:    120ms;
+  --dusk-duration-base:    180ms;
+  --dusk-duration-slow:    320ms;
+  --dusk-ease-standard:    cubic-bezier(0.2, 0, 0, 1);
+  --dusk-ease-enter:       cubic-bezier(0, 0, 0.2, 1);
+  --dusk-ease-exit:        cubic-bezier(0.4, 0, 1, 1);
+
+  /* ─── Layout constants ──────────────────────────────────────────────── */
+  --dusk-sidebar-width:        280px;
+  --dusk-sidebar-width-collapsed: 72px;
+  --dusk-topbar-height:        56px;
+  --dusk-content-max:          1440px;
+  --dusk-content-pad-x:        24px;
+  --dusk-content-pad-y:        24px;
+}
+
+/* ========================================================================== */
+/* Dark theme overrides                                                       */
+/* ========================================================================== */
+
+html.dark {
+  color-scheme: dark;
+
+  /* Surface */
+  --dusk-bg:                #0b1020;
+  --dusk-surface-1:         rgba(18, 24, 38, 0.92);
+  --dusk-surface-2:         #121827;
+  --dusk-surface-muted:     rgba(255, 255, 255, 0.028);
+  --dusk-surface-hover:     rgba(255, 255, 255, 0.045);
+  --dusk-surface-active:    rgba(241, 0, 139, 0.10);
+
+  /* Text */
+  --dusk-text-primary:      #f6f7fb;
+  --dusk-text-secondary:    rgba(255, 255, 255, 0.82);
+  --dusk-text-muted:        rgba(255, 255, 255, 0.62);
+  --dusk-text-soft:         rgba(255, 255, 255, 0.42);
+  --dusk-text-inverse:      #17141f;
+  --dusk-text-brand:        #f3a6d0;
+
+  /* Border */
+  --dusk-border-subtle:     rgba(255, 255, 255, 0.04);
+  --dusk-border-default:    rgba(255, 255, 255, 0.08);
+  --dusk-border-strong:     rgba(255, 255, 255, 0.14);
+
+  /* Status (dark variants, lower saturation, transparent fills) */
+  --dusk-status-success-bg:      rgba(16, 185, 129, 0.12);
+  --dusk-status-success-border:  rgba(16, 185, 129, 0.30);
+  --dusk-status-success-fg:      #6ee7b7;
+
+  --dusk-status-warning-bg:      rgba(245, 158, 11, 0.12);
+  --dusk-status-warning-border:  rgba(245, 158, 11, 0.30);
+  --dusk-status-warning-fg:      #fcd34d;
+
+  --dusk-status-critical-bg:     rgba(239, 68, 68, 0.12);
+  --dusk-status-critical-border: rgba(239, 68, 68, 0.30);
+  --dusk-status-critical-fg:     #fca5a5;
+
+  --dusk-status-info-bg:         rgba(59, 130, 246, 0.12);
+  --dusk-status-info-border:     rgba(59, 130, 246, 0.30);
+  --dusk-status-info-fg:         #93c5fd;
+
+  --dusk-status-neutral-bg:      rgba(255, 255, 255, 0.05);
+  --dusk-status-neutral-border:  rgba(255, 255, 255, 0.12);
+  --dusk-status-neutral-fg:      rgba(255, 255, 255, 0.72);
+
+  /* Shadow tuned for dark */
+  --dusk-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --dusk-shadow-2: 0 6px 18px rgba(0, 0, 0, 0.24);
+  --dusk-shadow-3: 0 18px 46px rgba(0, 0, 0, 0.28);
+  --dusk-shadow-4: 0 32px 80px rgba(0, 0, 0, 0.36);
+  --dusk-shadow-overlay: 0 40px 100px rgba(0, 0, 0, 0.50);
+
+  /* Focus ring */
+  --dusk-focus-ring:        0 0 0 3px rgba(241, 0, 139, 0.28);
+  --dusk-focus-ring-strong: 0 0 0 3px rgba(241, 0, 139, 0.42);
+}
+
+/* ========================================================================== */
+/* Reduced motion                                                             */
+/* ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

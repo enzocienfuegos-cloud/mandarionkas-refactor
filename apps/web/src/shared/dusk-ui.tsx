@@ -3,7 +3,7 @@ import {
   ChevronDown,
   ChevronLeft,
   Search,
-} from 'lucide-react';
+} from '@/system/icons';
 import { useNavigate } from 'react-router-dom';
 
 export function cn(...values: Array<string | false | null | undefined>) {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useConfirm, useToast } from '../system';
 
 interface TagRecord {
   id: string;
@@ -23,6 +24,8 @@ function emptyForm() {
 }
 
 export default function TagPixelsManager() {
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const { id } = useParams<{ id: string }>();
   const [tag, setTag] = useState<TagRecord | null>(null);
   const [pixels, setPixels] = useState<PixelRecord[]>([]);
@@ -110,7 +113,14 @@ export default function TagPixelsManager() {
   };
 
   const handleDelete = async (pixel: PixelRecord) => {
-    if (!id || !window.confirm(`Delete the ${pixel.pixelType} pixel?`)) return;
+    if (!id) return;
+    const confirmed = await confirm({
+      title: `Delete the ${pixel.pixelType} pixel?`,
+      description: 'The tag will stop firing this measurement endpoint immediately.',
+      tone: 'danger',
+      confirmLabel: 'Delete',
+    });
+    if (!confirmed) return;
     setError('');
     setSuccess('');
     try {
@@ -123,8 +133,10 @@ export default function TagPixelsManager() {
       setPixels((current) => current.filter((entry) => entry.id !== pixel.id));
       if (editingId === pixel.id) resetForm();
       setSuccess('Pixel deleted.');
+      toast({ tone: 'warning', title: `${pixel.pixelType} pixel deleted` });
     } catch (caught: any) {
       setError(caught?.message ?? 'Failed to delete pixel.');
+      toast({ tone: 'critical', title: caught?.message ?? 'Failed to delete pixel.' });
     }
   };
 

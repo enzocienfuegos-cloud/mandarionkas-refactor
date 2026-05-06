@@ -1,0 +1,49 @@
+{
+  "_comment": "Reference snippet: how to wire the dusk eslint rules into your existing .eslintrc. Merge into apps/web/.eslintrc.cjs (or eslint.config.js) — adjust the require path to where you place /eslint-rules/.",
+
+  "plugins": ["dusk-local"],
+
+  "rules": {
+    "dusk-local/no-legacy-tailwind-colors": "error",
+    "dusk-local/no-deep-system-imports":    "error",
+    "dusk-local/no-emoji-icons":            "warn",
+    "dusk-local/prefer-design-system-button": "error",
+
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "lucide-react",
+            "message": "Import icons from '@/system/icons' (the curated set), not directly from lucide-react."
+          }
+        ]
+      }
+    ]
+  },
+
+  "_plugin_setup_example": [
+    "// In .eslintrc.cjs:",
+    "const path = require('path');",
+    "module.exports = {",
+    "  // ...your existing config,",
+    "  plugins: ['dusk-local'],",
+    "  // Map plugin name to local folder",
+    "  settings: {",
+    "    'dusk-local': {",
+    "      // see https://eslint.org/docs/latest/extend/plugins for canonical setup",
+    "    }",
+    "  }",
+    "};",
+    "",
+    "// Or wire it via a tiny in-repo plugin module at /eslint-rules/index.js:",
+    "// module.exports = {",
+    "//   rules: {",
+    "//     'no-legacy-tailwind-colors':    require('./no-legacy-tailwind-colors'),",
+    "//     'no-deep-system-imports':       require('./no-deep-system-imports'),",
+    "//     'no-emoji-icons':               require('./no-emoji-icons'),",
+    "//     'prefer-design-system-button':  require('./prefer-design-system-button'),",
+    "//   }",
+    "// };"
+  ]
+}

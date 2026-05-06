@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../shared/workspaces';
 import { Panel, PrimaryButton, SectionKicker, StatusBadge } from '../shared/dusk-ui';
+import { useConfirm, useToast } from '../system';
 
 interface Tag {
   id: string;
@@ -215,6 +216,8 @@ const formatBadge = (format: Tag['format']) => {
 };
 
 export default function TagList() {
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tags, setTags] = useState<Tag[]>([]);
@@ -376,7 +379,14 @@ export default function TagList() {
   };
 
   const handleDelete = async (tag: Tag) => {
-    if (!window.confirm(`Delete tag "${tag.name}"? This cannot be undone.`)) return;
+    const confirmed = await confirm({
+      title: `Delete tag "${tag.name}"?`,
+      description: 'This cannot be undone.',
+      tone: 'danger',
+      confirmLabel: 'Delete',
+      requireTypeToConfirm: tag.name,
+    });
+    if (!confirmed) return;
     setDeletingId(tag.id);
     try {
       await withWorkspaceContext(tag);
@@ -386,8 +396,9 @@ export default function TagList() {
         throw new Error(payload?.message ?? 'Delete failed');
       }
       setTags((current) => current.filter((item) => item.id !== tag.id));
+      toast({ tone: 'warning', title: `Tag "${tag.name}" deleted` });
     } catch (deleteError: any) {
-      alert(deleteError.message ?? 'Failed to delete tag.');
+      toast({ tone: 'critical', title: deleteError.message ?? 'Failed to delete tag.' });
     } finally {
       setDeletingId(null);
     }
@@ -429,7 +440,7 @@ export default function TagList() {
       }
       setSelectedTagIds([]);
     } catch (bulkError: any) {
-      alert(bulkError.message ?? 'Bulk update failed.');
+      toast({ tone: 'critical', title: bulkError.message ?? 'Bulk update failed.' });
     } finally {
       setBulkActionLoading(false);
     }
@@ -437,7 +448,13 @@ export default function TagList() {
 
   const handleBulkDelete = async () => {
     if (!selectedTagIds.length) return;
-    if (!window.confirm(`Delete ${selectedTagIds.length} selected tag${selectedTagIds.length !== 1 ? 's' : ''}? This cannot be undone.`)) {
+    const confirmed = await confirm({
+      title: `Delete ${selectedTagIds.length} selected tag${selectedTagIds.length !== 1 ? 's' : ''}?`,
+      description: 'This cannot be undone.',
+      tone: 'danger',
+      confirmLabel: 'Delete',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -454,8 +471,9 @@ export default function TagList() {
       }
       setTags((current) => current.filter((tag) => !selectedTagIds.includes(tag.id)));
       setSelectedTagIds([]);
+      toast({ tone: 'warning', title: `${selectedTags.length} tag${selectedTags.length === 1 ? '' : 's'} deleted` });
     } catch (bulkError: any) {
-      alert(bulkError.message ?? 'Bulk delete failed.');
+      toast({ tone: 'critical', title: bulkError.message ?? 'Bulk delete failed.' });
     } finally {
       setBulkActionLoading(false);
     }
@@ -475,7 +493,7 @@ export default function TagList() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch {
-      alert('Failed to export tag.');
+      toast({ tone: 'critical', title: 'Failed to export tag.' });
     }
   };
 

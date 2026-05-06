@@ -1,5 +1,6 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { getPlatformRoleLabel, type PlatformRole } from '../shared/roles';
+import { useConfirm, useToast } from '../system';
 
 type Tab = 'profile' | 'members';
 
@@ -131,6 +132,8 @@ function ProductAccessBadge({ productAccess }: { productAccess: ProductAccess })
 }
 
 export default function WorkspaceSettings() {
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const [tab, setTab] = useState<Tab>('profile');
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -258,22 +261,31 @@ export default function WorkspaceSettings() {
           }
           : entry
       )));
+      toast({ tone: 'success', title: `Role updated for ${member.email}` });
     } catch {
-      alert('Failed to update role.');
+      toast({ tone: 'critical', title: 'Failed to update role.' });
     } finally {
       setUpdatingRoleId(null);
     }
   };
 
   const handleRemoveMember = async (member: Member) => {
-    if (!window.confirm(`Remove ${member.email} from the workspace?`)) return;
+    const confirmed = await confirm({
+      title: `Remove ${member.email} from the workspace?`,
+      description: 'They will lose access to this workspace immediately.',
+      tone: 'danger',
+      confirmLabel: 'Remove',
+      requireTypeToConfirm: member.email,
+    });
+    if (!confirmed) return;
     setRemovingId(member.id);
     try {
       const response = await fetch(`/v1/team/${member.id}`, { method: 'DELETE', credentials: 'include' });
       if (!response.ok) throw new Error('Remove failed');
       setMembers((current) => current.filter((entry) => entry.id !== member.id));
+      toast({ tone: 'warning', title: `${member.email} removed from workspace` });
     } catch {
-      alert('Failed to remove member.');
+      toast({ tone: 'critical', title: 'Failed to remove member.' });
     } finally {
       setRemovingId(null);
     }
