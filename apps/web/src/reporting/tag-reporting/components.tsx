@@ -1,6 +1,63 @@
 import React from 'react';
-import { Button, EmptyState, Input, Kicker, Panel, Select, Tab, Tabs, TabsList } from '../../system';
+import { Badge, Button, EmptyState, Input, Kicker, Panel, Select, Tab, Tabs, TabsList } from '../../system';
 import type { DailyStat, ReportingTab, Tag } from './types';
+
+function iconProps() {
+  return {
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    className: 'h-4 w-4',
+    'aria-hidden': true,
+  } as const;
+}
+
+function DisplayModeIcon() {
+  return (
+    <svg {...iconProps()}>
+      <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4 10h16M10 5v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function VideoModeIcon() {
+  return (
+    <svg {...iconProps()}>
+      <rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m11 10 4 2-4 2v-4Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function IdentityModeIcon() {
+  return (
+    <svg {...iconProps()}>
+      <circle cx="12" cy="8.5" r="3" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M6.5 19a5.5 5.5 0 0 1 11 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const MODE_META: Record<ReportingTab, { title: string; description: string; tone: 'brand' | 'info' | 'success'; icon: React.ReactNode }> = {
+  display: {
+    title: 'Display analytics',
+    description: 'Delivery, clicks, viewability and attention trends for display inventory.',
+    tone: 'brand',
+    icon: <DisplayModeIcon />,
+  },
+  video: {
+    title: 'Video completion funnel',
+    description: 'Starts, completions and rate quality for the selected tag and creative.',
+    tone: 'info',
+    icon: <VideoModeIcon />,
+  },
+  identity: {
+    title: 'Identity and supply context',
+    description: 'Latest delivery context, device signals and inventory environment snapshots.',
+    tone: 'success',
+    icon: <IdentityModeIcon />,
+  },
+};
 
 export function BarChart({ data }: { data: DailyStat[] }) {
   const W = 600;
@@ -207,6 +264,8 @@ export function ReportingWorkspaceControls({
   dateRangeOptions: Array<{ value: string; label: string }>;
   reportingTabOptions: Array<{ value: string; label: string }>;
 }) {
+  const modeMeta = MODE_META[activeTab];
+
   return (
     <>
       <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -272,13 +331,29 @@ export function ReportingWorkspaceControls({
         <Tabs value={activeTab} onValueChange={(value) => onActiveTabChange(value as ReportingTab)}>
           <TabsList aria-label="Reporting mode" className="w-full justify-start">
             {reportingTabOptions.map((option) => (
-              <Tab key={option.value} value={option.value} className="capitalize">
+              <Tab
+                key={option.value}
+                value={option.value}
+                className="capitalize"
+                leadingIcon={MODE_META[option.value as ReportingTab].icon}
+              >
                 {option.label}
               </Tab>
             ))}
           </TabsList>
         </Tabs>
       </div>
+
+      <Panel className="mb-6 flex items-start gap-3 p-4">
+        <div className="mt-0.5 text-[color:var(--dusk-text-secondary)]">{modeMeta.icon}</div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">{modeMeta.title}</p>
+            <Badge tone={modeMeta.tone} size="sm">{activeTab}</Badge>
+          </div>
+          <p className="mt-1 text-sm text-[color:var(--dusk-text-secondary)]">{modeMeta.description}</p>
+        </div>
+      </Panel>
     </>
   );
 }
