@@ -5,10 +5,12 @@ import {
   Button,
   CenteredSpinner,
   EmptyState,
+  FormField,
   Input,
   Kicker,
   MetricCard,
   Panel,
+  Select,
   useConfirm,
   useToast,
 } from '../system';
@@ -165,7 +167,7 @@ export default function CampaignList() {
 
   if (error) {
     return (
-      <Panel className="border-rose-200 bg-rose-50/70 p-4 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300">
+      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]" role="alert">
         <p className="font-medium">Error loading campaigns</p>
         <p className="mt-1 text-sm">{error}</p>
         <Button onClick={load} variant="ghost" size="sm" className="mt-3">Retry</Button>
@@ -179,28 +181,29 @@ export default function CampaignList() {
           {/* ── Toolbar ── */}
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-3">
-              <select
-                value={selectedClientIds[0] ?? ''}
-                onChange={(e) => setSelectedClientIds(e.target.value ? [e.target.value] : [])}
-                className="inline-flex min-h-[46px] min-w-[180px] items-center gap-2 rounded-xl border border-border-default/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-text-secondary outline-none transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-surface-1/[0.045]"
-              >
-                <option value="">All advertisers</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>{client.name}</option>
-                ))}
-              </select>
+              <FormField label="Advertiser" className="min-w-[180px]">
+                <Select
+                  value={selectedClientIds[0] ?? ''}
+                  onChange={(e) => setSelectedClientIds(e.target.value ? [e.target.value] : [])}
+                  options={[
+                    { value: '', label: 'All advertisers' },
+                    ...clients.map((client) => ({ value: client.id, label: client.name })),
+                  ]}
+                  className="min-h-[46px]"
+                />
+              </FormField>
               <Button type="button" variant="secondary" className="min-h-[46px]">
                 Active + setup
               </Button>
-              <label className="relative block min-w-[300px]">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--dusk-text-soft)] dark:text-white/40"><SearchIcon /></span>
+              <FormField label="Search" className="min-w-[300px]">
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="min-h-[46px] border-border-default/80 bg-[rgba(252,251,255,0.82)] pl-10"
+                  leadingIcon={<SearchIcon />}
+                  className="min-h-[46px] border-border-default/80"
                   placeholder="Search campaign, advertiser, owner"
                 />
-              </label>
+              </FormField>
             </div>
             <Link to="/campaigns/new">
               <Button variant="primary">New campaign</Button>
@@ -210,21 +213,17 @@ export default function CampaignList() {
           {/* ── Header ── */}
           <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
             <div>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-700 dark:border-fuchsia-500/15 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
-                Campaigns
-                <span className="h-1 w-1 rounded-full bg-current opacity-60" />
-                Delivery workspace
-              </div>
+              <Kicker>Campaigns · Delivery workspace</Kicker>
               <h1 className="text-4xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)] md:text-5xl">Campaign operations without the noise</h1>
-              <p className="mt-3 max-w-3xl text-lg leading-8 text-text-muted dark:text-white/62">Scan campaign readiness, catch blockers, and move from pacing, tags or creative issues into action quickly.</p>
+              <p className="mt-3 max-w-3xl text-lg leading-8 text-text-muted">Scan campaign readiness, catch blockers, and move from pacing, tags or creative issues into action quickly.</p>
             </div>
             <Panel className="p-5">
               <Kicker>Recommended focus</Kicker>
-              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
-                <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] p-4">
+                <AlertTriangleIcon className="text-[color:var(--dusk-status-warning-fg)]" />
                 <div>
-                  <p className="font-semibold text-amber-800 dark:text-amber-100">{needsAttentionRows.length} campaigns need attention</p>
-                  <p className="mt-1 text-sm text-[color:var(--dusk-status-warning-fg)]/72 dark:text-amber-100/62">Review blocked delivery and limited pacing before making new trafficking changes.</p>
+                  <p className="font-semibold text-[color:var(--dusk-status-warning-fg)]">{needsAttentionRows.length} campaigns need attention</p>
+                  <p className="mt-1 text-sm text-[color:var(--dusk-status-warning-fg)]/72">Review blocked delivery and limited pacing before making new trafficking changes.</p>
                 </div>
               </div>
             </Panel>

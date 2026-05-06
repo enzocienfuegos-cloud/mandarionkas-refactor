@@ -188,6 +188,8 @@ export function TagSelectorPanel({
               <button
                 type="button"
                 onClick={() => onSelectTag(tag)}
+                aria-pressed={selectedTagId === tag.id}
+                aria-label={`Open reporting for ${tag.name}`}
                 className={`w-full text-left px-4 py-3 text-sm transition-colors ${
                   selectedTagId === tag.id
                     ? 'bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)] font-medium'
@@ -473,18 +475,25 @@ export function ReportingBreakdownTable({
             <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
               {[...rows].reverse().map((row) => (
                 <tr key={row.date} className="hover:bg-[color:var(--dusk-surface-muted)]">
-                  {columns.map((column) => (
-                    <td
-                      key={column.key}
-                      className={`px-4 py-2.5 text-sm ${
-                        column.emphasize
-                          ? 'font-medium text-[color:var(--dusk-text-primary)]'
-                          : 'text-[color:var(--dusk-text-secondary)]'
-                      }`}
-                    >
-                      {column.render(row)}
-                    </td>
-                  ))}
+                  {columns.map((column, index) => {
+                    const cellClass = `px-4 py-2.5 text-sm ${
+                      column.emphasize
+                        ? 'font-medium text-[color:var(--dusk-text-primary)]'
+                        : 'text-[color:var(--dusk-text-secondary)]'
+                    }`;
+                    if (index === 0) {
+                      return (
+                        <th key={column.key} scope="row" className={`${cellClass} text-left`}>
+                          {column.render(row)}
+                        </th>
+                      );
+                    }
+                    return (
+                      <td key={column.key} className={cellClass}>
+                        {column.render(row)}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

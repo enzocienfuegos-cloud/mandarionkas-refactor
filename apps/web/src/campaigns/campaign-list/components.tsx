@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Kicker, Panel } from '../../system';
+import { Button, IconButton, Kicker, Panel } from '../../system';
 import type { CampaignRow, IconProps, TrendDirection } from './types';
 import { classNames, statusBadge } from './utils';
 
@@ -67,19 +67,19 @@ export const MoreIcon = ({ className }: IconProps) => (
 export function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
   const classes =
     direction === 'up'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
+      ? 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]'
       : direction === 'down'
-        ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
-        : 'border-border-default bg-[color:var(--dusk-surface-muted)] text-text-muted dark:border-white/8 dark:bg-surface-1/[0.03] dark:text-white/58';
+        ? 'border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] text-[color:var(--dusk-status-critical-fg)]'
+        : 'border-border-default bg-[color:var(--dusk-surface-muted)] text-text-muted';
   return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
 }
 
 function CampaignStatusCard({ title, value, helper }: { title: string; value: string; helper: string }) {
   return (
-    <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4 dark:border-white/8 dark:bg-surface-1/[0.025]">
-      <p className="text-xs font-medium uppercase tracking-wide text-text-muted dark:text-white/40">{title}</p>
+    <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-text-muted">{title}</p>
       <p className="mt-2 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{value}</p>
-      <p className="mt-1 text-sm text-text-muted dark:text-white/52">{helper}</p>
+      <p className="mt-1 text-sm text-text-muted">{helper}</p>
     </div>
   );
 }
@@ -107,7 +107,7 @@ export function CampaignsTable({
         <div>
           <Kicker>Campaign workspace</Kicker>
           <h2 className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Active &amp; setup campaigns</h2>
-          <p className="mt-2 text-sm text-text-muted dark:text-white/56">Operational view for pacing, tag health, creative QA and launch readiness.</p>
+          <p className="mt-2 text-sm text-text-muted">Operational view for pacing, tag health, creative QA and launch readiness.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button type="button" variant="secondary" size="sm">
@@ -127,51 +127,51 @@ export function CampaignsTable({
         <CampaignStatusCard title="Draft setup" value={String(draftSetup)} helper="missing setup steps" />
       </div>
 
-      <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-border-default dark:border-white/8">
-        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
-          <thead className="bg-[color:var(--dusk-surface-muted)]/80 dark:bg-surface-1/[0.02]">
-            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted dark:text-white/42">
-              <th className="px-5 py-4">Campaign</th>
-              <th className="px-5 py-4">Status</th>
-              <th className="px-5 py-4">Pacing</th>
-              <th className="px-5 py-4">Spend</th>
-              <th className="px-5 py-4">Tags</th>
-              <th className="px-5 py-4">Creatives</th>
-              <th className="px-5 py-4">Issues</th>
-              <th className="px-5 py-4">Owner</th>
-              <th className="px-5 py-4" aria-label="Actions" />
+      <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-border-default">
+        <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)] text-sm">
+          <caption className="sr-only">
+            Campaign operations table with status, pacing, spend, tag health, creative status, issues, owner, and actions.
+          </caption>
+          <thead className="bg-[color:var(--dusk-surface-muted)]/80">
+            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted">
+              <th scope="col" className="px-5 py-4">Campaign</th>
+              <th scope="col" className="px-5 py-4">Status</th>
+              <th scope="col" className="px-5 py-4">Pacing</th>
+              <th scope="col" className="px-5 py-4">Spend</th>
+              <th scope="col" className="px-5 py-4">Tags</th>
+              <th scope="col" className="px-5 py-4">Creatives</th>
+              <th scope="col" className="px-5 py-4">Issues</th>
+              <th scope="col" className="px-5 py-4">Owner</th>
+              <th scope="col" className="px-5 py-4" aria-label="Actions" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-white/8">
+          <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
             {campaignRows.map((campaign) => (
-              <tr key={campaign.id} className="bg-surface-1/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-surface-1/[0.04]">
-                <td className="px-5 py-5">
+              <tr key={campaign.id} className="bg-surface-1/42 transition hover:bg-[color:var(--dusk-surface-muted)]">
+                <th scope="row" className="px-5 py-5 text-left">
                   <p className="font-semibold text-[color:var(--dusk-text-primary)]">{campaign.campaign}</p>
-                  <p className="mt-1 text-xs text-text-muted dark:text-white/48">{campaign.advertiser} · {campaign.flight}</p>
-                </td>
+                  <p className="mt-1 text-xs text-text-muted">{campaign.advertiser} · {campaign.flight}</p>
+                </th>
                 <td className="px-5 py-5"><span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', statusBadge(campaign.status))}>{campaign.status}</span></td>
-                <td className="px-5 py-5 font-medium text-text-secondary dark:text-white/72">{campaign.pacing}</td>
-                <td className="px-5 py-5 tabular-nums text-text-secondary dark:text-white/72"><span className="font-medium">{campaign.spend}</span><span className="text-[color:var(--dusk-text-soft)] dark:text-white/36"> / {campaign.budget}</span></td>
-                <td className="px-5 py-5 text-text-muted dark:text-white/62">{campaign.tagHealth}</td>
-                <td className="px-5 py-5 text-text-muted dark:text-white/62">{campaign.creativeStatus}</td>
+                <td className="px-5 py-5 font-medium text-text-secondary">{campaign.pacing}</td>
+                <td className="px-5 py-5 tabular-nums text-text-secondary"><span className="font-medium">{campaign.spend}</span><span className="text-[color:var(--dusk-text-soft)]"> / {campaign.budget}</span></td>
+                <td className="px-5 py-5 text-text-muted">{campaign.tagHealth}</td>
+                <td className="px-5 py-5 text-text-muted">{campaign.creativeStatus}</td>
                 <td className="px-5 py-5">
-                  <span className={classNames('inline-flex rounded-full px-2.5 py-1 text-xs font-semibold', campaign.issues > 0 ? 'bg-amber-100 text-[color:var(--dusk-status-warning-fg)] dark:bg-amber-500/12 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200')}>
+                  <span className={classNames('inline-flex rounded-full px-2.5 py-1 text-xs font-semibold', campaign.issues > 0 ? 'bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]' : 'bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]')}>
                     {campaign.issues}
                   </span>
                 </td>
-                <td className="px-5 py-5 text-text-muted dark:text-white/62">{campaign.owner}</td>
+                <td className="px-5 py-5 text-text-muted">{campaign.owner}</td>
                 <td className="px-5 py-5">
                   <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
+                    <IconButton
                       onClick={() => onEdit(campaign)}
                       aria-label={`Edit ${campaign.campaign}`}
                       variant="ghost"
                       size="sm"
-                      className="px-2"
-                    >
-                      <MoreIcon className="h-4 w-4" />
-                    </Button>
+                      icon={<MoreIcon className="h-4 w-4" />}
+                    />
                     <Button
                       type="button"
                       onClick={() => onDelete(campaign)}
