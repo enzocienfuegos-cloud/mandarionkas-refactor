@@ -45,6 +45,7 @@ import type {
 } from './creative-library/types';
 import { CreativePreviewLightbox } from './creative-library/CreativePreviewLightbox';
 import { ClickUrlEditorModal } from './creative-library/ClickUrlEditorModal';
+import { CreativeBulkActionsPanel } from './creative-library/CreativeBulkActionsPanel';
 import { QuickCreateTagModal } from './creative-library/QuickCreateTagModal';
 import { TagBindingModal } from './creative-library/TagBindingModal';
 import { VariantManagerModal } from './creative-library/VariantManagerModal';
@@ -735,6 +736,18 @@ export default function CreativesView() {
       current && bulkAssignableTags.some((tag) => tag.id === current) ? current : ''
     ));
   }, [bulkAssignableTags]);
+
+  const canBulkAssign = selectedCreativeWorkspaceIds.length === 1
+    && selectedCreativeFormatFamilies.length === 1
+    && selectedCreativeFormatFamilies[0] !== 'unknown';
+
+  const bulkAssignHint = !canBulkAssign
+    ? selectedCreativeWorkspaceIds.length !== 1
+      ? 'Select creatives from one client only to bulk assign them.'
+      : 'Selected creatives need one shared delivery type and a latest version before bulk assignment.'
+    : bulkAssignableTags.length === 0
+      ? 'No tags of that type are available for this client yet.'
+      : null;
 
   const approvedCreatives = filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'active').length;
   const pendingQaCreatives = filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'pending_review').length;
@@ -1889,102 +1902,29 @@ export default function CreativesView() {
       )}
 
       {selectedCreativeIds.length > 0 && (
-        <Panel className="border-fuchsia-200 bg-fuchsia-50/80 px-4 py-3 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10">
-          <div className="space-y-4">
-            <div>
-              <div className="text-sm font-medium text-fuchsia-900 dark:text-fuchsia-200">
-                {selectedCreativeIds.length} creative{selectedCreativeIds.length === 1 ? '' : 's'} selected
-              </div>
-              <div className="mt-1 text-xs text-fuchsia-700 dark:text-fuchsia-200/80">
-                Update landing pages in bulk or assign the selected creatives to one tag when they belong to the same client and share the same delivery type.
-              </div>
-            </div>
-            <div className="grid gap-4 xl:grid-cols-2">
-              <div className="rounded-lg border border-fuchsia-200/60 bg-white/70 p-3 dark:border-fuchsia-500/20 dark:bg-white/[0.03]">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fuchsia-700 dark:text-fuchsia-200">Bulk destination URL</div>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Input
-                    value={bulkClickUrl}
-                    onChange={(event) => setBulkClickUrl(event.target.value)}
-                    placeholder="https://example.com/landing"
-                    className="min-w-0 flex-1"
-                  />
-                  <Button
-                    onClick={() => void handleBulkClickUrlUpdate()}
-                    loading={bulkClickUrlSaving}
-                    size="md"
-                  >
-                    Update URL
-                  </Button>
-                </div>
-              </div>
-              <div className="rounded-lg border border-fuchsia-200/60 bg-white/70 p-3 dark:border-fuchsia-500/20 dark:bg-white/[0.03]">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fuchsia-700 dark:text-fuchsia-200">Bulk tag assignment</div>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <select
-                    value={bulkAssignTagId}
-                    onChange={(event) => setBulkAssignTagId(event.target.value)}
-                    disabled={selectedCreativeWorkspaceIds.length !== 1 || selectedCreativeFormatFamilies.length !== 1 || selectedCreativeFormatFamilies[0] === 'unknown'}
-                    className="min-w-0 flex-1 rounded-xl border border-fuchsia-200 bg-white px-3 py-2 text-sm outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-500/30 disabled:opacity-60 dark:border-fuchsia-500/20 dark:bg-white/[0.04]"
-                  >
-                    <option value="">Select a tag</option>
-                    {bulkAssignableTags.map((tag) => (
-                      <option key={tag.id} value={tag.id}>{tag.name}</option>
-                    ))}
-                  </select>
-                  <Button
-                    onClick={() => void handleBulkAssignToTag()}
-                    variant="secondary"
-                    loading={bulkAssignSaving}
-                    disabled={!bulkAssignTagId}
-                  >
-                    Assign to tag
-                  </Button>
-                </div>
-                {selectedCreativeWorkspaceIds.length !== 1 && (
-                  <p className="mt-1 text-[11px] text-amber-700">Select creatives from one client only to bulk assign them.</p>
-                )}
-                {selectedCreativeWorkspaceIds.length === 1 && (selectedCreativeFormatFamilies.length !== 1 || selectedCreativeFormatFamilies[0] === 'unknown') && (
-                  <p className="mt-1 text-[11px] text-amber-700">Selected creatives need one shared delivery type and a latest version before bulk assignment.</p>
-                )}
-                {selectedCreativeWorkspaceIds.length === 1 && selectedCreativeFormatFamilies.length === 1 && selectedCreativeFormatFamilies[0] !== 'unknown' && bulkAssignableTags.length === 0 && (
-                  <p className="mt-1 text-[11px] text-amber-700">No tags of that type are available for this client yet.</p>
-                )}
-              </div>
-            </div>
-            <div className="grid gap-4 xl:grid-cols-2">
-              <div className="rounded-lg border border-fuchsia-200/60 bg-white/70 p-3 dark:border-fuchsia-500/20 dark:bg-white/[0.03]">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fuchsia-700 dark:text-fuchsia-200">Bulk active state</div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={() => void handleBulkCreativeStatusUpdate('approved')}
-                    variant="secondary"
-                    loading={bulkStatusSaving}
-                  >
-                    Set active
-                  </Button>
-                  <Button
-                    onClick={() => void handleBulkCreativeStatusUpdate('archived')}
-                    variant="ghost"
-                    loading={bulkStatusSaving}
-                  >
-                    Set inactive
-                  </Button>
-                </div>
-              </div>
-              <div className="rounded-lg border border-rose-200/70 bg-white/70 p-3 dark:border-rose-500/20 dark:bg-white/[0.03]">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">Bulk delete</div>
-                <Button
-                  onClick={() => void handleBulkDeleteCreatives()}
-                  variant="danger"
-                  loading={bulkDeleteSaving}
-                >
-                  Delete selected
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Panel>
+        <CreativeBulkActionsPanel
+          selectedCount={selectedCreativeIds.length}
+          bulkClickUrl={bulkClickUrl}
+          onBulkClickUrlChange={setBulkClickUrl}
+          onBulkClickUrlUpdate={handleBulkClickUrlUpdate}
+          bulkClickUrlSaving={bulkClickUrlSaving}
+          bulkAssignTagId={bulkAssignTagId}
+          onBulkAssignTagIdChange={setBulkAssignTagId}
+          onBulkAssignToTag={handleBulkAssignToTag}
+          bulkAssignSaving={bulkAssignSaving}
+          bulkAssignableTags={bulkAssignableTags}
+          canBulkAssign={canBulkAssign}
+          bulkAssignHint={bulkAssignHint}
+          onBulkStatusUpdate={handleBulkCreativeStatusUpdate}
+          bulkStatusSaving={bulkStatusSaving}
+          onBulkDelete={handleBulkDeleteCreatives}
+          bulkDeleteSaving={bulkDeleteSaving}
+          onClearSelection={() => {
+            setSelectedCreativeIds([]);
+            setBulkAssignTagId('');
+            setBulkClickUrl('');
+          }}
+        />
       )}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
