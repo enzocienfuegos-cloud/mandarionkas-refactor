@@ -23,7 +23,7 @@ import {
   IdentityReportingView,
   VideoReportingView,
 } from './tag-reporting/views';
-import { ReportingFilterSummary, TagSelectorPanel } from './tag-reporting/components';
+import { ReportingWorkspaceControls, TagSelectorPanel } from './tag-reporting/components';
 
 export default function TagReportingDashboard() {
   const { id: routeTagId = '' } = useParams();
@@ -315,91 +315,40 @@ export default function TagReportingDashboard() {
             />
           ) : (
             <>
-              <div className="flex flex-col gap-4 mb-4 xl:flex-row xl:items-start xl:justify-between">
-                <div>
-                  <Kicker>Selected tag</Kicker>
-                  <h2 className="mt-2 text-lg font-semibold text-slate-800 dark:text-white">{selectedTag.name}</h2>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Filter by assigned creative and exported size variant.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Select
-                    value={String(dateRange)}
-                    onChange={(event) => setDateRange(Number(event.target.value))}
-                    options={DATE_RANGE_OPTIONS}
-                    selectSize="sm"
-                    className="min-w-[92px]"
-                    aria-label="Date range"
-                  />
-                  <Button
-                    onClick={() => void handleExport()}
-                    disabled={exporting || loadingStats || !summary}
-                    variant="primary"
-                    size="sm"
-                  >
-                    {exporting ? 'Exporting…' : 'Download Excel'}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="mb-6 grid gap-3 md:grid-cols-3">
-                <Panel className="p-4">
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
-                    Assigned Creative
-                  </label>
-                  <Select
-                    value={selectedCreativeId}
-                    onChange={event => setSelectedCreativeId(event.target.value)}
-                    disabled={loadingBindings}
-                    options={[
-                      { value: '', label: 'All creatives' },
-                      ...creativeOptions.map(option => ({ value: option.id, label: option.name })),
-                    ]}
-                  />
-                </Panel>
-                <Panel className="p-4">
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
-                    Creative Size
-                  </label>
-                  <Select
-                    value={selectedVariantId}
-                    onChange={event => setSelectedVariantId(event.target.value)}
-                    disabled={loadingBindings}
-                    options={[
-                      { value: '', label: 'All sizes' },
-                      ...variantOptions.map(option => ({ value: option.id, label: option.name })),
-                    ]}
-                  />
-                </Panel>
-                <ReportingFilterSummary
-                  loadingBindings={loadingBindings}
-                  bindingCount={bindings.length}
-                  selectedCreativeId={selectedCreativeId}
-                  selectedVariantId={selectedVariantId}
-                  statsError={statsError}
-                  onRetry={() => {
-                    if (!selectedTag) return;
-                    loadTagData(selectedTag, dateRange, {
-                      creativeId: selectedCreativeId,
-                      creativeSizeVariantId: selectedVariantId,
-                    });
-                  }}
-                />
-              </div>
+              <ReportingWorkspaceControls
+                selectedTagName={selectedTag.name}
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                exporting={exporting}
+                loadingStats={loadingStats}
+                canExport={Boolean(summary)}
+                onExport={() => void handleExport()}
+                selectedCreativeId={selectedCreativeId}
+                onSelectedCreativeIdChange={setSelectedCreativeId}
+                selectedVariantId={selectedVariantId}
+                onSelectedVariantIdChange={setSelectedVariantId}
+                creativeOptions={creativeOptions.map((option) => ({ value: option.id, label: option.name }))}
+                variantOptions={variantOptions.map((option) => ({ value: option.id, label: option.name }))}
+                loadingBindings={loadingBindings}
+                bindingCount={bindings.length}
+                statsError={statsError}
+                onRetry={() => {
+                  if (!selectedTag) return;
+                  loadTagData(selectedTag, dateRange, {
+                    creativeId: selectedCreativeId,
+                    creativeSizeVariantId: selectedVariantId,
+                  });
+                }}
+                activeTab={activeTab}
+                onActiveTabChange={setActiveTab}
+                dateRangeOptions={DATE_RANGE_OPTIONS}
+                reportingTabOptions={REPORTING_TAB_OPTIONS}
+              />
 
               {loadingStats ? (
                 <CenteredSpinner label="Loading tag statistics…" />
               ) : (
                 <>
-                  <div className="mb-6 max-w-[180px]">
-                    <Select
-                      value={activeTab}
-                      onChange={(event) => setActiveTab(event.target.value as ReportingTab)}
-                      options={REPORTING_TAB_OPTIONS}
-                      selectSize="sm"
-                      aria-label="Reporting mode"
-                    />
-                  </div>
-
                   {activeTab === 'display' ? <DisplayReportingView dateRange={dateRange} stats={stats} summary={summary} /> : null}
                   {activeTab === 'video' ? <VideoReportingView stats={stats} summary={summary} /> : null}
                   {activeTab === 'identity' ? <IdentityReportingView summary={summary} /> : null}

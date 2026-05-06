@@ -1,6 +1,6 @@
 import React from 'react';
-import { Button, EmptyState, Input, Kicker, Panel } from '../../system';
-import type { DailyStat, Tag } from './types';
+import { Button, EmptyState, Input, Kicker, Panel, Select } from '../../system';
+import type { DailyStat, ReportingTab, Tag } from './types';
 
 export function BarChart({ data }: { data: DailyStat[] }) {
   const W = 600;
@@ -159,6 +159,125 @@ export function ReportingFilterSummary({
         </div>
       ) : null}
     </Panel>
+  );
+}
+
+export function ReportingWorkspaceControls({
+  selectedTagName,
+  dateRange,
+  onDateRangeChange,
+  exporting,
+  loadingStats,
+  canExport,
+  onExport,
+  selectedCreativeId,
+  onSelectedCreativeIdChange,
+  selectedVariantId,
+  onSelectedVariantIdChange,
+  creativeOptions,
+  variantOptions,
+  loadingBindings,
+  bindingCount,
+  statsError,
+  onRetry,
+  activeTab,
+  onActiveTabChange,
+  dateRangeOptions,
+  reportingTabOptions,
+}: {
+  selectedTagName: string;
+  dateRange: number;
+  onDateRangeChange: (value: number) => void;
+  exporting: boolean;
+  loadingStats: boolean;
+  canExport: boolean;
+  onExport: () => void;
+  selectedCreativeId: string;
+  onSelectedCreativeIdChange: (value: string) => void;
+  selectedVariantId: string;
+  onSelectedVariantIdChange: (value: string) => void;
+  creativeOptions: Array<{ value: string; label: string }>;
+  variantOptions: Array<{ value: string; label: string }>;
+  loadingBindings: boolean;
+  bindingCount: number;
+  statsError: string;
+  onRetry: () => void;
+  activeTab: ReportingTab;
+  onActiveTabChange: (value: ReportingTab) => void;
+  dateRangeOptions: Array<{ value: string; label: string }>;
+  reportingTabOptions: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <>
+      <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <Kicker>Selected tag</Kicker>
+          <h2 className="mt-2 text-lg font-semibold text-slate-800 dark:text-white">{selectedTagName}</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Filter by assigned creative and exported size variant.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={String(dateRange)}
+            onChange={(event) => onDateRangeChange(Number(event.target.value))}
+            options={dateRangeOptions}
+            selectSize="sm"
+            className="min-w-[92px]"
+            aria-label="Date range"
+          />
+          <Button
+            onClick={onExport}
+            disabled={exporting || loadingStats || !canExport}
+            variant="primary"
+            size="sm"
+          >
+            {exporting ? 'Exporting…' : 'Download Excel'}
+          </Button>
+        </div>
+      </div>
+
+      <div className="mb-6 grid gap-3 md:grid-cols-3">
+        <Panel className="p-4">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
+            Assigned Creative
+          </label>
+          <Select
+            value={selectedCreativeId}
+            onChange={(event) => onSelectedCreativeIdChange(event.target.value)}
+            disabled={loadingBindings}
+            options={[{ value: '', label: 'All creatives' }, ...creativeOptions]}
+          />
+        </Panel>
+        <Panel className="p-4">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
+            Creative Size
+          </label>
+          <Select
+            value={selectedVariantId}
+            onChange={(event) => onSelectedVariantIdChange(event.target.value)}
+            disabled={loadingBindings}
+            options={[{ value: '', label: 'All sizes' }, ...variantOptions]}
+          />
+        </Panel>
+        <ReportingFilterSummary
+          loadingBindings={loadingBindings}
+          bindingCount={bindingCount}
+          selectedCreativeId={selectedCreativeId}
+          selectedVariantId={selectedVariantId}
+          statsError={statsError}
+          onRetry={onRetry}
+        />
+      </div>
+
+      <div className="mb-6 max-w-[180px]">
+        <Select
+          value={activeTab}
+          onChange={(event) => onActiveTabChange(event.target.value as ReportingTab)}
+          options={reportingTabOptions}
+          selectSize="sm"
+          aria-label="Reporting mode"
+        />
+      </div>
+    </>
   );
 }
 
