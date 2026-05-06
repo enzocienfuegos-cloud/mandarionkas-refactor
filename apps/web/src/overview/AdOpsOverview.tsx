@@ -3,7 +3,7 @@ import { Link, useOutletContext } from 'react-router-dom';
 import { loadCreatives, type Creative } from '../creatives/catalog';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 import { type ThemeMode } from '../shared/theme';
-import { Button, Kicker, MetricCard, Panel } from '../system';
+import { Button, CenteredSpinner, Input, Kicker, MetricCard, Panel } from '../system';
 import {
   AttentionCard,
   CampaignTable,
@@ -372,7 +372,7 @@ export default function AdOpsOverview() {
   };
 
   return (
-    <div className="min-h-full text-slate-950 dark:text-white">
+    <div className="min-h-full text-text-primary">
       <div className="dusk-page">
         <div className="dusk-toolbar">
           <div className="dusk-toolbar-group">
@@ -386,7 +386,7 @@ export default function AdOpsOverview() {
                   <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
                 ))}
               </select>
-              <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/36" />
+              <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-soft" />
             </div>
             <select
               value={String(dateRange)}
@@ -410,18 +410,18 @@ export default function AdOpsOverview() {
           </div>
           <div className="dusk-toolbar-group">
             <label className="relative block min-w-[320px]">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-soft">
                 <SearchIcon className="h-5 w-5" />
               </span>
-              <input
+              <Input
                 value={overviewSearch}
                 onChange={(event) => setOverviewSearch(event.target.value)}
-                className="min-h-[46px] w-full rounded-xl border border-slate-200/80 bg-[rgba(252,251,255,0.82)] pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white dark:placeholder:text-white/30 dark:focus:border-fuchsia-500/30"
+                className="min-h-[46px] w-full pl-10 pr-3"
                 placeholder="Search campaign, advertiser, owner"
               />
             </label>
             <Button type="button" variant="secondary" onClick={() => void toggleTheme()}>
-              <EyeIcon className="text-slate-500 dark:text-white/60" />
+              <EyeIcon className="text-text-muted" />
               {theme === 'dark' ? 'Light mode' : 'Dark mode'}
             </Button>
             <NotificationButton count={issueCount} />
@@ -442,9 +442,9 @@ export default function AdOpsOverview() {
           </Link>
         </header>
 
-        {error ? <div className="mt-6 rounded-2xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">{error}</div> : null}
+        {error ? <Panel className="mt-6 border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-5 py-4 text-sm text-[color:var(--dusk-status-critical-fg)]">{error}</Panel> : null}
 
-        {loading ? <div className="mt-8 text-sm text-slate-500 dark:text-white/56">Loading overview…</div> : null}
+        {loading ? <div className="mt-8"><CenteredSpinner label="Loading overview…" /></div> : null}
 
         <div className="mt-8 grid gap-5 xl:grid-cols-4">
           {metricCards.map((metric) => (
@@ -481,44 +481,44 @@ export default function AdOpsOverview() {
               <Kicker>Today blockers</Kicker>
               <div className="mt-4 space-y-3">
                 {attentionItems.slice(0, 3).map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                    <p className="font-semibold text-slate-950 dark:text-white">{item.title}</p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-white/56">{item.detail}</p>
-                  </div>
+                  <Panel key={item.id} className="px-4 py-3">
+                    <p className="font-semibold text-text-primary">{item.title}</p>
+                    <p className="mt-1 text-sm text-text-secondary">{item.detail}</p>
+                  </Panel>
                 ))}
               </div>
               </section>
               <section>
               <Kicker>Launch readiness</Kicker>
               <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-white/42">Live campaigns</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{liveCampaignCount}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-white/42">Ready creatives</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{readyCreativeCount}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-white/42">Draft setup</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{draftSetupCount}</p>
-                </div>
+                <Panel className="px-4 py-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-soft">Live campaigns</p>
+                  <p className="mt-2 text-2xl font-semibold text-text-primary">{liveCampaignCount}</p>
+                </Panel>
+                <Panel className="px-4 py-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-soft">Ready creatives</p>
+                  <p className="mt-2 text-2xl font-semibold text-text-primary">{readyCreativeCount}</p>
+                </Panel>
+                <Panel className="px-4 py-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-soft">Draft setup</p>
+                  <p className="mt-2 text-2xl font-semibold text-text-primary">{draftSetupCount}</p>
+                </Panel>
               </div>
               </section>
               <section>
               <Kicker>Quick ops</Kicker>
               <div className="mt-4 grid gap-3">
                 <Link to="/campaigns" className="dusk-card-link p-4">
-                  <p className="font-semibold text-slate-950 dark:text-white">Campaign operations</p>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Move from pacing and delivery issues into action.</p>
+                  <p className="font-semibold text-text-primary">Campaign operations</p>
+                  <p className="mt-1 text-sm text-text-secondary">Move from pacing and delivery issues into action.</p>
                 </Link>
                 <Link to="/tags" className="dusk-card-link p-4">
-                  <p className="font-semibold text-slate-950 dark:text-white">Tag firing health</p>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Review implementation, cachebusters, and firing quality.</p>
+                  <p className="font-semibold text-text-primary">Tag firing health</p>
+                  <p className="mt-1 text-sm text-text-secondary">Review implementation, cachebusters, and firing quality.</p>
                 </Link>
                 <Link to="/creatives" className="dusk-card-link p-4">
-                  <p className="font-semibold text-slate-950 dark:text-white">Creative QA</p>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">Handle approvals, previews, and assignment gaps.</p>
+                  <p className="font-semibold text-text-primary">Creative QA</p>
+                  <p className="mt-1 text-sm text-text-secondary">Handle approvals, previews, and assignment gaps.</p>
                 </Link>
               </div>
               </section>

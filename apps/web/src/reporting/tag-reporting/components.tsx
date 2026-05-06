@@ -120,18 +120,18 @@ export function BarChart({ data }: { data: DailyStat[] }) {
 export function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <Panel className="p-5">
-      <p className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-white/42">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-800 dark:text-white">{value}</p>
-      {sub ? <p className="mt-0.5 text-xs text-slate-400 dark:text-white/36">{sub}</p> : null}
+      <p className="text-xs font-medium uppercase tracking-wider text-text-soft">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-text-primary">{value}</p>
+      {sub ? <p className="mt-0.5 text-xs text-text-muted">{sub}</p> : null}
     </Panel>
   );
 }
 
 export function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-slate-100 py-2 last:border-b-0">
-      <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span>
-      <span className="break-all text-right text-sm text-slate-700">{value || 'n/a'}</span>
+    <div className="flex items-start justify-between gap-3 border-b border-[color:var(--dusk-border-subtle)] py-2 last:border-b-0">
+      <span className="text-xs font-semibold uppercase tracking-wider text-text-soft">{label}</span>
+      <span className="break-all text-right text-sm text-text-secondary">{value || 'n/a'}</span>
     </div>
   );
 }
@@ -153,7 +153,7 @@ export function TagSelectorPanel({
 
   return (
     <Panel className="overflow-hidden">
-      <div className="space-y-2 border-b border-slate-100 bg-slate-50/80 px-3 py-3 dark:border-white/[0.07] dark:bg-white/[0.03]">
+      <div className="space-y-2 border-b border-[color:var(--dusk-border-subtle)] bg-surface-muted px-3 py-3">
         <div className="flex items-center justify-between gap-3">
           <Kicker>Tags</Kicker>
           <Badge tone="neutral" size="sm">{filteredTags.length} visible</Badge>
@@ -182,7 +182,7 @@ export function TagSelectorPanel({
           className="border-0 bg-transparent px-4 py-6 shadow-none"
         />
       ) : (
-        <ul className="app-scrollbar max-h-[600px] divide-y divide-slate-100 overflow-y-auto dark:divide-white/[0.07]">
+        <ul className="app-scrollbar max-h-[600px] divide-y divide-[color:var(--dusk-border-subtle)] overflow-y-auto">
           {filteredTags.map((tag) => (
             <li key={tag.id}>
               <button
@@ -190,14 +190,14 @@ export function TagSelectorPanel({
                 onClick={() => onSelectTag(tag)}
                 className={`w-full text-left px-4 py-3 text-sm transition-colors ${
                   selectedTagId === tag.id
-                    ? 'bg-fuchsia-50 text-fuchsia-700 font-medium dark:bg-fuchsia-500/10 dark:text-fuchsia-200'
-                    : 'text-slate-700 hover:bg-slate-50 dark:text-white/76 dark:hover:bg-white/[0.04]'
+                    ? 'bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)] font-medium'
+                    : 'text-text-secondary hover:bg-surface-muted'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate">{tag.name}</div>
-                  <div className="mt-1 text-xs text-slate-400 dark:text-white/36">
+                  <div className="mt-1 text-xs text-text-soft">
                       {selectedTagId === tag.id ? 'Active reporting view' : 'Open reporting'}
                     </div>
                   </div>
@@ -235,11 +235,11 @@ export function ReportingFilterSummary({
 }) {
   return (
     <Panel className="p-4">
-      <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
+      <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-text-soft">
         Filter Summary
       </label>
       <div className="space-y-3">
-        <div className="text-sm text-slate-600 dark:text-white/62">
+        <div className="text-sm text-text-secondary">
           {loadingBindings ? 'Loading bindings…' : `${bindingCount} binding${bindingCount === 1 ? '' : 's'} available`}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -250,7 +250,7 @@ export function ReportingFilterSummary({
             {selectedVariantId ? `Size: ${selectedVariantName}` : 'All sizes'}
           </Badge>
         </div>
-        <p className="text-xs text-slate-500 dark:text-white/42">
+        <p className="text-xs text-text-soft">
           {selectedCreativeId || selectedVariantId
             ? 'Current reporting reflects the active scope above.'
             : 'No narrowing filters are active right now.'}
@@ -327,12 +327,12 @@ export function ReportingWorkspaceControls({
         <div>
           <Kicker>Selected tag</Kicker>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">{selectedTagName}</h2>
+            <h2 className="text-lg font-semibold text-text-primary">{selectedTagName}</h2>
             <Badge tone={tagFormatTone(selectedTagFormat)} size="sm">{selectedTagFormat || 'Tag'}</Badge>
             <Badge tone="neutral" size="sm">{bindingCount} binding{bindingCount === 1 ? '' : 's'}</Badge>
             <Badge tone="neutral" size="sm">Last {dateRange}d</Badge>
           </div>
-          <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Filter by assigned creative and exported size variant.</p>
+          <p className="mt-2 text-sm text-text-secondary">Filter by assigned creative and exported size variant.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select
@@ -356,7 +356,7 @@ export function ReportingWorkspaceControls({
 
       <div className="mb-6 grid gap-3 md:grid-cols-3">
         <Panel className="p-4">
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-text-soft">
             Assigned Creative
           </label>
           <Select
@@ -367,7 +367,7 @@ export function ReportingWorkspaceControls({
           />
         </Panel>
         <Panel className="p-4">
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/42">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-text-soft">
             Creative Size
           </label>
           <Select
@@ -456,11 +456,13 @@ export function ReportingBreakdownTable({
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
+            <caption className="sr-only">{title}</caption>
             <thead className="bg-[color:var(--dusk-surface-muted)]">
               <tr>
                 {columns.map((column) => (
                   <th
                     key={column.key}
+                    scope="col"
                     className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[color:var(--dusk-text-soft)]"
                   >
                     {column.header}

@@ -17,10 +17,10 @@ import { classNames } from './overview.utils';
 export function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
   const classes =
     direction === 'up'
-      ? 'text-emerald-500 dark:text-emerald-400'
+      ? 'text-success-fg'
       : direction === 'down'
-        ? 'text-rose-500 dark:text-rose-400'
-        : 'text-slate-500 dark:text-white/45';
+        ? 'text-critical-fg'
+        : 'text-text-muted';
   const arrow = direction === 'up' ? '↑' : direction === 'down' ? '↓' : '•';
   return (
     <span className={classNames('inline-flex items-center gap-1 text-sm font-semibold', classes)}>
@@ -34,12 +34,12 @@ export function NotificationButton({ count }: { count: number }) {
   return (
     <button
       type="button"
-      className="relative inline-flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/80 dark:hover:border-fuchsia-500/30 dark:hover:bg-white/[0.05]"
+      className="relative inline-flex h-12 w-12 items-center justify-center rounded-xl border border-border-default bg-surface-1 text-text-secondary transition hover:border-brand/30 hover:bg-surface-muted"
       aria-label="Notifications"
     >
       <BellIcon className="h-5 w-5" />
       {count > 0 ? (
-        <span className="absolute right-2 top-2 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
+        <span className="absolute right-2 top-2 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-critical px-1 text-[10px] font-semibold text-white">
           {count}
         </span>
       ) : null}
@@ -72,13 +72,13 @@ export function AttentionCard({ item }: { item: AttentionItem }) {
   };
   const theme = severityMap[item.severity];
   return (
-    <article className="rounded-[26px] border border-slate-200 bg-white/50 p-5 dark:border-white/[0.07] dark:bg-white/[0.02]">
+    <article className="rounded-[26px] border border-border-default bg-surface-1 p-5">
       <div className={classNames('flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br', theme.shell)}>
         <AlertTriangleIcon className={classNames('h-5 w-5', theme.accent)} />
       </div>
       <div className="mt-4 min-w-0">
         <p className={classNames('text-lg font-semibold leading-tight', theme.accent)}>{item.title}</p>
-        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/58">{item.detail}</p>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">{item.detail}</p>
       </div>
       <Link to={item.actionHref} className={classNames('mt-5 inline-flex items-center rounded-xl border px-5 py-3 text-sm font-semibold transition', theme.button)}>
         {item.actionLabel}
@@ -98,28 +98,29 @@ export function CampaignTable({ rows }: { rows: TopCampaignRow[] }) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <Kicker>Top Campaigns</Kicker>
-          <p className="mt-3 text-sm text-slate-500 dark:text-white/56">Campaigns demanding budget, optimization, and pacing attention.</p>
+          <p className="mt-3 text-sm text-text-secondary">Campaigns demanding budget, optimization, and pacing attention.</p>
         </div>
-        <Link to="/campaigns" className="text-sm font-medium text-fuchsia-600 transition hover:text-fuchsia-500 dark:text-fuchsia-300">
+        <Link to="/campaigns" className="text-sm font-medium text-text-brand transition hover:opacity-80">
           View all campaigns
         </Link>
       </div>
-      <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 dark:border-white/8">
-        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
-          <thead className="bg-slate-50/70 dark:bg-white/[0.02]">
-            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-white/35">
-              <th className="px-6 py-4">Campaign</th>
-              <th className="px-6 py-4">Spend</th>
-              <th className="px-6 py-4">CTR</th>
-              <th className="px-6 py-4">Status</th>
+      <div className="mt-6 overflow-hidden rounded-3xl border border-border-default">
+        <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)] text-sm">
+          <caption className="sr-only">Top campaigns by spend, CTR and operational status</caption>
+          <thead className="bg-surface-muted">
+            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.28em] text-text-soft">
+              <th scope="col" className="px-6 py-4">Campaign</th>
+              <th scope="col" className="px-6 py-4">Spend</th>
+              <th scope="col" className="px-6 py-4">CTR</th>
+              <th scope="col" className="px-6 py-4">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-white/8">
+          <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
             {rows.map((row) => (
-              <tr key={row.id} className="bg-white/40 dark:bg-transparent">
-                <td className="px-6 py-5 font-medium text-slate-900 dark:text-white">{row.name}</td>
-                <td className="px-6 py-5 text-slate-700 dark:text-white/72">{row.spend}</td>
-                <td className="px-6 py-5 text-slate-700 dark:text-white/72">{row.ctr}</td>
+              <tr key={row.id} className="bg-surface-1">
+                <th scope="row" className="px-6 py-5 text-left font-medium text-text-primary">{row.name}</th>
+                <td className="px-6 py-5 text-text-secondary">{row.spend}</td>
+                <td className="px-6 py-5 text-text-secondary">{row.ctr}</td>
                 <td className="px-6 py-5">
                   <CampaignStatusBadge status={row.status} />
                 </td>
@@ -154,18 +155,18 @@ export function QuickNavigation({ items }: { items: QuickNavRow[] }) {
           <Link
             key={item.id}
             to={item.to}
-            className="group flex items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white/60 px-5 py-4 transition hover:border-fuchsia-300 hover:bg-fuchsia-50/70 dark:border-white/8 dark:bg-white/[0.03] dark:hover:border-fuchsia-500/30 dark:hover:bg-white/[0.05]"
+            className="group flex items-center justify-between gap-4 rounded-3xl border border-border-default bg-surface-1 px-5 py-4 transition hover:border-brand/30 hover:bg-surface-muted"
           >
             <div className="flex items-center gap-4">
               <div className={classNames('flex h-14 w-14 items-center justify-center rounded-2xl border bg-gradient-to-br', item.tone)}>
                 <QuickNavIcon icon={item.icon} />
               </div>
               <div>
-                <p className="font-semibold text-slate-900 dark:text-white">{item.label}</p>
-                <p className="text-sm text-slate-500 dark:text-white/55">{item.detail}</p>
+                <p className="font-semibold text-text-primary">{item.label}</p>
+                <p className="text-sm text-text-secondary">{item.detail}</p>
               </div>
             </div>
-            <ArrowRightIcon className="text-slate-400 transition group-hover:text-fuchsia-500 dark:text-white/30 dark:group-hover:text-fuchsia-300" />
+            <ArrowRightIcon className="text-text-soft transition group-hover:text-text-brand" />
           </Link>
         ))}
       </div>
@@ -180,19 +181,19 @@ export function SystemHealth({ items }: { items: SystemHealthRow[] }) {
         <div>
           <Kicker>Delivery &amp; System Health</Kicker>
         </div>
-        <Link to="/reporting" className="text-sm font-medium text-fuchsia-600 transition hover:text-fuchsia-500 dark:text-fuchsia-300">
+        <Link to="/reporting" className="text-sm font-medium text-text-brand transition hover:opacity-80">
           View system status
         </Link>
       </div>
       <div className="mt-6 space-y-3">
         {items.map((item) => (
-          <div key={item.id} className="flex items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white/60 px-5 py-4 dark:border-white/8 dark:bg-white/[0.03]">
+          <div key={item.id} className="flex items-center justify-between gap-3 rounded-3xl border border-border-default bg-surface-1 px-5 py-4">
             <div>
-              <p className="font-medium text-slate-900 dark:text-white">{item.label}</p>
-              <p className="text-sm text-slate-500 dark:text-white/52">{item.note}</p>
+              <p className="font-medium text-text-primary">{item.label}</p>
+              <p className="text-sm text-text-secondary">{item.note}</p>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-lg font-semibold text-slate-900 dark:text-white">{item.value}</span>
+              <span className="text-lg font-semibold text-text-primary">{item.value}</span>
               <Badge
                 tone={
                   item.severity === 'positive'
@@ -217,18 +218,18 @@ export function SystemHealth({ items }: { items: SystemHealthRow[] }) {
 function SegmentColumn({ title, items, positive }: { title: string; items: AudienceRow[]; positive: boolean }) {
   return (
     <div>
-      <p className="text-sm font-semibold text-slate-900 dark:text-white">{title}</p>
+      <p className="text-sm font-semibold text-text-primary">{title}</p>
       <div className="mt-5 space-y-4">
         {items.map((item) => (
           <div key={item.id} className="space-y-2">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-sm font-medium text-slate-700 dark:text-white/82">{item.name}</span>
+              <span className="text-sm font-medium text-text-secondary">{item.name}</span>
               <div className="flex items-center gap-3 text-sm">
-                <span className="text-slate-500 dark:text-white/55">CTR {item.ctr}</span>
+                <span className="text-text-muted">CTR {item.ctr}</span>
                 <TrendBadge direction={item.direction} value={item.delta} />
               </div>
             </div>
-            <div className="h-2.5 rounded-full bg-slate-200 dark:bg-white/8">
+            <div className="h-2.5 rounded-full bg-surface-muted">
               <div
                 className={classNames(
                   'h-full rounded-full',
@@ -251,7 +252,7 @@ export function AudienceInsights({ topSegments, underperformingSegments }: { top
         <div>
           <Kicker>Audience Signal Insights</Kicker>
         </div>
-        <Link to="/reporting" className="text-sm font-medium text-fuchsia-600 transition hover:text-fuchsia-500 dark:text-fuchsia-300">
+        <Link to="/reporting" className="text-sm font-medium text-text-brand transition hover:opacity-80">
           Explore all segments
         </Link>
       </div>
@@ -268,37 +269,36 @@ export function WorkQueueTable({ rows }: { rows: WorkQueueRow[] }) {
     <Panel className="overflow-hidden p-7">
       <div>
         <Kicker>Ad Ops work queue</Kicker>
-        <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Daily launch, delivery, and QA queue</h2>
-        <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Triage blockers, implementation gaps, and readiness issues from one operational table.</p>
+        <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Daily launch, delivery, and QA queue</h2>
+        <p className="mt-2 text-sm text-text-secondary">Triage blockers, implementation gaps, and readiness issues from one operational table.</p>
       </div>
-      <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
-        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
-          <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
-            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
-              <th className="px-6 py-4">Stage</th>
-              <th className="px-6 py-4">Issue</th>
-              <th className="px-6 py-4">Advertiser</th>
-              <th className="px-6 py-4">Owner</th>
-              <th className="px-6 py-4">Due</th>
-              <th className="px-6 py-4">Action</th>
+      <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-border-default">
+        <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)] text-sm">
+          <caption className="sr-only">Daily work queue for launch, delivery and QA blockers</caption>
+          <thead className="bg-surface-muted">
+            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-text-soft">
+              <th scope="col" className="px-6 py-4">Stage</th>
+              <th scope="col" className="px-6 py-4">Issue</th>
+              <th scope="col" className="px-6 py-4">Advertiser</th>
+              <th scope="col" className="px-6 py-4">Owner</th>
+              <th scope="col" className="px-6 py-4">Due</th>
+              <th scope="col" className="px-6 py-4">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-white/8">
+          <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
             {rows.map((row) => (
-              <tr key={row.id} className="bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
+              <tr key={row.id} className="bg-surface-1 transition hover:bg-surface-muted">
                 <td className="px-6 py-5">
                   <Badge tone={row.severity === 'critical' ? 'critical' : row.severity === 'warning' ? 'warning' : row.severity === 'healthy' ? 'success' : 'info'}>
                     {row.stage}
                   </Badge>
                 </td>
+                <th scope="row" className="px-6 py-5 text-left font-semibold text-text-primary">{row.issue}</th>
+                <td className="px-6 py-5 text-text-secondary">{row.advertiser}</td>
+                <td className="px-6 py-5 text-text-secondary">{row.owner}</td>
+                <td className="px-6 py-5 tabular-nums text-text-secondary">{row.due}</td>
                 <td className="px-6 py-5">
-                  <p className="font-semibold text-slate-950 dark:text-white">{row.issue}</p>
-                </td>
-                <td className="px-6 py-5 text-slate-600 dark:text-white/62">{row.advertiser}</td>
-                <td className="px-6 py-5 text-slate-600 dark:text-white/62">{row.owner}</td>
-                <td className="px-6 py-5 tabular-nums text-slate-700 dark:text-white/72">{row.due}</td>
-                <td className="px-6 py-5">
-                  <Link to={row.actionHref} className="text-sm font-medium text-fuchsia-600 transition hover:text-fuchsia-500 dark:text-fuchsia-300">
+                  <Link to={row.actionHref} className="text-sm font-medium text-text-brand transition hover:opacity-80">
                     {row.actionLabel}
                   </Link>
                 </td>

@@ -33,7 +33,7 @@ export function DisplayReportingView({
       </div>
 
       <Panel className="p-5">
-        <h3 className="mb-4 text-sm font-semibold text-slate-700">
+        <h3 className="mb-4 text-sm font-semibold text-text-secondary">
           Daily Impressions — Last {dateRange} days
         </h3>
         {stats.length === 0 ? (
@@ -135,7 +135,7 @@ export function IdentityReportingView({ summary }: { summary: TagSummary | null 
           <h3 className="mb-4 text-sm font-semibold text-[color:var(--dusk-text-primary)]">Latest Delivery Identity & Context</h3>
           <div className="grid gap-6 lg:grid-cols-3">
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Identity</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-soft">Identity</p>
               <DetailRow label="Inventory Environment" value={inventoryEnvironment} />
               <DetailRow label="Country" value={summary.latestContext.country || 'Unknown'} />
               <DetailRow label="Region" value={summary.latestContext.region || 'Unknown'} />
@@ -147,7 +147,7 @@ export function IdentityReportingView({ summary }: { summary: TagSummary | null 
               <DetailRow label="Carrier" value={summary.latestContext.carrier || 'n/a'} />
             </div>
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Site / App</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-soft">Site / App</p>
               <DetailRow label="Site Domain" value={summary.latestContext.siteDomain || 'n/a'} />
               <DetailRow label="Page URL" value={summary.latestContext.pageUrl || 'n/a'} />
               <DetailRow label="App Name" value={summary.latestContext.appName || 'n/a'} />
@@ -157,7 +157,7 @@ export function IdentityReportingView({ summary }: { summary: TagSummary | null 
               <DetailRow label="App Store" value={summary.latestContext.appStoreName || 'n/a'} />
             </div>
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Supply & Context</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-soft">Supply & Context</p>
               <DetailRow label="Network ID" value={summary.latestContext.networkId || 'n/a'} />
               <DetailRow label="Source Publisher ID" value={summary.latestContext.sourcePublisherId || 'n/a'} />
               <DetailRow label="Exchange ID" value={summary.latestContext.exchangeId || 'n/a'} />
