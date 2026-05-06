@@ -1,4 +1,5 @@
 import React, { useState, FormEvent } from 'react';
+import { Badge, Button, EmptyState, Input, Kicker, Panel } from '../system';
 
 type InputMode = 'xml' | 'url';
 type IssueSeverity = 'error' | 'warning' | 'info';
@@ -17,10 +18,10 @@ interface ValidationResult {
   warnings: ValidationIssue[];
 }
 
-const severityConfig: Record<IssueSeverity, { cls: string; icon: string }> = {
-  error:   { cls: 'bg-red-50 border-red-200 text-red-800',     icon: 'Error' },
-  warning: { cls: 'bg-yellow-50 border-yellow-200 text-yellow-800', icon: 'Warning' },
-  info:    { cls: 'bg-blue-50 border-blue-200 text-blue-800',   icon: 'Info' },
+const severityConfig: Record<IssueSeverity, { tone: 'critical' | 'warning' | 'info'; icon: string }> = {
+  error:   { tone: 'critical', icon: 'Error' },
+  warning: { tone: 'warning', icon: 'Warning' },
+  info:    { tone: 'info', icon: 'Info' },
 };
 
 export default function VastValidator() {
@@ -79,136 +80,122 @@ export default function VastValidator() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">VAST Validator</h1>
-        <p className="text-sm text-slate-500 mt-1">Validate VAST XML tags for spec compliance and common issues</p>
+        <Kicker>Verification</Kicker>
+        <h1 className="text-2xl font-bold text-[color:var(--dusk-text-primary)]">VAST Validator</h1>
+        <p className="text-sm text-[color:var(--dusk-text-muted)] mt-1">Validate VAST XML tags for spec compliance and common issues</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+      <Panel className="mb-6 rounded-2xl">
         {/* Mode toggle */}
-        <div className="flex gap-1 mb-5 p-1 bg-slate-100 rounded-lg w-fit">
+        <div className="flex gap-1 mb-5 p-1 bg-surface-muted rounded-lg w-fit">
           {(['xml', 'url'] as InputMode[]).map(m => (
-            <button
+            <Button
               key={m}
+              type="button"
               onClick={() => { setMode(m); setResult(null); setError(''); }}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                mode === m ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
+              variant={mode === m ? 'secondary' : 'ghost'}
+              size="sm"
             >
               {m === 'xml' ? 'Paste XML' : 'Tag URL'}
-            </button>
+            </Button>
           ))}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'xml' ? (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">VAST XML</label>
+              <label className="block text-sm font-medium text-[color:var(--dusk-text-secondary)] mb-1">VAST XML</label>
               <textarea
                 value={xmlInput}
                 onChange={e => setXmlInput(e.target.value)}
                 rows={12}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-y"
+                className="w-full px-3 py-2 border border-[color:var(--dusk-border-default)] rounded-lg text-sm font-mono bg-surface-1 text-[color:var(--dusk-text-primary)] focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 resize-y"
                 placeholder={'<?xml version="1.0" encoding="UTF-8"?>\n<VAST version="4.2">\n  ...\n</VAST>'}
                 spellCheck={false}
               />
             </div>
           ) : (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">VAST Tag URL</label>
-              <input
+              <label className="block text-sm font-medium text-[color:var(--dusk-text-secondary)] mb-1">VAST Tag URL</label>
+              <Input
                 type="url"
                 value={urlInput}
                 onChange={e => setUrlInput(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
                 placeholder="https://ad.example.com/vast?placement=12345"
               />
-              <p className="mt-1 text-xs text-slate-400">The URL will be fetched server-side to retrieve the VAST XML.</p>
+              <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">The URL will be fetched server-side to retrieve the VAST XML.</p>
             </div>
           )}
 
           {error && (
-            <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <div className="px-4 py-3 bg-[color:var(--dusk-status-critical-bg)] border border-[color:var(--dusk-status-critical-border)] rounded-lg text-sm text-[color:var(--dusk-status-critical-fg)]">
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 bg-brand-gradient hover:opacity-95 disabled:opacity-60 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
-          >
-            {loading && (
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-              </svg>
-            )}
+          <Button type="submit" loading={loading} fullWidth variant="primary">
             {loading ? 'Validating...' : 'Validate VAST'}
-          </button>
+          </Button>
         </form>
-      </div>
+      </Panel>
 
       {/* Results */}
       {result && (
         <div className="space-y-4">
           {/* Summary */}
-          <div className={`rounded-xl border p-5 flex items-center gap-4 ${
-            result.valid
-              ? 'bg-green-50 border-green-200'
-              : 'bg-red-50 border-red-200'
-          }`}>
-            <div className={`text-4xl`}>{result.valid ? 'OK' : 'Error'}</div>
+          <Panel className={result.valid ? 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)]' : 'border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)]'}>
+            <div className="flex items-center gap-4">
+            <div className="text-4xl">{result.valid ? 'OK' : 'Error'}</div>
             <div>
-              <p className={`text-lg font-bold ${result.valid ? 'text-green-800' : 'text-red-800'}`}>
+              <p className={`text-lg font-bold ${result.valid ? 'text-[color:var(--dusk-status-success-fg)]' : 'text-[color:var(--dusk-status-critical-fg)]'}`}>
                 {result.valid ? 'Valid VAST' : 'Invalid VAST'}
               </p>
               {result.vastVersion && (
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-[color:var(--dusk-text-secondary)]">
                   VAST Version: <strong>{result.vastVersion}</strong>
                 </p>
               )}
-              <p className="text-sm text-slate-600 mt-0.5">
+              <p className="text-sm text-[color:var(--dusk-text-secondary)] mt-0.5">
                 {result.errors?.length ?? 0} error{result.errors?.length !== 1 ? 's' : ''},{' '}
                 {result.warnings?.length ?? 0} warning{result.warnings?.length !== 1 ? 's' : ''}
               </p>
             </div>
-          </div>
+            </div>
+          </Panel>
 
           {/* Issues list */}
           {allIssues.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
-                <h2 className="text-sm font-semibold text-slate-700">Issues ({allIssues.length})</h2>
+            <Panel padding="none" className="overflow-hidden rounded-2xl">
+              <div className="px-5 py-3 border-b border-[color:var(--dusk-border-subtle)] bg-surface-muted">
+                <h2 className="text-sm font-semibold text-[color:var(--dusk-text-secondary)]">Issues ({allIssues.length})</h2>
               </div>
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-[color:var(--dusk-border-subtle)]">
                 {allIssues.map((issue, i) => {
                   const cfg = severityConfig[issue.severity];
                   return (
-                    <li key={i} className={`px-5 py-3 flex gap-3 text-sm ${cfg.cls} border-l-4`} style={{ borderLeftColor: issue.severity === 'error' ? '#ef4444' : issue.severity === 'warning' ? '#eab308' : '#3b82f6' }}>
+                    <li key={i} className="px-5 py-3 flex gap-3 text-sm border-l-4 bg-surface-1" style={{ borderLeftColor: issue.severity === 'error' ? 'var(--dusk-status-critical-fg)' : issue.severity === 'warning' ? 'var(--dusk-status-warning-fg)' : 'var(--dusk-status-info-fg)' }}>
                       <span className="flex-shrink-0 font-bold">{cfg.icon}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className="font-semibold capitalize">{issue.severity}</span>
+                          <Badge tone={cfg.tone} size="sm">{issue.severity}</Badge>
                           {issue.code && (
-                            <code className="text-xs bg-white/60 px-1.5 py-0.5 rounded font-mono">{issue.code}</code>
+                            <code className="text-xs bg-surface-muted px-1.5 py-0.5 rounded font-mono">{issue.code}</code>
                           )}
                         </div>
-                        <p>{issue.message}</p>
+                        <p className="text-[color:var(--dusk-text-secondary)]">{issue.message}</p>
                         {issue.path && (
-                          <p className="mt-0.5 text-xs opacity-70 font-mono">{issue.path}</p>
+                          <p className="mt-0.5 text-xs text-[color:var(--dusk-text-soft)] font-mono">{issue.path}</p>
                         )}
                       </div>
                     </li>
                   );
                 })}
               </ul>
-            </div>
+            </Panel>
           )}
 
           {allIssues.length === 0 && result.valid && (
-            <div className="bg-white rounded-xl border border-slate-200 px-5 py-6 text-center text-sm text-slate-500">
-              No issues detected. This VAST tag looks great!
-            </div>
+            <EmptyState title="No issues detected" description="This VAST tag looks great." />
           )}
         </div>
       )}

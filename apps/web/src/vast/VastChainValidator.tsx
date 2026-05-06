@@ -1,4 +1,5 @@
 import React, { useState, FormEvent } from 'react';
+import { Badge, Button, EmptyState, Input, Kicker, Panel } from '../system';
 
 interface ChainStep {
   depth: number;
@@ -61,70 +62,54 @@ export default function VastChainValidator() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">VAST Chain Validator</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <Kicker>Verification</Kicker>
+        <h1 className="text-2xl font-bold text-[color:var(--dusk-text-primary)]">VAST Chain Validator</h1>
+        <p className="text-sm text-[color:var(--dusk-text-muted)] mt-1">
           Resolve VAST wrapper chains to find the final inline ad and diagnose redirect depth issues
         </p>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+      <Panel className="mb-6 rounded-2xl">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-[color:var(--dusk-text-secondary)] mb-1">
               VAST Tag URL
             </label>
-            <input
+            <Input
               type="url"
               value={url}
               onChange={e => setUrl(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
               placeholder="https://ad.example.com/vast?placement=12345"
             />
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">
               The chain will be resolved server-side. Each wrapper redirect is followed up to 10 levels deep.
             </p>
           </div>
 
           {error && (
-            <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <div className="px-4 py-3 bg-[color:var(--dusk-status-critical-bg)] border border-[color:var(--dusk-status-critical-border)] rounded-lg text-sm text-[color:var(--dusk-status-critical-fg)]">
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 bg-brand-gradient hover:opacity-95 disabled:opacity-60 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
-          >
-            {loading && (
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-              </svg>
-            )}
+          <Button type="submit" loading={loading} fullWidth variant="primary">
             {loading ? 'Resolving chain...' : 'Resolve Chain'}
-          </button>
+          </Button>
         </form>
-      </div>
+      </Panel>
 
       {/* Results */}
       {result && (
         <div className="space-y-4">
           {/* Summary bar */}
-          <div className={`rounded-xl border p-5 ${
-            !result.resolved
-              ? 'bg-red-50 border-red-200'
-              : depthWarning
-              ? 'bg-yellow-50 border-yellow-200'
-              : 'bg-green-50 border-green-200'
-          }`}>
+          <Panel className={!result.resolved ? 'border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)]' : depthWarning ? 'border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)]' : 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)]'}>
             <div className="flex items-center gap-3">
               <span className="text-3xl">
                 {!result.resolved ? 'Invalid' : depthWarning ? 'Warning' : 'Valid'}
               </span>
               <div>
                 <p className={`font-bold text-lg ${
-                  !result.resolved ? 'text-red-800' : depthWarning ? 'text-yellow-800' : 'text-green-800'
+                  !result.resolved ? 'text-[color:var(--dusk-status-critical-fg)]' : depthWarning ? 'text-[color:var(--dusk-status-warning-fg)]' : 'text-[color:var(--dusk-status-success-fg)]'
                 }`}>
                   {!result.resolved
                     ? 'Chain failed to resolve'
@@ -133,31 +118,31 @@ export default function VastChainValidator() {
                     : `Resolved — chain depth: ${result.totalDepth}`}
                 </p>
                 {result.finalType && (
-                  <p className="text-sm text-slate-600 mt-0.5">
+                  <p className="text-sm text-[color:var(--dusk-text-secondary)] mt-0.5">
                     Final ad type: <strong>{result.finalType}</strong>
                     {result.finalType === 'Wrapper' && (
-                      <span className="ml-1 text-yellow-700"> (no InLine found)</span>
+                      <span className="ml-1 text-[color:var(--dusk-status-warning-fg)]"> (no InLine found)</span>
                     )}
                   </p>
                 )}
                 {result.error && (
-                  <p className="text-sm text-red-700 mt-0.5">{result.error}</p>
+                  <p className="text-sm text-[color:var(--dusk-status-critical-fg)] mt-0.5">{result.error}</p>
                 )}
               </div>
             </div>
-          </div>
+          </Panel>
 
           {depthWarning && (
-            <div className="px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+            <div className="px-4 py-3 bg-[color:var(--dusk-status-warning-bg)] border border-[color:var(--dusk-status-warning-border)] rounded-lg text-sm text-[color:var(--dusk-status-warning-fg)]">
               <strong>Depth warning:</strong> IAB recommends VAST wrapper chains be no deeper than 3 hops. Excessive depth increases latency and can cause ad serving failures.
             </div>
           )}
 
           {/* Chain visualization */}
           {result.steps.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
-                <h2 className="text-sm font-semibold text-slate-700">
+            <Panel padding="none" className="overflow-hidden rounded-2xl">
+              <div className="px-5 py-3 border-b border-[color:var(--dusk-border-subtle)] bg-surface-muted">
+                <h2 className="text-sm font-semibold text-[color:var(--dusk-text-secondary)]">
                   Chain ({result.steps.length} step{result.steps.length !== 1 ? 's' : ''})
                 </h2>
               </div>
@@ -171,50 +156,46 @@ export default function VastChainValidator() {
                     <div key={i} className="relative">
                       {/* Connector line */}
                       {!isLast && (
-                        <div className="absolute left-5 top-10 bottom-0 w-0.5 bg-slate-200" />
+                        <div className="absolute left-5 top-10 bottom-0 w-0.5 bg-[color:var(--dusk-border-default)]" />
                       )}
 
                       <div className={`flex gap-4 rounded-xl border p-4 ${
                         isError
-                          ? 'bg-red-50 border-red-200'
+                          ? 'bg-[color:var(--dusk-status-critical-bg)] border-[color:var(--dusk-status-critical-border)]'
                           : isWarning
-                          ? 'bg-yellow-50 border-yellow-200'
+                          ? 'bg-[color:var(--dusk-status-warning-bg)] border-[color:var(--dusk-status-warning-border)]'
                           : step.type === 'InLine'
-                          ? 'bg-green-50 border-green-200'
-                          : 'bg-slate-50 border-slate-200'
+                          ? 'bg-[color:var(--dusk-status-success-bg)] border-[color:var(--dusk-status-success-border)]'
+                          : 'bg-surface-muted border-[color:var(--dusk-border-default)]'
                       }`}>
                         {/* Depth circle */}
                         <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
-                          isError ? 'bg-red-200 text-red-800' :
-                          isWarning ? 'bg-yellow-200 text-yellow-800' :
-                          step.type === 'InLine' ? 'bg-green-200 text-green-800' :
-                          'bg-slate-200 text-slate-700'
+                          isError ? 'bg-[color:var(--dusk-status-critical-border)] text-[color:var(--dusk-status-critical-fg)]' :
+                          isWarning ? 'bg-[color:var(--dusk-status-warning-border)] text-[color:var(--dusk-status-warning-fg)]' :
+                          step.type === 'InLine' ? 'bg-[color:var(--dusk-status-success-border)] text-[color:var(--dusk-status-success-fg)]' :
+                          'bg-surface-1 text-[color:var(--dusk-text-secondary)]'
                         }`}>
                           {step.depth}
                         </div>
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                              step.type === 'InLine'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-blue-100 text-blue-800'
-                            }`}>
+                            <Badge tone={step.type === 'InLine' ? 'success' : 'info'} size="sm">
                               {step.type}
-                            </span>
-                            <span className="text-xs text-slate-500">
+                            </Badge>
+                            <span className="text-xs text-[color:var(--dusk-text-muted)]">
                               VAST {step.vastVersion}
                             </span>
                             {step.adSystem && (
-                              <span className="text-xs text-slate-500">· {step.adSystem}</span>
+                              <span className="text-xs text-[color:var(--dusk-text-muted)]">· {step.adSystem}</span>
                             )}
                             {isWarning && !isError && (
-                              <span className="text-xs text-yellow-700 font-medium">⚠ Deep chain</span>
+                              <Badge tone="warning" size="sm">Deep chain</Badge>
                             )}
                           </div>
-                          <p className="text-xs font-mono text-slate-600 break-all">{step.url}</p>
+                          <p className="text-xs font-mono text-[color:var(--dusk-text-secondary)] break-all">{step.url}</p>
                           {step.error && (
-                            <p className="mt-1 text-xs text-red-700">Error: {step.error}</p>
+                            <p className="mt-1 text-xs text-[color:var(--dusk-status-critical-fg)]">Error: {step.error}</p>
                           )}
                         </div>
                       </div>
@@ -222,7 +203,7 @@ export default function VastChainValidator() {
                   );
                 })}
               </div>
-            </div>
+            </Panel>
           )}
         </div>
       )}

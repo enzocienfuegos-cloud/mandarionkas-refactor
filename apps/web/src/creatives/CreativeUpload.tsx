@@ -11,7 +11,7 @@ import {
   type CreativeIngestion,
 } from './catalog';
 import { loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
-import { Button, Input, Kicker, Panel } from '../system';
+import { Button, Input, Kicker, Panel, Select } from '../system';
 
 type SourceKind = 'html5_zip' | 'video_mp4';
 
@@ -495,8 +495,8 @@ export default function CreativeUpload() {
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <Kicker>Creatives</Kicker>
-        <h1 className="mt-3 text-2xl font-semibold text-slate-800 dark:text-white">Upload External Creatives</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="mt-3 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">Upload External Creatives</h1>
+        <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">
           Upload multiple HTML5 zip banners or MP4 videos and publish them into the versioned creative catalog.
         </p>
       </div>
@@ -504,21 +504,17 @@ export default function CreativeUpload() {
       <Panel as="form" onSubmit={handleSubmit} className="space-y-6 rounded-2xl">
         <div className="grid gap-6 md:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Client</label>
+            <label className="mb-2 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Client</label>
             <div className="mb-4 flex items-center gap-2">
-              <select
+              <Select
                 value={workspaceId}
                 onChange={event => setWorkspaceId(event.target.value)}
                 disabled={loading}
-                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500"
-              >
-                <option value="">Select a client</option>
-                {workspaces.map(workspace => (
-                  <option key={workspace.id} value={workspace.id}>
-                    {workspace.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: 'Select a client' },
+                  ...workspaces.map(workspace => ({ value: workspace.id, label: workspace.name })),
+                ]}
+              />
               <Button
                 onClick={() => navigate('/clients')}
                 disabled={loading}
@@ -529,7 +525,7 @@ export default function CreativeUpload() {
                 New client
               </Button>
             </div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Source Type</label>
+            <label className="mb-2 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Source Type</label>
             <div className="grid gap-3">
               <button
                 type="button"
@@ -539,10 +535,10 @@ export default function CreativeUpload() {
                   setError('');
                   if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
-                className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'html5_zip' ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-300' : 'border-slate-200 hover:bg-slate-50'}`}
+                className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'html5_zip' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'border-[color:var(--dusk-border-default)] bg-surface-1 text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
               >
-                <div className="font-medium text-slate-800">HTML5 ZIP</div>
-                <div className="text-sm text-slate-500">Publishes `index.html` and all packaged assets to hosted display creative artifacts.</div>
+                <div className="font-medium text-[color:var(--dusk-text-primary)]">HTML5 ZIP</div>
+                <div className="text-sm text-[color:var(--dusk-text-muted)]">Publishes `index.html` and all packaged assets to hosted display creative artifacts.</div>
               </button>
               <button
                 type="button"
@@ -552,17 +548,17 @@ export default function CreativeUpload() {
                   setError('');
                   if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
-                className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'video_mp4' ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-300' : 'border-slate-200 hover:bg-slate-50'}`}
+                className={`rounded-xl border px-4 py-3 text-left ${sourceKind === 'video_mp4' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'border-[color:var(--dusk-border-default)] bg-surface-1 text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
               >
-                <div className="font-medium text-slate-800">Video MP4</div>
-                <div className="text-sm text-slate-500">Creates a video creative version ready for VAST serving and review.</div>
+                <div className="font-medium text-[color:var(--dusk-text-primary)]">Video MP4</div>
+                <div className="text-sm text-[color:var(--dusk-text-muted)]">Creates a video creative version ready for VAST serving and review.</div>
               </button>
             </div>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Creative Files</label>
+              <label className="mb-2 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Creative Files</label>
               <input
                 ref={fileInputRef}
                 key={sourceKind}
@@ -573,22 +569,21 @@ export default function CreativeUpload() {
                   mergeFiles(Array.from(event.target.files ?? []));
                   event.currentTarget.value = '';
                 }}
-                className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium"
+                className="block w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-secondary)] file:mr-3 file:rounded-md file:border-0 file:bg-surface-muted file:px-3 file:py-2 file:text-sm file:font-medium"
               />
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-[color:var(--dusk-text-muted)]">
                 Accepted: {ACCEPTED_EXTENSIONS[sourceKind]} · each creative will use its file name as the creative name.
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-[color:var(--dusk-text-muted)]">
                 You can select multiple files at once with <strong>Cmd</strong>/<strong>Shift</strong>, or pick files in several rounds and they will be appended.
               </p>
               {files.length > 0 && (
-                <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className="mt-3 rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-muted p-3">
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-muted)]">
                       {files.length} selected
                     </div>
-                    <button
-                      type="button"
+                    <Button
                       onClick={() => {
                         setFiles([]);
                         setClickUrlsByFileKey({});
@@ -596,22 +591,23 @@ export default function CreativeUpload() {
                         setDetectingFileKeys([]);
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
-                      className="text-xs font-medium text-slate-600 hover:text-slate-800"
+                      variant="ghost"
+                      size="sm"
                     >
                       Clear
-                    </button>
+                    </Button>
                   </div>
-                  <div className="max-h-80 space-y-3 overflow-y-auto text-sm text-slate-700">
+                  <div className="max-h-80 space-y-3 overflow-y-auto text-sm text-[color:var(--dusk-text-secondary)]">
                     {files.map(file => (
-                      <div key={buildFileKey(file)} className="rounded-lg border border-slate-200 bg-white p-3">
+                      <div key={buildFileKey(file)} className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 p-3">
                         <div className="flex items-center justify-between gap-3">
-                          <span className="truncate font-medium text-slate-800">{file.name}</span>
-                          <span className="shrink-0 text-xs text-slate-500">
+                          <span className="truncate font-medium text-[color:var(--dusk-text-primary)]">{file.name}</span>
+                          <span className="shrink-0 text-xs text-[color:var(--dusk-text-muted)]">
                             {(file.size / 1024 / 1024).toFixed(2)} MB
                           </span>
                         </div>
                         <div className="mt-2">
-                          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-muted)]">
                             {sourceKind === 'video_mp4' ? 'Destination URL *' : 'Fallback destination URL'}
                           </label>
                           <Input
@@ -622,18 +618,18 @@ export default function CreativeUpload() {
                             }))}
                             placeholder="https://example.com/landing"
                           />
-                          <p className="mt-1 text-[11px] text-slate-500">
+                          <p className="mt-1 text-[11px] text-[color:var(--dusk-text-muted)]">
                             {sourceKind === 'video_mp4'
                               ? 'Videos need a destination URL before publishing.'
                               : 'For HTML5, we auto-detect clickTag/click URL from the archive. If none is found, this fallback URL is required.'}
                           </p>
                           {sourceKind === 'html5_zip' && detectingFileKeys.includes(buildFileKey(file)) && (
-                            <p className="mt-1 text-[11px] text-amber-600">
+                            <p className="mt-1 text-[11px] text-[color:var(--dusk-status-warning-fg)]">
                               Detecting clickTag from archive…
                             </p>
                           )}
                           {detectedClickUrls[buildFileKey(file)] && (
-                            <p className="mt-1 flex items-center gap-1 text-[11px] text-emerald-600">
+                            <p className="mt-1 flex items-center gap-1 text-[11px] text-[color:var(--dusk-status-success-fg)]">
                               <span>
                                 clickTag auto-detected:{' '}
                                 <span className="break-all font-medium">
@@ -653,31 +649,31 @@ export default function CreativeUpload() {
         </div>
 
         {status && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="rounded-lg border border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-info-fg)]">
             <div className="font-medium">{status}</div>
             {loading && (
               <div className="mt-3 space-y-3">
                 <div>
-                  <div className="mb-1 flex items-center justify-between text-xs text-blue-700">
+                  <div className="mb-1 flex items-center justify-between text-xs text-[color:var(--dusk-status-info-fg)]">
                     <span>Overall progress</span>
                     <span>{overallProgress}%</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-blue-100">
+                  <div className="h-2 overflow-hidden rounded-full bg-[color:var(--dusk-status-info-border)]">
                     <div
-                      className="h-full rounded-full bg-blue-600 transition-all"
+                      className="h-full rounded-full bg-[color:var(--dusk-status-info-fg)] transition-all"
                       style={{ width: `${overallProgress}%` }}
                     />
                   </div>
                 </div>
                 {currentFileName && (
                   <div>
-                    <div className="mb-1 flex items-center justify-between text-xs text-blue-700">
+                    <div className="mb-1 flex items-center justify-between text-xs text-[color:var(--dusk-status-info-fg)]">
                       <span className="truncate pr-3">Uploading {currentFileName}</span>
                       <span>{currentFileProgress}%</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-blue-100">
+                    <div className="h-2 overflow-hidden rounded-full bg-[color:var(--dusk-status-info-border)]">
                       <div
-                        className="h-full rounded-full bg-fuchsia-500 transition-all"
+                        className="h-full rounded-full bg-brand-500 transition-all"
                         style={{ width: `${currentFileProgress}%` }}
                       />
                     </div>
@@ -685,21 +681,21 @@ export default function CreativeUpload() {
                 )}
                 {currentProcessingName && (
                   <div>
-                    <div className="mb-1 flex items-center justify-between text-xs text-blue-700">
+                    <div className="mb-1 flex items-center justify-between text-xs text-[color:var(--dusk-status-info-fg)]">
                       <span className="truncate pr-3">Transcoding / publishing {currentProcessingName}</span>
                       <span>{currentProcessingProgress}%</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-blue-100">
+                    <div className="h-2 overflow-hidden rounded-full bg-[color:var(--dusk-status-info-border)]">
                       <div
-                        className="h-full rounded-full bg-violet-600 transition-all"
+                        className="h-full rounded-full bg-brand-600 transition-all"
                         style={{ width: `${currentProcessingProgress}%` }}
                       />
                     </div>
                     {currentProcessingEta && (
-                      <div className="mt-1 text-[11px] text-blue-600">{currentProcessingEta}</div>
+                      <div className="mt-1 text-[11px] text-[color:var(--dusk-status-info-fg)]">{currentProcessingEta}</div>
                     )}
                     {currentProcessingMessage && (
-                      <div className="mt-1 text-[11px] text-blue-600">{currentProcessingMessage}</div>
+                      <div className="mt-1 text-[11px] text-[color:var(--dusk-status-info-fg)]">{currentProcessingMessage}</div>
                     )}
                   </div>
                 )}
@@ -709,7 +705,7 @@ export default function CreativeUpload() {
         )}
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-lg border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]">
             {error}
           </div>
         )}
