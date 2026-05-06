@@ -46,6 +46,7 @@ import type {
 import { CreativePreviewLightbox } from './creative-library/CreativePreviewLightbox';
 import { ClickUrlEditorModal } from './creative-library/ClickUrlEditorModal';
 import { CreativeBulkActionsPanel } from './creative-library/CreativeBulkActionsPanel';
+import { CreativeRowActions } from './creative-library/CreativeRowActions';
 import { QuickCreateTagModal } from './creative-library/QuickCreateTagModal';
 import { TagBindingModal } from './creative-library/TagBindingModal';
 import { VariantManagerModal } from './creative-library/VariantManagerModal';
@@ -987,6 +988,33 @@ export default function CreativesView() {
       loading: false,
       error: '',
     });
+  };
+
+  const handlePrepareBinding = async (creative: Creative, version: CreativeVersion) => {
+    try {
+      if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
+        setWorkspaceBusy(true);
+        await switchWorkspace(creative.workspaceId);
+        setActiveWorkspaceId(creative.workspaceId);
+      }
+      const nextTags = await loadTags({ workspaceId: creative.workspaceId ?? activeWorkspaceId });
+      setTags(nextTags);
+      setBindingState({
+        creativeId: creative.id,
+        creativeName: creative.name,
+        versionId: version.id,
+        servingFormat: version.servingFormat,
+        tagId: '',
+        loading: false,
+        error: '',
+        bindingsLoading: false,
+        bindings: [],
+      });
+    } catch (workspaceError: any) {
+      setError(workspaceError.message ?? 'Failed to prepare assignment');
+    } finally {
+      setWorkspaceBusy(false);
+    }
   };
 
   const handleSaveCreativeClickUrl = async () => {
@@ -1970,79 +1998,35 @@ export default function CreativesView() {
                       </td>
                       <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.owner ?? 'Creative Ops'}</td>
                       <td className="px-5 py-5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {version && version.status !== 'rejected' && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => void handleCreativeOperationalStatusToggle(creative)}
-                                disabled={statusUpdateCreativeId === creative.id}
-                                className={classNames(
-                                  'rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50',
-                                  getCreativeOperationalState(creative) === 'inactive'
-                                    ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/18 dark:text-emerald-300 dark:hover:bg-emerald-500/10'
-                                    : 'border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/[0.05]',
-                                )}
-                              >
-                                {statusUpdateCreativeId === creative.id ? 'Saving…' : getCreativeOperationalState(creative) === 'inactive' ? 'Set active' : 'Set inactive'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void handleEditCreativeClickUrl(creative)}
-                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
-                              >
-                                {creative.clickUrl ? 'Edit URL' : 'Set URL'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void (version.servingFormat === 'vast_video' ? openVideoRenditionManager(creative, version) : openVariantManager(creative, version))}
-                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
-                              >
-                                {version.servingFormat === 'vast_video' ? 'Renditions' : 'Sizes'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  try {
-                                    if (creative.workspaceId && creative.workspaceId !== activeWorkspaceId) {
-                                      setWorkspaceBusy(true);
-                                      await switchWorkspace(creative.workspaceId);
-                                      setActiveWorkspaceId(creative.workspaceId);
-                                    }
-                                    const nextTags = await loadTags({ workspaceId: creative.workspaceId ?? activeWorkspaceId });
-                                    setTags(nextTags);
-                                    setBindingState({
-                                      creativeId: creative.id,
-                                      creativeName: creative.name,
-                                      versionId: version.id,
-                                      servingFormat: version.servingFormat,
-                                      tagId: '',
-                                      loading: false,
-                                      error: '',
-                                      bindingsLoading: false,
-                                      bindings: [],
-                                    });
-                                  } catch (workspaceError: any) {
-                                    setError(workspaceError.message ?? 'Failed to prepare assignment');
-                                  } finally {
-                                    setWorkspaceBusy(false);
-                                  }
-                                }}
-                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/10 dark:text-white/72 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
-                              >
-                                Assign tag
-                              </button>
-                            </>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => void handleDeleteCreative(creative)}
-                            className="rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
-                            aria-label={`More actions for ${creative.name}`}
-                          >
-                            <MoreIcon className="h-4 w-4" />
-                          </button>
-                        </div>
+                        {version ? (
+                          <CreativeRowActions
+                            creative={creative}
+                            version={version}
+                            statusUpdateCreativeId={statusUpdateCreativeId}
+                            workspaceBusy={workspaceBusy}
+                            getCreativeOperationalState={getCreativeOperationalState}
+                            onToggleOperationalStatus={handleCreativeOperationalStatusToggle}
+                            onEditClickUrl={handleEditCreativeClickUrl}
+                            onOpenDeliveryManager={(entry, creativeVersion) => (
+                              creativeVersion.servingFormat === 'vast_video'
+                                ? openVideoRenditionManager(entry, creativeVersion)
+                                : openVariantManager(entry, creativeVersion)
+                            )}
+                            onAssignTag={handlePrepareBinding}
+                            onDeleteCreative={handleDeleteCreative}
+                          />
+                        ) : (
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteCreative(creative)}
+                              className="rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+                              aria-label={`More actions for ${creative.name}`}
+                            >
+                              <MoreIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
