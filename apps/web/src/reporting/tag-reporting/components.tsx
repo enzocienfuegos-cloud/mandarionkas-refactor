@@ -161,3 +161,74 @@ export function ReportingFilterSummary({
     </Panel>
   );
 }
+
+export function ReportingBreakdownTable({
+  title,
+  subtitle,
+  emptyTitle,
+  rows,
+  columns,
+}: {
+  title: string;
+  subtitle: string;
+  emptyTitle: string;
+  rows: DailyStat[];
+  columns: Array<{
+    key: string;
+    header: string;
+    render: (row: DailyStat) => React.ReactNode;
+    emphasize?: boolean;
+  }>;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1">
+      <div className="flex items-center justify-between border-b border-[color:var(--dusk-border-subtle)] px-4 py-3">
+        <h3 className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">{title}</h3>
+        <p className="text-xs text-[color:var(--dusk-text-soft)]">{subtitle}</p>
+      </div>
+      {rows.length === 0 ? (
+        <EmptyState
+          kicker="No data"
+          title={emptyTitle}
+          description="Adjust the tag filters or wait for new traffic to populate this table."
+          className="border-0 bg-transparent px-4 py-8 shadow-none"
+        />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
+            <thead className="bg-[color:var(--dusk-surface-muted)]">
+              <tr>
+                {columns.map((column) => (
+                  <th
+                    key={column.key}
+                    className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[color:var(--dusk-text-soft)]"
+                  >
+                    {column.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
+              {[...rows].reverse().map((row) => (
+                <tr key={row.date} className="hover:bg-[color:var(--dusk-surface-muted)]">
+                  {columns.map((column) => (
+                    <td
+                      key={column.key}
+                      className={`px-4 py-2.5 text-sm ${
+                        column.emphasize
+                          ? 'font-medium text-[color:var(--dusk-text-primary)]'
+                          : 'text-[color:var(--dusk-text-secondary)]'
+                      }`}
+                    >
+                      {column.render(row)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

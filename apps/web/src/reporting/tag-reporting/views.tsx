@@ -1,6 +1,6 @@
 import React from 'react';
 import { Panel } from '../../system';
-import { BarChart, DetailRow, KpiCard } from './components';
+import { BarChart, DetailRow, KpiCard, ReportingBreakdownTable } from './components';
 import type { DailyStat, TagSummary } from './types';
 import {
   deriveIdentitySource,
@@ -45,46 +45,24 @@ export function DisplayReportingView({
         )}
       </Panel>
 
-      {stats.length > 0 ? (
-        <div className="mt-4 overflow-hidden rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1">
-          <div className="flex items-center justify-between border-b border-[color:var(--dusk-border-subtle)] px-4 py-3">
-            <h3 className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">Daily Breakdown</h3>
-            <p className="text-xs text-[color:var(--dusk-text-soft)]">Export uses the same filtered rows</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
-              <thead className="bg-[color:var(--dusk-surface-muted)]">
-                <tr>
-                  {['Date', 'Impressions', 'Clicks', 'Play Starts', 'Plays Completed', 'CTR', 'Start Rate', 'Completion Rate'].map(header => (
-                    <th key={header} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[color:var(--dusk-text-soft)]">
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
-                {[...stats].reverse().map(row => {
-                  const ctr = row.impressions > 0 ? (row.clicks / row.impressions) * 100 : 0;
-                  const startRate = row.impressions > 0 ? (row.videoStarts / row.impressions) * 100 : 0;
-                  const completionRate = row.videoStarts > 0 ? (row.videoCompletions / row.videoStarts) * 100 : 0;
-                  return (
-                    <tr key={row.date} className="hover:bg-[color:var(--dusk-surface-muted)]">
-                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.date}</td>
-                      <td className="px-4 py-2.5 text-sm font-medium text-[color:var(--dusk-text-primary)]">{row.impressions.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.clicks.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.videoStarts.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.videoCompletions.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{ctr.toFixed(2)}%</td>
-                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{startRate.toFixed(2)}%</td>
-                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{completionRate.toFixed(2)}%</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : null}
+      <div className="mt-4">
+        <ReportingBreakdownTable
+          title="Daily Breakdown"
+          subtitle="Export uses the same filtered rows"
+          emptyTitle="No data for this period"
+          rows={stats}
+          columns={[
+            { key: 'date', header: 'Date', render: (row) => row.date },
+            { key: 'impressions', header: 'Impressions', render: (row) => row.impressions.toLocaleString(), emphasize: true },
+            { key: 'clicks', header: 'Clicks', render: (row) => row.clicks.toLocaleString() },
+            { key: 'videoStarts', header: 'Play Starts', render: (row) => row.videoStarts.toLocaleString() },
+            { key: 'videoCompletions', header: 'Plays Completed', render: (row) => row.videoCompletions.toLocaleString() },
+            { key: 'ctr', header: 'CTR', render: (row) => `${(row.impressions > 0 ? (row.clicks / row.impressions) * 100 : 0).toFixed(2)}%` },
+            { key: 'startRate', header: 'Start Rate', render: (row) => `${(row.impressions > 0 ? (row.videoStarts / row.impressions) * 100 : 0).toFixed(2)}%` },
+            { key: 'completionRate', header: 'Completion Rate', render: (row) => `${(row.videoStarts > 0 ? (row.videoCompletions / row.videoStarts) * 100 : 0).toFixed(2)}%` },
+          ]}
+        />
+      </div>
     </>
   );
 }
@@ -107,47 +85,20 @@ export function VideoReportingView({
         <KpiCard label="Country" value={summary?.latestContext?.country || 'Unknown'} sub={summary?.latestContext?.region || 'Region unknown'} />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1">
-        <div className="flex items-center justify-between border-b border-[color:var(--dusk-border-subtle)] px-4 py-3">
-          <h3 className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">Daily Video Breakdown</h3>
-          <p className="text-xs text-[color:var(--dusk-text-soft)]">Starts and completions for the active filters</p>
-        </div>
-        {stats.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-sm text-[color:var(--dusk-text-soft)]">
-            No video data for this period
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
-              <thead className="bg-[color:var(--dusk-surface-muted)]">
-                <tr>
-                  {['Date', 'Impressions', 'Play Starts', 'Plays Completed', 'Start Rate', 'Completion Rate'].map(header => (
-                    <th key={header} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[color:var(--dusk-text-soft)]">
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
-                {[...stats].reverse().map(row => {
-                  const startRate = row.impressions > 0 ? (row.videoStarts / row.impressions) * 100 : 0;
-                  const completionRate = row.videoStarts > 0 ? (row.videoCompletions / row.videoStarts) * 100 : 0;
-                  return (
-                    <tr key={row.date} className="hover:bg-[color:var(--dusk-surface-muted)]">
-                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.date}</td>
-                      <td className="px-4 py-2.5 text-sm font-medium text-[color:var(--dusk-text-primary)]">{row.impressions.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.videoStarts.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{row.videoCompletions.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{startRate.toFixed(2)}%</td>
-                      <td className="px-4 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]">{completionRate.toFixed(2)}%</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <ReportingBreakdownTable
+        title="Daily Video Breakdown"
+        subtitle="Starts and completions for the active filters"
+        emptyTitle="No video data for this period"
+        rows={stats}
+        columns={[
+          { key: 'date', header: 'Date', render: (row) => row.date },
+          { key: 'impressions', header: 'Impressions', render: (row) => row.impressions.toLocaleString(), emphasize: true },
+          { key: 'videoStarts', header: 'Play Starts', render: (row) => row.videoStarts.toLocaleString() },
+          { key: 'videoCompletions', header: 'Plays Completed', render: (row) => row.videoCompletions.toLocaleString() },
+          { key: 'startRate', header: 'Start Rate', render: (row) => `${(row.impressions > 0 ? (row.videoStarts / row.impressions) * 100 : 0).toFixed(2)}%` },
+          { key: 'completionRate', header: 'Completion Rate', render: (row) => `${(row.videoStarts > 0 ? (row.videoCompletions / row.videoStarts) * 100 : 0).toFixed(2)}%` },
+        ]}
+      />
     </>
   );
 }
