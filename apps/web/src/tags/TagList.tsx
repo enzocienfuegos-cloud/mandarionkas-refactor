@@ -77,14 +77,6 @@ const TableIcon = ({ className }: IconProps) => (
   </svg>
 );
 
-const MoreIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <circle cx="5" cy="12" r="1" fill="currentColor" />
-    <circle cx="12" cy="12" r="1" fill="currentColor" />
-    <circle cx="19" cy="12" r="1" fill="currentColor" />
-  </svg>
-);
-
 function toneClass(tone: Tone) {
   const map: Record<Tone, string> = {
     fuchsia: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-500/18 dark:bg-fuchsia-500/10 dark:text-fuchsia-300',
@@ -467,18 +459,17 @@ export default function TagList() {
               </option>
             ))}
           </select>
-          <button
+          <Button
             type="button"
             onClick={() => setNeedsQaOnly((current) => !current)}
+            variant="secondary"
             className={classNames(
-              'inline-flex min-h-[46px] items-center gap-2 rounded-xl border px-4 text-sm font-medium transition',
-              needsQaOnly
-                ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/22 dark:bg-fuchsia-500/10 dark:text-fuchsia-200'
-                : 'border-border-default/80 bg-[rgba(252,251,255,0.82)] text-text-secondary hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-surface-1/[0.045]',
+              'min-h-[46px]',
+              needsQaOnly && 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/22 dark:bg-fuchsia-500/10 dark:text-fuchsia-200',
             )}
           >
             Needs QA
-          </button>
+          </Button>
           <label className="relative block min-w-[300px]">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--dusk-text-soft)] dark:text-white/40">
               <SearchIcon />
@@ -576,6 +567,14 @@ export default function TagList() {
             >
               Delete
             </Button>
+            <Button
+              onClick={() => setSelectedTagIds([])}
+              disabled={bulkActionLoading}
+              variant="ghost"
+              size="sm"
+            >
+              Clear selection
+            </Button>
             {bulkActionLoading && <span className="text-xs text-text-muted dark:text-white/52">Applying changes...</span>}
           </div>
         </Panel>
@@ -599,18 +598,12 @@ export default function TagList() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-surface-1 px-3 py-2 text-sm font-medium text-text-secondary transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-surface-1/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200"
-              >
+              <Button type="button" variant="secondary" size="sm">
                 <FilterIcon className="h-4 w-4" />
                 Filters
-              </button>
-              <Link
-                to="/tags/health"
-                className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-surface-1 px-3 py-2 text-sm font-medium text-text-secondary transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-surface-1/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200"
-              >
-                Health
+              </Button>
+              <Link to="/tags/health">
+                <Button variant="secondary" size="sm">Health</Button>
               </Link>
             </div>
           </div>
@@ -705,31 +698,36 @@ export default function TagList() {
                       <td className="px-5 py-5 text-text-muted dark:text-white/62">{getOwner(tag)}</td>
                       <td className="px-5 py-5">
                         <div className="flex items-center gap-1.5">
-                          <button
+                          <Button
                             type="button"
                             onClick={() => handleExportTagCsv(tag)}
-                            className="rounded-xl border border-transparent p-2 text-[color:var(--dusk-text-soft)] transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
                             aria-label={`Export ${tag.name}`}
+                            variant="ghost"
+                            size="sm"
+                            className="px-2"
                           >
                             <ReportIcon className="h-4 w-4" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
                             onClick={() => navigate(`/tags/${tag.id}`)}
-                            className="rounded-xl border border-transparent p-2 text-[color:var(--dusk-text-soft)] transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
                             aria-label={`Edit ${tag.name}`}
+                            variant="ghost"
+                            size="sm"
+                            className="px-2"
                           >
                             <TableIcon className="h-4 w-4" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
                             onClick={() => handleDelete(tag)}
                             disabled={deletingId === tag.id}
-                            className="rounded-xl border border-transparent p-2 text-[color:var(--dusk-text-soft)] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white/36 dark:hover:border-rose-500/20 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                             aria-label={`Delete ${tag.name}`}
+                            variant="danger"
+                            size="sm"
                           >
-                            {deletingId === tag.id ? <span className="text-xs font-semibold">...</span> : <MoreIcon className="h-4 w-4" />}
-                          </button>
+                            {deletingId === tag.id ? 'Deleting…' : 'Delete'}
+                          </Button>
                         </div>
                       </td>
                     </tr>

@@ -126,12 +126,12 @@ function CampaignsTable({
           <p className="mt-2 text-sm text-text-muted dark:text-white/56">Operational view for pacing, tag health, creative QA and launch readiness.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-surface-1 px-3 py-2 text-sm font-medium text-text-secondary transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-surface-1/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200">
+          <Button type="button" variant="secondary" size="sm">
             <FilterIcon className="h-4 w-4" />
             Filters
-          </button>
-          <Link to="/campaigns/new" className="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_32px_rgba(241,0,139,0.24)]">
-            New campaign
+          </Button>
+          <Link to="/campaigns/new">
+            <Button variant="primary" size="sm">New campaign</Button>
           </Link>
         </div>
       </div>
@@ -143,72 +143,67 @@ function CampaignsTable({
         <CampaignStatusCard title="Draft setup" value={String(draftSetup)} helper="missing setup steps" />
       </div>
 
-      {campaignRows.length === 0 ? (
-        <div className="mt-6 rounded-3xl border border-border-default bg-surface-1/42 px-6 py-20 text-center dark:border-white/8 dark:bg-surface-1/[0.025]">
-          <Kicker>Empty view</Kicker>
-          <h3 className="mt-3 text-lg font-semibold text-[color:var(--dusk-text-primary)]">No campaigns match this view</h3>
-          <p className="mt-2 text-sm text-text-muted dark:text-white/42">Try another advertiser filter or create a new campaign.</p>
-        </div>
-      ) : (
-        <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-border-default dark:border-white/8">
-          <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
-            <thead className="bg-[color:var(--dusk-surface-muted)]/80 dark:bg-surface-1/[0.02]">
-              <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted dark:text-white/42">
-                <th className="px-5 py-4">Campaign</th>
-                <th className="px-5 py-4">Status</th>
-                <th className="px-5 py-4">Pacing</th>
-                <th className="px-5 py-4">Spend</th>
-                <th className="px-5 py-4">Tags</th>
-                <th className="px-5 py-4">Creatives</th>
-                <th className="px-5 py-4">Issues</th>
-                <th className="px-5 py-4">Owner</th>
-                <th className="px-5 py-4" aria-label="Actions" />
+      <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-border-default dark:border-white/8">
+        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
+          <thead className="bg-[color:var(--dusk-surface-muted)]/80 dark:bg-surface-1/[0.02]">
+            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted dark:text-white/42">
+              <th className="px-5 py-4">Campaign</th>
+              <th className="px-5 py-4">Status</th>
+              <th className="px-5 py-4">Pacing</th>
+              <th className="px-5 py-4">Spend</th>
+              <th className="px-5 py-4">Tags</th>
+              <th className="px-5 py-4">Creatives</th>
+              <th className="px-5 py-4">Issues</th>
+              <th className="px-5 py-4">Owner</th>
+              <th className="px-5 py-4" aria-label="Actions" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 dark:divide-white/8">
+            {campaignRows.map((campaign) => (
+              <tr key={campaign.id} className="bg-surface-1/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-surface-1/[0.04]">
+                <td className="px-5 py-5">
+                  <p className="font-semibold text-[color:var(--dusk-text-primary)]">{campaign.campaign}</p>
+                  <p className="mt-1 text-xs text-text-muted dark:text-white/48">{campaign.advertiser} · {campaign.flight}</p>
+                </td>
+                <td className="px-5 py-5"><span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', statusBadge(campaign.status))}>{campaign.status}</span></td>
+                <td className="px-5 py-5 font-medium text-text-secondary dark:text-white/72">{campaign.pacing}</td>
+                <td className="px-5 py-5 tabular-nums text-text-secondary dark:text-white/72"><span className="font-medium">{campaign.spend}</span><span className="text-[color:var(--dusk-text-soft)] dark:text-white/36"> / {campaign.budget}</span></td>
+                <td className="px-5 py-5 text-text-muted dark:text-white/62">{campaign.tagHealth}</td>
+                <td className="px-5 py-5 text-text-muted dark:text-white/62">{campaign.creativeStatus}</td>
+                <td className="px-5 py-5">
+                  <span className={classNames('inline-flex rounded-full px-2.5 py-1 text-xs font-semibold', campaign.issues > 0 ? 'bg-amber-100 text-[color:var(--dusk-status-warning-fg)] dark:bg-amber-500/12 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200')}>
+                    {campaign.issues}
+                  </span>
+                </td>
+                <td className="px-5 py-5 text-text-muted dark:text-white/62">{campaign.owner}</td>
+                <td className="px-5 py-5">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => onEdit(campaign)}
+                      aria-label={`Edit ${campaign.campaign}`}
+                      variant="ghost"
+                      size="sm"
+                      className="px-2"
+                    >
+                      <MoreIcon className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => onDelete(campaign)}
+                      disabled={deletingId === campaign.id}
+                      variant="danger"
+                      size="sm"
+                    >
+                      {deletingId === campaign.id ? 'Deleting…' : 'Delete'}
+                    </Button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-white/8">
-              {campaignRows.map((campaign) => (
-                <tr key={campaign.id} className="bg-surface-1/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-surface-1/[0.04]">
-                  <td className="px-5 py-5">
-                    <p className="font-semibold text-[color:var(--dusk-text-primary)]">{campaign.campaign}</p>
-                    <p className="mt-1 text-xs text-text-muted dark:text-white/48">{campaign.advertiser} · {campaign.flight}</p>
-                  </td>
-                  <td className="px-5 py-5"><span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', statusBadge(campaign.status))}>{campaign.status}</span></td>
-                  <td className="px-5 py-5 font-medium text-text-secondary dark:text-white/72">{campaign.pacing}</td>
-                  <td className="px-5 py-5 tabular-nums text-text-secondary dark:text-white/72"><span className="font-medium">{campaign.spend}</span><span className="text-[color:var(--dusk-text-soft)] dark:text-white/36"> / {campaign.budget}</span></td>
-                  <td className="px-5 py-5 text-text-muted dark:text-white/62">{campaign.tagHealth}</td>
-                  <td className="px-5 py-5 text-text-muted dark:text-white/62">{campaign.creativeStatus}</td>
-                  <td className="px-5 py-5">
-                    <span className={classNames('inline-flex rounded-full px-2.5 py-1 text-xs font-semibold', campaign.issues > 0 ? 'bg-amber-100 text-[color:var(--dusk-status-warning-fg)] dark:bg-amber-500/12 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200')}>
-                      {campaign.issues}
-                    </span>
-                  </td>
-                  <td className="px-5 py-5 text-text-muted dark:text-white/62">{campaign.owner}</td>
-                  <td className="px-5 py-5">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onEdit(campaign)}
-                        aria-label={`Edit ${campaign.campaign}`}
-                        className="rounded-xl border border-transparent p-2 text-[color:var(--dusk-text-soft)] transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
-                      >
-                        <MoreIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(campaign)}
-                        disabled={deletingId === campaign.id}
-                        className="rounded-lg px-2 py-1 text-xs font-medium text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50 dark:hover:bg-rose-500/10"
-                      >
-                        {deletingId === campaign.id ? '...' : 'Delete'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Panel>
   );
 }
@@ -386,9 +381,9 @@ export default function CampaignList() {
                   <option key={client.id} value={client.id}>{client.name}</option>
                 ))}
               </select>
-              <button type="button" className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-border-default/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-text-secondary transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-surface-1/[0.045]">
+              <Button type="button" variant="secondary" className="min-h-[46px]">
                 Active + setup
-              </button>
+              </Button>
               <label className="relative block min-w-[300px]">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--dusk-text-soft)] dark:text-white/40"><SearchIcon /></span>
                 <Input
