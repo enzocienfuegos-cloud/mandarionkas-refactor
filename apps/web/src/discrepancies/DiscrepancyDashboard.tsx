@@ -1,71 +1,35 @@
 import React, { useEffect, useMemo, useState, FormEvent } from 'react';
-import { MetricCard as DuskMetricCard } from '../system';
-import { Panel, SectionKicker } from '../shared/dusk-ui';
+import {
+  Button,
+  CenteredSpinner,
+  Input,
+  Kicker,
+  MetricCard,
+  Panel,
+} from '../system';
+import type {
+  Discrepancy,
+  DiscrepancyRow,
+  DiscrepancyStatus,
+  DiscrepancySummary,
+  Filters,
+  Metric,
+  PrioritySeverity,
+  Severity,
+  Thresholds,
+  Tone,
+  TrendDirection,
+} from './discrepancy-view/types';
+import {
+  classNames,
+  discrepancyStatusBadge,
+  formatCurrency,
+  formatNumber,
+  parseCount,
+  severityBadge,
+} from './discrepancy-view/utils';
 
-type Severity = 'ok' | 'warning' | 'critical';
-type TrendDirection = 'up' | 'down' | 'flat';
-type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
-type PrioritySeverity = 'Critical' | 'Warning' | 'Notice';
-type DiscrepancyStatus = 'Within threshold' | 'Investigating' | 'Threshold breach' | 'Resolved' | 'Needs publisher';
 type IconProps = { className?: string };
-
-interface Discrepancy {
-  id: string;
-  tagId: string;
-  tagName: string;
-  date: string;
-  source: string;
-  servedImpressions: number;
-  reportedImpressions: number;
-  deltaPct: number;
-  severity: Severity;
-}
-
-interface DiscrepancySummary {
-  totalReports: number;
-  criticalCount: number;
-  warningCount: number;
-}
-
-interface Thresholds {
-  warningPct: number;
-  criticalPct: number;
-}
-
-interface Filters {
-  dateFrom: string;
-  dateTo: string;
-  severity: string;
-}
-
-type Metric = {
-  id: string;
-  label: string;
-  value: string;
-  delta: string;
-  direction: TrendDirection;
-  helper: string;
-  tone: Tone;
-  series: number[];
-};
-
-type DiscrepancyRow = {
-  id: string;
-  campaign: string;
-  advertiser: string;
-  publisher: string;
-  status: DiscrepancyStatus;
-  adserver: string;
-  publisherReported: string;
-  variance: string;
-  threshold: string;
-  risk: PrioritySeverity;
-  owner: string;
-};
-
-function classNames(...values: Array<string | false | null | undefined>) {
-  return values.filter(Boolean).join(' ');
-}
 
 function iconProps(className?: string) {
   return {
@@ -111,26 +75,6 @@ const TableIcon = ({ className }: IconProps) => (
   </svg>
 );
 
-function discrepancyStatusBadge(status: DiscrepancyStatus) {
-  const map: Record<DiscrepancyStatus, string> = {
-    'Within threshold': 'border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/22 dark:bg-emerald-500/10 dark:text-emerald-300',
-    Investigating: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/22 dark:bg-amber-500/10 dark:text-amber-300',
-    'Threshold breach': 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300',
-    Resolved: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/22 dark:bg-sky-500/10 dark:text-sky-300',
-    'Needs publisher': 'border-slate-300/70 bg-slate-50 text-slate-700 dark:border-white/12 dark:bg-white/[0.05] dark:text-white/70',
-  };
-  return map[status];
-}
-
-function severityBadge(severity: PrioritySeverity) {
-  const map: Record<PrioritySeverity, string> = {
-    Critical: 'border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/22 dark:bg-rose-500/10 dark:text-rose-300',
-    Warning: 'border-amber-300/70 bg-amber-50 text-amber-700 dark:border-amber-500/22 dark:bg-amber-500/10 dark:text-amber-300',
-    Notice: 'border-sky-300/70 bg-sky-50 text-sky-700 dark:border-sky-500/22 dark:bg-sky-500/10 dark:text-sky-300',
-  };
-  return map[severity];
-}
-
 function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
   const classes = direction === 'up'
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
@@ -138,18 +82,6 @@ function TrendBadge({ direction, value }: { direction: TrendDirection; value: st
       ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
       : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/58';
   return <span className={classNames('rounded-full border px-2.5 py-1 text-xs font-semibold', classes)}>{value}</span>;
-}
-
-function formatNumber(value: number) {
-  return value.toLocaleString();
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 1 }).format(value);
-}
-
-function parseCount(value: string) {
-  return Number(value.replace(/,/g, '')) || 0;
 }
 
 export default function DiscrepanciesView() {
@@ -316,9 +248,7 @@ export default function DiscrepanciesView() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-fuchsia-500" />
-      </div>
+      <CenteredSpinner label="Loading discrepancies workspace…" />
     );
   }
 
@@ -380,7 +310,7 @@ export default function DiscrepanciesView() {
           <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">Compare adserver delivery, publisher reporting and variance thresholds from one dense operational workspace.</p>
         </div>
         <Panel className="p-5">
-          <SectionKicker>Recommended focus</SectionKicker>
+          <Kicker>Recommended focus</Kicker>
           <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
             <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
             <div>
@@ -393,7 +323,7 @@ export default function DiscrepanciesView() {
 
       <div className="grid gap-5 xl:grid-cols-4">
         {discrepancyMetrics.map((metric) => (
-          <DuskMetricCard
+          <MetricCard
             key={metric.id}
             label={metric.label}
             value={metric.value}
@@ -420,22 +350,23 @@ export default function DiscrepanciesView() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
-        <Panel className="overflow-hidden p-6">
-          <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <SectionKicker>Discrepancy workspace</SectionKicker>
+          <Panel className="overflow-hidden p-6">
+            <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+              <Kicker>Discrepancy workspace</Kicker>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Publisher reconciliation queue</h2>
               <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Review variance, threshold breaches, and publisher totals from one dense reconciliation table.</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <button
+              <Button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700 dark:border-white/8 dark:bg-white/[0.03] dark:text-white/72 dark:hover:border-fuchsia-500/28 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200"
+                variant="secondary"
+                size="sm"
               >
                 <FilterIcon className="h-4 w-4" />
                 Filters
-              </button>
-              <button type="button" onClick={load} className="text-sm font-medium text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300">Refresh</button>
+              </Button>
+              <Button type="button" onClick={load} variant="ghost" size="sm">Refresh</Button>
             </div>
           </div>
 
@@ -502,7 +433,7 @@ export default function DiscrepanciesView() {
         <Panel className="p-6">
           <div className="space-y-8">
             <section>
-              <SectionKicker>Module health</SectionKicker>
+              <Kicker>Module health</Kicker>
               <div className="mt-4 grid gap-3">
                 <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Threshold breaches</p>
@@ -523,39 +454,39 @@ export default function DiscrepanciesView() {
             </section>
 
             <section>
-              <SectionKicker>Threshold controls</SectionKicker>
+              <Kicker>Threshold controls</Kicker>
               <form onSubmit={handleSaveThresholds} className="mt-4 space-y-3">
                 <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
                   <label className="block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Warning threshold (%)</label>
-                  <input
+                  <Input
                     type="number"
                     min="0"
                     max="100"
                     step="0.1"
                     value={thresholds.warningPct}
                     onChange={(e) => setThresholds((t) => ({ ...t, warningPct: Number(e.target.value) }))}
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/8 dark:bg-white/[0.03] dark:text-white"
+                    className="mt-2"
                   />
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
                   <label className="block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Critical threshold (%)</label>
-                  <input
+                  <Input
                     type="number"
                     min="0"
                     max="100"
                     step="0.1"
                     value={thresholds.criticalPct}
                     onChange={(e) => setThresholds((t) => ({ ...t, criticalPct: Number(e.target.value) }))}
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-fuchsia-300 focus:ring-4 focus:ring-fuchsia-500/10 dark:border-white/8 dark:bg-white/[0.03] dark:text-white"
+                    className="mt-2"
                   />
                 </div>
-                <button
+                <Button
                   type="submit"
                   disabled={savingThresholds}
-                  className="inline-flex min-h-[46px] items-center rounded-xl bg-brand-gradient px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)] disabled:opacity-60"
+                  variant="primary"
                 >
                   {savingThresholds ? 'Saving…' : 'Save thresholds'}
-                </button>
+                </Button>
                 {thresholdMsg && (
                   <p className={thresholdMsg.includes('Failed') ? 'text-sm text-rose-600 dark:text-rose-300' : 'text-sm text-emerald-600 dark:text-emerald-300'}>
                     {thresholdMsg}
@@ -565,7 +496,7 @@ export default function DiscrepanciesView() {
             </section>
 
             <section>
-              <SectionKicker>Prototype checks</SectionKicker>
+              <Kicker>Prototype checks</Kicker>
               <div className="mt-4 grid gap-3">
                 {prototypeChecks.map((test) => (
                   <div key={test.name} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
