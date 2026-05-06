@@ -186,15 +186,15 @@ export default function TagSnippetPanel({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-6">
+    <div className="rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 p-6">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-base font-semibold text-slate-800">Generated Tag Snippet</h2>
+        <h2 className="text-base font-semibold text-[color:var(--dusk-text-primary)]">Generated Tag Snippet</h2>
         <button
           onClick={handleCopy}
           className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
             copied
-              ? 'bg-green-100 text-green-700'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+              : 'bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)] hover:bg-[color:var(--dusk-border-subtle)] hover:text-[color:var(--dusk-text-primary)]'
           }`}
         >
           {copied ? 'Copied' : 'Copy'}
@@ -209,14 +209,14 @@ export default function TagSnippetPanel({
             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
               snippetVariant === option.value
                 ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-                : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                : 'border-[color:var(--dusk-border-default)] bg-surface-1 text-[color:var(--dusk-text-secondary)] hover:border-[color:var(--dusk-border-strong)] hover:bg-[color:var(--dusk-surface-muted)] hover:text-[color:var(--dusk-text-primary)]'
             }`}
           >
             {option.label}
           </button>
         ))}
       </div>
-      <p className="text-xs text-slate-500 mb-3">
+      <p className="mb-3 text-xs text-[color:var(--dusk-text-secondary)]">
         {getSnippetHelpText(tag, snippetVariant, campaignDsp)}
       </p>
       {!isBaseUrlValid && (

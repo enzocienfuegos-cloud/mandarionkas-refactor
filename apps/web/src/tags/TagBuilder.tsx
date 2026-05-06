@@ -352,25 +352,25 @@ export default function TagBuilder() {
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
           <Kicker>Tags</Kicker>
-          <h1 className="mt-3 text-2xl font-semibold text-slate-800 dark:text-white">{isEdit ? 'Edit Tag' : 'New Tag'}</h1>
+          <h1 className="mt-3 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{isEdit ? 'Edit Tag' : 'New Tag'}</h1>
         </div>
         {isEdit && id ? (
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to={`/tags/${id}/reporting`}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-4 py-2 text-sm font-medium text-[color:var(--dusk-text-secondary)] transition-colors hover:border-[color:var(--dusk-border-strong)] hover:bg-[color:var(--dusk-surface-muted)] hover:text-[color:var(--dusk-text-primary)]"
             >
               Reporting
             </Link>
             <Link
               to={`/tags/${id}/tracking`}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-4 py-2 text-sm font-medium text-[color:var(--dusk-text-secondary)] transition-colors hover:border-[color:var(--dusk-border-strong)] hover:bg-[color:var(--dusk-surface-muted)] hover:text-[color:var(--dusk-text-primary)]"
             >
               Tracking
             </Link>
             <Link
               to={`/tags/${id}/pixels`}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-4 py-2 text-sm font-medium text-[color:var(--dusk-text-secondary)] transition-colors hover:border-[color:var(--dusk-border-strong)] hover:bg-[color:var(--dusk-surface-muted)] hover:text-[color:var(--dusk-text-primary)]"
             >
               Pixels
             </Link>

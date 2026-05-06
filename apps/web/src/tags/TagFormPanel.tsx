@@ -74,7 +74,7 @@ export default function TagFormPanel({
   onCancel,
 }: TagFormPanelProps) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+    <div className="mb-6 rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 p-6">
       {generalError && (
         <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           {generalError}
@@ -88,7 +88,7 @@ export default function TagFormPanel({
 
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-primary)]">
             Tag Name <span className="text-red-500">*</span>
           </label>
           <Input
@@ -102,7 +102,7 @@ export default function TagFormPanel({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Campaign</label>
+          <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-primary)]">Campaign</label>
           <select value={form.campaignId} onChange={onSet('campaignId')} className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500">
             <option value="">— No campaign —</option>
             {campaigns.map(c => (
@@ -118,13 +118,13 @@ export default function TagFormPanel({
         )}
 
         {videoCampaign && (
-          <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-700">
+          <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/15 dark:text-sky-300">
             This campaign is marked as <strong>Video</strong>. Tag creation is limited to <code>VAST</code>; <code>display</code>, <code>native</code>, and <code>tracker</code> are hidden on purpose.
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Format</label>
+          <label className="mb-2 block text-sm font-medium text-[color:var(--dusk-text-primary)]">Format</label>
           <div className="flex gap-3">
             {(videoCampaign ? (['VAST'] as TagFormat[]) : (['VAST', 'display', 'native', 'tracker'] as TagFormat[])).map(f => (
               <label
@@ -132,7 +132,7 @@ export default function TagFormPanel({
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors ${
                   form.format === f
                     ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
-                    : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                    : 'border-[color:var(--dusk-border-default)] bg-surface-1 text-[color:var(--dusk-text-secondary)] hover:border-[color:var(--dusk-border-strong)] hover:bg-[color:var(--dusk-surface-muted)] hover:text-[color:var(--dusk-text-primary)]'
                 }`}
               >
                 <input
@@ -149,7 +149,7 @@ export default function TagFormPanel({
             ))}
           </div>
           {isEdit && (
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-[color:var(--dusk-text-secondary)]">
               Format is locked after a tag is created. Display tags remain display, and VAST tags remain VAST.
             </p>
           )}
@@ -158,7 +158,7 @@ export default function TagFormPanel({
         {form.format === 'display' && (
           <div className="grid gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-primary)]">
                 Display Size Preset <span className="text-red-500">*</span>
               </label>
               <select
@@ -184,24 +184,24 @@ export default function TagFormPanel({
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Width</label>
+              <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-primary)]">Width</label>
               <Input
                 type="number"
                 min="1"
                 readOnly
                 value={form.servingWidth}
-                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-slate-50 px-3 py-2.5 text-sm text-slate-500"
+                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-3 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]"
                 placeholder="300"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Height</label>
+              <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-primary)]">Height</label>
               <Input
                 type="number"
                 min="1"
                 readOnly
                 value={form.servingHeight}
-                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-slate-50 px-3 py-2.5 text-sm text-slate-500"
+                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-3 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]"
                 placeholder="250"
               />
             </div>
@@ -211,26 +211,26 @@ export default function TagFormPanel({
         {form.format === 'tracker' && (
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Tracker Type</label>
+              <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-primary)]">Tracker Type</label>
               <select value={form.trackerType} onChange={onSet('trackerType')} className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500">
                 <option value="click">Click tracker</option>
                 <option value="impression">Impression tracker</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Tracker Size</label>
+              <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-primary)]">Tracker Size</label>
               <Input
                 type="text"
                 readOnly
                 value={form.trackerType === 'impression' ? '1x1' : 'N/A'}
-                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-slate-50 px-3 py-2.5 text-sm text-slate-500"
+                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-3 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]"
               />
             </div>
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+          <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-primary)]">Status</label>
           <select value={form.status} onChange={onSet('status')} className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500">
             {STATUSES.map(s => (
               <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
@@ -239,16 +239,16 @@ export default function TagFormPanel({
         </div>
 
         {form.format === 'tracker' ? (
-          <details className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3" open>
-            <summary className="cursor-pointer text-sm font-medium text-slate-700">
+          <details className="rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-4 py-3" open>
+            <summary className="cursor-pointer text-sm font-medium text-[color:var(--dusk-text-primary)]">
               Tracker Destination
             </summary>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-[color:var(--dusk-text-secondary)]">
               Click trackers need a destination URL. Impression trackers ignore this field and only return a 1x1 measurement pixel.
             </p>
             {form.trackerType === 'click' && (
               <div className="mt-3">
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-primary)]">
                   Destination URL
                 </label>
                 <Input
@@ -263,12 +263,12 @@ export default function TagFormPanel({
             )}
           </details>
         ) : (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+          <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-4 py-3 text-xs text-[color:var(--dusk-text-secondary)]">
             Destination URL is defined by the assigned creative. Tags do not override click destinations for display, native, or VAST delivery.
           </div>
         )}
 
-        <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-3 border-t border-[color:var(--dusk-border-subtle)] pt-2">
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>

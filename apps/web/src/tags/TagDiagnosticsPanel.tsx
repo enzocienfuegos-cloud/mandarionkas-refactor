@@ -106,10 +106,10 @@ interface TagDiagnosticsPanelProps {
 
 function getMeasurementPathTone(value?: string | null): string {
   const path = String(value ?? '').toLowerCase();
-  if (!path) return 'bg-slate-100 text-slate-700 border-slate-200';
+  if (!path) return 'border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)]';
   if (path.includes('fallback')) return 'bg-amber-50 text-amber-700 border-amber-200';
   if (path.includes('basis')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  return 'bg-slate-100 text-slate-700 border-slate-200';
+  return 'border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)]';
 }
 
 function formatArtifactTimestamp(value?: string | null): string {
@@ -147,7 +147,7 @@ function getJobStatusTone(value?: string | null): string {
     case 'failed':
       return 'border-rose-300 bg-rose-100 text-rose-800';
     default:
-      return 'border-slate-300 bg-slate-100 text-slate-800';
+      return 'border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-primary)]';
   }
 }
 
@@ -178,31 +178,31 @@ export default function TagDiagnosticsPanel({
   ];
 
   return (
-    <div className="mt-6 bg-white rounded-xl border border-slate-200 p-6">
-      <details className="group rounded-lg border border-slate-200 px-4 py-3">
+    <div className="mt-6 rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 p-6">
+      <details className="group rounded-lg border border-[color:var(--dusk-border-default)] px-4 py-3">
         <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold text-slate-800">Delivery Diagnostics</h2>
-            <p className="text-sm text-slate-500">
+            <h2 className="text-base font-semibold text-[color:var(--dusk-text-primary)]">Delivery Diagnostics</h2>
+            <p className="text-sm text-[color:var(--dusk-text-secondary)]">
               Inspect the effective Basis/SMX delivery policy and generated URLs for this tag.
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {deliveryDiagnosticsLoading && <span className="text-xs text-slate-500">Loading…</span>}
-            <span className="text-slate-400 transition-transform group-open:rotate-180">▾</span>
+            {deliveryDiagnosticsLoading && <span className="text-xs text-[color:var(--dusk-text-secondary)]">Loading…</span>}
+            <span className="text-[color:var(--dusk-text-tertiary)] transition-transform group-open:rotate-180">▾</span>
           </div>
         </summary>
 
         <div className="mt-4">
-          <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            <span className="font-medium text-slate-800">DSP:</span>{' '}
+          <div className="mb-4 rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-4 py-3 text-sm text-[color:var(--dusk-text-secondary)]">
+            <span className="font-medium text-[color:var(--dusk-text-primary)]">DSP:</span>{' '}
             {deliveryDiagnostics?.dsp?.selected || selectedCampaignDsp || 'none'}
           </div>
 
           <div className="mb-4 grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Delivery Mode</div>
-              <div className="mt-1 text-sm font-semibold text-slate-800">
+            <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-4 py-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-tertiary)]">Delivery Mode</div>
+              <div className="mt-1 text-sm font-semibold text-[color:var(--dusk-text-primary)]">
                 {deliveryDiagnostics?.deliverySummary?.deliveryMode === 'basis_native'
                   ? 'Basis Native'
                   : deliveryDiagnostics?.deliverySummary?.deliveryMode === 'dsp_video_contract'
@@ -212,9 +212,9 @@ export default function TagDiagnosticsPanel({
                       : basisNativeEnabled ? 'Basis Native' : dspVideoEnabled ? 'DSP Video Contract' : 'SMX Standard'}
               </div>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Preview Status</div>
-              <div className="mt-1 text-sm font-semibold text-slate-800">
+            <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-4 py-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-tertiary)]">Preview Status</div>
+              <div className="mt-1 text-sm font-semibold text-[color:var(--dusk-text-primary)]">
                 {deliveryDiagnostics?.deliverySummary?.previewStatus === 'basis_preview_may_fallback'
                   ? 'Fallback Possible'
                   : deliveryDiagnostics?.deliverySummary?.previewStatus === 'dsp_video_contract_ready'
@@ -224,8 +224,8 @@ export default function TagDiagnosticsPanel({
                       : basisNativeEnabled ? 'Basis First-Hop Ready' : dspVideoEnabled ? 'DSP Video Ready' : 'Standard Delivery'}
               </div>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Measurement Path</div>
+            <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-4 py-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-tertiary)]">Measurement Path</div>
               <div className="mt-2">
                 <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getMeasurementPathTone(basisDiagnosticPath)}`}>
                   {basisDiagnosticPath || 'n/a'}
@@ -257,8 +257,8 @@ export default function TagDiagnosticsPanel({
                       disabled={!staticDeliveryEntries.length}
                       className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                         staticDeliveryEntries.length
-                          ? 'border-fuchsia-300 bg-white text-fuchsia-800 hover:bg-fuchsia-50 dark:border-fuchsia-500/20 dark:bg-white/[0.03] dark:text-fuchsia-300 dark:hover:bg-white/[0.07]'
-                          : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                          ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-800 hover:bg-fuchsia-100 dark:border-fuchsia-500/25 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:hover:bg-fuchsia-500/20'
+                          : 'cursor-not-allowed border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-tertiary)]'
                       }`}
                     >
                       Download All XMLs
@@ -270,7 +270,7 @@ export default function TagDiagnosticsPanel({
                       className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                         queueingStaticDelivery
                           ? 'cursor-not-allowed border-sky-200 bg-sky-100 text-sky-500'
-                          : 'border-sky-300 bg-white text-sky-800 hover:bg-sky-100'
+                          : 'border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/15 dark:text-sky-300 dark:hover:bg-sky-500/20'
                       }`}
                     >
                       {queueingStaticDelivery ? 'Queueing…' : 'Queue Background Publish'}
@@ -282,7 +282,7 @@ export default function TagDiagnosticsPanel({
                       className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                         republishingStaticDelivery
                           ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
-                          : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
+                          : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/20'
                       }`}
                     >
                       {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
@@ -291,7 +291,7 @@ export default function TagDiagnosticsPanel({
                 </div>
                 <div className="space-y-3">
                   {deliveryDiagnostics.deliveryDiagnostics.vast.staticManifest && (
-                    <div className="rounded-lg border border-emerald-200 bg-white/70 px-3 py-3 text-[11px] text-emerald-900">
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-3 text-[11px] text-emerald-900 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-200">
                       {deliveryDiagnostics.deliveryDiagnostics.vast.staticJob && (
                         <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50/50 px-2.5 py-2">
                           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -379,14 +379,14 @@ export default function TagDiagnosticsPanel({
                           <button
                             type="button"
                             onClick={() => onCopyStaticProfile(entry.key, entry.url)}
-                            className="rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-medium text-emerald-800 transition-colors hover:bg-emerald-100"
+                            className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 transition-colors hover:bg-emerald-100 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
                           >
                             {copiedStaticProfile === entry.key ? 'Copied' : 'Copy URL'}
                           </button>
                           <button
                             type="button"
                             onClick={() => onDownloadStaticProfile(entry.key, entry.url)}
-                            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-100"
+                            className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-2.5 py-1 text-[11px] font-medium text-[color:var(--dusk-text-secondary)] transition-colors hover:bg-[color:var(--dusk-surface-muted)] hover:text-[color:var(--dusk-text-primary)]"
                           >
                             Download XML
                           </button>
@@ -401,15 +401,15 @@ export default function TagDiagnosticsPanel({
                       </div>
                       <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{entry.url}</pre>
                       <div className="mt-2 grid gap-2 md:grid-cols-3 text-[11px] text-emerald-900">
-                        <div className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2">
+                        <div className="rounded-md border border-emerald-200 bg-emerald-50/80 px-2.5 py-2 dark:border-emerald-500/25 dark:bg-emerald-500/15">
                           <div className="font-medium">Last Published</div>
                           <div className="mt-1">{formatArtifactTimestamp(entry.status?.lastPublishedAt)}</div>
                         </div>
-                        <div className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2">
+                        <div className="rounded-md border border-emerald-200 bg-emerald-50/80 px-2.5 py-2 dark:border-emerald-500/25 dark:bg-emerald-500/15">
                           <div className="font-medium">Artifact Size</div>
                           <div className="mt-1">{formatArtifactBytes(entry.status?.contentLength)}</div>
                         </div>
-                        <div className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2">
+                        <div className="rounded-md border border-emerald-200 bg-emerald-50/80 px-2.5 py-2 dark:border-emerald-500/25 dark:bg-emerald-500/15">
                           <div className="font-medium">Content Type</div>
                           <div className="mt-1">{entry.status?.contentType || 'n/a'}</div>
                         </div>
@@ -444,7 +444,7 @@ export default function TagDiagnosticsPanel({
                       className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                         queueingStaticDelivery
                           ? 'cursor-not-allowed border-sky-200 bg-sky-100 text-sky-500'
-                          : 'border-sky-300 bg-white text-sky-800 hover:bg-sky-100'
+                          : 'border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-500/25 dark:bg-sky-500/15 dark:text-sky-300 dark:hover:bg-sky-500/20'
                       }`}
                     >
                       {queueingStaticDelivery ? 'Queueing…' : 'Queue Background Publish'}
@@ -456,7 +456,7 @@ export default function TagDiagnosticsPanel({
                       className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                         republishingStaticDelivery
                           ? 'cursor-not-allowed border-emerald-200 bg-emerald-100 text-emerald-500'
-                          : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
+                          : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/20'
                       }`}
                     >
                       {republishingStaticDelivery ? 'Republishing…' : 'Republish Static Delivery'}
@@ -469,39 +469,39 @@ export default function TagDiagnosticsPanel({
 
           <div className="space-y-4">
             {deliveryDiagnosticSections.map(section => (
-              <details key={section.label} className="rounded-lg border border-slate-200 px-4 py-3">
-                <summary className="cursor-pointer text-sm font-medium text-slate-800">{section.label}</summary>
+              <details key={section.label} className="rounded-lg border border-[color:var(--dusk-border-default)] px-4 py-3">
+                <summary className="cursor-pointer text-sm font-medium text-[color:var(--dusk-text-primary)]">{section.label}</summary>
                 <div className="mt-3 space-y-3">
                   <div className="grid gap-3 md:grid-cols-3 text-xs">
-                    <div className="rounded-md bg-slate-50 px-3 py-2">
-                      <div className="text-slate-500">Measurement Path</div>
-                      <div className="mt-1 font-medium text-slate-800">{section.entry?.policy?.measurementPath ?? 'n/a'}</div>
+                    <div className="rounded-md bg-[color:var(--dusk-surface-muted)] px-3 py-2">
+                      <div className="text-[color:var(--dusk-text-secondary)]">Measurement Path</div>
+                      <div className="mt-1 font-medium text-[color:var(--dusk-text-primary)]">{section.entry?.policy?.measurementPath ?? 'n/a'}</div>
                     </div>
-                    <div className="rounded-md bg-slate-50 px-3 py-2">
-                      <div className="text-slate-500">DSP Hint</div>
-                      <div className="mt-1 font-medium text-slate-800">{section.entry?.policy?.includeDspHint ? 'enabled' : 'disabled'}</div>
+                    <div className="rounded-md bg-[color:var(--dusk-surface-muted)] px-3 py-2">
+                      <div className="text-[color:var(--dusk-text-secondary)]">DSP Hint</div>
+                      <div className="mt-1 font-medium text-[color:var(--dusk-text-primary)]">{section.entry?.policy?.includeDspHint ? 'enabled' : 'disabled'}</div>
                     </div>
-                    <div className="rounded-md bg-slate-50 px-3 py-2">
-                      <div className="text-slate-500">Click Macro</div>
-                      <div className="mt-1 font-medium text-slate-800">{section.entry?.policy?.includeClickMacro ? 'enabled' : 'disabled'}</div>
+                    <div className="rounded-md bg-[color:var(--dusk-surface-muted)] px-3 py-2">
+                      <div className="text-[color:var(--dusk-text-secondary)]">Click Macro</div>
+                      <div className="mt-1 font-medium text-[color:var(--dusk-text-primary)]">{section.entry?.policy?.includeClickMacro ? 'enabled' : 'disabled'}</div>
                     </div>
                   </div>
 
                   {section.entry?.jsUrl && (
                     <div>
-                      <div className="mb-1 text-xs font-medium text-slate-700">JS URL</div>
+                      <div className="mb-1 text-xs font-medium text-[color:var(--dusk-text-secondary)]">JS URL</div>
                       <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{section.entry.jsUrl}</pre>
                     </div>
                   )}
                   {section.entry?.htmlUrl && (
                     <div>
-                      <div className="mb-1 text-xs font-medium text-slate-700">HTML URL</div>
+                      <div className="mb-1 text-xs font-medium text-[color:var(--dusk-text-secondary)]">HTML URL</div>
                       <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{section.entry.htmlUrl}</pre>
                     </div>
                   )}
                   {section.entry?.url && (
                     <div>
-                      <div className="mb-1 text-xs font-medium text-slate-700">URL</div>
+                      <div className="mb-1 text-xs font-medium text-[color:var(--dusk-text-secondary)]">URL</div>
                       <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">{section.entry.url}</pre>
                     </div>
                   )}

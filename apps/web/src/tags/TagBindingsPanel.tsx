@@ -35,8 +35,8 @@ interface TagBindingsPanelProps {
 }
 
 function inputClass(err?: string) {
-  return `w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:border-transparent ${
-    err ? 'border-red-400 bg-red-50' : 'border-slate-300'
+  return `w-full rounded-lg border bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] focus:border-fuchsia-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 ${
+    err ? 'border-red-400 bg-red-50 dark:bg-red-500/10' : 'border-[color:var(--dusk-border-default)]'
   }`;
 }
 
@@ -249,10 +249,10 @@ export default function TagBindingsPanel({
   };
 
   return (
-    <div className="mt-6 bg-white rounded-xl border border-slate-200 p-6">
+    <div className="mt-6 rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 p-6">
       <div className="flex flex-col gap-1 mb-5">
-        <h2 className="text-base font-semibold text-slate-800">Creative Assignments</h2>
-        <p className="text-sm text-slate-500">
+        <h2 className="text-base font-semibold text-[color:var(--dusk-text-primary)]">Creative Assignments</h2>
+        <p className="text-sm text-[color:var(--dusk-text-secondary)]">
           Assign creatives directly from this tag. For display tags, only compatible sizes can be attached.
         </p>
       </div>
@@ -264,36 +264,36 @@ export default function TagBindingsPanel({
       )}
 
       <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
-        <section className="rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <h3 className="text-sm font-semibold text-slate-800">Assigned Creatives</h3>
-            {bindingsLoading && <span className="text-xs text-slate-500">Loading…</span>}
+        <section className="rounded-xl border border-[color:var(--dusk-border-default)] p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">Assigned Creatives</h3>
+            {bindingsLoading && <span className="text-xs text-[color:var(--dusk-text-secondary)]">Loading…</span>}
           </div>
 
           {bindings.length === 0 && !bindingsLoading ? (
-            <div className="rounded-lg border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+            <div className="rounded-lg border border-dashed border-[color:var(--dusk-border-default)] px-4 py-6 text-sm text-[color:var(--dusk-text-secondary)]">
               No creatives assigned yet.
             </div>
           ) : (
             <div className="space-y-3">
               {bindings.map(binding => (
-                <div key={binding.id} className="rounded-lg border border-slate-200 px-4 py-3">
+                <div key={binding.id} className="rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-4 py-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium text-slate-800">{binding.creativeName}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-sm font-medium text-[color:var(--dusk-text-primary)]">{binding.creativeName}</p>
+                      <p className="text-xs text-[color:var(--dusk-text-secondary)]">
                         {binding.variantLabel
                           ? `${binding.variantLabel} • ${binding.variantWidth ?? '?'}x${binding.variantHeight ?? '?'}`
                           : binding.servingFormat}
                       </p>
                     </div>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                    <span className="rounded-full border border-[color:var(--dusk-border-default)] bg-surface-1 px-2.5 py-1 text-xs font-medium text-[color:var(--dusk-text-secondary)]">
                       {binding.status}
                     </span>
                   </div>
                   <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,110px)_minmax(0,140px)_1fr]">
                     <label className="block">
-                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Weight</span>
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-tertiary)]">Weight</span>
                       <input
                         type="number"
                         min="1"
@@ -305,7 +305,7 @@ export default function TagBindingsPanel({
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Status</span>
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-tertiary)]">Status</span>
                       <select
                         value={bindingDrafts[binding.id]?.status ?? binding.status}
                         onChange={(event) => handleBindingDraftChange(binding.id, 'status', event.target.value)}
@@ -323,7 +323,7 @@ export default function TagBindingsPanel({
                         type="button"
                         onClick={() => { void handleSaveBinding(binding); }}
                         disabled={updatingBindingId === binding.id}
-                        className="rounded-lg border border-fuchsia-300 bg-white px-3 py-2 text-xs font-medium text-fuchsia-700 transition-colors hover:bg-fuchsia-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-fuchsia-500/20 dark:bg-white/[0.03] dark:text-fuchsia-300"
+                        className="rounded-lg border border-fuchsia-300 bg-fuchsia-50 px-3 py-2 text-xs font-medium text-fuchsia-700 transition-colors hover:bg-fuchsia-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-fuchsia-500/25 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:hover:bg-fuchsia-500/20"
                       >
                         {updatingBindingId === binding.id ? 'Saving…' : 'Save Rotation'}
                       </button>
@@ -333,13 +333,13 @@ export default function TagBindingsPanel({
                         disabled={updatingBindingId === binding.id}
                         className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                           binding.status === 'active'
-                            ? 'border-amber-300 bg-white text-amber-800 hover:bg-amber-50'
-                            : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50'
+                            ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/20'
+                            : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/20'
                         }`}
                       >
                         {binding.status === 'active' ? 'Pause' : 'Activate'}
                       </button>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-[color:var(--dusk-text-secondary)]">
                         Higher weight means this creative is selected more often during rotation.
                       </div>
                     </div>
@@ -350,11 +350,11 @@ export default function TagBindingsPanel({
           )}
         </section>
 
-        <section className="rounded-xl border border-slate-200 p-4">
-          <h3 className="text-sm font-semibold text-slate-800 mb-4">Assign Creative</h3>
+        <section className="rounded-xl border border-[color:var(--dusk-border-default)] p-4">
+          <h3 className="mb-4 text-sm font-semibold text-[color:var(--dusk-text-primary)]">Assign Creative</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Creative</label>
+              <label className="mb-1 block text-sm font-medium text-[color:var(--dusk-text-primary)]">Creative</label>
               <select
                 value={assignmentVersionId}
                 onChange={event => {
@@ -387,7 +387,7 @@ export default function TagBindingsPanel({
               {assignmentBusy ? 'Assigning…' : 'Assign Creative'}
             </button>
 
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[color:var(--dusk-text-secondary)]">
               This uses the latest available version for the selected creative and respects format and size constraints on the API side.
             </p>
           </div>
