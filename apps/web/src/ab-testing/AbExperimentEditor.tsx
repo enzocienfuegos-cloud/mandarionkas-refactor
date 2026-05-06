@@ -1,5 +1,6 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { Panel, PrimaryButton, SectionKicker, StatusBadge as DuskStatusBadge } from '../shared/dusk-ui';
+import { Button, CenteredSpinner, Input, Modal, useToast } from '../system';
 
 type ExperimentStatus = 'active' | 'paused' | 'ended';
 
@@ -111,20 +112,10 @@ function ResultsModal({ experiment, onClose }: { experiment: Experiment; onClose
   const maxCtr = results ? Math.max(...results.variants.map(v => v.ctr), 0.001) : 1;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-800">{experiment.name}</h2>
-            <p className="text-sm text-slate-500">Experiment Results</p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
-        </div>
-        <div className="p-6">
+    <Modal open onClose={onClose} size="lg" title={experiment.name} description="Experiment Results">
+        <div>
           {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
-            </div>
+            <CenteredSpinner label="Loading experiment results…" />
           ) : error ? (
             <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
           ) : !results ? (
@@ -155,14 +146,14 @@ function ResultsModal({ experiment, onClose }: { experiment: Experiment; onClose
                           </span>
                         )}
                       </div>
-                      <span className="text-sm font-bold text-indigo-700">{v.ctr.toFixed(3)}% CTR</span>
+                      <span className="text-sm font-bold text-fuchsia-700 dark:text-fuchsia-300">{v.ctr.toFixed(3)}% CTR</span>
                     </div>
 
                     {/* CTR bar */}
                     <div className="mb-3">
                       <div className="w-full h-2 bg-slate-100 rounded-full">
                         <div
-                          className={`h-2 rounded-full transition-all ${v.isWinner && results.enoughData ? 'bg-green-500' : 'bg-indigo-500'}`}
+                          className={`h-2 rounded-full transition-all ${v.isWinner && results.enoughData ? 'bg-green-500' : 'bg-fuchsia-500'}`}
                           style={{ width: `${(v.ctr / maxCtr) * 100}%` }}
                         />
                       </div>
@@ -184,8 +175,7 @@ function ResultsModal({ experiment, onClose }: { experiment: Experiment; onClose
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -242,13 +232,8 @@ function CreateModal({ tags, onClose, onCreated }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-lg font-semibold text-slate-800">New Experiment</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
-        </div>
-        <div className="p-6">
+    <Modal open onClose={onClose} size="lg" title="New Experiment">
+        <div>
           {error && (
             <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
           )}
@@ -258,11 +243,10 @@ function CreateModal({ tags, onClose, onCreated }: {
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Experiment Name <span className="text-red-500">*</span>
               </label>
-              <input
+              <Input
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Homepage CTA Test"
               />
             </div>
@@ -274,7 +258,7 @@ function CreateModal({ tags, onClose, onCreated }: {
               <select
                 value={tagId}
                 onChange={e => setTagId(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500"
               >
                 <option value="">— Select tag —</option>
                 {tags.map(t => (
@@ -294,32 +278,28 @@ function CreateModal({ tags, onClose, onCreated }: {
                     <span className="ml-2 text-xs text-green-600">✓ 100%</span>
                   )}
                 </label>
-                <button
-                  type="button"
-                  onClick={addVariant}
-                  className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-                >
+                <Button type="button" variant="ghost" size="sm" onClick={addVariant} className="text-xs text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300 dark:hover:text-fuchsia-200">
                   + Add Variant
-                </button>
+                </Button>
               </div>
               <div className="space-y-2">
                 {variants.map((v, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <input
+                    <Input
                       type="text"
                       value={v.name}
                       onChange={e => setVariantField(i, 'name', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="flex-1"
                       placeholder="Variant name"
                     />
                     <div className="flex items-center gap-1">
-                      <input
+                      <Input
                         type="number"
                         min="0"
                         max="100"
                         value={v.weight}
                         onChange={e => setVariantField(i, 'weight', Number(e.target.value))}
-                        className="w-16 px-2 py-2 border border-slate-300 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-16 text-center"
                       />
                       <span className="text-xs text-slate-500">%</span>
                     </div>
@@ -338,31 +318,16 @@ function CreateModal({ tags, onClose, onCreated }: {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
-              >
+              <Button type="button" variant="ghost" onClick={onClose} className="flex-1">
                 Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-              >
-                {saving && (
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                  </svg>
-                )}
-                {saving ? 'Creating...' : 'Create Experiment'}
-              </button>
+              </Button>
+              <Button type="submit" loading={saving} className="flex-1">
+                Create Experiment
+              </Button>
             </div>
           </form>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -373,6 +338,7 @@ export default function AbExperimentEditor() {
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedExperiment, setSelectedExperiment] = useState<Experiment | null>(null);
+  const { toast } = useToast();
 
   const load = () => {
     setLoading(true);
@@ -405,17 +371,14 @@ export default function AbExperimentEditor() {
       });
       if (!res.ok) throw new Error('Update failed');
       setExperiments(es => es.map(e => e.id === exp.id ? { ...e, status: newStatus } : e));
+      toast({ tone: 'success', title: 'Experiment updated', description: `Status changed to ${newStatus}.` });
     } catch {
-      alert('Failed to update experiment status.');
+      toast({ tone: 'critical', title: 'Update failed', description: 'Failed to update experiment status.' });
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-fuchsia-500"></div>
-      </div>
-    );
+    return <CenteredSpinner label="Loading experiments…" />;
   }
 
   if (error) {
@@ -423,7 +386,7 @@ export default function AbExperimentEditor() {
       <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
         <p className="font-medium">Error loading experiments</p>
         <p className="text-sm mt-1">{error}</p>
-        <button onClick={load} className="mt-3 text-sm text-red-600 underline">Retry</button>
+        <Button onClick={load} variant="ghost" size="sm" className="mt-3">Retry</Button>
       </Panel>
     );
   }
@@ -476,36 +439,40 @@ export default function AbExperimentEditor() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
+                  <Button
                     onClick={() => setSelectedExperiment(exp)}
-                    className="text-sm text-indigo-600 border border-indigo-200 hover:bg-indigo-50 font-medium px-3 py-1.5 rounded-lg transition-colors"
+                    variant="secondary"
+                    size="sm"
                   >
-                    📊 Results
-                  </button>
+                    Results
+                  </Button>
 
                   {exp.status === 'active' && (
-                    <button
+                    <Button
                       onClick={() => handleToggleStatus(exp, 'paused')}
-                      className="text-sm text-yellow-700 border border-yellow-200 hover:bg-yellow-50 font-medium px-3 py-1.5 rounded-lg transition-colors"
+                      variant="secondary"
+                      size="sm"
                     >
-                      ⏸ Pause
-                    </button>
+                      Pause
+                    </Button>
                   )}
                   {exp.status === 'paused' && (
-                    <button
+                    <Button
                       onClick={() => handleToggleStatus(exp, 'active')}
-                      className="text-sm text-green-700 border border-green-200 hover:bg-green-50 font-medium px-3 py-1.5 rounded-lg transition-colors"
+                      variant="secondary"
+                      size="sm"
                     >
-                      ▶ Resume
-                    </button>
+                      Resume
+                    </Button>
                   )}
                   {exp.status !== 'ended' && (
-                    <button
+                    <Button
                       onClick={() => handleToggleStatus(exp, 'ended')}
-                      className="text-sm text-slate-600 border border-slate-200 hover:bg-slate-50 font-medium px-3 py-1.5 rounded-lg transition-colors"
+                      variant="ghost"
+                      size="sm"
                     >
-                      ■ End
-                    </button>
+                      End
+                    </Button>
                   )}
                 </div>
               </div>

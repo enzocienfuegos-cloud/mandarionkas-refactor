@@ -1,4 +1,5 @@
 import React, { FormEvent } from 'react';
+import { Button, Input } from '../system';
 
 interface Campaign {
   id: string;
@@ -56,12 +57,6 @@ interface TagFormPanelProps {
   onCancel: () => void;
 }
 
-function inputClass(err?: string) {
-  return `w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-    err ? 'border-red-400 bg-red-50' : 'border-slate-300'
-  }`;
-}
-
 export default function TagFormPanel({
   isEdit,
   form,
@@ -96,11 +91,11 @@ export default function TagFormPanel({
           <label className="block text-sm font-medium text-slate-700 mb-1">
             Tag Name <span className="text-red-500">*</span>
           </label>
-          <input
+          <Input
             type="text"
             value={form.name}
             onChange={onSet('name')}
-            className={inputClass(errors.name)}
+            className={errors.name ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10' : undefined}
             placeholder="Homepage Leaderboard VAST"
           />
           {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
@@ -108,7 +103,7 @@ export default function TagFormPanel({
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Campaign</label>
-          <select value={form.campaignId} onChange={onSet('campaignId')} className={inputClass()}>
+          <select value={form.campaignId} onChange={onSet('campaignId')} className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500">
             <option value="">— No campaign —</option>
             {campaigns.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
@@ -117,7 +112,7 @@ export default function TagFormPanel({
         </div>
 
         {selectedCampaignMacroLabel && (
-          <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs text-indigo-700">
+          <div className="rounded-lg border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-xs text-fuchsia-700 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
             {selectedCampaignMacroLabel} selected on this campaign. Generated tag URLs will auto-inject configured DSP macros like <code>{'{pageUrlEnc}'}</code>, <code>{'{domain}'}</code>, click macro passthrough, privacy strings, and identity hints where applicable.
           </div>
         )}
@@ -136,7 +131,7 @@ export default function TagFormPanel({
                 key={f}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors ${
                   form.format === f
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'
                     : 'border-slate-300 text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -169,7 +164,11 @@ export default function TagFormPanel({
               <select
                 value={getDisplaySizePreset(form.servingWidth, form.servingHeight)}
                 onChange={event => onDisplaySizePresetChange(event.target.value)}
-                className={inputClass(errors.servingWidth || errors.servingHeight)}
+                className={`w-full rounded-lg border bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500 ${
+                  errors.servingWidth || errors.servingHeight
+                    ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10'
+                    : 'border-[color:var(--dusk-border-default)]'
+                }`}
               >
                 <option value="">Select a size</option>
                 {DISPLAY_SIZE_PRESETS.map((preset) => (
@@ -186,23 +185,23 @@ export default function TagFormPanel({
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Width</label>
-              <input
+              <Input
                 type="number"
                 min="1"
                 readOnly
                 value={form.servingWidth}
-                className={`${inputClass()} bg-slate-50 text-slate-500`}
+                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-slate-50 px-3 py-2.5 text-sm text-slate-500"
                 placeholder="300"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Height</label>
-              <input
+              <Input
                 type="number"
                 min="1"
                 readOnly
                 value={form.servingHeight}
-                className={`${inputClass()} bg-slate-50 text-slate-500`}
+                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-slate-50 px-3 py-2.5 text-sm text-slate-500"
                 placeholder="250"
               />
             </div>
@@ -213,18 +212,18 @@ export default function TagFormPanel({
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tracker Type</label>
-              <select value={form.trackerType} onChange={onSet('trackerType')} className={inputClass()}>
+              <select value={form.trackerType} onChange={onSet('trackerType')} className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500">
                 <option value="click">Click tracker</option>
                 <option value="impression">Impression tracker</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tracker Size</label>
-              <input
+              <Input
                 type="text"
                 readOnly
                 value={form.trackerType === 'impression' ? '1x1' : 'N/A'}
-                className={`${inputClass()} bg-slate-50 text-slate-500`}
+                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-slate-50 px-3 py-2.5 text-sm text-slate-500"
               />
             </div>
           </div>
@@ -232,7 +231,7 @@ export default function TagFormPanel({
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-          <select value={form.status} onChange={onSet('status')} className={inputClass()}>
+          <select value={form.status} onChange={onSet('status')} className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500">
             {STATUSES.map(s => (
               <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
             ))}
@@ -252,11 +251,11 @@ export default function TagFormPanel({
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Destination URL
                 </label>
-                <input
+                <Input
                   type="url"
                   value={form.clickUrl}
                   onChange={onSet('clickUrl')}
-                  className={inputClass(errors.clickUrl)}
+                  className={errors.clickUrl ? 'border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10' : undefined}
                   placeholder="https://example.com/landing"
                 />
                 {errors.clickUrl && <p className="mt-1 text-xs text-red-600">{errors.clickUrl}</p>}
@@ -270,26 +269,12 @@ export default function TagFormPanel({
         )}
 
         <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 text-sm text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-          >
+          <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 rounded-lg transition-colors flex items-center gap-2"
-          >
-            {saving && (
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-              </svg>
-            )}
-            {saving ? 'Saving...' : isEdit ? 'Update Tag' : 'Create Tag'}
-          </button>
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? 'Update Tag' : 'Create Tag'}
+          </Button>
         </div>
       </form>
     </div>
