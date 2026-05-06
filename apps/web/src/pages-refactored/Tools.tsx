@@ -3,16 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import {
   Wrench,
   Tag as TagIcon,
-  ImageIcon,
-  ExternalLink,
   Code,
-  FileText,
-  Globe,
-  Shield,
-  Activity,
   Zap,
+  CheckCircle2,
+  Target,
 } from '../system/icons';
-import { Panel, PanelHeader, Kicker, Badge, Button } from '../system';
+import { Panel, PanelHeader, Kicker, Badge } from '../system';
 
 interface ToolEntry {
   id: string;
@@ -20,41 +16,11 @@ interface ToolEntry {
   description: string;
   icon: React.ReactNode;
   href: string;
-  external?: boolean;
   status?: 'beta' | 'alpha' | 'new';
-  category: 'creative' | 'trafficking' | 'verification' | 'utilities';
+  category: 'trafficking' | 'verification' | 'utilities';
 }
 
 const TOOLS: ToolEntry[] = [
-  // Creative
-  {
-    id: 'tag-validator',
-    title: 'Tag validator',
-    description: 'Paste a 3rd-party tag to inspect calls, macros, and detect blocking scripts.',
-    icon: <TagIcon />,
-    href: '/tools/tag-validator',
-    category: 'creative',
-  },
-  {
-    id: 'creative-tester',
-    title: 'Creative tester',
-    description: 'Render a creative in IAB-standard frames and DSP environments.',
-    icon: <ImageIcon />,
-    href: '/tools/creative-tester',
-    category: 'creative',
-    status: 'new',
-  },
-  {
-    id: 'banner-studio',
-    title: 'Mandarionkas Studio',
-    description: 'Visual editor for HTML5 rich-media banners with click-tag instrumentation.',
-    icon: <Code />,
-    href: '/tools/mandarionkas',
-    category: 'creative',
-    status: 'beta',
-  },
-
-  // Trafficking
   {
     id: 'macro-builder',
     title: 'Macro builder',
@@ -64,50 +30,30 @@ const TOOLS: ToolEntry[] = [
     category: 'trafficking',
   },
   {
-    id: 'tag-generator',
-    title: 'Tag generator',
-    description: 'Generate Adform DHTML, MRAID, CM360 and clickTag wrappers from a single source.',
-    icon: <FileText />,
-    href: '/tools/tag-generator',
-    category: 'trafficking',
-  },
-
-  // Verification
-  {
     id: 'pixel-tester',
-    title: 'Pixel tester',
-    description: 'Fire test impressions and verify pixel beacons reach IAS, Moat and DV.',
-    icon: <Activity />,
-    href: '/tools/pixel-tester',
+    title: 'Tag validator',
+    description: 'Paste a third-party tag to inspect wrappers, macros, blocking scripts and request chains.',
+    icon: <TagIcon />,
+    href: '/tools/tag-validator',
     category: 'verification',
   },
   {
-    id: 'brand-safety',
-    title: 'Brand safety scan',
-    description: 'Pre-flight check of placement domains against blocklists.',
-    icon: <Shield />,
-    href: '/tools/brand-safety',
+    id: 'vast-validator',
+    title: 'VAST validator',
+    description: 'Validate VAST XML before trafficking it to a DSP, SSP, or player.',
+    icon: <CheckCircle2 />,
+    href: '/tools/vast-validator',
     category: 'verification',
-    status: 'beta',
+  },
+  {
+    id: 'chain-validator',
+    title: 'Chain validator',
+    description: 'Inspect wrapper hops, catch dead ends and identify broken redirect chains before launch.',
+    icon: <Target />,
+    href: '/tools/chain-validator',
+    category: 'verification',
   },
 
-  // Utilities
-  {
-    id: 'preview-bookmarklet',
-    title: 'Preview bookmarklet',
-    description: 'Drag to bookmarks bar to preview live tags on any page.',
-    icon: <Globe />,
-    href: 'javascript:void(0)',
-    category: 'utilities',
-  },
-  {
-    id: 'bulk-export',
-    title: 'Bulk export',
-    description: 'Export campaigns, tags, creatives and metrics as CSV or XLSX.',
-    icon: <FileText />,
-    href: '/tools/export',
-    category: 'utilities',
-  },
   {
     id: 'webhook-tester',
     title: 'Webhook tester',
@@ -120,17 +66,15 @@ const TOOLS: ToolEntry[] = [
 ];
 
 const CATEGORIES: { id: ToolEntry['category']; label: string; description: string }[] = [
-  { id: 'creative',     label: 'Creative',     description: 'Build, validate, and inspect creative assets.' },
   { id: 'trafficking',  label: 'Trafficking',  description: 'Wrappers, macros, and tag generation.' },
-  { id: 'verification', label: 'Verification', description: 'Make sure ads serve, render, and report correctly.' },
+  { id: 'verification', label: 'Verification', description: 'Validate tags, VAST payloads and wrapper chains before launch.' },
   { id: 'utilities',    label: 'Utilities',    description: 'Helper tools that don\'t fit elsewhere.' },
 ];
 
 /**
  * Tools — refactored to the design system (S57).
  *
- * A hub of internal utilities. Each tool is a card in a category.
- * Clicking a card either navigates to a sub-route or opens external.
+ * A hub of real, routed utilities only. No placeholder tools, no dead links.
  */
 export default function Tools() {
   return (
@@ -167,13 +111,7 @@ function ToolCard({ tool }: { tool: ToolEntry }) {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    if (tool.external || tool.href.startsWith('http')) {
-      window.open(tool.href, '_blank', 'noopener');
-    } else if (tool.href.startsWith('javascript:')) {
-      // Bookmarklet — do nothing
-    } else {
-      navigate(tool.href);
-    }
+    navigate(tool.href);
   };
 
   return (
@@ -212,9 +150,6 @@ function ToolCard({ tool }: { tool: ToolEntry }) {
               >
                 {tool.status}
               </Badge>
-            )}
-            {tool.external && (
-              <ExternalLink className="h-3 w-3 text-[color:var(--dusk-text-soft)] ml-auto" />
             )}
           </div>
           <p className="mt-1 text-xs text-[color:var(--dusk-text-muted)] leading-relaxed">
