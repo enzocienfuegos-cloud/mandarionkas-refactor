@@ -4,14 +4,14 @@ import { Sparkline as DuskSparkline } from '../../../system';
 import { BrandIcon } from '../icons/BrandIcon';
 
 const toneText: Record<Tone, string> = {
-  fuchsia: 'text-fuchsia-500 dark:text-fuchsia-300',
-  violet: 'text-violet-500 dark:text-violet-300',
-  blue: 'text-blue-500 dark:text-blue-300',
-  cyan: 'text-cyan-500 dark:text-cyan-300',
-  emerald: 'text-emerald-500 dark:text-emerald-300',
-  amber: 'text-amber-500 dark:text-amber-300',
-  rose: 'text-rose-500 dark:text-rose-300',
-  slate: 'text-[color:var(--dusk-text-secondary)] dark:text-slate-300',
+  fuchsia: 'text-text-brand',
+  violet: 'text-[color:var(--dusk-status-info-fg)]',
+  blue: 'text-[color:var(--dusk-status-info-fg)]',
+  cyan: 'text-[color:var(--dusk-status-info-fg)]',
+  emerald: 'text-[color:var(--dusk-status-success-fg)]',
+  amber: 'text-[color:var(--dusk-status-warning-fg)]',
+  rose: 'text-[color:var(--dusk-status-critical-fg)]',
+  slate: 'text-[color:var(--dusk-text-secondary)]',
 };
 
 export function KpiCard({ item }: { item: ReportingKpi }) {
@@ -25,7 +25,7 @@ export function KpiCard({ item }: { item: ReportingKpi }) {
         </div>
       </div>
       {item.delta ? (
-        <p className={`mt-2 text-xs font-bold ${item.direction === 'down' ? 'text-rose-600 dark:text-rose-300' : item.direction === 'flat' ? 'text-[color:var(--dusk-text-secondary)] dark:text-slate-300' : 'text-emerald-600 dark:text-emerald-300'}`}>
+        <p className={`mt-2 text-xs font-bold ${item.direction === 'down' ? 'text-[color:var(--dusk-status-critical-fg)]' : item.direction === 'flat' ? 'text-[color:var(--dusk-text-secondary)]' : 'text-[color:var(--dusk-status-success-fg)]'}`}>
           {item.delta}
           <span className="ml-1 font-medium text-[color:var(--dusk-text-soft)]">{item.comparisonLabel}</span>
         </p>

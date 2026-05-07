@@ -22,7 +22,7 @@ export function ChannelSwitcher({ mode, onModeChange }: { mode: ReportingMode; o
             onClick={() => onModeChange(item.id)}
             className={[
               'flex items-center gap-2 rounded-xl px-4 py-2 transition',
-              active ? 'border border-fuchsia-400/40 bg-fuchsia-500/16 text-[color:var(--dusk-text-primary)] shadow-[0_0_24px_rgba(217,70,239,.16)]' : 'hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]',
+              active ? 'border border-brand-500/40 bg-[color:var(--dusk-surface-active)] text-[color:var(--dusk-text-primary)] shadow-brand' : 'hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]',
             ].join(' ')}
           >
             <IconGlyph name={item.icon} size={14} />

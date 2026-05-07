@@ -3,13 +3,13 @@ import type { Tone } from '../reporting.types';
 import { IconGlyph } from './IconGlyph';
 
 const toneClasses: Record<Tone, string> = {
-  fuchsia: 'border-fuchsia-400/25 bg-fuchsia-500/12 text-fuchsia-600 shadow-[0_0_28px_rgba(217,70,239,.12)] dark:text-fuchsia-200',
-  violet: 'border-violet-400/25 bg-violet-500/12 text-violet-600 shadow-[0_0_28px_rgba(139,92,246,.12)] dark:text-violet-200',
-  blue: 'border-blue-400/25 bg-blue-500/12 text-blue-600 shadow-[0_0_28px_rgba(59,130,246,.12)] dark:text-blue-200',
-  cyan: 'border-cyan-400/25 bg-cyan-500/12 text-cyan-700 shadow-[0_0_28px_rgba(34,211,238,.12)] dark:text-cyan-200',
-  emerald: 'border-emerald-400/25 bg-emerald-500/12 text-emerald-700 shadow-[0_0_28px_rgba(16,185,129,.12)] dark:text-emerald-200',
-  amber: 'border-amber-400/25 bg-amber-500/12 text-amber-700 shadow-[0_0_28px_rgba(245,158,11,.12)] dark:text-amber-200',
-  rose: 'border-rose-400/25 bg-rose-500/12 text-rose-700 shadow-[0_0_28px_rgba(244,63,94,.12)] dark:text-rose-200',
+  fuchsia: 'border-brand-500/25 bg-[color:var(--dusk-surface-active)] text-text-brand shadow-brand',
+  violet: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)] shadow-2',
+  blue: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)] shadow-2',
+  cyan: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)] shadow-2',
+  emerald: 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)] shadow-2',
+  amber: 'border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)] shadow-2',
+  rose: 'border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] text-[color:var(--dusk-status-critical-fg)] shadow-2',
   slate: 'border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)]',
 };
 

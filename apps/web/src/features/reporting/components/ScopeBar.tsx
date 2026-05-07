@@ -3,10 +3,10 @@ import type { ReportingMode } from '../reporting.types';
 import { IconGlyph } from '../icons/IconGlyph';
 
 const toneClasses: Record<ReportingMode, string> = {
-  all: 'border-fuchsia-400/25 bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-200',
-  display: 'border-fuchsia-400/25 bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-200',
-  video: 'border-blue-400/25 bg-blue-500/10 text-blue-700 dark:text-blue-200',
-  identity: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200',
+  all: 'border-brand-500/25 bg-[color:var(--dusk-surface-active)] text-text-brand',
+  display: 'border-brand-500/25 bg-[color:var(--dusk-surface-active)] text-text-brand',
+  video: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]',
+  identity: 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]',
 };
 
 export function ScopeBar({ mode }: { mode: ReportingMode }) {

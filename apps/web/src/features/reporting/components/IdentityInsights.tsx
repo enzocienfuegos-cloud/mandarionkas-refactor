@@ -12,7 +12,7 @@ export function IdentityInsights() {
               <p className="font-semibold text-[color:var(--dusk-text-primary)]">{row.key.replace(/_/g, ' ')}</p>
               <p className="text-xs text-[color:var(--dusk-text-soft)]">{row.value.toLocaleString()} matched events</p>
             </div>
-            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-300">{row.percentage}%</span>
+            <span className="text-sm font-bold text-[color:var(--dusk-status-success-fg)]">{row.percentage}%</span>
           </div>
         ))}
       </div>

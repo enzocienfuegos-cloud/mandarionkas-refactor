@@ -3,13 +3,13 @@ import type { ReportingMode, ReportingModeConfig } from '../reporting.types';
 import { ChannelSwitcher } from './ChannelSwitcher';
 
 const accentChip: Record<ReportingModeConfig['accent'], string> = {
-  fuchsia: 'border-fuchsia-400/25 bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-200',
-  violet: 'border-violet-400/25 bg-violet-500/10 text-violet-600 dark:text-violet-200',
-  blue: 'border-blue-400/25 bg-blue-500/10 text-blue-600 dark:text-blue-200',
-  cyan: 'border-cyan-400/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-200',
-  emerald: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200',
-  amber: 'border-amber-400/25 bg-amber-500/10 text-amber-700 dark:text-amber-200',
-  rose: 'border-rose-400/25 bg-rose-500/10 text-rose-700 dark:text-rose-200',
+  fuchsia: 'border-brand-500/25 bg-[color:var(--dusk-surface-active)] text-text-brand',
+  violet: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]',
+  blue: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]',
+  cyan: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]',
+  emerald: 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]',
+  amber: 'border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]',
+  rose: 'border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] text-[color:var(--dusk-status-critical-fg)]',
   slate: 'border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)]',
 };
 

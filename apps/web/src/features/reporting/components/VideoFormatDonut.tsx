@@ -3,10 +3,10 @@ import { videoFormatRows } from '../reporting.mock';
 import { WidgetPanel } from './WidgetPanel';
 
 const toneText = {
-  blue: 'text-blue-600 dark:text-blue-300',
-  fuchsia: 'text-fuchsia-600 dark:text-fuchsia-300',
-  emerald: 'text-emerald-600 dark:text-emerald-300',
-  amber: 'text-amber-600 dark:text-amber-300',
+  blue: 'text-[color:var(--dusk-status-info-fg)]',
+  fuchsia: 'text-text-brand',
+  emerald: 'text-[color:var(--dusk-status-success-fg)]',
+  amber: 'text-[color:var(--dusk-status-warning-fg)]',
 };
 
 export function VideoFormatDonut() {
