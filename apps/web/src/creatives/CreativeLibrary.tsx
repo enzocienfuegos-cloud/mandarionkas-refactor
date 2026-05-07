@@ -21,7 +21,6 @@ import { CreativePreviewLightbox } from './creative-library/CreativePreviewLight
 import { ClickUrlEditorModal } from './creative-library/ClickUrlEditorModal';
 import { CreativeBulkActionsPanel } from './creative-library/CreativeBulkActionsPanel';
 import { CreativeQueuePanel } from './creative-library/CreativeQueuePanel';
-import { CreativeSidebarInsights } from './creative-library/CreativeSidebarInsights';
 import { CreativeTable } from './creative-library/CreativeTable';
 import { useCreativeCatalogActions } from './creative-library/useCreativeCatalogActions';
 import { useCreativeCatalogData } from './creative-library/useCreativeCatalogData';
@@ -211,11 +210,9 @@ export default function CreativesView() {
     liveCreatives,
     publishingCreatives,
     attentionCreatives,
-    previewMissingCreatives,
     previewMissingCount,
     creativeRows,
     creativeAvailability,
-    prototypeChecks,
     toggleCreativeSelection,
     toggleSelectAllVisibleCreatives,
   } = useCreativeCatalogViewModel({
@@ -388,50 +385,39 @@ export default function CreativesView() {
         />
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
-        <Panel className="overflow-hidden p-6">
-          <CreativeQueuePanel
-            totalCreatives={filteredCreatives.length}
-            liveCreatives={liveCreatives}
-            publishingCreatives={publishingCreatives}
-            attentionCreatives={attentionCreatives}
-            onRefresh={() => void load()}
-          />
+      <Panel className="overflow-hidden p-6">
+        <CreativeQueuePanel
+          totalCreatives={filteredCreatives.length}
+          liveCreatives={liveCreatives}
+          publishingCreatives={publishingCreatives}
+          attentionCreatives={attentionCreatives}
+          onRefresh={() => void load()}
+        />
 
-          <CreativeTable
-            creatives={filteredCreatives}
-            latestVersions={latestVersions}
-            creativeRows={creativeRows}
-            selectedCreativeIds={selection.selectedCreativeIds}
-            allVisibleCreativesSelected={allVisibleCreativesSelected}
-            someVisibleCreativesSelected={someVisibleCreativesSelected}
-            onToggleSelectAllVisible={toggleSelectAllVisibleCreatives}
-            onToggleCreativeSelection={toggleCreativeSelection}
-            onOpenPreview={setPreviewModal}
-            statusUpdateCreativeId={statusUpdateCreativeId}
-            workspaceBusy={workspaceBusy}
-            getCreativeOperationalState={getCreativeOperationalState}
-            onToggleOperationalStatus={(creative) => handleCreativeOperationalStatusToggle(creative, getCreativeOperationalState)}
-            onEditClickUrl={handleEditCreativeClickUrl}
-            onOpenDeliveryManager={(entry, creativeVersion) => (
-              creativeVersion.servingFormat === 'vast_video'
-                ? openVideoRenditionManager(entry, creativeVersion)
-                : openVariantManager(entry, creativeVersion)
-            )}
-            onAssignTag={handlePrepareBinding}
-            onDeleteCreative={handleDeleteCreative}
-          />
-        </Panel>
-
-        <Panel className="p-6">
-          <CreativeSidebarInsights
-            publishingCreatives={publishingCreatives}
-            attentionCreatives={attentionCreatives}
-            previewMissingCreatives={previewMissingCreatives}
-            prototypeChecks={prototypeChecks}
-          />
-        </Panel>
-      </div>
+        <CreativeTable
+          creatives={filteredCreatives}
+          latestVersions={latestVersions}
+          creativeRows={creativeRows}
+          selectedCreativeIds={selection.selectedCreativeIds}
+          allVisibleCreativesSelected={allVisibleCreativesSelected}
+          someVisibleCreativesSelected={someVisibleCreativesSelected}
+          onToggleSelectAllVisible={toggleSelectAllVisibleCreatives}
+          onToggleCreativeSelection={toggleCreativeSelection}
+          onOpenPreview={setPreviewModal}
+          statusUpdateCreativeId={statusUpdateCreativeId}
+          workspaceBusy={workspaceBusy}
+          getCreativeOperationalState={getCreativeOperationalState}
+          onToggleOperationalStatus={(creative) => handleCreativeOperationalStatusToggle(creative, getCreativeOperationalState)}
+          onEditClickUrl={handleEditCreativeClickUrl}
+          onOpenDeliveryManager={(entry, creativeVersion) => (
+            creativeVersion.servingFormat === 'vast_video'
+              ? openVideoRenditionManager(entry, creativeVersion)
+              : openVariantManager(entry, creativeVersion)
+          )}
+          onAssignTag={handlePrepareBinding}
+          onDeleteCreative={handleDeleteCreative}
+        />
+      </Panel>
 
       {clickUrlEditor && (
         <ClickUrlEditorModal
