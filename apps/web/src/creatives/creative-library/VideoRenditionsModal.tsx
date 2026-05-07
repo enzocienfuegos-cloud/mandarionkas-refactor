@@ -95,44 +95,44 @@ export function VideoRenditionsModal({
           )}
 
           {state.awaitingPublish && (
-            <div className="rounded-xl border border-fuchsia-200/70 bg-fuchsia-50/80 px-4 py-4 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10">
+            <Panel className="border-brand-500/25 bg-brand-500/10 px-4 py-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">Video publish in progress</p>
-                  <p className="mt-1 text-sm text-slate-600">{pendingPublishMessage}</p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="text-sm font-semibold text-text-primary">Video publish in progress</p>
+                  <p className="mt-1 text-sm text-text-secondary">{pendingPublishMessage}</p>
+                  <p className="mt-1 text-xs text-text-muted">
                     The creative version and renditions will appear here automatically when the background worker finishes.
                   </p>
                 </div>
-                <div className="text-right text-sm text-slate-600">
-                  <div className="font-semibold text-slate-800">{pendingPublishPercent}%</div>
+                <div className="text-right text-sm text-text-secondary">
+                  <div className="font-semibold text-text-primary">{pendingPublishPercent}%</div>
                   <div>{getPublishStageLabel(pendingPublishStage)}</div>
                 </div>
               </div>
               <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/80">
                 <div
-                  className="h-full rounded-full bg-fuchsia-500 transition-[width] duration-300"
+                  className="h-full rounded-full bg-brand-500 transition-[width] duration-300"
                   style={{ width: `${Math.max(8, pendingPublishPercent)}%` }}
                 />
               </div>
-            </div>
+            </Panel>
           )}
 
           {regenerationFeedback && (
-            <div className={`rounded-xl border px-4 py-4 ${
+            <Panel className={`px-4 py-4 ${
               regenerationFeedback.progressPercent === 100
-                ? 'border-emerald-200 bg-emerald-50'
-                : 'border-fuchsia-200/70 bg-fuchsia-50/80 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10'
+                ? 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)]'
+                : 'border-brand-500/25 bg-brand-500/10'
             }`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">
+                  <p className="text-sm font-semibold text-text-primary">
                     {regenerationFeedback.progressPercent === 100 ? 'Regeneration complete' : 'Regeneration in progress'}
                   </p>
-                  <p className="mt-1 text-sm text-slate-600">{regenerationFeedback.stageLabel}</p>
+                  <p className="mt-1 text-sm text-text-secondary">{regenerationFeedback.stageLabel}</p>
                 </div>
-                <div className="text-right text-sm text-slate-600">
-                  <div className="font-semibold text-slate-800">{regenerationFeedback.progressPercent}%</div>
+                <div className="text-right text-sm text-text-secondary">
+                  <div className="font-semibold text-text-primary">{regenerationFeedback.progressPercent}%</div>
                   <div>
                     {regenerationFeedback.progressPercent === 100
                       ? 'Estimated remaining 0:00'
@@ -144,29 +144,29 @@ export function VideoRenditionsModal({
                 <div className="h-3 overflow-hidden rounded-full bg-white/80">
                   <div
                     className={`h-full rounded-full transition-[width] duration-300 ${
-                      regenerationFeedback.progressPercent === 100 ? 'bg-emerald-500' : 'bg-fuchsia-500'
+                      regenerationFeedback.progressPercent === 100 ? 'bg-[color:var(--dusk-status-success-fg)]' : 'bg-brand-500'
                     }`}
                     style={{ width: `${regenerationFeedback.progressPercent}%` }}
                   />
                 </div>
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-text-muted">
                   Estimated progress based on encoder stages. Large source files can take longer.
                 </p>
               </div>
-            </div>
+            </Panel>
           )}
 
           {videoProcessingSummary && !state.awaitingPublish && (
-            <div className={`rounded-xl border px-4 py-4 text-sm ${
+            <Panel className={`px-4 py-4 text-sm ${
               videoProcessingSummary.tone === 'error'
-                ? 'border-rose-200 bg-rose-50 text-rose-800'
+                ? 'border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] text-[color:var(--dusk-status-critical-fg)]'
                 : videoProcessingSummary.tone === 'warning'
-                  ? 'border-amber-200 bg-amber-50 text-amber-800'
-                  : 'border-sky-200 bg-sky-50 text-sky-800'
+                  ? 'border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]'
+                  : 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]'
             }`}>
               <div className="font-semibold">{videoProcessingSummary.title}</div>
               <div className="mt-1">{videoProcessingSummary.message}</div>
-            </div>
+            </Panel>
           )}
 
           <div className="grid gap-4 md:grid-cols-2">
