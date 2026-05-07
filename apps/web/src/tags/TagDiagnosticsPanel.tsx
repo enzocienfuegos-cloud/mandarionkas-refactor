@@ -53,8 +53,8 @@ interface TagDiagnosticsPanelProps {
 function getMeasurementPathTone(value?: string | null): string {
   const path = String(value ?? '').toLowerCase();
   if (!path) return 'border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)]';
-  if (path.includes('fallback')) return 'bg-amber-50 text-amber-700 border-amber-200';
-  if (path.includes('basis')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  if (path.includes('fallback')) return 'border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]';
+  if (path.includes('basis')) return 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]';
   return 'border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)]';
 }
 

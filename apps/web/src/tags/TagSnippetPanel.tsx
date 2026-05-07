@@ -227,7 +227,7 @@ export default function TagSnippetPanel({
           </div>
         </Panel>
       )}
-      <pre className="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">
+      <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-border-default bg-[color:var(--dusk-surface-3)] p-4 font-mono text-xs text-text-primary">
         {buildTagSnippet(tag, snippetVariant, servingBaseUrl, campaignDsp, diagnostics)}
       </pre>
     </Panel>

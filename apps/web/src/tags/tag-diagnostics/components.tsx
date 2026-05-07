@@ -242,7 +242,7 @@ export function StaticDeliverySection({
           {staticDeliveryEntries.map((entry) => (
             <div key={entry.key}>
               <div className="mb-1 flex items-center justify-between gap-3">
-                <div className="text-xs font-medium text-emerald-900">{entry.label}</div>
+                <div className="text-xs font-medium text-[color:var(--dusk-status-success-fg)]">{entry.label}</div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <Button size="sm" variant="secondary" type="button" onClick={() => onCopyStaticProfile(entry.key, entry.url)}>
                     {copiedStaticProfile === entry.key ? 'Copied' : 'Copy URL'}
@@ -255,8 +255,8 @@ export function StaticDeliverySection({
                   </Badge>
                 </div>
               </div>
-              <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-slate-900 p-3 font-mono text-xs text-slate-100">{entry.url}</pre>
-              <div className="mt-2 grid gap-2 text-[11px] text-emerald-900 md:grid-cols-3">
+              <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-border-default bg-[color:var(--dusk-surface-3)] p-3 font-mono text-xs text-text-primary">{entry.url}</pre>
+              <div className="mt-2 grid gap-2 text-[11px] text-[color:var(--dusk-status-success-fg)] md:grid-cols-3">
                 <div className="rounded-md border border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)]/80 px-2.5 py-2">
                   <div className="font-medium">Last Published</div>
                   <div className="mt-1">{formatArtifactTimestamp(entry.status?.lastPublishedAt)}</div>
@@ -313,19 +313,19 @@ export function DeliveryDiagnosticSection({
         {entry?.jsUrl && (
           <div>
             <div className="mb-1 text-xs font-medium text-[color:var(--dusk-text-secondary)]">JS URL</div>
-            <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-slate-900 p-3 font-mono text-xs text-slate-100">{entry.jsUrl}</pre>
+            <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-border-default bg-[color:var(--dusk-surface-3)] p-3 font-mono text-xs text-text-primary">{entry.jsUrl}</pre>
           </div>
         )}
         {entry?.htmlUrl && (
           <div>
             <div className="mb-1 text-xs font-medium text-[color:var(--dusk-text-secondary)]">HTML URL</div>
-            <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-slate-900 p-3 font-mono text-xs text-slate-100">{entry.htmlUrl}</pre>
+            <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-border-default bg-[color:var(--dusk-surface-3)] p-3 font-mono text-xs text-text-primary">{entry.htmlUrl}</pre>
           </div>
         )}
         {entry?.url && (
           <div>
             <div className="mb-1 text-xs font-medium text-[color:var(--dusk-text-secondary)]">URL</div>
-            <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-slate-900 p-3 font-mono text-xs text-slate-100">{entry.url}</pre>
+            <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-border-default bg-[color:var(--dusk-surface-3)] p-3 font-mono text-xs text-text-primary">{entry.url}</pre>
           </div>
         )}
       </div>

@@ -372,7 +372,7 @@ export default function TagBindingsPanel({
                 ))}
               </Select>
               {filteredCreativeOptions.length === 0 && (
-                <p className="mt-2 text-xs text-amber-700">
+                <p className="mt-2 text-xs text-[color:var(--dusk-status-warning-fg)]">
                   No creatives match this tag yet. We only show creatives from the selected client and, for display tags, only the exact assigned size.
                 </p>
               )}
