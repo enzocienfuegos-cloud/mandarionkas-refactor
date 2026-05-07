@@ -33,30 +33,6 @@ function sanitizeTheme(value) {
   return value === 'light' ? 'light' : 'dark';
 }
 
-function normalizePreferences(input = {}) {
-  return {
-    theme: sanitizeTheme(input.theme),
-    sidebarCollapsed: Boolean(input.sidebarCollapsed),
-    densityByTable: sanitizeDensityMap(input.densityByTable),
-    metricStripByScope: sanitizeMetricStripMap(input.metricStripByScope),
-  };
-}
-
-function mergePreferences(base, patch) {
-  return {
-    ...base,
-    ...patch,
-    densityByTable: {
-      ...(base.densityByTable ?? {}),
-      ...(patch.densityByTable ?? {}),
-    },
-    metricStripByScope: {
-      ...(base.metricStripByScope ?? {}),
-      ...(patch.metricStripByScope ?? {}),
-    },
-  };
-}
-
 export async function getUserPreferences(client, userId) {
   const { rows } = await client.query(
     `select key, value_json
@@ -84,17 +60,28 @@ export async function getUserPreferences(client, userId) {
 }
 
 export async function saveUserPreferences(client, userId, patch = {}) {
-  const current = await getUserPreferences(client, userId);
-  const merged = mergePreferences(current, normalizePreferences(mergePreferences(current, patch)));
+  const sanitized = {};
 
-  const entries = [
-    ['theme', { value: merged.theme }],
-    ['sidebarCollapsed', { value: merged.sidebarCollapsed }],
-    ['densityByTable', merged.densityByTable],
-    ['metricStripByScope', merged.metricStripByScope],
-  ];
+  if (patch.theme !== undefined) {
+    sanitized.theme = sanitizeTheme(patch.theme);
+  }
+  if (patch.sidebarCollapsed !== undefined) {
+    sanitized.sidebarCollapsed = Boolean(patch.sidebarCollapsed);
+  }
+  if (patch.densityByTable !== undefined) {
+    sanitized.densityByTable = sanitizeDensityMap(patch.densityByTable);
+  }
+  if (patch.metricStripByScope !== undefined) {
+    sanitized.metricStripByScope = sanitizeMetricStripMap(patch.metricStripByScope);
+  }
 
-  for (const [key, value] of entries) {
+  const writes = [];
+  if ('theme' in sanitized) writes.push(['theme', { value: sanitized.theme }]);
+  if ('sidebarCollapsed' in sanitized) writes.push(['sidebarCollapsed', { value: sanitized.sidebarCollapsed }]);
+  if ('densityByTable' in sanitized) writes.push(['densityByTable', sanitized.densityByTable]);
+  if ('metricStripByScope' in sanitized) writes.push(['metricStripByScope', sanitized.metricStripByScope]);
+
+  for (const [key, value] of writes) {
     await client.query(
       `insert into user_preferences (user_id, key, value_json, updated_at)
        values ($1, $2, $3::jsonb, now())
@@ -104,5 +91,5 @@ export async function saveUserPreferences(client, userId, patch = {}) {
     );
   }
 
-  return merged;
+  return getUserPreferences(client, userId);
 }

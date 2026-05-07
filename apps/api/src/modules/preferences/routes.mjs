@@ -1,4 +1,4 @@
-import { badRequest, forbidden, sendJson } from '../../lib/http.mjs';
+import { badRequest, sendJson } from '../../lib/http.mjs';
 import { withSession } from '../../lib/session.mjs';
 import { getUserPreferences, saveUserPreferences } from '@smx/db/src/preferences.mjs';
 
