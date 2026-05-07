@@ -328,6 +328,13 @@ function QuickNavIcon({ icon }: { icon: QuickNavRow['icon'] }) {
 }
 
 export function QuickNavigation({ items }: { items: QuickNavRow[] }) {
+  const toneClassMap: Record<string, string> = {
+    brand: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-surface-active)] text-text-brand',
+    critical: 'border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] text-[color:var(--dusk-status-critical-fg)]',
+    warning: 'border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]',
+    info: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]',
+    success: 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]',
+  };
   return (
     <Panel className="p-7">
       <Kicker>Quick Navigation</Kicker>
@@ -339,7 +346,7 @@ export function QuickNavigation({ items }: { items: QuickNavRow[] }) {
             className="group flex items-center justify-between gap-4 rounded-3xl border border-border-default bg-surface-1 px-5 py-4 transition hover:border-brand/30 hover:bg-surface-muted"
           >
             <div className="flex items-center gap-4">
-              <div className={classNames('flex h-14 w-14 items-center justify-center rounded-2xl border bg-gradient-to-br', item.tone)}>
+              <div className={classNames('flex h-14 w-14 items-center justify-center rounded-2xl border', toneClassMap[item.tone] ?? toneClassMap.info)}>
                 <QuickNavIcon icon={item.icon} />
               </div>
               <div>

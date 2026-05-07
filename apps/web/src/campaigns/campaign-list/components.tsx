@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Button, IconButton, Kicker, Panel } from '../../system';
+import { Button, DataTable, IconButton, Kicker, Panel, type ColumnDef } from '../../system';
 import type { CampaignRow, IconProps, TrendDirection } from './types';
 import { classNames, statusBadge } from './utils';
 
@@ -101,23 +101,120 @@ export function CampaignsTable({
   onDelete: (row: CampaignRow) => void;
   deletingId: string | null;
 }) {
+  const columns: ColumnDef<CampaignRow>[] = [
+    {
+      id: 'campaign',
+      header: 'Campaign',
+      cell: (campaign) => (
+        <div>
+          <p className="font-semibold text-text-primary">{campaign.campaign}</p>
+          <p className="mt-1 text-xs text-text-muted">{campaign.advertiser} · {campaign.flight}</p>
+        </div>
+      ),
+      sortAccessor: (campaign) => campaign.campaign,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (campaign) => (
+        <span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', statusBadge(campaign.status))}>
+          {campaign.status}
+        </span>
+      ),
+      sortAccessor: (campaign) => campaign.status,
+    },
+    {
+      id: 'pacing',
+      header: 'Pacing',
+      cell: (campaign) => <span className="font-medium text-text-secondary">{campaign.pacing}</span>,
+      sortAccessor: (campaign) => campaign.pacing,
+    },
+    {
+      id: 'spend',
+      header: 'Spend',
+      align: 'right',
+      cell: (campaign) => (
+        <span className="tabular-nums text-text-secondary">
+          <span className="font-medium">{campaign.spend}</span>
+          <span className="text-[color:var(--dusk-text-soft)]"> / {campaign.budget}</span>
+        </span>
+      ),
+      sortAccessor: (campaign) => campaign.spend,
+    },
+    {
+      id: 'tags',
+      header: 'Tags',
+      cell: (campaign) => campaign.tagHealth,
+      sortAccessor: (campaign) => campaign.tagHealth,
+    },
+    {
+      id: 'creatives',
+      header: 'Creatives',
+      cell: (campaign) => campaign.creativeStatus,
+      sortAccessor: (campaign) => campaign.creativeStatus,
+    },
+    {
+      id: 'issues',
+      header: 'Issues',
+      align: 'right',
+      numeric: true,
+      cell: (campaign) => (
+        <span
+          className={classNames(
+            'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
+            campaign.issues > 0
+              ? 'bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]'
+              : 'bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]',
+          )}
+        >
+          {campaign.issues}
+        </span>
+      ),
+      sortAccessor: (campaign) => campaign.issues,
+    },
+    {
+      id: 'owner',
+      header: 'Owner',
+      cell: (campaign) => campaign.owner,
+      sortAccessor: (campaign) => campaign.owner,
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: (campaign) => (
+        <div className="flex items-center gap-2">
+          <IconButton
+            onClick={() => onEdit(campaign)}
+            aria-label={`Edit ${campaign.campaign}`}
+            variant="ghost"
+            size="sm"
+            icon={<MoreIcon className="h-4 w-4" />}
+          />
+          <Button
+            type="button"
+            onClick={() => onDelete(campaign)}
+            disabled={deletingId === campaign.id}
+            variant="danger"
+            size="sm"
+          >
+            {deletingId === campaign.id ? 'Deleting…' : 'Delete'}
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <Panel className="overflow-hidden p-6">
-      <div className="flex flex-col gap-4 border-b border-border-default pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
+      <div className="flex flex-col gap-4 border-b border-border-default pb-5 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <Kicker>Campaign workspace</Kicker>
           <h2 className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Active &amp; setup campaigns</h2>
           <p className="mt-2 text-sm text-text-muted">Operational view for pacing, tag health, creative QA and launch readiness.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" variant="secondary" size="sm">
-            <FilterIcon className="h-4 w-4" />
-            Filters
-          </Button>
-          <Link to="/campaigns/new">
-            <Button variant="primary" size="sm">New campaign</Button>
-          </Link>
-        </div>
+        <Link to="/campaigns/new">
+          <Button variant="primary" size="sm">New campaign</Button>
+        </Link>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-4">
@@ -127,66 +224,13 @@ export function CampaignsTable({
         <CampaignStatusCard title="Draft setup" value={String(draftSetup)} helper="missing setup steps" />
       </div>
 
-      <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-border-default">
-        <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)] text-sm">
-          <caption className="sr-only">
-            Campaign operations table with status, pacing, spend, tag health, creative status, issues, owner, and actions.
-          </caption>
-          <thead className="bg-[color:var(--dusk-surface-muted)]/80">
-            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted">
-              <th scope="col" className="px-5 py-4">Campaign</th>
-              <th scope="col" className="px-5 py-4">Status</th>
-              <th scope="col" className="px-5 py-4">Pacing</th>
-              <th scope="col" className="px-5 py-4">Spend</th>
-              <th scope="col" className="px-5 py-4">Tags</th>
-              <th scope="col" className="px-5 py-4">Creatives</th>
-              <th scope="col" className="px-5 py-4">Issues</th>
-              <th scope="col" className="px-5 py-4">Owner</th>
-              <th scope="col" className="px-5 py-4" aria-label="Actions" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
-            {campaignRows.map((campaign) => (
-              <tr key={campaign.id} className="bg-surface-1/42 transition hover:bg-[color:var(--dusk-surface-muted)]">
-                <th scope="row" className="px-5 py-5 text-left">
-                  <p className="font-semibold text-[color:var(--dusk-text-primary)]">{campaign.campaign}</p>
-                  <p className="mt-1 text-xs text-text-muted">{campaign.advertiser} · {campaign.flight}</p>
-                </th>
-                <td className="px-5 py-5"><span className={classNames('inline-flex rounded-full border px-3 py-1 text-xs font-semibold', statusBadge(campaign.status))}>{campaign.status}</span></td>
-                <td className="px-5 py-5 font-medium text-text-secondary">{campaign.pacing}</td>
-                <td className="px-5 py-5 tabular-nums text-text-secondary"><span className="font-medium">{campaign.spend}</span><span className="text-[color:var(--dusk-text-soft)]"> / {campaign.budget}</span></td>
-                <td className="px-5 py-5 text-text-muted">{campaign.tagHealth}</td>
-                <td className="px-5 py-5 text-text-muted">{campaign.creativeStatus}</td>
-                <td className="px-5 py-5">
-                  <span className={classNames('inline-flex rounded-full px-2.5 py-1 text-xs font-semibold', campaign.issues > 0 ? 'bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]' : 'bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]')}>
-                    {campaign.issues}
-                  </span>
-                </td>
-                <td className="px-5 py-5 text-text-muted">{campaign.owner}</td>
-                <td className="px-5 py-5">
-                  <div className="flex items-center gap-2">
-                    <IconButton
-                      onClick={() => onEdit(campaign)}
-                      aria-label={`Edit ${campaign.campaign}`}
-                      variant="ghost"
-                      size="sm"
-                      icon={<MoreIcon className="h-4 w-4" />}
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => onDelete(campaign)}
-                      disabled={deletingId === campaign.id}
-                      variant="danger"
-                      size="sm"
-                    >
-                      {deletingId === campaign.id ? 'Deleting…' : 'Delete'}
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mt-6">
+        <DataTable
+          columns={columns}
+          data={campaignRows}
+          rowKey={(campaign) => campaign.id}
+          bordered
+        />
       </div>
     </Panel>
   );

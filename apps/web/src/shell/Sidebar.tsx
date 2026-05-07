@@ -258,8 +258,8 @@ function SystemStatus() {
     <div className="px-2 py-2">
       <div className="flex items-center gap-2">
         <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[color:var(--dusk-status-success-fg)] opacity-50" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-[color:var(--dusk-status-success-fg)]" />
         </span>
         <p className="text-xs text-[color:var(--dusk-text-muted)]">All systems serving</p>
       </div>

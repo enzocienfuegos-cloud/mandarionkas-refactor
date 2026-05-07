@@ -111,7 +111,7 @@ export function CampaignEditorForm({
         </FormField>
       </div>
 
-      <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-2">
+      <div className="flex items-center justify-end gap-3 border-t border-border-default pt-2">
         <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>

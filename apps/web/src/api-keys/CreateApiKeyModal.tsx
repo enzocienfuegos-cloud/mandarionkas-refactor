@@ -1,5 +1,5 @@
 import React, { useState, type FormEvent } from 'react';
-import { Button, Input, Modal } from '../system';
+import { Button, FormField, Input, Modal, Panel, ReadOnlyValue } from '../system';
 import { type ApiKey, type CreateKeyResult, SCOPE_CATEGORIES } from './types';
 
 export function CreateApiKeyModal({
@@ -70,16 +70,13 @@ export function CreateApiKeyModal({
     <Modal open onClose={onClose} size="lg" title="Create API Key">
       {rawKey ? (
         <div>
-          <div className="mb-4 rounded-lg border border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] px-4 py-3 text-sm text-yellow-800">
+          <Panel className="mb-4 border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-warning-fg)]">
             <strong>Store this key securely — it won't be shown again.</strong>
-          </div>
-          <label className="mb-2 block text-sm font-medium text-text-secondary">Your new API key</label>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 break-all rounded-lg bg-slate-900 px-3 py-2.5 font-mono text-sm text-green-400">
-              {rawKey}
-            </code>
-            <Button onClick={handleCopy} variant="secondary">
-              {copied ? 'Copied' : 'Copy'}
+          </Panel>
+          <div className="space-y-3">
+            <ReadOnlyValue label="Your new API key" value={rawKey} className="font-mono" />
+            <Button onClick={handleCopy} variant="secondary" className="w-full">
+              {copied ? 'Copied' : 'Copy key'}
             </Button>
           </div>
           <Button onClick={onClose} className="mt-4 w-full">
@@ -94,22 +91,16 @@ export function CreateApiKeyModal({
             </div>
           )}
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-text-secondary">
-              Key Name <span className="text-red-500">*</span>
-            </label>
+          <FormField label="Key Name" required>
             <Input
               type="text"
               value={newName}
               onChange={(event) => setNewName(event.target.value)}
               placeholder="CI/CD Pipeline Key"
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-text-secondary">
-              Scopes <span className="text-red-500">*</span>
-            </label>
+          <FormField label="Scopes" required>
             <div className="space-y-3">
               {SCOPE_CATEGORIES.map((category) => (
                 <div key={category.label}>
@@ -131,19 +122,16 @@ export function CreateApiKeyModal({
                 </div>
               ))}
             </div>
-          </div>
+          </FormField>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-text-secondary">
-              Expiry Date <span className="text-[color:var(--dusk-text-soft)]">(optional)</span>
-            </label>
+          <FormField label="Expiry Date" helper="Optional expiration date for this credential.">
             <Input
               type="date"
               value={expiryDate}
               onChange={(event) => setExpiryDate(event.target.value)}
               min={new Date().toISOString().slice(0, 10)}
             />
-          </div>
+          </FormField>
 
           <div className="flex gap-3 pt-2">
             <Button type="button" onClick={onClose} variant="ghost" className="flex-1">

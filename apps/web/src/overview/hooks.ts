@@ -286,7 +286,7 @@ export function useOverviewDashboardModel({
         delta: deliveryHealthDelta.label,
         direction: deliveryHealthDelta.direction,
         icon: 'viewability',
-        tone: 'from-emerald-400/20 via-emerald-500/12 to-transparent text-emerald-400 dark:text-emerald-300',
+        tone: 'success',
         series: safeTimeline.map((point) => toNumber(point.viewability_rate)),
         context: `${healthyCampaigns} campaigns currently healthy`,
       },
@@ -297,7 +297,7 @@ export function useOverviewDashboardModel({
         delta: spendDelta.label,
         direction: spendDelta.direction,
         icon: 'spend',
-        tone: 'from-sky-400/20 via-sky-500/12 to-transparent text-sky-400 dark:text-sky-300',
+        tone: 'info',
         series: safeTimeline.map((point) => toNumber(point.spend)),
         context: 'Tracked across live campaign budgets',
       },
@@ -308,7 +308,7 @@ export function useOverviewDashboardModel({
         delta: impressionsDelta.label,
         direction: impressionsDelta.direction,
         icon: 'impressions',
-        tone: 'from-fuchsia-400/20 via-fuchsia-500/12 to-transparent text-fuchsia-400 dark:text-fuchsia-300',
+        tone: 'brand',
         series: safeTimeline.map((point) => toNumber(point.impressions)),
         context: 'Signals captured in the selected range',
       },
@@ -319,7 +319,7 @@ export function useOverviewDashboardModel({
         delta: discrepancyDelta.label,
         direction: discrepancyDelta.direction,
         icon: 'engagements',
-        tone: 'from-violet-400/20 via-violet-500/12 to-transparent text-violet-400 dark:text-violet-300',
+        tone: 'critical',
         series: safeTimeline.map((point) => toNumber(point.clicks)),
         context: `${discrepancyRisk} items require review`,
       },
@@ -363,10 +363,10 @@ export function useOverviewDashboardModel({
     const lowCtrCreatives = creativeBreakdown.filter((item) => toNumber(item.ctr) > 0 && toNumber(item.ctr) < 0.5).length;
     const activeCreatives = creatives.filter((item) => item.latestVersion?.status === 'approved' || item.latestVersion?.status === 'pending_review').length;
     return [
-      { id: 'campaigns', label: 'Campaigns', detail: `${activeCampaignCount} active / ${lowCtrCampaignCount} issues`, to: '/campaigns', icon: 'campaigns', tone: 'from-violet-500/30 to-fuchsia-500/10 text-violet-300' },
-      { id: 'creatives', label: 'Creatives', detail: `${activeCreatives} ready / ${lowCtrCreatives} low CTR`, to: '/creatives', icon: 'creatives', tone: 'from-fuchsia-500/30 to-rose-500/10 text-fuchsia-300' },
-      { id: 'tags', label: 'Tags', detail: `${activeTagCount} live / ${inactiveTagCount} inactive`, to: '/tags', icon: 'tags', tone: 'from-amber-500/30 to-orange-500/10 text-amber-300' },
-      { id: 'analytics', label: 'Analytics', detail: 'Full reporting & insights', to: '/reporting', icon: 'analytics', tone: 'from-sky-500/30 to-cyan-500/10 text-sky-300' },
+      { id: 'campaigns', label: 'Campaigns', detail: `${activeCampaignCount} active / ${lowCtrCampaignCount} issues`, to: '/campaigns', icon: 'campaigns', tone: 'critical' },
+      { id: 'creatives', label: 'Creatives', detail: `${activeCreatives} ready / ${lowCtrCreatives} low CTR`, to: '/creatives', icon: 'creatives', tone: 'brand' },
+      { id: 'tags', label: 'Tags', detail: `${activeTagCount} live / ${inactiveTagCount} inactive`, to: '/tags', icon: 'tags', tone: 'warning' },
+      { id: 'analytics', label: 'Analytics', detail: 'Full reporting & insights', to: '/reporting', icon: 'analytics', tone: 'info' },
     ];
   }, [campaignBreakdown, campaigns, creativeBreakdown, creatives, tags]);
 
