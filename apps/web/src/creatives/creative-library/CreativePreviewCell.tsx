@@ -32,7 +32,7 @@ export function CreativePreviewCell({
           type="button"
           variant="secondary"
           size="sm"
-          className="w-fit border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 hover:border-fuchsia-300 hover:bg-fuchsia-100 hover:text-fuchsia-700 dark:border-fuchsia-500/18 dark:bg-fuchsia-500/10 dark:text-fuchsia-300"
+          className="w-fit border-brand-500/20 bg-brand-500/10 text-text-brand hover:border-brand-500/30 hover:bg-brand-500/15 hover:text-text-brand"
           onClick={() => {
             onOpenPreview({
               url: previewHref,
@@ -49,7 +49,7 @@ export function CreativePreviewCell({
           href={previewHref}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[11px] text-slate-400 hover:text-fuchsia-600 hover:underline dark:text-white/38 dark:hover:text-fuchsia-300"
+          className="text-[11px] text-text-soft hover:text-text-brand hover:underline"
         >
           Open in tab ↗
         </a>
@@ -60,13 +60,13 @@ export function CreativePreviewCell({
   if (versionSourceKind === 'html5_zip' && String(versionStatus ?? '') === 'processing') {
     return (
       <div className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-amber-600 dark:text-amber-300">Publishing…</span>
-        <span className="text-[11px] text-slate-400 dark:text-white/38">Auto-refreshing</span>
+        <span className="text-xs font-medium text-[color:var(--dusk-status-warning-fg)]">Publishing…</span>
+        <span className="text-[11px] text-text-soft">Auto-refreshing</span>
       </div>
     );
   }
 
   return (
-    <span className="text-xs text-slate-400 dark:text-white/38">{previewLabel}</span>
+    <span className="text-xs text-text-soft">{previewLabel}</span>
   );
 }

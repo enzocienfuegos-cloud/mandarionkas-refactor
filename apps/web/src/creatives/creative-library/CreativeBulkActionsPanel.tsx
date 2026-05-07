@@ -46,14 +46,14 @@ export function CreativeBulkActionsPanel({
   onClearSelection,
 }: Props) {
   return (
-    <Panel className="border-fuchsia-200 bg-fuchsia-50/80 px-4 py-3 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10">
+    <Panel className="border-brand-500/20 bg-brand-500/10 px-4 py-3">
       <div className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-medium text-fuchsia-900 dark:text-fuchsia-200">
+            <div className="text-sm font-medium text-text-primary">
               {selectedCount} creative{selectedCount === 1 ? '' : 's'} selected
             </div>
-            <div className="mt-1 text-xs text-fuchsia-700 dark:text-fuchsia-200/80">
+            <div className="mt-1 text-xs text-text-secondary">
               Update landing pages in bulk or assign the selected creatives to one tag when they belong to the same client and share the same delivery type.
             </div>
           </div>
@@ -63,8 +63,8 @@ export function CreativeBulkActionsPanel({
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
-          <div className="rounded-lg border border-fuchsia-200/60 bg-white/70 p-3 dark:border-fuchsia-500/20 dark:bg-white/[0.03]">
-            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fuchsia-700 dark:text-fuchsia-200">Bulk destination URL</div>
+          <div className="rounded-lg border border-brand-500/20 bg-surface-1/80 p-3">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-brand">Bulk destination URL</div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 value={bulkClickUrl}
@@ -81,8 +81,8 @@ export function CreativeBulkActionsPanel({
               </Button>
             </div>
           </div>
-          <div className="rounded-lg border border-fuchsia-200/60 bg-white/70 p-3 dark:border-fuchsia-500/20 dark:bg-white/[0.03]">
-            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fuchsia-700 dark:text-fuchsia-200">Bulk tag assignment</div>
+          <div className="rounded-lg border border-brand-500/20 bg-surface-1/80 p-3">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-brand">Bulk tag assignment</div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Select
                 value={bulkAssignTagId}
@@ -104,14 +104,14 @@ export function CreativeBulkActionsPanel({
               </Button>
             </div>
             {bulkAssignHint ? (
-              <p className="mt-1 text-[11px] text-amber-700">{bulkAssignHint}</p>
+              <p className="mt-1 text-[11px] text-[color:var(--dusk-status-warning-fg)]">{bulkAssignHint}</p>
             ) : null}
           </div>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
-          <div className="rounded-lg border border-fuchsia-200/60 bg-white/70 p-3 dark:border-fuchsia-500/20 dark:bg-white/[0.03]">
-            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-fuchsia-700 dark:text-fuchsia-200">Bulk active state</div>
+          <div className="rounded-lg border border-brand-500/20 bg-surface-1/80 p-3">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-brand">Bulk active state</div>
             <div className="flex flex-wrap gap-2">
               <Button
                 onClick={() => void onBulkStatusUpdate('approved')}
@@ -129,8 +129,8 @@ export function CreativeBulkActionsPanel({
               </Button>
             </div>
           </div>
-          <div className="rounded-lg border border-rose-200/70 bg-white/70 p-3 dark:border-rose-500/20 dark:bg-white/[0.03]">
-            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">Bulk delete</div>
+          <div className="rounded-lg border border-[color:var(--dusk-status-critical-border)] bg-surface-1/80 p-3">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-status-critical-fg)]">Bulk delete</div>
             <Button
               onClick={() => void onBulkDelete()}
               variant="danger"

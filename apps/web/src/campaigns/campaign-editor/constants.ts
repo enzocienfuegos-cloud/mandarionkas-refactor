@@ -20,6 +20,6 @@ export const emptyForm: CampaignForm = {
   dailyBudget: '',
 };
 
-export const campaignSelectClassName = 'w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-fuchsia-500/20 focus:border-fuchsia-500';
+export const campaignSelectClassName = 'w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2.5 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500';
 
-export const invalidCampaignSelectClassName = `${campaignSelectClassName} border-[color:var(--dusk-status-critical-fg)] bg-rose-50/70 dark:bg-rose-500/10`;
+export const invalidCampaignSelectClassName = `${campaignSelectClassName} border-[color:var(--dusk-status-critical-fg)] bg-[color:var(--dusk-status-critical-bg)]`;

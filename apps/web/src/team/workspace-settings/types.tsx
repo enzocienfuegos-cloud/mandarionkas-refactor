@@ -1,3 +1,4 @@
+import { Badge } from '../../system';
 import { getPlatformRoleLabel, type PlatformRole } from '../../shared/roles';
 
 export type Tab = 'profile' | 'members';
@@ -35,21 +36,17 @@ export const PLATFORM_ROLE_PRODUCT_ACCESS: Record<PlatformRole, ProductAccess> =
   reviewer: { ad_server: true, studio: true },
 };
 
-const ROLE_BADGE_CLASS: Record<PlatformRole | 'owner', string> = {
-  owner: 'bg-violet-100 text-violet-800',
-  admin: 'bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]',
-  designer: 'bg-emerald-100 text-emerald-800',
-  ad_ops: 'bg-fuchsia-100 text-fuchsia-800',
-  reviewer: 'bg-[color:var(--dusk-surface-muted)] text-text-muted',
+const ROLE_BADGE_TONE: Record<PlatformRole | 'owner', React.ComponentProps<typeof Badge>['tone']> = {
+  owner: 'brand',
+  admin: 'info',
+  designer: 'success',
+  ad_ops: 'brand',
+  reviewer: 'neutral',
 };
 
 export function roleBadge(role: PlatformRole | 'owner') {
   const label = role === 'owner' ? 'Owner' : getPlatformRoleLabel(role);
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE_CLASS[role]}`}>
-      {label}
-    </span>
-  );
+  return <Badge tone={ROLE_BADGE_TONE[role]} size="sm">{label}</Badge>;
 }
 
 export function productAccessLabel(productAccess: ProductAccess) {
@@ -117,14 +114,10 @@ export function normalizeMember(raw: any): Member {
 }
 
 export function ProductAccessBadge({ productAccess }: { productAccess: ProductAccess }) {
-  const cls = productAccess.ad_server && productAccess.studio
-    ? 'bg-emerald-50 text-emerald-700'
+  const tone: React.ComponentProps<typeof Badge>['tone'] = productAccess.ad_server && productAccess.studio
+    ? 'success'
     : productAccess.ad_server
-      ? 'bg-fuchsia-50 text-fuchsia-700'
-      : 'bg-amber-50 text-[color:var(--dusk-status-warning-fg)]';
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
-      {productAccessLabel(productAccess)}
-    </span>
-  );
+      ? 'brand'
+      : 'warning';
+  return <Badge tone={tone} size="sm">{productAccessLabel(productAccess)}</Badge>;
 }
