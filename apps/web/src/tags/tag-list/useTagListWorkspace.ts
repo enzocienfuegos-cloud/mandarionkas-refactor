@@ -23,21 +23,26 @@ export function useTagListWorkspace({
   const [tags, setTags] = useState<Tag[]>([]);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
-  const [selectedClientId, setSelectedClientId] = useState('');
-  const [tagSearch, setTagSearch] = useState('');
-  const [needsQaOnly, setNeedsQaOnly] = useState(false);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [bulkActionLoading, setBulkActionLoading] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState('');
-  const [createForm, setCreateForm] = useState<CreateTagForm>(EMPTY_CREATE_FORM);
+  const [filters, setFilters] = useState({
+    selectedClientId: '',
+    tagSearch: '',
+    needsQaOnly: false,
+    selectedTagIds: [] as string[],
+  });
+  const [requestState, setRequestState] = useState({
+    loading: true,
+    error: '',
+    deletingId: null as string | null,
+    bulkActionLoading: false,
+  });
+  const [createState, setCreateState] = useState({
+    creating: false,
+    createError: '',
+    createForm: EMPTY_CREATE_FORM as CreateTagForm,
+  });
 
   const load = () => {
-    setLoading(true);
-    setError('');
+    setRequestState((current) => ({ ...current, loading: true, error: '' }));
     Promise.all([
       fetch('/v1/tags?scope=all', { credentials: 'include' }).then((response) => {
         if (!response.ok) throw new Error('Failed to load tags');
@@ -51,32 +56,35 @@ export function useTagListWorkspace({
         setClients(workspaceList.map((workspace) => ({ id: workspace.id, name: workspace.name })));
         setActiveWorkspaceId(authMe.workspace?.id ?? '');
       })
-      .catch((loadError: Error) => setError(loadError.message))
-      .finally(() => setLoading(false));
+      .catch((loadError: Error) => setRequestState((current) => ({ ...current, error: loadError.message })))
+      .finally(() => setRequestState((current) => ({ ...current, loading: false })));
   };
 
   useEffect(load, []);
 
   useEffect(() => {
     if (openCreateFromQuery) {
-      setCreating(true);
+      setCreateState((current) => ({ ...current, creating: true }));
     }
   }, [openCreateFromQuery]);
 
   useEffect(() => {
-    if (!creating) return;
-    setCreateForm((current) => ({
+    if (!createState.creating) return;
+    setCreateState((current) => ({
       ...current,
-      workspaceId: current.workspaceId || selectedClientId || '',
+      createForm: {
+        ...current.createForm,
+        workspaceId: current.createForm.workspaceId || filters.selectedClientId || '',
+      },
     }));
-  }, [creating, selectedClientId]);
+  }, [createState.creating, filters.selectedClientId]);
 
-  const normalizedTagSearch = tagSearch.trim().toLowerCase();
+  const normalizedTagSearch = filters.tagSearch.trim().toLowerCase();
   const filteredTags = useMemo(() => tags.filter((tag) => {
-    const matchesClient = !selectedClientId || (tag.workspaceId ?? '') === selectedClientId;
+    const matchesClient = !filters.selectedClientId || (tag.workspaceId ?? '') === filters.selectedClientId;
     if (!matchesClient) return false;
 
-    if (needsQaOnly && !['paused', 'draft'].includes(tag.status)) {
+    if (filters.needsQaOnly && !['paused', 'draft'].includes(tag.status)) {
       return false;
     }
 
@@ -96,9 +104,9 @@ export function useTagListWorkspace({
       .toLowerCase();
 
     return haystack.includes(normalizedTagSearch);
-  }), [needsQaOnly, normalizedTagSearch, selectedClientId, tags]);
+  }), [filters.needsQaOnly, filters.selectedClientId, normalizedTagSearch, tags]);
 
-  const selectedCount = selectedTagIds.length;
+  const selectedCount = filters.selectedTagIds.length;
   const activeTags = filteredTags.filter((tag) => tag.status === 'active').length;
   const pausedTags = filteredTags.filter((tag) => tag.status === 'paused').length;
   const draftTags = filteredTags.filter((tag) => tag.status === 'draft').length;
@@ -152,10 +160,13 @@ export function useTagListWorkspace({
   ], [activeTags, draftTags, healthyRate, needsAttentionCount, readyTags]);
 
   useEffect(() => {
-    setSelectedTagIds((current) => current.filter((id) => filteredTags.some((tag) => tag.id === id)));
+    setFilters((current) => ({
+      ...current,
+      selectedTagIds: current.selectedTagIds.filter((id) => filteredTags.some((tag) => tag.id === id)),
+    }));
   }, [filteredTags]);
 
-  const selectedKeySet = useMemo(() => new Set(selectedTagIds), [selectedTagIds]);
+  const selectedKeySet = useMemo(() => new Set(filters.selectedTagIds), [filters.selectedTagIds]);
 
   const updateTagInState = (tagId: string, nextStatus: Tag['status']) => {
     setTags((current) => current.map((tag) => (tag.id === tagId ? { ...tag, status: nextStatus } : tag)));
@@ -177,7 +188,7 @@ export function useTagListWorkspace({
       requireTypeToConfirm: tag.name,
     });
     if (!confirmed) return;
-    setDeletingId(tag.id);
+    setRequestState((current) => ({ ...current, deletingId: tag.id }));
     try {
       await withWorkspaceContext(tag);
       const response = await fetch(`/v1/tags/${tag.id}`, { method: 'DELETE', credentials: 'include' });
@@ -190,15 +201,15 @@ export function useTagListWorkspace({
     } catch (deleteError: any) {
       toast({ tone: 'critical', title: deleteError.message ?? 'Failed to delete tag.' });
     } finally {
-      setDeletingId(null);
+      setRequestState((current) => ({ ...current, deletingId: null }));
     }
   };
 
   const handleBulkStatus = async (nextStatus: Extract<Tag['status'], 'active' | 'paused'>) => {
-    if (!selectedTagIds.length) return;
-    setBulkActionLoading(true);
+    if (!filters.selectedTagIds.length) return;
+    setRequestState((current) => ({ ...current, bulkActionLoading: true }));
     try {
-      const selectedTags = tags.filter((tag) => selectedTagIds.includes(tag.id));
+      const selectedTags = tags.filter((tag) => filters.selectedTagIds.includes(tag.id));
       for (const tag of selectedTags) {
         await withWorkspaceContext(tag);
         const response = await fetch(`/v1/tags/${tag.id}`, {
@@ -213,27 +224,27 @@ export function useTagListWorkspace({
         }
         updateTagInState(tag.id, nextStatus);
       }
-      setSelectedTagIds([]);
+      setFilters((current) => ({ ...current, selectedTagIds: [] }));
     } catch (bulkError: any) {
       toast({ tone: 'critical', title: bulkError.message ?? 'Bulk update failed.' });
     } finally {
-      setBulkActionLoading(false);
+      setRequestState((current) => ({ ...current, bulkActionLoading: false }));
     }
   };
 
   const handleBulkDelete = async () => {
-    if (!selectedTagIds.length) return;
+    if (!filters.selectedTagIds.length) return;
     const confirmed = await confirm({
-      title: `Delete ${selectedTagIds.length} selected tag${selectedTagIds.length !== 1 ? 's' : ''}?`,
+      title: `Delete ${filters.selectedTagIds.length} selected tag${filters.selectedTagIds.length !== 1 ? 's' : ''}?`,
       description: 'This cannot be undone.',
       tone: 'danger',
       confirmLabel: 'Delete',
     });
     if (!confirmed) return;
 
-    setBulkActionLoading(true);
+    setRequestState((current) => ({ ...current, bulkActionLoading: true }));
     try {
-      const selectedTags = tags.filter((tag) => selectedTagIds.includes(tag.id));
+      const selectedTags = tags.filter((tag) => filters.selectedTagIds.includes(tag.id));
       for (const tag of selectedTags) {
         await withWorkspaceContext(tag);
         const response = await fetch(`/v1/tags/${tag.id}`, { method: 'DELETE', credentials: 'include' });
@@ -242,13 +253,13 @@ export function useTagListWorkspace({
           throw new Error(payload?.message ?? `Failed to delete "${tag.name}"`);
         }
       }
-      setTags((current) => current.filter((tag) => !selectedTagIds.includes(tag.id)));
-      setSelectedTagIds([]);
+      setTags((current) => current.filter((tag) => !filters.selectedTagIds.includes(tag.id)));
+      setFilters((current) => ({ ...current, selectedTagIds: [] }));
       toast({ tone: 'warning', title: `${selectedTags.length} tag${selectedTags.length === 1 ? '' : 's'} deleted` });
     } catch (bulkError: any) {
       toast({ tone: 'critical', title: bulkError.message ?? 'Bulk delete failed.' });
     } finally {
-      setBulkActionLoading(false);
+      setRequestState((current) => ({ ...current, bulkActionLoading: false }));
     }
   };
 
@@ -271,38 +282,39 @@ export function useTagListWorkspace({
   };
 
   const closeCreate = () => {
-    setCreating(false);
-    setCreateError('');
-    setCreateForm(EMPTY_CREATE_FORM);
+    setCreateState({
+      creating: false,
+      createError: '',
+      createForm: EMPTY_CREATE_FORM,
+    });
     if (openCreateFromQuery) {
       clearCreateQuery();
     }
   };
 
   const openCreate = () => {
-    setCreateError('');
-    setCreating(true);
+    setCreateState((current) => ({ ...current, createError: '', creating: true }));
   };
 
   const handleCreate = async () => {
-    if (!createForm.workspaceId) {
-      setCreateError('Client is required.');
+    if (!createState.createForm.workspaceId) {
+      setCreateState((current) => ({ ...current, createError: 'Client is required.' }));
       return;
     }
-    if (!createForm.name.trim()) {
-      setCreateError('Tag name is required.');
+    if (!createState.createForm.name.trim()) {
+      setCreateState((current) => ({ ...current, createError: 'Tag name is required.' }));
       return;
     }
-    if (createForm.format === 'display' && (!createForm.servingWidth || !createForm.servingHeight)) {
-      setCreateError('Display tags require width and height.');
+    if (createState.createForm.format === 'display' && (!createState.createForm.servingWidth || !createState.createForm.servingHeight)) {
+      setCreateState((current) => ({ ...current, createError: 'Display tags require width and height.' }));
       return;
     }
-    if (createForm.format === 'tracker' && createForm.trackerType === 'click' && !createForm.clickUrl.trim()) {
-      setCreateError('Click trackers require a destination URL.');
+    if (createState.createForm.format === 'tracker' && createState.createForm.trackerType === 'click' && !createState.createForm.clickUrl.trim()) {
+      setCreateState((current) => ({ ...current, createError: 'Click trackers require a destination URL.' }));
       return;
     }
 
-    setCreateError('');
+    setCreateState((current) => ({ ...current, createError: '' }));
 
     try {
       const response = await fetch('/v1/tags', {
@@ -310,15 +322,15 @@ export function useTagListWorkspace({
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          workspaceId: createForm.workspaceId,
-          name: createForm.name.trim(),
-          campaignId: createForm.campaignId || null,
-          format: createForm.format,
-          status: createForm.status,
-          servingWidth: createForm.format === 'display' ? Number(createForm.servingWidth) || null : null,
-          servingHeight: createForm.format === 'display' ? Number(createForm.servingHeight) || null : null,
-          trackerType: createForm.format === 'tracker' ? createForm.trackerType : null,
-          clickUrl: createForm.format === 'tracker' && createForm.trackerType === 'click' ? createForm.clickUrl.trim() || null : null,
+          workspaceId: createState.createForm.workspaceId,
+          name: createState.createForm.name.trim(),
+          campaignId: createState.createForm.campaignId || null,
+          format: createState.createForm.format,
+          status: createState.createForm.status,
+          servingWidth: createState.createForm.format === 'display' ? Number(createState.createForm.servingWidth) || null : null,
+          servingHeight: createState.createForm.format === 'display' ? Number(createState.createForm.servingHeight) || null : null,
+          trackerType: createState.createForm.format === 'tracker' ? createState.createForm.trackerType : null,
+          clickUrl: createState.createForm.format === 'tracker' && createState.createForm.trackerType === 'click' ? createState.createForm.clickUrl.trim() || null : null,
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -328,29 +340,44 @@ export function useTagListWorkspace({
       const createdId = payload?.tag?.id ?? payload?.id;
       if (createdId) onCreatedTag?.(createdId);
     } catch (createErr: any) {
-      setCreateError(createErr.message ?? 'Failed to create tag');
+      setCreateState((current) => ({ ...current, createError: createErr.message ?? 'Failed to create tag' }));
     }
   };
+
+  const setSelectedClientId = (value: string) => setFilters((current) => ({ ...current, selectedClientId: value }));
+  const setTagSearch = (value: string) => setFilters((current) => ({ ...current, tagSearch: value }));
+  const setNeedsQaOnly = (value: boolean | ((current: boolean) => boolean)) => setFilters((current) => ({
+    ...current,
+    needsQaOnly: typeof value === 'function' ? value(current.needsQaOnly) : value,
+  }));
+  const setSelectedTagIds = (value: string[] | ((current: string[]) => string[])) => setFilters((current) => ({
+    ...current,
+    selectedTagIds: typeof value === 'function' ? value(current.selectedTagIds) : value,
+  }));
+  const setCreateForm = (value: CreateTagForm | ((current: CreateTagForm) => CreateTagForm)) => setCreateState((current) => ({
+    ...current,
+    createForm: typeof value === 'function' ? value(current.createForm) : value,
+  }));
 
   return {
     tags,
     clients,
     activeWorkspaceId,
-    selectedClientId,
+    selectedClientId: filters.selectedClientId,
     setSelectedClientId,
-    tagSearch,
+    tagSearch: filters.tagSearch,
     setTagSearch,
-    needsQaOnly,
+    needsQaOnly: filters.needsQaOnly,
     setNeedsQaOnly,
-    selectedTagIds,
+    selectedTagIds: filters.selectedTagIds,
     setSelectedTagIds,
-    loading,
-    error,
-    deletingId,
-    bulkActionLoading,
-    creating,
-    createError,
-    createForm,
+    loading: requestState.loading,
+    error: requestState.error,
+    deletingId: requestState.deletingId,
+    bulkActionLoading: requestState.bulkActionLoading,
+    creating: createState.creating,
+    createError: createState.createError,
+    createForm: createState.createForm,
     setCreateForm,
     filteredTags,
     selectedCount,

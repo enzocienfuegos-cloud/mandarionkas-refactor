@@ -13,15 +13,19 @@ export function useTagReportingData(routeTagId: string) {
   const [summary, setSummary] = useState<TagSummary | null>(null);
   const [stats, setStats] = useState<DailyStat[]>([]);
   const [bindings, setBindings] = useState<TagBindingOption[]>([]);
-  const [loadingTags, setLoadingTags] = useState(true);
-  const [loadingBindings, setLoadingBindings] = useState(false);
-  const [loadingStats, setLoadingStats] = useState(false);
-  const [error, setError] = useState('');
-  const [statsError, setStatsError] = useState('');
-  const [dateRange, setDateRange] = useState(7);
-  const [tagSearch, setTagSearch] = useState('');
-  const [selectedCreativeId, setSelectedCreativeId] = useState('');
-  const [selectedVariantId, setSelectedVariantId] = useState('');
+  const [requestState, setRequestState] = useState({
+    loadingTags: true,
+    loadingBindings: false,
+    loadingStats: false,
+    error: '',
+    statsError: '',
+  });
+  const [filters, setFilters] = useState({
+    dateRange: 7,
+    tagSearch: '',
+    selectedCreativeId: '',
+    selectedVariantId: '',
+  });
 
   useEffect(() => {
     fetch('/v1/tags?scope=all&limit=500', { credentials: 'include' })
@@ -38,8 +42,8 @@ export function useTagReportingData(routeTagId: string) {
           : list[0];
         setSelectedTag(initial);
       })
-      .catch((fetchError) => setError(fetchError.message))
-      .finally(() => setLoadingTags(false));
+      .catch((fetchError) => setRequestState((current) => ({ ...current, error: fetchError.message })))
+      .finally(() => setRequestState((current) => ({ ...current, loadingTags: false })));
   }, [routeTagId]);
 
   useEffect(() => {
@@ -71,7 +75,7 @@ export function useTagReportingData(routeTagId: string) {
       return;
     }
 
-    setLoadingBindings(true);
+    setRequestState((current) => ({ ...current, loadingBindings: true }));
     fetch(`/v1/tags/${selectedTag.id}/bindings`, { credentials: 'include' })
       .then((response) => {
         if (!response.ok) throw new Error('Failed to load tag bindings');
@@ -81,12 +85,15 @@ export function useTagReportingData(routeTagId: string) {
         setBindings(normalizeBindings(data?.bindings ?? data ?? []));
       })
       .catch(() => setBindings([]))
-      .finally(() => setLoadingBindings(false));
+      .finally(() => setRequestState((current) => ({ ...current, loadingBindings: false })));
   }, [selectedTag]);
 
   useEffect(() => {
-    setSelectedCreativeId('');
-    setSelectedVariantId('');
+    setFilters((current) => ({
+      ...current,
+      selectedCreativeId: '',
+      selectedVariantId: '',
+    }));
   }, [selectedTag?.id]);
 
   const creativeOptions = useMemo(() => {
@@ -102,8 +109,8 @@ export function useTagReportingData(routeTagId: string) {
   }, [bindings]);
 
   const variantOptions = useMemo(() => {
-    const base = selectedCreativeId
-      ? bindings.filter((binding) => binding.creativeId === selectedCreativeId)
+    const base = filters.selectedCreativeId
+      ? bindings.filter((binding) => binding.creativeId === filters.selectedCreativeId)
       : bindings;
     const map = new Map<string, { id: string; name: string }>();
     base.forEach((binding) => {
@@ -114,23 +121,22 @@ export function useTagReportingData(routeTagId: string) {
       });
     });
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [bindings, selectedCreativeId]);
+  }, [bindings, filters.selectedCreativeId]);
 
   useEffect(() => {
-    if (selectedVariantId && !variantOptions.some((option) => option.id === selectedVariantId)) {
-      setSelectedVariantId('');
+    if (filters.selectedVariantId && !variantOptions.some((option) => option.id === filters.selectedVariantId)) {
+      setFilters((current) => ({ ...current, selectedVariantId: '' }));
     }
-  }, [selectedVariantId, variantOptions]);
+  }, [filters.selectedVariantId, variantOptions]);
 
   const filteredTags = useMemo(() => {
-    const needle = tagSearch.trim().toLowerCase();
+    const needle = filters.tagSearch.trim().toLowerCase();
     if (!needle) return tags;
     return tags.filter((tag) => tag.name.toLowerCase().includes(needle));
-  }, [tags, tagSearch]);
+  }, [filters.tagSearch, tags]);
 
   const loadTagData = useCallback((tag: Tag, days: number, filters: LoadFilters) => {
-    setLoadingStats(true);
-    setStatsError('');
+    setRequestState((current) => ({ ...current, loadingStats: true, statsError: '' }));
 
     const dateFrom = new Date();
     dateFrom.setDate(dateFrom.getDate() - days);
@@ -153,17 +159,23 @@ export function useTagReportingData(routeTagId: string) {
         setSummary(normalizeTagSummary(summaryData?.summary ?? summaryData ?? null));
         setStats(normalizeDailyStats(statData?.stats ?? statData ?? []));
       })
-      .catch(() => setStatsError('Failed to load tag statistics.'))
-      .finally(() => setLoadingStats(false));
+      .catch(() => setRequestState((current) => ({ ...current, statsError: 'Failed to load tag statistics.' })))
+      .finally(() => setRequestState((current) => ({ ...current, loadingStats: false })));
   }, []);
 
   useEffect(() => {
     if (!selectedTag) return;
-    loadTagData(selectedTag, dateRange, {
-      creativeId: selectedCreativeId,
-      creativeSizeVariantId: selectedVariantId,
+    loadTagData(selectedTag, filters.dateRange, {
+      creativeId: filters.selectedCreativeId,
+      creativeSizeVariantId: filters.selectedVariantId,
     });
-  }, [selectedTag, dateRange, selectedCreativeId, selectedVariantId, loadTagData]);
+  }, [selectedTag, filters.dateRange, filters.selectedCreativeId, filters.selectedVariantId, loadTagData]);
+
+  const setStatsError = (value: string) => setRequestState((current) => ({ ...current, statsError: value }));
+  const setDateRange = (value: number) => setFilters((current) => ({ ...current, dateRange: value }));
+  const setTagSearch = (value: string) => setFilters((current) => ({ ...current, tagSearch: value }));
+  const setSelectedCreativeId = (value: string) => setFilters((current) => ({ ...current, selectedCreativeId: value }));
+  const setSelectedVariantId = (value: string) => setFilters((current) => ({ ...current, selectedVariantId: value }));
 
   return {
     tags,
@@ -172,19 +184,19 @@ export function useTagReportingData(routeTagId: string) {
     summary,
     stats,
     bindings,
-    loadingTags,
-    loadingBindings,
-    loadingStats,
-    error,
-    statsError,
+    loadingTags: requestState.loadingTags,
+    loadingBindings: requestState.loadingBindings,
+    loadingStats: requestState.loadingStats,
+    error: requestState.error,
+    statsError: requestState.statsError,
     setStatsError,
-    dateRange,
+    dateRange: filters.dateRange,
     setDateRange,
-    tagSearch,
+    tagSearch: filters.tagSearch,
     setTagSearch,
-    selectedCreativeId,
+    selectedCreativeId: filters.selectedCreativeId,
     setSelectedCreativeId,
-    selectedVariantId,
+    selectedVariantId: filters.selectedVariantId,
     setSelectedVariantId,
     creativeOptions,
     variantOptions,
