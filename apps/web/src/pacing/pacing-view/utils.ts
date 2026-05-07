@@ -118,6 +118,7 @@ export function buildPacingRow(campaign: PacingCampaign): PacingRow {
     advertiser: campaign.advertiser,
     status: rawStatusToDenseStatus(campaign.status),
     pacing: `${Math.round(campaign.deliveryPct)}%`,
+    pacingPct: campaign.deliveryPct,
     spend: fmtCurrency(spend),
     budget: fmtCurrency(budget),
     dailyTarget: fmtCurrency(dailyTarget),

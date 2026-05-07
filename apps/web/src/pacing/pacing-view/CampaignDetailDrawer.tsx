@@ -1,26 +1,37 @@
 import React, { useEffect, useState } from 'react';
-import { Button, CenteredSpinner, Modal, TrendChart } from '../../system';
+import { Button, CenteredSpinner, Drawer, Kicker, Panel, TrendChart } from '../../system';
 import type { BreakdownDay, PacingCampaign } from './types';
 import { BREAKDOWN_RANGES, fmtNum } from './utils';
 
-export function SparklineModal({ campaign, onClose }: { campaign: PacingCampaign; onClose: () => void }) {
+export function CampaignDetailDrawer({
+  campaign,
+  open,
+  onClose,
+}: {
+  campaign: PacingCampaign | null;
+  open: boolean;
+  onClose: () => void;
+}) {
   const [days, setDays] = useState(14);
   const [breakdown, setBreakdown] = useState<BreakdownDay[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!open || !campaign) return;
     setLoading(true);
     setError('');
     fetch(`/v1/pacing/${campaign.id}/breakdown?days=${days}`, { credentials: 'include' })
       .then((response) => {
-        if (!response.ok) throw new Error('Failed to load breakdown');
+        if (!response.ok) throw new Error('Unable to load pacing detail for this campaign.');
         return response.json();
       })
       .then((payload) => setBreakdown(payload?.breakdown ?? payload ?? []))
       .catch((breakdownError: Error) => setError(breakdownError.message))
       .finally(() => setLoading(false));
-  }, [campaign.id, days]);
+  }, [campaign, days, open]);
+
+  if (!campaign) return null;
 
   const chartData = breakdown.map((entry) => ({
     date: new Date(`${entry.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
@@ -29,9 +40,15 @@ export function SparklineModal({ campaign, onClose }: { campaign: PacingCampaign
   }));
 
   return (
-    <Modal open onClose={onClose} title={campaign.name} description={`${campaign.advertiser} · Daily breakdown`}>
+    <Drawer
+      open={open}
+      onClose={onClose}
+      title={campaign.name}
+      subtitle={`${campaign.advertiser} · ${campaign.remainingDays} day(s) remaining`}
+      footer={<Button variant="secondary" onClick={onClose}>Close</Button>}
+    >
       <div className="space-y-5">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {BREAKDOWN_RANGES.map((range) => (
             <Button
               key={range}
@@ -45,15 +62,20 @@ export function SparklineModal({ campaign, onClose }: { campaign: PacingCampaign
         </div>
 
         {error ? (
-          <div className="rounded-lg border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-3 py-2 text-sm text-[color:var(--dusk-status-critical-fg)]">
+          <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]">
             {error}
-          </div>
+          </Panel>
         ) : null}
 
         {loading ? (
           <CenteredSpinner label="Loading pacing breakdown…" />
         ) : breakdown.length === 0 ? (
-          <div className="py-12 text-center text-sm text-[color:var(--dusk-text-soft)]">No data for this period</div>
+          <Panel className="px-6 py-10 text-center">
+            <Kicker>No trend data</Kicker>
+            <p className="mt-2 text-sm text-[color:var(--dusk-text-muted)]">
+              This campaign has no pacing breakdown for the selected window yet.
+            </p>
+          </Panel>
         ) : (
           <TrendChart
             data={chartData}
@@ -69,20 +91,20 @@ export function SparklineModal({ campaign, onClose }: { campaign: PacingCampaign
         )}
 
         <div className="grid grid-cols-3 gap-3 border-t border-[color:var(--dusk-border-subtle)] pt-4">
-          <div className="text-center">
+          <Panel padding="sm" className="text-center">
             <p className="text-xs text-[color:var(--dusk-text-soft)]">Delivery</p>
-            <p className="text-lg font-bold text-[color:var(--dusk-brand-fg)]">{campaign.deliveryPct.toFixed(1)}%</p>
-          </div>
-          <div className="text-center">
+            <p className="mt-2 text-lg font-bold text-[color:var(--dusk-brand-fg)]">{campaign.deliveryPct.toFixed(1)}%</p>
+          </Panel>
+          <Panel padding="sm" className="text-center">
             <p className="text-xs text-[color:var(--dusk-text-soft)]">Served</p>
-            <p className="text-lg font-bold text-[color:var(--dusk-text-primary)]">{fmtNum(campaign.impressionsServed)}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xs text-[color:var(--dusk-text-soft)]">Days Left</p>
-            <p className="text-lg font-bold text-[color:var(--dusk-text-primary)]">{campaign.remainingDays}</p>
-          </div>
+            <p className="mt-2 text-lg font-bold text-[color:var(--dusk-text-primary)]">{fmtNum(campaign.impressionsServed)}</p>
+          </Panel>
+          <Panel padding="sm" className="text-center">
+            <p className="text-xs text-[color:var(--dusk-text-soft)]">Days left</p>
+            <p className="mt-2 text-lg font-bold text-[color:var(--dusk-text-primary)]">{campaign.remainingDays}</p>
+          </Panel>
         </div>
       </div>
-    </Modal>
+    </Drawer>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Button, CenteredSpinner, FilterBar, Kicker, MetricCard, PageHeader, Panel, TrendChart } from '../system';
-import { SparklineModal } from './pacing-view/SparklineModal';
+import { CampaignDetailDrawer } from './pacing-view/CampaignDetailDrawer';
 import { PacingTable } from './pacing-view/PacingTable';
 import type { PacingCampaign } from './pacing-view/types';
 import { fmtCurrency, fmtNum } from './pacing-view/utils';
@@ -270,7 +270,11 @@ export default function PacingView() {
         </div>
       )}
 
-      {selectedCampaign && <SparklineModal campaign={selectedCampaign} onClose={() => setSelectedCampaign(null)} />}
+      <CampaignDetailDrawer
+        campaign={selectedCampaign}
+        open={!!selectedCampaign}
+        onClose={() => setSelectedCampaign(null)}
+      />
     </div>
   );
 }

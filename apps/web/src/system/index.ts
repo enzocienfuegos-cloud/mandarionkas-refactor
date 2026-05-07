@@ -32,8 +32,24 @@ export type { TabsProps, TabProps, TabPanelProps } from './primitives/Tabs';
 
 export { Modal } from './primitives/Modal';
 export type { ModalProps } from './primitives/Modal';
+export { Drawer } from './primitives/Drawer';
+export type { DrawerProps } from './primitives/Drawer';
 export { Popover } from './primitives/Popover';
 export type { PopoverProps } from './primitives/Popover';
+export { Tooltip } from './primitives/Tooltip';
+export type { TooltipProps } from './primitives/Tooltip';
+export { Avatar, AvatarGroup } from './primitives/Avatar';
+export type { AvatarProps, AvatarGroupProps } from './primitives/Avatar';
+export { ProgressBar } from './primitives/ProgressBar';
+export type { ProgressBarProps } from './primitives/ProgressBar';
+export { DropdownMenu } from './primitives/DropdownMenu';
+export type {
+  DropdownMenuProps,
+  DropdownMenuEntry,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from './primitives/DropdownMenu';
 
 export { Skeleton, MetricCardSkeleton, TableRowSkeleton } from './primitives/Skeleton';
 

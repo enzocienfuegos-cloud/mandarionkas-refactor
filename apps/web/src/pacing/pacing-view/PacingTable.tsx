@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { DataTable, IconButton, type ColumnDef } from '../../system';
+import { Avatar, DataTable, ProgressBar, type ColumnDef, type DropdownMenuEntry } from '../../system';
 import type { PacingCampaign, PacingRow } from './types';
-import { GaugeIcon, MoreIcon, PacingStatusPill, SeverityPill } from './components';
+import { Eye, Gauge } from '../../system/icons';
+import { PacingStatusPill, SeverityPill } from './components';
 
 export function PacingTable({
   rows,
@@ -44,21 +45,17 @@ export function PacingTable({
     {
       id: 'pacing',
       header: 'Pacing',
-      sortAccessor: (row) => Number(row.pacing.replace('%', '')),
-      cell: (row) => {
-        const pct = Math.min(Number(row.pacing.replace('%', '')) || 0, 100);
-        return (
-          <div className="flex min-w-[132px] flex-col gap-2">
-            <span className="font-medium text-text-primary">{row.pacing}</span>
-            <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface-muted">
-              <div
-                className="h-full rounded-full bg-brand-500"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        );
-      },
+      sortAccessor: (row) => row.pacingPct,
+      cell: (row) => (
+        <ProgressBar
+          value={row.pacingPct ?? 0}
+          tone="auto"
+          thresholds={{ warn: 80, crit: 60 }}
+          size="sm"
+          format={(value) => `${value.toFixed(0)}%`}
+          aria-label={`Pacing ${row.pacingPct.toFixed(0)}%`}
+        />
+      ),
     },
     {
       id: 'spend',
@@ -99,37 +96,36 @@ export function PacingTable({
       id: 'owner',
       header: 'Owner',
       sortAccessor: (row) => row.owner,
-      cell: (row) => row.owner,
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      align: 'right',
-      cell: (row) => {
-        const backingCampaign = campaignMap.get(row.id);
-        return (
-          <div className="flex items-center justify-end gap-1.5">
-            <IconButton
-              icon={<GaugeIcon className="h-4 w-4" />}
-              onClick={(event) => {
-                event.stopPropagation();
-                if (backingCampaign) onInspectCampaign(backingCampaign);
-              }}
-              aria-label={`Inspect ${row.campaign}`}
-            />
-            <IconButton
-              icon={<MoreIcon className="h-4 w-4" />}
-              onClick={(event) => {
-                event.stopPropagation();
-                if (backingCampaign) onInspectCampaign(backingCampaign);
-              }}
-              aria-label={`More actions for ${row.campaign}`}
-            />
-          </div>
-        );
-      },
+      cell: (row) => (
+        <div className="flex items-center gap-2">
+          <Avatar name={row.owner} size="xs" />
+          <span>{row.owner}</span>
+        </div>
+      ),
     },
   ], [campaignMap, onInspectCampaign]);
+
+  const rowActions = useMemo(
+    () => (row: PacingRow): DropdownMenuEntry[] => {
+      const backingCampaign = campaignMap.get(row.id);
+      if (!backingCampaign) return [];
+      return [
+        {
+          id: 'view-detail',
+          label: 'View detail',
+          icon: <Eye className="h-4 w-4" />,
+          onSelect: () => onInspectCampaign(backingCampaign),
+        },
+        {
+          id: 'review-pacing',
+          label: 'Review pacing',
+          icon: <Gauge className="h-4 w-4" />,
+          onSelect: () => onInspectCampaign(backingCampaign),
+        },
+      ];
+    },
+    [campaignMap, onInspectCampaign],
+  );
 
   return (
     <DataTable
@@ -139,6 +135,7 @@ export function PacingTable({
       density="comfortable"
       bordered={false}
       emptyState={null}
+      rowActions={rowActions}
     />
   );
 }

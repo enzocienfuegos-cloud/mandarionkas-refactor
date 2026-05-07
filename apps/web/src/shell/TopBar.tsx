@@ -10,7 +10,7 @@ import {
 } from '../system/icons';
 import { cn } from '../system/cn';
 import { Select } from '../system/primitives/Select';
-import { Button, IconButton } from '../system';
+import { Avatar, Button, IconButton } from '../system';
 
 export interface WorkspaceOption {
   id: string;
@@ -180,12 +180,7 @@ export function TopBar({
           className="inline-flex items-center gap-2 pl-1 pr-2"
           aria-label="User menu"
         >
-          <span
-            aria-hidden
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-brand-gradient text-[11px] font-bold text-white"
-          >
-            {user.initials}
-          </span>
+          <Avatar name={user.name} initials={user.initials} size="sm" />
           <span className="hidden lg:inline-flex text-xs font-medium text-[color:var(--dusk-text-primary)] truncate max-w-[120px]">
             {user.name}
           </span>

@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, ChevronsUpDown } from '../icons';
+import { ChevronDown, ChevronUp, ChevronsUpDown, MoreHorizontal } from '../icons';
+import { DropdownMenu, type DropdownMenuEntry } from '../primitives/DropdownMenu';
+import { IconButton } from '../primitives/Button';
 import { Panel } from '../primitives/Panel';
 import { Skeleton } from '../primitives/Skeleton';
 import { cn } from '../cn';
@@ -46,6 +48,8 @@ export interface DataTableProps<T> {
   onSelectionChange?: (keys: Set<string>) => void;
   /** Bulk actions toolbar shown when rows are selected */
   renderBulkActions?: (selectedRows: T[]) => React.ReactNode;
+  /** Compact row-level actions rendered in a trailing dropdown menu */
+  rowActions?: (row: T) => DropdownMenuEntry[];
   /** Wrap in Panel (default true) */
   bordered?: boolean;
   /** Stick the header on scroll (default true) */
@@ -80,6 +84,7 @@ export function DataTable<T>({
   selectedKeys,
   onSelectionChange,
   renderBulkActions,
+  rowActions,
   bordered = true,
   stickyHeader = true,
 }: DataTableProps<T>) {
@@ -190,6 +195,14 @@ export function DataTable<T>({
                 </th>
               );
             })}
+            {rowActions && (
+              <th
+                scope="col"
+                className="border-b border-[color:var(--dusk-border-default)] px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-kicker text-[color:var(--dusk-text-soft)]"
+              >
+                <span className="sr-only">Actions</span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -212,12 +225,17 @@ export function DataTable<T>({
                     <Skeleton className="h-4 w-24" />
                   </td>
                 ))}
+                {rowActions && (
+                  <td className="px-3 border-b border-[color:var(--dusk-border-subtle)] text-right">
+                    <Skeleton className="ml-auto h-8 w-8 rounded-md" />
+                  </td>
+                )}
               </tr>
             ))
           ) : sortedData.length === 0 ? (
             <tr>
               <td
-                colSpan={visibleColumns.length + (selectable ? 1 : 0)}
+                colSpan={visibleColumns.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)}
                 className="px-4 py-12 text-center"
               >
                 {emptyState ?? (
@@ -269,6 +287,24 @@ export function DataTable<T>({
                       {col.cell(row)}
                     </td>
                   ))}
+                  {rowActions && (
+                    <td
+                      className="px-3 border-b border-[color:var(--dusk-border-subtle)] text-right"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <DropdownMenu
+                        trigger={
+                          <IconButton
+                            icon={<MoreHorizontal />}
+                            aria-label={`Row actions for ${key}`}
+                            size="sm"
+                            variant="ghost"
+                          />
+                        }
+                        items={rowActions(row)}
+                      />
+                    </td>
+                  )}
                 </tr>
               );
             })

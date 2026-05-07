@@ -20,6 +20,7 @@ export type PacingRow = {
   advertiser: string;
   status: PacingStatus;
   pacing: string;
+  pacingPct: number;
   spend: string;
   budget: string;
   dailyTarget: string;

@@ -1,21 +1,27 @@
 import React, { useMemo, useState } from 'react';
 import type { Story } from '@ladle/react';
 import {
+  Avatar,
+  AvatarGroup,
   Badge,
   Button,
   DataTable,
+  Drawer,
+  DropdownMenu,
   EmptyState,
   FilterBar,
   MetricCard,
   Modal,
   PageHeader,
   Panel,
+  ProgressBar,
   Skeleton,
   Stepper,
+  Tooltip,
   TrendChart,
   type ColumnDef,
 } from '../index';
-import { CheckCircle2, Filter, Sparkles } from '../icons';
+import { CheckCircle2, Filter, Pause, Sparkles, Trash2 } from '../icons';
 
 type DemoRow = {
   id: string;
@@ -82,6 +88,46 @@ export const Badges: Story = () => (
     <Badge tone="warning">At risk</Badge>
     <Badge tone="critical">Blocked</Badge>
     <Badge tone="neutral">Draft</Badge>
+  </div>
+);
+
+export const Tooltips: Story = () => (
+  <div className="flex flex-wrap items-center gap-4 p-6">
+    <Tooltip content="Last sync 2 minutes ago">
+      <span tabIndex={0} className="rounded-md border border-border-default px-3 py-2 text-sm text-text-primary">Status</span>
+    </Tooltip>
+    <Tooltip content="Click to pause delivery" side="right">
+      <Button variant="ghost" size="sm" aria-label="Pause delivery">Pause</Button>
+    </Tooltip>
+    <Tooltip
+      content={<><strong>Underpacing</strong><div>Below 80% of expected delivery.</div></>}
+      side="top"
+    >
+      <span tabIndex={0}><Badge tone="warning">Underpacing</Badge></span>
+    </Tooltip>
+  </div>
+);
+
+export const Avatars: Story = () => (
+  <div className="flex flex-wrap items-center gap-6 p-6">
+    <Avatar name="Verga López" />
+    <Avatar name="Juan Carlos" size="md" />
+    <AvatarGroup max={3} size="xs">
+      <Avatar name="Verga López" size="xs" />
+      <Avatar name="Juan Carlos" size="xs" />
+      <Avatar name="María A." size="xs" />
+      <Avatar name="Diego R." size="xs" />
+      <Avatar name="Sofía V." size="xs" />
+    </AvatarGroup>
+  </div>
+);
+
+export const ProgressBars: Story = () => (
+  <div className="grid max-w-2xl gap-4 p-6">
+    <ProgressBar value={75} />
+    <ProgressBar value={42} tone="auto" thresholds={{ warn: 70, crit: 50 }} />
+    <ProgressBar value={68} target={80} tone="auto" />
+    <ProgressBar value={92} tone="success" size="lg" />
   </div>
 );
 
@@ -253,6 +299,32 @@ export const Filters: Story = () => {
     </div>
   );
 };
+
+export const Menus: Story = () => (
+  <div className="p-6">
+    <DropdownMenu
+      trigger={<Button variant="ghost" size="sm">Open menu</Button>}
+      items={[
+        { type: 'label', text: 'Quick actions' },
+        { id: 'pause', label: 'Pause delivery', icon: <Pause className="h-4 w-4" />, onSelect: () => {} },
+        { type: 'separator' },
+        { id: 'delete', label: 'Delete', icon: <Trash2 className="h-4 w-4" />, danger: true, onSelect: () => {} },
+      ]}
+    />
+  </div>
+);
+
+export const Drawers: Story = () => (
+  <Drawer
+    open
+    onClose={() => {}}
+    title="BocaDeli WC26"
+    subtitle="320×480 · 4 placements · 12 days remaining"
+    footer={<><Button variant="secondary">Close</Button><Button>Save changes</Button></>}
+  >
+    <p className="text-sm text-text-secondary">Drawer body content goes here.</p>
+  </Drawer>
+);
 
 export default {
   title: 'System/Primitives',
