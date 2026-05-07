@@ -6,7 +6,6 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
-import '@testing-library/jest-dom/vitest';
 import { ToastProvider, useToast } from '../feedback/Toast';
 import { ConfirmProvider, useConfirm } from '../feedback/Confirm';
 
@@ -29,25 +28,26 @@ describe('Toast', () => {
       </ToastProvider>,
     );
     fireEvent.click(screen.getByText('fire success'));
-    expect(await screen.findByText('Hello success')).toBeInTheDocument();
+    expect(await screen.findByText('Hello success')).toBeTruthy();
   });
 
   it('auto-dismisses after the default duration', async () => {
     vi.useFakeTimers();
-    render(
-      <ToastProvider>
-        <ToastTrigger />
-      </ToastProvider>,
-    );
-    fireEvent.click(screen.getByText('fire success'));
-    expect(screen.getByText('Hello success')).toBeInTheDocument();
+    try {
+      render(
+        <ToastProvider>
+          <ToastTrigger />
+        </ToastProvider>,
+      );
+      fireEvent.click(screen.getByText('fire success'));
+      expect(screen.getByText('Hello success')).toBeTruthy();
 
-    act(() => { vi.advanceTimersByTime(5000); });
+      act(() => { vi.advanceTimersByTime(5000); });
 
-    await waitFor(() => {
-      expect(screen.queryByText('Hello success')).not.toBeInTheDocument();
-    });
-    vi.useRealTimers();
+      expect(screen.queryByText('Hello success')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('supports a manual dismiss button', () => {
@@ -58,7 +58,7 @@ describe('Toast', () => {
     );
     fireEvent.click(screen.getByText('fire success'));
     fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
-    expect(screen.queryByText('Hello success')).not.toBeInTheDocument();
+    expect(screen.queryByText('Hello success')).toBeNull();
   });
 });
 
@@ -89,8 +89,9 @@ describe('Confirm', () => {
       </ConfirmProvider>,
     );
     fireEvent.click(screen.getByText('ask'));
-    expect(await screen.findByText('Continue?')).toBeInTheDocument();
-    expect(screen.getByText('Are you sure?')).toBeInTheDocument();
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(screen.getByText('Continue?')).toBeTruthy();
+    expect(screen.getByText('Are you sure?')).toBeTruthy();
   });
 
   it('resolves true when confirmed', async () => {
@@ -144,11 +145,11 @@ describe('Confirm', () => {
     );
 
     fireEvent.click(screen.getByText('ask'));
-    const confirmBtn = await screen.findByRole('button', { name: /confirm/i });
-    expect(confirmBtn).toBeDisabled();
+    const confirmBtn = await screen.findByRole('button', { name: /delete/i });
+    expect((confirmBtn as HTMLButtonElement).disabled).toBe(true);
 
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'DELETE' } });
-    expect(confirmBtn).not.toBeDisabled();
+    expect((confirmBtn as HTMLButtonElement).disabled).toBe(false);
   });
 });
