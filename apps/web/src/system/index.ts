@@ -52,6 +52,8 @@ export type { ReadOnlyValueProps } from './primitives/ReadOnlyValue';
 
 export { PageHeader } from './primitives/PageHeader';
 export type { PageHeaderProps } from './primitives/PageHeader';
+export { Stepper } from './primitives/Stepper';
+export type { StepperProps, Step, StepStatus } from './primitives/Stepper';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 export { DataTable } from './data-table/DataTable';

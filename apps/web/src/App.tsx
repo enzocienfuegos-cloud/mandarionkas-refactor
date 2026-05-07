@@ -70,6 +70,7 @@ export default function App() {
 
                   <Route path="/creatives" element={<CreativeLibrary />} />
                   <Route path="/creatives/approval" element={<CreativeApproval />} />
+                  <Route path="/creatives/:id/approve" element={<CreativeApproval />} />
                   <Route path="/creatives/upload" element={<CreativeUpload />} />
 
                   <Route path="/pacing" element={<PacingDashboard />} />

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, AlertCircle, Eye, Calendar } from '../system/icons';
 import {
   Panel,
-  PanelHeader,
   Button,
   Badge,
   Kicker,
@@ -10,6 +10,9 @@ import {
   CenteredSpinner,
   EmptyState,
   DataTable,
+  PageHeader,
+  Stepper,
+  type Step,
   type ColumnDef,
   useToast,
   useConfirm,
@@ -27,6 +30,9 @@ interface CreativeReview {
   status: 'pending' | 'approved' | 'rejected';
 }
 
+type ApprovalWorkflowStepId = 'asset' | 'qa' | 'signoff' | 'traffic';
+const APPROVAL_WORKFLOW_ORDER: ApprovalWorkflowStepId[] = ['asset', 'qa', 'signoff', 'traffic'];
+
 /**
  * Creative approval queue — refactored to the Dusk design system (S56).
  *
@@ -36,6 +42,9 @@ interface CreativeReview {
  * - Uses useToast() for in-flight feedback.
  */
 export default function CreativeApproval() {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const confirm   = useConfirm();
 
@@ -43,6 +52,7 @@ export default function CreativeApproval() {
   const [loading, setLoading]   = useState(true);
   const [previewing, setPreviewing] = useState<CreativeReview | null>(null);
   const [busyIds, setBusyIds]       = useState<Set<string>>(new Set());
+  const workflowStep = (searchParams.get('step') as ApprovalWorkflowStepId | null) ?? 'asset';
 
   useEffect(() => {
     setLoading(true);
@@ -70,6 +80,11 @@ export default function CreativeApproval() {
       });
       if (!res.ok) throw new Error('approve failed');
       setItems((current) => current.filter((c) => c.id !== creative.id));
+      if (id === creative.id) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('step', 'traffic');
+        setSearchParams(nextParams, { replace: true });
+      }
       toast({ tone: 'success', title: 'Creative approved', description: creative.name });
     } catch {
       toast({ tone: 'critical', title: 'Could not approve' });
@@ -95,6 +110,11 @@ export default function CreativeApproval() {
       });
       if (!res.ok) throw new Error('reject failed');
       setItems((current) => current.filter((c) => c.id !== creative.id));
+      if (id === creative.id) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('step', 'traffic');
+        setSearchParams(nextParams, { replace: true });
+      }
       toast({ tone: 'warning', title: 'Creative rejected', description: creative.name });
     } catch {
       toast({ tone: 'critical', title: 'Could not reject' });
@@ -149,6 +169,16 @@ export default function CreativeApproval() {
         const busy = busyIds.has(row.id);
         return (
           <div className="flex items-center justify-end gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/creatives/${row.id}/approve?step=asset`);
+              }}
+            >
+              Review flow
+            </Button>
             <Button size="sm" variant="ghost" leadingIcon={<Eye />} onClick={(e) => { e.stopPropagation(); setPreviewing(row); }}>
               Preview
             </Button>
@@ -175,24 +205,174 @@ export default function CreativeApproval() {
       },
     },
   ];
+  const selectedReview = id ? items.find((item) => item.id === id) ?? null : null;
+  const currentStep = APPROVAL_WORKFLOW_ORDER.includes(workflowStep) ? workflowStep : 'asset';
+  const currentStepIndex = APPROVAL_WORKFLOW_ORDER.indexOf(currentStep);
+  const reviewWorkflowSteps: Step[] = APPROVAL_WORKFLOW_ORDER.map((stepId, index) => ({
+    id: stepId,
+    label:
+      stepId === 'asset'
+        ? 'Asset'
+        : stepId === 'qa'
+          ? 'QA preview'
+          : stepId === 'signoff'
+            ? 'Sign-off'
+            : 'Traffic to',
+    description:
+      stepId === 'asset'
+        ? 'Check source, size and preview payload.'
+        : stepId === 'qa'
+          ? 'Validate what ops will actually traffic.'
+          : stepId === 'signoff'
+            ? 'Approve or reject the submission.'
+            : 'Hand off the reviewed asset.',
+    status: index < currentStepIndex ? 'complete' : index === currentStepIndex ? 'current' : 'upcoming',
+    badge:
+      stepId === 'traffic' && selectedReview
+        ? { label: selectedReview.status === 'pending' ? 'Queued' : selectedReview.status, tone: selectedReview.status === 'pending' ? 'warning' : 'success' }
+        : undefined,
+  }));
 
   return (
     <div className="max-w-content mx-auto pb-12">
-      <header className="dusk-page-header">
-        <div>
-          <Kicker>Approval queue</Kicker>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">
-            Creatives pending review
-          </h1>
-          <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">
-            Approve or reject creatives before they go live to bidders.
-          </p>
-        </div>
-        <Badge tone="info" size="md">{items.length} pending</Badge>
-      </header>
+      <PageHeader
+        kicker="Approval queue"
+        title={selectedReview ? 'Creative approval workflow' : 'Creatives pending review'}
+        meta={selectedReview ? `${selectedReview.name} · ${selectedReview.format} · submitted by ${selectedReview.submittedBy}` : `${items.length} pending creatives · approve or reject before trafficking`}
+        secondaryActions={selectedReview ? (
+          <Button variant="secondary" onClick={() => navigate('/creatives/approval')}>
+            Back to queue
+          </Button>
+        ) : (
+          <Badge tone="info" size="md">{items.length} pending</Badge>
+        )}
+      />
 
       {loading ? (
         <CenteredSpinner label="Loading creatives…" />
+      ) : selectedReview ? (
+        <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+          <Panel padding="md" className="h-fit">
+            <div className="mb-4">
+              <Kicker>Workflow</Kicker>
+              <p className="mt-2 text-sm text-[color:var(--dusk-text-muted)]">
+                Review the asset, check QA context, sign off, then hand the approved creative to trafficking.
+              </p>
+            </div>
+            <Stepper
+              steps={reviewWorkflowSteps}
+              onStepClick={(stepId) => {
+                const nextParams = new URLSearchParams(searchParams);
+                nextParams.set('step', stepId);
+                setSearchParams(nextParams, { replace: true });
+              }}
+            />
+          </Panel>
+
+          <div className="space-y-6">
+            {currentStep === 'asset' && (
+              <Panel padding="lg" className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-[color:var(--dusk-text-primary)]">1. Asset</h2>
+                    <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">
+                      Confirm the creative, campaign and preview payload before anyone signs off.
+                    </p>
+                  </div>
+                  <Button variant="secondary" leadingIcon={<Eye />} onClick={() => setPreviewing(selectedReview)}>
+                    Open preview
+                  </Button>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <PreviewMeta label="Creative" value={selectedReview.name} />
+                  <PreviewMeta label="Campaign" value={selectedReview.campaignName} />
+                  <PreviewMeta label="Format" value={selectedReview.format} />
+                  <PreviewMeta label="Size" value={selectedReview.size} />
+                  <PreviewMeta label="Submitted by" value={selectedReview.submittedBy} />
+                  <PreviewMeta label="Submitted at" value={new Date(selectedReview.submittedAt).toLocaleString()} />
+                </div>
+                <div className="flex justify-end border-t border-[color:var(--dusk-border-subtle)] pt-4">
+                  <Button onClick={() => setSearchParams(new URLSearchParams({ step: 'qa' }), { replace: true })}>
+                    Continue to QA
+                  </Button>
+                </div>
+              </Panel>
+            )}
+
+            {currentStep === 'qa' && (
+              <Panel padding="lg" className="space-y-4">
+                <h2 className="text-lg font-semibold text-[color:var(--dusk-text-primary)]">2. QA preview</h2>
+                <p className="text-sm text-[color:var(--dusk-text-muted)]">
+                  Preview exactly what traffickers will hand off. This is the operational checkpoint before sign-off.
+                </p>
+                <Panel className="border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-info-fg)]">
+                  Check the asset against campaign, size and destination. If something looks off, reject now instead of after trafficking.
+                </Panel>
+                <div className="flex items-center justify-between border-t border-[color:var(--dusk-border-subtle)] pt-4">
+                  <Button variant="ghost" onClick={() => setSearchParams(new URLSearchParams({ step: 'asset' }), { replace: true })}>
+                    Back
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="secondary" leadingIcon={<Eye />} onClick={() => setPreviewing(selectedReview)}>
+                      Open preview
+                    </Button>
+                    <Button onClick={() => setSearchParams(new URLSearchParams({ step: 'signoff' }), { replace: true })}>
+                      Continue to sign-off
+                    </Button>
+                  </div>
+                </div>
+              </Panel>
+            )}
+
+            {currentStep === 'signoff' && (
+              <Panel padding="lg" className="space-y-4">
+                <h2 className="text-lg font-semibold text-[color:var(--dusk-text-primary)]">3. Sign-off</h2>
+                <p className="text-sm text-[color:var(--dusk-text-muted)]">
+                  Approval moves the creative out of queue. Rejection notifies the submitter and keeps bad payloads out of trafficking.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <Button variant="primary" leadingIcon={<CheckCircle2 />} loading={busyIds.has(selectedReview.id)} onClick={() => void handleApprove(selectedReview)}>
+                    Approve creative
+                  </Button>
+                  <Button variant="danger" leadingIcon={<AlertCircle />} loading={busyIds.has(selectedReview.id)} onClick={() => void handleReject(selectedReview)}>
+                    Reject creative
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between border-t border-[color:var(--dusk-border-subtle)] pt-4">
+                  <Button variant="ghost" onClick={() => setSearchParams(new URLSearchParams({ step: 'qa' }), { replace: true })}>
+                    Back
+                  </Button>
+                  <Button variant="secondary" onClick={() => setSearchParams(new URLSearchParams({ step: 'traffic' }), { replace: true })}>
+                    Skip to handoff
+                  </Button>
+                </div>
+              </Panel>
+            )}
+
+            {currentStep === 'traffic' && (
+              <Panel padding="lg" className="space-y-4">
+                <h2 className="text-lg font-semibold text-[color:var(--dusk-text-primary)]">4. Traffic to</h2>
+                {items.some((item) => item.id === selectedReview.id) ? (
+                  <Panel className="border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-warning-fg)]">
+                    This creative is still pending. Complete sign-off before handing it to trafficking.
+                  </Panel>
+                ) : (
+                  <Panel className="border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-success-fg)]">
+                    Review is complete. This creative is ready for trafficking handoff.
+                  </Panel>
+                )}
+                <div className="flex items-center justify-between border-t border-[color:var(--dusk-border-subtle)] pt-4">
+                  <Button variant="ghost" onClick={() => setSearchParams(new URLSearchParams({ step: 'signoff' }), { replace: true })}>
+                    Back
+                  </Button>
+                  <Button onClick={() => navigate('/creatives/approval')}>
+                    Return to queue
+                  </Button>
+                </div>
+              </Panel>
+            )}
+          </div>
+        </div>
       ) : items.length === 0 ? (
         <Panel padding="none">
           <EmptyState

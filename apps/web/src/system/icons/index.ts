@@ -47,6 +47,7 @@ export {
   CircleDot,
   CircleCheck,
   CircleAlert,
+  Lock,
 
   // Actions
   Plus,
@@ -100,6 +101,7 @@ export {
   Webhook,
   KeyRound,
   Shield,
+  Sparkles,
   User,
   Users,
   HelpCircle,
