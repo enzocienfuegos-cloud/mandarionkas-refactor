@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { loadTagBindings, loadTags, type TagBinding, type TagOption, updateTagBinding } from '../creatives/catalog';
 import { Badge, Button, CenteredSpinner, DataTable, EmptyState, FormField, Input, Kicker, PageHeader, Panel, Select, useToast, type ColumnDef } from '../system';
+import { Eye } from '../system/icons';
+import { TagPreviewDrawer, type TagPreviewTarget } from '../system/preview/TagPreviewDrawer';
 
 type BindingFilter = 'all' | 'active' | 'paused' | 'draft' | 'archived';
 
@@ -17,6 +19,7 @@ function statusBadge(status: TagBinding['status']) {
 
 export default function TagBindingDashboard() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [tags, setTags] = useState<TagOption[]>([]);
   const [selectedTagId, setSelectedTagId] = useState('');
@@ -29,6 +32,7 @@ export default function TagBindingDashboard() {
   const [bindingFilter, setBindingFilter] = useState<BindingFilter>('all');
   const [bindingDrafts, setBindingDrafts] = useState<Record<string, { weight: string; status: TagBinding['status'] }>>({});
   const [updatingBindingId, setUpdatingBindingId] = useState<string | null>(null);
+  const [previewTag, setPreviewTag] = useState<TagPreviewTarget | null>(null);
 
   useEffect(() => {
     const loadInitial = async () => {
@@ -134,6 +138,28 @@ export default function TagBindingDashboard() {
   }, [selectedTagId, visibleTags]);
 
   const selectedTag = tags.find(tag => tag.id === selectedTagId) ?? null;
+  const mapBindingToPreviewTag = (binding: TagBinding): TagPreviewTarget | null => {
+    if (!selectedTag) return null;
+    return {
+      id: selectedTag.id,
+      name: `${selectedTag.name} · ${binding.creativeName}`,
+      format: selectedTag.format === 'VAST' ? 'VAST' : selectedTag.format,
+      status: selectedTag.status,
+      publicUrl: binding.publicUrl ?? null,
+      clickUrl: binding.creativeClickUrl ?? null,
+      width: binding.variantWidth ?? undefined,
+      height: binding.variantHeight ?? undefined,
+      updatedAt: binding.updatedAt,
+      diagnosticStatus: binding.status === 'active' ? 'ok' : binding.status === 'paused' ? 'warning' : 'error',
+      diagnosticMessage: binding.status === 'active'
+        ? 'Binding is active and ready for serving preview.'
+        : binding.status === 'paused'
+          ? 'Binding is paused. Resume it before launch verification.'
+          : 'Binding is not serving yet.',
+      activeBindingsCount: bindings.filter((entry) => entry.status === 'active').length,
+    };
+  };
+
   const columns = useMemo<ColumnDef<TagBinding>[]>(() => [
     {
       id: 'creative',
@@ -194,18 +220,15 @@ export default function TagBindingDashboard() {
       id: 'preview',
       header: 'Preview',
       cell: (binding) => (
-        binding.publicUrl ? (
-          <a
-            href={binding.publicUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-text-brand hover:text-text-brand"
-          >
-            Open
-          </a>
-        ) : (
-          <span className="text-[color:var(--dusk-text-soft)]">—</span>
-        )
+        <Button
+          variant="ghost"
+          size="sm"
+          leadingIcon={<Eye />}
+          onClick={() => setPreviewTag(mapBindingToPreviewTag(binding))}
+          disabled={!binding.publicUrl}
+        >
+          Preview
+        </Button>
       ),
       sortAccessor: (binding) => binding.publicUrl ?? '',
     },
@@ -244,7 +267,7 @@ export default function TagBindingDashboard() {
         </div>
       ),
     },
-  ], [bindingDrafts, updatingBindingId]);
+  ], [bindingDrafts, bindings, mapBindingToPreviewTag, selectedTag, updatingBindingId]);
 
   const handleBindingDraftChange = (
     bindingId: string,
@@ -419,6 +442,14 @@ export default function TagBindingDashboard() {
           />
         </Panel>
       </div>
+
+      <TagPreviewDrawer
+        open={Boolean(previewTag)}
+        onClose={() => setPreviewTag(null)}
+        tag={previewTag}
+        onRefresh={selectedTagId ? () => void refreshBindings(selectedTagId) : undefined}
+        onViewDiagnostics={selectedTagId ? () => navigate(`/tags/${selectedTagId}/tracking`) : undefined}
+      />
     </div>
   );
 }

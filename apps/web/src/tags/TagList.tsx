@@ -17,15 +17,17 @@ import {
   useToast,
   type Density,
 } from '../system';
+import { TagPreviewDrawer, type TagPreviewTarget } from '../system/preview/TagPreviewDrawer';
 import { getSavedView } from '../shared/saved-views';
 import { useTagColumns } from './tag-list/columns';
 import { TagCreateModal } from './tag-list/TagCreateModal';
-import { type IconProps } from './tag-list/types';
+import { type IconProps, type Tag } from './tag-list/types';
 import { useTagListWorkspace } from './tag-list/useTagListWorkspace';
 import { tagMetricScope } from './tag.metrics';
 import { getDensity } from '../shared/preferences';
 import {
   classNames,
+  getTagPreviewUrl,
 } from './tag-list/utils';
 
 function iconProps(className?: string) {
@@ -68,6 +70,10 @@ const TableIcon = ({ className }: IconProps) => (
 
 export default function TagList() {
   const [density, setDensity] = useState<Density>(() => getDensity('tags-main') ?? 'comfortable');
+  const [previewSourceTag, setPreviewSourceTag] = useState<Tag | null>(null);
+  const [previewTag, setPreviewTag] = useState<TagPreviewTarget | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const confirm = useConfirm();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -175,9 +181,67 @@ export default function TagList() {
     );
   }
 
+  const buildPreviewTarget = (tag: Tag, detail?: Partial<Tag>): TagPreviewTarget => {
+    const source = { ...tag, ...detail };
+    const publicUrl = getTagPreviewUrl(source);
+    const diagnosticStatus = source.status === 'active'
+      ? 'ok'
+      : source.status === 'paused'
+        ? 'warning'
+        : 'error';
+    const diagnosticMessage = source.status === 'active'
+      ? 'Tag is active and ready for serving validation.'
+      : source.status === 'paused'
+        ? 'Tag is paused. Resume it before launch verification.'
+        : source.status === 'draft'
+          ? 'Tag is still in draft and has not been published for serving yet.'
+          : 'Tag is archived and not expected to serve live traffic.';
+    return {
+      id: source.id,
+      name: source.name,
+      format: source.format === 'tracker' ? 'native' : source.format,
+      status: source.status,
+      publicUrl,
+      clickUrl: source.clickUrl ?? null,
+      width: source.servingWidth ?? undefined,
+      height: source.servingHeight ?? undefined,
+      updatedAt: source.updatedAt ?? source.createdAt,
+      diagnosticStatus,
+      diagnosticMessage,
+      activeBindingsCount: source.assignedCount ?? 0,
+    };
+  };
+
+  const handlePreview = async (tag: Tag) => {
+    setPreviewSourceTag(tag);
+    const initialTarget = buildPreviewTarget(tag);
+    setPreviewTag(initialTarget);
+    setPreviewError(null);
+    setPreviewLoading(true);
+    try {
+      const response = await fetch(`/v1/tags/${tag.id}`, { credentials: 'include' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.message ?? 'Couldn’t load tag preview metadata.');
+      }
+      const payload = await response.json();
+      const detail = (payload?.tag ?? payload) as Partial<Tag>;
+      setPreviewTag(buildPreviewTarget(tag, detail));
+    } catch (previewLoadError: any) {
+      setPreviewError(previewLoadError?.message ?? 'Couldn’t load tag preview metadata.');
+      toast({
+        tone: 'warning',
+        title: previewLoadError?.message ?? `Couldn’t load preview details for "${tag.name}".`,
+      });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const tagColumns = useTagColumns({
     deletingId,
     onEdit: (tag) => navigate(`/tags/${tag.id}`),
+    onPreview: handlePreview,
     onExport: handleExportTagCsv,
     onDelete: handleDelete,
   });
@@ -397,6 +461,22 @@ export default function TagList() {
           setCreateForm={setCreateForm}
         />
       ) : null}
+
+      <TagPreviewDrawer
+        open={Boolean(previewTag)}
+        onClose={() => {
+          setPreviewSourceTag(null);
+          setPreviewTag(null);
+          setPreviewError(null);
+          setPreviewLoading(false);
+        }}
+        tag={previewTag}
+        loading={previewLoading}
+        error={previewError}
+        onRetry={previewSourceTag ? () => void handlePreview(previewSourceTag) : undefined}
+        onRefresh={previewSourceTag ? () => void handlePreview(previewSourceTag) : undefined}
+        onViewDiagnostics={previewTag ? () => navigate(`/tags/${previewTag.id}/tracking`) : undefined}
+      />
     </div>
   );
 }

@@ -7,10 +7,14 @@ export interface Tag {
   format: 'VAST' | 'display' | 'native' | 'tracker';
   status: 'active' | 'paused' | 'archived' | 'draft';
   sizeLabel?: string;
+  clickUrl?: string;
+  servingWidth?: number | null;
+  servingHeight?: number | null;
   trackerType?: 'click' | 'impression' | null;
   assignedCount?: number;
   assignedNames?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type TrendDirection = 'up' | 'down' | 'flat';

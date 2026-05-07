@@ -9,6 +9,7 @@ import {
   getLastSeenLabel,
   getOwner,
   getRisk,
+  getTagPreviewUrl,
   severityBadge,
   tagStatusBadge,
 } from './utils';
@@ -39,11 +40,12 @@ const TableIcon = ({ className }: IconProps) => (
 type Params = {
   deletingId: string | null;
   onEdit: (tag: Tag) => void;
+  onPreview?: (tag: Tag) => void | Promise<void>;
   onExport: (tag: Tag) => void | Promise<void>;
   onDelete: (tag: Tag) => void | Promise<void>;
 };
 
-export function useTagColumns({ deletingId, onEdit, onExport, onDelete }: Params) {
+export function useTagColumns({ deletingId, onEdit, onPreview, onExport, onDelete }: Params) {
   return useMemo<ColumnDef<Tag>[]>(() => [
     {
       id: 'tag',
@@ -107,6 +109,27 @@ export function useTagColumns({ deletingId, onEdit, onExport, onDelete }: Params
       cell: (tag) => <span className="text-text-muted">{getOwner(tag)}</span>,
     },
     {
+      id: 'preview',
+      header: 'Preview',
+      align: 'right',
+      cell: (tag) => (
+        <Button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            void onPreview?.(tag);
+          }}
+          disabled={!onPreview || !getTagPreviewUrl(tag)}
+          aria-label={`Preview ${tag.name}`}
+          variant="ghost"
+          size="sm"
+        >
+          Preview
+        </Button>
+      ),
+      sortAccessor: (tag) => tag.format,
+    },
+    {
       id: 'actions',
       header: 'Actions',
       align: 'right',
@@ -154,5 +177,5 @@ export function useTagColumns({ deletingId, onEdit, onExport, onDelete }: Params
         </div>
       ),
     },
-  ], [deletingId, onDelete, onEdit, onExport]);
+  ], [deletingId, onDelete, onEdit, onExport, onPreview]);
 }

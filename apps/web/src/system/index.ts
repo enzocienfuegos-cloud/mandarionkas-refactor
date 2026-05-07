@@ -73,6 +73,10 @@ export { Stepper } from './primitives/Stepper';
 export type { StepperProps, Step, StepStatus } from './primitives/Stepper';
 export { SavedViewsMenu } from './saved-views/SavedViewsMenu';
 export type { SavedViewsMenuProps } from './saved-views/SavedViewsMenu';
+export { TagPreviewDrawer } from './preview/TagPreviewDrawer';
+export type { TagPreviewDrawerProps, TagPreviewTarget } from './preview/TagPreviewDrawer';
+export { VastEventLog } from './preview/VastEventLog';
+export type { VastEventLogProps } from './preview/VastEventLog';
 
 // ─── Metrics ──────────────────────────────────────────────────────────────
 export { ConfigurableMetricStrip } from './metrics/ConfigurableMetricStrip';

@@ -80,3 +80,15 @@ export function getOwner(tag: Tag) {
   }
   return tag.workspaceName ?? 'Ad Ops';
 }
+
+export function getTagPreviewUrl(tag: Tag) {
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin.replace(/\/+$/, '') : '';
+  if (!baseUrl) return null;
+  if (tag.format === 'display') {
+    return `${baseUrl}/v1/tags/display/${tag.id}.html`;
+  }
+  if (tag.format === 'VAST') {
+    return `${baseUrl}/v1/vast/tags/${tag.id}/default.xml`;
+  }
+  return null;
+}
