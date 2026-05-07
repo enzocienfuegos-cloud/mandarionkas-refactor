@@ -100,7 +100,7 @@ export default function Register() {
     <div className="min-h-screen bg-[color:var(--dusk-surface-canvas)] flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-text-primary">SMX Studio</h1>
+          <h1 className="text-xl font-semibold text-text-primary">SMX Studio</h1>
           <p className="mt-2 text-text-muted">Create your account</p>
         </div>
 

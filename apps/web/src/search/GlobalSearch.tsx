@@ -220,10 +220,11 @@ export default function GlobalSearch() {
                   {type}s
                 </div>
                 {items.map(item => (
-                  <button
+                  <Button
                     key={item.id}
                     onClick={() => handleSelect(item)}
-                    className="flex w-full items-center gap-3 border-b border-[color:var(--dusk-border-subtle)] px-4 py-3 text-left transition-colors hover:bg-[color:var(--dusk-surface-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--dusk-status-info-border)]"
+                    variant="ghost"
+                    className="h-auto w-full justify-start gap-3 rounded-none border-b border-[color:var(--dusk-border-subtle)] px-4 py-3 text-left transition-colors hover:bg-[color:var(--dusk-surface-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--dusk-status-info-border)]"
                   >
                     <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)]">
                       {TYPE_ICONS[item.type]}
@@ -235,7 +236,7 @@ export default function GlobalSearch() {
                       )}
                     </div>
                     <Badge tone="neutral" size="sm">{item.type}</Badge>
-                  </button>
+                  </Button>
                 ))}
               </div>
             ))}

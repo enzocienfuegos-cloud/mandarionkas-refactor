@@ -3,19 +3,65 @@ import path from 'node:path';
 
 const ROOT = path.resolve(process.cwd(), 'src');
 const PAGE_EXTENSIONS = new Set(['.ts', '.tsx']);
+
+// Files where palette/raw HTML are intentionally allowed:
+//   - system/ : the design system itself defines these patterns
+//   - shell/ProductLauncher.tsx : intentional premium login screen with hex colors
 const EXCLUDE_PATHS = [
   `${path.sep}system${path.sep}`,
-  `${path.sep}pages-refactored${path.sep}`,
   `${path.sep}shell${path.sep}ProductLauncher.tsx`,
 ];
 
+// Forbidden patterns. Each rule has a regex and a human message.
 const FORBIDDEN = [
-  { pattern: /\bdark:/g, msg: 'No dark: variants in pages' },
-  { pattern: /bg-(slate|zinc|gray|fuchsia|amber|emerald|rose|sky|violet|indigo)-/g, msg: 'No raw Tailwind palette backgrounds' },
-  { pattern: /text-(slate|zinc|gray|fuchsia|amber|emerald|rose|sky|violet|indigo)-/g, msg: 'No raw Tailwind palette text colors' },
-  { pattern: /border-(slate|zinc|gray|fuchsia|amber|emerald|rose|sky|violet|indigo)-/g, msg: 'No raw Tailwind palette border colors' },
-  { pattern: /<table\s/g, msg: 'No raw <table> outside system' },
-  { pattern: /window\.confirm/g, msg: 'Use useConfirm() instead of window.confirm' },
+  {
+    pattern: /\bdark:/g,
+    msg: 'No dark: variants in pages — theme comes from DUSK tokens.',
+  },
+  {
+    pattern: /bg-(slate|zinc|gray|fuchsia|amber|emerald|rose|sky|violet|indigo)-/g,
+    msg: 'No raw Tailwind palette backgrounds — use tokens.',
+  },
+  {
+    pattern: /text-(slate|zinc|gray|fuchsia|amber|emerald|rose|sky|violet|indigo)-/g,
+    msg: 'No raw Tailwind palette text colors — use tokens.',
+  },
+  {
+    pattern: /border-(slate|zinc|gray|fuchsia|amber|emerald|rose|sky|violet|indigo)-/g,
+    msg: 'No raw Tailwind palette borders — use tokens.',
+  },
+  {
+    pattern: /<h1[^>]*\bclassName="[^"]*\btext-(3xl|4xl|5xl|6xl|7xl)\b/g,
+    msg: 'No marketing-style h1 — use <PageHeader title=... /> (text-xl).',
+  },
+  {
+    pattern: /<button(\s|>)/g,
+    msg: 'No raw <button> — use <Button> or <IconButton> primitive.',
+  },
+  {
+    pattern: /<table(\s|>)/g,
+    msg: 'No raw <table> — use <DataTable>.',
+  },
+  {
+    pattern: /<input\s+(?:[^>]*\s)?(?:type="(?:text|search|email|url|tel|number|password)")?[^>]*placeholder=/g,
+    msg: 'No raw <input> — use <Input> or <FormField> primitive.',
+  },
+  {
+    pattern: /onChange=\{\s*\(\)\s*=>\s*undefined\s*\}/g,
+    msg: 'No-op onChange — input is broken. Either wire handler or remove.',
+  },
+  {
+    pattern: /onClick=\{\s*undefined\s*\}/g,
+    msg: 'Decorative button — must have a real onClick or be removed.',
+  },
+  {
+    pattern: /from\s+['"]lucide-react['"]/g,
+    msg: 'Import icons from "../system/icons", not lucide-react directly.',
+  },
+  {
+    pattern: /window\.confirm/g,
+    msg: 'Use useConfirm() — never window.confirm.',
+  },
 ];
 
 const findings = [];
@@ -50,7 +96,7 @@ function walk(dir) {
 walk(ROOT);
 
 if (findings.length) {
-  console.error('UI audit failed:\n');
+  console.error(`UI audit failed (${findings.length} findings):\n`);
   console.error(findings.join('\n'));
   process.exit(1);
 }

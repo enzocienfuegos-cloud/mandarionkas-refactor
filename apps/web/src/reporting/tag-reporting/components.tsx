@@ -185,12 +185,13 @@ export function TagSelectorPanel({
         <ul className="app-scrollbar max-h-[600px] divide-y divide-[color:var(--dusk-border-subtle)] overflow-y-auto">
           {filteredTags.map((tag) => (
             <li key={tag.id}>
-              <button
+              <Button
                 type="button"
                 onClick={() => onSelectTag(tag)}
                 aria-pressed={selectedTagId === tag.id}
                 aria-label={`Open reporting for ${tag.name}`}
-                className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+                variant="ghost"
+                className={`h-auto w-full justify-start px-4 py-3 text-left text-sm transition-colors ${
                   selectedTagId === tag.id
                     ? 'bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)] font-medium'
                     : 'text-text-secondary hover:bg-surface-muted'
@@ -207,7 +208,7 @@ export function TagSelectorPanel({
                     {tag.format || 'Tag'}
                   </Badge>
                 </div>
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

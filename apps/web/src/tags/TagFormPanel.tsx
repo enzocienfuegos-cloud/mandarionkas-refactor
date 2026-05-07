@@ -121,11 +121,12 @@ export default function TagFormPanel({
         <FormField label="Format">
           <div className="flex gap-3">
             {(videoCampaign ? (['VAST'] as TagFormat[]) : (['VAST', 'display', 'native', 'tracker'] as TagFormat[])).map(f => (
-              <button
+              <Button
                 key={f}
                 type="button"
                 onClick={() => onSetFormat(f)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                variant="secondary"
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-colors ${
                   form.format === f
                     ? 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]'
                     : 'border-[color:var(--dusk-border-default)] bg-surface-1 text-[color:var(--dusk-text-secondary)] hover:border-[color:var(--dusk-border-strong)] hover:bg-[color:var(--dusk-surface-muted)] hover:text-[color:var(--dusk-text-primary)]'
@@ -135,7 +136,7 @@ export default function TagFormPanel({
               >
                 <Badge tone={form.format === f ? 'info' : 'neutral'} size="sm">{f}</Badge>
                 <span className="text-sm font-medium capitalize">{f}</span>
-              </button>
+              </Button>
             ))}
           </div>
           {isEdit && (

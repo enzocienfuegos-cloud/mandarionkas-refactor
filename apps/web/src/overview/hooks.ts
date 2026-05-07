@@ -274,17 +274,13 @@ export function useOverviewDashboardModel({
     const healthyCampaigns = campaignBreakdown.filter((item) => toNumber(item.impressions) > 0 && toNumber(item.ctr) >= 0.5).length;
     const totalCampaigns = Math.max(campaignBreakdown.length || campaigns.length, 1);
     const deliveryHealth = Math.round((healthyCampaigns / totalCampaigns) * 100);
-    const deliveryHealthDelta = computeDelta(deliveryHealth, Math.max(deliveryHealth - 8, 0));
     const discrepancyRisk = attentionItems.filter((item) => item.severity === 'critical' || item.severity === 'warning').length;
-    const discrepancyDelta = computeDelta(discrepancyRisk, Math.max(discrepancyRisk - 1, 0));
     const safeTimeline = timeline.length ? [...timeline].reverse() : [];
     return [
       {
         id: 'spend',
         label: 'Delivery health',
         value: `${deliveryHealth}%`,
-        delta: deliveryHealthDelta.label,
-        direction: deliveryHealthDelta.direction,
         icon: 'viewability',
         tone: 'success',
         series: safeTimeline.map((point) => toNumber(point.viewability_rate)),
@@ -316,8 +312,6 @@ export function useOverviewDashboardModel({
         id: 'engagements',
         label: 'Discrepancy risk',
         value: `${discrepancyRisk}`,
-        delta: discrepancyDelta.label,
-        direction: discrepancyDelta.direction,
         icon: 'engagements',
         tone: 'critical',
         series: safeTimeline.map((point) => toNumber(point.clicks)),

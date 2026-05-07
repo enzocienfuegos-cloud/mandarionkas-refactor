@@ -10,7 +10,7 @@ import {
 } from '../system/icons';
 import { cn } from '../system/cn';
 import { Select } from '../system/primitives/Select';
-import { IconButton } from '../system/primitives/Button';
+import { Button, IconButton } from '../system';
 
 export interface WorkspaceOption {
   id: string;
@@ -90,14 +90,14 @@ export function TopBar({
       style={{ height: 'var(--dusk-topbar-height)' }}
     >
       {/* Mobile menu */}
-      <button
-        type="button"
+      <IconButton
         onClick={onMobileMenuClick}
-        className="lg:hidden -ml-1 p-2 rounded-md text-[color:var(--dusk-text-muted)] hover:bg-[color:var(--dusk-surface-hover)]"
         aria-label="Open navigation"
-      >
-        <PanelLeft className="h-4 w-4" />
-      </button>
+        icon={<PanelLeft className="h-4 w-4" />}
+        size="sm"
+        variant="ghost"
+        className="lg:hidden -ml-1"
+      />
 
       {/* Workspace + page title */}
       <div className="flex items-center gap-3 min-w-0">
@@ -124,16 +124,14 @@ export function TopBar({
       <div className="flex-1" />
 
       {/* Global search trigger — opens command palette */}
-      <button
-        type="button"
+      <Button
         onClick={onSearchClick}
+        variant="secondary"
+        size="sm"
         className={cn(
-          'hidden md:inline-flex items-center gap-2 h-8 px-3 rounded-lg',
-          'border border-[color:var(--dusk-border-default)]',
-          'bg-[color:var(--dusk-surface-muted)]',
+          'hidden md:inline-flex',
           'text-xs text-[color:var(--dusk-text-soft)]',
-          'hover:border-[color:var(--dusk-border-strong)] hover:text-[color:var(--dusk-text-muted)]',
-          'transition-colors',
+          'hover:text-[color:var(--dusk-text-muted)]',
         )}
         aria-label="Open command palette (Cmd+K)"
       >
@@ -142,7 +140,7 @@ export function TopBar({
         <kbd className="dusk-mono ml-3 inline-flex items-center gap-0.5 text-[10px] text-[color:var(--dusk-text-soft)]">
           <Command className="h-3 w-3" />K
         </kbd>
-      </button>
+      </Button>
 
       {/* Theme toggle */}
       <IconButton
@@ -154,11 +152,13 @@ export function TopBar({
       />
 
       {/* Notifications */}
-      <button
-        type="button"
+      <Button
         onClick={onNotificationsClick}
-        className="relative h-8 w-8 inline-flex items-center justify-center rounded-md text-[color:var(--dusk-text-muted)] hover:bg-[color:var(--dusk-surface-hover)] hover:text-[color:var(--dusk-text-primary)] transition-colors"
+        type="button"
+        variant="ghost"
+        size="sm"
         aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount})` : ''}`}
+        className="relative !px-0 !gap-0 w-8"
       >
         <Bell className="h-4 w-4" />
         {notificationCount > 0 && (
@@ -169,14 +169,15 @@ export function TopBar({
             {notificationCount > 9 ? '9+' : notificationCount}
           </span>
         )}
-      </button>
+      </Button>
 
       {/* User menu */}
       {user && (
-        <button
-          type="button"
+        <Button
           onClick={onUserMenuClick}
-          className="inline-flex items-center gap-2 pl-1 pr-2 h-8 rounded-md hover:bg-[color:var(--dusk-surface-hover)] transition-colors"
+          variant="ghost"
+          size="sm"
+          className="inline-flex items-center gap-2 pl-1 pr-2"
           aria-label="User menu"
         >
           <span
@@ -189,7 +190,7 @@ export function TopBar({
             {user.name}
           </span>
           <ChevronDown className="hidden lg:inline-flex h-3 w-3 text-[color:var(--dusk-text-soft)]" />
-        </button>
+        </Button>
       )}
     </header>
   );

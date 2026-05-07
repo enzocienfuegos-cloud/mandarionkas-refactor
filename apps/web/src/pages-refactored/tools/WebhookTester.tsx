@@ -352,9 +352,10 @@ function DeliveryRow({ attempt }: { attempt: DeliveryAttempt }) {
   return (
     <li>
       <Panel padding="md">
-        <button
+        <Button
           type="button"
-          className="w-full flex items-center gap-3 text-left"
+          variant="ghost"
+          className="h-auto w-full justify-start gap-3 text-left"
           onClick={() => setExpanded((v) => !v)}
         >
           <ToneIcon
@@ -377,7 +378,7 @@ function DeliveryRow({ attempt }: { attempt: DeliveryAttempt }) {
               {attempt.url} · {attempt.durationMs}ms · {new Date(attempt.timestamp).toLocaleTimeString()}
             </p>
           </div>
-        </button>
+        </Button>
 
         {expanded && (
           <div className="mt-3 space-y-3 pt-3 border-t border-[color:var(--dusk-border-subtle)]">

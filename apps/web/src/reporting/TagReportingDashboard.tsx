@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Panel,
-  Kicker,
+  PageHeader,
   EmptyState,
   CenteredSpinner,
 } from '../system';
@@ -84,13 +84,11 @@ export default function TagReportingDashboard() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-6 py-6">
-      <div className="flex flex-col gap-3">
-        <div>
-          <Kicker>Reporting</Kicker>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Tag Reporting</h1>
-          <p className="mt-2 text-sm leading-6 text-[color:var(--dusk-text-secondary)]">Tag-level impression, click, identity, and video analytics in one operational view.</p>
-        </div>
-      </div>
+      <PageHeader
+        kicker="Reporting"
+        title="Tag Reporting"
+        meta="Tag-level impression, click, identity, and video analytics in one operational view."
+      />
 
       <div className="grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
         <div className="basis-[18rem] flex-shrink-0">

@@ -15,6 +15,7 @@ import {
   ChevronLeft,
 } from '../system/icons';
 import { cn } from '../system/cn';
+import { Button, IconButton } from '../system';
 import { DuskLogo } from './DuskLogo';
 
 export type SidebarItemId =
@@ -131,23 +132,25 @@ export function Sidebar({ activeItem, badgeCounts, collapsed = false, onToggleCo
         <div className="mt-4 border-t border-[color:var(--dusk-border-subtle)] pt-3">
           {!collapsed && <SystemStatus />}
           {onToggleCollapsed && (
-            <button
-              type="button"
+            <IconButton
               onClick={onToggleCollapsed}
               aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              icon={
+                <ChevronLeft
+                  className={cn(
+                    'h-4 w-4 transition-transform duration-base',
+                    collapsed ? 'rotate-180' : '',
+                  )}
+                />
+              }
+              variant="ghost"
+              size="sm"
               className={cn(
-                'mt-2 w-full flex items-center justify-center h-8 rounded-lg',
+                'mt-2 w-full',
                 'text-[color:var(--dusk-text-soft)] hover:text-[color:var(--dusk-text-primary)]',
                 'hover:bg-[color:var(--dusk-surface-hover)] transition-colors',
               )}
-            >
-              <ChevronLeft
-                className={cn(
-                  'h-4 w-4 transition-transform duration-base',
-                  collapsed ? 'rotate-180' : '',
-                )}
-              />
-            </button>
+            />
           )}
         </div>
       </div>
@@ -204,15 +207,16 @@ function NavItemRow({
 
   return (
     <li>
-      <button
-        type="button"
+      <Button
         onClick={() => navigate(item.to)}
         aria-current={isActive ? 'page' : undefined}
         title={collapsed ? item.label : undefined}
+        variant="ghost"
+        size="sm"
         className={cn(
           'group relative flex w-full items-center rounded-lg text-sm font-medium',
           'transition-colors duration-base ease-standard text-left',
-          collapsed ? 'h-10 justify-center' : 'gap-3 px-2.5 h-9',
+          collapsed ? 'h-10 justify-center !px-0' : 'gap-3 px-2.5 h-9',
           isActive
             ? 'bg-surface-active text-text-brand'
             : 'text-[color:var(--dusk-text-secondary)] hover:bg-[color:var(--dusk-surface-hover)] hover:text-[color:var(--dusk-text-primary)]',
@@ -248,7 +252,7 @@ function NavItemRow({
             aria-hidden
           />
         )}
-      </button>
+      </Button>
     </li>
   );
 }

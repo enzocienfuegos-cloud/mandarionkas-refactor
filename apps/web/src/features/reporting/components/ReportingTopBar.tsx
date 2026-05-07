@@ -1,34 +1,101 @@
 import React from 'react';
-import { IconGlyph } from '../icons/IconGlyph';
+import { Button, FilterBar } from '../../../system';
+import { Settings } from '../../../system/icons';
 
-export function ReportingTopBar() {
+export interface ReportingTopBarProps {
+  advertiserFilter: string;
+  advertiserOptions: Array<{ value: string; label: string }>;
+  onAdvertiserChange: (value: string) => void;
+  dateRangeFilter: '7d' | '30d' | '90d' | 'custom';
+  onDateRangeChange: (value: '7d' | '30d' | '90d' | 'custom') => void;
+  statusFilter: 'all' | 'active' | 'paused' | 'archived';
+  onStatusChange: (value: 'all' | 'active' | 'paused' | 'archived') => void;
+  search: string;
+  onSearchChange: (value: string) => void;
+  onCustomizeWidgets?: () => void;
+  onResetFilters?: () => void;
+}
+
+const DATE_RANGE_OPTIONS = [
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: '90d', label: 'Last 90 days' },
+  { value: 'custom', label: 'Custom range' },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All campaigns' },
+  { value: 'active', label: 'Active' },
+  { value: 'paused', label: 'Paused' },
+  { value: 'archived', label: 'Archived' },
+];
+
+export function ReportingTopBar({
+  advertiserFilter,
+  advertiserOptions,
+  onAdvertiserChange,
+  dateRangeFilter,
+  onDateRangeChange,
+  statusFilter,
+  onStatusChange,
+  search,
+  onSearchChange,
+  onCustomizeWidgets,
+  onResetFilters,
+}: ReportingTopBarProps) {
+  const activeFilterCount = [
+    advertiserFilter !== '',
+    dateRangeFilter !== '30d',
+    statusFilter !== 'all',
+    search.trim() !== '',
+  ].filter(Boolean).length;
+
   return (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex flex-wrap items-center gap-3">
-        <button type="button" className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 px-4 text-sm font-semibold text-[color:var(--dusk-text-primary)] transition hover:border-brand-500/30 hover:bg-surface-hover">
-          All advertisers
-        </button>
-        <button type="button" className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 px-4 text-sm font-semibold text-[color:var(--dusk-text-primary)] transition hover:border-brand-500/30 hover:bg-surface-hover">
-          Last 30 days
-        </button>
-        <button type="button" className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 px-4 text-sm font-semibold text-[color:var(--dusk-text-primary)] transition hover:border-brand-500/30 hover:bg-surface-hover">
-          Active campaigns
-        </button>
-      </div>
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <FilterBar
+        className="flex-1"
+        pills={[
+          {
+            id: 'advertiser',
+            label: 'Advertiser',
+            value: advertiserFilter,
+            options: [{ value: '', label: 'All advertisers' }, ...advertiserOptions],
+            onChange: onAdvertiserChange,
+          },
+          {
+            id: 'date-range',
+            label: 'Date range',
+            value: dateRangeFilter,
+            options: DATE_RANGE_OPTIONS,
+            onChange: (value) => onDateRangeChange(value as '7d' | '30d' | '90d' | 'custom'),
+          },
+          {
+            id: 'status',
+            label: 'Status',
+            value: statusFilter,
+            options: STATUS_OPTIONS,
+            onChange: (value) => onStatusChange(value as 'all' | 'active' | 'paused' | 'archived'),
+          },
+        ]}
+        search={{
+          value: search,
+          onChange: onSearchChange,
+          placeholder: 'Search campaign, creative, region',
+        }}
+        activeFilterCount={activeFilterCount}
+        onResetAll={onResetFilters}
+      />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="relative block min-w-[260px]">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--dusk-text-soft)]"><IconGlyph name="search" size={15} /></span>
-          <input
-            placeholder="Search campaign, creative, region"
-            className="min-h-[46px] w-full rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 pl-10 pr-3 text-sm text-[color:var(--dusk-text-primary)] outline-none placeholder:text-[color:var(--dusk-text-soft)] focus:border-brand-500/30 focus:bg-surface-hover"
-          />
-        </label>
-        <button type="button" className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 px-4 text-sm font-semibold text-[color:var(--dusk-text-secondary)] transition hover:border-brand-500/30 hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]">
-          <IconGlyph name="settings" size={15} />
+      {onCustomizeWidgets ? (
+        <Button
+          type="button"
+          variant="secondary"
+          leadingIcon={<Settings />}
+          onClick={onCustomizeWidgets}
+        >
           Customize widgets
-        </button>
-      </div>
+        </Button>
+      ) : null}
     </div>
   );
 }

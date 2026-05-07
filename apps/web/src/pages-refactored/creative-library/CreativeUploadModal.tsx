@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, FileText, X } from '../../system/icons';
-import { Modal, Button, FormField, Input, Select, useToast } from '../../system';
+import { Modal, Button, FormField, IconButton, Input, Select, useToast } from '../../system';
 import { FORMAT_OPTIONS, formatFileSize } from './types';
 import type { CreativeFormat } from './types';
 
@@ -176,14 +176,15 @@ export function CreativeUploadModal({ open, onClose, onUploaded }: CreativeUploa
                   </p>
                 </div>
                 {!uploading && item.status === 'pending' && (
-                  <button
+                  <IconButton
                     type="button"
                     onClick={() => removeItem(index)}
-                    className="shrink-0 p-1 rounded text-[color:var(--dusk-text-soft)] hover:text-[color:var(--dusk-text-primary)]"
                     aria-label="Remove file"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                    icon={<X className="h-3.5 w-3.5" />}
+                    size="sm"
+                    variant="ghost"
+                    className="shrink-0 text-[color:var(--dusk-text-soft)] hover:text-[color:var(--dusk-text-primary)]"
+                  />
                 )}
               </li>
             ))}

@@ -1,6 +1,7 @@
 import React from 'react';
+import { Button } from '../../../system';
+import { Calendar, Filter, Send } from '../../../system/icons';
 import type { ReportingMode } from '../reporting.types';
-import { IconGlyph } from '../icons/IconGlyph';
 
 const toneClasses: Record<ReportingMode, string> = {
   all: 'border-brand-500/25 bg-[color:var(--dusk-surface-active)] text-text-brand',
@@ -14,7 +15,7 @@ export function ScopeBar({ mode }: { mode: ReportingMode }) {
     <div className="flex flex-col gap-3 rounded-[18px] border border-[color:var(--dusk-border-default)] bg-surface-1 p-4 shadow-2 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-wrap items-center gap-2">
         <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold ${toneClasses[mode]}`}>
-          <IconGlyph name="filter" size={12} />
+          <Filter className="h-3 w-3" />
           {mode === 'all' ? 'Unified scope' : `${mode} scope`}
         </span>
         <span className="rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--dusk-text-secondary)]">Workspace: Signalmix</span>
@@ -22,13 +23,12 @@ export function ScopeBar({ mode }: { mode: ReportingMode }) {
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-[color:var(--dusk-text-muted)]">
         <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1">
-          <IconGlyph name="calendar" size={12} />
+          <Calendar className="h-3 w-3" />
           Updated 6 min ago
         </span>
-        <button type="button" className="inline-flex items-center gap-1 rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1 font-semibold text-[color:var(--dusk-text-secondary)] transition hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]">
-          <IconGlyph name="share" size={12} />
+        <Button type="button" variant="secondary" size="sm" leadingIcon={<Send className="h-3 w-3" />}>
           Share
-        </button>
+        </Button>
       </div>
     </div>
   );

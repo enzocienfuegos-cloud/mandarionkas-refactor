@@ -659,11 +659,12 @@ export default function TagBuilder() {
                 <FormField label="Format">
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     {(videoCampaign ? (['VAST'] as TagFormat[]) : (['VAST', 'display', 'native', 'tracker'] as TagFormat[])).map((format) => (
-                      <button
+                      <Button
                         key={format}
                         type="button"
                         onClick={() => setFormat(format)}
-                        className={`rounded-xl border px-4 py-4 text-left transition-colors ${
+                        variant="secondary"
+                        className={`h-auto justify-start rounded-xl px-4 py-4 text-left transition-colors ${
                           form.format === format
                             ? 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]'
                             : 'border-[color:var(--dusk-border-default)] bg-surface-1 text-[color:var(--dusk-text-secondary)] hover:border-[color:var(--dusk-border-strong)] hover:bg-[color:var(--dusk-surface-muted)] hover:text-[color:var(--dusk-text-primary)]'
@@ -673,7 +674,7 @@ export default function TagBuilder() {
                           {format}
                         </Badge>
                         <p className="mt-3 text-sm font-medium capitalize">{format}</p>
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </FormField>

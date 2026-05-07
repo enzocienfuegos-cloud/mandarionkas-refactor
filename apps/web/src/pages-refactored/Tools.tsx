@@ -152,14 +152,10 @@ function ToolCard({ tool }: { tool: ToolEntry }) {
   };
 
   return (
-    <button
-      type="button"
+    <Button
       onClick={handleClick}
-      className="
-        group text-left p-4 rounded-2xl border bg-surface-1
-        border-[color:var(--dusk-border-default)]
-        hover:border-brand-500 hover:shadow-2 transition-all
-      "
+      variant="secondary"
+      className="group h-auto w-full justify-start rounded-2xl p-4 text-left hover:border-brand-500 hover:shadow-2"
     >
       <div className="flex items-start gap-3">
         <div
@@ -198,7 +194,7 @@ function ToolCard({ tool }: { tool: ToolEntry }) {
           </div>
         </div>
       </div>
-    </button>
+    </Button>
   );
 }
 

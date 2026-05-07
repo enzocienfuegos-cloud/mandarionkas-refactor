@@ -75,8 +75,8 @@ export type MetricCardData = {
   id: Extract<OverviewCardId, 'spend' | 'impressions' | 'ctr' | 'engagements'>;
   label: string;
   value: string;
-  delta: string;
-  direction: TrendDirection;
+  delta?: string;
+  direction?: TrendDirection;
   icon: 'spend' | 'impressions' | 'ctr' | 'engagements' | 'viewability';
   tone: string;
   series: number[];

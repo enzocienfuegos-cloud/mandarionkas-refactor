@@ -98,10 +98,11 @@ function CreativeCard({
       </div>
 
       {/* Thumbnail */}
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={onPreview}
-        className="block w-full aspect-[4/3] bg-[color:var(--dusk-surface-muted)] relative overflow-hidden cursor-pointer"
+        className="block h-auto w-full rounded-none bg-[color:var(--dusk-surface-muted)] p-0 text-left relative overflow-hidden cursor-pointer"
       >
         {creative.thumbnailUrl ? (
           <img
@@ -120,7 +121,7 @@ function CreativeCard({
             <Eye className="h-3.5 w-3.5" /> Preview
           </span>
         </div>
-      </button>
+      </Button>
 
       {/* Meta */}
       <div className="p-3">

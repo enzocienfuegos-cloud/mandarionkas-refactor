@@ -10,6 +10,7 @@ import {
   Panel,
   PanelHeader,
   Button,
+  DataTable,
   Input,
   Select,
   FormField,
@@ -19,6 +20,7 @@ import {
   TabsList,
   Tab,
   TabPanel,
+  type ColumnDef,
   useToast,
 } from '../../system';
 
@@ -86,6 +88,30 @@ const URL_PARAMS_PRESETS = [
   { label: 'No UTM (clean URL)', value: '' },
 ];
 
+type MacroReferenceRow = {
+  id: Dsp;
+  dsp: string;
+  click: string;
+  cachebuster: string;
+  impression: string;
+  active: boolean;
+};
+
+const MACRO_COLUMNS: Array<ColumnDef<MacroReferenceRow>> = [
+  {
+    id: 'dsp',
+    header: 'DSP',
+    cell: (row) => (
+      <Badge tone={row.active ? 'brand' : 'neutral'} size="sm" variant={row.active ? 'solid' : 'outline'}>
+        {row.dsp}
+      </Badge>
+    ),
+  },
+  { id: 'click', header: 'Click', cell: (row) => row.click },
+  { id: 'cachebuster', header: 'Cachebuster', cell: (row) => row.cachebuster },
+  { id: 'impression', header: 'Impression', cell: (row) => row.impression },
+];
+
 export default function MacroBuilder() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -113,6 +139,17 @@ export default function MacroBuilder() {
   }, [finalUrl, dsp, macros.click]);
 
   const snippet = useMemo(() => generateSnippet(dsp, finalUrl, macros), [dsp, finalUrl, macros]);
+  const macroRows = useMemo<MacroReferenceRow[]>(
+    () => (Object.keys(DSP_MACROS) as Dsp[]).map((key) => ({
+      id: key,
+      dsp: DSP_MACROS[key].label,
+      click: DSP_MACROS[key].click,
+      cachebuster: DSP_MACROS[key].cachebuster || '—',
+      impression: DSP_MACROS[key].imp || '—',
+      active: key === dsp,
+    })),
+    [dsp],
+  );
 
   const handleCopy = async (text: string, label: string) => {
     try {
@@ -272,35 +309,12 @@ export default function MacroBuilder() {
 
       <Panel padding="lg">
         <PanelHeader title="Quick reference" subtitle="All DSP macros at a glance" />
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-left text-[color:var(--dusk-text-soft)] dusk-kicker">
-                <th className="pb-2 pr-4">DSP</th>
-                <th className="pb-2 pr-4">Click</th>
-                <th className="pb-2 pr-4">Cachebuster</th>
-                <th className="pb-2">Impression</th>
-              </tr>
-            </thead>
-            <tbody className="dusk-mono">
-              {(Object.keys(DSP_MACROS) as Dsp[]).map((key) => {
-                const m = DSP_MACROS[key];
-                return (
-                  <tr key={key} className="border-t border-[color:var(--dusk-border-subtle)]">
-                    <td className="py-2 pr-4 not-italic font-sans text-[color:var(--dusk-text-primary)]">
-                      <Badge tone={key === dsp ? 'brand' : 'neutral'} size="sm" variant={key === dsp ? 'solid' : 'outline'}>
-                        {m.label}
-                      </Badge>
-                    </td>
-                    <td className="py-2 pr-4 text-[color:var(--dusk-text-secondary)]">{m.click}</td>
-                    <td className="py-2 pr-4 text-[color:var(--dusk-text-secondary)]">{m.cachebuster || '—'}</td>
-                    <td className="py-2 text-[color:var(--dusk-text-secondary)]">{m.imp || '—'}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          data={macroRows}
+          columns={MACRO_COLUMNS}
+          rowKey={(row: MacroReferenceRow) => row.id}
+          density="compact"
+        />
       </Panel>
     </div>
   );

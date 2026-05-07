@@ -153,10 +153,10 @@ export default function WorkspaceSettings() {
       </div>
 
       <div className="flex border-b border-border-default mb-6">
-        <button className={tabClass('profile')} onClick={() => setTab('profile')}>Profile</button>
-        <button className={tabClass('members')} onClick={() => setTab('members')}>
+        <Button variant="ghost" className={tabClass('profile')} onClick={() => setTab('profile')}>Profile</Button>
+        <Button variant="ghost" className={tabClass('members')} onClick={() => setTab('members')}>
           Members ({members.length})
-        </button>
+        </Button>
       </div>
 
       {tab === 'profile' && (

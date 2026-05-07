@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge } from '../../system';
+import { Badge, Button } from '../../system';
 import type { MetricTone } from '../../system';
 import type { PacingStatus, PrioritySeverity, SortKey, Tone, TrendDirection } from './types';
 import { classNames } from './utils';
@@ -120,14 +120,16 @@ export function SortHeader({
 }) {
   return (
     <th className="px-5 py-4 text-left">
-      <button
+      <Button
         type="button"
-        className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted transition hover:text-text-primary"
+        variant="ghost"
+        size="sm"
+        className="!h-auto !px-0 text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted transition hover:text-text-primary"
         onClick={() => onSort(col)}
       >
         {label}
         {sortKey === col ? (sortAsc ? ' ↑' : ' ↓') : <span className="text-[color:var(--dusk-text-subtle)]"> ↕</span>}
-      </button>
+      </Button>
     </th>
   );
 }
