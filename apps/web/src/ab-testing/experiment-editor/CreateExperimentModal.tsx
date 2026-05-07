@@ -1,5 +1,5 @@
 import React, { useState, type FormEvent } from 'react';
-import { Button, Input, Modal, Select } from '../../system';
+import { Button, FormField, Input, Modal, Panel, Select } from '../../system';
 import { normalizeExperiment, type Experiment, type Tag, type Variant } from './types';
 
 export function CreateExperimentModal({
@@ -61,28 +61,22 @@ export function CreateExperimentModal({
   return (
     <Modal open onClose={onClose} size="lg" title="New Experiment">
       {error && (
-        <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
+        <Panel className="mb-4 border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]">
           {error}
-        </div>
+        </Panel>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-text-secondary">
-            Experiment Name <span className="text-critical-fg">*</span>
-          </label>
+        <FormField label="Experiment Name" required>
           <Input
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Homepage CTA Test"
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-text-secondary">
-            Tag <span className="text-critical-fg">*</span>
-          </label>
+        <FormField label="Tag" required>
           <Select
             value={tagId}
             onChange={(event) => setTagId(event.target.value)}
@@ -91,17 +85,17 @@ export function CreateExperimentModal({
               ...tags.map((tag) => ({ value: tag.id, label: tag.name })),
             ]}
           />
-        </div>
+        </FormField>
 
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <label className="text-sm font-medium text-text-secondary">
+            <label className="text-sm font-medium text-[color:var(--dusk-text-secondary)]">
               Variants
               {!weightValid && (
-                <span className="ml-2 text-xs text-critical-fg">Weights: {totalWeight}/100</span>
+                <span className="ml-2 text-xs text-[color:var(--dusk-status-critical-fg)]">Weights: {totalWeight}/100</span>
               )}
               {weightValid && (
-                <span className="ml-2 text-xs text-success-fg">100%</span>
+                <span className="ml-2 text-xs text-[color:var(--dusk-status-success-fg)]">100%</span>
               )}
             </label>
             <Button type="button" variant="ghost" size="sm" onClick={addVariant}>

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Badge, Button, EmptyState, Input, Modal, Panel } from '../system';
+import { Building2, Command, Film, Megaphone, Search, Tag, X } from '../system/icons';
 
 type SearchType = 'all' | 'tags' | 'campaigns' | 'advertisers' | 'creatives';
 
@@ -22,11 +24,11 @@ const TYPE_PATHS: Record<SearchResult['type'], (id: string) => string> = {
   creative:   () => '/creatives',
 };
 
-const TYPE_ICONS: Record<SearchResult['type'], string> = {
-  tag:        'Tag',
-  campaign:   'Campaign',
-  advertiser: 'Advertiser',
-  creative:   'Creative',
+const TYPE_ICONS: Record<SearchResult['type'], React.ReactNode> = {
+  tag: <Tag className="h-4 w-4" />,
+  campaign: <Megaphone className="h-4 w-4" />,
+  advertiser: <Building2 className="h-4 w-4" />,
+  creative: <Film className="h-4 w-4" />,
 };
 
 const FILTERS: Array<{ value: SearchType; label: string }> = [
@@ -128,26 +130,39 @@ export default function GlobalSearch() {
   return (
     <>
       {/* Trigger button */}
-      <button
+      <Button
         onClick={openModal}
-        className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-md border border-slate-200 text-sm text-slate-500 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+        variant="secondary"
+        size="sm"
+        className="hidden md:inline-flex"
+        leadingIcon={<Search />}
+        trailingIcon={<Command />}
       >
-        <span>🔍</span>
-        <span>Search...</span>
-        <kbd className="ml-2 text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
-      </button>
+        Search…
+      </Button>
 
       {/* Modal */}
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center pt-24 p-4 bg-black/40 backdrop-blur-sm"
-          onClick={e => { if (e.target === e.currentTarget) closeModal(); }}
-        >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-            {/* Search input */}
-            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200">
-              <span className="text-slate-400">🔍</span>
-              <input
+      <Modal
+        open={open}
+        onClose={closeModal}
+        title="Global Search"
+        description="Search tags, campaigns, advertisers and creatives from one keyboard-first surface."
+        size="lg"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <span className="text-xs text-[color:var(--dusk-text-muted)]">
+              {results.length > 0 ? `${results.length} result${results.length !== 1 ? 's' : ''} · Press Enter to open first result` : 'Esc closes search'}
+            </span>
+            <Button variant="ghost" size="sm" leadingIcon={<X />} onClick={closeModal}>
+              Close
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <Input
                 ref={inputRef}
                 type="text"
                 value={query}
@@ -159,90 +174,74 @@ export default function GlobalSearch() {
                   }
                 }}
                 placeholder="Search tags, campaigns, creatives..."
-                className="flex-1 text-sm text-slate-800 placeholder-slate-400 focus:outline-none bg-transparent"
+                leadingIcon={<Search />}
               />
-              {loading && (
-                <svg className="animate-spin h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                </svg>
-              )}
-              <kbd
-                onClick={closeModal}
-                className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer hover:bg-slate-200"
+            </div>
+            <Badge tone="neutral" size="sm">⌘K</Badge>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {FILTERS.map(f => (
+              <Button
+                key={f.value}
+                onClick={() => setTypeFilter(f.value)}
+                variant={typeFilter === f.value ? 'primary' : 'secondary'}
+                size="sm"
               >
-                Esc
-              </kbd>
-            </div>
+                {f.label}
+              </Button>
+            ))}
+          </div>
 
-            {/* Type filter pills */}
-            <div className="flex gap-1 px-4 py-2 border-b border-slate-100 overflow-x-auto">
-              {FILTERS.map(f => (
-                <button
-                  key={f.value}
-                  onClick={() => setTypeFilter(f.value)}
-                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    typeFilter === f.value
-                      ? 'bg-brand-gradient text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Results */}
-            <div className="max-h-96 overflow-y-auto">
-              {error && (
-                <div className="px-4 py-3 text-sm text-red-600">{error}</div>
-              )}
-
-              {!loading && !error && query && results.length === 0 && (
-                <div className="px-4 py-8 text-center text-sm text-slate-400">
-                  No results found for "{query}"
-                </div>
-              )}
-
-              {!query && (
-                <div className="px-4 py-8 text-center text-sm text-slate-400">
-                  Start typing to search across your workspace
-                </div>
-              )}
-
-              {Object.entries(grouped).map(([type, items]) => (
-                <div key={type}>
-                  <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100">
-                    {type}s
-                  </div>
-                  {items.map(item => (
-                    <button
-                      key={item.id}
-                      onClick={() => handleSelect(item)}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-fuchsia-50 transition-colors border-b border-slate-50 dark:hover:bg-white/[0.05]"
-                    >
-                      <span className="text-xl flex-shrink-0">{TYPE_ICONS[item.type]}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
-                        {item.subtitle && (
-                          <p className="text-xs text-slate-500 truncate">{item.subtitle}</p>
-                        )}
-                      </div>
-                      <span className="text-xs text-slate-400 flex-shrink-0 capitalize">{item.type}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </div>
-
-            {results.length > 0 && (
-              <div className="px-4 py-2 border-t border-slate-100 text-xs text-slate-400 text-center">
-                {results.length} result{results.length !== 1 ? 's' : ''} · Press Enter to open first result
-              </div>
+          <div className="max-h-96 overflow-y-auto rounded-2xl border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-1)]">
+            {error && (
+              <Panel className="m-4 border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]">
+                {error}
+              </Panel>
             )}
+
+            {!loading && !error && query && results.length === 0 && (
+              <EmptyState
+                title={`No results for "${query}"`}
+                description="Try a broader term or switch the entity filter."
+              />
+            )}
+
+            {!query && (
+              <EmptyState
+                title="Start typing to search"
+                description="Use one search surface for tags, campaigns, advertisers and creatives."
+              />
+            )}
+
+            {Object.entries(grouped).map(([type, items]) => (
+              <div key={type}>
+                <div className="border-b border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-4 py-2 text-xs font-semibold uppercase tracking-kicker text-[color:var(--dusk-text-muted)]">
+                  {type}s
+                </div>
+                {items.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleSelect(item)}
+                    className="flex w-full items-center gap-3 border-b border-[color:var(--dusk-border-subtle)] px-4 py-3 text-left transition-colors hover:bg-[color:var(--dusk-surface-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--dusk-status-info-border)]"
+                  >
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)]">
+                      {TYPE_ICONS[item.type]}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-[color:var(--dusk-text-primary)]">{item.name}</p>
+                      {item.subtitle && (
+                        <p className="truncate text-xs text-[color:var(--dusk-text-muted)]">{item.subtitle}</p>
+                      )}
+                    </div>
+                    <Badge tone="neutral" size="sm">{item.type}</Badge>
+                  </button>
+                ))}
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      </Modal>
     </>
   );
 }

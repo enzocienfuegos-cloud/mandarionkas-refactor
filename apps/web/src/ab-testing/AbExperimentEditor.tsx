@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Badge, Button, CenteredSpinner, Kicker, Panel, useToast } from '../system';
+import { Badge, Button, CenteredSpinner, EmptyState, Kicker, PageHeader, Panel, useToast } from '../system';
 import { CreateExperimentModal } from './experiment-editor/CreateExperimentModal';
 import { ExperimentResultsModal } from './experiment-editor/ExperimentResultsModal';
 import { normalizeExperiment, toApiExperimentStatus, type Experiment, type ExperimentStatus, type Tag } from './experiment-editor/types';
+import { FlaskConical } from '../system/icons';
 
 const statusBadge = (status: ExperimentStatus) => {
   const cfg: Record<ExperimentStatus, { tone: 'success' | 'warning' | 'neutral'; label: string }> = {
@@ -66,7 +67,7 @@ export default function AbExperimentEditor() {
 
   if (error) {
     return (
-      <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
+      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]">
         <p className="font-medium">Error loading experiments</p>
         <p className="text-sm mt-1">{error}</p>
         <Button onClick={load} variant="ghost" size="sm" className="mt-3">Retry</Button>
@@ -76,23 +77,22 @@ export default function AbExperimentEditor() {
 
   return (
     <div className="space-y-6">
-      <div className="dusk-page-header">
-        <div>
-          <Kicker>Experiments</Kicker>
-          <h1 className="dusk-title mt-3">A/B Experiments</h1>
-          <p className="dusk-copy mt-2">Test creative variants and compare lift from one consistent operations surface.</p>
-        </div>
-        <Button variant="primary" onClick={() => setShowCreateModal(true)}>New Experiment</Button>
-      </div>
+      <PageHeader
+        kicker="Experiments"
+        title="A/B Experiments"
+        meta={`${experiments.length} experiments · compare creative lift from one consistent operations surface`}
+        primaryAction={<Button variant="primary" onClick={() => setShowCreateModal(true)}>New Experiment</Button>}
+      />
 
       {experiments.length === 0 ? (
-        <Panel className="px-6 py-20 text-center">
-          <Kicker>No experiments</Kicker>
-          <h3 className="mt-3 text-lg font-medium text-slate-700 dark:text-white">No experiments yet</h3>
-          <p className="mt-1 mb-4 text-sm text-slate-500 dark:text-white/[0.56]">Create an A/B test to optimize your ad performance.</p>
-          <div className="flex justify-center">
-            <Button variant="primary" onClick={() => setShowCreateModal(true)}>New Experiment</Button>
-          </div>
+        <Panel padding="none">
+          <EmptyState
+            icon={<FlaskConical />}
+            kicker="No experiments"
+            title="No experiments yet"
+            description="Create an A/B test to optimize creative performance before you scale traffic."
+            action={<Button variant="primary" onClick={() => setShowCreateModal(true)}>New Experiment</Button>}
+          />
         </Panel>
       ) : (
         <div className="space-y-4">
@@ -101,21 +101,20 @@ export default function AbExperimentEditor() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
-                    <h3 className="text-base font-semibold text-slate-800">{exp.name}</h3>
+                    <h3 className="text-base font-semibold text-[color:var(--dusk-text-primary)]">{exp.name}</h3>
                     {statusBadge(exp.status)}
                   </div>
-                  <p className="text-sm text-slate-500 mb-3">
-                    Tag: <strong className="text-slate-700">{exp.tagName ?? exp.tagId}</strong>
+                  <p className="mb-3 text-sm text-[color:var(--dusk-text-muted)]">
+                    Tag: <strong className="text-[color:var(--dusk-text-secondary)]">{exp.tagName ?? exp.tagId}</strong>
                     <span className="mx-2">·</span>
                     Created {new Date(exp.createdAt).toLocaleDateString()}
                   </p>
 
-                  {/* Variant pills */}
                   <div className="flex flex-wrap gap-2">
                     {exp.variants.map((v, i) => (
-                      <div key={i} className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full text-xs">
-                        <span className="font-medium text-slate-700">{v.name}</span>
-                        <span className="text-slate-400">{v.weight}%</span>
+                      <div key={i} className="flex items-center gap-1.5 rounded-full border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-3 py-1 text-xs">
+                        <span className="font-medium text-[color:var(--dusk-text-secondary)]">{v.name}</span>
+                        <span className="text-[color:var(--dusk-text-muted)]">{v.weight}%</span>
                       </div>
                     ))}
                   </div>
