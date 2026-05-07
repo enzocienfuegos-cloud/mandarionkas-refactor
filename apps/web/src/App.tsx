@@ -17,7 +17,7 @@ const CreativeApproval = lazy(() => import('./creatives/CreativeApproval'));
 const CreativeApprovalWorkflow = lazy(() => import('./creatives/CreativeApprovalWorkflow'));
 const PacingDashboard = lazy(() => import('./pacing/PacingDashboard'));
 const Discrepancies = lazy(() => import('./discrepancies/DiscrepancyDashboard'));
-const Reporting = lazy(() => import('./analytics/AnalyticsDashboard'));
+const Reporting = lazy(() => import('./features/reporting/ReportingPage').then((module) => ({ default: module.ReportingPage })));
 const AbExperimentEditor = lazy(() => import('./ab-testing/AbExperimentEditor'));
 const Experiments = lazy(() => import('./experiments/Experiments'));
 const Settings = lazy(() => import('./settings/Settings'));
