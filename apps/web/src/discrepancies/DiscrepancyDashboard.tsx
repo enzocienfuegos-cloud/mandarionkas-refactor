@@ -9,6 +9,7 @@ import {
   MetricCard,
   PageHeader,
   Panel,
+  TrendChart,
 } from '../system';
 import type {
   Discrepancy,
@@ -172,7 +173,7 @@ export default function DiscrepanciesView() {
       direction: 'up',
       helper: 'placements within accepted threshold',
       tone: 'fuchsia',
-      series: [Math.max(varianceHealth - 12, 0), Math.max(varianceHealth - 10, 0), Math.max(varianceHealth - 7, 0), Math.max(varianceHealth - 5, 0), Math.max(varianceHealth - 3, 0), Math.max(varianceHealth - 1, 0), varianceHealth],
+      series: [],
     },
     {
       id: 'threshold-breaches',
@@ -182,7 +183,7 @@ export default function DiscrepanciesView() {
       direction: thresholdBreaches > 0 ? 'up' : 'flat',
       helper: 'need reconciliation or publisher review',
       tone: 'amber',
-      series: [Math.max(thresholdBreaches - 1, 0), Math.max(thresholdBreaches - 1, 0), Math.max(thresholdBreaches - 1, 0), thresholdBreaches, thresholdBreaches, thresholdBreaches, thresholdBreaches],
+      series: [],
     },
     {
       id: 'resolved',
@@ -192,7 +193,7 @@ export default function DiscrepanciesView() {
       direction: resolvedCount > 0 ? 'up' : 'flat',
       helper: 'closed discrepancy checks',
       tone: 'emerald',
-      series: [Math.max(resolvedCount - 6, 0), Math.max(resolvedCount - 5, 0), Math.max(resolvedCount - 4, 0), Math.max(resolvedCount - 3, 0), Math.max(resolvedCount - 3, 0), Math.max(resolvedCount - 1, 0), resolvedCount],
+      series: [],
     },
     {
       id: 'unmatched-spend',
@@ -202,9 +203,19 @@ export default function DiscrepanciesView() {
       direction: unmatchedSpend > 0 ? 'up' : 'flat',
       helper: 'requires invoice or delivery validation',
       tone: 'rose',
-      series: [Math.max(unmatchedSpend - 1.2, 0), Math.max(unmatchedSpend - 1.0, 0), Math.max(unmatchedSpend - 0.8, 0), Math.max(unmatchedSpend - 0.6, 0), Math.max(unmatchedSpend - 0.4, 0), Math.max(unmatchedSpend - 0.2, 0), unmatchedSpend],
+      series: [],
     },
   ], [resolvedCount, thresholdBreaches, unmatchedSpend, varianceHealth]);
+
+  const discrepancyChartData = useMemo(() => {
+    return filteredDiscrepancyRows
+      .slice(0, 8)
+      .map((row) => ({
+        campaign: row.campaign.length > 18 ? `${row.campaign.slice(0, 18)}…` : row.campaign,
+        adserver: parseCount(row.adserver),
+        publisher: parseCount(row.publisherReported),
+      }));
+  }, [filteredDiscrepancyRows]);
 
   const prototypeChecks = [
     { name: 'discrepancy view renders rows', passed: discrepancyRows.length >= 1 },
@@ -322,6 +333,27 @@ export default function DiscrepanciesView() {
           />
         ))}
       </div>
+
+      <Panel className="p-6">
+        <div className="mb-4">
+          <Kicker>Reconciliation snapshot</Kicker>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Adserver vs publisher</h2>
+          <p className="mt-2 text-sm text-text-muted">
+            Current-view comparison for the highest-variance discrepancy rows in the workspace.
+          </p>
+        </div>
+        <TrendChart
+          data={discrepancyChartData}
+          xKey="campaign"
+          kind="bar"
+          title="Discrepancy comparison chart"
+          description="Bar chart comparing adserver and publisher-reported delivery for the highest variance rows."
+          series={[
+            { key: 'adserver', label: 'Adserver', tone: 'brand', format: (value) => formatNumber(value) },
+            { key: 'publisher', label: 'Publisher', tone: 'warning', format: (value) => formatNumber(value) },
+          ]}
+        />
+      </Panel>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
           <Panel className="overflow-hidden p-6">

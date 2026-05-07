@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, CenteredSpinner, FilterBar, IconButton, Input, Kicker, MetricCard, PageHeader, Panel } from '../system';
+import { Button, CenteredSpinner, FilterBar, IconButton, Input, Kicker, MetricCard, PageHeader, Panel, TrendChart } from '../system';
 import { SparklineModal } from './pacing-view/SparklineModal';
 import type {
+  BreakdownDay,
   Metric,
   PacingAlert,
   PacingCampaign,
@@ -49,6 +50,7 @@ export default function PacingView() {
   const [sortKey, setSortKey] = useState<SortKey>('campaign');
   const [sortAsc, setSortAsc] = useState(true);
   const [selectedCampaign, setSelectedCampaign] = useState<PacingCampaign | null>(null);
+  const [focusBreakdown, setFocusBreakdown] = useState<BreakdownDay[]>([]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -114,7 +116,6 @@ export default function PacingView() {
     () => Array.from(new Set(rows.map((row) => row.advertiser))).sort(),
     [rows],
   );
-
   const sortedRows = [...filteredRows].sort((left, right) => {
     const leftCampaign = data?.campaigns.find((campaign) => campaign.id === left.id);
     const rightCampaign = data?.campaigns.find((campaign) => campaign.id === right.id);
@@ -129,6 +130,25 @@ export default function PacingView() {
 
     return sortAsc ? comparison : -comparison;
   });
+
+  const focusCampaign = useMemo(
+    () => data?.campaigns.find((campaign) => campaign.id === sortedRows[0]?.id) ?? null,
+    [data?.campaigns, sortedRows],
+  );
+
+  useEffect(() => {
+    if (!focusCampaign) {
+      setFocusBreakdown([]);
+      return;
+    }
+    fetch(`/v1/pacing/${focusCampaign.id}/breakdown?days=7`, { credentials: 'include' })
+      .then((response) => {
+        if (!response.ok) throw new Error('Failed to load pacing breakdown');
+        return response.json();
+      })
+      .then((payload) => setFocusBreakdown(payload?.breakdown ?? payload ?? []))
+      .catch(() => setFocusBreakdown([]));
+  }, [focusCampaign?.id]);
 
   const exceptionsCount = rows.filter((row) => ['Underpacing', 'Overpacing', 'At risk', 'Paused'].includes(row.status)).length;
   const onTargetCount = rows.filter((row) => row.status === 'On pace').length;
@@ -146,7 +166,7 @@ export default function PacingView() {
       direction: 'up',
       helper: 'campaigns within delivery tolerance',
       tone: 'fuchsia',
-      series: [Math.max(pacingHealth - 21, 0), Math.max(pacingHealth - 18, 0), Math.max(pacingHealth - 16, 0), Math.max(pacingHealth - 12, 0), Math.max(pacingHealth - 8, 0), Math.max(pacingHealth - 4, 0), pacingHealth],
+      series: [],
     },
     {
       id: 'pacing-exceptions',
@@ -156,7 +176,7 @@ export default function PacingView() {
       direction: exceptionsCount > 0 ? 'down' : 'flat',
       helper: 'under or over delivery reviews',
       tone: 'amber',
-      series: [exceptionsCount + 3, exceptionsCount + 3, exceptionsCount + 2, exceptionsCount + 2, exceptionsCount + 1, exceptionsCount + 1, exceptionsCount],
+      series: [],
     },
     {
       id: 'on-target',
@@ -166,7 +186,7 @@ export default function PacingView() {
       direction: onTargetCount > 0 ? 'up' : 'flat',
       helper: 'campaigns pacing within range',
       tone: 'emerald',
-      series: [Math.max(onTargetCount - 5, 0), Math.max(onTargetCount - 4, 0), Math.max(onTargetCount - 3, 0), Math.max(onTargetCount - 3, 0), Math.max(onTargetCount - 2, 0), Math.max(onTargetCount - 1, 0), onTargetCount],
+      series: [],
     },
     {
       id: 'budget-risk',
@@ -176,9 +196,26 @@ export default function PacingView() {
       direction: 'up',
       helper: 'projected under or over delivery',
       tone: 'rose',
-      series: [8, 10, 12, 13, 17, 20, Math.max(Math.round(budgetRiskValue), 24)],
+      series: [],
     },
   ], [budgetRiskValue, exceptionsCount, onTargetCount, pacingHealth]);
+
+  const pacingTrendData = useMemo(() => {
+    if (!focusBreakdown.length) return [];
+    let deliveredCumulative = 0;
+    let targetCumulative = 0;
+    return focusBreakdown.map((entry) => {
+      deliveredCumulative += Number(entry.impressions ?? 0);
+      targetCumulative += Number(entry.expected ?? 0);
+      const paceRatio = targetCumulative > 0 ? deliveredCumulative / targetCumulative : 1;
+      return {
+        date: new Date(`${entry.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        delivered: deliveredCumulative,
+        target: targetCumulative,
+        projected: Math.round(targetCumulative * paceRatio),
+      };
+    });
+  }, [focusBreakdown]);
 
   const prototypeChecks = [
     { name: 'pacing view renders rows', passed: rows.length >= 1 },
@@ -316,6 +353,30 @@ export default function PacingView() {
           />
         ))}
       </div>
+
+      <Panel className="p-6">
+        <div className="mb-4">
+          <Kicker>Pacing curve</Kicker>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">
+            {focusCampaign ? `${focusCampaign.name} · last 7 days` : 'Last 7 days'}
+          </h2>
+          <p className="mt-2 text-sm text-text-muted">
+            Delivered vs expected pacing for the current focus campaign, with projected finish based on current pace.
+          </p>
+        </div>
+        <TrendChart
+          data={pacingTrendData}
+          xKey="date"
+          kind="line"
+          title="Pacing trend for the selected focus campaign"
+          description="Line chart showing cumulative delivered impressions, target impressions, and projected delivery over the last seven days."
+          series={[
+            { key: 'delivered', label: 'Delivered', tone: 'brand', format: (value) => fmtNum(value) },
+            { key: 'target', label: 'Target', tone: 'neutral', dashed: true, format: (value) => fmtNum(value) },
+            { key: 'projected', label: 'Projected', tone: 'warning', format: (value) => fmtNum(value) },
+          ]}
+        />
+      </Panel>
 
       {sortedRows.length === 0 ? (
           <Panel className="px-6 py-20 text-center">

@@ -3,7 +3,7 @@ import { Link, useOutletContext } from 'react-router-dom';
 import { loadCreatives, type Creative } from '../creatives/catalog';
 import { loadAuthMe, loadWorkspaces, switchWorkspace, type WorkspaceOption } from '../shared/workspaces';
 import { type ThemeMode } from '../shared/theme';
-import { Button, CenteredSpinner, Input, Kicker, MetricCard, Panel } from '../system';
+import { Button, CenteredSpinner, Input, Kicker, MetricCard, Panel, TrendChart } from '../system';
 import {
   AttentionCard,
   CampaignTable,
@@ -252,6 +252,19 @@ export default function AdOpsOverview() {
     ];
   }, [attentionItems, campaignBreakdown, campaigns.length, currentStats, previousStats, timeline]);
 
+  const workspacePerformanceData = useMemo(() => {
+    return [...timeline]
+      .slice()
+      .sort((left, right) => left.date.localeCompare(right.date))
+      .map((point) => ({
+        date: new Date(`${point.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        impressions: toNumber(point.impressions),
+        ctr: toNumber(point.ctr),
+        spend: toNumber(point.spend),
+        engagements: toNumber(point.clicks),
+      }));
+  }, [timeline]);
+
   const topCampaignRows = useMemo<TopCampaignRow[]>(() => {
     return [...campaignBreakdown]
       .sort((left, right) => toNumber(right.spend) - toNumber(left.spend))
@@ -405,7 +418,7 @@ export default function AdOpsOverview() {
               delta={metric.delta}
               trend={metric.direction}
               context={metric.context}
-              series={metric.series.length ? metric.series : [0, 0, 0, 0, 0]}
+              series={metric.series}
               tone={
                 metric.icon === 'spend'
                   ? 'info'
@@ -422,6 +435,29 @@ export default function AdOpsOverview() {
             />
           ))}
         </div>
+
+        <Panel className="mt-8 p-6">
+          <div className="mb-4">
+            <Kicker>Workspace performance</Kicker>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Workspace performance (30d)</h2>
+            <p className="mt-2 text-sm text-text-muted">
+              Real delivery, spend, CTR and engagement signals for the selected workspace and campaign scope.
+            </p>
+          </div>
+          <TrendChart
+            data={workspacePerformanceData}
+            xKey="date"
+            kind="line"
+            title="Workspace performance for the last 30 days"
+            description="Line chart showing impressions, spend, click-through rate, and engagements over time."
+            series={[
+              { key: 'impressions', label: 'Impressions', tone: 'brand', format: (value) => fmtNum(value) },
+              { key: 'spend', label: 'Spend', tone: 'info', format: (value) => fmtCurrency(value) },
+              { key: 'ctr', label: 'CTR', tone: 'success', format: (value) => fmtPctCompact(value) },
+              { key: 'engagements', label: 'Engagements', tone: 'critical', format: (value) => fmtNum(value) },
+            ]}
+          />
+        </Panel>
 
         <div className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
           <WorkQueueTable rows={workQueueRows} />

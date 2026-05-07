@@ -134,7 +134,7 @@ export function useTagListWorkspace({
       direction: activeTags > 0 ? 'up' : 'flat',
       helper: 'validated firing across active placements',
       tone: 'fuchsia',
-      series: [Math.max(healthyRate - 18, 0), Math.max(healthyRate - 14, 0), Math.max(healthyRate - 10, 0), Math.max(healthyRate - 6, 0), Math.max(healthyRate - 3, 0), Math.max(healthyRate - 1, 0), healthyRate],
+      series: [],
     },
     {
       id: 'low-firing',
@@ -144,7 +144,7 @@ export function useTagListWorkspace({
       direction: needsAttentionCount > 0 ? 'down' : 'flat',
       helper: 'need implementation review',
       tone: 'amber',
-      series: [needsAttentionCount + 2, needsAttentionCount + 2, needsAttentionCount + 1, needsAttentionCount + 1, needsAttentionCount + 1, needsAttentionCount, needsAttentionCount],
+      series: [],
     },
     {
       id: 'ready-tags',
@@ -154,7 +154,7 @@ export function useTagListWorkspace({
       direction: readyTags > 0 ? 'up' : 'flat',
       helper: 'generated and ready to share',
       tone: 'emerald',
-      series: [Math.max(readyTags - 5, 0), Math.max(readyTags - 4, 0), Math.max(readyTags - 3, 0), Math.max(readyTags - 2, 0), Math.max(readyTags - 1, 0), readyTags, readyTags],
+      series: [],
     },
     {
       id: 'missing-tags',
@@ -164,7 +164,7 @@ export function useTagListWorkspace({
       direction: draftTags > 0 ? 'up' : 'flat',
       helper: 'setup blockers before launch',
       tone: 'rose',
-      series: [Math.max(draftTags - 1, 0), Math.max(draftTags - 1, 0), draftTags, draftTags, draftTags, draftTags, draftTags],
+      series: [],
     },
   ], [activeTags, draftTags, healthyRate, needsAttentionCount, readyTags]);
 

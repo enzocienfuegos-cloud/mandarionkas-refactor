@@ -22,6 +22,7 @@ export interface TrendSeries {
   label: string;
   tone?: TrendTone;
   format?: (value: number) => string;
+  dashed?: boolean;
 }
 
 export interface TrendChartProps<TData extends Record<string, unknown>> {
@@ -34,6 +35,8 @@ export interface TrendChartProps<TData extends Record<string, unknown>> {
   hideLegend?: boolean;
   hideYAxis?: boolean;
   hideGrid?: boolean;
+  title?: string;
+  description?: string;
 }
 
 const TONE_COLORS: Record<TrendTone, { stroke: string; fill: string }> = {
@@ -55,8 +58,12 @@ export function TrendChart<TData extends Record<string, unknown>>({
   hideLegend,
   hideYAxis,
   hideGrid,
+  title,
+  description,
 }: TrendChartProps<TData>) {
   const baseId = useId();
+  const titleId = `${baseId}-title`;
+  const descriptionId = `${baseId}-desc`;
 
   const tokens = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -81,7 +88,15 @@ export function TrendChart<TData extends Record<string, unknown>>({
   const ChartRoot = kind === 'line' ? LineChart : kind === 'bar' ? BarChart : AreaChart;
 
   return (
-    <div style={{ width: '100%', height }} className="dusk-chart">
+    <div
+      style={{ width: '100%', height }}
+      className="dusk-chart"
+      role="img"
+      aria-labelledby={title ? titleId : undefined}
+      aria-describedby={description ? descriptionId : undefined}
+    >
+      {title ? <span id={titleId} className="sr-only">{title}</span> : null}
+      {description ? <span id={descriptionId} className="sr-only">{description}</span> : null}
       <ResponsiveContainer width="100%" height="100%">
         <ChartRoot data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
           {kind === 'area' && (
@@ -156,10 +171,10 @@ export function TrendChart<TData extends Record<string, unknown>>({
             };
 
             if (kind === 'area') {
-              return <Area {...props} type="monotone" fill={`url(#${gid})`} fillOpacity={1} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />;
+              return <Area {...props} type="monotone" fill={`url(#${gid})`} fillOpacity={1} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} strokeDasharray={s.dashed ? '6 4' : undefined} />;
             }
             if (kind === 'line') {
-              return <Line {...props} type="monotone" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />;
+              return <Line {...props} type="monotone" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} strokeDasharray={s.dashed ? '6 4' : undefined} />;
             }
             return <Bar {...props} fill={tone.fill} fillOpacity={0.7} radius={[3, 3, 0, 0]} />;
           })}

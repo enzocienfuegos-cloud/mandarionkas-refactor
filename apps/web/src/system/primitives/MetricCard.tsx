@@ -56,6 +56,9 @@ export function MetricCard({
 }: MetricCardProps) {
   const isInteractive = Boolean(onClick);
   const Tag = isInteractive ? ('button' as const) : ('div' as const);
+  const shouldRenderSparkline = Array.isArray(series)
+    && series.length > 1
+    && series.some((value) => value !== 0);
 
   if (loading) {
     return (
@@ -99,7 +102,7 @@ export function MetricCard({
         <p className="mt-2 text-xs text-[color:var(--dusk-text-muted)] line-clamp-2">{context}</p>
       )}
 
-      {series && series.length > 1 && (
+      {shouldRenderSparkline && (
         <Sparkline series={series} tone={tone} className="mt-4" />
       )}
     </Panel>
