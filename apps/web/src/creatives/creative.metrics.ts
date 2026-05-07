@@ -1,89 +1,89 @@
 import type { MetricScope } from '../system/metrics/registry';
 
 export interface CreativeMetricData {
-  creativeEligibility: number;
-  pendingQaCreatives: number;
-  approvedCreatives: number;
-  rejectedCreatives: number;
-  missingCreatives: number;
+  creativeAvailability: number;
+  publishingCreatives: number;
+  liveCreatives: number;
+  attentionCreatives: number;
+  previewMissingCreatives: number;
   filteredCreativeCount: number;
 }
 
 export const creativeMetricScope: MetricScope<CreativeMetricData> = {
   id: 'creatives',
-  defaultIds: ['creative-health', 'creative-qa', 'creative-approved', 'creative-blocked'],
+  defaultIds: ['creative-availability', 'creative-publishing', 'creative-live', 'creative-attention'],
   metrics: [
     {
-      id: 'creative-health',
-      label: 'Creative eligibility',
-      description: 'Approved or ready creatives in current scope.',
+      id: 'creative-availability',
+      label: 'Creative availability',
+      description: 'Creatives that are live and ready to serve in the current scope.',
       group: 'Health',
       tone: 'brand',
-      compute: ({ filteredCreativeCount, creativeEligibility }) => {
+      compute: ({ filteredCreativeCount, creativeAvailability }) => {
         if (filteredCreativeCount === 0) return null;
         return {
-          id: 'creative-health',
-          label: 'Creative eligibility',
-          value: `${creativeEligibility}%`,
-          tone: creativeEligibility >= 80 ? 'success' : creativeEligibility >= 60 ? 'warning' : 'critical',
-          context: 'Approved or ready for activation',
+          id: 'creative-availability',
+          label: 'Creative availability',
+          value: `${creativeAvailability}%`,
+          tone: creativeAvailability >= 80 ? 'success' : creativeAvailability >= 60 ? 'warning' : 'critical',
+          context: 'Live and ready for activation',
         };
       },
     },
     {
-      id: 'creative-qa',
-      label: 'Pending QA',
-      description: 'Creatives waiting on spec or clickthrough review.',
-      group: 'QA',
-      tone: 'warning',
-      compute: ({ pendingQaCreatives }) => ({
-        id: 'creative-qa',
-        label: 'Pending QA',
-        value: String(pendingQaCreatives),
-        tone: pendingQaCreatives > 0 ? 'warning' : 'success',
-        context: 'Need spec and clickthrough review',
+      id: 'creative-publishing',
+      label: 'Publishing',
+      description: 'Creatives still being published, transcoded or prepared for preview.',
+      group: 'Pipeline',
+      tone: 'info',
+      compute: ({ publishingCreatives }) => ({
+        id: 'creative-publishing',
+        label: 'Publishing',
+        value: String(publishingCreatives),
+        tone: publishingCreatives > 0 ? 'info' : 'success',
+        context: 'Still processing before they go live',
       }),
     },
     {
-      id: 'creative-approved',
-      label: 'Approved',
-      description: 'Creatives eligible to traffic now.',
-      group: 'QA',
+      id: 'creative-live',
+      label: 'Live',
+      description: 'Creatives currently available to serve.',
+      group: 'Delivery',
       tone: 'success',
-      compute: ({ approvedCreatives }) => ({
-        id: 'creative-approved',
-        label: 'Approved',
-        value: String(approvedCreatives),
+      compute: ({ liveCreatives }) => ({
+        id: 'creative-live',
+        label: 'Live',
+        value: String(liveCreatives),
         tone: 'success',
-        context: 'Eligible creatives in active campaigns',
+        context: 'Serving-ready creatives in this scope',
       }),
     },
     {
-      id: 'creative-blocked',
-      label: 'Blocked creatives',
-      description: 'Rejected or missing assets.',
+      id: 'creative-attention',
+      label: 'Needs attention',
+      description: 'Creatives blocked by missing preview, failed processing or invalid assets.',
       group: 'Risk',
       tone: 'critical',
-      compute: ({ rejectedCreatives, missingCreatives }) => ({
-        id: 'creative-blocked',
-        label: 'Blocked creatives',
-        value: String(rejectedCreatives + missingCreatives),
-        tone: rejectedCreatives + missingCreatives > 0 ? 'critical' : 'success',
-        context: 'Rejected or missing assets',
+      compute: ({ attentionCreatives }) => ({
+        id: 'creative-attention',
+        label: 'Needs attention',
+        value: String(attentionCreatives),
+        tone: attentionCreatives > 0 ? 'critical' : 'success',
+        context: 'Blocked by preview or processing issues',
       }),
     },
     {
-      id: 'missing-assets',
-      label: 'Missing assets',
-      description: 'Creatives lacking a previewable version.',
+      id: 'missing-preview',
+      label: 'Preview missing',
+      description: 'Creatives that still lack a previewable asset.',
       group: 'Risk',
       tone: 'warning',
-      compute: ({ missingCreatives }) => ({
-        id: 'missing-assets',
-        label: 'Missing assets',
-        value: String(missingCreatives),
-        tone: missingCreatives > 0 ? 'warning' : 'success',
-        context: 'Assets missing preview or latest version',
+      compute: ({ previewMissingCreatives }) => ({
+        id: 'missing-preview',
+        label: 'Preview missing',
+        value: String(previewMissingCreatives),
+        tone: previewMissingCreatives > 0 ? 'warning' : 'success',
+        context: 'Creatives without a preview asset yet',
       }),
     },
     {

@@ -5,7 +5,7 @@ import type { PreviewModalState } from './types';
 type Props = {
   creativeName: string;
   previewHref: string;
-  previewKind: 'html' | 'video';
+  previewKind: 'html' | 'video' | 'image';
   previewLabel: string;
   versionStatus?: string | null;
   versionSourceKind?: string | null;

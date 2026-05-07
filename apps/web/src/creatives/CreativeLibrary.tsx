@@ -20,9 +20,7 @@ import type { PreviewModalState } from './creative-library/types';
 import { CreativePreviewLightbox } from './creative-library/CreativePreviewLightbox';
 import { ClickUrlEditorModal } from './creative-library/ClickUrlEditorModal';
 import { CreativeBulkActionsPanel } from './creative-library/CreativeBulkActionsPanel';
-import { CreativePreviewCell } from './creative-library/CreativePreviewCell';
 import { CreativeQueuePanel } from './creative-library/CreativeQueuePanel';
-import { CreativeRowActions } from './creative-library/CreativeRowActions';
 import { CreativeSidebarInsights } from './creative-library/CreativeSidebarInsights';
 import { CreativeTable } from './creative-library/CreativeTable';
 import { useCreativeCatalogActions } from './creative-library/useCreativeCatalogActions';
@@ -162,9 +160,15 @@ export default function CreativesView() {
         }
         const nextFilters = view.filters ?? {};
         filters.setSelectedClientIds(nextFilters.selectedWorkspaceId ? [String(nextFilters.selectedWorkspaceId)] : []);
-        filters.setStatusFilter((['all', 'active', 'inactive', 'pending_review', 'rejected'].includes(String(nextFilters.statusFilter))
-          ? nextFilters.statusFilter
-          : 'all') as 'all' | 'active' | 'inactive' | 'pending_review' | 'rejected');
+        const nextStatusFilter = String(nextFilters.statusFilter ?? 'all');
+        const normalizedStatusFilter = nextStatusFilter === 'active'
+          ? 'live'
+          : nextStatusFilter === 'pending_review' || nextStatusFilter === 'rejected'
+            ? 'attention'
+            : ['all', 'live', 'publishing', 'inactive', 'attention', 'preview'].includes(nextStatusFilter)
+              ? nextStatusFilter
+              : 'all';
+        filters.setStatusFilter(normalizedStatusFilter as 'all' | 'live' | 'publishing' | 'inactive' | 'attention' | 'preview');
         filters.setFormatFilter((['all', 'video', 'display', 'native'].includes(String(nextFilters.formatFilter))
           ? nextFilters.formatFilter
           : 'all') as 'all' | 'video' | 'display' | 'native');
@@ -204,13 +208,13 @@ export default function CreativesView() {
     bulkAssignableTags,
     canBulkAssign,
     bulkAssignHint,
-    approvedCreatives,
-    pendingQaCreatives,
-    rejectedCreatives,
-    pendingPreviewCreatives,
-    missingCreatives,
+    liveCreatives,
+    publishingCreatives,
+    attentionCreatives,
+    previewMissingCreatives,
+    previewMissingCount,
     creativeRows,
-    creativeEligibility,
+    creativeAvailability,
     prototypeChecks,
     toggleCreativeSelection,
     toggleSelectAllVisibleCreatives,
@@ -341,13 +345,13 @@ export default function CreativesView() {
         searchTerm={filters.searchTerm}
         onSearchChange={filters.setSearchTerm}
         onUploadCreative={() => navigate('/creatives/upload')}
-        pendingReviewCount={pendingQaCreatives + rejectedCreatives + missingCreatives}
+        attentionCount={attentionCreatives}
         creativeMetricData={{
-          creativeEligibility,
-          pendingQaCreatives,
-          approvedCreatives,
-          rejectedCreatives,
-          missingCreatives,
+          creativeAvailability,
+          publishingCreatives,
+          liveCreatives,
+          attentionCreatives,
+          previewMissingCreatives: previewMissingCount,
           filteredCreativeCount: filteredCreatives.length,
         }}
       />
@@ -388,9 +392,9 @@ export default function CreativesView() {
         <Panel className="overflow-hidden p-6">
           <CreativeQueuePanel
             totalCreatives={filteredCreatives.length}
-            approvedCreatives={approvedCreatives}
-            pendingQaCreatives={pendingQaCreatives}
-            blockedCreatives={rejectedCreatives + missingCreatives}
+            liveCreatives={liveCreatives}
+            publishingCreatives={publishingCreatives}
+            attentionCreatives={attentionCreatives}
             onRefresh={() => void load()}
           />
 
@@ -421,9 +425,9 @@ export default function CreativesView() {
 
         <Panel className="p-6">
           <CreativeSidebarInsights
-            pendingQaCreatives={pendingQaCreatives}
-            rejectedCreatives={rejectedCreatives}
-            pendingPreviewCreatives={pendingPreviewCreatives}
+            publishingCreatives={publishingCreatives}
+            attentionCreatives={attentionCreatives}
+            previewMissingCreatives={previewMissingCreatives}
             prototypeChecks={prototypeChecks}
           />
         </Panel>

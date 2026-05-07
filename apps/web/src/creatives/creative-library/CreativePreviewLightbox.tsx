@@ -67,6 +67,18 @@ export function CreativePreviewLightbox({ preview, onClose }: Props) {
               }}
               title={`Preview: ${preview.name}`}
             />
+          ) : preview.kind === 'image' ? (
+            <img
+              src={preview.url}
+              alt={`Preview: ${preview.name}`}
+              style={{
+                width: preview.width,
+                height: preview.height,
+                display: 'block',
+                background: '#111',
+                objectFit: 'contain',
+              }}
+            />
           ) : (
             <iframe
               src={preview.url}

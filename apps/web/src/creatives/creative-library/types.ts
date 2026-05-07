@@ -8,8 +8,8 @@ import type {
 
 export type TrendDirection = 'up' | 'down' | 'flat';
 export type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
-export type PrioritySeverity = 'Critical' | 'Warning' | 'Notice';
-export type CreativeStatus = 'Approved' | 'Pending QA' | 'Rejected' | 'Ready' | 'Missing';
+export type OperationalSignal = 'Ready' | 'Publishing' | 'Needs attention' | 'Inactive';
+export type CreativeStatus = 'Live' | 'Publishing' | 'Needs attention' | 'Inactive' | 'Preview unavailable';
 export type CreativeFormat = 'Display' | 'HTML5' | 'Video' | 'Native';
 export type IconProps = { className?: string };
 export type LatestVersionMap = Record<string, CreativeVersion | null>;
@@ -33,7 +33,7 @@ export type CreativeRow = {
   format: CreativeFormat;
   size: string;
   status: CreativeStatus;
-  qa: PrioritySeverity;
+  signal: OperationalSignal;
   preview: string;
   owner: string;
 };
@@ -96,7 +96,7 @@ export interface PreviewModalState {
   width: number;
   height: number;
   name: string;
-  kind: 'html' | 'video';
+  kind: 'html' | 'video' | 'image';
 }
 
 export interface ClickUrlEditorState {

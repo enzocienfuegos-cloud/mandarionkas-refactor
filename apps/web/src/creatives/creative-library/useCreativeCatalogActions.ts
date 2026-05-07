@@ -253,7 +253,7 @@ export function useCreativeCatalogActions({
     }
   };
 
-  const handleBulkCreativeStatusUpdate = async (nextStatus: 'approved' | 'archived') => {
+  const handleBulkCreativeStatusUpdate = async (nextStatus: 'draft' | 'archived') => {
     if (!selectedCreativeIds.length) {
       setError('Select at least one creative first.');
       return;
@@ -291,7 +291,7 @@ export function useCreativeCatalogActions({
 
       setSelectedCreativeIds([]);
       const suffix = skippedCount ? ` ${skippedCount} creative${skippedCount === 1 ? '' : 's'} skipped because they had no latest version.` : '';
-      setSuccessMessage(`${nextStatus === 'approved' ? 'Activated' : 'Deactivated'} ${updatedCount} creative${updatedCount === 1 ? '' : 's'}.${suffix}`);
+      setSuccessMessage(`${nextStatus === 'draft' ? 'Activated' : 'Deactivated'} ${updatedCount} creative${updatedCount === 1 ? '' : 's'}.${suffix}`);
       window.setTimeout(() => setSuccessMessage(''), 3500);
     } catch (updateError: any) {
       setError(updateError.message ?? 'Failed to update selected creatives.');
@@ -350,7 +350,7 @@ export function useCreativeCatalogActions({
       return;
     }
 
-    const nextStatus = getCreativeOperationalState(creative) === 'inactive' ? 'approved' : 'archived';
+    const nextStatus = getCreativeOperationalState(creative) === 'inactive' ? 'draft' : 'archived';
 
     setStatusUpdateCreativeId(creative.id);
     setError('');
@@ -370,7 +370,7 @@ export function useCreativeCatalogActions({
         [creative.id]: response.creativeVersion,
       }));
       setSuccessMessage(
-        `${creative.name} is now ${nextStatus === 'approved' ? 'active' : 'inactive'}.`,
+        `${creative.name} is now ${nextStatus === 'draft' ? 'live' : 'inactive'}.`,
       );
       window.setTimeout(() => setSuccessMessage(''), 3000);
     } catch (updateError: any) {

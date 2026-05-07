@@ -19,7 +19,7 @@ type Props = {
   bulkAssignableTags: BulkAssignableTag[];
   canBulkAssign: boolean;
   bulkAssignHint: string | null;
-  onBulkStatusUpdate: (nextStatus: 'approved' | 'archived') => void | Promise<void>;
+  onBulkStatusUpdate: (nextStatus: 'draft' | 'archived') => void | Promise<void>;
   bulkStatusSaving: boolean;
   onBulkDelete: () => void | Promise<void>;
   bulkDeleteSaving: boolean;
@@ -114,11 +114,11 @@ export function CreativeBulkActionsPanel({
             <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-brand">Bulk active state</div>
             <div className="flex flex-wrap gap-2">
               <Button
-                onClick={() => void onBulkStatusUpdate('approved')}
+                onClick={() => void onBulkStatusUpdate('draft')}
                 variant="secondary"
                 loading={bulkStatusSaving}
               >
-                Set active
+                Set live
               </Button>
               <Button
                 onClick={() => void onBulkStatusUpdate('archived')}

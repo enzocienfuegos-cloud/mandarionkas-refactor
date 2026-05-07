@@ -15,8 +15,8 @@ type Props = {
   workspaces: WorkspaceOptionLike[];
   selectedWorkspaceId: string;
   onWorkspaceChange: (workspaceId: string) => void;
-  statusFilter: 'all' | 'active' | 'inactive' | 'pending_review' | 'rejected';
-  onStatusFilterChange: (value: 'all' | 'active' | 'inactive' | 'pending_review' | 'rejected') => void;
+  statusFilter: 'all' | 'live' | 'publishing' | 'inactive' | 'attention' | 'preview';
+  onStatusFilterChange: (value: 'all' | 'live' | 'publishing' | 'inactive' | 'attention' | 'preview') => void;
   formatFilter: 'all' | 'video' | 'display' | 'native';
   onFormatFilterChange: (value: 'all' | 'video' | 'display' | 'native') => void;
   sizeFilter: string;
@@ -25,13 +25,13 @@ type Props = {
   searchTerm: string;
   onSearchChange: (value: string) => void;
   onUploadCreative: () => void;
-  pendingReviewCount: number;
+  attentionCount: number;
   creativeMetricData: {
-    creativeEligibility: number;
-    pendingQaCreatives: number;
-    approvedCreatives: number;
-    rejectedCreatives: number;
-    missingCreatives: number;
+    creativeAvailability: number;
+    publishingCreatives: number;
+    liveCreatives: number;
+    attentionCreatives: number;
+    previewMissingCreatives: number;
     filteredCreativeCount: number;
   };
 };
@@ -51,15 +51,15 @@ export function CreativeWorkspaceOverview({
   searchTerm,
   onSearchChange,
   onUploadCreative,
-  pendingReviewCount,
+  attentionCount,
   creativeMetricData,
 }: Props) {
   return (
     <>
       <PageHeader
-        kicker="Creatives · Creative QA workspace"
+        kicker="Creatives · Delivery workspace"
         title="Creatives"
-        meta={`${pendingReviewCount} pending review · asset approval and trafficking workspace`}
+        meta={`${attentionCount} creatives need operational attention · upload and publish workspace`}
         primaryAction={(
           <Button
             type="button"
@@ -76,11 +76,11 @@ export function CreativeWorkspaceOverview({
             <div className="flex min-w-0 items-start gap-3">
               <AlertTriangleIcon className="mt-0.5 shrink-0" />
               <p className="text-sm font-medium">
-                {pendingReviewCount} creatives need QA review before trafficking handoff.
+                {attentionCount} creatives need attention before they can serve cleanly.
               </p>
             </div>
-            <Button type="button" variant="ghost" size="sm" onClick={() => onStatusFilterChange('pending_review')} className="shrink-0">
-              Filter to QA queue
+            <Button type="button" variant="ghost" size="sm" onClick={() => onStatusFilterChange('attention')} className="shrink-0">
+              Filter to issues
             </Button>
           </div>
         )}
@@ -104,12 +104,13 @@ export function CreativeWorkspaceOverview({
             value: statusFilter,
             options: [
               { value: 'all', label: 'All creatives' },
-              { value: 'pending_review', label: 'Needs QA' },
-              { value: 'active', label: 'Active' },
+              { value: 'live', label: 'Live' },
+              { value: 'publishing', label: 'Publishing' },
               { value: 'inactive', label: 'Inactive' },
-              { value: 'rejected', label: 'Rejected' },
+              { value: 'attention', label: 'Needs attention' },
+              { value: 'preview', label: 'Preview missing' },
             ],
-            onChange: (value) => onStatusFilterChange(value as 'all' | 'active' | 'inactive' | 'pending_review' | 'rejected'),
+            onChange: (value) => onStatusFilterChange(value as 'all' | 'live' | 'publishing' | 'inactive' | 'attention' | 'preview'),
           },
           {
             id: 'format',

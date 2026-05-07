@@ -1,7 +1,7 @@
 import React from 'react';
 import { Badge, type MetricTone } from '../../system';
 import type { Creative, CreativeSizeVariant, CreativeVersion } from '../catalog';
-import type { CreativeStatus, IconProps, PrioritySeverity, Tone, TrendDirection } from './types';
+import type { CreativeStatus, IconProps, OperationalSignal, Tone, TrendDirection } from './types';
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(' ');
@@ -69,30 +69,31 @@ export const MoreIcon = ({ className }: IconProps) => (
 
 function creativeStatusTone(status: CreativeStatus) {
   const map: Record<CreativeStatus, React.ComponentProps<typeof Badge>['tone']> = {
-    Approved: 'success',
-    'Pending QA': 'warning',
-    Rejected: 'critical',
-    Ready: 'info',
-    Missing: 'neutral',
+    Live: 'success',
+    Publishing: 'info',
+    'Needs attention': 'critical',
+    Inactive: 'neutral',
+    'Preview unavailable': 'warning',
   };
   return map[status];
 }
 
-function prioritySeverityTone(severity: PrioritySeverity) {
-  const map: Record<PrioritySeverity, React.ComponentProps<typeof Badge>['tone']> = {
-    Critical: 'critical',
-    Warning: 'warning',
-    Notice: 'info',
+function operationalSignalTone(signal: OperationalSignal) {
+  const map: Record<OperationalSignal, React.ComponentProps<typeof Badge>['tone']> = {
+    Ready: 'success',
+    Publishing: 'info',
+    'Needs attention': 'critical',
+    Inactive: 'neutral',
   };
-  return map[severity];
+  return map[signal];
 }
 
 export function CreativeStatusBadge({ status }: { status: CreativeStatus }) {
   return <Badge tone={creativeStatusTone(status)}>{status}</Badge>;
 }
 
-export function PrioritySeverityBadge({ severity }: { severity: PrioritySeverity }) {
-  return <Badge tone={prioritySeverityTone(severity)}>{severity}</Badge>;
+export function OperationalSignalBadge({ signal }: { signal: OperationalSignal }) {
+  return <Badge tone={operationalSignalTone(signal)}>{signal}</Badge>;
 }
 
 export function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
@@ -175,10 +176,19 @@ export function resolveCreativePreviewKind(
   version: CreativeVersion | null | undefined,
 ) {
   const mimeType = String(version?.mimeType || '').trim().toLowerCase();
-  const sourceKind = String(version?.sourceKind || '').trim().toLowerCase();
   const previewUrl = resolveCreativePreviewHref(creative, version).toLowerCase();
   if (
-    sourceKind === 'video_mp4' ||
+    previewUrl.endsWith('.jpg')
+    || previewUrl.endsWith('.jpeg')
+    || previewUrl.endsWith('.png')
+    || previewUrl.endsWith('.gif')
+    || previewUrl.endsWith('.webp')
+    || previewUrl.endsWith('.avif')
+    || mimeType.startsWith('image/')
+  ) {
+    return 'image' as const;
+  }
+  if (
     mimeType.startsWith('video/') ||
     previewUrl.endsWith('.mp4') ||
     previewUrl.endsWith('.webm') ||

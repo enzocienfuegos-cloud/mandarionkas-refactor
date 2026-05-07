@@ -13,8 +13,6 @@ const CampaignEditor = lazy(() => import('./campaigns/CampaignEditor'));
 const TagList = lazy(() => import('./tags/TagList'));
 const TagBuilder = lazy(() => import('./tags/TagBuilder'));
 const CreativeLibrary = lazy(() => import('./creatives/CreativeLibrary'));
-const CreativeApproval = lazy(() => import('./creatives/CreativeApproval'));
-const CreativeApprovalWorkflow = lazy(() => import('./creatives/CreativeApprovalWorkflow'));
 const PacingDashboard = lazy(() => import('./pacing/PacingDashboard'));
 const Discrepancies = lazy(() => import('./discrepancies/DiscrepancyDashboard'));
 const Reporting = lazy(() => import('./features/reporting/ReportingPage').then((module) => ({ default: module.ReportingPage })));
@@ -71,8 +69,6 @@ export default function App() {
                   <Route path="/tags/:id/reporting" element={<TagReportingDashboard />} />
 
                   <Route path="/creatives" element={<CreativeLibrary />} />
-                  <Route path="/creatives/approval" element={<CreativeApproval />} />
-                  <Route path="/creatives/:id/approve" element={<CreativeApprovalWorkflow />} />
                   <Route path="/creatives/upload" element={<CreativeUpload />} />
 
                   <Route path="/pacing" element={<PacingDashboard />} />

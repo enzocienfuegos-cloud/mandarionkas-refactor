@@ -21,7 +21,6 @@ import {
   getCreativeSizeVariant,
   getCreativeVersion,
   queueVideoTranscodeForCreativeVersion,
-  listPendingReviewCreativeVersions,
   listCreativeArtifacts,
   listCreativeIngestions,
   listCreativeIngestionsForUser,
@@ -882,16 +881,6 @@ export async function handleCreativeRoutes(ctx) {
     });
   }
 
-  if (method === 'GET' && pathname === '/v1/creative-versions/pending-review') {
-    return withSession(ctx, async (session) => {
-      const creativeVersions = await listPendingReviewCreativeVersions(session.client, session.user.id);
-      return sendJson(res, 200, {
-        creativeVersions: creativeVersions.map(normalizeCreativeVersion),
-        requestId,
-      });
-    });
-  }
-
   if (method === 'PATCH' && /^\/v1\/creative-versions\/[^/]+$/.test(pathname)) {
     return withSession(ctx, async (session) => {
       if (!hasPermission(session, 'projects:save')) {
@@ -910,54 +899,6 @@ export async function handleCreativeRoutes(ctx) {
         reviewed_by: ctx.body?.reviewedBy ?? ctx.body?.reviewed_by,
         reviewed_at: ctx.body?.reviewedAt ?? ctx.body?.reviewed_at,
         review_notes: ctx.body?.reviewNotes ?? ctx.body?.review_notes,
-      });
-      if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
-      return sendJson(res, 200, { creativeVersion: normalizeCreativeVersion(creativeVersion), requestId });
-    });
-  }
-
-  if (method === 'POST' && /^\/v1\/creative-versions\/[^/]+\/submit$/.test(pathname)) {
-    return withSession(ctx, async (session) => {
-      if (!hasPermission(session, 'projects:save')) {
-        return forbidden(res, requestId, 'You do not have permission to submit creative versions.');
-      }
-      const versionId = pathname.split('/')[3];
-      const creativeVersion = await updateCreativeVersion(session.client, session.session.activeWorkspaceId, versionId, {
-        status: 'pending_review',
-      });
-      if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
-      return sendJson(res, 200, { creativeVersion: normalizeCreativeVersion(creativeVersion), requestId });
-    });
-  }
-
-  if (method === 'POST' && /^\/v1\/creative-versions\/[^/]+\/approve$/.test(pathname)) {
-    return withSession(ctx, async (session) => {
-      if (!hasPermission(session, 'projects:save')) {
-        return forbidden(res, requestId, 'You do not have permission to approve creative versions.');
-      }
-      const versionId = pathname.split('/')[3];
-      const creativeVersion = await updateCreativeVersion(session.client, session.session.activeWorkspaceId, versionId, {
-        status: 'approved',
-        reviewed_by: session.user.id,
-        reviewed_at: new Date().toISOString(),
-        review_notes: ctx.body?.notes ?? null,
-      });
-      if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
-      return sendJson(res, 200, { creativeVersion: normalizeCreativeVersion(creativeVersion), requestId });
-    });
-  }
-
-  if (method === 'POST' && /^\/v1\/creative-versions\/[^/]+\/reject$/.test(pathname)) {
-    return withSession(ctx, async (session) => {
-      if (!hasPermission(session, 'projects:save')) {
-        return forbidden(res, requestId, 'You do not have permission to reject creative versions.');
-      }
-      const versionId = pathname.split('/')[3];
-      const creativeVersion = await updateCreativeVersion(session.client, session.session.activeWorkspaceId, versionId, {
-        status: 'rejected',
-        reviewed_by: session.user.id,
-        reviewed_at: new Date().toISOString(),
-        review_notes: ctx.body?.reason ?? null,
       });
       if (!creativeVersion) return badRequest(res, requestId, 'Creative version not found.');
       return sendJson(res, 200, { creativeVersion: normalizeCreativeVersion(creativeVersion), requestId });

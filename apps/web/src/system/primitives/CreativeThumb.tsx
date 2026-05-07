@@ -22,6 +22,13 @@ function toneForWeight(weightKb?: number | null) {
   return 'border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]';
 }
 
+function inferPreviewKind(previewUrl: string) {
+  const lower = String(previewUrl || '').toLowerCase();
+  if (/\.(mp4|webm|mov)(\?|#|$)/.test(lower)) return 'video';
+  if (/\.(jpg|jpeg|png|gif|webp|avif|svg)(\?|#|$)/.test(lower)) return 'image';
+  return 'html';
+}
+
 export function CreativeThumb({
   creativeId,
   width,
@@ -48,6 +55,7 @@ export function CreativeThumb({
 
   const sizeLabel = width && height ? `${width}x${height}` : format ? String(format).toUpperCase() : '—';
   const posterUrl = String(staticImageUrl || '').trim();
+  const previewKind = inferPreviewKind(String(previewUrl || '').trim());
   const [start, end] = useMemo(() => hashStops(creativeId), [creativeId]);
 
   const updatePosition = () => {
@@ -141,8 +149,14 @@ export function CreativeThumb({
                 <span className="text-xs text-text-muted">{sizeLabel}</span>
               </div>
               <div className="overflow-hidden rounded-xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)]">
-                {String(previewUrl).toLowerCase().match(/\.(mp4|webm|mov)$/) ? (
+                {previewKind === 'video' ? (
                   <video src={previewUrl} controls className="block h-[260px] w-full bg-black object-contain" />
+                ) : previewKind === 'image' ? (
+                  <img
+                    src={previewUrl}
+                    alt={`Creative preview ${creativeId}`}
+                    className="block h-[260px] w-full bg-black object-contain"
+                  />
                 ) : (
                   <iframe
                     title={`Creative preview ${creativeId}`}

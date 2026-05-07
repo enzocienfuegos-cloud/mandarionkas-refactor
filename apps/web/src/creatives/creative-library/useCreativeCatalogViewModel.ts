@@ -5,7 +5,7 @@ import type {
   CreativeRow,
   CreativeStatus,
   LatestVersionMap,
-  PrioritySeverity,
+  OperationalSignal,
   PrototypeCheck,
 } from './types';
 import { resolveCreativePreviewHref } from './ui';
@@ -16,7 +16,7 @@ type Params = {
   tags: TagOption[];
   selectedClientIds: string[];
   formatFilter: 'all' | 'video' | 'display' | 'native';
-  statusFilter: 'all' | 'active' | 'inactive' | 'pending_review' | 'rejected';
+  statusFilter: 'all' | 'live' | 'publishing' | 'inactive' | 'attention' | 'preview';
   sizeFilter: string;
   searchTerm: string;
   selectedCreativeIds: string[];
@@ -39,13 +39,45 @@ export function useCreativeCatalogViewModel({
   bulkAssignTagId,
   setBulkAssignTagId,
 }: Params) {
+  const getVersionProcessingState = (creative: Creative) => {
+    const version = latestVersions[creative.id];
+    const metadata = (version?.metadata ?? {}) as Record<string, any>;
+    const versionStatus = String(version?.status ?? '').toLowerCase();
+    const transcodeStatus = String(version?.transcodeStatus ?? '').toLowerCase();
+    const videoProcessingStatus = String(metadata.videoProcessing?.status ?? '').toLowerCase();
+    return versionStatus === 'processing'
+      || transcodeStatus === 'queued'
+      || transcodeStatus === 'processing'
+      || videoProcessingStatus === 'queued'
+      || videoProcessingStatus === 'processing';
+  };
+
+  const hasPlayableOrPreviewAsset = (creative: Creative) => Boolean(resolveCreativePreviewHref(creative, latestVersions[creative.id]));
+
+  const hasOperationalIssue = (creative: Creative) => {
+    const version = latestVersions[creative.id];
+    if (!version) return true;
+    const metadata = (version.metadata ?? {}) as Record<string, any>;
+    const versionStatus = String(version.status ?? '').toLowerCase();
+    const transcodeStatus = String(version.transcodeStatus ?? '').toLowerCase();
+    const videoProcessingStatus = String(metadata.videoProcessing?.status ?? '').toLowerCase();
+    return versionStatus === 'rejected'
+      || transcodeStatus === 'failed'
+      || transcodeStatus === 'blocked'
+      || transcodeStatus === 'stalled'
+      || videoProcessingStatus === 'failed'
+      || videoProcessingStatus === 'blocked';
+  };
+
   const getCreativeOperationalState = (creative: Creative) => {
     const version = latestVersions[creative.id];
-    const status = String(version?.status ?? '').toLowerCase();
-    if (status === 'archived') return 'inactive';
-    if (status === 'pending_review') return 'pending_review';
-    if (status === 'rejected') return 'rejected';
-    return 'active';
+    const versionStatus = String(version?.status ?? '').toLowerCase();
+    if (!version) return 'attention';
+    if (versionStatus === 'archived') return 'inactive';
+    if (getVersionProcessingState(creative)) return 'publishing';
+    if (hasOperationalIssue(creative)) return 'attention';
+    if (!hasPlayableOrPreviewAsset(creative)) return 'attention';
+    return 'live';
   };
 
   const getCreativeFormatFamily = (creative: Creative) => {
@@ -80,7 +112,14 @@ export function useCreativeCatalogViewModel({
       if (formatFilter !== 'all' && formatFamily !== formatFilter) return false;
 
       const operationalState = getCreativeOperationalState(creative);
-      if (statusFilter !== 'all' && operationalState !== statusFilter) return false;
+      const previewMissing = !hasPlayableOrPreviewAsset(creative);
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'preview') {
+          if (!previewMissing) return false;
+        } else if (operationalState !== statusFilter) {
+          return false;
+        }
+      }
 
       if (sizeFilter !== 'all' && getCreativeSizeLabel(creative) !== sizeFilter) return false;
 
@@ -151,22 +190,13 @@ export function useCreativeCatalogViewModel({
       ? 'No tags of that type are available for this client yet.'
       : null;
 
-  const approvedCreatives = filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'active').length;
-  const pendingQaCreatives = filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'pending_review').length;
-  const rejectedCreatives = filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'rejected').length;
-  const assignedCreatives = filteredCreatives.filter((creative) => {
-    const version = latestVersions[creative.id];
-    return Boolean(version?.servingFormat);
-  }).length;
-  const pendingPreviewCreatives = filteredCreatives.filter((creative) => {
-    const version = latestVersions[creative.id];
-    return !resolveCreativePreviewHref(creative, version);
-  }).slice(0, 3);
-  const missingCreatives = filteredCreatives.filter((creative) => {
-    const version = latestVersions[creative.id];
-    return !version || !resolveCreativePreviewHref(creative, version);
-  }).length;
-  const creativeEligibility = filteredCreatives.length ? Math.round(((approvedCreatives + assignedCreatives) / Math.max(filteredCreatives.length * 2, 1)) * 100) : 0;
+  const liveCreatives = filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'live').length;
+  const publishingCreatives = filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'publishing').length;
+  const inactiveCreatives = filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'inactive').length;
+  const attentionCreatives = filteredCreatives.filter((creative) => getCreativeOperationalState(creative) === 'attention').length;
+  const previewMissingCreatives = filteredCreatives.filter((creative) => !hasPlayableOrPreviewAsset(creative)).slice(0, 3);
+  const previewMissingCount = filteredCreatives.filter((creative) => !hasPlayableOrPreviewAsset(creative)).length;
+  const creativeAvailability = filteredCreatives.length ? Math.round((liveCreatives / filteredCreatives.length) * 100) : 0;
 
   const creativeRows = useMemo<CreativeRow[]>(() => (
     filteredCreatives.map((creative) => {
@@ -175,26 +205,28 @@ export function useCreativeCatalogViewModel({
       const statusKey = getCreativeOperationalState(creative);
       const previewHref = resolveCreativePreviewHref(creative, version);
       const previewLabel = !previewHref
-        ? 'Asset missing'
-        : version?.status === 'pending_review'
-          ? 'Clicktag review'
-          : 'Preview ready';
-      const qa: PrioritySeverity =
-        statusKey === 'rejected' || !previewHref
-          ? 'Critical'
-          : statusKey === 'pending_review'
-            ? 'Warning'
-            : 'Notice';
+        ? 'Preview unavailable'
+        : statusKey === 'publishing'
+          ? 'Preparing preview'
+          : 'Open preview';
+      const signal: OperationalSignal =
+        statusKey === 'publishing'
+          ? 'Publishing'
+          : statusKey === 'inactive'
+            ? 'Inactive'
+            : !previewHref || statusKey === 'attention'
+              ? 'Needs attention'
+              : 'Ready';
       const status: CreativeStatus =
-        !previewHref
-          ? 'Missing'
-          : statusKey === 'rejected'
-            ? 'Rejected'
-            : statusKey === 'pending_review'
-              ? 'Pending QA'
-              : statusKey === 'inactive'
-                ? 'Ready'
-                : 'Approved';
+        !previewHref && statusKey !== 'publishing' && statusKey !== 'inactive'
+          ? 'Preview unavailable'
+          : statusKey === 'publishing'
+            ? 'Publishing'
+            : statusKey === 'inactive'
+              ? 'Inactive'
+              : statusKey === 'attention'
+                ? 'Needs attention'
+                : 'Live';
       const format: CreativeFormat =
         formatFamily === 'video'
           ? 'Video'
@@ -211,7 +243,7 @@ export function useCreativeCatalogViewModel({
         format,
         size: getCreativeSizeLabel(creative) === 'unknown' ? '—' : getCreativeSizeLabel(creative),
         status,
-        qa,
+        signal,
         preview: previewLabel,
         owner: creative.workspaceName ?? 'Creative Ops',
       };
@@ -221,10 +253,10 @@ export function useCreativeCatalogViewModel({
   const prototypeChecks: PrototypeCheck[] = [
     { name: 'creative view renders rows', passed: creativeRows.length >= 1 },
     { name: 'creative ids are stable', passed: creativeRows.every((row) => row.id.length > 0) },
-    { name: 'creative statuses are valid', passed: creativeRows.every((row) => ['Approved', 'Pending QA', 'Rejected', 'Ready', 'Missing'].includes(row.status)) },
+    { name: 'creative statuses are valid', passed: creativeRows.every((row) => ['Live', 'Publishing', 'Needs attention', 'Inactive', 'Preview unavailable'].includes(row.status)) },
     { name: 'creative formats are valid', passed: creativeRows.every((row) => ['Display', 'HTML5', 'Video', 'Native'].includes(row.format)) },
-    { name: 'qa severities are valid', passed: creativeRows.every((row) => ['Critical', 'Warning', 'Notice'].includes(row.qa)) },
-    { name: 'creative QA signals exist', passed: creativeRows.every((row) => row.preview && row.owner) },
+    { name: 'operational signals are valid', passed: creativeRows.every((row) => ['Ready', 'Publishing', 'Needs attention', 'Inactive'].includes(row.signal)) },
+    { name: 'preview state is represented', passed: creativeRows.every((row) => row.preview && row.owner) },
     { name: 'primary CTA remains upload creative', passed: true },
   ];
 
@@ -259,13 +291,14 @@ export function useCreativeCatalogViewModel({
     bulkAssignableTags,
     canBulkAssign,
     bulkAssignHint,
-    approvedCreatives,
-    pendingQaCreatives,
-    rejectedCreatives,
-    pendingPreviewCreatives,
-    missingCreatives,
+    liveCreatives,
+    publishingCreatives,
+    inactiveCreatives,
+    attentionCreatives,
+    previewMissingCreatives,
+    previewMissingCount,
     creativeRows,
-    creativeEligibility,
+    creativeAvailability,
     prototypeChecks,
     toggleCreativeSelection,
     toggleSelectAllVisibleCreatives,

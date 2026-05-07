@@ -1,10 +1,10 @@
 import React from 'react';
 import { CreativeThumb, DataTable, IconButton, type ColumnDef } from '../../system';
 import type { Creative, CreativeVersion } from '../catalog';
-import type { CreativeRow, PreviewModalState, PrioritySeverity } from './types';
+import type { CreativeRow, PreviewModalState } from './types';
 import { CreativePreviewCell } from './CreativePreviewCell';
 import { CreativeRowActions } from './CreativeRowActions';
-import { CreativeStatusBadge, MoreIcon, PrioritySeverityBadge, resolveCreativePreviewHref, resolveCreativePreviewKind } from './ui';
+import { CreativeStatusBadge, MoreIcon, OperationalSignalBadge, resolveCreativePreviewHref, resolveCreativePreviewKind } from './ui';
 
 type Props = {
   creatives: Creative[];
@@ -18,7 +18,7 @@ type Props = {
   onOpenPreview: (preview: PreviewModalState) => void;
   statusUpdateCreativeId: string;
   workspaceBusy: boolean;
-  getCreativeOperationalState: (creative: Creative) => 'active' | 'inactive' | 'pending_review' | 'rejected' | 'draft';
+  getCreativeOperationalState: (creative: Creative) => 'live' | 'publishing' | 'inactive' | 'attention';
   onToggleOperationalStatus: (creative: Creative) => void | Promise<void>;
   onEditClickUrl: (creative: Creative) => void | Promise<void>;
   onOpenDeliveryManager: (creative: Creative, version: CreativeVersion) => void | Promise<void>;
@@ -126,10 +126,10 @@ export function CreativeTable({
       sortAccessor: (row) => row.preview,
     },
     {
-      id: 'qa',
-      header: 'QA',
-      cell: (row) => <PrioritySeverityBadge severity={row.qa ?? 'Notice'} />,
-      sortAccessor: (row) => row.qa,
+      id: 'signal',
+      header: 'Signal',
+      cell: (row) => <OperationalSignalBadge signal={row.signal} />,
+      sortAccessor: (row) => row.signal,
     },
     {
       id: 'owner',

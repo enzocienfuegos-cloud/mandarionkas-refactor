@@ -333,31 +333,6 @@ export async function loadTagBindings(tagId: string): Promise<TagBinding[]> {
   return payload.bindings ?? [];
 }
 
-export async function submitCreativeVersion(versionId: string) {
-  return fetchJson<{ creativeVersion: CreativeVersion }>(`/v1/creative-versions/${versionId}/submit`, {
-    method: 'POST',
-  });
-}
-
-export async function loadPendingReviewVersions(): Promise<CreativeVersion[]> {
-  const payload = await fetchJson<{ creativeVersions: CreativeVersion[] }>('/v1/creative-versions/pending-review');
-  return payload.creativeVersions ?? [];
-}
-
-export async function approveCreativeVersion(versionId: string, notes?: string) {
-  return fetchJson<{ creativeVersion: CreativeVersion }>(`/v1/creative-versions/${versionId}/approve`, {
-    method: 'POST',
-    body: JSON.stringify({ notes }),
-  });
-}
-
-export async function rejectCreativeVersion(versionId: string, reason: string) {
-  return fetchJson<{ creativeVersion: CreativeVersion }>(`/v1/creative-versions/${versionId}/reject`, {
-    method: 'POST',
-    body: JSON.stringify({ reason }),
-  });
-}
-
 export async function createCreativeIngestionUpload(input: {
   workspaceId?: string;
   sourceKind: 'html5_zip' | 'video_mp4';

@@ -39,9 +39,9 @@ export default function CreativeUpload() {
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <Kicker>Creatives</Kicker>
-        <h1 className="mt-3 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">Upload External Creatives</h1>
+        <h1 className="mt-3 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">Upload Creatives</h1>
         <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">
-          Upload multiple HTML5 zip banners or MP4 videos and publish them into the versioned creative catalog.
+          Upload HTML5 zip banners or MP4 videos and publish them directly into the creative catalog for serving.
         </p>
       </div>
 
@@ -91,7 +91,7 @@ export default function CreativeUpload() {
                 className={`h-auto justify-start rounded-xl px-4 py-3 text-left ${sourceKind === 'video_mp4' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
               >
                 <div className="font-medium text-[color:var(--dusk-text-primary)]">Video MP4</div>
-                <div className="text-sm text-[color:var(--dusk-text-muted)]">Creates a video creative version ready for VAST serving and review.</div>
+                <div className="text-sm text-[color:var(--dusk-text-muted)]">Creates a video creative version for VAST serving as soon as publishing finishes.</div>
               </Button>
             </div>
           </div>
@@ -154,7 +154,7 @@ export default function CreativeUpload() {
                           />
                           <p className="mt-1 text-[11px] text-[color:var(--dusk-text-muted)]">
                             {sourceKind === 'video_mp4'
-                              ? 'Videos need a destination URL before publishing.'
+                              ? 'Videos need a destination URL before they can be published for serving.'
                               : 'For HTML5, we auto-detect clickTag/click URL from the archive. If none is found, this fallback URL is required.'}
                           </p>
                           {sourceKind === 'html5_zip' && detectingFileKeys.includes(buildFileKey(file)) && (
