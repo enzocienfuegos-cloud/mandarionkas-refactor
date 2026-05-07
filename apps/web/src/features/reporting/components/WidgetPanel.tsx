@@ -10,12 +10,14 @@ export function WidgetPanel({
   tone = 'fuchsia',
   action,
   children,
+  onMoreActions,
 }: {
   title: string;
   icon?: Parameters<typeof BrandIcon>[0]['name'];
   tone?: Tone;
   action?: React.ReactNode;
   children: React.ReactNode;
+  onMoreActions?: () => void;
 }) {
   return (
     <section className="rounded-[18px] border border-[color:var(--dusk-border-default)] bg-surface-1 shadow-2 backdrop-blur-xl">
@@ -29,14 +31,17 @@ export function WidgetPanel({
         </div>
         <div className="flex items-center gap-2">
           {action}
-          <IconButton
-            type="button"
-            size="sm"
-            variant="ghost"
-            aria-label={`More actions for ${title}`}
-            icon={<MoreHorizontal />}
-            className="rounded-lg border border-[color:var(--dusk-border-subtle)] text-[color:var(--dusk-text-soft)] hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]"
-          />
+          {onMoreActions ? (
+            <IconButton
+              type="button"
+              size="sm"
+              variant="ghost"
+              aria-label={`More actions for ${title}`}
+              icon={<MoreHorizontal />}
+              onClick={onMoreActions}
+              className="rounded-lg border border-[color:var(--dusk-border-subtle)] text-[color:var(--dusk-text-soft)] hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]"
+            />
+          ) : null}
         </div>
       </header>
       <div className="p-4">{children}</div>

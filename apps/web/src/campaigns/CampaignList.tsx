@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../shared/workspaces';
+import { switchWorkspace } from '../shared/workspaces';
 import {
   Button,
   CenteredSpinner,
@@ -17,8 +17,12 @@ import {
   useToast,
 } from '../system';
 import { AlertTriangleIcon, CampaignsTable, GaugeIcon, ReportIcon, SearchIcon, TableIcon, TrendBadge } from './campaign-list/components';
-import type { Campaign, CampaignRow, CampaignStatus, Metric, Tone } from './campaign-list/types';
-import { computeDelta, formatCompactMoney, formatDateRange, toNumber, toneClass } from './campaign-list/utils';
+import type { CampaignRow } from './campaign-list/types';
+import {
+  useCampaignData,
+  useCampaignFilters,
+  useCampaignViewModel,
+} from './campaign-list/hooks';
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
@@ -28,113 +32,30 @@ export default function CampaignList() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchQueryParam = searchParams.get('search') ?? '';
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
-  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
-  const [search, setSearch] = useState(() => searchQueryParam);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'limited' | 'blocked' | 'ready' | 'draft'>('all');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const load = () => {
-    setLoading(true);
-    Promise.all([
-      fetch('/v1/campaigns?scope=all', { credentials: 'include' }).then((r) => {
-        if (!r.ok) throw new Error('Failed to load campaigns');
-        return r.json();
-      }),
-      loadWorkspaces(),
-      loadAuthMe(),
-    ])
-      .then(([campaignData, workspaceData, authMe]) => {
-        setCampaigns(campaignData?.campaigns ?? campaignData ?? []);
-        setClients(workspaceData ?? []);
-        setActiveWorkspaceId(authMe.workspace?.id ?? '');
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(load, []);
-  useEffect(() => { setSearch(searchQueryParam); }, [searchQueryParam]);
-
-  const filteredCampaigns = useMemo(() => campaigns.filter((campaign) => {
-    const clientMatch = !selectedClientIds.length || selectedClientIds.includes(campaign.workspace_id ?? '');
-    const needle = search.trim().toLowerCase();
-    const searchMatch = !needle
-      || campaign.name.toLowerCase().includes(needle)
-      || (campaign.workspace_name ?? '').toLowerCase().includes(needle)
-      || (campaign.advertiser?.name ?? '').toLowerCase().includes(needle)
-      || (campaign.metadata?.dsp ?? '').toLowerCase().includes(needle);
-    if (!clientMatch || !searchMatch) return false;
-
-    if (statusFilter === 'all') return true;
-
-    const impressions = toNumber(campaign.impressions);
-    const ctr = toNumber(campaign.ctr);
-    const hoverMs = toNumber(campaign.totalHoverDurationMs ?? campaign.total_hover_duration_ms);
-    let derivedStatus: CampaignStatus = 'Draft';
-    if (campaign.status === 'draft' || campaign.status === 'archived') derivedStatus = 'Draft';
-    else if (campaign.status === 'paused') derivedStatus = impressions > 0 ? 'Limited' : 'Blocked';
-    else if (impressions === 0 && hoverMs === 0) derivedStatus = 'Ready';
-    else if (ctr < 0.35 || impressions < 100) derivedStatus = 'Limited';
-    else derivedStatus = 'Live';
-
-    const normalized = derivedStatus.toLowerCase() as Lowercase<CampaignStatus>;
-    return normalized === statusFilter;
-  }), [campaigns, search, selectedClientIds, statusFilter]);
-
-  const campaignRows = useMemo<CampaignRow[]>(() => filteredCampaigns.map((campaign) => {
-    const impressions = toNumber(campaign.impressions);
-    const ctr = toNumber(campaign.ctr);
-    const hoverMs = toNumber(campaign.totalHoverDurationMs ?? campaign.total_hover_duration_ms);
-    let status: CampaignStatus = 'Draft';
-    if (campaign.status === 'draft') status = 'Draft';
-    else if (campaign.status === 'archived') status = 'Draft';
-    else if (campaign.status === 'paused') status = impressions > 0 ? 'Limited' : 'Blocked';
-    else if (impressions === 0 && hoverMs === 0) status = 'Ready';
-    else if (ctr < 0.35 || impressions < 100) status = 'Limited';
-    else status = 'Live';
-
-    const issues =
-      (status === 'Blocked' ? 2 : 0)
-      + (status === 'Limited' ? 1 : 0)
-      + (campaign.status === 'draft' ? 1 : 0)
-      + (ctr === 0 && impressions > 0 ? 1 : 0);
-
-    return {
-      id: campaign.id,
-      campaign: campaign.name,
-      advertiser: campaign.workspace_name ?? campaign.advertiser?.name ?? 'Workspace',
-      status,
-      pacing: status === 'Ready' ? 'Not live' : status === 'Draft' ? 'Setup' : `${Math.max(0, Math.min(130, Math.round(ctr * 100)))}%`,
-      spend: formatCompactMoney(toNumber(campaign.dailyBudget) * 7),
-      budget: formatCompactMoney(toNumber(campaign.dailyBudget) * 10),
-      tagHealth: impressions > 0 ? 'Healthy' : campaign.status === 'draft' ? 'Not generated' : 'Low firing',
-      creativeStatus: hoverMs > 0 ? 'Approved' : campaign.status === 'draft' ? 'Not uploaded' : 'Pending QA',
-      issues,
-      owner: campaign.metadata?.dsp ?? 'Ad Ops',
-      flight: formatDateRange(campaign.startDate ?? campaign.start_date, campaign.endDate ?? campaign.end_date),
-      raw: campaign,
-    };
-  }), [filteredCampaigns]);
-
-  const liveCampaigns = campaignRows.filter((c) => c.status === 'Live').length;
-  const blockedOrLimited = campaignRows.filter((c) => c.status === 'Blocked' || c.status === 'Limited').length;
-  const draftSetup = campaignRows.filter((c) => c.status === 'Draft' || c.status === 'Ready').length;
-  const openIssues = campaignRows.reduce((sum, c) => sum + c.issues, 0);
-  const trackedSpend = campaignRows.reduce((sum, c) => sum + toNumber(c.raw.dailyBudget) * 7, 0);
-  const previousTrackedSpend = trackedSpend * 0.92;
-  const needsAttentionRows = campaignRows.filter((c) => c.status === 'Blocked' || c.status === 'Limited').slice(0, 3);
-
-  const metrics: Metric[] = [
-    { id: 'live', label: 'Live campaigns', value: String(liveCampaigns), delta: `+${Math.max(0, liveCampaigns - 1)}`, direction: 'up', helper: 'currently eligible to deliver', tone: 'fuchsia', series: [1, 1, 2, 2, liveCampaigns || 1, liveCampaigns || 1, liveCampaigns || 1] },
-    { id: 'blocked', label: 'Blocked / limited', value: String(blockedOrLimited), delta: `+${Math.max(0, blockedOrLimited - 1)}`, direction: blockedOrLimited > 0 ? 'up' : 'flat', helper: 'need delivery review', tone: 'amber', series: [0, 1, 1, 1, blockedOrLimited || 1, blockedOrLimited || 1, blockedOrLimited || 1] },
-    { id: 'spend', label: 'Spend tracked', value: formatCompactMoney(trackedSpend), delta: computeDelta(trackedSpend, previousTrackedSpend).label, direction: computeDelta(trackedSpend, previousTrackedSpend).direction, helper: 'against active campaign budgets', tone: 'emerald', series: [18, 22, 26, 31, 34, 37, 42].map((n) => n * Math.max(trackedSpend / 15300, 0.2)) },
-    { id: 'issues', label: 'Open issues', value: String(openIssues), delta: `+${Math.max(0, openIssues - 7)}`, direction: openIssues > 0 ? 'up' : 'flat', helper: 'tags, creatives and pacing', tone: 'rose', series: [4, 5, 5, 7, 8, 9, Math.max(openIssues, 1)] },
-  ];
+  const filters = useCampaignFilters(searchQueryParam);
+  const {
+    campaigns,
+    setCampaigns,
+    clients,
+    activeWorkspaceId,
+    setActiveWorkspaceId,
+    loading,
+    error,
+    reload: load,
+  } = useCampaignData();
+  useEffect(() => { filters.setSearch(searchQueryParam); }, [filters, searchQueryParam]);
+  const {
+    campaignRows,
+    liveCampaigns,
+    blockedOrLimited,
+    draftSetup,
+    needsAttentionRows,
+    metrics,
+  } = useCampaignViewModel({
+    campaigns,
+    filters,
+  });
 
   const handleDelete = async (campaign: CampaignRow) => {
     const confirmed = await confirm({
@@ -206,15 +127,15 @@ export default function CampaignList() {
                 <div className="flex min-w-0 items-start gap-3">
                   <AlertTriangleIcon className="mt-0.5 shrink-0" />
                   <p className="text-sm font-medium">
-                    {needsAttentionRows.length} campaigns need attention before new trafficking changes.
-                  </p>
-                </div>
+                  {needsAttentionRows.length} campaigns need attention before new trafficking changes.
+                </p>
+              </div>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="shrink-0"
-                  onClick={() => setSearch(needsAttentionRows[0]?.campaign ?? '')}
+                  onClick={() => filters.setSearch(needsAttentionRows[0]?.campaign ?? '')}
                 >
                   Focus issues
                 </Button>
@@ -227,17 +148,17 @@ export default function CampaignList() {
               {
                 id: 'advertiser',
                 label: 'Advertiser',
-                value: selectedClientIds[0] ?? '',
+                value: filters.selectedClientIds[0] ?? '',
                 options: [
                   { value: '', label: 'All advertisers' },
                   ...clients.map((client) => ({ value: client.id, label: client.name })),
                 ],
-                onChange: (value) => setSelectedClientIds(value ? [value] : []),
+                onChange: (value) => filters.setSelectedClientIds(value ? [value] : []),
               },
               {
                 id: 'status',
                 label: 'Status',
-                value: statusFilter,
+                value: filters.statusFilter,
                 options: [
                   { value: 'all', label: 'Active + setup' },
                   { value: 'live', label: 'Live' },
@@ -246,20 +167,16 @@ export default function CampaignList() {
                   { value: 'ready', label: 'Ready' },
                   { value: 'draft', label: 'Draft' },
                 ],
-                onChange: (value) => setStatusFilter(value as 'all' | 'live' | 'limited' | 'blocked' | 'ready' | 'draft'),
+                onChange: (value) => filters.setStatusFilter(value as 'all' | 'live' | 'limited' | 'blocked' | 'ready' | 'draft'),
               },
             ]}
             search={{
-              value: search,
-              onChange: setSearch,
+              value: filters.search,
+              onChange: filters.setSearch,
               placeholder: 'Search campaign, advertiser, owner',
             }}
-            activeFilterCount={[selectedClientIds[0], statusFilter !== 'all', search.trim()].filter(Boolean).length}
-            onResetAll={() => {
-              setSelectedClientIds([]);
-              setStatusFilter('all');
-              setSearch('');
-            }}
+            activeFilterCount={filters.activeFilterCount}
+            onResetAll={filters.resetAll}
           />
 
           {/* ── Metrics ── */}

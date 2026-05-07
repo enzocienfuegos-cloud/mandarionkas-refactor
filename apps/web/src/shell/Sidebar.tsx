@@ -15,7 +15,6 @@ import {
   ChevronLeft,
 } from '../system/icons';
 import { cn } from '../system/cn';
-import { Button, IconButton } from '../system';
 import { DuskLogo } from './DuskLogo';
 
 export type SidebarItemId =
@@ -132,25 +131,25 @@ export function Sidebar({ activeItem, badgeCounts, collapsed = false, onToggleCo
         <div className="mt-4 border-t border-[color:var(--dusk-border-subtle)] pt-3">
           {!collapsed && <SystemStatus />}
           {onToggleCollapsed && (
-            <IconButton
+            <button
+              type="button"
               onClick={onToggleCollapsed}
               aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              icon={
-                <ChevronLeft
-                  className={cn(
-                    'h-4 w-4 transition-transform duration-base',
-                    collapsed ? 'rotate-180' : '',
-                  )}
-                />
-              }
-              variant="ghost"
-              size="sm"
               className={cn(
-                'mt-2 w-full',
+                'mt-2 inline-flex h-8 w-full items-center justify-center rounded-lg',
                 'text-[color:var(--dusk-text-soft)] hover:text-[color:var(--dusk-text-primary)]',
-                'hover:bg-[color:var(--dusk-surface-hover)] transition-colors',
+                'hover:bg-[color:var(--dusk-surface-hover)]',
+                'transition-colors duration-base ease-standard',
+                'focus:outline-none focus:ring-2 focus:ring-[color:var(--dusk-border-focus)]',
               )}
-            />
+            >
+              <ChevronLeft
+                className={cn(
+                  'h-4 w-4 transition-transform duration-base',
+                  collapsed ? 'rotate-180' : '',
+                )}
+              />
+            </button>
           )}
         </div>
       </div>
@@ -207,16 +206,16 @@ function NavItemRow({
 
   return (
     <li>
-      <Button
+      <button
+        type="button"
         onClick={() => navigate(item.to)}
         aria-current={isActive ? 'page' : undefined}
         title={collapsed ? item.label : undefined}
-        variant="ghost"
-        size="sm"
         className={cn(
-          'group relative flex w-full items-center rounded-lg text-sm font-medium',
-          'transition-colors duration-base ease-standard text-left',
-          collapsed ? 'h-10 justify-center !px-0' : 'gap-3 px-2.5 h-9',
+          'group relative flex w-full items-center rounded-lg text-left text-sm font-medium',
+          'transition-colors duration-base ease-standard',
+          'focus:outline-none focus:ring-2 focus:ring-[color:var(--dusk-border-focus)]',
+          collapsed ? 'h-10 justify-center px-0' : 'h-9 gap-3 px-2.5',
           isActive
             ? 'bg-surface-active text-text-brand'
             : 'text-[color:var(--dusk-text-secondary)] hover:bg-[color:var(--dusk-surface-hover)] hover:text-[color:var(--dusk-text-primary)]',
@@ -228,7 +227,15 @@ function NavItemRow({
             className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-brand-500"
           />
         )}
-        <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-text-brand' : 'text-[color:var(--dusk-text-muted)]')} />
+        <Icon
+          className={cn(
+            'h-4 w-4 shrink-0',
+            isActive
+              ? 'text-text-brand'
+              : 'text-[color:var(--dusk-text-muted)] group-hover:text-[color:var(--dusk-text-primary)]',
+          )}
+          aria-hidden="true"
+        />
         {!collapsed && (
           <>
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
@@ -249,10 +256,10 @@ function NavItemRow({
         {collapsed && badge !== undefined && badge !== null && (
           <span
             className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-brand-500"
-            aria-hidden
+            aria-hidden="true"
           />
         )}
-      </Button>
+      </button>
     </li>
   );
 }

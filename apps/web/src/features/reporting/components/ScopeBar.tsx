@@ -10,7 +10,15 @@ const toneClasses: Record<ReportingMode, string> = {
   identity: 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]',
 };
 
-export function ScopeBar({ mode }: { mode: ReportingMode }) {
+export function ScopeBar({
+  mode,
+  onShare,
+  lastUpdated,
+}: {
+  mode: ReportingMode;
+  onShare?: () => void;
+  lastUpdated?: string;
+}) {
   return (
     <div className="flex flex-col gap-3 rounded-[18px] border border-[color:var(--dusk-border-default)] bg-surface-1 p-4 shadow-2 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-wrap items-center gap-2">
@@ -22,13 +30,23 @@ export function ScopeBar({ mode }: { mode: ReportingMode }) {
         <span className="rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--dusk-text-secondary)]">Date range: 30 days</span>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-[color:var(--dusk-text-muted)]">
-        <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1">
-          <Calendar className="h-3 w-3" />
-          Updated 6 min ago
-        </span>
-        <Button type="button" variant="secondary" size="sm" leadingIcon={<Send className="h-3 w-3" />}>
-          Share
-        </Button>
+        {lastUpdated ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1">
+            <Calendar className="h-3 w-3" />
+            Updated {lastUpdated}
+          </span>
+        ) : null}
+        {onShare ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            leadingIcon={<Send className="h-3 w-3" />}
+            onClick={onShare}
+          >
+            Share
+          </Button>
+        ) : null}
       </div>
     </div>
   );

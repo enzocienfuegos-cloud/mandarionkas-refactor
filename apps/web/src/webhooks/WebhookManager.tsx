@@ -1,25 +1,7 @@
-import React, { useEffect, useState, FormEvent } from 'react';
+import React, { FormEvent, useState } from 'react';
 import { Badge, Button, CenteredSpinner, DataTable, EmptyState, FormField, Input, Modal, PageHeader, Panel, Select, useConfirm, useToast, type ColumnDef } from '../system';
 import { Bell, Plus, RefreshCw } from '../system/icons';
-
-interface Webhook {
-  id: string;
-  name: string;
-  url: string;
-  events: string[];
-  status: 'active' | 'inactive';
-  secret?: string;
-  createdAt: string;
-}
-
-interface Delivery {
-  id: string;
-  event: string;
-  status: 'success' | 'failed' | 'pending';
-  statusCode?: number;
-  sentAt: string;
-  responseTime?: number;
-}
+import { useWebhookData, useWebhookForm, type DeliveryRecord, type WebhookRecord } from './hooks';
 
 const ALL_EVENTS = [
   'tag.impression',
@@ -32,14 +14,14 @@ const ALL_EVENTS = [
   'discrepancy.critical',
 ];
 
-const statusBadge = (status: Webhook['status']) => (
+const statusBadge = (status: WebhookRecord['status']) => (
   <Badge tone={status === 'active' ? 'success' : 'neutral'} size="sm">
     {status === 'active' ? 'Active' : 'Inactive'}
   </Badge>
 );
 
-const deliveryBadge = (status: Delivery['status']) => {
-  const cfg: Record<Delivery['status'], string> = {
+const deliveryBadge = (status: DeliveryRecord['status']) => {
+  const cfg: Record<DeliveryRecord['status'], string> = {
     success: 'bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]',
     failed:  'bg-[color:var(--dusk-status-critical-bg)] text-[color:var(--dusk-status-critical-fg)]',
     pending: 'bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]',
@@ -51,79 +33,38 @@ const deliveryBadge = (status: Delivery['status']) => {
   );
 };
 
-function generateSecret(): string {
-  const arr = new Uint8Array(24);
-  crypto.getRandomValues(arr);
-  return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
-}
-
 export default function WebhookManager() {
   const confirm = useConfirm();
   const { toast } = useToast();
-  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [editingWebhook, setEditingWebhook] = useState<Webhook | null>(null);
-  const [selectedWebhookId, setSelectedWebhookId] = useState<string | null>(null);
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [loadingDeliveries, setLoadingDeliveries] = useState(false);
-
-  // Form state
-  const [form, setForm] = useState({
-    name: '',
-    url: '',
-    events: new Set<string>(),
-    secret: '',
-    status: 'active' as Webhook['status'],
-  });
-  const [creating, setCreating] = useState(false);
-  const [formError, setFormError] = useState('');
+  const {
+    webhooks,
+    setWebhooks,
+    loading,
+    error,
+    selectedWebhookId,
+    setSelectedWebhookId,
+    deliveries,
+    setDeliveries,
+    loadingDeliveries,
+    load,
+    loadDeliveries,
+  } = useWebhookData();
+  const {
+    showModal,
+    setShowModal,
+    editingWebhook,
+    form,
+    setForm,
+    creating,
+    setCreating,
+    formError,
+    setFormError,
+    openNewModal,
+    openEditModal,
+    toggleEvent,
+    generateSecret,
+  } = useWebhookForm();
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const load = () => {
-    setLoading(true);
-    setError('');
-    fetch('/v1/webhooks', { credentials: 'include' })
-      .then(r => { if (!r.ok) throw new Error('Couldn’t load webhook endpoints. Check workspace access or try again in a moment.'); return r.json(); })
-      .then(d => setWebhooks(d?.webhooks ?? d ?? []))
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(load, []);
-
-  const loadDeliveries = (webhookId: string) => {
-    setLoadingDeliveries(true);
-    setSelectedWebhookId(webhookId);
-    fetch(`/v1/webhooks/${webhookId}/deliveries`, { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => setDeliveries(d?.deliveries ?? d ?? []))
-      .catch(() => setDeliveries([]))
-      .finally(() => setLoadingDeliveries(false));
-  };
-
-  const openNewModal = () => {
-    setEditingWebhook(null);
-    setForm({ name: '', url: '', events: new Set(), secret: generateSecret(), status: 'active' });
-    setFormError('');
-    setShowModal(true);
-  };
-
-  const openEditModal = (wh: Webhook) => {
-    setEditingWebhook(wh);
-    setForm({ name: wh.name, url: wh.url, events: new Set(wh.events), secret: wh.secret ?? '', status: wh.status });
-    setFormError('');
-    setShowModal(true);
-  };
-
-  const toggleEvent = (ev: string) => {
-    setForm(f => {
-      const s = new Set(f.events);
-      s.has(ev) ? s.delete(ev) : s.add(ev);
-      return { ...f, events: s };
-    });
-  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -132,7 +73,13 @@ export default function WebhookManager() {
     if (!form.url.trim()) { setFormError('URL is required.'); return; }
     if (form.events.size === 0) { setFormError('Select at least one event.'); return; }
 
-    const body = {
+    const body: {
+      name: string;
+      url: string;
+      events: string[];
+      secret?: string;
+      status: WebhookRecord['status'];
+    } = {
       name: form.name.trim(),
       url: form.url.trim(),
       events: Array.from(form.events),
@@ -156,9 +103,9 @@ export default function WebhookManager() {
       }
       const data = await res.json();
       if (editingWebhook) {
-        setWebhooks(ws => ws.map(w => w.id === editingWebhook.id ? data : w));
+        setWebhooks((current) => current.map((webhook) => webhook.id === editingWebhook.id ? data : webhook));
       } else {
-        setWebhooks(ws => [data, ...ws]);
+        setWebhooks((current) => [data, ...current]);
       }
       setShowModal(false);
     } catch (e: any) {
@@ -168,7 +115,7 @@ export default function WebhookManager() {
     }
   };
 
-  const handleDelete = async (wh: Webhook) => {
+  const handleDelete = async (wh: WebhookRecord) => {
     const confirmed = await confirm({
       title: `Delete webhook "${wh.name}"?`,
       description: 'This endpoint will stop receiving workspace events immediately.',
@@ -181,7 +128,7 @@ export default function WebhookManager() {
     try {
       const res = await fetch(`/v1/webhooks/${wh.id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error('Delete failed');
-      setWebhooks(ws => ws.filter(w => w.id !== wh.id));
+      setWebhooks((current) => current.filter((webhook) => webhook.id !== wh.id));
       if (selectedWebhookId === wh.id) { setSelectedWebhookId(null); setDeliveries([]); }
       toast({ tone: 'warning', title: `Webhook "${wh.name}" deleted` });
     } catch {
@@ -191,7 +138,7 @@ export default function WebhookManager() {
     }
   };
 
-  const handleToggleStatus = async (wh: Webhook) => {
+  const handleToggleStatus = async (wh: WebhookRecord) => {
     const newStatus = wh.status === 'active' ? 'inactive' : 'active';
     try {
       const res = await fetch(`/v1/webhooks/${wh.id}`, {
@@ -201,14 +148,14 @@ export default function WebhookManager() {
         body: JSON.stringify({ status: newStatus }),
       });
       if (!res.ok) throw new Error('Update failed');
-      setWebhooks(ws => ws.map(w => w.id === wh.id ? { ...w, status: newStatus } : w));
+      setWebhooks((current) => current.map((webhook) => webhook.id === wh.id ? { ...webhook, status: newStatus } : webhook));
       toast({ tone: 'success', title: `Webhook ${newStatus === 'active' ? 'activated' : 'paused'}` });
     } catch {
       toast({ tone: 'critical', title: 'Failed to update webhook status.' });
     }
   };
 
-  const webhookColumns: ColumnDef<Webhook>[] = [
+  const webhookColumns: ColumnDef<WebhookRecord>[] = [
     {
       id: 'name',
       header: 'Name',
@@ -252,7 +199,7 @@ export default function WebhookManager() {
     },
   ];
 
-  const deliveryColumns: ColumnDef<Delivery>[] = [
+  const deliveryColumns: ColumnDef<DeliveryRecord>[] = [
     {
       id: 'event',
       header: 'Event',
@@ -423,7 +370,7 @@ export default function WebhookManager() {
           <FormField label="Status">
             <Select
               value={form.status}
-              onChange={e => setForm(f => ({ ...f, status: e.target.value as Webhook['status'] }))}
+              onChange={e => setForm(f => ({ ...f, status: e.target.value as WebhookRecord['status'] }))}
             >
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>

@@ -10,6 +10,14 @@ const PAGE_EXTENSIONS = new Set(['.ts', '.tsx']);
 const EXCLUDE_PATHS = [
   `${path.sep}system${path.sep}`,
   `${path.sep}shell${path.sep}ProductLauncher.tsx`,
+  // Sidebar nav items use raw <button> intentionally:
+  // they are link-style navigation, not Button primitive CTAs.
+  // Button primitive's size/layout/wrapping fights the nav row layout.
+  `${path.sep}shell${path.sep}Sidebar.tsx`,
+];
+
+const BUTTON_HEURISTIC_EXCLUDE_PATHS = [
+  `${path.sep}pages-refactored${path.sep}`,
 ];
 
 // Forbidden patterns. Each rule has a regex and a human message.
@@ -70,6 +78,42 @@ function shouldSkip(filePath) {
   return EXCLUDE_PATHS.some((needle) => filePath.includes(needle));
 }
 
+function shouldSkipButtonHeuristic(filePath) {
+  return BUTTON_HEURISTIC_EXCLUDE_PATHS.some((needle) => filePath.includes(needle));
+}
+
+function auditDecorativeButtons(filePath, content) {
+  if (shouldSkipButtonHeuristic(filePath)) return;
+  const lines = content.split('\n');
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!lines[index].includes('<Button')) continue;
+    let end = Math.min(lines.length, index + 8);
+    for (let cursor = index + 1; cursor < Math.min(lines.length, index + 8); cursor += 1) {
+      if (lines[cursor].includes('<Button')) {
+        end = cursor;
+        break;
+      }
+    }
+    const window = lines.slice(index, end).join('\n');
+    if (/\bonClick\s*=/.test(window)) continue;
+    if (/\bdisabled\b/.test(window)) continue;
+    if (/\btype\s*=\s*"submit"/.test(window)) continue;
+    if (/\bform\s*=/.test(window)) continue;
+    if (/\basChild\b/.test(window)) continue;
+
+    const before = lines.slice(Math.max(0, index - 4), index).join('\n');
+    const after = lines.slice(index, index + 12).join('\n');
+    const localWindow = lines.slice(Math.max(0, index - 1), index + 2).join('\n');
+    const wrappedInRouterLink = (before.includes('<Link') && after.includes('</Link>'))
+      || (localWindow.includes('<Link') && localWindow.includes('</Link>'));
+    const wrappedInAnchor = (before.includes('<a ') && after.includes('</a>'))
+      || (localWindow.includes('<a ') && localWindow.includes('</a>'));
+    if (wrappedInRouterLink || wrappedInAnchor) continue;
+
+    findings.push(`${path.relative(process.cwd(), filePath)}:${index + 1} — Decorative <Button> detected — likely missing onClick. If intentional (e.g. type="submit" inside form), use disabled/asChild/form or move the action into a wrapping link.`);
+  }
+}
+
 function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const nextPath = path.join(dir, entry.name);
@@ -85,11 +129,14 @@ function walk(dir) {
       const matches = [...content.matchAll(rule.pattern)];
       if (!matches.length) continue;
       for (const match of matches) {
+        if (rule.validate && !rule.validate(match, content, nextPath)) continue;
         const index = match.index ?? 0;
         const line = content.slice(0, index).split('\n').length;
         findings.push(`${path.relative(process.cwd(), nextPath)}:${line} — ${rule.msg}`);
       }
     }
+
+    auditDecorativeButtons(nextPath, content);
   }
 }
 

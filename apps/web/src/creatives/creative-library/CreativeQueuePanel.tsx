@@ -1,6 +1,5 @@
 import React from 'react';
 import { Button, Kicker } from '../../system';
-import { FilterIcon } from './ui';
 
 type Props = {
   totalCreatives: number;
@@ -26,9 +25,6 @@ export function CreativeQueuePanel({
           <p className="mt-2 text-sm text-text-muted">Review approval status, preview availability, delivery setup, and launch blockers from one dense queue.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" variant="secondary" size="sm" leadingIcon={<FilterIcon className="h-4 w-4" />}>
-            Filters
-          </Button>
           <Button type="button" variant="ghost" size="sm" onClick={onRefresh}>
             Refresh
           </Button>

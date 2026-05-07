@@ -31,6 +31,8 @@ import { useCreativeCatalogViewModel } from './creative-library/useCreativeCatal
 import { QuickCreateTagModal } from './creative-library/QuickCreateTagModal';
 import { TagBindingModal } from './creative-library/TagBindingModal';
 import { useTagBindingManager } from './creative-library/useTagBindingManager';
+import { useCreativeFilters } from './creative-library/useCreativeFilters';
+import { useCreativeSelection } from './creative-library/useCreativeSelection';
 import { useVariantManager } from './creative-library/useVariantManager';
 import { useVideoRenditionManager } from './creative-library/useVideoRenditionManager';
 import { VariantManagerModal } from './creative-library/VariantManagerModal';
@@ -62,17 +64,13 @@ export default function CreativesView() {
   const confirm = useConfirm();
   const [searchParams] = useSearchParams();
   const searchQueryParam = searchParams.get('search') ?? '';
-  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState(() => searchQueryParam);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'pending_review' | 'rejected'>('all');
-  const [formatFilter, setFormatFilter] = useState<'all' | 'video' | 'display' | 'native'>('all');
-  const [sizeFilter, setSizeFilter] = useState('all');
-  const [selectedCreativeIds, setSelectedCreativeIds] = useState<string[]>([]);
   const [bulkClickUrl, setBulkClickUrl] = useState('');
   const [bulkAssignTagId, setBulkAssignTagId] = useState('');
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [previewModal, setPreviewModal] = useState<PreviewModalState | null>(null);
+  const filters = useCreativeFilters(searchQueryParam);
+  const selection = useCreativeSelection();
   const {
     creatives,
     setCreatives,
@@ -144,8 +142,8 @@ export default function CreativesView() {
   });
 
   useEffect(() => {
-    setSearchTerm(searchQueryParam);
-  }, [searchQueryParam]);
+    filters.setSearchTerm(searchQueryParam);
+  }, [filters, searchQueryParam]);
   const {
     getCreativeOperationalState,
     availableSizeOptions,
@@ -172,13 +170,13 @@ export default function CreativesView() {
     creatives,
     latestVersions,
     tags,
-    selectedClientIds,
-    formatFilter,
-    statusFilter,
-    sizeFilter,
-    searchTerm,
-    selectedCreativeIds,
-    setSelectedCreativeIds,
+    selectedClientIds: filters.selectedClientIds,
+    formatFilter: filters.formatFilter,
+    statusFilter: filters.statusFilter,
+    sizeFilter: filters.sizeFilter,
+    searchTerm: filters.searchTerm,
+    selectedCreativeIds: selection.selectedCreativeIds,
+    setSelectedCreativeIds: selection.setSelectedCreativeIds,
     bulkAssignTagId,
     setBulkAssignTagId,
   });
@@ -208,8 +206,8 @@ export default function CreativesView() {
     setCreatives,
     latestVersions,
     setLatestVersions,
-    selectedCreativeIds,
-    setSelectedCreativeIds,
+    selectedCreativeIds: selection.selectedCreativeIds,
+    setSelectedCreativeIds: selection.setSelectedCreativeIds,
     bulkClickUrl,
     setBulkClickUrl,
     bulkAssignTagId,
@@ -253,17 +251,17 @@ export default function CreativesView() {
     <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
       <CreativeWorkspaceOverview
         workspaces={workspaces}
-        selectedWorkspaceId={selectedClientIds[0] ?? ''}
-        onWorkspaceChange={(workspaceId) => setSelectedClientIds(workspaceId ? [workspaceId] : [])}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        formatFilter={formatFilter}
-        onFormatFilterChange={setFormatFilter}
-        sizeFilter={sizeFilter}
-        onSizeFilterChange={setSizeFilter}
+        selectedWorkspaceId={filters.selectedClientIds[0] ?? ''}
+        onWorkspaceChange={(workspaceId) => filters.setSelectedClientIds(workspaceId ? [workspaceId] : [])}
+        statusFilter={filters.statusFilter}
+        onStatusFilterChange={filters.setStatusFilter}
+        formatFilter={filters.formatFilter}
+        onFormatFilterChange={filters.setFormatFilter}
+        sizeFilter={filters.sizeFilter}
+        onSizeFilterChange={filters.setSizeFilter}
         sizeOptions={availableSizeOptions}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
+        searchTerm={filters.searchTerm}
+        onSearchChange={filters.setSearchTerm}
         onUploadCreative={() => navigate('/creatives/upload')}
         pendingReviewCount={pendingQaCreatives + rejectedCreatives + missingCreatives}
         creativeMetrics={creativeMetrics}
@@ -275,9 +273,9 @@ export default function CreativesView() {
         </Panel>
       )}
 
-      {selectedCreativeIds.length > 0 && (
+      {selection.selectedCreativeIds.length > 0 && (
         <CreativeBulkActionsPanel
-          selectedCount={selectedCreativeIds.length}
+          selectedCount={selection.selectedCreativeIds.length}
           bulkClickUrl={bulkClickUrl}
           onBulkClickUrlChange={setBulkClickUrl}
           onBulkClickUrlUpdate={handleBulkClickUrlUpdate}
@@ -294,7 +292,7 @@ export default function CreativesView() {
           onBulkDelete={handleBulkDeleteCreatives}
           bulkDeleteSaving={bulkDeleteSaving}
           onClearSelection={() => {
-            setSelectedCreativeIds([]);
+            selection.clearSelection();
             setBulkAssignTagId('');
             setBulkClickUrl('');
           }}
@@ -315,7 +313,7 @@ export default function CreativesView() {
             creatives={filteredCreatives}
             latestVersions={latestVersions}
             creativeRows={creativeRows}
-            selectedCreativeIds={selectedCreativeIds}
+            selectedCreativeIds={selection.selectedCreativeIds}
             allVisibleCreativesSelected={allVisibleCreativesSelected}
             someVisibleCreativesSelected={someVisibleCreativesSelected}
             onToggleSelectAllVisible={toggleSelectAllVisibleCreatives}

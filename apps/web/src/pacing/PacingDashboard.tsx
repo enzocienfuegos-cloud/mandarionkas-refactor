@@ -1,179 +1,28 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button, CenteredSpinner, FilterBar, Kicker, MetricCard, PageHeader, Panel, TrendChart } from '../system';
 import { SparklineModal } from './pacing-view/SparklineModal';
 import { PacingTable } from './pacing-view/PacingTable';
-import type {
-  BreakdownDay,
-  Metric,
-  PacingAlert,
-  PacingCampaign,
-  PacingData,
-  PacingRow,
-  PacingStatus,
-  PrioritySeverity,
-  RawPacingStatus,
-  Tone,
-} from './pacing-view/types';
-import {
-  buildPacingRow,
-  fmtCurrency,
-  fmtNum,
-  normalizePacingAlert,
-  normalizePacingCampaign,
-} from './pacing-view/utils';
-import {
-  AlertTriangleIcon,
-  GaugeIcon,
-  ReportIcon,
-  TableIcon,
-  toneToMetricTone,
-} from './pacing-view/components';
+import type { PacingCampaign } from './pacing-view/types';
+import { fmtCurrency, fmtNum } from './pacing-view/utils';
+import { AlertTriangleIcon, GaugeIcon, ReportIcon, TableIcon, toneToMetricTone } from './pacing-view/components';
+import { usePacingBreakdown, usePacingData, usePacingFilters, usePacingViewModel } from './pacing-view/hooks';
 
 export default function PacingView() {
-  const [data, setData] = useState<PacingData | null>(null);
-  const [alerts, setAlerts] = useState<PacingAlert[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [advertiserFilter, setAdvertiserFilter] = useState('');
-  const [dateRangeFilter, setDateRangeFilter] = useState<'7d' | '30d' | '90d'>('30d');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'exceptions' | 'on_pace' | 'paused'>('all');
-  const [exceptionsOnly, setExceptionsOnly] = useState(false);
+  const filters = usePacingFilters();
+  const { data, alerts, loading, error, reload: load } = usePacingData();
+  const {
+    rows,
+    filteredRows,
+    advertiserOptions,
+    focusCampaign,
+    exceptionsCount,
+    onTargetCount,
+    budgetRiskValue,
+    pacingMetrics,
+    prototypeChecks,
+  } = usePacingViewModel({ data, filters });
   const [selectedCampaign, setSelectedCampaign] = useState<PacingCampaign | null>(null);
-  const [focusBreakdown, setFocusBreakdown] = useState<BreakdownDay[]>([]);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    setError('');
-    Promise.all([
-      fetch('/v1/pacing', { credentials: 'include' }).then((response) => {
-        if (!response.ok) throw new Error('Couldn’t load pacing workspace data. The service may be unavailable or this workspace may not have pacing access.');
-        return response.json();
-      }),
-      fetch('/v1/pacing/alerts', { credentials: 'include' }).then((response) => response.json()).catch(() => []),
-    ])
-      .then(([pacingData, alertData]) => {
-        const campaigns = (pacingData?.campaigns ?? []).map(normalizePacingCampaign);
-        const summary = {
-          total: campaigns.length,
-          active: campaigns.filter((campaign: PacingCampaign) => ['on_track', 'behind', 'ahead'].includes(campaign.status)).length,
-          onTrack: campaigns.filter((campaign: PacingCampaign) => campaign.status === 'on_track').length,
-          behind: campaigns.filter((campaign: PacingCampaign) => campaign.status === 'behind').length,
-          totalServed: campaigns.reduce((sum: number, campaign: PacingCampaign) => sum + Number(campaign.impressionsServed ?? 0), 0),
-        };
-        setData({ campaigns, summary });
-        setAlerts((alertData?.alerts ?? alertData ?? []).map(normalizePacingAlert));
-      })
-      .catch((loadError: Error) => setError(loadError.message))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const rows = useMemo(() => (data?.campaigns ?? []).map(buildPacingRow), [data]);
-
-  const normalizedSearch = search.trim().toLowerCase();
-  const filteredRows = rows.filter((row) => {
-    if (advertiserFilter && row.advertiser !== advertiserFilter) {
-      return false;
-    }
-    if (statusFilter === 'exceptions' && !['Underpacing', 'Overpacing', 'At risk', 'Paused'].includes(row.status)) {
-      return false;
-    }
-    if (statusFilter === 'on_pace' && row.status !== 'On pace') {
-      return false;
-    }
-    if (statusFilter === 'paused' && row.status !== 'Paused') {
-      return false;
-    }
-    if (exceptionsOnly && !['Underpacing', 'Overpacing', 'At risk', 'Paused'].includes(row.status)) {
-      return false;
-    }
-    const campaign = data?.campaigns.find((entry) => entry.id === row.id);
-    if (campaign) {
-      const remainingDays = campaign.remainingDays ?? 0;
-      if (dateRangeFilter === '7d' && remainingDays > 7) return false;
-      if (dateRangeFilter === '30d' && remainingDays > 30) return false;
-      if (dateRangeFilter === '90d' && remainingDays > 90) return false;
-    }
-    if (!normalizedSearch) return true;
-    return [row.campaign, row.advertiser, row.owner].join(' ').toLowerCase().includes(normalizedSearch);
-  });
-
-  const advertiserOptions = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.advertiser))).sort(),
-    [rows],
-  );
-  const focusCampaign = useMemo(
-    () => data?.campaigns.find((campaign) => campaign.id === filteredRows[0]?.id) ?? null,
-    [data?.campaigns, filteredRows],
-  );
-
-  useEffect(() => {
-    if (!focusCampaign) {
-      setFocusBreakdown([]);
-      return;
-    }
-    fetch(`/v1/pacing/${focusCampaign.id}/breakdown?days=7`, { credentials: 'include' })
-      .then((response) => {
-        if (!response.ok) throw new Error('Couldn’t load pacing breakdown history for the focused campaign.');
-        return response.json();
-      })
-      .then((payload) => setFocusBreakdown(payload?.breakdown ?? payload ?? []))
-      .catch(() => setFocusBreakdown([]));
-  }, [focusCampaign?.id]);
-
-  const exceptionsCount = rows.filter((row) => ['Underpacing', 'Overpacing', 'At risk', 'Paused'].includes(row.status)).length;
-  const onTargetCount = rows.filter((row) => row.status === 'On pace').length;
-  const budgetRiskValue = rows
-    .filter((row) => row.risk !== 'Notice')
-    .reduce((sum, row) => sum + Number(row.projected.replace(/[^0-9.]/g, '')), 0);
-  const pacingHealth = rows.length ? Math.round((onTargetCount / rows.length) * 100) : 0;
-
-  const pacingMetrics: Metric[] = useMemo(() => [
-    {
-      id: 'pacing-health',
-      label: 'Pacing health',
-      value: `${pacingHealth}%`,
-      delta: '+3%',
-      direction: 'up',
-      helper: 'campaigns within delivery tolerance',
-      tone: 'fuchsia',
-      series: [],
-    },
-    {
-      id: 'pacing-exceptions',
-      label: 'Pacing exceptions',
-      value: `${exceptionsCount}`,
-      delta: exceptionsCount > 0 ? '-1' : '0',
-      direction: exceptionsCount > 0 ? 'down' : 'flat',
-      helper: 'under or over delivery reviews',
-      tone: 'amber',
-      series: [],
-    },
-    {
-      id: 'on-target',
-      label: 'On target',
-      value: `${onTargetCount}`,
-      delta: onTargetCount > 0 ? '+2' : '0',
-      direction: onTargetCount > 0 ? 'up' : 'flat',
-      helper: 'campaigns pacing within range',
-      tone: 'emerald',
-      series: [],
-    },
-    {
-      id: 'budget-risk',
-      label: 'Budget risk',
-      value: fmtCurrency(budgetRiskValue),
-      delta: '+$0.6K',
-      direction: 'up',
-      helper: 'projected under or over delivery',
-      tone: 'rose',
-      series: [],
-    },
-  ], [budgetRiskValue, exceptionsCount, onTargetCount, pacingHealth]);
+  const { focusBreakdown } = usePacingBreakdown(focusCampaign?.id);
 
   const pacingTrendData = useMemo(() => {
     if (!focusBreakdown.length) return [];
@@ -192,20 +41,8 @@ export default function PacingView() {
     });
   }, [focusBreakdown]);
 
-  const prototypeChecks = [
-    { name: 'pacing view renders rows', passed: rows.length >= 1 },
-    { name: 'row ids are stable', passed: rows.every((row) => row.id.length > 0) },
-    { name: 'pacing statuses are valid', passed: rows.every((row) => ['On pace', 'Underpacing', 'Overpacing', 'At risk', 'Paused'].includes(row.status)) },
-    { name: 'risk severities are valid', passed: rows.every((row) => ['Critical', 'Warning', 'Notice'].includes(row.risk)) },
-    { name: 'budget fields exist', passed: rows.every((row) => row.spend && row.budget && row.dailyTarget && row.projected) },
-    { name: 'four metric cards render', passed: pacingMetrics.length === 4 },
-    { name: 'primary CTA remains review pacing', passed: true },
-  ];
-
   if (loading) {
-    return (
-      <CenteredSpinner label="Loading pacing workspace…" />
-    );
+    return <CenteredSpinner label="Loading pacing workspace…" />;
   }
 
   if (error) {
@@ -233,7 +70,7 @@ export default function PacingView() {
                 {Math.max(exceptionsCount, 4)} pacing exceptions need review before new budget changes.
               </p>
             </div>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setExceptionsOnly(true)} className="shrink-0">
+            <Button type="button" variant="ghost" size="sm" onClick={() => filters.setExceptionsOnly(true)} className="shrink-0">
               Filter to exceptions
             </Button>
           </div>
@@ -245,17 +82,17 @@ export default function PacingView() {
           {
             id: 'advertiser',
             label: 'Advertiser',
-            value: advertiserFilter,
+            value: filters.advertiserFilter,
             options: [
               { value: '', label: 'All advertisers' },
               ...advertiserOptions.map((advertiser) => ({ value: advertiser, label: advertiser })),
             ],
-            onChange: setAdvertiserFilter,
+            onChange: filters.setAdvertiserFilter,
           },
           {
             id: 'status',
             label: 'Status',
-            value: statusFilter,
+            value: filters.statusFilter,
             options: [
               { value: 'all', label: 'All campaigns' },
               { value: 'exceptions', label: 'Exceptions only' },
@@ -264,35 +101,29 @@ export default function PacingView() {
             ],
             onChange: (value) => {
               const next = value as 'all' | 'exceptions' | 'on_pace' | 'paused';
-              setStatusFilter(next);
-              setExceptionsOnly(next === 'exceptions');
+              filters.setStatusFilter(next);
+              filters.setExceptionsOnly(next === 'exceptions');
             },
           },
           {
             id: 'date-range',
             label: 'Date range',
-            value: dateRangeFilter,
+            value: filters.dateRangeFilter,
             options: [
               { value: '7d', label: 'Next 7 days' },
               { value: '30d', label: 'Next 30 days' },
               { value: '90d', label: 'Next 90 days' },
             ],
-            onChange: (value) => setDateRangeFilter(value as '7d' | '30d' | '90d'),
+            onChange: (value) => filters.setDateRangeFilter(value as '7d' | '30d' | '90d'),
           },
         ]}
         search={{
-          value: search,
-          onChange: setSearch,
+          value: filters.search,
+          onChange: filters.setSearch,
           placeholder: 'Search campaign, advertiser, owner',
         }}
-        activeFilterCount={[advertiserFilter, statusFilter !== 'all', dateRangeFilter !== '30d', search.trim()].filter(Boolean).length}
-        onResetAll={() => {
-          setAdvertiserFilter('');
-          setStatusFilter('all');
-          setExceptionsOnly(false);
-          setDateRangeFilter('30d');
-          setSearch('');
-        }}
+        activeFilterCount={filters.activeFilterCount}
+        onResetAll={filters.resetAll}
       />
 
       <div className="grid gap-5 xl:grid-cols-4">
@@ -305,9 +136,7 @@ export default function PacingView() {
             trend={metric.direction}
             context={metric.helper}
             series={metric.series}
-            tone={
-              toneToMetricTone(metric.tone)
-            }
+            tone={toneToMetricTone(metric.tone)}
             icon={
               metric.id === 'pacing-health'
                 ? <GaugeIcon />
@@ -348,7 +177,7 @@ export default function PacingView() {
       {filteredRows.length === 0 ? (
         <Panel padding="none">
           <div className="px-6 py-20 text-center">
-          <Kicker>No pacing rows</Kicker>
+            <Kicker>No pacing rows</Kicker>
             <h3 className="mt-3 text-lg font-medium text-text-primary">No campaigns with pacing data</h3>
             <p className="mt-1 text-sm text-text-muted">Campaigns with delivery goals will appear here.</p>
           </div>
