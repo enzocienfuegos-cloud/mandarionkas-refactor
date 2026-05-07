@@ -5,6 +5,10 @@ const DEFAULT_PREFERENCES = {
   metricStripByScope: {},
 };
 
+function isMissingPreferencesTable(error) {
+  return error?.code === '42P01' && /user_preferences/i.test(String(error?.message ?? ''));
+}
+
 function sanitizeDensityMap(input) {
   const next = {};
   const value = input && typeof input === 'object' ? input : {};
@@ -34,12 +38,19 @@ function sanitizeTheme(value) {
 }
 
 export async function getUserPreferences(client, userId) {
-  const { rows } = await client.query(
-    `select key, value_json
-       from user_preferences
-      where user_id = $1`,
-    [userId],
-  );
+  let rows = [];
+  try {
+    const result = await client.query(
+      `select key, value_json
+         from user_preferences
+        where user_id = $1`,
+      [userId],
+    );
+    rows = result.rows;
+  } catch (error) {
+    if (!isMissingPreferencesTable(error)) throw error;
+    return { ...DEFAULT_PREFERENCES };
+  }
 
   const collected = { ...DEFAULT_PREFERENCES };
   for (const row of rows) {
@@ -81,14 +92,25 @@ export async function saveUserPreferences(client, userId, patch = {}) {
   if ('densityByTable' in sanitized) writes.push(['densityByTable', sanitized.densityByTable]);
   if ('metricStripByScope' in sanitized) writes.push(['metricStripByScope', sanitized.metricStripByScope]);
 
-  for (const [key, value] of writes) {
-    await client.query(
-      `insert into user_preferences (user_id, key, value_json, updated_at)
-       values ($1, $2, $3::jsonb, now())
-       on conflict (user_id, key)
-       do update set value_json = excluded.value_json, updated_at = now()`,
-      [userId, key, JSON.stringify(value)],
-    );
+  try {
+    for (const [key, value] of writes) {
+      await client.query(
+        `insert into user_preferences (user_id, key, value_json, updated_at)
+         values ($1, $2, $3::jsonb, now())
+         on conflict (user_id, key)
+         do update set value_json = excluded.value_json, updated_at = now()`,
+        [userId, key, JSON.stringify(value)],
+      );
+    }
+  } catch (error) {
+    if (!isMissingPreferencesTable(error)) throw error;
+    return {
+      ...DEFAULT_PREFERENCES,
+      ...('theme' in sanitized ? { theme: sanitized.theme } : {}),
+      ...('sidebarCollapsed' in sanitized ? { sidebarCollapsed: sanitized.sidebarCollapsed } : {}),
+      ...('densityByTable' in sanitized ? { densityByTable: sanitized.densityByTable } : {}),
+      ...('metricStripByScope' in sanitized ? { metricStripByScope: sanitized.metricStripByScope } : {}),
+    };
   }
 
   return getUserPreferences(client, userId);

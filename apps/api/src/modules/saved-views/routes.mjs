@@ -1,4 +1,4 @@
-import { badRequest, notFound, sendJson } from '../../lib/http.mjs';
+import { badRequest, notFound, sendJson, serviceUnavailable } from '../../lib/http.mjs';
 import { withSession } from '../../lib/session.mjs';
 import { createSavedView, deleteSavedView, getSavedView, listSavedViews, updateSavedView } from '@smx/db/src/saved-views.mjs';
 
@@ -55,6 +55,9 @@ export async function handleSavedViewRoutes(ctx) {
         });
         return sendJson(res, 201, { ok: true, requestId, view });
       } catch (error) {
+        if (error?.statusCode === 503) {
+          return serviceUnavailable(res, requestId, error.message);
+        }
         return badRequest(res, requestId, error.message);
       }
     });
@@ -79,6 +82,9 @@ export async function handleSavedViewRoutes(ctx) {
         if (!view) return notFound(res, requestId, 'Saved view not found.');
         return sendJson(res, 200, { ok: true, requestId, view });
       } catch (error) {
+        if (error?.statusCode === 503) {
+          return serviceUnavailable(res, requestId, error.message);
+        }
         return badRequest(res, requestId, error.message);
       }
     });
@@ -97,6 +103,9 @@ export async function handleSavedViewRoutes(ctx) {
         });
         return sendJson(res, 200, { ok: true, requestId });
       } catch (error) {
+        if (error?.statusCode === 503) {
+          return serviceUnavailable(res, requestId, error.message);
+        }
         if (error.message === 'Saved view not found.') {
           return notFound(res, requestId, error.message);
         }

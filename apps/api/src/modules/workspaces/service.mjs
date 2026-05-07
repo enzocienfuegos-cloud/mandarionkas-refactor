@@ -60,37 +60,35 @@ async function hydrateWorkspaces(client, workspaces) {
   if (!workspaces.length) return [];
   const ids = workspaces.map((workspace) => workspace.id);
 
-  const [membersResult, invitesResult, brandsResult] = await Promise.all([
-    client.query(
-      `
-        select workspace_id, user_id, role, added_at
-               , product_access
-        from workspace_members
-        where workspace_id = any($1::text[])
-        order by added_at asc
-      `,
-      [ids],
-    ),
-    client.query(
-      `
-        select id, workspace_id, email, role, status, invited_at, product_access
-        from workspace_invites
-        where workspace_id = any($1::text[])
-          and status <> 'revoked'
-        order by invited_at desc
-      `,
-      [ids],
-    ),
-    client.query(
-      `
-        select id, workspace_id, name, primary_color, secondary_color, accent_color, logo_url, font_family
-        from brands
-        where workspace_id = any($1::text[])
-        order by created_at asc
-      `,
-      [ids],
-    ),
-  ]);
+  const membersResult = await client.query(
+    `
+      select workspace_id, user_id, role, added_at
+             , product_access
+      from workspace_members
+      where workspace_id = any($1::text[])
+      order by added_at asc
+    `,
+    [ids],
+  );
+  const invitesResult = await client.query(
+    `
+      select id, workspace_id, email, role, status, invited_at, product_access
+      from workspace_invites
+      where workspace_id = any($1::text[])
+        and status <> 'revoked'
+      order by invited_at desc
+    `,
+    [ids],
+  );
+  const brandsResult = await client.query(
+    `
+      select id, workspace_id, name, primary_color, secondary_color, accent_color, logo_url, font_family
+      from brands
+      where workspace_id = any($1::text[])
+      order by created_at asc
+    `,
+    [ids],
+  );
 
   const membersByWorkspace = new Map();
   for (const row of membersResult.rows) {

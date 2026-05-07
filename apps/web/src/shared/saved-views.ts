@@ -27,7 +27,9 @@ export type UpdateSavedViewInput = Partial<CreateSavedViewInput>;
 async function parseJson<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error((payload as { message?: string })?.message ?? 'Request failed.');
+    const error = new Error((payload as { message?: string })?.message ?? 'Request failed.');
+    (error as Error & { status?: number }).status = response.status;
+    throw error;
   }
   return payload as T;
 }

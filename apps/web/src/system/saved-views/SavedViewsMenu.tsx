@@ -50,6 +50,10 @@ export function SavedViewsMenu({
       const nextViews = await listSavedViews(surface);
       setViews(nextViews);
     } catch (error) {
+      if (error instanceof Error && (error as Error & { status?: number }).status === 503) {
+        setViews([]);
+        return;
+      }
       toast({
         tone: 'critical',
         title: error instanceof Error ? error.message : 'Couldn’t load saved views.',
