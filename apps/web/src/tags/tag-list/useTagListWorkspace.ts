@@ -44,18 +44,35 @@ export function useTagListWorkspace({
 
   const load = () => {
     setRequestState((current) => ({ ...current, loading: true, error: '' }));
-    Promise.all([
+    Promise.allSettled([
       fetch('/v1/tags?scope=all', { credentials: 'include' }).then((response) => {
-        if (!response.ok) throw new Error('Failed to load tags');
+        if (!response.ok) throw new Error('Couldn’t load tags for this workspace.');
         return response.json();
       }),
-      loadWorkspaces(),
+      loadWorkspaces('ad_server'),
       loadAuthMe(),
     ])
-      .then(([payload, workspaceList, authMe]) => {
+      .then(([tagsResult, workspaceResult, authResult]) => {
+        if (tagsResult.status !== 'fulfilled') {
+          throw tagsResult.reason instanceof Error
+            ? tagsResult.reason
+            : new Error('Couldn’t load tags for this workspace.');
+        }
+
+        const payload = tagsResult.value;
         setTags(payload?.tags ?? payload ?? []);
-        setClients(workspaceList.map((workspace) => ({ id: workspace.id, name: workspace.name })));
-        setActiveWorkspaceId(authMe.workspace?.id ?? '');
+
+        if (workspaceResult.status === 'fulfilled') {
+          setClients(workspaceResult.value.map((workspace) => ({ id: workspace.id, name: workspace.name })));
+        } else {
+          setClients([]);
+        }
+
+        if (authResult.status === 'fulfilled') {
+          setActiveWorkspaceId(authResult.value.workspace?.id ?? '');
+        } else {
+          setActiveWorkspaceId('');
+        }
       })
       .catch((loadError: Error) => setRequestState((current) => ({ ...current, error: loadError.message })))
       .finally(() => setRequestState((current) => ({ ...current, loading: false })));

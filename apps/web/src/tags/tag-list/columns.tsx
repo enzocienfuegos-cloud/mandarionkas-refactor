@@ -70,7 +70,7 @@ export function useTagColumns({ deletingId, onEdit, onExport, onDelete }: Params
     },
     {
       id: 'firing',
-      header: 'Firing',
+      header: 'Signal state',
       sortAccessor: (tag) => getFiringLabel(tag),
       cell: (tag) => <span className="font-medium text-text-secondary">{getFiringLabel(tag)}</span>,
     },
