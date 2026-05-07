@@ -4,6 +4,7 @@ import { Button, DataTable, DensityToggle, IconButton, Kicker, Panel, type Colum
 import type { CampaignRow, IconProps, TrendDirection } from './types';
 import { classNames, statusBadge } from './utils';
 import { getDensity } from '../../shared/preferences';
+import { BulkCampaignActions } from './BulkCampaignActions';
 
 function iconProps(className?: string) {
   return {
@@ -93,6 +94,13 @@ export function CampaignsTable({
   onEdit,
   onDelete,
   deletingId,
+  selectedKeys,
+  onSelectionChange,
+  bulkActionLoading,
+  onBulkPause,
+  onBulkResume,
+  onBulkArchive,
+  onBulkDelete,
 }: {
   campaignRows: CampaignRow[];
   liveCampaigns: number;
@@ -101,6 +109,13 @@ export function CampaignsTable({
   onEdit: (row: CampaignRow) => void;
   onDelete: (row: CampaignRow) => void;
   deletingId: string | null;
+  selectedKeys: Set<string>;
+  onSelectionChange: (keys: Set<string>) => void;
+  bulkActionLoading: boolean;
+  onBulkPause: (rows: CampaignRow[]) => void;
+  onBulkResume: (rows: CampaignRow[]) => void;
+  onBulkArchive: (rows: CampaignRow[]) => void;
+  onBulkDelete: (rows: CampaignRow[]) => void;
 }) {
   const [density, setDensity] = useState<Density>(() => getDensity('campaigns-main') ?? 'comfortable');
   const columns: ColumnDef<CampaignRow>[] = [
@@ -234,6 +249,19 @@ export function CampaignsTable({
           columns={columns}
           data={campaignRows}
           rowKey={(campaign) => campaign.id}
+          selectable
+          selectedKeys={selectedKeys}
+          onSelectionChange={onSelectionChange}
+          renderBulkActions={(rows) => (
+            <BulkCampaignActions
+              campaigns={rows}
+              loading={bulkActionLoading}
+              onPause={onBulkPause}
+              onResume={onBulkResume}
+              onArchive={onBulkArchive}
+              onDelete={onBulkDelete}
+            />
+          )}
           density={density}
           densityKey="campaigns-main"
           bordered

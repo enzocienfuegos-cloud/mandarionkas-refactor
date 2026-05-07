@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { getSavedView } from '../shared/saved-views';
 import { switchWorkspace } from '../shared/workspaces';
@@ -33,6 +33,8 @@ export default function CampaignList() {
   const searchQueryParam = searchParams.get('search') ?? '';
   const currentViewId = searchParams.get('view');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const filters = useCampaignFilters(searchQueryParam);
   const {
     campaigns,
@@ -97,6 +99,11 @@ export default function CampaignList() {
     campaigns,
     filters,
   });
+  const selectedKeySet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  useEffect(() => {
+    setSelectedIds((current) => current.filter((id) => campaignRows.some((row) => row.id === id)));
+  }, [campaignRows]);
 
   const handleDelete = async (campaign: CampaignRow) => {
     const confirmed = await confirm({
@@ -136,6 +143,117 @@ export default function CampaignList() {
       navigate(`/campaigns/${campaign.id}`);
     } catch {
       toast({ tone: 'critical', title: 'Failed to open campaign in its client workspace.' });
+    }
+  };
+
+  const updateCampaignStatuses = async (
+    rows: CampaignRow[],
+    nextStatus: 'active' | 'paused' | 'archived',
+    messages: {
+      title: string;
+      description: string;
+      confirmLabel: string;
+      success: string;
+      tone: 'default' | 'danger';
+    },
+  ) => {
+    if (!rows.length) return;
+    const confirmed = await confirm({
+      title: messages.title,
+      description: messages.description,
+      tone: messages.tone,
+      confirmLabel: messages.confirmLabel,
+    });
+    if (!confirmed) return;
+
+    setBulkActionLoading(true);
+    try {
+      for (const row of rows) {
+        const res = await fetch(`/v1/campaigns/${row.id}`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workspaceId: row.raw.workspace_id ?? null,
+            status: nextStatus,
+          }),
+        });
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error((payload as any)?.message ?? `Failed to update "${row.campaign}"`);
+        }
+      }
+      await load();
+      setSelectedIds([]);
+      toast({ tone: nextStatus === 'active' ? 'success' : 'warning', title: messages.success });
+    } catch (bulkError: any) {
+      toast({ tone: 'critical', title: bulkError.message ?? 'Bulk status update failed.' });
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkPause = async (rows: CampaignRow[]) => {
+    await updateCampaignStatuses(rows, 'paused', {
+      title: `Pause ${rows.length} campaign${rows.length === 1 ? '' : 's'}?`,
+      description: 'They will stop delivering until resumed.',
+      confirmLabel: 'Pause',
+      success: `Paused ${rows.length} campaign${rows.length === 1 ? '' : 's'}.`,
+      tone: 'default',
+    });
+  };
+
+  const handleBulkResume = async (rows: CampaignRow[]) => {
+    await updateCampaignStatuses(rows, 'active', {
+      title: `Resume ${rows.length} campaign${rows.length === 1 ? '' : 's'}?`,
+      description: 'They will return to active delivery.',
+      confirmLabel: 'Resume',
+      success: `Resumed ${rows.length} campaign${rows.length === 1 ? '' : 's'}.`,
+      tone: 'default',
+    });
+  };
+
+  const handleBulkArchive = async (rows: CampaignRow[]) => {
+    await updateCampaignStatuses(rows, 'archived', {
+      title: `Archive ${rows.length} campaign${rows.length === 1 ? '' : 's'}?`,
+      description: 'Archived campaigns stay available for history but leave the active queue.',
+      confirmLabel: 'Archive',
+      success: `Archived ${rows.length} campaign${rows.length === 1 ? '' : 's'}.`,
+      tone: 'danger',
+    });
+  };
+
+  const handleBulkDelete = async (rows: CampaignRow[]) => {
+    if (!rows.length) return;
+    const confirmed = await confirm({
+      title: `Delete ${rows.length} campaign${rows.length === 1 ? '' : 's'}?`,
+      description: 'This cannot be undone.',
+      tone: 'danger',
+      confirmLabel: 'Delete',
+    });
+    if (!confirmed) return;
+
+    setBulkActionLoading(true);
+    try {
+      for (const row of rows) {
+        const params = new URLSearchParams();
+        if (row.raw.workspace_id) params.set('workspaceId', row.raw.workspace_id);
+        const res = await fetch(`/v1/campaigns/${row.id}?${params.toString()}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error((payload as any)?.message ?? `Failed to delete "${row.campaign}"`);
+        }
+      }
+      await load();
+      setSelectedIds([]);
+      toast({ tone: 'warning', title: `Deleted ${rows.length} campaign${rows.length === 1 ? '' : 's'}.` });
+    } catch (bulkError: any) {
+      toast({ tone: 'critical', title: bulkError.message ?? 'Bulk delete failed.' });
+    } finally {
+      setBulkActionLoading(false);
     }
   };
 
@@ -278,6 +396,13 @@ export default function CampaignList() {
           onEdit={(row) => void handleEdit(row)}
           onDelete={(row) => void handleDelete(row)}
           deletingId={deletingId}
+          selectedKeys={selectedKeySet}
+          onSelectionChange={(keys) => setSelectedIds(Array.from(keys))}
+          bulkActionLoading={bulkActionLoading}
+          onBulkPause={(rows) => void handleBulkPause(rows)}
+          onBulkResume={(rows) => void handleBulkResume(rows)}
+          onBulkArchive={(rows) => void handleBulkArchive(rows)}
+          onBulkDelete={(rows) => void handleBulkDelete(rows)}
         />
       )}
     </div>
