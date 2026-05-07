@@ -14,10 +14,14 @@ export function ScopeBar({
   mode,
   onShare,
   lastUpdated,
+  scopeLabel = 'Current workspace',
+  dateRangeLabel = 'Last 30 days',
 }: {
   mode: ReportingMode;
   onShare?: () => void;
   lastUpdated?: string;
+  scopeLabel?: string;
+  dateRangeLabel?: string;
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-[18px] border border-[color:var(--dusk-border-default)] bg-surface-1 p-4 shadow-2 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
@@ -26,8 +30,8 @@ export function ScopeBar({
           <Filter className="h-3 w-3" />
           {mode === 'all' ? 'Unified scope' : `${mode} scope`}
         </span>
-        <span className="rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--dusk-text-secondary)]">Workspace: Signalmix</span>
-        <span className="rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--dusk-text-secondary)]">Date range: 30 days</span>
+        <span className="rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--dusk-text-secondary)]">Workspace: {scopeLabel}</span>
+        <span className="rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--dusk-text-secondary)]">Date range: {dateRangeLabel}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-[color:var(--dusk-text-muted)]">
         {lastUpdated ? (

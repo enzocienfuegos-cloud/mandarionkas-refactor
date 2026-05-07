@@ -68,12 +68,12 @@ export type ReportingModeConfig = {
   title: string;
   subtitle: string;
   accent: Tone;
-  kpis: ReportingKpi[];
   widgets: WidgetConfig[];
 };
 
 export type TrendPoint = {
   date: string;
+  value?: number;
   display?: number;
   video?: number;
   identity?: number;
@@ -93,7 +93,7 @@ export type TrendSeries = {
 export type CampaignPerformanceRow = {
   id: string;
   name: string;
-  status: 'active' | 'draft' | 'paused' | 'limited';
+  status: 'active' | 'draft' | 'paused' | 'limited' | 'archived';
   impressions: number;
   clicks: number;
   ctr: number;
@@ -140,7 +140,8 @@ export type AttributionWindowRow = {
 export type RegionRow = {
   name: string;
   impressions: number;
-  ctr: string;
+  metric: string;
+  metricLabel?: string;
   share: string;
 };
 

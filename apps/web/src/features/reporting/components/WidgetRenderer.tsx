@@ -1,12 +1,7 @@
 import React from 'react';
-import {
-  attributionWindows,
-  creativePerformanceRows,
-  displayCampaignRows,
-  identityFrequencyBuckets,
-  tagPerformanceRows,
-} from '../reporting.mock';
+import { EmptyState } from '../../../system';
 import type { ReportingMode, WidgetConfig, WidgetSize } from '../reporting.types';
+import type { ReportingDataViewModel } from '../hooks/useReportingData';
 import { DisplayTable } from './DisplayTable';
 import { IdentityInsights } from './IdentityInsights';
 import { RecommendationsPanel } from './RecommendationsPanel';
@@ -29,45 +24,60 @@ const widgetSizeClass: Record<WidgetSize, string> = {
 function GenericInfoPanel({ title, icon, tone, rows }: { title: string; icon: 'identity' | 'tracker' | 'tag'; tone: 'emerald' | 'fuchsia'; rows: Array<{ label: string; value: string; helper: string }> }) {
   return (
     <WidgetPanel title={title} icon={icon} tone={tone}>
-      <div className="space-y-3">
-        {rows.map((row) => (
-          <div key={row.label} className="rounded-2xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="font-semibold text-[color:var(--dusk-text-primary)]">{row.label}</p>
-              <span className="text-sm font-bold text-[color:var(--dusk-text-primary)]">{row.value}</span>
+      {rows.length ? (
+        <div className="space-y-3">
+          {rows.map((row) => (
+            <div key={row.label} className="rounded-2xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-semibold text-[color:var(--dusk-text-primary)]">{row.label}</p>
+                <span className="text-sm font-bold text-[color:var(--dusk-text-primary)]">{row.value}</span>
+              </div>
+              <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">{row.helper}</p>
             </div>
-            <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">{row.helper}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="No data in scope"
+          description="Adjust the filters or widen the date range to populate this reporting widget."
+        />
+      )}
     </WidgetPanel>
   );
 }
 
-function WidgetByType({ widget, mode }: { widget: WidgetConfig; mode: ReportingMode }) {
+function WidgetByType({
+  widget,
+  mode,
+  data,
+}: {
+  widget: WidgetConfig;
+  mode: ReportingMode;
+  data: ReportingDataViewModel;
+}) {
   switch (widget.type) {
     case 'trend':
-      return <TrendChart mode={mode} />;
+      return <TrendChart title={widget.title} tone={mode === 'video' ? 'blue' : mode === 'identity' ? 'emerald' : 'fuchsia'} series={data.trend} />;
     case 'displayTable':
     case 'campaignPerformance':
-      return <DisplayTable title={widget.title} rows={displayCampaignRows} icon="campaign" />;
+      return <DisplayTable title={widget.title} rows={data.campaignRows} icon="campaign" />;
     case 'tagPerformance':
-      return <DisplayTable title={widget.title} rows={tagPerformanceRows} icon="tag" />;
+      return <DisplayTable title={widget.title} rows={data.tagRows} icon="tag" />;
     case 'creativePerformance':
-      return <DisplayTable title={widget.title} rows={creativePerformanceRows} icon="creative" />;
+      return <DisplayTable title={widget.title} rows={data.creativeRows} icon="creative" />;
     case 'videoFunnel':
-      return <VideoFunnel />;
+      return <VideoFunnel rows={data.videoFunnel} />;
     case 'videoFormat':
-      return <VideoFormatDonut />;
+      return <VideoFormatDonut rows={data.videoFormatRows} />;
     case 'identityInsights':
-      return <IdentityInsights />;
+      return <IdentityInsights rows={data.identitySegments} />;
     case 'identityFrequency':
       return (
         <GenericInfoPanel
           title={widget.title}
           icon="identity"
           tone="emerald"
-          rows={identityFrequencyBuckets.map((row) => ({ label: row.bucket, value: row.ctr, helper: `${row.identities.toLocaleString()} identities · ${row.impressions.toLocaleString()} imps · ${row.clicks.toLocaleString()} clicks` }))}
+          rows={data.identityFrequencyRows.map((row) => ({ label: row.bucket, value: row.ctr, helper: `${row.identities.toLocaleString()} identities · ${row.impressions.toLocaleString()} imps · ${row.clicks.toLocaleString()} clicks` }))}
         />
       );
     case 'identityKeys':
@@ -76,11 +86,7 @@ function WidgetByType({ widget, mode }: { widget: WidgetConfig; mode: ReportingM
           title={widget.title}
           icon="identity"
           tone="emerald"
-          rows={[
-            { label: 'Device ID', value: '48%', helper: 'dominant key across resolved events' },
-            { label: 'Site Domain', value: '48%', helper: 'cross-context enrichment coverage' },
-            { label: 'Email SHA256', value: '12%', helper: 'CRM-linked exportable subset' },
-          ]}
+          rows={data.identityKeyRows}
         />
       );
     case 'identityAttribution':
@@ -89,7 +95,7 @@ function WidgetByType({ widget, mode }: { widget: WidgetConfig; mode: ReportingM
           title={widget.title}
           icon="tracker"
           tone="emerald"
-          rows={attributionWindows.map((row) => ({ label: row.label, value: row.value, helper: row.helper }))}
+          rows={data.attributionWindowRows.map((row) => ({ label: row.label, value: row.value, helper: row.helper }))}
         />
       );
     case 'audienceExport':
@@ -98,34 +104,38 @@ function WidgetByType({ widget, mode }: { widget: WidgetConfig; mode: ReportingM
           title={widget.title}
           icon="identity"
           tone="emerald"
-          rows={[
-            { label: 'Clicked users', value: 'Ready', helper: '18.6K users available for activation export' },
-            { label: 'High-frequency exposed', value: 'Review', helper: '11.4K users may need suppression before export' },
-            { label: 'Engaged non-clickers', value: 'Ready', helper: '12.2K users available for upper-funnel retargeting' },
-          ]}
+          rows={data.audienceExportRows}
         />
       );
     case 'topRegions':
-      return <TopRegions />;
+      return <TopRegions rows={data.topRegions} />;
     case 'topCreatives':
-      return <TopCreatives mode={mode} />;
+      return <TopCreatives mode={mode} rows={data.topCreatives} />;
     case 'trackerHealth':
-      return <TrackerHealth />;
+      return <TrackerHealth rows={data.trackerHealth} />;
     case 'recommendations':
-      return <RecommendationsPanel mode={mode} />;
+      return <RecommendationsPanel rows={data.recommendations} />;
     default:
       return null;
   }
 }
 
-export function WidgetRenderer({ widgets, mode }: { widgets: WidgetConfig[]; mode: ReportingMode }) {
+export function WidgetRenderer({
+  widgets,
+  mode,
+  data,
+}: {
+  widgets: WidgetConfig[];
+  mode: ReportingMode;
+  data: ReportingDataViewModel;
+}) {
   return (
     <section className="grid gap-3 xl:grid-cols-12">
       {widgets
         .filter((widget) => widget.visibleIn.includes(mode))
         .map((widget) => (
           <div key={widget.id} className={widgetSizeClass[widget.size]}>
-            <WidgetByType widget={widget} mode={mode} />
+            <WidgetByType widget={widget} mode={mode} data={data} />
           </div>
         ))}
     </section>

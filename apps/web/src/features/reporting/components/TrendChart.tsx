@@ -1,6 +1,6 @@
 import React from 'react';
-import type { ReportingMode, Tone, TrendSeries } from '../reporting.types';
-import { trendSeriesByMode } from '../reporting.mock';
+import { EmptyState } from '../../../system';
+import type { Tone, TrendSeries } from '../reporting.types';
 import { WidgetPanel } from './WidgetPanel';
 
 const strokeByTone: Record<Tone, string> = {
@@ -15,6 +15,7 @@ const strokeByTone: Record<Tone, string> = {
 };
 
 function seriesValue(point: TrendSeries['points'][number], seriesId: string) {
+  if (typeof point.value === 'number') return point.value;
   if (seriesId === 'display') return point.display ?? 0;
   if (seriesId === 'video') return point.video ?? 0;
   if (seriesId === 'identity') return point.identity ?? 0;
@@ -22,8 +23,15 @@ function seriesValue(point: TrendSeries['points'][number], seriesId: string) {
   return point.previous ?? 0;
 }
 
-export function TrendChart({ mode }: { mode: ReportingMode }) {
-  const series = trendSeriesByMode[mode];
+export function TrendChart({
+  title = 'Performance over time',
+  tone = 'fuchsia',
+  series,
+}: {
+  title?: string;
+  tone?: Tone;
+  series: TrendSeries[];
+}) {
   const basePoints = series[0]?.points ?? [];
   const values = series.flatMap((item) => item.points.map((point) => seriesValue(point, item.id)));
   const max = Math.max(...values, 1);
@@ -34,44 +42,53 @@ export function TrendChart({ mode }: { mode: ReportingMode }) {
   const chartH = height - pad.t - pad.b;
 
   return (
-    <WidgetPanel title="Performance over time" icon="spark" tone={mode === 'video' ? 'blue' : mode === 'identity' ? 'emerald' : 'fuchsia'}>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        {series.map((item) => (
-          <span key={item.id} className="inline-flex items-center gap-2 text-xs font-semibold text-[color:var(--dusk-text-muted)]">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: strokeByTone[item.tone], opacity: item.dashed ? 0.7 : 1 }} />
-            {item.label}
-          </span>
-        ))}
-      </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full" aria-label="Reporting trend chart">
-        {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
-          const y = pad.t + chartH - chartH * fraction;
-          return <line key={fraction} x1={pad.l} y1={y} x2={pad.l + chartW} y2={y} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />;
-        })}
-        {series.map((item) => {
-          const points = item.points.map((point, index) => {
-            const x = pad.l + (index / Math.max(item.points.length - 1, 1)) * chartW;
-            const y = pad.t + chartH - (seriesValue(point, item.id) / max) * chartH;
-            return `${x},${y}`;
-          });
-          return (
-            <polyline
-              key={item.id}
-              points={points.join(' ')}
-              fill="none"
-              stroke={strokeByTone[item.tone]}
-              strokeWidth="3"
-              strokeDasharray={item.dashed ? '7 7' : undefined}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          );
-        })}
-        {basePoints.map((point, index) => {
-          const x = pad.l + (index / Math.max(basePoints.length - 1, 1)) * chartW;
-          return <text key={point.date} x={x} y={height - 6} textAnchor="middle" fontSize="11" fill="var(--dusk-text-soft)">{point.date}</text>;
-        })}
-      </svg>
+    <WidgetPanel title={title} icon="spark" tone={tone}>
+      {series.length ? (
+        <>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            {series.map((item) => (
+              <span key={item.id} className="inline-flex items-center gap-2 text-xs font-semibold text-[color:var(--dusk-text-muted)]">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: strokeByTone[item.tone], opacity: item.dashed ? 0.7 : 1 }} />
+                {item.label}
+              </span>
+            ))}
+          </div>
+          <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full" aria-label="Reporting trend chart">
+            {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
+              const y = pad.t + chartH - chartH * fraction;
+              return <line key={fraction} x1={pad.l} y1={y} x2={pad.l + chartW} y2={y} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />;
+            })}
+            {series.map((item) => {
+              const points = item.points.map((point, index) => {
+                const x = pad.l + (index / Math.max(item.points.length - 1, 1)) * chartW;
+                const y = pad.t + chartH - (seriesValue(point, item.id) / max) * chartH;
+                return `${x},${y}`;
+              });
+              return (
+                <polyline
+                  key={item.id}
+                  points={points.join(' ')}
+                  fill="none"
+                  stroke={strokeByTone[item.tone]}
+                  strokeWidth="3"
+                  strokeDasharray={item.dashed ? '7 7' : undefined}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              );
+            })}
+            {basePoints.map((point, index) => {
+              const x = pad.l + (index / Math.max(basePoints.length - 1, 1)) * chartW;
+              return <text key={point.date} x={x} y={height - 6} textAnchor="middle" fontSize="11" fill="var(--dusk-text-soft)">{point.date}</text>;
+            })}
+          </svg>
+        </>
+      ) : (
+        <EmptyState
+          title="No trend data yet"
+          description="A time series will render here once the selected reporting scope records daily delivery."
+        />
+      )}
     </WidgetPanel>
   );
 }

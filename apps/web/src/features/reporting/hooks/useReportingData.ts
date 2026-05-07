@@ -1,0 +1,743 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { loadCreatives, type Creative } from '../../../creatives/catalog';
+import type {
+  AttributionWindowRow,
+  CampaignPerformanceRow,
+  CreativeRow,
+  FrequencyBucketRow,
+  IdentityTypeRow,
+  Recommendation,
+  RegionRow,
+  ReportingKpi,
+  ReportingMode,
+  TrackerHealthRow,
+  TrendSeries,
+  VideoFormatRow,
+  VideoFunnelRow,
+} from '../reporting.types';
+
+type DateRangeFilter = '7d' | '30d' | '90d' | 'custom';
+type StatusFilter = 'all' | 'active' | 'paused' | 'archived';
+
+type WorkspaceStats = {
+  total_impressions: number;
+  total_clicks: number;
+  total_spend: number;
+  total_viewable_impressions: number;
+  total_measured_impressions: number;
+  total_undetermined_impressions: number;
+  measurable_rate: number;
+  viewability_rate: number;
+  avg_ctr: number;
+  total_engagements: number;
+  engagement_rate: number;
+  total_hover_duration_ms: number;
+  video_starts: number;
+  video_first_quartile: number;
+  video_midpoint: number;
+  video_third_quartile: number;
+  video_completions: number;
+  video_completion_rate: number;
+  total_in_view_duration_ms: number;
+  total_identities: number;
+  avg_identity_frequency: number;
+  avg_identity_clicks: number;
+  active_campaigns: number;
+  active_tags: number;
+  total_creatives: number;
+};
+
+type TimelineRow = {
+  date: string;
+  impressions: number;
+  clicks: number;
+  viewable_imps: number;
+  measured_imps: number;
+  undetermined_imps: number;
+  ctr: number;
+  viewability_rate: number;
+};
+
+type CampaignBreakdownRow = {
+  id: string;
+  name: string;
+  status: 'active' | 'paused' | 'archived' | 'draft';
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  viewability_rate: number;
+};
+
+type TagBreakdownRow = CampaignBreakdownRow & {
+  format?: string | null;
+};
+
+type RegionBreakdownRow = {
+  region: string;
+  impressions: number;
+  viewability_rate: number;
+};
+
+type TrackerBreakdownRow = {
+  name: string;
+  tracker_type: string;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  campaign_name?: string | null;
+};
+
+type IdentityFrequencyApiRow = {
+  bucket_label: string;
+  identity_count: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+};
+
+type IdentitySegmentPresetRow = {
+  preset: string;
+  label: string;
+  identity_count: number;
+  impressions: number;
+  clicks: number;
+  engagements: number;
+};
+
+type IdentityKeyBreakdownRow = {
+  key_type: string;
+  event_type: string;
+  key_observations: number;
+  unique_values: number;
+  identity_count: number;
+};
+
+type IdentityAttributionApiRow = {
+  label: string;
+  exposed_identities: number;
+  clicked_identities: number;
+  engaged_identities: number;
+  click_through_rate: number;
+  engagement_through_rate: number;
+};
+
+type ContextSnapshotRow = {
+  latest_context: Record<string, unknown> | null;
+  device_types: Array<{ label: string; value: number }>;
+  device_models: Array<{ label: string; value: number }>;
+  inventory_environments: Array<{ label: string; value: number }>;
+};
+
+type CampaignOption = {
+  id: string;
+  advertiser?: { id: string; name: string } | null;
+};
+
+type HookArgs = {
+  mode: ReportingMode;
+  dateRange: DateRangeFilter;
+  advertiserId: string;
+  statusFilter: StatusFilter;
+  search: string;
+};
+
+type HookState = {
+  advertiserOptions: Array<{ value: string; label: string }>;
+  kpis: ReportingKpi[];
+  trend: TrendSeries[];
+  topCreatives: CreativeRow[];
+  topRegions: RegionRow[];
+  trackerHealth: TrackerHealthRow[];
+  identitySegments: IdentityTypeRow[];
+  videoFunnel: VideoFunnelRow[];
+  recommendations: Recommendation[];
+  campaignRows: CampaignPerformanceRow[];
+  tagRows: CampaignPerformanceRow[];
+  creativeRows: CampaignPerformanceRow[];
+  videoFormatRows: VideoFormatRow[];
+  identityFrequencyRows: FrequencyBucketRow[];
+  identityKeyRows: Array<{ label: string; value: string; helper: string }>;
+  attributionWindowRows: AttributionWindowRow[];
+  audienceExportRows: Array<{ label: string; value: string; helper: string }>;
+  loading: boolean;
+  error: string;
+};
+
+export type ReportingDataViewModel = Omit<HookState, 'loading' | 'error' | 'advertiserOptions' | 'kpis'>;
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const response = await fetch(url, { credentials: 'include' });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const message = payload && typeof payload === 'object'
+      ? (payload as { message?: string; error?: string }).message ?? (payload as { error?: string }).error
+      : null;
+    throw new Error(message || `Request failed (${response.status})`);
+  }
+  return response.json() as Promise<T>;
+}
+
+function buildQuery(params: Record<string, string | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) search.set(key, value);
+  }
+  const text = search.toString();
+  return text ? `?${text}` : '';
+}
+
+function daysAgo(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+function resolveDateRange(range: DateRangeFilter) {
+  if (range === '7d') return { dateFrom: daysAgo(6), dateTo: new Date().toISOString().slice(0, 10) };
+  if (range === '90d') return { dateFrom: daysAgo(89), dateTo: new Date().toISOString().slice(0, 10) };
+  return { dateFrom: daysAgo(29), dateTo: new Date().toISOString().slice(0, 10) };
+}
+
+function toNumber(value: unknown) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatCount(value: number) {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return value.toLocaleString();
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: value >= 100 ? 0 : 2 }).format(value);
+}
+
+function formatPercent(value: number, digits = 2) {
+  return `${toNumber(value).toFixed(digits)}%`;
+}
+
+function formatDurationMs(value: number) {
+  if (value <= 0) return '0s';
+  const seconds = value / 1000;
+  if (seconds >= 60) return `${(seconds / 60).toFixed(1)}m`;
+  return `${seconds.toFixed(1)}s`;
+}
+
+function titleCase(value: string) {
+  return value
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function seriesDelta(series: number[]): {
+  delta?: string;
+  direction?: ReportingKpi['direction'];
+} {
+  if (series.length < 2) return { delta: undefined, direction: undefined };
+  const first = series[0] ?? 0;
+  const last = series[series.length - 1] ?? 0;
+  if (first === 0 && last === 0) return { delta: undefined, direction: undefined };
+  if (first === 0) {
+    return { delta: `+${last.toFixed(1)}`, direction: 'up' as const };
+  }
+  const raw = ((last - first) / Math.abs(first)) * 100;
+  const direction = raw > 0.05 ? 'up' : raw < -0.05 ? 'down' : 'flat';
+  const prefix = raw > 0 ? '+' : '';
+  return { delta: `${prefix}${raw.toFixed(1)}%`, direction };
+}
+
+function statusFromApproval(status: string): CampaignPerformanceRow['status'] {
+  if (status === 'approved' || status === 'active') return 'active';
+  if (status === 'rejected' || status === 'archived') return 'archived';
+  if (status === 'paused') return 'paused';
+  if (status === 'pending_review') return 'limited';
+  return 'draft';
+}
+
+function buildTrend(mode: ReportingMode, timeline: TimelineRow[], stats: WorkspaceStats): TrendSeries[] {
+  const impressionsPoints = timeline.map((row) => ({ date: row.date, value: toNumber(row.impressions) }));
+  const clicksPoints = timeline.map((row) => ({ date: row.date, value: toNumber(row.clicks) }));
+  const ctrPoints = timeline.map((row) => ({ date: row.date, value: toNumber(row.ctr) }));
+  const viewabilityPoints = timeline.map((row) => ({ date: row.date, value: toNumber(row.viewability_rate) }));
+
+  if (mode === 'video') {
+    return [
+      { id: 'impressions', label: 'Video impressions', tone: 'blue', points: impressionsPoints },
+      { id: 'ctr', label: 'CTR', tone: 'cyan', points: ctrPoints },
+      { id: 'viewability', label: 'Viewability', tone: 'slate', dashed: true, points: viewabilityPoints },
+    ];
+  }
+  if (mode === 'identity') {
+    const identityCoverage = timeline.map((row) => ({
+      date: row.date,
+      value: toNumber(row.impressions) > 0 ? Number(((stats.total_identities / Math.max(stats.total_impressions, 1)) * 100).toFixed(2)) : 0,
+    }));
+    return [
+      { id: 'impressions', label: 'Qualified impressions', tone: 'emerald', points: impressionsPoints },
+      { id: 'ctr', label: 'CTR', tone: 'fuchsia', points: ctrPoints },
+      { id: 'identityCoverage', label: 'Identity coverage', tone: 'slate', dashed: true, points: identityCoverage },
+    ];
+  }
+  if (mode === 'display') {
+    return [
+      { id: 'impressions', label: 'Impressions', tone: 'fuchsia', points: impressionsPoints },
+      { id: 'clicks', label: 'Clicks', tone: 'violet', points: clicksPoints },
+      { id: 'viewability', label: 'Viewability', tone: 'slate', dashed: true, points: viewabilityPoints },
+    ];
+  }
+  return [
+    { id: 'impressions', label: 'Impressions', tone: 'fuchsia', points: impressionsPoints },
+    { id: 'clicks', label: 'Clicks', tone: 'violet', points: clicksPoints },
+    { id: 'viewability', label: 'Viewability', tone: 'blue', points: viewabilityPoints },
+    { id: 'ctr', label: 'CTR', tone: 'emerald', dashed: true, points: ctrPoints },
+  ];
+}
+
+function buildKpis(
+  mode: ReportingMode,
+  stats: WorkspaceStats,
+  timeline: TimelineRow[],
+  presets: IdentitySegmentPresetRow[],
+): ReportingKpi[] {
+  const impressionsSeries = timeline.map((row) => toNumber(row.impressions));
+  const clicksSeries = timeline.map((row) => toNumber(row.clicks));
+  const ctrSeries = timeline.map((row) => toNumber(row.ctr));
+  const viewabilitySeries = timeline.map((row) => toNumber(row.viewability_rate));
+  const clickedUsers = presets.find((row) => row.preset === 'clicked_users')?.identity_count ?? 0;
+  const highFrequencyUsers = presets.find((row) => row.preset === 'high_frequency_exposed')?.identity_count ?? 0;
+  const exportableAudiences = presets.filter((row) => row.identity_count > 0).length;
+  const identityCoverage = stats.total_impressions > 0 ? (stats.total_identities / stats.total_impressions) * 100 : 0;
+
+  const withDelta = (label: string, value: string, icon: string, tone: ReportingKpi['tone'], sparkline: number[], helper?: string): ReportingKpi => {
+    const delta = seriesDelta(sparkline);
+    return {
+      id: label.toLowerCase().replace(/\s+/g, '-'),
+      label,
+      value,
+      delta: delta.delta,
+      direction: delta.direction,
+      comparisonLabel: delta.delta ? 'vs start of range' : undefined,
+      tone,
+      icon,
+      helper,
+      sparkline: sparkline.length >= 2 ? sparkline : undefined,
+    };
+  };
+
+  if (mode === 'display') {
+    return [
+      withDelta('Impressions', formatCount(stats.total_impressions), 'impressions', 'fuchsia', impressionsSeries, 'Served display inventory'),
+      withDelta('Clicks', formatCount(stats.total_clicks), 'clicks', 'fuchsia', clicksSeries, 'Response volume'),
+      withDelta('CTR', formatPercent(stats.avg_ctr), 'ctr', 'violet', ctrSeries, 'Click efficiency'),
+      withDelta('Viewability', formatPercent(stats.viewability_rate), 'viewability', 'blue', viewabilitySeries, 'Measured delivery quality'),
+      {
+        id: 'attention-time',
+        label: 'Attention time',
+        value: formatDurationMs(stats.total_hover_duration_ms),
+        tone: 'amber',
+        icon: 'attention',
+        helper: 'Accumulated hover duration',
+      },
+      {
+        id: 'engagement-rate',
+        label: 'Engagement rate',
+        value: formatPercent(stats.engagement_rate),
+        tone: 'amber',
+        icon: 'attention',
+        helper: 'Rich media interaction rate',
+      },
+      {
+        id: 'active-campaigns',
+        label: 'Active campaigns',
+        value: formatCount(stats.active_campaigns),
+        tone: 'slate',
+        icon: 'campaign',
+        helper: 'Live display campaigns',
+      },
+      {
+        id: 'active-tags',
+        label: 'Active tags',
+        value: formatCount(stats.active_tags),
+        tone: 'slate',
+        icon: 'tag',
+        helper: 'Firing tags in scope',
+      },
+    ];
+  }
+
+  if (mode === 'video') {
+    return [
+      { id: 'video-starts', label: 'Video starts', value: formatCount(stats.video_starts), tone: 'blue', icon: 'video', helper: 'Started plays in range' },
+      { id: 'video-q1', label: '25% viewed', value: formatCount(stats.video_first_quartile), tone: 'blue', icon: 'video', helper: 'First quartile beacons' },
+      { id: 'video-q2', label: '50% viewed', value: formatCount(stats.video_midpoint), tone: 'blue', icon: 'video', helper: 'Midpoint beacons' },
+      { id: 'video-q3', label: '75% viewed', value: formatCount(stats.video_third_quartile), tone: 'blue', icon: 'video', helper: 'Third quartile beacons' },
+      { id: 'video-completions', label: 'Completions', value: formatCount(stats.video_completions), tone: 'blue', icon: 'video', helper: 'Completed video sessions' },
+      { id: 'video-completion-rate', label: 'Completion rate', value: formatPercent(stats.video_completion_rate), tone: 'blue', icon: 'video', helper: 'Completion efficiency' },
+      { id: 'avg-watch-time', label: 'Avg. watch time', value: formatDurationMs(stats.video_starts > 0 ? stats.total_in_view_duration_ms / stats.video_starts : 0), tone: 'cyan', icon: 'attention', helper: 'Average time in view per start' },
+      { id: 'video-events', label: 'Video events', value: formatCount(stats.video_first_quartile + stats.video_midpoint + stats.video_third_quartile + stats.video_completions), tone: 'slate', icon: 'tracker', helper: 'Tracked quartile beacons' },
+    ];
+  }
+
+  if (mode === 'identity') {
+    return [
+      { id: 'identity-reach', label: 'Identity reach', value: formatCount(stats.total_identities), tone: 'emerald', icon: 'identity', helper: 'Resolved identities in scope' },
+      { id: 'identity-coverage', label: 'Identity coverage', value: formatPercent(identityCoverage), tone: 'emerald', icon: 'identity', helper: 'Identity volume vs impressions' },
+      { id: 'unique-identities', label: 'Unique identities', value: formatCount(stats.total_identities), tone: 'emerald', icon: 'identity', helper: 'Deduplicated users' },
+      { id: 'avg-frequency', label: 'Avg. frequency', value: stats.avg_identity_frequency.toFixed(2), tone: 'slate', icon: 'dashboard', helper: 'Impressions per identity' },
+      { id: 'clicked-users', label: 'Clicked users', value: formatCount(clickedUsers), tone: 'fuchsia', icon: 'clicks', helper: 'Activation-ready click cohort' },
+      { id: 'high-frequency-exposed', label: 'High-frequency exposed', value: formatCount(highFrequencyUsers), tone: 'amber', icon: 'attention', helper: 'Users above exposure threshold' },
+      { id: 'attribution-windows', label: 'Attribution windows', value: '4', tone: 'slate', icon: 'tracker', helper: 'Configured recency buckets' },
+      { id: 'exportable-audiences', label: 'Exportable audiences', value: formatCount(exportableAudiences), tone: 'emerald', icon: 'export', helper: 'Presets with exportable volume' },
+    ];
+  }
+
+  return [
+    withDelta('Impressions', formatCount(stats.total_impressions), 'impressions', 'fuchsia', impressionsSeries, 'Delivered across the selected range'),
+    withDelta('Clicks', formatCount(stats.total_clicks), 'clicks', 'fuchsia', clicksSeries, 'Click volume'),
+    withDelta('CTR', formatPercent(stats.avg_ctr), 'ctr', 'violet', ctrSeries, 'Cross-channel engagement rate'),
+    withDelta('Viewability', formatPercent(stats.viewability_rate), 'viewability', 'blue', viewabilitySeries, 'Measured inventory quality'),
+    { id: 'video-completion-rate', label: 'Video completion rate', value: formatPercent(stats.video_completion_rate), tone: 'blue', icon: 'video', helper: 'Completed started plays' },
+    { id: 'identity-reach', label: 'Identity reach', value: formatCount(stats.total_identities), tone: 'emerald', icon: 'identity', helper: 'Resolved identity volume' },
+    { id: 'engagement-rate', label: 'Engagement rate', value: formatPercent(stats.engagement_rate), tone: 'amber', icon: 'attention', helper: 'Rich media interaction rate' },
+    { id: 'active-campaigns', label: 'Active campaigns', value: formatCount(stats.active_campaigns), tone: 'slate', icon: 'campaign', helper: 'Live campaigns in workspace' },
+  ];
+}
+
+function buildRecommendations(mode: ReportingMode, stats: WorkspaceStats, trackerRows: TrackerHealthRow[], presets: IdentitySegmentPresetRow[]): Recommendation[] {
+  const rows: Recommendation[] = [];
+
+  if (stats.viewability_rate > 0 && stats.viewability_rate < 65) {
+    rows.push({
+      id: 'low-viewability',
+      severity: 'warning',
+      channel: mode === 'identity' ? undefined : 'display',
+      title: 'Viewability is below target',
+      body: `Measured viewability is at ${formatPercent(stats.viewability_rate)}, which suggests inventory or placement quality needs review.`,
+      actionLabel: 'Review placements',
+      actionHref: '/reporting',
+    });
+  }
+
+  if ((mode === 'all' || mode === 'video') && stats.video_starts > 0 && stats.video_completion_rate < 30) {
+    rows.push({
+      id: 'video-dropoff',
+      severity: 'warning',
+      channel: 'video',
+      title: 'Video drop-off is above target',
+      body: `Completion rate is ${formatPercent(stats.video_completion_rate)}. Review autoplay conditions, duration, and format mix.`,
+      actionLabel: 'Inspect video funnel',
+      actionHref: '/reporting',
+    });
+  }
+
+  const criticalTrackers = trackerRows.filter((row) => row.status === 'critical');
+  if (criticalTrackers.length) {
+    rows.push({
+      id: 'tracker-critical',
+      severity: 'critical',
+      title: 'One or more trackers need review',
+      body: criticalTrackers.map((row) => `${row.tracker}: ${row.detail}`).join(' · '),
+      actionLabel: 'Open tracker health',
+      actionHref: '/reporting',
+    });
+  }
+
+  const clickedUsers = presets.find((row) => row.preset === 'clicked_users');
+  if ((mode === 'all' || mode === 'identity') && clickedUsers && clickedUsers.identity_count > 0) {
+    rows.push({
+      id: 'clicked-users-ready',
+      severity: 'opportunity',
+      channel: 'identity',
+      title: 'Clicked users are export-ready',
+      body: `${formatCount(clickedUsers.identity_count)} users clicked within the selected range and can be activated into audience workflows.`,
+      actionLabel: 'Prepare export',
+      actionHref: '/reporting',
+    });
+  }
+
+  if (!rows.length) {
+    rows.push({
+      id: 'stable-scope',
+      severity: 'info',
+      title: 'No urgent issues detected',
+      body: 'The current reporting scope is stable. Use filters to inspect a narrower campaign, tag, or audience slice.',
+    });
+  }
+
+  return rows.slice(0, 4);
+}
+
+function matchesStatus(status: CampaignPerformanceRow['status'], filter: StatusFilter) {
+  if (filter === 'all') return true;
+  return status === filter;
+}
+
+function matchesSearch(name: string, search: string) {
+  if (!search.trim()) return true;
+  return name.toLowerCase().includes(search.trim().toLowerCase());
+}
+
+function buildTrackerHealth(rows: TrackerBreakdownRow[]): TrackerHealthRow[] {
+  return rows.slice(0, 4).map((row) => {
+    const status: TrackerHealthRow['status'] = row.impressions === 0
+      ? 'critical'
+      : row.clicks === 0
+        ? 'warning'
+        : 'healthy';
+    const detail = row.impressions === 0
+      ? 'No tracked delivery in the selected range.'
+      : row.clicks === 0
+        ? `${formatCount(row.impressions)} impressions recorded but no click beacons fired.`
+        : `${formatCount(row.impressions)} impressions · ${formatCount(row.clicks)} clicks · ${formatPercent(row.ctr)} CTR.`;
+    return {
+      tracker: titleCase(row.name),
+      status,
+      detail,
+    };
+  });
+}
+
+const INITIAL_STATE: HookState = {
+  advertiserOptions: [],
+  kpis: [],
+  trend: [],
+  topCreatives: [],
+  topRegions: [],
+  trackerHealth: [],
+  identitySegments: [],
+  videoFunnel: [],
+  recommendations: [],
+  campaignRows: [],
+  tagRows: [],
+  creativeRows: [],
+  videoFormatRows: [],
+  identityFrequencyRows: [],
+  identityKeyRows: [],
+  attributionWindowRows: [],
+  audienceExportRows: [],
+  loading: true,
+  error: '',
+};
+
+export function useReportingData({
+  mode,
+  dateRange,
+  advertiserId,
+  statusFilter,
+  search,
+}: HookArgs) {
+  const [state, setState] = useState<HookState>(INITIAL_STATE);
+
+  const query = useMemo(() => {
+    const { dateFrom, dateTo } = resolveDateRange(dateRange);
+    return buildQuery({
+      dateFrom,
+      dateTo,
+      advertiserId: advertiserId || undefined,
+    });
+  }, [advertiserId, dateRange]);
+
+  const reload = useCallback(async () => {
+    setState((current) => ({ ...current, loading: true, error: '' }));
+    try {
+      const [
+        workspacePayload,
+        campaignPayload,
+        tagPayload,
+        regionPayload,
+        trackerPayload,
+        identityFrequencyPayload,
+        identitySegmentPayload,
+        identityKeyPayload,
+        identityAttributionPayload,
+        contextSnapshotPayload,
+        campaignListPayload,
+        creatives,
+      ] = await Promise.all([
+        fetchJson<{ stats: WorkspaceStats; timeline: TimelineRow[] }>(`/v1/reporting/workspace${query}`),
+        fetchJson<{ breakdown: CampaignBreakdownRow[] }>(`/v1/reporting/workspace/campaign-breakdown${query}`),
+        fetchJson<{ breakdown: TagBreakdownRow[] }>(`/v1/reporting/workspace/tag-breakdown${query}`),
+        fetchJson<{ breakdown: RegionBreakdownRow[] }>(`/v1/reporting/workspace/region-breakdown${query}`),
+        fetchJson<{ breakdown: TrackerBreakdownRow[] }>(`/v1/reporting/workspace/tracker-breakdown${query}`),
+        fetchJson<{ breakdown: IdentityFrequencyApiRow[] }>(`/v1/reporting/workspace/identity-frequency-buckets${query}`),
+        fetchJson<{ breakdown: IdentitySegmentPresetRow[] }>(`/v1/reporting/workspace/identity-segment-presets${query}`),
+        fetchJson<{ breakdown: IdentityKeyBreakdownRow[] }>(`/v1/reporting/workspace/identity-key-breakdown${query}`),
+        fetchJson<{ breakdown: IdentityAttributionApiRow[] }>(`/v1/reporting/workspace/identity-attribution-windows${query}`),
+        fetchJson<ContextSnapshotRow>(`/v1/reporting/workspace/context-snapshot${query}`),
+        fetchJson<{ campaigns: CampaignOption[] }>(`/v1/campaigns?scope=all`),
+        loadCreatives(),
+      ]);
+
+      const stats = workspacePayload.stats;
+      const timeline = workspacePayload.timeline ?? [];
+      const campaignRows = (campaignPayload.breakdown ?? [])
+        .map<CampaignPerformanceRow>((row) => ({
+          id: row.id,
+          name: row.name,
+          status: row.status,
+          impressions: toNumber(row.impressions),
+          clicks: toNumber(row.clicks),
+          ctr: toNumber(row.ctr),
+          viewability: toNumber(row.viewability_rate),
+        }))
+        .filter((row) => matchesStatus(row.status, statusFilter) && matchesSearch(row.name, search));
+
+      const tagRows = (tagPayload.breakdown ?? [])
+        .map<CampaignPerformanceRow>((row) => ({
+          id: row.id,
+          name: row.format ? `${row.name} · ${row.format}` : row.name,
+          status: row.status,
+          impressions: toNumber(row.impressions),
+          clicks: toNumber(row.clicks),
+          ctr: toNumber(row.ctr),
+          viewability: toNumber(row.viewability_rate),
+        }))
+        .filter((row) => matchesStatus(row.status, statusFilter) && matchesSearch(row.name, search));
+
+      const creativeRows = creatives
+        .map<CampaignPerformanceRow>((creative: Creative) => ({
+          id: creative.id,
+          name: creative.name,
+          status: statusFromApproval(creative.approvalStatus),
+          impressions: 0,
+          clicks: 0,
+          ctr: 0,
+          completionRate: creative.format === 'vast_video' ? toNumber(creative.latestVersion?.durationMs) / 1000 : undefined,
+        }))
+        .filter((row) => matchesStatus(row.status, statusFilter) && matchesSearch(row.name, search))
+        .slice(0, 25);
+
+      const identitySegments = (identityKeyPayload.breakdown ?? [])
+        .slice(0, 5)
+        .map<IdentityTypeRow>((row) => ({
+          key: row.key_type,
+          value: toNumber(row.unique_values),
+          percentage: stats.total_identities > 0 ? Number(((toNumber(row.identity_count) / stats.total_identities) * 100).toFixed(1)) : 0,
+        }));
+
+      const identityFrequencyRows = (identityFrequencyPayload.breakdown ?? []).map<FrequencyBucketRow>((row) => ({
+        bucket: row.bucket_label,
+        identities: toNumber(row.identity_count),
+        impressions: toNumber(row.impressions),
+        clicks: toNumber(row.clicks),
+        ctr: formatPercent(toNumber(row.ctr)),
+      }));
+
+      const attributionWindowRows = (identityAttributionPayload.breakdown ?? []).map<AttributionWindowRow>((row) => ({
+        label: row.label,
+        value: `${formatCount(toNumber(row.clicked_identities))} clicked`,
+        helper: `${formatCount(toNumber(row.exposed_identities))} exposed · ${formatPercent(toNumber(row.click_through_rate))} click-through`,
+      }));
+
+      const topRegions = (regionPayload.breakdown ?? [])
+        .slice(0, 4)
+        .map<RegionRow>((row) => ({
+          name: row.region,
+          impressions: toNumber(row.impressions),
+          metric: formatPercent(toNumber(row.viewability_rate)),
+          metricLabel: 'Viewability',
+          share: stats.total_impressions > 0 ? formatPercent((toNumber(row.impressions) / stats.total_impressions) * 100, 1) : '0.0%',
+        }));
+
+      const trackerHealth = buildTrackerHealth(trackerPayload.breakdown ?? []);
+
+      const topCreatives = creatives
+        .filter((creative) => mode !== 'video' || creative.format === 'vast_video')
+        .filter((creative) => mode !== 'display' || creative.format === 'display')
+        .filter((creative) => matchesSearch(creative.name, search))
+        .slice(0, 3)
+        .map<CreativeRow>((creative) => ({
+          name: creative.name,
+          format: titleCase(creative.format),
+          metric: creative.approvalStatus.replace(/_/g, ' '),
+          helper: creative.latestVersion?.width && creative.latestVersion?.height
+            ? `${creative.latestVersion.width}x${creative.latestVersion.height} · ${creative.latestVersion.sourceKind}`
+            : `${creative.latestVersion?.sourceKind ?? 'latest version'} · ${new Date(creative.createdAt).toLocaleDateString()}`,
+        }));
+
+      const inventoryTotal = (contextSnapshotPayload.inventory_environments ?? []).reduce((sum, row) => sum + toNumber(row.value), 0);
+      const videoFormatRows = (contextSnapshotPayload.inventory_environments ?? [])
+        .slice(0, 4)
+        .map<VideoFormatRow>((row, index) => ({
+          id: row.label,
+          label: titleCase(row.label),
+          starts: toNumber(row.value),
+          percentage: inventoryTotal > 0 ? Number(((toNumber(row.value) / inventoryTotal) * 100).toFixed(1)) : 0,
+          tone: (['blue', 'fuchsia', 'emerald', 'amber'] as const)[index] ?? 'slate',
+        }));
+
+      const videoFunnel: VideoFunnelRow[] = [
+        { id: 'starts', label: 'Starts', value: stats.video_starts, rate: 100 },
+        { id: 'q1', label: '25% viewed', value: stats.video_first_quartile, rate: stats.video_starts > 0 ? Number(((stats.video_first_quartile / stats.video_starts) * 100).toFixed(1)) : 0 },
+        { id: 'q2', label: '50% viewed', value: stats.video_midpoint, rate: stats.video_starts > 0 ? Number(((stats.video_midpoint / stats.video_starts) * 100).toFixed(1)) : 0 },
+        { id: 'q3', label: '75% viewed', value: stats.video_third_quartile, rate: stats.video_starts > 0 ? Number(((stats.video_third_quartile / stats.video_starts) * 100).toFixed(1)) : 0 },
+        { id: 'complete', label: 'Completions', value: stats.video_completions, rate: stats.video_starts > 0 ? Number(((stats.video_completions / stats.video_starts) * 100).toFixed(2)) : 0 },
+      ];
+
+      const identityKeyRows = (identityKeyPayload.breakdown ?? [])
+        .slice(0, 5)
+        .map((row) => ({
+          label: titleCase(row.key_type),
+          value: formatCount(toNumber(row.unique_values)),
+          helper: `${formatCount(toNumber(row.key_observations))} observations · ${formatCount(toNumber(row.identity_count))} identities`,
+        }));
+
+      const audienceExportRows = (identitySegmentPayload.breakdown ?? [])
+        .map((row) => ({
+          label: row.label,
+          value: row.identity_count > 0 ? 'Ready' : 'Review',
+          helper: `${formatCount(toNumber(row.identity_count))} identities · ${formatCount(toNumber(row.clicks))} clicks · ${formatCount(toNumber(row.impressions))} impressions`,
+        }));
+
+      const advertiserOptions = Array.from(
+        new Map(
+          (campaignListPayload.campaigns ?? [])
+            .filter((campaign) => campaign.advertiser?.id && campaign.advertiser?.name)
+            .map((campaign) => [campaign.advertiser!.id, { value: campaign.advertiser!.id, label: campaign.advertiser!.name }]),
+        ).values(),
+      ).sort((a, b) => a.label.localeCompare(b.label));
+
+      const kpis = buildKpis(mode, stats, timeline, identitySegmentPayload.breakdown ?? []);
+      const trend = buildTrend(mode, timeline, stats);
+      const recommendations = buildRecommendations(mode, stats, trackerHealth, identitySegmentPayload.breakdown ?? []);
+
+      setState({
+        advertiserOptions,
+        kpis,
+        trend,
+        topCreatives,
+        topRegions,
+        trackerHealth,
+        identitySegments,
+        videoFunnel,
+        recommendations,
+        campaignRows,
+        tagRows,
+        creativeRows,
+        videoFormatRows,
+        identityFrequencyRows,
+        identityKeyRows,
+        attributionWindowRows,
+        audienceExportRows,
+        loading: false,
+        error: '',
+      });
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        loading: false,
+        error: error instanceof Error ? error.message : 'Failed to load reporting workspace',
+      }));
+    }
+  }, [advertiserId, dateRange, mode, query, search, statusFilter]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  return {
+    ...state,
+    reload,
+  };
+}

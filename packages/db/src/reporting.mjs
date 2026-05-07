@@ -54,10 +54,22 @@ function normalizeNonNegativeInt(value) {
   return Math.max(Number.parseInt(String(value ?? '0'), 10) || 0, 0);
 }
 
-function addTagScopeFilters(params, conditions, alias, campaignId, tagIds) {
+function addTagScopeFilters(params, conditions, alias, campaignId, tagIds, advertiserId = '') {
   if (campaignId) {
     params.push(campaignId);
     conditions.push(`${alias}.campaign_id = $${params.length}`);
+  }
+  if (advertiserId) {
+    params.push(advertiserId);
+    conditions.push(
+      `EXISTS (
+         SELECT 1
+         FROM campaigns c_scope
+         WHERE c_scope.id = ${alias}.campaign_id
+           AND c_scope.workspace_id = ${alias}.workspace_id
+           AND c_scope.advertiser_id = $${params.length}
+       )`,
+    );
   }
   if (tagIds.length === 1) {
     params.push(tagIds[0]);
@@ -68,12 +80,24 @@ function addTagScopeFilters(params, conditions, alias, campaignId, tagIds) {
   }
 }
 
-function addImpressionScopeFilters(params, conditions, tagAlias, eventAlias, campaignId, tagIds) {
+function addImpressionScopeFilters(params, conditions, tagAlias, eventAlias, campaignId, tagIds, advertiserId = '') {
   conditions.push(`${tagAlias}.workspace_id = ${eventAlias}.workspace_id`);
   conditions.push(`${tagAlias}.id = ${eventAlias}.tag_id`);
   if (campaignId) {
     params.push(campaignId);
     conditions.push(`${tagAlias}.campaign_id = $${params.length}`);
+  }
+  if (advertiserId) {
+    params.push(advertiserId);
+    conditions.push(
+      `EXISTS (
+         SELECT 1
+         FROM campaigns c_scope
+         WHERE c_scope.id = ${tagAlias}.campaign_id
+           AND c_scope.workspace_id = ${tagAlias}.workspace_id
+           AND c_scope.advertiser_id = $${params.length}
+       )`,
+    );
   }
   if (tagIds.length === 1) {
     params.push(tagIds[0]);
@@ -402,11 +426,11 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
 }
 
 export async function getWorkspaceTimeline(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
-  addTagScopeFilters(params, conditions, 't', campaignId, tagIds);
+  addTagScopeFilters(params, conditions, 't', campaignId, tagIds, advertiserId);
   addDateFilters(params, conditions, 'ds', dateFrom, dateTo);
   const { rows } = await pool.query(
     `SELECT
@@ -433,11 +457,11 @@ export async function getWorkspaceTimeline(pool, workspaceId, opts = {}) {
 }
 
 export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const summaryParams = [workspaceId];
   const summaryConditions = ['t.workspace_id = $1'];
-  addTagScopeFilters(summaryParams, summaryConditions, 't', campaignId, tagIds);
+  addTagScopeFilters(summaryParams, summaryConditions, 't', campaignId, tagIds, advertiserId);
   addDateFilters(summaryParams, summaryConditions, 'ds', dateFrom, dateTo);
 
   const summaryQuery = pool.query(
@@ -459,7 +483,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 
   const engagementParams = [workspaceId];
   const engagementConditions = ['t.workspace_id = $1'];
-  addTagScopeFilters(engagementParams, engagementConditions, 't', campaignId, tagIds);
+  addTagScopeFilters(engagementParams, engagementConditions, 't', campaignId, tagIds, advertiserId);
   addDateFilters(engagementParams, engagementConditions, 'es', dateFrom, dateTo);
   const engagementQuery = pool.query(
     `SELECT
@@ -480,7 +504,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 
   const durationParams = [workspaceId];
   const durationConditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(durationParams, durationConditions, 't', 'ie', campaignId, tagIds);
+  addImpressionScopeFilters(durationParams, durationConditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTimestampFilters(durationParams, durationConditions, 'ie', dateFrom, dateTo);
   const durationQuery = pool.query(
     `SELECT
@@ -493,6 +517,10 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 
   const frequencyParams = [workspaceId];
   const frequencyConditions = ['f.workspace_id = $1'];
+  if (advertiserId) {
+    frequencyParams.push(advertiserId);
+    frequencyConditions.push(`EXISTS (SELECT 1 FROM ad_tags t2 JOIN campaigns c2 ON c2.id = t2.campaign_id AND c2.workspace_id = t2.workspace_id WHERE t2.id = f.tag_id AND t2.workspace_id = f.workspace_id AND c2.advertiser_id = $${frequencyParams.length})`);
+  }
   if (campaignId) {
     frequencyParams.push(campaignId);
     frequencyConditions.push(`EXISTS (SELECT 1 FROM ad_tags t2 WHERE t2.id = f.tag_id AND t2.workspace_id = f.workspace_id AND t2.campaign_id = $${frequencyParams.length})`);
@@ -520,6 +548,10 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 
   const activeCampaignParams = [workspaceId];
   const activeCampaignConditions = ['workspace_id = $1', "status = 'active'"];
+  if (advertiserId) {
+    activeCampaignParams.push(advertiserId);
+    activeCampaignConditions.push(`advertiser_id = $${activeCampaignParams.length}`);
+  }
   if (campaignId) {
     activeCampaignParams.push(campaignId);
     activeCampaignConditions.push(`id = $${activeCampaignParams.length}`);
@@ -531,7 +563,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 
   const activeTagParams = [workspaceId];
   const activeTagConditions = ['workspace_id = $1', "status = 'active'"];
-  addTagScopeFilters(activeTagParams, activeTagConditions, 'ad_tags', campaignId, tagIds);
+  addTagScopeFilters(activeTagParams, activeTagConditions, 'ad_tags', campaignId, tagIds, advertiserId);
   const activeTagsQuery = pool.query(
     `SELECT COUNT(*)::int AS active_tags FROM ad_tags WHERE ${activeTagConditions.join(' AND ')}`,
     activeTagParams,
@@ -596,10 +628,14 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
 }
 
 export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const conditions = ['c.workspace_id = $1'];
+  if (advertiserId) {
+    params.push(advertiserId);
+    conditions.push(`c.advertiser_id = $${params.length}`);
+  }
   if (campaignId) {
     params.push(campaignId);
     conditions.push(`c.id = $${params.length}`);
@@ -655,11 +691,11 @@ export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}
 }
 
 export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
-  addTagScopeFilters(params, conditions, 't', campaignId, tagIds);
+  addTagScopeFilters(params, conditions, 't', campaignId, tagIds, advertiserId);
   addDateFilters(params, conditions, 'ds', dateFrom, dateTo);
   params.push(normalizeLimit(limit));
 
@@ -695,11 +731,11 @@ export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
 }
 
 async function getImpressionGroupedBreakdown(pool, workspaceId, groupSql, labelAlias, opts = {}) {
-  const { dateFrom, dateTo, limit = 25, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const conditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds);
+  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
   params.push(normalizeLimit(limit));
   const { rows } = await pool.query(
@@ -744,11 +780,11 @@ export function getWorkspaceCityBreakdown(pool, workspaceId, opts = {}) {
 }
 
 export async function getWorkspaceTrackerBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
-  addTagScopeFilters(params, conditions, 't', campaignId, tagIds);
+  addTagScopeFilters(params, conditions, 't', campaignId, tagIds, advertiserId);
   addDateFilters(params, conditions, 'ds', dateFrom, dateTo);
   params.push(normalizeLimit(limit));
   const { rows } = await pool.query(
@@ -777,11 +813,11 @@ export async function getWorkspaceTrackerBreakdown(pool, workspaceId, opts = {})
 }
 
 export async function getWorkspaceEngagementBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const conditions = ['t.workspace_id = $1'];
-  addTagScopeFilters(params, conditions, 't', campaignId, tagIds);
+  addTagScopeFilters(params, conditions, 't', campaignId, tagIds, advertiserId);
   addDateFilters(params, conditions, 'es', dateFrom, dateTo);
   params.push(normalizeLimit(limit));
   const { rows } = await pool.query(
@@ -809,11 +845,11 @@ export async function getWorkspaceVariantBreakdown() {
 }
 
 export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const latestParams = [workspaceId];
   const latestConditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(latestParams, latestConditions, 't', 'ie', campaignId, tagIds);
+  addImpressionScopeFilters(latestParams, latestConditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTimestampFilters(latestParams, latestConditions, 'ie', dateFrom, dateTo);
   const latestQuery = pool.query(
     `SELECT
@@ -912,7 +948,7 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
 }
 
 export async function getWorkspaceContextBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, tagId = '', campaignId = '' } = opts;
+  const { dateFrom, dateTo, advertiserId = '', tagId = '', campaignId = '' } = opts;
   const params = [workspaceId];
   const conditions = ['ie.workspace_id = $1'];
   if (tagId) {
@@ -922,6 +958,10 @@ export async function getWorkspaceContextBreakdown(pool, workspaceId, opts = {})
   if (campaignId) {
     params.push(campaignId);
     conditions.push(`t.campaign_id = $${params.length}`);
+  }
+  if (advertiserId) {
+    params.push(advertiserId);
+    conditions.push(`EXISTS (SELECT 1 FROM campaigns c_scope WHERE c_scope.id = t.campaign_id AND c_scope.workspace_id = t.workspace_id AND c_scope.advertiser_id = $${params.length})`);
   }
   addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
 
@@ -942,16 +982,16 @@ export async function getWorkspaceContextBreakdown(pool, workspaceId, opts = {})
 }
 
 export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25, campaignId = '', tagIds: rawTagIds = [], tagId = '', minImpressions = 1, minClicks = 0, canonicalType = '' } = opts;
+  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', minImpressions = 1, minClicks = 0, canonicalType = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const impressionConditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds);
+  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTimestampFilters(params, impressionConditions, 'ie', dateFrom, dateTo);
   addIdentityBreakdownFilters(params, impressionConditions, 'ie', opts);
 
   const clickConditions = ['ce.workspace_id = $1'];
-  addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds);
+  addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
   addTimestampFilters(params, clickConditions, 'ce', dateFrom, dateTo);
   addIdentityBreakdownFilters(params, clickConditions, 'ce', opts);
 
@@ -1019,16 +1059,16 @@ export async function getWorkspaceIdentityBreakdown(pool, workspaceId, opts = {}
 }
 
 export async function getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const impressionConditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds);
+  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTimestampFilters(params, impressionConditions, 'ie', dateFrom, dateTo);
   addIdentityBreakdownFilters(params, impressionConditions, 'ie', opts);
 
   const clickConditions = ['ce.workspace_id = $1'];
-  addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds);
+  addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
   addTimestampFilters(params, clickConditions, 'ce', dateFrom, dateTo);
   addIdentityBreakdownFilters(params, clickConditions, 'ce', opts);
 
@@ -1085,16 +1125,16 @@ export async function getWorkspaceIdentityFrequencyBuckets(pool, workspaceId, op
 }
 
 export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const impressionConditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds);
+  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTimestampFilters(params, impressionConditions, 'ie', dateFrom, dateTo);
   addIdentityBreakdownFilters(params, impressionConditions, 'ie', opts);
 
   const clickConditions = ['ce.workspace_id = $1'];
-  addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds);
+  addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
   addTimestampFilters(params, clickConditions, 'ce', dateFrom, dateTo);
   addIdentityBreakdownFilters(params, clickConditions, 'ce', opts);
 
@@ -1183,11 +1223,11 @@ export async function getWorkspaceIdentitySegmentPresets(pool, workspaceId, opts
 }
 
 export async function getWorkspaceIdentityKeyBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const conditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds);
+  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
   addIdentityBreakdownFilters(params, conditions, 'ie', opts);
   params.push(normalizeLimit(limit, 25, 100));
@@ -1253,16 +1293,16 @@ export async function getWorkspaceIdentityKeyBreakdown(pool, workspaceId, opts =
 }
 
 export async function getWorkspaceIdentityAttributionWindows(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const impressionConditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds);
+  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTimestampFilters(params, impressionConditions, 'ie', dateFrom, dateTo);
   addIdentityBreakdownFilters(params, impressionConditions, 'ie', opts);
 
   const clickConditions = ['ce.workspace_id = $1'];
-  addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds);
+  addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
   addTimestampFilters(params, clickConditions, 'ce', dateFrom, dateTo);
   addIdentityBreakdownFilters(params, clickConditions, 'ce', opts);
 

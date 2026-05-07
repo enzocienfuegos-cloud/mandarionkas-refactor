@@ -1,4 +1,4 @@
-import type { MetricScope } from '../../system/metrics/registry';
+import type { MetricDefinition, MetricScope } from '../../system/metrics/registry';
 import type { ReportingKpi, ReportingMode } from './reporting.types';
 
 type ReportingMetricSource = {
@@ -23,30 +23,34 @@ function iconMap(icon: string) {
   return 'spend' as const;
 }
 
-export function createReportingMetricScope(mode: ReportingMode, defaultIds: string[]): MetricScope<ReportingMetricSource> {
+export function createReportingMetricScope(mode: ReportingMode, kpis: ReportingKpi[]): MetricScope<ReportingMetricSource> {
+  const defaultIds = kpis.slice(0, Math.min(6, kpis.length)).map((item) => item.id);
+  const definitions: MetricDefinition<ReportingMetricSource>[] = kpis.map((metric) => ({
+    id: metric.id,
+    label: metric.label,
+    group: 'Reporting',
+    tone: toneMap(metric.tone),
+    icon: iconMap(metric.icon),
+    compute: ({ kpis: items }) => {
+      const item = items.find((kpi) => kpi.id === metric.id);
+      if (!item) return null;
+      return {
+        id: item.id,
+        label: item.label,
+        value: item.value,
+        delta: item.delta,
+        direction: item.direction,
+        context: item.helper ?? item.comparisonLabel,
+        series: item.sparkline,
+        tone: toneMap(item.tone),
+        icon: iconMap(item.icon),
+      };
+    },
+  }));
+
   return {
     id: `reporting-${mode}`,
     defaultIds,
-    metrics: defaultIds.map((id) => ({
-      id,
-      label: id,
-      group: 'Reporting',
-      tone: 'info',
-      compute: ({ kpis }) => {
-        const item = kpis.find((kpi) => kpi.id === id);
-        if (!item) return null;
-        return {
-          id: item.id,
-          label: item.label,
-          value: item.value,
-          delta: item.delta,
-          direction: item.direction,
-          context: item.helper ?? item.comparisonLabel,
-          series: item.sparkline,
-          tone: toneMap(item.tone),
-          icon: iconMap(item.icon),
-        };
-      },
-    })),
+    metrics: definitions,
   };
 }

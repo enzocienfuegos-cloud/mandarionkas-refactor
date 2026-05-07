@@ -7,7 +7,7 @@ export function KpiGrid({ kpis, mode }: { kpis: ReportingKpi[]; mode: ReportingM
   return (
     <section>
       <ConfigurableMetricStrip
-        scope={createReportingMetricScope(mode, kpis.slice(0, Math.min(6, kpis.length)).map((item) => item.id))}
+        scope={createReportingMetricScope(mode, kpis)}
         data={{ mode, kpis }}
       />
     </section>

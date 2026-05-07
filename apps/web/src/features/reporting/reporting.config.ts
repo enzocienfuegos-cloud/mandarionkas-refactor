@@ -1,4 +1,3 @@
-import { kpisByMode } from './reporting.mock';
 import type { ReportingModeConfig } from './reporting.types';
 
 const allWidgets = [
@@ -27,7 +26,6 @@ export const reportingModeConfig: Record<ReportingModeConfig['id'], ReportingMod
     title: 'Cross-channel reporting command center',
     subtitle: 'Unified cross-channel performance across Display, Video, and Identity.',
     accent: 'fuchsia',
-    kpis: kpisByMode.all,
     widgets: allWidgets,
   },
   display: {
@@ -36,7 +34,6 @@ export const reportingModeConfig: Record<ReportingModeConfig['id'], ReportingMod
     title: 'Display reporting without fragmentation',
     subtitle: 'Display delivery, click performance, viewability, creative, site, and regional insights.',
     accent: 'fuchsia',
-    kpis: kpisByMode.display,
     widgets: allWidgets,
   },
   video: {
@@ -45,7 +42,6 @@ export const reportingModeConfig: Record<ReportingModeConfig['id'], ReportingMod
     title: 'Video performance and playback health',
     subtitle: 'Video starts, quartiles, completions, formats, watch time, and playback health.',
     accent: 'blue',
-    kpis: kpisByMode.video,
     widgets: allWidgets,
   },
   identity: {
@@ -54,7 +50,6 @@ export const reportingModeConfig: Record<ReportingModeConfig['id'], ReportingMod
     title: 'Identity reach and audience export readiness',
     subtitle: 'Identity reach, match rate, frequency, attribution, and audience export readiness.',
     accent: 'emerald',
-    kpis: kpisByMode.identity,
     widgets: allWidgets,
   },
 };

@@ -29,6 +29,7 @@ function getOpts(url) {
   return {
     dateFrom: url.searchParams.get('dateFrom') || undefined,
     dateTo: url.searchParams.get('dateTo') || undefined,
+    advertiserId: url.searchParams.get('advertiserId') || undefined,
     campaignId: url.searchParams.get('campaignId') || undefined,
     tagId: url.searchParams.get('tagId') || undefined,
     tagIds: (url.searchParams.get('tagIds') || '').split(',').map((item) => item.trim()).filter(Boolean),
