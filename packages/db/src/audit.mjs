@@ -142,38 +142,36 @@ export async function queryAuditEvents(
   const listParams = [...filters.params, normalizeLimit(limit), normalizeOffset(offset)];
   const countParams = [...filters.params];
 
-  const [eventsResult, countResult] = await Promise.all([
-    client.query(
-      `
-        select
-          e.id,
-          e.workspace_id,
-          e.actor_user_id,
-          e.action,
-          e.target_type,
-          e.target_id,
-          e.payload,
-          e.created_at,
-          u.email as actor_email
-        from audit_events e
-        left join users u on u.id = e.actor_user_id
-        ${filters.whereClause}
-        order by e.created_at desc
-        limit $${listParams.length - 1}
-        offset $${listParams.length}
-      `,
-      listParams,
-    ),
-    client.query(
-      `
-        select count(*)::int as total
-        from audit_events e
-        left join users u on u.id = e.actor_user_id
-        ${filters.whereClause}
-      `,
-      countParams,
-    ),
-  ]);
+  const eventsResult = await client.query(
+    `
+      select
+        e.id,
+        e.workspace_id,
+        e.actor_user_id,
+        e.action,
+        e.target_type,
+        e.target_id,
+        e.payload,
+        e.created_at,
+        u.email as actor_email
+      from audit_events e
+      left join users u on u.id = e.actor_user_id
+      ${filters.whereClause}
+      order by e.created_at desc
+      limit $${listParams.length - 1}
+      offset $${listParams.length}
+    `,
+    listParams,
+  );
+  const countResult = await client.query(
+    `
+      select count(*)::int as total
+      from audit_events e
+      left join users u on u.id = e.actor_user_id
+      ${filters.whereClause}
+    `,
+    countParams,
+  );
 
   return {
     events: eventsResult.rows.map(normalizeAuditEventRow),

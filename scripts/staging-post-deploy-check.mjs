@@ -21,6 +21,7 @@ if (!baseUrl) {
 async function request(path) {
   const response = await fetch(`${baseUrl}${path}`, { method: 'GET' });
   const text = await response.text();
+  const contentType = response.headers.get('content-type') || '';
   let body = null;
   if (text) {
     try {
@@ -33,6 +34,7 @@ async function request(path) {
     ok: response.ok,
     status: response.status,
     body,
+    contentType,
   };
 }
 
@@ -44,14 +46,25 @@ function assertDriver(label, payload) {
   return driver;
 }
 
+function assertJsonResponse(label, response) {
+  if (!response.contentType.toLowerCase().includes('application/json')) {
+    throw new Error(`${label} returned ${response.contentType || 'non-JSON content'} instead of application/json. Check that SMOKE_BASE_URL targets api-staging, not app-staging.`);
+  }
+  if (!response.body || typeof response.body !== 'object' || Array.isArray(response.body)) {
+    throw new Error(`${label} returned an invalid JSON payload.`);
+  }
+}
+
 async function main() {
   const checks = [];
 
   const health = await request('/healthz');
+  assertJsonResponse('healthz', health);
   checks.push({ step: 'health', status: health.status, ok: health.ok });
   if (!health.ok) throw new Error('Health check failed.');
 
   const readyz = await request('/readyz');
+  assertJsonResponse('readyz', readyz);
   const readyzDriver = assertDriver('readyz', readyz.body);
   checks.push({
     step: 'readyz',
@@ -63,6 +76,7 @@ async function main() {
   if (!readyz.ok) throw new Error('Readiness check failed.');
 
   const version = await request('/version');
+  assertJsonResponse('version', version);
   const versionDriver = assertDriver('version', version.body);
   checks.push({
     step: 'version',
@@ -84,6 +98,7 @@ async function main() {
       reason: 'endpoint_not_present',
     });
   } else {
+    assertJsonResponse('observability', observability);
     const observabilityDriver = assertDriver('observability', observability.body);
     checks.push({
       step: 'observability',

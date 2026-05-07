@@ -84,10 +84,17 @@ async function request(path, init = {}) {
   updateCookies(response);
 
   const text = await response.text();
+  const contentType = response.headers.get('content-type') || '';
   let body = null;
   try { body = JSON.parse(text); } catch { body = text || null; }
 
-  return { ok: response.ok, status: response.status, body };
+  return { ok: response.ok, status: response.status, body, contentType };
+}
+
+function assertApiResponse(label, response) {
+  if (response.contentType.toLowerCase().includes('text/html')) {
+    throw new Error(`${label} returned HTML. Check that SMOKE_BASE_URL points to api-staging, not app-staging.`);
+  }
 }
 
 // ─── Terminal helpers ──────────────────────────────────────────────────────────
@@ -277,6 +284,7 @@ async function main() {
     domains.push(await runDomain('adserver_catalog', 'GET /v1/tags, /v1/campaigns, /v1/creatives', async ({ check }) => {
       await check('GET /v1/tags → 200 or 401 (permission-gated)', async () => {
         const r = await request('/v1/tags');
+        assertApiResponse('/v1/tags', r);
         if (r.status === 401) return { detail: 'correctly requires auth — run with credentials' };
         if (!r.ok && r.status !== 404) throw new Error(`HTTP ${r.status}`);
         const count = Array.isArray(r.body?.tags) ? r.body.tags.length :
@@ -286,6 +294,7 @@ async function main() {
 
       await check('GET /v1/campaigns → 200 or 403 (permission-gated)', async () => {
         const r = await request('/v1/campaigns');
+        assertApiResponse('/v1/campaigns', r);
         if (r.status === 401) return { detail: 'not authenticated' };
         if (r.status === 403) return { detail: 'authenticated but no permission (expected for some roles)' };
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -296,6 +305,7 @@ async function main() {
 
       await check('GET /v1/creatives → 200 or 403', async () => {
         const r = await request('/v1/creatives');
+        assertApiResponse('/v1/creatives', r);
         if (r.status === 401) return { detail: 'not authenticated' };
         if (r.status === 403) return { detail: 'authenticated but no permission' };
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -306,6 +316,7 @@ async function main() {
 
       await check('GET /v1/vast/tags/<id> → VAST XML or 404 (public, no auth)', async () => {
         const r = await request('/v1/vast/tags/smoke-test-nonexistent-id');
+        assertApiResponse('/v1/vast/tags/<id>', r);
         if (r.status === 404 || r.status === 400) {
           return { detail: 'tag not found — route exists and is reachable (expected)' };
         }
@@ -324,6 +335,7 @@ async function main() {
     domains.push(await runDomain('audit_access', 'GET /v1/audit — permission-gated', async ({ check }) => {
       await check('GET /v1/audit → 200 or 403 (role-dependent)', async () => {
         const r = await request('/v1/audit');
+        assertApiResponse('/v1/audit', r);
         if (r.status === 401) throw new Error('not authenticated — session may have expired');
         if (r.status === 403) return { detail: 'authenticated but no audit:read permission (expected for non-admin roles)' };
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -336,6 +348,10 @@ async function main() {
         const r = await fetch(`${baseUrl}/v1/audit`, {
           headers: { 'Content-Type': 'application/json' },
         });
+        const contentType = r.headers.get('content-type') || '';
+        if (contentType.toLowerCase().includes('text/html')) {
+          throw new Error('Unauthenticated /v1/audit returned HTML. Check that SMOKE_BASE_URL points to api-staging, not app-staging.');
+        }
         if (r.status !== 401) throw new Error(`Expected 401, got HTTP ${r.status}`);
         return { detail: 'correctly rejects unauthenticated request' };
       });

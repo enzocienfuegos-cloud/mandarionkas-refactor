@@ -57,10 +57,8 @@ export async function handleReportingRoutes(ctx) {
   if (method === 'GET' && pathname === '/v1/reporting/workspace') {
     return withSession(ctx, async (session) => {
       const opts = getOpts(url);
-      const [stats, timeline] = await Promise.all([
-        getWorkspaceOverview(session.client, session.session.activeWorkspaceId, opts),
-        getWorkspaceTimeline(session.client, session.session.activeWorkspaceId, opts),
-      ]);
+      const stats = await getWorkspaceOverview(session.client, session.session.activeWorkspaceId, opts);
+      const timeline = await getWorkspaceTimeline(session.client, session.session.activeWorkspaceId, opts);
       return sendJson(res, 200, { stats, timeline, requestId });
     });
   }
