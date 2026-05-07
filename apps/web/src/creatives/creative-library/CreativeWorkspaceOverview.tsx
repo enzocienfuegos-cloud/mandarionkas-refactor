@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge, Button, FormField, Input, Kicker, MetricCard, Panel, Select } from '../../system';
+import { Badge, Button, FormField, Input, Kicker, MetricCard, PageHeader, Select } from '../../system';
 import type { Metric } from './types';
 import {
   AlertTriangleIcon,
@@ -42,6 +42,35 @@ export function CreativeWorkspaceOverview({
 }: Props) {
   return (
     <>
+      <PageHeader
+        kicker="Creatives · Creative QA workspace"
+        title="Creatives"
+        meta={`${pendingReviewCount} pending review · asset approval and trafficking workspace`}
+        primaryAction={(
+          <Button
+            type="button"
+            onClick={onUploadCreative}
+            variant="primary"
+            className="min-h-[46px] px-5"
+          >
+            Upload creative
+          </Button>
+        )}
+        alert={(
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <AlertTriangleIcon className="mt-0.5 shrink-0" />
+              <p className="text-sm font-medium">
+                {pendingReviewCount} creatives need QA review before trafficking handoff.
+              </p>
+            </div>
+            <Button type="button" variant="ghost" size="sm" onClick={onToggleNeedsQa} className="shrink-0">
+              Filter to QA queue
+            </Button>
+          </div>
+        )}
+      />
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex flex-wrap items-end gap-3">
           <FormField label="Advertiser" className="min-w-[220px]">
@@ -74,36 +103,7 @@ export function CreativeWorkspaceOverview({
             />
           </FormField>
         </div>
-        <Button
-          type="button"
-          onClick={onUploadCreative}
-          variant="primary"
-          className="min-h-[46px] px-5"
-        >
-          Upload creative
-        </Button>
       </div>
-
-      <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
-        <div>
-          <div className="mb-4 flex items-center gap-2">
-            <Badge tone="brand" variant="soft">Creatives</Badge>
-            <Badge tone="neutral" variant="outline">Creative QA workspace</Badge>
-          </div>
-          <h1 className="text-4xl font-semibold tracking-tight text-text-primary md:text-5xl">Creative approval without trafficking gaps</h1>
-          <p className="mt-3 max-w-3xl text-lg leading-8 text-text-muted">Review specs, preview assets, catch blockers and approve creatives from one dense operational view with the same CM360-style workspace pattern.</p>
-        </div>
-        <Panel className="p-5">
-          <Kicker>Recommended focus</Kicker>
-          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] p-4">
-            <AlertTriangleIcon className="text-[color:var(--dusk-status-warning-fg)]" />
-            <div>
-              <p className="font-semibold text-[color:var(--dusk-status-warning-fg)]">{pendingReviewCount} creatives need QA review</p>
-              <p className="mt-1 text-sm text-[color:var(--dusk-status-warning-fg)]/80">Review clicktags, specs, missing assets and rejected creatives before launch or trafficking handoff.</p>
-            </div>
-          </div>
-        </Panel>
-      </header>
 
       <div className="grid gap-5 xl:grid-cols-4">
         {creativeMetrics.map((metric) => (

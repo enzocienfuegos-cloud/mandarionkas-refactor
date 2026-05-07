@@ -6,6 +6,7 @@ import {
   Input,
   Kicker,
   MetricCard,
+  PageHeader,
   Panel,
 } from '../system';
 import type {
@@ -220,6 +221,32 @@ export default function DiscrepanciesView() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
+      <PageHeader
+        kicker="Discrepancies · Reconciliation workspace"
+        title="Discrepancies"
+        meta={`${discrepancyRows.length} reports · ${thresholdBreaches} threshold breaches · invoice validation queue`}
+        primaryAction={<Button type="button" onClick={load} variant="primary">Investigate gap</Button>}
+        alert={(
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <AlertTriangleIcon className="mt-0.5 shrink-0" />
+              <p className="text-sm font-medium">
+                {thresholdBreaches} threshold breaches need investigation before invoice reconciliation.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilters((current) => ({ ...current, severity: 'critical' }))}
+              className="shrink-0"
+            >
+              Filter critical
+            </Button>
+          </div>
+        )}
+      />
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <Button type="button" variant="secondary">
@@ -239,33 +266,7 @@ export default function DiscrepanciesView() {
             />
           </label>
         </div>
-
-        <Button type="button" onClick={load} variant="primary">
-          Investigate gap
-        </Button>
       </div>
-
-      <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
-        <div>
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-700 dark:border-fuchsia-500/15 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
-            Discrepancies
-            <span className="h-1 w-1 rounded-full bg-current opacity-60" />
-            Reconciliation workspace
-          </div>
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">Publisher variance without reconciliation blind spots</h1>
-          <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">Compare adserver delivery, publisher reporting and variance thresholds from one dense operational workspace.</p>
-        </div>
-        <Panel className="p-5">
-          <Kicker>Recommended focus</Kicker>
-          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
-            <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
-            <div>
-              <p className="font-semibold text-amber-800 dark:text-amber-100">{thresholdBreaches} threshold breaches need investigation</p>
-              <p className="mt-1 text-sm text-amber-700/72 dark:text-amber-100/62">Validate publisher-reported delivery against adserver totals before invoice reconciliation.</p>
-            </div>
-          </div>
-        </Panel>
-      </header>
 
       <div className="grid gap-5 xl:grid-cols-4">
         {discrepancyMetrics.map((metric) => (
@@ -294,14 +295,6 @@ export default function DiscrepanciesView() {
               <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Review variance, threshold breaches, and publisher totals from one dense reconciliation table.</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-              >
-                <FilterIcon className="h-4 w-4" />
-                Filters
-              </Button>
               <Button type="button" onClick={load} variant="ghost" size="sm">Refresh</Button>
             </div>
           </div>

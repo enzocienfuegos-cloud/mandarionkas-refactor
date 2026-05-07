@@ -10,6 +10,7 @@ import {
   Input,
   Kicker,
   MetricCard,
+  PageHeader,
   Panel,
   Select,
   useConfirm,
@@ -137,6 +138,26 @@ export default function TagList() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
+      <PageHeader
+        kicker="Tags · Pixel QA workspace"
+        title="Tags"
+        meta={`${totalTags} tags · ${needsAttentionCount} need QA · implementation workspace`}
+        primaryAction={<Button type="button" onClick={openCreate} variant="primary">Generate tag</Button>}
+        alert={(
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <AlertTriangleIcon className="mt-0.5 shrink-0" />
+              <p className="text-sm font-medium">
+                {needsAttentionCount} tags need implementation QA before launch or scale.
+              </p>
+            </div>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setNeedsQaOnly(true)} className="shrink-0">
+              Filter to QA risk
+            </Button>
+          </div>
+        )}
+      />
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex flex-wrap items-end gap-3">
           <FormField label="Advertiser" className="min-w-[220px]">
@@ -172,37 +193,7 @@ export default function TagList() {
             />
           </FormField>
         </div>
-
-        <Button type="button" onClick={openCreate} variant="primary">
-          Generate tag
-        </Button>
       </div>
-
-      <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
-        <div>
-          <div className="mb-4 flex items-center gap-2">
-            <Badge tone="brand" variant="soft">Tags</Badge>
-            <Badge tone="neutral" variant="outline">Pixel QA workspace</Badge>
-          </div>
-          <h1 className="text-4xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)] md:text-5xl">Tag implementation without signal gaps</h1>
-          <p className="mt-3 max-w-3xl text-lg leading-8 text-text-muted">
-            Generate, validate and monitor every tag from one dense operational view with the same CM360-style workspace pattern.
-          </p>
-        </div>
-
-        <Panel className="p-5">
-          <Kicker>Recommended focus</Kicker>
-          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] p-4">
-            <AlertTriangleIcon className="text-[color:var(--dusk-status-warning-fg)]" />
-            <div>
-              <p className="font-semibold text-[color:var(--dusk-status-warning-fg)]">{needsAttentionCount} tags need implementation QA</p>
-              <p className="mt-1 text-sm text-[color:var(--dusk-status-warning-fg)]/80">
-                Review low firing, missing generation and no-firing tags before launching or scaling delivery.
-              </p>
-            </div>
-          </div>
-        </Panel>
-      </header>
 
       <div className="grid gap-5 xl:grid-cols-4">
         {tagMetrics.map((metric) => (
@@ -244,10 +235,6 @@ export default function TagList() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <Button type="button" variant="secondary" size="sm">
-                <FilterIcon className="h-4 w-4" />
-                Filters
-              </Button>
               <Link to="/tags/health">
                 <Button variant="secondary" size="sm">Health</Button>
               </Link>

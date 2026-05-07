@@ -9,6 +9,7 @@ import {
   Input,
   Kicker,
   MetricCard,
+  PageHeader,
   Panel,
   Select,
   useConfirm,
@@ -178,6 +179,32 @@ export default function CampaignList() {
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
 
+          <PageHeader
+            kicker="Campaigns · Delivery workspace"
+            title="Campaigns"
+            meta={`${campaignRows.length} campaigns · ${blockedOrLimited} blocked or limited · delivery workspace`}
+            primaryAction={<Link to="/campaigns/new"><Button variant="primary">New campaign</Button></Link>}
+            alert={(
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <AlertTriangleIcon className="mt-0.5 shrink-0" />
+                  <p className="text-sm font-medium">
+                    {needsAttentionRows.length} campaigns need attention before new trafficking changes.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => setSearch(needsAttentionRows[0]?.campaign ?? '')}
+                >
+                  Focus issues
+                </Button>
+              </div>
+            )}
+          />
+
           {/* ── Toolbar ── */}
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-3">
@@ -205,29 +232,7 @@ export default function CampaignList() {
                 />
               </FormField>
             </div>
-            <Link to="/campaigns/new">
-              <Button variant="primary">New campaign</Button>
-            </Link>
           </div>
-
-          {/* ── Header ── */}
-          <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
-            <div>
-              <Kicker>Campaigns · Delivery workspace</Kicker>
-              <h1 className="text-4xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)] md:text-5xl">Campaign operations without the noise</h1>
-              <p className="mt-3 max-w-3xl text-lg leading-8 text-text-muted">Scan campaign readiness, catch blockers, and move from pacing, tags or creative issues into action quickly.</p>
-            </div>
-            <Panel className="p-5">
-              <Kicker>Recommended focus</Kicker>
-              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] p-4">
-                <AlertTriangleIcon className="text-[color:var(--dusk-status-warning-fg)]" />
-                <div>
-                  <p className="font-semibold text-[color:var(--dusk-status-warning-fg)]">{needsAttentionRows.length} campaigns need attention</p>
-                  <p className="mt-1 text-sm text-[color:var(--dusk-status-warning-fg)]/72">Review blocked delivery and limited pacing before making new trafficking changes.</p>
-                </div>
-              </div>
-            </Panel>
-          </header>
 
           {/* ── Metrics ── */}
           <div className="grid gap-5 xl:grid-cols-4">

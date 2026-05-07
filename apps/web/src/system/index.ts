@@ -44,6 +44,9 @@ export type { EmptyStateProps } from './primitives/EmptyState';
 export { MetricCard, Sparkline } from './primitives/MetricCard';
 export type { MetricCardProps, MetricTrend, MetricTone } from './primitives/MetricCard';
 
+export { PageHeader } from './primitives/PageHeader';
+export type { PageHeaderProps } from './primitives/PageHeader';
+
 // ─── Data ─────────────────────────────────────────────────────────────────
 export { DataTable } from './data-table/DataTable';
 export type {
