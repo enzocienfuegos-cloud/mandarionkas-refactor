@@ -31,7 +31,7 @@ const statusBadge = (status: TagHealth['status']) => {
 const KpiCard = ({
   label, value, tone,
 }: { label: string; value: number; tone: 'success' | 'warning' | 'critical' | 'neutral' }) => (
-  <Panel className="p-5">
+  <Panel className="p-5" role="status" aria-label={`${label}: ${value}`}>
     <p className="text-sm text-text-muted">{label}</p>
     <p className="mt-1 text-3xl font-bold text-text-primary">{value}</p>
     <div className="mt-3">
@@ -69,9 +69,9 @@ export default function TagHealthDashboard() {
 
   if (error) {
     return (
-      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]">
-        <p className="font-medium">Error loading tag health</p>
-        <p className="text-sm mt-1">{error}</p>
+      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]" role="status" aria-live="polite">
+        <p className="font-medium">Couldn&apos;t load tag health</p>
+        <p className="mt-1 text-sm">Check the health endpoints or your workspace permissions, then retry. Details: {error}</p>
         <Button onClick={load} variant="ghost" size="sm" className="mt-3">Retry</Button>
       </Panel>
     );
@@ -140,7 +140,7 @@ export default function TagHealthDashboard() {
         <Panel className="py-20">
           <EmptyState
             title="No health data available"
-            description="Tag health data will appear once tags are active."
+            description="Tag health appears once tags begin serving. Activate a tag or widen the workspace scope to inspect delivery risk."
           />
         </Panel>
       ) : (

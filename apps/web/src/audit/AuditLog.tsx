@@ -8,6 +8,7 @@ import {
   FormField,
   Input,
   Kicker,
+  PageHeader,
   Panel,
   Select,
   type ColumnDef,
@@ -75,7 +76,7 @@ export default function AuditLog() {
 
     fetch(`/v1/audit?${params}`, { credentials: 'include' })
       .then((response) => {
-        if (!response.ok) throw new Error('Failed to load audit log');
+        if (!response.ok) throw new Error('We could not load audit events for this filter set.');
         return response.json() as Promise<AuditResponse>;
       })
       .then((payload) => {
@@ -166,13 +167,11 @@ export default function AuditLog() {
 
   return (
     <div>
-      <div className="mb-6">
-        <Kicker>Compliance</Kicker>
-        <h1 className="mt-2 text-2xl font-bold text-[color:var(--dusk-text-primary)]">Audit Log</h1>
-        <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">
-          Track all actions performed in your workspace.
-        </p>
-      </div>
+      <PageHeader
+        kicker="Compliance"
+        title="Audit Log"
+        meta={`${total.toLocaleString()} events in scope · filter by actor, action, resource or date`}
+      />
 
       <Panel className="mb-6 p-5">
         <form onSubmit={handleApplyFilters} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -240,9 +239,11 @@ export default function AuditLog() {
       {loading ? (
         <CenteredSpinner label="Loading audit events" />
       ) : error ? (
-        <Panel className="p-4" role="alert">
-          <p className="font-medium text-[color:var(--dusk-status-critical-fg)]">Error loading audit log</p>
-          <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">{error}</p>
+        <Panel className="p-4" role="status" aria-live="polite">
+          <p className="font-medium text-[color:var(--dusk-status-critical-fg)]">Couldn&apos;t load audit events</p>
+          <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">
+            Check the selected date range or resource scope, then retry. Details: {error}
+          </p>
           <div className="mt-4">
             <Button variant="secondary" onClick={() => load(offset)}>Retry</Button>
           </div>

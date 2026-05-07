@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { type PlatformRole } from '../shared/roles';
-import { CenteredSpinner, Panel, Button, useConfirm, useToast } from '../system';
+import { CenteredSpinner, Panel, Button, PageHeader, useConfirm, useToast } from '../system';
 import { WorkspaceMembersSection } from './workspace-settings/WorkspaceMembersSection';
 import { WorkspaceProfileSection } from './workspace-settings/WorkspaceProfileSection';
 import {
@@ -40,7 +40,7 @@ export default function WorkspaceSettings() {
         setWorkspace(nextWorkspace);
         setMembers((teamData?.members ?? teamData ?? []).map(normalizeMember));
       })
-      .catch(() => setError('Failed to load workspace settings.'))
+      .catch(() => setError('We could not load workspace settings for this account.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -139,18 +139,19 @@ export default function WorkspaceSettings() {
 
   if (error) {
     return (
-      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]">
-        <p className="font-medium">Error loading workspace settings</p>
-        <p className="text-sm mt-1">{error}</p>
+      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]" role="status" aria-live="polite">
+        <p className="font-medium">Couldn&apos;t load workspace settings</p>
+        <p className="mt-1 text-sm">Check workspace permissions or retry after the team service responds. Details: {error}</p>
       </Panel>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-text-primary">Workspace Settings</h1>
-      </div>
+      <PageHeader
+        title="Workspace Settings"
+        meta={`${members.length} member${members.length === 1 ? '' : 's'} · profile, access and collaboration rules for this workspace`}
+      />
 
       <div className="flex border-b border-border-default mb-6">
         <Button variant="ghost" className={tabClass('profile')} onClick={() => setTab('profile')}>Profile</Button>

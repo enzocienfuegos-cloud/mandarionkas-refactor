@@ -27,7 +27,7 @@ export default function AbExperimentEditor() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      fetch('/v1/experiments', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Failed to load'); return r.json(); }),
+      fetch('/v1/experiments', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('We could not load experiment traffic rules for this workspace.'); return r.json(); }),
       fetch('/v1/tags', { credentials: 'include' }).then(r => r.json()).catch(() => ({ tags: [] })),
     ])
       .then(([expData, tagData]) => {
@@ -67,9 +67,9 @@ export default function AbExperimentEditor() {
 
   if (error) {
     return (
-      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]">
-        <p className="font-medium">Error loading experiments</p>
-        <p className="text-sm mt-1">{error}</p>
+      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]" role="status" aria-live="polite">
+        <p className="font-medium">Couldn&apos;t load experiments</p>
+        <p className="mt-1 text-sm">Check workspace access or retry after the experiments service responds. Details: {error}</p>
         <Button onClick={load} variant="ghost" size="sm" className="mt-3">Retry</Button>
       </Panel>
     );

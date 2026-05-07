@@ -49,7 +49,7 @@ export default function CreativeApproval() {
     try {
       setVersions(await loadPendingReviewVersions());
     } catch (loadError: any) {
-      setError(loadError.message ?? 'Failed to load review queue');
+      setError(loadError.message ?? 'We could not load the creative review queue for this workspace.');
     } finally {
       setLoading(false);
     }
@@ -133,9 +133,11 @@ export default function CreativeApproval() {
 
   if (error) {
     return (
-      <Panel padding="md" className="border-[color:var(--dusk-status-critical-border)]">
-        <p className="font-medium text-[color:var(--dusk-status-critical-fg)]">Error loading review queue</p>
-        <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">{error}</p>
+      <Panel padding="md" className="border-[color:var(--dusk-status-critical-border)]" role="status" aria-live="polite">
+        <p className="font-medium text-[color:var(--dusk-status-critical-fg)]">Couldn&apos;t load the review queue</p>
+        <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">
+          Check creative approval permissions or retry once the review service is available. Details: {error}
+        </p>
         <div className="mt-3">
           <Button variant="secondary" size="sm" onClick={() => void load()}>
             Retry

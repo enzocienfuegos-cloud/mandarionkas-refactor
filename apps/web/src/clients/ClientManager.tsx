@@ -76,7 +76,7 @@ export default function ClientManager() {
       setAccessClients(accessPayload.clients ?? []);
       setAccessUsers(accessPayload.users ?? []);
     } catch (loadError: any) {
-      setError(loadError.message ?? 'Failed to load clients');
+      setError(loadError.message ?? 'We could not load client workspaces or assignments for this workspace.');
     } finally {
       setLoading(false);
     }
