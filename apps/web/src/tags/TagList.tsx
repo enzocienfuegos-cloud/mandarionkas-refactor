@@ -167,20 +167,6 @@ export default function TagList() {
     setTagSearch,
   ]);
 
-  if (loading) {
-    return <CenteredSpinner label="Loading tags workspace…" />;
-  }
-
-  if (error) {
-    return (
-      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]">
-        <p className="font-medium">Error loading tags</p>
-        <p className="mt-1 text-sm">{error}</p>
-        <Button onClick={load} variant="ghost" size="sm" className="mt-3">Retry</Button>
-      </Panel>
-    );
-  }
-
   const buildPreviewTarget = (tag: Tag, detail?: Partial<Tag>): TagPreviewTarget => {
     const source = { ...tag, ...detail };
     const publicUrl = getTagPreviewUrl(source);
@@ -245,6 +231,20 @@ export default function TagList() {
     onExport: handleExportTagCsv,
     onDelete: handleDelete,
   });
+
+  if (loading) {
+    return <CenteredSpinner label="Loading tags workspace…" />;
+  }
+
+  if (error) {
+    return (
+      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]">
+        <p className="font-medium">Error loading tags</p>
+        <p className="mt-1 text-sm">{error}</p>
+        <Button onClick={load} variant="ghost" size="sm" className="mt-3">Retry</Button>
+      </Panel>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">

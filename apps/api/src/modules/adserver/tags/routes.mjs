@@ -54,6 +54,8 @@ function normalizeTag(row) {
     servingWidth: row.serving_width || null,
     servingHeight: row.serving_height || null,
     trackerType: normalizedTrackerType,
+    assignedCount: Number(row.assigned_count || 0),
+    assignedNames: row.assigned_names ?? '',
     sizeLabel: String(normalizedFormat).toLowerCase() === 'tracker'
       ? (row.tracker_type === 'impression' ? '1x1' : '')
       : (row.serving_width && row.serving_height ? `${row.serving_width}x${row.serving_height}` : ''),
