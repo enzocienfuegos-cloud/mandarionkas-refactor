@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Avatar, DataTable, ProgressBar, type ColumnDef, type DropdownMenuEntry } from '../../system';
+import { Avatar, DataTable, DensityToggle, ProgressBar, type ColumnDef, type Density, type DropdownMenuEntry } from '../../system';
 import type { PacingCampaign, PacingRow } from './types';
 import { ExternalLink, Eye } from '../../system/icons';
 import { PacingStatusPill, SeverityPill } from './components';
+import { getDensity } from '../../shared/preferences';
 
 export function PacingTable({
   rows,
@@ -15,6 +16,7 @@ export function PacingTable({
   onInspectCampaign: (campaign: PacingCampaign) => void;
 }) {
   const navigate = useNavigate();
+  const [density, setDensity] = useState<Density>(() => getDensity('pacing-main') ?? 'comfortable');
   const campaignMap = useMemo(
     () => new Map(campaigns.map((campaign) => [campaign.id, campaign])),
     [campaigns],
@@ -131,18 +133,24 @@ export function PacingTable({
   );
 
   return (
-    <DataTable
-      columns={columns}
-      data={rows}
-      rowKey={(row) => row.id}
-      onRowClick={(row) => {
-        const campaign = campaignMap.get(row.id);
-        if (campaign) onInspectCampaign(campaign);
-      }}
-      density="comfortable"
-      bordered={false}
-      emptyState={null}
-      rowActions={rowActions}
-    />
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <DensityToggle value={density} onChange={setDensity} />
+      </div>
+      <DataTable
+        columns={columns}
+        data={rows}
+        rowKey={(row) => row.id}
+        onRowClick={(row) => {
+          const campaign = campaignMap.get(row.id);
+          if (campaign) onInspectCampaign(campaign);
+        }}
+        density={density}
+        densityKey="pacing-main"
+        bordered={false}
+        emptyState={null}
+        rowActions={rowActions}
+      />
+    </div>
   );
 }

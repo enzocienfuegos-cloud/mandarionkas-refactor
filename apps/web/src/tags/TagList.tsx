@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Badge,
@@ -6,6 +6,7 @@ import {
   CenteredSpinner,
   ConfigurableMetricStrip,
   DataTable,
+  DensityToggle,
   EmptyState,
   FilterBar,
   Kicker,
@@ -13,12 +14,14 @@ import {
   Panel,
   useConfirm,
   useToast,
+  type Density,
 } from '../system';
 import { useTagColumns } from './tag-list/columns';
 import { TagCreateModal } from './tag-list/TagCreateModal';
 import { type IconProps } from './tag-list/types';
 import { useTagListWorkspace } from './tag-list/useTagListWorkspace';
 import { tagMetricScope } from './tag.metrics';
+import { getDensity } from '../shared/preferences';
 import {
   classNames,
 } from './tag-list/utils';
@@ -62,6 +65,7 @@ const TableIcon = ({ className }: IconProps) => (
 );
 
 export default function TagList() {
+  const [density, setDensity] = useState<Density>(() => getDensity('tags-main') ?? 'comfortable');
   const confirm = useConfirm();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -257,12 +261,16 @@ export default function TagList() {
           </div>
 
           <div className="mt-6">
+            <div className="mb-3 flex justify-end">
+              <DensityToggle value={density} onChange={setDensity} />
+            </div>
             <DataTable
               columns={tagColumns}
               data={filteredTags}
               rowKey={(tag: (typeof filteredTags)[number]) => tag.id}
               selectable
-              density="comfortable"
+              density={density}
+              densityKey="tags-main"
               selectedKeys={selectedKeySet}
               onSelectionChange={(keys: Set<string>) => setSelectedTagIds(Array.from(keys))}
               renderBulkActions={() => (

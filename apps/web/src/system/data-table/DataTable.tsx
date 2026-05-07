@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, ChevronsUpDown, MoreHorizontal } from '../icons';
 import { DropdownMenu, type DropdownMenuEntry } from '../primitives/DropdownMenu';
 import { IconButton } from '../primitives/Button';
 import { Panel } from '../primitives/Panel';
 import { Skeleton } from '../primitives/Skeleton';
 import { cn } from '../cn';
+import { getDensity, setDensity } from '../../shared/preferences';
 
 export type SortDirection = 'asc' | 'desc' | null;
 export type Density = 'compact' | 'comfortable' | 'spacious';
@@ -40,6 +41,8 @@ export interface DataTableProps<T> {
   emptyState?: React.ReactNode;
   /** Density mode. Default 'comfortable'. */
   density?: Density;
+  /** Preference key for persisted density selection */
+  densityKey?: string;
   /** Click handler for an entire row */
   onRowClick?: (row: T) => void;
   /** Enable row selection */
@@ -78,7 +81,8 @@ export function DataTable<T>({
   rowKey,
   loading = false,
   emptyState,
-  density = 'comfortable',
+  density,
+  densityKey,
   onRowClick,
   selectable = false,
   selectedKeys,
@@ -92,6 +96,30 @@ export function DataTable<T>({
   const [hiddenIds, setHiddenIds]     = useState<Set<string>>(
     () => new Set(rawColumns.filter((c) => c.defaultHidden).map((c) => c.id)),
   );
+  const [storedDensity, setStoredDensity] = useState<Density>(() => (densityKey ? getDensity(densityKey) ?? density ?? 'comfortable' : density ?? 'comfortable'));
+
+  useEffect(() => {
+    if (!densityKey) return;
+    const next = getDensity(densityKey);
+    if (next) setStoredDensity(next);
+  }, [densityKey]);
+
+  useEffect(() => {
+    if (!densityKey || !density) return;
+    setStoredDensity(density);
+    setDensity(densityKey, density);
+  }, [density, densityKey]);
+
+  const effectiveDensity = useMemo<Density>(() => {
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 767px)').matches
+    ) {
+      return 'comfortable';
+    }
+    return densityKey ? storedDensity : density ?? 'comfortable';
+  }, [density, densityKey, storedDensity]);
 
   const visibleColumns = useMemo(
     () => rawColumns.filter((c) => !hiddenIds.has(c.id)),
@@ -208,7 +236,7 @@ export function DataTable<T>({
         <tbody>
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <tr key={`skel-${i}`} className={densityRowClass[density]}>
+              <tr key={`skel-${i}`} className={densityRowClass[effectiveDensity]}>
                 {selectable && (
                   <td className="px-3">
                     <Skeleton className="h-4 w-4" />
@@ -251,7 +279,7 @@ export function DataTable<T>({
                 <tr
                   key={key}
                   className={cn(
-                    densityRowClass[density],
+                    densityRowClass[effectiveDensity],
                     'transition-colors',
                     onRowClick && 'cursor-pointer',
                     isSelected

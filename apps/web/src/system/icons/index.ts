@@ -116,6 +116,7 @@ export {
   LayoutDashboard,
   LayoutGrid,
   Table2,
+  Rows2,
   Columns3,
   Rows3,
   PanelLeft,

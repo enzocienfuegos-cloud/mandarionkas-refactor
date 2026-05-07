@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
-import { Button, DataTable, type ColumnDef } from '../../system';
+import React, { useMemo, useState } from 'react';
+import { Button, DataTable, DensityToggle, type ColumnDef, type Density } from '../../system';
 import type { DiscrepancyRow } from './types';
 import { DiscrepancyStatusPill, SeverityPill } from './components';
+import { getDensity } from '../../shared/preferences';
 
 export function DiscrepancyTable({
   rows,
@@ -10,6 +11,7 @@ export function DiscrepancyTable({
   rows: DiscrepancyRow[];
   onInvestigate: () => void;
 }) {
+  const [density, setDensity] = useState<Density>(() => getDensity('discrepancies-main') ?? 'comfortable');
   const columns = useMemo<ColumnDef<DiscrepancyRow>[]>(() => [
     {
       id: 'campaign',
@@ -85,13 +87,19 @@ export function DiscrepancyTable({
   ], [onInvestigate]);
 
   return (
-    <DataTable
-      columns={columns}
-      data={rows}
-      rowKey={(row) => row.id}
-      density="comfortable"
-      bordered={false}
-      emptyState={null}
-    />
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <DensityToggle value={density} onChange={setDensity} />
+      </div>
+      <DataTable
+        columns={columns}
+        data={rows}
+        rowKey={(row) => row.id}
+        density={density}
+        densityKey="discrepancies-main"
+        bordered={false}
+        emptyState={null}
+      />
+    </div>
   );
 }

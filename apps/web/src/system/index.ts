@@ -65,6 +65,7 @@ export { FilterBar } from './primitives/FilterBar';
 export type { FilterBarProps, FilterPill } from './primitives/FilterBar';
 export { ReadOnlyValue } from './primitives/ReadOnlyValue';
 export type { ReadOnlyValueProps } from './primitives/ReadOnlyValue';
+export { CreativeThumb } from './primitives/CreativeThumb';
 
 export { PageHeader } from './primitives/PageHeader';
 export type { PageHeaderProps } from './primitives/PageHeader';
@@ -87,6 +88,7 @@ export type {
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 export { DataTable } from './data-table/DataTable';
+export { DensityToggle } from './data-table/DensityToggle';
 export type {
   DataTableProps,
   ColumnDef,

@@ -1,3 +1,5 @@
+import type { Density } from '../system/data-table/DataTable';
+
 const PREFERENCES_STORAGE_KEY = 'smx-adserver-preferences-v1';
 
 function readAllPreferences(): Record<string, unknown> {
@@ -26,4 +28,15 @@ export function savePreference(key: string, value: unknown) {
   const preferences = readAllPreferences();
   preferences[key] = value;
   writeAllPreferences(preferences);
+}
+
+const DENSITY_VALUES: Density[] = ['compact', 'comfortable', 'spacious'];
+
+export function getDensity(key: string): Density | undefined {
+  const value = loadPreference<string>(`dusk:density:${key}`);
+  return DENSITY_VALUES.includes(value as Density) ? (value as Density) : undefined;
+}
+
+export function setDensity(key: string, value: Density) {
+  savePreference(`dusk:density:${key}`, value);
 }

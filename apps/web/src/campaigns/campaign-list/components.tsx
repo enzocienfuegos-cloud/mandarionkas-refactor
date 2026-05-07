@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, DataTable, IconButton, Kicker, Panel, type ColumnDef } from '../../system';
+import { Button, DataTable, DensityToggle, IconButton, Kicker, Panel, type ColumnDef, type Density } from '../../system';
 import type { CampaignRow, IconProps, TrendDirection } from './types';
 import { classNames, statusBadge } from './utils';
+import { getDensity } from '../../shared/preferences';
 
 function iconProps(className?: string) {
   return {
@@ -101,6 +102,7 @@ export function CampaignsTable({
   onDelete: (row: CampaignRow) => void;
   deletingId: string | null;
 }) {
+  const [density, setDensity] = useState<Density>(() => getDensity('campaigns-main') ?? 'comfortable');
   const columns: ColumnDef<CampaignRow>[] = [
     {
       id: 'campaign',
@@ -225,10 +227,15 @@ export function CampaignsTable({
       </div>
 
       <div className="mt-6">
+        <div className="mb-3 flex justify-end">
+          <DensityToggle value={density} onChange={setDensity} />
+        </div>
         <DataTable
           columns={columns}
           data={campaignRows}
           rowKey={(campaign) => campaign.id}
+          density={density}
+          densityKey="campaigns-main"
           bordered
         />
       </div>
