@@ -10,6 +10,8 @@ import { useShellSession } from './hooks/useShellSession';
 import { useShellTheme } from './hooks/useShellTheme';
 import { useShellWorkspaces } from './hooks/useShellWorkspaces';
 import { getStudioUrl, resolveActiveItem } from './utils';
+import { LogOut, ScrollText, Settings } from '../system/icons';
+import type { DropdownMenuEntry } from '../system';
 import { Button, CenteredSpinner, Panel, useCommandPalette } from '../system';
 
 export default function Shell() {
@@ -49,6 +51,34 @@ export default function Shell() {
     }
   };
 
+  const userMenuItems: DropdownMenuEntry[] = session.user ? [
+    { type: 'label', text: session.user.email },
+    { type: 'label', text: `${session.user.workspace.name} · ${getPlatformRoleLabel(session.user.role)}` },
+    { type: 'separator' },
+    {
+      id: 'account-settings',
+      label: 'Settings',
+      icon: <Settings className="h-4 w-4" />,
+      onSelect: () => navigate('/settings/profile'),
+    },
+    ...(session.user.permissions.includes('audit:read')
+      ? [{
+          id: 'account-audit-log',
+          label: 'Audit log',
+          icon: <ScrollText className="h-4 w-4" />,
+          onSelect: () => navigate('/settings/audit-log'),
+        } satisfies DropdownMenuEntry]
+      : []),
+    { type: 'separator' },
+    {
+      id: 'account-sign-out',
+      label: 'Sign out',
+      icon: <LogOut className="h-4 w-4" />,
+      onSelect: () => void handleSignOut(),
+      danger: true,
+    },
+  ] : [];
+
   return (
     <AppShell
       activeItem={activeItem}
@@ -71,6 +101,7 @@ export default function Shell() {
           name: `${session.user.firstName} ${session.user.lastName}`.trim() || 'Account',
           email: session.user.email,
         } : undefined,
+        userMenuItems,
       }}
     >
       <div className="dusk-page">

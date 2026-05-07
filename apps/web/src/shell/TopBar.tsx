@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Search,
   Bell,
@@ -10,6 +10,7 @@ import {
 } from '../system/icons';
 import { cn } from '../system/cn';
 import { Select } from '../system/primitives/Select';
+import { DropdownMenu, type DropdownMenuEntry } from '../system/primitives/DropdownMenu';
 import { Avatar, Button, IconButton, Tooltip } from '../system';
 
 export interface WorkspaceOption {
@@ -46,6 +47,7 @@ export interface TopBarProps {
   /** User */
   user?: UserSummary;
   onUserMenuClick?: () => void;
+  userMenuItems?: DropdownMenuEntry[];
 
   /** Mobile menu trigger (consumed by AppShell) */
   onMobileMenuClick?: () => void;
@@ -77,8 +79,25 @@ export function TopBar({
   onSearchClick,
   user,
   onUserMenuClick,
+  userMenuItems,
   onMobileMenuClick,
 }: TopBarProps) {
+  const userTrigger = (
+    <Button
+      onClick={onUserMenuClick}
+      variant="ghost"
+      size="sm"
+      className="inline-flex items-center gap-2 pl-1 pr-2"
+      aria-label="User menu"
+    >
+      <Avatar name={user?.name ?? 'Account'} initials={user?.initials ?? 'SA'} size="sm" />
+      <span className="hidden lg:inline-flex text-xs font-medium text-[color:var(--dusk-text-primary)] truncate max-w-[120px]">
+        {user?.name ?? 'Account'}
+      </span>
+      <ChevronDown className="hidden lg:inline-flex h-3 w-3 text-[color:var(--dusk-text-soft)]" />
+    </Button>
+  );
+
   return (
     <header
       className={cn(
@@ -182,19 +201,11 @@ export function TopBar({
 
       {/* User menu */}
       {user && (
-        <Button
-          onClick={onUserMenuClick}
-          variant="ghost"
-          size="sm"
-          className="inline-flex items-center gap-2 pl-1 pr-2"
-          aria-label="User menu"
-        >
-          <Avatar name={user.name} initials={user.initials} size="sm" />
-          <span className="hidden lg:inline-flex text-xs font-medium text-[color:var(--dusk-text-primary)] truncate max-w-[120px]">
-            {user.name}
-          </span>
-          <ChevronDown className="hidden lg:inline-flex h-3 w-3 text-[color:var(--dusk-text-soft)]" />
-        </Button>
+        userMenuItems && userMenuItems.length > 0 ? (
+          <DropdownMenu trigger={userTrigger} items={userMenuItems} />
+        ) : (
+          userTrigger
+        )
       )}
     </header>
   );

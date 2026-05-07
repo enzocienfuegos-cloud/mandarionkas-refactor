@@ -62,9 +62,10 @@ export default function App() {
 
                   <Route path="/tags" element={<TagList />} />
                   <Route path="/tags/bindings" element={<TagBindingDashboard />} />
+                  <Route path="/tags/health" element={<TagHealthDashboard />} />
                   <Route path="/tags/new" element={<TagBuilder />} />
                   <Route path="/tags/:id" element={<TagBuilder />} />
-                  <Route path="/tags/:id/health" element={<TagHealthDashboard />} />
+                  <Route path="/tags/:id/health" element={<Navigate to="/tags/health" replace />} />
                   <Route path="/tags/:id/pixels" element={<TagPixelsManager />} />
                   <Route path="/tags/:id/tracking" element={<TagTrackingDashboard />} />
                   <Route path="/tags/:id/reporting" element={<TagReportingDashboard />} />

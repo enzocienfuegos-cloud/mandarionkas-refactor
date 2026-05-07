@@ -23,6 +23,13 @@ import {
   CenteredSpinner,
   useToast,
 } from '../system';
+import {
+  loadPreference,
+  persistPreferences,
+  savePreference,
+  syncPreferencesFromServer,
+} from '../shared/preferences';
+import { loadAuthMe } from '../shared/workspaces';
 
 /**
  * Settings — shell that hosts both owned sections and delegates to
@@ -137,9 +144,13 @@ function ProfileSection() {
   const [saving,  setSaving]  = useState(false);
 
   useEffect(() => {
-    fetch('/v1/me/profile', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((data) => setProfile(data?.profile ?? data))
+    Promise.all([loadAuthMe(), syncPreferencesFromServer()])
+      .then(([authMe]) => setProfile({
+        name: authMe.user.name ?? authMe.user.email.split('@')[0] ?? 'Account',
+        email: authMe.user.email,
+        timezone: String(loadPreference('user.timezone') ?? 'America/El_Salvador'),
+        locale: String(loadPreference('user.locale') ?? 'en-US'),
+      }))
       .catch(() => toast({ tone: 'critical', title: 'Could not load profile' }));
   }, [toast]);
 
@@ -152,13 +163,9 @@ function ProfileSection() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/v1/me/profile', {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile),
-      });
-      if (!res.ok) throw new Error('save failed');
+      savePreference('user.timezone', profile.timezone);
+      savePreference('user.locale', profile.locale);
+      await persistPreferences();
       toast({ tone: 'success', title: 'Profile updated' });
     } catch {
       toast({ tone: 'critical', title: 'Could not save profile' });
@@ -172,10 +179,10 @@ function ProfileSection() {
       <PanelHeader title="Profile" subtitle="Personal information attached to your account" />
       <div className="space-y-5 max-w-2xl">
         <FormField label="Full name" required>
-          <Input value={profile.name} onChange={set('name')} />
+          <Input value={profile.name} onChange={set('name')} disabled />
         </FormField>
         <FormField label="Email" helper="Used for notifications and login">
-          <Input type="email" value={profile.email} onChange={set('email')} />
+          <Input type="email" value={profile.email} onChange={set('email')} disabled />
         </FormField>
         <div className="grid gap-5 md:grid-cols-2">
           <FormField label="Timezone">
@@ -212,26 +219,16 @@ function ProfileSection() {
 }
 
 function SecuritySection() {
-  const { toast } = useToast();
-
-  const handleResetPassword = async () => {
-    try {
-      const res = await fetch('/v1/me/reset-password', { method: 'POST', credentials: 'include' });
-      if (!res.ok) throw new Error('failed');
-      toast({ tone: 'success', title: 'Reset email sent' });
-    } catch {
-      toast({ tone: 'critical', title: 'Could not send reset email' });
-    }
-  };
-
   return (
     <Panel padding="lg">
       <PanelHeader title="Password" />
-      <div className="flex items-start justify-between gap-4">
+      <div className="space-y-2">
         <p className="text-sm text-[color:var(--dusk-text-secondary)]">
-          We don&apos;t store your password directly. Reset it through the email flow.
+          Password and identity are managed by the shared authentication service for this workspace.
         </p>
-        <Button variant="secondary" onClick={handleResetPassword}>Send reset email</Button>
+        <p className="text-sm text-[color:var(--dusk-text-muted)]">
+          If you need a reset, use the sign-in screen flow or contact your workspace administrator.
+        </p>
       </div>
     </Panel>
   );
@@ -250,9 +247,13 @@ function NotificationsSection() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch('/v1/me/notifications', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((data) => setPrefs(data?.prefs ?? data))
+    syncPreferencesFromServer()
+      .then(() => setPrefs({
+        emailPacing: Boolean(loadPreference('notifications.emailPacing') ?? true),
+        emailDiscrepancies: Boolean(loadPreference('notifications.emailDiscrepancies') ?? true),
+        emailApprovals: Boolean(loadPreference('notifications.emailApprovals') ?? true),
+        slackWebhookUrl: String(loadPreference('notifications.slackWebhookUrl') ?? ''),
+      }))
       .catch(() => toast({ tone: 'critical', title: 'Could not load preferences' }));
   }, [toast]);
 
@@ -264,13 +265,11 @@ function NotificationsSection() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/v1/me/notifications', {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(prefs),
-      });
-      if (!res.ok) throw new Error('save failed');
+      savePreference('notifications.emailPacing', prefs.emailPacing);
+      savePreference('notifications.emailDiscrepancies', prefs.emailDiscrepancies);
+      savePreference('notifications.emailApprovals', prefs.emailApprovals);
+      savePreference('notifications.slackWebhookUrl', prefs.slackWebhookUrl.trim());
+      await persistPreferences();
       toast({ tone: 'success', title: 'Notifications updated' });
     } catch {
       toast({ tone: 'critical', title: 'Could not save preferences' });

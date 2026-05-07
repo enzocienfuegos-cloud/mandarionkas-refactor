@@ -9,6 +9,16 @@ type ServerPreferences = {
   sidebarCollapsed?: boolean;
   densityByTable?: Record<string, Density>;
   metricStripByScope?: Record<string, { selectedIds: string[] }>;
+  profile?: {
+    timezone?: string;
+    locale?: string;
+  };
+  notifications?: {
+    emailPacing?: boolean;
+    emailDiscrepancies?: boolean;
+    emailApprovals?: boolean;
+    slackWebhookUrl?: string;
+  };
 };
 
 let memoryPreferences: PreferenceRecord | null = null;
@@ -47,6 +57,20 @@ function mergeServerPreferencesIntoLocal(server: ServerPreferences): PreferenceR
   if (typeof server.sidebarCollapsed === 'boolean') {
     next['dusk:sidebar-collapsed'] = server.sidebarCollapsed ? '1' : '0';
   }
+  if (server.profile?.timezone) next['user.timezone'] = server.profile.timezone;
+  if (server.profile?.locale) next['user.locale'] = server.profile.locale;
+  if (typeof server.notifications?.emailPacing === 'boolean') {
+    next['notifications.emailPacing'] = server.notifications.emailPacing;
+  }
+  if (typeof server.notifications?.emailDiscrepancies === 'boolean') {
+    next['notifications.emailDiscrepancies'] = server.notifications.emailDiscrepancies;
+  }
+  if (typeof server.notifications?.emailApprovals === 'boolean') {
+    next['notifications.emailApprovals'] = server.notifications.emailApprovals;
+  }
+  if (typeof server.notifications?.slackWebhookUrl === 'string') {
+    next['notifications.slackWebhookUrl'] = server.notifications.slackWebhookUrl;
+  }
   for (const [tableKey, density] of Object.entries(server.densityByTable ?? {})) {
     next[`dusk:density:${tableKey}`] = density;
   }
@@ -62,6 +86,8 @@ export function buildServerPreferences(preferences: PreferenceRecord): ServerPre
   const out: ServerPreferences = {};
   const densityByTable: Record<string, Density> = {};
   const metricStripByScope: Record<string, { selectedIds: string[] }> = {};
+  const profile: NonNullable<ServerPreferences['profile']> = {};
+  const notifications: NonNullable<ServerPreferences['notifications']> = {};
 
   const localTheme = preferences['ui.theme'];
   if (localTheme === 'light' || localTheme === 'dark') {
@@ -71,6 +97,31 @@ export function buildServerPreferences(preferences: PreferenceRecord): ServerPre
   const localSidebar = preferences['dusk:sidebar-collapsed'];
   if (localSidebar === '1' || localSidebar === '0') {
     out.sidebarCollapsed = localSidebar === '1';
+  }
+
+  const localTimezone = String(preferences['user.timezone'] ?? '').trim();
+  if (localTimezone) {
+    profile.timezone = localTimezone;
+  }
+
+  const localLocale = String(preferences['user.locale'] ?? '').trim();
+  if (localLocale) {
+    profile.locale = localLocale;
+  }
+
+  for (const [prefKey, outputKey] of [
+    ['notifications.emailPacing', 'emailPacing'],
+    ['notifications.emailDiscrepancies', 'emailDiscrepancies'],
+    ['notifications.emailApprovals', 'emailApprovals'],
+  ] as const) {
+    if (typeof preferences[prefKey] === 'boolean') {
+      notifications[outputKey] = preferences[prefKey] as boolean;
+    }
+  }
+
+  const slackWebhookUrl = String(preferences['notifications.slackWebhookUrl'] ?? '').trim();
+  if (slackWebhookUrl) {
+    notifications.slackWebhookUrl = slackWebhookUrl;
   }
 
   for (const [key, value] of Object.entries(preferences)) {
@@ -99,6 +150,12 @@ export function buildServerPreferences(preferences: PreferenceRecord): ServerPre
   if (Object.keys(metricStripByScope).length > 0) {
     out.metricStripByScope = metricStripByScope;
   }
+  if (Object.keys(profile).length > 0) {
+    out.profile = profile;
+  }
+  if (Object.keys(notifications).length > 0) {
+    out.notifications = notifications;
+  }
 
   return out;
 }
@@ -123,6 +180,14 @@ function scheduleServerSave() {
     saveTimer = null;
     void pushPreferencesToServer(getLocalPreferences());
   }, 150);
+}
+
+export function getPreferencesSnapshot(): PreferenceRecord {
+  return { ...getLocalPreferences() };
+}
+
+export async function persistPreferences() {
+  await pushPreferencesToServer(getLocalPreferences());
 }
 
 export function loadPreferenceLocal<T>(key: string): T | undefined {
