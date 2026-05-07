@@ -72,8 +72,8 @@ export async function handleSavedViewRoutes(ctx) {
           savedViewId,
           name: body?.name,
           filters: body?.filters,
-          sort: body?.sort ?? null,
-          columns: body?.columns ?? [],
+          sort: body?.sort,
+          columns: body?.columns,
           isShared: body?.isShared ?? body?.is_shared,
         });
         if (!view) return notFound(res, requestId, 'Saved view not found.');

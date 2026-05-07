@@ -75,7 +75,8 @@ export function SavedViewsMenu({
     setSaveShared(false);
   }, []);
 
-  const handleSaveCurrentView = useCallback(async () => {
+  const handleUpdateCurrentView = useCallback(async () => {
+    if (!currentView || !currentView.canDelete) return;
     const trimmedName = saveName.trim();
     if (!trimmedName) {
       toast({ tone: 'warning', title: 'Add a name before saving this view.' });
@@ -84,43 +85,30 @@ export function SavedViewsMenu({
 
     setSaving(true);
     try {
-      const view = currentView && currentView.canDelete && trimmedName === currentView.name
-        ? await updateSavedView(currentView.id, {
-            name: trimmedName,
-            filters: currentFilters,
-            sort: currentSort,
-            columns: currentColumns,
-            isShared: saveShared,
-          })
-        : await createSavedView({
-            surface,
-            name: trimmedName,
-            filters: currentFilters,
-            sort: currentSort,
-            columns: currentColumns,
-            isShared: saveShared,
-          });
-      if (!view) throw new Error('Couldn’t save this view.');
+      const view = await updateSavedView(currentView.id, {
+        name: trimmedName,
+        filters: currentFilters,
+        sort: currentSort,
+        columns: currentColumns,
+        isShared: saveShared,
+      });
+      if (!view) throw new Error('Couldn’t update this view.');
       setViews((current) => [view, ...current.filter((entry) => entry.id !== view.id)]);
       onApplyView(view);
       closeSaveModal();
       toast({
         tone: 'success',
-        title: currentView && currentView.canDelete && trimmedName === currentView.name
-          ? `Updated view "${view.name}".`
-          : saveShared
-            ? `Saved shared view "${view.name}".`
-            : `Saved view "${view.name}".`,
+        title: `Updated view "${view.name}".`,
       });
     } catch (error) {
       toast({
         tone: 'critical',
-        title: error instanceof Error ? error.message : 'Couldn’t save this view.',
+        title: error instanceof Error ? error.message : 'Couldn’t update this view.',
       });
     } finally {
       setSaving(false);
     }
-  }, [closeSaveModal, currentColumns, currentFilters, currentSort, currentView, onApplyView, saveName, saveShared, surface, toast]);
+  }, [closeSaveModal, currentColumns, currentFilters, currentSort, currentView, onApplyView, saveName, saveShared, toast]);
 
   const handleSaveAsNew = useCallback(async () => {
     const trimmedName = saveName.trim();
@@ -281,12 +269,12 @@ export function SavedViewsMenu({
                 <Button variant="secondary" onClick={() => void handleSaveAsNew()} loading={saving}>
                   Save as new
                 </Button>
-                <Button variant="primary" onClick={() => void handleSaveCurrentView()} loading={saving}>
+                <Button variant="primary" onClick={() => void handleUpdateCurrentView()} loading={saving}>
                   Update "{currentView?.name}"
                 </Button>
               </>
             ) : (
-              <Button variant="primary" onClick={() => void handleSaveCurrentView()} loading={saving}>
+              <Button variant="primary" onClick={() => void handleSaveAsNew()} loading={saving}>
                 Save view
               </Button>
             )}
