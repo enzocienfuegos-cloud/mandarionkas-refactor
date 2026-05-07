@@ -47,7 +47,7 @@ export default function PacingView() {
     setError('');
     Promise.all([
       fetch('/v1/pacing', { credentials: 'include' }).then((response) => {
-        if (!response.ok) throw new Error('Failed to load pacing data');
+        if (!response.ok) throw new Error('Couldn’t load pacing workspace data. The service may be unavailable or this workspace may not have pacing access.');
         return response.json();
       }),
       fetch('/v1/pacing/alerts', { credentials: 'include' }).then((response) => response.json()).catch(() => []),
@@ -118,7 +118,7 @@ export default function PacingView() {
     }
     fetch(`/v1/pacing/${focusCampaign.id}/breakdown?days=7`, { credentials: 'include' })
       .then((response) => {
-        if (!response.ok) throw new Error('Failed to load pacing breakdown');
+        if (!response.ok) throw new Error('Couldn’t load pacing breakdown history for the focused campaign.');
         return response.json();
       })
       .then((payload) => setFocusBreakdown(payload?.breakdown ?? payload ?? []))

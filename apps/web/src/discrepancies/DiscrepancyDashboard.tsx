@@ -71,7 +71,7 @@ export default function DiscrepanciesView() {
     if (filters.severity !== 'all') params.set('severity', filters.severity);
 
     Promise.all([
-      fetch(`/v1/discrepancies?${params}`, { credentials: 'include' }).then((r) => { if (!r.ok) throw new Error('Failed to load'); return r.json(); }),
+      fetch(`/v1/discrepancies?${params}`, { credentials: 'include' }).then((r) => { if (!r.ok) throw new Error('Couldn’t load discrepancy reports for the selected range.'); return r.json(); }),
       fetch('/v1/discrepancies/summary', { credentials: 'include' }).then((r) => r.json()).catch(() => null),
       fetch('/v1/discrepancies/thresholds', { credentials: 'include' }).then((r) => r.json()).catch(() => null),
     ])
@@ -99,10 +99,10 @@ export default function DiscrepanciesView() {
         credentials: 'include',
         body: JSON.stringify(thresholds),
       });
-      if (!res.ok) throw new Error('Save failed');
+      if (!res.ok) throw new Error('Couldn’t save discrepancy thresholds.');
       setThresholdMsg('Thresholds saved successfully.');
     } catch {
-      setThresholdMsg('Failed to save thresholds.');
+      setThresholdMsg('Couldn’t save thresholds. Retry once the discrepancy service is available.');
     } finally {
       setSavingThresholds(false);
     }

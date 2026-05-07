@@ -1,6 +1,6 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { Badge, Button, CenteredSpinner, DataTable, EmptyState, FormField, Input, Modal, PageHeader, Panel, Select, useConfirm, useToast, type ColumnDef } from '../system';
-import { Bell, Plus, RefreshCw, X } from '../system/icons';
+import { Bell, Plus, RefreshCw } from '../system/icons';
 
 interface Webhook {
   id: string;
@@ -83,8 +83,9 @@ export default function WebhookManager() {
 
   const load = () => {
     setLoading(true);
+    setError('');
     fetch('/v1/webhooks', { credentials: 'include' })
-      .then(r => { if (!r.ok) throw new Error('Failed to load webhooks'); return r.json(); })
+      .then(r => { if (!r.ok) throw new Error('Couldn’t load webhook endpoints. Check workspace access or try again in a moment.'); return r.json(); })
       .then(d => setWebhooks(d?.webhooks ?? d ?? []))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
@@ -330,7 +331,7 @@ export default function WebhookManager() {
                 {loadingDeliveries ? (
                   <CenteredSpinner label="Loading deliveries…" />
                 ) : deliveries.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-sm text-[color:var(--dusk-text-soft)]">No deliveries yet</div>
+                  <div className="px-4 py-6 text-center text-sm text-[color:var(--dusk-text-soft)]">No deliveries recorded yet. Trigger a matching event to verify this endpoint is receiving traffic.</div>
                 ) : (
                   <DataTable
                     columns={deliveryColumns}

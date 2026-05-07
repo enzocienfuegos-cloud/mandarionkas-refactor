@@ -25,7 +25,7 @@ export default function CampaignEditor() {
         .then((workspaceList) => {
           setWorkspaces(workspaceList);
         })
-        .catch(() => setGeneralError('Failed to load clients.'))
+        .catch(() => setGeneralError('Couldn’t load client workspaces. Refresh the page or try again with an account that can traffic campaigns.'))
         .finally(() => setLoading(false));
       return;
     }
@@ -48,7 +48,7 @@ export default function CampaignEditor() {
           dailyBudget: campaign.dailyBudget != null ? String(campaign.dailyBudget) : (campaign.daily_budget != null ? String(campaign.daily_budget) : ''),
         });
       })
-      .catch(() => setGeneralError('Failed to load campaign.'))
+      .catch(() => setGeneralError('Couldn’t load this campaign. It may have been removed or you may not have access to its workspace.'))
       .finally(() => setLoading(false));
   }, [id, isEdit]);
 
@@ -106,10 +106,10 @@ export default function CampaignEditor() {
         navigate('/campaigns');
       } else {
         const data = await res.json().catch(() => ({}));
-        setGeneralError(data?.message ?? 'Failed to save campaign.');
+        setGeneralError(data?.message ?? 'Couldn’t save campaign changes. Check required fields and workspace permissions, then try again.');
       }
     } catch {
-      setGeneralError('Network error. Please try again.');
+      setGeneralError('Couldn’t reach the campaign service. Check your connection and try saving again.');
     } finally {
       setSaving(false);
     }

@@ -72,27 +72,27 @@ export default function TagTrackingDashboard() {
     setError('');
     Promise.all([
       fetch(`/v1/tags/${id}`, { credentials: 'include' }).then(async (response) => {
-        if (!response.ok) throw new Error('Failed to load tag.');
+        if (!response.ok) throw new Error('Couldn’t load this tag. It may have been removed or you may not have access to its workspace.');
         return response.json();
       }),
       fetch(`/v1/tracking/tags/${id}/summary?days=${days}`, { credentials: 'include' }).then(async (response) => {
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload?.message ?? 'Failed to load tracking summary.');
+          throw new Error(payload?.message ?? 'Couldn’t load delivery totals for this tag.');
         }
         return response.json();
       }),
       fetch(`/v1/tracking/tags/${id}/daily?days=${days}`, { credentials: 'include' }).then(async (response) => {
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload?.message ?? 'Failed to load tracking history.');
+          throw new Error(payload?.message ?? 'Couldn’t load daily tracking history for this tag.');
         }
         return response.json();
       }),
       fetch(`/v1/tracking/tags/${id}/events?days=${days}`, { credentials: 'include' }).then(async (response) => {
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload?.message ?? 'Failed to load tracking events.');
+          throw new Error(payload?.message ?? 'Couldn’t load event telemetry for this tag.');
         }
         return response.json();
       }),
@@ -103,7 +103,7 @@ export default function TagTrackingDashboard() {
         setDailyStats(dailyPayload.stats ?? []);
         setEvents(eventPayload.events ?? []);
       })
-      .catch((caught: any) => setError(caught?.message ?? 'Failed to load tracking.'))
+      .catch((caught: any) => setError(caught?.message ?? 'Couldn’t load tag tracking right now. Refresh the page or shorten the reporting window.'))
       .finally(() => setLoading(false));
   }, [days, id]);
 

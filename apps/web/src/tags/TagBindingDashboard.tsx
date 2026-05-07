@@ -40,7 +40,7 @@ export default function TagBindingDashboard() {
         setTags(loadedTags);
         setSelectedTagId(current => current || (loadedTags.some(tag => tag.id === requestedTagId) ? requestedTagId : loadedTags[0]?.id || ''));
       } catch (loadError: any) {
-        setError(loadError.message ?? 'Failed to load tag assignments');
+        setError(loadError.message ?? 'Couldn’t load tags for assignment review. Check workspace scope or refresh the page.');
       } finally {
         setLoading(false);
       }
@@ -65,7 +65,7 @@ export default function TagBindingDashboard() {
       })
       .catch(loadError => {
         if (cancelled) return;
-        setError(loadError.message ?? 'Failed to load assignments');
+        setError(loadError.message ?? 'Couldn’t load creative assignments for this tag. Try another tag or refresh the delivery view.');
         setBindingsLoading(false);
       });
 
