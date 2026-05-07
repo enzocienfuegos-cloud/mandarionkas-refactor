@@ -32,6 +32,7 @@ export default function DiscrepanciesView() {
     discrepancies,
     thresholds,
     search: filtersState.search,
+    source: filtersState.filters.source,
   });
 
   const handleSaveThresholds = async (event: FormEvent) => {
@@ -62,6 +63,7 @@ export default function DiscrepanciesView() {
       y: item.source || 'Publisher',
       value: item.deltaPct,
     }));
+  const sourceOptions = [...new Set(discrepancies.map((item) => item.source || 'Publisher'))].sort();
 
   if (loading) {
     return <CenteredSpinner label="Loading discrepancies workspace…" />;
@@ -144,6 +146,16 @@ export default function DiscrepanciesView() {
             ],
             onChange: (value) => filtersState.setFilters((current) => ({ ...current, severity: value })),
           },
+          ...(sourceOptions.length > 1 ? [{
+            id: 'source',
+            label: 'Source',
+            value: filtersState.filters.source,
+            options: [
+              { value: 'all', label: 'All sources' },
+              ...sourceOptions.map((source) => ({ value: source, label: source })),
+            ],
+            onChange: (value: string) => filtersState.setFilters((current) => ({ ...current, source: value })),
+          }] : []),
         ]}
         search={{
           value: filtersState.search,
@@ -155,7 +167,7 @@ export default function DiscrepanciesView() {
       />
 
       <div className="grid gap-5 xl:grid-cols-4">
-        {metrics.map((metric) => (
+        {metrics.filter((metric) => metric.id !== 'threshold-breaches').map((metric) => (
           <MetricCard
             key={metric.id}
             label={metric.label}
@@ -168,10 +180,24 @@ export default function DiscrepanciesView() {
             icon={metric.id === 'variance-health' ? <ReportIcon /> : metric.id === 'resolved' ? <TableIcon /> : <AlertTriangleIcon />}
           />
         ))}
+        <Panel padding="sm" className="flex items-center justify-center">
+          <DonutChart
+            size={140}
+            showLegend={false}
+            title="Discrepancy severity mix"
+            description="Distribution of discrepancy reports across critical, warning, and within-threshold groups."
+            segments={[
+              { id: 'critical', label: 'Critical', value: summary?.criticalCount ?? tableRows.filter((row) => row.risk === 'Critical').length, tone: 'critical' },
+              { id: 'warning', label: 'Warning', value: summary?.warningCount ?? tableRows.filter((row) => row.risk === 'Warning').length, tone: 'warning' },
+              { id: 'within-threshold', label: 'Within threshold', value: withinThresholdSummary, tone: 'success' },
+            ]}
+            centerLabel={String(summary?.totalReports ?? tableRows.length)}
+            centerSubLabel="reports"
+          />
+        </Panel>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_320px]">
-        <Panel className="p-6">
+      <Panel className="p-6">
           <div className="mb-4">
             <Kicker>Reconciliation snapshot</Kicker>
             <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Adserver vs publisher</h2>
@@ -190,29 +216,7 @@ export default function DiscrepanciesView() {
               { key: 'publisher', label: 'Publisher', tone: 'warning', format: (value) => formatNumber(value) },
             ]}
           />
-        </Panel>
-
-        <Panel className="p-6">
-          <Kicker>Severity mix</Kicker>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Discrepancy severity</h2>
-          <p className="mt-2 text-sm text-text-muted">
-            Distribution of current reports across critical, warning, and within-threshold variance.
-          </p>
-          <div className="mt-5">
-            <DonutChart
-              title="Discrepancy severity mix"
-              description="Distribution of discrepancy reports across critical, warning, and within-threshold groups."
-              segments={[
-                { id: 'critical', label: 'Critical', value: summary?.criticalCount ?? tableRows.filter((row) => row.risk === 'Critical').length, tone: 'critical' },
-                { id: 'warning', label: 'Warning', value: summary?.warningCount ?? tableRows.filter((row) => row.risk === 'Warning').length, tone: 'warning' },
-                { id: 'within-threshold', label: 'Within threshold', value: withinThresholdSummary, tone: 'success' },
-              ]}
-              centerLabel={String(summary?.totalReports ?? tableRows.length)}
-              centerSubLabel="reports"
-            />
-          </div>
-        </Panel>
-      </div>
+      </Panel>
 
       <Panel className="p-6">
         <div className="mb-4">

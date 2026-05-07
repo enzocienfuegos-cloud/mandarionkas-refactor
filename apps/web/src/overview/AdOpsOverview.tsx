@@ -2,6 +2,7 @@ import React from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { type ThemeMode } from '../shared/theme';
 import {
+  Badge,
   Button,
   CenteredSpinner,
   DonutChart,
@@ -136,7 +137,15 @@ export default function AdOpsOverview() {
       <PageHeader
         kicker={`Overview · ${selectedWorkspaceName}`}
         title="Overview"
-        meta={`${liveCampaignCount} live · ${readyCreativeCount} creatives ready · ${draftSetupCount} drafts · ${issueCount} need review`}
+        meta={(
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="success" size="sm">{liveCampaignCount} live</Badge>
+            <Badge tone="info" size="sm">{readyCreativeCount} creatives ready</Badge>
+            <Badge tone="neutral" size="sm">{draftSetupCount} drafts</Badge>
+            {issueCount > 0 ? <Badge tone="critical" size="sm">{issueCount} need review</Badge> : null}
+            <span className="text-xs text-text-soft">· current workspace scope</span>
+          </div>
+        )}
         alert={
           issueCount > 0 ? (
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

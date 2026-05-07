@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Button, DataTable, Kicker, Panel, type ColumnDef } from '../system';
+import { Avatar, Badge, Button, DataTable, Kicker, Panel, type ColumnDef } from '../system';
 import {
   type AttentionItem,
   type AttentionSeverity,
@@ -368,7 +368,12 @@ export function WorkQueueTable({ rows }: { rows: WorkQueueRow[] }) {
               id: 'owner',
               header: 'Owner',
               sortAccessor: (row) => row.owner,
-              cell: (row) => row.owner,
+              cell: (row) => (
+                <div className="flex items-center gap-2">
+                  <Avatar name={row.owner} size="xs" />
+                  <span>{row.owner}</span>
+                </div>
+              ),
             },
             {
               id: 'due',

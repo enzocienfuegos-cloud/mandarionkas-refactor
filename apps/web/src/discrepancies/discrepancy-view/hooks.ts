@@ -10,6 +10,7 @@ export function useDiscrepancyFilters() {
     dateFrom: thirtyDaysAgo,
     dateTo: today,
     severity: 'all',
+    source: 'all',
   });
 
   const resetAll = useCallback(() => {
@@ -18,6 +19,7 @@ export function useDiscrepancyFilters() {
       dateFrom: thirtyDaysAgo,
       dateTo: today,
       severity: 'all',
+      source: 'all',
     });
   }, [thirtyDaysAgo, today]);
 
@@ -25,6 +27,7 @@ export function useDiscrepancyFilters() {
     filters.dateFrom !== thirtyDaysAgo,
     filters.dateTo !== today,
     filters.severity !== 'all',
+    filters.source !== 'all',
     search.trim() !== '',
   ].filter(Boolean).length;
 
@@ -114,10 +117,12 @@ export function useDiscrepancyViewModel({
   discrepancies,
   thresholds,
   search,
+  source,
 }: {
   discrepancies: Discrepancy[];
   thresholds: Thresholds;
   search: string;
+  source: string;
 }) {
   const discrepancyRows = useMemo<DiscrepancyRow[]>(() => (
     discrepancies.map((d) => {
@@ -155,14 +160,16 @@ export function useDiscrepancyViewModel({
 
   const filteredDiscrepancyRows = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    if (!needle) return discrepancyRows;
-    return discrepancyRows.filter((row) =>
-      [row.campaign, row.advertiser, row.publisher, row.status, row.risk, row.owner]
-        .join(' ')
-        .toLowerCase()
-        .includes(needle),
-    );
-  }, [discrepancyRows, search]);
+    return discrepancyRows.filter((row) => {
+      const matchesSource = source === 'all' || row.publisher === source;
+      const matchesNeedle = !needle
+        || [row.campaign, row.advertiser, row.publisher, row.status, row.risk, row.owner]
+          .join(' ')
+          .toLowerCase()
+          .includes(needle);
+      return matchesSource && matchesNeedle;
+    });
+  }, [discrepancyRows, search, source]);
 
   const withinThresholdCount = discrepancyRows.filter((row) => row.status === 'Within threshold').length;
   const thresholdBreaches = discrepancyRows.filter((row) => row.status === 'Threshold breach' || row.status === 'Investigating').length;

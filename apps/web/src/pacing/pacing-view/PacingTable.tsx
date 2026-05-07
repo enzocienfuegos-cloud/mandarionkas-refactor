@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Avatar, DataTable, ProgressBar, type ColumnDef, type DropdownMenuEntry } from '../../system';
 import type { PacingCampaign, PacingRow } from './types';
 import { Eye, Gauge } from '../../system/icons';
@@ -13,6 +14,7 @@ export function PacingTable({
   campaigns: PacingCampaign[];
   onInspectCampaign: (campaign: PacingCampaign) => void;
 }) {
+  const navigate = useNavigate();
   const campaignMap = useMemo(
     () => new Map(campaigns.map((campaign) => [campaign.id, campaign])),
     [campaigns],
@@ -45,6 +47,7 @@ export function PacingTable({
     {
       id: 'pacing',
       header: 'Pacing',
+      width: '140px',
       sortAccessor: (row) => row.pacingPct,
       cell: (row) => (
         <ProgressBar
@@ -122,9 +125,15 @@ export function PacingTable({
           icon: <Gauge className="h-4 w-4" />,
           onSelect: () => onInspectCampaign(backingCampaign),
         },
+        {
+          id: 'view-full-campaign',
+          label: 'View full campaign',
+          icon: <Eye className="h-4 w-4" />,
+          onSelect: () => navigate(`/campaigns/${backingCampaign.id}`),
+        },
       ];
     },
-    [campaignMap, onInspectCampaign],
+    [campaignMap, navigate, onInspectCampaign],
   );
 
   return (
@@ -132,6 +141,10 @@ export function PacingTable({
       columns={columns}
       data={rows}
       rowKey={(row) => row.id}
+      onRowClick={(row) => {
+        const campaign = campaignMap.get(row.id);
+        if (campaign) onInspectCampaign(campaign);
+      }}
       density="comfortable"
       bordered={false}
       emptyState={null}

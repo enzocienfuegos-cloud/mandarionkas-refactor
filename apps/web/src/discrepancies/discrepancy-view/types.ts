@@ -31,6 +31,7 @@ export interface Filters {
   dateFrom: string;
   dateTo: string;
   severity: string;
+  source: string;
 }
 
 export type Metric = {

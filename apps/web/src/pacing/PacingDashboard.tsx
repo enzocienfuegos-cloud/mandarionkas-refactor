@@ -127,7 +127,7 @@ export default function PacingView() {
       />
 
       <div className="grid gap-5 xl:grid-cols-4">
-        {pacingMetrics.map((metric) => (
+        {pacingMetrics.slice(0, 3).map((metric) => (
           <MetricCard
             key={metric.id}
             label={metric.label}
@@ -148,10 +148,23 @@ export default function PacingView() {
             }
           />
         ))}
+        <Panel padding="sm" className="flex items-center justify-center">
+          <DonutChart
+            size={120}
+            showLegend={false}
+            title="Pacing status mix"
+            description="Distribution of on-track and behind active campaigns."
+            segments={[
+              { id: 'on-track', label: 'On track', value: data?.summary.onTrack ?? 0, tone: 'success' },
+              { id: 'behind', label: 'Behind', value: data?.summary.behind ?? 0, tone: 'warning' },
+            ]}
+            centerLabel={String(data?.summary.active ?? 0)}
+            centerSubLabel="active"
+          />
+        </Panel>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_320px]">
-        <Panel className="p-6">
+      <Panel className="p-6">
           <div className="mb-4">
             <Kicker>Pacing curve</Kicker>
             <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">
@@ -173,34 +186,7 @@ export default function PacingView() {
               { key: 'projected', label: 'Projected', tone: 'warning', format: (value) => fmtNum(value) },
             ]}
           />
-        </Panel>
-
-        <Panel className="p-6">
-          <Kicker>Pacing mix</Kicker>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Campaign pacing status</h2>
-          <p className="mt-2 text-sm text-text-muted">
-            Share of active campaigns currently on track, behind, or in another non-blocking pacing state.
-          </p>
-          <div className="mt-5">
-            <DonutChart
-              title="Pacing status mix"
-              description="Distribution of on-track, behind, and other active campaigns in the pacing workspace."
-              segments={[
-                { id: 'on-track', label: 'On track', value: data?.summary.onTrack ?? 0, tone: 'success' },
-                { id: 'behind', label: 'Behind', value: data?.summary.behind ?? 0, tone: 'warning' },
-                {
-                  id: 'other',
-                  label: 'Other',
-                  value: Math.max((data?.summary.active ?? 0) - (data?.summary.onTrack ?? 0) - (data?.summary.behind ?? 0), 0),
-                  tone: 'neutral',
-                },
-              ]}
-              centerLabel={String(data?.summary.active ?? 0)}
-              centerSubLabel="active"
-            />
-          </div>
-        </Panel>
-      </div>
+      </Panel>
 
       {filteredRows.length === 0 ? (
         <Panel padding="none">
