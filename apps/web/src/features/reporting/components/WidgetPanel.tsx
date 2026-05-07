@@ -23,7 +23,7 @@ export function WidgetPanel({
     <section className="rounded-[18px] border border-[color:var(--dusk-border-default)] bg-surface-1 shadow-2 backdrop-blur-xl">
       <header className="flex items-center justify-between border-b border-[color:var(--dusk-border-subtle)] p-4">
         <div className="flex items-center gap-2">
-          <span className="rounded-lg border border-[color:var(--dusk-border-subtle)] p-1.5 text-[color:var(--dusk-text-soft)]">
+          <span aria-hidden="true" className="rounded-lg border border-[color:var(--dusk-border-subtle)] p-1.5 text-[color:var(--dusk-text-soft)]">
             <MoreHorizontal className="h-3 w-3 rotate-90" />
           </span>
           {icon ? <BrandIcon name={icon} tone={tone} compact size={14} /> : null}

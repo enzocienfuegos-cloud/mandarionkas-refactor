@@ -1,7 +1,7 @@
 import React from 'react';
 import type { WorkspaceOption } from '../../shared/workspaces';
-import { Button, FormField, Input } from '../../system';
-import { campaignSelectClassName, DSP_OPTIONS, invalidCampaignSelectClassName, STATUSES } from './constants';
+import { Button, FormField, Input, Select } from '../../system';
+import { DSP_OPTIONS, STATUSES } from './constants';
 import type { CampaignForm } from './types';
 
 type Props = {
@@ -27,16 +27,16 @@ export function CampaignEditorForm({
     <div className="space-y-5">
       {!isEdit && (
         <FormField label="Client" required error={errors.workspaceId}>
-          <select
+          <Select
             value={form.workspaceId}
             onChange={onFieldChange('workspaceId')}
-            className={errors.workspaceId ? invalidCampaignSelectClassName : campaignSelectClassName}
+            invalid={Boolean(errors.workspaceId)}
           >
             <option value="">Select a client</option>
-            {workspaces.map(workspace => (
+            {workspaces.map((workspace) => (
               <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
             ))}
-          </select>
+          </Select>
         </FormField>
       )}
 
@@ -51,26 +51,26 @@ export function CampaignEditorForm({
       </FormField>
 
       <FormField label="DSP">
-        <select value={form.dsp} onChange={onFieldChange('dsp')} className={campaignSelectClassName}>
+        <Select value={form.dsp} onChange={onFieldChange('dsp')}>
           {DSP_OPTIONS.map((option) => (
             <option key={option.label} value={option.value}>{option.label}</option>
           ))}
-        </select>
+        </Select>
       </FormField>
 
       <FormField label="Media Type">
-        <select value={form.mediaType} onChange={onFieldChange('mediaType')} className={campaignSelectClassName}>
+        <Select value={form.mediaType} onChange={onFieldChange('mediaType')}>
           <option value="display">Display / Interactive</option>
           <option value="video">Video</option>
-        </select>
+        </Select>
       </FormField>
 
       <FormField label="Status">
-        <select value={form.status} onChange={onFieldChange('status')} className={campaignSelectClassName}>
-          {STATUSES.map(status => (
+        <Select value={form.status} onChange={onFieldChange('status')}>
+          {STATUSES.map((status) => (
             <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
           ))}
-        </select>
+        </Select>
       </FormField>
 
       <div className="grid grid-cols-2 gap-4">

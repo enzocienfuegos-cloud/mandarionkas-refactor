@@ -55,6 +55,10 @@ const FORBIDDEN = [
     msg: 'No raw <input> — use <Input> or <FormField> primitive.',
   },
   {
+    pattern: /<select(\s|>)/g,
+    msg: 'No raw <select> — use <Select> primitive (or FilterBar pill for filtering).',
+  },
+  {
     pattern: /onChange=\{\s*\(\)\s*=>\s*undefined\s*\}/g,
     msg: 'No-op onChange — input is broken. Either wire handler or remove.',
   },

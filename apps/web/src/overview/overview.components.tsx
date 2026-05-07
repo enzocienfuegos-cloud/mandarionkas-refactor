@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Button, DataTable, IconButton, Input, Kicker, Panel, type ColumnDef } from '../system';
+import { Badge, Button, DataTable, Kicker, Panel, type ColumnDef } from '../system';
 import {
   type AttentionItem,
   type AttentionSeverity,
@@ -27,127 +27,6 @@ export function TrendBadge({ direction, value }: { direction: TrendDirection; va
       <span aria-hidden="true">{arrow}</span>
       {value}
     </span>
-  );
-}
-
-export function NotificationButton({ count }: { count: number }) {
-  return (
-    <div className="relative inline-flex">
-      <IconButton
-        icon={<BellIcon className="h-5 w-5" />}
-        aria-label="Notifications"
-        variant="secondary"
-      />
-      {count > 0 ? (
-        <span className="absolute right-2 top-2 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-critical px-1 text-[10px] font-semibold text-white">
-          {count}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-export function OverviewToolbar({
-  activeWorkspaceId,
-  workspaces,
-  dateRange,
-  campaignId,
-  campaigns,
-  overviewSearch,
-  onWorkspaceChange,
-  onDateRangeChange,
-  onCampaignChange,
-  onSearchChange,
-  theme,
-  onToggleTheme,
-  issueCount,
-}: {
-  activeWorkspaceId: string;
-  workspaces: Array<{ id: string; name: string }>;
-  dateRange: 7 | 30 | 90;
-  campaignId: string;
-  campaigns: Array<{ id: string; name: string }>;
-  overviewSearch: string;
-  onWorkspaceChange: (value: string) => void;
-  onDateRangeChange: (value: 7 | 30 | 90) => void;
-  onCampaignChange: (value: string) => void;
-  onSearchChange: (value: string) => void;
-  theme: 'light' | 'dark';
-  onToggleTheme: () => void;
-  issueCount: number;
-}) {
-  return (
-    <div className="dusk-toolbar">
-      <div className="dusk-toolbar-group">
-        <div className="relative min-w-[230px]">
-          <select
-            value={activeWorkspaceId}
-            onChange={(event) => onWorkspaceChange(event.target.value)}
-            className="dusk-select w-full appearance-none pr-10"
-          >
-            {workspaces.map((workspace) => (
-              <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
-            ))}
-          </select>
-          <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-soft" />
-        </div>
-        <select
-          value={String(dateRange)}
-          onChange={(event) => onDateRangeChange(Number(event.target.value) as 7 | 30 | 90)}
-          className="dusk-select"
-        >
-          <option value="7">Last 7 days</option>
-          <option value="30">Last 30 days</option>
-          <option value="90">Last 90 days</option>
-        </select>
-        <select
-          value={campaignId}
-          onChange={(event) => onCampaignChange(event.target.value)}
-          className="dusk-select"
-        >
-          <option value="">All campaigns</option>
-          {campaigns.map((campaign) => (
-            <option key={campaign.id} value={campaign.id}>{campaign.name}</option>
-          ))}
-        </select>
-      </div>
-      <div className="dusk-toolbar-group">
-        <label className="relative block min-w-[320px]">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-soft">
-            <SearchIcon className="h-5 w-5" />
-          </span>
-          <Input
-            value={overviewSearch}
-            onChange={(event) => onSearchChange(event.target.value)}
-            className="min-h-[46px] w-full pl-10 pr-3"
-            placeholder="Search campaign, advertiser, owner"
-          />
-        </label>
-        <Button type="button" variant="secondary" onClick={onToggleTheme}>
-          <EyeIcon className="text-text-muted" />
-          {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-        </Button>
-        <NotificationButton count={issueCount} />
-      </div>
-    </div>
-  );
-}
-
-export function OverviewHeader() {
-  return (
-    <header className="dusk-page-header items-start">
-      <div className="min-w-0 flex-1">
-        <Kicker>Overview</Kicker>
-        <h1 className="dusk-title mt-4">Launches, delivery and QA in one place</h1>
-        <p className="dusk-copy">Use one daily command center to spot blockers, review tag activity, and move launch and delivery issues into action quickly.</p>
-      </div>
-      <Link
-        to="/campaigns/new"
-        className="inline-flex min-h-[46px] items-center rounded-xl bg-brand-gradient px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
-      >
-        New trafficking task
-      </Link>
-    </header>
   );
 }
 
