@@ -91,6 +91,34 @@ async function request(path, init = {}) {
   return { ok: response.ok, status: response.status, body, contentType };
 }
 
+async function requestWithoutSession(path, init = {}) {
+  const headers = new Headers(init.headers || {});
+  if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  // Be explicit: some runtimes can otherwise retain ambient cookie state.
+  headers.set('Cookie', '');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response;
+  try {
+    response = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers,
+      signal: controller.signal,
+      credentials: 'omit',
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const text = await response.text();
+  const contentType = response.headers.get('content-type') || '';
+  let body = null;
+  try { body = JSON.parse(text); } catch { body = text || null; }
+
+  return { ok: response.ok, status: response.status, body, contentType };
+}
+
 function assertApiResponse(label, response) {
   if (response.contentType.toLowerCase().includes('text/html')) {
     throw new Error(`${label} returned HTML. Check that SMOKE_BASE_URL points to api-staging, not app-staging.`);
@@ -240,9 +268,8 @@ async function main() {
       });
 
       await check('GET /v1/auth/session: 401 without cookie', async () => {
-        const r = await fetch(`${baseUrl}/v1/auth/session`, {
-          headers: { 'Content-Type': 'application/json' },
-        });
+        const r = await requestWithoutSession('/v1/auth/session');
+        assertApiResponse('/v1/auth/session', r);
         if (r.status !== 401) throw new Error(`Expected 401, got HTTP ${r.status}`);
         return { detail: 'unauthenticated request correctly rejected' };
       });
@@ -345,13 +372,8 @@ async function main() {
       });
 
       await check('GET /v1/audit → 401 without session', async () => {
-        const r = await fetch(`${baseUrl}/v1/audit`, {
-          headers: { 'Content-Type': 'application/json' },
-        });
-        const contentType = r.headers.get('content-type') || '';
-        if (contentType.toLowerCase().includes('text/html')) {
-          throw new Error('Unauthenticated /v1/audit returned HTML. Check that SMOKE_BASE_URL points to api-staging, not app-staging.');
-        }
+        const r = await requestWithoutSession('/v1/audit');
+        assertApiResponse('/v1/audit', r);
         if (r.status !== 401) throw new Error(`Expected 401, got HTTP ${r.status}`);
         return { detail: 'correctly rejects unauthenticated request' };
       });
