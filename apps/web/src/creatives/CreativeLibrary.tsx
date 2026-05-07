@@ -218,6 +218,7 @@ export default function CreativesView() {
   } = useCreativeCatalogViewModel({
     creatives,
     latestVersions,
+    ingestions,
     tags,
     selectedClientIds: filters.selectedClientIds,
     formatFilter: filters.formatFilter,

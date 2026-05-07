@@ -1193,7 +1193,7 @@ export async function markHtml5CreativePublishFailed(pool, workspaceId, creative
   await pool.query(
     `UPDATE creative_versions
      SET status = 'draft',
-         metadata = $4::jsonb,
+         metadata = $3::jsonb,
          updated_at = NOW()
      WHERE workspace_id = $1 AND id = $2`,
     [

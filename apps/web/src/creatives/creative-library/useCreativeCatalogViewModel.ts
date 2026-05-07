@@ -1,5 +1,5 @@
 import { useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
-import type { Creative, TagOption } from '../catalog';
+import type { Creative, CreativeIngestion, TagOption } from '../catalog';
 import type {
   CreativeFormat,
   CreativeRow,
@@ -9,10 +9,12 @@ import type {
   PrototypeCheck,
 } from './types';
 import { resolveCreativePreviewHref } from './ui';
+import { findPendingIngestionForCreative } from './utils';
 
 type Params = {
   creatives: Creative[];
   latestVersions: LatestVersionMap;
+  ingestions: CreativeIngestion[];
   tags: TagOption[];
   selectedClientIds: string[];
   formatFilter: 'all' | 'video' | 'display' | 'native';
@@ -28,6 +30,7 @@ type Params = {
 export function useCreativeCatalogViewModel({
   creatives,
   latestVersions,
+  ingestions,
   tags,
   selectedClientIds,
   formatFilter,
@@ -39,6 +42,21 @@ export function useCreativeCatalogViewModel({
   bulkAssignTagId,
   setBulkAssignTagId,
 }: Params) {
+  const formatOperationalIssueMessage = (rawMessage: string | null | undefined) => {
+    const message = String(rawMessage ?? '').trim();
+    if (!message) return null;
+    if (message.startsWith('HTML5 archive references missing assets:')) {
+      const missing = message.replace('HTML5 archive references missing assets:', '').trim();
+      return missing
+        ? `ZIP incompleto: faltan assets referenciados (${missing}).`
+        : 'ZIP incompleto: faltan assets referenciados.';
+    }
+    if (message === 'missing_entry_html' || message === 'HTML5 archive is missing entry point: index.html') {
+      return 'El ZIP no trae un `index.html` publicable.';
+    }
+    return message;
+  };
+
   const getVersionProcessingState = (creative: Creative) => {
     const version = latestVersions[creative.id];
     const metadata = (version?.metadata ?? {}) as Record<string, any>;
@@ -73,6 +91,34 @@ export function useCreativeCatalogViewModel({
       || videoProcessingStatus === 'failed'
       || videoProcessingStatus === 'blocked'
       || html5PublishStatus === 'failed';
+  };
+
+  const getCreativeIssueMessage = (creative: Creative) => {
+    const version = latestVersions[creative.id];
+    const metadata = (version?.metadata ?? {}) as Record<string, any>;
+    const html5PublishDetail = formatOperationalIssueMessage(metadata.html5Publish?.detail);
+    if (html5PublishDetail) return html5PublishDetail;
+
+    const matchedIngestion = version
+      ? findPendingIngestionForCreative(ingestions, creative, version)
+      : ingestions
+          .filter((ingestion) => ingestion.creativeId === creative.id)
+          .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())[0] ?? null;
+
+    if (!matchedIngestion || matchedIngestion.status !== 'failed') return null;
+
+    const validationReport = matchedIngestion.validationReport && typeof matchedIngestion.validationReport === 'object'
+      ? matchedIngestion.validationReport as Record<string, unknown>
+      : null;
+    const missingPaths = Array.isArray(validationReport?.missingPaths)
+      ? validationReport?.missingPaths.filter((entry) => typeof entry === 'string' && entry.trim().length > 0)
+      : [];
+    if (missingPaths.length > 0) {
+      return `ZIP incompleto: faltan assets referenciados (${missingPaths.join(', ')}).`;
+    }
+
+    return formatOperationalIssueMessage(matchedIngestion.errorDetail)
+      ?? 'La publicación falló. Revisa el ZIP o vuelve a subir el creativo.';
   };
 
   const getCreativeOperationalState = (creative: Creative) => {
@@ -252,9 +298,10 @@ export function useCreativeCatalogViewModel({
         signal,
         preview: previewLabel,
         owner: creative.workspaceName ?? 'Creative Ops',
+        issueMessage: status === 'Needs attention' ? getCreativeIssueMessage(creative) : null,
       };
     })
-  ), [filteredCreatives, latestVersions]);
+  ), [filteredCreatives, ingestions, latestVersions]);
 
   const prototypeChecks: PrototypeCheck[] = [
     { name: 'creative view renders rows', passed: creativeRows.length >= 1 },

@@ -77,6 +77,11 @@ export function CreativeTable({
         <div>
           <p className="font-semibold text-text-primary">{row.creative}</p>
           <p className="mt-1 text-xs text-text-muted">{row.advertiser} · {row.campaign}</p>
+          {row.issueMessage && (
+            <p className="mt-2 max-w-md text-xs leading-5 text-[color:var(--dusk-status-warning-fg)]">
+              {row.issueMessage}
+            </p>
+          )}
         </div>
       ),
       sortAccessor: (row) => row.creative,

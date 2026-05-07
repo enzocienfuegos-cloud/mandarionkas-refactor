@@ -36,6 +36,7 @@ export type CreativeRow = {
   signal: OperationalSignal;
   preview: string;
   owner: string;
+  issueMessage?: string | null;
 };
 
 export type PrototypeCheck = {
