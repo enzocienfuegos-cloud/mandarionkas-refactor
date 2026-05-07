@@ -1,5 +1,5 @@
 import React, { FormEvent } from 'react';
-import { Badge, Button, FormField, Input, Panel, Select } from '../system';
+import { Badge, Button, FormField, Input, Panel, ReadOnlyValue, Select } from '../system';
 
 interface Campaign {
   id: string;
@@ -167,24 +167,10 @@ export default function TagFormPanel({
               </Select>
             </FormField>
             <FormField label="Width">
-              <Input
-                type="number"
-                min="1"
-                readOnly
-                value={form.servingWidth}
-                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-3 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]"
-                placeholder="300"
-              />
+              <ReadOnlyValue value={form.servingWidth} placeholder="300" copyable={false} />
             </FormField>
             <FormField label="Height">
-              <Input
-                type="number"
-                min="1"
-                readOnly
-                value={form.servingHeight}
-                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-3 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]"
-                placeholder="250"
-              />
+              <ReadOnlyValue value={form.servingHeight} placeholder="250" copyable={false} />
             </FormField>
           </div>
         )}
@@ -198,12 +184,7 @@ export default function TagFormPanel({
               </Select>
             </FormField>
             <FormField label="Tracker Size">
-              <Input
-                type="text"
-                readOnly
-                value={form.trackerType === 'impression' ? '1x1' : 'N/A'}
-                className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-3 py-2.5 text-sm text-[color:var(--dusk-text-secondary)]"
-              />
+              <ReadOnlyValue value={form.trackerType === 'impression' ? '1x1' : 'N/A'} copyable={false} />
             </FormField>
           </div>
         )}

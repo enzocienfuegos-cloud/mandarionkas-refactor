@@ -26,6 +26,7 @@ export function useTagListWorkspace({
   const [filters, setFilters] = useState({
     selectedClientId: '',
     tagSearch: '',
+    statusFilter: 'all' as 'all' | 'active' | 'paused' | 'draft' | 'archived' | 'qa',
     needsQaOnly: false,
     selectedTagIds: [] as string[],
   });
@@ -84,6 +85,14 @@ export function useTagListWorkspace({
     const matchesClient = !filters.selectedClientId || (tag.workspaceId ?? '') === filters.selectedClientId;
     if (!matchesClient) return false;
 
+    if (filters.statusFilter === 'qa' && !['paused', 'draft'].includes(tag.status)) {
+      return false;
+    }
+
+    if (filters.statusFilter !== 'all' && filters.statusFilter !== 'qa' && tag.status !== filters.statusFilter) {
+      return false;
+    }
+
     if (filters.needsQaOnly && !['paused', 'draft'].includes(tag.status)) {
       return false;
     }
@@ -104,7 +113,7 @@ export function useTagListWorkspace({
       .toLowerCase();
 
     return haystack.includes(normalizedTagSearch);
-  }), [filters.needsQaOnly, filters.selectedClientId, normalizedTagSearch, tags]);
+  }), [filters.needsQaOnly, filters.selectedClientId, filters.statusFilter, normalizedTagSearch, tags]);
 
   const selectedCount = filters.selectedTagIds.length;
   const activeTags = filteredTags.filter((tag) => tag.status === 'active').length;
@@ -346,9 +355,15 @@ export function useTagListWorkspace({
 
   const setSelectedClientId = (value: string) => setFilters((current) => ({ ...current, selectedClientId: value }));
   const setTagSearch = (value: string) => setFilters((current) => ({ ...current, tagSearch: value }));
+  const setStatusFilter = (value: 'all' | 'active' | 'paused' | 'draft' | 'archived' | 'qa') => setFilters((current) => ({
+    ...current,
+    statusFilter: value,
+    needsQaOnly: value === 'qa' ? true : current.needsQaOnly && value === 'all' ? current.needsQaOnly : false,
+  }));
   const setNeedsQaOnly = (value: boolean | ((current: boolean) => boolean)) => setFilters((current) => ({
     ...current,
     needsQaOnly: typeof value === 'function' ? value(current.needsQaOnly) : value,
+    statusFilter: (typeof value === 'function' ? value(current.needsQaOnly) : value) ? 'qa' : current.statusFilter === 'qa' ? 'all' : current.statusFilter,
   }));
   const setSelectedTagIds = (value: string[] | ((current: string[]) => string[])) => setFilters((current) => ({
     ...current,
@@ -367,6 +382,8 @@ export function useTagListWorkspace({
     setSelectedClientId,
     tagSearch: filters.tagSearch,
     setTagSearch,
+    statusFilter: filters.statusFilter,
+    setStatusFilter,
     needsQaOnly: filters.needsQaOnly,
     setNeedsQaOnly,
     selectedTagIds: filters.selectedTagIds,

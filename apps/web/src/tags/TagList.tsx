@@ -6,6 +6,7 @@ import {
   CenteredSpinner,
   DataTable,
   EmptyState,
+  FilterBar,
   FormField,
   Input,
   Kicker,
@@ -48,12 +49,6 @@ const SearchIcon = ({ className }: IconProps) => (
   </svg>
 );
 
-const FilterIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
 const TagsIcon = ({ className }: IconProps) => (
   <svg {...iconProps(className)}>
     <path d="M4 5h7l9 9-7 7-9-9V5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
@@ -79,6 +74,8 @@ export default function TagList() {
     setSelectedClientId,
     tagSearch,
     setTagSearch,
+    statusFilter,
+    setStatusFilter,
     needsQaOnly,
     setNeedsQaOnly,
     selectedTagIds,
@@ -158,42 +155,49 @@ export default function TagList() {
         )}
       />
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex flex-wrap items-end gap-3">
-          <FormField label="Advertiser" className="min-w-[220px]">
-            <Select
-              value={selectedClientId}
-              onChange={(event) => setSelectedClientId(event.target.value)}
-              selectSize="lg"
-            >
-              <option value="">All advertisers</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </Select>
-          </FormField>
-          <Button
-            type="button"
-            onClick={() => setNeedsQaOnly((current) => !current)}
-            variant="secondary"
-            className="min-h-[46px]"
-          >
-            Needs QA
-            {needsQaOnly ? <Badge tone="brand" size="sm">On</Badge> : null}
-          </Button>
-          <FormField label="Search" className="min-w-[300px] flex-1">
-            <Input
-              value={tagSearch}
-              onChange={(event) => setTagSearch(event.target.value)}
-              inputSize="lg"
-              leadingIcon={<SearchIcon />}
-              placeholder="Search tag, advertiser, placement"
-            />
-          </FormField>
-        </div>
-      </div>
+      <FilterBar
+        pills={[
+          {
+            id: 'advertiser',
+            label: 'Advertiser',
+            value: selectedClientId,
+            options: [
+              { value: '', label: 'All advertisers' },
+              ...clients.map((client) => ({ value: client.id, label: client.name })),
+            ],
+            onChange: setSelectedClientId,
+          },
+          {
+            id: 'status',
+            label: 'Status',
+            value: statusFilter,
+            options: [
+              { value: 'all', label: 'All tags' },
+              { value: 'qa', label: 'Needs QA' },
+              { value: 'active', label: 'Active' },
+              { value: 'paused', label: 'Paused' },
+              { value: 'draft', label: 'Draft' },
+              { value: 'archived', label: 'Archived' },
+            ],
+            onChange: (value) => {
+              setStatusFilter(value as 'all' | 'active' | 'paused' | 'draft' | 'archived' | 'qa');
+              setNeedsQaOnly(value === 'qa');
+            },
+          },
+        ]}
+        search={{
+          value: tagSearch,
+          onChange: setTagSearch,
+          placeholder: 'Search tag, advertiser, placement',
+        }}
+        activeFilterCount={[selectedClientId, statusFilter !== 'all', tagSearch.trim()].filter(Boolean).length}
+        onResetAll={() => {
+          setSelectedClientId('');
+          setStatusFilter('all');
+          setNeedsQaOnly(false);
+          setTagSearch('');
+        }}
+      />
 
       <div className="grid gap-5 xl:grid-cols-4">
         {tagMetrics.map((metric) => (

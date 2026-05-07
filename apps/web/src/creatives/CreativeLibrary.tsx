@@ -255,8 +255,13 @@ export default function CreativesView() {
         workspaces={workspaces}
         selectedWorkspaceId={selectedClientIds[0] ?? ''}
         onWorkspaceChange={(workspaceId) => setSelectedClientIds(workspaceId ? [workspaceId] : [])}
-        needsQaOnly={statusFilter === 'pending_review'}
-        onToggleNeedsQa={() => setStatusFilter((current) => current === 'pending_review' ? 'all' : 'pending_review')}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        formatFilter={formatFilter}
+        onFormatFilterChange={setFormatFilter}
+        sizeFilter={sizeFilter}
+        onSizeFilterChange={setSizeFilter}
+        sizeOptions={availableSizeOptions}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         onUploadCreative={() => navigate('/creatives/upload')}

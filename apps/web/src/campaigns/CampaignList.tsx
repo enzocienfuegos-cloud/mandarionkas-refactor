@@ -5,6 +5,7 @@ import {
   Button,
   CenteredSpinner,
   EmptyState,
+  FilterBar,
   FormField,
   Input,
   Kicker,
@@ -32,6 +33,7 @@ export default function CampaignList() {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [search, setSearch] = useState(() => searchQueryParam);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'limited' | 'blocked' | 'ready' | 'draft'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -66,8 +68,23 @@ export default function CampaignList() {
       || (campaign.workspace_name ?? '').toLowerCase().includes(needle)
       || (campaign.advertiser?.name ?? '').toLowerCase().includes(needle)
       || (campaign.metadata?.dsp ?? '').toLowerCase().includes(needle);
-    return clientMatch && searchMatch;
-  }), [campaigns, search, selectedClientIds]);
+    if (!clientMatch || !searchMatch) return false;
+
+    if (statusFilter === 'all') return true;
+
+    const impressions = toNumber(campaign.impressions);
+    const ctr = toNumber(campaign.ctr);
+    const hoverMs = toNumber(campaign.totalHoverDurationMs ?? campaign.total_hover_duration_ms);
+    let derivedStatus: CampaignStatus = 'Draft';
+    if (campaign.status === 'draft' || campaign.status === 'archived') derivedStatus = 'Draft';
+    else if (campaign.status === 'paused') derivedStatus = impressions > 0 ? 'Limited' : 'Blocked';
+    else if (impressions === 0 && hoverMs === 0) derivedStatus = 'Ready';
+    else if (ctr < 0.35 || impressions < 100) derivedStatus = 'Limited';
+    else derivedStatus = 'Live';
+
+    const normalized = derivedStatus.toLowerCase() as Lowercase<CampaignStatus>;
+    return normalized === statusFilter;
+  }), [campaigns, search, selectedClientIds, statusFilter]);
 
   const campaignRows = useMemo<CampaignRow[]>(() => filteredCampaigns.map((campaign) => {
     const impressions = toNumber(campaign.impressions);
@@ -205,34 +222,45 @@ export default function CampaignList() {
             )}
           />
 
-          {/* ── Toolbar ── */}
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-3">
-              <FormField label="Advertiser" className="min-w-[180px]">
-                <Select
-                  value={selectedClientIds[0] ?? ''}
-                  onChange={(e) => setSelectedClientIds(e.target.value ? [e.target.value] : [])}
-                  options={[
-                    { value: '', label: 'All advertisers' },
-                    ...clients.map((client) => ({ value: client.id, label: client.name })),
-                  ]}
-                  className="min-h-[46px]"
-                />
-              </FormField>
-              <Button type="button" variant="secondary" className="min-h-[46px]">
-                Active + setup
-              </Button>
-              <FormField label="Search" className="min-w-[300px]">
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  leadingIcon={<SearchIcon />}
-                  className="min-h-[46px] border-border-default/80"
-                  placeholder="Search campaign, advertiser, owner"
-                />
-              </FormField>
-            </div>
-          </div>
+          <FilterBar
+            pills={[
+              {
+                id: 'advertiser',
+                label: 'Advertiser',
+                value: selectedClientIds[0] ?? '',
+                options: [
+                  { value: '', label: 'All advertisers' },
+                  ...clients.map((client) => ({ value: client.id, label: client.name })),
+                ],
+                onChange: (value) => setSelectedClientIds(value ? [value] : []),
+              },
+              {
+                id: 'status',
+                label: 'Status',
+                value: statusFilter,
+                options: [
+                  { value: 'all', label: 'Active + setup' },
+                  { value: 'live', label: 'Live' },
+                  { value: 'limited', label: 'Limited' },
+                  { value: 'blocked', label: 'Blocked' },
+                  { value: 'ready', label: 'Ready' },
+                  { value: 'draft', label: 'Draft' },
+                ],
+                onChange: (value) => setStatusFilter(value as 'all' | 'live' | 'limited' | 'blocked' | 'ready' | 'draft'),
+              },
+            ]}
+            search={{
+              value: search,
+              onChange: setSearch,
+              placeholder: 'Search campaign, advertiser, owner',
+            }}
+            activeFilterCount={[selectedClientIds[0], statusFilter !== 'all', search.trim()].filter(Boolean).length}
+            onResetAll={() => {
+              setSelectedClientIds([]);
+              setStatusFilter('all');
+              setSearch('');
+            }}
+          />
 
           {/* ── Metrics ── */}
           <div className="grid gap-5 xl:grid-cols-4">

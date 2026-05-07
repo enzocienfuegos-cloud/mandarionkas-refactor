@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge, Button, FormField, Input, Kicker, MetricCard, PageHeader, Select } from '../../system';
+import { Button, FilterBar, MetricCard, PageHeader } from '../../system';
 import type { Metric } from './types';
 import {
   AlertTriangleIcon,
@@ -19,8 +19,13 @@ type Props = {
   workspaces: WorkspaceOptionLike[];
   selectedWorkspaceId: string;
   onWorkspaceChange: (workspaceId: string) => void;
-  needsQaOnly: boolean;
-  onToggleNeedsQa: () => void;
+  statusFilter: 'all' | 'active' | 'inactive' | 'pending_review' | 'rejected';
+  onStatusFilterChange: (value: 'all' | 'active' | 'inactive' | 'pending_review' | 'rejected') => void;
+  formatFilter: 'all' | 'video' | 'display' | 'native';
+  onFormatFilterChange: (value: 'all' | 'video' | 'display' | 'native') => void;
+  sizeFilter: string;
+  onSizeFilterChange: (value: string) => void;
+  sizeOptions: string[];
   searchTerm: string;
   onSearchChange: (value: string) => void;
   onUploadCreative: () => void;
@@ -32,8 +37,13 @@ export function CreativeWorkspaceOverview({
   workspaces,
   selectedWorkspaceId,
   onWorkspaceChange,
-  needsQaOnly,
-  onToggleNeedsQa,
+  statusFilter,
+  onStatusFilterChange,
+  formatFilter,
+  onFormatFilterChange,
+  sizeFilter,
+  onSizeFilterChange,
+  sizeOptions,
   searchTerm,
   onSearchChange,
   onUploadCreative,
@@ -64,46 +74,75 @@ export function CreativeWorkspaceOverview({
                 {pendingReviewCount} creatives need QA review before trafficking handoff.
               </p>
             </div>
-            <Button type="button" variant="ghost" size="sm" onClick={onToggleNeedsQa} className="shrink-0">
+            <Button type="button" variant="ghost" size="sm" onClick={() => onStatusFilterChange('pending_review')} className="shrink-0">
               Filter to QA queue
             </Button>
           </div>
         )}
       />
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex flex-wrap items-end gap-3">
-          <FormField label="Advertiser" className="min-w-[220px]">
-            <Select
-              value={selectedWorkspaceId}
-              onChange={(event) => onWorkspaceChange(event.target.value)}
-              className="min-h-[46px]"
-              options={[
-                { value: '', label: 'All advertisers' },
-                ...workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name })),
-              ]}
-            />
-          </FormField>
-          <Button
-            type="button"
-            onClick={onToggleNeedsQa}
-            variant="secondary"
-            className="min-h-[46px]"
-          >
-            Needs QA
-            {needsQaOnly ? <Badge tone="brand" size="sm">On</Badge> : null}
-          </Button>
-          <FormField label="Search" className="min-w-[320px]">
-            <Input
-              value={searchTerm}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Search creative, advertiser, campaign"
-              className="min-h-[46px]"
-              leadingIcon={<SearchIcon />}
-            />
-          </FormField>
-        </div>
-      </div>
+      <FilterBar
+        pills={[
+          {
+            id: 'advertiser',
+            label: 'Advertiser',
+            value: selectedWorkspaceId,
+            options: [
+              { value: '', label: 'All advertisers' },
+              ...workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name })),
+            ],
+            onChange: onWorkspaceChange,
+          },
+          {
+            id: 'status',
+            label: 'Status',
+            value: statusFilter,
+            options: [
+              { value: 'all', label: 'All creatives' },
+              { value: 'pending_review', label: 'Needs QA' },
+              { value: 'active', label: 'Active' },
+              { value: 'inactive', label: 'Inactive' },
+              { value: 'rejected', label: 'Rejected' },
+            ],
+            onChange: (value) => onStatusFilterChange(value as 'all' | 'active' | 'inactive' | 'pending_review' | 'rejected'),
+          },
+          {
+            id: 'format',
+            label: 'Format',
+            value: formatFilter,
+            options: [
+              { value: 'all', label: 'All formats' },
+              { value: 'video', label: 'Video' },
+              { value: 'display', label: 'Display' },
+              { value: 'native', label: 'Native' },
+            ],
+            onChange: (value) => onFormatFilterChange(value as 'all' | 'video' | 'display' | 'native'),
+          },
+          {
+            id: 'size',
+            label: 'Size',
+            value: sizeFilter,
+            options: [
+              { value: 'all', label: 'All sizes' },
+              ...sizeOptions.map((option) => ({ value: option, label: option })),
+            ],
+            onChange: onSizeFilterChange,
+          },
+        ]}
+        search={{
+          value: searchTerm,
+          onChange: onSearchChange,
+          placeholder: 'Search creative, advertiser, campaign',
+        }}
+        activeFilterCount={[selectedWorkspaceId, statusFilter !== 'all', formatFilter !== 'all', sizeFilter !== 'all', searchTerm.trim()].filter(Boolean).length}
+        onResetAll={() => {
+          onWorkspaceChange('');
+          onStatusFilterChange('all');
+          onFormatFilterChange('all');
+          onSizeFilterChange('all');
+          onSearchChange('');
+        }}
+      />
 
       <div className="grid gap-5 xl:grid-cols-4">
         {creativeMetrics.map((metric) => (

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, FormEvent } from 'react';
 import {
   Button,
   CenteredSpinner,
+  FilterBar,
   IconButton,
   Input,
   Kicker,
@@ -49,6 +50,7 @@ export default function DiscrepanciesView() {
   const [error, setError] = useState('');
   const [savingThresholds, setSavingThresholds] = useState(false);
   const [thresholdMsg, setThresholdMsg] = useState('');
+  const [search, setSearch] = useState('');
 
   const today = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
@@ -86,7 +88,7 @@ export default function DiscrepanciesView() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [filters.dateFrom, filters.dateTo, filters.severity]);
 
   const handleSaveThresholds = async (e: FormEvent) => {
     e.preventDefault();
@@ -141,6 +143,17 @@ export default function DiscrepanciesView() {
       };
     })
   ), [discrepancies, thresholds]);
+
+  const filteredDiscrepancyRows = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return discrepancyRows;
+    return discrepancyRows.filter((row) =>
+      [row.campaign, row.advertiser, row.publisher, row.status, row.risk, row.owner]
+        .join(' ')
+        .toLowerCase()
+        .includes(needle),
+    );
+  }, [discrepancyRows, search]);
 
   const withinThresholdCount = discrepancyRows.filter((row) => row.status === 'Within threshold').length;
   const thresholdBreaches = discrepancyRows.filter((row) => row.status === 'Threshold breach' || row.status === 'Investigating').length;
@@ -224,7 +237,7 @@ export default function DiscrepanciesView() {
       <PageHeader
         kicker="Discrepancies · Reconciliation workspace"
         title="Discrepancies"
-        meta={`${discrepancyRows.length} reports · ${thresholdBreaches} threshold breaches · invoice validation queue`}
+        meta={`${filteredDiscrepancyRows.length} reports · ${thresholdBreaches} threshold breaches · invoice validation queue`}
         primaryAction={<Button type="button" onClick={load} variant="primary">Investigate gap</Button>}
         alert={(
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -247,26 +260,50 @@ export default function DiscrepanciesView() {
         )}
       />
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" variant="secondary">
-            Last 30 days
-          </Button>
-          <Button type="button" variant="secondary">
-            {filters.severity === 'all' ? 'All severities' : filters.severity}
-          </Button>
-          <label className="relative block min-w-[320px]">
-            <span className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[color:var(--dusk-text-muted)]"><SearchIcon /></span>
-            <Input
-              value={filters.severity === 'all' ? '' : filters.severity}
-              onChange={() => undefined}
-              placeholder="Search campaign, publisher, owner"
-              className="min-h-[46px] pl-10"
-              readOnly
-            />
-          </label>
-        </div>
-      </div>
+      <FilterBar
+        pills={[
+          {
+            id: 'date-range',
+            label: 'Date range',
+            value: filters.dateFrom === thirtyDaysAgo && filters.dateTo === today ? '30d' : filters.dateFrom === new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10) ? '7d' : '90d',
+            options: [
+              { value: '30d', label: 'Last 30 days' },
+              { value: '7d', label: 'Last 7 days' },
+              { value: '90d', label: 'Last 90 days' },
+            ],
+            onChange: (value) => {
+              const days = value === '7d' ? 7 : value === '90d' ? 90 : 30;
+              setFilters((current) => ({
+                ...current,
+                dateFrom: new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10),
+                dateTo: today,
+              }));
+            },
+          },
+          {
+            id: 'severity',
+            label: 'Severity',
+            value: filters.severity,
+            options: [
+              { value: 'all', label: 'All severities' },
+              { value: 'critical', label: 'Critical' },
+              { value: 'warning', label: 'Warning' },
+              { value: 'ok', label: 'Healthy' },
+            ],
+            onChange: (value) => setFilters((current) => ({ ...current, severity: value })),
+          },
+        ]}
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: 'Search campaign, publisher, owner',
+        }}
+        activeFilterCount={[filters.severity !== 'all', search.trim(), !(filters.dateFrom === thirtyDaysAgo && filters.dateTo === today)].filter(Boolean).length}
+        onResetAll={() => {
+          setSearch('');
+          setFilters({ dateFrom: thirtyDaysAgo, dateTo: today, severity: 'all' });
+        }}
+      />
 
       <div className="grid gap-5 xl:grid-cols-4">
         {discrepancyMetrics.map((metric) => (
@@ -300,9 +337,9 @@ export default function DiscrepanciesView() {
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Total</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{summary?.totalReports ?? discrepancyRows.length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">reports in current view</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Critical</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{summary?.criticalCount ?? discrepancyRows.filter((row) => row.risk === 'Critical').length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">need invoice validation</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Warning</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{summary?.warningCount ?? discrepancyRows.filter((row) => row.risk === 'Warning').length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">publisher follow-up required</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Total</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{filteredDiscrepancyRows.length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">reports in current view</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Critical</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{filteredDiscrepancyRows.filter((row) => row.risk === 'Critical').length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">need invoice validation</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Warning</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{filteredDiscrepancyRows.filter((row) => row.risk === 'Warning').length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">publisher follow-up required</p></div>
             <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Thresholds</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{thresholds.warningPct}% / {thresholds.criticalPct}%</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">warning and critical variance caps</p></div>
           </div>
 
@@ -322,7 +359,7 @@ export default function DiscrepanciesView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-white/8">
-                {discrepancyRows.map((row) => (
+                {filteredDiscrepancyRows.map((row) => (
                   <tr key={row.id} className="bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
                     <td className="px-5 py-5">
                       <p className="font-semibold text-slate-950 dark:text-white">{row.campaign}</p>

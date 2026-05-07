@@ -32,6 +32,8 @@ export type { TabsProps, TabProps, TabPanelProps } from './primitives/Tabs';
 
 export { Modal } from './primitives/Modal';
 export type { ModalProps } from './primitives/Modal';
+export { Popover } from './primitives/Popover';
+export type { PopoverProps } from './primitives/Popover';
 
 export { Skeleton, MetricCardSkeleton, TableRowSkeleton } from './primitives/Skeleton';
 
@@ -43,6 +45,10 @@ export type { EmptyStateProps } from './primitives/EmptyState';
 
 export { MetricCard, Sparkline } from './primitives/MetricCard';
 export type { MetricCardProps, MetricTrend, MetricTone } from './primitives/MetricCard';
+export { FilterBar } from './primitives/FilterBar';
+export type { FilterBarProps, FilterPill } from './primitives/FilterBar';
+export { ReadOnlyValue } from './primitives/ReadOnlyValue';
+export type { ReadOnlyValueProps } from './primitives/ReadOnlyValue';
 
 export { PageHeader } from './primitives/PageHeader';
 export type { PageHeaderProps } from './primitives/PageHeader';

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, CenteredSpinner, IconButton, Input, Kicker, MetricCard, PageHeader, Panel } from '../system';
+import { Button, CenteredSpinner, FilterBar, IconButton, Input, Kicker, MetricCard, PageHeader, Panel } from '../system';
 import { SparklineModal } from './pacing-view/SparklineModal';
 import type {
   Metric,
@@ -42,6 +42,9 @@ export default function PacingView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [advertiserFilter, setAdvertiserFilter] = useState('');
+  const [dateRangeFilter, setDateRangeFilter] = useState<'7d' | '30d' | '90d'>('30d');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'exceptions' | 'on_pace' | 'paused'>('all');
   const [exceptionsOnly, setExceptionsOnly] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('campaign');
   const [sortAsc, setSortAsc] = useState(true);
@@ -81,12 +84,36 @@ export default function PacingView() {
 
   const normalizedSearch = search.trim().toLowerCase();
   const filteredRows = rows.filter((row) => {
+    if (advertiserFilter && row.advertiser !== advertiserFilter) {
+      return false;
+    }
+    if (statusFilter === 'exceptions' && !['Underpacing', 'Overpacing', 'At risk', 'Paused'].includes(row.status)) {
+      return false;
+    }
+    if (statusFilter === 'on_pace' && row.status !== 'On pace') {
+      return false;
+    }
+    if (statusFilter === 'paused' && row.status !== 'Paused') {
+      return false;
+    }
     if (exceptionsOnly && !['Underpacing', 'Overpacing', 'At risk', 'Paused'].includes(row.status)) {
       return false;
+    }
+    const campaign = data?.campaigns.find((entry) => entry.id === row.id);
+    if (campaign) {
+      const remainingDays = campaign.remainingDays ?? 0;
+      if (dateRangeFilter === '7d' && remainingDays > 7) return false;
+      if (dateRangeFilter === '30d' && remainingDays > 30) return false;
+      if (dateRangeFilter === '90d' && remainingDays > 90) return false;
     }
     if (!normalizedSearch) return true;
     return [row.campaign, row.advertiser, row.owner].join(' ').toLowerCase().includes(normalizedSearch);
   });
+
+  const advertiserOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.advertiser))).sort(),
+    [rows],
+  );
 
   const sortedRows = [...filteredRows].sort((left, right) => {
     const leftCampaign = data?.campaigns.find((campaign) => campaign.id === left.id);
@@ -209,32 +236,60 @@ export default function PacingView() {
         )}
       />
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" variant="secondary">
-            All advertisers
-          </Button>
-          <Button
-            type="button"
-            onClick={() => setExceptionsOnly((current) => !current)}
-            variant={exceptionsOnly ? 'primary' : 'secondary'}
-            aria-pressed={exceptionsOnly}
-          >
-            Exceptions
-          </Button>
-          <label className="relative block min-w-[300px]">
-            <span className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[color:var(--dusk-text-muted)]">
-              <SearchIcon />
-            </span>
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="min-h-[46px] pl-10"
-              placeholder="Search campaign, advertiser, owner"
-            />
-          </label>
-        </div>
-      </div>
+      <FilterBar
+        pills={[
+          {
+            id: 'advertiser',
+            label: 'Advertiser',
+            value: advertiserFilter,
+            options: [
+              { value: '', label: 'All advertisers' },
+              ...advertiserOptions.map((advertiser) => ({ value: advertiser, label: advertiser })),
+            ],
+            onChange: setAdvertiserFilter,
+          },
+          {
+            id: 'status',
+            label: 'Status',
+            value: statusFilter,
+            options: [
+              { value: 'all', label: 'All campaigns' },
+              { value: 'exceptions', label: 'Exceptions only' },
+              { value: 'on_pace', label: 'On pace' },
+              { value: 'paused', label: 'Paused' },
+            ],
+            onChange: (value) => {
+              const next = value as 'all' | 'exceptions' | 'on_pace' | 'paused';
+              setStatusFilter(next);
+              setExceptionsOnly(next === 'exceptions');
+            },
+          },
+          {
+            id: 'date-range',
+            label: 'Date range',
+            value: dateRangeFilter,
+            options: [
+              { value: '7d', label: 'Next 7 days' },
+              { value: '30d', label: 'Next 30 days' },
+              { value: '90d', label: 'Next 90 days' },
+            ],
+            onChange: (value) => setDateRangeFilter(value as '7d' | '30d' | '90d'),
+          },
+        ]}
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: 'Search campaign, advertiser, owner',
+        }}
+        activeFilterCount={[advertiserFilter, statusFilter !== 'all', dateRangeFilter !== '30d', search.trim()].filter(Boolean).length}
+        onResetAll={() => {
+          setAdvertiserFilter('');
+          setStatusFilter('all');
+          setExceptionsOnly(false);
+          setDateRangeFilter('30d');
+          setSearch('');
+        }}
+      />
 
       <div className="grid gap-5 xl:grid-cols-4">
         {pacingMetrics.map((metric) => (
