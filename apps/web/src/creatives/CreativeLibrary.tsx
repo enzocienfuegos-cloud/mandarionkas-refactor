@@ -387,10 +387,6 @@ export default function CreativesView() {
 
       <Panel className="overflow-hidden p-6">
         <CreativeQueuePanel
-          totalCreatives={filteredCreatives.length}
-          liveCreatives={liveCreatives}
-          publishingCreatives={publishingCreatives}
-          attentionCreatives={attentionCreatives}
           onRefresh={() => void load()}
         />
 
