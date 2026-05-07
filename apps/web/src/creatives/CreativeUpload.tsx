@@ -46,10 +46,10 @@ export default function CreativeUpload() {
       </div>
 
       <Panel as="form" onSubmit={handleSubmit} className="space-y-6 rounded-2xl">
-        <div className="grid gap-6 md:grid-cols-2">
-          <div>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
+          <div className="space-y-6">
             <label className="mb-2 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Client</label>
-            <div className="mb-4 flex items-center gap-2">
+            <div className="space-y-2">
               <Select
                 value={workspaceId}
                 onChange={event => setWorkspaceId(event.target.value)}
@@ -59,40 +59,53 @@ export default function CreativeUpload() {
                   ...workspaces.map(workspace => ({ value: workspace.id, label: workspace.name })),
                 ]}
               />
-              <Button
-                onClick={() => navigate('/clients')}
-                disabled={loading}
-                variant="ghost"
-                size="sm"
-                className="shrink-0"
-              >
-                New client
-              </Button>
+              <div className="flex justify-start">
+                <Button
+                  onClick={() => navigate('/clients')}
+                  disabled={loading}
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0"
+                >
+                  New client
+                </Button>
+              </div>
             </div>
-            <label className="mb-2 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Source Type</label>
-            <div className="grid gap-3">
-              <Button
-                onClick={() => {
-                  setSourceKindAndReset('html5_zip');
-                  if (fileInputRef.current) fileInputRef.current.value = '';
-                }}
-                variant="secondary"
-                className={`h-auto justify-start rounded-xl px-4 py-3 text-left ${sourceKind === 'html5_zip' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
-              >
-                <div className="font-medium text-[color:var(--dusk-text-primary)]">HTML5 ZIP</div>
-                <div className="text-sm text-[color:var(--dusk-text-muted)]">Publishes `index.html` and all packaged assets to hosted display creative artifacts.</div>
-              </Button>
-              <Button
-                onClick={() => {
-                  setSourceKindAndReset('video_mp4');
-                  if (fileInputRef.current) fileInputRef.current.value = '';
-                }}
-                variant="secondary"
-                className={`h-auto justify-start rounded-xl px-4 py-3 text-left ${sourceKind === 'video_mp4' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
-              >
-                <div className="font-medium text-[color:var(--dusk-text-primary)]">Video MP4</div>
-                <div className="text-sm text-[color:var(--dusk-text-muted)]">Creates a video creative version for VAST serving as soon as publishing finishes.</div>
-              </Button>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Source Type</label>
+              <div className="grid gap-3">
+                <Button
+                  onClick={() => {
+                    setSourceKindAndReset('html5_zip');
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  variant="secondary"
+                  className={`h-auto justify-start rounded-xl px-4 py-3 text-left ${sourceKind === 'html5_zip' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
+                >
+                  <div className="space-y-1">
+                    <div className="font-medium text-[color:var(--dusk-text-primary)]">HTML5 ZIP</div>
+                    <div className="text-sm leading-6 text-[color:var(--dusk-text-muted)]">
+                      Publishes `index.html` and all packaged assets to hosted display creative artifacts.
+                    </div>
+                  </div>
+                </Button>
+                <Button
+                  onClick={() => {
+                    setSourceKindAndReset('video_mp4');
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  variant="secondary"
+                  className={`h-auto justify-start rounded-xl px-4 py-3 text-left ${sourceKind === 'video_mp4' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
+                >
+                  <div className="space-y-1">
+                    <div className="font-medium text-[color:var(--dusk-text-primary)]">Video MP4</div>
+                    <div className="text-sm leading-6 text-[color:var(--dusk-text-muted)]">
+                      Creates a video creative version for VAST serving as soon as publishing finishes.
+                    </div>
+                  </div>
+                </Button>
+              </div>
             </div>
           </div>
 

@@ -267,14 +267,70 @@ function ImagePreviewSurface({ preview }: { preview: PreviewModalState }) {
 }
 
 function HtmlPreviewSurface({ preview }: { preview: PreviewModalState }) {
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const node = stageRef.current;
+    if (!node) return undefined;
+
+    const updateScale = () => {
+      const availableWidth = Math.max(node.clientWidth - 32, 0);
+      const availableHeight = Math.max(node.clientHeight - 32, 0);
+      if (preview.width <= 0 || preview.height <= 0 || availableWidth <= 0 || availableHeight <= 0) {
+        setScale(1);
+        return;
+      }
+      const nextScale = Math.min(
+        availableWidth / preview.width,
+        availableHeight / preview.height,
+        1,
+      );
+      setScale(Number.isFinite(nextScale) && nextScale > 0 ? nextScale : 1);
+    };
+
+    updateScale();
+    const observer = new ResizeObserver(updateScale);
+    observer.observe(node);
+    window.addEventListener('resize', updateScale);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateScale);
+    };
+  }, [preview.height, preview.width]);
+
+  const scaledWidth = Math.max(1, Math.round(preview.width * scale));
+  const scaledHeight = Math.max(1, Math.round(preview.height * scale));
+
   return (
-    <div className="overflow-hidden rounded-[28px] border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-2)] shadow-overlay">
-      <iframe
-        src={preview.url}
-        title={`Preview: ${preview.name}`}
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-        className="block h-[70vh] w-full bg-white"
-      />
+    <div className="overflow-hidden rounded-[28px] border border-[color:var(--dusk-border-default)] bg-[linear-gradient(180deg,rgba(12,17,30,0.98),rgba(7,10,18,1))] shadow-overlay">
+      <div className="border-b border-[color:var(--dusk-border-subtle)] bg-surface-1/80 px-5 py-3 text-xs text-text-muted">
+        HTML5 banners render at authored size and only scale down when the viewport is smaller than the canvas.
+      </div>
+      <div
+        ref={stageRef}
+        className="flex h-[70vh] items-center justify-center overflow-auto bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.06),transparent_55%),linear-gradient(180deg,rgba(4,7,14,1),rgba(8,12,22,1))] p-4"
+      >
+        <div
+          className="relative shrink-0 overflow-hidden rounded-2xl border border-[color:var(--dusk-border-default)] bg-white shadow-2xl"
+          style={{
+            width: `${scaledWidth}px`,
+            height: `${scaledHeight}px`,
+          }}
+        >
+          <iframe
+            src={preview.url}
+            title={`Preview: ${preview.name}`}
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            className="absolute left-0 top-0 block origin-top-left bg-white"
+            style={{
+              width: `${preview.width}px`,
+              height: `${preview.height}px`,
+              transform: `scale(${scale})`,
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

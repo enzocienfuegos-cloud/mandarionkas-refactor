@@ -1,7 +1,6 @@
 import React from 'react';
-import { Button, IconButton } from '../../system';
+import { Button, Icons } from '../../system';
 import type { Creative, CreativeVersion } from '../catalog';
-import { MoreIcon } from './ui';
 
 type Props = {
   creative: Creative;
@@ -66,12 +65,15 @@ export function CreativeRowActions({
       >
         Assign tag
       </Button>
-      <IconButton
+      <Button
         onClick={() => void onDeleteCreative(creative)}
-        className="border border-transparent text-text-soft transition hover:border-brand-500/20 hover:bg-brand-500/10 hover:text-text-brand"
+        variant="danger"
+        size="sm"
         aria-label={`Delete ${creative.name}`}
-        icon={<MoreIcon className="h-4 w-4" />}
-      />
+        leadingIcon={<Icons.Trash2 />}
+      >
+        Delete
+      </Button>
     </div>
   );
 }
