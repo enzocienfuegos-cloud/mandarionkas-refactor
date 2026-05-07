@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+const MAX_NAME_LENGTH = 120;
+
 function normalizeText(value, fallback = '') {
   return String(value || fallback).trim();
 }
@@ -13,6 +15,9 @@ function normalizeSurface(value) {
 function normalizeName(value) {
   const name = normalizeText(value);
   if (!name) throw new Error('View name is required.');
+  if (name.length > MAX_NAME_LENGTH) {
+    throw new Error(`View name must be ${MAX_NAME_LENGTH} characters or fewer.`);
+  }
   return name;
 }
 
@@ -98,6 +103,60 @@ export async function createSavedView(client, { userId, workspaceId, surface, na
   );
 
   return getSavedView(client, { userId, workspaceId, savedViewId: id });
+}
+
+export async function updateSavedView(client, {
+  userId,
+  workspaceId,
+  savedViewId,
+  name,
+  filters,
+  sort,
+  columns,
+  isShared,
+}) {
+  const fields = [];
+  const params = [];
+
+  if (name !== undefined) {
+    params.push(normalizeName(name));
+    fields.push(`name = $${params.length}`);
+  }
+  if (filters !== undefined) {
+    params.push(JSON.stringify(normalizeJsonObject(filters)));
+    fields.push(`filters_json = $${params.length}::jsonb`);
+  }
+  if (sort !== undefined) {
+    params.push(sort === null ? null : JSON.stringify(normalizeJsonObject(sort)));
+    fields.push(`sort_json = $${params.length}${sort === null ? '' : '::jsonb'}`);
+  }
+  if (columns !== undefined) {
+    params.push(JSON.stringify(normalizeColumns(columns)));
+    fields.push(`columns_json = $${params.length}::jsonb`);
+  }
+  if (isShared !== undefined) {
+    params.push(Boolean(isShared));
+    fields.push(`is_shared = $${params.length}`);
+  }
+
+  if (fields.length === 0) {
+    return getSavedView(client, { userId, workspaceId, savedViewId });
+  }
+
+  fields.push('updated_at = now()');
+  params.push(savedViewId, workspaceId, userId);
+
+  const { rowCount } = await client.query(
+    `update saved_views
+        set ${fields.join(', ')}
+      where id = $${params.length - 2}
+        and workspace_id = $${params.length - 1}
+        and user_id = $${params.length}`,
+    params,
+  );
+
+  if (!rowCount) return null;
+  return getSavedView(client, { userId, workspaceId, savedViewId });
 }
 
 export async function deleteSavedView(client, { userId, workspaceId, savedViewId }) {

@@ -22,6 +22,8 @@ export type CreateSavedViewInput = {
   isShared?: boolean;
 };
 
+export type UpdateSavedViewInput = Partial<CreateSavedViewInput>;
+
 async function parseJson<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -54,6 +56,17 @@ export async function createSavedView(input: CreateSavedViewInput) {
   return payload.view ?? null;
 }
 
+export async function updateSavedView(id: string, input: UpdateSavedViewInput) {
+  const response = await fetch(`/v1/saved-views/${id}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const payload = await parseJson<{ view?: SavedView }>(response);
+  return payload.view ?? null;
+}
+
 export async function deleteSavedView(id: string) {
   const response = await fetch(`/v1/saved-views/${id}`, {
     method: 'DELETE',
@@ -63,7 +76,7 @@ export async function deleteSavedView(id: string) {
 }
 
 export function buildSavedViewUrl(id: string, pathname = window.location.pathname) {
-  const url = new URL(window.location.href);
+  const url = new URL(window.location.origin);
   url.pathname = pathname;
   url.searchParams.set('view', id);
   return url.toString();

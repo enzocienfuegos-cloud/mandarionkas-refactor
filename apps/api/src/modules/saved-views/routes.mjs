@@ -1,6 +1,6 @@
-import { badRequest, sendJson } from '../../lib/http.mjs';
+import { badRequest, notFound, sendJson } from '../../lib/http.mjs';
 import { withSession } from '../../lib/session.mjs';
-import { createSavedView, deleteSavedView, getSavedView, listSavedViews } from '@smx/db/src/saved-views.mjs';
+import { createSavedView, deleteSavedView, getSavedView, listSavedViews, updateSavedView } from '@smx/db/src/saved-views.mjs';
 
 function getActiveWorkspaceId(session) {
   return session.session.activeWorkspaceId || session.workspaces[0]?.id || null;
@@ -33,7 +33,7 @@ export async function handleSavedViewRoutes(ctx) {
         workspaceId,
         savedViewId,
       });
-      if (!view) return badRequest(res, requestId, 'Saved view not found.');
+      if (!view) return notFound(res, requestId, 'Saved view not found.');
       return sendJson(res, 200, { ok: true, requestId, view });
     });
   }
@@ -60,6 +60,30 @@ export async function handleSavedViewRoutes(ctx) {
     });
   }
 
+  if (method === 'PUT' && /^\/v1\/saved-views\/[^/]+$/.test(pathname)) {
+    return withSession(ctx, async (session) => {
+      const workspaceId = getActiveWorkspaceId(session);
+      if (!workspaceId) return badRequest(res, requestId, 'No active workspace available.');
+      const savedViewId = pathname.split('/')[3];
+      try {
+        const view = await updateSavedView(session.client, {
+          userId: session.user.id,
+          workspaceId,
+          savedViewId,
+          name: body?.name,
+          filters: body?.filters,
+          sort: body?.sort ?? null,
+          columns: body?.columns ?? [],
+          isShared: body?.isShared ?? body?.is_shared,
+        });
+        if (!view) return notFound(res, requestId, 'Saved view not found.');
+        return sendJson(res, 200, { ok: true, requestId, view });
+      } catch (error) {
+        return badRequest(res, requestId, error.message);
+      }
+    });
+  }
+
   if (method === 'DELETE' && /^\/v1\/saved-views\/[^/]+$/.test(pathname)) {
     return withSession(ctx, async (session) => {
       const workspaceId = getActiveWorkspaceId(session);
@@ -73,6 +97,9 @@ export async function handleSavedViewRoutes(ctx) {
         });
         return sendJson(res, 200, { ok: true, requestId });
       } catch (error) {
+        if (error.message === 'Saved view not found.') {
+          return notFound(res, requestId, error.message);
+        }
         return badRequest(res, requestId, error.message);
       }
     });

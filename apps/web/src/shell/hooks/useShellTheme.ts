@@ -10,6 +10,7 @@ import {
 
 export function useShellTheme() {
   const [theme, setTheme] = React.useState<ThemeMode>(() => getInitialTheme());
+  const hasSyncedRef = React.useRef(false);
 
   React.useEffect(() => {
     const preferredTheme = loadPreference<ThemeMode>(THEME_PREFERENCE_KEY);
@@ -21,7 +22,9 @@ export function useShellTheme() {
   React.useEffect(() => {
     applyTheme(theme);
     persistTheme(theme);
-    savePreference(THEME_PREFERENCE_KEY, theme);
+    if (hasSyncedRef.current) {
+      savePreference(THEME_PREFERENCE_KEY, theme);
+    }
   }, [theme]);
 
   const toggle = React.useCallback(() => {
@@ -38,6 +41,7 @@ export function useShellTheme() {
   const sync = React.useCallback(async () => {
     await syncPreferencesFromServer();
     reload();
+    hasSyncedRef.current = true;
   }, [reload]);
 
   return { theme, toggle, reload, sync };

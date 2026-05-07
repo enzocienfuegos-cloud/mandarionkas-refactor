@@ -12,6 +12,7 @@ import {
   createSavedView,
   deleteSavedView,
   listSavedViews,
+  updateSavedView,
   type SavedView,
 } from '../../shared/saved-views';
 
@@ -66,8 +67,62 @@ export function SavedViewsMenu({
     () => views.find((view) => view.id === currentViewId) ?? null,
     [views, currentViewId],
   );
+  const currentViewCanUpdate = Boolean(currentView?.canDelete);
+
+  const closeSaveModal = useCallback(() => {
+    setSaveOpen(false);
+    setSaveName('');
+    setSaveShared(false);
+  }, []);
 
   const handleSaveCurrentView = useCallback(async () => {
+    const trimmedName = saveName.trim();
+    if (!trimmedName) {
+      toast({ tone: 'warning', title: 'Add a name before saving this view.' });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const view = currentView && currentView.canDelete && trimmedName === currentView.name
+        ? await updateSavedView(currentView.id, {
+            name: trimmedName,
+            filters: currentFilters,
+            sort: currentSort,
+            columns: currentColumns,
+            isShared: saveShared,
+          })
+        : await createSavedView({
+            surface,
+            name: trimmedName,
+            filters: currentFilters,
+            sort: currentSort,
+            columns: currentColumns,
+            isShared: saveShared,
+          });
+      if (!view) throw new Error('Couldn’t save this view.');
+      setViews((current) => [view, ...current.filter((entry) => entry.id !== view.id)]);
+      onApplyView(view);
+      closeSaveModal();
+      toast({
+        tone: 'success',
+        title: currentView && currentView.canDelete && trimmedName === currentView.name
+          ? `Updated view "${view.name}".`
+          : saveShared
+            ? `Saved shared view "${view.name}".`
+            : `Saved view "${view.name}".`,
+      });
+    } catch (error) {
+      toast({
+        tone: 'critical',
+        title: error instanceof Error ? error.message : 'Couldn’t save this view.',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [closeSaveModal, currentColumns, currentFilters, currentSort, currentView, onApplyView, saveName, saveShared, surface, toast]);
+
+  const handleSaveAsNew = useCallback(async () => {
     const trimmedName = saveName.trim();
     if (!trimmedName) {
       toast({ tone: 'warning', title: 'Add a name before saving this view.' });
@@ -87,9 +142,7 @@ export function SavedViewsMenu({
       if (!view) throw new Error('Couldn’t save this view.');
       setViews((current) => [view, ...current.filter((entry) => entry.id !== view.id)]);
       onApplyView(view);
-      setSaveOpen(false);
-      setSaveName('');
-      setSaveShared(false);
+      closeSaveModal();
       toast({
         tone: 'success',
         title: saveShared
@@ -104,7 +157,7 @@ export function SavedViewsMenu({
     } finally {
       setSaving(false);
     }
-  }, [currentColumns, currentFilters, currentSort, onApplyView, saveName, saveShared, surface, toast]);
+  }, [closeSaveModal, currentColumns, currentFilters, currentSort, onApplyView, saveName, saveShared, surface, toast]);
 
   const handleCopyShareLink = useCallback(async () => {
     if (!currentViewId) return;
@@ -213,19 +266,30 @@ export function SavedViewsMenu({
         open={saveOpen}
         onClose={() => {
           if (saving) return;
-          setSaveOpen(false);
+          closeSaveModal();
         }}
         title="Save current view"
         description="Store these filters and share the exact operational slice with your team."
         size="sm"
         footer={(
           <>
-            <Button variant="ghost" onClick={() => setSaveOpen(false)} disabled={saving}>
+            <Button variant="ghost" onClick={closeSaveModal} disabled={saving}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={() => void handleSaveCurrentView()} loading={saving}>
-              Save view
-            </Button>
+            {currentViewCanUpdate ? (
+              <>
+                <Button variant="secondary" onClick={() => void handleSaveAsNew()} loading={saving}>
+                  Save as new
+                </Button>
+                <Button variant="primary" onClick={() => void handleSaveCurrentView()} loading={saving}>
+                  Update "{currentView?.name}"
+                </Button>
+              </>
+            ) : (
+              <Button variant="primary" onClick={() => void handleSaveCurrentView()} loading={saving}>
+                Save view
+              </Button>
+            )}
           </>
         )}
       >
@@ -238,8 +302,12 @@ export function SavedViewsMenu({
               id="saved-view-name"
               value={saveName}
               onChange={(event) => setSaveName(event.target.value)}
+              maxLength={120}
               placeholder="e.g. Bancoagrícola exceptions only"
             />
+            <p className="text-xs text-text-muted">
+              {saveName.length}/120 characters
+            </p>
           </div>
 
           <div className="flex items-center justify-between rounded-2xl border border-border-default bg-surface-2 p-3">

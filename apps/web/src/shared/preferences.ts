@@ -58,9 +58,20 @@ function mergeServerPreferencesIntoLocal(server: ServerPreferences): PreferenceR
   return next;
 }
 
-function buildServerPreferences(preferences: PreferenceRecord): ServerPreferences {
+export function buildServerPreferences(preferences: PreferenceRecord): ServerPreferences {
+  const out: ServerPreferences = {};
   const densityByTable: Record<string, Density> = {};
   const metricStripByScope: Record<string, { selectedIds: string[] }> = {};
+
+  const localTheme = preferences['ui.theme'];
+  if (localTheme === 'light' || localTheme === 'dark') {
+    out.theme = localTheme;
+  }
+
+  const localSidebar = preferences['dusk:sidebar-collapsed'];
+  if (localSidebar === '1' || localSidebar === '0') {
+    out.sidebarCollapsed = localSidebar === '1';
+  }
 
   for (const [key, value] of Object.entries(preferences)) {
     if (key.startsWith('dusk:density:')) {
@@ -76,16 +87,20 @@ function buildServerPreferences(preferences: PreferenceRecord): ServerPreference
       const selectedIds = Array.isArray((value as { selectedIds?: unknown[] } | undefined)?.selectedIds)
         ? [...new Set(((value as { selectedIds: unknown[] }).selectedIds).map((item) => String(item || '').trim()).filter(Boolean))]
         : [];
-      metricStripByScope[scope] = { selectedIds };
+      if (selectedIds.length > 0) {
+        metricStripByScope[scope] = { selectedIds };
+      }
     }
   }
 
-  return {
-    theme: preferences['ui.theme'] === 'light' ? 'light' : 'dark',
-    sidebarCollapsed: preferences['dusk:sidebar-collapsed'] === '1',
-    densityByTable,
-    metricStripByScope,
-  };
+  if (Object.keys(densityByTable).length > 0) {
+    out.densityByTable = densityByTable;
+  }
+  if (Object.keys(metricStripByScope).length > 0) {
+    out.metricStripByScope = metricStripByScope;
+  }
+
+  return out;
 }
 
 async function pushPreferencesToServer(preferences: PreferenceRecord) {
