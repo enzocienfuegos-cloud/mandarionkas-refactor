@@ -47,14 +47,14 @@ export function getLastSeenLabel(tag: Tag) {
 export function getFiringLabel(tag: Tag) {
   switch (tag.status) {
     case 'active':
-      return '98%';
+      return 'Live';
     case 'paused':
-      return '42%';
+      return 'Paused';
     case 'draft':
-      return 'Missing';
+      return 'Pending setup';
     case 'archived':
     default:
-      return 'Ready';
+      return 'Archived';
   }
 }
 
