@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { loadTagBindings, loadTags, type TagBinding, type TagOption, updateTagBinding } from '../creatives/catalog';
-import { Badge, Button, CenteredSpinner, EmptyState, FormField, Input, Kicker, Panel, Select, useToast } from '../system';
+import { Badge, Button, CenteredSpinner, DataTable, EmptyState, FormField, Input, Kicker, PageHeader, Panel, Select, useToast, type ColumnDef } from '../system';
 
 type BindingFilter = 'all' | 'active' | 'paused' | 'draft' | 'archived';
 
@@ -134,6 +134,117 @@ export default function TagBindingDashboard() {
   }, [selectedTagId, visibleTags]);
 
   const selectedTag = tags.find(tag => tag.id === selectedTagId) ?? null;
+  const columns = useMemo<ColumnDef<TagBinding>[]>(() => [
+    {
+      id: 'creative',
+      header: 'Creative',
+      cell: (binding) => (
+        <div>
+          <div className="font-medium text-text-primary">{binding.creativeName}</div>
+          <div className="mt-1 text-xs text-text-muted">{binding.creativeVersionId}</div>
+        </div>
+      ),
+      sortAccessor: (binding) => binding.creativeName,
+    },
+    {
+      id: 'source',
+      header: 'Source',
+      cell: (binding) => binding.sourceKind,
+      sortAccessor: (binding) => binding.sourceKind,
+    },
+    {
+      id: 'versionStatus',
+      header: 'Version Status',
+      cell: (binding) => binding.creativeVersionStatus,
+      sortAccessor: (binding) => binding.creativeVersionStatus,
+    },
+    {
+      id: 'variant',
+      header: 'Variant',
+      cell: (binding) => (
+        binding.variantLabel
+          ? `${binding.variantLabel}${binding.variantWidth && binding.variantHeight ? ` · ${binding.variantWidth}×${binding.variantHeight}` : ''}`
+          : 'Version default'
+      ),
+      sortAccessor: (binding) => binding.variantLabel ?? '',
+    },
+    {
+      id: 'assignmentStatus',
+      header: 'Assignment Status',
+      cell: (binding) => statusBadge(binding.status),
+      sortAccessor: (binding) => binding.status,
+    },
+    {
+      id: 'weight',
+      header: 'Weight',
+      cell: (binding) => (
+        <Input
+          type="number"
+          min="1"
+          step="1"
+          value={bindingDrafts[binding.id]?.weight ?? String(binding.weight)}
+          onChange={(event) => handleBindingDraftChange(binding.id, 'weight', event.target.value)}
+          disabled={updatingBindingId === binding.id}
+          className="w-24"
+        />
+      ),
+      sortAccessor: (binding) => Number(bindingDrafts[binding.id]?.weight ?? binding.weight) || 0,
+    },
+    {
+      id: 'preview',
+      header: 'Preview',
+      cell: (binding) => (
+        binding.publicUrl ? (
+          <a
+            href={binding.publicUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-text-brand hover:text-text-brand"
+          >
+            Open
+          </a>
+        ) : (
+          <span className="text-[color:var(--dusk-text-soft)]">—</span>
+        )
+      ),
+      sortAccessor: (binding) => binding.publicUrl ?? '',
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: (binding) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            onClick={() => void handleSaveBinding(binding)}
+            disabled={updatingBindingId === binding.id}
+            size="sm"
+            variant="secondary"
+          >
+            {updatingBindingId === binding.id ? 'Saving…' : 'Save'}
+          </Button>
+          {binding.status === 'active' ? (
+            <Button
+              onClick={() => void handleStatusChange(binding, 'paused')}
+              disabled={updatingBindingId === binding.id}
+              size="sm"
+              variant="ghost"
+            >
+              Pause
+            </Button>
+          ) : (
+            <Button
+              onClick={() => void handleStatusChange(binding, 'active')}
+              disabled={updatingBindingId === binding.id}
+              size="sm"
+              variant="secondary"
+            >
+              Activate
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ], [bindingDrafts, updatingBindingId]);
 
   const handleBindingDraftChange = (
     bindingId: string,
@@ -202,18 +313,16 @@ export default function TagBindingDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Kicker>Assignments</Kicker>
-          <h1 className="text-2xl font-bold text-text-primary">Tag Assignments</h1>
-          <p className="mt-1 text-sm text-text-muted">
-            Operate versioned serving assignments by tag without going through the creative catalog.
-          </p>
-        </div>
-        <Link to="/tags" className="inline-flex">
-          <Button variant="secondary">Back to Tags</Button>
-        </Link>
-      </div>
+      <PageHeader
+        kicker="Assignments"
+        title="Tag Assignments"
+        meta="Operate versioned serving assignments by tag without going through the creative catalog."
+        secondaryActions={(
+          <Link to="/tags" className="inline-flex">
+            <Button variant="secondary">Back to Tags</Button>
+          </Link>
+        )}
+      />
 
       {error && (
         <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]" role="alert">
@@ -295,106 +404,19 @@ export default function TagBindingDashboard() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)] text-sm">
-              <caption className="sr-only">
-                Creative assignments for the selected tag, including version status, weight, preview link, and rotation controls.
-              </caption>
-              <thead className="bg-[color:var(--dusk-surface-muted)] text-left text-xs uppercase tracking-wide text-text-muted">
-                <tr>
-                  <th scope="col" className="px-4 py-3">Creative</th>
-                  <th scope="col" className="px-4 py-3">Source</th>
-                  <th scope="col" className="px-4 py-3">Version Status</th>
-                  <th scope="col" className="px-4 py-3">Variant</th>
-                  <th scope="col" className="px-4 py-3">Assignment Status</th>
-                  <th scope="col" className="px-4 py-3">Weight</th>
-                  <th scope="col" className="px-4 py-3">Preview</th>
-                  <th scope="col" className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
-                {filteredBindings.map(binding => (
-                  <tr key={binding.id}>
-                    <th scope="row" className="px-4 py-3 text-left">
-                      <div className="font-medium text-text-primary">{binding.creativeName}</div>
-                      <div className="mt-1 text-xs text-text-muted">{binding.creativeVersionId}</div>
-                    </th>
-                    <td className="px-4 py-3 text-text-muted">{binding.sourceKind}</td>
-                    <td className="px-4 py-3 text-text-muted">{binding.creativeVersionStatus}</td>
-                    <td className="px-4 py-3 text-text-muted">
-                      {binding.variantLabel
-                        ? `${binding.variantLabel}${binding.variantWidth && binding.variantHeight ? ` · ${binding.variantWidth}×${binding.variantHeight}` : ''}`
-                        : 'Version default'}
-                    </td>
-                    <td className="px-4 py-3">{statusBadge(binding.status)}</td>
-                    <td className="px-4 py-3">
-                      <Input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={bindingDrafts[binding.id]?.weight ?? String(binding.weight)}
-                        onChange={(event) => handleBindingDraftChange(binding.id, 'weight', event.target.value)}
-                        disabled={updatingBindingId === binding.id}
-                        className="w-24"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      {binding.publicUrl ? (
-                        <a
-                          href={binding.publicUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-text-brand hover:text-text-brand"
-                        >
-                          Open
-                        </a>
-                      ) : (
-                        <span className="text-[color:var(--dusk-text-soft)]">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          onClick={() => void handleSaveBinding(binding)}
-                          disabled={updatingBindingId === binding.id}
-                          size="sm"
-                          variant="secondary"
-                        >
-                          {updatingBindingId === binding.id ? 'Saving…' : 'Save'}
-                        </Button>
-                        {binding.status === 'active' ? (
-                          <Button
-                            onClick={() => void handleStatusChange(binding, 'paused')}
-                            disabled={updatingBindingId === binding.id}
-                            size="sm"
-                            variant="ghost"
-                          >
-                            Pause
-                          </Button>
-                        ) : (
-                          <Button
-                            onClick={() => void handleStatusChange(binding, 'active')}
-                            disabled={updatingBindingId === binding.id}
-                            size="sm"
-                            variant="secondary"
-                          >
-                            Activate
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {!bindingsLoading && filteredBindings.length === 0 && (
+          <DataTable
+            columns={columns}
+            data={filteredBindings}
+            rowKey={(binding) => binding.id}
+            bordered={false}
+            loading={bindingsLoading}
+            emptyState={(
               <EmptyState
                 title="No assignments match this view"
                 description="Try another tag, expand the status filter, or activate more creative versions."
               />
             )}
-          </div>
+          />
         </Panel>
       </div>
     </div>

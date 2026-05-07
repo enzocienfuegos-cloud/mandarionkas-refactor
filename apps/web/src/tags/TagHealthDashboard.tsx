@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Badge, Button, CenteredSpinner, EmptyState, Kicker, Panel } from '../system';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Badge, Button, CenteredSpinner, DataTable, EmptyState, Kicker, PageHeader, Panel, type ColumnDef } from '../system';
 
 interface TagHealth {
   id: string;
@@ -77,16 +77,55 @@ export default function TagHealthDashboard() {
     );
   }
 
+  const columns = useMemo<ColumnDef<TagHealth>[]>(() => [
+    {
+      id: 'name',
+      header: 'Tag Name',
+      cell: (tag) => tag.name,
+      sortAccessor: (tag) => tag.name,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (tag) => statusBadge(tag.status),
+      sortAccessor: (tag) => tag.status,
+    },
+    {
+      id: 'lastImpression',
+      header: 'Last Impression',
+      cell: (tag) => tag.lastImpression ? new Date(tag.lastImpression).toLocaleString() : <span className="italic text-text-soft">Never</span>,
+      sortAccessor: (tag) => tag.lastImpression ?? '',
+    },
+    {
+      id: 'impressions24h',
+      header: 'Imps (24h)',
+      align: 'right',
+      numeric: true,
+      cell: (tag) => tag.impressions24h.toLocaleString(),
+      sortAccessor: (tag) => tag.impressions24h,
+    },
+    {
+      id: 'errorRate',
+      header: 'Error Rate',
+      align: 'right',
+      numeric: true,
+      cell: (tag) => (
+        <Badge tone={tag.errorRate > 5 ? 'critical' : tag.errorRate > 1 ? 'warning' : 'success'} size="sm">
+          {tag.errorRate.toFixed(2)}%
+        </Badge>
+      ),
+      sortAccessor: (tag) => tag.errorRate,
+    },
+  ], []);
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <Kicker>Tags</Kicker>
-          <h1 className="text-2xl font-bold text-text-primary mt-3">Tag Health</h1>
-          <p className="text-sm text-text-muted mt-1">Real-time monitoring across all ad tags</p>
-        </div>
-        <Button onClick={load} variant="secondary">Refresh</Button>
-      </div>
+      <PageHeader
+        kicker="Tags"
+        title="Tag Health"
+        meta={`${tags.length} tags monitored · real-time delivery health across the workspace`}
+        secondaryActions={<Button onClick={load} variant="secondary">Refresh</Button>}
+      />
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
@@ -105,47 +144,12 @@ export default function TagHealthDashboard() {
           />
         </Panel>
       ) : (
-        <Panel className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
-              <caption className="sr-only">Tag health status, delivery recency, 24h impressions and error rate</caption>
-              <thead className="bg-[color:var(--dusk-surface-muted)]">
-                <tr>
-                  {['Tag Name', 'Status', 'Last Impression', 'Imps (24h)', 'Error Rate'].map(h => (
-                    <th key={h} scope="col" className="px-4 py-3 text-left text-xs font-semibold text-text-soft uppercase tracking-wider">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
-                {tags.map(t => (
-                  <tr key={t.id} className="hover:bg-[color:var(--dusk-surface-muted)] transition-colors">
-                    <th scope="row" className="px-4 py-3 text-left text-sm font-medium text-text-primary">{t.name}</th>
-                    <td className="px-4 py-3">{statusBadge(t.status)}</td>
-                    <td className="px-4 py-3 text-sm text-text-secondary">
-                      {t.lastImpression
-                        ? new Date(t.lastImpression).toLocaleString()
-                        : <span className="text-text-soft italic">Never</span>
-                      }
-                    </td>
-                    <td className="px-4 py-3 text-sm text-text-secondary font-medium">
-                      {t.impressions24h.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        tone={t.errorRate > 5 ? 'critical' : t.errorRate > 1 ? 'warning' : 'success'}
-                        size="sm"
-                      >
-                        {t.errorRate.toFixed(2)}%
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
+        <DataTable
+          columns={columns}
+          data={tags}
+          rowKey={(tag) => tag.id}
+          bordered
+        />
       )}
     </div>
   );
