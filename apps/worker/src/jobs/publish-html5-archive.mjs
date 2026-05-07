@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import unzipper from 'unzipper';
-import { detectClickTagInHtml, detectDimensionsInHtml } from '@smx/contracts/src/html5-detector.mjs';
+import { detectClickTagInHtml, detectDimensionsInHtml, validateHtml5Bundle } from '@smx/contracts/src/html5-detector.mjs';
 import { getPool } from '@smx/db/src/pool.mjs';
 import {
   getCreativeIngestion,
@@ -204,6 +204,25 @@ function applyPublishedPaths(entries) {
   });
 }
 
+function isBundleTextAsset(filename) {
+  const lower = String(filename || '').toLowerCase();
+  return (
+    lower.endsWith('.html')
+    || lower.endsWith('.htm')
+    || lower.endsWith('.css')
+    || lower.endsWith('.svg')
+    || lower.endsWith('.txt')
+  );
+}
+
+function buildBundleAssetSources(entries) {
+  return Object.fromEntries(
+    entries
+      .filter((entry) => isBundleTextAsset(entry.publishedPath))
+      .map((entry) => [entry.publishedPath, entry.body.toString('utf-8')]),
+  );
+}
+
 function resolveEntryAsset(entries, desiredEntryPath) {
   const expected = normalizeArchiveMemberPath(desiredEntryPath) || 'index.html';
   const exactMatch = entries.find((entry) => entry.publishedPath === expected);
@@ -348,6 +367,15 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
       throw new Error(`HTML5 archive is missing ${creativeVersion.entry_path || 'index.html'}.`);
     }
 
+    const bundleValidation = validateHtml5Bundle(entryAsset.body.toString('utf-8'), {
+      entryPath: entryAsset.publishedPath,
+      assetPaths: entries.map((entry) => entry.publishedPath),
+      assetSources: buildBundleAssetSources(entries),
+    });
+    if (!bundleValidation.ok) {
+      throw new Error(`HTML5 archive references missing assets: ${bundleValidation.missingPaths.join(', ')}`);
+    }
+
     const storagePrefix = buildPublishedStoragePrefix(workspaceId, creativeVersion.id);
     const uploaded = [];
     for (let index = 0; index < entries.length; index += 1) {
@@ -452,11 +480,11 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
 
     const artifactUpdate = await pool.query(
       `UPDATE creative_artifacts
-       SET storage_key = $4,
-           public_url = $5,
-           mime_type = $6,
-           size_bytes = $7,
-           metadata = $8::jsonb,
+       SET storage_key = $3,
+           public_url = $4,
+           mime_type = $5,
+           size_bytes = $6,
+           metadata = $7::jsonb,
            updated_at = NOW()
        WHERE workspace_id = $1
          AND creative_version_id = $2
@@ -465,7 +493,6 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
       [
         workspaceId,
         creativeVersion.id,
-        'published_html',
         publishedEntry.storageKey,
         publishedEntry.publicUrl,
         publishedEntry.mimeType,

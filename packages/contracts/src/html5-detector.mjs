@@ -105,3 +105,211 @@ export function detectDimensionsInHtml(htmlSource) {
 
   return null;
 }
+
+function trimText(value) {
+  return String(value ?? '').trim();
+}
+
+function normalizeBundlePath(value) {
+  const normalized = trimText(value).replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!normalized) return null;
+  const parts = [];
+  for (const segment of normalized.split('/')) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') {
+      if (!parts.length) return null;
+      parts.pop();
+      continue;
+    }
+    parts.push(segment);
+  }
+  return parts.join('/');
+}
+
+function dirnameBundlePath(value) {
+  const normalized = normalizeBundlePath(value);
+  if (!normalized || !normalized.includes('/')) return '';
+  return normalized.slice(0, normalized.lastIndexOf('/'));
+}
+
+function resolveBundleAssetPath(fromPath, rawReference) {
+  const reference = trimText(rawReference);
+  if (!reference) return null;
+  if (
+    reference.startsWith('#')
+    || reference.startsWith('data:')
+    || reference.startsWith('blob:')
+    || reference.startsWith('mailto:')
+    || reference.startsWith('tel:')
+    || reference.startsWith('javascript:')
+    || /^[a-z]+:\/\//i.test(reference)
+    || reference.startsWith('//')
+  ) {
+    return null;
+  }
+
+  const withoutFragment = reference.split('#')[0];
+  const withoutQuery = withoutFragment.split('?')[0];
+  if (!withoutQuery) return null;
+
+  if (withoutQuery.startsWith('/')) {
+    return normalizeBundlePath(withoutQuery);
+  }
+
+  const parentDir = dirnameBundlePath(fromPath);
+  const joined = parentDir ? `${parentDir}/${withoutQuery}` : withoutQuery;
+  return normalizeBundlePath(joined);
+}
+
+function extractStyleTagBodies(htmlSource) {
+  const bodies = [];
+  const regex = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
+  for (const match of htmlSource.matchAll(regex)) {
+    if (match[1]) bodies.push(match[1]);
+  }
+  return bodies;
+}
+
+function extractHtmlAttributeReferences(htmlSource, fromPath) {
+  const references = new Set();
+  const directReferencePattern = /\b(?:src|href|poster|content)\s*=\s*(["'])([\s\S]*?)\1/gi;
+  const srcsetPattern = /\bsrcset\s*=\s*(["'])([\s\S]*?)\1/gi;
+  const stylePattern = /\bstyle\s*=\s*(["'])([\s\S]*?)\1/gi;
+
+  for (const match of htmlSource.matchAll(directReferencePattern)) {
+    const resolved = resolveBundleAssetPath(fromPath, match[2]);
+    if (resolved) references.add(resolved);
+  }
+
+  for (const match of htmlSource.matchAll(srcsetPattern)) {
+    const candidates = String(match[2] || '')
+      .split(',')
+      .map((part) => trimText(part).split(/\s+/)[0])
+      .filter(Boolean);
+    for (const candidate of candidates) {
+      const resolved = resolveBundleAssetPath(fromPath, candidate);
+      if (resolved) references.add(resolved);
+    }
+  }
+
+  for (const match of htmlSource.matchAll(stylePattern)) {
+    for (const resolved of extractReferencedAssetPathsFromCss(match[2], { fromPath })) {
+      references.add(resolved);
+    }
+  }
+
+  return references;
+}
+
+export function extractReferencedAssetPathsFromCss(cssSource, { fromPath = 'index.html' } = {}) {
+  if (!cssSource || typeof cssSource !== 'string') return [];
+
+  const references = new Set();
+  const cssPatterns = [
+    /url\(\s*(['"]?)([^)'"]+)\1\s*\)/gi,
+    /@import\s+(?:url\(\s*)?(['"])([^'"]+)\1\s*\)?/gi,
+    /image-set\(([\s\S]*?)\)/gi,
+  ];
+
+  for (const match of cssSource.matchAll(cssPatterns[0])) {
+    const resolved = resolveBundleAssetPath(fromPath, match[2]);
+    if (resolved) references.add(resolved);
+  }
+
+  for (const match of cssSource.matchAll(cssPatterns[1])) {
+    const resolved = resolveBundleAssetPath(fromPath, match[2]);
+    if (resolved) references.add(resolved);
+  }
+
+  for (const match of cssSource.matchAll(cssPatterns[2])) {
+    const block = String(match[1] || '');
+    const candidates = [...block.matchAll(/(?:url\(\s*(['"]?)([^)'"]+)\1\s*\)|(['"])([^'"]+)\3)/gi)];
+    for (const candidate of candidates) {
+      const rawReference = candidate[2] || candidate[4] || '';
+      const resolved = resolveBundleAssetPath(fromPath, rawReference);
+      if (resolved) references.add(resolved);
+    }
+  }
+
+  return [...references];
+}
+
+export function extractReferencedAssetPathsFromHtml(htmlSource, { fromPath = 'index.html' } = {}) {
+  if (!htmlSource || typeof htmlSource !== 'string') return [];
+
+  const references = extractHtmlAttributeReferences(htmlSource, fromPath);
+  for (const styleBody of extractStyleTagBodies(htmlSource)) {
+    for (const resolved of extractReferencedAssetPathsFromCss(styleBody, { fromPath })) {
+      references.add(resolved);
+    }
+  }
+  return [...references];
+}
+
+export function validateHtml5Bundle(entryHtmlSource, {
+  entryPath = 'index.html',
+  assetPaths = [],
+  assetSources = {},
+} = {}) {
+  if (!entryHtmlSource || typeof entryHtmlSource !== 'string') {
+    return {
+      ok: false,
+      missingPaths: [],
+      referencedPaths: [],
+      visitedCssPaths: [],
+      error: 'missing_entry_html',
+    };
+  }
+
+  const normalizedEntryPath = normalizeBundlePath(entryPath) || 'index.html';
+  const normalizedAssetPaths = new Set(
+    assetPaths
+      .map((value) => normalizeBundlePath(value))
+      .filter(Boolean),
+  );
+
+  const normalizedAssetSources = Object.fromEntries(
+    Object.entries(assetSources || {})
+      .map(([key, value]) => [normalizeBundlePath(key), value])
+      .filter(([key]) => Boolean(key)),
+  );
+
+  const referencedPaths = new Set();
+  const missingPaths = new Set();
+  const cssQueue = [];
+  const visitedCssPaths = new Set();
+
+  const collectReferences = (references, sourcePath) => {
+    for (const reference of references) {
+      const normalizedReference = normalizeBundlePath(reference);
+      if (!normalizedReference) continue;
+      referencedPaths.add(normalizedReference);
+      if (!normalizedAssetPaths.has(normalizedReference)) {
+        missingPaths.add(normalizedReference);
+        continue;
+      }
+      if (normalizedReference.toLowerCase().endsWith('.css') && !visitedCssPaths.has(normalizedReference)) {
+        cssQueue.push({ assetPath: normalizedReference, sourcePath });
+      }
+    }
+  };
+
+  collectReferences(extractReferencedAssetPathsFromHtml(entryHtmlSource, { fromPath: normalizedEntryPath }), normalizedEntryPath);
+
+  while (cssQueue.length) {
+    const { assetPath } = cssQueue.shift();
+    if (visitedCssPaths.has(assetPath)) continue;
+    visitedCssPaths.add(assetPath);
+    const cssSource = normalizedAssetSources[assetPath];
+    if (typeof cssSource !== 'string') continue;
+    collectReferences(extractReferencedAssetPathsFromCss(cssSource, { fromPath: assetPath }), assetPath);
+  }
+
+  return {
+    ok: missingPaths.size === 0,
+    missingPaths: [...missingPaths].sort(),
+    referencedPaths: [...referencedPaths].sort(),
+    visitedCssPaths: [...visitedCssPaths].sort(),
+    error: null,
+  };
+}

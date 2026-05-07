@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { detectClickTagInHtml, detectDimensionsInHtml } from '@smx/contracts/src/html5-detector.mjs';
+import { detectClickTagInHtml, detectDimensionsInHtml, validateHtml5Bundle } from '@smx/contracts/src/html5-detector.mjs';
 import { getPool } from '@smx/db/src/pool.mjs';
 import unzipper from 'unzipper';
 import { badRequest, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
@@ -200,6 +200,25 @@ function stripHtml5ArchiveRoot(paths) {
   return valid.map((p) => p.slice(commonRoot.length + 1)).filter(Boolean);
 }
 
+function isHtml5TextAsset(filename) {
+  const lower = String(filename || '').toLowerCase();
+  return (
+    lower.endsWith('.html')
+    || lower.endsWith('.htm')
+    || lower.endsWith('.css')
+    || lower.endsWith('.svg')
+    || lower.endsWith('.txt')
+  );
+}
+
+function buildHtml5BundleAssetSources(entries) {
+  return Object.fromEntries(
+    entries
+      .filter((entry) => isHtml5TextAsset(entry.publishedPath))
+      .map((entry) => [entry.publishedPath, entry.body.toString('utf-8')]),
+  );
+}
+
 async function publishHtml5ArchiveInProcess(env, pool, {
   ingestionId,
   workspaceId,
@@ -260,6 +279,15 @@ async function publishHtml5ArchiveInProcess(env, pool, {
     || entries.find((e) => e.publishedPath.toLowerCase().endsWith('/index.html') || e.publishedPath.toLowerCase() === 'index.html')
     || entries[0];
   if (!entryAsset) throw new Error(`HTML5 archive is missing entry point: ${desiredEntry}`);
+
+  const bundleValidation = validateHtml5Bundle(entryAsset.body.toString('utf-8'), {
+    entryPath: entryAsset.publishedPath,
+    assetPaths: entries.map((entry) => entry.publishedPath),
+    assetSources: buildHtml5BundleAssetSources(entries),
+  });
+  if (!bundleValidation.ok) {
+    throw new Error(`HTML5 archive references missing assets: ${bundleValidation.missingPaths.join(', ')}`);
+  }
 
   const storagePrefix = `workspaces/${workspaceId}/creative-versions/${creativeVersionId}/html5`;
   const publicBase = trimBaseUrl(env.assetsPublicBaseUrl);

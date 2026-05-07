@@ -1104,15 +1104,15 @@ export async function upsertPublishedHtmlArtifact(pool, workspaceId, creativeVer
   const artifactMeta = JSON.stringify(metadata || {});
   const artifactUpdate = await pool.query(
     `UPDATE creative_artifacts
-     SET storage_key = $4,
-         public_url  = $5,
-         mime_type   = $6,
-         size_bytes  = $7,
-         metadata    = $8::jsonb,
+     SET storage_key = $3,
+         public_url  = $4,
+         mime_type   = $5,
+         size_bytes  = $6,
+         metadata    = $7::jsonb,
          updated_at  = NOW()
      WHERE workspace_id = $1 AND creative_version_id = $2 AND kind = 'published_html'
      RETURNING id`,
-    [workspaceId, creativeVersionId, 'published_html', storageKey, publicUrl, mimeType, sizeBytes, artifactMeta],
+    [workspaceId, creativeVersionId, storageKey, publicUrl, mimeType, sizeBytes, artifactMeta],
   );
   if (!artifactUpdate.rowCount) {
     await pool.query(

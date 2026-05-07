@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { detectClickTagInHtml, detectDimensionsInHtml } from './html5-detector.mjs';
+import {
+  detectClickTagInHtml,
+  detectDimensionsInHtml,
+  extractReferencedAssetPathsFromCss,
+  extractReferencedAssetPathsFromHtml,
+  validateHtml5Bundle,
+} from './html5-detector.mjs';
 
 test('returns null for empty input', () => {
   assert.equal(detectClickTagInHtml(''), null);
@@ -74,4 +80,75 @@ test('detects bsClickTAG with single-quoted key', () => {
 test('does NOT match notBsClickTAG (false positive guard)', () => {
   const html = `{notBsClickTAG:"https://shouldnotmatch.com"}`;
   assert.equal(detectClickTagInHtml(html), null);
+});
+
+test('extracts html asset references including srcset and inline styles', () => {
+  const html = `
+    <link rel="stylesheet" href="./styles/app.css?v=1">
+    <img src="./media/frame.png" srcset="./media/frame.png 1x, ./media/frame2x.png 2x">
+    <div style="background-image:url('./media/bg.png')"></div>
+  `;
+  assert.deepEqual(
+    extractReferencedAssetPathsFromHtml(html, { fromPath: 'index.html' }).sort(),
+    [
+      'media/bg.png',
+      'media/frame.png',
+      'media/frame2x.png',
+      'styles/app.css',
+    ],
+  );
+});
+
+test('extracts css asset references including image-set', () => {
+  const css = `
+    .hero {
+      background-image: image-set(url("../media/card.png") 1x, url("../media/card2x.png") 2x);
+    }
+  `;
+  assert.deepEqual(
+    extractReferencedAssetPathsFromCss(css, { fromPath: 'styles/app.css' }).sort(),
+    ['media/card.png', 'media/card2x.png'],
+  );
+});
+
+test('validateHtml5Bundle reports missing nested 2x assets', () => {
+  const html = `
+    <html>
+      <head>
+        <link rel="stylesheet" href="./styles/app.css">
+      </head>
+      <body>
+        <img src="./media/hero.png" srcset="./media/hero.png 1x, ./media/hero2x.png 2x">
+      </body>
+    </html>
+  `;
+  const result = validateHtml5Bundle(html, {
+    entryPath: 'index.html',
+    assetPaths: [
+      'index.html',
+      'styles/app.css',
+      'media/hero.png',
+      'media/card.png',
+    ],
+    assetSources: {
+      'styles/app.css': '.card{background-image:image-set(url("../media/card.png") 1x, url("../media/card2x.png") 2x)}',
+    },
+  });
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.missingPaths, ['media/card2x.png', 'media/hero2x.png']);
+});
+
+test('validateHtml5Bundle passes when all referenced local assets exist', () => {
+  const html = `
+    <html>
+      <head><style>.root{background:url("./media/bg.png")}</style></head>
+      <body><script src="./scripts/app.js"></script></body>
+    </html>
+  `;
+  const result = validateHtml5Bundle(html, {
+    entryPath: 'index.html',
+    assetPaths: ['index.html', 'media/bg.png', 'scripts/app.js'],
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.missingPaths, []);
 });
