@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Input, Kicker, MetricCard, Panel, Select } from '../../system';
+import { Badge, Button, FormField, Input, Kicker, MetricCard, Panel, Select } from '../../system';
 import type { Metric } from './types';
 import {
   AlertTriangleIcon,
@@ -42,34 +42,37 @@ export function CreativeWorkspaceOverview({
 }: Props) {
   return (
     <>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <Select
-            value={selectedWorkspaceId}
-            onChange={(event) => onWorkspaceChange(event.target.value)}
-            className="min-h-[46px] min-w-[220px]"
-            options={[
-              { value: '', label: 'All advertisers' },
-              ...workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name })),
-            ]}
-          />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-wrap items-end gap-3">
+          <FormField label="Advertiser" className="min-w-[220px]">
+            <Select
+              value={selectedWorkspaceId}
+              onChange={(event) => onWorkspaceChange(event.target.value)}
+              className="min-h-[46px]"
+              options={[
+                { value: '', label: 'All advertisers' },
+                ...workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name })),
+              ]}
+            />
+          </FormField>
           <Button
             type="button"
             onClick={onToggleNeedsQa}
             variant="secondary"
-            className={needsQaOnly ? 'min-h-[46px] border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/24 dark:bg-fuchsia-500/10 dark:text-fuchsia-300' : 'min-h-[46px]'}
+            className="min-h-[46px]"
           >
             Needs QA
+            {needsQaOnly ? <Badge tone="brand" size="sm">On</Badge> : null}
           </Button>
-          <label className="relative block min-w-[320px]">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40"><SearchIcon /></span>
+          <FormField label="Search" className="min-w-[320px]">
             <Input
               value={searchTerm}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="Search creative, advertiser, campaign"
-              className="min-h-[46px] pl-10"
+              className="min-h-[46px]"
+              leadingIcon={<SearchIcon />}
             />
-          </label>
+          </FormField>
         </div>
         <Button
           type="button"
@@ -83,21 +86,20 @@ export function CreativeWorkspaceOverview({
 
       <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
         <div>
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-700 dark:border-fuchsia-500/15 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
-            Creatives
-            <span className="h-1 w-1 rounded-full bg-current opacity-60" />
-            Creative QA workspace
+          <div className="mb-4 flex items-center gap-2">
+            <Badge tone="brand" variant="soft">Creatives</Badge>
+            <Badge tone="neutral" variant="outline">Creative QA workspace</Badge>
           </div>
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">Creative approval without trafficking gaps</h1>
-          <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600 dark:text-white/62">Review specs, preview assets, catch blockers and approve creatives from one dense operational view with the same CM360-style workspace pattern.</p>
+          <h1 className="text-4xl font-semibold tracking-tight text-text-primary md:text-5xl">Creative approval without trafficking gaps</h1>
+          <p className="mt-3 max-w-3xl text-lg leading-8 text-text-muted">Review specs, preview assets, catch blockers and approve creatives from one dense operational view with the same CM360-style workspace pattern.</p>
         </div>
         <Panel className="p-5">
           <Kicker>Recommended focus</Kicker>
-          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
-            <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
+          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] p-4">
+            <AlertTriangleIcon className="text-[color:var(--dusk-status-warning-fg)]" />
             <div>
-              <p className="font-semibold text-amber-800 dark:text-amber-100">{pendingReviewCount} creatives need QA review</p>
-              <p className="mt-1 text-sm text-amber-700/72 dark:text-amber-100/62">Review clicktags, specs, missing assets and rejected creatives before launch or trafficking handoff.</p>
+              <p className="font-semibold text-[color:var(--dusk-status-warning-fg)]">{pendingReviewCount} creatives need QA review</p>
+              <p className="mt-1 text-sm text-[color:var(--dusk-status-warning-fg)]/80">Review clicktags, specs, missing assets and rejected creatives before launch or trafficking handoff.</p>
             </div>
           </div>
         </Panel>
