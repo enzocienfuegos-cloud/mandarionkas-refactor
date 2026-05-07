@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { getSavedView } from '../shared/saved-views';
 import { switchWorkspace } from '../shared/workspaces';
 import {
   Button,
@@ -9,6 +10,7 @@ import {
   FilterBar,
   PageHeader,
   Panel,
+  SavedViewsMenu,
   useConfirm,
   useToast,
 } from '../system';
@@ -27,8 +29,9 @@ export default function CampaignList() {
   const confirm = useConfirm();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const searchQueryParam = searchParams.get('search') ?? '';
+  const currentViewId = searchParams.get('view');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const filters = useCampaignFilters(searchQueryParam);
   const {
@@ -41,7 +44,47 @@ export default function CampaignList() {
     error,
     reload: load,
   } = useCampaignData();
-  useEffect(() => { filters.setSearch(searchQueryParam); }, [filters, searchQueryParam]);
+  useEffect(() => { filters.setSearch(searchQueryParam); }, [filters.setSearch, searchQueryParam]);
+  useEffect(() => {
+    if (!currentViewId) return;
+    let cancelled = false;
+    void getSavedView(currentViewId)
+      .then((view) => {
+        if (cancelled) return;
+        if (!view || view.surface !== 'campaigns') {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+          return;
+        }
+        const nextFilters = view.filters ?? {};
+        filters.setSelectedClientIds(nextFilters.clientId ? [String(nextFilters.clientId)] : []);
+        filters.setSearch(String(nextFilters.search ?? ''));
+        filters.setStatusFilter((['all', 'live', 'limited', 'blocked', 'ready', 'draft'].includes(String(nextFilters.status))
+          ? nextFilters.status
+          : 'all') as 'all' | 'live' | 'limited' | 'blocked' | 'ready' | 'draft');
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentViewId,
+    filters.setSearch,
+    filters.setSelectedClientIds,
+    filters.setStatusFilter,
+    setSearchParams,
+  ]);
   const {
     campaignRows,
     liveCampaigns,
@@ -120,6 +163,34 @@ export default function CampaignList() {
             title="Campaigns"
             meta={`${campaignRows.length} campaigns · ${blockedOrLimited} blocked or limited · delivery workspace`}
             primaryAction={<Link to="/campaigns/new"><Button variant="primary">New campaign</Button></Link>}
+            secondaryActions={(
+              <SavedViewsMenu
+                surface="campaigns"
+                currentFilters={{
+                  clientId: filters.selectedClientIds[0] ?? '',
+                  search: filters.search,
+                  status: filters.statusFilter,
+                }}
+                currentViewId={currentViewId}
+                onApplyView={(view) => {
+                  const nextSearch = String(view.filters?.search ?? '');
+                  setSearchParams((params) => {
+                    const next = new URLSearchParams(params);
+                    next.set('view', view.id);
+                    if (nextSearch) next.set('search', nextSearch);
+                    else next.delete('search');
+                    return next;
+                  });
+                }}
+                onClearView={() => {
+                  setSearchParams((params) => {
+                    const next = new URLSearchParams(params);
+                    next.delete('view');
+                    return next;
+                  });
+                }}
+              />
+            )}
             alert={(
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-start gap-3">

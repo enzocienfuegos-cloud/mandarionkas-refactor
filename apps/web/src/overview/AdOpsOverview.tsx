@@ -1,6 +1,8 @@
 import React from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { type ThemeMode } from '../shared/theme';
+import { getSavedView } from '../shared/saved-views';
 import {
   Badge,
   Button,
@@ -11,6 +13,7 @@ import {
   FunnelChart,
   PageHeader,
   Panel,
+  SavedViewsMenu,
   TrendChart,
 } from '../system';
 import { OverviewSidebar, WorkQueueTable } from './overview.components';
@@ -26,7 +29,9 @@ import { fmtCurrency, fmtNum, fmtPctCompact, toNumber } from './overview.utils';
 export default function AdOpsOverview() {
   useOutletContext<{ theme: ThemeMode; toggleTheme: () => void }>();
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const filters = useOverviewFilters();
+  const currentViewId = searchParams.get('view');
   const {
     campaigns,
     tags,
@@ -110,6 +115,47 @@ export default function AdOpsOverview() {
     { id: 'clicks', label: 'Clicks', value: clicks, format: fmtNum },
   ].filter((stage, index, all) => stage.value >= 0 && (index === 0 || stage.value <= all[index - 1].value));
 
+  useEffect(() => {
+    if (!currentViewId) return;
+    let cancelled = false;
+    void getSavedView(currentViewId)
+      .then((view) => {
+        if (cancelled) return;
+        if (!view || view.surface !== 'overview') {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+          return;
+        }
+        const nextFilters = view.filters ?? {};
+        filters.setDateRange(([7, 30, 90].includes(Number(nextFilters.dateRange))
+          ? Number(nextFilters.dateRange)
+          : 7) as 7 | 30 | 90);
+        filters.setCampaignId(String(nextFilters.campaignId ?? ''));
+        filters.setOverviewSearch(String(nextFilters.overviewSearch ?? ''));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentViewId,
+    filters.setCampaignId,
+    filters.setDateRange,
+    filters.setOverviewSearch,
+    setSearchParams,
+  ]);
+
   if (loading) {
     return <CenteredSpinner label="Loading overview…" />;
   }
@@ -151,6 +197,31 @@ export default function AdOpsOverview() {
             </div>
           ) : null
         }
+        secondaryActions={(
+          <SavedViewsMenu
+            surface="overview"
+            currentFilters={{
+              dateRange: filters.dateRange,
+              campaignId: filters.campaignId,
+              overviewSearch: filters.overviewSearch,
+            }}
+            currentViewId={currentViewId}
+            onApplyView={(view) => {
+              setSearchParams((params) => {
+                const next = new URLSearchParams(params);
+                next.set('view', view.id);
+                return next;
+              });
+            }}
+            onClearView={() => {
+              setSearchParams((params) => {
+                const next = new URLSearchParams(params);
+                next.delete('view');
+                return next;
+              });
+            }}
+          />
+        )}
       />
 
       <FilterBar

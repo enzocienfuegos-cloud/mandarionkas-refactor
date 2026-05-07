@@ -71,6 +71,8 @@ export { PageHeader } from './primitives/PageHeader';
 export type { PageHeaderProps } from './primitives/PageHeader';
 export { Stepper } from './primitives/Stepper';
 export type { StepperProps, Step, StepStatus } from './primitives/Stepper';
+export { SavedViewsMenu } from './saved-views/SavedViewsMenu';
+export type { SavedViewsMenuProps } from './saved-views/SavedViewsMenu';
 
 // ─── Metrics ──────────────────────────────────────────────────────────────
 export { ConfigurableMetricStrip } from './metrics/ConfigurableMetricStrip';

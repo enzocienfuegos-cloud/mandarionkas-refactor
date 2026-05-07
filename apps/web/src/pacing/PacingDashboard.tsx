@@ -1,5 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button, CenteredSpinner, ConfigurableMetricStrip, FilterBar, Kicker, PageHeader, Panel, TrendChart } from '../system';
+import { SavedViewsMenu } from '../system';
+import { getSavedView } from '../shared/saved-views';
 import { CampaignDetailDrawer } from './pacing-view/CampaignDetailDrawer';
 import { PacingTable } from './pacing-view/PacingTable';
 import type { PacingCampaign } from './pacing-view/types';
@@ -10,6 +13,7 @@ import { pacingMetricScope } from './pacing.metrics';
 
 export default function PacingView() {
   const filters = usePacingFilters();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data, alerts, loading, error, reload: load } = usePacingData();
   const {
     rows,
@@ -23,6 +27,62 @@ export default function PacingView() {
   } = usePacingViewModel({ data, filters });
   const [selectedCampaign, setSelectedCampaign] = useState<PacingCampaign | null>(null);
   const { focusBreakdown } = usePacingBreakdown(focusCampaign?.id);
+  const currentViewId = searchParams.get('view');
+
+  const currentFilters = useMemo(() => ({
+    search: filters.search,
+    advertiserFilter: filters.advertiserFilter,
+    dateRangeFilter: filters.dateRangeFilter,
+    statusFilter: filters.statusFilter,
+    exceptionsOnly: filters.exceptionsOnly,
+  }), [filters.advertiserFilter, filters.dateRangeFilter, filters.exceptionsOnly, filters.search, filters.statusFilter]);
+
+  useEffect(() => {
+    if (!currentViewId) return;
+    let cancelled = false;
+    void getSavedView(currentViewId)
+      .then((view) => {
+        if (cancelled) return;
+        if (!view || view.surface !== 'pacing') {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+          return;
+        }
+        const nextFilters = view.filters ?? {};
+        filters.setSearch(String(nextFilters.search ?? ''));
+        filters.setAdvertiserFilter(String(nextFilters.advertiserFilter ?? ''));
+        filters.setDateRangeFilter((['7d', '30d', '90d'].includes(String(nextFilters.dateRangeFilter))
+          ? nextFilters.dateRangeFilter
+          : '30d') as '7d' | '30d' | '90d');
+        filters.setStatusFilter((['all', 'exceptions', 'on_pace', 'paused'].includes(String(nextFilters.statusFilter))
+          ? nextFilters.statusFilter
+          : 'all') as 'all' | 'exceptions' | 'on_pace' | 'paused');
+        filters.setExceptionsOnly(Boolean(nextFilters.exceptionsOnly));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentViewId,
+    filters.setAdvertiserFilter,
+    filters.setDateRangeFilter,
+    filters.setExceptionsOnly,
+    filters.setSearch,
+    filters.setStatusFilter,
+    setSearchParams,
+  ]);
 
   const pacingTrendData = useMemo(() => {
     if (!focusBreakdown.length) return [];
@@ -62,6 +122,27 @@ export default function PacingView() {
         title="Pacing"
         meta={`${rows.length} campaigns · ${exceptionsCount} exceptions · live delivery workspace`}
         primaryAction={<Button type="button" onClick={load} variant="primary">Review pacing</Button>}
+        secondaryActions={(
+          <SavedViewsMenu
+            surface="pacing"
+            currentFilters={currentFilters}
+            currentViewId={currentViewId}
+            onApplyView={(view) => {
+              setSearchParams((params) => {
+                const next = new URLSearchParams(params);
+                next.set('view', view.id);
+                return next;
+              });
+            }}
+            onClearView={() => {
+              setSearchParams((params) => {
+                const next = new URLSearchParams(params);
+                next.delete('view');
+                return next;
+              });
+            }}
+          />
+        )}
         alert={(
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-start gap-3">

@@ -3,6 +3,7 @@ import { Button, FilterBar } from '../../../system';
 import { Settings } from '../../../system/icons';
 
 export interface ReportingTopBarProps {
+  secondaryAction?: React.ReactNode;
   advertiserFilter: string;
   advertiserOptions: Array<{ value: string; label: string }>;
   onAdvertiserChange: (value: string) => void;
@@ -31,6 +32,7 @@ const STATUS_OPTIONS = [
 ];
 
 export function ReportingTopBar({
+  secondaryAction,
   advertiserFilter,
   advertiserOptions,
   onAdvertiserChange,
@@ -86,16 +88,19 @@ export function ReportingTopBar({
         onResetAll={onResetFilters}
       />
 
-      {onCustomizeWidgets ? (
-        <Button
-          type="button"
-          variant="secondary"
-          leadingIcon={<Settings />}
-          onClick={onCustomizeWidgets}
-        >
-          Customize widgets
-        </Button>
-      ) : null}
+      <div className="flex items-center gap-3">
+        {secondaryAction}
+        {onCustomizeWidgets ? (
+          <Button
+            type="button"
+            variant="secondary"
+            leadingIcon={<Settings />}
+            onClick={onCustomizeWidgets}
+          >
+            Customize widgets
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }

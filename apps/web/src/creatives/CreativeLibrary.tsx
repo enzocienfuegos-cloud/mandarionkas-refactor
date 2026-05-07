@@ -57,13 +57,15 @@ import {
   statusBadge,
 } from './creative-library/ui';
 import type { WorkspaceOption } from '../shared/workspaces';
-import { Button, CenteredSpinner, Input, Kicker, Panel, useConfirm } from '../system';
+import { getSavedView } from '../shared/saved-views';
+import { Button, CenteredSpinner, Input, Kicker, Panel, SavedViewsMenu, useConfirm } from '../system';
 
 export default function CreativesView() {
   const navigate = useNavigate();
   const confirm = useConfirm();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const searchQueryParam = searchParams.get('search') ?? '';
+  const currentViewId = searchParams.get('view');
   const [bulkClickUrl, setBulkClickUrl] = useState('');
   const [bulkAssignTagId, setBulkAssignTagId] = useState('');
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
@@ -143,7 +145,53 @@ export default function CreativesView() {
 
   useEffect(() => {
     filters.setSearchTerm(searchQueryParam);
-  }, [filters, searchQueryParam]);
+  }, [filters.setSearchTerm, searchQueryParam]);
+  useEffect(() => {
+    if (!currentViewId) return;
+    let cancelled = false;
+    void getSavedView(currentViewId)
+      .then((view) => {
+        if (cancelled) return;
+        if (!view || view.surface !== 'creatives') {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+          return;
+        }
+        const nextFilters = view.filters ?? {};
+        filters.setSelectedClientIds(nextFilters.selectedWorkspaceId ? [String(nextFilters.selectedWorkspaceId)] : []);
+        filters.setStatusFilter((['all', 'active', 'inactive', 'pending_review', 'rejected'].includes(String(nextFilters.statusFilter))
+          ? nextFilters.statusFilter
+          : 'all') as 'all' | 'active' | 'inactive' | 'pending_review' | 'rejected');
+        filters.setFormatFilter((['all', 'video', 'display', 'native'].includes(String(nextFilters.formatFilter))
+          ? nextFilters.formatFilter
+          : 'all') as 'all' | 'video' | 'display' | 'native');
+        filters.setSizeFilter(String(nextFilters.sizeFilter ?? 'all'));
+        filters.setSearchTerm(String(nextFilters.searchTerm ?? ''));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentViewId,
+    filters.setFormatFilter,
+    filters.setSearchTerm,
+    filters.setSelectedClientIds,
+    filters.setSizeFilter,
+    filters.setStatusFilter,
+    setSearchParams,
+  ]);
   const {
     getCreativeOperationalState,
     availableSizeOptions,
@@ -250,6 +298,36 @@ export default function CreativesView() {
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
       <CreativeWorkspaceOverview
+        secondaryActions={(
+          <SavedViewsMenu
+            surface="creatives"
+            currentFilters={{
+              selectedWorkspaceId: filters.selectedClientIds[0] ?? '',
+              statusFilter: filters.statusFilter,
+              formatFilter: filters.formatFilter,
+              sizeFilter: filters.sizeFilter,
+              searchTerm: filters.searchTerm,
+            }}
+            currentViewId={currentViewId}
+            onApplyView={(view) => {
+              const nextSearch = String(view.filters?.searchTerm ?? '');
+              setSearchParams((params) => {
+                const next = new URLSearchParams(params);
+                next.set('view', view.id);
+                if (nextSearch) next.set('search', nextSearch);
+                else next.delete('search');
+                return next;
+              });
+            }}
+            onClearView={() => {
+              setSearchParams((params) => {
+                const next = new URLSearchParams(params);
+                next.delete('view');
+                return next;
+              });
+            }}
+          />
+        )}
         workspaces={workspaces}
         selectedWorkspaceId={filters.selectedClientIds[0] ?? ''}
         onWorkspaceChange={(workspaceId) => filters.setSelectedClientIds(workspaceId ? [workspaceId] : [])}

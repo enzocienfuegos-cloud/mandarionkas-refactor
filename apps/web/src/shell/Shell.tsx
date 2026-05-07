@@ -24,6 +24,13 @@ export default function Shell() {
     () => loadPreference('dusk:sidebar-collapsed') === '1',
   );
 
+  React.useEffect(() => {
+    if (!session.user) return;
+    void theme.sync().then(() => {
+      setSidebarCollapsed(loadPreference('dusk:sidebar-collapsed') === '1');
+    });
+  }, [session.user, theme]);
+
   const activeItem = React.useMemo(() => resolveActiveItem(location.pathname), [location.pathname]);
 
   if (session.loading) {

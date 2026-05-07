@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from 'react';
-import { Button, CenteredSpinner, Panel } from '../../system';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { getSavedView } from '../../shared/saved-views';
+import { Button, CenteredSpinner, Panel, SavedViewsMenu } from '../../system';
 import { reportingModeConfig } from './reporting.config';
 import type { ReportingMode } from './reporting.types';
 import { KpiGrid } from './components/KpiGrid';
@@ -11,11 +13,13 @@ import { WidgetRenderer } from './components/WidgetRenderer';
 import { useReportingData } from './hooks/useReportingData';
 
 export function ReportingPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [mode, setMode] = useState<ReportingMode>('all');
   const [advertiserFilter, setAdvertiserFilter] = useState('');
   const [dateRangeFilter, setDateRangeFilter] = useState<'7d' | '30d' | '90d' | 'custom'>('30d');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'archived'>('all');
   const [search, setSearch] = useState('');
+  const currentViewId = searchParams.get('view');
   const config = reportingModeConfig[mode];
   const {
     advertiserOptions,
@@ -47,9 +51,77 @@ export function ReportingPage() {
     return 'Last 30 days';
   }, [dateRangeFilter]);
 
+  useEffect(() => {
+    if (!currentViewId) return;
+    let cancelled = false;
+    void getSavedView(currentViewId)
+      .then((view) => {
+        if (cancelled) return;
+        if (!view || view.surface !== 'reporting') {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+          return;
+        }
+        const nextFilters = view.filters ?? {};
+        setMode((['all', 'display', 'video', 'identity'].includes(String(nextFilters.mode))
+          ? nextFilters.mode
+          : 'all') as ReportingMode);
+        setAdvertiserFilter(String(nextFilters.advertiserFilter ?? ''));
+        setDateRangeFilter((['7d', '30d', '90d', 'custom'].includes(String(nextFilters.dateRangeFilter))
+          ? nextFilters.dateRangeFilter
+          : '30d') as '7d' | '30d' | '90d' | 'custom');
+        setStatusFilter((['all', 'active', 'paused', 'archived'].includes(String(nextFilters.statusFilter))
+          ? nextFilters.statusFilter
+          : 'all') as 'all' | 'active' | 'paused' | 'archived');
+        setSearch(String(nextFilters.search ?? ''));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentViewId, setSearchParams]);
+
   return (
     <ReportingShell>
       <ReportingTopBar
+        secondaryAction={(
+          <SavedViewsMenu
+            surface="reporting"
+            currentFilters={{
+              mode,
+              advertiserFilter,
+              dateRangeFilter,
+              statusFilter,
+              search,
+            }}
+            currentViewId={currentViewId}
+            onApplyView={(view) => {
+              setSearchParams((params) => {
+                const next = new URLSearchParams(params);
+                next.set('view', view.id);
+                return next;
+              });
+            }}
+            onClearView={() => {
+              setSearchParams((params) => {
+                const next = new URLSearchParams(params);
+                next.delete('view');
+                return next;
+              });
+            }}
+          />
+        )}
         advertiserFilter={advertiserFilter}
         advertiserOptions={advertiserOptions}
         onAdvertiserChange={setAdvertiserFilter}

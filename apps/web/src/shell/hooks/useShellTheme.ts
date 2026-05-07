@@ -1,5 +1,5 @@
 import React from 'react';
-import { loadPreference, savePreference } from '../../shared/preferences';
+import { loadPreference, savePreference, syncPreferencesFromServer } from '../../shared/preferences';
 import {
   THEME_PREFERENCE_KEY,
   applyTheme,
@@ -28,5 +28,17 @@ export function useShellTheme() {
     setTheme((current) => (current === 'dark' ? 'light' : 'dark'));
   }, []);
 
-  return { theme, toggle };
+  const reload = React.useCallback(() => {
+    const preferredTheme = loadPreference<ThemeMode>(THEME_PREFERENCE_KEY);
+    if (preferredTheme === 'dark' || preferredTheme === 'light') {
+      setTheme(preferredTheme);
+    }
+  }, []);
+
+  const sync = React.useCallback(async () => {
+    await syncPreferencesFromServer();
+    reload();
+  }, [reload]);
+
+  return { theme, toggle, reload, sync };
 }

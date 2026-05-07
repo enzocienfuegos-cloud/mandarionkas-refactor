@@ -1,5 +1,7 @@
-import React, { FormEvent, useMemo } from 'react';
-import { Button, CenteredSpinner, ConfigurableMetricStrip, FilterBar, Heatmap, Input, Kicker, PageHeader, Panel, TrendChart } from '../system';
+import React, { FormEvent, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Button, CenteredSpinner, ConfigurableMetricStrip, FilterBar, Heatmap, Input, Kicker, PageHeader, Panel, SavedViewsMenu, TrendChart } from '../system';
+import { getSavedView } from '../shared/saved-views';
 import { DiscrepancyTable } from './discrepancy-view/DiscrepancyTable';
 import { formatNumber } from './discrepancy-view/utils';
 import { AlertTriangleIcon } from './discrepancy-view/components';
@@ -7,7 +9,9 @@ import { useDiscrepancyData, useDiscrepancyFilters, useDiscrepancyViewModel } fr
 import { discrepancyMetricScope } from './discrepancy.metrics';
 
 export default function DiscrepanciesView() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const filtersState = useDiscrepancyFilters();
+  const currentViewId = searchParams.get('view');
   const {
     discrepancies,
     summary,
@@ -71,6 +75,59 @@ export default function DiscrepanciesView() {
     () => [...new Set(discrepancies.map((item) => item.source || 'Publisher'))].sort(),
     [discrepancies],
   );
+  const currentFilters = useMemo(() => ({
+    search: filtersState.search,
+    dateFrom: filtersState.filters.dateFrom,
+    dateTo: filtersState.filters.dateTo,
+    severity: filtersState.filters.severity,
+    source: filtersState.filters.source,
+  }), [
+    filtersState.filters.dateFrom,
+    filtersState.filters.dateTo,
+    filtersState.filters.severity,
+    filtersState.filters.source,
+    filtersState.search,
+  ]);
+
+  useEffect(() => {
+    if (!currentViewId) return;
+    let cancelled = false;
+    void getSavedView(currentViewId)
+      .then((view) => {
+        if (cancelled) return;
+        if (!view || view.surface !== 'discrepancies') {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+          return;
+        }
+        const nextFilters = view.filters ?? {};
+        filtersState.setSearch(String(nextFilters.search ?? ''));
+        filtersState.setFilters((current) => ({
+          ...current,
+          dateFrom: String(nextFilters.dateFrom ?? current.dateFrom),
+          dateTo: String(nextFilters.dateTo ?? current.dateTo),
+          severity: ['all', 'critical', 'warning', 'ok'].includes(String(nextFilters.severity))
+            ? String(nextFilters.severity)
+            : 'all',
+          source: String(nextFilters.source ?? 'all'),
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentViewId, filtersState.setFilters, filtersState.setSearch, setSearchParams]);
 
   if (loading) {
     return <CenteredSpinner label="Loading discrepancies workspace…" />;
@@ -96,6 +153,27 @@ export default function DiscrepanciesView() {
         title="Discrepancies"
         meta={`${tableRows.length} reports · ${breaches} threshold breaches · invoice validation queue`}
         primaryAction={<Button type="button" onClick={load} variant="primary">Investigate gap</Button>}
+        secondaryActions={(
+          <SavedViewsMenu
+            surface="discrepancies"
+            currentFilters={currentFilters}
+            currentViewId={currentViewId}
+            onApplyView={(view) => {
+              setSearchParams((params) => {
+                const next = new URLSearchParams(params);
+                next.set('view', view.id);
+                return next;
+              });
+            }}
+            onClearView={() => {
+              setSearchParams((params) => {
+                const next = new URLSearchParams(params);
+                next.delete('view');
+                return next;
+              });
+            }}
+          />
+        )}
         alert={(
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-start gap-3">

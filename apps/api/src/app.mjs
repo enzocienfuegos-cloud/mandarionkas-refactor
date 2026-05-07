@@ -4,6 +4,8 @@ import { handleAuditRoutes } from './modules/audit/routes.mjs';
 import { handleWorkspaceRoutes } from './modules/workspaces/routes.mjs';
 import { handleProjectRoutes } from './modules/projects/routes.mjs';
 import { handleAssetRoutes } from './modules/assets/routes.mjs';
+import { handlePreferenceRoutes } from './modules/preferences/routes.mjs';
+import { handleSavedViewRoutes } from './modules/saved-views/routes.mjs';
 import { handleCampaignRoutes } from './modules/adserver/campaigns/routes.mjs';
 import { handleApiKeyRoutes } from './modules/adserver/api-keys/routes.mjs';
 import { handleCreativeRoutes } from './modules/adserver/creatives/routes.mjs';
@@ -58,6 +60,8 @@ function buildRouteHandlers(buffer) {
     handleWorkspaceRoutes,
     handleProjectRoutes,
     handleAssetRoutes,
+    handlePreferenceRoutes,
+    handleSavedViewRoutes,
     handleCampaignRoutes,
     handleApiKeyRoutes,
     handleCreativeRoutes,

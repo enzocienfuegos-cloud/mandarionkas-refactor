@@ -11,6 +11,7 @@ type WorkspaceOptionLike = {
 };
 
 type Props = {
+  secondaryActions?: React.ReactNode;
   workspaces: WorkspaceOptionLike[];
   selectedWorkspaceId: string;
   onWorkspaceChange: (workspaceId: string) => void;
@@ -36,6 +37,7 @@ type Props = {
 };
 
 export function CreativeWorkspaceOverview({
+  secondaryActions,
   workspaces,
   selectedWorkspaceId,
   onWorkspaceChange,
@@ -68,6 +70,7 @@ export function CreativeWorkspaceOverview({
             Upload creative
           </Button>
         )}
+        secondaryActions={secondaryActions}
         alert={(
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-start gap-3">

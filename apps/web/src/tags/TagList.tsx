@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Badge,
@@ -12,10 +12,12 @@ import {
   Kicker,
   PageHeader,
   Panel,
+  SavedViewsMenu,
   useConfirm,
   useToast,
   type Density,
 } from '../system';
+import { getSavedView } from '../shared/saved-views';
 import { useTagColumns } from './tag-list/columns';
 import { TagCreateModal } from './tag-list/TagCreateModal';
 import { type IconProps } from './tag-list/types';
@@ -70,6 +72,7 @@ export default function TagList() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const currentViewId = searchParams.get('view');
   const {
     clients,
     selectedClientId,
@@ -114,6 +117,50 @@ export default function TagList() {
     onCreatedTag: (tagId) => navigate(`/tags/${tagId}`),
   });
 
+  useEffect(() => {
+    if (!currentViewId) return;
+    let cancelled = false;
+    void getSavedView(currentViewId)
+      .then((view) => {
+        if (cancelled) return;
+        if (!view || view.surface !== 'tags') {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+          return;
+        }
+        const nextFilters = view.filters ?? {};
+        setSelectedClientId(String(nextFilters.selectedClientId ?? ''));
+        setTagSearch(String(nextFilters.tagSearch ?? ''));
+        const nextStatus = ['all', 'active', 'paused', 'draft', 'archived', 'qa'].includes(String(nextFilters.statusFilter))
+          ? String(nextFilters.statusFilter)
+          : 'all';
+        setStatusFilter(nextStatus as 'all' | 'active' | 'paused' | 'draft' | 'archived' | 'qa');
+        setNeedsQaOnly(Boolean(nextFilters.needsQaOnly));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSearchParams((params) => {
+            const next = new URLSearchParams(params);
+            next.delete('view');
+            return next;
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentViewId,
+    setNeedsQaOnly,
+    setSearchParams,
+    setSelectedClientId,
+    setStatusFilter,
+    setTagSearch,
+  ]);
+
   if (loading) {
     return <CenteredSpinner label="Loading tags workspace…" />;
   }
@@ -142,6 +189,32 @@ export default function TagList() {
         title="Tags"
         meta={`${totalTags} tags · ${needsAttentionCount} need QA · implementation workspace`}
         primaryAction={<Button type="button" onClick={openCreate} variant="primary">Generate tag</Button>}
+        secondaryActions={(
+          <SavedViewsMenu
+            surface="tags"
+            currentFilters={{
+              selectedClientId,
+              tagSearch,
+              statusFilter,
+              needsQaOnly,
+            }}
+            currentViewId={currentViewId}
+            onApplyView={(view) => {
+              setSearchParams((params) => {
+                const next = new URLSearchParams(params);
+                next.set('view', view.id);
+                return next;
+              });
+            }}
+            onClearView={() => {
+              setSearchParams((params) => {
+                const next = new URLSearchParams(params);
+                next.delete('view');
+                return next;
+              });
+            }}
+          />
+        )}
         alert={(
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-start gap-3">
