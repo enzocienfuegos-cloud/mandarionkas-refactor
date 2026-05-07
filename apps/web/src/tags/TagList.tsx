@@ -4,16 +4,13 @@ import {
   Badge,
   Button,
   CenteredSpinner,
+  ConfigurableMetricStrip,
   DataTable,
   EmptyState,
   FilterBar,
-  FormField,
-  Input,
   Kicker,
-  MetricCard,
   PageHeader,
   Panel,
-  Select,
   useConfirm,
   useToast,
 } from '../system';
@@ -21,6 +18,7 @@ import { useTagColumns } from './tag-list/columns';
 import { TagCreateModal } from './tag-list/TagCreateModal';
 import { type IconProps } from './tag-list/types';
 import { useTagListWorkspace } from './tag-list/useTagListWorkspace';
+import { tagMetricScope } from './tag.metrics';
 import {
   classNames,
 } from './tag-list/utils';
@@ -90,11 +88,11 @@ export default function TagList() {
     setCreateForm,
     filteredTags,
     activeTags,
+    pausedTags,
     draftTags,
     archivedTags,
     totalTags,
     needsAttentionCount,
-    tagMetrics,
     selectedKeySet,
     load,
     openCreate,
@@ -199,27 +197,17 @@ export default function TagList() {
         }}
       />
 
-      <div className="grid gap-5 xl:grid-cols-4">
-        {tagMetrics.map((metric) => (
-          <MetricCard
-            key={metric.id}
-            label={metric.label}
-            value={metric.value}
-            delta={metric.delta}
-            trend={metric.direction}
-            context={metric.helper}
-            series={metric.series}
-            tone={metric.tone === 'fuchsia' ? 'brand' : metric.tone === 'emerald' ? 'success' : metric.tone === 'amber' ? 'warning' : metric.tone === 'rose' ? 'critical' : metric.tone === 'sky' ? 'info' : 'neutral'}
-            icon={
-              metric.id === 'tag-health'
-                ? <TagsIcon />
-                : metric.id === 'ready-tags'
-                  ? <TableIcon />
-                  : <AlertTriangleIcon />
-            }
-          />
-        ))}
-      </div>
+      <ConfigurableMetricStrip
+        scope={tagMetricScope}
+        data={{
+          totalTags,
+          activeTags,
+          readyTags: activeTags + pausedTags + archivedTags,
+          draftTags,
+          needsAttentionCount,
+          healthyRate: totalTags ? Math.round((activeTags / totalTags) * 100) : 0,
+        }}
+      />
 
       {filteredTags.length === 0 ? (
         <EmptyState
@@ -272,11 +260,11 @@ export default function TagList() {
             <DataTable
               columns={tagColumns}
               data={filteredTags}
-              rowKey={(tag) => tag.id}
+              rowKey={(tag: (typeof filteredTags)[number]) => tag.id}
               selectable
               density="comfortable"
               selectedKeys={selectedKeySet}
-              onSelectionChange={(keys) => setSelectedTagIds(Array.from(keys))}
+              onSelectionChange={(keys: Set<string>) => setSelectedTagIds(Array.from(keys))}
               renderBulkActions={() => (
                 <>
                   <Button

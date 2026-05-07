@@ -9,7 +9,6 @@ import type {
   BreakdownItem,
   Campaign,
   DateRange,
-  MetricCardData,
   QuickNavRow,
   SegmentBreakdownItem,
   SystemHealthRow,
@@ -268,58 +267,6 @@ export function useOverviewDashboardModel({
   overviewSearch: string;
   selectedWorkspaceName: string;
 }) {
-  const metricCards = useMemo<MetricCardData[]>(() => {
-    const spendDelta = computeDelta(toNumber(currentStats.total_spend), toNumber(previousStats.total_spend));
-    const impressionsDelta = computeDelta(toNumber(currentStats.total_impressions), toNumber(previousStats.total_impressions));
-    const healthyCampaigns = campaignBreakdown.filter((item) => toNumber(item.impressions) > 0 && toNumber(item.ctr) >= 0.5).length;
-    const totalCampaigns = Math.max(campaignBreakdown.length || campaigns.length, 1);
-    const deliveryHealth = Math.round((healthyCampaigns / totalCampaigns) * 100);
-    const discrepancyRisk = attentionItems.filter((item) => item.severity === 'critical' || item.severity === 'warning').length;
-    const safeTimeline = timeline.length ? [...timeline].reverse() : [];
-    return [
-      {
-        id: 'spend',
-        label: 'Delivery health',
-        value: `${deliveryHealth}%`,
-        icon: 'viewability',
-        tone: 'success',
-        series: safeTimeline.map((point) => toNumber(point.viewability_rate)),
-        context: `${healthyCampaigns} campaigns currently healthy`,
-      },
-      {
-        id: 'impressions',
-        label: 'On-pace budget',
-        value: fmtCurrency(toNumber(currentStats.total_spend)),
-        delta: spendDelta.label,
-        direction: spendDelta.direction,
-        icon: 'spend',
-        tone: 'info',
-        series: safeTimeline.map((point) => toNumber(point.spend)),
-        context: 'Tracked across live campaign budgets',
-      },
-      {
-        id: 'ctr',
-        label: 'Tag events',
-        value: fmtNum(toNumber(currentStats.total_impressions)),
-        delta: impressionsDelta.label,
-        direction: impressionsDelta.direction,
-        icon: 'impressions',
-        tone: 'brand',
-        series: safeTimeline.map((point) => toNumber(point.impressions)),
-        context: 'Signals captured in the selected range',
-      },
-      {
-        id: 'engagements',
-        label: 'Discrepancy risk',
-        value: `${discrepancyRisk}`,
-        icon: 'engagements',
-        tone: 'critical',
-        series: safeTimeline.map((point) => toNumber(point.clicks)),
-        context: `${discrepancyRisk} items require review`,
-      },
-    ];
-  }, [attentionItems, campaignBreakdown, campaigns.length, currentStats, previousStats, timeline]);
-
   const workspacePerformanceData = useMemo(() => {
     return [...timeline]
       .slice()
@@ -402,9 +349,10 @@ export function useOverviewDashboardModel({
     const underperformingSegments = [...normalized].reverse().slice(0, 3);
 
     if (!topSegments.length) {
+      const emptyDelta = computeDelta(0, 0).label;
       return {
-        topSegments: [{ id: 'top-empty', name: 'No segment data yet', ctr: '0.0%', delta: '0%', direction: 'flat' as const, score: 8 }],
-        underperformingSegments: [{ id: 'under-empty', name: 'No segment data yet', ctr: '0.0%', delta: '0%', direction: 'flat' as const, score: 8 }],
+        topSegments: [{ id: 'top-empty', name: 'No segment data yet', ctr: '0.0%', delta: emptyDelta, direction: 'flat' as const, score: 8 }],
+        underperformingSegments: [{ id: 'under-empty', name: 'No segment data yet', ctr: '0.0%', delta: emptyDelta, direction: 'flat' as const, score: 8 }],
       };
     }
 
@@ -439,7 +387,6 @@ export function useOverviewDashboardModel({
   const issueCount = attentionItems.filter((item) => item.severity !== 'healthy').length;
 
   return {
-    metricCards,
     workspacePerformanceData,
     topCampaignRows,
     quickNavRows,

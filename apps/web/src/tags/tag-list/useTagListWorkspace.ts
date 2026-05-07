@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../../shared/workspaces';
-import { EMPTY_CREATE_FORM, type CreateTagForm, type Metric, type Tag } from './types';
+import { EMPTY_CREATE_FORM, type CreateTagForm, type Tag } from './types';
 
 type ConfirmFn = (options: any) => Promise<boolean>;
 type ToastFn = (options: { tone: 'warning' | 'critical' | 'success' | 'info'; title: string }) => void;
@@ -124,49 +124,6 @@ export function useTagListWorkspace({
   const healthyRate = totalTags ? Math.round((activeTags / totalTags) * 100) : 0;
   const readyTags = filteredTags.filter((tag) => tag.status !== 'draft').length;
   const needsAttentionCount = pausedTags + draftTags;
-
-  const tagMetrics = useMemo<Metric[]>(() => [
-    {
-      id: 'tag-health',
-      label: 'Tag health',
-      value: `${healthyRate}%`,
-      delta: activeTags > 0 ? `+${activeTags}` : '0',
-      direction: activeTags > 0 ? 'up' : 'flat',
-      helper: 'validated firing across active placements',
-      tone: 'fuchsia',
-      series: [],
-    },
-    {
-      id: 'low-firing',
-      label: 'Low / no firing',
-      value: `${needsAttentionCount}`,
-      delta: needsAttentionCount > 0 ? `-${Math.min(needsAttentionCount, 2)}` : '0',
-      direction: needsAttentionCount > 0 ? 'down' : 'flat',
-      helper: 'need implementation review',
-      tone: 'amber',
-      series: [],
-    },
-    {
-      id: 'ready-tags',
-      label: 'Ready tags',
-      value: `${readyTags}`,
-      delta: readyTags > 0 ? `+${Math.min(readyTags, 4)}` : '0',
-      direction: readyTags > 0 ? 'up' : 'flat',
-      helper: 'generated and ready to share',
-      tone: 'emerald',
-      series: [],
-    },
-    {
-      id: 'missing-tags',
-      label: 'Missing tags',
-      value: `${draftTags}`,
-      delta: draftTags > 0 ? `+${Math.min(draftTags, 2)}` : '0',
-      direction: draftTags > 0 ? 'up' : 'flat',
-      helper: 'setup blockers before launch',
-      tone: 'rose',
-      series: [],
-    },
-  ], [activeTags, draftTags, healthyRate, needsAttentionCount, readyTags]);
 
   useEffect(() => {
     setFilters((current) => ({
@@ -406,7 +363,6 @@ export function useTagListWorkspace({
     healthyRate,
     readyTags,
     needsAttentionCount,
-    tagMetrics,
     selectedKeySet,
     load,
     openCreate,

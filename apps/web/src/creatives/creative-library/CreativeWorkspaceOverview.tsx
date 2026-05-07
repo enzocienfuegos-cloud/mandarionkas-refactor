@@ -1,13 +1,8 @@
 import React from 'react';
-import { Button, FilterBar, MetricCard, PageHeader } from '../../system';
-import type { Metric } from './types';
+import { Button, ConfigurableMetricStrip, FilterBar, PageHeader } from '../../system';
+import { creativeMetricScope } from '../creative.metrics';
 import {
   AlertTriangleIcon,
-  CreativeIcon,
-  mapMetricTone,
-  ReportIcon,
-  SearchIcon,
-  TableIcon,
 } from './ui';
 
 type WorkspaceOptionLike = {
@@ -30,7 +25,14 @@ type Props = {
   onSearchChange: (value: string) => void;
   onUploadCreative: () => void;
   pendingReviewCount: number;
-  creativeMetrics: Metric[];
+  creativeMetricData: {
+    creativeEligibility: number;
+    pendingQaCreatives: number;
+    approvedCreatives: number;
+    rejectedCreatives: number;
+    missingCreatives: number;
+    filteredCreativeCount: number;
+  };
 };
 
 export function CreativeWorkspaceOverview({
@@ -48,7 +50,7 @@ export function CreativeWorkspaceOverview({
   onSearchChange,
   onUploadCreative,
   pendingReviewCount,
-  creativeMetrics,
+  creativeMetricData,
 }: Props) {
   return (
     <>
@@ -144,29 +146,7 @@ export function CreativeWorkspaceOverview({
         }}
       />
 
-      <div className="grid gap-5 xl:grid-cols-4">
-        {creativeMetrics.map((metric) => (
-          <MetricCard
-            key={metric.id}
-            label={metric.label}
-            value={metric.value}
-            delta={metric.delta}
-            trend={metric.direction}
-            context={metric.helper}
-            series={metric.series}
-            tone={mapMetricTone(metric.tone)}
-            icon={
-              metric.id === 'creative-health'
-                ? <CreativeIcon />
-                : metric.id === 'creative-approved'
-                  ? <ReportIcon />
-                  : metric.id === 'creative-blocked'
-                    ? <AlertTriangleIcon />
-                    : <TableIcon />
-            }
-          />
-        ))}
-      </div>
+      <ConfigurableMetricStrip scope={creativeMetricScope} data={creativeMetricData} />
     </>
   );
 }

@@ -5,25 +5,22 @@ import {
   Badge,
   Button,
   CenteredSpinner,
+  ConfigurableMetricStrip,
   DonutChart,
   FilterBar,
   FunnelChart,
-  MetricCard,
   PageHeader,
   Panel,
   TrendChart,
 } from '../system';
-import {
-  MetricIcon,
-  OverviewSidebar,
-  WorkQueueTable,
-} from './overview.components';
+import { OverviewSidebar, WorkQueueTable } from './overview.components';
 import {
   useAttentionItems,
   useOverviewDashboardModel,
   useOverviewData,
   useOverviewFilters,
 } from './hooks';
+import { overviewMetricScope } from './overview.metrics';
 import { fmtCurrency, fmtNum, fmtPctCompact, toNumber } from './overview.utils';
 
 export default function AdOpsOverview() {
@@ -63,7 +60,6 @@ export default function AdOpsOverview() {
     workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.name ?? 'Workspace';
 
   const {
-    metricCards,
     workspacePerformanceData,
     workQueueRows,
     liveCampaignCount,
@@ -191,31 +187,15 @@ export default function AdOpsOverview() {
         }}
       />
 
-      <div className="grid gap-5 xl:grid-cols-4">
-        {metricCards.map((metric) => (
-          <MetricCard
-            key={metric.id}
-            label={metric.label}
-            value={metric.value}
-            delta={metric.delta}
-            trend={metric.direction}
-            context={metric.context}
-            series={metric.series}
-            tone={
-              metric.icon === 'spend'
-                ? 'info'
-                : metric.icon === 'impressions'
-                  ? 'brand'
-                  : metric.icon === 'ctr'
-                    ? 'success'
-                    : metric.icon === 'engagements'
-                      ? 'critical'
-                      : 'neutral'
-            }
-            icon={<MetricIcon icon={metric.icon} />}
-          />
-        ))}
-      </div>
+      <ConfigurableMetricStrip
+        scope={overviewMetricScope}
+        data={{
+          currentStats,
+          previousStats,
+          timeline,
+          attentionItemsCount: attentionItems.filter((item) => item.severity === 'critical' || item.severity === 'warning').length,
+        }}
+      />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
         <Panel className="p-6">

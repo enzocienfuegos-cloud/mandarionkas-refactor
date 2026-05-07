@@ -1,8 +1,6 @@
 export type DateRange = 7 | 30 | 90;
 export type TrendDirection = 'up' | 'down' | 'flat';
 export type AttentionSeverity = 'critical' | 'warning' | 'notice' | 'healthy';
-export type OverviewCardId = 'spend' | 'impressions' | 'ctr' | 'engagements';
-
 export type WorkspaceStats = {
   total_impressions?: number;
   total_clicks?: number;
@@ -69,18 +67,6 @@ export type AttentionItem = {
   actionLabel: string;
   actionHref: string;
   severity: AttentionSeverity;
-};
-
-export type MetricCardData = {
-  id: Extract<OverviewCardId, 'spend' | 'impressions' | 'ctr' | 'engagements'>;
-  label: string;
-  value: string;
-  delta?: string;
-  direction?: TrendDirection;
-  icon: 'spend' | 'impressions' | 'ctr' | 'engagements' | 'viewability';
-  tone: string;
-  series: number[];
-  context: string;
 };
 
 export type TopCampaignRow = {

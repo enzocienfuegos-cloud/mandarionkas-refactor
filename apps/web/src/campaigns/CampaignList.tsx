@@ -4,20 +4,17 @@ import { switchWorkspace } from '../shared/workspaces';
 import {
   Button,
   CenteredSpinner,
+  ConfigurableMetricStrip,
   EmptyState,
   FilterBar,
-  FormField,
-  Input,
-  Kicker,
-  MetricCard,
   PageHeader,
   Panel,
-  Select,
   useConfirm,
   useToast,
 } from '../system';
-import { AlertTriangleIcon, CampaignsTable, GaugeIcon, ReportIcon, SearchIcon, TableIcon, TrendBadge } from './campaign-list/components';
+import { AlertTriangleIcon, CampaignsTable } from './campaign-list/components';
 import type { CampaignRow } from './campaign-list/types';
+import { campaignMetricScope } from './campaign.metrics';
 import {
   useCampaignData,
   useCampaignFilters,
@@ -50,8 +47,9 @@ export default function CampaignList() {
     liveCampaigns,
     blockedOrLimited,
     draftSetup,
+    openIssues,
+    trackedSpend,
     needsAttentionRows,
-    metrics,
   } = useCampaignViewModel({
     campaigns,
     filters,
@@ -180,41 +178,17 @@ export default function CampaignList() {
           />
 
           {/* ── Metrics ── */}
-          <div className="grid gap-5 xl:grid-cols-4">
-            {metrics.map((metric) => (
-              <MetricCard
-                key={metric.id}
-                label={metric.label}
-                value={metric.value}
-                delta={metric.delta}
-                trend={metric.direction}
-                context={metric.helper}
-                series={metric.series}
-                tone={
-                  metric.tone === 'fuchsia'
-                    ? 'brand'
-                    : metric.tone === 'emerald'
-                      ? 'success'
-                      : metric.tone === 'amber'
-                        ? 'warning'
-                        : metric.tone === 'rose'
-                          ? 'critical'
-                          : metric.tone === 'sky'
-                            ? 'info'
-                            : 'neutral'
-                }
-                icon={
-                  metric.id === 'live'
-                    ? <GaugeIcon />
-                    : metric.id === 'blocked'
-                      ? <AlertTriangleIcon />
-                      : metric.id === 'spend'
-                        ? <ReportIcon />
-                        : <TableIcon />
-                }
-              />
-            ))}
-          </div>
+          <ConfigurableMetricStrip
+            scope={campaignMetricScope}
+            data={{
+              liveCampaigns,
+              blockedOrLimited,
+              draftSetup,
+              openIssues,
+              trackedSpend,
+              campaignCount: campaignRows.length,
+            }}
+          />
 
           {/* ── Campaigns table ── */}
       {campaignRows.length === 0 ? (

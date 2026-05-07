@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Avatar, Badge, Button, DataTable, Kicker, Panel, type ColumnDef } from '../system';
+export { MetricIcon } from '../system/metrics/icons';
 import {
   type AttentionItem,
   type AttentionSeverity,
   type AudienceRow,
-  type MetricCardData,
   type QuickNavRow,
   type SystemHealthRow,
   type TopCampaignRow,
@@ -401,21 +401,6 @@ export function WorkQueueTable({ rows }: { rows: WorkQueueRow[] }) {
       </div>
     </Panel>
   );
-}
-
-export function MetricIcon({ icon }: { icon: MetricCardData['icon'] }) {
-  switch (icon) {
-    case 'spend':
-      return <CurrencyIcon className="h-7 w-7" />;
-    case 'impressions':
-      return <EyeIcon className="h-7 w-7" />;
-    case 'ctr':
-      return <TargetIcon className="h-7 w-7" />;
-    case 'engagements':
-      return <CursorClickIcon className="h-7 w-7" />;
-    case 'viewability':
-      return <VisibilityIcon className="h-7 w-7" />;
-  }
 }
 
 function iconProps(className?: string) {

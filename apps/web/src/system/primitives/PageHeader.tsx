@@ -14,7 +14,17 @@ export interface PageHeaderProps extends React.HTMLAttributes<HTMLElement> {
   secondaryActions?: React.ReactNode;
   /** Compact alert strip below header (rendered only if children passed) */
   alert?: React.ReactNode;
+  /** Tone for the alert strip. Default warning. */
+  alertTone?: 'info' | 'success' | 'warning' | 'critical' | 'neutral';
 }
+
+const alertToneClasses: Record<NonNullable<PageHeaderProps['alertTone']>, string> = {
+  info: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]',
+  success: 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]',
+  warning: 'border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]',
+  critical: 'border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] text-[color:var(--dusk-status-critical-fg)]',
+  neutral: 'border-[color:var(--dusk-border-default)] bg-surface-2 text-text-secondary',
+};
 
 /**
  * Compact operational page header for dense workspaces.
@@ -26,6 +36,7 @@ export function PageHeader({
   primaryAction,
   secondaryActions,
   alert,
+  alertTone = 'warning',
   className,
   ...props
 }: PageHeaderProps) {
@@ -53,7 +64,7 @@ export function PageHeader({
       </div>
 
       {alert ? (
-        <div className="rounded-2xl border border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] px-4 py-3 text-[color:var(--dusk-status-warning-fg)] shadow-1">
+        <div className={cn('rounded-2xl border px-4 py-3 shadow-1', alertToneClasses[alertTone])}>
           {alert}
         </div>
       ) : null}

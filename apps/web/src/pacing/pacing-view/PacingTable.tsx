@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar, DataTable, ProgressBar, type ColumnDef, type DropdownMenuEntry } from '../../system';
 import type { PacingCampaign, PacingRow } from './types';
-import { Eye, Gauge } from '../../system/icons';
+import { ExternalLink, Eye } from '../../system/icons';
 import { PacingStatusPill, SeverityPill } from './components';
 
 export function PacingTable({
@@ -120,15 +120,9 @@ export function PacingTable({
           onSelect: () => onInspectCampaign(backingCampaign),
         },
         {
-          id: 'review-pacing',
-          label: 'Review pacing',
-          icon: <Gauge className="h-4 w-4" />,
-          onSelect: () => onInspectCampaign(backingCampaign),
-        },
-        {
           id: 'view-full-campaign',
           label: 'View full campaign',
-          icon: <Eye className="h-4 w-4" />,
+          icon: <ExternalLink className="h-4 w-4" />,
           onSelect: () => navigate(`/campaigns/${backingCampaign.id}`),
         },
       ];

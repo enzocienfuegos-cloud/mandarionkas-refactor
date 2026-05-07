@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { BreakdownDay, Metric, PacingAlert, PacingCampaign, PacingData, PacingRow } from './types';
-import { buildPacingRow, fmtCurrency, normalizePacingAlert, normalizePacingCampaign } from './utils';
+import type { BreakdownDay, PacingAlert, PacingCampaign, PacingData, PacingRow } from './types';
+import { buildPacingRow, normalizePacingAlert, normalizePacingCampaign } from './utils';
 
 export function usePacingFilters() {
   const [search, setSearch] = useState('');
@@ -142,60 +142,14 @@ export function usePacingViewModel({
       .reduce((sum, row) => sum + Number(row.projected.replace(/[^0-9.]/g, '')), 0),
     [rows],
   );
-  const pacingHealth = rows.length ? Math.round((onTargetCount / rows.length) * 100) : 0;
-
-  const pacingMetrics: Metric[] = useMemo(() => [
-    {
-      id: 'pacing-health',
-      label: 'Pacing health',
-      value: `${pacingHealth}%`,
-      delta: '+3%',
-      direction: 'up',
-      helper: 'campaigns within delivery tolerance',
-      tone: 'fuchsia',
-      series: [],
-    },
-    {
-      id: 'pacing-exceptions',
-      label: 'Pacing exceptions',
-      value: `${exceptionsCount}`,
-      delta: exceptionsCount > 0 ? '-1' : '0',
-      direction: exceptionsCount > 0 ? 'down' : 'flat',
-      helper: 'under or over delivery reviews',
-      tone: 'amber',
-      series: [],
-    },
-    {
-      id: 'on-target',
-      label: 'On target',
-      value: `${onTargetCount}`,
-      delta: onTargetCount > 0 ? '+2' : '0',
-      direction: onTargetCount > 0 ? 'up' : 'flat',
-      helper: 'campaigns pacing within range',
-      tone: 'emerald',
-      series: [],
-    },
-    {
-      id: 'budget-risk',
-      label: 'Budget risk',
-      value: fmtCurrency(budgetRiskValue),
-      delta: '+$0.6K',
-      direction: 'up',
-      helper: 'projected under or over delivery',
-      tone: 'rose',
-      series: [],
-    },
-  ], [budgetRiskValue, exceptionsCount, onTargetCount, pacingHealth]);
-
   const prototypeChecks = useMemo(() => [
     { name: 'pacing view renders rows', passed: rows.length >= 1 },
     { name: 'row ids are stable', passed: rows.every((row) => row.id.length > 0) },
     { name: 'pacing statuses are valid', passed: rows.every((row) => ['On pace', 'Underpacing', 'Overpacing', 'At risk', 'Paused'].includes(row.status)) },
     { name: 'risk severities are valid', passed: rows.every((row) => ['Critical', 'Warning', 'Notice'].includes(row.risk)) },
     { name: 'budget fields exist', passed: rows.every((row) => row.spend && row.budget && row.dailyTarget && row.projected) },
-    { name: 'four metric cards render', passed: pacingMetrics.length === 4 },
     { name: 'primary CTA remains review pacing', passed: true },
-  ], [pacingMetrics.length, rows]);
+  ], [rows]);
 
   return {
     rows,
@@ -205,8 +159,6 @@ export function usePacingViewModel({
     exceptionsCount,
     onTargetCount,
     budgetRiskValue,
-    pacingHealth,
-    pacingMetrics,
     prototypeChecks,
   };
 }

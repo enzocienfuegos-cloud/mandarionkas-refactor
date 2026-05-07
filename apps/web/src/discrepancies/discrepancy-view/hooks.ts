@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Discrepancy, DiscrepancyRow, DiscrepancySummary, Filters, Metric, Thresholds } from './types';
+import type { Discrepancy, DiscrepancyRow, DiscrepancySummary, Filters, Thresholds } from './types';
 import { formatCurrency, formatNumber, parseCount } from './utils';
 
 export function useDiscrepancyFilters() {
@@ -179,49 +179,6 @@ export function useDiscrepancyViewModel({
     .reduce((total, row) => total + Math.abs(parseCount(row.publisherReported) - parseCount(row.adserver)) / 1000, 0);
   const varianceHealth = discrepancyRows.length ? Math.round((withinThresholdCount / discrepancyRows.length) * 100) : 100;
 
-  const discrepancyMetrics: Metric[] = useMemo(() => [
-    {
-      id: 'variance-health',
-      label: 'Variance health',
-      value: `${varianceHealth}%`,
-      delta: '+2%',
-      direction: 'up',
-      helper: 'placements within accepted threshold',
-      tone: 'fuchsia',
-      series: [],
-    },
-    {
-      id: 'threshold-breaches',
-      label: 'Threshold breaches',
-      value: `${thresholdBreaches}`,
-      delta: thresholdBreaches > 0 ? '+1' : '0',
-      direction: thresholdBreaches > 0 ? 'up' : 'flat',
-      helper: 'need reconciliation or publisher review',
-      tone: 'amber',
-      series: [],
-    },
-    {
-      id: 'resolved',
-      label: 'Resolved',
-      value: `${resolvedCount}`,
-      delta: resolvedCount > 0 ? '+3' : '0',
-      direction: resolvedCount > 0 ? 'up' : 'flat',
-      helper: 'closed discrepancy checks',
-      tone: 'emerald',
-      series: [],
-    },
-    {
-      id: 'unmatched-spend',
-      label: 'Unmatched spend',
-      value: formatCurrency(unmatchedSpend * 1000),
-      delta: '+$0.4K',
-      direction: unmatchedSpend > 0 ? 'up' : 'flat',
-      helper: 'requires invoice or delivery validation',
-      tone: 'rose',
-      series: [],
-    },
-  ], [resolvedCount, thresholdBreaches, unmatchedSpend, varianceHealth]);
-
   const discrepancyChartData = useMemo(() => filteredDiscrepancyRows
     .slice(0, 8)
     .map((row) => ({
@@ -236,9 +193,8 @@ export function useDiscrepancyViewModel({
     { name: 'discrepancy statuses are valid', passed: discrepancyRows.every((row) => ['Within threshold', 'Investigating', 'Threshold breach', 'Resolved', 'Needs publisher'].includes(row.status)) },
     { name: 'risk severities are valid', passed: discrepancyRows.every((row) => ['Critical', 'Warning', 'Notice'].includes(row.risk)) },
     { name: 'reconciliation signals exist', passed: discrepancyRows.every((row) => row.variance && row.threshold && row.adserver && row.publisherReported) },
-    { name: 'four metric cards render', passed: discrepancyMetrics.length === 4 },
     { name: 'primary CTA remains investigate gap', passed: true },
-  ], [discrepancyMetrics.length, discrepancyRows]);
+  ], [discrepancyRows]);
 
   return {
     discrepancyRows,
@@ -248,7 +204,6 @@ export function useDiscrepancyViewModel({
     resolvedCount,
     unmatchedSpend,
     varianceHealth,
-    discrepancyMetrics,
     discrepancyChartData,
     prototypeChecks,
   };

@@ -5,6 +5,7 @@ import {
   AvatarGroup,
   Badge,
   Button,
+  ConfigurableMetricStrip,
   DataTable,
   DonutChart,
   Drawer,
@@ -25,6 +26,7 @@ import {
   type ColumnDef,
 } from '../index';
 import { CheckCircle2, Filter, Pause, Sparkles, Trash2 } from '../icons';
+import { overviewMetricScope } from '../../overview/overview.metrics';
 
 type DemoRow = {
   id: string;
@@ -139,6 +141,51 @@ export const MetricCards: Story = () => (
     <MetricCard label="Impressions" value="12.4M" tone="brand" series={[6, 8, 7, 10, 12]} />
     <MetricCard label="Spend" value="$48.2K" tone="warning" series={[22, 24, 28, 32, 31]} />
     <MetricCard label="Exceptions" value="4" tone="critical" series={[1, 1, 2, 3, 4]} />
+  </div>
+);
+
+export const ConfigurableMetrics: Story = () => (
+  <div className="p-6">
+    <ConfigurableMetricStrip
+      scope={overviewMetricScope}
+      data={{
+        currentStats: {
+          total_impressions: 1240000,
+          total_clicks: 18400,
+          avg_ctr: 1.48,
+          measurable_rate: 81,
+          viewability_rate: 69,
+          total_hover_duration_ms: 220000,
+          total_engagements: 5400,
+          total_spend: 48210,
+          active_campaigns: 28,
+          active_tags: 146,
+          total_creatives: 84,
+        },
+        previousStats: {
+          total_impressions: 1185000,
+          total_clicks: 17620,
+          avg_ctr: 1.41,
+          measurable_rate: 79,
+          viewability_rate: 66,
+          total_hover_duration_ms: 198000,
+          total_engagements: 5010,
+          total_spend: 45600,
+          active_campaigns: 26,
+          active_tags: 138,
+          total_creatives: 80,
+        },
+        timeline: [
+          { date: '2026-05-01', impressions: 182000, clicks: 2600, ctr: 1.43, spend: 6900, viewability_rate: 66 },
+          { date: '2026-05-02', impressions: 194000, clicks: 2780, ctr: 1.43, spend: 7140, viewability_rate: 67 },
+          { date: '2026-05-03', impressions: 205000, clicks: 3010, ctr: 1.47, spend: 7520, viewability_rate: 68 },
+          { date: '2026-05-04', impressions: 212000, clicks: 3200, ctr: 1.51, spend: 8010, viewability_rate: 69 },
+          { date: '2026-05-05', impressions: 224000, clicks: 3360, ctr: 1.5, spend: 8430, viewability_rate: 70 },
+          { date: '2026-05-06', impressions: 229000, clicks: 3490, ctr: 1.52, spend: 8970, viewability_rate: 69 },
+        ],
+        attentionItemsCount: 5,
+      }}
+    />
   </div>
 );
 

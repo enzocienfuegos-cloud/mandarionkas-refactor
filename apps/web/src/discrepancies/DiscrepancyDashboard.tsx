@@ -1,9 +1,10 @@
-import React, { FormEvent } from 'react';
-import { Button, CenteredSpinner, DonutChart, FilterBar, Heatmap, Input, Kicker, MetricCard, PageHeader, Panel, TrendChart } from '../system';
+import React, { FormEvent, useMemo } from 'react';
+import { Button, CenteredSpinner, ConfigurableMetricStrip, FilterBar, Heatmap, Input, Kicker, PageHeader, Panel, TrendChart } from '../system';
 import { DiscrepancyTable } from './discrepancy-view/DiscrepancyTable';
 import { formatNumber } from './discrepancy-view/utils';
-import { AlertTriangleIcon, ReportIcon, TableIcon, toneToMetricTone } from './discrepancy-view/components';
+import { AlertTriangleIcon } from './discrepancy-view/components';
 import { useDiscrepancyData, useDiscrepancyFilters, useDiscrepancyViewModel } from './discrepancy-view/hooks';
+import { discrepancyMetricScope } from './discrepancy.metrics';
 
 export default function DiscrepanciesView() {
   const filtersState = useDiscrepancyFilters();
@@ -25,7 +26,6 @@ export default function DiscrepanciesView() {
     withinThresholdCount: withinThreshold,
     thresholdBreaches: breaches,
     resolvedCount: resolved,
-    discrepancyMetrics: metrics,
     discrepancyChartData,
     prototypeChecks: checks,
   } = useDiscrepancyViewModel({
@@ -40,30 +40,37 @@ export default function DiscrepanciesView() {
     await saveThresholds();
   };
 
-  const withinThresholdSummary = Math.max((summary?.totalReports ?? tableRows.length) - (summary?.criticalCount ?? 0) - (summary?.warningCount ?? 0), 0);
-  const sourceTotals = discrepancies.reduce<Map<string, number>>((map, discrepancy) => {
-    const key = discrepancy.source || 'Publisher';
-    const nextValue = Math.max(map.get(key) ?? 0, Math.abs(discrepancy.deltaPct));
-    map.set(key, nextValue);
-    return map;
-  }, new Map());
-  const topSources = [...sourceTotals.entries()]
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 8)
-    .map(([source]) => source);
-  const heatmapDates = [...new Set(discrepancies.map((item) => item.date))]
-    .sort((left, right) => left.localeCompare(right))
-    .slice(-7)
-    .map((date) => new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
-  const heatmapCells = discrepancies
-    .filter((item) => topSources.includes(item.source || 'Publisher'))
-    .filter((item) => heatmapDates.includes(new Date(`${item.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })))
-    .map((item) => ({
-      x: new Date(`${item.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      y: item.source || 'Publisher',
-      value: item.deltaPct,
-    }));
-  const sourceOptions = [...new Set(discrepancies.map((item) => item.source || 'Publisher'))].sort();
+  const heatmapView = useMemo(() => {
+    const withinThresholdSummary = Math.max((summary?.totalReports ?? tableRows.length) - (summary?.criticalCount ?? 0) - (summary?.warningCount ?? 0), 0);
+    const sourceTotals = discrepancies.reduce<Map<string, number>>((map, discrepancy) => {
+      const key = discrepancy.source || 'Publisher';
+      const nextValue = Math.max(map.get(key) ?? 0, Math.abs(discrepancy.deltaPct));
+      map.set(key, nextValue);
+      return map;
+    }, new Map());
+    const topSources = [...sourceTotals.entries()]
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 8)
+      .map(([source]) => source);
+    const heatmapDates = [...new Set(discrepancies.map((item) => item.date))]
+      .sort((left, right) => left.localeCompare(right))
+      .slice(-7)
+      .map((date) => new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+    const heatmapCells = discrepancies
+      .filter((item) => topSources.includes(item.source || 'Publisher'))
+      .filter((item) => heatmapDates.includes(new Date(`${item.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })))
+      .map((item) => ({
+        x: new Date(`${item.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        y: item.source || 'Publisher',
+        value: item.deltaPct,
+      }));
+    return { withinThresholdSummary, topSources, heatmapDates, heatmapCells };
+  }, [discrepancies, summary, tableRows.length]);
+  const { withinThresholdSummary, topSources, heatmapDates, heatmapCells } = heatmapView;
+  const sourceOptions = useMemo(
+    () => [...new Set(discrepancies.map((item) => item.source || 'Publisher'))].sort(),
+    [discrepancies],
+  );
 
   if (loading) {
     return <CenteredSpinner label="Loading discrepancies workspace…" />;
@@ -166,36 +173,14 @@ export default function DiscrepanciesView() {
         onResetAll={filtersState.resetAll}
       />
 
-      <div className="grid gap-5 xl:grid-cols-4">
-        {metrics.filter((metric) => metric.id !== 'threshold-breaches').map((metric) => (
-          <MetricCard
-            key={metric.id}
-            label={metric.label}
-            value={metric.value}
-            delta={metric.delta}
-            trend={metric.direction}
-            context={metric.helper}
-            series={metric.series}
-            tone={toneToMetricTone(metric.tone)}
-            icon={metric.id === 'variance-health' ? <ReportIcon /> : metric.id === 'resolved' ? <TableIcon /> : <AlertTriangleIcon />}
-          />
-        ))}
-        <Panel padding="sm" className="flex items-center justify-center">
-          <DonutChart
-            size={140}
-            showLegend={false}
-            title="Discrepancy severity mix"
-            description="Distribution of discrepancy reports across critical, warning, and within-threshold groups."
-            segments={[
-              { id: 'critical', label: 'Critical', value: summary?.criticalCount ?? tableRows.filter((row) => row.risk === 'Critical').length, tone: 'critical' },
-              { id: 'warning', label: 'Warning', value: summary?.warningCount ?? tableRows.filter((row) => row.risk === 'Warning').length, tone: 'warning' },
-              { id: 'within-threshold', label: 'Within threshold', value: withinThresholdSummary, tone: 'success' },
-            ]}
-            centerLabel={String(summary?.totalReports ?? tableRows.length)}
-            centerSubLabel="reports"
-          />
-        </Panel>
-      </div>
+      <ConfigurableMetricStrip
+        scope={discrepancyMetricScope}
+        data={{
+          summary,
+          rows: discrepancies,
+          withinThreshold: withinThresholdSummary,
+        }}
+      />
 
       <Panel className="p-6">
           <div className="mb-4">

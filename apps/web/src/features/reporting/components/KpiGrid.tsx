@@ -1,13 +1,15 @@
 import React from 'react';
-import type { ReportingKpi } from '../reporting.types';
-import { KpiCard } from './KpiCard';
+import { ConfigurableMetricStrip } from '../../../system';
+import { createReportingMetricScope } from '../reporting.metrics';
+import type { ReportingKpi, ReportingMode } from '../reporting.types';
 
-export function KpiGrid({ kpis }: { kpis: ReportingKpi[] }) {
+export function KpiGrid({ kpis, mode }: { kpis: ReportingKpi[]; mode: ReportingMode }) {
   return (
-    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
-      {kpis.map((item) => (
-        <KpiCard key={item.id} item={item} />
-      ))}
+    <section>
+      <ConfigurableMetricStrip
+        scope={createReportingMetricScope(mode, kpis.slice(0, Math.min(6, kpis.length)).map((item) => item.id))}
+        data={{ mode, kpis }}
+      />
     </section>
   );
 }

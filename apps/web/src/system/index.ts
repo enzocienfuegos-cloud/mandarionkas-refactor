@@ -71,6 +71,20 @@ export type { PageHeaderProps } from './primitives/PageHeader';
 export { Stepper } from './primitives/Stepper';
 export type { StepperProps, Step, StepStatus } from './primitives/Stepper';
 
+// ─── Metrics ──────────────────────────────────────────────────────────────
+export { ConfigurableMetricStrip } from './metrics/ConfigurableMetricStrip';
+export type { ConfigurableMetricStripProps } from './metrics/ConfigurableMetricStrip';
+export { MetricPicker } from './metrics/MetricPicker';
+export type { MetricPickerProps } from './metrics/MetricPicker';
+export { useMetricSelection } from './metrics/useMetricSelection';
+export type {
+  MetricDefinition,
+  MetricScope,
+  MetricTrend as RegistryMetricTrend,
+  ResolvedMetric,
+  MetricIconKind,
+} from './metrics/registry';
+
 // ─── Data ─────────────────────────────────────────────────────────────────
 export { DataTable } from './data-table/DataTable';
 export type {

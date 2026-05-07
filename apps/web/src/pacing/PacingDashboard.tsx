@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { Button, CenteredSpinner, DonutChart, FilterBar, Kicker, MetricCard, PageHeader, Panel, TrendChart } from '../system';
+import { Button, CenteredSpinner, ConfigurableMetricStrip, FilterBar, Kicker, PageHeader, Panel, TrendChart } from '../system';
 import { CampaignDetailDrawer } from './pacing-view/CampaignDetailDrawer';
 import { PacingTable } from './pacing-view/PacingTable';
 import type { PacingCampaign } from './pacing-view/types';
 import { fmtCurrency, fmtNum } from './pacing-view/utils';
-import { AlertTriangleIcon, GaugeIcon, ReportIcon, TableIcon, toneToMetricTone } from './pacing-view/components';
+import { AlertTriangleIcon } from './pacing-view/components';
 import { usePacingBreakdown, usePacingData, usePacingFilters, usePacingViewModel } from './pacing-view/hooks';
+import { pacingMetricScope } from './pacing.metrics';
 
 export default function PacingView() {
   const filters = usePacingFilters();
@@ -18,7 +19,6 @@ export default function PacingView() {
     exceptionsCount,
     onTargetCount,
     budgetRiskValue,
-    pacingMetrics,
     prototypeChecks,
   } = usePacingViewModel({ data, filters });
   const [selectedCampaign, setSelectedCampaign] = useState<PacingCampaign | null>(null);
@@ -126,43 +126,13 @@ export default function PacingView() {
         onResetAll={filters.resetAll}
       />
 
-      <div className="grid gap-5 xl:grid-cols-4">
-        {pacingMetrics.slice(0, 3).map((metric) => (
-          <MetricCard
-            key={metric.id}
-            label={metric.label}
-            value={metric.value}
-            delta={metric.delta}
-            trend={metric.direction}
-            context={metric.helper}
-            series={metric.series}
-            tone={toneToMetricTone(metric.tone)}
-            icon={
-              metric.id === 'pacing-health'
-                ? <GaugeIcon />
-                : metric.id === 'on-target'
-                  ? <ReportIcon />
-                  : metric.id === 'budget-risk'
-                    ? <AlertTriangleIcon />
-                    : <TableIcon />
-            }
-          />
-        ))}
-        <Panel padding="sm" className="flex items-center justify-center">
-          <DonutChart
-            size={120}
-            showLegend={false}
-            title="Pacing status mix"
-            description="Distribution of on-track and behind active campaigns."
-            segments={[
-              { id: 'on-track', label: 'On track', value: data?.summary.onTrack ?? 0, tone: 'success' },
-              { id: 'behind', label: 'Behind', value: data?.summary.behind ?? 0, tone: 'warning' },
-            ]}
-            centerLabel={String(data?.summary.active ?? 0)}
-            centerSubLabel="active"
-          />
-        </Panel>
-      </div>
+      <ConfigurableMetricStrip
+        scope={pacingMetricScope}
+        data={{
+          data,
+          rows: data?.campaigns ?? [],
+        }}
+      />
 
       <Panel className="p-6">
           <div className="mb-4">

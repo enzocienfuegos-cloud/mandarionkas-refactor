@@ -47,7 +47,7 @@ export function ReportingPage() {
       />
       <ReportingHeader mode={mode} config={config} onModeChange={setMode} />
       <ScopeBar mode={mode} />
-      <KpiGrid kpis={config.kpis} />
+      <KpiGrid kpis={config.kpis} mode={mode} />
       <WidgetRenderer widgets={widgets} mode={mode} />
     </ReportingShell>
   );

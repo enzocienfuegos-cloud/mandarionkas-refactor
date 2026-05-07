@@ -5,7 +5,6 @@ import type {
   CreativeRow,
   CreativeStatus,
   LatestVersionMap,
-  Metric,
   PrioritySeverity,
   PrototypeCheck,
 } from './types';
@@ -219,49 +218,6 @@ export function useCreativeCatalogViewModel({
     })
   ), [filteredCreatives, latestVersions]);
 
-  const creativeMetrics = useMemo<Metric[]>(() => [
-    {
-      id: 'creative-health',
-      label: 'Creative eligibility',
-      value: `${creativeEligibility}%`,
-      delta: '+5%',
-      direction: 'up',
-      helper: 'approved or ready for activation',
-      tone: 'fuchsia',
-      series: [Math.max(creativeEligibility - 24, 0), Math.max(creativeEligibility - 21, 0), Math.max(creativeEligibility - 17, 0), Math.max(creativeEligibility - 12, 0), Math.max(creativeEligibility - 8, 0), Math.max(creativeEligibility - 3, 0), creativeEligibility],
-    },
-    {
-      id: 'creative-qa',
-      label: 'Pending QA',
-      value: `${pendingQaCreatives}`,
-      delta: pendingQaCreatives > 0 ? '+2' : '0',
-      direction: pendingQaCreatives > 0 ? 'up' : 'flat',
-      helper: 'need spec and clickthrough review',
-      tone: 'amber',
-      series: [Math.max(pendingQaCreatives - 3, 0), Math.max(pendingQaCreatives - 3, 0), Math.max(pendingQaCreatives - 2, 0), Math.max(pendingQaCreatives - 2, 0), Math.max(pendingQaCreatives - 1, 0), pendingQaCreatives, pendingQaCreatives],
-    },
-    {
-      id: 'creative-approved',
-      label: 'Approved',
-      value: `${approvedCreatives}`,
-      delta: approvedCreatives > 0 ? '+4' : '0',
-      direction: approvedCreatives > 0 ? 'up' : 'flat',
-      helper: 'eligible creatives in active campaigns',
-      tone: 'emerald',
-      series: [Math.max(approvedCreatives - 9, 0), Math.max(approvedCreatives - 8, 0), Math.max(approvedCreatives - 6, 0), Math.max(approvedCreatives - 5, 0), Math.max(approvedCreatives - 3, 0), Math.max(approvedCreatives - 1, 0), approvedCreatives],
-    },
-    {
-      id: 'creative-blocked',
-      label: 'Blocked creatives',
-      value: `${rejectedCreatives + missingCreatives}`,
-      delta: rejectedCreatives + missingCreatives > 0 ? '+1' : '0',
-      direction: rejectedCreatives + missingCreatives > 0 ? 'up' : 'flat',
-      helper: 'rejected or missing assets',
-      tone: 'rose',
-      series: [Math.max(rejectedCreatives + missingCreatives - 2, 0), Math.max(rejectedCreatives + missingCreatives - 1, 0), Math.max(rejectedCreatives + missingCreatives - 1, 0), Math.max(rejectedCreatives + missingCreatives - 1, 0), rejectedCreatives + missingCreatives, rejectedCreatives + missingCreatives, rejectedCreatives + missingCreatives],
-    },
-  ], [approvedCreatives, creativeEligibility, missingCreatives, pendingQaCreatives, rejectedCreatives]);
-
   const prototypeChecks: PrototypeCheck[] = [
     { name: 'creative view renders rows', passed: creativeRows.length >= 1 },
     { name: 'creative ids are stable', passed: creativeRows.every((row) => row.id.length > 0) },
@@ -269,7 +225,6 @@ export function useCreativeCatalogViewModel({
     { name: 'creative formats are valid', passed: creativeRows.every((row) => ['Display', 'HTML5', 'Video', 'Native'].includes(row.format)) },
     { name: 'qa severities are valid', passed: creativeRows.every((row) => ['Critical', 'Warning', 'Notice'].includes(row.qa)) },
     { name: 'creative QA signals exist', passed: creativeRows.every((row) => row.preview && row.owner) },
-    { name: 'four metric cards render', passed: creativeMetrics.length === 4 },
     { name: 'primary CTA remains upload creative', passed: true },
   ];
 
@@ -310,7 +265,7 @@ export function useCreativeCatalogViewModel({
     pendingPreviewCreatives,
     missingCreatives,
     creativeRows,
-    creativeMetrics,
+    creativeEligibility,
     prototypeChecks,
     toggleCreativeSelection,
     toggleSelectAllVisibleCreatives,

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { loadAuthMe, loadWorkspaces } from '../../shared/workspaces';
-import type { Campaign, CampaignRow, CampaignStatus, Metric } from './types';
-import { computeDelta, formatCompactMoney, formatDateRange, toNumber } from './utils';
+import type { Campaign, CampaignRow, CampaignStatus } from './types';
+import { formatCompactMoney, formatDateRange, toNumber } from './utils';
 
 export function useCampaignFilters(initialSearch = '') {
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
@@ -135,15 +135,7 @@ export function useCampaignViewModel({
   const draftSetup = campaignRows.filter((row) => row.status === 'Draft' || row.status === 'Ready').length;
   const openIssues = campaignRows.reduce((sum, row) => sum + row.issues, 0);
   const trackedSpend = campaignRows.reduce((sum, row) => sum + toNumber(row.raw.dailyBudget) * 7, 0);
-  const previousTrackedSpend = trackedSpend * 0.92;
   const needsAttentionRows = campaignRows.filter((row) => row.status === 'Blocked' || row.status === 'Limited').slice(0, 3);
-
-  const metrics: Metric[] = [
-    { id: 'live', label: 'Live campaigns', value: String(liveCampaigns), delta: `+${Math.max(0, liveCampaigns - 1)}`, direction: 'up', helper: 'currently eligible to deliver', tone: 'fuchsia', series: [1, 1, 2, 2, liveCampaigns || 1, liveCampaigns || 1, liveCampaigns || 1] },
-    { id: 'blocked', label: 'Blocked / limited', value: String(blockedOrLimited), delta: `+${Math.max(0, blockedOrLimited - 1)}`, direction: blockedOrLimited > 0 ? 'up' : 'flat', helper: 'need delivery review', tone: 'amber', series: [0, 1, 1, 1, blockedOrLimited || 1, blockedOrLimited || 1, blockedOrLimited || 1] },
-    { id: 'spend', label: 'Spend tracked', value: formatCompactMoney(trackedSpend), delta: computeDelta(trackedSpend, previousTrackedSpend).label, direction: computeDelta(trackedSpend, previousTrackedSpend).direction, helper: 'against active campaign budgets', tone: 'emerald', series: [18, 22, 26, 31, 34, 37, 42].map((n) => n * Math.max(trackedSpend / 15300, 0.2)) },
-    { id: 'issues', label: 'Open issues', value: String(openIssues), delta: `+${Math.max(0, openIssues - 7)}`, direction: openIssues > 0 ? 'up' : 'flat', helper: 'tags, creatives and pacing', tone: 'rose', series: [4, 5, 5, 7, 8, 9, Math.max(openIssues, 1)] },
-  ];
 
   return {
     filteredCampaigns,
@@ -154,6 +146,5 @@ export function useCampaignViewModel({
     openIssues,
     trackedSpend,
     needsAttentionRows,
-    metrics,
   };
 }

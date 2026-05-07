@@ -162,7 +162,7 @@ export default function CreativesView() {
     pendingPreviewCreatives,
     missingCreatives,
     creativeRows,
-    creativeMetrics,
+    creativeEligibility,
     prototypeChecks,
     toggleCreativeSelection,
     toggleSelectAllVisibleCreatives,
@@ -264,7 +264,14 @@ export default function CreativesView() {
         onSearchChange={filters.setSearchTerm}
         onUploadCreative={() => navigate('/creatives/upload')}
         pendingReviewCount={pendingQaCreatives + rejectedCreatives + missingCreatives}
-        creativeMetrics={creativeMetrics}
+        creativeMetricData={{
+          creativeEligibility,
+          pendingQaCreatives,
+          approvedCreatives,
+          rejectedCreatives,
+          missingCreatives,
+          filteredCreativeCount: filteredCreatives.length,
+        }}
       />
 
       {successMessage && (
