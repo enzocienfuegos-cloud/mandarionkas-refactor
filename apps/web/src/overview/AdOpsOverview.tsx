@@ -4,7 +4,9 @@ import { type ThemeMode } from '../shared/theme';
 import {
   Button,
   CenteredSpinner,
+  DonutChart,
   FilterBar,
+  FunnelChart,
   MetricCard,
   PageHeader,
   Panel,
@@ -95,6 +97,21 @@ export default function AdOpsOverview() {
     filters.dateRange !== 7,
     filters.overviewSearch.trim() !== '',
   ].filter(Boolean).length;
+
+  const impressions = toNumber(currentStats.total_impressions);
+  const measurable = currentStats.measurable_rate == null
+    ? null
+    : impressions * (toNumber(currentStats.measurable_rate) / 100);
+  const viewable = currentStats.viewability_rate == null
+    ? null
+    : impressions * (toNumber(currentStats.viewability_rate) / 100);
+  const clicks = toNumber(currentStats.total_clicks);
+  const deliveryStages = [
+    { id: 'impressions', label: 'Impressions', value: impressions, format: fmtNum },
+    ...(measurable != null ? [{ id: 'measurable', label: 'Measurable', value: measurable, format: fmtNum }] : []),
+    ...(viewable != null ? [{ id: 'viewable', label: 'Viewable', value: viewable, format: fmtNum }] : []),
+    { id: 'clicks', label: 'Clicks', value: clicks, format: fmtNum },
+  ].filter((stage, index, all) => stage.value >= 0 && (index === 0 || stage.value <= all[index - 1].value));
 
   if (loading) {
     return <CenteredSpinner label="Loading overview…" />;
@@ -191,30 +208,66 @@ export default function AdOpsOverview() {
         ))}
       </div>
 
-      <Panel className="p-6">
-        <div className="mb-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Workspace performance</p>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">
-            Workspace performance (30d)
-          </h2>
-          <p className="mt-2 text-sm text-text-muted">
-            Real delivery, spend, CTR and engagement signals for the selected workspace and campaign scope.
-          </p>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
+        <Panel className="p-6">
+          <div className="mb-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Workspace performance</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">
+              Workspace performance (30d)
+            </h2>
+            <p className="mt-2 text-sm text-text-muted">
+              Real delivery, spend, CTR and engagement signals for the selected workspace and campaign scope.
+            </p>
+          </div>
+          <TrendChart
+            data={workspacePerformanceData}
+            xKey="date"
+            kind="line"
+            title="Workspace performance for the last 30 days"
+            description="Line chart showing impressions, spend, click-through rate, and engagements over time."
+            series={[
+              { key: 'impressions', label: 'Impressions', tone: 'brand', format: (value) => fmtNum(value) },
+              { key: 'spend', label: 'Spend', tone: 'info', format: (value) => fmtCurrency(value) },
+              { key: 'ctr', label: 'CTR', tone: 'success', format: (value) => fmtPctCompact(value) },
+              { key: 'engagements', label: 'Engagements', tone: 'critical', format: (value) => fmtNum(value) },
+            ]}
+          />
+        </Panel>
+
+        <div className="grid gap-5">
+          <Panel className="p-6">
+            <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Status mix</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Campaign status mix</h2>
+            <p className="mt-2 text-sm text-text-muted">How the current workspace breaks down between live, review-needed, and draft work.</p>
+            <div className="mt-5">
+              <DonutChart
+                title="Campaign status mix"
+                description="Distribution of live campaigns, issues that need review, and draft setup items."
+                segments={[
+                  { id: 'live', label: 'Live', value: liveCampaignCount, tone: 'success' },
+                  { id: 'review', label: 'Need review', value: issueCount, tone: 'warning' },
+                  { id: 'drafts', label: 'Drafts', value: draftSetupCount, tone: 'neutral' },
+                ]}
+                centerLabel={String(liveCampaignCount + issueCount + draftSetupCount)}
+                centerSubLabel="campaigns"
+              />
+            </div>
+          </Panel>
+
+          <Panel className="p-6">
+            <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Delivery funnel</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Impressions to clicks</h2>
+            <p className="mt-2 text-sm text-text-muted">How much measured and viewable inventory survives the current scope before it turns into clicks.</p>
+            <div className="mt-5">
+              <FunnelChart
+                title="Delivery funnel"
+                description="Delivery funnel from impressions to measurable, viewable, and clicked inventory."
+                stages={deliveryStages}
+              />
+            </div>
+          </Panel>
         </div>
-        <TrendChart
-          data={workspacePerformanceData}
-          xKey="date"
-          kind="line"
-          title="Workspace performance for the last 30 days"
-          description="Line chart showing impressions, spend, click-through rate, and engagements over time."
-          series={[
-            { key: 'impressions', label: 'Impressions', tone: 'brand', format: (value) => fmtNum(value) },
-            { key: 'spend', label: 'Spend', tone: 'info', format: (value) => fmtCurrency(value) },
-            { key: 'ctr', label: 'CTR', tone: 'success', format: (value) => fmtPctCompact(value) },
-            { key: 'engagements', label: 'Engagements', tone: 'critical', format: (value) => fmtNum(value) },
-          ]}
-        />
-      </Panel>
+      </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
         <WorkQueueTable rows={workQueueRows} />

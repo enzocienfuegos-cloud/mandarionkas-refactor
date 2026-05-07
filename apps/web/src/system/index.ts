@@ -103,6 +103,12 @@ export type {
   TrendSeries,
   TrendTone,
 } from './charts/TrendChart';
+export { DonutChart } from './charts/DonutChart';
+export type { DonutChartProps, DonutSegment } from './charts/DonutChart';
+export { FunnelChart } from './charts/FunnelChart';
+export type { FunnelChartProps, FunnelStage } from './charts/FunnelChart';
+export { Heatmap } from './charts/Heatmap';
+export type { HeatmapProps, HeatmapCell } from './charts/Heatmap';
 
 // ─── Icons (re-exported for convenience) ──────────────────────────────────
 export * as Icons from './icons';

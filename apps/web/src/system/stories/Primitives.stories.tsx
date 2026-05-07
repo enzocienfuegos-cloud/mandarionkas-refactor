@@ -6,10 +6,13 @@ import {
   Badge,
   Button,
   DataTable,
+  DonutChart,
   Drawer,
   DropdownMenu,
   EmptyState,
   FilterBar,
+  FunnelChart,
+  Heatmap,
   MetricCard,
   Modal,
   PageHeader,
@@ -324,6 +327,56 @@ export const Drawers: Story = () => (
   >
     <p className="text-sm text-text-secondary">Drawer body content goes here.</p>
   </Drawer>
+);
+
+export const Donuts: Story = () => (
+  <div className="p-6">
+    <DonutChart
+      title="Campaign status mix"
+      description="Share of campaigns by operational status."
+      centerLabel="28"
+      centerSubLabel="campaigns"
+      segments={[
+        { id: 'live', label: 'Live', value: 16, tone: 'success' },
+        { id: 'review', label: 'Need review', value: 7, tone: 'warning' },
+        { id: 'draft', label: 'Drafts', value: 5, tone: 'neutral' },
+      ]}
+    />
+  </div>
+);
+
+export const Funnels: Story = () => (
+  <div className="max-w-2xl p-6">
+    <FunnelChart
+      title="Delivery funnel"
+      description="Impressions to clicks."
+      stages={[
+        { id: 'impressions', label: 'Impressions', value: 10000 },
+        { id: 'measurable', label: 'Measurable', value: 8200 },
+        { id: 'viewable', label: 'Viewable', value: 4900 },
+        { id: 'clicks', label: 'Clicks', value: 320 },
+      ]}
+    />
+  </div>
+);
+
+export const Heatmaps: Story = () => (
+  <div className="max-w-4xl p-6">
+    <Heatmap
+      title="Discrepancy heatmap"
+      description="Variance by publisher and day."
+      tone="warning"
+      xLabels={['Mon', 'Tue', 'Wed', 'Thu', 'Fri']}
+      yLabels={['Publisher A', 'Publisher B', 'Publisher C']}
+      cells={[
+        { x: 'Mon', y: 'Publisher A', value: 0.8 },
+        { x: 'Tue', y: 'Publisher A', value: 0.4 },
+        { x: 'Thu', y: 'Publisher B', value: 0.7 },
+        { x: 'Wed', y: 'Publisher C', value: 0.2 },
+      ]}
+      format={(value) => `${value.toFixed(1)}%`}
+    />
+  </div>
 );
 
 export default {

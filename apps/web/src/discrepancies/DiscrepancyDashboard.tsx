@@ -1,5 +1,5 @@
 import React, { FormEvent } from 'react';
-import { Button, CenteredSpinner, FilterBar, Input, Kicker, MetricCard, PageHeader, Panel, TrendChart } from '../system';
+import { Button, CenteredSpinner, DonutChart, FilterBar, Heatmap, Input, Kicker, MetricCard, PageHeader, Panel, TrendChart } from '../system';
 import { DiscrepancyTable } from './discrepancy-view/DiscrepancyTable';
 import { formatNumber } from './discrepancy-view/utils';
 import { AlertTriangleIcon, ReportIcon, TableIcon, toneToMetricTone } from './discrepancy-view/components';
@@ -9,6 +9,7 @@ export default function DiscrepanciesView() {
   const filtersState = useDiscrepancyFilters();
   const {
     discrepancies,
+    summary,
     thresholds,
     setThresholds,
     loading,
@@ -37,6 +38,30 @@ export default function DiscrepanciesView() {
     event.preventDefault();
     await saveThresholds();
   };
+
+  const withinThresholdSummary = Math.max((summary?.totalReports ?? tableRows.length) - (summary?.criticalCount ?? 0) - (summary?.warningCount ?? 0), 0);
+  const sourceTotals = discrepancies.reduce<Map<string, number>>((map, discrepancy) => {
+    const key = discrepancy.source || 'Publisher';
+    const nextValue = Math.max(map.get(key) ?? 0, Math.abs(discrepancy.deltaPct));
+    map.set(key, nextValue);
+    return map;
+  }, new Map());
+  const topSources = [...sourceTotals.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 8)
+    .map(([source]) => source);
+  const heatmapDates = [...new Set(discrepancies.map((item) => item.date))]
+    .sort((left, right) => left.localeCompare(right))
+    .slice(-7)
+    .map((date) => new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+  const heatmapCells = discrepancies
+    .filter((item) => topSources.includes(item.source || 'Publisher'))
+    .filter((item) => heatmapDates.includes(new Date(`${item.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })))
+    .map((item) => ({
+      x: new Date(`${item.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      y: item.source || 'Publisher',
+      value: item.deltaPct,
+    }));
 
   if (loading) {
     return <CenteredSpinner label="Loading discrepancies workspace…" />;
@@ -145,24 +170,66 @@ export default function DiscrepanciesView() {
         ))}
       </div>
 
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_320px]">
+        <Panel className="p-6">
+          <div className="mb-4">
+            <Kicker>Reconciliation snapshot</Kicker>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Adserver vs publisher</h2>
+            <p className="mt-2 text-sm text-text-muted">
+              Current-view comparison for the highest-variance discrepancy rows in the workspace.
+            </p>
+          </div>
+          <TrendChart
+            data={discrepancyChartData}
+            xKey="campaign"
+            kind="bar"
+            title="Discrepancy comparison chart"
+            description="Bar chart comparing adserver and publisher-reported delivery for the highest variance rows."
+            series={[
+              { key: 'adserver', label: 'Adserver', tone: 'brand', format: (value) => formatNumber(value) },
+              { key: 'publisher', label: 'Publisher', tone: 'warning', format: (value) => formatNumber(value) },
+            ]}
+          />
+        </Panel>
+
+        <Panel className="p-6">
+          <Kicker>Severity mix</Kicker>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Discrepancy severity</h2>
+          <p className="mt-2 text-sm text-text-muted">
+            Distribution of current reports across critical, warning, and within-threshold variance.
+          </p>
+          <div className="mt-5">
+            <DonutChart
+              title="Discrepancy severity mix"
+              description="Distribution of discrepancy reports across critical, warning, and within-threshold groups."
+              segments={[
+                { id: 'critical', label: 'Critical', value: summary?.criticalCount ?? tableRows.filter((row) => row.risk === 'Critical').length, tone: 'critical' },
+                { id: 'warning', label: 'Warning', value: summary?.warningCount ?? tableRows.filter((row) => row.risk === 'Warning').length, tone: 'warning' },
+                { id: 'within-threshold', label: 'Within threshold', value: withinThresholdSummary, tone: 'success' },
+              ]}
+              centerLabel={String(summary?.totalReports ?? tableRows.length)}
+              centerSubLabel="reports"
+            />
+          </div>
+        </Panel>
+      </div>
+
       <Panel className="p-6">
         <div className="mb-4">
-          <Kicker>Reconciliation snapshot</Kicker>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Adserver vs publisher</h2>
+          <Kicker>Heatmap · Last 7 days</Kicker>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Delta % by source × day</h2>
           <p className="mt-2 text-sm text-text-muted">
-            Current-view comparison for the highest-variance discrepancy rows in the workspace.
+            Repeated publisher variance stands out immediately when the same source lights up across multiple days.
           </p>
         </div>
-        <TrendChart
-          data={discrepancyChartData}
-          xKey="campaign"
-          kind="bar"
-          title="Discrepancy comparison chart"
-          description="Bar chart comparing adserver and publisher-reported delivery for the highest variance rows."
-          series={[
-            { key: 'adserver', label: 'Adserver', tone: 'brand', format: (value) => formatNumber(value) },
-            { key: 'publisher', label: 'Publisher', tone: 'warning', format: (value) => formatNumber(value) },
-          ]}
+        <Heatmap
+          title="Discrepancy delta by source over 7 days"
+          description="Heatmap showing discrepancy delta percent across the most volatile sources over the last seven visible days."
+          cells={heatmapCells}
+          xLabels={heatmapDates}
+          yLabels={topSources}
+          tone="warning"
+          format={(value) => `${value.toFixed(1)}%`}
         />
       </Panel>
 

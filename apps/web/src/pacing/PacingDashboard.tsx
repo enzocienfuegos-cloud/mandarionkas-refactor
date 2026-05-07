@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, CenteredSpinner, FilterBar, Kicker, MetricCard, PageHeader, Panel, TrendChart } from '../system';
+import { Button, CenteredSpinner, DonutChart, FilterBar, Kicker, MetricCard, PageHeader, Panel, TrendChart } from '../system';
 import { CampaignDetailDrawer } from './pacing-view/CampaignDetailDrawer';
 import { PacingTable } from './pacing-view/PacingTable';
 import type { PacingCampaign } from './pacing-view/types';
@@ -150,29 +150,57 @@ export default function PacingView() {
         ))}
       </div>
 
-      <Panel className="p-6">
-        <div className="mb-4">
-          <Kicker>Pacing curve</Kicker>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">
-            {focusCampaign ? `${focusCampaign.name} · last 7 days` : 'Last 7 days'}
-          </h2>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_320px]">
+        <Panel className="p-6">
+          <div className="mb-4">
+            <Kicker>Pacing curve</Kicker>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">
+              {focusCampaign ? `${focusCampaign.name} · last 7 days` : 'Last 7 days'}
+            </h2>
+            <p className="mt-2 text-sm text-text-muted">
+              Delivered vs expected pacing for the current focus campaign, with projected finish based on current pace.
+            </p>
+          </div>
+          <TrendChart
+            data={pacingTrendData}
+            xKey="date"
+            kind="line"
+            title="Pacing trend for the selected focus campaign"
+            description="Line chart showing cumulative delivered impressions, target impressions, and projected delivery over the last seven days."
+            series={[
+              { key: 'delivered', label: 'Delivered', tone: 'brand', format: (value) => fmtNum(value) },
+              { key: 'target', label: 'Target', tone: 'neutral', dashed: true, format: (value) => fmtNum(value) },
+              { key: 'projected', label: 'Projected', tone: 'warning', format: (value) => fmtNum(value) },
+            ]}
+          />
+        </Panel>
+
+        <Panel className="p-6">
+          <Kicker>Pacing mix</Kicker>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Campaign pacing status</h2>
           <p className="mt-2 text-sm text-text-muted">
-            Delivered vs expected pacing for the current focus campaign, with projected finish based on current pace.
+            Share of active campaigns currently on track, behind, or in another non-blocking pacing state.
           </p>
-        </div>
-        <TrendChart
-          data={pacingTrendData}
-          xKey="date"
-          kind="line"
-          title="Pacing trend for the selected focus campaign"
-          description="Line chart showing cumulative delivered impressions, target impressions, and projected delivery over the last seven days."
-          series={[
-            { key: 'delivered', label: 'Delivered', tone: 'brand', format: (value) => fmtNum(value) },
-            { key: 'target', label: 'Target', tone: 'neutral', dashed: true, format: (value) => fmtNum(value) },
-            { key: 'projected', label: 'Projected', tone: 'warning', format: (value) => fmtNum(value) },
-          ]}
-        />
-      </Panel>
+          <div className="mt-5">
+            <DonutChart
+              title="Pacing status mix"
+              description="Distribution of on-track, behind, and other active campaigns in the pacing workspace."
+              segments={[
+                { id: 'on-track', label: 'On track', value: data?.summary.onTrack ?? 0, tone: 'success' },
+                { id: 'behind', label: 'Behind', value: data?.summary.behind ?? 0, tone: 'warning' },
+                {
+                  id: 'other',
+                  label: 'Other',
+                  value: Math.max((data?.summary.active ?? 0) - (data?.summary.onTrack ?? 0) - (data?.summary.behind ?? 0), 0),
+                  tone: 'neutral',
+                },
+              ]}
+              centerLabel={String(data?.summary.active ?? 0)}
+              centerSubLabel="active"
+            />
+          </div>
+        </Panel>
+      </div>
 
       {filteredRows.length === 0 ? (
         <Panel padding="none">
