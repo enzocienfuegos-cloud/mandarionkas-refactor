@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Modal } from '../../system';
+import { Button, CreativeThumb, Modal } from '../../system';
 import { ExternalLink } from '../../system/icons';
 import type { PreviewState } from './types';
 
@@ -33,7 +33,15 @@ export function CreativePreviewModal({ previewState, onClose }: { previewState: 
       }
     >
       <div className="-mx-6 -my-4 flex items-center justify-center bg-[color:var(--dusk-surface-muted)] p-4">
-        <div className="flex items-center justify-center bg-[color:var(--dusk-surface-muted)] p-4">
+        <div className="flex flex-col items-center justify-center gap-4 bg-[color:var(--dusk-surface-muted)] p-4">
+          <CreativeThumb
+            creativeId={previewState.name}
+            width={previewState.width}
+            height={previewState.height}
+            previewUrl={previewState.url}
+            staticImageUrl={previewState.kind === 'html' ? previewState.url : undefined}
+            className="!h-[200px] !w-[240px]"
+          />
           {previewState.kind === 'video' ? (
             <video
               controls

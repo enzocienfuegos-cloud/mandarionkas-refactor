@@ -1,5 +1,5 @@
 import React from 'react';
-import { DataTable, IconButton, type ColumnDef } from '../../system';
+import { CreativeThumb, DataTable, IconButton, type ColumnDef } from '../../system';
 import type { Creative, CreativeVersion } from '../catalog';
 import type { CreativeRow, PreviewModalState, PrioritySeverity } from './types';
 import { CreativePreviewCell } from './CreativePreviewCell';
@@ -48,6 +48,28 @@ export function CreativeTable({
   const selectedKeySet = React.useMemo(() => new Set(selectedCreativeIds), [selectedCreativeIds]);
 
   const columns = React.useMemo<ColumnDef<CreativeRow>[]>(() => [
+    {
+      id: 'thumb',
+      header: 'Asset',
+      pinned: true,
+      width: '88px',
+      cell: (row) => {
+        const creative = creatives.find((entry) => entry.id === row.id);
+        const version = latestVersions[row.id];
+        const previewHref = creative ? (resolveCreativePreviewHref(creative, version) ?? '') : '';
+        return (
+          <CreativeThumb
+            creativeId={row.id}
+            width={version?.width}
+            height={version?.height}
+            weightKb={version?.fileSize ? version.fileSize / 1024 : null}
+            format={row.format}
+            previewUrl={previewHref}
+            staticImageUrl={creative?.thumbnailUrl}
+          />
+        );
+      },
+    },
     {
       id: 'creative',
       header: 'Creative',
