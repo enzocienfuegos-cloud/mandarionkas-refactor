@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, CenteredSpinner, FilterBar, IconButton, Input, Kicker, MetricCard, PageHeader, Panel, TrendChart } from '../system';
+import { Button, CenteredSpinner, FilterBar, Kicker, MetricCard, PageHeader, Panel, TrendChart } from '../system';
 import { SparklineModal } from './pacing-view/SparklineModal';
+import { PacingTable } from './pacing-view/PacingTable';
 import type {
   BreakdownDay,
   Metric,
@@ -11,12 +12,10 @@ import type {
   PacingStatus,
   PrioritySeverity,
   RawPacingStatus,
-  SortKey,
   Tone,
 } from './pacing-view/types';
 import {
   buildPacingRow,
-  classNames,
   fmtCurrency,
   fmtNum,
   normalizePacingAlert,
@@ -24,16 +23,9 @@ import {
 } from './pacing-view/utils';
 import {
   AlertTriangleIcon,
-  FilterIcon,
   GaugeIcon,
-  MoreIcon,
-  PacingStatusPill,
   ReportIcon,
-  SearchIcon,
-  SeverityPill,
-  SortHeader,
   TableIcon,
-  TrendBadge,
   toneToMetricTone,
 } from './pacing-view/components';
 
@@ -47,8 +39,6 @@ export default function PacingView() {
   const [dateRangeFilter, setDateRangeFilter] = useState<'7d' | '30d' | '90d'>('30d');
   const [statusFilter, setStatusFilter] = useState<'all' | 'exceptions' | 'on_pace' | 'paused'>('all');
   const [exceptionsOnly, setExceptionsOnly] = useState(false);
-  const [sortKey, setSortKey] = useState<SortKey>('campaign');
-  const [sortAsc, setSortAsc] = useState(true);
   const [selectedCampaign, setSelectedCampaign] = useState<PacingCampaign | null>(null);
   const [focusBreakdown, setFocusBreakdown] = useState<BreakdownDay[]>([]);
 
@@ -116,24 +106,9 @@ export default function PacingView() {
     () => Array.from(new Set(rows.map((row) => row.advertiser))).sort(),
     [rows],
   );
-  const sortedRows = [...filteredRows].sort((left, right) => {
-    const leftCampaign = data?.campaigns.find((campaign) => campaign.id === left.id);
-    const rightCampaign = data?.campaigns.find((campaign) => campaign.id === right.id);
-    let comparison = 0;
-
-    if (sortKey === 'campaign') comparison = left.campaign.localeCompare(right.campaign);
-    else if (sortKey === 'advertiser') comparison = left.advertiser.localeCompare(right.advertiser);
-    else if (sortKey === 'pacingPct') comparison = (leftCampaign?.pacingPct ?? 0) - (rightCampaign?.pacingPct ?? 0);
-    else if (sortKey === 'deliveryPct') comparison = (leftCampaign?.deliveryPct ?? 0) - (rightCampaign?.deliveryPct ?? 0);
-    else if (sortKey === 'remainingDays') comparison = (leftCampaign?.remainingDays ?? 0) - (rightCampaign?.remainingDays ?? 0);
-    else if (sortKey === 'impressionsServed') comparison = (leftCampaign?.impressionsServed ?? 0) - (rightCampaign?.impressionsServed ?? 0);
-
-    return sortAsc ? comparison : -comparison;
-  });
-
   const focusCampaign = useMemo(
-    () => data?.campaigns.find((campaign) => campaign.id === sortedRows[0]?.id) ?? null,
-    [data?.campaigns, sortedRows],
+    () => data?.campaigns.find((campaign) => campaign.id === filteredRows[0]?.id) ?? null,
+    [data?.campaigns, filteredRows],
   );
 
   useEffect(() => {
@@ -226,14 +201,6 @@ export default function PacingView() {
     { name: 'four metric cards render', passed: pacingMetrics.length === 4 },
     { name: 'primary CTA remains review pacing', passed: true },
   ];
-
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) setSortAsc((current) => !current);
-    else {
-      setSortKey(key);
-      setSortAsc(true);
-    }
-  };
 
   if (loading) {
     return (
@@ -378,7 +345,7 @@ export default function PacingView() {
         />
       </Panel>
 
-      {sortedRows.length === 0 ? (
+      {filteredRows.length === 0 ? (
           <Panel className="px-6 py-20 text-center">
           <Kicker>No pacing rows</Kicker>
           <h3 className="mt-3 text-lg font-medium text-slate-700 dark:text-white">No campaigns with pacing data</h3>
@@ -425,64 +392,12 @@ export default function PacingView() {
               </div>
             </div>
 
-            <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
-              <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
-                <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
-                  <tr>
-                    <SortHeader col="campaign" label="Campaign" sortKey={sortKey} sortAsc={sortAsc} onSort={handleSort} />
-                    <SortHeader col="advertiser" label="Advertiser" sortKey={sortKey} sortAsc={sortAsc} onSort={handleSort} />
-                    <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">Status</th>
-                    <SortHeader col="deliveryPct" label="Pacing" sortKey={sortKey} sortAsc={sortAsc} onSort={handleSort} />
-                    <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">Spend</th>
-                    <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">Daily target</th>
-                    <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">Projected</th>
-                    <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">Risk</th>
-                    <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">Owner</th>
-                    <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42" aria-label="Actions" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-white/8">
-                  {sortedRows.map((row) => {
-                    const backingCampaign = data?.campaigns.find((campaign) => campaign.id === row.id) ?? null;
-                    return (
-                      <tr key={row.id} className="bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
-                        <td className="px-5 py-5">
-                          <p className="font-semibold text-slate-950 dark:text-white">{row.campaign}</p>
-                          <p className="mt-1 text-xs text-slate-500 dark:text-white/48">{row.advertiser}</p>
-                        </td>
-                        <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.advertiser}</td>
-                        <td className="px-5 py-5">
-                          <PacingStatusPill status={row.status} />
-                        </td>
-                        <td className="px-5 py-5 font-medium text-slate-700 dark:text-white/72">
-                          <div className="flex flex-col gap-2">
-                            <span>{row.pacing}</span>
-                            <div className="h-2.5 w-28 overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.08]">
-                              <div className="h-full rounded-full bg-fuchsia-500" style={{ width: `${Math.min(Number(row.pacing.replace('%', '')) || 0, 100)}%` }} />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-5">
-                          <span className="font-medium text-slate-700 dark:text-white/72">{row.spend}</span>
-                          <span className="text-slate-400 dark:text-white/36"> / {row.budget}</span>
-                        </td>
-                        <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.dailyTarget}</td>
-                        <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.projected}</td>
-                        <td className="px-5 py-5">
-                          <SeverityPill severity={row.risk} />
-                        </td>
-                        <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.owner}</td>
-                        <td className="px-5 py-5">
-                          <div className="flex items-center gap-1.5">
-                            <IconButton icon={<GaugeIcon className="h-4 w-4" />} onClick={() => backingCampaign && setSelectedCampaign(backingCampaign)} aria-label={`Inspect ${row.campaign}`} />
-                            <IconButton icon={<MoreIcon className="h-4 w-4" />} onClick={() => backingCampaign && setSelectedCampaign(backingCampaign)} aria-label={`More actions for ${row.campaign}`} />
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="mt-6 overflow-hidden rounded-3xl border border-border-default">
+              <PacingTable
+                rows={filteredRows}
+                campaigns={data?.campaigns ?? []}
+                onInspectCampaign={setSelectedCampaign}
+              />
             </div>
           </Panel>
 

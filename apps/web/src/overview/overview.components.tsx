@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Button, IconButton, Input, Kicker, Panel } from '../system';
+import { Badge, Button, DataTable, IconButton, Input, Kicker, Panel, type ColumnDef } from '../system';
 import {
   type AttentionItem,
   type AttentionSeverity,
@@ -274,29 +274,41 @@ export function CampaignTable({ rows }: { rows: TopCampaignRow[] }) {
         </Link>
       </div>
       <div className="mt-6 overflow-hidden rounded-3xl border border-border-default">
-        <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)] text-sm">
-          <caption className="sr-only">Top campaigns by spend, CTR and operational status</caption>
-          <thead className="bg-surface-muted">
-            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.28em] text-text-soft">
-              <th scope="col" className="px-6 py-4">Campaign</th>
-              <th scope="col" className="px-6 py-4">Spend</th>
-              <th scope="col" className="px-6 py-4">CTR</th>
-              <th scope="col" className="px-6 py-4">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
-            {rows.map((row) => (
-              <tr key={row.id} className="bg-surface-1">
-                <th scope="row" className="px-6 py-5 text-left font-medium text-text-primary">{row.name}</th>
-                <td className="px-6 py-5 text-text-secondary">{row.spend}</td>
-                <td className="px-6 py-5 text-text-secondary">{row.ctr}</td>
-                <td className="px-6 py-5">
-                  <CampaignStatusBadge status={row.status} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable
+          columns={[
+            {
+              id: 'campaign',
+              header: 'Campaign',
+              sortAccessor: (row) => row.name,
+              cell: (row) => <span className="font-medium text-text-primary">{row.name}</span>,
+            },
+            {
+              id: 'spend',
+              header: 'Spend',
+              align: 'right',
+              sortAccessor: (row) => Number(row.spend.replace(/[^0-9.-]/g, '')),
+              cell: (row) => row.spend,
+            },
+            {
+              id: 'ctr',
+              header: 'CTR',
+              align: 'right',
+              sortAccessor: (row) => Number(row.ctr.replace(/[^0-9.-]/g, '')),
+              cell: (row) => row.ctr,
+            },
+            {
+              id: 'status',
+              header: 'Status',
+              sortAccessor: (row) => row.status,
+              cell: (row) => <CampaignStatusBadge status={row.status} />,
+            },
+          ] as ColumnDef<TopCampaignRow>[]}
+          data={rows}
+          rowKey={(row) => row.id}
+          bordered={false}
+          density="comfortable"
+          emptyState={null}
+        />
       </div>
     </Panel>
   );
@@ -441,40 +453,60 @@ export function WorkQueueTable({ rows }: { rows: WorkQueueRow[] }) {
         <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Daily launch, delivery, and QA queue</h2>
         <p className="mt-2 text-sm text-text-secondary">Triage blockers, implementation gaps, and readiness issues from one operational table.</p>
       </div>
-      <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-border-default">
-        <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)] text-sm">
-          <caption className="sr-only">Daily work queue for launch, delivery and QA blockers</caption>
-          <thead className="bg-surface-muted">
-            <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-text-soft">
-              <th scope="col" className="px-6 py-4">Stage</th>
-              <th scope="col" className="px-6 py-4">Issue</th>
-              <th scope="col" className="px-6 py-4">Advertiser</th>
-              <th scope="col" className="px-6 py-4">Owner</th>
-              <th scope="col" className="px-6 py-4">Due</th>
-              <th scope="col" className="px-6 py-4">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
-            {rows.map((row) => (
-              <tr key={row.id} className="bg-surface-1 transition hover:bg-surface-muted">
-                <td className="px-6 py-5">
-                  <Badge tone={row.severity === 'critical' ? 'critical' : row.severity === 'warning' ? 'warning' : row.severity === 'healthy' ? 'success' : 'info'}>
-                    {row.stage}
-                  </Badge>
-                </td>
-                <th scope="row" className="px-6 py-5 text-left font-semibold text-text-primary">{row.issue}</th>
-                <td className="px-6 py-5 text-text-secondary">{row.advertiser}</td>
-                <td className="px-6 py-5 text-text-secondary">{row.owner}</td>
-                <td className="px-6 py-5 tabular-nums text-text-secondary">{row.due}</td>
-                <td className="px-6 py-5">
-                  <Link to={row.actionHref} className="inline-flex">
-                    <Button variant="ghost" size="sm">{row.actionLabel}</Button>
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mt-6 overflow-hidden rounded-3xl border border-border-default">
+        <DataTable
+          columns={[
+            {
+              id: 'stage',
+              header: 'Stage',
+              sortAccessor: (row) => row.stage,
+              cell: (row) => (
+                <Badge tone={row.severity === 'critical' ? 'critical' : row.severity === 'warning' ? 'warning' : row.severity === 'healthy' ? 'success' : 'info'}>
+                  {row.stage}
+                </Badge>
+              ),
+            },
+            {
+              id: 'issue',
+              header: 'Issue',
+              sortAccessor: (row) => row.issue,
+              cell: (row) => <span className="font-semibold text-text-primary">{row.issue}</span>,
+            },
+            {
+              id: 'advertiser',
+              header: 'Advertiser',
+              sortAccessor: (row) => row.advertiser,
+              cell: (row) => row.advertiser,
+            },
+            {
+              id: 'owner',
+              header: 'Owner',
+              sortAccessor: (row) => row.owner,
+              cell: (row) => row.owner,
+            },
+            {
+              id: 'due',
+              header: 'Due',
+              sortAccessor: (row) => row.due,
+              cell: (row) => <span className="tabular">{row.due}</span>,
+            },
+            {
+              id: 'action',
+              header: 'Action',
+              align: 'right',
+              cell: (row) => (
+                <Link to={row.actionHref} className="inline-flex">
+                  <Button variant="ghost" size="sm">{row.actionLabel}</Button>
+                </Link>
+              ),
+            },
+          ] as ColumnDef<WorkQueueRow>[]}
+          data={rows}
+          rowKey={(row) => row.id}
+          bordered={false}
+          density="comfortable"
+          emptyState={null}
+        />
       </div>
     </Panel>
   );

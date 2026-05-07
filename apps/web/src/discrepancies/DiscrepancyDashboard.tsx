@@ -3,7 +3,6 @@ import {
   Button,
   CenteredSpinner,
   FilterBar,
-  IconButton,
   Input,
   Kicker,
   MetricCard,
@@ -11,6 +10,7 @@ import {
   Panel,
   TrendChart,
 } from '../system';
+import { DiscrepancyTable } from './discrepancy-view/DiscrepancyTable';
 import type {
   Discrepancy,
   DiscrepancyRow,
@@ -34,12 +34,9 @@ import {
 import {
   AlertTriangleIcon,
   DiscrepancyStatusPill,
-  FilterIcon,
   ReportIcon,
-  SearchIcon,
   SeverityPill,
   TableIcon,
-  TrendBadge,
   toneToMetricTone,
 } from './discrepancy-view/components';
 
@@ -375,46 +372,8 @@ export default function DiscrepanciesView() {
             <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Thresholds</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{thresholds.warningPct}% / {thresholds.criticalPct}%</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">warning and critical variance caps</p></div>
           </div>
 
-          <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
-            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
-              <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
-                <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
-                  <th className="px-5 py-4">Campaign</th>
-                  <th className="px-5 py-4">Status</th>
-                  <th className="px-5 py-4">Adserver</th>
-                  <th className="px-5 py-4">Publisher</th>
-                  <th className="px-5 py-4">Variance</th>
-                  <th className="px-5 py-4">Threshold</th>
-                  <th className="px-5 py-4">Risk</th>
-                  <th className="px-5 py-4">Owner</th>
-                  <th className="px-5 py-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-white/8">
-                {filteredDiscrepancyRows.map((row) => (
-                  <tr key={row.id} className="bg-white/42 transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
-                    <td className="px-5 py-5">
-                      <p className="font-semibold text-slate-950 dark:text-white">{row.campaign}</p>
-                      <p className="mt-1 text-xs text-slate-500 dark:text-white/48">{row.advertiser} · {row.publisher}</p>
-                    </td>
-                    <td className="px-5 py-5">
-                      <DiscrepancyStatusPill status={row.status} />
-                    </td>
-                    <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.adserver}</td>
-                    <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.publisherReported}</td>
-                    <td className="px-5 py-5 font-medium text-slate-700 dark:text-white/72">{row.variance}</td>
-                    <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.threshold}</td>
-                    <td className="px-5 py-5">
-                      <SeverityPill severity={row.risk} />
-                    </td>
-                    <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row.owner}</td>
-                    <td className="px-5 py-5">
-                      <Button type="button" onClick={load} variant="secondary" size="sm">Investigate</Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-6 overflow-hidden rounded-3xl border border-border-default">
+            <DiscrepancyTable rows={filteredDiscrepancyRows} onInvestigate={load} />
           </div>
         </Panel>
 
@@ -452,7 +411,7 @@ export default function DiscrepanciesView() {
                     max="100"
                     step="0.1"
                     value={thresholds.warningPct}
-                    onChange={(e) => setThresholds((t) => ({ ...t, warningPct: Number(e.target.value) }))}
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => setThresholds((t) => ({ ...t, warningPct: Number(event.target.value) }))}
                     className="mt-2"
                   />
                 </div>
@@ -464,7 +423,7 @@ export default function DiscrepanciesView() {
                     max="100"
                     step="0.1"
                     value={thresholds.criticalPct}
-                    onChange={(e) => setThresholds((t) => ({ ...t, criticalPct: Number(e.target.value) }))}
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => setThresholds((t) => ({ ...t, criticalPct: Number(event.target.value) }))}
                     className="mt-2"
                   />
                 </div>

@@ -1,14 +1,16 @@
-import React, { useEffect, useState, FormEvent } from 'react';
+import React, { FormEvent, useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   Button,
   CenteredSpinner,
+  DataTable,
   EmptyState,
   FormField,
   Input,
   Kicker,
   Panel,
   Select,
+  type ColumnDef,
 } from '../system';
 
 interface AuditEvent {
@@ -57,7 +59,7 @@ export default function AuditLog() {
 
   const setF = (k: keyof typeof pendingFilters) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => setPendingFilters(f => ({ ...f, [k]: e.target.value }));
+  ) => setPendingFilters((f) => ({ ...f, [k]: e.target.value }));
 
   const load = (off = 0) => {
     setLoading(true);
@@ -72,13 +74,16 @@ export default function AuditLog() {
     if (filters.dateTo) params.set('dateTo', filters.dateTo);
 
     fetch(`/v1/audit?${params}`, { credentials: 'include' })
-      .then(r => { if (!r.ok) throw new Error('Failed to load audit log'); return r.json() as Promise<AuditResponse>; })
-      .then(d => {
-        setEvents(d?.events ?? []);
-        setTotal(d?.total ?? 0);
+      .then((response) => {
+        if (!response.ok) throw new Error('Failed to load audit log');
+        return response.json() as Promise<AuditResponse>;
+      })
+      .then((payload) => {
+        setEvents(payload?.events ?? []);
+        setTotal(payload?.total ?? 0);
         setOffset(off);
       })
-      .catch(e => setError(e.message))
+      .catch((caught: Error) => setError(caught.message))
       .finally(() => setLoading(false));
   };
 
@@ -86,8 +91,8 @@ export default function AuditLog() {
     if (canReadAudit) load(0);
   }, [canReadAudit, filters]);
 
-  const handleApplyFilters = (e: FormEvent) => {
-    e.preventDefault();
+  const handleApplyFilters = (event: FormEvent) => {
+    event.preventDefault();
     setFilters({ ...pendingFilters });
   };
 
@@ -99,6 +104,53 @@ export default function AuditLog() {
 
   const totalPages = Math.ceil(total / LIMIT);
   const currentPage = Math.floor(offset / LIMIT) + 1;
+  const expandedEvent = events.find((item) => item.id === expandedId) ?? null;
+
+  const columns: ColumnDef<AuditEvent>[] = [
+    {
+      id: 'timestamp',
+      header: 'Timestamp',
+      sortAccessor: (item) => item.timestamp,
+      cell: (item) => <span className="text-xs text-text-muted">{new Date(item.timestamp).toLocaleString()}</span>,
+    },
+    {
+      id: 'actor',
+      header: 'Actor',
+      sortAccessor: (item) => item.actorEmail,
+      cell: (item) => <span className="text-sm text-text-secondary">{item.actorEmail}</span>,
+    },
+    {
+      id: 'action',
+      header: 'Action',
+      sortAccessor: (item) => item.action,
+      cell: (item) => (
+        <code className="rounded bg-[color:var(--dusk-surface-muted)] px-1.5 py-0.5 text-xs font-mono text-text-secondary">
+          {item.action}
+        </code>
+      ),
+    },
+    {
+      id: 'resource',
+      header: 'Resource',
+      sortAccessor: (item) => item.resourceType,
+      cell: (item) => <span className="text-sm capitalize text-text-muted">{item.resourceType}</span>,
+    },
+    {
+      id: 'resource-id',
+      header: 'ID',
+      sortAccessor: (item) => item.resourceId,
+      cell: (item) => <code className="text-xs font-mono text-text-muted">{item.resourceId}</code>,
+    },
+    {
+      id: 'details',
+      header: 'Details',
+      cell: (item) => (
+        item.metadata && Object.keys(item.metadata).length > 0
+          ? <span className="text-xs text-text-soft">{expandedId === item.id ? 'Hide details' : 'View details'}</span>
+          : <span className="text-xs text-text-soft">No metadata</span>
+      ),
+    },
+  ];
 
   if (!canReadAudit) {
     return (
@@ -148,8 +200,8 @@ export default function AuditLog() {
               value={pendingFilters.resourceType}
               onChange={setF('resourceType')}
             >
-              {RESOURCE_TYPES.map(t => (
-                <option key={t} value={t}>{t === 'all' ? 'All Types' : t}</option>
+              {RESOURCE_TYPES.map((type) => (
+                <option key={type} value={type}>{type === 'all' ? 'All Types' : type}</option>
               ))}
             </Select>
           </FormField>
@@ -170,17 +222,13 @@ export default function AuditLog() {
             />
           </FormField>
           <div className="flex items-end gap-2">
-            <Button type="submit" className="flex-1">
-              Apply
-            </Button>
-            <Button type="button" variant="secondary" onClick={handleResetFilters}>
-              Reset
-            </Button>
+            <Button type="submit" className="flex-1">Apply</Button>
+            <Button type="button" variant="secondary" onClick={handleResetFilters}>Reset</Button>
           </div>
         </form>
       </Panel>
 
-      <div className="flex items-center justify-between mb-3">
+      <div className="mb-3 flex items-center justify-between">
         <p className="text-sm text-[color:var(--dusk-text-muted)]">
           {total > 0 ? `${total.toLocaleString()} event${total !== 1 ? 's' : ''}` : ''}
         </p>
@@ -196,9 +244,7 @@ export default function AuditLog() {
           <p className="font-medium text-[color:var(--dusk-status-critical-fg)]">Error loading audit log</p>
           <p className="mt-1 text-sm text-[color:var(--dusk-text-muted)]">{error}</p>
           <div className="mt-4">
-            <Button variant="secondary" onClick={() => load(offset)}>
-              Retry
-            </Button>
+            <Button variant="secondary" onClick={() => load(offset)}>Retry</Button>
           </div>
         </Panel>
       ) : events.length === 0 ? (
@@ -208,84 +254,37 @@ export default function AuditLog() {
           description="Try adjusting your filters to widen the time range or resource scope."
         />
       ) : (
-        <Panel className="overflow-hidden" padding="none">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
-              <caption className="sr-only">
-                Workspace audit events with actor, action, resource, and event details.
-              </caption>
-              <thead className="bg-[color:var(--dusk-surface-muted)]">
-                <tr>
-                  {['Timestamp', 'Actor', 'Action', 'Resource', 'ID', ''].map((h, i) => (
-                    <th
-                      key={i}
-                      scope="col"
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[color:var(--dusk-text-soft)]"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
-                {events.map(ev => (
-                  <React.Fragment key={ev.id}>
-                    <tr
-                      className="cursor-pointer transition-colors hover:bg-[color:var(--dusk-surface-muted)]"
-                      onClick={() => setExpandedId(expandedId === ev.id ? null : ev.id)}
-                    >
-                      <td className="whitespace-nowrap px-4 py-3 text-xs text-[color:var(--dusk-text-muted)]">
-                        {new Date(ev.timestamp).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-[color:var(--dusk-text-secondary)]">{ev.actorEmail}</td>
-                      <td className="px-4 py-3">
-                        <code className="rounded bg-[color:var(--dusk-surface-muted)] px-1.5 py-0.5 text-xs font-mono text-[color:var(--dusk-text-secondary)]">
-                          {ev.action}
-                        </code>
-                      </td>
-                      <td className="px-4 py-3 text-sm capitalize text-[color:var(--dusk-text-muted)]">{ev.resourceType}</td>
-                      <th scope="row" className="px-4 py-3 text-left">
-                        <code className="text-xs font-mono text-[color:var(--dusk-text-muted)]">{ev.resourceId}</code>
-                      </th>
-                      <td className="px-4 py-3 text-xs text-[color:var(--dusk-text-soft)]">
-                        {ev.metadata && Object.keys(ev.metadata).length > 0 && (
-                          <span>{expandedId === ev.id ? '▲' : '▼'} details</span>
-                        )}
-                      </td>
-                    </tr>
-                    {expandedId === ev.id && ev.metadata && Object.keys(ev.metadata).length > 0 && (
-                      <tr>
-                        <td
-                          colSpan={6}
-                          className="border-b border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-4 py-3"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex-1">
-                              <p className="mb-2 text-xs font-semibold text-[color:var(--dusk-text-soft)]">Metadata</p>
-                              <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[color:var(--dusk-surface-inverse)] p-3 text-xs font-mono text-[color:var(--dusk-text-inverse)]">
-                                {JSON.stringify(ev.metadata, null, 2)}
-                              </pre>
-                            </div>
-                            {ev.ipAddress && (
-                              <div>
-                                <p className="mb-1 text-xs font-semibold text-[color:var(--dusk-text-soft)]">IP Address</p>
-                                <code className="text-xs font-mono text-[color:var(--dusk-text-muted)]">{ev.ipAddress}</code>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
+        <>
+          <DataTable
+            columns={columns}
+            data={events}
+            rowKey={(item) => item.id}
+            onRowClick={(item) => setExpandedId(expandedId === item.id ? null : item.id)}
+            emptyState={null}
+          />
+          {expandedEvent?.metadata && Object.keys(expandedEvent.metadata).length > 0 ? (
+            <Panel className="mt-4 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <p className="mb-2 text-xs font-semibold text-text-soft">Metadata</p>
+                  <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[color:var(--dusk-surface-inverse)] p-3 text-xs font-mono text-[color:var(--dusk-text-inverse)]">
+                    {JSON.stringify(expandedEvent.metadata, null, 2)}
+                  </pre>
+                </div>
+                {expandedEvent.ipAddress ? (
+                  <div>
+                    <p className="mb-1 text-xs font-semibold text-text-soft">IP Address</p>
+                    <code className="text-xs font-mono text-text-muted">{expandedEvent.ipAddress}</code>
+                  </div>
+                ) : null}
+              </div>
+            </Panel>
+          ) : null}
+        </>
       )}
 
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-4">
+      {totalPages > 1 ? (
+        <div className="mt-4 flex justify-center gap-2">
           <Button
             variant="secondary"
             onClick={() => load(offset - LIMIT)}
@@ -304,7 +303,7 @@ export default function AuditLog() {
             Next →
           </Button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

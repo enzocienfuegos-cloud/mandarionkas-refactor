@@ -1,6 +1,6 @@
 import React, { useState, type FormEvent } from 'react';
 import { getPlatformRoleLabel, type PlatformRole } from '../../shared/roles';
-import { Button, EmptyState, FormField, Input, Panel, Select } from '../../system';
+import { Button, DataTable, EmptyState, FormField, Input, Panel, Select, type ColumnDef } from '../../system';
 import {
   ProductAccessBadge,
   PLATFORM_ROLES,
@@ -94,65 +94,84 @@ export function WorkspaceMembersSection({
             />
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
-            <caption className="sr-only">Workspace team members and permissions</caption>
-            <thead className="bg-[color:var(--dusk-surface-muted)]">
-              <tr>
-                {['Member', 'Email', 'Role', 'Product Access', 'Joined', 'Actions'].map((heading) => (
-                  <th key={heading} scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
-              {members.map((member) => (
-                <tr key={member.id} className="transition-colors hover:bg-[color:var(--dusk-surface-muted)]">
-                  <th scope="row" className="px-4 py-3 text-left">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-text-brand">
-                        {member.firstName?.[0]}{member.lastName?.[0]}
-                      </div>
-                      <span className="text-sm font-medium text-text-primary">
-                        {member.firstName} {member.lastName}
-                      </span>
+          <DataTable
+            columns={[
+              {
+                id: 'member',
+                header: 'Member',
+                sortAccessor: (member) => `${member.firstName} ${member.lastName}`,
+                cell: (member) => (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-text-brand">
+                      {member.firstName?.[0]}{member.lastName?.[0]}
                     </div>
-                  </th>
-                  <td className="px-4 py-3 text-sm text-text-muted">{member.email}</td>
-                  <td className="px-4 py-3">
-                    {member.role === 'owner' ? (
-                      roleBadge('owner')
-                    ) : (
-                      <Select
-                        value={member.platformRole}
-                        onChange={(event) => void onRoleChange(member, event.target.value as PlatformRole)}
-                        disabled={updatingRoleId === member.id}
-                        options={PLATFORM_ROLES.map((role) => ({ value: role, label: getPlatformRoleLabel(role) }))}
-                      />
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <ProductAccessBadge productAccess={member.productAccess} />
-                  </td>
-                  <td className="px-4 py-3 text-xs text-text-muted">
+                    <span className="text-sm font-medium text-text-primary">
+                      {member.firstName} {member.lastName}
+                    </span>
+                  </div>
+                ),
+              },
+              {
+                id: 'email',
+                header: 'Email',
+                sortAccessor: (member) => member.email,
+                cell: (member) => <span className="text-sm text-text-muted">{member.email}</span>,
+              },
+              {
+                id: 'role',
+                header: 'Role',
+                sortAccessor: (member) => member.platformRole,
+                cell: (member) => (
+                  member.role === 'owner' ? (
+                    roleBadge('owner')
+                  ) : (
+                    <Select
+                      value={member.platformRole}
+                      onChange={(event) => void onRoleChange(member, event.target.value as PlatformRole)}
+                      disabled={updatingRoleId === member.id}
+                      options={PLATFORM_ROLES.map((role) => ({ value: role, label: getPlatformRoleLabel(role) }))}
+                    />
+                  )
+                ),
+              },
+              {
+                id: 'access',
+                header: 'Product access',
+                cell: (member) => <ProductAccessBadge productAccess={member.productAccess} />,
+              },
+              {
+                id: 'joined',
+                header: 'Joined',
+                sortAccessor: (member) => member.joinedAt,
+                cell: (member) => (
+                  <span className="text-xs text-text-muted">
                     {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString() : 'Pending'}
-                  </td>
-                  <td className="px-4 py-3">
-                    {member.role !== 'owner' && (
-                      <Button
-                        onClick={() => void onRemoveMember(member)}
-                        disabled={removingId === member.id}
-                        variant="ghost"
-                        size="sm"
-                      >
-                        {removingId === member.id ? '...' : 'Remove'}
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </span>
+                ),
+              },
+              {
+                id: 'actions',
+                header: 'Actions',
+                align: 'right',
+                cell: (member) => (
+                  member.role !== 'owner' ? (
+                    <Button
+                      onClick={() => void onRemoveMember(member)}
+                      disabled={removingId === member.id}
+                      variant="ghost"
+                      size="sm"
+                    >
+                      {removingId === member.id ? '...' : 'Remove'}
+                    </Button>
+                  ) : null
+                ),
+              },
+            ] as ColumnDef<Member>[]}
+            data={members}
+            rowKey={(member) => member.id}
+            bordered={false}
+            emptyState={null}
+          />
         )}
       </Panel>
     </div>

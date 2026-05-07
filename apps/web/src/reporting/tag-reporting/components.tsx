@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge, Button, EmptyState, Input, Kicker, Panel, Select, Tab, Tabs, TabsList } from '../../system';
+import { Badge, Button, DataTable, EmptyState, Input, Kicker, Panel, Select, Tab, Tabs, TabsList, type ColumnDef } from '../../system';
 import type { DailyStat, ReportingTab, Tag } from './types';
 
 function iconProps() {
@@ -456,49 +456,23 @@ export function ReportingBreakdownTable({
           className="border-0 bg-transparent px-4 py-8 shadow-none"
         />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-[color:var(--dusk-border-subtle)]">
-            <caption className="sr-only">{title}</caption>
-            <thead className="bg-[color:var(--dusk-surface-muted)]">
-              <tr>
-                {columns.map((column) => (
-                  <th
-                    key={column.key}
-                    scope="col"
-                    className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[color:var(--dusk-text-soft)]"
-                  >
-                    {column.header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[color:var(--dusk-border-subtle)]">
-              {[...rows].reverse().map((row) => (
-                <tr key={row.date} className="hover:bg-[color:var(--dusk-surface-muted)]">
-                  {columns.map((column, index) => {
-                    const cellClass = `px-4 py-2.5 text-sm ${
-                      column.emphasize
-                        ? 'font-medium text-[color:var(--dusk-text-primary)]'
-                        : 'text-[color:var(--dusk-text-secondary)]'
-                    }`;
-                    if (index === 0) {
-                      return (
-                        <th key={column.key} scope="row" className={`${cellClass} text-left`}>
-                          {column.render(row)}
-                        </th>
-                      );
-                    }
-                    return (
-                      <td key={column.key} className={cellClass}>
-                        {column.render(row)}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns.map((column) => ({
+            id: column.key,
+            header: column.header,
+            sortAccessor: (row: DailyStat) => column.key === 'date' ? row.date : undefined,
+            cell: (row: DailyStat) => (
+              <span className={column.emphasize ? 'font-medium text-text-primary' : 'text-text-secondary'}>
+                {column.render(row)}
+              </span>
+            ),
+          })) as ColumnDef<DailyStat>[]}
+          data={[...rows].reverse()}
+          rowKey={(row) => row.date}
+          bordered={false}
+          density="compact"
+          emptyState={null}
+        />
       )}
     </div>
   );
