@@ -353,12 +353,12 @@ export default function DiscrepanciesView() {
       </Panel>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
-          <Panel className="overflow-hidden p-6">
-            <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
+        <Panel className="overflow-hidden p-6">
+          <div className="flex flex-col gap-4 border-b border-border-default pb-5 xl:flex-row xl:items-center xl:justify-between">
               <div>
               <Kicker>Discrepancy workspace</Kicker>
-              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Publisher reconciliation queue</h2>
-              <p className="mt-2 text-sm text-slate-500 dark:text-white/56">Review variance, threshold breaches, and publisher totals from one dense reconciliation table.</p>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Publisher reconciliation queue</h2>
+              <p className="mt-2 text-sm text-text-muted">Review variance, threshold breaches, and publisher totals from one dense reconciliation table.</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Button type="button" onClick={load} variant="ghost" size="sm">Refresh</Button>
@@ -366,10 +366,10 @@ export default function DiscrepanciesView() {
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Total</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{filteredDiscrepancyRows.length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">reports in current view</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Critical</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{filteredDiscrepancyRows.filter((row) => row.risk === 'Critical').length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">need invoice validation</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Warning</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{filteredDiscrepancyRows.filter((row) => row.risk === 'Warning').length}</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">publisher follow-up required</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]"><p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Thresholds</p><p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{thresholds.warningPct}% / {thresholds.criticalPct}%</p><p className="mt-1 text-sm text-slate-500 dark:text-white/52">warning and critical variance caps</p></div>
+            <div className="rounded-2xl border border-border-default bg-surface-2 p-4"><p className="text-xs font-medium uppercase tracking-wide text-text-muted">Total</p><p className="mt-2 text-2xl font-semibold text-text-primary">{filteredDiscrepancyRows.length}</p><p className="mt-1 text-sm text-text-muted">reports in current view</p></div>
+            <div className="rounded-2xl border border-border-default bg-surface-2 p-4"><p className="text-xs font-medium uppercase tracking-wide text-text-muted">Critical</p><p className="mt-2 text-2xl font-semibold text-text-primary">{filteredDiscrepancyRows.filter((row) => row.risk === 'Critical').length}</p><p className="mt-1 text-sm text-text-muted">need invoice validation</p></div>
+            <div className="rounded-2xl border border-border-default bg-surface-2 p-4"><p className="text-xs font-medium uppercase tracking-wide text-text-muted">Warning</p><p className="mt-2 text-2xl font-semibold text-text-primary">{filteredDiscrepancyRows.filter((row) => row.risk === 'Warning').length}</p><p className="mt-1 text-sm text-text-muted">publisher follow-up required</p></div>
+            <div className="rounded-2xl border border-border-default bg-surface-2 p-4"><p className="text-xs font-medium uppercase tracking-wide text-text-muted">Thresholds</p><p className="mt-2 text-2xl font-semibold text-text-primary">{thresholds.warningPct}% / {thresholds.criticalPct}%</p><p className="mt-1 text-sm text-text-muted">warning and critical variance caps</p></div>
           </div>
 
           <div className="mt-6 overflow-hidden rounded-3xl border border-border-default">
@@ -382,20 +382,20 @@ export default function DiscrepanciesView() {
             <section>
               <Kicker>Module health</Kicker>
               <div className="mt-4 grid gap-3">
-                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Threshold breaches</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{thresholdBreaches}</p>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">require reconciliation review</p>
+                <div className="rounded-2xl border border-border-default bg-surface-2 px-4 py-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Threshold breaches</p>
+                  <p className="mt-2 text-2xl font-semibold text-text-primary">{thresholdBreaches}</p>
+                  <p className="mt-1 text-sm text-text-muted">require reconciliation review</p>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Resolved</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{resolvedCount}</p>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">closed discrepancy checks</p>
+                <div className="rounded-2xl border border-border-default bg-surface-2 px-4 py-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Resolved</p>
+                  <p className="mt-2 text-2xl font-semibold text-text-primary">{resolvedCount}</p>
+                  <p className="mt-1 text-sm text-text-muted">closed discrepancy checks</p>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Within threshold</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{withinThresholdCount}</p>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-white/56">accepted delivery variance</p>
+                <div className="rounded-2xl border border-border-default bg-surface-2 px-4 py-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Within threshold</p>
+                  <p className="mt-2 text-2xl font-semibold text-text-primary">{withinThresholdCount}</p>
+                  <p className="mt-1 text-sm text-text-muted">accepted delivery variance</p>
                 </div>
               </div>
             </section>
@@ -403,8 +403,8 @@ export default function DiscrepanciesView() {
             <section>
               <Kicker>Threshold controls</Kicker>
               <form onSubmit={handleSaveThresholds} className="mt-4 space-y-3">
-                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                  <label className="block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Warning threshold (%)</label>
+                <div className="rounded-2xl border border-border-default bg-surface-2 px-4 py-4">
+                  <label className="block text-xs font-medium uppercase tracking-wide text-text-muted">Warning threshold (%)</label>
                   <Input
                     type="number"
                     min="0"
@@ -415,8 +415,8 @@ export default function DiscrepanciesView() {
                     className="mt-2"
                   />
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                  <label className="block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Critical threshold (%)</label>
+                <div className="rounded-2xl border border-border-default bg-surface-2 px-4 py-4">
+                  <label className="block text-xs font-medium uppercase tracking-wide text-text-muted">Critical threshold (%)</label>
                   <Input
                     type="number"
                     min="0"
@@ -435,7 +435,7 @@ export default function DiscrepanciesView() {
                   {savingThresholds ? 'Saving…' : 'Save thresholds'}
                 </Button>
                 {thresholdMsg && (
-                  <p className={thresholdMsg.includes('Failed') ? 'text-sm text-rose-600 dark:text-rose-300' : 'text-sm text-emerald-600 dark:text-emerald-300'}>
+                  <p className={thresholdMsg.includes('Failed') ? 'text-sm text-[color:var(--dusk-status-critical-fg)]' : 'text-sm text-[color:var(--dusk-status-success-fg)]'}>
                     {thresholdMsg}
                   </p>
                 )}
@@ -446,9 +446,9 @@ export default function DiscrepanciesView() {
               <Kicker>Prototype checks</Kicker>
               <div className="mt-4 grid gap-3">
                 {prototypeChecks.map((test) => (
-                  <div key={test.name} className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                    <p className="text-xs font-medium text-slate-500 dark:text-white/42">{test.name}</p>
-                    <p className={test.passed ? 'mt-1 text-sm font-semibold text-emerald-600 dark:text-emerald-300' : 'mt-1 text-sm font-semibold text-rose-600 dark:text-rose-300'}>
+                  <div key={test.name} className="rounded-2xl border border-border-default bg-surface-2 px-4 py-3">
+                    <p className="text-xs font-medium text-text-muted">{test.name}</p>
+                    <p className={test.passed ? 'mt-1 text-sm font-semibold text-[color:var(--dusk-status-success-fg)]' : 'mt-1 text-sm font-semibold text-[color:var(--dusk-status-critical-fg)]'}>
                       {test.passed ? 'Passed' : 'Failed'}
                     </p>
                   </div>

@@ -346,19 +346,21 @@ export default function PacingView() {
       </Panel>
 
       {filteredRows.length === 0 ? (
-          <Panel className="px-6 py-20 text-center">
+        <Panel padding="none">
+          <div className="px-6 py-20 text-center">
           <Kicker>No pacing rows</Kicker>
-          <h3 className="mt-3 text-lg font-medium text-slate-700 dark:text-white">No campaigns with pacing data</h3>
-          <p className="mt-1 text-sm text-slate-500 dark:text-white/[0.56]">Campaigns with delivery goals will appear here.</p>
+            <h3 className="mt-3 text-lg font-medium text-text-primary">No campaigns with pacing data</h3>
+            <p className="mt-1 text-sm text-text-muted">Campaigns with delivery goals will appear here.</p>
+          </div>
         </Panel>
       ) : (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
           <Panel className="overflow-hidden p-6">
-            <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-col gap-4 border-b border-border-default pb-5 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <Kicker>Pacing workspace</Kicker>
-                <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">Budget delivery & projected variance</h2>
-                <p className="mt-2 text-sm text-slate-500 dark:text-white/56">
+                <h2 className="mt-2 text-xl font-semibold tracking-tight text-text-primary">Budget delivery & projected variance</h2>
+                <p className="mt-2 text-sm text-text-muted">
                   Dense operational view for budget pacing, daily targets and delivery exceptions.
                 </p>
               </div>
@@ -370,25 +372,25 @@ export default function PacingView() {
             </div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-4">
-              <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Total</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{rows.length}</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-white/52">campaigns in workspace</p>
+              <div className="rounded-2xl border border-border-default bg-surface-2 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Total</p>
+                <p className="mt-2 text-2xl font-semibold text-text-primary">{rows.length}</p>
+                <p className="mt-1 text-sm text-text-muted">campaigns in workspace</p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">On target</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{onTargetCount}</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-white/52">within pacing tolerance</p>
+              <div className="rounded-2xl border border-border-default bg-surface-2 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">On target</p>
+                <p className="mt-2 text-2xl font-semibold text-text-primary">{onTargetCount}</p>
+                <p className="mt-1 text-sm text-text-muted">within pacing tolerance</p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Exceptions</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{exceptionsCount}</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-white/52">need budget review</p>
+              <div className="rounded-2xl border border-border-default bg-surface-2 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Exceptions</p>
+                <p className="mt-2 text-2xl font-semibold text-text-primary">{exceptionsCount}</p>
+                <p className="mt-1 text-sm text-text-muted">need budget review</p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 dark:border-white/8 dark:bg-white/[0.025]">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/40">Served</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{fmtNum(data?.summary.totalServed ?? 0)}</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-white/52">live delivery volume</p>
+              <div className="rounded-2xl border border-border-default bg-surface-2 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Served</p>
+                <p className="mt-2 text-2xl font-semibold text-text-primary">{fmtNum(data?.summary.totalServed ?? 0)}</p>
+                <p className="mt-1 text-sm text-text-muted">live delivery volume</p>
               </div>
             </div>
 
@@ -406,17 +408,17 @@ export default function PacingView() {
               <section>
                 <Kicker>Module health</Kicker>
                 <div className="mt-4 space-y-3">
-                  <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                    <p className="font-semibold text-slate-950 dark:text-white">Pacing exceptions</p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-white/56">{exceptionsCount} campaigns need budget review before optimization changes.</p>
+                  <div className="rounded-2xl border border-border-default bg-surface-2 px-4 py-3">
+                    <p className="font-semibold text-text-primary">Pacing exceptions</p>
+                    <p className="mt-1 text-sm text-text-muted">{exceptionsCount} campaigns need budget review before optimization changes.</p>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                    <p className="font-semibold text-slate-950 dark:text-white">Projected variance</p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-white/56">{fmtCurrency(budgetRiskValue)} projected variance across under or over delivery campaigns.</p>
+                  <div className="rounded-2xl border border-border-default bg-surface-2 px-4 py-3">
+                    <p className="font-semibold text-text-primary">Projected variance</p>
+                    <p className="mt-1 text-sm text-text-muted">{fmtCurrency(budgetRiskValue)} projected variance across under or over delivery campaigns.</p>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white/42 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                    <p className="font-semibold text-slate-950 dark:text-white">Active alerts</p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-white/56">{alerts.length} pacing alerts are currently open in the delivery queue.</p>
+                  <div className="rounded-2xl border border-border-default bg-surface-2 px-4 py-3">
+                    <p className="font-semibold text-text-primary">Active alerts</p>
+                    <p className="mt-1 text-sm text-text-muted">{alerts.length} pacing alerts are currently open in the delivery queue.</p>
                   </div>
                 </div>
               </section>
@@ -425,9 +427,9 @@ export default function PacingView() {
                 <Kicker>Prototype checks</Kicker>
                 <div className="mt-4 grid gap-3">
                   {prototypeChecks.map((test) => (
-                    <div key={test.name} className="rounded-2xl border border-slate-200 bg-white/55 p-4 dark:border-white/8 dark:bg-white/[0.025]">
-                      <p className="text-xs font-medium text-slate-500 dark:text-white/42">{test.name}</p>
-                      <p className={test.passed ? 'mt-1 text-sm font-semibold text-emerald-600 dark:text-emerald-300' : 'mt-1 text-sm font-semibold text-rose-600 dark:text-rose-300'}>
+                    <div key={test.name} className="rounded-2xl border border-border-default bg-surface-2 p-4">
+                      <p className="text-xs font-medium text-text-muted">{test.name}</p>
+                      <p className={test.passed ? 'mt-1 text-sm font-semibold text-[color:var(--dusk-status-success-fg)]' : 'mt-1 text-sm font-semibold text-[color:var(--dusk-status-critical-fg)]'}>
                         {test.passed ? 'Passed' : 'Failed'}
                       </p>
                     </div>

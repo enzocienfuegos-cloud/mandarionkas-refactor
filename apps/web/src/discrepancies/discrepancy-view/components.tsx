@@ -69,19 +69,11 @@ export function toneToMetricTone(tone: Tone): MetricTone {
 }
 
 export function DiscrepancyStatusPill({ status }: { status: DiscrepancyStatus }) {
-  const map = discrepancyStatusBadge(status);
-  const tone =
-    map.includes('emerald') ? 'success' :
-    map.includes('amber') ? 'warning' :
-    map.includes('rose') ? 'critical' :
-    map.includes('sky') ? 'info' : 'neutral';
-  return <Badge tone={tone} size="sm">{status}</Badge>;
+  return <Badge tone={discrepancyStatusBadge(status) as 'success' | 'warning' | 'critical' | 'info' | 'neutral'} size="sm">{status}</Badge>;
 }
 
 export function SeverityPill({ severity }: { severity: PrioritySeverity }) {
-  const map = severityBadge(severity);
-  const tone = map.includes('rose') ? 'critical' : map.includes('amber') ? 'warning' : 'info';
-  return <Badge tone={tone} size="sm">{severity}</Badge>;
+  return <Badge tone={severityBadge(severity) as 'critical' | 'warning' | 'info'} size="sm">{severity}</Badge>;
 }
 
 export function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {
