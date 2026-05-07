@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import type { Story } from '@ladle/react';
 import {
   Avatar,
-  AvatarGroup,
   Badge,
   Button,
   ConfigurableMetricStrip,
@@ -25,6 +24,7 @@ import {
   TrendChart,
   type ColumnDef,
 } from '../index';
+import { AvatarGroup } from '../primitives/Avatar';
 import { CheckCircle2, Filter, Pause, Sparkles, Trash2 } from '../icons';
 import { overviewMetricScope } from '../../overview/overview.metrics';
 

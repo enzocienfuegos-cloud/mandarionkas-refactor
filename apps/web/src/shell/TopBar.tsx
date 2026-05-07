@@ -10,7 +10,7 @@ import {
 } from '../system/icons';
 import { cn } from '../system/cn';
 import { Select } from '../system/primitives/Select';
-import { Avatar, Button, IconButton } from '../system';
+import { Avatar, Button, IconButton, Tooltip } from '../system';
 
 export interface WorkspaceOption {
   id: string;
@@ -90,14 +90,16 @@ export function TopBar({
       style={{ height: 'var(--dusk-topbar-height)' }}
     >
       {/* Mobile menu */}
-      <IconButton
-        onClick={onMobileMenuClick}
-        aria-label="Open navigation"
-        icon={<PanelLeft className="h-4 w-4" />}
-        size="sm"
-        variant="ghost"
-        className="lg:hidden -ml-1"
-      />
+      <Tooltip content="Open navigation" side="bottom">
+        <IconButton
+          onClick={onMobileMenuClick}
+          aria-label="Open navigation"
+          icon={<PanelLeft className="h-4 w-4" />}
+          size="sm"
+          variant="ghost"
+          className="lg:hidden -ml-1"
+        />
+      </Tooltip>
 
       {/* Workspace + page title */}
       <div className="flex items-center gap-3 min-w-0">
@@ -143,33 +145,40 @@ export function TopBar({
       </Button>
 
       {/* Theme toggle */}
-      <IconButton
-        icon={theme === 'dark' ? <Sun /> : <Moon />}
-        aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-        onClick={onThemeToggle}
-        size="sm"
-        variant="ghost"
-      />
+      <Tooltip content={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} side="bottom">
+        <IconButton
+          icon={theme === 'dark' ? <Sun /> : <Moon />}
+          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          onClick={onThemeToggle}
+          size="sm"
+          variant="ghost"
+        />
+      </Tooltip>
 
       {/* Notifications */}
-      <Button
-        onClick={onNotificationsClick}
-        type="button"
-        variant="ghost"
-        size="sm"
-        aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount})` : ''}`}
-        className="relative !px-0 !gap-0 w-8"
+      <Tooltip
+        content={notificationCount > 0 ? `${notificationCount} unread notifications` : 'Notifications'}
+        side="bottom"
       >
-        <Bell className="h-4 w-4" />
-        {notificationCount > 0 && (
-          <span
-            aria-hidden
-            className="absolute top-1 right-1 inline-flex h-3.5 min-w-[14px] px-1 items-center justify-center rounded-full bg-brand-500 text-[9px] font-semibold text-white"
-          >
-            {notificationCount > 9 ? '9+' : notificationCount}
-          </span>
-        )}
-      </Button>
+        <Button
+          onClick={onNotificationsClick}
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount})` : ''}`}
+          className="relative !px-0 !gap-0 w-8"
+        >
+          <Bell className="h-4 w-4" />
+          {notificationCount > 0 && (
+            <span
+              aria-hidden
+              className="absolute top-1 right-1 inline-flex h-3.5 min-w-[14px] px-1 items-center justify-center rounded-full bg-brand-500 text-[9px] font-semibold text-white"
+            >
+              {notificationCount > 9 ? '9+' : notificationCount}
+            </span>
+          )}
+        </Button>
+      </Tooltip>
 
       {/* User menu */}
       {user && (

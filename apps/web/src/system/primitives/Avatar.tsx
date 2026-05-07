@@ -17,7 +17,12 @@ export interface AvatarProps {
   className?: string;
 }
 
-export interface AvatarGroupProps {
+/**
+ * AvatarGroup — currently unused in production pages.
+ * Available for future multi-assignee surfaces.
+ * Not exported from the public barrel until we have a real product use.
+ */
+interface AvatarGroupProps {
   /** Show first N avatars then "+M" overflow chip. Default 3. */
   max?: number;
   size?: AvatarProps['size'];

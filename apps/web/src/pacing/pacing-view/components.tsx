@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge, Button } from '../../system';
+import { Badge, Button, Tooltip } from '../../system';
 import type { MetricTone } from '../../system';
 import type { PacingStatus, PrioritySeverity, SortKey, Tone, TrendDirection } from './types';
 import { classNames } from './utils';
@@ -92,12 +92,36 @@ export function PacingStatusPill({ status }: { status: PacingStatus }) {
         : status === 'At risk'
           ? 'critical'
           : 'warning';
-  return <Badge tone={tone} size="sm">{status}</Badge>;
+  const content: Record<PacingStatus, string> = {
+    'On pace': 'Delivery is within expected pace (80–120% of goal).',
+    'Underpacing': 'Delivery is below 80% of expected pace.',
+    'Overpacing': 'Delivery is above 120% of expected pace.',
+    'At risk': 'Pacing under 60% with limited time remaining.',
+    'Paused': 'Campaign is currently paused — no delivery.',
+  };
+  return (
+    <Tooltip content={content[status]} side="top">
+      <span className="inline-flex">
+        <Badge tone={tone} size="sm">{status}</Badge>
+      </span>
+    </Tooltip>
+  );
 }
 
 export function SeverityPill({ severity }: { severity: PrioritySeverity }) {
   const tone = severity === 'Critical' ? 'critical' : severity === 'Warning' ? 'warning' : 'info';
-  return <Badge tone={tone} size="sm">{severity}</Badge>;
+  const content: Record<PrioritySeverity, string> = {
+    Critical: 'Immediate attention required — campaign delivery at risk.',
+    Warning: 'Monitor closely — outside normal range.',
+    Notice: 'Informational — within tolerance.',
+  };
+  return (
+    <Tooltip content={content[severity]} side="top">
+      <span className="inline-flex">
+        <Badge tone={tone} size="sm">{severity}</Badge>
+      </span>
+    </Tooltip>
+  );
 }
 
 export function TrendBadge({ direction, value }: { direction: TrendDirection; value: string }) {

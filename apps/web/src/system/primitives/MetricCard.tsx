@@ -41,7 +41,7 @@ const toneAccentClass: Record<MetricTone, string> = {
  *   - AdOpsOverview, CampaignList, TagList, CreativeLibrary,
  *     PacingDashboard, DiscrepancyDashboard
  */
-export function MetricCard({
+function MetricCardComponent({
   label,
   value,
   delta,
@@ -128,7 +128,7 @@ function DeltaPill({ trend, children }: { trend: MetricTrend; children: React.Re
 /**
  * Mini sparkline svg. Stateless, no animation, fits inside a card.
  */
-export function Sparkline({
+const SparklineComponent = function Sparkline({
   series,
   tone = 'brand',
   className,
@@ -178,4 +178,18 @@ export function Sparkline({
       />
     </svg>
   );
-}
+};
+
+/**
+ * Memoized sparkline used inside MetricCard.
+ * Avoids repainting chart SVGs when parent dashboards update unrelated state.
+ */
+export const Sparkline = React.memo(SparklineComponent);
+Sparkline.displayName = 'Sparkline';
+
+/**
+ * Single MetricCard component used by every dashboard.
+ * Memoized to skip re-renders when parent pages update unrelated filter or layout state.
+ */
+export const MetricCard = React.memo(MetricCardComponent);
+MetricCard.displayName = 'MetricCard';
