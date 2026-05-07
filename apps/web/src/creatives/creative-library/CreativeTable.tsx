@@ -113,6 +113,11 @@ export function CreativeTable({
             previewHref={previewHref}
             previewKind={previewKind}
             previewLabel={row.preview}
+            posterUrl={creative.thumbnailUrl}
+            mimeType={version?.mimeType}
+            fileSizeBytes={version?.fileSize}
+            durationMs={version?.durationMs}
+            sourceKind={version?.sourceKind}
             versionStatus={version?.status}
             versionSourceKind={version?.sourceKind}
             width={version?.width}

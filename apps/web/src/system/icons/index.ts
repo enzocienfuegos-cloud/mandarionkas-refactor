@@ -70,6 +70,8 @@ export {
   Pause,
   Square as Stop,
   CircleStop,
+  Volume2,
+  VolumeX,
 
   // Domain (adtech)
   BarChart3,

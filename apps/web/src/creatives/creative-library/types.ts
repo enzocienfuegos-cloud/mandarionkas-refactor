@@ -97,6 +97,11 @@ export interface PreviewModalState {
   height: number;
   name: string;
   kind: 'html' | 'video' | 'image';
+  posterUrl?: string | null;
+  mimeType?: string | null;
+  fileSizeBytes?: number | null;
+  durationMs?: number | null;
+  sourceKind?: string | null;
 }
 
 export interface ClickUrlEditorState {

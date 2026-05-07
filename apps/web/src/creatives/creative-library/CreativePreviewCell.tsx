@@ -7,6 +7,11 @@ type Props = {
   previewHref: string;
   previewKind: 'html' | 'video' | 'image';
   previewLabel: string;
+  posterUrl?: string | null;
+  mimeType?: string | null;
+  fileSizeBytes?: number | null;
+  durationMs?: number | null;
+  sourceKind?: string | null;
   versionStatus?: string | null;
   versionSourceKind?: string | null;
   width?: number | null;
@@ -19,6 +24,11 @@ export function CreativePreviewCell({
   previewHref,
   previewKind,
   previewLabel,
+  posterUrl,
+  mimeType,
+  fileSizeBytes,
+  durationMs,
+  sourceKind,
   versionStatus,
   versionSourceKind,
   width,
@@ -40,6 +50,11 @@ export function CreativePreviewCell({
               height: Number(height) > 0 ? Number(height) : previewKind === 'video' ? 540 : 250,
               name: creativeName,
               kind: previewKind,
+              posterUrl,
+              mimeType,
+              fileSizeBytes,
+              durationMs,
+              sourceKind,
             });
           }}
         >
