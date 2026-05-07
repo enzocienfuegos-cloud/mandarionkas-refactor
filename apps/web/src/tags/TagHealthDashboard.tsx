@@ -29,11 +29,14 @@ const statusBadge = (status: TagHealth['status']) => {
 };
 
 const KpiCard = ({
-  label, value, colorClass,
-}: { label: string; value: number; colorClass: string }) => (
+  label, value, tone,
+}: { label: string; value: number; tone: 'success' | 'warning' | 'critical' | 'neutral' }) => (
   <Panel className="p-5">
     <p className="text-sm text-text-muted">{label}</p>
-    <p className={`text-3xl font-bold mt-1 ${colorClass}`}>{value}</p>
+    <p className="mt-1 text-3xl font-bold text-text-primary">{value}</p>
+    <div className="mt-3">
+      <Badge tone={tone} size="sm">{label}</Badge>
+    </div>
   </Panel>
 );
 
@@ -82,17 +85,15 @@ export default function TagHealthDashboard() {
           <h1 className="text-2xl font-bold text-text-primary mt-3">Tag Health</h1>
           <p className="text-sm text-text-muted mt-1">Real-time monitoring across all ad tags</p>
         </div>
-        <Button onClick={load} variant="secondary">
-          🔄 Refresh
-        </Button>
+        <Button onClick={load} variant="secondary">Refresh</Button>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <KpiCard label="Healthy" value={summary?.healthy ?? 0} colorClass="text-green-600" />
-        <KpiCard label="Warning" value={summary?.warning ?? 0} colorClass="text-yellow-600" />
-        <KpiCard label="Critical" value={summary?.critical ?? 0} colorClass="text-red-600" />
-        <KpiCard label="Unknown" value={summary?.unknown ?? 0} colorClass="text-slate-500" />
+        <KpiCard label="Healthy" value={summary?.healthy ?? 0} tone="success" />
+        <KpiCard label="Warning" value={summary?.warning ?? 0} tone="warning" />
+        <KpiCard label="Critical" value={summary?.critical ?? 0} tone="critical" />
+        <KpiCard label="Unknown" value={summary?.unknown ?? 0} tone="neutral" />
       </div>
 
       {/* Tags table */}
@@ -132,11 +133,12 @@ export default function TagHealthDashboard() {
                       {t.impressions24h.toLocaleString()}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-sm font-medium ${
-                        t.errorRate > 5 ? 'text-red-600' : t.errorRate > 1 ? 'text-yellow-600' : 'text-green-600'
-                      }`}>
+                      <Badge
+                        tone={t.errorRate > 5 ? 'critical' : t.errorRate > 1 ? 'warning' : 'success'}
+                        size="sm"
+                      >
                         {t.errorRate.toFixed(2)}%
-                      </span>
+                      </Badge>
                     </td>
                   </tr>
                 ))}

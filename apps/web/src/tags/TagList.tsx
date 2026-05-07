@@ -1,14 +1,17 @@
 import React from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  Badge,
   Button,
   CenteredSpinner,
   DataTable,
   EmptyState,
+  FormField,
   Input,
   Kicker,
   MetricCard,
   Panel,
+  Select,
   useConfirm,
   useToast,
 } from '../system';
@@ -117,7 +120,7 @@ export default function TagList() {
 
   if (error) {
     return (
-      <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
+      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]">
         <p className="font-medium">Error loading tags</p>
         <p className="mt-1 text-sm">{error}</p>
         <Button onClick={load} variant="ghost" size="sm" className="mt-3">Retry</Button>
@@ -134,42 +137,40 @@ export default function TagList() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={selectedClientId}
-            onChange={(event) => setSelectedClientId(event.target.value)}
-            className="inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-border-default/80 bg-[rgba(252,251,255,0.82)] px-4 text-sm font-medium text-text-secondary transition hover:border-fuchsia-300 hover:bg-fuchsia-50 dark:border-white/[0.06] dark:bg-surface-1/[0.025] dark:text-white/86 dark:hover:border-fuchsia-500/22 dark:hover:bg-surface-1/[0.045]"
-          >
-            <option value="">All advertisers</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name}
-              </option>
-            ))}
-          </select>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-wrap items-end gap-3">
+          <FormField label="Advertiser" className="min-w-[220px]">
+            <Select
+              value={selectedClientId}
+              onChange={(event) => setSelectedClientId(event.target.value)}
+              selectSize="lg"
+            >
+              <option value="">All advertisers</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </Select>
+          </FormField>
           <Button
             type="button"
             onClick={() => setNeedsQaOnly((current) => !current)}
             variant="secondary"
-            className={classNames(
-              'min-h-[46px]',
-              needsQaOnly && 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-500/22 dark:bg-fuchsia-500/10 dark:text-fuchsia-200',
-            )}
+            className="min-h-[46px]"
           >
             Needs QA
+            {needsQaOnly ? <Badge tone="brand" size="sm">On</Badge> : null}
           </Button>
-          <label className="relative block min-w-[300px]">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--dusk-text-soft)] dark:text-white/40">
-              <SearchIcon />
-            </span>
+          <FormField label="Search" className="min-w-[300px] flex-1">
             <Input
               value={tagSearch}
               onChange={(event) => setTagSearch(event.target.value)}
-              className="min-h-[46px] border-border-default/80 bg-[rgba(252,251,255,0.82)] pl-10"
+              inputSize="lg"
+              leadingIcon={<SearchIcon />}
               placeholder="Search tag, advertiser, placement"
             />
-          </label>
+          </FormField>
         </div>
 
         <Button type="button" onClick={openCreate} variant="primary">
@@ -179,24 +180,23 @@ export default function TagList() {
 
       <header className="grid gap-6 xl:grid-cols-[1.4fr_1fr] xl:items-end">
         <div>
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-700 dark:border-fuchsia-500/15 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
-            Tags
-            <span className="h-1 w-1 rounded-full bg-current opacity-60" />
-            Pixel QA workspace
+          <div className="mb-4 flex items-center gap-2">
+            <Badge tone="brand" variant="soft">Tags</Badge>
+            <Badge tone="neutral" variant="outline">Pixel QA workspace</Badge>
           </div>
           <h1 className="text-4xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)] md:text-5xl">Tag implementation without signal gaps</h1>
-          <p className="mt-3 max-w-3xl text-lg leading-8 text-text-muted dark:text-white/62">
+          <p className="mt-3 max-w-3xl text-lg leading-8 text-text-muted">
             Generate, validate and monitor every tag from one dense operational view with the same CM360-style workspace pattern.
           </p>
         </div>
 
         <Panel className="p-5">
           <Kicker>Recommended focus</Kicker>
-          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/18 dark:bg-amber-500/10">
-            <AlertTriangleIcon className="text-amber-600 dark:text-amber-300" />
+          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] p-4">
+            <AlertTriangleIcon className="text-[color:var(--dusk-status-warning-fg)]" />
             <div>
-              <p className="font-semibold text-amber-800 dark:text-amber-100">{needsAttentionCount} tags need implementation QA</p>
-              <p className="mt-1 text-sm text-[color:var(--dusk-status-warning-fg)]/72 dark:text-amber-100/62">
+              <p className="font-semibold text-[color:var(--dusk-status-warning-fg)]">{needsAttentionCount} tags need implementation QA</p>
+              <p className="mt-1 text-sm text-[color:var(--dusk-status-warning-fg)]/80">
                 Review low firing, missing generation and no-firing tags before launching or scaling delivery.
               </p>
             </div>
@@ -235,11 +235,11 @@ export default function TagList() {
         />
       ) : (
         <Panel className="overflow-hidden p-6">
-          <div className="flex flex-col gap-4 border-b border-border-default pb-5 dark:border-white/8 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-4 border-b border-border-default pb-5 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <Kicker>Tag workspace</Kicker>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Pixels, firing status & implementation QA</h2>
-              <p className="mt-2 text-sm text-text-muted dark:text-white/56">
+              <p className="mt-2 text-sm text-text-muted">
                 Dense operational view for tag generation, validation, firing health and implementation risk.
               </p>
             </div>
@@ -255,25 +255,25 @@ export default function TagList() {
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-4">
-            <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4 dark:border-white/8 dark:bg-surface-1/[0.025]">
-              <p className="text-xs font-medium uppercase tracking-wide text-text-muted dark:text-white/40">Total tags</p>
+            <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Total tags</p>
               <p className="mt-2 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{totalTags}</p>
-              <p className="mt-1 text-sm text-text-muted dark:text-white/52">tracked in workspace</p>
+              <p className="mt-1 text-sm text-text-muted">tracked in workspace</p>
             </div>
-            <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4 dark:border-white/8 dark:bg-surface-1/[0.025]">
-              <p className="text-xs font-medium uppercase tracking-wide text-text-muted dark:text-white/40">Firing</p>
+            <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Firing</p>
               <p className="mt-2 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{activeTags}</p>
-              <p className="mt-1 text-sm text-text-muted dark:text-white/52">healthy signal flow</p>
+              <p className="mt-1 text-sm text-text-muted">healthy signal flow</p>
             </div>
-            <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4 dark:border-white/8 dark:bg-surface-1/[0.025]">
-              <p className="text-xs font-medium uppercase tracking-wide text-text-muted dark:text-white/40">Needs QA</p>
+            <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Needs QA</p>
               <p className="mt-2 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{needsAttentionCount}</p>
-              <p className="mt-1 text-sm text-text-muted dark:text-white/52">low or missing firing</p>
+              <p className="mt-1 text-sm text-text-muted">low or missing firing</p>
             </div>
-            <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4 dark:border-white/8 dark:bg-surface-1/[0.025]">
-              <p className="text-xs font-medium uppercase tracking-wide text-text-muted dark:text-white/40">Archived</p>
+            <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Archived</p>
               <p className="mt-2 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{archivedTags}</p>
-              <p className="mt-1 text-sm text-text-muted dark:text-white/52">retained for history</p>
+              <p className="mt-1 text-sm text-text-muted">retained for history</p>
             </div>
           </div>
 

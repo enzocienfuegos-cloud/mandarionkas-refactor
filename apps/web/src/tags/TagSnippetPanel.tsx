@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Kicker, Panel } from '../system';
+import { Badge, Button, Kicker, Panel } from '../system';
 import {
   buildTagSnippet,
   type SnippetVariant,
@@ -218,9 +218,14 @@ export default function TagSnippetPanel({
         {getSnippetHelpText(tag, snippetVariant, campaignDsp)}
       </p>
       {!isBaseUrlValid && (
-        <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
-          {'\u26A0'} Serving base URL is not configured. Set <code>VITE_TAGS_BASE_URL</code> in your environment before copying this snippet.
-        </div>
+        <Panel className="mb-3 border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] p-3 text-xs text-[color:var(--dusk-status-warning-fg)]">
+          <div className="flex items-start gap-2">
+            <Badge tone="warning" size="sm">Warning</Badge>
+            <p>
+              Serving base URL is not configured. Set <code>VITE_TAGS_BASE_URL</code> in your environment before copying this snippet.
+            </p>
+          </div>
+        </Panel>
       )}
       <pre className="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono">
         {buildTagSnippet(tag, snippetVariant, servingBaseUrl, campaignDsp, diagnostics)}
