@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge, Button, Panel } from '../../system';
+import { Badge, Button, DataTable, Panel, type ColumnDef } from '../../system';
 import type { RegenerationFeedbackState, VideoRenditionState } from './types';
 
 type VideoProcessingSummary = {
@@ -55,6 +55,134 @@ export function VideoRenditionsModal({
   getVideoRenditionStatusBadge,
   getVideoRenditionToggleBlockedReason,
 }: Props) {
+  const renditionColumns = React.useMemo<ColumnDef<VideoRenditionState['renditions'][number]>[]>(() => [
+    {
+      id: 'rendition',
+      header: 'Rendition',
+      cell: (rendition) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-text-primary">{rendition.label}</span>
+          {rendition.isSource ? <Badge tone="neutral" size="sm">Source</Badge> : null}
+        </div>
+      ),
+      sortAccessor: (rendition) => rendition.label,
+    },
+    {
+      id: 'resolution',
+      header: 'Resolution',
+      cell: (rendition) => rendition.width && rendition.height ? `${rendition.width}×${rendition.height}` : '—',
+      sortAccessor: (rendition) => `${rendition.width ?? 0}x${rendition.height ?? 0}`,
+    },
+    {
+      id: 'bitrate',
+      header: 'Bitrate',
+      cell: (rendition) => formatVideoBitrate(rendition.bitrateKbps),
+      sortAccessor: (rendition) => rendition.bitrateKbps ?? 0,
+    },
+    {
+      id: 'codec',
+      header: 'Codec',
+      cell: (rendition) => rendition.codec || '—',
+      sortAccessor: (rendition) => rendition.codec ?? '',
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (rendition) => {
+        const matchingProcessingEntry = rendition.isSource
+          ? null
+          : renditionProcessing.find((entry: any) => (
+            String(entry?.label ?? '').trim().toLowerCase() === String(rendition.label ?? '').trim().toLowerCase()
+          )) ?? null;
+        return getVideoRenditionStatusBadge(rendition, matchingProcessingEntry, state.version);
+      },
+      sortAccessor: (rendition) => rendition.status,
+    },
+    {
+      id: 'asset',
+      header: 'Asset',
+      cell: (rendition) => (
+        <div className="space-y-1 text-xs text-text-muted">
+          {rendition.publicUrl ? (
+            <a
+              href={rendition.publicUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-text-brand hover:opacity-80"
+            >
+              Open MP4
+            </a>
+          ) : (
+            <span>Not published</span>
+          )}
+          <div>{formatBytes(rendition.sizeBytes)}</div>
+        </div>
+      ),
+      sortAccessor: (rendition) => rendition.sizeBytes ?? 0,
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: (rendition) => {
+        const renditionReadyForToggle = Boolean(
+          rendition.isSource || (
+            rendition.publicUrl
+            && Number(rendition.sizeBytes || 0) > 0
+            && rendition.metadata?.available === true
+          ),
+        );
+        const toggleBlockedReason = getVideoRenditionToggleBlockedReason(rendition, renditionReadyForToggle);
+        const toggleBlocked = state.loading || Boolean(toggleBlockedReason);
+        const toggleTitle = toggleBlockedReason
+          ?? (rendition.status === 'active'
+            ? 'Disable this rendition for VAST delivery.'
+            : 'Enable this rendition for VAST delivery.');
+        return (
+          <label
+            className={`inline-flex items-center gap-3 text-xs font-medium ${
+              toggleBlocked ? 'cursor-not-allowed text-text-soft' : 'cursor-pointer text-text-secondary'
+            }`}
+            title={toggleTitle}
+            onClick={(event) => {
+              if (!toggleBlockedReason) return;
+              event.preventDefault();
+              event.stopPropagation();
+              onSetError(toggleBlockedReason);
+            }}
+          >
+            <span>{rendition.status === 'active' ? 'On' : 'Off'}</span>
+            <span className="relative inline-flex items-center">
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={rendition.status === 'active'}
+                disabled={toggleBlocked}
+                onChange={(event) => {
+                  void onStatusToggle(
+                    rendition.id,
+                    event.target.checked ? 'active' : 'paused',
+                  );
+                }}
+              />
+              <span className="h-6 w-11 rounded-full bg-border-default transition-colors peer-checked:bg-[color:var(--dusk-status-success-fg)] peer-disabled:bg-border-subtle" />
+              <span className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+            </span>
+          </label>
+        );
+      },
+    },
+  ], [
+    formatBytes,
+    formatVideoBitrate,
+    getVideoRenditionStatusBadge,
+    getVideoRenditionToggleBlockedReason,
+    onSetError,
+    onStatusToggle,
+    renditionProcessing,
+    state.loading,
+    state.version,
+  ]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-xl border border-border-default bg-surface-1 shadow-xl">
@@ -233,126 +361,19 @@ export function VideoRenditionsModal({
           </div>
 
           <div className="overflow-hidden rounded-xl border border-border-default">
-            <table className="min-w-full divide-y divide-border-default text-sm">
-              <caption className="sr-only">Video renditions and delivery status for the selected creative version.</caption>
-              <thead className="bg-surface-2 text-left text-xs uppercase tracking-wide text-text-soft">
-                <tr>
-                  <th className="px-4 py-3">Rendition</th>
-                  <th className="px-4 py-3">Resolution</th>
-                  <th className="px-4 py-3">Bitrate</th>
-                  <th className="px-4 py-3">Codec</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Asset</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-default bg-surface-1">
-                {state.renditions.map(rendition => (
-                  (() => {
-                    const matchingProcessingEntry = rendition.isSource
-                      ? null
-                      : renditionProcessing.find((entry: any) => (
-                        String(entry?.label ?? '').trim().toLowerCase()
-                        === String(rendition.label ?? '').trim().toLowerCase()
-                      )) ?? null;
-                    const renditionReadyForToggle = Boolean(
-                      rendition.isSource || (
-                        rendition.publicUrl
-                        && Number(rendition.sizeBytes || 0) > 0
-                        && rendition.metadata?.available === true
-                      ),
-                    );
-                    const toggleBlockedReason = getVideoRenditionToggleBlockedReason(rendition, renditionReadyForToggle);
-                    const toggleBlocked = state.loading || Boolean(toggleBlockedReason);
-                    const toggleTitle = toggleBlockedReason
-                      ?? (rendition.status === 'active'
-                        ? 'Disable this rendition for VAST delivery.'
-                        : 'Enable this rendition for VAST delivery.');
-                    return (
-                      <tr key={rendition.id}>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-text-primary">{rendition.label}</span>
-                            {rendition.isSource && (
-                              <Badge tone="neutral" size="sm">Source</Badge>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-text-secondary">
-                          {rendition.width && rendition.height ? `${rendition.width}×${rendition.height}` : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-text-secondary">{formatVideoBitrate(rendition.bitrateKbps)}</td>
-                        <td className="px-4 py-3 text-text-secondary">{rendition.codec || '—'}</td>
-                        <td className="px-4 py-3">{getVideoRenditionStatusBadge(rendition, matchingProcessingEntry, state.version)}</td>
-                        <td className="px-4 py-3">
-                          <div className="space-y-1 text-xs text-text-muted">
-                            {rendition.publicUrl ? (
-                              <a
-                                href={rendition.publicUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-medium text-text-brand hover:opacity-80"
-                              >
-                                Open MP4
-                              </a>
-                            ) : (
-                              <span>Not published</span>
-                            )}
-                            <div>{formatBytes(rendition.sizeBytes)}</div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <label
-                            className={`inline-flex items-center gap-3 text-xs font-medium ${
-                              toggleBlocked ? 'cursor-not-allowed text-text-soft' : 'cursor-pointer text-text-secondary'
-                            }`}
-                            title={toggleTitle}
-                            onClick={(event) => {
-                              if (!toggleBlockedReason) return;
-                              event.preventDefault();
-                              event.stopPropagation();
-                              onSetError(toggleBlockedReason);
-                            }}
-                          >
-                            <span>{rendition.status === 'active' ? 'On' : 'Off'}</span>
-                            <span className="relative inline-flex items-center">
-                              <input
-                                type="checkbox"
-                                className="peer sr-only"
-                                checked={rendition.status === 'active'}
-                                disabled={toggleBlocked}
-                                onChange={(event) => {
-                                  void onStatusToggle(
-                                    rendition.id,
-                                    event.target.checked ? 'active' : 'paused',
-                                  );
-                                }}
-                              />
-                              <span className="h-6 w-11 rounded-full bg-border-default transition-colors peer-checked:bg-[color:var(--dusk-status-success-fg)] peer-disabled:bg-border-subtle" />
-                              <span className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
-                            </span>
-                          </label>
-                        </td>
-                      </tr>
-                    );
-                  })()
-                ))}
-                {!state.loading && state.renditions.length === 0 && state.awaitingPublish && (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-sm text-text-muted">
-                      Renditions are still being generated in the background. This table will populate after publish completes.
-                    </td>
-                  </tr>
-                )}
-                {!state.loading && state.renditions.length === 0 && !state.awaitingPublish && (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-sm text-text-muted">
-                      No video renditions yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <DataTable
+              columns={renditionColumns}
+              data={state.renditions}
+              rowKey={(rendition) => rendition.id}
+              emptyState={(
+                <p className="text-sm text-text-muted">
+                  {state.awaitingPublish
+                    ? 'Renditions are still being generated in the background. This table will populate after publish completes.'
+                    : 'No video renditions yet.'}
+                </p>
+              )}
+              bordered={false}
+            />
           </div>
         </div>
       </div>

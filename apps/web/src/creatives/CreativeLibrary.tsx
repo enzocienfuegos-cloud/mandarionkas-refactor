@@ -239,10 +239,10 @@ export default function CreativesView() {
 
   if (error) {
     return (
-      <Panel className="border-rose-200 bg-rose-50/90 p-4 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200" role="alert" aria-live="assertive">
+      <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] p-4 text-[color:var(--dusk-status-critical-fg)]" role="alert" aria-live="assertive">
         <p className="font-medium">Error loading creative catalog</p>
         <p className="mt-1 text-sm">{error}</p>
-        <Button variant="ghost" size="sm" onClick={() => void load()} className="mt-3 text-rose-600 dark:text-rose-300">
+        <Button variant="ghost" size="sm" onClick={() => void load()} className="mt-3">
           Retry
         </Button>
       </Panel>
@@ -270,7 +270,7 @@ export default function CreativesView() {
       />
 
       {successMessage && (
-        <Panel className="border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200" role="status" aria-live="polite">
+        <Panel className="border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-success-fg)]" role="status" aria-live="polite">
           {successMessage}
         </Panel>
       )}

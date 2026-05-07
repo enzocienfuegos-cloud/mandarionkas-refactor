@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge, Button, Input, Modal, Panel } from '../../system';
+import { Badge, Button, DataTable, Input, Modal, Panel, type ColumnDef } from '../../system';
 import type { VariantState } from './types';
 
 type Preset = { label: string; width: number; height: number };
@@ -33,6 +33,98 @@ export function VariantManagerModal({
   readinessBadge,
   statusBadge,
 }: Props) {
+  const selectedKeys = React.useMemo(() => new Set(variantState.selectedVariantIds), [variantState.selectedVariantIds]);
+
+  const columns = React.useMemo<ColumnDef<VariantState['variants'][number]>[]>(() => [
+    {
+      id: 'variant',
+      header: 'Variant',
+      cell: (variant) => variant.label,
+      sortAccessor: (variant) => variant.label,
+    },
+    {
+      id: 'size',
+      header: 'Size',
+      cell: (variant) => `${variant.width}×${variant.height}`,
+      sortAccessor: (variant) => `${variant.width}x${variant.height}`,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (variant) => statusBadge(variant.status),
+      sortAccessor: (variant) => variant.status,
+    },
+    {
+      id: 'readiness',
+      header: 'Readiness',
+      cell: (variant) => readinessBadge(variant),
+      sortAccessor: (variant) => variant.status,
+    },
+    {
+      id: 'bindings',
+      header: 'Bindings',
+      cell: (variant) => (
+        <div className="text-xs text-text-secondary">
+          <div>{variant.activeBindingCount ?? 0} active / {variant.bindingCount ?? 0} total</div>
+          {variant.tagNames && variant.tagNames.length > 0 && (
+            <div className="mt-1 truncate text-text-muted" title={variant.tagNames.join(', ')}>
+              {variant.tagNames.slice(0, 3).join(', ')}
+              {variant.tagNames.length > 3 ? ` +${variant.tagNames.length - 3}` : ''}
+            </div>
+          )}
+        </div>
+      ),
+      sortAccessor: (variant) => variant.bindingCount ?? 0,
+    },
+    {
+      id: 'preview',
+      header: 'Preview',
+      cell: (variant) => (
+        <div className="space-y-1 text-xs">
+          {variant.publicUrl ? (
+            <a href={variant.publicUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-text-brand hover:opacity-80">
+              Open
+            </a>
+          ) : (
+            <span className="text-text-soft">—</span>
+          )}
+          <div className="text-text-muted">
+            {variant.totalImpressions ?? 0} imps / {variant.totalClicks ?? 0} clicks
+          </div>
+          <div className="text-text-muted">
+            CTR {(variant.ctr ?? 0).toFixed(2)}% · 7d {variant.impressions7d ?? 0} imps
+          </div>
+        </div>
+      ),
+      sortAccessor: (variant) => variant.totalImpressions ?? 0,
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: (variant) => (
+        variant.status === 'active' ? (
+          <Button
+            onClick={() => void onVariantStatusChange(variant.id, 'paused')}
+            disabled={variantState.loading}
+            variant="secondary"
+            size="sm"
+          >
+            Pause
+          </Button>
+        ) : (
+          <Button
+            onClick={() => void onVariantStatusChange(variant.id, 'active')}
+            disabled={variantState.loading}
+            variant="secondary"
+            size="sm"
+          >
+            Activate
+          </Button>
+        )
+      ),
+    },
+  ], [onVariantStatusChange, readinessBadge, statusBadge, variantState.loading]);
+
   return (
     <Modal
       open
@@ -110,15 +202,9 @@ export function VariantManagerModal({
         <div className="overflow-hidden rounded-xl border border-border-default">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default bg-surface-2 px-4 py-3">
             <div className="flex items-center gap-3">
-              <label className="inline-flex items-center gap-2 text-xs font-medium text-text-secondary">
-                <input
-                  type="checkbox"
-                  checked={variantState.variants.length > 0 && variantState.selectedVariantIds.length === variantState.variants.length}
-                  onChange={onSelectAll}
-                  className="rounded border-border-strong text-brand-500 focus:ring-brand-500"
-                />
+              <Button type="button" variant="ghost" size="sm" onClick={onSelectAll}>
                 Select all
-              </label>
+              </Button>
               <Badge tone="neutral" size="sm">{variantState.selectedVariantIds.length} selected</Badge>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -142,97 +228,25 @@ export function VariantManagerModal({
               </Button>
             </div>
           </div>
-          <table className="min-w-full divide-y divide-border-default text-sm">
-            <caption className="sr-only">Resolution variants for the selected creative version.</caption>
-            <thead className="bg-surface-2 text-left text-xs uppercase tracking-wide text-text-soft">
-              <tr>
-                <th scope="col" className="px-4 py-3">
-                  <span className="sr-only">Select</span>
-                </th>
-                <th scope="col" className="px-4 py-3">Variant</th>
-                <th scope="col" className="px-4 py-3">Size</th>
-                <th scope="col" className="px-4 py-3">Status</th>
-                <th scope="col" className="px-4 py-3">Readiness</th>
-                <th scope="col" className="px-4 py-3">Bindings</th>
-                <th scope="col" className="px-4 py-3">Preview</th>
-                <th scope="col" className="px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-default bg-surface-1">
-              {variantState.variants.map((variant) => (
-                <tr key={variant.id}>
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={variantState.selectedVariantIds.includes(variant.id)}
-                      onChange={() => onToggleVariant(variant.id)}
-                      className="rounded border-border-strong text-brand-500 focus:ring-brand-500"
-                    />
-                  </td>
-                  <th scope="row" className="px-4 py-3 text-left font-medium text-text-primary">{variant.label}</th>
-                  <td className="px-4 py-3 text-text-secondary">{variant.width}×{variant.height}</td>
-                  <td className="px-4 py-3">{statusBadge(variant.status)}</td>
-                  <td className="px-4 py-3">{readinessBadge(variant)}</td>
-                  <td className="px-4 py-3">
-                    <div className="text-xs text-text-secondary">
-                      <div>{variant.activeBindingCount ?? 0} active / {variant.bindingCount ?? 0} total</div>
-                      {variant.tagNames && variant.tagNames.length > 0 && (
-                        <div className="mt-1 truncate text-text-muted" title={variant.tagNames.join(', ')}>
-                          {variant.tagNames.slice(0, 3).join(', ')}
-                          {variant.tagNames.length > 3 ? ` +${variant.tagNames.length - 3}` : ''}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="space-y-1 text-xs">
-                      {variant.publicUrl ? (
-                        <a href={variant.publicUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-text-brand hover:opacity-80">
-                          Open
-                        </a>
-                      ) : (
-                        <span className="text-text-soft">—</span>
-                      )}
-                      <div className="text-text-muted">
-                        {variant.totalImpressions ?? 0} imps / {variant.totalClicks ?? 0} clicks
-                      </div>
-                      <div className="text-text-muted">
-                        CTR {(variant.ctr ?? 0).toFixed(2)}% · 7d {(variant.impressions7d ?? 0)} imps
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {variant.status === 'active' ? (
-                      <Button
-                        onClick={() => void onVariantStatusChange(variant.id, 'paused')}
-                        disabled={variantState.loading}
-                        variant="secondary"
-                        size="sm"
-                      >
-                        Pause
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={() => void onVariantStatusChange(variant.id, 'active')}
-                        disabled={variantState.loading}
-                        variant="secondary"
-                        size="sm"
-                      >
-                        Activate
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {!variantState.loading && variantState.variants.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-text-muted">
-                    No size variants yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <DataTable
+            columns={columns}
+            data={variantState.variants}
+            rowKey={(variant) => variant.id}
+            selectable
+            selectedKeys={selectedKeys}
+            onSelectionChange={(nextKeys) => {
+              const currentKeys = new Set(variantState.selectedVariantIds);
+              variantState.variants.forEach((variant) => {
+                const shouldSelect = nextKeys.has(variant.id);
+                const isSelected = currentKeys.has(variant.id);
+                if (shouldSelect !== isSelected) {
+                  onToggleVariant(variant.id);
+                }
+              });
+            }}
+            emptyState={<p className="text-sm text-text-muted">No size variants yet.</p>}
+            bordered={false}
+          />
         </div>
       </div>
     </Modal>
