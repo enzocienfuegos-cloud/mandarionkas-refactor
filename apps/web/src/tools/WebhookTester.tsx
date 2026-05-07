@@ -7,7 +7,7 @@ import {
   Copy,
   CheckCircle2,
   AlertCircle,
-} from '../../system/icons';
+} from '../system/icons';
 import {
   Panel,
   PanelHeader,
@@ -23,7 +23,7 @@ import {
   TabPanel,
   EmptyState,
   useToast,
-} from '../../system';
+} from '../system';
 
 type EventType =
   | 'campaign.status_changed'

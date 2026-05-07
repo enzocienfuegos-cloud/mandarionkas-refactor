@@ -4,29 +4,30 @@ import { ToastProvider, ConfirmProvider, CommandPaletteProvider, CenteredSpinner
 import Shell from './shell/Shell';
 import Register from './auth/Register';
 
-const Login = lazy(() => import('./pages-refactored/Login'));
-const Launcher = lazy(() => import('./pages-refactored/Launcher'));
+const Login = lazy(() => import('./auth/Login'));
+const Launcher = lazy(() => import('./shell/ProductLauncher'));
 
-const Overview = lazy(() => import('./pages-refactored/AdOpsOverview'));
-const CampaignList = lazy(() => import('./pages-refactored/CampaignList'));
-const CampaignEditor = lazy(() => import('./pages-refactored/CampaignEditor'));
-const TagList = lazy(() => import('./pages-refactored/TagList'));
-const TagBuilder = lazy(() => import('./pages-refactored/TagBuilder'));
-const CreativeLibrary = lazy(() => import('./pages-refactored/creative-library/CreativeLibrary'));
-const CreativeApproval = lazy(() => import('./pages-refactored/CreativeApproval'));
-const PacingDashboard = lazy(() => import('./pages-refactored/PacingDashboard'));
-const Discrepancies = lazy(() => import('./pages-refactored/DiscrepancyDashboard'));
+const Overview = lazy(() => import('./overview/AdOpsOverview'));
+const CampaignList = lazy(() => import('./campaigns/CampaignList'));
+const CampaignEditor = lazy(() => import('./campaigns/CampaignEditor'));
+const TagList = lazy(() => import('./tags/TagList'));
+const TagBuilder = lazy(() => import('./tags/TagBuilder'));
+const CreativeLibrary = lazy(() => import('./creatives/CreativeLibrary'));
+const CreativeApproval = lazy(() => import('./creatives/CreativeApproval'));
+const CreativeApprovalWorkflow = lazy(() => import('./creatives/CreativeApprovalWorkflow'));
+const PacingDashboard = lazy(() => import('./pacing/PacingDashboard'));
+const Discrepancies = lazy(() => import('./discrepancies/DiscrepancyDashboard'));
 const Reporting = lazy(() => import('./analytics/AnalyticsDashboard'));
-const AbExperimentEditor = lazy(() => import('./pages-refactored/AbExperimentEditor'));
-const Experiments = lazy(() => import('./pages-refactored/Experiments'));
-const Settings = lazy(() => import('./pages-refactored/Settings'));
-const Clients = lazy(() => import('./pages-refactored/Clients'));
-const Tools = lazy(() => import('./pages-refactored/Tools'));
-const TagValidator = lazy(() => import('./pages-refactored/tools/TagValidator'));
-const MacroBuilder = lazy(() => import('./pages-refactored/tools/MacroBuilder'));
-const WebhookTester = lazy(() => import('./pages-refactored/tools/WebhookTester'));
-const NotFound = lazy(() => import('./pages-refactored/NotFound'));
-const DesignShowcase = lazy(() => import('./pages-refactored/DesignShowcase'));
+const AbExperimentEditor = lazy(() => import('./ab-testing/AbExperimentEditor'));
+const Experiments = lazy(() => import('./experiments/Experiments'));
+const Settings = lazy(() => import('./settings/Settings'));
+const Clients = lazy(() => import('./clients/Clients'));
+const Tools = lazy(() => import('./tools/Tools'));
+const TagValidator = lazy(() => import('./tools/TagValidator'));
+const MacroBuilder = lazy(() => import('./tools/MacroBuilder'));
+const WebhookTester = lazy(() => import('./tools/WebhookTester'));
+const NotFound = lazy(() => import('./not-found/NotFound'));
+const DesignShowcase = lazy(() => import('./showcase/DesignShowcase'));
 
 const TagBindingDashboard = lazy(() => import('./tags/TagBindingDashboard'));
 const TagHealthDashboard = lazy(() => import('./tags/TagHealthDashboard'));
@@ -70,7 +71,7 @@ export default function App() {
 
                   <Route path="/creatives" element={<CreativeLibrary />} />
                   <Route path="/creatives/approval" element={<CreativeApproval />} />
-                  <Route path="/creatives/:id/approve" element={<CreativeApproval />} />
+                  <Route path="/creatives/:id/approve" element={<CreativeApprovalWorkflow />} />
                   <Route path="/creatives/upload" element={<CreativeUpload />} />
 
                   <Route path="/pacing" element={<PacingDashboard />} />

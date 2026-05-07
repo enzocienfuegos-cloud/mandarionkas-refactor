@@ -62,6 +62,9 @@ export default function DesignShowcase() {
   const [tab, setTab]         = useState('buttons');
   const [modalOpen, setModalOpen] = useState(false);
   const [selected, setSelected]   = useState<Set<string>>(new Set());
+  const handleDemoAction = (label: string) => {
+    toast({ tone: 'info', title: `${label} demo action` });
+  };
 
   return (
     <div className="space-y-6 max-w-content mx-auto">
@@ -93,26 +96,26 @@ export default function DesignShowcase() {
             <PanelHeader title="Button" subtitle="4 variants × 3 sizes" />
             <div className="space-y-4">
               <Row label="Primary">
-                <Button variant="primary" size="sm">Small</Button>
-                <Button variant="primary">Medium</Button>
-                <Button variant="primary" size="lg">Large</Button>
-                <Button variant="primary" leadingIcon={<Plus />}>With icon</Button>
-                <Button variant="primary" loading>Loading</Button>
+                <Button variant="primary" size="sm" onClick={() => handleDemoAction('Primary small')}>Small</Button>
+                <Button variant="primary" onClick={() => handleDemoAction('Primary medium')}>Medium</Button>
+                <Button variant="primary" size="lg" onClick={() => handleDemoAction('Primary large')}>Large</Button>
+                <Button variant="primary" leadingIcon={<Plus />} onClick={() => handleDemoAction('Primary icon')}>With icon</Button>
+                <Button variant="primary" loading onClick={() => undefined}>Loading</Button>
                 <Button variant="primary" disabled>Disabled</Button>
               </Row>
               <Row label="Secondary">
-                <Button variant="secondary" size="sm">Small</Button>
-                <Button variant="secondary">Medium</Button>
-                <Button variant="secondary" size="lg">Large</Button>
+                <Button variant="secondary" size="sm" onClick={() => handleDemoAction('Secondary small')}>Small</Button>
+                <Button variant="secondary" onClick={() => handleDemoAction('Secondary medium')}>Medium</Button>
+                <Button variant="secondary" size="lg" onClick={() => handleDemoAction('Secondary large')}>Large</Button>
               </Row>
               <Row label="Ghost">
-                <Button variant="ghost" size="sm">Small</Button>
-                <Button variant="ghost">Medium</Button>
-                <Button variant="ghost" leadingIcon={<Search />}>With icon</Button>
+                <Button variant="ghost" size="sm" onClick={() => handleDemoAction('Ghost small')}>Small</Button>
+                <Button variant="ghost" onClick={() => handleDemoAction('Ghost medium')}>Medium</Button>
+                <Button variant="ghost" leadingIcon={<Search />} onClick={() => handleDemoAction('Ghost icon')}>With icon</Button>
               </Row>
               <Row label="Danger">
-                <Button variant="danger" size="sm">Small</Button>
-                <Button variant="danger" leadingIcon={<Trash2 />}>Delete</Button>
+                <Button variant="danger" size="sm" onClick={() => handleDemoAction('Danger small')}>Small</Button>
+                <Button variant="danger" leadingIcon={<Trash2 />} onClick={() => handleDemoAction('Danger delete')}>Delete</Button>
               </Row>
               <Row label="Icon only">
                 <IconButton icon={<Settings />} aria-label="Settings" size="sm" />
@@ -241,7 +244,7 @@ export default function DesignShowcase() {
               selectedKeys={selected}
               onSelectionChange={setSelected}
               renderBulkActions={(rows) => (
-                <Button size="sm" variant="danger">Archive {rows.length}</Button>
+                <Button size="sm" variant="danger" onClick={() => handleDemoAction(`Archive ${rows.length}`)}>Archive {rows.length}</Button>
               )}
               bordered={false}
             />
@@ -353,7 +356,7 @@ export default function DesignShowcase() {
                 kicker="No data"
                 title="No campaigns yet"
                 description="Create your first campaign to start trafficking creatives."
-                action={<Button variant="primary" leadingIcon={<Megaphone />}>New campaign</Button>}
+                action={<Button variant="primary" leadingIcon={<Megaphone />} onClick={() => handleDemoAction('New campaign')}>New campaign</Button>}
               />
             </Panel>
             <Panel padding="none">

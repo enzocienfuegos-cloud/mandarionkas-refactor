@@ -1,1 +1,1 @@
-export { default } from '../pages-refactored/Tools';
+export { default } from './Tools';

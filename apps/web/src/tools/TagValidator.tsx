@@ -7,7 +7,7 @@ import {
   AlertTriangle,
   AlertCircle,
   Code,
-} from '../../system/icons';
+} from '../system/icons';
 import {
   Panel,
   PanelHeader,
@@ -20,7 +20,7 @@ import {
   Tab,
   TabPanel,
   useToast,
-} from '../../system';
+} from '../system';
 
 type Severity = 'info' | 'warning' | 'critical';
 

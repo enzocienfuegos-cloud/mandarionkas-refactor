@@ -5,7 +5,7 @@ import {
   Copy,
   ExternalLink,
   Code,
-} from '../../system/icons';
+} from '../system/icons';
 import {
   Panel,
   PanelHeader,
@@ -22,7 +22,7 @@ import {
   TabPanel,
   type ColumnDef,
   useToast,
-} from '../../system';
+} from '../system';
 
 type Dsp = 'adform' | 'cm360' | 'basis' | 'criteo' | 'teads' | 'iab';
 
