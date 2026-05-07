@@ -45,11 +45,15 @@ export function useCreativeCatalogViewModel({
     const versionStatus = String(version?.status ?? '').toLowerCase();
     const transcodeStatus = String(version?.transcodeStatus ?? '').toLowerCase();
     const videoProcessingStatus = String(metadata.videoProcessing?.status ?? '').toLowerCase();
+    const html5PublishStatus = String(metadata.html5Publish?.status ?? '').toLowerCase();
     return versionStatus === 'processing'
       || transcodeStatus === 'queued'
       || transcodeStatus === 'processing'
       || videoProcessingStatus === 'queued'
-      || videoProcessingStatus === 'processing';
+      || videoProcessingStatus === 'processing'
+      || html5PublishStatus === 'queued'
+      || html5PublishStatus === 'publishing'
+      || html5PublishStatus === 'processing';
   };
 
   const hasPlayableOrPreviewAsset = (creative: Creative) => Boolean(resolveCreativePreviewHref(creative, latestVersions[creative.id]));
@@ -61,12 +65,14 @@ export function useCreativeCatalogViewModel({
     const versionStatus = String(version.status ?? '').toLowerCase();
     const transcodeStatus = String(version.transcodeStatus ?? '').toLowerCase();
     const videoProcessingStatus = String(metadata.videoProcessing?.status ?? '').toLowerCase();
+    const html5PublishStatus = String(metadata.html5Publish?.status ?? '').toLowerCase();
     return versionStatus === 'rejected'
       || transcodeStatus === 'failed'
       || transcodeStatus === 'blocked'
       || transcodeStatus === 'stalled'
       || videoProcessingStatus === 'failed'
-      || videoProcessingStatus === 'blocked';
+      || videoProcessingStatus === 'blocked'
+      || html5PublishStatus === 'failed';
   };
 
   const getCreativeOperationalState = (creative: Creative) => {

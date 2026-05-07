@@ -46,7 +46,7 @@ export default function CreativeUpload() {
       </div>
 
       <Panel as="form" onSubmit={handleSubmit} className="space-y-6 rounded-2xl">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)] lg:items-start">
           <div className="space-y-6">
             <label className="mb-2 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Client</label>
             <div className="space-y-2">
@@ -112,88 +112,96 @@ export default function CreativeUpload() {
           <div className="space-y-4">
             <div>
               <label className="mb-2 block text-sm font-medium text-[color:var(--dusk-text-secondary)]">Creative Files</label>
-              <input
-                ref={fileInputRef}
-                key={sourceKind}
-                type="file"
-                accept={ACCEPTED_EXTENSIONS[sourceKind]}
-                multiple
-                onChange={(event) => {
-                  mergeFiles(Array.from(event.target.files ?? []));
-                  event.currentTarget.value = '';
-                }}
-                className="block w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-secondary)] file:mr-3 file:rounded-md file:border-0 file:bg-surface-muted file:px-3 file:py-2 file:text-sm file:font-medium"
-              />
+              <div className="rounded-xl border border-[color:var(--dusk-border-default)] bg-surface-1 p-3">
+                <input
+                  ref={fileInputRef}
+                  key={sourceKind}
+                  type="file"
+                  accept={ACCEPTED_EXTENSIONS[sourceKind]}
+                  multiple
+                  onChange={(event) => {
+                    mergeFiles(Array.from(event.target.files ?? []));
+                    event.currentTarget.value = '';
+                  }}
+                  className="block w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-secondary)] file:mr-3 file:rounded-md file:border-0 file:bg-surface-muted file:px-3 file:py-2 file:text-sm file:font-medium"
+                />
+              </div>
               <p className="mt-2 text-xs text-[color:var(--dusk-text-muted)]">
                 Accepted: {ACCEPTED_EXTENSIONS[sourceKind]} · each creative will use its file name as the creative name.
               </p>
               <p className="mt-1 text-xs text-[color:var(--dusk-text-muted)]">
                 You can select multiple files at once with <strong>Cmd</strong>/<strong>Shift</strong>, or pick files in several rounds and they will be appended.
               </p>
-              {files.length > 0 && (
-                <div className="mt-3 rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-muted p-3">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-muted)]">
-                      {files.length} selected
-                    </div>
-                    <Button
-                      onClick={() => {
-                        clearFiles();
-                        if (fileInputRef.current) fileInputRef.current.value = '';
-                      }}
-                      variant="ghost"
-                      size="sm"
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                  <div className="max-h-80 space-y-3 overflow-y-auto text-sm text-[color:var(--dusk-text-secondary)]">
-                    {files.map(file => (
-                      <div key={buildFileKey(file)} className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="truncate font-medium text-[color:var(--dusk-text-primary)]">{file.name}</span>
-                          <span className="shrink-0 text-xs text-[color:var(--dusk-text-muted)]">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                          </span>
-                        </div>
-                        <div className="mt-2">
-                          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-muted)]">
-                            {sourceKind === 'video_mp4' ? 'Destination URL *' : 'Fallback destination URL'}
-                          </label>
-                          <Input
-                            value={clickUrlsByFileKey[buildFileKey(file)] ?? ''}
-                            onChange={(event) => setClickUrlForFile(file, event.target.value)}
-                            placeholder="https://example.com/landing"
-                          />
-                          <p className="mt-1 text-[11px] text-[color:var(--dusk-text-muted)]">
-                            {sourceKind === 'video_mp4'
-                              ? 'Videos need a destination URL before they can be published for serving.'
-                              : 'For HTML5, we auto-detect clickTag/click URL from the archive. If none is found, this fallback URL is required.'}
-                          </p>
-                          {sourceKind === 'html5_zip' && detectingFileKeys.includes(buildFileKey(file)) && (
-                            <p className="mt-1 text-[11px] text-[color:var(--dusk-status-warning-fg)]">
-                              Detecting clickTag from archive…
-                            </p>
-                          )}
-                          {detectedClickUrls[buildFileKey(file)] && (
-                            <p className="mt-1 flex items-center gap-1 text-[11px] text-[color:var(--dusk-status-success-fg)]">
-                              <span>
-                                clickTag auto-detected:{' '}
-                                <span className="break-all font-medium">
-                                  {detectedClickUrls[buildFileKey(file)]}
-                                </span>
-                              </span>
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
+
+        {files.length > 0 && (
+          <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-muted p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-muted)]">
+                {files.length} selected
+              </div>
+              <Button
+                onClick={() => {
+                  clearFiles();
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                variant="ghost"
+                size="sm"
+              >
+                Clear
+              </Button>
+            </div>
+            <div className="max-h-80 space-y-3 overflow-y-auto text-sm text-[color:var(--dusk-text-secondary)]">
+              {files.map(file => (
+                <div
+                  key={buildFileKey(file)}
+                  className="grid gap-4 rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 p-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate font-medium text-[color:var(--dusk-text-primary)]">{file.name}</span>
+                      <span className="shrink-0 text-xs text-[color:var(--dusk-text-muted)]">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </span>
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-muted)]">
+                      {sourceKind === 'video_mp4' ? 'Destination URL *' : 'Fallback destination URL'}
+                    </label>
+                    <Input
+                      value={clickUrlsByFileKey[buildFileKey(file)] ?? ''}
+                      onChange={(event) => setClickUrlForFile(file, event.target.value)}
+                      placeholder="https://example.com/landing"
+                    />
+                    <p className="mt-1 text-[11px] text-[color:var(--dusk-text-muted)]">
+                      {sourceKind === 'video_mp4'
+                        ? 'Videos need a destination URL before they can be published for serving.'
+                        : 'For HTML5, we auto-detect clickTag/click URL from the archive. If none is found, this fallback URL is required.'}
+                    </p>
+                    {sourceKind === 'html5_zip' && detectingFileKeys.includes(buildFileKey(file)) && (
+                      <p className="mt-1 text-[11px] text-[color:var(--dusk-status-warning-fg)]">
+                        Detecting clickTag from archive…
+                      </p>
+                    )}
+                    {detectedClickUrls[buildFileKey(file)] && (
+                      <p className="mt-1 flex items-center gap-1 text-[11px] text-[color:var(--dusk-status-success-fg)]">
+                        <span>
+                          clickTag auto-detected:{' '}
+                          <span className="break-all font-medium">
+                            {detectedClickUrls[buildFileKey(file)]}
+                          </span>
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {status && (
           <div className="rounded-lg border border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-info-fg)]">

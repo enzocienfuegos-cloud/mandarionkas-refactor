@@ -863,6 +863,14 @@ export async function createPublishedCreative(pool, input = {}) {
     ingestionId,
     sourceKind: normalizedSourceKind,
     ...(resolvedEntryPath ? { entryPath: resolvedEntryPath } : {}),
+    ...(shouldDeferHtml5ArchivePublish
+      ? {
+          html5Publish: {
+            status: 'publishing',
+            queuedAt: new Date().toISOString(),
+          },
+        }
+      : {}),
   };
 
   const creativeResult = await pool.query(
@@ -1167,6 +1175,53 @@ export async function markCreativeIngestionStatus(pool, workspaceId, ingestionId
      WHERE workspace_id = $1 AND id = $2`,
     [workspaceId, ingestionId, status, errorCode, errorDetail],
   );
+}
+
+export async function markHtml5CreativePublishFailed(pool, workspaceId, creativeVersionId, {
+  reason = null,
+  detail = null,
+} = {}) {
+  const version = await getCreativeVersion(pool, workspaceId, creativeVersionId);
+  if (!version) return null;
+
+  const previousMetadata = (version.metadata && typeof version.metadata === 'object') ? version.metadata : {};
+  const previousHtml5Publish = (previousMetadata.html5Publish && typeof previousMetadata.html5Publish === 'object')
+    ? previousMetadata.html5Publish
+    : {};
+  const failedAt = new Date().toISOString();
+
+  await pool.query(
+    `UPDATE creative_versions
+     SET status = 'draft',
+         metadata = $4::jsonb,
+         updated_at = NOW()
+     WHERE workspace_id = $1 AND id = $2`,
+    [
+      workspaceId,
+      creativeVersionId,
+      JSON.stringify({
+        ...previousMetadata,
+        html5Publish: {
+          ...previousHtml5Publish,
+          status: 'failed',
+          reason: reason || null,
+          detail: detail || null,
+          failedAt,
+          updatedAt: failedAt,
+        },
+      }),
+    ],
+  );
+
+  await pool.query(
+    `UPDATE creatives
+     SET updated_at = NOW()
+     WHERE workspace_id = $1
+       AND id = (SELECT creative_id FROM creative_versions WHERE workspace_id = $1 AND id = $2)`,
+    [workspaceId, creativeVersionId],
+  );
+
+  return getCreativeVersion(pool, workspaceId, creativeVersionId);
 }
 
 export async function syncCreativeVideoTranscodeOutputs(pool, {

@@ -152,3 +152,20 @@ test('validateHtml5Bundle passes when all referenced local assets exist', () => 
   assert.equal(result.ok, true);
   assert.deepEqual(result.missingPaths, []);
 });
+
+test('validateHtml5Bundle does not treat meta content values as asset paths', () => {
+  const html = `
+    <html>
+      <head>
+        <meta name="ad.size" content="width=300,height=250">
+      </head>
+      <body><img src="./media/frame.png"></body>
+    </html>
+  `;
+  const result = validateHtml5Bundle(html, {
+    entryPath: 'index.html',
+    assetPaths: ['index.html', 'media/frame.png'],
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.missingPaths, []);
+});

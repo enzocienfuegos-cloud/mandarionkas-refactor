@@ -29,6 +29,7 @@ import {
   listCreativesForUser,
   listCreativeVersions,
   listVideoRenditions,
+  markHtml5CreativePublishFailed,
   markCreativeIngestionPublishedState,
   markCreativeIngestionStatus,
   normalizeRawClickUrl,
@@ -1187,6 +1188,12 @@ export async function handleCreativeRoutes(ctx) {
               message: err?.message ?? String(err),
             });
             try {
+              if (creativeVersionId) {
+                await markHtml5CreativePublishFailed(pool, workspaceId, creativeVersionId, {
+                  reason: 'html5_publish_failed',
+                  detail: err?.message || 'HTML5 publish failed in background.',
+                });
+              }
               await markCreativeIngestionStatus(pool, workspaceId, ingestionId, {
                 status: 'failed',
                 errorCode: 'html5_publish_failed',

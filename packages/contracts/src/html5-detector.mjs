@@ -172,7 +172,7 @@ function extractStyleTagBodies(htmlSource) {
 
 function extractHtmlAttributeReferences(htmlSource, fromPath) {
   const references = new Set();
-  const directReferencePattern = /\b(?:src|href|poster|content)\s*=\s*(["'])([\s\S]*?)\1/gi;
+  const directReferencePattern = /\b(?:src|href|poster)\s*=\s*(["'])([\s\S]*?)\1/gi;
   const srcsetPattern = /\bsrcset\s*=\s*(["'])([\s\S]*?)\1/gi;
   const stylePattern = /\bstyle\s*=\s*(["'])([\s\S]*?)\1/gi;
 
