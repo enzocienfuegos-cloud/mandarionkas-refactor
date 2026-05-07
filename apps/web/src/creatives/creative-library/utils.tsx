@@ -1,4 +1,5 @@
 import React from 'react';
+import { Badge } from '../../system';
 import type {
   Creative,
   CreativeIngestion,
@@ -377,11 +378,7 @@ export function getVideoRenditionStatusBadge(
     return statusBadge(rendition.status);
   }
   if (isRenditionProcessingEntryStale(source, creativeVersion)) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-        Stalled
-      </span>
-    );
+    return <Badge tone="warning">Stalled</Badge>;
   }
 
   const startedAt = parseTimestamp(source?.startedAt)
@@ -395,11 +392,7 @@ export function getVideoRenditionStatusBadge(
     ? Math.min(97, Math.max(24, 24 + Math.round(elapsedMs / 500)))
     : Math.min(24, Math.max(8, 8 + Math.round(elapsedMs / 1500)));
 
-  return (
-    <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-      In progress {progressPercent}%
-    </span>
-  );
+  return <Badge tone="warning">In progress {progressPercent}%</Badge>;
 }
 
 export function formatDuration(ms: number) {

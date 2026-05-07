@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Panel } from '../../system';
+import { Badge, Button, Panel } from '../../system';
 import type { RegenerationFeedbackState, VideoRenditionState } from './types';
 
 type VideoProcessingSummary = {
@@ -170,12 +170,12 @@ export function VideoRenditionsModal({
           )}
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <h3 className="text-sm font-semibold text-slate-800">Encoder feedback</h3>
-              <div className="mt-3 space-y-2 text-sm text-slate-600">
+            <Panel className="p-4">
+              <h3 className="text-sm font-semibold text-text-primary">Encoder feedback</h3>
+              <div className="mt-3 space-y-2 text-sm text-text-secondary">
                 <div>
                   Source:{' '}
-                  <span className="font-medium text-slate-800">
+                  <span className="font-medium text-text-primary">
                     {videoProcessing?.source?.width && videoProcessing?.source?.height
                       ? `${videoProcessing.source.width}×${videoProcessing.source.height}`
                       : 'Unknown'}
@@ -183,59 +183,59 @@ export function VideoRenditionsModal({
                 </div>
                 <div>
                   ffprobe:{' '}
-                  <span className="font-medium text-slate-800">
+                  <span className="font-medium text-text-primary">
                     {videoProcessing?.ffprobeAvailable ? 'available' : `missing (${videoProcessing?.ffprobeReason ?? 'unknown'})`}
                   </span>
                 </div>
                 <div>
                   ffmpeg:{' '}
-                  <span className="font-medium text-slate-800">
+                  <span className="font-medium text-text-primary">
                     {videoProcessing?.ffmpegAvailable ? 'available' : `missing (${videoProcessing?.ffmpegReason ?? 'unknown'})`}
                   </span>
                 </div>
                 <div>
                   Planned renditions:{' '}
-                  <span className="font-medium text-slate-800">
+                  <span className="font-medium text-text-primary">
                     {plannedRenditions.length ? plannedRenditions.map((target: any) => target.label).join(', ') : 'None'}
                   </span>
                 </div>
                 <div>
                   Generated:{' '}
-                  <span className="font-medium text-slate-800">
+                  <span className="font-medium text-text-primary">
                     {videoProcessing?.generatedCount ?? 0}
                   </span>
                 </div>
                 {videoProcessing?.noTargetsReason && (
-                  <div className="text-amber-700">
+                  <div className="text-[color:var(--dusk-status-warning-fg)]">
                     No ladder generated: {String(videoProcessing.noTargetsReason).replace(/_/g, ' ')}
                   </div>
                 )}
               </div>
-            </div>
+            </Panel>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <h3 className="text-sm font-semibold text-slate-800">Last run detail</h3>
-              <div className="mt-3 space-y-2 text-sm text-slate-600">
+            <Panel className="p-4">
+              <h3 className="text-sm font-semibold text-text-primary">Last run detail</h3>
+              <div className="mt-3 space-y-2 text-sm text-text-secondary">
                 {renditionProcessing.length > 0 ? renditionProcessing.map((entry: any) => (
-                  <div key={entry.label} className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2">
-                    <span className="font-medium text-slate-800">{entry.label}</span>
-                    <span className={entry.available ? 'text-emerald-700' : ['queued', 'processing', 'draft'].includes(String(entry.status ?? '').toLowerCase()) ? 'text-amber-700' : String(entry.status ?? '').toLowerCase() === 'unavailable' ? 'text-slate-500' : 'text-rose-700'}>
+                  <div key={entry.label} className="flex items-start justify-between gap-3 rounded-lg border border-border-subtle px-3 py-2">
+                    <span className="font-medium text-text-primary">{entry.label}</span>
+                    <span className={entry.available ? 'text-[color:var(--dusk-status-success-fg)]' : ['queued', 'processing', 'draft'].includes(String(entry.status ?? '').toLowerCase()) ? 'text-[color:var(--dusk-status-warning-fg)]' : String(entry.status ?? '').toLowerCase() === 'unavailable' ? 'text-text-muted' : 'text-[color:var(--dusk-status-critical-fg)]'}>
                       {getRenditionProgressLabel(entry, state.version)}
                     </span>
                   </div>
                 )) : state.awaitingPublish ? (
-                  <div className="text-slate-500">Waiting for the background worker to finish creating the creative version and renditions.</div>
+                  <div className="text-text-muted">Waiting for the background worker to finish creating the creative version and renditions.</div>
                 ) : (
-                  <div className="text-slate-500">No encoder run recorded yet.</div>
+                  <div className="text-text-muted">No encoder run recorded yet.</div>
                 )}
               </div>
-            </div>
+            </Panel>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
+          <div className="overflow-hidden rounded-xl border border-border-default">
+            <table className="min-w-full divide-y divide-border-default text-sm">
               <caption className="sr-only">Video renditions and delivery status for the selected creative version.</caption>
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-surface-2 text-left text-xs uppercase tracking-wide text-text-soft">
                 <tr>
                   <th className="px-4 py-3">Rendition</th>
                   <th className="px-4 py-3">Resolution</th>
@@ -246,7 +246,7 @@ export function VideoRenditionsModal({
                   <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
+              <tbody className="divide-y divide-border-default bg-surface-1">
                 {state.renditions.map(rendition => (
                   (() => {
                     const matchingProcessingEntry = rendition.isSource
@@ -272,28 +272,26 @@ export function VideoRenditionsModal({
                       <tr key={rendition.id}>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-slate-800">{rendition.label}</span>
+                            <span className="font-medium text-text-primary">{rendition.label}</span>
                             {rendition.isSource && (
-                              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                                Source
-                              </span>
+                              <Badge tone="neutral" size="sm">Source</Badge>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-slate-600">
+                        <td className="px-4 py-3 text-text-secondary">
                           {rendition.width && rendition.height ? `${rendition.width}×${rendition.height}` : '—'}
                         </td>
-                        <td className="px-4 py-3 text-slate-600">{formatVideoBitrate(rendition.bitrateKbps)}</td>
-                        <td className="px-4 py-3 text-slate-600">{rendition.codec || '—'}</td>
+                        <td className="px-4 py-3 text-text-secondary">{formatVideoBitrate(rendition.bitrateKbps)}</td>
+                        <td className="px-4 py-3 text-text-secondary">{rendition.codec || '—'}</td>
                         <td className="px-4 py-3">{getVideoRenditionStatusBadge(rendition, matchingProcessingEntry, state.version)}</td>
                         <td className="px-4 py-3">
-                          <div className="space-y-1 text-xs text-slate-500">
+                          <div className="space-y-1 text-xs text-text-muted">
                             {rendition.publicUrl ? (
                               <a
                                 href={rendition.publicUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="font-medium text-fuchsia-600 hover:text-fuchsia-700 dark:text-fuchsia-300 dark:hover:text-fuchsia-200"
+                                className="font-medium text-text-brand hover:opacity-80"
                               >
                                 Open MP4
                               </a>
@@ -306,7 +304,7 @@ export function VideoRenditionsModal({
                         <td className="px-4 py-3">
                           <label
                             className={`inline-flex items-center gap-3 text-xs font-medium ${
-                              toggleBlocked ? 'cursor-not-allowed text-slate-400' : 'cursor-pointer text-slate-700'
+                              toggleBlocked ? 'cursor-not-allowed text-text-soft' : 'cursor-pointer text-text-secondary'
                             }`}
                             title={toggleTitle}
                             onClick={(event) => {
@@ -330,7 +328,7 @@ export function VideoRenditionsModal({
                                   );
                                 }}
                               />
-                              <span className="h-6 w-11 rounded-full bg-slate-300 transition-colors peer-checked:bg-emerald-500 peer-disabled:bg-slate-200" />
+                              <span className="h-6 w-11 rounded-full bg-border-default transition-colors peer-checked:bg-[color:var(--dusk-status-success-fg)] peer-disabled:bg-border-subtle" />
                               <span className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
                             </span>
                           </label>
@@ -341,14 +339,14 @@ export function VideoRenditionsModal({
                 ))}
                 {!state.loading && state.renditions.length === 0 && state.awaitingPublish && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500">
+                    <td colSpan={7} className="px-6 py-12 text-center text-sm text-text-muted">
                       Renditions are still being generated in the background. This table will populate after publish completes.
                     </td>
                   </tr>
                 )}
                 {!state.loading && state.renditions.length === 0 && !state.awaitingPublish && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500">
+                    <td colSpan={7} className="px-6 py-12 text-center text-sm text-text-muted">
                       No video renditions yet.
                     </td>
                   </tr>
