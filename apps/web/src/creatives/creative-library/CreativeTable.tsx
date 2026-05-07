@@ -46,11 +46,11 @@ export function CreativeTable({
   onDeleteCreative,
 }: Props) {
   return (
-    <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-slate-200 dark:border-white/8">
-      <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/8">
+    <div className="app-scrollbar mt-6 overflow-auto rounded-3xl border border-border-default">
+      <table className="min-w-full divide-y divide-border-default text-sm">
         <caption className="sr-only">Creative QA queue with selection, preview status, QA state and row actions.</caption>
-        <thead className="bg-slate-50/80 dark:bg-white/[0.02]">
-          <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/42">
+        <thead className="bg-surface-2/80">
+          <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.2em] text-text-soft">
             <th scope="col" className="px-5 py-4">
               <input
                 type="checkbox"
@@ -61,7 +61,7 @@ export function CreativeTable({
                   }
                 }}
                 onChange={onToggleSelectAllVisible}
-                className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
+                className="h-4 w-4 rounded border-border-strong text-brand-500 focus:ring-brand-500"
                 aria-label="Select all visible creatives"
               />
             </th>
@@ -75,7 +75,7 @@ export function CreativeTable({
             <th scope="col" className="px-5 py-4" aria-label="Actions" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200 dark:divide-white/8">
+        <tbody className="divide-y divide-border-default">
           {creatives.map((creative) => {
             const version = latestVersions[creative.id];
             const row = creativeRows.find((entry) => entry.id === creative.id);
@@ -84,25 +84,25 @@ export function CreativeTable({
             const needsAttention: PrioritySeverity = row?.qa ?? 'Notice';
 
             return (
-              <tr key={creative.id} className="bg-white/42 align-top transition hover:bg-fuchsia-50/45 dark:bg-transparent dark:hover:bg-white/[0.04]">
+              <tr key={creative.id} className="bg-surface-1/40 align-top transition hover:bg-surface-2/70">
                 <td className="px-5 py-5">
                   <input
                     type="checkbox"
                     checked={selectedCreativeIds.includes(creative.id)}
                     onChange={() => onToggleCreativeSelection(creative.id)}
-                    className="h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
+                    className="h-4 w-4 rounded border-border-strong text-brand-500 focus:ring-brand-500"
                     aria-label={`Select creative ${creative.name}`}
                   />
                 </td>
                 <th scope="row" className="px-5 py-5 text-left">
-                  <p className="font-semibold text-slate-950 dark:text-white">{row?.creative ?? creative.name}</p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-white/48">{row?.advertiser ?? creative.workspaceName ?? '—'} · {row?.campaign ?? 'No campaign'}</p>
+                  <p className="font-semibold text-text-primary">{row?.creative ?? creative.name}</p>
+                  <p className="mt-1 text-xs text-text-muted">{row?.advertiser ?? creative.workspaceName ?? '—'} · {row?.campaign ?? 'No campaign'}</p>
                 </th>
                 <td className="px-5 py-5">
                   <CreativeStatusBadge status={row?.status ?? 'Missing'} />
                 </td>
-                <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.format ?? 'Display'}</td>
-                <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.size ?? '—'}</td>
+                <td className="px-5 py-5 text-text-secondary">{row?.format ?? 'Display'}</td>
+                <td className="px-5 py-5 text-text-secondary">{row?.size ?? '—'}</td>
                 <td className="px-5 py-5">
                   <CreativePreviewCell
                     creativeName={creative.name}
@@ -119,7 +119,7 @@ export function CreativeTable({
                 <td className="px-5 py-5">
                   <PrioritySeverityBadge severity={needsAttention} />
                 </td>
-                <td className="px-5 py-5 text-slate-600 dark:text-white/62">{row?.owner ?? 'Creative Ops'}</td>
+                <td className="px-5 py-5 text-text-secondary">{row?.owner ?? 'Creative Ops'}</td>
                 <td className="px-5 py-5">
                   {version ? (
                     <CreativeRowActions
@@ -138,7 +138,7 @@ export function CreativeTable({
                     <div className="flex justify-end">
                       <IconButton
                         onClick={() => void onDeleteCreative(creative)}
-                        className="border border-transparent text-slate-400 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:text-white/36 dark:hover:border-fuchsia-500/20 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+                        className="border border-transparent text-text-soft transition hover:border-brand-500/20 hover:bg-brand-500/10 hover:text-text-brand"
                         aria-label={`Delete ${creative.name}`}
                         icon={<MoreIcon className="h-4 w-4" />}
                       />

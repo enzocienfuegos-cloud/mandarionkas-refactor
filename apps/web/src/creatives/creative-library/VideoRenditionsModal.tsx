@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '../../system';
+import { Button, Panel } from '../../system';
 import type { RegenerationFeedbackState, VideoRenditionState } from './types';
 
 type VideoProcessingSummary = {
@@ -57,11 +57,11 @@ export function VideoRenditionsModal({
 }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-xl border border-border-default bg-surface-1 shadow-xl">
+        <div className="flex items-center justify-between border-b border-border-default px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">Video renditions</h2>
-            <p className="mt-1 text-sm text-slate-500">{state.creativeName}</p>
+            <h2 className="text-lg font-semibold text-text-primary">Video renditions</h2>
+            <p className="mt-1 text-sm text-text-muted">{state.creativeName}</p>
           </div>
           <Button onClick={onClose} variant="secondary" size="sm" aria-label="Close video renditions modal">
             Close
@@ -69,7 +69,7 @@ export function VideoRenditionsModal({
         </div>
 
         <div className="space-y-4 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <Panel className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm text-text-muted">
             <p className="max-w-2xl">
               Manage which MP4 renditions are active for VAST delivery. The source file stays available as fallback, and transcoded renditions are served first when active.
             </p>
@@ -86,12 +86,12 @@ export function VideoRenditionsModal({
                   ? 'Regenerating…'
                   : 'Regenerate renditions'}
             </Button>
-          </div>
+          </Panel>
 
           {state.error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]">
               {state.error}
-            </div>
+            </Panel>
           )}
 
           {state.awaitingPublish && (

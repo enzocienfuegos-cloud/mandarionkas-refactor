@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Input, Modal } from '../../system';
+import { Badge, Button, Input, Modal, Panel } from '../../system';
 import type { VariantState } from './types';
 
 type Preset = { label: string; width: number; height: number };
@@ -43,7 +43,7 @@ export function VariantManagerModal({
       showCloseButton
     >
       <div className="space-y-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <Panel className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-slate-800">Preset sizes</h3>
@@ -72,9 +72,9 @@ export function VariantManagerModal({
               </Button>
             ))}
           </div>
-        </div>
+        </Panel>
 
-        <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-[minmax(0,1fr)_120px_120px_auto]">
+        <Panel className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_120px_120px_auto]">
           <Input
             value={variantState.form.label}
             onChange={event => onFormChange('label', event.target.value)}
@@ -99,29 +99,27 @@ export function VariantManagerModal({
           >
             Add size
           </Button>
-        </div>
+        </Panel>
 
         {variantState.error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <Panel className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]">
             {variantState.error}
-          </div>
+          </Panel>
         )}
 
         <div className="overflow-hidden rounded-xl border border-slate-200">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default bg-surface-2 px-4 py-3">
             <div className="flex items-center gap-3">
-              <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
+              <label className="inline-flex items-center gap-2 text-xs font-medium text-text-secondary">
                 <input
                   type="checkbox"
                   checked={variantState.variants.length > 0 && variantState.selectedVariantIds.length === variantState.variants.length}
                   onChange={onSelectAll}
-                  className="rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
+                  className="rounded border-border-strong text-brand-500 focus:ring-brand-500"
                 />
                 Select all
               </label>
-              <span className="text-xs text-slate-500">
-                {variantState.selectedVariantIds.length} selected
-              </span>
+              <Badge tone="neutral" size="sm">{variantState.selectedVariantIds.length} selected</Badge>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button

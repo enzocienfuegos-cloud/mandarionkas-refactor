@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '../../system';
+import { Button, Panel } from '../../system';
 import type { PreviewModalState } from './types';
 
 type Props = {
@@ -21,7 +21,7 @@ export function CreativePreviewLightbox({ preview, onClose }: Props) {
       aria-label={`Preview: ${preview.name}`}
     >
       <div className="flex flex-col items-center gap-3">
-        <div className="flex w-full items-center justify-between gap-4 rounded-lg bg-white/10 px-4 py-2">
+        <Panel className="flex w-full items-center justify-between gap-4 border-white/15 bg-white/10 px-4 py-2">
           <div className="text-sm font-medium text-white">
             {preview.name}
             <span className="ml-2 text-xs font-normal text-white/60">
@@ -47,7 +47,7 @@ export function CreativePreviewLightbox({ preview, onClose }: Props) {
               Close preview
             </Button>
           </div>
-        </div>
+        </Panel>
 
         <div
           className="overflow-hidden rounded-lg shadow-2xl"

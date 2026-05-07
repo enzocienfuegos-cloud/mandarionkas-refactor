@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Modal } from '../../system';
+import { Badge, Button, FormField, Modal, Panel, Select } from '../../system';
 import type { BindingState } from './types';
 import { statusBadge } from './ui';
 
@@ -51,21 +51,21 @@ export function TagBindingModal({
         </div>
       )}
       <div className="mt-4">
-        <label className="mb-1 block text-sm font-medium text-slate-700">Tag</label>
-        <select
-          value={bindingState.tagId}
-          onChange={(event) => onTagChange(event.target.value)}
-          className="w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] hover:border-[color:var(--dusk-border-strong)] focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-500/20"
-        >
-          <option value="">Select a tag</option>
-          {tags.map((tag) => (
-            <option key={tag.id} value={tag.id}>
-              {tag.name} · {tag.format} · {tag.status}
-            </option>
-          ))}
-        </select>
+        <FormField label="Tag">
+          <Select
+            value={bindingState.tagId}
+            onChange={(event) => onTagChange(event.target.value)}
+          >
+            <option value="">Select a tag</option>
+            {tags.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name} · {tag.format} · {tag.status}
+              </option>
+            ))}
+          </Select>
+        </FormField>
         {tags.length === 0 && (
-          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
+          <Panel className="mt-3 px-3 py-3 text-sm text-text-muted">
             <p>No tags exist yet for this client.</p>
             <div className="mt-3 flex gap-2">
               <Button
@@ -84,37 +84,35 @@ export function TagBindingModal({
                 Open tags
               </Button>
             </div>
-          </div>
+          </Panel>
         )}
       </div>
       {bindingState.tagId && (
-        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <Panel className="mt-4 p-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-medium text-slate-800">Current assignments</h3>
-              <p className="text-xs text-slate-500">Review what this tag is already serving before you change it.</p>
+              <h3 className="text-sm font-medium text-text-primary">Current assignments</h3>
+              <p className="text-xs text-text-muted">Review what this tag is already serving before you change it.</p>
             </div>
             {bindingState.bindingsLoading && (
-              <span className="text-xs text-slate-500">Loading…</span>
+              <span className="text-xs text-text-muted">Loading…</span>
             )}
           </div>
           <div className="mt-3 space-y-2">
             {bindingState.bindings.map((binding) => {
               const isCurrentVersion = binding.creativeVersionId === bindingState.versionId;
               return (
-                <div key={binding.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <Panel key={binding.id} className="px-3 py-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-sm font-medium text-slate-800">{binding.creativeName}</span>
+                        <span className="truncate text-sm font-medium text-text-primary">{binding.creativeName}</span>
                         {statusBadge(binding.status)}
                         {isCurrentVersion && (
-                          <span className="inline-flex items-center rounded-full border border-fuchsia-200 bg-fuchsia-50 px-2 py-0.5 text-xs font-medium text-fuchsia-700 dark:border-fuchsia-500/20 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
-                            Selected version
-                          </span>
+                          <Badge tone="brand" size="sm">Selected version</Badge>
                         )}
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">
+                      <div className="mt-1 text-xs text-text-muted">
                         {binding.sourceKind} · {binding.servingFormat} · weight {binding.weight}
                       </div>
                     </div>
@@ -140,16 +138,16 @@ export function TagBindingModal({
                       )}
                     </div>
                   </div>
-                </div>
+                </Panel>
               );
             })}
             {!bindingState.bindingsLoading && bindingState.bindings.length === 0 && (
-              <div className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-sm text-slate-500">
+              <Panel className="border-dashed px-3 py-4 text-sm text-text-muted">
                 This tag has no assignments yet.
-              </div>
+              </Panel>
             )}
           </div>
-        </div>
+        </Panel>
       )}
     </Modal>
   );
