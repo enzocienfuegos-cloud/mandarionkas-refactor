@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Button, IconButton, Kicker, Panel } from '../system';
+import { Badge, Button, IconButton, Input, Kicker, Panel } from '../system';
 import {
   type AttentionItem,
   type AttentionSeverity,
@@ -44,6 +44,174 @@ export function NotificationButton({ count }: { count: number }) {
         </span>
       ) : null}
     </div>
+  );
+}
+
+export function OverviewToolbar({
+  activeWorkspaceId,
+  workspaces,
+  dateRange,
+  campaignId,
+  campaigns,
+  overviewSearch,
+  onWorkspaceChange,
+  onDateRangeChange,
+  onCampaignChange,
+  onSearchChange,
+  theme,
+  onToggleTheme,
+  issueCount,
+}: {
+  activeWorkspaceId: string;
+  workspaces: Array<{ id: string; name: string }>;
+  dateRange: 7 | 30 | 90;
+  campaignId: string;
+  campaigns: Array<{ id: string; name: string }>;
+  overviewSearch: string;
+  onWorkspaceChange: (value: string) => void;
+  onDateRangeChange: (value: 7 | 30 | 90) => void;
+  onCampaignChange: (value: string) => void;
+  onSearchChange: (value: string) => void;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+  issueCount: number;
+}) {
+  return (
+    <div className="dusk-toolbar">
+      <div className="dusk-toolbar-group">
+        <div className="relative min-w-[230px]">
+          <select
+            value={activeWorkspaceId}
+            onChange={(event) => onWorkspaceChange(event.target.value)}
+            className="dusk-select w-full appearance-none pr-10"
+          >
+            {workspaces.map((workspace) => (
+              <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
+            ))}
+          </select>
+          <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-soft" />
+        </div>
+        <select
+          value={String(dateRange)}
+          onChange={(event) => onDateRangeChange(Number(event.target.value) as 7 | 30 | 90)}
+          className="dusk-select"
+        >
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
+        </select>
+        <select
+          value={campaignId}
+          onChange={(event) => onCampaignChange(event.target.value)}
+          className="dusk-select"
+        >
+          <option value="">All campaigns</option>
+          {campaigns.map((campaign) => (
+            <option key={campaign.id} value={campaign.id}>{campaign.name}</option>
+          ))}
+        </select>
+      </div>
+      <div className="dusk-toolbar-group">
+        <label className="relative block min-w-[320px]">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-soft">
+            <SearchIcon className="h-5 w-5" />
+          </span>
+          <Input
+            value={overviewSearch}
+            onChange={(event) => onSearchChange(event.target.value)}
+            className="min-h-[46px] w-full pl-10 pr-3"
+            placeholder="Search campaign, advertiser, owner"
+          />
+        </label>
+        <Button type="button" variant="secondary" onClick={onToggleTheme}>
+          <EyeIcon className="text-text-muted" />
+          {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+        </Button>
+        <NotificationButton count={issueCount} />
+      </div>
+    </div>
+  );
+}
+
+export function OverviewHeader() {
+  return (
+    <header className="dusk-page-header items-start">
+      <div className="min-w-0 flex-1">
+        <Kicker>Overview</Kicker>
+        <h1 className="dusk-title mt-4">Launches, delivery and QA in one place</h1>
+        <p className="dusk-copy">Use one daily command center to spot blockers, review tag activity, and move launch and delivery issues into action quickly.</p>
+      </div>
+      <Link
+        to="/campaigns/new"
+        className="inline-flex min-h-[46px] items-center rounded-xl bg-brand-gradient px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(241,0,139,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_42px_rgba(241,0,139,0.34)]"
+      >
+        New trafficking task
+      </Link>
+    </header>
+  );
+}
+
+export function OverviewSidebar({
+  attentionItems,
+  liveCampaignCount,
+  readyCreativeCount,
+  draftSetupCount,
+}: {
+  attentionItems: AttentionItem[];
+  liveCampaignCount: number;
+  readyCreativeCount: number;
+  draftSetupCount: number;
+}) {
+  return (
+    <Panel className="p-6">
+      <div className="space-y-8">
+        <section>
+          <Kicker>Today blockers</Kicker>
+          <div className="mt-4 space-y-3">
+            {attentionItems.slice(0, 3).map((item) => (
+              <Panel key={item.id} className="px-4 py-3">
+                <p className="font-semibold text-text-primary">{item.title}</p>
+                <p className="mt-1 text-sm text-text-secondary">{item.detail}</p>
+              </Panel>
+            ))}
+          </div>
+        </section>
+        <section>
+          <Kicker>Launch readiness</Kicker>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+            <Panel className="px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-text-soft">Live campaigns</p>
+              <p className="mt-2 text-2xl font-semibold text-text-primary">{liveCampaignCount}</p>
+            </Panel>
+            <Panel className="px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-text-soft">Ready creatives</p>
+              <p className="mt-2 text-2xl font-semibold text-text-primary">{readyCreativeCount}</p>
+            </Panel>
+            <Panel className="px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-text-soft">Draft setup</p>
+              <p className="mt-2 text-2xl font-semibold text-text-primary">{draftSetupCount}</p>
+            </Panel>
+          </div>
+        </section>
+        <section>
+          <Kicker>Quick ops</Kicker>
+          <div className="mt-4 grid gap-3">
+            <Link to="/campaigns" className="dusk-card-link p-4">
+              <p className="font-semibold text-text-primary">Campaign operations</p>
+              <p className="mt-1 text-sm text-text-secondary">Move from pacing and delivery issues into action.</p>
+            </Link>
+            <Link to="/tags" className="dusk-card-link p-4">
+              <p className="font-semibold text-text-primary">Tag firing health</p>
+              <p className="mt-1 text-sm text-text-secondary">Review implementation, cachebusters, and firing quality.</p>
+            </Link>
+            <Link to="/creatives" className="dusk-card-link p-4">
+              <p className="font-semibold text-text-primary">Creative QA</p>
+              <p className="mt-1 text-sm text-text-secondary">Handle approvals, previews, and assignment gaps.</p>
+            </Link>
+          </div>
+        </section>
+      </div>
+    </Panel>
   );
 }
 
