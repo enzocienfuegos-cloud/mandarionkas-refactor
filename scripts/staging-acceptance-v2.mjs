@@ -195,6 +195,32 @@ function createDomainRunner(selected) {
   };
 }
 
+const AUTHENTICATED_DOMAINS = new Set([
+  'auth_portal',
+  'workspace_context',
+  'adserver_catalog',
+  'audit_access',
+]);
+
+async function bootstrapAuthenticatedSessionIfNeeded(hasCredentials) {
+  if (!hasCredentials) return;
+
+  const selected = requestedDomains.length ? requestedDomains : Array.from(AUTHENTICATED_DOMAINS);
+  const needsAuthenticatedDomains = selected.some((domain) => AUTHENTICATED_DOMAINS.has(domain) && domain !== 'auth_portal');
+  const includesAuthPortal = selected.includes('auth_portal');
+
+  if (!needsAuthenticatedDomains || includesAuthPortal) return;
+
+  const login = await request('/v1/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+  assertApiResponse('/v1/auth/login', login);
+  if (!login.ok) {
+    throw new Error(`Bootstrap login failed: HTTP ${login.status} — ${login.body?.message ?? 'login failed'}`);
+  }
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -206,6 +232,8 @@ async function main() {
   const runDomain = createDomainRunner(requestedDomains);
   const domains = [];
   const hasCredentials = !runtimeOnly && Boolean(email) && Boolean(password);
+
+  await bootstrapAuthenticatedSessionIfNeeded(hasCredentials);
 
   domains.push(await runDomain('platform_runtime', 'Health, readiness, version — no auth', async ({ check }) => {
     await check('GET /healthz → 200', async () => {
