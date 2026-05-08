@@ -13,6 +13,7 @@ import {
   Users,
   FlaskConical,
   ChevronLeft,
+  Sparkles,
 } from '../system/icons';
 import { cn } from '../system/cn';
 import { DuskLogo } from './DuskLogo';
@@ -26,6 +27,7 @@ export type SidebarItemId =
   | 'discrepancies'
   | 'reporting'
   | 'experiments'
+  | 'studio'
   | 'clients'
   | 'tools'
   | 'settings';
@@ -34,7 +36,9 @@ interface NavItem {
   id: SidebarItemId;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  to: string;
+  to?: string;
+  href?: string;
+  external?: boolean;
 }
 
 interface NavGroup {
@@ -80,12 +84,36 @@ export interface SidebarProps {
   badgeCounts?: Partial<Record<SidebarItemId, string | number>>;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
+  studioUrl?: string;
+  showStudioAccess?: boolean;
 }
 
-export function Sidebar({ activeItem, badgeCounts, collapsed = false, onToggleCollapsed }: SidebarProps) {
+export function Sidebar({
+  activeItem,
+  badgeCounts,
+  collapsed = false,
+  onToggleCollapsed,
+  studioUrl,
+  showStudioAccess = false,
+}: SidebarProps) {
   const sidebarWidth = collapsed
     ? 'var(--dusk-sidebar-width-collapsed)'
     : 'var(--dusk-sidebar-width)';
+  const navGroups = React.useMemo<NavGroup[]>(() => {
+    if (!showStudioAccess || !studioUrl) return NAV_GROUPS;
+
+    return NAV_GROUPS.map((group) => (
+      group.title !== 'Platform'
+        ? group
+        : {
+            ...group,
+            items: [
+              { id: 'studio', label: 'Studio', icon: Sparkles, href: studioUrl, external: true },
+              ...group.items,
+            ],
+          }
+    ));
+  }, [showStudioAccess, studioUrl]);
 
   return (
     <aside
@@ -125,7 +153,7 @@ export function Sidebar({ activeItem, badgeCounts, collapsed = false, onToggleCo
 
         {/* Nav */}
         <nav className={cn('flex-1', collapsed ? 'space-y-1' : 'space-y-5')}>
-          {NAV_GROUPS.map((group) => (
+          {navGroups.map((group) => (
             <NavGroupRender
               key={group.title}
               group={group}
@@ -212,12 +240,22 @@ function NavItemRow({
 }) {
   const navigate = useNavigate();
   const Icon = item.icon;
+  const handleSelect = React.useCallback(() => {
+    if (item.external && item.href) {
+      window.location.assign(item.href);
+      return;
+    }
+
+    if (item.to) {
+      navigate(item.to);
+    }
+  }, [item.external, item.href, item.to, navigate]);
 
   return (
     <li>
       <button
         type="button"
-        onClick={() => navigate(item.to)}
+        onClick={handleSelect}
         aria-current={isActive ? 'page' : undefined}
         title={collapsed ? item.label : undefined}
         className={cn(

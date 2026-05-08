@@ -82,6 +82,8 @@ export default function Shell() {
   return (
     <AppShell
       activeItem={activeItem}
+      studioUrl={getStudioUrl()}
+      showStudioAccess={session.user?.workspace.productAccess.studio !== false}
       sidebarCollapsed={sidebarCollapsed}
       onToggleSidebarCollapsed={() => setSidebarCollapsed((current) => {
         const next = !current;

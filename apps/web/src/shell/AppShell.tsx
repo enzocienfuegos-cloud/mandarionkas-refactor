@@ -11,6 +11,8 @@ export interface AppShellProps {
   topbar: TopBarProps;
   sidebarCollapsed?: boolean;
   onToggleSidebarCollapsed?: () => void;
+  studioUrl?: string;
+  showStudioAccess?: boolean;
   children: React.ReactNode;
 }
 
@@ -30,6 +32,8 @@ export function AppShell({
   topbar,
   sidebarCollapsed = false,
   onToggleSidebarCollapsed,
+  studioUrl,
+  showStudioAccess = false,
   children,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -48,6 +52,8 @@ export function AppShell({
           badgeCounts={badgeCounts}
           collapsed={sidebarCollapsed}
           onToggleCollapsed={onToggleSidebarCollapsed}
+          studioUrl={studioUrl}
+          showStudioAccess={showStudioAccess}
         />
       </div>
 
@@ -62,7 +68,12 @@ export function AppShell({
             className="absolute left-0 top-0 bottom-0 w-[280px] animate-[duskSlideIn_240ms_var(--dusk-ease-enter)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <Sidebar activeItem={activeItem} badgeCounts={badgeCounts} />
+            <Sidebar
+              activeItem={activeItem}
+              badgeCounts={badgeCounts}
+              studioUrl={studioUrl}
+              showStudioAccess={showStudioAccess}
+            />
           </div>
         </div>
       )}
