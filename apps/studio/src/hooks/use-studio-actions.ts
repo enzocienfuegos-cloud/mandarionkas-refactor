@@ -95,6 +95,7 @@ export function useTimelineActions() {
 export function useUiActions() {
   return useMemo(() => ({
     setPreviewMode: (previewMode: boolean) => dispatch({ type: 'SET_PREVIEW_MODE', previewMode }),
+    setEditModeWireframe: (enabled: boolean) => dispatch({ type: 'SET_EDIT_MODE_WIREFRAME', enabled }),
     setPlaying: (isPlaying: boolean) => dispatch({ type: 'SET_PLAYING', isPlaying }),
     setZoom: (zoom: number) => dispatch({ type: 'SET_ZOOM', zoom }),
     setActiveVariant: (variant: VariantName) => dispatch({ type: 'SET_ACTIVE_VARIANT', variant }),

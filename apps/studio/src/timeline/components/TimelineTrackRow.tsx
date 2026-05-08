@@ -1,66 +1,10 @@
+import type { CSSProperties } from 'react';
 import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
+import { Tooltip } from '../../shared/ui/Tooltip';
 import { TimelineRowNameEditor } from './TimelineRowNameEditor';
 import { formatTime } from '../timeline-utils';
 import type { TimelineDragState, TimelineDisplayRow } from '../types';
-
-function IconEye(): JSX.Element {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
-      <path
-        d="M1 6.5C1 6.5 2.9 3 6.5 3C10.1 3 12 6.5 12 6.5C12 6.5 10.1 10 6.5 10C2.9 10 1 6.5 1 6.5Z"
-        stroke="currentColor"
-        strokeWidth="1.15"
-        strokeLinejoin="round"
-      />
-      <circle cx="6.5" cy="6.5" r="1.6" fill="currentColor" />
-    </svg>
-  );
-}
-
-function IconEyeOff(): JSX.Element {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
-      <path
-        d="M1 6.5C1 6.5 2.9 3 6.5 3C10.1 3 12 6.5 12 6.5"
-        stroke="currentColor"
-        strokeWidth="1.15"
-        strokeLinecap="round"
-      />
-      <path d="M2 11L11 2" stroke="currentColor" strokeWidth="1.15" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function IconLock(): JSX.Element {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
-      <rect x="2.5" y="5.5" width="8" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.15" />
-      <path
-        d="M4.2 5.5V4.2C4.2 2.7 8.8 2.7 8.8 4.2V5.5"
-        stroke="currentColor"
-        strokeWidth="1.15"
-        strokeLinecap="round"
-      />
-      <circle cx="6.5" cy="8.2" r="0.9" fill="currentColor" />
-    </svg>
-  );
-}
-
-function IconUnlock(): JSX.Element {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
-      <rect x="2.5" y="5.5" width="8" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.15" />
-      <path
-        d="M4.2 5.5V4.2C4.2 2.7 8.8 2.7 8.8 4.2"
-        stroke="currentColor"
-        strokeWidth="1.15"
-        strokeLinecap="round"
-        opacity="0.38"
-      />
-      <circle cx="6.5" cy="8.2" r="0.9" fill="currentColor" />
-    </svg>
-  );
-}
 
 export function TimelineTrackRow({
   row,
@@ -100,6 +44,15 @@ export function TimelineTrackRow({
   const barLeft = timing.startMs * rowMsToPx;
   const barWidth = Math.max(16, (timing.endMs - timing.startMs) * rowMsToPx);
   const metaIndent = 8 + depth * 16;
+  const rowStyle = {
+    '--timeline-meta-indent': `${metaIndent}px`,
+    '--timeline-track-width': `${trackWidth}px`,
+    '--timeline-playhead-left': `${playheadLeft}px`,
+    '--timeline-snap-guide-left': snapGuideMs !== undefined ? `${snapGuideMs * rowMsToPx}px` : undefined,
+    '--timeline-bar-left': `${barLeft}px`,
+    '--timeline-bar-width': `${barWidth}px`,
+    '--timeline-group-badge-left': `${barLeft + Math.min(barWidth + 10, 140)}px`,
+  } as CSSProperties;
 
   return (
     <div
@@ -113,54 +66,58 @@ export function TimelineTrackRow({
         depth ? 'is-nested' : '',
         isGroup ? 'is-group-row' : '',
       ].filter(Boolean).join(' ')}
+      style={rowStyle}
       onClick={(event) => onSelect(event.shiftKey || event.metaKey || event.ctrlKey)}
     >
-      <div className="timeline-row-meta" style={{ paddingLeft: metaIndent }}>
+      <div className="timeline-row-meta">
         <div className="timeline-row-meta-top">
           {isGroup ? (
-            <button
-              type="button"
-              className="timeline-disclosure-button"
-              title={isCollapsed ? 'Expand group' : 'Collapse group'}
-              aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleCollapse?.();
-              }}
-            >
-              {isCollapsed ? '▸' : '▾'}
-            </button>
+            <Tooltip content={isCollapsed ? 'Expand group' : 'Collapse group'}>
+              <button
+                type="button"
+                className="timeline-disclosure-button"
+                aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleCollapse?.();
+                }}
+              >
+                <StudioIcon icon={isCollapsed ? StudioIcons.chevronRight : StudioIcons.chevronDown} size={14} />
+              </button>
+            </Tooltip>
           ) : (
             <span className="timeline-disclosure-spacer" />
           )}
 
-          <button
-            type="button"
-            className={`timeline-layer-toggle${widget.hidden ? ' is-off' : ''}`}
-            title={widget.hidden ? 'Show layer' : 'Hide layer'}
-            aria-label={widget.hidden ? 'Show layer' : 'Hide layer'}
-            aria-pressed={!widget.hidden}
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggleHidden();
-            }}
-          >
-            {widget.hidden ? <IconEyeOff /> : <IconEye />}
-          </button>
+          <Tooltip content={widget.hidden ? 'Show layer' : 'Hide layer'}>
+            <button
+              type="button"
+              className={`timeline-layer-toggle${widget.hidden ? ' is-off' : ''}`}
+              aria-label={widget.hidden ? 'Show layer' : 'Hide layer'}
+              aria-pressed={!widget.hidden}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleHidden();
+              }}
+            >
+              <StudioIcon icon={widget.hidden ? StudioIcons.eyeOff : StudioIcons.eye} size={13} strokeWidth={1.75} />
+            </button>
+          </Tooltip>
 
-          <button
-            type="button"
-            className={`timeline-layer-toggle${widget.locked ? ' is-off' : ''}`}
-            title={widget.locked ? 'Unlock layer' : 'Lock layer'}
-            aria-label={widget.locked ? 'Unlock layer' : 'Lock layer'}
-            aria-pressed={widget.locked}
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggleLocked();
-            }}
-          >
-            {widget.locked ? <IconLock /> : <IconUnlock />}
-          </button>
+          <Tooltip content={widget.locked ? 'Unlock layer' : 'Lock layer'}>
+            <button
+              type="button"
+              className={`timeline-layer-toggle${widget.locked ? ' is-off' : ''}`}
+              aria-label={widget.locked ? 'Unlock layer' : 'Lock layer'}
+              aria-pressed={widget.locked}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleLocked();
+              }}
+            >
+              <StudioIcon icon={widget.locked ? StudioIcons.lock : StudioIcons.lockOpen} size={13} strokeWidth={1.75} />
+            </button>
+          </Tooltip>
 
           <div className="timeline-row-name-editor-shell">
             <TimelineRowNameEditor widgetId={widget.id} value={widget.name} onCommit={onRename} />
@@ -175,44 +132,46 @@ export function TimelineTrackRow({
           </small>
 
           <div className="timeline-row-order-actions" onClick={(event) => event.stopPropagation()}>
-            <button
-              type="button"
-              className="timeline-order-button"
-              title="Bring forward"
-              aria-label="Bring forward"
-              onClick={(event) => {
-                event.stopPropagation();
-                onReorder('forward');
-              }}
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              className="timeline-order-button"
-              title="Send backward"
-              aria-label="Send backward"
-              onClick={(event) => {
-                event.stopPropagation();
-                onReorder('backward');
-              }}
-            >
-              ↓
-            </button>
+            <Tooltip content="Bring forward">
+              <button
+                type="button"
+                className="timeline-order-button"
+                aria-label="Bring forward"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onReorder('forward');
+                }}
+              >
+                <StudioIcon icon={StudioIcons.arrowUp} size={12} />
+              </button>
+            </Tooltip>
+            <Tooltip content="Send backward">
+              <button
+                type="button"
+                className="timeline-order-button"
+                aria-label="Send backward"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onReorder('backward');
+                }}
+              >
+                <StudioIcon icon={StudioIcons.arrowDown} size={12} />
+              </button>
+            </Tooltip>
           </div>
         </div>
       </div>
 
-      <div className="timeline-track" style={{ width: trackWidth }}>
-        <div className="timeline-row-playhead" style={{ left: playheadLeft }} />
-        {snapGuideMs !== undefined ? <div className="timeline-snap-guide" style={{ left: snapGuideMs * rowMsToPx }} /> : null}
+      <div className="timeline-track">
+        <div className="timeline-row-playhead" />
+        {snapGuideMs !== undefined ? <div className="timeline-snap-guide" /> : null}
         {keyframes.map((keyframe) => (
           <button
             key={keyframe.id}
             type="button"
             className="timeline-keyframe-dot"
-            title={`${keyframe.property} · ${keyframe.atMs}ms · ${keyframe.easing ?? 'linear'}`}
-            style={{ left: keyframe.atMs * rowMsToPx }}
+            aria-label={`${keyframe.property} at ${keyframe.atMs} milliseconds with ${keyframe.easing ?? 'linear'} easing`}
+            style={{ '--timeline-keyframe-left': `${keyframe.atMs * rowMsToPx}px` } as CSSProperties}
             onPointerDown={(event) => {
               event.stopPropagation();
               onSelect(false);
@@ -236,7 +195,6 @@ export function TimelineTrackRow({
             widget.locked ? 'is-locked' : '',
             isGroup ? 'is-group-bar' : '',
           ].filter(Boolean).join(' ')}
-          style={{ left: barLeft, width: barWidth }}
           onPointerDown={(event) => {
             if (widget.locked) return;
             event.stopPropagation();
@@ -267,7 +225,7 @@ export function TimelineTrackRow({
               });
             }}
           />
-          <span>{widget.name} · {formatTime(timing.startMs)} → {formatTime(timing.endMs)}</span>
+          <span>{widget.name} · {formatTime(timing.startMs)} to {formatTime(timing.endMs)}</span>
           <button
             className="timeline-trim timeline-trim-end"
             onPointerDown={(event) => {
@@ -286,7 +244,7 @@ export function TimelineTrackRow({
           />
         </div>
         {isGroup && isCollapsed && childCount > 0 ? (
-          <div className="timeline-group-collapsed-badge" style={{ left: barLeft + Math.min(barWidth + 10, 140) }}>
+          <div className="timeline-group-collapsed-badge">
             +{childCount}
           </div>
         ) : null}

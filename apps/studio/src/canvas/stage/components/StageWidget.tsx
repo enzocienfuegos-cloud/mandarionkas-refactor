@@ -18,6 +18,7 @@ type StageWidgetProps = {
   onWidgetPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onResizePointerDown: (event: ReactPointerEvent<HTMLButtonElement>, handle: ResizeHandle) => void;
   previewMode: boolean;
+  editModeWireframe: boolean;
   playheadMs: number;
   sceneDurationMs: number;
   hovered: boolean;
@@ -38,6 +39,7 @@ export const StageWidget = memo(function StageWidget({
   onWidgetPointerDown,
   onResizePointerDown,
   previewMode,
+  editModeWireframe,
   playheadMs,
   sceneDurationMs,
   hovered,
@@ -47,6 +49,7 @@ export const StageWidget = memo(function StageWidget({
   onExecuteAction,
 }: StageWidgetProps): JSX.Element {
   const managesNativeDrag = node.type === 'drag-token-pool' || node.type === 'drop-zone';
+  const useWireframe = !previewMode && editModeWireframe && !selected && !active && !hovered;
   const triggerWidgetAction = (trigger: ActionNode['trigger'], _metadata?: Record<string, unknown>) => {
     if (!previewMode) return;
     const actions = getWidgetActions(stateRef.current, node.id, trigger);
@@ -55,7 +58,7 @@ export const StageWidget = memo(function StageWidget({
 
   return (
     <div
-      className={`stage-widget stage-widget--${node.type} ${selected ? 'is-selected' : ''} ${primary ? 'is-primary' : ''} ${hovered ? 'is-hovered' : ''} ${active ? 'is-active' : ''} ${previewMode ? 'is-preview-mode' : 'is-edit-mode'}`}
+      className={`stage-widget stage-widget--${node.type} ${selected ? 'is-selected' : ''} ${primary ? 'is-primary' : ''} ${hovered ? 'is-hovered' : ''} ${active ? 'is-active' : ''} ${previewMode ? 'is-preview-mode' : 'is-edit-mode'} ${useWireframe ? 'is-wireframe-mode' : ''}`}
       {...createStageInteractionProps(STAGE_INTERACTION.widget)}
       onPointerDown={(event) => {
         if (previewMode) {
@@ -90,9 +93,9 @@ export const StageWidget = memo(function StageWidget({
       }}
     >
       <div className="stage-widget-content" style={{ pointerEvents: previewMode ? 'auto' : 'none' }}>
-        {renderWidgetContents(node, { previewMode, playheadMs, sceneDurationMs, hovered, active, triggerWidgetAction, executeAction: onExecuteAction })}
+        {renderWidgetContents(node, { previewMode, playheadMs, sceneDurationMs, hovered, active, triggerWidgetAction, executeAction: onExecuteAction }, { wireframe: useWireframe })}
       </div>
-      {!previewMode && showBadge ? <div className="edit-mode-label">{node.type} · {node.name}</div> : null}
+      {!previewMode && showBadge && !useWireframe ? <div className="edit-mode-label">{node.type} · {node.name}</div> : null}
       {selected ? <SelectionOverlay primary={primary} onResizePointerDown={onResizePointerDown} /> : null}
     </div>
   );
@@ -107,6 +110,7 @@ function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProp
     && previous.opacity === next.opacity
     && previous.showBadge === next.showBadge
     && previous.previewMode === next.previewMode
+    && previous.editModeWireframe === next.editModeWireframe
     && previous.playheadMs === next.playheadMs
     && previous.sceneDurationMs === next.sceneDurationMs
     && previous.hovered === next.hovered

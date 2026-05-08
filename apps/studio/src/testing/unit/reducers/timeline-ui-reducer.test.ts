@@ -65,4 +65,10 @@ describe('timelineUiReducer', () => {
     const next = timelineUiReducer(state, { type: 'SET_WIDGET_BADGES_VISIBILITY', enabled: false });
     expect(next.ui.showWidgetBadges).toBe(false);
   });
+
+  it('toggles edit-mode wireframe visibility in editor ui state', () => {
+    const state = createInitialState();
+    const next = timelineUiReducer(state, { type: 'SET_EDIT_MODE_WIREFRAME', enabled: true });
+    expect(next.ui.editModeWireframe).toBe(true);
+  });
 });

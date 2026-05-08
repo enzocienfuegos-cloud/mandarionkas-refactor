@@ -2,11 +2,13 @@ import { createId } from '../../domain/document/factories';
 import { renderCtaWidget } from './cta.renderer';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
 import { renderCtaExport } from '../registry/base-exporters';
+import { CtaThumb } from '../registry/widget-thumbnails';
 
 export const ctaDefinition: WidgetDefinition = {
   type: 'cta',
   label: 'CTA',
   category: 'interactive',
+  thumbnail: CtaThumb,
   defaults: (sceneId, zIndex) => ({
     id: createId('cta'),
     type: 'cta',
@@ -24,6 +26,14 @@ export const ctaDefinition: WidgetDefinition = {
     { id: 'behavior', label: 'Behavior', panels: ['conditions', 'actions', 'states', 'keyframes'] },
     { id: 'data', label: 'Data', panels: ['data-bindings', 'variants'] },
   ]),
+  capabilities: {
+    acceptsFontAsset: true,
+    acceptsAssetSwap: true,
+    hasFill: true,
+    isInteractive: true,
+    exposesActions: true,
+    hasTextVariant: true,
+  },
   renderStage: renderCtaWidget,
   renderExport: (node) => renderCtaExport(node),
   buildPortableExport: (node) => ({

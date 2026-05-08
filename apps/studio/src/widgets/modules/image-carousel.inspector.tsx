@@ -7,6 +7,7 @@ import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import type { AssetRecord } from '../../assets/types';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 
 type CarouselSlideDraft = {
   src: string;
@@ -227,8 +228,12 @@ export function ImageCarouselInspector({ widget }: { widget: WidgetNode }): JSX.
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
                 <strong style={{ fontSize: 12 }}>Slide {index + 1}</strong>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button type="button" className="ghost" onClick={() => moveSlide(index, -1)} disabled={index === 0}>↑</button>
-                  <button type="button" className="ghost" onClick={() => moveSlide(index, 1)} disabled={index === slides.length - 1}>↓</button>
+                  <button type="button" className="ghost" onClick={() => moveSlide(index, -1)} disabled={index === 0} aria-label={`Move slide ${index + 1} up`}>
+                    <StudioIcon icon={StudioIcons.chevronUp} size={14} />
+                  </button>
+                  <button type="button" className="ghost" onClick={() => moveSlide(index, 1)} disabled={index === slides.length - 1} aria-label={`Move slide ${index + 1} down`}>
+                    <StudioIcon icon={StudioIcons.chevronDown} size={14} />
+                  </button>
                   <button type="button" className="ghost danger" onClick={() => removeSlide(index)}>Remove</button>
                 </div>
               </div>

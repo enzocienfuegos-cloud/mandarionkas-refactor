@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { Tooltip } from './Tooltip';
 
 function normalizeHex(value: string): string | null {
   const trimmed = value.trim();
@@ -77,15 +78,17 @@ export function ColorControl({
             className="color-swatch-input" style={{ width: 44, minWidth: 44 }}
           />
           {allowNone ? (
-            <button
-              type="button"
-              className="ghost compact-action"
-              style={{ minWidth: 44, padding: '0 8px' }}
-              onClick={() => onChange(noneValue)}
-              title={`Clear ${label.toLowerCase()}`}
-            >
-              {noneLabel}
-            </button>
+            <Tooltip content={`Clear ${label.toLowerCase()}`}>
+              <button
+                type="button"
+                className="ghost compact-action"
+                style={{ minWidth: 44, padding: '0 8px' }}
+                onClick={() => onChange(noneValue)}
+                aria-label={`Clear ${label.toLowerCase()}`}
+              >
+                {noneLabel}
+              </button>
+            </Tooltip>
           ) : null}
         </div>
         <div style={{ display: 'grid', gap: 8 }}>
@@ -94,7 +97,13 @@ export function ColorControl({
             onChange={(event) => onChange(event.target.value)}
             placeholder={placeholder ?? '#ffffff, rgb(255, 255, 255), transparent, or empty'}
           />
-          <input className="color-rgb-readout" value={rgbValue} readOnly onFocus={(event) => event.currentTarget.select()} title="Selectable RGB value" />
+          <input
+            className="color-rgb-readout"
+            value={rgbValue}
+            readOnly
+            aria-label="Selectable RGB value"
+            onFocus={(event) => event.currentTarget.select()}
+          />
         </div>
       </div>
     </div>

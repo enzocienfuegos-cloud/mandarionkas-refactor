@@ -3,6 +3,7 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import type { WidgetNode } from '../../domain/document/types';
 import { moduleShellEdit } from './shared-styles';
+import { ModuleArrowIcon } from './render-icons';
 
 type FaceId = 'home' | 'up' | 'down' | 'left' | 'right';
 
@@ -36,7 +37,6 @@ function openRuntimeUrl(url: string): void {
 }
 
 function ArrowHint({ direction, color }: { direction: 'up' | 'down' | 'left' | 'right'; color: string }): JSX.Element {
-  const glyphs = { up: '▲', down: '▼', left: '◀', right: '▶' };
   const posStyle: CSSProperties =
     direction === 'up'
       ? { top: 10, left: '50%', transform: 'translateX(-50%)' }
@@ -59,7 +59,7 @@ function ArrowHint({ direction, color }: { direction: 'up' | 'down' | 'left' | '
         animation: 'smxFacePulse 2s ease-in-out infinite',
       }}
     >
-      {glyphs[direction]}
+      <ModuleArrowIcon direction={direction} size={20} color={color} />
     </div>
   );
 }
@@ -108,7 +108,10 @@ function BackButton({ onBack, color }: { onBack: () => void; color: string }): J
         flexShrink: 0,
       }}
     >
-      ‹ Back
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <ModuleArrowIcon direction="left" size={14} color={color} />
+        <span>Back</span>
+      </span>
     </button>
   );
 }

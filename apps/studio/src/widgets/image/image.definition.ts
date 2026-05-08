@@ -2,11 +2,13 @@ import { createId } from '../../domain/document/factories';
 import { renderImageWidget } from './image.renderer';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
 import { renderImageExport } from '../registry/base-exporters';
+import { ImageThumb } from '../registry/widget-thumbnails';
 
 export const imageDefinition: WidgetDefinition = {
   type: 'image',
   label: 'Image',
   category: 'media',
+  thumbnail: ImageThumb,
   defaults: (sceneId, zIndex) => ({
     id: createId('image'),
     type: 'image',
@@ -26,6 +28,13 @@ export const imageDefinition: WidgetDefinition = {
   ]),
   inspectorTitle: 'Image source',
   inspectorFields: [{ key: 'src', label: 'Source URL' }, { key: 'alt', label: 'Alt text' }],
+  capabilities: {
+    acceptsImageAsset: true,
+    acceptsAssetSwap: true,
+    hasFill: true,
+    isMedia: true,
+    exposesActions: true,
+  },
   renderStage: renderImageWidget,
   renderExport: (node, _state, assetPathMap) => renderImageExport(node, 'image', assetPathMap),
   buildPortableExport: (node) => ({

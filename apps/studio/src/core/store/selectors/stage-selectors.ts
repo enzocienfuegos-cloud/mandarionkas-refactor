@@ -16,6 +16,7 @@ export function selectStageState(state: StudioState) {
     playheadMs: state.ui.playheadMs,
     isPlaying: state.ui.isPlaying,
     previewMode: state.ui.previewMode,
+    editModeWireframe: state.ui.editModeWireframe,
     hoveredWidgetId: state.ui.hoveredWidgetId,
     activeWidgetId: state.ui.activeWidgetId,
     stageBackdrop: state.ui.stageBackdrop,

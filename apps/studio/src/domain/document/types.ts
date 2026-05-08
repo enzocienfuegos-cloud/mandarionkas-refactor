@@ -128,6 +128,7 @@ export type CommentNode = { id: string; author: string; message: string; created
 export type ApprovalRequest = { id: string; label: string; requestedBy: string; requestedAt: string; status: ApprovalStatus; reviewer?: string; note?: string; };
 export type CollaborationState = { comments: CommentNode[]; approvals: ApprovalRequest[]; shareLink?: string; };
 export type SceneFlow = {
+  canvas?: { x: number; y: number };
   nextSceneId?: string;
   branchEquals?: SceneBranch;
   branches?: SceneBranch[];
@@ -151,4 +152,4 @@ export type ProjectPlatformMetadata = {
   accessScope?: import('@smx/contracts').ProjectAccessScope;
 };
 export type StudioDocument = { id: string; name: string; version: number; canvas: CanvasNode; scenes: SceneNode[]; widgets: Record<string, WidgetNode>; actions: Record<string, ActionNode>; feeds: FeedCatalog; collaboration: CollaborationState; selection: { widgetIds: string[]; activeSceneId: string; primaryWidgetId?: string }; metadata: { dirty: boolean; lastSavedAt?: string; lastAutosavedAt?: string; release: ReleaseSettings; platform?: ProjectPlatformMetadata; }; };
-export type StudioState = { document: StudioDocument; ui: { zoom: number; playheadMs: number; isPlaying: boolean; previewMode: boolean; hoveredWidgetId?: string; activeWidgetId?: string; lastTriggeredActionLabel?: string; activeVariant: VariantName; activeFeedSource: BindingSource; activeFeedRecordId: string; activeProjectId?: string; activeLeftTab: 'widgets' | 'layers' | 'assets' | 'flow'; stageBackdrop: 'dark' | 'gray' | 'light'; showStageRulers: boolean; showWidgetBadges: boolean; }; };
+export type StudioState = { document: StudioDocument; ui: { zoom: number; playheadMs: number; isPlaying: boolean; previewMode: boolean; editModeWireframe: boolean; hoveredWidgetId?: string; activeWidgetId?: string; lastTriggeredActionLabel?: string; activeVariant: VariantName; activeFeedSource: BindingSource; activeFeedRecordId: string; activeProjectId?: string; activeLeftTab: 'widgets' | 'layers' | 'assets' | 'flow'; stageBackdrop: 'dark' | 'gray' | 'light'; showStageRulers: boolean; showWidgetBadges: boolean; }; };

@@ -45,7 +45,7 @@ export function useStageTransformController(args: {
         setInteraction((current) => current ? { ...current, liveFrames } : current);
         return;
       }
-      const resized = getResizedFrame(primaryFrame, interaction.origin, point, interaction.handle ?? 'se', canvas);
+      const resized = getResizedFrame(primaryFrame, interaction.origin, point, interaction.handle ?? 'se', canvas, interaction.keepAspectRatio);
       setInteraction((current) => current ? { ...current, liveFrames: { ...current.liveFrames, [primaryId]: resized } } : current);
     };
     const handlePointerUp = () => {
@@ -89,7 +89,16 @@ export function useStageTransformController(args: {
     const widget = widgetsById[widgetId];
     if (!widget) return;
     const startFrames = { [widget.id]: getLiveWidgetFrame(widget, playheadMs) };
-    setInteraction({ widgetIds: [widget.id], mode: 'resize', handle, origin: point, startFrames, liveFrames: startFrames, guides: [] });
+    setInteraction({
+      widgetIds: [widget.id],
+      mode: 'resize',
+      handle,
+      keepAspectRatio: Boolean(widget.props.lockAspectRatio),
+      origin: point,
+      startFrames,
+      liveFrames: startFrames,
+      guides: [],
+    });
   }, [playheadMs, previewMode, selectWidget, stageRef, widgetsById, zoom]);
 
   return { interaction, setInteraction, beginWidgetDrag, beginWidgetResize };

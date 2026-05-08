@@ -6,6 +6,7 @@ export type InteractionState = {
   widgetIds: string[];
   mode: 'drag' | 'resize';
   handle?: ResizeHandle;
+  keepAspectRatio?: boolean;
   origin: { x: number; y: number };
   startFrames: Record<string, WidgetFrame>;
   liveFrames: Record<string, WidgetFrame>;

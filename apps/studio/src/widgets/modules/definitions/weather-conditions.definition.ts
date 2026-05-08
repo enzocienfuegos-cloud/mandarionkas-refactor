@@ -1,11 +1,13 @@
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderWeatherConditionsExport } from '../export-renderers';
 import { renderWeatherConditionsStage } from '../weather-conditions.renderer';
+import { WeatherConditionsThumb } from '../../registry/widget-thumbnails';
 
 export const WeatherConditionsDefinition = createModuleDefinition({
   type: 'weather-conditions',
   label: 'Weather Conditions',
   category: 'interactive',
+  thumbnail: WeatherConditionsThumb,
   frame: { x: 80, y: 70, width: 280, height: 150, rotation: 0 },
   props: { title: 'Weather', condition: 'Cloudy', temperature: 24, location: 'San Salvador', latitude: 13.6929, longitude: -89.2182, provider: 'open-meteo', fetchPolicy: 'cache-first', cacheTtlMs: 300000, liveWeather: true },
   inspectorFields: [

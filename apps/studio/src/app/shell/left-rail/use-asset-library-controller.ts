@@ -13,6 +13,8 @@ import {
   renameAssetFolder,
   reprocessAsset,
 } from '../../../repositories/asset';
+import { acceptsAssetKind } from '../../../widgets/registry/widget-definition';
+import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
 import type { useLeftRailController } from './use-left-rail-controller';
 import type { useTopBarController } from '../topbar/use-top-bar-controller';
 
@@ -265,14 +267,12 @@ export function useAssetLibraryController(
   }
 
   function isCompatibleWithSelection(asset: AssetRecord | undefined): boolean {
+    const primaryWidget = assetController.primaryWidget;
     return Boolean(
       asset &&
         assetController.selectedWidgetAcceptsAsset &&
-        ((['image', 'hero-image'].includes(assetController.primaryWidget?.type ?? '') &&
-          asset.kind === 'image') ||
-          (assetController.primaryWidget?.type === 'video-hero' && asset.kind === 'video') ||
-          (['text', 'cta', 'badge'].includes(assetController.primaryWidget?.type ?? '') &&
-            asset.kind === 'font')),
+        primaryWidget &&
+        acceptsAssetKind(getWidgetDefinition(primaryWidget.type), asset.kind as 'image' | 'video' | 'font'),
     );
   }
 

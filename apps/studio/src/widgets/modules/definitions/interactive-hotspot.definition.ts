@@ -1,11 +1,13 @@
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderInteractiveHotspotExport } from '../export-renderers';
 import { renderInteractiveHotspotStage } from '../interactive-hotspot.renderer';
+import { InteractiveHotspotThumb } from '../../registry/widget-thumbnails';
 
 export const InteractiveHotspotDefinition = createModuleDefinition({
   type: 'interactive-hotspot',
   label: 'Interactive Hotspot',
   category: 'interactive',
+  thumbnail: InteractiveHotspotThumb,
   frame: { x: 120, y: 80, width: 220, height: 116, rotation: 0 },
   props: {
     title: 'Hotspot',

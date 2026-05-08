@@ -1,6 +1,10 @@
 import { createId } from '../../domain/document/factories';
 import type { WidgetNode, WidgetType } from '../../domain/document/types';
-import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
+import {
+  createInspectorTabs,
+  type WidgetCapabilities,
+  type WidgetDefinition,
+} from '../registry/widget-definition';
 import { createModuleExportRenderer } from './module-exporter';
 import type { PortableExportWidget } from '../../export/portable';
 
@@ -8,6 +12,8 @@ export type ModuleSpec = {
   type: WidgetType;
   label: string;
   category: 'interactive' | 'media' | 'content' | 'layout';
+  thumbnail?: WidgetDefinition['thumbnail'];
+  renderWireframe?: WidgetDefinition['renderWireframe'];
   frame: WidgetNode['frame'];
   props: Record<string, unknown>;
   style: Record<string, unknown>;
@@ -15,6 +21,7 @@ export type ModuleSpec = {
   renderInspector?: WidgetDefinition['renderInspector'];
   renderExport?: WidgetDefinition['renderExport'];
   inspectorFields?: WidgetDefinition['inspectorFields'];
+  capabilities?: WidgetCapabilities;
   exportDetail?: string;
   buildPortableExport?: WidgetDefinition['buildPortableExport'];
 };
@@ -24,6 +31,8 @@ export function createModuleDefinition(spec: ModuleSpec): WidgetDefinition {
     type: spec.type,
     label: spec.label,
     category: spec.category,
+    thumbnail: spec.thumbnail,
+    renderWireframe: spec.renderWireframe,
     defaults: (sceneId, zIndex) => ({
       id: createId(spec.type.replace(/[^a-z]/g, '')),
       type: spec.type,
@@ -45,9 +54,36 @@ export function createModuleDefinition(spec: ModuleSpec): WidgetDefinition {
     renderInspector: spec.renderInspector,
     inspectorTitle: spec.label,
     inspectorFields: spec.inspectorFields,
+    capabilities: resolveModuleCapabilities(spec),
     renderExport: spec.renderExport ?? createModuleExportRenderer(spec.exportDetail ?? spec.label),
     buildPortableExport: spec.buildPortableExport ?? ((node) => buildModulePortableExport(node)),
     renderLabel: (node) => String(node.props.title ?? node.props.label ?? node.name),
+  };
+}
+
+function resolveModuleCapabilities(spec: ModuleSpec): WidgetCapabilities {
+  const imageAssetSwapTypes = new Set<WidgetType>(['image-carousel', 'interactive-gallery', 'shoppable-sidebar']);
+  const videoAssetSwapTypes = new Set<WidgetType>(['interactive-video']);
+  const galleryTypes = new Set<WidgetType>(['image-carousel', 'interactive-gallery', 'shoppable-sidebar']);
+  const analyticsTypes = new Set<WidgetType>(['interactive-video']);
+
+  return {
+    hasFill: true,
+    isMedia: spec.category === 'media' || imageAssetSwapTypes.has(spec.type) || videoAssetSwapTypes.has(spec.type),
+    isInteractive: spec.category === 'interactive',
+    exposesActions: true,
+    hasTitleVariant: true,
+    hasVideoAnalytics: analyticsTypes.has(spec.type) || spec.capabilities?.hasVideoAnalytics,
+    isAssetGallery: galleryTypes.has(spec.type) || spec.capabilities?.isAssetGallery,
+    acceptsImageAsset: imageAssetSwapTypes.has(spec.type) || spec.capabilities?.acceptsImageAsset,
+    acceptsVideoAsset: videoAssetSwapTypes.has(spec.type) || spec.capabilities?.acceptsVideoAsset,
+    acceptsAssetSwap:
+      imageAssetSwapTypes.has(spec.type)
+      || videoAssetSwapTypes.has(spec.type)
+      || spec.capabilities?.acceptsAssetSwap,
+    hasAccentColor: spec.capabilities?.hasAccentColor,
+    acceptsFontAsset: spec.capabilities?.acceptsFontAsset,
+    ...spec.capabilities,
   };
 }
 

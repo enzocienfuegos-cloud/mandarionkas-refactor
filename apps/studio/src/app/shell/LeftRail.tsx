@@ -6,6 +6,8 @@ import { LayersSection } from './left-rail/LayersSection';
 import { StoryFlowSection } from './left-rail/StoryFlowSection';
 import { WidgetLibrarySection } from './left-rail/WidgetLibrarySection';
 import { useLeftRailController } from './left-rail/use-left-rail-controller';
+import { IconButton } from '../../shared/ui/IconButton';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 
 export function LeftRail({
   onToggleCollapse,
@@ -31,7 +33,14 @@ export function LeftRail({
               {controller.activeLeftTab === 'flow' ? 'Flow' : null}
             </strong>
           </div>
-          <button className="icon-button ghost panel-collapse-button" type="button" title="Hide left panel" aria-label="Hide left panel" onClick={onToggleCollapse}>‹</button>
+          <IconButton
+            className="panel-collapse-button"
+            variant="ghost"
+            size="md"
+            label="Hide left panel"
+            icon={<StudioIcon icon={StudioIcons.chevronLeft} size={18} />}
+            onClick={onToggleCollapse}
+          />
         </div>
         <div className="left-rail-panel">
           {controller.activeLeftTab === 'widgets' ? <WidgetLibrarySection controller={controller} /> : null}
@@ -51,7 +60,6 @@ export function LeftRail({
           event.preventDefault();
           onResizeStart(event.clientX, 'left');
         }}
-        title="Drag left or right to resize panel"
         aria-label="Resize panel from left edge"
         role="separator"
         aria-orientation="vertical"
@@ -62,7 +70,6 @@ export function LeftRail({
           event.preventDefault();
           onResizeStart(event.clientX, 'right');
         }}
-        title="Drag left or right to resize panel"
         aria-label="Resize panel from right edge"
         role="separator"
         aria-orientation="vertical"

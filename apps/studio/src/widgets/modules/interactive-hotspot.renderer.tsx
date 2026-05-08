@@ -3,23 +3,13 @@ import type { CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { getAccent, renderCollapsedIfNeeded } from './shared-styles';
+import { ModuleHotspotIcon } from './render-icons';
 
 function hotspotShapeStyle(shape: string): CSSProperties {
   if (shape === 'square') return { borderRadius: 12 };
   if (shape === 'pill') return { borderRadius: 999, width: 44, minWidth: 44 };
   if (shape === 'diamond') return { borderRadius: 10 };
   return { borderRadius: 999, clipPath: 'circle(50% at 50% 50%)' };
-}
-
-function hotspotIcon(icon: string): string {
-  switch (icon) {
-    case 'arrow-up': return '↑';
-    case 'arrow-down': return '↓';
-    case 'arrow-left': return '←';
-    case 'arrow-right': return '→';
-    case 'info': return 'i';
-    default: return '+';
-  }
 }
 
 function hotspotAnimation(effect: string, accent: string, baseTransform: string): CSSProperties {
@@ -38,7 +28,12 @@ function HotspotModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCon
   const icon = String(node.props.hotspotIcon ?? 'plus');
   const effect = String(node.props.hotspotEffect ?? 'pulse');
   const autoCloseMs = Math.max(0, Number(node.props.autoCloseMs ?? 2000));
-  const iconChar = useMemo(() => hotspotIcon(icon), [icon]);
+  const iconKind = useMemo(() => {
+    if (icon === 'arrow-up' || icon === 'arrow-down' || icon === 'arrow-left' || icon === 'arrow-right' || icon === 'info') {
+      return icon;
+    }
+    return 'plus';
+  }, [icon]);
   const baseTransform = 'translate(-50%,-50%)';
   const innerTransform = shape === 'diamond' ? 'rotate(-45deg)' : undefined;
 
@@ -99,7 +94,9 @@ function HotspotModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCon
           transform: `${baseTransform}${shape === 'diamond' ? ' rotate(45deg)' : ''}`,
         }}
       >
-        <span style={{ transform: innerTransform }}>{iconChar}</span>
+        <span style={{ transform: innerTransform, display: 'inline-flex' }}>
+          <ModuleHotspotIcon kind={iconKind} size={15} color="#111827" />
+        </span>
       </button>
       {open ? (
         <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); }} style={{ position: 'absolute', left: 12, right: 12, bottom: 12, borderRadius: 14, background: 'rgba(17,24,39,.94)', padding: '10px 12px', display: 'grid', gap: 6, border: 'none', textAlign: 'left', color: 'inherit', cursor: 'pointer' }}>

@@ -2,8 +2,16 @@ import { useStudioStore } from '../core/store/use-studio-store';
 import { DocumentInspectorPanel } from './panels/DocumentInspectorPanel';
 import { MultiSelectionInspectorPanel } from './panels/MultiSelectionInspectorPanel';
 import { WidgetInspectorPanel } from './panels/WidgetInspectorPanel';
+import { IconButton } from '../shared/ui/IconButton';
+import { StudioIcon, StudioIcons } from '../shared/ui/icons';
 
-export function RightInspector({ onToggleCollapse }: { onToggleCollapse: () => void }): JSX.Element {
+export function RightInspector({
+  onToggleCollapse,
+  onResizeStart,
+}: {
+  onToggleCollapse: () => void;
+  onResizeStart: (startX: number) => void;
+}): JSX.Element {
   const selectionIds = useStudioStore((state) => state.document.selection.widgetIds);
   const documentName = useStudioStore((state) => state.document.name);
   const activeSceneName = useStudioStore((state) => {
@@ -21,6 +29,16 @@ export function RightInspector({ onToggleCollapse }: { onToggleCollapse: () => v
 
   return (
     <aside className="right-inspector">
+      <div
+        className="right-inspector-resize-handle"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          onResizeStart(event.clientX);
+        }}
+        aria-label="Resize inspector"
+        role="separator"
+        aria-orientation="vertical"
+      />
       <div className="inspector-shell">
         <div className="inspector-hero">
           <div className="inspector-hero-head">
@@ -28,7 +46,14 @@ export function RightInspector({ onToggleCollapse }: { onToggleCollapse: () => v
               <small className="muted">Inspector</small>
               <strong>{inspectorTitle}</strong>
             </div>
-            <button className="icon-button ghost panel-collapse-button" type="button" title="Hide inspector" aria-label="Hide inspector" onClick={onToggleCollapse}>›</button>
+            <IconButton
+              className="panel-collapse-button"
+              variant="ghost"
+              size="md"
+              label="Hide inspector"
+              icon={<StudioIcon icon={StudioIcons.chevronRight} size={18} />}
+              onClick={onToggleCollapse}
+            />
           </div>
           <div className="meta-line">
             <span className="pill">{activeSceneName}</span>

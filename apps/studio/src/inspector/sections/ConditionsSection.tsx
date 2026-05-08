@@ -24,7 +24,7 @@ export function ConditionsSection({ widget }: { widget: WidgetNode }): JSX.Eleme
         <small className="muted">Show a widget only for specific variants, records or feed values.</small>
         <div>
           <label>Allowed variants</label>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+          <div className="inline-actions section-offset-top">
             {(['default', 'promo', 'alternate'] as VariantName[]).map((variant) => (
               <button key={variant} type="button" className={variants.includes(variant) ? 'primary' : 'ghost'} onClick={() => toggleVariant(variant)}>{variant}</button>
             ))}

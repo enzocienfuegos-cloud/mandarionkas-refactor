@@ -2,6 +2,7 @@ import { useStudioStore } from '../../core/store/use-studio-store';
 import { getBindingSuggestions } from '../../domain/document/resolvers';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import type { BindingSource, WidgetNode } from '../../domain/document/types';
+import { Tile } from '../../shared/ui/Tile';
 
 export function DataBindingsSection({ widget }: { widget: WidgetNode }): JSX.Element {
   const state = useStudioStore((value) => value);
@@ -25,8 +26,8 @@ export function DataBindingsSection({ widget }: { widget: WidgetNode }): JSX.Ele
           const source = (binding?.source ?? 'product') as BindingSource;
           const suggestions = getBindingSuggestions(source, state);
           return (
-            <div key={row.key} style={{ border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 10 }}>
-              <div className="meta-line"><strong>{row.label}</strong>{binding ? <button onClick={() => updateWidgetBinding(widget.id, row.key, undefined)}>Clear</button> : null}</div>
+            <Tile key={row.key}>
+              <div className="meta-line meta-line--between"><strong>{row.label}</strong>{binding ? <button onClick={() => updateWidgetBinding(widget.id, row.key, undefined)}>Clear</button> : null}</div>
               <div className="fields-grid">
                 <div>
                   <label>Source</label>
@@ -49,7 +50,7 @@ export function DataBindingsSection({ widget }: { widget: WidgetNode }): JSX.Ele
                 <label>Fallback</label>
                 <input value={binding?.fallback ?? ''} onChange={(event) => updateWidgetBinding(widget.id, row.key, { source, field: binding?.field ?? suggestions[0] ?? '', fallback: event.target.value })} />
               </div>
-            </div>
+            </Tile>
           );
         })}
       </div>

@@ -1,5 +1,9 @@
 import { useState } from 'react';
 import { formatTime } from '../timeline-utils';
+import { Button } from '../../shared/ui/Button';
+import { IconButton } from '../../shared/ui/IconButton';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
+import { Tooltip } from '../../shared/ui/Tooltip';
 
 export function TimelineHeader({
   displayedCount,
@@ -67,7 +71,17 @@ export function TimelineHeader({
   return (
     <div className="timeline-header-strip timeline-header-strip--ux">
       <div className="timeline-title-stack">
-        <button className="timeline-resize-handle" type="button" title="Resize timeline" onPointerDown={(event) => { event.preventDefault(); onResizeStart(event.clientY); }}>↕</button>
+        <IconButton
+          className="timeline-resize-handle"
+          variant="ghost"
+          size="md"
+          label="Resize timeline"
+          icon={<StudioIcon icon={StudioIcons.chevronsUpDown} size={16} />}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            onResizeStart(event.clientY);
+          }}
+        />
         <div className="timeline-title-copy">
           <strong>Timeline</strong>
           <small>{displayedCount} track{displayedCount === 1 ? '' : 's'} · {selectedCount} selected</small>
@@ -75,10 +89,22 @@ export function TimelineHeader({
       </div>
       <div className="timeline-controls">
         <div className="timeline-ctrl-group">
-          <button className="ghost" type="button" title="Go to start" onClick={onResetPlayhead}>⏮</button>
-          <button className={`ghost timeline-play-toggle${isPlaying ? ' is-active' : ''}`} type="button" onClick={onTogglePlay}>
-            {isPlaying ? '⏸ Pause' : '▶ Play'}
-          </button>
+          <IconButton
+            variant="ghost"
+            size="md"
+            label="Go to start"
+            icon={<StudioIcon icon={StudioIcons.skipBack} size={16} />}
+            onClick={onResetPlayhead}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`timeline-play-toggle${isPlaying ? ' is-active' : ''}`}
+            iconBefore={<StudioIcon icon={isPlaying ? StudioIcons.pause : StudioIcons.play} size={16} />}
+            onClick={onTogglePlay}
+          >
+            {isPlaying ? 'Pause' : 'Play'}
+          </Button>
           <div className={`timeline-live-pill${isPlaying ? ' is-live' : ''}`} aria-live="polite">
             {isPlaying ? 'Live' : 'Idle'}
           </div>
@@ -87,37 +113,51 @@ export function TimelineHeader({
         <div className="timeline-ctrl-divider" aria-hidden="true" />
 
         <div className="timeline-ctrl-group">
-          <button
-            className={`ghost${snapEnabled ? ' is-active' : ''}`}
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
+            className={snapEnabled ? 'is-active' : ''}
             onClick={onToggleSnap}
             title={snapEnabled ? `Snap enabled — step ${snapStepMs}ms` : 'Snap disabled'}
           >
             {snapEnabled ? `Snap · ${snapStepMs}ms` : 'Snap off'}
-          </button>
+          </Button>
         </div>
 
         <div className="timeline-ctrl-divider" aria-hidden="true" />
 
         <div className="timeline-ctrl-group">
-          <button
-            className={`ghost${selectedOnly ? ' is-active' : ''}`}
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
+            className={selectedOnly ? 'is-active' : ''}
             onClick={onToggleSelectedOnly}
             title={selectedOnly ? 'Showing selected layers only — click to show all' : 'Click to show selected layers only'}
           >
             {selectedOnly ? 'Selection' : 'All'}
-          </button>
+          </Button>
         </div>
 
         <div className="timeline-ctrl-divider" aria-hidden="true" />
 
         <div className="timeline-ctrl-group">
-          <button className="ghost" type="button" onClick={onZoomOut} title="Zoom out" aria-label="Zoom out">−</button>
-          <span className="pill timeline-zoom-pill" title={`Zoom: ${timelineZoom.toFixed(2)}×`}>
+          <IconButton
+            variant="ghost"
+            size="md"
+            label="Zoom out"
+            icon={<StudioIcon icon={StudioIcons.minus} size={16} />}
+            onClick={onZoomOut}
+          />
+          <span className="pill timeline-zoom-pill" aria-label={`Zoom ${timelineZoom.toFixed(2)}x`}>
             {Math.round(timelineZoom * 100)}%
           </span>
-          <button className="ghost" type="button" onClick={onZoomIn} title="Zoom in" aria-label="Zoom in">+</button>
+          <IconButton
+            variant="ghost"
+            size="md"
+            label="Zoom in"
+            icon={<StudioIcon icon={StudioIcons.plus} size={16} />}
+            onClick={onZoomIn}
+          />
         </div>
 
         <div className="timeline-ctrl-divider" aria-hidden="true" />
@@ -138,25 +178,40 @@ export function TimelineHeader({
               onKeyDown={handleDurationKeyDown}
               autoFocus
               aria-label="Banner duration in seconds"
-              title="Banner duration (seconds) — press Enter to confirm"
+              aria-description="Press Enter to confirm the new banner duration."
             />
           ) : (
-            <button
-              className="ghost timeline-duration-btn"
-              type="button"
-              onClick={startEditDuration}
-              title="Click to change banner duration"
-              aria-label={`Banner duration: ${formatTime(sceneDurationMs)} — click to edit`}
-            >
-              {formatTime(sceneDurationMs)}
-            </button>
+            <Tooltip content="Click to change banner duration">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="timeline-duration-btn"
+                onClick={startEditDuration}
+                aria-label={`Banner duration: ${formatTime(sceneDurationMs)} — click to edit`}
+              >
+                {formatTime(sceneDurationMs)}
+              </Button>
+            </Tooltip>
           )}
           {snapLabel ? (
-            <span className="pill timeline-snap-pill" title="Snap target">⇄ {snapLabel}</span>
+            <Tooltip content="Snap target">
+              <span className="pill timeline-snap-pill" tabIndex={0}>
+              <StudioIcon icon={StudioIcons.workflow} size={14} />
+              {' '}
+              {snapLabel}
+              </span>
+            </Tooltip>
           ) : null}
         </div>
 
-        <button className="icon-button ghost panel-collapse-button" type="button" title="Hide timeline" aria-label="Hide timeline" onClick={onToggleCollapse}>⌄</button>
+        <IconButton
+          className="panel-collapse-button"
+          variant="ghost"
+          size="md"
+          label="Hide timeline"
+          icon={<StudioIcon icon={StudioIcons.chevronDown} size={18} />}
+          onClick={onToggleCollapse}
+        />
       </div>
     </div>
   );

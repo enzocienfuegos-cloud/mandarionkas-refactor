@@ -2,11 +2,13 @@ import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderTikTokVideoStage } from '../tiktok-video.renderer';
 import { TikTokVideoInspector } from '../tiktok-video.inspector';
+import { TikTokVideoThumb } from '../../registry/widget-thumbnails';
 
 export const TikTokVideoDefinition = createModuleDefinition({
   type: 'tiktok-video',
   label: 'TikTok Video',
   category: 'media',
+  thumbnail: TikTokVideoThumb,
   frame: { x: 40, y: 40, width: 300, height: 600, rotation: 0 },
   props: {
     title: 'TikTok Video',

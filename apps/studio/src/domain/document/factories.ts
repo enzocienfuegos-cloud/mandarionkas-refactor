@@ -113,6 +113,7 @@ export function createInitialState(options: InitialDocumentOptions = {}): Studio
       playheadMs: 0,
       isPlaying: false,
       previewMode: false,
+      editModeWireframe: false,
       hoveredWidgetId: undefined,
       activeWidgetId: undefined,
       lastTriggeredActionLabel: undefined,

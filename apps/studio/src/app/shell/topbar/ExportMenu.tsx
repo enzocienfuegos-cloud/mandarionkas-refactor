@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { EXPORT_CHANNELS, channelLabel, type ExportChannel } from './export-channels';
+import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 
 type ExportMenuProps = {
   currentChannel: ExportChannel;
@@ -43,7 +44,7 @@ export function ExportMenu({ currentChannel, isExporting, onExportAs }: ExportMe
         aria-label={`Export ${channelLabel(currentChannel)}`}
         onClick={() => setOpen((value) => !value)}
       >
-        {isExporting ? 'Exporting…' : 'Export ▾'}
+        {isExporting ? 'Exporting…' : <>Export <StudioIcon icon={StudioIcons.chevronDown} size={14} /></>}
       </button>
 
       {open ? (
@@ -61,7 +62,7 @@ export function ExportMenu({ currentChannel, isExporting, onExportAs }: ExportMe
             >
               <span>{channel.label}</span>
               {channel.value === currentChannel ? (
-                <span className="export-menu-check" aria-hidden="true">✓</span>
+                <span className="export-menu-check" aria-hidden="true"><StudioIcon icon={StudioIcons.check} size={14} /></span>
               ) : null}
             </button>
           ))}

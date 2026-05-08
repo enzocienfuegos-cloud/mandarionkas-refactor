@@ -3,11 +3,13 @@ import { createModuleDefinition } from '../module-definition-factory';
 import { renderDynamicMapExport } from '../export-renderers';
 import { renderDynamicMapStage } from '../dynamic-map.renderer';
 import { DynamicMapInspector } from '../dynamic-map.inspector';
+import { MapThumb } from '../../registry/widget-thumbnails';
 
 export const DynamicMapDefinition = createModuleDefinition({
   type: 'dynamic-map',
   label: 'Dynamic Map',
   category: 'interactive',
+  thumbnail: MapThumb,
   frame: { x: 100, y: 70, width: 320, height: 180, rotation: 0 },
   props: {
     title: 'Nearby Locations',

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { clamp, getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
 import { parseShoppableProducts } from './shoppable-sidebar.shared';
 
@@ -129,8 +130,9 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                   setActiveIndex((value) => (value - 1 + itemCount) % itemCount);
                 }}
                 style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,.94)', color: '#111827', fontWeight: 900, cursor: 'pointer', boxShadow: '0 2px 10px rgba(15,23,42,.12)' }}
+                aria-label="Previous product"
               >
-                ‹
+                <StudioIcon icon={StudioIcons.chevronLeft} size={15} strokeWidth={2.4} />
               </button> : null}
               {showNextButton ? <button
                 type="button"
@@ -140,8 +142,9 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                   ctx.triggerWidgetAction('click');
                 }}
                 style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: 999, border: 'none', background: 'rgba(255,255,255,.94)', color: '#111827', fontWeight: 900, cursor: 'pointer', boxShadow: '0 2px 10px rgba(15,23,42,.12)' }}
+                aria-label="Next product"
               >
-                ›
+                <StudioIcon icon={StudioIcons.chevronRight} size={15} strokeWidth={2.4} />
               </button> : null}
             </>
           ) : null}

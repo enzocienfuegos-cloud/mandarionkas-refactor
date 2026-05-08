@@ -17,6 +17,10 @@ function normalizePublicBasePath(value) {
   return `/${withTrailingSlash}`;
 }
 
+function matchesNodeModule(id: string, segment: string): boolean {
+  return id.includes(`/node_modules/${segment}/`);
+}
+
 export default defineConfig(({ command }) => ({
   base: command === 'serve'
     ? '/'
@@ -39,24 +43,58 @@ export default defineConfig(({ command }) => ({
   },
   build: {
     outDir: 'dist',
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('/src/widgets/modules/')) {
+            return 'widget-modules';
+          }
 
-          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/use-sync-external-store/')) {
+          if (!id.includes('/node_modules/')) return undefined;
+
+          if (
+            matchesNodeModule(id, 'react')
+            || matchesNodeModule(id, 'react-dom')
+            || matchesNodeModule(id, 'use-sync-external-store')
+          ) {
             return 'react-vendor';
           }
 
-          if (id.includes('/leaflet/')) {
+          if (matchesNodeModule(id, 'lucide-react')) {
+            return 'ui-vendor';
+          }
+
+          if (
+            matchesNodeModule(id, '@aws-sdk')
+            || matchesNodeModule(id, '@smithy')
+            || matchesNodeModule(id, '@aws-crypto')
+            || matchesNodeModule(id, 'tslib')
+          ) {
+            return 'storage-vendor';
+          }
+
+          if (matchesNodeModule(id, 'leaflet')) {
             return 'map-vendor';
           }
 
-          if (id.includes('/video.js/')) {
-            return 'video-vendor';
+          if (matchesNodeModule(id, 'video.js')) {
+            return 'video-core';
           }
 
-          if (id.includes('/xlsx/')) {
+          if (
+            matchesNodeModule(id, '@videojs')
+            || matchesNodeModule(id, 'mux.js')
+            || matchesNodeModule(id, 'm3u8-parser')
+            || matchesNodeModule(id, 'mpd-parser')
+            || matchesNodeModule(id, 'aes-decrypter')
+            || matchesNodeModule(id, 'global')
+            || matchesNodeModule(id, 'url-toolkit')
+          ) {
+            return 'video-streaming';
+          }
+
+          if (matchesNodeModule(id, 'xlsx')) {
             return 'spreadsheet-vendor';
           }
 

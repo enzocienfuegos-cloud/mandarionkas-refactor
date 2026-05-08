@@ -24,3 +24,21 @@ export function toRect(origin: { x: number; y: number }, current: { x: number; y
 export function rectStyle(rect: WidgetFrame): CSSProperties {
   return { left: rect.x, top: rect.y, width: rect.width, height: rect.height };
 }
+
+export function clampFloatingPanelPosition(
+  position: { x: number; y: number },
+  viewport: { width: number; height: number },
+  panel: { width: number; height: number },
+  padding = 12,
+): { x: number; y: number } {
+  const maxX = Math.max(padding, viewport.width - panel.width - padding);
+  const maxY = Math.max(padding, viewport.height - panel.height - padding);
+  return {
+    x: clamp(position.x, padding, maxX),
+    y: clamp(position.y, padding, maxY),
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}

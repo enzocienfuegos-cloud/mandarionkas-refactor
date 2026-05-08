@@ -34,7 +34,7 @@ export function StatusChip({ controller }: { controller: TopBarController }): JS
           <div className="status-popover-head">
             <div>
               <strong>Studio status</strong>
-              <div><small className="muted">Everything that used to live as pills now lives here.</small></div>
+              <div><small className="muted">Readiness, workspace context, and advanced controls live here.</small></div>
             </div>
             <button type="button" className="ghost" onClick={() => setOpen(false)}>Close</button>
           </div>

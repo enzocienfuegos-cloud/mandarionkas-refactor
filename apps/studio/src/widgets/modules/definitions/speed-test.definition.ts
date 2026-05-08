@@ -1,11 +1,13 @@
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderSpeedTestExport } from '../export-renderers';
 import { renderSpeedTestStage } from '../speed-test.renderer';
+import { SpeedTestThumb } from '../../registry/widget-thumbnails';
 
 export const SpeedTestDefinition = createModuleDefinition({
   type: 'speed-test',
   label: 'Speed Test',
   category: 'interactive',
+  thumbnail: SpeedTestThumb,
   frame: { x: 80, y: 60, width: 220, height: 116, rotation: 0 },
   props: {
     title: 'Speed Test',

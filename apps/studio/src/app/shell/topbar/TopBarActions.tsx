@@ -5,6 +5,8 @@ import type { TopBarController } from './use-top-bar-controller';
 import { ExportMenu } from './ExportMenu';
 import type { ExportChannel } from './export-channels';
 import { publishStudioProjectToAdServer } from './studio-publication';
+import { StatusChip } from '../StatusChip';
+import { useToast } from '../../../shared/ui/ToastProvider';
 
 export function TopBarActions({ controller }: { controller: TopBarController }): JSX.Element {
   const { previewMode, release, state } = controller.snapshot;
@@ -13,8 +15,9 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
   const { canSaveProjects } = controller.workspace;
   const { updateReleaseSettings } = useDocumentActions();
   const { resolvedZipStatus, triggerExportZipBundleResolved, triggerExportPublishPackage } = controller.exportReadiness;
-  const { handleSaveProject, saveStatus, saveMessage } = controller.projectSession;
+  const { handleSaveProject, saveStatus } = controller.projectSession;
   const activeProjectId = controller.snapshot.activeProjectId;
+  const { pushToast } = useToast();
 
   async function handleExportAs(channel: ExportChannel): Promise<void> {
     const patchedState = {
@@ -32,18 +35,46 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
     };
 
     updateReleaseSettings({ targetChannel: channel });
-    await triggerExportZipBundleResolved(patchedState);
-    if (activeProjectId) {
-      await recordHubProjectActivity(activeProjectId, 'exported', { channel });
+    try {
+      await triggerExportZipBundleResolved(patchedState);
+      pushToast({
+        title: 'Export ready',
+        description: `Built ${channel} package successfully.`,
+        tone: 'success',
+      });
+      if (activeProjectId) {
+        await recordHubProjectActivity(activeProjectId, 'exported', { channel });
+      }
+    } catch (error) {
+      pushToast({
+        title: 'Export failed',
+        description: error instanceof Error ? error.message : 'Unable to build the export package.',
+        tone: 'danger',
+      });
+      throw error;
     }
   }
 
   async function handleShare(): Promise<void> {
-    await triggerExportPublishPackage(state);
-    if (activeProjectId) {
-      await recordHubProjectActivity(activeProjectId, 'shared', {
-        channel: release.targetChannel,
+    try {
+      await triggerExportPublishPackage(state);
+      pushToast({
+        title: 'Share package ready',
+        description: `Prepared ${release.targetChannel} publish package.`,
+        tone: 'success',
       });
+      if (activeProjectId) {
+        await recordHubProjectActivity(activeProjectId, 'shared', {
+          channel: release.targetChannel,
+        });
+      }
+    } catch (error) {
+      pushToast({
+        title: 'Share failed',
+        description: error instanceof Error ? error.message : 'Unable to prepare the share package.',
+        tone: 'danger',
+      });
+      throw error;
     }
   }
 
@@ -62,21 +93,39 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
           creativeVersionId: publication.creativeVersion.id,
         });
       }
+      pushToast({
+        title: 'Published to ad server',
+        description: `Creative ${publication.creative.id} is ready.`,
+        tone: 'success',
+      });
     } catch (error) {
       console.error(error);
       setPublishStatus('error');
+      pushToast({
+        title: 'Publish failed',
+        description: error instanceof Error ? error.message : 'Unable to publish this project.',
+        tone: 'danger',
+      });
     }
   }
 
-  const saveIndicatorClass = `top-save-dot top-save-dot--${saveStatus}`;
-  const saveTitle =
-    saveStatus === 'error'
-      ? (saveMessage ?? 'Save failed')
-      : saveStatus === 'saving'
-        ? 'Saving…'
-        : saveStatus === 'saved'
-          ? (saveMessage ?? 'Saved')
-          : 'Changes not saved';
+  async function handleSave(): Promise<void> {
+    try {
+      await handleSaveProject();
+      pushToast({
+        title: 'Project saved',
+        description: 'The latest changes are now stored in the workspace.',
+        tone: 'success',
+      });
+    } catch (error) {
+      pushToast({
+        title: 'Save failed',
+        description: error instanceof Error ? error.message : 'Unable to save this project.',
+        tone: 'danger',
+      });
+    }
+  }
+
   const publishLabel = publishStatus === 'publishing'
     ? 'Publishing…'
     : publishStatus === 'success'
@@ -116,13 +165,12 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
       <button
         type="button"
         className="primary compact-action top-save-button"
-        onClick={() => void handleSaveProject()}
+        onClick={() => void handleSave()}
         disabled={!canSaveProjects || saveStatus === 'saving'}
       >
         {saveStatus === 'saving' ? 'Saving…' : 'Save'}
       </button>
-
-      <span className={saveIndicatorClass} title={saveTitle} aria-label={saveTitle} aria-live="polite" />
+      <StatusChip controller={controller} />
     </div>
   );
 }

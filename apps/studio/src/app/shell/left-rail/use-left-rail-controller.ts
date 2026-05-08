@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStudioStore } from '../../../core/store/use-studio-store';
 import { getWidgetDefinition, listWidgetDefinitions } from '../../../widgets/registry/widget-registry';
+import { acceptsAssetKind, getCapability } from '../../../widgets/registry/widget-definition';
 import { ingestAssetFile, ingestAssetUrl, listAssets, removeAsset, renameAsset, reprocessAsset, updateAssetQuality } from '../../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../../repositories/asset/events';
 import { usePlatformActions, usePlatformPermission } from '../../../platform/runtime';
@@ -325,9 +326,10 @@ export function useLeftRailController() {
 
   function assignAsset(asset: AssetRecord): void {
     if (!primaryWidget) return;
+    const definition = getWidgetDefinition(primaryWidget.type);
+    if (!acceptsAssetKind(definition, asset.kind as 'image' | 'video' | 'font')) return;
     const resolvedSrc = resolveAssetDeliveryUrl(asset, targetChannel, getAssetQualityPreference(asset));
     if (primaryWidget.type === 'image' || primaryWidget.type === 'hero-image') {
-      if (asset.kind !== 'image') return;
       widgetActions.updateWidgetProps(primaryWidget.id, {
         src: resolvedSrc,
         assetId: asset.id,
@@ -337,7 +339,6 @@ export function useLeftRailController() {
       return;
     }
     if (primaryWidget.type === 'video-hero' || primaryWidget.type === 'interactive-video') {
-      if (asset.kind !== 'video') return;
       widgetActions.updateWidgetProps(primaryWidget.id, {
         src: resolvedSrc,
         assetId: asset.id,
@@ -347,7 +348,6 @@ export function useLeftRailController() {
       return;
     }
     if (primaryWidget.type === 'image-carousel') {
-      if (asset.kind !== 'image') return;
       const currentSlides = parseLinkedCarouselSlides(primaryWidget.props.slides);
       widgetActions.updateWidgetProps(primaryWidget.id, {
         slides: JSON.stringify([...currentSlides, { src: asset.src, caption: asset.name, assetId: asset.id }]),
@@ -357,7 +357,6 @@ export function useLeftRailController() {
       return;
     }
     if (primaryWidget.type === 'interactive-gallery') {
-      if (asset.kind !== 'image') return;
       const currentItems = parseInteractiveGalleryItems(primaryWidget.props.items);
       widgetActions.updateWidgetProps(primaryWidget.id, {
         items: JSON.stringify([...currentItems, { src: asset.src, title: asset.name, subtitle: '', assetId: asset.id }]),
@@ -367,7 +366,6 @@ export function useLeftRailController() {
       return;
     }
     if (primaryWidget.type === 'shoppable-sidebar') {
-      if (asset.kind !== 'image') return;
       const currentProducts = String(primaryWidget.props.products ?? '')
         .split(';')
         .map((item) => item.trim())
@@ -385,8 +383,7 @@ export function useLeftRailController() {
       });
       return;
     }
-    if (['text', 'cta', 'badge'].includes(primaryWidget.type)) {
-      if (asset.kind !== 'font') return;
+    if (getCapability(definition, 'acceptsFontAsset')) {
       widgetActions.updateWidgetProps(primaryWidget.id, { fontAssetId: asset.id, fontAssetSrc: asset.src });
       widgetActions.updateWidgetStyle(primaryWidget.id, { fontFamily: resolveFontAssetFamily(asset) });
     }
@@ -419,7 +416,9 @@ export function useLeftRailController() {
     }
   }
 
-  const selectedWidgetAcceptsAsset = primaryWidget && ['image', 'hero-image', 'video-hero', 'interactive-video', 'image-carousel', 'interactive-gallery', 'shoppable-sidebar', 'text', 'cta', 'badge'].includes(primaryWidget.type);
+  const selectedWidgetAcceptsAsset = primaryWidget
+    ? Boolean(getCapability(getWidgetDefinition(primaryWidget.type), 'acceptsAssetSwap'))
+    : false;
 
   return {
     query,

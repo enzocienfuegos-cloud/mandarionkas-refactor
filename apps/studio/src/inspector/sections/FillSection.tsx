@@ -6,12 +6,18 @@ import type { AssetRecord } from '../../assets/types';
 import type { WidgetNode } from '../../domain/document/types';
 import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
 import { usePlatformSnapshot } from '../../platform/runtime';
+import { getCapability } from '../../widgets/registry/widget-definition';
+import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
 
 export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
   const widgetActions = useWidgetActions();
   const uiActions = useUiActions();
   const platform = usePlatformSnapshot();
   const [assets, setAssets] = useState<AssetRecord[]>([]);
+  const definition = useMemo(() => getWidgetDefinition(widget.type), [widget.type]);
+  const acceptsVideoAsset = Boolean(getCapability(definition, 'acceptsVideoAsset'));
+  const acceptsImageAsset = Boolean(getCapability(definition, 'acceptsImageAsset'));
+  const supportsAssetSwap = acceptsVideoAsset || acceptsImageAsset;
 
   useEffect(() => {
     if (!platform.session.isAuthenticated || !platform.session.sessionId) {
@@ -37,8 +43,8 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
   }, [platform.session.isAuthenticated, platform.session.sessionId]);
 
   const eligibleAssets = useMemo(
-    () => assets.filter((asset) => widget.type === 'video-hero' ? asset.kind === 'video' : asset.kind === 'image'),
-    [assets, widget.type],
+    () => assets.filter((asset) => (acceptsVideoAsset ? asset.kind === 'video' : acceptsImageAsset ? asset.kind === 'image' : false)),
+    [acceptsImageAsset, acceptsVideoAsset, assets],
   );
 
   return (
@@ -48,11 +54,11 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
         <ColorControl label="Background" value={String(widget.style.backgroundColor ?? '#1f2937')} fallback="#1f2937" onChange={(value) => widgetActions.updateWidgetStyle(widget.id, { backgroundColor: value })} />
         <ColorControl label="Accent" value={String(widget.style.accentColor ?? '#f59e0b')} fallback="#f59e0b" onChange={(value) => widgetActions.updateWidgetStyle(widget.id, { accentColor: value })} />
       </div>
-      {['image', 'hero-image', 'video-hero'].includes(widget.type) ? (
-        <div className="field-stack" style={{ marginTop: 10 }}>
+      {supportsAssetSwap ? (
+        <div className="field-stack section-offset-top">
           <div>
-            <label>{widget.type === 'video-hero' ? 'Video source' : 'Image source'}</label>
-            <input value={String(widget.props.src ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { src: event.target.value })} placeholder={widget.type === 'video-hero' ? 'https://.../video.mp4' : 'https://.../image.jpg'} />
+            <label>{acceptsVideoAsset ? 'Video source' : 'Image source'}</label>
+            <input value={String(widget.props.src ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { src: event.target.value })} placeholder={acceptsVideoAsset ? 'https://.../video.mp4' : 'https://.../image.jpg'} />
           </div>
           <div>
             <label>Asset library</label>
@@ -73,11 +79,11 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
               <button type="button" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</button>
             </div>
           </div>
-          {widget.type === 'video-hero' ? <div>
+          {acceptsVideoAsset ? <div>
             <label>Poster source</label>
             <input value={String(widget.props.posterSrc ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { posterSrc: event.target.value })} placeholder="https://.../poster.jpg" />
           </div> : null}
-          {widget.type !== 'video-hero' ? <div>
+          {acceptsImageAsset ? <div>
             <label>Fit</label>
             <select value={String(widget.style.fit ?? 'cover')} onChange={(event) => widgetActions.updateWidgetStyle(widget.id, { fit: event.target.value })}>
               <option value="cover">cover</option>

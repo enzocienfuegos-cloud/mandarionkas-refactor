@@ -26,7 +26,7 @@ export function TopBarExportControls({ controller, compact = false }: { controll
           value={targetChannel}
           onChange={(event) => updateReleaseSettings({ targetChannel: event.target.value as typeof targetChannel })}
           aria-label="Export target"
-          style={{ minWidth: 172 }}
+          className="control-min-export-target"
         >
           <option value="generic-html5">IAB HTML5</option>
           <option value="google-display">Google Display</option>

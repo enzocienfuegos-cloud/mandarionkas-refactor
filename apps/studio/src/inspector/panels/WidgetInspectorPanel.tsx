@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
+import { Tabs } from '../../shared/ui/Tabs';
 import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
 import { DocumentInspectorPanel } from './DocumentInspectorPanel';
 import { getWidgetBehaviorPanelCount, getWidgetInspectorPanelMeta, getWidgetInspectorTabs, renderWidgetInspectorPanel } from '../../widgets/registry/widget-inspector-layout';
@@ -70,16 +71,17 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
         </div>
       </section>
 
-      <div className="inspector-tabs">
-        {tabs.map((item) => (
-          <button key={item.id} className={tab === item.id ? 'primary' : 'ghost'} onClick={() => setTab(item.id)}>
-            {item.label ?? item.id}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        tabs={tabs.map((item) => ({ id: item.id, label: item.label ?? item.id }))}
+        activeId={tab}
+        onChange={setTab}
+        ariaLabel="Widget inspector sections"
+        idBase="widget-inspector"
+        className="inspector-tabs"
+      />
 
       {activeTab ? (
-        <>
+        <section role="tabpanel" id={`widget-inspector-panel-${activeTab.id}`} aria-labelledby={`widget-inspector-tab-${activeTab.id}`}>
           {activeTab.panels.map((panelKey, index) => {
             const panel = renderWidgetInspectorPanel(panelKey, { widget, definition, playheadMs, actions });
             if (!panel) return null;
@@ -88,10 +90,10 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
             return (
               <WidgetInspectorAccordion key={panelKey} title={meta.title} subtitle={meta.subtitle} defaultOpen={shouldOpen}>
                   {panel}
-              </WidgetInspectorAccordion>
+                </WidgetInspectorAccordion>
             );
           })}
-        </>
+        </section>
       ) : null}
 
       {activeTab?.id === 'behavior' && !behaviorPanelCount ? (

@@ -34,7 +34,7 @@ export function FeedCatalogSection(): JSX.Element {
         {Object.entries(activeRecord?.values ?? {}).map(([field, value]) => (
           <div key={field} className="fields-grid">
             <div><label>{field}</label><input value={value} onChange={(event) => upsertFeedRecord(activeSource, { ...(activeRecord ?? { id: 'record', label: 'Record', values: {} }), values: { ...(activeRecord?.values ?? {}), [field]: event.target.value } })} /></div>
-            <div style={{ alignSelf: 'end' }}><button className="ghost" onClick={() => {
+            <div className="align-self-end"><button className="ghost" onClick={() => {
               if (!activeRecord) return;
               const nextValues = { ...activeRecord.values };
               delete nextValues[field];

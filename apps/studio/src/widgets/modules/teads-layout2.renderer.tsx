@@ -1,6 +1,8 @@
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { renderCollapsedIfNeeded } from './shared-styles';
+import { ModuleMediaPlaceholder } from './render-icons';
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
 
@@ -42,11 +44,7 @@ function TeadsLayout2Renderer({ node }: { node: WidgetNode; ctx: RenderContext }
           ? mediaKind === 'video'
             ? <video src={mediaSrc} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : <img src={mediaSrc} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#90959c', fontSize: 12 }}>
-              {mediaKind === 'video' ? '▶ Video not set' : '◻ Image not set'}
-            </div>
-          )
+          : <ModuleMediaPlaceholder kind={mediaKind} />
         }
       </div>
 
@@ -67,7 +65,7 @@ function TeadsLayout2Renderer({ node }: { node: WidgetNode; ctx: RenderContext }
           boxSizing: 'border-box',
         }}>
           <span>{ctaLabel}</span>
-          <span style={{ fontSize: 18, opacity: 0.8 }}>›</span>
+          <StudioIcon icon={StudioIcons.chevronRight} size={18} strokeWidth={2.4} style={{ opacity: 0.8 }} />
         </div>
       </div>
 

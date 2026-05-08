@@ -22,7 +22,7 @@ export function ApprovalsSection(): JSX.Element {
       <div className="field-stack">
         {approvals.length ? approvals.map((approval) => (
           <div key={approval.id} className="comment-card">
-            <div className="meta-line" style={{ justifyContent: 'space-between' }}>
+            <div className="meta-line meta-line--between">
               <strong>{approval.label}</strong>
               <span className="pill">{approval.status}</span>
             </div>

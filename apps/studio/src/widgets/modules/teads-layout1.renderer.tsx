@@ -1,6 +1,7 @@
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
+import { ModuleMediaPlaceholder } from './render-icons';
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
 
@@ -52,11 +53,7 @@ function TeadsLayout1Renderer({ node }: { node: WidgetNode; ctx: RenderContext }
           ? mediaKind === 'video'
             ? <video src={mediaSrc} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : <img src={mediaSrc} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#90959c', fontSize: 12 }}>
-              {mediaKind === 'video' ? '▶ Video not set' : '◻ Image not set'}
-            </div>
-          )
+          : <ModuleMediaPlaceholder kind={mediaKind} />
         }
       </div>
 

@@ -2,11 +2,13 @@ import { createId } from '../../domain/document/factories';
 import { renderGroupWidget } from './group.renderer';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
 import { renderGenericExport } from '../registry/export-helpers';
+import { GroupThumb } from '../registry/widget-thumbnails';
 
 export const groupDefinition: WidgetDefinition = {
   type: 'group',
   label: 'Group',
   category: 'layout',
+  thumbnail: GroupThumb,
   defaults: (sceneId, zIndex) => ({
     id: createId('group'),
     type: 'group',
@@ -26,6 +28,12 @@ export const groupDefinition: WidgetDefinition = {
   ]),
   inspectorTitle: 'Group settings',
   inspectorFields: [{ key: 'title', label: 'Title' }],
+  capabilities: {
+    hasAccentColor: true,
+    exposesActions: true,
+    isContainer: true,
+    hasTitleVariant: true,
+  },
   renderStage: renderGroupWidget,
   renderExport: (node) => renderGenericExport(node, node.name, 'Group'),
   renderLabel: (node) => node.name,

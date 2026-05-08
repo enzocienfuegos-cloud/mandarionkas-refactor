@@ -2,11 +2,13 @@ import { createId } from '../../domain/document/factories';
 import { renderHeroImageWidget } from './hero-image.renderer';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
 import { renderImageExport } from '../registry/base-exporters';
+import { HeroImageThumb } from '../registry/widget-thumbnails';
 
 export const heroImageDefinition: WidgetDefinition = {
   type: 'hero-image',
   label: 'Hero Image',
   category: 'media',
+  thumbnail: HeroImageThumb,
   defaults: (sceneId, zIndex) => ({
     id: createId('hero'),
     type: 'hero-image',
@@ -41,6 +43,13 @@ export const heroImageDefinition: WidgetDefinition = {
       ],
     },
   ],
+  capabilities: {
+    acceptsImageAsset: true,
+    acceptsAssetSwap: true,
+    hasFill: true,
+    isMedia: true,
+    exposesActions: true,
+  },
   renderStage: renderHeroImageWidget,
   renderExport: (node, _state, assetPathMap) => renderImageExport(node, 'hero-image', assetPathMap),
   buildPortableExport: (node) => ({

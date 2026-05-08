@@ -5,6 +5,8 @@ import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { getCapability } from '../registry/widget-definition';
+import { getWidgetDefinition } from '../registry/widget-registry';
 import { parseCarouselSlides } from './shared-styles';
 
 function buildSlidesValue(items: Array<{ src: string; caption: string }>): string {
@@ -55,6 +57,7 @@ export function GalleryAssetsInspector({ widget, title }: { widget: WidgetNode; 
 
   const slides = useMemo(() => parseCarouselSlides(String(widget.props.slides ?? '')), [widget.props.slides]);
   const selectedAssetIds = useMemo(() => parseSelectedAssetIds(widget.props.assetIdsCsv), [widget.props.assetIdsCsv]);
+  const supportsAutoplayControls = Boolean(getCapability(getWidgetDefinition(widget.type), 'isAssetGallery'));
 
   const addSelectedAssets = () => {
     const pickedAssets = pendingAssetIds
@@ -140,7 +143,7 @@ export function GalleryAssetsInspector({ widget, title }: { widget: WidgetNode; 
             ))}
           </div>
         </div>
-        {widget.type === 'image-carousel' ? (
+        {supportsAutoplayControls ? (
           <>
             <label className="checkbox-row">
               <input

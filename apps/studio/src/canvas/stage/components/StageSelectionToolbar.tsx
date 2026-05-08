@@ -1,5 +1,8 @@
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import type { WidgetNode } from '../../../domain/document/types';
+import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
+import { getCapability } from '../../../widgets/registry/widget-definition';
+import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 
 type StageSelectionToolbarProps = {
@@ -22,7 +25,7 @@ type IconButtonProps = {
   disabled?: boolean;
   placeholder?: boolean;
   onClick: () => void;
-  children: JSX.Element;
+  children: ReactNode;
 };
 
 function IconButton({ label, danger = false, disabled = false, placeholder = false, onClick, children }: IconButtonProps): JSX.Element {
@@ -42,93 +45,6 @@ function IconButton({ label, danger = false, disabled = false, placeholder = fal
   );
 }
 
-function EyeIcon({ closed }: { closed: boolean }): JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M2.6 12c2.3-3.7 5.7-5.5 9.4-5.5s7.1 1.8 9.4 5.5c-2.3 3.7-5.7 5.5-9.4 5.5S4.9 15.7 2.6 12Z" />
-      <circle cx="12" cy="12" r="3.2" />
-      {closed ? <path d="M4 4 20 20" /> : null}
-    </svg>
-  );
-}
-
-function LockIcon({ locked }: { locked: boolean }): JSX.Element {
-  return locked ? (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M7 10V8a5 5 0 0 1 10 0v2" />
-      <rect x="5" y="10" width="14" height="10" rx="2" ry="2" />
-      <circle cx="12" cy="15" r="1.2" />
-    </svg>
-  ) : (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M8 10V8a4 4 0 0 1 7.7-1.5" />
-      <path d="M17 10h-9a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2Z" />
-      <circle cx="12" cy="15" r="1.2" />
-    </svg>
-  );
-}
-
-function UploadIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 16V5" />
-      <path d="m7.5 9.5 4.5-4.5 4.5 4.5" />
-      <path d="M5 19h14" />
-    </svg>
-  );
-}
-
-function LibraryIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="4" y="5" width="4" height="14" rx="1" />
-      <rect x="10" y="5" width="4" height="14" rx="1" />
-      <rect x="16" y="5" width="4" height="14" rx="1" />
-    </svg>
-  );
-}
-
-function LayerDownIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="m12 4 8 4-8 4-8-4 8-4Z" />
-      <path d="m6 13 6 3 6-3" />
-      <path d="m10 18 2 2 2-2" />
-    </svg>
-  );
-}
-
-function LayerUpIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="m12 4 8 4-8 4-8-4 8-4Z" />
-      <path d="m6 14 6 3 6-3" />
-      <path d="m10 7 2-2 2 2" />
-    </svg>
-  );
-}
-
-function DeleteIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M5 7h14" />
-      <path d="M9 7V5h6v2" />
-      <path d="M8 7v11h8V7" />
-      <path d="M10 10v5" />
-      <path d="M14 10v5" />
-    </svg>
-  );
-}
-
-function DuplicateIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="8" y="8" width="10" height="10" rx="2" />
-      <rect x="4" y="4" width="10" height="10" rx="2" />
-    </svg>
-  );
-}
-
 function PlaceholderIcon(): JSX.Element {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -137,8 +53,9 @@ function PlaceholderIcon(): JSX.Element {
   );
 }
 
-function isMediaWidget(widget: WidgetNode): boolean {
-  return widget.type === 'image' || widget.type === 'hero-image' || widget.type === 'video-hero' || widget.type === 'interactive-video';
+function supportsMediaAssetLibrary(widget: WidgetNode): boolean {
+  const definition = getWidgetDefinition(widget.type);
+  return Boolean(getCapability(definition, 'acceptsImageAsset') || getCapability(definition, 'acceptsVideoAsset'));
 }
 
 export function StageSelectionToolbar({
@@ -163,6 +80,8 @@ export function StageSelectionToolbar({
   const stopPropagation = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.stopPropagation();
   };
+  const definition = getWidgetDefinition(widget.type);
+  const acceptsVideoAsset = Boolean(getCapability(definition, 'acceptsVideoAsset'));
 
   return (
     <div
@@ -173,18 +92,18 @@ export function StageSelectionToolbar({
     >
       <span className="pill stage-selection-pill">{widget.type}</span>
       <IconButton label={widget.hidden ? 'Show widget' : 'Hide widget'} onClick={onToggleVisibility}>
-        <EyeIcon closed={Boolean(widget.hidden)} />
+        <StudioIcon icon={widget.hidden ? StudioIcons.eyeOff : StudioIcons.eye} size={14} />
       </IconButton>
       <IconButton label={widget.locked ? 'Unlock widget' : 'Lock widget'} onClick={onToggleLock}>
-        <LockIcon locked={Boolean(widget.locked)} />
+        <StudioIcon icon={widget.locked ? StudioIcons.lock : StudioIcons.lockOpen} size={14} />
       </IconButton>
-      {isMediaWidget(widget) ? (
+      {supportsMediaAssetLibrary(widget) ? (
         <>
-          <IconButton label={widget.type === 'video-hero' || widget.type === 'interactive-video' ? 'Replace video from library' : 'Replace image from library'} disabled={uploadDisabled} onClick={onUploadAsset}>
-            <UploadIcon />
+          <IconButton label={acceptsVideoAsset ? 'Replace video from library' : 'Replace image from library'} disabled={uploadDisabled} onClick={onUploadAsset}>
+            <StudioIcon icon={StudioIcons.upload} size={14} />
           </IconButton>
           <IconButton label="Open asset library" onClick={onOpenAssetLibrary}>
-            <LibraryIcon />
+            <StudioIcon icon={StudioIcons.library} size={14} />
           </IconButton>
         </>
       ) : (
@@ -198,16 +117,16 @@ export function StageSelectionToolbar({
         </>
       )}
       <IconButton label="Send layer backward" onClick={onMoveBackward}>
-        <LayerDownIcon />
+        <StudioIcon icon={StudioIcons.arrowDownToLine} size={14} />
       </IconButton>
       <IconButton label="Duplicate widget" onClick={onDuplicate}>
-        <DuplicateIcon />
+        <StudioIcon icon={StudioIcons.copy} size={14} />
       </IconButton>
       <IconButton label="Bring layer forward" onClick={onMoveForward}>
-        <LayerUpIcon />
+        <StudioIcon icon={StudioIcons.arrowUpToLine} size={14} />
       </IconButton>
       <IconButton label="Delete widget" danger onClick={onDelete}>
-        <DeleteIcon />
+        <StudioIcon icon={StudioIcons.trash} size={14} />
       </IconButton>
     </div>
   );

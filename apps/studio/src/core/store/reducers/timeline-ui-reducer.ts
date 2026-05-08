@@ -22,6 +22,8 @@ export function timelineUiReducer(state: StudioState, command: StudioCommand): S
     }
     case 'SET_PREVIEW_MODE':
       return { ...state, ui: { ...state.ui, previewMode: command.previewMode, isPlaying: command.previewMode ? state.ui.isPlaying : false, activeWidgetId: undefined } };
+    case 'SET_EDIT_MODE_WIREFRAME':
+      return { ...state, ui: { ...state.ui, editModeWireframe: command.enabled } };
     case 'SET_PLAYING':
       return { ...state, ui: { ...state.ui, isPlaying: command.isPlaying } };
     case 'SET_LEFT_TAB':

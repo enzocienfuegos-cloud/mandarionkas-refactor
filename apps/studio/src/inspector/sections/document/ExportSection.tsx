@@ -4,14 +4,21 @@ import { ExportPreflightPanel } from '../../../export/ExportPreflightPanel';
 import { validateExport } from '../../../domain/document/export-validation';
 import { useExportReadinessController } from '../../../app/shell/topbar/use-export-readiness-controller';
 import { useTopBarStudioSnapshot } from '../../../app/shell/topbar/use-top-bar-studio-snapshot';
+import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
+import { useToast } from '../../../shared/ui/ToastProvider';
 
 export function ExportSection(): JSX.Element {
+  function getToneClass(kind: 'success' | 'warning' | 'danger'): string {
+    return `pill pill--${kind}`;
+  }
+
   const state = useStudioStore((value) => value);
   const exportController = useExportReadinessController(useTopBarStudioSnapshot());
   const manifest = buildExportManifest(state);
   const readiness = buildExportReadiness(state);
   const preflight = buildExportPreflight(state);
   const handoff = buildExportHandoff(state);
+  const { pushToast } = useToast();
   const mraidHandoff = state.document.metadata.release.targetChannel === 'mraid' ? handoff.mraid : undefined;
   const issues = validateExport(state);
   const errorCount = issues.filter((item) => item.level === 'error').length;
@@ -19,6 +26,24 @@ export function ExportSection(): JSX.Element {
   const packageErrors = preflight.compliance.filter((item) => item.level === 'error').length;
   const packageWarnings = preflight.compliance.filter((item) => item.level === 'warning').length;
   const resolvedBlocked = !preflight.summary.readyForBundleZip || exportController.resolvedZipStatus === 'exporting';
+  const statusIcon = (passed: boolean) => <StudioIcon icon={passed ? StudioIcons.check : StudioIcons.circle} size={12} />;
+
+  function notifyDownload(title: string, description: string): void {
+    pushToast({ title, description, tone: 'success' });
+  }
+
+  async function handlePublishPackageExport(): Promise<void> {
+    try {
+      await triggerExportPublishPackage(state);
+      notifyDownload(mraidHandoff ? 'MRAID package exported' : 'Publish package exported', 'The publish package has been downloaded.');
+    } catch (error) {
+      pushToast({
+        title: 'Publish package export failed',
+        description: error instanceof Error ? error.message : 'Unable to export the publish package.',
+        tone: 'danger',
+      });
+    }
+  }
 
   return (
     <div className="field-stack">
@@ -49,7 +74,7 @@ export function ExportSection(): JSX.Element {
           <div className="meta-line">
             <span className="pill">MRAID {mraidHandoff.apiVersion}</span>
             <span className="pill">Placement {mraidHandoff.placementType}</span>
-            <span className="pill" style={{ borderColor: mraidHandoff.readyForHostHandoff ? 'rgba(34,197,94,.35)' : mraidHandoff.blockers.length ? 'rgba(239,68,68,.45)' : 'rgba(245,158,11,.45)' }}>
+            <span className={getToneClass(mraidHandoff.readyForHostHandoff ? 'success' : mraidHandoff.blockers.length ? 'danger' : 'warning')}>
               {mraidHandoff.readyForHostHandoff ? 'MRAID-ready' : mraidHandoff.blockers.length ? 'MRAID blocked' : 'MRAID needs review'}
             </span>
           </div>
@@ -62,8 +87,8 @@ export function ExportSection(): JSX.Element {
       ) : null}
       <div className="field-stack">
         {readiness.checklist.map((item) => (
-          <div key={item.label} className="pill" style={{ borderColor: item.passed ? 'rgba(34,197,94,.35)' : 'rgba(239,68,68,.35)' }}>
-            {item.passed ? '✓' : '•'} {item.label}
+          <div key={item.label} className={getToneClass(item.passed ? 'success' : 'danger')}>
+            {statusIcon(item.passed)} {item.label}
           </div>
         ))}
       </div>
@@ -76,12 +101,12 @@ export function ExportSection(): JSX.Element {
         />
       </div>
       <div className="field-stack">
-        <button onClick={() => triggerExportHtml(state)}>Export HTML</button>
-        <button onClick={() => triggerExportManifest(state)}>Export manifest</button>
-        <button onClick={() => triggerExportPreflight(state)}>Export preflight</button>
-        <button onClick={() => triggerExportDocumentJson(state)}>Export document JSON</button>
-        <button onClick={() => triggerExportPublishPackage(state)}>{mraidHandoff ? 'Export MRAID package' : 'Export publish package'}</button>
-        <button onClick={() => triggerExportReviewPackage(state)}>{mraidHandoff ? 'Review MRAID package' : 'Export review package'}</button>
+        <button onClick={() => { triggerExportHtml(state); notifyDownload('HTML exported', 'Standalone HTML has been downloaded.'); }}>Export HTML</button>
+        <button onClick={() => { triggerExportManifest(state); notifyDownload('Manifest exported', 'Manifest JSON has been downloaded.'); }}>Export manifest</button>
+        <button onClick={() => { triggerExportPreflight(state); notifyDownload('Preflight exported', 'Preflight JSON has been downloaded.'); }}>Export preflight</button>
+        <button onClick={() => { triggerExportDocumentJson(state); notifyDownload('Document JSON exported', 'Document JSON has been downloaded.'); }}>Export document JSON</button>
+        <button onClick={() => void handlePublishPackageExport()}>{mraidHandoff ? 'Export MRAID package' : 'Export publish package'}</button>
+        <button onClick={() => { triggerExportReviewPackage(state); notifyDownload(mraidHandoff ? 'MRAID review package exported' : 'Review package exported', 'The review package has been downloaded.'); }}>{mraidHandoff ? 'Review MRAID package' : 'Export review package'}</button>
         <button onClick={() => void exportController.triggerExportZipBundleResolved(state)} disabled={resolvedBlocked} title={resolvedBlocked ? preflight.summary.recommendedNextStep : undefined}>
           {exportController.resolvedZipStatus === 'exporting' ? 'Exporting banner…' : 'Export banner'}
         </button>
@@ -89,7 +114,7 @@ export function ExportSection(): JSX.Element {
       {issues.length ? (
         <div className="field-stack">
           {issues.slice(0, 6).map((issue, index) => (
-            <div key={`${issue.scope}-${issue.targetId ?? index}`} className="pill" style={{ borderColor: issue.level === 'error' ? 'rgba(239,68,68,.45)' : 'rgba(245,158,11,.45)' }}>
+            <div key={`${issue.scope}-${issue.targetId ?? index}`} className={getToneClass(issue.level === 'error' ? 'danger' : 'warning')}>
               {issue.level} · {issue.message}
             </div>
           ))}
@@ -98,12 +123,12 @@ export function ExportSection(): JSX.Element {
       {mraidHandoff && (mraidHandoff.moduleCompatibility.blocked.length || mraidHandoff.moduleCompatibility.warnings.length) ? (
         <div className="field-stack">
           {mraidHandoff.moduleCompatibility.blocked.slice(0, 4).map((item) => (
-            <div key={`mraid-blocked-${item.widgetId ?? item.widgetType}`} className="pill" style={{ borderColor: 'rgba(239,68,68,.45)' }}>
+            <div key={`mraid-blocked-${item.widgetId ?? item.widgetType}`} className="pill pill--danger">
               blocker · {item.widgetType} · {item.message}
             </div>
           ))}
           {mraidHandoff.moduleCompatibility.warnings.slice(0, 4).map((item) => (
-            <div key={`mraid-warning-${item.widgetId ?? item.widgetType}`} className="pill" style={{ borderColor: 'rgba(245,158,11,.45)' }}>
+            <div key={`mraid-warning-${item.widgetId ?? item.widgetType}`} className="pill pill--warning">
               warning · {item.widgetType} · {item.message}
             </div>
           ))}

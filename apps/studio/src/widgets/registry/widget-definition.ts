@@ -43,10 +43,31 @@ export type WidgetFieldSpec = {
   options?: Array<{ label: string; value: string }>;
 };
 
+export type WidgetAssetKind = 'image' | 'video' | 'font';
+
+export type WidgetCapabilities = {
+  acceptsImageAsset?: boolean;
+  acceptsVideoAsset?: boolean;
+  acceptsFontAsset?: boolean;
+  acceptsAssetSwap?: boolean;
+  hasFill?: boolean;
+  hasAccentColor?: boolean;
+  isMedia?: boolean;
+  isInteractive?: boolean;
+  exposesActions?: boolean;
+  isContainer?: boolean;
+  hasVideoAnalytics?: boolean;
+  hasTextVariant?: boolean;
+  hasTitleVariant?: boolean;
+  isAssetGallery?: boolean;
+};
+
 export type WidgetDefinition = {
   type: WidgetType;
   label: string;
   category: 'content' | 'media' | 'interactive' | 'layout';
+  thumbnail?: string | (() => JSX.Element);
+  renderWireframe?: (node: WidgetNode, ctx: RenderContext) => JSX.Element;
   mraidCompatibility?: 'supported' | 'warning' | 'blocked';
   mraidCompatibilityNote?: string;
   defaults: (sceneId: string, zIndex: number) => WidgetNode;
@@ -54,12 +75,35 @@ export type WidgetDefinition = {
   inspectorTabs?: WidgetInspectorTabSpec[];
   inspectorTitle?: string;
   inspectorFields?: WidgetFieldSpec[];
+  capabilities?: WidgetCapabilities;
   renderLabel: (node: WidgetNode) => string;
   renderStage?: (node: WidgetNode, ctx: RenderContext) => JSX.Element;
   renderInspector?: (node: WidgetNode) => JSX.Element;
   renderExport?: (node: WidgetNode, state: StudioState, assetPathMap?: Record<string, string>) => string;
   buildPortableExport?: (node: WidgetNode, state: StudioState) => Partial<PortableExportWidget> | void;
 };
+
+export function getCapability<K extends keyof WidgetCapabilities>(
+  definition: Pick<WidgetDefinition, 'capabilities'>,
+  key: K,
+): WidgetCapabilities[K] {
+  return definition.capabilities?.[key];
+}
+
+export function getAcceptedAssetKinds(definition: Pick<WidgetDefinition, 'capabilities'>): WidgetAssetKind[] {
+  const acceptedKinds: WidgetAssetKind[] = [];
+  if (definition.capabilities?.acceptsImageAsset) acceptedKinds.push('image');
+  if (definition.capabilities?.acceptsVideoAsset) acceptedKinds.push('video');
+  if (definition.capabilities?.acceptsFontAsset) acceptedKinds.push('font');
+  return acceptedKinds;
+}
+
+export function acceptsAssetKind(
+  definition: Pick<WidgetDefinition, 'capabilities'>,
+  kind: WidgetAssetKind,
+): boolean {
+  return getAcceptedAssetKinds(definition).includes(kind);
+}
 
 export function createInspectorTabs(tabs: WidgetInspectorTabSpec[]): WidgetInspectorTabSpec[] {
   return tabs.map((tab) => ({ ...tab, panels: [...tab.panels] }));

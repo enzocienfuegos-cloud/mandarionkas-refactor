@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { restoreSession } from './auth-service';
 import { usePlatformSnapshot } from './runtime';
+import { getPlatformServices } from './services';
 
 const LoginScreen = lazy(async () => {
   const module = await import('./LoginScreen');
@@ -82,7 +83,7 @@ export function PlatformShell(): JSX.Element {
 
   useEffect(() => {
     if (route.kind !== 'client-workspace' || !route.clientId || snapshot.session.activeClientId === route.clientId) return;
-    void import('./workspace-service').then((module) => module.setActiveClient(route.clientId!));
+    void getPlatformServices().setActiveClient(route.clientId);
   }, [route, snapshot.session.activeClientId]);
 
   return (

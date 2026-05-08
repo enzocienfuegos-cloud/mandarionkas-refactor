@@ -2,11 +2,13 @@ import { createId } from '../../domain/document/factories';
 import { renderShapeWidget, renderShapeMaskInspector } from './shape.renderer';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
 import { renderShapeExport } from '../registry/base-exporters';
+import { ShapeThumb } from '../registry/widget-thumbnails';
 
 export const shapeDefinition: WidgetDefinition = {
   type: 'shape',
   label: 'Shape',
   category: 'layout',
+  thumbnail: ShapeThumb,
   defaults: (sceneId, zIndex) => ({
     id: createId('shape'),
     type: 'shape',
@@ -40,6 +42,10 @@ export const shapeDefinition: WidgetDefinition = {
       ],
     },
   ],
+  capabilities: {
+    hasFill: true,
+    exposesActions: true,
+  },
   renderInspector: renderShapeMaskInspector,
   renderStage: renderShapeWidget,
   renderExport: (node) => renderShapeExport(node),

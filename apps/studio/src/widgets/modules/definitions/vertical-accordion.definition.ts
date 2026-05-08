@@ -2,11 +2,13 @@ import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderVerticalAccordionStage } from '../vertical-accordion.renderer';
 import { VerticalAccordionInspector } from '../vertical-accordion.inspector';
+import { VerticalAccordionThumb } from '../../registry/widget-thumbnails';
 
 export const VerticalAccordionDefinition = createModuleDefinition({
   type: 'vertical-accordion',
   label: 'Vertical Accordion',
   category: 'interactive',
+  thumbnail: VerticalAccordionThumb,
   frame: { x: 40, y: 40, width: 320, height: 480, rotation: 0 },
   props: {
     title: 'Vertical Accordion',

@@ -1,10 +1,14 @@
 import { ColorControl } from '../../shared/ui/ColorControl';
+import { Tile } from '../../shared/ui/Tile';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import type { WidgetNode } from '../../domain/document/types';
+import { getCapability } from '../../widgets/registry/widget-definition';
+import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
 
 export function VariantsSection({ widget }: { widget: WidgetNode }): JSX.Element {
   const { updateWidgetVariant } = useWidgetActions();
   const variantNames: Array<'promo' | 'alternate'> = ['promo', 'alternate'];
+  const editsText = Boolean(getCapability(getWidgetDefinition(widget.type), 'hasTextVariant'));
 
   return (
     <section className="section section-premium">
@@ -14,16 +18,16 @@ export function VariantsSection({ widget }: { widget: WidgetNode }): JSX.Element
         {variantNames.map((variant) => {
           const current = widget.variants?.[variant];
           return (
-            <div key={variant} style={{ border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 10 }}>
+            <Tile key={variant}>
               <div className="meta-line"><strong>{variant}</strong><span className="pill">Overrides</span></div>
               <div className="fields-grid">
                 <div>
                   <label>Text override</label>
-                  <input value={String(current?.props?.text ?? current?.props?.title ?? '')} onChange={(event) => updateWidgetVariant(widget.id, variant, 'props', widget.type === 'text' || widget.type === 'cta' ? { text: event.target.value } : { title: event.target.value })} />
+                  <input value={String(current?.props?.text ?? current?.props?.title ?? '')} onChange={(event) => updateWidgetVariant(widget.id, variant, 'props', editsText ? { text: event.target.value } : { title: event.target.value })} />
                 </div>
                 <ColorControl label="Background override" value={String(current?.style?.backgroundColor ?? '')} fallback={String(widget.style.backgroundColor ?? '#1f2937')} onChange={(value) => updateWidgetVariant(widget.id, variant, 'style', { backgroundColor: value })} />
               </div>
-            </div>
+            </Tile>
           );
         })}
       </div>

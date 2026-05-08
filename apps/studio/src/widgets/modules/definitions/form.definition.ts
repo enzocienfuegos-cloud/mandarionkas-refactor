@@ -1,11 +1,13 @@
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderFormExport } from '../export-renderers';
 import { renderFormStage } from '../form.renderer';
+import { FormThumb } from '../../registry/widget-thumbnails';
 
 export const FormDefinition = createModuleDefinition({
   type: 'form',
   label: 'Form',
   category: 'interactive',
+  thumbnail: FormThumb,
   frame: { x: 80, y: 50, width: 230, height: 128, rotation: 0 },
   props: {
     title: 'Lead form',

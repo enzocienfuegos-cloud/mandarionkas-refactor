@@ -1,5 +1,6 @@
 import type { TopBarController } from './use-top-bar-controller';
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
+import { Tooltip } from '../../../shared/ui/Tooltip';
 
 function channelLabel(target: TopBarController['snapshot']['release']['targetChannel']): string {
   switch (target) {
@@ -48,7 +49,7 @@ export function TopBarPrimaryActions({ controller }: { controller: TopBarControl
           type="button"
           className={`ghost compact-action ${release.targetChannel === 'generic-html5' ? 'is-active' : ''}`}
           onClick={() => updateReleaseSettings({ targetChannel: 'generic-html5' })}
-          title="Set export target to IAB HTML5"
+          aria-label="Set export target to IAB HTML5"
         >
           IAB HTML5
         </button>
@@ -56,7 +57,7 @@ export function TopBarPrimaryActions({ controller }: { controller: TopBarControl
           type="button"
           className={`ghost compact-action ${release.targetChannel === 'mraid' ? 'is-active' : ''}`}
           onClick={() => updateReleaseSettings({ targetChannel: 'mraid' })}
-          title="Set export target to MRAID"
+          aria-label="Set export target to MRAID"
         >
           MRAID
         </button>
@@ -66,7 +67,6 @@ export function TopBarPrimaryActions({ controller }: { controller: TopBarControl
         value={release.targetChannel}
         onChange={(event) => updateReleaseSettings({ targetChannel: event.target.value as typeof release.targetChannel })}
         aria-label="Export target"
-        title="Export target"
       >
         <option value="generic-html5">IAB HTML5</option>
         <option value="mraid">MRAID</option>
@@ -75,23 +75,25 @@ export function TopBarPrimaryActions({ controller }: { controller: TopBarControl
         <option value="meta-story">Meta Story</option>
         <option value="tiktok-vertical">TikTok Vertical</option>
       </select>
-      <button
-        className="ghost compact-action"
-        type="button"
-        onClick={() => triggerExportPreflight(controller.snapshot.state)}
-        title={preflight.summary.recommendedNextStep}
-      >
-        {exportTargetLabel} · {preflight.summary.packageGrade}
-      </button>
-      <button
-        className="ghost compact-action"
-        type="button"
-        onClick={() => void triggerExportZipBundleResolved(controller.snapshot.state)}
-        disabled={resolvedBlocked}
-        title={resolvedBlocked ? preflight.summary.recommendedNextStep : `Export ${exportTargetLabel} ZIP`}
-      >
-        {resolvedZipStatus === 'exporting' ? `Exporting ${exportTargetLabel}…` : `Export ${exportTargetLabel}`}
-      </button>
+      <Tooltip content={preflight.summary.recommendedNextStep}>
+        <button
+          className="ghost compact-action"
+          type="button"
+          onClick={() => triggerExportPreflight(controller.snapshot.state)}
+        >
+          {exportTargetLabel} · {preflight.summary.packageGrade}
+        </button>
+      </Tooltip>
+      <Tooltip content={resolvedBlocked ? preflight.summary.recommendedNextStep : `Export ${exportTargetLabel} ZIP`}>
+        <button
+          className="ghost compact-action"
+          type="button"
+          onClick={() => void triggerExportZipBundleResolved(controller.snapshot.state)}
+          disabled={resolvedBlocked}
+        >
+          {resolvedZipStatus === 'exporting' ? `Exporting ${exportTargetLabel}…` : `Export ${exportTargetLabel}`}
+        </button>
+      </Tooltip>
       <div className={`top-save-indicator top-save-indicator--${saveStatus}`}>{label}</div>
       <button className="ghost compact-action" type="button" onClick={() => uiActions.setPreviewMode(!previewMode)}>
         {previewMode ? 'Exit preview' : 'Preview'}

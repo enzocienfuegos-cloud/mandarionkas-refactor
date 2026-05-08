@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useStudioStore } from '../core/store/use-studio-store';
 import { useSceneActions, useTimelineActions, useUiActions, useWidgetActions } from '../hooks/use-studio-actions';
@@ -188,6 +189,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
   const rulerStepMs = getTimelineGridStepMs(Math.max(0.5, timelineZoom));
   const majorTickMs = Math.max(1000, rulerStepMs * 4);
   const rulerTicks = buildRulerTicks(scene.durationMs, rulerStepMs, majorTickMs);
+  const gridShellStyle = { '--timeline-grid-shell-width': `${ROW_GUTTER + trackWidth + 32}px` } as CSSProperties;
 
   return (
     <section className={`bottom-timeline ${isPlaying ? 'is-playing' : ''}`}>
@@ -225,7 +227,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
       />
 
       <div className="timeline-scroll">
-        <div className="timeline-grid-shell" style={{ width: ROW_GUTTER + trackWidth + 32 }}>
+        <div className="timeline-grid-shell" style={gridShellStyle}>
           <TimelineRuler
             rulerTicks={rulerTicks}
             rowMsToPx={rowMsToPx}

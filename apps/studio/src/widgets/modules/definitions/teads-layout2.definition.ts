@@ -2,11 +2,13 @@ import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderTeadsLayout2Stage } from '../teads-layout2.renderer';
 import { TeadsLayout2Inspector } from '../teads-layout2.inspector';
+import { TeadsLayout2Thumb } from '../../registry/widget-thumbnails';
 
 export const TeadsLayout2Definition = createModuleDefinition({
   type: 'teads-layout2',
   label: 'Teads Layout 2',
   category: 'interactive',
+  thumbnail: TeadsLayout2Thumb,
   frame: { x: 10, y: 10, width: 300, height: 380, rotation: 0 },
   props: {
     // Brand row

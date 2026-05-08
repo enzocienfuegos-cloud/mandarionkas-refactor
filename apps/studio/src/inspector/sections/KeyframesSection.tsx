@@ -1,5 +1,6 @@
 import { useTimelineActions } from '../../hooks/use-studio-actions';
 import type { WidgetNode } from '../../domain/document/types';
+import { Tile } from '../../shared/ui/Tile';
 import { KEYFRAME_PROPERTIES } from './widget-inspector-shared';
 
 export function KeyframesSection({ widget, playheadMs }: { widget: WidgetNode; playheadMs: number }): JSX.Element {
@@ -12,13 +13,13 @@ export function KeyframesSection({ widget, playheadMs }: { widget: WidgetNode; p
       <div className="field-stack">
         <div className="meta-line"><span className="pill">Playhead {playheadMs}ms</span><span className="pill">Tracks {new Set(keyframes.map((item) => item.property)).size}</span><span className="pill">Total {keyframes.length}</span></div>
         <small className="muted">Easing and markers are now isolated in their own section component, which makes the inspector panel much easier to evolve.</small>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="inline-actions">
           {KEYFRAME_PROPERTIES.map((property) => (
             <button key={property} onClick={() => addKeyframe(widget.id, property, playheadMs)}>+ {property}</button>
           ))}
         </div>
         {keyframes.map((keyframe) => (
-          <div key={keyframe.id} style={{ border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 10 }}>
+          <Tile key={keyframe.id}>
             <div className="meta-line">
               <span className="pill">{keyframe.property}</span>
               <button onClick={() => setPlayhead(keyframe.atMs)}>Go to keyframe</button>
@@ -43,7 +44,7 @@ export function KeyframesSection({ widget, playheadMs }: { widget: WidgetNode; p
                 </select>
               </div>
             </div>
-          </div>
+          </Tile>
         ))}
       </div>
     </section>

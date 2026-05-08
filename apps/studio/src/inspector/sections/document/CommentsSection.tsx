@@ -36,7 +36,7 @@ export function CommentsSection(): JSX.Element {
       <div className="field-stack">
         {comments.length ? comments.map((comment) => (
           <div key={comment.id} className="comment-card">
-            <div className="meta-line" style={{ justifyContent: 'space-between' }}>
+            <div className="meta-line meta-line--between">
               <strong>{comment.author}</strong>
               <span className="pill">{comment.status}</span>
             </div>

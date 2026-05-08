@@ -2,6 +2,7 @@ import { getCanvasPresetById } from '../domain/document/canvas-presets';
 import { getProjectStarters } from '../app/shell/topbar/project-starters';
 import { ensureWorldCupStarterRegistered } from '../app/shell/topbar/world-cup-starter';
 import { useClientWorkspaceController } from './client-workspace/use-client-workspace-controller';
+import { StudioIcon, StudioIcons } from '../shared/ui/icons';
 
 type ClientWorkspaceShellProps = {
   onBackToAgencyShell(): void;
@@ -69,7 +70,11 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
           <p>Projects, folders, owners and bulk actions stay scoped to the selected client workspace.</p>
         </div>
         <div className="workspace-hub-session">
-          <button className="ghost compact-action" type="button" onClick={onBackToAgencyShell}>← Agency shell</button>
+          <button className="ghost compact-action" type="button" onClick={onBackToAgencyShell}>
+            <StudioIcon icon={StudioIcons.arrowLeft} size={16} />
+            {' '}
+            Agency shell
+          </button>
           <div className="pill">{workspace.currentUser?.name ?? 'Guest'}</div>
           <div className="pill">{workspace.workspaceRole ?? workspace.currentUser?.role ?? 'viewer'}</div>
           <button className="ghost compact-action" type="button" onClick={() => void workspace.handleLogout()}>Logout</button>

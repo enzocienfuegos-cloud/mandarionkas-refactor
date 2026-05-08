@@ -1,10 +1,12 @@
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderInstagramStoryStage, renderInstagramStoryInspector } from '../instagram-story.renderer';
+import { StoryThumb } from '../../registry/widget-thumbnails';
 
 export const InstagramStoryDefinition = createModuleDefinition({
   type: 'instagram-story',
   label: 'Instagram Story',
   category: 'interactive',
+  thumbnail: StoryThumb,
   frame: { x: 20, y: 20, width: 300, height: 533, rotation: 0 },
   props: {
     username: 'yourbrand',

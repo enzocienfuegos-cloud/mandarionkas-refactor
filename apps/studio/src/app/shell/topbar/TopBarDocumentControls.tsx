@@ -1,5 +1,7 @@
 import { CANVAS_PRESETS } from '../../../domain/document/canvas-presets';
 import type { TopBarController } from './use-top-bar-controller';
+import { Button } from '../../../shared/ui/Button';
+import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 
 export function TopBarDocumentControls({ controller, compact = false }: { controller: TopBarController; compact?: boolean }): JSX.Element {
   const { activeSceneId, scenes, canvasPresetId, activeVariant, activeFeedSource, activeFeedRecordId } = controller.snapshot;
@@ -9,11 +11,15 @@ export function TopBarDocumentControls({ controller, compact = false }: { contro
     <div className={`top-control-group ${compact ? 'top-control-group--compact' : ''}`}>
       <strong className="section-kicker">Document</strong>
       <div className="top-control-grid">
-        <button className="ghost" onClick={() => sceneActions.previousScene()}>← Scene</button>
+        <Button variant="ghost" size="sm" iconBefore={<StudioIcon icon={StudioIcons.arrowLeft} size={14} />} onClick={() => sceneActions.previousScene()}>
+          Scene
+        </Button>
         <select value={activeSceneId} onChange={(event) => sceneActions.selectScene(event.target.value)}>
           {scenes.map((scene) => <option key={scene.id} value={scene.id}>{scene.name}</option>)}
         </select>
-        <button className="ghost" onClick={() => sceneActions.nextScene()}>Scene →</button>
+        <Button variant="ghost" size="sm" iconAfter={<StudioIcon icon={StudioIcons.arrowRight} size={14} />} onClick={() => sceneActions.nextScene()}>
+          Scene
+        </Button>
         <select value={canvasPresetId} onChange={(event) => documentActions.applyCanvasPreset(event.target.value)}>
           {CANVAS_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
         </select>

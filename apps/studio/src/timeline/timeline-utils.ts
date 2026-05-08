@@ -1,4 +1,6 @@
 import type { TimelineDragState, TimelineDisplayRow, TimelineKeyframe, TimelineWidget } from './types';
+import { getCapability } from '../widgets/registry/widget-definition';
+import { getWidgetDefinition } from '../widgets/registry/widget-registry';
 
 export const BASE_ROW_MS_TO_PX = 0.03;
 export const ROW_GUTTER = 160;
@@ -55,7 +57,7 @@ export function buildTimelineDisplayRows(
   };
 
   const visit = (widget: TimelineWidget, depth: number, ancestorIds: string[]) => {
-    const isGroup = widget.type === 'group';
+    const isGroup = Boolean(getCapability(getWidgetDefinition(widget.type), 'isContainer'));
     const childIds = (widget.childIds ?? [])
       .map((childId) => widgetMap.get(childId))
       .filter(Boolean)

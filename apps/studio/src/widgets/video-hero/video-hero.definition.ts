@@ -2,11 +2,13 @@ import { createId } from '../../domain/document/factories';
 import { renderVideoHeroExport } from '../modules/export-renderers';
 import { renderVideoHeroWidget } from './video-hero.renderer';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
+import { VideoThumb } from '../registry/widget-thumbnails';
 
 export const videoHeroDefinition: WidgetDefinition = {
   type: 'video-hero',
   label: 'Video Hero',
   category: 'media',
+  thumbnail: VideoThumb,
   defaults: (sceneId, zIndex) => ({
     id: createId('videohero'),
     type: 'video-hero',
@@ -26,6 +28,13 @@ export const videoHeroDefinition: WidgetDefinition = {
   ]),
   inspectorTitle: 'Video settings',
   inspectorFields: [{ key: 'src', label: 'Video URL' }, { key: 'posterSrc', label: 'Poster URL' }, { key: 'autoplay', type: 'checkbox' }, { key: 'muted', type: 'checkbox' }, { key: 'loop', type: 'checkbox' }, { key: 'controls', type: 'checkbox' }],
+  capabilities: {
+    acceptsVideoAsset: true,
+    acceptsAssetSwap: true,
+    hasFill: true,
+    isMedia: true,
+    exposesActions: true,
+  },
   renderStage: renderVideoHeroWidget,
   renderExport: (node, state, assetPathMap) => renderVideoHeroExport(node, state, assetPathMap),
   buildPortableExport: (node) => ({

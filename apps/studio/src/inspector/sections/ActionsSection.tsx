@@ -1,6 +1,7 @@
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { useWidgetBehaviorActions } from '../../hooks/use-studio-actions';
 import type { ActionNode, WidgetNode } from '../../domain/document/types';
+import { Tile } from '../../shared/ui/Tile';
 import { ACTION_TYPES } from './widget-inspector-shared';
 
 const ACTION_TRIGGERS: ActionNode['trigger'][] = [
@@ -38,7 +39,7 @@ export function ActionsSection({ widget, actions }: { widget: WidgetNode; action
         <button onClick={() => addWidgetAction(widget.id)}>Add action</button>
         {!actions.length ? <small className="muted">No actions yet. Add click, hover or timeline-enter behavior here.</small> : null}
         {actions.map((action) => (
-          <div key={action.id} style={{ border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 10 }}>
+          <Tile key={action.id}>
             <div className="fields-grid">
               <div>
                 <label>Trigger</label>
@@ -96,11 +97,11 @@ export function ActionsSection({ widget, actions }: { widget: WidgetNode; action
                 {scenes.map((scene) => <option key={scene.id} value={scene.id}>{scene.name}{scene.id === activeSceneId ? ' (current)' : ''}</option>)}
               </select>
             </div> : null}
-            <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+            <div className="inline-actions">
               <button onClick={() => executeAction(action.id)}>Test action</button>
               <button onClick={() => removeWidgetAction(action.id)}>Remove</button>
             </div>
-          </div>
+          </Tile>
         ))}
       </div>
     </section>

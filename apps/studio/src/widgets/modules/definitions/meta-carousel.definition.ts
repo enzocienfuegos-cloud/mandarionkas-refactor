@@ -2,11 +2,13 @@ import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderMetaCarouselStage } from '../meta-carousel.renderer';
 import { MetaCarouselInspector } from '../meta-carousel.inspector';
+import { SocialCarouselThumb } from '../../registry/widget-thumbnails';
 
 export const MetaCarouselDefinition = createModuleDefinition({
   type: 'meta-carousel',
   label: 'Meta Carousel',
   category: 'interactive',
+  thumbnail: SocialCarouselThumb,
   frame: { x: 10, y: 10, width: 300, height: 420, rotation: 0 },
   props: {
     // Account

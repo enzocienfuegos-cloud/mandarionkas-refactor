@@ -29,7 +29,14 @@ export function isCanvasPointWithinBounds(point: CanvasPoint, canvas: { width: n
   return point.x >= 0 && point.y >= 0 && point.x <= canvas.width && point.y <= canvas.height;
 }
 
-export function getResizedFrame(frame: WidgetFrame, origin: CanvasPoint, point: CanvasPoint, handle: ResizeHandle, canvas: { width: number; height: number }): WidgetFrame {
+export function getResizedFrame(
+  frame: WidgetFrame,
+  origin: CanvasPoint,
+  point: CanvasPoint,
+  handle: ResizeHandle,
+  canvas: { width: number; height: number },
+  keepAspectRatio = false,
+): WidgetFrame {
   const dx = point.x - origin.x;
   const dy = point.y - origin.y;
   const next = { ...frame };
@@ -42,6 +49,9 @@ export function getResizedFrame(frame: WidgetFrame, origin: CanvasPoint, point: 
   if (handle.includes('n')) {
     next.y = clamp(frame.y + dy, 0, frame.y + frame.height - 30);
     next.height = Math.max(30, frame.height - dy);
+  }
+  if (keepAspectRatio) {
+    applyAspectRatioLock(next, frame, handle, canvas);
   }
   next.width = Math.min(next.width, canvas.width - next.x);
   next.height = Math.min(next.height, canvas.height - next.y);
@@ -73,4 +83,46 @@ export function expandStageSelection(ids: string[], widgetsById: StudioState['do
     if (widget.parentId) resolved.add(widget.parentId);
   });
   return Array.from(resolved);
+}
+
+function applyAspectRatioLock(
+  next: WidgetFrame,
+  frame: WidgetFrame,
+  handle: ResizeHandle,
+  canvas: { width: number; height: number },
+): void {
+  const aspectRatio = frame.height > 0 ? frame.width / frame.height : 1;
+  if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) return;
+
+  const widthScale = next.width / Math.max(frame.width, 1);
+  const heightScale = next.height / Math.max(frame.height, 1);
+
+  if (handle === 'e' || handle === 'w') {
+    next.height = Math.max(30, Math.round(next.width / aspectRatio));
+  } else if (handle === 'n' || handle === 's') {
+    next.width = Math.max(40, Math.round(next.height * aspectRatio));
+  } else if (Math.abs(widthScale - 1) >= Math.abs(heightScale - 1)) {
+    next.height = Math.max(30, Math.round(next.width / aspectRatio));
+  } else {
+    next.width = Math.max(40, Math.round(next.height * aspectRatio));
+  }
+
+  if (handle.includes('w')) {
+    next.x = clamp(frame.x + frame.width - next.width, 0, frame.x + frame.width - 40);
+  }
+  if (handle.includes('n')) {
+    next.y = clamp(frame.y + frame.height - next.height, 0, frame.y + frame.height - 30);
+  }
+
+  if (next.x + next.width > canvas.width) {
+    next.width = Math.max(40, canvas.width - next.x);
+    next.height = Math.max(30, Math.round(next.width / aspectRatio));
+  }
+  if (next.y + next.height > canvas.height) {
+    next.height = Math.max(30, canvas.height - next.y);
+    next.width = Math.max(40, Math.round(next.height * aspectRatio));
+    if (handle.includes('w')) {
+      next.x = clamp(frame.x + frame.width - next.width, 0, frame.x + frame.width - 40);
+    }
+  }
 }

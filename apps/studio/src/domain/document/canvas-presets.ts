@@ -10,6 +10,17 @@ export type CanvasPreset = {
   mraidPlacement?: 'interstitial' | 'inline' | 'banner';
 };
 
+export const TRANSPARENT_CANVAS_BACKGROUND = 'transparent';
+
+export const STAGE_BACKGROUND_SWATCHES = [
+  '#111827',
+  '#ffffff',
+  '#0f172a',
+  '#f59e0b',
+  '#ef4444',
+  '#2563eb',
+] as const;
+
 export const CANVAS_PRESETS: CanvasPreset[] = [
   { id: 'leaderboard', label: 'Leaderboard · 970×250', category: 'display', width: 970, height: 250, backgroundColor: '#ffffff', iabStandard: true },
   { id: 'medium-rectangle', label: 'MREC · 300×250', category: 'display', width: 300, height: 250, backgroundColor: '#ffffff', iabStandard: true },

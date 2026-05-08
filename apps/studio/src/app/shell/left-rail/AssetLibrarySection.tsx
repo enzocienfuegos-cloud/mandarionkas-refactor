@@ -5,6 +5,8 @@ import type { AssetQualityPreference, AssetRecord } from '../../../assets/types'
 import { resolveFontAssetFamily } from '../../../assets/font-family';
 import type { LeftRailController } from './use-left-rail-controller';
 import { clearAssetLibraryDragPayload, createAssetLibraryDragPayload, writeAssetLibraryDragPayload } from '../../../canvas/stage/asset-library-drag';
+import { acceptsAssetKind, getAcceptedAssetKinds } from '../../../widgets/registry/widget-definition';
+import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
 
 function formatAssetMetaBytes(sizeBytes?: number): string | null {
   if (!sizeBytes || Number.isNaN(sizeBytes)) return null;
@@ -138,7 +140,7 @@ function hasRemoteDerivativeReadiness(asset: AssetRecord): boolean {
 function assetPreview(asset: AssetRecord, previewUrl: string): JSX.Element {
   if (asset.kind === 'image') return <img src={previewUrl} alt={asset.name} className="asset-preview-media" />;
   if (asset.kind === 'video') return <video src={previewUrl} poster={asset.derivatives?.poster?.src ?? asset.posterSrc} muted className="asset-preview-media" />;
-  if (asset.kind === 'font') return <div className="asset-preview-fallback" style={{ fontFamily: resolveFontAssetFamily(asset), fontSize: 28, fontWeight: 700 }}>Aa</div>;
+  if (asset.kind === 'font') return <div className="asset-preview-fallback asset-preview-fallback--font" style={{ fontFamily: resolveFontAssetFamily(asset) }}>Aa</div>;
   return <div className="asset-preview-fallback">FILE</div>;
 }
 
@@ -194,11 +196,13 @@ export function AssetLibrarySection({ controller }: { controller: LeftRailContro
 
   const compatibleWithSelection = useMemo(() => {
     if (!selectedAsset || !primaryWidget) return false;
-    if (primaryWidget.type === 'video-hero' || primaryWidget.type === 'interactive-video') return selectedAsset.kind === 'video';
-    if (primaryWidget.type === 'image-carousel' || primaryWidget.type === 'interactive-gallery' || primaryWidget.type === 'shoppable-sidebar') return selectedAsset.kind === 'image';
-    if (['text', 'cta', 'badge'].includes(primaryWidget.type)) return selectedAsset.kind === 'font';
-    return selectedAsset.kind === 'image';
+    return acceptsAssetKind(getWidgetDefinition(primaryWidget.type), selectedAsset.kind as 'image' | 'video' | 'font');
   }, [primaryWidget, selectedAsset]);
+
+  const acceptedAssetKinds = useMemo(
+    () => (primaryWidget ? getAcceptedAssetKinds(getWidgetDefinition(primaryWidget.type)) : []),
+    [primaryWidget],
+  );
 
   function onDrop(event: DragEvent<HTMLDivElement>): void {
     event.preventDefault();
@@ -211,7 +215,7 @@ export function AssetLibrarySection({ controller }: { controller: LeftRailContro
     <>
       <input ref={fileInputRef} type="file" accept="image/*,video/*,.ttf,.otf,.woff,.woff2,font/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) handleFileUpload(file); event.currentTarget.value = ''; }} />
       <div className="left-card left-card--section">
-        <div className="meta-line" style={{ justifyContent: 'space-between' }}>
+        <div className="meta-line meta-line--between">
           <strong>Assets</strong>
           <span className="pill">{assetCounts.all}</span>
         </div>
@@ -233,7 +237,7 @@ export function AssetLibrarySection({ controller }: { controller: LeftRailContro
           <strong>Drop images, videos, or fonts here</strong>
           <small className="muted">Upload direct to the library, then reuse them across widgets.</small>
         </div>
-        <div className="field-stack" style={{ marginTop: 10 }}>
+        <div className="field-stack section-offset-top">
           <input placeholder="Search assets" value={assetQuery} onChange={(event) => setAssetQuery(event.target.value)} />
           <div className="asset-filter-chips">
             {([
@@ -247,7 +251,7 @@ export function AssetLibrarySection({ controller }: { controller: LeftRailContro
             ))}
           </div>
           {assetCounts.processing ? <small className="muted">{assetCounts.processing} asset{assetCounts.processing === 1 ? '' : 's'} still processing. The library will refresh automatically.</small> : null}
-          <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <div className="asset-settings-grid">
             <select value={assetSort} onChange={(event) => setAssetSort(event.target.value as typeof assetSort)}>
               <option value="recent">Newest first</option>
               <option value="name">Name</option>
@@ -340,15 +344,15 @@ export function AssetLibrarySection({ controller }: { controller: LeftRailContro
             const selectedDerivativeSize = selectedDerivative?.sizeBytes ? formatAssetMetaBytes(selectedDerivative.sizeBytes) : null;
             return (
               <div className="asset-detail-card">
-                <div className="meta-line" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>Selected asset</strong>
+                <div className="meta-line asset-detail-head">
+                  <div className="asset-detail-title">
+                    <strong>Selected asset</strong>
                     <small className="muted">{describeAssetSource(selectedAsset.sourceType, selectedAsset.storageMode)} · {selectedAsset.accessScope ?? 'client'}</small>
                   </div>
                   <span className="pill">{new Date(selectedAsset.createdAt).toLocaleDateString()}</span>
                 </div>
                 <div className="asset-detail-preview">{assetPreview(selectedAsset, resolveAssetPreviewUrl(selectedAsset))}</div>
-                <div className="field-stack" style={{ marginTop: 10 }}>
+                <div className="field-stack section-offset-top">
                   <div>
                     <label>Name</label>
                     <div className="asset-inline-actions">
@@ -356,7 +360,7 @@ export function AssetLibrarySection({ controller }: { controller: LeftRailContro
                       <button className="chip" disabled={!canUpdateAssets || !renameDraft.trim() || renameDraft.trim() === selectedAsset.name} onClick={() => void renameSelectedAsset(renameDraft)}>Save</button>
                     </div>
                   </div>
-                  <div className="meta-line" style={{ gap: 8, flexWrap: 'wrap' }}>
+                  <div className="meta-line meta-line--gap-md">
                     <span className="pill">{selectedAsset.kind}</span>
                     {dimensions ? <span className="pill">{dimensions}</span> : null}
                     {sizeLabel ? <span className="pill">{sizeLabel}</span> : null}
@@ -391,12 +395,12 @@ export function AssetLibrarySection({ controller }: { controller: LeftRailContro
                   {processingHistory.length ? (
                     <div>
                       <label>Job history</label>
-                      <div className="field-stack" style={{ gap: 6 }}>
+                      <div className="field-stack asset-history-list">
                         {processingHistory.map((entry, index) => (
-                          <div key={`${entry.label}-${entry.at ?? index}`} className="meta-line" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                            <div style={{ minWidth: 0 }}>
-                              <strong style={{ fontSize: 12 }}>{entry.label}</strong>
-                              {entry.detail ? <small className="muted" style={{ display: 'block' }}>{entry.detail}</small> : null}
+                          <div key={`${entry.label}-${entry.at ?? index}`} className="meta-line asset-history-item">
+                            <div className="asset-history-copy">
+                              <strong className="asset-history-label">{entry.label}</strong>
+                              {entry.detail ? <small className="muted content-caption-block">{entry.detail}</small> : null}
                             </div>
                             {entry.at ? <span className="pill">{new Date(entry.at).toLocaleString()}</span> : null}
                           </div>
@@ -422,7 +426,7 @@ export function AssetLibrarySection({ controller }: { controller: LeftRailContro
                     </div>
                   ) : null}
                   <div className="rail-action-grid">
-                    <button className="left-button compact-action" disabled={!selectedWidgetAcceptsAsset || !compatibleWithSelection} onClick={() => assignAsset(selectedAsset)}>{primaryWidget?.type === 'video-hero' ? 'Use on selected video' : primaryWidget?.type === 'image-carousel' ? 'Add to carousel' : primaryWidget?.type === 'interactive-gallery' ? 'Add to gallery' : primaryWidget?.type === 'shoppable-sidebar' ? 'Add product' : ['text', 'cta', 'badge'].includes(primaryWidget?.type ?? '') ? 'Use on selected text' : 'Use on selected image'}</button>
+                    <button className="left-button compact-action" disabled={!selectedWidgetAcceptsAsset || !compatibleWithSelection} onClick={() => assignAsset(selectedAsset)}>{primaryWidget?.type === 'video-hero' || primaryWidget?.type === 'interactive-video' ? 'Use on selected video' : primaryWidget?.type === 'image-carousel' ? 'Add to carousel' : primaryWidget?.type === 'interactive-gallery' ? 'Add to gallery' : primaryWidget?.type === 'shoppable-sidebar' ? 'Add product' : acceptedAssetKinds.includes('font') ? 'Use on selected text' : 'Use on selected image'}</button>
                     {reprocessable ? (
                       <button className="left-button compact-action" disabled={!canUpdateAssets || assetBusy} onClick={() => { void reprocessSelectedAsset(); }}>
                         Retry processing

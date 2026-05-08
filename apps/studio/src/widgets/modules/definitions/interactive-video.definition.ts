@@ -2,11 +2,13 @@ import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderInteractiveVideoStage } from '../interactive-video.renderer';
 import { InteractiveVideoInspector } from '../interactive-video.inspector';
+import { InteractiveVideoThumb } from '../../registry/widget-thumbnails';
 
 export const InteractiveVideoDefinition = createModuleDefinition({
   type: 'interactive-video',
   label: 'Interactive Video',
   category: 'media',
+  thumbnail: InteractiveVideoThumb,
   frame: { x: 40, y: 40, width: 320, height: 568, rotation: 0 },
   props: {
     title: 'Interactive Video',
@@ -84,7 +86,7 @@ export const InteractiveVideoDefinition = createModuleDefinition({
     customHtmlWidthPct: 80,
     customHtmlHeightPct: 40,
     skipCountingLabel: 'Skip in {seconds}',
-    skipLabel: 'Skip Ad ›',
+    skipLabel: 'Skip Ad',
     skipPosition: 'bottom-right',
   },
   style: {
@@ -166,7 +168,7 @@ export const InteractiveVideoDefinition = createModuleDefinition({
       customHtmlWidthPct: Number(node.props.customHtmlWidthPct ?? 80),
       customHtmlHeightPct: Number(node.props.customHtmlHeightPct ?? 40),
       skipCountingLabel: String(node.props.skipCountingLabel ?? 'Skip in {seconds}'),
-      skipLabel: String(node.props.skipLabel ?? 'Skip Ad ›'),
+      skipLabel: String(node.props.skipLabel ?? 'Skip Ad'),
       skipPosition: String(node.props.skipPosition ?? 'bottom-right'),
     },
   }),

@@ -13,6 +13,7 @@ type StageSurfaceProps = {
   widgets: WidgetNode[];
   selectedIds: string[];
   previewMode: boolean;
+  editModeWireframe: boolean;
   zoom: number;
   playheadMs: number;
   sceneDurationMs: number;
@@ -45,6 +46,7 @@ export function StageSurface({
   widgets,
   selectedIds,
   previewMode,
+  editModeWireframe,
   zoom,
   playheadMs,
   sceneDurationMs,
@@ -107,6 +109,7 @@ export function StageSurface({
             opacity={getLiveWidgetOpacity(widget, playheadMs)}
             showBadge={showWidgetBadges}
             previewMode={previewMode}
+            editModeWireframe={editModeWireframe}
             playheadMs={playheadMs}
             sceneDurationMs={sceneDurationMs}
             hovered={hoveredWidgetId === widget.id}

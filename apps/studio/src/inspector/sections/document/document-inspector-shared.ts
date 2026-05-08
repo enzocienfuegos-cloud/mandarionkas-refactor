@@ -6,8 +6,8 @@ import { usePlatformSnapshot } from '../../../platform/runtime';
 
 export type DocumentInspectorTab = 'overview' | 'data' | 'collab';
 
-export function useDocumentInspectorTab(initial: DocumentInspectorTab = 'overview') {
-  return useState<DocumentInspectorTab>(initial);
+export function useDocumentInspectorTab(initial: DocumentInspectorTab | string = 'overview') {
+  return useState<string>(initial);
 }
 
 export function useDocumentInspectorContext() {

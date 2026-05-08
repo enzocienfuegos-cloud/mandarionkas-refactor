@@ -29,6 +29,7 @@ export type StudioCommand =
   | { type: 'SET_PLAYHEAD'; playheadMs: number }
   | { type: 'SET_PLAYING'; isPlaying: boolean }
   | { type: 'SET_PREVIEW_MODE'; previewMode: boolean }
+  | { type: 'SET_EDIT_MODE_WIREFRAME'; enabled: boolean }
   | { type: 'SET_LEFT_TAB'; tab: import('../../domain/document/types').StudioState['ui']['activeLeftTab'] }
   | { type: 'SET_STAGE_BACKDROP'; stageBackdrop: import('../../domain/document/types').StudioState['ui']['stageBackdrop'] }
   | { type: 'SET_STAGE_RULERS'; enabled: boolean }

@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { renderCollapsedIfNeeded } from './shared-styles';
+import { ModuleMediaPlaceholder } from './render-icons';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -99,16 +101,7 @@ function CarouselCard({ slide, ctaLabel, isActive, cardW, imageH, cardRadius }: 
           ? slide.kind === 'video'
             ? <video src={slide.src} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : <img src={slide.src} alt={slide.title} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : (
-            <div style={{
-              position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center',
-              color: '#b0b8c1', fontSize: 11, fontFamily: 'sans-serif', gap: 4,
-            }}>
-              <span style={{ fontSize: 20 }}>{slide.kind === 'video' ? '▶' : '◻'}</span>
-              <span>{slide.kind === 'video' ? 'Video' : 'Image'}</span>
-            </div>
-          )
+          : <ModuleMediaPlaceholder kind={slide.kind} label={slide.kind === 'video' ? 'Video' : 'Image'} color="#b0b8c1" iconSize={20} />
         }
       </div>
 
@@ -255,7 +248,10 @@ function MetaCarouselRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 16, color: '#050505', zIndex: 2, lineHeight: 1,
             }}
-          >‹</button>
+            aria-label="Previous slide"
+          >
+            <StudioIcon icon={StudioIcons.chevronLeft} size={16} strokeWidth={2.4} />
+          </button>
         )}
 
         {/* Arrow next */}
@@ -270,7 +266,10 @@ function MetaCarouselRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 16, color: '#050505', zIndex: 2, lineHeight: 1,
             }}
-          >›</button>
+            aria-label="Next slide"
+          >
+            <StudioIcon icon={StudioIcons.chevronRight} size={16} strokeWidth={2.4} />
+          </button>
         )}
       </div>
 

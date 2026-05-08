@@ -1,11 +1,13 @@
 import type { StudioCommand } from '../../../commands/types';
 import type { StudioState, WidgetNode } from '../../../../domain/document/types';
 import { cloneActionsForWidgetMap, cloneWidget, computeGroupFrame, createId, currentScene, getSelectedWidgets, normalizeSceneOrdering, removeActionsForWidgets, withDirty } from './shared';
+import { getCapability } from '../../../../widgets/registry/widget-definition';
+import { getWidgetDefinition } from '../../../../widgets/registry/widget-registry';
 
 export function widgetStructureReducer(state: StudioState, command: StudioCommand): StudioState {
   switch (command.type) {
     case 'GROUP_SELECTED_WIDGETS': {
-      const selected = getSelectedWidgets(state).filter((widget) => widget.type !== 'group' && !widget.parentId);
+      const selected = getSelectedWidgets(state).filter((widget) => !getCapability(getWidgetDefinition(widget.type), 'isContainer') && !widget.parentId);
       const scene = currentScene(state);
       if (!scene || selected.length < 2) return state;
       const widgets = { ...state.document.widgets };
@@ -36,7 +38,7 @@ export function widgetStructureReducer(state: StudioState, command: StudioComman
       });
     }
     case 'UNGROUP_SELECTED_WIDGETS': {
-      const selectedGroups = getSelectedWidgets(state).filter((widget) => widget.type === 'group');
+      const selectedGroups = getSelectedWidgets(state).filter((widget) => getCapability(getWidgetDefinition(widget.type), 'isContainer'));
       if (!selectedGroups.length) return state;
       const widgets = { ...state.document.widgets };
       const selectionIds: string[] = [];

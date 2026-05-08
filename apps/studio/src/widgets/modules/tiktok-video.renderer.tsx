@@ -3,6 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import type { WidgetNode } from '../../domain/document/types';
 import { moduleShellEdit } from './shared-styles';
+import { PlayOverlayIcon, VerifiedBadgeIcon } from './render-icons';
 
 type Heart = {
   id: number;
@@ -331,9 +332,7 @@ function TikTokVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderConte
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 60, padding: '0 14px 16px', zIndex: 10 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 5, textShadow: '0 1px 4px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: 5 }}>
           @{username}
-          {showVerified ? (
-            <span style={{ width: 14, height: 14, background: '#20d5ec', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#000', fontWeight: 900, flexShrink: 0 }}>✓</span>
-          ) : null}
+          {showVerified ? <VerifiedBadgeIcon /> : null}
         </div>
 
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', lineHeight: 1.45, marginBottom: 8, textShadow: '0 1px 4px rgba(0,0,0,0.4)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -370,7 +369,7 @@ function TikTokVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderConte
 
       {isPaused ? (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 15, fontSize: 48, color: '#fff', pointerEvents: 'none' }}>
-          ▶
+          <PlayOverlayIcon />
         </div>
       ) : null}
 

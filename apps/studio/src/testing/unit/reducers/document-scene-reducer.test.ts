@@ -25,4 +25,27 @@ describe('documentSceneReducer', () => {
     expect(next.document.canvas.height).toBe(90);
     expect(next.document.canvas.presetId).toBe('custom');
   });
+
+  it('offsets duplicated scene canvas positions to avoid overlap in story flow canvas', () => {
+    const base = createInitialState();
+    const sourceScene = {
+      ...base.document.scenes[0],
+      flow: {
+        ...base.document.scenes[0].flow,
+        canvas: { x: 120, y: 80 },
+      },
+    };
+    const state = {
+      ...base,
+      document: {
+        ...base.document,
+        scenes: [sourceScene],
+      },
+    };
+
+    const next = documentSceneReducer(state, { type: 'DUPLICATE_SCENE', sceneId: sourceScene.id });
+    const clonedScene = next.document.scenes.at(-1);
+
+    expect(clonedScene?.flow?.canvas).toEqual({ x: 160, y: 120 });
+  });
 });

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { formatTime, ROW_GUTTER } from '../timeline-utils';
 
 export function TimelineRuler({
@@ -17,15 +18,26 @@ export function TimelineRuler({
   snapGuideMs?: number;
   onPointerDown: (clientX: number, startMs: number) => void;
 }): JSX.Element {
+  const rulerStyle = {
+    '--timeline-ruler-left': `${ROW_GUTTER}px`,
+    '--timeline-track-width': `${trackWidth}px`,
+    '--timeline-playhead-left': `${playheadLeft}px`,
+    '--timeline-snap-guide-left': snapGuideMs !== undefined ? `${snapGuideMs * rowMsToPx}px` : undefined,
+  } as CSSProperties;
+
   return (
-    <div className="timeline-ruler" style={{ left: ROW_GUTTER, width: trackWidth }} onPointerDown={(event) => onPointerDown(event.clientX, playheadMs)}>
+    <div className="timeline-ruler" style={rulerStyle} onPointerDown={(event) => onPointerDown(event.clientX, playheadMs)}>
       {rulerTicks.map((tick) => (
-        <div key={tick.atMs} className={`ruler-tick ${tick.isMajor ? 'is-major' : 'is-minor'}`} style={{ left: tick.atMs * rowMsToPx }}>
+        <div
+          key={tick.atMs}
+          className={`ruler-tick ${tick.isMajor ? 'is-major' : 'is-minor'}`}
+          style={{ '--timeline-tick-left': `${tick.atMs * rowMsToPx}px` } as CSSProperties}
+        >
           {tick.isMajor ? <span>{formatTime(tick.atMs)}</span> : null}
         </div>
       ))}
-      {snapGuideMs !== undefined ? <div className="timeline-snap-guide" style={{ left: snapGuideMs * rowMsToPx }} /> : null}
-      <div className="timeline-playhead" style={{ left: playheadLeft }} />
+      {snapGuideMs !== undefined ? <div className="timeline-snap-guide" /> : null}
+      <div className="timeline-playhead" />
     </div>
   );
 }

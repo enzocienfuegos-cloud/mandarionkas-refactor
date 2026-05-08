@@ -2,11 +2,13 @@ import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderDragTokenPoolStage } from '../drag-token-pool.renderer';
 import { DragTokenPoolInspector } from '../drag-token-pool.inspector';
+import { DragTokenPoolThumb } from '../../registry/widget-thumbnails';
 
 export const DragTokenPoolDefinition = createModuleDefinition({
   type: 'drag-token-pool',
   label: 'Drag Token Pool',
   category: 'interactive',
+  thumbnail: DragTokenPoolThumb,
   frame: { x: 20, y: 20, width: 280, height: 96, rotation: 0 },
   props: { tokens: '[]', disabledIds: '', dropTargetId: '', tokenSize: 72, gap: 16 },
   style: { backgroundColor: 'transparent', accentColor: '#ffffff', color: '#ffffff' },

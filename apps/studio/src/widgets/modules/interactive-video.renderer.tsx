@@ -270,7 +270,7 @@ function InteractiveVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
         style={{ height: '100%' }}
         skipButtonConfig={{
           countingLabel: String(node.props.skipCountingLabel ?? 'Skip in {seconds}'),
-          skipLabel: String(node.props.skipLabel ?? 'Skip Ad ›'),
+          skipLabel: String(node.props.skipLabel ?? 'Skip Ad'),
           position: (String(node.props.skipPosition ?? 'bottom-right') as 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'),
         }}
       />

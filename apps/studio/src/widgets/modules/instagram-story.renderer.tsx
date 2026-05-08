@@ -3,6 +3,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { moduleShell, renderCollapsedIfNeeded } from './shared-styles';
 import { InstagramStoryInspector } from './instagram-story.inspector';
+import { ModuleMediaPlaceholder } from './render-icons';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -158,19 +159,7 @@ function StorySlide({
 
   if (!slide.src) {
     return (
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#1a1a1a',
-        color: '#555',
-        fontSize: 13,
-        fontFamily: 'sans-serif',
-      }}>
-        {slide.kind === 'video' ? '▶ Video not set' : '◻ Image not set'}
-      </div>
+      <ModuleMediaPlaceholder kind={slide.kind} background="#1a1a1a" color="#555555" />
     );
   }
 

@@ -7,6 +7,8 @@ import {
   type FolderTreeNode,
 } from './left-rail/use-asset-library-controller';
 import type { AssetRecord } from '../../assets/types';
+import { IconButton } from '../../shared/ui/IconButton';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 
 type AssetLibraryModalProps = {
   onClose: () => void;
@@ -26,7 +28,6 @@ function AssetThumb({ asset }: { asset: AssetRecord }): JSX.Element {
 
 type FolderTreeProps = {
   nodes: FolderTreeNode[];
-  depth: number;
   activeFolderId: string;
   draggedAssetIds: string[];
   dragOverFolderId: string | null;
@@ -38,7 +39,6 @@ type FolderTreeProps = {
 
 function FolderTreeItems({
   nodes,
-  depth,
   activeFolderId,
   draggedAssetIds,
   dragOverFolderId,
@@ -54,28 +54,28 @@ function FolderTreeItems({
           <button
             type="button"
             className={`asset-tree-item asset-tree-item--nested ${activeFolderId === folder.id ? 'is-active' : ''}`}
-            style={{ paddingLeft: `${16 + depth * 14}px` }}
             onClick={() => onActivate(folder.id)}
             onDragOver={(e) => { if (!draggedAssetIds.length) return; e.preventDefault(); onDragOver(folder.id); }}
             onDragLeave={() => onDragLeave(folder.id)}
             onDrop={(e) => { if (!draggedAssetIds.length) return; e.preventDefault(); onDrop(folder.id); }}
             data-drop-target={dragOverFolderId === folder.id ? 'true' : 'false'}
           >
-            <span>{folder.children.length ? '▾' : '▸'}</span>
+            <StudioIcon icon={folder.children.length ? StudioIcons.chevronDown : StudioIcons.chevronRight} size={14} />
             <span>{folder.name}</span>
           </button>
           {folder.children.length > 0 && (
-            <FolderTreeItems
-              nodes={folder.children}
-              depth={depth + 1}
-              activeFolderId={activeFolderId}
-              draggedAssetIds={draggedAssetIds}
-              dragOverFolderId={dragOverFolderId}
-              onActivate={onActivate}
-              onDragOver={onDragOver}
-              onDragLeave={onDragLeave}
-              onDrop={onDrop}
-            />
+            <div className="asset-tree-branch">
+              <FolderTreeItems
+                nodes={folder.children}
+                activeFolderId={activeFolderId}
+                draggedAssetIds={draggedAssetIds}
+                dragOverFolderId={dragOverFolderId}
+                onActivate={onActivate}
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+                onDrop={onDrop}
+              />
+            </div>
           )}
         </div>
       ))}
@@ -145,7 +145,7 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
               {...folderDragHandlers('__root__')}
               data-drop-target={lib.dragOverFolderId === '__root__' ? 'true' : 'false'}
             >
-              <span>▾</span>
+              <StudioIcon icon={StudioIcons.chevronDown} size={14} />
               <span>Assets</span>
             </button>
 
@@ -161,7 +161,6 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
             <div className="asset-tree-children">
               <FolderTreeItems
                 nodes={lib.folderTree}
-                depth={0}
                 activeFolderId={lib.activeFolderId}
                 draggedAssetIds={lib.draggedAssetIds}
                 dragOverFolderId={lib.dragOverFolderId}
@@ -255,16 +254,25 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
                   onClick={() => assetController.fileInputRef.current?.click()}
                   disabled={!assetController.canCreateAssets}
                 >
-                  + New
+                  <StudioIcon icon={StudioIcons.plus} size={16} />
+                  {' '}
+                  New
                 </button>
-                <button className="ghost compact-action" type="button" onClick={onClose}>✕</button>
+                <IconButton
+                  className="compact-action"
+                  variant="ghost"
+                  size="md"
+                  label="Close asset library"
+                  icon={<StudioIcon icon={StudioIcons.x} size={16} />}
+                  onClick={onClose}
+                />
               </div>
             </div>
 
             {/* Bulk selection */}
             <div className="asset-library-browser-section">
-              <div className="meta-line" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                <label className="checkbox-row" style={{ margin: 0 }}>
+              <div className="meta-line asset-browser-selection-row">
+                <label className="checkbox-row checkbox-row--flush">
                   <input
                     type="checkbox"
                     checked={lib.allVisibleSelected}
@@ -276,8 +284,8 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
               </div>
 
               {lib.selectedAssetIds.length > 0 ? (
-                <div className="asset-inline-actions" style={{ marginTop: 10, flexWrap: 'wrap' }}>
-                  <strong style={{ fontSize: 12 }}>Bulk actions</strong>
+                <div className="asset-bulk-actions">
+                  <strong className="asset-bulk-actions-title">Bulk actions</strong>
                   <select
                     value={lib.bulkTargetFolderId}
                     onChange={(e) => lib.setBulkTargetFolderId(e.target.value)}
@@ -304,7 +312,7 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
                   <button className="ghost compact-action" type="button" onClick={lib.clearSelection}>Clear selection</button>
                 </div>
               ) : (
-                <small className="muted" style={{ display: 'block', marginTop: 10 }}>
+                <small className="muted asset-browser-inline-hint">
                   Tip: use the checkboxes to select multiple assets, then move or delete them in bulk.
                 </small>
               )}
@@ -367,15 +375,15 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
                   <button
                     key={folder.id}
                     type="button"
-                    className={`asset-folder-card ${lib.activeFolderId === folder.id ? 'is-active' : ''}`}
+                    className={`asset-folder-card ${typeof folder.depth === 'number' && folder.depth > 0 ? 'asset-folder-card--depth' : ''} ${lib.activeFolderId === folder.id ? 'is-active' : ''}`}
                     onClick={() => lib.setActiveFolderId(folder.id)}
-                    style={typeof folder.depth === 'number' && folder.depth > 0 ? { marginLeft: `${folder.depth * 10}px` } : undefined}
+                    style={typeof folder.depth === 'number' && folder.depth > 0 ? { '--asset-folder-offset': `${folder.depth * 10}px` } as React.CSSProperties : undefined}
                     onDragOver={(e) => { if (!lib.draggedAssetIds.length || folder.id.startsWith('project:')) return; e.preventDefault(); lib.setDragOverFolderId(folder.id); }}
                     onDragLeave={() => lib.setDragOverFolderId((cur) => (cur === folder.id ? null : cur))}
                     onDrop={(e) => { if (!lib.draggedAssetIds.length || folder.id.startsWith('project:')) return; e.preventDefault(); lib.setDragOverFolderId(null); void lib.handleMoveAssetsToFolder(lib.draggedAssetIds, folder.id); }}
                     data-drop-target={lib.dragOverFolderId === folder.id ? 'true' : 'false'}
                   >
-                    <span className="asset-folder-icon">▣</span>
+                    <span className="asset-folder-icon"><StudioIcon icon={StudioIcons.folder} size={16} /></span>
                     <span className="asset-folder-name">{folder.name}</span>
                   </button>
                 ))}
@@ -430,8 +438,8 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
                       onDragStart={(e) => lib.handleDragStart(e, asset)}
                       onDragEnd={lib.handleDragEnd}
                     >
-                      <div className="meta-line" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                        <label className="checkbox-row" style={{ margin: 0 }}>
+                      <div className="meta-line asset-browser-card-head">
+                        <label className="checkbox-row checkbox-row--flush">
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -441,7 +449,7 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
                             }}
                             onClick={(e) => e.stopPropagation()}
                           />
-                          <span className="muted" style={{ fontSize: 11 }}>Select</span>
+                          <span className="muted asset-browser-select-copy">Select</span>
                         </label>
                         {isSelected && <span className="pill">Selected</span>}
                       </div>

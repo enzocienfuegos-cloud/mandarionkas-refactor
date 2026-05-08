@@ -2,11 +2,13 @@ import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderFourFacesStage } from '../four-faces.renderer';
 import { FourFacesInspector } from '../four-faces.inspector';
+import { FourFacesThumb } from '../../registry/widget-thumbnails';
 
 export const FourFacesDefinition = createModuleDefinition({
   type: 'four-faces',
   label: 'Four Faces',
   category: 'interactive',
+  thumbnail: FourFacesThumb,
   frame: { x: 40, y: 40, width: 320, height: 480, rotation: 0 },
   props: {
     title: 'Four Faces',

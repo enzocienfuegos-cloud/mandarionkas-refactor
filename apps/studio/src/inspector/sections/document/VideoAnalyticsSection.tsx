@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStudioStore } from '../../../core/store/use-studio-store';
+import { getCapability } from '../../../widgets/registry/widget-definition';
+import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
 import {
   getVideoAnalyticsSummary,
   listVideoAnalyticsEvents,
@@ -150,33 +152,16 @@ function MiniSeriesChart({
 
   return (
     <div className="field-stack">
-      <div className="meta-line" style={{ justifyContent: 'space-between' }}>
+      <div className="meta-line analytics-card-header">
         <small className="muted">{title}</small>
         <span className="pill">{total} events</span>
       </div>
 
-      <div
-        style={{
-          border: '1px solid rgba(120,144,168,0.2)',
-          borderRadius: 16,
-          padding: 12,
-          background: 'rgba(255,255,255,0.025)',
-          position: 'relative',
-        }}
-        onMouseLeave={() => setHoverPoint(null)}
-      >
+      <div className="analytics-card" onMouseLeave={() => setHoverPoint(null)}>
         {hoverPoint ? (
           <div
-            className="pill"
-            style={{
-              position: 'absolute',
-              right: 12,
-              top: 12,
-              zIndex: 1,
-              maxWidth: 220,
-              whiteSpace: 'normal',
-              borderColor: palette.line,
-            }}
+            className="pill analytics-hover-pill"
+            style={{ borderColor: palette.line }}
           >
             {formatBucket(hoverPoint.bucket, mode)} · {hoverPoint.count}
           </div>
@@ -212,7 +197,7 @@ function MiniSeriesChart({
           })}
         </svg>
 
-        <div className="meta-line" style={{ justifyContent: 'space-between', marginTop: 8 }}>
+        <div className="meta-line meta-line--between section-offset-top">
           <span className="pill">Peak {max}</span>
           <span className="pill">
             Latest {latest.count} · {formatBucket(latest.bucket, mode)}
@@ -220,35 +205,21 @@ function MiniSeriesChart({
         </div>
 
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${visiblePoints.length}, minmax(0, 1fr))`,
-            gap: 6,
-            marginTop: 10,
-          }}
+          className="analytics-bar-grid"
+          style={{ '--analytics-column-count': `${visiblePoints.length}` } as React.CSSProperties}
         >
           {visiblePoints.map((point) => (
-            <div
-              key={`bar-${mode}-${point.bucket}`}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-                alignItems: 'center',
-              }}
-            >
+            <div key={`bar-${mode}-${point.bucket}`} className="analytics-bar-column">
               <div
+                className="analytics-bar"
                 title={`${formatBucket(point.bucket, mode)} · ${point.count}`}
                 onMouseEnter={() => setHoverPoint(point)}
                 style={{
-                  width: '100%',
-                  minHeight: 8,
                   height: `${Math.max((point.count / max) * 42, 8)}px`,
-                  borderRadius: 999,
                   background: `linear-gradient(180deg, ${palette.barFrom}, ${palette.barTo})`,
                 }}
               />
-              <span style={{ fontSize: 10, opacity: 0.72, textAlign: 'center' }}>{point.count}</span>
+              <span className="analytics-bar-count">{point.count}</span>
             </div>
           ))}
         </div>
@@ -270,7 +241,7 @@ export function VideoAnalyticsSection(): JSX.Element {
 
   const videoWidgetOptions = useMemo(() => (
     Object.values(widgets)
-      .filter((widget) => widget.type === 'interactive-video')
+      .filter((widget) => getCapability(getWidgetDefinition(widget.type), 'hasVideoAnalytics'))
       .map((widget) => ({ id: widget.id, label: widget.name, sceneId: widget.sceneId }))
   ), [widgets]);
 
@@ -389,7 +360,7 @@ export function VideoAnalyticsSection(): JSX.Element {
       </div>
 
       {error ? (
-        <div className="pill" style={{ borderColor: 'rgba(239,68,68,.45)' }}>
+        <div className="pill pill--danger">
           analytics error · {error}
         </div>
       ) : null}
@@ -406,50 +377,28 @@ export function VideoAnalyticsSection(): JSX.Element {
       </div>
 
       <div className="field-stack">
-        <div className="meta-line" style={{ justifyContent: 'space-between' }}>
+        <div className="meta-line meta-line--between">
           <small className="muted">Event comparison</small>
           <span className="pill">{selectedEventName ? `Focused on ${selectedEventName}` : 'Key video events'}</span>
         </div>
         {comparedEvents.length === 0 ? (
           <div className="pill">No comparable events yet</div>
         ) : (
-          <div
-            style={{
-              border: '1px solid rgba(120,144,168,0.2)',
-              borderRadius: 16,
-              padding: 12,
-              background: 'rgba(255,255,255,0.025)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-            }}
-          >
+          <div className="analytics-compare-card">
             {comparedEvents.map((item) => {
               const palette = getEventPalette(item.eventName);
               const width = `${Math.max((item.count / comparedPeak) * 100, 6)}%`;
               const share = summary?.totalEvents ? Math.round((item.count / summary.totalEvents) * 100) : 0;
               return (
-                <div key={`compare-${item.eventName}`} className="field-stack" style={{ gap: 6 }}>
-                  <div className="meta-line" style={{ justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>{item.eventName}</span>
+                <div key={`compare-${item.eventName}`} className="field-stack analytics-compare-item">
+                  <div className="meta-line analytics-compare-head">
+                    <span className="analytics-compare-label">{item.eventName}</span>
                     <span className="pill">{item.count} · {share}%</span>
                   </div>
-                  <div
-                    style={{
-                      width: '100%',
-                      height: 10,
-                      borderRadius: 999,
-                      background: 'rgba(148,163,184,0.12)',
-                      overflow: 'hidden',
-                    }}
-                  >
+                  <div className="analytics-compare-track">
                     <div
-                      style={{
-                        width,
-                        height: '100%',
-                        borderRadius: 999,
-                        background: `linear-gradient(90deg, ${palette.barFrom}, ${palette.barTo})`,
-                      }}
+                      className="analytics-compare-fill"
+                      style={{ width, background: `linear-gradient(90deg, ${palette.barFrom}, ${palette.barTo})` }}
                     />
                   </div>
                 </div>
@@ -489,13 +438,13 @@ export function VideoAnalyticsSection(): JSX.Element {
         {events.length === 0 ? (
           <div className="pill">Play the interactive video in preview to generate analytics.</div>
         ) : events.slice(0, 12).map((event) => (
-          <div key={event.id} className="pill" style={{ display: 'block', whiteSpace: 'normal' }}>
+          <div key={event.id} className="pill analytics-stream-pill">
             <strong>{event.eventName}</strong> · {formatDate(event.createdAt)}
-            <div style={{ opacity: 0.72, marginTop: 2 }}>
+            <div className="content-caption-block content-caption-block--muted content-caption-block--spaced-sm">
               scene {event.sceneId ?? 'n/a'} · widget {widgets[event.widgetId ?? '']?.name ?? event.widgetId ?? 'n/a'}
             </div>
             {event.metadata && Object.keys(event.metadata).length > 0 ? (
-              <div style={{ opacity: 0.72, marginTop: 4, wordBreak: 'break-word' }}>
+              <div className="content-caption-block content-caption-block--muted content-caption-block--spaced-md" style={{ wordBreak: 'break-word' }}>
                 {JSON.stringify(event.metadata)}
               </div>
             ) : null}

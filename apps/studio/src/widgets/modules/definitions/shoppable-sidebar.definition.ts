@@ -3,11 +3,13 @@ import { createModuleDefinition } from '../module-definition-factory';
 import { renderShoppableSidebarExport } from '../export-renderers';
 import { renderShoppableSidebarStage } from '../shoppable-sidebar.renderer';
 import { ShoppableSidebarInspector } from '../shoppable-sidebar.inspector';
+import { ShoppableSidebarThumb } from '../../registry/widget-thumbnails';
 
 export const ShoppableSidebarDefinition = createModuleDefinition({
   type: 'shoppable-sidebar',
   label: 'Shoppable Sidebar',
   category: 'interactive',
+  thumbnail: ShoppableSidebarThumb,
   frame: { x: 80, y: 50, width: 320, height: 180, rotation: 0 },
   props: {
     title: 'Shop the look',

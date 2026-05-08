@@ -252,7 +252,7 @@ export function InteractiveVideoInspector({ node }: { node: WidgetNode }): JSX.E
             </div>
             <div>
               <label>Skip label</label>
-              <input value={String(node.props.skipLabel ?? 'Skip Ad ›')} onChange={(event) => updateWidgetProps(node.id, { skipLabel: event.target.value })} />
+              <input value={String(node.props.skipLabel ?? 'Skip Ad')} onChange={(event) => updateWidgetProps(node.id, { skipLabel: event.target.value })} />
             </div>
           </div>
           <div>

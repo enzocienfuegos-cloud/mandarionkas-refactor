@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { ActionTrigger, VideoWidgetData } from '@smx/contracts';
-import { createVideoJsAdapter } from './VideoJsAdapter';
 import type { IVideoPlayer } from './IVideoPlayer';
 import { useVideoSync } from './useVideoSync';
 import { VideoOverlayLayer } from './VideoOverlayLayer';
-import { useOverlayVisibility } from './useOverlayVisibility';
-
-import 'video.js/dist/video-js.css';
 
 export interface VideoWidgetRendererProps {
   widget: VideoWidgetData;
@@ -36,22 +32,36 @@ export function VideoWidgetRenderer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [player, setPlayer] = useState<IVideoPlayer | null>(null);
   const [videoCurrentTimeMs, setVideoCurrentTimeMs] = useState(0);
+  const [videoRuntimeLoading, setVideoRuntimeLoading] = useState(false);
 
   useEffect(() => {
     const element = videoRef.current;
     if (!element) return;
+    let cancelled = false;
+    let adapter: IVideoPlayer | null = null;
 
-    const adapter = createVideoJsAdapter(element, {
-      muted: widget.controls.startMuted,
-      loop: widget.controls.loop,
-      controls: widget.controls.showControls,
-    });
-
-    setPlayer(adapter);
-    onPlayerReady?.(adapter);
+    const loadRuntime = async () => {
+      setVideoRuntimeLoading(true);
+      try {
+        await import('video.js/dist/video-js.css');
+        const { createVideoJsAdapter } = await import('./VideoJsAdapter');
+        if (cancelled) return;
+        adapter = createVideoJsAdapter(element, {
+          muted: widget.controls.startMuted,
+          loop: widget.controls.loop,
+          controls: widget.controls.showControls,
+        });
+        setPlayer(adapter);
+        onPlayerReady?.(adapter);
+      } finally {
+        if (!cancelled) setVideoRuntimeLoading(false);
+      }
+    };
+    void loadRuntime();
 
     return () => {
-      adapter.dispose();
+      cancelled = true;
+      adapter?.dispose();
       setPlayer(null);
       onPlayerReady?.(null);
     };
@@ -151,6 +161,24 @@ export function VideoWidgetRenderer({
         aria-label={widget.ariaLabel ?? 'Video player'}
         playsInline
       />
+      {videoRuntimeLoading && !player ? (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'grid',
+            placeItems: 'center',
+            background: 'rgba(0,0,0,0.24)',
+            color: '#ffffff',
+            fontSize: 12,
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            pointerEvents: 'none',
+          }}
+        >
+          Loading video…
+        </div>
+      ) : null}
       <VideoOverlayLayer
         overlays={widget.overlays}
         videoCurrentTimeMs={videoCurrentTimeMs}

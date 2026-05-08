@@ -58,6 +58,12 @@ export function documentSceneReducer(state: StudioState, command: StudioCommand)
       sceneClone.durationMs = source.durationMs;
       sceneClone.conditions = JSON.parse(JSON.stringify(source.conditions ?? {}));
       sceneClone.flow = JSON.parse(JSON.stringify(source.flow ?? {}));
+      if (sceneClone.flow?.canvas) {
+        sceneClone.flow.canvas = {
+          x: sceneClone.flow.canvas.x + 40,
+          y: sceneClone.flow.canvas.y + 40,
+        };
+      }
       sceneClone.widgetIds = source.widgetIds.map((widgetId) => {
         const original = state.document.widgets[widgetId];
         if (!original) return '';

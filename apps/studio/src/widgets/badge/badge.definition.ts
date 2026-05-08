@@ -1,6 +1,7 @@
 import { createId } from '../../domain/document/factories';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
 import { getBaseWidgetStyle, escapeHtml } from '../registry/export-helpers';
+import { BadgeThumb } from '../registry/widget-thumbnails';
 import { renderBadgeWidget } from './badge.renderer';
 
 function renderBadgeExport(node: import('../../domain/document/types').WidgetNode): string {
@@ -14,6 +15,7 @@ export const badgeDefinition: WidgetDefinition = {
   type: 'badge',
   label: 'Badge',
   category: 'content',
+  thumbnail: BadgeThumb,
   defaults: (sceneId, zIndex) => ({
     id: createId('badge'),
     type: 'badge',
@@ -44,6 +46,11 @@ export const badgeDefinition: WidgetDefinition = {
     { key: 'text', label: 'Label', type: 'text' },
     { key: 'icon', label: 'Icon', type: 'text' },
   ],
+  capabilities: {
+    acceptsFontAsset: true,
+    acceptsAssetSwap: true,
+    exposesActions: true,
+  },
   renderStage: renderBadgeWidget,
   renderExport: (node) => renderBadgeExport(node),
   renderLabel: (node) => String(node.props.text ?? node.name),

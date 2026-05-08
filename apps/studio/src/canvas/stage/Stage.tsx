@@ -12,10 +12,14 @@ import { StageRulers } from './components/StageRulers';
 import { StageFloatingToolbar } from './components/StageFloatingToolbar';
 import { StageSurface } from './components/StageSurface';
 import { StageSelectionToolbar } from './components/StageSelectionToolbar';
+import { clampFloatingPanelPosition } from './components/stage-utils';
 import type { WidgetNode } from '../../domain/document/types';
 import { usePlatformPermission } from '../../platform/runtime';
 import { getLiveWidgetFrame } from '../../domain/document/timeline';
 import { useDocumentActions } from '../../hooks/use-studio-actions';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
+import { getCapability } from '../../widgets/registry/widget-definition';
+import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
 import { buildWidgetClipboardPayload, getWidgetClipboardPayload, setWidgetClipboardPayload } from './widget-clipboard';
 import {
   createStageInteractionProps,
@@ -27,6 +31,14 @@ import {
   isWithinStageToolbarTarget,
   STAGE_INTERACTION,
 } from './stage-interaction-targets';
+import {
+  readEditModeWireframePreference,
+  writeEditModeWireframePreference,
+} from './stage-view-preferences';
+import {
+  STAGE_BACKGROUND_SWATCHES,
+  TRANSPARENT_CANVAS_BACKGROUND,
+} from '../../domain/document/canvas-presets';
 
 const stageWrap: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '100%' };
 
@@ -35,14 +47,14 @@ type StageProps = {
 };
 
 export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
-  const BACKGROUND_SWATCHES = ['#111827', '#ffffff', '#0f172a', '#f59e0b', '#ef4444', '#2563eb'] as const;
-  const TRANSPARENT_BACKGROUND = 'transparent';
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const canvasQuickPanelRef = useRef<HTMLDivElement | null>(null);
+  const didRestoreWireframePreferenceRef = useRef(false);
   const dragStateRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
   const [workspaceViewport, setWorkspaceViewport] = useState({ width: 0, height: 0 });
+  const [toolbarBounds, setToolbarBounds] = useState({ width: 520, height: 176 });
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [showCanvasQuickPanel, setShowCanvasQuickPanel] = useState(false);
@@ -77,7 +89,21 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     widgetActions,
   } = useStageController(workspaceRef, stageRef);
 
-  const { canvas, scene, widgets, selectedIds, zoom, playheadMs, previewMode, hoveredWidgetId, activeWidgetId, stageBackdrop, showStageRulers, showWidgetBadges } = stageState;
+  const {
+    canvas,
+    scene,
+    widgets,
+    selectedIds,
+    zoom,
+    playheadMs,
+    previewMode,
+    editModeWireframe,
+    hoveredWidgetId,
+    activeWidgetId,
+    stageBackdrop,
+    showStageRulers,
+    showWidgetBadges,
+  } = stageState;
   const selectedWidget = !previewMode && selectedIds.length === 1 ? widgets.find((widget) => widget.id === selectedIds[0]) : undefined;
 
   useEffect(() => {
@@ -130,6 +156,12 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
         return;
       }
 
+      if (!isMeta && lowerKey === 'w') {
+        event.preventDefault();
+        uiActions.setEditModeWireframe(!editModeWireframe);
+        return;
+      }
+
       if ((event.key !== 'Delete' && event.key !== 'Backspace') || !selectedIds.length) return;
       event.preventDefault();
       widgetActions.deleteSelected();
@@ -137,13 +169,43 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedIds, widgetActions]);
+  }, [editModeWireframe, selectedIds, uiActions, widgetActions]);
 
   useEffect(() => {
     const nextX = Math.max(32, Math.round(workspaceViewport.width / 2 - 240));
     const nextY = Math.max(24, workspaceViewport.height - 130);
     setToolbarPosition((current) => current.x === 0 && current.y === 0 ? { x: nextX, y: nextY } : current);
   }, [workspaceViewport.width, workspaceViewport.height]);
+
+  useEffect(() => {
+    const element = toolbarRef.current;
+    if (!element) return;
+
+    const updateToolbarBounds = () => {
+      setToolbarBounds({
+        width: Math.ceil(element.offsetWidth),
+        height: Math.ceil(element.offsetHeight),
+      });
+    };
+
+    updateToolbarBounds();
+    const resizeObserver = new ResizeObserver(updateToolbarBounds);
+    resizeObserver.observe(element);
+    return () => resizeObserver.disconnect();
+  }, [toolbarCollapsed]);
+
+  useEffect(() => {
+    if (didRestoreWireframePreferenceRef.current) return;
+    didRestoreWireframePreferenceRef.current = true;
+    const persisted = readEditModeWireframePreference(editModeWireframe);
+    if (persisted !== editModeWireframe) {
+      uiActions.setEditModeWireframe(persisted);
+    }
+  }, [editModeWireframe, uiActions]);
+
+  useEffect(() => {
+    writeEditModeWireframePreference(editModeWireframe);
+  }, [editModeWireframe]);
 
   useEffect(() => {
     if (previewMode || selectedIds.length > 0) {
@@ -164,10 +226,18 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     };
   }, [liveFrameById, playheadMs, selectedWidget, zoom, workspaceViewport.width, workspaceViewport.height]);
 
-  const clampToolbarPosition = (x: number, y: number) => ({
-    x: Math.max(12, Math.min(x, Math.max(12, workspaceViewport.width - 520))),
-    y: Math.max(12, Math.min(y, Math.max(12, workspaceViewport.height - (toolbarCollapsed ? 68 : 176)))),
-  });
+  const clampToolbarPosition = (x: number, y: number) => clampFloatingPanelPosition(
+    { x, y },
+    workspaceViewport,
+    toolbarBounds,
+  );
+
+  useEffect(() => {
+    setToolbarPosition((current) => {
+      if (current.x === 0 && current.y === 0) return current;
+      return clampToolbarPosition(current.x, current.y);
+    });
+  }, [toolbarBounds.height, toolbarBounds.width, workspaceViewport.height, workspaceViewport.width]);
 
   const beginToolbarDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
@@ -207,7 +277,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
   const toolbarStyle: CSSProperties = { left: toolbarPosition.x, top: toolbarPosition.y, transform: 'none' };
 
   const openAssetPicker = (widget: WidgetNode) => {
-    if (widget.type !== 'image' && widget.type !== 'hero-image' && widget.type !== 'video-hero' && widget.type !== 'image-carousel' && widget.type !== 'interactive-gallery' && widget.type !== 'shoppable-sidebar') return;
+    if (!getCapability(getWidgetDefinition(widget.type), 'acceptsAssetSwap')) return;
     widgetActions.setActiveWidget(widget.id);
     onOpenAssetLibrary();
   };
@@ -241,6 +311,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
               widgets={widgets}
               selectedIds={selectedIds}
               previewMode={previewMode}
+              editModeWireframe={editModeWireframe}
               zoom={zoom}
               playheadMs={playheadMs}
               sceneDurationMs={scene.durationMs}
@@ -299,19 +370,22 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
                 <div className="stage-canvas-quick-panel__swatches">
                   <button
                     type="button"
-                    className={`stage-canvas-quick-panel__swatch stage-canvas-quick-panel__swatch--transparent ${canvas.backgroundColor === TRANSPARENT_BACKGROUND ? 'is-active' : ''}`}
-                    title="Hide canvas background"
-                    onClick={() => documentActions.updateCanvasBackground(TRANSPARENT_BACKGROUND)}
+                    className={`stage-canvas-quick-panel__swatch stage-canvas-quick-panel__swatch--transparent ${canvas.backgroundColor === TRANSPARENT_CANVAS_BACKGROUND ? 'is-active' : ''}`}
+                    aria-label="Use transparent canvas background"
+                    onClick={() => documentActions.updateCanvasBackground(TRANSPARENT_CANVAS_BACKGROUND)}
                   >
-                    ∅
+                    <span className="stage-canvas-quick-panel__swatch-icon" aria-hidden="true">
+                      <StudioIcon icon={StudioIcons.x} size={14} />
+                    </span>
+                    <span className="stage-canvas-quick-panel__swatch-label">Transparent</span>
                   </button>
-                  {BACKGROUND_SWATCHES.map((swatch) => (
+                  {STAGE_BACKGROUND_SWATCHES.map((swatch) => (
                     <button
                       key={swatch}
                       type="button"
                       className={`stage-canvas-quick-panel__swatch ${canvas.backgroundColor.toLowerCase() === swatch.toLowerCase() ? 'is-active' : ''}`}
                       style={{ background: swatch }}
-                      title={`Use ${swatch}`}
+                      aria-label={`Use ${swatch}`}
                       onClick={() => documentActions.updateCanvasBackground(swatch)}
                     />
                   ))}
@@ -321,7 +395,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
                   <input
                     type="color"
                     aria-label="Canvas background color"
-                    value={canvas.backgroundColor === TRANSPARENT_BACKGROUND ? '#ffffff' : canvas.backgroundColor}
+                    value={canvas.backgroundColor === TRANSPARENT_CANVAS_BACKGROUND ? '#ffffff' : canvas.backgroundColor}
                     onChange={(event) => documentActions.updateCanvasBackground(event.target.value)}
                   />
                 </label>
@@ -353,6 +427,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
         stageBackdrop={stageBackdrop}
         showStageRulers={showStageRulers}
         showWidgetBadges={showWidgetBadges}
+        editModeWireframe={editModeWireframe}
         zoom={zoom}
         onPointerDown={beginToolbarDrag}
         onPointerMove={onToolbarPointerMove}
@@ -363,6 +438,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
         onNextScene={() => sceneActions.nextScene()}
         onToggleRulers={() => uiActions.setStageRulers(!showStageRulers)}
         onToggleWidgetBadges={() => uiActions.setWidgetBadgesVisibility(!showWidgetBadges)}
+        onToggleWireframe={() => uiActions.setEditModeWireframe(!editModeWireframe)}
         onSetBackdrop={(tone) => uiActions.setStageBackdrop(tone)}
         onZoomOut={() => uiActions.setZoom(Math.max(ZOOM_MIN, zoom - 0.1))}
         onZoomIn={() => uiActions.setZoom(Math.min(ZOOM_MAX, zoom + 0.1))}

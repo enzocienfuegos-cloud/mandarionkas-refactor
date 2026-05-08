@@ -3,11 +3,13 @@ import { createModuleDefinition } from '../module-definition-factory';
 import { renderImageCarouselExport } from '../export-renderers';
 import { renderImageCarouselStage } from '../image-carousel.renderer';
 import { ImageCarouselInspector } from '../image-carousel.inspector';
+import { CarouselThumb } from '../../registry/widget-thumbnails';
 
 export const ImageCarouselDefinition = createModuleDefinition({
   type: 'image-carousel',
   label: 'Image Carousel',
   category: 'media',
+  thumbnail: CarouselThumb,
   frame: { x: 80, y: 60, width: 320, height: 180, rotation: 0 },
   props: {
     title: 'Image Carousel',

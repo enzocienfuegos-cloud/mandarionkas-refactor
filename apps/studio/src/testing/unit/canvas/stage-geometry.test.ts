@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clampCanvasPoint,
   clientPointToCanvasPoint,
+  getResizedFrame,
   isCanvasPointWithinBounds,
 } from '../../../canvas/stage/controllers/stage-geometry';
 import { getPlacedFrameForPoint } from '../../../core/store/store-utils';
@@ -34,5 +35,19 @@ describe('stage geometry', () => {
     const farFrame = getPlacedFrameForPoint({ x: 0, y: 0, width: 120, height: 60, rotation: 0 }, { x: 400, y: 400 }, { width: 300, height: 200 });
     expect(farFrame.x).toBe(180);
     expect(farFrame.y).toBe(140);
+  });
+
+  it('preserves aspect ratio for locked resizes', () => {
+    const frame = getResizedFrame(
+      { x: 20, y: 30, width: 160, height: 90, rotation: 0 },
+      { x: 180, y: 120 },
+      { x: 240, y: 120 },
+      'e',
+      { width: 500, height: 400 },
+      true,
+    );
+
+    expect(frame.width).toBe(220);
+    expect(frame.height).toBe(124);
   });
 });
