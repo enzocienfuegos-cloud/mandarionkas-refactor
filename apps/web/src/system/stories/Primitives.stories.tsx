@@ -4,8 +4,10 @@ import {
   Avatar,
   Badge,
   Button,
+  Combobox,
   ConfigurableMetricStrip,
   DataTable,
+  DateRangePicker,
   DonutChart,
   Drawer,
   DropdownMenu,
@@ -13,13 +15,20 @@ import {
   FilterBar,
   FunnelChart,
   Heatmap,
+  MacroResolver,
   MetricCard,
   Modal,
+  NumberInput,
   PageHeader,
   Panel,
   ProgressBar,
   Skeleton,
   Stepper,
+  Tab,
+  TagDiagnostics,
+  TagSnippetBlock,
+  Tabs,
+  TabsList,
   Tooltip,
   TrendChart,
   type ColumnDef,
@@ -99,16 +108,16 @@ export const Badges: Story = () => (
 export const Tooltips: Story = () => (
   <div className="flex flex-wrap items-center gap-4 p-6">
     <Tooltip content="Last sync 2 minutes ago">
-      <span tabIndex={0} className="rounded-md border border-border-default px-3 py-2 text-sm text-text-primary">Status</span>
+      <span className="rounded-md border border-border-default px-3 py-2 text-sm text-text-primary">Status</span>
     </Tooltip>
-    <Tooltip content="Click to pause delivery" side="right">
+    <Tooltip content="Click to pause delivery" side="right" asChild>
       <Button variant="ghost" size="sm" aria-label="Pause delivery">Pause</Button>
     </Tooltip>
     <Tooltip
       content={<><strong>Underpacing</strong><div>Below 80% of expected delivery.</div></>}
       side="top"
     >
-      <span tabIndex={0}><Badge tone="warning">Underpacing</Badge></span>
+      <Badge tone="warning">Underpacing</Badge>
     </Tooltip>
   </div>
 );
@@ -201,19 +210,40 @@ export const Tables: Story = () => (
 
 export const Modals: Story = () => {
   const [open, setOpen] = useState(true);
+  const [tab, setTab] = useState('general');
   return (
     <div className="p-6">
       <Button onClick={() => setOpen(true)}>Open modal</Button>
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Publish tag"
-        description="Final QA checkpoint before handoff."
-        footer={<Button onClick={() => setOpen(false)}>Done</Button>}
-      >
-        <Panel className="border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] p-4 text-sm text-[color:var(--dusk-status-info-fg)]">
-          This tag is ready for trafficking once diagnostics and snippet review are complete.
-        </Panel>
+      <Modal open={open} onClose={() => setOpen(false)} size="xl">
+        <Modal.Header>
+          <div className="space-y-3">
+            <div>
+              <p className="text-lg font-semibold text-text-primary">Publish tag</p>
+              <p className="mt-1 text-sm text-text-muted">Final QA checkpoint before handoff.</p>
+            </div>
+            <Tabs value={tab} onValueChange={setTab}>
+              <TabsList>
+                <Tab value="general">General</Tab>
+                <Tab value="advanced">Advanced</Tab>
+              </TabsList>
+            </Tabs>
+          </div>
+        </Modal.Header>
+        <Modal.Body>
+          {tab === 'general' ? (
+            <Panel className="border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] p-4 text-sm text-[color:var(--dusk-status-info-fg)]">
+              This tag is ready for trafficking once diagnostics and snippet review are complete.
+            </Panel>
+          ) : (
+            <Panel className="p-4 text-sm text-text-secondary">
+              Advanced controls can hold rollout toggles, DSP-specific overrides and final export review.
+            </Panel>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={() => setOpen(false)}>Publish</Button>
+        </Modal.Footer>
       </Modal>
     </div>
   );
@@ -345,6 +375,63 @@ export const Filters: Story = () => {
         <Filter className="h-4 w-4" />
         <span>Filters are interactive and keyboard-first.</span>
         <Sparkles className="h-4 w-4" />
+      </div>
+    </div>
+  );
+};
+
+export const WorkflowInputs: Story = () => {
+  const [single, setSingle] = useState('cm360');
+  const [multi, setMulti] = useState<string[]>(['clicks']);
+  const [range, setRange] = useState({
+    from: new Date('2026-05-01T00:00:00') as Date | null,
+    to: new Date('2026-05-07T00:00:00') as Date | null,
+  });
+  const [budget, setBudget] = useState<number | null>(12500);
+
+  return (
+    <div className="grid gap-6 p-6 md:grid-cols-2">
+      <Panel className="space-y-4">
+        <Combobox
+          value={single}
+          onChange={(next) => setSingle(String(next))}
+          options={[
+            { value: 'cm360', label: 'CM360' },
+            { value: 'dv360', label: 'DV360' },
+            { value: 'adform', label: 'Adform' },
+          ]}
+        />
+        <Combobox
+          multi
+          value={multi}
+          onChange={(next) => setMulti(next as string[])}
+          options={[
+            { value: 'clicks', label: 'Clicks' },
+            { value: 'ctr', label: 'CTR' },
+            { value: 'viewability', label: 'Viewability' },
+          ]}
+        />
+        <DateRangePicker value={range} onChange={setRange} />
+        <NumberInput value={budget} onChange={setBudget} format="currency" />
+      </Panel>
+
+      <div className="space-y-4">
+        <TagSnippetBlock snippets={{ raw_html: '<div>Ad tag</div>', ttd_javascript: 'console.log("tag");' }} />
+        <MacroResolver
+          tag={'<a href="%%CLICK_URL_UNESC%%%%DEST_URL%%">${CACHE_BUSTER}</a>'}
+          spec={{
+            dsp: 'generic',
+            required: ['CLICK_URL_UNESC', 'DEST_URL'],
+            optional: ['CACHE_BUSTER'],
+          }}
+          mockValues={{ CLICK_URL_UNESC: 'https://click.example', DEST_URL: 'https://landing.example', CACHE_BUSTER: '12345' }}
+        />
+        <TagDiagnostics
+          checks={[
+            { id: '1', label: 'Click macro present', status: 'ok' },
+            { id: '2', label: 'Destination URL configured', status: 'warning', message: 'Fallback URL missing from one export mode.' },
+          ]}
+        />
       </div>
     </div>
   );

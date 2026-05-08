@@ -234,7 +234,7 @@ export default function WebhookTester() {
         </div>
       </header>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} urlParam="tab">
         <TabsList aria-label="Webhook tester sections">
           <Tab value="compose" leadingIcon={<Send className="h-4 w-4" />}>Compose</Tab>
           <Tab value="history" leadingIcon={<WebhookIcon className="h-4 w-4" />}>

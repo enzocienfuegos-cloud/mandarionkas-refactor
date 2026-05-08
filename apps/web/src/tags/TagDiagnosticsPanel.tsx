@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge, Button, Kicker, Panel } from '../system';
+import { Badge, Button, Kicker, Panel, TagDiagnostics } from '../system';
 import type { BadgeTone } from '../system';
 import {
   type DeliveryDiagnosticEntry,
@@ -7,31 +7,16 @@ import {
   DeliveryDiagnosticSection,
   StaticDeliverySection,
 } from './tag-diagnostics/components';
-
-type TagFormat = 'VAST' | 'display' | 'native' | 'tracker';
-
-interface SavedTag {
-  format: TagFormat;
-}
-
-interface DeliveryDiagnosticsPayload {
-  dsp?: {
-    selected?: string | null;
-  } | null;
-  deliverySummary?: {
-    deliveryMode?: string | null;
-    previewStatus?: string | null;
-  } | null;
-  deliveryDiagnostics?: {
-    displayWrapper?: DeliveryDiagnosticEntry;
-    vast?: DeliveryDiagnosticEntry;
-    trackerClick?: DeliveryDiagnosticEntry;
-    trackerImpression?: DeliveryDiagnosticEntry;
-  } | null;
-}
+import {
+  buildTagDiagnosticChecks,
+  getDeliveryModeLabel,
+  getPreviewStatusLabel,
+  type DeliveryDiagnosticsPayload,
+  type PreviewSavedTag,
+} from './tag-preview-content';
 
 interface TagDiagnosticsPanelProps {
-  savedTag: SavedTag;
+  savedTag: PreviewSavedTag;
   selectedCampaignDsp: string;
   deliveryDiagnostics: DeliveryDiagnosticsPayload | null;
   deliveryDiagnosticsLoading: boolean;
@@ -98,10 +83,37 @@ export default function TagDiagnosticsPanel({
     { label: 'Tracker Click', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerClick },
     { label: 'Tracker Impression', entry: deliveryDiagnostics?.deliveryDiagnostics?.trackerImpression },
   ];
+  const effectiveDsp = deliveryDiagnostics?.dsp?.selected || selectedCampaignDsp || 'none';
+  const deliveryModeLabel = getDeliveryModeLabel(
+    deliveryDiagnostics?.deliverySummary?.deliveryMode,
+    basisNativeEnabled,
+    dspVideoEnabled,
+  );
+  const previewStatusLabel = getPreviewStatusLabel(
+    deliveryDiagnostics?.deliverySummary?.previewStatus,
+    basisFallbackActive,
+    basisNativeEnabled,
+    dspVideoEnabled,
+  );
+  const summaryChecks = buildTagDiagnosticChecks({
+    savedTag,
+    selectedCampaignDsp,
+    deliveryDiagnostics,
+    onRepublishStaticDelivery,
+  });
 
   return (
     <Panel className="mt-6 p-6">
       <Kicker>Diagnostics</Kicker>
+      <div className="mt-3 space-y-2">
+        <h2 className="text-base font-semibold text-[color:var(--dusk-text-primary)]">System checks</h2>
+        <p className="text-sm text-[color:var(--dusk-text-secondary)]">
+          High-level delivery health before drilling into raw policy and URL detail.
+        </p>
+      </div>
+      <div className="mt-4">
+        <TagDiagnostics checks={summaryChecks} loading={deliveryDiagnosticsLoading} />
+      </div>
       <details className="group rounded-lg border border-[color:var(--dusk-border-default)] px-4 py-3">
         <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
           <div>
@@ -126,25 +138,13 @@ export default function TagDiagnosticsPanel({
             <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-4 py-3">
               <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-tertiary)]">Delivery Mode</div>
               <div className="mt-1 text-sm font-semibold text-[color:var(--dusk-text-primary)]">
-                {deliveryDiagnostics?.deliverySummary?.deliveryMode === 'basis_native'
-                  ? 'Basis Native'
-                  : deliveryDiagnostics?.deliverySummary?.deliveryMode === 'dsp_video_contract'
-                    ? 'DSP Video Contract'
-                    : deliveryDiagnostics?.deliverySummary?.deliveryMode === 'smx_standard'
-                      ? 'SMX Standard'
-                      : basisNativeEnabled ? 'Basis Native' : dspVideoEnabled ? 'DSP Video Contract' : 'SMX Standard'}
+                {deliveryModeLabel}
               </div>
             </div>
             <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-4 py-3">
               <div className="text-xs font-medium uppercase tracking-wide text-[color:var(--dusk-text-tertiary)]">Preview Status</div>
               <div className="mt-1 text-sm font-semibold text-[color:var(--dusk-text-primary)]">
-                {deliveryDiagnostics?.deliverySummary?.previewStatus === 'basis_preview_may_fallback'
-                  ? 'Fallback Possible'
-                  : deliveryDiagnostics?.deliverySummary?.previewStatus === 'dsp_video_contract_ready'
-                    ? 'DSP Video Ready'
-                    : basisFallbackActive
-                      ? 'Fallback Possible'
-                      : basisNativeEnabled ? 'Basis First-Hop Ready' : dspVideoEnabled ? 'DSP Video Ready' : 'Standard Delivery'}
+                {previewStatusLabel}
               </div>
             </div>
             <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-muted)] px-4 py-3">

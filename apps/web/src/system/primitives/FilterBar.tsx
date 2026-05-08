@@ -52,44 +52,42 @@ export function FilterBar({
 
           return (
             <div key={pill.id} className="relative">
-              <button
-                ref={anchorRef}
-                type="button"
-                onClick={() => setOpenId((current) => current === pill.id ? null : pill.id)}
+              <div
+                role="group"
+                aria-label={pill.label}
                 className={cn(
-                  'inline-flex h-12 items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-[background-color,border-color,box-shadow] duration-base ease-standard',
+                  'inline-flex h-12 items-center rounded-lg border transition-[background-color,border-color,box-shadow] duration-base ease-standard',
                   isActive
-                    ? 'border-brand-500/40 bg-[color:var(--dusk-surface-active)] text-[color:var(--dusk-text-primary)]'
-                    : 'border-[color:var(--dusk-border-default)] bg-surface-1 text-[color:var(--dusk-text-secondary)] hover:border-[color:var(--dusk-border-strong)] hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]',
+                    ? 'border-brand-500/40 bg-[color:var(--dusk-surface-active)]'
+                    : 'border-[color:var(--dusk-border-default)] bg-surface-1 hover:border-[color:var(--dusk-border-strong)] hover:bg-surface-hover',
                 )}
-                aria-expanded={openId === pill.id}
-                aria-haspopup="dialog"
               >
-                <span className="text-[color:var(--dusk-text-muted)]">{pill.label}</span>
-                <span>{selectedOption?.label}</span>
+                <button
+                  ref={anchorRef}
+                  type="button"
+                  onClick={() => setOpenId((current) => current === pill.id ? null : pill.id)}
+                  className="inline-flex flex-1 items-center gap-2 px-4 text-sm font-medium text-[color:var(--dusk-text-secondary)] hover:text-[color:var(--dusk-text-primary)]"
+                  aria-expanded={openId === pill.id}
+                  aria-haspopup="dialog"
+                >
+                  <span className="text-[color:var(--dusk-text-muted)]">{pill.label}</span>
+                  <span>{selectedOption?.label}</span>
+                  {!isActive && <ChevronDown className="h-4 w-4 text-[color:var(--dusk-text-soft)]" />}
+                </button>
                 {isActive ? (
-                  <span
-                    role="button"
-                    tabIndex={0}
+                  <button
+                    type="button"
                     onClick={(event) => {
                       event.stopPropagation();
                       pill.onChange(pill.options[0]?.value ?? '');
                     }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        pill.onChange(pill.options[0]?.value ?? '');
-                      }
-                    }}
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[color:var(--dusk-text-soft)] hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]"
+                    className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-[color:var(--dusk-text-soft)] hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]"
                     aria-label={`Clear ${pill.label}`}
                   >
                     <X className="h-3.5 w-3.5" />
-                  </span>
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-[color:var(--dusk-text-soft)]" />
-                )}
-              </button>
+                  </button>
+                ) : null}
+              </div>
 
               <Popover
                 open={openId === pill.id}

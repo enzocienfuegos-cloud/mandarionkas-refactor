@@ -143,6 +143,7 @@
   /* ─── Z-index scale ─────────────────────────────────────────────────── */
   --dusk-z-base:     0;
   --dusk-z-dropdown: 100;
+  --dusk-z-popover:  300; /* between sticky and overlay */
   --dusk-z-sticky:   200;
   --dusk-z-overlay:  900;
   --dusk-z-modal:    1000;
@@ -164,6 +165,39 @@
   --dusk-content-max:          1440px;
   --dusk-content-pad-x:        24px;
   --dusk-content-pad-y:        24px;
+
+  /* ─── Chart palette (categorical + opacity ramps) ──────────────────── */
+  --dusk-chart-cat-1:  #F1008B;
+  --dusk-chart-cat-2:  #2563EB;
+  --dusk-chart-cat-3:  #16A34A;
+  --dusk-chart-cat-4:  #EA580C;
+  --dusk-chart-cat-5:  #7C3AED;
+  --dusk-chart-cat-6:  #0891B2;
+  --dusk-chart-cat-7:  #CA8A04;
+  --dusk-chart-cat-8:  #DC2626;
+  --dusk-chart-cat-9:  #4D7C0F;
+  --dusk-chart-cat-10: #BE185D;
+  --dusk-chart-cat-11: #475569;
+  --dusk-chart-cat-12: #92400E;
+
+  --dusk-chart-brand-rgb:    241, 0, 139;
+  --dusk-chart-success-rgb:  34, 197, 94;
+  --dusk-chart-warning-rgb:  245, 158, 11;
+  --dusk-chart-critical-rgb: 244, 63, 94;
+  --dusk-chart-info-rgb:     59, 130, 246;
+
+  --dusk-menu-min-width:      220px;
+  --dusk-drawer-width-sm:     400px;
+  --dusk-drawer-width-md:     520px;
+  --dusk-drawer-width-lg:     720px;
+  --dusk-drawer-width-xl:     960px;
+  --dusk-modal-max-width-sm:  24rem;
+  --dusk-modal-max-width-md:  32rem;
+  --dusk-modal-max-width-lg:  42rem;
+  --dusk-modal-max-width-xl:  56rem;
+  --dusk-modal-max-width-2xl: 72rem;
+  --dusk-tag-viewer-max-width: 880px;
+  --dusk-tag-viewer-max-height: 720px;
 }
 
 /* ========================================================================== */
@@ -240,4 +274,41 @@ html.dark {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ========================================================================== */
+/* Animations                                                                 */
+/* -------------------------------------------------------------------------- */
+/* Single source of truth for keyframes used across the system.              */
+/* Never declare these inline in component <style> tags.                     */
+/* ========================================================================== */
+
+@keyframes duskFadeIn {
+  from { opacity: 0 }
+  to   { opacity: 1 }
+}
+
+@keyframes duskScaleIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px) }
+  to   { opacity: 1; transform: scale(1) translateY(0) }
+}
+
+@keyframes duskSlideInRight {
+  from { transform: translateX(100%); opacity: 0.96 }
+  to   { transform: translateX(0); opacity: 1 }
+}
+
+@keyframes duskSlideInLeft {
+  from { transform: translateX(-100%); opacity: 0.96 }
+  to   { transform: translateX(0); opacity: 1 }
+}
+
+@keyframes duskToastIn {
+  from { opacity: 0; transform: translateY(8px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes duskSlideUpFromBottom {
+  from { transform: translateY(100%); opacity: 0.96 }
+  to   { transform: translateY(0); opacity: 1 }
 }

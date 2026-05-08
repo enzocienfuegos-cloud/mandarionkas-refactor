@@ -155,7 +155,7 @@ export default function TagValidator() {
             )}
           </div>
 
-          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} urlParam="tab">
             <TabsList aria-label="Analysis sections">
               <Tab value="findings" leadingIcon={<AlertTriangle className="h-4 w-4" />}>
                 Findings

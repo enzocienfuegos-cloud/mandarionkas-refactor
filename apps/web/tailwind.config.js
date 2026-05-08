@@ -123,6 +123,7 @@ export default {
       zIndex: {
         dropdown: 'var(--dusk-z-dropdown)',
         sticky:   'var(--dusk-z-sticky)',
+        popover:  'var(--dusk-z-popover)',
         overlay:  'var(--dusk-z-overlay)',
         modal:    'var(--dusk-z-modal)',
         toast:    'var(--dusk-z-toast)',

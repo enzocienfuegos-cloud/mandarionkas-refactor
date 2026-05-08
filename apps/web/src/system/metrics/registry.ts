@@ -7,7 +7,29 @@ export type MetricIconKind =
   | 'impressions'
   | 'ctr'
   | 'engagements'
-  | 'viewability';
+  | 'viewability'
+  | 'clicks'
+  | 'ecpc'
+  | 'ecpm'
+  | 'ecpv'
+  | 'conversions'
+  | 'cvr'
+  | 'roas'
+  | 'viewable_imps'
+  | 'attention'
+  | 'in_view_time'
+  | 'video_starts'
+  | 'video_completes'
+  | 'vtr'
+  | 'completion_rate'
+  | 'unique_users'
+  | 'reach'
+  | 'frequency'
+  | 'dwell'
+  | 'fraud_rate'
+  | 'ivt'
+  | 'mfa'
+  | 'brand_safety';
 
 export interface ResolvedMetric {
   id: string;

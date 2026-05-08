@@ -1,25 +1,33 @@
-import React, { cloneElement, useEffect, useId, useRef, useState } from 'react';
+import React, { cloneElement, isValidElement, useState } from 'react';
+import {
+  FloatingPortal,
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  useDismiss,
+  useFloating,
+  useFocus,
+  useHover,
+  useInteractions,
+  useRole,
+} from '@floating-ui/react';
 import { cn } from '../cn';
 
 export interface TooltipProps {
   /** Content shown on hover. Keep it short — 1-2 lines max. */
   content: React.ReactNode;
-  /** Element that triggers the tooltip. Must be focusable for keyboard users. */
-  children: React.ReactElement;
+  /** Trigger content. When `asChild` is true, pass a single element to receive the trigger props directly. */
+  children: React.ReactNode;
   /** Position relative to trigger. Default 'top'. */
   side?: 'top' | 'right' | 'bottom' | 'left';
   /** Delay before showing (ms). Default 200. */
   delay?: number;
   /** Disable tooltip without removing it from tree. */
   disabled?: boolean;
+  /** Forward trigger props directly to the child element instead of wrapping it in a span. */
+  asChild?: boolean;
 }
-
-const sideClasses: Record<NonNullable<TooltipProps['side']>, string> = {
-  top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
-  right: 'left-full top-1/2 -translate-y-1/2 ml-2',
-  bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
-  left: 'right-full top-1/2 -translate-y-1/2 mr-2',
-};
 
 /**
  * Lightweight hover/focus tooltip for short operational hints.
@@ -34,66 +42,60 @@ export function Tooltip({
   side = 'top',
   delay = 200,
   disabled = false,
+  asChild = false,
 }: TooltipProps) {
   const [open, setOpen] = useState(false);
-  const tooltipId = useId();
-  const timerRef = useRef<number | null>(null);
+  const floating = useFloating({
+    open,
+    onOpenChange: setOpen,
+    placement: side,
+    middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+  const hover = useHover(floating.context, {
+    enabled: !disabled,
+    delay: { open: delay, close: 0 },
+  });
+  const focus = useFocus(floating.context, { enabled: !disabled });
+  const dismiss = useDismiss(floating.context);
+  const role = useRole(floating.context, { role: 'tooltip' });
+  const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, dismiss, role]);
 
-  const clearPending = () => {
-    if (timerRef.current != null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
-  const show = () => {
-    if (disabled) return;
-    clearPending();
-    timerRef.current = window.setTimeout(() => setOpen(true), delay);
-  };
-
-  const hide = () => {
-    clearPending();
-    setOpen(false);
-  };
-
-  useEffect(() => () => clearPending(), []);
+  const trigger = isValidElement(children)
+    ? cloneElement(children, {
+        ...getReferenceProps(children.props),
+        ref: floating.refs.setReference,
+      })
+    : (
+      <span
+        {...getReferenceProps({
+          ref: floating.refs.setReference,
+        })}
+        tabIndex={disabled ? undefined : 0}
+        className="inline-flex"
+      >
+        {children}
+      </span>
+    );
 
   return (
-    <span className="relative inline-flex">
-      {cloneElement(children, {
-        'aria-describedby': open ? tooltipId : undefined,
-        onMouseEnter: (event: React.MouseEvent) => {
-          children.props.onMouseEnter?.(event);
-          show();
-        },
-        onMouseLeave: (event: React.MouseEvent) => {
-          children.props.onMouseLeave?.(event);
-          hide();
-        },
-        onFocus: (event: React.FocusEvent) => {
-          children.props.onFocus?.(event);
-          show();
-        },
-        onBlur: (event: React.FocusEvent) => {
-          children.props.onBlur?.(event);
-          hide();
-        },
-      })}
-
+    <>
+      {trigger}
       {open && !disabled && (
-        <span
-          id={tooltipId}
-          role="tooltip"
-          className={cn(
-            'pointer-events-none absolute z-[var(--dusk-z-tooltip)] max-w-xs rounded-md border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-xs text-[color:var(--dusk-text-secondary)] shadow-3',
-            'animate-[duskFadeIn_160ms_ease-out]',
-            sideClasses[side],
-          )}
-        >
-          {content}
-        </span>
+        <FloatingPortal>
+          <div
+            ref={floating.refs.setFloating}
+            style={floating.floatingStyles}
+            className={cn(
+              'pointer-events-none z-[var(--dusk-z-tooltip)] max-w-xs rounded-md border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-xs text-[color:var(--dusk-text-secondary)] shadow-3',
+              'animate-[duskFadeIn_160ms_ease-out]',
+            )}
+            {...getFloatingProps()}
+          >
+            {content}
+          </div>
+        </FloatingPortal>
       )}
-    </span>
+    </>
   );
 }

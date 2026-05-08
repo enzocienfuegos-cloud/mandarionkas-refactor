@@ -1,9 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { readCampaignDsp } from '@smx/contracts/dsp-macros';
 import { loadTagBindings, loadTags, type TagBinding, type TagOption, updateTagBinding } from '../creatives/catalog';
-import { Badge, Button, CenteredSpinner, DataTable, EmptyState, FormField, Input, Kicker, PageHeader, Panel, Select, useToast, type ColumnDef } from '../system';
+import { Badge, Button, CenteredSpinner, Combobox, DataTable, EmptyState, FormField, Input, Kicker, NumberInput, PageHeader, Panel, useToast, type ColumnDef, type DspMacroSpec, type TagDiagnosticCheck, type TagExportMode } from '../system';
 import { Eye } from '../system/icons';
 import { TagPreviewDrawer, type TagPreviewTarget } from '../system/preview/TagPreviewDrawer';
+import {
+  buildTagDiagnosticChecks,
+  buildTagMacroSpec,
+  buildTagPreviewSnippets,
+  type DeliveryDiagnosticsPayload,
+  type PreviewSavedTag,
+} from './tag-preview-content';
 
 type BindingFilter = 'all' | 'active' | 'paused' | 'draft' | 'archived';
 
@@ -33,6 +41,11 @@ export default function TagBindingDashboard() {
   const [bindingDrafts, setBindingDrafts] = useState<Record<string, { weight: string; status: TagBinding['status'] }>>({});
   const [updatingBindingId, setUpdatingBindingId] = useState<string | null>(null);
   const [previewTag, setPreviewTag] = useState<TagPreviewTarget | null>(null);
+  const [previewSnippets, setPreviewSnippets] = useState<Partial<Record<TagExportMode, string>>>({});
+  const [previewMacroSpec, setPreviewMacroSpec] = useState<DspMacroSpec | null>(null);
+  const [previewDiagnosticChecks, setPreviewDiagnosticChecks] = useState<TagDiagnosticCheck[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadInitial = async () => {
@@ -109,6 +122,11 @@ export default function TagBindingDashboard() {
     return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
   }, [tags]);
 
+  const clientOptions = useMemo(
+    () => availableClients.map((client) => ({ value: client.id, label: client.name })),
+    [availableClients],
+  );
+
   const normalizedTagSearch = tagSearch.trim().toLowerCase();
   const visibleTags = useMemo(() => (
     tags.filter(tag => {
@@ -127,6 +145,15 @@ export default function TagBindingDashboard() {
         .includes(normalizedTagSearch);
     })
   ), [clientFilter, normalizedTagSearch, tags]);
+
+  const visibleTagOptions = useMemo(
+    () => visibleTags.map((tag) => ({
+      value: tag.id,
+      label: tag.name,
+      description: `${tag.workspaceName ?? 'Client'} · ${tag.format} · ${tag.status}`,
+    })),
+    [visibleTags],
+  );
 
   useEffect(() => {
     if (!visibleTags.length) {
@@ -158,6 +185,68 @@ export default function TagBindingDashboard() {
           : 'Binding is not serving yet.',
       activeBindingsCount: bindings.filter((entry) => entry.status === 'active').length,
     };
+  };
+
+  const handlePreview = async (binding: TagBinding) => {
+    const initialTarget = mapBindingToPreviewTag(binding);
+    if (!initialTarget || !selectedTagId) return;
+    setPreviewTag(initialTarget);
+    setPreviewSnippets({});
+    setPreviewMacroSpec(null);
+    setPreviewDiagnosticChecks([]);
+    setPreviewError(null);
+    setPreviewLoading(true);
+
+    try {
+      const [detailResponse, diagnosticsResponse] = await Promise.allSettled([
+        fetch(`/v1/tags/${selectedTagId}`, { credentials: 'include' }),
+        fetch(`/v1/tags/${selectedTagId}/delivery-diagnostics`, { credentials: 'include' }),
+      ]);
+
+      if (detailResponse.status !== 'fulfilled' || !detailResponse.value.ok) {
+        const payload = detailResponse.status === 'fulfilled'
+          ? await detailResponse.value.json().catch(() => ({}))
+          : {};
+        throw new Error((payload as any)?.message ?? 'Couldn’t load tag preview metadata.');
+      }
+
+      const payload = await detailResponse.value.json();
+      const detail = (payload?.tag ?? payload) as Partial<TagOption> & {
+        trackerType?: PreviewSavedTag['trackerType'];
+        servingWidth?: number | null;
+        servingHeight?: number | null;
+        clickUrl?: string | null;
+        campaign?: { metadata?: unknown } | null;
+      };
+      const diagnosticsPayload = diagnosticsResponse.status === 'fulfilled' && diagnosticsResponse.value.ok
+        ? await diagnosticsResponse.value.json().catch(() => null)
+        : null;
+      const diagnostics = ((diagnosticsPayload as any)?.deliveryDiagnostics
+        ? diagnosticsPayload
+        : (diagnosticsPayload as any)) as DeliveryDiagnosticsPayload | null;
+      const mergedTag: PreviewSavedTag = {
+        id: detail.id ?? initialTarget.id,
+        name: detail.name ?? initialTarget.name,
+        format: (detail.format as PreviewSavedTag['format']) ?? initialTarget.format,
+        width: binding.variantWidth ?? detail.servingWidth ?? initialTarget.width ?? null,
+        height: binding.variantHeight ?? detail.servingHeight ?? initialTarget.height ?? null,
+        trackerType: detail.trackerType ?? null,
+        clickUrl: binding.creativeClickUrl ?? detail.clickUrl ?? null,
+      };
+      const campaignDsp = readCampaignDsp(detail.campaign?.metadata);
+      setPreviewSnippets(buildTagPreviewSnippets(mergedTag, campaignDsp, diagnostics));
+      setPreviewMacroSpec(buildTagMacroSpec(campaignDsp));
+      setPreviewDiagnosticChecks(buildTagDiagnosticChecks({
+        savedTag: mergedTag,
+        selectedCampaignDsp: campaignDsp,
+        deliveryDiagnostics: diagnostics,
+      }));
+    } catch (loadError: any) {
+      setPreviewError(loadError?.message ?? 'Couldn’t load tag preview metadata.');
+      toast({ tone: 'warning', title: loadError?.message ?? 'Couldn’t load tag preview metadata.' });
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const columns = useMemo<ColumnDef<TagBinding>[]>(() => [
@@ -204,14 +293,14 @@ export default function TagBindingDashboard() {
       id: 'weight',
       header: 'Weight',
       cell: (binding) => (
-        <Input
-          type="number"
-          min="1"
-          step="1"
-          value={bindingDrafts[binding.id]?.weight ?? String(binding.weight)}
-          onChange={(event) => handleBindingDraftChange(binding.id, 'weight', event.target.value)}
+        <NumberInput
+          value={Number(bindingDrafts[binding.id]?.weight ?? binding.weight) || 1}
+          onChange={(value) => handleBindingDraftChange(binding.id, 'weight', String(Math.max(1, value ?? 1)))}
+          min={1}
+          step={1}
+          format="integer"
+          fullWidth={false}
           disabled={updatingBindingId === binding.id}
-          className="w-24"
         />
       ),
       sortAccessor: (binding) => Number(bindingDrafts[binding.id]?.weight ?? binding.weight) || 0,
@@ -224,7 +313,7 @@ export default function TagBindingDashboard() {
           variant="ghost"
           size="sm"
           leadingIcon={<Eye />}
-          onClick={() => setPreviewTag(mapBindingToPreviewTag(binding))}
+          onClick={() => void handlePreview(binding)}
           disabled={!binding.publicUrl}
         >
           Preview
@@ -267,7 +356,7 @@ export default function TagBindingDashboard() {
         </div>
       ),
     },
-  ], [bindingDrafts, bindings, mapBindingToPreviewTag, selectedTag, updatingBindingId]);
+  ], [bindingDrafts, bindings, selectedTag, updatingBindingId]);
 
   const handleBindingDraftChange = (
     bindingId: string,
@@ -357,17 +446,12 @@ export default function TagBindingDashboard() {
       <div className="grid gap-4 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)]">
         <Panel className="p-4">
           <FormField label="Client">
-            <Select
-            value={clientFilter}
-            onChange={event => setClientFilter(event.target.value)}
-          >
-            <option value="">All clients</option>
-            {availableClients.map(client => (
-              <option key={client.id} value={client.id}>
-                {client.name}
-              </option>
-            ))}
-            </Select>
+            <Combobox
+              value={clientFilter}
+              onChange={(value) => setClientFilter(Array.isArray(value) ? value[0] ?? '' : value)}
+              options={clientOptions}
+              placeholder="All clients"
+            />
           </FormField>
 
           <FormField label="Search Tag" className="mt-4">
@@ -379,16 +463,13 @@ export default function TagBindingDashboard() {
           </FormField>
 
           <FormField label="Tag" className="mt-4">
-            <Select
-            value={selectedTagId}
-            onChange={event => setSelectedTagId(event.target.value)}
-          >
-            {visibleTags.map(tag => (
-              <option key={tag.id} value={tag.id}>
-                {tag.name} · {tag.workspaceName ?? 'Client'} · {tag.format} · {tag.status}
-              </option>
-            ))}
-            </Select>
+            <Combobox
+              value={selectedTagId}
+              onChange={(value) => setSelectedTagId(Array.isArray(value) ? value[0] ?? '' : value)}
+              options={visibleTagOptions}
+              placeholder="Select a tag"
+              emptyMessage="No tags match the current filters"
+            />
           </FormField>
 
           <div className="mt-4">
@@ -445,10 +526,22 @@ export default function TagBindingDashboard() {
 
       <TagPreviewDrawer
         open={Boolean(previewTag)}
-        onClose={() => setPreviewTag(null)}
+        onClose={() => {
+          setPreviewTag(null);
+          setPreviewSnippets({});
+          setPreviewMacroSpec(null);
+          setPreviewDiagnosticChecks([]);
+          setPreviewError(null);
+          setPreviewLoading(false);
+        }}
         tag={previewTag}
+        loading={previewLoading}
+        error={previewError}
         onRefresh={selectedTagId ? () => void refreshBindings(selectedTagId) : undefined}
         onViewDiagnostics={selectedTagId ? () => navigate(`/tags/${selectedTagId}/tracking`) : undefined}
+        snippets={previewSnippets}
+        macroSpec={previewMacroSpec ?? undefined}
+        diagnosticChecks={previewDiagnosticChecks}
       />
     </div>
   );

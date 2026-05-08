@@ -1,5 +1,5 @@
 import React, { useState, type FormEvent } from 'react';
-import { Button, FormField, Input, Modal, Panel, Select } from '../../system';
+import { Button, Combobox, FormField, Input, Modal, NumberInput, Panel } from '../../system';
 import { normalizeExperiment, type Experiment, type Tag, type Variant } from './types';
 
 export function CreateExperimentModal({
@@ -19,6 +19,10 @@ export function CreateExperimentModal({
   ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const tagOptions = tags.map((tag) => ({
+    value: tag.id,
+    label: tag.name,
+  }));
 
   const totalWeight = variants.reduce((sum, variant) => sum + variant.weight, 0);
   const weightValid = totalWeight === 100;
@@ -77,13 +81,11 @@ export function CreateExperimentModal({
         </FormField>
 
         <FormField label="Tag" required>
-          <Select
+          <Combobox
             value={tagId}
-            onChange={(event) => setTagId(event.target.value)}
-            options={[
-              { value: '', label: 'Select tag' },
-              ...tags.map((tag) => ({ value: tag.id, label: tag.name })),
-            ]}
+            onChange={(value) => setTagId(Array.isArray(value) ? value[0] ?? '' : value)}
+            options={tagOptions}
+            placeholder="Select tag"
           />
         </FormField>
 
@@ -113,13 +115,14 @@ export function CreateExperimentModal({
                   placeholder="Variant name"
                 />
                 <div className="flex items-center gap-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
+                  <NumberInput
                     value={variant.weight}
-                    onChange={(event) => setVariantField(index, 'weight', Number(event.target.value))}
-                    className="w-16 text-center"
+                    onChange={(value) => setVariantField(index, 'weight', value ?? 0)}
+                    min={0}
+                    max={100}
+                    format="integer"
+                    fullWidth={false}
+                    placeholder="0"
                   />
                   <span className="text-xs text-text-muted">%</span>
                 </div>

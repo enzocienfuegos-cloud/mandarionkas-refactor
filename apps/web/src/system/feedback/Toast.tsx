@@ -31,9 +31,17 @@ interface Toast extends Required<Omit<ToastOptions, 'description' | 'action'>> {
 interface ToastContextValue {
   toast: (opts: ToastOptions) => string;
   dismiss: (id: string) => void;
+  promise: <T>(promise: Promise<T>, opts: ToastPromiseOptions<T>) => Promise<T>;
+}
+
+export interface ToastPromiseOptions<T> {
+  loading: string;
+  success: string | ((data: T) => string);
+  error: string | ((err: unknown) => string);
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
+const MAX_VISIBLE = 5;
 
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);
@@ -64,7 +72,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const toast = useCallback(
     (opts: ToastOptions) => {
-      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const id = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `toast-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
       const next: Toast = {
         id,
         title: opts.title,
@@ -73,7 +83,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         duration: opts.duration ?? 4500,
         action: opts.action,
       };
-      setToasts((current) => [...current, next]);
+      setToasts((current) => {
+        const updated = [...current, next];
+        if (updated.length > MAX_VISIBLE) {
+          const removed = updated.slice(0, updated.length - MAX_VISIBLE);
+          removed.forEach((toastEntry) => {
+            const timer = timersRef.current.get(toastEntry.id);
+            if (timer) {
+              clearTimeout(timer);
+              timersRef.current.delete(toastEntry.id);
+            }
+          });
+          return updated.slice(-MAX_VISIBLE);
+        }
+        return updated;
+      });
 
       if (next.duration > 0) {
         const timer = setTimeout(() => dismiss(id), next.duration);
@@ -85,6 +109,25 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     [dismiss],
   );
 
+  const toastPromise = useCallback(
+    <T,>(promise: Promise<T>, opts: ToastPromiseOptions<T>) => {
+      const id = toast({ tone: 'info', title: opts.loading, duration: 0 });
+      return promise.then(
+        (data) => {
+          dismiss(id);
+          toast({ tone: 'success', title: typeof opts.success === 'function' ? opts.success(data) : opts.success });
+          return data;
+        },
+        (error) => {
+          dismiss(id);
+          toast({ tone: 'critical', title: typeof opts.error === 'function' ? opts.error(error) : opts.error });
+          throw error;
+        },
+      );
+    },
+    [dismiss, toast],
+  );
+
   // Cleanup pending timers on unmount
   useEffect(() => {
     const timers = timersRef.current;
@@ -94,7 +137,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const value = useMemo<ToastContextValue>(() => ({ toast, dismiss }), [toast, dismiss]);
+  const value = useMemo<ToastContextValue>(
+    () => ({ toast, dismiss, promise: toastPromise }),
+    [toast, dismiss, toastPromise],
+  );
 
   return (
     <ToastContext.Provider value={value}>
@@ -132,8 +178,8 @@ function ToastViewport({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: str
         return (
           <div
             key={t.id}
-            role="status"
-            aria-live="polite"
+            role={t.tone === 'critical' ? 'alert' : 'status'}
+            aria-live={t.tone === 'critical' ? 'assertive' : 'polite'}
             className={cn(
               'pointer-events-auto flex w-80 max-w-full items-start gap-3 rounded-xl border bg-surface-1 shadow-overlay px-4 py-3',
               'animate-[duskToastIn_240ms_var(--dusk-ease-enter)]',
@@ -176,13 +222,6 @@ function ToastViewport({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: str
           </div>
         );
       })}
-
-      <style>{`
-        @keyframes duskToastIn {
-          from { opacity: 0; transform: translateY(8px) }
-          to   { opacity: 1; transform: translateY(0)   }
-        }
-      `}</style>
     </div>
   );
 }

@@ -9,7 +9,7 @@
  * `import { ... } from 'vitest'` → it works the same with `@types/jest`.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { DataTable, type ColumnDef } from '../data-table/DataTable';
 
 interface Row {
@@ -128,6 +128,21 @@ describe('DataTable', () => {
       expect(cell.getAttribute('aria-sort')).toBeNull();
       fireEvent.click(cell);
       expect(cell.getAttribute('aria-sort')).toBe('ascending');
+    });
+
+    it('supports multi-sort and resets on normal click', () => {
+      render(<DataTable columns={COLUMNS} data={ROWS} rowKey={(r) => r.id} />);
+      const status = screen.getByRole('columnheader', { name: /Status/i });
+      const name = screen.getByRole('columnheader', { name: /Name/i });
+
+      fireEvent.click(status);
+      fireEvent.click(name, { shiftKey: true });
+      expect(name.textContent).toContain('2');
+
+      fireEvent.click(name);
+      expect(name.textContent).not.toContain('2');
+      expect(status.getAttribute('aria-sort')).toBeNull();
+      expect(name.getAttribute('aria-sort')).toBe('descending');
     });
   });
 
@@ -256,5 +271,99 @@ describe('DataTable', () => {
         expect(container.querySelector('table')).toBeTruthy();
       },
     );
+  });
+
+  describe('advanced features', () => {
+    it('renders pinned columns as sticky', () => {
+      render(
+        <DataTable
+          columns={[{ ...COLUMNS[0], pinned: true, width: '180px' }, ...COLUMNS.slice(1)]}
+          data={ROWS}
+          rowKey={(row) => row.id}
+        />,
+      );
+
+      const header = screen.getByRole('columnheader', { name: /Name/i });
+      expect(header.className).toContain('sticky');
+      expect((header as HTMLElement).style.left).toBe('0px');
+    });
+
+    it('toggles column visibility from the menu', () => {
+      render(<DataTable columns={COLUMNS} data={ROWS} rowKey={(row) => row.id} />);
+      fireEvent.click(screen.getByRole('button', { name: /show or hide columns/i }));
+      fireEvent.click(screen.getByRole('menuitem', { name: /Status/i }));
+      expect(screen.queryByRole('columnheader', { name: /Status/i })).toBeNull();
+    });
+
+    it('pins the checkbox and row actions columns when selection and actions are enabled', () => {
+      render(
+        <DataTable
+          columns={[{ ...COLUMNS[0], pinned: true, width: '180px' }, ...COLUMNS.slice(1)]}
+          data={ROWS}
+          rowKey={(row) => row.id}
+          selectable
+          selectedKeys={new Set()}
+          onSelectionChange={() => {}}
+          rowActions={() => [{ id: 'view', label: 'View', onSelect: () => {} }]}
+        />,
+      );
+
+      const [headerCheckbox] = screen.getAllByRole('checkbox');
+      expect(headerCheckbox.closest('th')?.className).toContain('sticky');
+
+      const [, rowCheckbox] = screen.getAllByRole('checkbox');
+      expect(rowCheckbox.closest('td')?.className).toContain('sticky');
+
+      const actionsHeader = screen.getByRole('columnheader', { name: /actions/i });
+      expect(actionsHeader.className).toContain('sticky');
+    });
+  });
+
+  describe('virtualization', () => {
+    it('renders only a window of rows when virtualize=true', async () => {
+      const data = Array.from({ length: 1000 }, (_, i) => ({
+        id: `row-${i}`,
+        name: `Name ${i}`,
+        status: 'active' as const,
+        impressions: i * 10,
+      }));
+      const originalClientHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
+      const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+      const originalScrollHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight');
+
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+        configurable: true,
+        get: () => 400,
+      });
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+        configurable: true,
+        get: () => 1200,
+      });
+      Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+        configurable: true,
+        get: () => 48000,
+      });
+
+      const { container } = render(
+        <div style={{ height: 400, overflow: 'auto' }}>
+          <DataTable
+            columns={COLUMNS}
+            data={data}
+            rowKey={(row) => row.id}
+            virtualize
+          />
+        </div>,
+      );
+
+      await waitFor(() => {
+        const tbodyRows = container.querySelectorAll('tbody tr');
+        expect(tbodyRows.length).toBeLessThan(50);
+        expect(tbodyRows.length).toBeGreaterThan(0);
+      });
+
+      if (originalClientHeight) Object.defineProperty(HTMLElement.prototype, 'clientHeight', originalClientHeight);
+      if (originalClientWidth) Object.defineProperty(HTMLElement.prototype, 'clientWidth', originalClientWidth);
+      if (originalScrollHeight) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', originalScrollHeight);
+    });
   });
 });

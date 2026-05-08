@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastProvider, ConfirmProvider, CommandPaletteProvider, CenteredSpinner } from './system';
 import Shell from './shell/Shell';
 import Register from './auth/Register';
@@ -37,12 +37,40 @@ const GlobalSearch = lazy(() => import('./search/GlobalSearch'));
 const VastValidator = lazy(() => import('./vast/VastValidator'));
 const VastChainValidator = lazy(() => import('./vast/VastChainValidator'));
 
+function resolveCommandPaletteContext(pathname: string): { entity: string; id?: string } | undefined {
+  if (pathname.startsWith('/campaigns')) return { entity: 'campaign' };
+  if (pathname.startsWith('/tags')) {
+    const match = pathname.match(/^\/tags\/([^/]+)/);
+    return match ? { entity: 'tag', id: match[1] } : { entity: 'tag' };
+  }
+  if (pathname.startsWith('/creatives')) return { entity: 'creative' };
+  if (pathname.startsWith('/settings')) return { entity: 'settings' };
+  if (pathname.startsWith('/tools')) return { entity: 'tools' };
+  if (pathname.startsWith('/reporting') || pathname.startsWith('/analytics')) return { entity: 'reporting' };
+  if (pathname.startsWith('/overview')) return { entity: 'overview' };
+  return undefined;
+}
+
+function RouteAwareCommandPaletteProvider({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const context = React.useMemo(
+    () => resolveCommandPaletteContext(location.pathname),
+    [location.pathname],
+  );
+
+  return (
+    <CommandPaletteProvider context={context}>
+      {children}
+    </CommandPaletteProvider>
+  );
+}
+
 export default function App() {
   return (
     <ToastProvider>
       <ConfirmProvider>
-        <CommandPaletteProvider>
           <BrowserRouter>
+            <RouteAwareCommandPaletteProvider>
             <Suspense fallback={<CenteredSpinner label="Loading…" />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
@@ -103,8 +131,8 @@ export default function App() {
                 <Route path="*" element={<Navigate to="/overview" replace />} />
               </Routes>
             </Suspense>
+            </RouteAwareCommandPaletteProvider>
           </BrowserRouter>
-        </CommandPaletteProvider>
       </ConfirmProvider>
     </ToastProvider>
   );

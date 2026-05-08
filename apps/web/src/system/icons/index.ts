@@ -41,6 +41,7 @@ export {
 
   // Status
   CheckCircle2,
+  Check,
   AlertTriangle,
   AlertCircle,
   Info,
@@ -56,6 +57,7 @@ export {
   Pencil,
   Copy,
   Download,
+  ArrowDownToLine,
   Upload,
   Send,
   ExternalLink,
@@ -132,7 +134,20 @@ export {
   // Files
   FileText,
   FileCode,
+  FileVideo,
   FolderOpen,
   Inbox,
   ScrollText,
+  GripVertical,
+  GripHorizontal,
+  Layers,
+  Maximize2,
+  Minimize2,
+  Sigma,
+  PlaySquare,
+  ScanEye,
+  ShieldAlert,
+  Repeat,
+  Repeat2,
+  Hourglass,
 } from 'lucide-react';

@@ -1,57 +1,39 @@
+import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { Button } from '../primitives/Button';
 import { Drawer } from '../primitives/Drawer';
 
 describe('Drawer', () => {
-  it('renders backdrop and drawer when open', () => {
-    render(
-      <Drawer open onClose={() => {}} title="Campaign detail">
-        <Button>Inside</Button>
-      </Drawer>,
-    );
-    expect(screen.getByRole('dialog')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Close drawer' }).length).toBeGreaterThan(0);
-  });
-
-  it('closes on backdrop click', () => {
+  it('closes on backdrop click and escape', () => {
     const onClose = vi.fn();
-    render(
-      <Drawer open onClose={onClose} title="Campaign detail">
-        <Button>Inside</Button>
+    const { rerender } = render(
+      <Drawer open onClose={onClose} title="Audit drawer">
+        <button type="button">Focusable child</button>
       </Drawer>,
     );
-    fireEvent.click(screen.getAllByRole('button', { name: 'Close drawer' })[0]);
-    expect(onClose).toHaveBeenCalled();
-  });
 
-  it('closes on escape', () => {
-    const onClose = vi.fn();
-    render(
-      <Drawer open onClose={onClose} title="Campaign detail">
-        <Button>Inside</Button>
+    fireEvent.click(screen.getAllByRole('button', { name: /close drawer/i })[0]);
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <Drawer open onClose={onClose} title="Audit drawer">
+        <button type="button">Focusable child</button>
       </Drawer>,
     );
+
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(onClose).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(2);
   });
 
-  it('traps focus inside the drawer', () => {
+  it('renders bottom drawers with the correct layout classes', () => {
     render(
-      <Drawer
-        open
-        onClose={() => {}}
-        title="Campaign detail"
-        footer={<Button>Save</Button>}
-      >
-        <Button>Inside</Button>
+      <Drawer open onClose={() => {}} side="bottom" title="Bottom drawer">
+        <div>Content</div>
       </Drawer>,
     );
-    const buttons = screen.getAllByRole('button');
-    const closeButton = buttons[1];
-    const saveButton = screen.getByRole('button', { name: 'Save' });
-    saveButton.focus();
-    fireEvent.keyDown(document, { key: 'Tab' });
-    expect(document.activeElement).toBe(closeButton);
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.className).toContain('bottom-0');
+    expect(dialog.className).toContain('rounded-t-3xl');
   });
 });

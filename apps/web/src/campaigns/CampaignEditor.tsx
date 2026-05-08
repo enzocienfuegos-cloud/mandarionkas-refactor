@@ -1,10 +1,18 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { loadWorkspaces, type WorkspaceOption } from '../shared/workspaces';
-import { CenteredSpinner, Kicker, Panel } from '../system';
+import { CenteredSpinner, Kicker, Panel, type DateRange } from '../system';
 import { CampaignEditorForm } from './campaign-editor/CampaignEditorForm';
 import { emptyForm } from './campaign-editor/constants';
 import type { CampaignForm } from './campaign-editor/types';
+
+function formatDateInputValue(value: Date | null) {
+  if (!value) return '';
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 export default function CampaignEditor() {
   const { id } = useParams<{ id: string }>();
@@ -57,6 +65,25 @@ export default function CampaignEditor() {
   ) => {
     setForm(f => ({ ...f, [field]: e.target.value }));
     setErrors(er => ({ ...er, [field]: undefined }));
+  };
+
+  const setValue = (field: keyof CampaignForm) => (value: string | string[]) => {
+    setForm((current) => ({ ...current, [field]: Array.isArray(value) ? value[0] ?? '' : value }));
+    setErrors((current) => ({ ...current, [field]: undefined }));
+  };
+
+  const setNumberField = (field: 'impressionGoal' | 'dailyBudget') => (value: number | null) => {
+    setForm((current) => ({ ...current, [field]: value == null ? '' : String(value) }));
+    setErrors((current) => ({ ...current, [field]: undefined }));
+  };
+
+  const setDateRange = (range: DateRange) => {
+    setForm((current) => ({
+      ...current,
+      startDate: formatDateInputValue(range.from),
+      endDate: formatDateInputValue(range.to),
+    }));
+    setErrors((current) => ({ ...current, startDate: undefined, endDate: undefined }));
   };
 
   const validate = (): Partial<CampaignForm> => {
@@ -141,6 +168,9 @@ export default function CampaignEditor() {
             workspaces={workspaces}
             saving={saving}
             onFieldChange={set}
+            onValueChange={setValue}
+            onNumberFieldChange={setNumberField}
+            onDateRangeChange={setDateRange}
             onCancel={() => navigate('/campaigns')}
           />
         </form>

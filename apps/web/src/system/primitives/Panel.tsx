@@ -3,6 +3,7 @@ import { cn } from '../cn';
 
 export type PanelElevation = 1 | 2 | 3;
 export type PanelPadding   = 'none' | 'sm' | 'md' | 'lg';
+export type PanelRadius = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
 
 export interface PanelProps extends React.HTMLAttributes<HTMLElement> {
   /** Visual elevation. Default 2. */
@@ -11,8 +12,10 @@ export interface PanelProps extends React.HTMLAttributes<HTMLElement> {
   padding?: PanelPadding;
   /** Render as a different HTML tag (default 'section') */
   as?: keyof JSX.IntrinsicElements;
-  /** Use glass/blur backdrop (default true) */
+  /** Use glass/blur backdrop (default false) */
   glass?: boolean;
+  /** Border radius token. Default '2xl'. */
+  radius?: PanelRadius;
 }
 
 const elevationClasses: Record<PanelElevation, string> = {
@@ -28,6 +31,15 @@ const paddingClasses: Record<PanelPadding, string> = {
   lg:   'p-8',
 };
 
+const radiusClasses: Record<PanelRadius, string> = {
+  sm: 'rounded-md',
+  md: 'rounded-lg',
+  lg: 'rounded-xl',
+  xl: 'rounded-2xl',
+  '2xl': 'rounded-3xl',
+  '3xl': 'rounded-[2rem]',
+};
+
 /**
  * The single surface primitive of the app. Use this for any
  * raised content area: cards, side panels, sections, modals, etc.
@@ -37,7 +49,16 @@ const paddingClasses: Record<PanelPadding, string> = {
  *   <Panel elevation={3} glass={false}>...</Panel>
  */
 export const Panel = forwardRef<HTMLElement, PanelProps>(function Panel(
-  { elevation = 2, padding = 'md', as: Tag = 'section', glass = true, className, children, ...props },
+  {
+    elevation = 2,
+    padding = 'md',
+    as: Tag = 'section',
+    glass = false,
+    radius = '2xl',
+    className,
+    children,
+    ...props
+  },
   ref,
 ) {
   return React.createElement(
@@ -45,11 +66,12 @@ export const Panel = forwardRef<HTMLElement, PanelProps>(function Panel(
     {
       ref,
       className: cn(
-        'rounded-3xl border border-[color:var(--dusk-border-default)]',
+        'border border-[color:var(--dusk-border-default)]',
         'bg-surface-1',
         glass && 'backdrop-blur-xl',
         elevationClasses[elevation],
         paddingClasses[padding],
+        radiusClasses[radius],
         className,
       ),
       ...props,

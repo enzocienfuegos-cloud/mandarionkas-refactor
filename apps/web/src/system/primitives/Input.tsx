@@ -1,9 +1,17 @@
-import React, { forwardRef } from 'react';
+import React, {
+  cloneElement,
+  forwardRef,
+  isValidElement,
+  useId,
+  type ReactElement,
+} from 'react';
+import { Copy } from '../icons';
 import { cn } from '../cn';
+import { IconButton } from './Button';
 
 export type InputSize = 'sm' | 'md' | 'lg';
 
-export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
+export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size' | 'prefix'> {
   /** Size variant. Default 'md'. */
   inputSize?: InputSize;
   /** Icon shown inside, on the left */
@@ -14,6 +22,16 @@ export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
   invalid?: boolean;
   /** Stretch full width */
   fullWidth?: boolean;
+  /** Text shown inside, on the left, before the value. */
+  prefix?: React.ReactNode;
+  /** Text shown inside, on the right, after the value. */
+  suffix?: React.ReactNode;
+  /** If true, render a built-in copy-to-clipboard button. */
+  copyable?: boolean;
+  /** Optional callback fired after successful copy. */
+  onCopySuccess?: () => void;
+  /** Optional callback fired when copy fails. */
+  onCopyError?: (err: unknown) => void;
 }
 
 const sizeClasses: Record<InputSize, string> = {
@@ -44,12 +62,21 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     trailingIcon,
     invalid = false,
     fullWidth = true,
+    prefix,
+    suffix,
+    copyable = false,
+    onCopySuccess,
+    onCopyError,
     className,
     type = 'text',
     ...props
   },
   ref,
 ) {
+  const canCopy = copyable && typeof props.value === 'string' && props.value.length > 0;
+  const hasLeadingAffordance = Boolean(leadingIcon || prefix);
+  const hasTrailingAffordance = Boolean(trailingIcon || suffix || canCopy);
+
   const inputEl = (
     <input
       ref={ref}
@@ -64,8 +91,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         invalid
           ? 'border-[color:var(--dusk-status-critical-fg)]'
           : 'border-[color:var(--dusk-border-default)] hover:border-[color:var(--dusk-border-strong)]',
-        Boolean(leadingIcon) && sizePadLeft[inputSize],
-        Boolean(trailingIcon) && sizePadRight[inputSize],
+        hasLeadingAffordance && sizePadLeft[inputSize],
+        hasTrailingAffordance && sizePadRight[inputSize],
         fullWidth && 'w-full',
         className,
       )}
@@ -73,7 +100,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     />
   );
 
-  if (!leadingIcon && !trailingIcon) return inputEl;
+  if (!hasLeadingAffordance && !hasTrailingAffordance) return inputEl;
 
   return (
     <div className={cn('relative', fullWidth && 'w-full')}>
@@ -87,6 +114,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           {leadingIcon}
         </span>
       )}
+      {!leadingIcon && prefix && (
+        <span
+          className={cn(
+            'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--dusk-text-soft)]',
+            inputSize === 'sm' ? 'text-xs' : 'text-sm',
+          )}
+        >
+          {prefix}
+        </span>
+      )}
       {inputEl}
       {trailingIcon && (
         <span
@@ -98,6 +135,33 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           {trailingIcon}
         </span>
       )}
+      {!trailingIcon && suffix && (
+        <span
+          className={cn(
+            'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[color:var(--dusk-text-soft)]',
+            inputSize === 'sm' ? 'text-xs' : 'text-sm',
+          )}
+        >
+          {suffix}
+        </span>
+      )}
+      {!trailingIcon && !suffix && canCopy ? (
+        <IconButton
+          icon={<Copy />}
+          aria-label="Copy value"
+          size="sm"
+          variant="ghost"
+          className="absolute right-1 top-1/2 -translate-y-1/2"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(props.value as string);
+              onCopySuccess?.();
+            } catch (err) {
+              onCopyError?.(err);
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 });
@@ -122,6 +186,16 @@ export function FormField({
   htmlFor?: string;
   className?: string;
 }) {
+  const errorId = useId();
+  const helperId = useId();
+  const describedBy = error ? errorId : helper ? helperId : undefined;
+  const childrenWithAria = isValidElement(children)
+    ? cloneElement(children as ReactElement, {
+        'aria-describedby': describedBy,
+        'aria-invalid': error ? true : undefined,
+      })
+    : children;
+
   return (
     <div className={cn('space-y-1.5', className)}>
       <label
@@ -135,13 +209,13 @@ export function FormField({
           </span>
         )}
       </label>
-      {children}
+      {childrenWithAria}
       {error ? (
-        <p className="text-xs text-[color:var(--dusk-status-critical-fg)]" role="alert">
+        <p id={errorId} className="text-xs text-[color:var(--dusk-status-critical-fg)]" role="alert">
           {error}
         </p>
       ) : helper ? (
-        <p className="text-xs text-[color:var(--dusk-text-soft)]">{helper}</p>
+        <p id={helperId} className="text-xs text-[color:var(--dusk-text-soft)]">{helper}</p>
       ) : null}
     </div>
   );

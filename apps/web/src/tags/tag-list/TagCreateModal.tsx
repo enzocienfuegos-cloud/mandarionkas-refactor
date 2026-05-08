@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Input, Modal, Select } from '../../system';
+import { Button, Combobox, Input, Modal, Select } from '../../system';
 import { DISPLAY_SIZE_PRESETS, type CreateTagForm, type Tag } from './types';
 
 export function TagCreateModal({
@@ -17,6 +17,16 @@ export function TagCreateModal({
   onCreate: () => void | Promise<void>;
   setCreateForm: React.Dispatch<React.SetStateAction<CreateTagForm>>;
 }) {
+  const clientOptions = clients.map((client) => ({
+    value: client.id,
+    label: client.name,
+  }));
+  const displaySizeOptions = DISPLAY_SIZE_PRESETS.map((preset) => ({
+    value: preset.label,
+    label: preset.label,
+    description: `${preset.width}x${preset.height}`,
+  }));
+
   return (
     <Modal
       open
@@ -40,13 +50,11 @@ export function TagCreateModal({
       <div className="space-y-4">
         <div>
           <label className="mb-1 block text-sm font-medium text-text-secondary">Client</label>
-          <Select
+          <Combobox
             value={createForm.workspaceId}
-            onChange={(event) => setCreateForm((current) => ({ ...current, workspaceId: event.target.value }))}
-            options={[
-              { value: '', label: 'Select a client' },
-              ...clients.map((client) => ({ value: client.id, label: client.name })),
-            ]}
+            onChange={(value) => setCreateForm((current) => ({ ...current, workspaceId: Array.isArray(value) ? value[0] ?? '' : value }))}
+            options={clientOptions}
+            placeholder="Select a client"
           />
         </div>
 
@@ -87,20 +95,19 @@ export function TagCreateModal({
         {createForm.format === 'display' ? (
           <div>
             <label className="mb-1 block text-sm font-medium text-text-secondary">Display Size</label>
-            <Select
+            <Combobox
               value={createForm.servingWidth && createForm.servingHeight ? `${createForm.servingWidth}x${createForm.servingHeight}` : ''}
-              onChange={(event) => {
-                const preset = DISPLAY_SIZE_PRESETS.find((entry) => entry.label === event.target.value);
+              onChange={(value) => {
+                const selected = Array.isArray(value) ? value[0] ?? '' : value;
+                const preset = DISPLAY_SIZE_PRESETS.find((entry) => entry.label === selected);
                 setCreateForm((current) => ({
                   ...current,
                   servingWidth: preset ? String(preset.width) : '',
                   servingHeight: preset ? String(preset.height) : '',
                 }));
               }}
-              options={[
-                { value: '', label: 'Select a size' },
-                ...DISPLAY_SIZE_PRESETS.map((preset) => ({ value: preset.label, label: preset.label })),
-              ]}
+              options={displaySizeOptions}
+              placeholder="Select a size"
             />
           </div>
         ) : null}

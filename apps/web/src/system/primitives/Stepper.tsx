@@ -60,6 +60,8 @@ export function Stepper({
   onStepClick,
 }: StepperProps) {
   const vertical = orientation === 'vertical';
+  const DOT_SIZE = 36;
+  const DOT_HALF = DOT_SIZE / 2;
 
   return (
     <ol
@@ -82,7 +84,12 @@ export function Stepper({
             {vertical && !isLast ? (
               <span
                 aria-hidden="true"
-                className={cn('absolute left-[1.15rem] top-9 h-[calc(100%-1.1rem)] w-px', styles.line)}
+                className={cn('absolute w-px', styles.line)}
+                style={{
+                  left: `${DOT_HALF - 0.5}px`,
+                  top: `${DOT_SIZE}px`,
+                  height: 'calc(100% - 36px + 12px)',
+                }}
               />
             ) : null}
 
@@ -90,33 +97,46 @@ export function Stepper({
               aria-hidden="true"
               className={cn(
                 vertical ? 'absolute left-0 top-0' : 'mb-2 inline-flex',
-                'inline-flex h-9 w-9 items-center justify-center rounded-full border',
+                'inline-flex items-center justify-center rounded-full border',
                 styles.dot,
               )}
+              style={{ width: DOT_SIZE, height: DOT_SIZE }}
             >
               <StepStatusIcon status={step.status} />
             </span>
 
-            <ContentTag
-              type={interactive ? 'button' : undefined}
-              onClick={interactive ? () => onStepClick?.(step.id) : undefined}
-              className={cn(
-                'w-full rounded-xl border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-1)] px-4 py-3 text-left transition-colors',
-                interactive
-                  ? 'hover:border-[color:var(--dusk-border-strong)] hover:bg-[color:var(--dusk-surface-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--dusk-status-info-border)]'
-                  : '',
-              )}
-              aria-current={step.status === 'current' ? 'step' : undefined}
-              disabled={interactive ? false : undefined}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={cn('text-sm font-semibold', styles.text)}>{step.label}</span>
-                {step.badge ? <Badge tone={step.badge.tone} size="sm">{step.badge.label}</Badge> : null}
-              </div>
-              {step.description ? (
-                <p className="mt-1 text-xs text-[color:var(--dusk-text-muted)]">{step.description}</p>
-              ) : null}
-            </ContentTag>
+            {interactive ? (
+              <ContentTag
+                type="button"
+                onClick={() => onStepClick?.(step.id)}
+                className={cn(
+                  'w-full rounded-xl border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-1)] px-4 py-3 text-left transition-colors',
+                  'hover:border-[color:var(--dusk-border-strong)] hover:bg-[color:var(--dusk-surface-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--dusk-status-info-border)]',
+                )}
+                aria-current={step.status === 'current' ? 'step' : undefined}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={cn('text-sm font-semibold', styles.text)}>{step.label}</span>
+                  {step.badge ? <Badge tone={step.badge.tone} size="sm">{step.badge.label}</Badge> : null}
+                </div>
+                {step.description ? (
+                  <p className="mt-1 text-xs text-[color:var(--dusk-text-muted)]">{step.description}</p>
+                ) : null}
+              </ContentTag>
+            ) : (
+              <ContentTag
+                className="w-full rounded-xl border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-1)] px-4 py-3 text-left transition-colors"
+                aria-current={step.status === 'current' ? 'step' : undefined}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={cn('text-sm font-semibold', styles.text)}>{step.label}</span>
+                  {step.badge ? <Badge tone={step.badge.tone} size="sm">{step.badge.label}</Badge> : null}
+                </div>
+                {step.description ? (
+                  <p className="mt-1 text-xs text-[color:var(--dusk-text-muted)]">{step.description}</p>
+                ) : null}
+              </ContentTag>
+            )}
           </li>
         );
       })}

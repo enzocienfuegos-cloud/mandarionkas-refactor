@@ -4,7 +4,7 @@
  * These cover the public hook contract (useToast / useConfirm). They use
  * the same provider setup pages will use, so they double as a usage doc.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { ToastProvider, useToast } from '../feedback/Toast';
 import { ConfirmProvider, useConfirm } from '../feedback/Confirm';
@@ -20,7 +20,42 @@ function ToastTrigger({ tone = 'success' as const }: { tone?: 'success' | 'criti
   );
 }
 
+function ToastPromiseTrigger() {
+  const { promise } = useToast();
+  return (
+    <>
+      <button
+        onClick={() => {
+          void promise(Promise.resolve('done'), {
+            loading: 'Loading',
+            success: (value) => `Success ${value}`,
+            error: 'Failed',
+          });
+        }}
+      >
+        promise success
+      </button>
+      <button
+        onClick={() => {
+          void promise(Promise.reject(new Error('boom')), {
+            loading: 'Loading',
+            success: 'Success',
+            error: (error) => `Error ${(error as Error).message}`,
+          }).catch(() => {});
+        }}
+      >
+        promise error
+      </button>
+    </>
+  );
+}
+
 describe('Toast', () => {
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
   it('renders a toast when fired', async () => {
     render(
       <ToastProvider>
@@ -59,6 +94,50 @@ describe('Toast', () => {
     fireEvent.click(screen.getByText('fire success'));
     fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
     expect(screen.queryByText('Hello success')).toBeNull();
+  });
+
+  it('uses assertive live regions for critical toasts and caps visible toasts', async () => {
+    function Burst() {
+      const { toast } = useToast();
+      return (
+        <button
+          onClick={() => {
+            for (let index = 0; index < 6; index += 1) {
+              toast({ tone: 'info', title: `Toast ${index}` });
+            }
+            toast({ tone: 'critical', title: 'Critical issue' });
+          }}
+        >
+          burst
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <Burst />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByText('burst'));
+    expect(await screen.findByText('Critical issue')).toBeTruthy();
+    expect(screen.getByText('Critical issue').closest('[role="alert"]')?.getAttribute('aria-live')).toBe('assertive');
+    expect(screen.queryByText('Toast 0')).toBeNull();
+    expect(screen.queryAllByRole('status').length + screen.queryAllByRole('alert').length).toBeLessThanOrEqual(5);
+  });
+
+  it('supports toast.promise for success and failure flows', async () => {
+    render(
+      <ToastProvider>
+        <ToastPromiseTrigger />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByText('promise success'));
+    expect(await screen.findByText('Success done')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('promise error'));
+    expect(await screen.findByText('Error boom')).toBeTruthy();
   });
 });
 

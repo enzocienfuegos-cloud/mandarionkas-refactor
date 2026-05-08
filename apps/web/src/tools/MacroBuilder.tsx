@@ -239,7 +239,7 @@ export default function MacroBuilder() {
             subtitle={dsp === 'iab' ? 'HTML5 clickTag snippet' : 'Wrapped click URL'}
           />
 
-          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} urlParam="tab">
             <TabsList aria-label="Output formats">
               <Tab value="wrapped">Wrapped URL</Tab>
               <Tab value="snippet" leadingIcon={<Code className="h-4 w-4" />}>HTML snippet</Tab>

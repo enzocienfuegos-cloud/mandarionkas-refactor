@@ -31,11 +31,11 @@ export interface HeatmapProps {
   className?: string;
 }
 
-const rgbMap: Record<NonNullable<HeatmapProps['tone']>, string> = {
-  brand: '241, 0, 139',
-  success: '34, 197, 94',
-  warning: '245, 158, 11',
-  critical: '244, 63, 94',
+const colorVarMap: Record<NonNullable<HeatmapProps['tone']>, string> = {
+  brand: 'var(--dusk-brand-500)',
+  success: 'var(--dusk-status-success-fg)',
+  warning: 'var(--dusk-status-warning-fg)',
+  critical: 'var(--dusk-status-critical-fg)',
 };
 
 /**
@@ -95,7 +95,7 @@ export function Heatmap({
               const intensity = value == null ? 0 : Math.max(0.05, Math.abs(value) / max);
               const background = value == null
                 ? 'var(--dusk-surface-muted)'
-                : `rgba(${rgbMap[tone]}, ${intensity})`;
+                : `color-mix(in oklch, ${colorVarMap[tone]} ${(intensity * 100).toFixed(1)}%, transparent)`;
               return (
                 <Tooltip
                   key={`${yLabel}-${xLabel}`}

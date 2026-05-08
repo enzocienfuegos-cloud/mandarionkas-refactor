@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useId, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useId, useRef } from 'react';
 import { cn } from '../cn';
 
 interface TabsContextValue {
@@ -17,9 +17,11 @@ function useTabsContext() {
 
 export interface TabsProps {
   value: string;
-  onValueChange: (value: string) => void;
+  onValueChange?: (value: string) => void;
+  onChange?: (value: string) => void;
   children: React.ReactNode;
   className?: string;
+  urlParam?: string;
 }
 
 /**
@@ -35,10 +37,33 @@ export interface TabsProps {
  *     <TabPanel value="advanced">...</TabPanel>
  *   </Tabs>
  */
-export function Tabs({ value, onValueChange, children, className }: TabsProps) {
+export function Tabs({ value, onValueChange, onChange, children, className, urlParam }: TabsProps) {
   const baseId = useId();
+  const handleChange = onValueChange ?? onChange;
+  const hasHydratedFromUrlRef = useRef(false);
+
+  useEffect(() => {
+    if (hasHydratedFromUrlRef.current) return;
+    if (!urlParam || typeof window === 'undefined' || !handleChange) return;
+    const params = new URLSearchParams(window.location.search);
+    const nextValue = params.get(urlParam);
+    hasHydratedFromUrlRef.current = true;
+    if (nextValue && nextValue !== value) {
+      handleChange(nextValue);
+    }
+  }, [handleChange, urlParam, value]);
+
+  useEffect(() => {
+    if (!urlParam || typeof window === 'undefined') return;
+    if (!hasHydratedFromUrlRef.current) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get(urlParam) === value) return;
+    url.searchParams.set(urlParam, value);
+    window.history.replaceState(window.history.state, '', url);
+  }, [urlParam, value]);
+
   return (
-    <TabsContext.Provider value={{ value, onChange: onValueChange, baseId }}>
+    <TabsContext.Provider value={{ value, onChange: handleChange ?? (() => {}), baseId }}>
       <div className={className}>{children}</div>
     </TabsContext.Provider>
   );

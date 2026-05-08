@@ -20,6 +20,12 @@ export type { PanelProps, PanelElevation, PanelPadding } from './primitives/Pane
 
 export { Input, FormField } from './primitives/Input';
 export type { InputProps, InputSize } from './primitives/Input';
+export { Combobox } from './primitives/Combobox';
+export type { ComboboxProps, ComboboxOption } from './primitives/Combobox';
+export { DateRangePicker } from './primitives/DateRangePicker';
+export type { DateRange, DateRangePickerProps } from './primitives/DateRangePicker';
+export { NumberInput } from './primitives/NumberInput';
+export type { NumberInputProps } from './primitives/NumberInput';
 
 export { Select } from './primitives/Select';
 export type { SelectProps, SelectSize, SelectOption } from './primitives/Select';
@@ -75,6 +81,12 @@ export { SavedViewsMenu } from './saved-views/SavedViewsMenu';
 export type { SavedViewsMenuProps } from './saved-views/SavedViewsMenu';
 export { TagPreviewDrawer } from './preview/TagPreviewDrawer';
 export type { TagPreviewDrawerProps, TagPreviewTarget } from './preview/TagPreviewDrawer';
+export { TagSnippetBlock } from './preview/TagSnippetBlock';
+export type { TagSnippetBlockProps, TagExportMode } from './preview/TagSnippetBlock';
+export { MacroResolver } from './preview/MacroResolver';
+export type { MacroResolverProps, DspMacroSpec } from './preview/MacroResolver';
+export { TagDiagnostics } from './preview/TagDiagnostics';
+export type { TagDiagnosticCheck, TagDiagnosticsProps } from './preview/TagDiagnostics';
 export { VastEventLog } from './preview/VastEventLog';
 export type { VastEventLogProps } from './preview/VastEventLog';
 
@@ -94,6 +106,7 @@ export type {
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 export { DataTable } from './data-table/DataTable';
+export { useDataTableDensity } from './data-table/DataTable';
 export { DensityToggle } from './data-table/DensityToggle';
 export type {
   DataTableProps,

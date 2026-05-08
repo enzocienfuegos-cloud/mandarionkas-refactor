@@ -1,6 +1,6 @@
 import React from 'react';
 import type { WorkspaceOption } from '../../shared/workspaces';
-import { Button, FormField, Input, Select } from '../../system';
+import { Button, Combobox, DateRangePicker, FormField, Input, NumberInput, Select, type DateRange } from '../../system';
 import { DSP_OPTIONS, STATUSES } from './constants';
 import type { CampaignForm } from './types';
 
@@ -11,8 +11,18 @@ type Props = {
   workspaces: WorkspaceOption[];
   saving: boolean;
   onFieldChange: (field: keyof CampaignForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  onValueChange: (field: keyof CampaignForm) => (value: string | string[]) => void;
+  onNumberFieldChange: (field: 'impressionGoal' | 'dailyBudget') => (value: number | null) => void;
+  onDateRangeChange: (range: DateRange) => void;
   onCancel: () => void;
 };
+
+function parseDate(value: string): Date | null {
+  if (!value) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
 
 export function CampaignEditorForm({
   isEdit,
@@ -21,22 +31,35 @@ export function CampaignEditorForm({
   workspaces,
   saving,
   onFieldChange,
+  onValueChange,
+  onNumberFieldChange,
+  onDateRangeChange,
   onCancel,
 }: Props) {
+  const workspaceOptions = workspaces.map((workspace) => ({
+    value: workspace.id,
+    label: workspace.name,
+    description: workspace.slug ? `/${workspace.slug}` : undefined,
+  }));
+  const dspOptions = DSP_OPTIONS
+    .filter((option) => option.value)
+    .map((option) => ({ value: option.value, label: option.label }));
+  const scheduleRange = {
+    from: parseDate(form.startDate),
+    to: parseDate(form.endDate),
+  };
+
   return (
     <div className="space-y-5">
       {!isEdit && (
         <FormField label="Client" required error={errors.workspaceId}>
-          <Select
+          <Combobox
             value={form.workspaceId}
-            onChange={onFieldChange('workspaceId')}
+            onChange={onValueChange('workspaceId')}
+            options={workspaceOptions}
             invalid={Boolean(errors.workspaceId)}
-          >
-            <option value="">Select a client</option>
-            {workspaces.map((workspace) => (
-              <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
-            ))}
-          </Select>
+            placeholder="Select a client"
+          />
         </FormField>
       )}
 
@@ -51,11 +74,12 @@ export function CampaignEditorForm({
       </FormField>
 
       <FormField label="DSP">
-        <Select value={form.dsp} onChange={onFieldChange('dsp')}>
-          {DSP_OPTIONS.map((option) => (
-            <option key={option.label} value={option.value}>{option.label}</option>
-          ))}
-        </Select>
+        <Combobox
+          value={form.dsp}
+          onChange={onValueChange('dsp')}
+          options={dspOptions}
+          placeholder="Select a DSP"
+        />
       </FormField>
 
       <FormField label="Media Type">
@@ -73,38 +97,33 @@ export function CampaignEditorForm({
         </Select>
       </FormField>
 
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Start Date">
-          <Input type="date" value={form.startDate} onChange={onFieldChange('startDate')} />
-        </FormField>
-        <FormField label="End Date" error={errors.endDate}>
-          <Input
-            type="date"
-            value={form.endDate}
-            onChange={onFieldChange('endDate')}
-            invalid={Boolean(errors.endDate)}
-          />
-        </FormField>
-      </div>
+      <FormField
+        label="Flight Dates"
+        helper="Pick the campaign start and end window from one shared range control."
+        error={errors.endDate}
+      >
+        <DateRangePicker value={scheduleRange} onChange={onDateRangeChange} />
+      </FormField>
 
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Impression Goal" error={errors.impressionGoal}>
-          <Input
-            type="number"
-            min="0"
-            value={form.impressionGoal}
-            onChange={onFieldChange('impressionGoal')}
+          <NumberInput
+            value={form.impressionGoal ? Number(form.impressionGoal) : null}
+            onChange={onNumberFieldChange('impressionGoal')}
+            format="integer"
+            min={0}
             invalid={Boolean(errors.impressionGoal)}
             placeholder="1000000"
           />
         </FormField>
         <FormField label="Daily Budget ($)" error={errors.dailyBudget}>
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.dailyBudget}
-            onChange={onFieldChange('dailyBudget')}
+          <NumberInput
+            value={form.dailyBudget ? Number(form.dailyBudget) : null}
+            onChange={onNumberFieldChange('dailyBudget')}
+            format="currency"
+            currency="USD"
+            min={0}
+            step={0.01}
             invalid={Boolean(errors.dailyBudget)}
             placeholder="500.00"
           />

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Close } from '../icons';
 import { cn } from '../cn';
 import { IconButton } from './Button';
+import { lockBodyScroll, unlockBodyScroll } from '../internal/scrollLock';
 
 export interface DrawerProps {
   /** Open state. */
@@ -9,9 +10,9 @@ export interface DrawerProps {
   /** Close handler. */
   onClose: () => void;
   /** Side from which it slides. Default 'right'. */
-  side?: 'right' | 'left';
+  side?: 'right' | 'left' | 'bottom';
   /** Width preset or px value. Default 'md'. */
-  size?: 'sm' | 'md' | 'lg' | number;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full' | number;
   /** Title shown in header. */
   title?: string;
   /** Optional subtitle. */
@@ -28,6 +29,8 @@ const sizeWidths = {
   sm: 'w-full max-w-[400px]',
   md: 'w-full max-w-[520px]',
   lg: 'w-full max-w-[720px]',
+  xl: 'w-full max-w-[960px]',
+  full: 'w-full',
 } as const;
 
 /**
@@ -63,11 +66,8 @@ export function Drawer({
 
   useEffect(() => {
     if (!open) return;
-    const original = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = original;
-    };
+    lockBodyScroll();
+    return () => unlockBodyScroll();
   }, [open]);
 
   useEffect(() => {
@@ -100,7 +100,8 @@ export function Drawer({
 
   if (!open) return null;
 
-  const widthClass = typeof size === 'number' ? null : sizeWidths[size];
+  const isBottom = side === 'bottom';
+  const widthClass = typeof size === 'number' || isBottom ? null : sizeWidths[size];
 
   return (
     <div className="fixed inset-0 z-modal">
@@ -116,14 +117,25 @@ export function Drawer({
         aria-modal="true"
         tabIndex={-1}
         className={cn(
-          'absolute inset-y-0 flex flex-col border-[color:var(--dusk-border-default)] bg-surface-1 shadow-overlay transition-transform duration-base ease-standard motion-reduce:transition-none',
+          'absolute flex flex-col border-[color:var(--dusk-border-default)] bg-surface-1 shadow-overlay transition-transform duration-base ease-standard motion-reduce:transition-none',
+          isBottom
+            ? 'inset-x-0 bottom-0 max-h-[80vh] rounded-t-3xl border-t animate-[duskSlideUpFromBottom_180ms_ease-out]'
+            : 'inset-y-0',
           side === 'right'
             ? 'right-0 border-l animate-[duskSlideInRight_180ms_ease-out]'
-            : 'left-0 border-r animate-[duskSlideInLeft_180ms_ease-out]',
+            : side === 'left'
+              ? 'left-0 border-r animate-[duskSlideInLeft_180ms_ease-out]'
+              : '',
           widthClass,
           className,
         )}
-        style={typeof size === 'number' ? { width: `${size}px`, maxWidth: '100%' } : undefined}
+        style={
+          isBottom
+            ? { maxHeight: '80vh' }
+            : typeof size === 'number'
+              ? { width: `${size}px`, maxWidth: '100%' }
+              : undefined
+        }
       >
         <div className="flex items-start justify-between gap-4 border-b border-[color:var(--dusk-border-subtle)] px-4 py-4">
           <div className="min-w-0">
@@ -145,17 +157,6 @@ export function Drawer({
           </div>
         )}
       </div>
-
-      <style>{`
-        @keyframes duskSlideInRight {
-          from { transform: translateX(100%); opacity: 0.96; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes duskSlideInLeft {
-          from { transform: translateX(-100%); opacity: 0.96; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 }

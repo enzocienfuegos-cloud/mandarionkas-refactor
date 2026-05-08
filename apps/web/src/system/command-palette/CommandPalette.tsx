@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { Search, ArrowRight, CornerDownLeft } from '../icons';
 import { cn } from '../cn';
+import { lockBodyScroll, unlockBodyScroll } from '../internal/scrollLock';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,8 @@ export interface CommandItem {
   keywords?: string[];
   /** What runs when the item is selected. Receives a close fn. */
   perform: (close: () => void) => void;
+  /** Optional visibility scope for contextual commands. */
+  contextScope?: { entity: string };
 }
 
 export interface CommandPaletteContextValue {
@@ -70,12 +73,22 @@ export function useRegisterCommands(items: CommandItem[], deps: React.Dependency
 export function CommandPaletteProvider({
   children,
   initialItems = [],
+  context,
 }: {
   children: React.ReactNode;
   initialItems?: CommandItem[];
+  context?: { entity: string; id?: string };
 }) {
   const [isOpen, setIsOpen]   = useState(false);
   const [items, setItems]     = useState<CommandItem[]>(initialItems);
+  const [recentIds, setRecentIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(window.localStorage.getItem('cmd-palette:recent') ?? '[]') as string[];
+    } catch {
+      return [];
+    }
+  });
 
   const open    = useCallback(() => setIsOpen(true), []);
   const close   = useCallback(() => setIsOpen(false), []);
@@ -108,7 +121,15 @@ export function CommandPaletteProvider({
   return (
     <CommandPaletteContext.Provider value={value}>
       {children}
-      {isOpen && <CommandPaletteDialog items={items} onClose={close} />}
+      {isOpen && (
+        <CommandPaletteDialog
+          items={items}
+          onClose={close}
+          recentIds={recentIds}
+          setRecentIds={setRecentIds}
+          context={context}
+        />
+      )}
     </CommandPaletteContext.Provider>
   );
 }
@@ -118,9 +139,18 @@ export function CommandPaletteProvider({
 interface CommandPaletteDialogProps {
   items:   CommandItem[];
   onClose: () => void;
+  recentIds: string[];
+  setRecentIds: React.Dispatch<React.SetStateAction<string[]>>;
+  context?: { entity: string; id?: string };
 }
 
-function CommandPaletteDialog({ items, onClose }: CommandPaletteDialogProps) {
+function CommandPaletteDialog({
+  items,
+  onClose,
+  recentIds,
+  setRecentIds,
+  context,
+}: CommandPaletteDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef  = useRef<HTMLUListElement>(null);
   const [query, setQuery]           = useState('');
@@ -133,27 +163,54 @@ function CommandPaletteDialog({ items, onClose }: CommandPaletteDialogProps) {
 
   // Lock body scroll
   useEffect(() => {
-    const original = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = original; };
+    lockBodyScroll();
+    return () => { unlockBodyScroll(); };
   }, []);
 
   // Filter items
-  const filtered = useMemo(() => fuzzyFilter(items, query), [items, query]);
+  const scopedItems = useMemo(
+    () => items.filter((item) => !item.contextScope || item.contextScope.entity === context?.entity),
+    [context?.entity, items],
+  );
+  const filtered = useMemo(() => fuzzyFilter(scopedItems, query), [scopedItems, query]);
 
   // Reset active index when filter changes
   useEffect(() => { setActiveIndex(0); }, [query]);
 
   // Group filtered items by their group property
-  const grouped = useMemo(() => groupItems(filtered), [filtered]);
+  const grouped = useMemo(() => {
+    if (query.trim().length > 0) return groupItems(filtered);
+
+    const recent = recentIds
+      .map((id) => filtered.find((item) => item.id === id))
+      .filter(Boolean) as CommandItem[];
+    const recentSet = new Set(recent.map((item) => item.id));
+    const remainder = filtered.filter((item) => !recentSet.has(item.id));
+
+    return [
+      ...(recent.length > 0 ? [{ heading: 'Recent', items: recent }] : []),
+      ...groupItems(remainder),
+    ];
+  }, [filtered, query, recentIds]);
 
   // Flat order matches what the user sees on screen — used for arrow keys
   const flatOrder = useMemo(() => grouped.flatMap((g) => g.items), [grouped]);
 
+  const recordRun = useCallback((id: string) => {
+    setRecentIds((current) => {
+      const next = [id, ...current.filter((entry) => entry !== id)].slice(0, 5);
+      window.localStorage.setItem('cmd-palette:recent', JSON.stringify(next));
+      return next;
+    });
+  }, [setRecentIds]);
+
   const runActive = useCallback(() => {
     const item = flatOrder[activeIndex];
-    if (item) item.perform(onClose);
-  }, [activeIndex, flatOrder, onClose]);
+    if (item) {
+      recordRun(item.id);
+      item.perform(onClose);
+    }
+  }, [activeIndex, flatOrder, onClose, recordRun]);
 
   // Keyboard nav
   useEffect(() => {
@@ -269,7 +326,10 @@ function CommandPaletteDialog({ items, onClose }: CommandPaletteDialogProps) {
                       aria-selected={isActive}
                       data-active={isActive}
                       onMouseMove={() => setActiveIndex(flatIndex)}
-                      onClick={() => item.perform(onClose)}
+                      onClick={() => {
+                        recordRun(item.id);
+                        item.perform(onClose);
+                      }}
                       className={cn(
                         'flex items-center gap-3 mx-2 px-3 py-2 rounded-lg cursor-pointer transition-colors',
                         isActive

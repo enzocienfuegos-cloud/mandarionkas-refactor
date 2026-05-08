@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { readCampaignDsp } from '@smx/contracts/dsp-macros';
 import {
   Badge,
   Button,
@@ -16,12 +17,22 @@ import {
   useConfirm,
   useToast,
   type Density,
+  type DspMacroSpec,
+  type TagDiagnosticCheck,
+  type TagExportMode,
 } from '../system';
 import { TagPreviewDrawer, type TagPreviewTarget } from '../system/preview/TagPreviewDrawer';
 import { getSavedView } from '../shared/saved-views';
 import { useTagColumns } from './tag-list/columns';
 import { TagCreateModal } from './tag-list/TagCreateModal';
 import { type IconProps, type Tag } from './tag-list/types';
+import {
+  buildTagDiagnosticChecks,
+  buildTagMacroSpec,
+  buildTagPreviewSnippets,
+  type DeliveryDiagnosticsPayload,
+  type PreviewSavedTag,
+} from './tag-preview-content';
 import { useTagListWorkspace } from './tag-list/useTagListWorkspace';
 import { tagMetricScope } from './tag.metrics';
 import { getDensity } from '../shared/preferences';
@@ -72,6 +83,9 @@ export default function TagList() {
   const [density, setDensity] = useState<Density>(() => getDensity('tags-main') ?? 'comfortable');
   const [previewSourceTag, setPreviewSourceTag] = useState<Tag | null>(null);
   const [previewTag, setPreviewTag] = useState<TagPreviewTarget | null>(null);
+  const [previewSnippets, setPreviewSnippets] = useState<Partial<Record<TagExportMode, string>>>({});
+  const [previewMacroSpec, setPreviewMacroSpec] = useState<DspMacroSpec | null>(null);
+  const [previewDiagnosticChecks, setPreviewDiagnosticChecks] = useState<TagDiagnosticCheck[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const confirm = useConfirm();
@@ -202,17 +216,51 @@ export default function TagList() {
     setPreviewSourceTag(tag);
     const initialTarget = buildPreviewTarget(tag);
     setPreviewTag(initialTarget);
+    setPreviewSnippets({});
+    setPreviewMacroSpec(null);
+    setPreviewDiagnosticChecks([]);
     setPreviewError(null);
     setPreviewLoading(true);
     try {
-      const response = await fetch(`/v1/tags/${tag.id}`, { credentials: 'include' });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.message ?? 'Couldn’t load tag preview metadata.');
+      const [detailResponse, diagnosticsResponse] = await Promise.allSettled([
+        fetch(`/v1/tags/${tag.id}`, { credentials: 'include' }),
+        fetch(`/v1/tags/${tag.id}/delivery-diagnostics`, { credentials: 'include' }),
+      ]);
+
+      if (detailResponse.status !== 'fulfilled' || !detailResponse.value.ok) {
+        const payload = detailResponse.status === 'fulfilled'
+          ? await detailResponse.value.json().catch(() => ({}))
+          : {};
+        throw new Error((payload as any)?.message ?? 'Couldn’t load tag preview metadata.');
       }
-      const payload = await response.json();
-      const detail = (payload?.tag ?? payload) as Partial<Tag>;
+
+      const payload = await detailResponse.value.json();
+      const detail = (payload?.tag ?? payload) as Partial<Tag> & { campaign?: { metadata?: unknown } | null };
       setPreviewTag(buildPreviewTarget(tag, detail));
+
+      const diagnosticsPayload = diagnosticsResponse.status === 'fulfilled' && diagnosticsResponse.value.ok
+        ? await diagnosticsResponse.value.json().catch(() => null)
+        : null;
+      const diagnostics = ((diagnosticsPayload as any)?.deliveryDiagnostics
+        ? diagnosticsPayload
+        : (diagnosticsPayload as any)) as DeliveryDiagnosticsPayload | null;
+      const mergedTag: PreviewSavedTag = {
+        id: detail.id ?? tag.id,
+        name: detail.name ?? tag.name,
+        format: (detail.format as PreviewSavedTag['format']) ?? tag.format,
+        width: detail.servingWidth ?? tag.servingWidth ?? null,
+        height: detail.servingHeight ?? tag.servingHeight ?? null,
+        trackerType: (detail.trackerType as PreviewSavedTag['trackerType']) ?? tag.trackerType ?? null,
+        clickUrl: detail.clickUrl ?? tag.clickUrl ?? null,
+      };
+      const campaignDsp = readCampaignDsp(detail.campaign?.metadata);
+      setPreviewSnippets(buildTagPreviewSnippets(mergedTag, campaignDsp, diagnostics));
+      setPreviewMacroSpec(buildTagMacroSpec(campaignDsp));
+      setPreviewDiagnosticChecks(buildTagDiagnosticChecks({
+        savedTag: mergedTag,
+        selectedCampaignDsp: campaignDsp,
+        deliveryDiagnostics: diagnostics,
+      }));
     } catch (previewLoadError: any) {
       setPreviewError(previewLoadError?.message ?? 'Couldn’t load tag preview metadata.');
       toast({
@@ -467,6 +515,9 @@ export default function TagList() {
         onClose={() => {
           setPreviewSourceTag(null);
           setPreviewTag(null);
+          setPreviewSnippets({});
+          setPreviewMacroSpec(null);
+          setPreviewDiagnosticChecks([]);
           setPreviewError(null);
           setPreviewLoading(false);
         }}
@@ -476,6 +527,9 @@ export default function TagList() {
         onRetry={previewSourceTag ? () => void handlePreview(previewSourceTag) : undefined}
         onRefresh={previewSourceTag ? () => void handlePreview(previewSourceTag) : undefined}
         onViewDiagnostics={previewTag ? () => navigate(`/tags/${previewTag.id}/tracking`) : undefined}
+        snippets={previewSnippets}
+        macroSpec={previewMacroSpec ?? undefined}
+        diagnosticChecks={previewDiagnosticChecks}
       />
     </div>
   );
