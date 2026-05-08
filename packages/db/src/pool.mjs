@@ -29,17 +29,32 @@ export function createPool(connectionString, overrides = {}) {
     throw new Error('A PostgreSQL connection string is required.');
   }
 
-  const max = Number(process.env.PG_POOL_MAX) || overrides.max || 10;
+  const max = Number(process.env.PG_POOL_MAX) || overrides.max || 4;
   const idleTimeoutMs = Number(process.env.PG_POOL_IDLE_TIMEOUT_MS) || overrides.idleTimeoutMs || 10_000;
   const connectTimeoutMs = Number(process.env.PG_POOL_CONNECT_TIMEOUT_MS) || overrides.connectTimeoutMs || 5_000;
-
-  return new Pool({
+  const pool = new Pool({
     connectionString,
     ssl: buildSslConfig(),
     max,
     idleTimeoutMillis: idleTimeoutMs,
     connectionTimeoutMillis: connectTimeoutMs,
   });
+
+  pool.on('error', (error) => {
+    console.error(JSON.stringify({
+      level: 'error',
+      time: new Date().toISOString(),
+      service: 'smx-db-pool',
+      message: 'Postgres pool emitted an error',
+      error: {
+        message: error?.message || String(error),
+        stack: error?.stack,
+        name: error?.name,
+      },
+    }));
+  });
+
+  return pool;
 }
 
 export function getPool(connectionString, overrides = {}) {

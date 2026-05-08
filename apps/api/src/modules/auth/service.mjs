@@ -382,17 +382,12 @@ export async function restoreSessionFromRequest({ env, headers }) {
     };
   }
 
-  const pool   = getPoolOrThrow(env);
-  const client = await pool.connect();
-  try {
-    const sessionRow = await readSessionRowFromCookie(client, env, headers);
-    if (!sessionRow) {
-      return { statusCode: 200, payload: unauthenticatedPayload(), clearCookie: true };
-    }
-    return { statusCode: 200, payload: await hydrateSession(client, sessionRow), clearCookie: false };
-  } finally {
-    client.release();
+  const pool = getPoolOrThrow(env);
+  const sessionRow = await readSessionRowFromCookie(pool, env, headers);
+  if (!sessionRow) {
+    return { statusCode: 200, payload: unauthenticatedPayload(), clearCookie: true };
   }
+  return { statusCode: 200, payload: await hydrateSession(pool, sessionRow), clearCookie: false };
 }
 
 export async function createLoginSession({ env, email, password, remember, headers }) {
@@ -562,29 +557,24 @@ export async function requireAuthenticatedReadSession({ env, headers }) {
     };
   }
 
-  const pool   = getPoolOrThrow(env);
-  const client = await pool.connect();
-  try {
-    const sessionRow = await readSessionRowFromCookie(client, env, headers);
-    if (!sessionRow) {
-      return {
-        ok:         false,
-        statusCode: 401,
-        code:       'unauthorized',
-        message:    'Authentication is required.',
-      };
-    }
-
-    const resolved = await resolveAuthenticatedSessionState(client, sessionRow);
+  const pool = getPoolOrThrow(env);
+  const sessionRow = await readSessionRowFromCookie(pool, env, headers);
+  if (!sessionRow) {
     return {
-      ok: true,
-      client: pool,
-      ...resolved,
-      async finish() {},
+      ok:         false,
+      statusCode: 401,
+      code:       'unauthorized',
+      message:    'Authentication is required.',
     };
-  } finally {
-    client.release();
   }
+
+  const resolved = await resolveAuthenticatedSessionState(pool, sessionRow);
+  return {
+    ok: true,
+    client: pool,
+    ...resolved,
+    async finish() {},
+  };
 }
 
 export async function ensureWorkspaceAccess(client, workspaceId, userId) {

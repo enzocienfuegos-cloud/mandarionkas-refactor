@@ -176,14 +176,14 @@ export async function handleReportingRoutes(ctx) {
   }
 
   if (method === 'GET' && pathname === '/v1/reporting/workspace/identity-attribution-windows') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const breakdown = await getWorkspaceIdentityAttributionWindows(session.client, session.session.activeWorkspaceId, getOpts(url));
       return sendJson(res, 200, { breakdown, requestId });
     });
   }
 
   if (method === 'GET' && pathname === '/v1/reporting/workspace/saved-audiences') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const audiences = await listSavedAudiences(session.client, session.session.activeWorkspaceId);
       return sendJson(res, 200, { audiences, requestId });
     });
