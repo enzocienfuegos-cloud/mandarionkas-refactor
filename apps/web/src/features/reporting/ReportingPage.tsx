@@ -1,7 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getSavedView } from '../../shared/saved-views';
-import { Button, CenteredSpinner, Panel, SavedViewsMenu } from '../../system';
+import {
+  Button,
+  CenteredSpinner,
+  Panel,
+  SavedViewsMenu,
+  type DateRange,
+} from '../../system';
 import { reportingModeConfig } from './reporting.config';
 import type { ReportingMode } from './reporting.types';
 import { KpiGrid } from './components/KpiGrid';
@@ -12,11 +18,49 @@ import { ScopeBar } from './components/ScopeBar';
 import { WidgetRenderer } from './components/WidgetRenderer';
 import { useReportingData } from './hooks/useReportingData';
 
+function formatDateLabel(value: Date) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(value);
+}
+
+function createDefaultCustomDateRange(): DateRange {
+  const today = new Date();
+  const from = new Date(today);
+  from.setDate(today.getDate() - 29);
+  return { from, to: today };
+}
+
+function serializeDateRange(range: DateRange) {
+  return {
+    from: range.from ? range.from.toISOString() : null,
+    to: range.to ? range.to.toISOString() : null,
+  };
+}
+
+function parseDateRange(value: unknown): DateRange {
+  if (!value || typeof value !== 'object') {
+    return createDefaultCustomDateRange();
+  }
+
+  const source = value as { from?: unknown; to?: unknown };
+  const from = typeof source.from === 'string' ? new Date(source.from) : null;
+  const to = typeof source.to === 'string' ? new Date(source.to) : null;
+
+  return {
+    from: from && !Number.isNaN(from.getTime()) ? from : null,
+    to: to && !Number.isNaN(to.getTime()) ? to : null,
+  };
+}
+
 export function ReportingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [mode, setMode] = useState<ReportingMode>('all');
   const [advertiserFilter, setAdvertiserFilter] = useState('');
   const [dateRangeFilter, setDateRangeFilter] = useState<'7d' | '30d' | '90d' | 'custom'>('30d');
+  const [customDateRange, setCustomDateRange] = useState<DateRange>(() => createDefaultCustomDateRange());
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'archived'>('all');
   const [search, setSearch] = useState('');
   const currentViewId = searchParams.get('view');
@@ -31,6 +75,7 @@ export function ReportingPage() {
   } = useReportingData({
     mode,
     dateRange: dateRangeFilter,
+    customDateRange,
     advertiserId: advertiserFilter,
     statusFilter,
     search,
@@ -47,9 +92,14 @@ export function ReportingPage() {
   const dateRangeLabel = useMemo(() => {
     if (dateRangeFilter === '7d') return 'Last 7 days';
     if (dateRangeFilter === '90d') return 'Last 90 days';
-    if (dateRangeFilter === 'custom') return 'Custom range';
+    if (dateRangeFilter === 'custom') {
+      if (customDateRange.from && customDateRange.to) {
+        return `${formatDateLabel(customDateRange.from)} - ${formatDateLabel(customDateRange.to)}`;
+      }
+      return 'Custom range';
+    }
     return 'Last 30 days';
-  }, [dateRangeFilter]);
+  }, [customDateRange.from, customDateRange.to, dateRangeFilter]);
 
   useEffect(() => {
     if (!currentViewId) return;
@@ -73,6 +123,7 @@ export function ReportingPage() {
         setDateRangeFilter((['7d', '30d', '90d', 'custom'].includes(String(nextFilters.dateRangeFilter))
           ? nextFilters.dateRangeFilter
           : '30d') as '7d' | '30d' | '90d' | 'custom');
+        setCustomDateRange(parseDateRange(nextFilters.customDateRange));
         setStatusFilter((['all', 'active', 'paused', 'archived'].includes(String(nextFilters.statusFilter))
           ? nextFilters.statusFilter
           : 'all') as 'all' | 'active' | 'paused' | 'archived');
@@ -102,6 +153,7 @@ export function ReportingPage() {
               mode,
               advertiserFilter,
               dateRangeFilter,
+              customDateRange: serializeDateRange(customDateRange),
               statusFilter,
               search,
             }}
@@ -127,6 +179,8 @@ export function ReportingPage() {
         onAdvertiserChange={setAdvertiserFilter}
         dateRangeFilter={dateRangeFilter}
         onDateRangeChange={setDateRangeFilter}
+        customDateRange={customDateRange}
+        onCustomDateRangeChange={setCustomDateRange}
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
         search={search}
@@ -134,6 +188,7 @@ export function ReportingPage() {
         onResetFilters={() => {
           setAdvertiserFilter('');
           setDateRangeFilter('30d');
+          setCustomDateRange(createDefaultCustomDateRange());
           setStatusFilter('all');
           setSearch('');
         }}

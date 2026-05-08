@@ -344,14 +344,12 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
     identityParams,
   );
 
-  const [summaryResult, engagementResult, durationResult, last7dResult, frequencyResult, identityFallbackResult] = await Promise.all([
-    summaryQuery,
-    engagementQuery,
-    durationQuery,
-    last7dQuery,
-    frequencyQuery,
-    identityFallbackQuery,
-  ]);
+  const summaryResult = await summaryQuery;
+  const engagementResult = await engagementQuery;
+  const durationResult = await durationQuery;
+  const last7dResult = await last7dQuery;
+  const frequencyResult = await frequencyQuery;
+  const identityFallbackResult = await identityFallbackQuery;
 
   const summary = summaryResult.rows[0] ?? {};
   const engagement = engagementResult.rows[0] ?? {};
@@ -930,12 +928,10 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
     inventoryParams,
   );
 
-  const [latestResult, deviceTypeResult, deviceModelResult, inventoryResult] = await Promise.all([
-    latestQuery,
-    deviceTypeQuery,
-    deviceModelQuery,
-    inventoryQuery,
-  ]);
+  const latestResult = await latestQuery;
+  const deviceTypeResult = await deviceTypeQuery;
+  const deviceModelResult = await deviceModelQuery;
+  const inventoryResult = await inventoryQuery;
 
   return {
     latest_context: latestResult.rows[0] ?? null,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { loadCreatives, type Creative } from '../../../creatives/catalog';
+import type { DateRange } from '../../../system';
 import type {
   AttributionWindowRow,
   CampaignPerformanceRow,
@@ -136,6 +137,7 @@ type CampaignOption = {
 type HookArgs = {
   mode: ReportingMode;
   dateRange: DateRangeFilter;
+  customDateRange: DateRange;
   advertiserId: string;
   statusFilter: StatusFilter;
   search: string;
@@ -196,6 +198,23 @@ function resolveDateRange(range: DateRangeFilter) {
   if (range === '7d') return { dateFrom: daysAgo(6), dateTo: new Date().toISOString().slice(0, 10) };
   if (range === '90d') return { dateFrom: daysAgo(89), dateTo: new Date().toISOString().slice(0, 10) };
   return { dateFrom: daysAgo(29), dateTo: new Date().toISOString().slice(0, 10) };
+}
+
+function formatDateParam(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function resolveEffectiveDateRange(range: DateRangeFilter, customDateRange: DateRange) {
+  if (range !== 'custom') return resolveDateRange(range);
+  if (customDateRange.from && customDateRange.to) {
+    const from = customDateRange.from <= customDateRange.to ? customDateRange.from : customDateRange.to;
+    const to = customDateRange.from <= customDateRange.to ? customDateRange.to : customDateRange.from;
+    return {
+      dateFrom: formatDateParam(from),
+      dateTo: formatDateParam(to),
+    };
+  }
+  return resolveDateRange('30d');
 }
 
 function toNumber(value: unknown) {
@@ -523,6 +542,7 @@ const INITIAL_STATE: HookState = {
 export function useReportingData({
   mode,
   dateRange,
+  customDateRange,
   advertiserId,
   statusFilter,
   search,
@@ -530,44 +550,29 @@ export function useReportingData({
   const [state, setState] = useState<HookState>(INITIAL_STATE);
 
   const query = useMemo(() => {
-    const { dateFrom, dateTo } = resolveDateRange(dateRange);
+    const { dateFrom, dateTo } = resolveEffectiveDateRange(dateRange, customDateRange);
     return buildQuery({
       dateFrom,
       dateTo,
       advertiserId: advertiserId || undefined,
     });
-  }, [advertiserId, dateRange]);
+  }, [advertiserId, customDateRange, dateRange]);
 
   const reload = useCallback(async () => {
     setState((current) => ({ ...current, loading: true, error: '' }));
     try {
-      const [
-        workspacePayload,
-        campaignPayload,
-        tagPayload,
-        regionPayload,
-        trackerPayload,
-        identityFrequencyPayload,
-        identitySegmentPayload,
-        identityKeyPayload,
-        identityAttributionPayload,
-        contextSnapshotPayload,
-        campaignListPayload,
-        creatives,
-      ] = await Promise.all([
-        fetchJson<{ stats: WorkspaceStats; timeline: TimelineRow[] }>(`/v1/reporting/workspace${query}`),
-        fetchJson<{ breakdown: CampaignBreakdownRow[] }>(`/v1/reporting/workspace/campaign-breakdown${query}`),
-        fetchJson<{ breakdown: TagBreakdownRow[] }>(`/v1/reporting/workspace/tag-breakdown${query}`),
-        fetchJson<{ breakdown: RegionBreakdownRow[] }>(`/v1/reporting/workspace/region-breakdown${query}`),
-        fetchJson<{ breakdown: TrackerBreakdownRow[] }>(`/v1/reporting/workspace/tracker-breakdown${query}`),
-        fetchJson<{ breakdown: IdentityFrequencyApiRow[] }>(`/v1/reporting/workspace/identity-frequency-buckets${query}`),
-        fetchJson<{ breakdown: IdentitySegmentPresetRow[] }>(`/v1/reporting/workspace/identity-segment-presets${query}`),
-        fetchJson<{ breakdown: IdentityKeyBreakdownRow[] }>(`/v1/reporting/workspace/identity-key-breakdown${query}`),
-        fetchJson<{ breakdown: IdentityAttributionApiRow[] }>(`/v1/reporting/workspace/identity-attribution-windows${query}`),
-        fetchJson<ContextSnapshotRow>(`/v1/reporting/workspace/context-snapshot${query}`),
-        fetchJson<{ campaigns: CampaignOption[] }>(`/v1/campaigns?scope=all`),
-        loadCreatives(),
-      ]);
+      const workspacePayload = await fetchJson<{ stats: WorkspaceStats; timeline: TimelineRow[] }>(`/v1/reporting/workspace${query}`);
+      const campaignPayload = await fetchJson<{ breakdown: CampaignBreakdownRow[] }>(`/v1/reporting/workspace/campaign-breakdown${query}`);
+      const tagPayload = await fetchJson<{ breakdown: TagBreakdownRow[] }>(`/v1/reporting/workspace/tag-breakdown${query}`);
+      const regionPayload = await fetchJson<{ breakdown: RegionBreakdownRow[] }>(`/v1/reporting/workspace/region-breakdown${query}`);
+      const trackerPayload = await fetchJson<{ breakdown: TrackerBreakdownRow[] }>(`/v1/reporting/workspace/tracker-breakdown${query}`);
+      const identityFrequencyPayload = await fetchJson<{ breakdown: IdentityFrequencyApiRow[] }>(`/v1/reporting/workspace/identity-frequency-buckets${query}`);
+      const identitySegmentPayload = await fetchJson<{ breakdown: IdentitySegmentPresetRow[] }>(`/v1/reporting/workspace/identity-segment-presets${query}`);
+      const identityKeyPayload = await fetchJson<{ breakdown: IdentityKeyBreakdownRow[] }>(`/v1/reporting/workspace/identity-key-breakdown${query}`);
+      const identityAttributionPayload = await fetchJson<{ breakdown: IdentityAttributionApiRow[] }>(`/v1/reporting/workspace/identity-attribution-windows${query}`);
+      const contextSnapshotPayload = await fetchJson<ContextSnapshotRow>(`/v1/reporting/workspace/context-snapshot${query}`);
+      const campaignListPayload = await fetchJson<{ campaigns: CampaignOption[] }>(`/v1/campaigns?scope=all`);
+      const creatives = await loadCreatives();
 
       const stats = workspacePayload.stats;
       const timeline = workspacePayload.timeline ?? [];
