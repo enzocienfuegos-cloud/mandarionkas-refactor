@@ -569,14 +569,12 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     activeTagParams,
   );
 
-  const [summaryRes, engagementRes, durationRes, frequencyRes, activeCampaignsRes, activeTagsRes] = await Promise.all([
-    summaryQuery,
-    engagementQuery,
-    durationQuery,
-    frequencyQuery,
-    activeCampaignsQuery,
-    activeTagsQuery,
-  ]);
+  const summaryRes = await summaryQuery;
+  const engagementRes = await engagementQuery;
+  const durationRes = await durationQuery;
+  const frequencyRes = await frequencyQuery;
+  const activeCampaignsRes = await activeCampaignsQuery;
+  const activeTagsRes = await activeTagsQuery;
 
   const summary = summaryRes.rows[0] ?? {};
   const engagement = engagementRes.rows[0] ?? {};

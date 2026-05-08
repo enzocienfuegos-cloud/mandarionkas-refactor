@@ -65,17 +65,28 @@ function RouteAwareCommandPaletteProvider({ children }: { children: React.ReactN
   );
 }
 
+function FullPageRouteFallback({ label = 'Loading…' }: { label?: string }) {
+  return (
+    <div className="flex h-screen items-center justify-center bg-bg">
+      <CenteredSpinner label={label} />
+    </div>
+  );
+}
+
+function withFullPageSuspense(node: React.ReactNode, label?: string) {
+  return <Suspense fallback={<FullPageRouteFallback label={label} />}>{node}</Suspense>;
+}
+
 export default function App() {
   return (
     <ToastProvider>
       <ConfirmProvider>
-          <BrowserRouter>
-            <RouteAwareCommandPaletteProvider>
-            <Suspense fallback={<CenteredSpinner label="Loading…" />}>
+        <BrowserRouter>
+          <RouteAwareCommandPaletteProvider>
               <Routes>
-                <Route path="/login" element={<Login />} />
+                <Route path="/login" element={withFullPageSuspense(<Login />, 'Loading login…')} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/launch" element={<Launcher />} />
+                <Route path="/launch" element={withFullPageSuspense(<Launcher />, 'Loading launcher…')} />
 
                 <Route element={<Shell />}>
                   <Route index element={<Navigate to="/overview" replace />} />
@@ -130,9 +141,8 @@ export default function App() {
 
                 <Route path="*" element={<Navigate to="/overview" replace />} />
               </Routes>
-            </Suspense>
-            </RouteAwareCommandPaletteProvider>
-          </BrowserRouter>
+          </RouteAwareCommandPaletteProvider>
+        </BrowserRouter>
       </ConfirmProvider>
     </ToastProvider>
   );
