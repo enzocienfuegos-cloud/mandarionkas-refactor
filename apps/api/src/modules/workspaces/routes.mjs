@@ -1,5 +1,5 @@
 import { badRequest, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../lib/http.mjs';
-import { withSession, hasPermission } from '../../lib/session.mjs';
+import { withReadOnlySession, withSession, hasPermission } from '../../lib/session.mjs';
 import {
   createBrandForWorkspace,
   createWorkspaceForUser,
@@ -92,7 +92,7 @@ export async function handleWorkspaceRoutes(ctx) {
   const { method, pathname, body, res, requestId } = ctx;
 
   if (method === 'GET' && pathname === '/v1/workspaces') {
-    return withSession(ctx, async (session) => sendJson(res, 200, { ...workspacesPayload(session, session.workspaces, session.session.activeWorkspaceId), requestId }));
+    return withReadOnlySession(ctx, async (session) => sendJson(res, 200, { ...workspacesPayload(session, session.workspaces, session.session.activeWorkspaceId), requestId }));
   }
 
   if (method === 'POST' && pathname === '/v1/workspaces') {

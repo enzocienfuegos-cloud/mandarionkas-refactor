@@ -1,5 +1,5 @@
 import { badRequest, conflict, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
-import { withSession, hasPermission } from '../../../lib/session.mjs';
+import { withReadOnlySession, withSession, hasPermission } from '../../../lib/session.mjs';
 import {
   createCampaign,
   deleteCampaign,
@@ -122,7 +122,7 @@ export async function handleCampaignRoutes(ctx) {
   const { method, pathname, body, res, requestId, url } = ctx;
 
   if (method === 'GET' && pathname === '/v1/campaigns') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const scope = url.searchParams.get('scope');
       const workspaceFilter = url.searchParams.get('workspaceId') || url.searchParams.get('clientId');
       const campaigns = scope === 'all'
@@ -145,7 +145,7 @@ export async function handleCampaignRoutes(ctx) {
   }
 
   if (method === 'GET' && /^\/v1\/campaigns\/[^/]+$/.test(pathname)) {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const id = pathname.split('/')[3];
       const workspaceId = await resolveTargetWorkspaceId(
         session.client,
@@ -242,7 +242,7 @@ export async function handleCampaignRoutes(ctx) {
   }
 
   if (method === 'GET' && /^\/v1\/campaigns\/[^/]+\/tags-export$/.test(pathname)) {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const id = pathname.split('/')[3];
       const workspaceId = await resolveTargetWorkspaceId(
         session.client,
@@ -274,7 +274,7 @@ export async function handleCampaignRoutes(ctx) {
   }
 
   if (method === 'GET' && /^\/v1\/campaigns\/[^/]+\/events-export$/.test(pathname)) {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const id = pathname.split('/')[3];
       const workspaceId = await resolveTargetWorkspaceId(
         session.client,

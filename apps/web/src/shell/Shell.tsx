@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { loadPreference, savePreference } from '../shared/preferences';
 import { getPlatformRoleLabel } from '../shared/roles';
@@ -31,7 +31,7 @@ export default function Shell() {
     void theme.sync().then(() => {
       setSidebarCollapsed(loadPreference('dusk:sidebar-collapsed') === '1');
     });
-  }, [session.user, theme]);
+  }, [session.user, theme.sync]);
 
   const activeItem = React.useMemo(() => resolveActiveItem(location.pathname), [location.pathname]);
 
@@ -107,7 +107,18 @@ export default function Shell() {
       <div className="dusk-page">
         <ShellCommands themeMode={theme.theme} onToggleTheme={theme.toggle} onSignOut={() => void handleSignOut()} />
         {guards.canRenderCurrentRoute ? (
-          <Outlet key={session.user?.workspace.id ?? 'shell'} context={{ user: session.user, theme: theme.theme, toggleTheme: theme.toggle }} />
+          <Suspense
+            fallback={
+              <div className="flex min-h-[calc(100vh-var(--dusk-topbar-height)-3rem)] items-center justify-center">
+                <CenteredSpinner label="Loading page…" />
+              </div>
+            }
+          >
+            <Outlet
+              key={session.user?.workspace.id ?? 'shell'}
+              context={{ user: session.user, theme: theme.theme, toggleTheme: theme.toggle }}
+            />
+          </Suspense>
         ) : (
           <Panel padding="lg" className="max-w-2xl mx-auto">
             <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">No Ad Server access</h1>

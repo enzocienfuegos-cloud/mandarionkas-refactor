@@ -332,6 +332,47 @@ async function hydrateSession(client, sessionRow) {
   });
 }
 
+async function resolveAuthenticatedSessionState(client, sessionRow) {
+  const workspaces      = await listWorkspacesForUser(client, sessionRow.user_id);
+  let activeWorkspaceId = sessionRow.active_workspace_id ?? workspaces[0]?.id;
+  if (activeWorkspaceId && !workspaces.some((ws) => ws.id === activeWorkspaceId)) {
+    activeWorkspaceId = workspaces[0]?.id;
+  }
+
+  if (activeWorkspaceId && activeWorkspaceId !== sessionRow.active_workspace_id) {
+    await setSessionActiveWorkspace(client, {
+      sessionId:   sessionRow.id,
+      workspaceId: activeWorkspaceId,
+      userId:      sessionRow.user_id,
+    });
+  } else {
+    await client.query(
+      'UPDATE sessions SET last_seen_at = now() WHERE id = $1',
+      [sessionRow.id],
+    );
+  }
+
+  const user            = toPublicUser(sessionRow);
+  const activeWorkspace = workspaces.find((ws) => ws.id === activeWorkspaceId) ?? null;
+  const productAccess   = resolveProductAccess(user.role, activeWorkspace?.product_access ?? null);
+  const permissions     = getPermissionsForRole(user.role);
+
+  return {
+    session: {
+      id:               sessionRow.id,
+      userId:           sessionRow.user_id,
+      activeWorkspaceId,
+      persistenceMode:  sessionRow.persistence_mode,
+      issuedAt:         sessionRow.created_at.toISOString(),
+      expiresAt:        sessionRow.expires_at.toISOString(),
+    },
+    user,
+    workspaces,
+    productAccess,
+    permissions,
+  };
+}
+
 export async function restoreSessionFromRequest({ env, headers }) {
   if (!isAuthRuntimeReady(env)) {
     return {
@@ -494,45 +535,12 @@ export async function requireAuthenticatedSession({ env, headers }) {
       };
     }
 
-    const workspaces      = await listWorkspacesForUser(client, sessionRow.user_id);
-    let activeWorkspaceId = sessionRow.active_workspace_id ?? workspaces[0]?.id;
-    if (activeWorkspaceId && !workspaces.some((ws) => ws.id === activeWorkspaceId)) {
-      activeWorkspaceId = workspaces[0]?.id;
-    }
-
-    if (activeWorkspaceId && activeWorkspaceId !== sessionRow.active_workspace_id) {
-      await setSessionActiveWorkspace(client, {
-        sessionId:   sessionRow.id,
-        workspaceId: activeWorkspaceId,
-        userId:      sessionRow.user_id,
-      });
-    } else {
-      await client.query(
-        'UPDATE sessions SET last_seen_at = now() WHERE id = $1',
-        [sessionRow.id],
-      );
-    }
-
-    const user            = toPublicUser(sessionRow);
-    const activeWorkspace = workspaces.find((ws) => ws.id === activeWorkspaceId) ?? null;
-    const productAccess   = resolveProductAccess(user.role, activeWorkspace?.product_access ?? null);
-    const permissions     = getPermissionsForRole(user.role);
+    const resolved = await resolveAuthenticatedSessionState(client, sessionRow);
 
     return {
       ok: true,
       client,
-      session: {
-        id:               sessionRow.id,
-        userId:           sessionRow.user_id,
-        activeWorkspaceId,
-        persistenceMode:  sessionRow.persistence_mode,
-        issuedAt:         sessionRow.created_at.toISOString(),
-        expiresAt:        sessionRow.expires_at.toISOString(),
-      },
-      user,
-      workspaces,
-      productAccess,
-      permissions,
+      ...resolved,
       /** Must be called in a finally block after the route handler finishes. */
       async finish() {
         client.release();
@@ -541,6 +549,41 @@ export async function requireAuthenticatedSession({ env, headers }) {
   } catch (error) {
     client.release();
     throw error;
+  }
+}
+
+export async function requireAuthenticatedReadSession({ env, headers }) {
+  if (!isAuthRuntimeReady(env)) {
+    return {
+      ok:         false,
+      statusCode: 503,
+      code:       'service_unavailable',
+      message:    'Auth runtime is not configured yet.',
+    };
+  }
+
+  const pool   = getPoolOrThrow(env);
+  const client = await pool.connect();
+  try {
+    const sessionRow = await readSessionRowFromCookie(client, env, headers);
+    if (!sessionRow) {
+      return {
+        ok:         false,
+        statusCode: 401,
+        code:       'unauthorized',
+        message:    'Authentication is required.',
+      };
+    }
+
+    const resolved = await resolveAuthenticatedSessionState(client, sessionRow);
+    return {
+      ok: true,
+      client: pool,
+      ...resolved,
+      async finish() {},
+    };
+  } finally {
+    client.release();
   }
 }
 

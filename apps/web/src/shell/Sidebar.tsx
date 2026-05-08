@@ -83,18 +83,27 @@ export interface SidebarProps {
 }
 
 export function Sidebar({ activeItem, badgeCounts, collapsed = false, onToggleCollapsed }: SidebarProps) {
+  const sidebarWidth = collapsed
+    ? 'var(--dusk-sidebar-width-collapsed)'
+    : 'var(--dusk-sidebar-width)';
+
   return (
     <aside
       className={cn(
-        'dusk-scrollbar h-screen overflow-y-auto',
+        'h-screen overflow-hidden',
         'border-r border-[color:var(--dusk-border-default)]',
         'bg-surface-1 backdrop-blur-xl',
-        'transition-[width] duration-base ease-standard',
+        'transition-[width,flex-basis] duration-base ease-standard motion-reduce:transition-none',
       )}
-      style={{ width: collapsed ? '64px' : 'var(--dusk-sidebar-width)' }}
+      style={{
+        width: sidebarWidth,
+        minWidth: sidebarWidth,
+        maxWidth: sidebarWidth,
+        flexBasis: sidebarWidth,
+      }}
       aria-label="Primary navigation"
     >
-      <div className={cn('flex h-full flex-col py-4', collapsed ? 'px-2' : 'px-3')}>
+      <div className={cn('dusk-scrollbar flex h-full flex-col overflow-y-auto overflow-x-hidden py-4', collapsed ? 'px-2' : 'px-3')}>
         {/* Brand */}
         <div className={cn('pb-5', collapsed ? 'px-1 flex justify-center' : 'px-2')}>
           <Link to="/" aria-label="DUSK home" className="inline-block">

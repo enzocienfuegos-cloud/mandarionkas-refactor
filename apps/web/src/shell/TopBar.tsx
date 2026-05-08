@@ -87,14 +87,14 @@ export function TopBar({
       onClick={onUserMenuClick}
       variant="ghost"
       size="sm"
-      className="inline-flex items-center gap-2 pl-1 pr-2"
+      className="inline-flex min-w-0 items-center gap-2 pl-1 pr-2"
       aria-label="User menu"
     >
       <Avatar name={user?.name ?? 'Account'} initials={user?.initials ?? 'SA'} size="sm" />
-      <span className="hidden lg:inline-flex text-xs font-medium text-[color:var(--dusk-text-primary)] truncate max-w-[120px]">
+      <span className="hidden xl:inline-flex text-xs font-medium text-[color:var(--dusk-text-primary)] truncate max-w-[132px]">
         {user?.name ?? 'Account'}
       </span>
-      <ChevronDown className="hidden lg:inline-flex h-3 w-3 text-[color:var(--dusk-text-soft)]" />
+      <ChevronDown className="hidden xl:inline-flex h-3 w-3 text-[color:var(--dusk-text-soft)]" />
     </Button>
   );
 
@@ -121,92 +121,91 @@ export function TopBar({
       </Tooltip>
 
       {/* Workspace + page title */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <Select
           selectSize="sm"
           value={activeWorkspaceId}
           onChange={(e) => onWorkspaceChange(e.target.value)}
           options={workspaces.map((w) => ({ value: w.id, label: w.name }))}
           fullWidth={false}
-          className="min-w-[180px]"
+          className="w-[176px] shrink-0 xl:w-[200px]"
           aria-label="Active workspace"
         />
         {pageTitle && (
           <>
-            <span aria-hidden className="text-[color:var(--dusk-text-soft)]">/</span>
-            <h1 className="text-sm font-semibold text-[color:var(--dusk-text-primary)] truncate">
+            <span aria-hidden className="hidden lg:inline text-[color:var(--dusk-text-soft)]">/</span>
+            <h1 className="hidden truncate text-sm font-semibold text-[color:var(--dusk-text-primary)] lg:block">
               {pageTitle}
             </h1>
           </>
         )}
       </div>
 
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* Global search trigger — opens command palette */}
-      <Button
-        onClick={onSearchClick}
-        variant="secondary"
-        size="sm"
-        className={cn(
-          'hidden md:inline-flex',
-          'text-xs text-[color:var(--dusk-text-soft)]',
-          'hover:text-[color:var(--dusk-text-muted)]',
-        )}
-        aria-label="Open command palette (Cmd+K)"
-      >
-        <Search className="h-3.5 w-3.5" />
-        <span>Search…</span>
-        <kbd className="dusk-mono ml-3 inline-flex items-center gap-0.5 text-[10px] text-[color:var(--dusk-text-soft)]">
-          <Command className="h-3 w-3" />K
-        </kbd>
-      </Button>
-
-      {/* Theme toggle */}
-      <Tooltip content={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} side="bottom">
-        <IconButton
-          icon={theme === 'dark' ? <Sun /> : <Moon />}
-          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          onClick={onThemeToggle}
-          size="sm"
-          variant="ghost"
-        />
-      </Tooltip>
-
-      {/* Notifications */}
-      <Tooltip
-        content={notificationCount > 0 ? `${notificationCount} unread notifications` : 'Notifications'}
-        side="bottom"
-      >
+      <div className="flex min-w-0 items-center justify-end gap-1.5 lg:gap-2">
+        {/* Global search trigger — opens command palette */}
         <Button
-          onClick={onNotificationsClick}
-          type="button"
-          variant="ghost"
+          onClick={onSearchClick}
+          variant="secondary"
           size="sm"
-          aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount})` : ''}`}
-          className="relative !px-0 !gap-0 w-8"
-        >
-          <Bell className="h-4 w-4" />
-          {notificationCount > 0 && (
-            <span
-              aria-hidden
-              className="absolute top-1 right-1 inline-flex h-3.5 min-w-[14px] px-1 items-center justify-center rounded-full bg-brand-500 text-[9px] font-semibold text-white"
-            >
-              {notificationCount > 9 ? '9+' : notificationCount}
-            </span>
+          className={cn(
+            'hidden md:inline-flex md:min-w-[180px] md:max-w-[220px] md:flex-1 lg:min-w-[220px] lg:max-w-[280px] xl:max-w-[320px]',
+            'justify-between gap-2 px-3',
+            'text-xs text-[color:var(--dusk-text-soft)]',
+            'hover:text-[color:var(--dusk-text-muted)]',
           )}
+          aria-label="Open command palette (Cmd+K)"
+        >
+          <span className="inline-flex min-w-0 items-center gap-2 truncate">
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Search…</span>
+          </span>
+          <kbd className="dusk-mono hidden items-center gap-0.5 text-[10px] text-[color:var(--dusk-text-soft)] lg:inline-flex">
+            <Command className="h-3 w-3" />K
+          </kbd>
         </Button>
-      </Tooltip>
 
-      {/* User menu */}
-      {user && (
-        userMenuItems && userMenuItems.length > 0 ? (
-          <DropdownMenu trigger={userTrigger} items={userMenuItems} />
-        ) : (
-          userTrigger
-        )
-      )}
+        <Tooltip content={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} side="bottom">
+          <IconButton
+            icon={theme === 'dark' ? <Sun /> : <Moon />}
+            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            onClick={onThemeToggle}
+            size="sm"
+            variant="ghost"
+          />
+        </Tooltip>
+
+        <Tooltip
+          content={notificationCount > 0 ? `${notificationCount} unread notifications` : 'Notifications'}
+          side="bottom"
+        >
+          <Button
+            onClick={onNotificationsClick}
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount})` : ''}`}
+            className="relative !px-0 !gap-0 w-8 shrink-0"
+          >
+            <Bell className="h-4 w-4" />
+            {notificationCount > 0 && (
+              <span
+                aria-hidden
+                className="absolute top-1 right-1 inline-flex h-3.5 min-w-[14px] px-1 items-center justify-center rounded-full bg-brand-500 text-[9px] font-semibold text-white"
+              >
+                {notificationCount > 9 ? '9+' : notificationCount}
+              </span>
+            )}
+          </Button>
+        </Tooltip>
+
+        {user && (
+          userMenuItems && userMenuItems.length > 0 ? (
+            <DropdownMenu trigger={userTrigger} items={userMenuItems} />
+          ) : (
+            userTrigger
+          )
+        )}
+      </div>
     </header>
   );
 }

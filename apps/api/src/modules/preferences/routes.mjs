@@ -1,12 +1,12 @@
 import { badRequest, sendJson } from '../../lib/http.mjs';
-import { withSession } from '../../lib/session.mjs';
+import { withReadOnlySession, withSession } from '../../lib/session.mjs';
 import { getUserPreferences, saveUserPreferences } from '@smx/db/src/preferences.mjs';
 
 export async function handlePreferenceRoutes(ctx) {
   const { method, pathname, body, res, requestId } = ctx;
 
   if (method === 'GET' && pathname === '/v1/preferences') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const preferences = await getUserPreferences(session.client, session.user.id);
       return sendJson(res, 200, { ok: true, requestId, preferences });
     });

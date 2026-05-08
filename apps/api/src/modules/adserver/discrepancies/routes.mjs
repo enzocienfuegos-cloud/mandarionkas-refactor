@@ -5,7 +5,7 @@ import {
   listDiscrepancies,
   updateDiscrepancyThresholds,
 } from '@smx/db/src/discrepancies.mjs';
-import { withSession } from '../../../lib/session.mjs';
+import { withReadOnlySession, withSession } from '../../../lib/session.mjs';
 
 function getOpts(url) {
   return {
@@ -19,21 +19,21 @@ export async function handleDiscrepancyRoutes(ctx) {
   const { method, pathname, requestId, res, url, body } = ctx;
 
   if (method === 'GET' && pathname === '/v1/discrepancies') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const reports = await listDiscrepancies(session.client, session.session.activeWorkspaceId, getOpts(url));
       return sendJson(res, 200, { reports, requestId });
     });
   }
 
   if (method === 'GET' && pathname === '/v1/discrepancies/summary') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const summary = await getDiscrepancySummary(session.client, session.session.activeWorkspaceId, getOpts(url));
       return sendJson(res, 200, { summary, requestId });
     });
   }
 
   if (method === 'GET' && pathname === '/v1/discrepancies/thresholds') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const thresholds = await getDiscrepancyThresholds(session.client, session.session.activeWorkspaceId);
       return sendJson(res, 200, { thresholds, requestId });
     });

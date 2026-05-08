@@ -1,5 +1,5 @@
 import { badRequest, conflict, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
-import { withSession, hasPermission } from '../../../lib/session.mjs';
+import { withReadOnlySession, withSession, hasPermission } from '../../../lib/session.mjs';
 import { checkTagHealth, getTagHealthSummary, listTagHealth } from '@smx/db/src/tag-health.mjs';
 import { getTagStats, getTagSummary } from '@smx/db/src/reporting.mjs';
 import { listTagBindings as listCreativeTagBindings, updateTagBinding as updateCreativeTagBinding } from '@smx/db/src/creatives.mjs';
@@ -172,7 +172,7 @@ export async function handleTagRoutes(ctx) {
   const { method, pathname, body, res, requestId, url } = ctx;
 
   if (method === 'GET' && pathname === '/v1/tags') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const scope = url.searchParams.get('scope');
       const workspaceFilter = url.searchParams.get('workspaceId') || url.searchParams.get('clientId');
       const tags = scope === 'all'
@@ -224,7 +224,7 @@ export async function handleTagRoutes(ctx) {
   }
 
   if (method === 'GET' && pathname === '/v1/tags/health/summary') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const summary = await getTagHealthSummary(session.client, session.session.activeWorkspaceId);
       return sendJson(res, 200, {
         healthy: Number(summary.healthy_count || 0),
@@ -237,7 +237,7 @@ export async function handleTagRoutes(ctx) {
   }
 
   if (method === 'GET' && /^\/v1\/tags\/[^/]+$/.test(pathname)) {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const id = pathname.split('/')[3];
       const baseTag = await getTagById(session.client, id);
       if (!baseTag) return badRequest(res, requestId, 'Tag not found.');

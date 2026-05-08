@@ -44,5 +44,8 @@ export function useShellTheme() {
     hasSyncedRef.current = true;
   }, [reload]);
 
-  return { theme, toggle, reload, sync };
+  return React.useMemo(
+    () => ({ theme, toggle, reload, sync }),
+    [theme, toggle, reload, sync],
+  );
 }

@@ -6,7 +6,7 @@ import { getPool } from '@smx/db/src/pool.mjs';
 import unzipper from 'unzipper';
 import { badRequest, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
 import { logWarn } from '../../../lib/logger.mjs';
-import { withSession, hasPermission } from '../../../lib/session.mjs';
+import { withReadOnlySession, withSession, hasPermission } from '../../../lib/session.mjs';
 import {
   createCreativeSizeVariant,
   createCreativeSizeVariantsBulk,
@@ -619,7 +619,7 @@ export async function handleCreativeRoutes(ctx) {
   const { method, pathname, res, requestId, url } = ctx;
 
   if (method === 'GET' && pathname === '/v1/creatives') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const scope = url.searchParams.get('scope');
       const workspaceFilter = url.searchParams.get('workspaceId') || url.searchParams.get('clientId');
       const includeLatestVersion = ['1', 'true', 'yes'].includes(String(url.searchParams.get('includeLatestVersion') || '').toLowerCase());
@@ -646,7 +646,7 @@ export async function handleCreativeRoutes(ctx) {
   }
 
   if (method === 'GET' && /^\/v1\/creatives\/[^/]+\/versions$/.test(pathname)) {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const creativeId = pathname.split('/')[3];
       const workspaceId = await resolveTargetWorkspaceId(
         session.client,
@@ -703,7 +703,7 @@ export async function handleCreativeRoutes(ctx) {
   }
 
   if (method === 'GET' && /^\/v1\/creative-versions\/[^/]+$/.test(pathname)) {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const versionId = pathname.split('/')[3];
       const workspaceId = await resolveTargetWorkspaceId(
         session.client,
@@ -731,7 +731,7 @@ export async function handleCreativeRoutes(ctx) {
   }
 
   if (method === 'GET' && /^\/v1\/creative-versions\/[^/]+\/variants$/.test(pathname)) {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const versionId = pathname.split('/')[3];
       const workspaceId = await resolveTargetWorkspaceId(
         session.client,

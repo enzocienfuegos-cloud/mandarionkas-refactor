@@ -1,5 +1,5 @@
 import { badRequest, notFound, sendJson, serviceUnavailable } from '../../lib/http.mjs';
-import { withSession } from '../../lib/session.mjs';
+import { withReadOnlySession, withSession } from '../../lib/session.mjs';
 import { createSavedView, deleteSavedView, getSavedView, listSavedViews, updateSavedView } from '@smx/db/src/saved-views.mjs';
 
 function getActiveWorkspaceId(session) {
@@ -10,7 +10,7 @@ export async function handleSavedViewRoutes(ctx) {
   const { method, pathname, url, body, res, requestId } = ctx;
 
   if (method === 'GET' && pathname === '/v1/saved-views') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const workspaceId = getActiveWorkspaceId(session);
       if (!workspaceId) return badRequest(res, requestId, 'No active workspace available.');
       const surface = String(url.searchParams.get('surface') || '').trim();
@@ -24,7 +24,7 @@ export async function handleSavedViewRoutes(ctx) {
   }
 
   if (method === 'GET' && /^\/v1\/saved-views\/[^/]+$/.test(pathname)) {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const workspaceId = getActiveWorkspaceId(session);
       if (!workspaceId) return badRequest(res, requestId, 'No active workspace available.');
       const savedViewId = pathname.split('/')[3];

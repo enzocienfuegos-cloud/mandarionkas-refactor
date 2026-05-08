@@ -4,27 +4,27 @@ import {
   listWorkspacePacingAlerts,
   listWorkspacePacingCampaigns,
 } from '@smx/db/src/pacing.mjs';
-import { withSession } from '../../../lib/session.mjs';
+import { withReadOnlySession } from '../../../lib/session.mjs';
 
 export async function handlePacingRoutes(ctx) {
   const { method, pathname, requestId, res, url } = ctx;
 
   if (method === 'GET' && pathname === '/v1/pacing') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const campaigns = await listWorkspacePacingCampaigns(session.client, session.session.activeWorkspaceId);
       return sendJson(res, 200, { campaigns, requestId });
     });
   }
 
   if (method === 'GET' && pathname === '/v1/pacing/alerts') {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const alerts = await listWorkspacePacingAlerts(session.client, session.session.activeWorkspaceId);
       return sendJson(res, 200, { alerts, requestId });
     });
   }
 
   if (method === 'GET' && /^\/v1\/pacing\/[^/]+\/breakdown$/.test(pathname)) {
-    return withSession(ctx, async (session) => {
+    return withReadOnlySession(ctx, async (session) => {
       const campaignId = pathname.split('/')[3];
       if (!campaignId) return badRequest(res, requestId, 'Campaign id is required.');
       const breakdown = await getCampaignPacingBreakdown(

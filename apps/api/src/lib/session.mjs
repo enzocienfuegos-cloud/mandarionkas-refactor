@@ -28,7 +28,7 @@
 //     }));
 //   }
 
-import { requireAuthenticatedSession } from '../modules/auth/service.mjs';
+import { requireAuthenticatedReadSession, requireAuthenticatedSession } from '../modules/auth/service.mjs';
 import { forbidden, serviceUnavailable, unauthorized } from './http.mjs';
 
 // ─── withSession ───────────────────────────────────────────────────────────────
@@ -68,6 +68,22 @@ export async function withSession(ctx, callback) {
   } finally {
     await session.finish();
   }
+}
+
+export async function withReadOnlySession(ctx, callback) {
+  const session = await requireAuthenticatedReadSession({ env: ctx.env, headers: ctx.req.headers });
+
+  if (!session.ok) {
+    if (session.statusCode === 503) {
+      return serviceUnavailable(ctx.res, ctx.requestId, session.message);
+    }
+    if (session.statusCode === 401) {
+      return unauthorized(ctx.res, ctx.requestId, session.message);
+    }
+    return false;
+  }
+
+  return callback(session);
 }
 
 // ─── hasPermission ─────────────────────────────────────────────────────────────
