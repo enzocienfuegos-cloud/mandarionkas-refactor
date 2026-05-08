@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, FilterBar, type DateRange } from '../../../system';
+import { Button, FilterBar, FormField, Input, type DateRange } from '../../../system';
 import { Settings } from '../../../system/icons';
 
 export interface ReportingTopBarProps {
@@ -119,42 +119,42 @@ export function ReportingTopBar({
       </div>
 
       {dateRangeFilter === 'custom' ? (
-        <div className="flex flex-wrap items-end gap-3 rounded-[var(--dusk-radius-lg)] border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-subtle)] px-4 py-3">
+        <div className="flex flex-col gap-4 rounded-[var(--dusk-radius-lg)] border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-subtle)] px-4 py-4">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">Custom reporting window</p>
             <p className="text-xs text-[color:var(--dusk-text-muted)]">Choose the exact dates used across workspace reporting widgets.</p>
           </div>
-          <label className="flex min-w-[180px] flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--dusk-text-soft)]">From</span>
-            <input
-              type="date"
-              max={formatDateInputValue(customDateRange.to ?? new Date()) || undefined}
-              value={formatDateInputValue(customDateRange.from)}
-              onChange={(event) => {
-                onCustomDateRangeChange({
-                  from: parseDateInputValue(event.target.value),
-                  to: customDateRange.to,
-                });
-              }}
-              className="h-12 rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-1)] px-3 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] duration-base ease-standard hover:border-[color:var(--dusk-border-strong)]"
-            />
-          </label>
-          <label className="flex min-w-[180px] flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--dusk-text-soft)]">To</span>
-            <input
-              type="date"
-              min={formatDateInputValue(customDateRange.from) || undefined}
-              max={formatDateInputValue(new Date())}
-              value={formatDateInputValue(customDateRange.to)}
-              onChange={(event) => {
-                onCustomDateRangeChange({
-                  from: customDateRange.from,
-                  to: parseDateInputValue(event.target.value),
-                });
-              }}
-              className="h-12 rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-1)] px-3 text-sm text-[color:var(--dusk-text-primary)] outline-none transition-[border-color,box-shadow] duration-base ease-standard hover:border-[color:var(--dusk-border-strong)]"
-            />
-          </label>
+          <div className="grid gap-3 md:grid-cols-2 xl:max-w-[520px]">
+            <FormField label="From" helper="Start date for all visible reporting widgets.">
+              <Input
+                type="date"
+                inputSize="lg"
+                max={formatDateInputValue(customDateRange.to ?? new Date()) || undefined}
+                value={formatDateInputValue(customDateRange.from)}
+                onChange={(event) => {
+                  onCustomDateRangeChange({
+                    from: parseDateInputValue(event.target.value),
+                    to: customDateRange.to,
+                  });
+                }}
+              />
+            </FormField>
+            <FormField label="To" helper="End date for the active reporting window.">
+              <Input
+                type="date"
+                inputSize="lg"
+                min={formatDateInputValue(customDateRange.from) || undefined}
+                max={formatDateInputValue(new Date())}
+                value={formatDateInputValue(customDateRange.to)}
+                onChange={(event) => {
+                  onCustomDateRangeChange({
+                    from: customDateRange.from,
+                    to: parseDateInputValue(event.target.value),
+                  });
+                }}
+              />
+            </FormField>
+          </div>
         </div>
       ) : null}
     </div>
