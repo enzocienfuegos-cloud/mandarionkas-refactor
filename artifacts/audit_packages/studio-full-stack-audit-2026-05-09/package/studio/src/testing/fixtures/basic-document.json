@@ -1,0 +1,9 @@
+{
+  "name": "basic-document",
+  "checks": [
+    "single scene",
+    "one text widget",
+    "one cta widget with open-url",
+    "one product binding"
+  ]
+}
