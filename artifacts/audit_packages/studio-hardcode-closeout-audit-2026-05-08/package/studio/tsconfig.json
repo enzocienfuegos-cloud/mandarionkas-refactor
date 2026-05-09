@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@smx/contracts": ["../../packages/contracts/src/index.ts"],
+      "@actions/*": ["src/actions/*"],
+      "@app/*": ["src/app/*"],
+      "@assets/*": ["src/assets/*"],
+      "@canvas/*": ["src/canvas/*"],
+      "@core/*": ["src/core/*"],
+      "@domain/*": ["src/domain/*"],
+      "@export/*": ["src/export/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@inspector/*": ["src/inspector/*"],
+      "@platform/*": ["src/platform/*"],
+      "@repositories/*": ["src/repositories/*"],
+      "@shared/*": ["src/shared/*"],
+      "@testing/*": ["src/testing/*"],
+      "@timeline/*": ["src/timeline/*"],
+      "@widgets/*": ["src/widgets/*"]
+    }
+  },
+  "include": ["src"],
+  "references": []
+}

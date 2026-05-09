@@ -1,0 +1,42 @@
+{
+  "name": "@smx/studio",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../node_modules/vite/dist/node/cli.js --port 5174",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc -p tsconfig.app.json --noEmit",
+    "build": "npm run lint:css && node ../../node_modules/typescript/bin/tsc -p tsconfig.app.json --noEmit && node ../../node_modules/vite/dist/node/cli.js build",
+    "test": "node ../../node_modules/vitest/vitest.mjs run",
+    "lint:css": "node ../../node_modules/stylelint/bin/stylelint.mjs 'src/**/*.css'",
+    "lint:css:fix": "node ../../node_modules/stylelint/bin/stylelint.mjs 'src/**/*.css' --fix"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3":          "^3.1029.0",
+    "@aws-sdk/s3-request-presigner":"^3.1029.0",
+    "@smx/contracts":              "1.0.0",
+    "@smx/vast":                   "1.0.0",
+    "@types/leaflet":              "^1.9.21",
+    "leaflet":                     "^1.9.4",
+    "lucide-react":                "^0.511.0",
+    "react":                       "^18.3.1",
+    "react-dom":                   "^18.3.1",
+    "use-sync-external-store":     "^1.2.2",
+    "video.js":                    "^8.23.4",
+    "xlsx":                        "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/react":              "^18.3.11",
+    "@types/react-dom":          "^18.3.1",
+    "@types/react-test-renderer":"^18.3.1",
+    "@types/video.js":           "^7.3.58",
+    "@vitejs/plugin-react":      "^4.3.1",
+    "react-test-renderer":       "^18.3.1",
+    "stylelint":                 "^16.25.0",
+    "stylelint-config-standard": "^39.0.1",
+    "stylelint-declaration-strict-value": "^1.10.11",
+    "typescript":                "^5.6.3",
+    "vite":                      "^5.4.10",
+    "vitest":                    "^2.1.8"
+  }
+}
