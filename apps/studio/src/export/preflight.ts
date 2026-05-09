@@ -4,6 +4,7 @@ import type { ExportPackageComplianceIssue } from './package-compliance';
 import type { ExportPackageMetrics } from './package-metrics';
 import type { ExportPackagingPlan } from './packaging';
 import type { ExportRemoteAssetFetchEntry } from './assets';
+import type { ExportManifest } from './types';
 import { buildExportBundle } from './bundle';
 import { getChannelRequirements } from './channels';
 
@@ -126,7 +127,8 @@ export function buildExportPreflight(state: StudioState): ExportPreflight {
   });
   const compliance = parseBundleJsonFile<ExportPackageComplianceIssue[]>(bundle, 'package-compliance.json', []);
   const remoteFetchPlan = parseBundleJsonFile<ExportRemoteAssetFetchEntry[]>(bundle, 'remote-fetch-plan.json', []);
-  const channelChecklist = getChannelRequirements(state.document.metadata.release.targetChannel, state);
+  const manifest = parseBundleJsonFile<ExportManifest | null>(bundle, 'manifest.json', null);
+  const channelChecklist = manifest?.channelChecklist ?? getChannelRequirements(state.document.metadata.release.targetChannel, state);
   const channelBlockers = channelChecklist.filter((item) => !item.passed && item.severity === 'error');
   const channelWarnings = channelChecklist.filter((item) => !item.passed && item.severity !== 'error');
   const packageBlockers = compliance.filter((item) => item.level === 'error');

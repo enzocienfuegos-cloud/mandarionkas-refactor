@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import * as XLSX from 'xlsx';
 import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { Button } from '../../shared/ui/Button';
@@ -32,6 +31,10 @@ function toNumber(value: unknown, fallback: number): number {
   return Number.isFinite(next) ? next : fallback;
 }
 
+async function loadXlsxModule() {
+  return import('xlsx');
+}
+
 export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Element {
   const widgetActions = useWidgetActions();
   const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
@@ -53,6 +56,7 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
     const lowerName = file.name.toLowerCase();
     if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
       const buffer = await file.arrayBuffer();
+      const XLSX = await loadXlsxModule();
       const workbook = XLSX.read(buffer, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
       const firstSheet = firstSheetName ? workbook.Sheets[firstSheetName] : null;

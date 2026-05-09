@@ -1,9 +1,12 @@
 import { validateExport } from '../domain/document/export-validation';
 import type { StudioState } from '../domain/document/types';
 import { getChannelRequirements } from './channels';
-import type { ExportManifest } from './types';
+import type { ChannelRequirement, ExportManifest } from './types';
 
-export function buildExportManifest(state: StudioState): ExportManifest {
+export function buildExportManifest(
+  state: StudioState,
+  channelChecklistOverride?: ChannelRequirement[],
+): ExportManifest {
   const issues = validateExport(state);
   return {
     documentId: state.document.id,
@@ -19,6 +22,6 @@ export function buildExportManifest(state: StudioState): ExportManifest {
     targetChannel: state.document.metadata.release.targetChannel,
     qaStatus: state.document.metadata.release.qaStatus,
     issues,
-    channelChecklist: getChannelRequirements(state.document.metadata.release.targetChannel, state),
+    channelChecklist: channelChecklistOverride ?? getChannelRequirements(state.document.metadata.release.targetChannel, state),
   };
 }

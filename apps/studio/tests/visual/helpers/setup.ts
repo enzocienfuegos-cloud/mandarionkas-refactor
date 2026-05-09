@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { installMockServer } from './mock-server';
 
 const MOTION_RESET = `
   *, *::before, *::after {
@@ -13,6 +14,7 @@ export async function disableMotion(page: Page): Promise<void> {
 }
 
 export async function gotoStudio(page: Page, hash = '/#/hub'): Promise<void> {
+  await installMockServer(page);
   await page.goto(hash);
   await page.waitForLoadState('networkidle');
   await disableMotion(page);

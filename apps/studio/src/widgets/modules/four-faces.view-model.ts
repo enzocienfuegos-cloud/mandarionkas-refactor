@@ -1,6 +1,8 @@
 import type { WidgetNode } from '../../domain/document/types';
+import { validateWidgetSchemaValue } from '../../domain/widget-schema';
 import { resolveSkinFromStyle, resolveTokensFromSkin } from './view-model';
 import { FOUR_FACES_DEFAULT_GLOBAL, FOUR_FACES_DEFAULT_HOME, FOUR_FACES_FACE_DEFAULTS } from './four-faces.shared';
+import { fourFacesSchema } from './four-faces/schema';
 
 export type FaceId = 'home' | 'up' | 'down' | 'left' | 'right';
 export type DirectionalFaceId = Exclude<FaceId, 'home'>;
@@ -53,60 +55,69 @@ function resolveFace(
   direction: DirectionalFaceId,
   defaults: FaceDefaults,
 ): FaceConfig {
+  const schemaDefaults = FOUR_FACES_FACE_DEFAULTS[direction];
+  const rawTitleColor = String(props[`${direction}TitleColor`] ?? schemaDefaults.titleColor);
+  const rawBodyColor = String(props[`${direction}BodyColor`] ?? schemaDefaults.bodyColor);
+  const rawHeaderBg = String(props[`${direction}HeaderBg`] ?? schemaDefaults.headerBg);
+  const rawCopyBg = String(props[`${direction}CopyBg`] ?? schemaDefaults.copyBg);
+  const rawCtaBg = String(props[`${direction}CtaBg`] ?? schemaDefaults.ctaBg);
+  const rawCtaTextColor = String(props[`${direction}CtaTextColor`] ?? schemaDefaults.ctaTextColor);
+
   return {
     id: direction,
     imageSrc: String(props[`${direction}ImageSrc`] ?? ''),
-    title: String(props[`${direction}Title`] ?? FOUR_FACES_FACE_DEFAULTS[direction].title),
-    titleColor: String(props[`${direction}TitleColor`] ?? defaults.titleColor),
-    body: String(props[`${direction}Body`] ?? FOUR_FACES_FACE_DEFAULTS[direction].body),
-    bodyColor: String(props[`${direction}BodyColor`] ?? defaults.bodyColor),
-    ctaLabel: String(props[`${direction}CtaLabel`] ?? FOUR_FACES_FACE_DEFAULTS[direction].ctaLabel),
+    title: String(props[`${direction}Title`] ?? schemaDefaults.title),
+    titleColor: rawTitleColor === schemaDefaults.titleColor ? defaults.titleColor : rawTitleColor,
+    body: String(props[`${direction}Body`] ?? schemaDefaults.body),
+    bodyColor: rawBodyColor === schemaDefaults.bodyColor ? defaults.bodyColor : rawBodyColor,
+    ctaLabel: String(props[`${direction}CtaLabel`] ?? schemaDefaults.ctaLabel),
     ctaUrl: String(props[`${direction}CtaUrl`] ?? ''),
-    headerBg: String(props[`${direction}HeaderBg`] ?? defaults.headerBg),
-    copyBg: String(props[`${direction}CopyBg`] ?? defaults.copyBg),
-    ctaBg: String(props[`${direction}CtaBg`] ?? defaults.ctaBg),
-    ctaTextColor: String(props[`${direction}CtaTextColor`] ?? defaults.ctaTextColor),
+    headerBg: rawHeaderBg === schemaDefaults.headerBg ? defaults.headerBg : rawHeaderBg,
+    copyBg: rawCopyBg === schemaDefaults.copyBg ? defaults.copyBg : rawCopyBg,
+    ctaBg: rawCtaBg === schemaDefaults.ctaBg ? defaults.ctaBg : rawCtaBg,
+    ctaTextColor: rawCtaTextColor === schemaDefaults.ctaTextColor ? defaults.ctaTextColor : rawCtaTextColor,
   };
 }
 
 export function buildFourFacesViewModel(node: Pick<WidgetNode, 'props' | 'style'>): FourFacesViewModel {
+  const props = validateWidgetSchemaValue(fourFacesSchema, node.props as Record<string, unknown>).value;
   const tokens = resolveTokensFromSkin(resolveSkinFromStyle(node.style as Record<string, unknown>));
-  const rawAccentColor = String(node.props.accentColor ?? FOUR_FACES_DEFAULT_GLOBAL.accentColor);
+  const rawAccentColor = String(props.accentColor ?? FOUR_FACES_DEFAULT_GLOBAL.accentColor);
   const accentColor = rawAccentColor === FOUR_FACES_DEFAULT_GLOBAL.accentColor ? tokens.accent : rawAccentColor;
-  const rawCloseButtonBg = String(node.props.closeButtonBg ?? FOUR_FACES_DEFAULT_GLOBAL.closeButtonBg);
-  const rawCloseButtonColor = String(node.props.closeButtonColor ?? FOUR_FACES_DEFAULT_GLOBAL.closeButtonColor);
-  const rawHomeBg = String(node.props.homeBg ?? FOUR_FACES_DEFAULT_HOME.bg);
-  const rawHomeTitleColor = String(node.props.homeTitleColor ?? FOUR_FACES_DEFAULT_HOME.titleColor);
-  const rawHomeSubtitleColor = String(node.props.homeSubtitleColor ?? FOUR_FACES_DEFAULT_HOME.subtitleColor);
-  const rawHomeHintColor = String(node.props.homeHintColor ?? FOUR_FACES_DEFAULT_HOME.hintColor);
-  const rawHomeCtaBg = String(node.props.homeCtaBg ?? FOUR_FACES_DEFAULT_HOME.ctaBg);
-  const rawHomeCtaTextColor = String(node.props.homeCtaTextColor ?? FOUR_FACES_DEFAULT_HOME.ctaTextColor);
+  const rawCloseButtonBg = String(props.closeButtonBg ?? FOUR_FACES_DEFAULT_GLOBAL.closeButtonBg);
+  const rawCloseButtonColor = String(props.closeButtonColor ?? FOUR_FACES_DEFAULT_GLOBAL.closeButtonColor);
+  const rawHomeBg = String(props.homeBg ?? FOUR_FACES_DEFAULT_HOME.bg);
+  const rawHomeTitleColor = String(props.homeTitleColor ?? FOUR_FACES_DEFAULT_HOME.titleColor);
+  const rawHomeSubtitleColor = String(props.homeSubtitleColor ?? FOUR_FACES_DEFAULT_HOME.subtitleColor);
+  const rawHomeHintColor = String(props.homeHintColor ?? FOUR_FACES_DEFAULT_HOME.hintColor);
+  const rawHomeCtaBg = String(props.homeCtaBg ?? FOUR_FACES_DEFAULT_HOME.ctaBg);
+  const rawHomeCtaTextColor = String(props.homeCtaTextColor ?? FOUR_FACES_DEFAULT_HOME.ctaTextColor);
 
   return {
     accentColor,
-    swipeThreshold: Number(node.props.swipeThreshold ?? FOUR_FACES_DEFAULT_GLOBAL.swipeThreshold),
-    showDots: Boolean(node.props.showDots ?? true),
-    showArrows: Boolean(node.props.showArrows ?? true),
-    showCloseButton: Boolean(node.props.showCloseButton ?? true),
+    swipeThreshold: Number(props.swipeThreshold ?? FOUR_FACES_DEFAULT_GLOBAL.swipeThreshold),
+    showDots: Boolean(props.showDots ?? true),
+    showArrows: Boolean(props.showArrows ?? true),
+    showCloseButton: Boolean(props.showCloseButton ?? true),
     closeButtonBg: rawCloseButtonBg === FOUR_FACES_DEFAULT_GLOBAL.closeButtonBg ? tokens.backgroundStrong : rawCloseButtonBg,
     closeButtonColor: rawCloseButtonColor === FOUR_FACES_DEFAULT_GLOBAL.closeButtonColor ? tokens.foreground : rawCloseButtonColor,
     homeBg: rawHomeBg === FOUR_FACES_DEFAULT_HOME.bg ? tokens.background : rawHomeBg,
-    homeTitle: String(node.props.homeTitle ?? FOUR_FACES_DEFAULT_HOME.title),
+    homeTitle: String(props.homeTitle ?? FOUR_FACES_DEFAULT_HOME.title),
     homeTitleColor: rawHomeTitleColor === FOUR_FACES_DEFAULT_HOME.titleColor ? tokens.foreground : rawHomeTitleColor,
-    homeSubtitle: String(node.props.homeSubtitle ?? FOUR_FACES_DEFAULT_HOME.subtitle),
+    homeSubtitle: String(props.homeSubtitle ?? FOUR_FACES_DEFAULT_HOME.subtitle),
     homeSubtitleColor: rawHomeSubtitleColor === FOUR_FACES_DEFAULT_HOME.subtitleColor ? tokens.foregroundMuted : rawHomeSubtitleColor,
-    homeHintText: String(node.props.homeHintText ?? FOUR_FACES_DEFAULT_HOME.hintText),
+    homeHintText: String(props.homeHintText ?? FOUR_FACES_DEFAULT_HOME.hintText),
     homeHintColor: rawHomeHintColor === FOUR_FACES_DEFAULT_HOME.hintColor ? tokens.foregroundMuted : rawHomeHintColor,
-    homeCtaLabel: String(node.props.homeCtaLabel ?? FOUR_FACES_DEFAULT_HOME.ctaLabel),
-    homeCtaUrl: String(node.props.homeCtaUrl ?? ''),
+    homeCtaLabel: String(props.homeCtaLabel ?? FOUR_FACES_DEFAULT_HOME.ctaLabel),
+    homeCtaUrl: String(props.homeCtaUrl ?? ''),
     homeCtaBg: rawHomeCtaBg === FOUR_FACES_DEFAULT_HOME.ctaBg ? accentColor : rawHomeCtaBg,
     homeCtaTextColor: rawHomeCtaTextColor === FOUR_FACES_DEFAULT_HOME.ctaTextColor ? tokens.foreground : rawHomeCtaTextColor,
-    heroSrc: String(node.props.heroSrc ?? ''),
-    brandName: String(node.props.brandName ?? ''),
-    brandColor: String(node.props.brandColor ?? accentColor),
-    logoSrc: String(node.props.logoSrc ?? ''),
+    heroSrc: String(props.heroSrc ?? ''),
+    brandName: String(props.brandName ?? ''),
+    brandColor: String(props.brandColor ?? accentColor),
+    logoSrc: String(props.logoSrc ?? ''),
     faces: {
-      up: resolveFace(node.props, 'up', {
+      up: resolveFace(props, 'up', {
         headerBg: accentColor,
         copyBg: FOUR_FACES_FACE_DEFAULTS.up.copyBg,
         titleColor: FOUR_FACES_FACE_DEFAULTS.up.titleColor,
@@ -114,7 +125,7 @@ export function buildFourFacesViewModel(node: Pick<WidgetNode, 'props' | 'style'
         ctaBg: accentColor,
         ctaTextColor: FOUR_FACES_FACE_DEFAULTS.up.ctaTextColor,
       }),
-      down: resolveFace(node.props, 'down', {
+      down: resolveFace(props, 'down', {
         headerBg: FOUR_FACES_FACE_DEFAULTS.down.headerBg,
         copyBg: FOUR_FACES_FACE_DEFAULTS.down.copyBg,
         titleColor: FOUR_FACES_FACE_DEFAULTS.down.titleColor,
@@ -122,7 +133,7 @@ export function buildFourFacesViewModel(node: Pick<WidgetNode, 'props' | 'style'
         ctaBg: FOUR_FACES_FACE_DEFAULTS.down.ctaBg,
         ctaTextColor: FOUR_FACES_FACE_DEFAULTS.down.ctaTextColor,
       }),
-      left: resolveFace(node.props, 'left', {
+      left: resolveFace(props, 'left', {
         headerBg: FOUR_FACES_FACE_DEFAULTS.left.headerBg,
         copyBg: FOUR_FACES_FACE_DEFAULTS.left.copyBg,
         titleColor: FOUR_FACES_FACE_DEFAULTS.left.titleColor,
@@ -130,7 +141,7 @@ export function buildFourFacesViewModel(node: Pick<WidgetNode, 'props' | 'style'
         ctaBg: accentColor,
         ctaTextColor: FOUR_FACES_FACE_DEFAULTS.left.ctaTextColor,
       }),
-      right: resolveFace(node.props, 'right', {
+      right: resolveFace(props, 'right', {
         headerBg: FOUR_FACES_FACE_DEFAULTS.right.headerBg,
         copyBg: FOUR_FACES_FACE_DEFAULTS.right.copyBg,
         titleColor: FOUR_FACES_FACE_DEFAULTS.right.titleColor,

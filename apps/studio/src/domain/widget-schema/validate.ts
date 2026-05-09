@@ -9,6 +9,28 @@ function clampNumber(value: number, field: Extract<WidgetSchemaField, { type: 'n
   return nextValue;
 }
 
+function coerceNumber(value: unknown): number | null {
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function coerceBoolean(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    if (value === 'true' || value === '1') return true;
+    if (value === 'false' || value === '0') return false;
+  }
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  return null;
+}
+
 function validateField(field: WidgetSchemaField, value: unknown, path: string): { value: unknown; issues: WidgetSchemaIssue[] } {
   switch (field.type) {
     case 'string': {
@@ -37,18 +59,20 @@ function validateField(field: WidgetSchemaField, value: unknown, path: string): 
       }
       return { value, issues: [] };
     case 'number': {
-      if (typeof value !== 'number' || Number.isNaN(value)) {
+      const parsedValue = coerceNumber(value);
+      if (parsedValue === null) {
         return { value: clampNumber(field.default ?? 0, field), issues: [{ path, message: 'Expected number.' }] };
       }
-      const normalized = clampNumber(value, field);
-      const issues = normalized === value ? [] : [{ path, message: 'Number was normalized to fit schema bounds.' }];
+      const normalized = clampNumber(parsedValue, field);
+      const issues = normalized === parsedValue ? [] : [{ path, message: 'Number was normalized to fit schema bounds.' }];
       return { value: normalized, issues };
     }
     case 'boolean':
-      if (typeof value !== 'boolean') {
+      const parsedValue = coerceBoolean(value);
+      if (parsedValue === null) {
         return { value: field.default ?? false, issues: [{ path, message: 'Expected boolean.' }] };
       }
-      return { value, issues: [] };
+      return { value: parsedValue, issues: [] };
     case 'array': {
       if (!Array.isArray(value)) {
         return { value: field.default ? [...field.default] : [], issues: [{ path, message: 'Expected array.' }] };

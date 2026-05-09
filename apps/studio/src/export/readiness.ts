@@ -1,15 +1,18 @@
 import { validateExport } from '../domain/document/export-validation';
 import type { StudioState } from '../domain/document/types';
 import { getChannelRequirements } from './channels';
-import type { ExportReadiness } from './types';
+import type { ChannelRequirement, ExportReadiness } from './types';
 import { isClickthroughRequiredWidgetType } from './widget-type-groups';
 
-export function buildExportReadiness(state: StudioState): ExportReadiness {
+export function buildExportReadiness(
+  state: StudioState,
+  channelChecklistOverride?: ChannelRequirement[],
+): ExportReadiness {
   const issues = validateExport(state);
   const blockers = issues.filter((item) => item.level === 'error').length;
   const warnings = issues.filter((item) => item.level === 'warning').length;
   const targetChannel = state.document.metadata.release.targetChannel;
-  const channelChecklist = getChannelRequirements(targetChannel, state);
+  const channelChecklist = channelChecklistOverride ?? getChannelRequirements(targetChannel, state);
   const checklist = [
     { label: 'Document has a name', passed: Boolean(state.document.name.trim()) },
     { label: 'At least one scene exists', passed: state.document.scenes.length > 0 },

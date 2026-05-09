@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderTikTokVideoStage } from '../tiktok-video.renderer';
 import { TikTokVideoInspector } from '../tiktok-video.inspector';
+import { defaultsFromWidgetSchema } from '../../../domain/widget-schema';
 import {
   TIKTOK_VIDEO_DEFAULT_CAPTION,
   TIKTOK_VIDEO_DEFAULT_COMMENTS_COUNT,
@@ -13,6 +14,7 @@ import {
   TIKTOK_VIDEO_DEFAULT_USERNAME,
 } from '../tiktok-video.shared';
 import { TikTokVideoThumb } from '../../registry/widget-thumbnails';
+import { tiktokVideoSchema } from '../tiktok-video/schema';
 
 export const TikTokVideoDefinition = createModuleDefinition({
   type: 'tiktok-video',
@@ -20,7 +22,8 @@ export const TikTokVideoDefinition = createModuleDefinition({
   category: 'media',
   thumbnail: TikTokVideoThumb,
   frame: { x: 40, y: 40, width: 300, height: 600, rotation: 0 },
-  props: TIKTOK_VIDEO_DEFAULT_PROPS,
+  props: defaultsFromWidgetSchema(tiktokVideoSchema),
+  schema: tiktokVideoSchema,
   style: {
     backgroundColor: '#000000',
     color: '#ffffff',

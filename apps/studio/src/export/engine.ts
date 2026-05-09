@@ -71,6 +71,8 @@ export type {
 export { buildExportReadiness } from './readiness';
 export { buildChannelHtml, buildPlayableSingleFileHtml, buildStandaloneHtml, escapeHtml } from './html';
 export { buildExportHandoff, buildPublishPackage, buildReviewPackage } from './packages';
+export { CHANNEL_BUDGETS, buildBudgetRequirements, checkChannelBudget } from './channel-budgets';
+export type { BudgetCheckResult, BudgetMeasurement, ChannelBudget } from './channel-budgets';
 export {
   downloadBlob,
   downloadTextFile,

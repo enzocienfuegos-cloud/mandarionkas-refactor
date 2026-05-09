@@ -9,7 +9,9 @@ import { badgeDefinition } from '../../../widgets/badge/badge.definition';
 import { ctaDefinition } from '../../../widgets/cta/cta.definition';
 import { imageDefinition } from '../../../widgets/image/image.definition';
 import { textDefinition } from '../../../widgets/text/text.definition';
+import { FourFacesDefinition } from '../../../widgets/modules/definitions/four-faces.definition';
 import { QrCodeDefinition } from '../../../widgets/modules/definitions/qr-code.definition';
+import { TikTokVideoDefinition } from '../../../widgets/modules/definitions/tiktok-video.definition';
 
 const heroSchema = defineWidgetSchema({
   version: 3,
@@ -85,7 +87,7 @@ describe('widget schema helpers', () => {
 
   it('keeps schema-backed default widgets valid for the pilot set', () => {
     const sceneId = 'scene_1';
-    const definitions = [badgeDefinition, ctaDefinition, textDefinition, imageDefinition, QrCodeDefinition];
+    const definitions = [badgeDefinition, ctaDefinition, textDefinition, imageDefinition, QrCodeDefinition, FourFacesDefinition, TikTokVideoDefinition];
 
     definitions.forEach((definition, index) => {
       expect(definition.schema, `${definition.type} should expose a widget schema`).toBeTruthy();

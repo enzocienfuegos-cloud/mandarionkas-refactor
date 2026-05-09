@@ -2,8 +2,9 @@ import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
 import { renderFourFacesStage } from '../four-faces.renderer';
 import { FourFacesInspector } from '../four-faces.inspector';
-import { FOUR_FACES_DEFAULT_PROPS } from '../four-faces.shared';
+import { defaultsFromWidgetSchema } from '../../../domain/widget-schema';
 import { FourFacesThumb } from '../../registry/widget-thumbnails';
+import { fourFacesSchema } from '../four-faces/schema';
 
 export const FourFacesDefinition = createModuleDefinition({
   type: 'four-faces',
@@ -11,7 +12,8 @@ export const FourFacesDefinition = createModuleDefinition({
   category: 'interactive',
   thumbnail: FourFacesThumb,
   frame: { x: 40, y: 40, width: 320, height: 480, rotation: 0 },
-  props: FOUR_FACES_DEFAULT_PROPS,
+  props: defaultsFromWidgetSchema(fourFacesSchema),
+  schema: fourFacesSchema,
   style: {
     backgroundColor: '#F2F2F2',
     color: '#1a1a1a',

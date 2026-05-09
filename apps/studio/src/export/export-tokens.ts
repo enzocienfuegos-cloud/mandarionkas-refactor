@@ -93,6 +93,19 @@ export const exportTokens = {
 
 export type ExportToken = keyof typeof exportTokens;
 
+export const exportZIndex = {
+  localBase: 0,
+  local1: 1,
+  local2: 2,
+  raised: 100,
+  sticky: 200,
+  floating: 300,
+  popover: 400,
+  modal: 500,
+  toast: 600,
+  top: 700,
+} as const;
+
 export function exportColor(token: ExportToken): string {
   return exportTokens[token];
 }

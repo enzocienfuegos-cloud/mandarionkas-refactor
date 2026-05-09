@@ -18,6 +18,9 @@ import { buildPortableProjectExport } from './portable';
 import { buildExportReadiness } from './readiness';
 import { buildExportRuntimeModelFromPortable } from './runtime-model';
 import { compileRuntime } from './runtime-script';
+import type { ChannelRequirement } from './types';
+import { getPortableChannelRequirements } from './channel-compliance';
+import { buildChannelBudgetMeasurement } from './channel-budget-measurement';
 
 export type ExportBundleFile = {
   path: string;
@@ -166,8 +169,6 @@ function buildBundleFromPreparedAssets(
   const { portableProject, localizedPortableProject, assetPlan, assetFiles } = input;
   const runtimeModel = buildExportRuntimeModelFromPortable(portableProject);
   const adapter = buildChannelAdapter(state);
-  const manifest = buildExportManifest(state);
-  const readiness = buildExportReadiness(state);
   const remoteFetchPlan = buildRemoteAssetFetchPlan(assetPlan);
   const localizedAdapter = adapter.adapter === 'playable-ad'
     ? { ...adapter, playableProject: localizedPortableProject }
@@ -181,13 +182,12 @@ function buildBundleFromPreparedAssets(
   const exitConfig = buildExportExitConfig(localizedAdapter);
   const runtimeProject = adapter.adapter === 'playable-ad' ? adapter.playableProject : adapter.portableProject;
   const runtimeScript = compileRuntime(runtimeProject, adapter);
-  const bundleFiles: ExportBundleFile[] = [
+  const staticBundleFiles: ExportBundleFile[] = [
     { path: 'index.html', mime: 'text/html;charset=utf-8', content: html },
     ...(localizedAdapter.adapter === 'vast-simid'
       ? [{ path: 'vast.xml', mime: 'application/xml;charset=utf-8', content: buildVastSimidXml(localizedAdapter as VastSimidAdapterResult) }]
       : []),
     { path: 'runtime.js', mime: 'text/javascript;charset=utf-8', content: runtimeScript },
-    { path: 'manifest.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(manifest, null, 2) },
     { path: 'portable-project.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(portableProject, null, 2) },
     { path: 'portable-project.localized.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(localizedPortableProject, null, 2) },
     { path: 'runtime-model.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(runtimeModel, null, 2) },
@@ -196,22 +196,42 @@ function buildBundleFromPreparedAssets(
     { path: 'exit-config.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(exitConfig, null, 2) },
     { path: 'asset-plan.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(assetPlan, null, 2) },
     { path: 'remote-fetch-plan.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(remoteFetchPlan, null, 2) },
-    { path: 'readiness.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(readiness, null, 2) },
     ...assetFiles,
   ];
-  const packageMetrics = buildExportPackageMetrics({ channel: state.document.metadata.release.targetChannel, files: bundleFiles }, assetPlan);
-  const bundleBase: ExportBundle = {
-    channel: state.document.metadata.release.targetChannel,
-    files: [
-      ...bundleFiles,
-      { path: 'package-metrics.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(packageMetrics, null, 2) },
-      { path: 'package-compliance.json', mime: 'application/json;charset=utf-8', content: '[]' },
-    ],
-  };
+  const targetChannel = state.document.metadata.release.targetChannel;
+
+  function buildBundleBase(channelChecklist: ChannelRequirement[]): ExportBundle {
+    const manifest = buildExportManifest(state, channelChecklist);
+    const readiness = buildExportReadiness(state, channelChecklist);
+    const filesWithChecklist = [
+      ...staticBundleFiles,
+      { path: 'manifest.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(manifest, null, 2) },
+      { path: 'readiness.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(readiness, null, 2) },
+    ];
+    const packageMetrics = buildExportPackageMetrics({ channel: targetChannel, files: filesWithChecklist }, assetPlan);
+
+    return {
+      channel: targetChannel,
+      files: [
+        ...filesWithChecklist,
+        { path: 'package-metrics.json', mime: 'application/json;charset=utf-8', content: JSON.stringify(packageMetrics, null, 2) },
+        { path: 'package-compliance.json', mime: 'application/json;charset=utf-8', content: '[]' },
+      ],
+    };
+  }
+
+  let channelChecklist = getPortableChannelRequirements(targetChannel, portableProject, runtimeModel);
+  let bundleBase = buildBundleBase(channelChecklist);
+  let measurement = buildChannelBudgetMeasurement(state, bundleBase, assetPlan, runtimeScript);
+  channelChecklist = getPortableChannelRequirements(targetChannel, portableProject, runtimeModel, measurement);
+  bundleBase = buildBundleBase(channelChecklist);
+  measurement = buildChannelBudgetMeasurement(state, bundleBase, assetPlan, runtimeScript);
+  channelChecklist = getPortableChannelRequirements(targetChannel, portableProject, runtimeModel, measurement);
+  bundleBase = buildBundleBase(channelChecklist);
   const packageCompliance = validateExportPackage(bundleBase, packagingPlan, exitConfig, assetPlan);
 
   return {
-    channel: state.document.metadata.release.targetChannel,
+    channel: targetChannel,
     files: [
       ...bundleBase.files.map((file) =>
         file.path === 'package-compliance.json'

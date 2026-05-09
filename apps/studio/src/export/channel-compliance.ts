@@ -2,6 +2,7 @@ import type { ReleaseTarget } from '../domain/document/types';
 import type { ChannelRequirement } from './types';
 import type { PortableExportProject } from './portable';
 import type { ExportRuntimeModel } from './runtime-model';
+import { buildBudgetRequirements, type BudgetMeasurement } from './channel-budgets';
 import { getMraidProjectCompatibility } from './mraid-compatibility';
 import { getIabStandardPresets, getMraidStandardPresets } from '../domain/document/canvas-presets';
 import {
@@ -15,6 +16,7 @@ export function getPortableChannelRequirements(
   target: ReleaseTarget,
   project: PortableExportProject,
   runtimeModel: ExportRuntimeModel,
+  measurement?: BudgetMeasurement,
 ): ChannelRequirement[] {
   const { canvas } = project;
   const sceneCount = project.scenes.length;
@@ -35,10 +37,12 @@ export function getPortableChannelRequirements(
   ).length;
   const requiresMraidLocation = projectRequiresMraidLocation(project);
   const expectedMraidPlacement: 'inline' | 'interstitial' = canvas.width === 320 && canvas.height === 480 ? 'interstitial' : 'inline';
+  const budgetRequirements = measurement ? buildBudgetRequirements(target, measurement) : [];
 
   switch (target) {
     case 'google-display':
       return [
+        ...budgetRequirements,
         {
           id: 'gwd-size',
           label: 'Canvas uses a standard display size',
@@ -72,6 +76,7 @@ export function getPortableChannelRequirements(
       ];
     case 'gam-html5':
       return [
+        ...budgetRequirements,
         {
           id: 'gam-cta',
           label: 'At least one CTA/open-url action exists',
@@ -105,6 +110,7 @@ export function getPortableChannelRequirements(
       ];
     case 'mraid':
       return [
+        ...budgetRequirements,
         {
           id: 'mraid-size',
           label: 'Canvas uses an MRAID profile size (320x480 or 300x600)',
@@ -150,6 +156,7 @@ export function getPortableChannelRequirements(
       ];
     case 'meta-story':
       return [
+        ...budgetRequirements,
         {
           id: 'meta-ratio',
           label: 'Canvas is vertical 9:16',
@@ -177,6 +184,7 @@ export function getPortableChannelRequirements(
       ];
     case 'tiktok-vertical':
       return [
+        ...budgetRequirements,
         {
           id: 'tiktok-ratio',
           label: 'Canvas is vertical 9:16',
@@ -204,6 +212,7 @@ export function getPortableChannelRequirements(
       ];
     case 'vast-simid':
       return [
+        ...budgetRequirements,
         {
           id: 'simid-clickthrough',
           label: 'SIMID creative has at least one clickthrough interaction',
@@ -232,6 +241,7 @@ export function getPortableChannelRequirements(
     case 'generic-html5':
     default:
       return [
+        ...budgetRequirements,
         {
           id: 'html5-name',
           label: 'Document has export name',
