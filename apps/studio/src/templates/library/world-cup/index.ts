@@ -1,0 +1,13 @@
+import type { StudioTemplate } from '../types';
+import { buildWorldCupTemplateDocument } from './document';
+
+export const WORLD_CUP_TEMPLATE: StudioTemplate = {
+  metadata: {
+    id: 'bocadeli-worldcup',
+    name: 'Bocadeli World Cup starter',
+    description: 'Seeds the World Cup interactive layout with configurable game widgets on 320x480.',
+    vertical: 'sports',
+    canvasPresetId: 'interstitial',
+  },
+  buildDocument: buildWorldCupTemplateDocument,
+};

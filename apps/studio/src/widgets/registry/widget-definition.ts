@@ -1,6 +1,7 @@
 import type { StudioState, WidgetNode, WidgetType } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import type { PortableExportWidget } from '../../export/portable';
+import type { WidgetSchemaDefinition } from '../../domain/widget-schema';
 
 export type InspectorSectionKey =
   | 'position-size'
@@ -89,6 +90,7 @@ export type WidgetDefinition = {
   inspectorTabs?: WidgetInspectorTabSpec[];
   inspectorTitle?: string;
   inspectorFields?: WidgetFieldSpec[];
+  schema?: WidgetSchemaDefinition;
   capabilities?: WidgetCapabilities;
   renderLabel: (node: WidgetNode) => string;
   renderStage?: (node: WidgetNode, ctx: RenderContext) => JSX.Element;

@@ -5,6 +5,7 @@ import { canUseBrowserStorage, readStorageItem, writeStorageItem } from '../shar
 const PROJECT_MODE_KEY = 'smx-studio-v4:repository-mode:project';
 const ASSET_MODE_KEY = 'smx-studio-v4:repository-mode:asset';
 const DOCUMENT_MODE_KEY = 'smx-studio-v4:repository-mode:document';
+const BRAND_KIT_MODE_KEY = 'smx-studio-v4:repository-mode:brand-kit';
 
 function readMode(key: string): RepositoryMode {
   if (!canUseBrowserStorage()) return 'api';
@@ -25,3 +26,6 @@ export function setAssetRepositoryMode(mode: RepositoryMode): void { writeMode(A
 
 export function getDocumentRepositoryMode(): RepositoryMode { return readMode(DOCUMENT_MODE_KEY); }
 export function setDocumentRepositoryMode(mode: RepositoryMode): void { writeMode(DOCUMENT_MODE_KEY, mode); }
+
+export function getBrandKitRepositoryMode(): RepositoryMode { return readMode(BRAND_KIT_MODE_KEY); }
+export function setBrandKitRepositoryMode(mode: RepositoryMode): void { writeMode(BRAND_KIT_MODE_KEY, mode); }

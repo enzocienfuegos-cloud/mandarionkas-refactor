@@ -3,7 +3,12 @@ import { getPreviewFrame, PREVIEW_FRAMES } from '../../../domain/preview/preview
 
 describe('preview frame catalog', () => {
   it('keeps the expected built-in preview contexts available', () => {
-    expect(PREVIEW_FRAMES.map((frame) => frame.id)).toEqual(['none', 'iphone14', 'pixel8', 'article']);
+    expect(PREVIEW_FRAMES.map((frame) => frame.id)).toEqual([
+      'none',
+      'iphone14',
+      'pixel8',
+      'article',
+    ]);
   });
 
   it('falls back to the plain frame when an unknown id is requested', () => {

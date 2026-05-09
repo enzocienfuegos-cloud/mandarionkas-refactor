@@ -15,6 +15,7 @@ import type {
   WidgetBinding,
   WidgetNode,
 } from '../domain/document/types';
+import type { VariantContext, VariantRule } from '../domain/variants/types';
 
 function dispatch(command: any): void {
   studioStore.dispatch(command as never);
@@ -34,6 +35,7 @@ export function useDocumentActions() {
     updateCanvasBackground: (backgroundColor: string) => dispatch({ type: 'UPDATE_CANVAS_BACKGROUND', backgroundColor }),
     updatePlatformMetadata: (patch: Record<string, unknown>) => dispatch({ type: 'UPDATE_DOCUMENT_PLATFORM_METADATA', patch }),
     updateReleaseSettings: (patch: Record<string, unknown>) => dispatch({ type: 'UPDATE_RELEASE_SETTINGS', patch }),
+    applyDocumentVariantRules: (context: VariantContext, rules?: VariantRule[]) => dispatch({ type: 'APPLY_DOCUMENT_VARIANT_RULES', context, rules }),
     setShareLink: (shareLink: string) => dispatch({ type: 'SET_SHARE_LINK', shareLink }),
     markAutosaved: (at: string) => dispatch({ type: 'MARK_DOCUMENT_AUTOSAVED', at }),
   }), []);

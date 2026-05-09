@@ -1,5 +1,6 @@
 import { useCallback, useState, type CSSProperties } from 'react';
 import { AssetLibraryModal } from './AssetLibraryModal';
+import { BrandKitDrawer } from './topbar/BrandKitDrawer';
 import { PreflightTray } from './PreflightTray';
 import { TopBar } from './TopBar';
 import { StudioKeyboardShortcuts } from './StudioKeyboardShortcuts';
@@ -31,6 +32,7 @@ type StudioShellProps = {
 export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Element {
   const [layout, setLayout] = useShellLayout();
   const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
+  const [brandKitDrawerOpen, setBrandKitDrawerOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const resize = useShellResize();
   const {
@@ -94,7 +96,7 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
       className={`studio-shell ${leftRailHidden ? 'is-left-collapsed' : ''} ${rightInspectorHidden ? 'is-right-collapsed' : ''} ${timelineHidden ? 'is-bottom-collapsed' : ''}`.trim()}
       style={shellStyle}
     >
-      <TopBar onOpenWorkspaceHub={onOpenWorkspaceHub} />
+      <TopBar onOpenWorkspaceHub={onOpenWorkspaceHub} onOpenBrandKitDrawer={() => setBrandKitDrawerOpen(true)} />
       {!leftRailHidden ? (
         <LeftRail
           onOpenShortcuts={() => setShortcutsOpen(true)}
@@ -150,6 +152,7 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
         </SurfaceButton>
       ) : null}
       {assetLibraryOpen ? <AssetLibraryModal onClose={() => setAssetLibraryOpen(false)} /> : null}
+      {brandKitDrawerOpen ? <BrandKitDrawer onClose={() => setBrandKitDrawerOpen(false)} /> : null}
       <StudioKeyboardShortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );

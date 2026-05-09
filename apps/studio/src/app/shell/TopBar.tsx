@@ -7,9 +7,10 @@ import { TopBarCenterContent } from './topbar/TopBarCenterContent';
 
 type TopBarProps = {
   onOpenWorkspaceHub(): void;
+  onOpenBrandKitDrawer(): void;
 };
 
-export function TopBar({ onOpenWorkspaceHub }: TopBarProps): JSX.Element {
+export function TopBar({ onOpenWorkspaceHub, onOpenBrandKitDrawer }: TopBarProps): JSX.Element {
   const controller = useTopBarController();
 
   return (
@@ -27,7 +28,7 @@ export function TopBar({ onOpenWorkspaceHub }: TopBarProps): JSX.Element {
       <div className="top-bar-center top-bar-center--ux">
         <TopBarCenterContent controller={controller} />
       </div>
-      <TopBarActions controller={controller} />
+      <TopBarActions controller={controller} onOpenBrandKitDrawer={onOpenBrandKitDrawer} />
     </header>
   );
 }

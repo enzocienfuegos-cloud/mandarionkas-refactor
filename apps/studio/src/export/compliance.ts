@@ -1,4 +1,5 @@
 import type { PortableExportProject } from './portable';
+import { isClickthroughRequiredWidgetType } from './widget-type-groups';
 
 export type ExportComplianceIssue = {
   level: 'error' | 'warning';
@@ -62,7 +63,7 @@ export function validatePortableExport(project: PortableExportProject): ExportCo
         });
       }
 
-      if ((widget.type === 'cta' || widget.type === 'buttons') && !widget.interactions.length) {
+      if (isClickthroughRequiredWidgetType(widget.type) && !widget.interactions.length) {
         issues.push({
           level: 'warning',
           code: 'widget.interactive-without-action',

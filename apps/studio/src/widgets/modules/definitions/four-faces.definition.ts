@@ -17,6 +17,7 @@ export const FourFacesDefinition = createModuleDefinition({
     color: '#1a1a1a',
     borderRadius: 0,
     opacity: 1,
+    modulePreset: 'editorial',
   },
   renderStage: renderFourFacesStage,
   renderInspector: (node) => createElement(FourFacesInspector, { node }),

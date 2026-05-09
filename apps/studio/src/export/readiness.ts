@@ -2,6 +2,7 @@ import { validateExport } from '../domain/document/export-validation';
 import type { StudioState } from '../domain/document/types';
 import { getChannelRequirements } from './channels';
 import type { ExportReadiness } from './types';
+import { isClickthroughRequiredWidgetType } from './widget-type-groups';
 
 export function buildExportReadiness(state: StudioState): ExportReadiness {
   const issues = validateExport(state);
@@ -14,7 +15,7 @@ export function buildExportReadiness(state: StudioState): ExportReadiness {
     { label: 'At least one scene exists', passed: state.document.scenes.length > 0 },
     { label: 'Every scene has widgets', passed: state.document.scenes.every((scene) => scene.widgetIds.length > 0) },
     { label: 'All widget frames are valid', passed: Object.values(state.document.widgets).every((widget) => widget.frame.width > 0 && widget.frame.height > 0) },
-    { label: 'CTA widgets have URLs', passed: Object.values(state.document.widgets).filter((widget) => widget.type === 'cta').every((widget) => Object.values(state.document.actions).some((action) => action.widgetId === widget.id && action.type === 'open-url' && action.url)) },
+    { label: 'CTA widgets have URLs', passed: Object.values(state.document.widgets).filter((widget) => isClickthroughRequiredWidgetType(widget.type)).every((widget) => Object.values(state.document.actions).some((action) => action.widgetId === widget.id && action.type === 'open-url' && action.url)) },
     { label: 'QA status is ready-for-qa or passed', passed: state.document.metadata.release.qaStatus !== 'draft' },
     ...channelChecklist.map((item) => ({ label: item.label, passed: item.passed })),
     { label: 'No export blockers', passed: blockers === 0 },

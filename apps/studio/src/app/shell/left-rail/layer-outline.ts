@@ -48,6 +48,22 @@ export function flattenVisibleLayerIds(
   return result;
 }
 
+export function flattenVisibleLayerItems(
+  items: LayerOutlineItem[],
+  collapsedGroupIds: ReadonlySet<string>,
+): LayerOutlineItem[] {
+  const result: LayerOutlineItem[] = [];
+
+  function visit(item: LayerOutlineItem): void {
+    result.push(item);
+    if (collapsedGroupIds.has(item.widget.id)) return;
+    item.children.forEach(visit);
+  }
+
+  items.forEach(visit);
+  return result;
+}
+
 export function getWidgetReorderSteps(
   widgetIds: string[],
   draggedId: string,

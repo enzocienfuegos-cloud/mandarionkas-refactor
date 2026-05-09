@@ -26,6 +26,7 @@ export const TikTokVideoDefinition = createModuleDefinition({
     color: '#ffffff',
     borderRadius: 0,
     opacity: 1,
+    modulePreset: 'social',
   },
   renderStage: renderTikTokVideoStage,
   renderInspector: (node) => createElement(TikTokVideoInspector, { node }),

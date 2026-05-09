@@ -1,21 +1,31 @@
-import { useMemo, useState, type CSSProperties, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { useMemo, useRef, useState, type CSSProperties, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import type { LeftRailController } from './use-left-rail-controller';
 import { Button } from '../../../shared/ui/Button';
 import { IconButton } from '../../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { SurfaceButton } from '../../../shared/ui/SurfaceButton';
+import { useVirtualWindow, useVirtualWindowPadding } from '../../../shared/hooks/use-virtual-window';
 import { getCapability } from '../../../widgets/registry/widget-definition';
 import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
-import { buildLayerOutline, flattenVisibleLayerIds, getWidgetReorderSteps, type LayerOutlineItem } from './layer-outline';
+import { buildLayerOutline, flattenVisibleLayerIds, flattenVisibleLayerItems, getWidgetReorderSteps, type LayerOutlineItem } from './layer-outline';
 
 export function LayersSection({ controller }: { controller: LeftRailController }): JSX.Element {
   const { widgetActions, selectedIds, nodes, scenes, activeSceneId, scene, sceneActions } = controller;
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
   const [draggedWidgetId, setDraggedWidgetId] = useState<string | null>(null);
   const [dropTargetWidgetId, setDropTargetWidgetId] = useState<string | null>(null);
+  const layerScrollRef = useRef<HTMLDivElement>(null);
+  const layerTreeRef = useRef<HTMLDivElement>(null);
   const selectedWidgets = selectedIds.map((widgetId) => nodes[widgetId]).filter(Boolean);
   const outline = useMemo(() => buildLayerOutline(scene, nodes), [nodes, scene]);
   const visibleLayerIds = useMemo(() => flattenVisibleLayerIds(outline, collapsedGroupIds), [outline, collapsedGroupIds]);
+  const visibleOutlineItems = useMemo(() => flattenVisibleLayerItems(outline, collapsedGroupIds), [outline, collapsedGroupIds]);
+  const virtualLayers = useVirtualWindow(visibleOutlineItems, {
+    scrollRef: layerScrollRef,
+    estimateSize: 54,
+    overscan: 8,
+  });
+  useVirtualWindowPadding(layerTreeRef, virtualLayers.paddingStart, virtualLayers.paddingEnd);
   const selectedCount = selectedIds.length;
 
   function toggleGroup(widgetId: string): void {
@@ -153,11 +163,6 @@ export function LayersSection({ controller }: { controller: LeftRailController }
             />
           </div>
         </div>
-        {isGroup && !isCollapsed ? (
-          <div className="layer-outline-children">
-            {item.children.map(renderLayerItem)}
-          </div>
-        ) : null}
       </div>
     );
   }
@@ -215,8 +220,10 @@ export function LayersSection({ controller }: { controller: LeftRailController }
           <span className="pill">{scene.widgetIds.length} layers</span>
         </div>
         {outline.length ? (
-          <div className="layer-outline-tree">
-            {outline.map(renderLayerItem)}
+          <div ref={layerScrollRef} className="left-rail-virtual-scroll left-rail-virtual-scroll--layers">
+            <div ref={layerTreeRef} className="layer-outline-tree virtual-window-pad">
+              {virtualLayers.visibleItems.map(({ item }) => renderLayerItem(item))}
+            </div>
           </div>
         ) : (
           <small className="muted">This scene has no layers yet. Add widgets from the library to start building the outline.</small>

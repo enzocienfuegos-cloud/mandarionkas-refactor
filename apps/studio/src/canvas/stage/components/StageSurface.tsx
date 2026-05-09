@@ -8,7 +8,7 @@ import { StageDropPreviewOverlay } from './StageDropPreviewOverlay';
 import { rectStyle, sceneTransitionOpacity, sceneTransitionTransform, toRect } from './stage-utils';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 
-type StageSurfaceProps = {
+export type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
   canvas: { width: number; height: number; backgroundColor: string };
   widgets: WidgetNode[];

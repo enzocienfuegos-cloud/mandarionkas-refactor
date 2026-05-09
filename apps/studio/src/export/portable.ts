@@ -2,6 +2,7 @@ import { buildResolvedWidgetsById } from '../domain/document/canvas-variants';
 import { resolveWidgetSnapshot } from '../domain/document/resolvers';
 import type { ActionNode, StudioState, WidgetNode } from '../domain/document/types';
 import { getWidgetDefinition } from '../widgets/registry/widget-registry';
+import { isImageAssetWidgetType, isVideoAssetWidgetType } from './widget-type-groups';
 
 export type PortableExportAsset = {
   id: string;
@@ -74,8 +75,8 @@ export type PortableExportProject = {
 };
 
 function inferAssetKind(widget: WidgetNode, src: string): PortableExportAsset['kind'] {
-  if (widget.type === 'image' || widget.type === 'hero-image' || src.match(/\.(png|jpe?g|gif|webp|svg)$/i)) return 'image';
-  if (widget.type === 'video-hero' || widget.type === 'interactive-video' || src.match(/\.(mp4|webm|mov|m3u8)$/i)) return 'video';
+  if (isImageAssetWidgetType(widget.type) || src.match(/\.(png|jpe?g|gif|webp|svg)$/i)) return 'image';
+  if (isVideoAssetWidgetType(widget.type) || src.match(/\.(mp4|webm|mov|m3u8)$/i)) return 'video';
   if (src.match(/\.(woff2?|ttf|otf)$/i)) return 'font';
   return 'unknown';
 }

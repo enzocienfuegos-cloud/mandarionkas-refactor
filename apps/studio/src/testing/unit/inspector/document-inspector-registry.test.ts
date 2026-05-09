@@ -21,7 +21,7 @@ describe('document inspector registry', () => {
     const dataTab = tabs.find((tab) => tab.id === 'data');
 
     expect(dataTab).toBeDefined();
-    expect(getDocumentInspectorPanelsForTab(dataTab!, state).map((panel) => panel.key)).toEqual(['imports-diagnostics']);
+    expect(getDocumentInspectorPanelsForTab(dataTab!, state).map((panel) => panel.key)).toEqual(['brand-kit', 'variant-rules', 'imports-diagnostics']);
   });
 
   it('shows feed catalog when the channel supports it', () => {
@@ -29,6 +29,8 @@ describe('document inspector registry', () => {
     const dataTab = getDocumentInspectorTabs(state).find((tab) => tab.id === 'data');
 
     expect(getDocumentInspectorPanelsForTab(dataTab!, state).map((panel) => panel.key)).toEqual([
+      'brand-kit',
+      'variant-rules',
       'feed-catalog',
       'imports-diagnostics',
     ]);

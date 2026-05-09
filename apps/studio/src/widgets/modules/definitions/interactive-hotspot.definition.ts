@@ -1,5 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
-import { renderInteractiveHotspotExport } from '../export-renderers';
+import { renderInteractiveHotspotExport } from '../interactive-hotspot.export';
 import { renderInteractiveHotspotStage } from '../interactive-hotspot.renderer';
 import { InteractiveHotspotThumb } from '../../registry/widget-thumbnails';
 

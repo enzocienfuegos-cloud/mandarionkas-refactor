@@ -13,17 +13,21 @@ import {
   renameAssetFolder,
   reprocessAsset,
 } from '../../../repositories/asset';
-import { acceptsAssetKind } from '../../../widgets/registry/widget-definition';
-import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
-import type { useLeftRailController } from './use-left-rail-controller';
-import type { useTopBarController } from '../topbar/use-top-bar-controller';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type FolderTreeNode = AssetFolder & { children: FolderTreeNode[] };
-
-export type FolderCard = { id: string; name: string; depth?: number };
-
+import type { LeftRailController } from './use-left-rail-controller';
+import {
+  buildFolderTree,
+  canReprocessAsset,
+  filterVisibleAssets,
+  flattenFolderCards,
+  formatAssetMeta,
+  getReprocessCandidates,
+  getReprocessCounts,
+  getVisibleAssetRange,
+  isAssetCompatibleWithSelection,
+  type FolderCard,
+  type FolderTreeNode,
+} from './asset-library-controller-helpers';
+export type { FolderCard, FolderTreeNode } from './asset-library-controller-helpers';
 export type AssetLibraryController = {
   // Folder state
   folders: AssetFolder[];
@@ -85,37 +89,13 @@ export type AssetLibraryController = {
   // Helpers
   getUploadFolderId: () => string | undefined;
   isCompatibleWithSelection: (asset: AssetRecord | undefined) => boolean;
-  renderFolderTree: (nodes: FolderTreeNode[], depth?: number) => FolderTreeNode[];
 };
-
-// ─── Pure helpers ─────────────────────────────────────────────────────────────
-
-export function formatAssetMeta(asset: AssetRecord): string {
-  const size = asset.sizeBytes ? `${(asset.sizeBytes / 1024).toFixed(1)} KB` : null;
-  const dims = asset.width && asset.height ? `${asset.width} × ${asset.height}` : null;
-  const processing = asset.processingStatus ? asset.processingStatus.replace(/-/g, ' ') : null;
-  return [size, dims, processing].filter(Boolean).join(' • ') || asset.kind;
-}
-
-export function canReprocessAsset(asset: AssetRecord): boolean {
-  if (asset.storageMode !== 'object-storage') return false;
-  if (asset.processingStatus !== 'blocked' && asset.processingStatus !== 'failed') return false;
-  if (asset.kind === 'video') return true;
-  return (
-    asset.kind === 'image' &&
-    ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(
-      String(asset.mimeType ?? '').trim().toLowerCase(),
-    )
-  );
-}
+export { formatAssetMeta, canReprocessAsset };
 
 const PAGE_SIZE = 10;
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
-
 export function useAssetLibraryController(
-  assetController: ReturnType<typeof useLeftRailController>,
-  _topBar: ReturnType<typeof useTopBarController>,
+  assetController: LeftRailController,
 ): AssetLibraryController {
   const [folders, setFolders] = useState<AssetFolder[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<string>('all');
@@ -131,8 +111,6 @@ export function useAssetLibraryController(
   const [dragActive, setDragActive] = useState(false);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Folder data ────────────────────────────────────────────────────────────
-
   const refreshFolders = useCallback((): void => {
     void listAssetFolders().then(setFolders).catch(() => setFolders([]));
   }, []);
@@ -141,53 +119,20 @@ export function useAssetLibraryController(
     refreshFolders();
   }, [refreshFolders]);
 
-  const folderTree = useMemo<FolderTreeNode[]>(() => {
-    const nodes = new Map<string, FolderTreeNode>();
-    for (const folder of folders) {
-      nodes.set(folder.id, { ...folder, children: [] });
-    }
-    const roots: FolderTreeNode[] = [];
-    for (const node of nodes.values()) {
-      if (node.parentId && nodes.has(node.parentId)) {
-        nodes.get(node.parentId)?.children.push(node);
-      } else {
-        roots.push(node);
-      }
-    }
-    return roots;
-  }, [folders]);
-
-  const folderCards = useMemo<FolderCard[]>(() => {
-    const flat: FolderCard[] = [];
-    function visit(nodes: FolderTreeNode[], depth: number): void {
-      for (const node of nodes) {
-        flat.push({ id: node.id, name: node.name, depth });
-        if (node.children.length) visit(node.children, depth + 1);
-      }
-    }
-    visit(folderTree, 0);
-    return flat;
-  }, [folderTree]);
-
+  const folderTree = useMemo<FolderTreeNode[]>(() => buildFolderTree(folders), [folders]);
+  const folderCards = useMemo<FolderCard[]>(() => flattenFolderCards(folderTree), [folderTree]);
   const selectableFolders = useMemo(
     () => folderCards.filter((f) => !f.id.startsWith('project:')),
     [folderCards],
   );
-
   const activeFolder = useMemo(
     () => folders.find((f) => f.id === activeFolderId),
     [activeFolderId, folders],
   );
-
-  // ── Visible assets + pagination ────────────────────────────────────────────
-
-  const visibleAssets = useMemo(() => {
-    return assetController.filteredAssets.filter((asset) => {
-      if (activeFolderId === 'all') return true;
-      return asset.folderId === activeFolderId;
-    });
-  }, [activeFolderId, assetController.filteredAssets]);
-
+  const visibleAssets = useMemo(
+    () => filterVisibleAssets(assetController.filteredAssets, activeFolderId),
+    [activeFolderId, assetController.filteredAssets],
+  );
   const pageCount = Math.max(1, Math.ceil(visibleAssets.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
   const pageAssets = visibleAssets.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -200,25 +145,13 @@ export function useAssetLibraryController(
     setBulkTargetFolderId(activeFolder ? activeFolder.id : 'root');
   }, [activeFolder]);
 
-  // ── Selection ──────────────────────────────────────────────────────────────
-
   const allVisibleSelected =
     visibleAssets.length > 0 && visibleAssets.every((a) => selectedAssetIds.includes(a.id));
-
-  function getVisibleAssetRange(assetId: string): string[] {
-    if (!lastSelectedAssetId) return [assetId];
-    const startIndex = visibleAssets.findIndex((a) => a.id === lastSelectedAssetId);
-    const endIndex = visibleAssets.findIndex((a) => a.id === assetId);
-    if (startIndex === -1 || endIndex === -1) return [assetId];
-    const [from, to] =
-      startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
-    return visibleAssets.slice(from, to + 1).map((a) => a.id);
-  }
 
   function toggleAssetSelection(assetId: string, additive: boolean, range = false): void {
     setSelectedAssetIds((current) => {
       if (range) {
-        const rangeIds = getVisibleAssetRange(assetId);
+        const rangeIds = getVisibleAssetRange(visibleAssets, assetId, lastSelectedAssetId);
         return additive ? Array.from(new Set([...current, ...rangeIds])) : rangeIds;
       }
       if (!additive) return [assetId];
@@ -240,8 +173,6 @@ export function useAssetLibraryController(
     setSelectedAssetIds([]);
   }
 
-  // ── Drag ──────────────────────────────────────────────────────────────────
-
   function handleDragStart(event: React.DragEvent, asset: AssetRecord): void {
     if (asset.kind !== 'image' && asset.kind !== 'video') return;
     const nextDraggedIds = selectedAssetIds.includes(asset.id) ? selectedAssetIds : [asset.id];
@@ -259,30 +190,18 @@ export function useAssetLibraryController(
     setDragOverFolderId(null);
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
   function getUploadFolderId(): string | undefined {
-    if (activeFolderId === 'all') return undefined;
-    return activeFolderId;
+    return activeFolderId === 'all' ? undefined : activeFolderId;
   }
 
   function isCompatibleWithSelection(asset: AssetRecord | undefined): boolean {
-    const primaryWidget = assetController.primaryWidget;
-    return Boolean(
-      asset &&
-        assetController.selectedWidgetAcceptsAsset &&
-        primaryWidget &&
-        acceptsAssetKind(getWidgetDefinition(primaryWidget.type), asset.kind as 'image' | 'video' | 'font'),
-    );
+    return isAssetCompatibleWithSelection(asset, assetController);
   }
 
-  // ── Derived counts ─────────────────────────────────────────────────────────
-
-  const selectedReprocessableCount = visibleAssets.filter(
-    (a) => selectedAssetIds.includes(a.id) && canReprocessAsset(a),
-  ).length;
-  const visibleReprocessableCount = visibleAssets.filter(canReprocessAsset).length;
-  const reprocessTargetCount = selectedReprocessableCount || visibleReprocessableCount;
+  const { selectedReprocessableCount, visibleReprocessableCount, reprocessTargetCount } = useMemo(
+    () => getReprocessCounts(visibleAssets, selectedAssetIds),
+    [selectedAssetIds, visibleAssets],
+  );
 
   const selectedAsset = assetController.selectedAsset;
   const canUseOnSelection = Boolean(
@@ -290,8 +209,6 @@ export function useAssetLibraryController(
       assetController.selectedWidgetAcceptsAsset &&
       isCompatibleWithSelection(selectedAsset),
   );
-
-  // ── Actions ────────────────────────────────────────────────────────────────
 
   async function handleCreateFolder(): Promise<void> {
     const name = folderDraft.trim();
@@ -307,10 +224,7 @@ export function useAssetLibraryController(
     setFolderBusy(true);
     setFolderError('');
     try {
-        const parentId =
-        activeFolderId !== 'all'
-          ? activeFolderId
-          : undefined;
+      const parentId = activeFolderId !== 'all' ? activeFolderId : undefined;
       const folder = await createAssetFolder(name, parentId);
       refreshFolders();
       setFolderDraft('');
@@ -366,10 +280,7 @@ export function useAssetLibraryController(
   }
 
   async function handleReprocessFailed(): Promise<void> {
-    const selectedAssets = visibleAssets.filter((a) => selectedAssetIds.includes(a.id));
-    const candidates = (selectedAssets.length ? selectedAssets : visibleAssets).filter(
-      canReprocessAsset,
-    );
+    const candidates = getReprocessCandidates(visibleAssets, selectedAssetIds);
     if (!candidates.length) return;
     setFolderBusy(true);
     setFolderError('');
@@ -385,10 +296,7 @@ export function useAssetLibraryController(
     }
   }
 
-  async function handleMoveAssetsToFolder(
-    assetIds: string[],
-    folderId?: string,
-  ): Promise<void> {
+  async function handleMoveAssetsToFolder(assetIds: string[], folderId?: string): Promise<void> {
     if (!assetIds.length) return;
     setFolderBusy(true);
     setFolderError('');
@@ -424,12 +332,6 @@ export function useAssetLibraryController(
     assetController.handleFilesUpload(nextFiles, getUploadFolderId());
   }
 
-  // renderFolderTree returns the flat node list for the sidebar — rendering is
-  // handled by the component. Exposed so the component can iterate recursively.
-  function renderFolderTree(nodes: FolderTreeNode[], _depth = 0): FolderTreeNode[] {
-    return nodes;
-  }
-
   return {
     folders,
     folderTree,
@@ -445,13 +347,11 @@ export function useAssetLibraryController(
     folderInputRef,
     bulkTargetFolderId,
     setBulkTargetFolderId,
-
     selectedAssetIds,
     allVisibleSelected,
     toggleAssetSelection,
     handleToggleSelectAllVisible,
     clearSelection: () => setSelectedAssetIds([]),
-
     draggedAssetIds,
     dragOverFolderId,
     dragActive,
@@ -459,19 +359,16 @@ export function useAssetLibraryController(
     setDragOverFolderId,
     handleDragStart,
     handleDragEnd,
-
     page,
     pageCount,
     safePage,
     pageAssets,
     setPage,
     visibleAssets,
-
     canUseOnSelection,
     reprocessTargetCount,
     selectedReprocessableCount,
     visibleReprocessableCount,
-
     handleCreateFolder,
     handleRenameActiveFolder,
     handleDeleteActiveFolder,
@@ -481,9 +378,7 @@ export function useAssetLibraryController(
     handleMoveSelectedToFolderChoice,
     handleMoveAssetsToFolder,
     handleDroppedFiles,
-
     getUploadFolderId,
     isCompatibleWithSelection,
-    renderFolderTree,
   };
 }

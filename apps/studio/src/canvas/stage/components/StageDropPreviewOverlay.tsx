@@ -4,21 +4,21 @@ import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interac
 type DropPreview = NonNullable<ReturnType<typeof useStageController>['dropPreview']>;
 
 function buildStageDropGuideVerticalStyle(x: number): React.CSSProperties {
-  return { left: x };
+  return { left: Math.round(x) };
 }
 
 function buildStageDropGuideHorizontalStyle(y: number): React.CSSProperties {
-  return { top: y };
+  return { top: Math.round(y) };
 }
 
 function buildStageDropIndicatorStyle(x: number, y: number): React.CSSProperties {
-  return { left: x, top: y };
+  return { left: Math.round(x), top: Math.round(y) };
 }
 
 function buildStageDropPillStyle(x: number, y: number): React.CSSProperties {
   return {
-    left: Math.min(Math.max(x + 18, 12), 320),
-    top: Math.max(y - 42, 12),
+    left: Math.round(Math.min(Math.max(x + 18, 12), 320)),
+    top: Math.round(Math.max(y - 42, 12)),
   };
 }
 

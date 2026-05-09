@@ -48,6 +48,7 @@ export type ProjectSessionController = {
   setNewProjectPresetId(value: string): void;
   newProjectStarterId: ProjectStarterId;
   setNewProjectStarterId(value: ProjectStarterId): void;
+  handleCreateProjectFromStarter(starterId: ProjectStarterId, name?: string): Promise<void>;
   handleCreateProject(): Promise<void>;
   handleLoadProject(projectId: string): Promise<void>;
   handleSaveProject(): Promise<void>;

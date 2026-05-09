@@ -4,6 +4,7 @@ import { renderWidgetContents } from '../render-widget';
 import type { ActionNode, WidgetFrame, WidgetNode, StudioState } from '../../../domain/document/types';
 import type { ResizeHandle } from '../use-stage-controller';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
+import { isNativeStageDragWidgetType } from '../../../domain/document/widget-type-groups';
 
 const HANDLE_SIZE = 10;
 
@@ -48,7 +49,7 @@ export const StageWidget = memo(function StageWidget({
   onSetHoveredWidget,
   onExecuteAction,
 }: StageWidgetProps): JSX.Element {
-  const managesNativeDrag = node.type === 'drag-token-pool' || node.type === 'drop-zone';
+  const managesNativeDrag = isNativeStageDragWidgetType(node.type);
   const useWireframe = !previewMode && editModeWireframe && !selected && !active && !hovered;
   const triggerWidgetAction = (trigger: ActionNode['trigger'], _metadata?: Record<string, unknown>) => {
     if (!previewMode) return;

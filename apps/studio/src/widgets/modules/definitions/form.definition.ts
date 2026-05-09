@@ -1,5 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
-import { renderFormExport } from '../export-renderers';
+import { renderFormExport } from '../form.export';
 import { renderFormStage } from '../form.renderer';
 import { FORM_DEFAULT_PROPS } from '../form.shared';
 import { FormThumb } from '../../registry/widget-thumbnails';

@@ -3,6 +3,7 @@ import { handleAuthRoutes } from './modules/auth/routes.mjs';
 import { handleAuditRoutes } from './modules/audit/routes.mjs';
 import { handleWorkspaceRoutes } from './modules/workspaces/routes.mjs';
 import { handleProjectRoutes } from './modules/projects/routes.mjs';
+import { handleBrandKitRoutes } from './modules/brand-kits/routes.mjs';
 import { handleAssetRoutes } from './modules/assets/routes.mjs';
 import { handlePreferenceRoutes } from './modules/preferences/routes.mjs';
 import { handleSavedViewRoutes } from './modules/saved-views/routes.mjs';
@@ -59,6 +60,7 @@ function buildRouteHandlers(buffer) {
     handleAuditRoutes,
     handleWorkspaceRoutes,
     handleProjectRoutes,
+    handleBrandKitRoutes,
     handleAssetRoutes,
     handlePreferenceRoutes,
     handleSavedViewRoutes,

@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
-import { renderDynamicMapExport } from '../export-renderers';
+import { renderDynamicMapExport } from '../dynamic-map.export';
 import { renderDynamicMapStage } from '../dynamic-map.renderer';
 import { DynamicMapInspector } from '../dynamic-map.inspector';
 import {
@@ -70,7 +70,12 @@ export const DynamicMapDefinition = createModuleDefinition({
     searchBackgroundColor: 'rgba(255,255,255,0.7)',
     heroOverlayOpacity: 0.45,
   },
-  style: { backgroundColor: '#dbeafe', accentColor: '#ef4444', color: '#0f172a' },
+  style: {
+    backgroundColor: '#dbeafe',
+    accentColor: '#ef4444',
+    color: '#0f172a',
+    modulePreset: 'commerce',
+  },
   capabilities: {
     performsNetworkIo: true,
     worksOffline: false,

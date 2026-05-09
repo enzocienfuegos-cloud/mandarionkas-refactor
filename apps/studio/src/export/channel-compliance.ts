@@ -4,6 +4,12 @@ import type { PortableExportProject } from './portable';
 import type { ExportRuntimeModel } from './runtime-model';
 import { getMraidProjectCompatibility } from './mraid-compatibility';
 import { getIabStandardPresets, getMraidStandardPresets } from '../domain/document/canvas-presets';
+import {
+  isPosterFallbackWidgetType,
+  isSceneMediaWidgetType,
+  isVideoHeroWidgetType,
+  projectRequiresMraidLocation,
+} from './widget-type-groups';
 
 export function getPortableChannelRequirements(
   target: ReleaseTarget,
@@ -13,10 +19,10 @@ export function getPortableChannelRequirements(
   const { canvas } = project;
   const sceneCount = project.scenes.length;
   const hasClickthrough = project.interactions.some((interaction) => interaction.type === 'open-url' && interaction.url);
-  const hasVideoHero = project.scenes.some((scene) => scene.widgets.some((widget) => widget.type === 'video-hero'));
-  const videoHeroCount = project.scenes.reduce((sum, scene) => sum + scene.widgets.filter((widget) => widget.type === 'video-hero').length, 0);
+  const hasVideoHero = project.scenes.some((scene) => scene.widgets.some((widget) => isVideoHeroWidgetType(widget.type)));
+  const videoHeroCount = project.scenes.reduce((sum, scene) => sum + scene.widgets.filter((widget) => isVideoHeroWidgetType(widget.type)).length, 0);
   const hasPosterFallback = project.scenes.some((scene) =>
-    scene.widgets.some((widget) => widget.type === 'hero-image' || widget.type === 'image'),
+    scene.widgets.some((widget) => isPosterFallbackWidgetType(widget.type)),
   );
   const hasDragGesture = runtimeModel.scenes.some((scene) => scene.widgets.some((widget) => widget.gestures.includes('drag')));
   const hasTapGesture = runtimeModel.interactions.some((interaction) => interaction.gesture === 'tap');
@@ -25,11 +31,9 @@ export function getPortableChannelRequirements(
   );
   const remoteAssetCount = project.assets.filter((asset) => /^https?:\/\//i.test(asset.src)).length;
   const sceneWithMediaCount = project.scenes.filter((scene) =>
-    scene.widgets.some((widget) => widget.type === 'hero-image' || widget.type === 'image' || widget.type === 'video-hero'),
+    scene.widgets.some((widget) => isSceneMediaWidgetType(widget.type)),
   ).length;
-  const requiresMraidLocation = project.scenes.some((scene) =>
-    scene.widgets.some((widget) => widget.type === 'dynamic-map' && Boolean(widget.props.requestUserLocation ?? false)),
-  );
+  const requiresMraidLocation = projectRequiresMraidLocation(project);
   const expectedMraidPlacement: 'inline' | 'interstitial' = canvas.width === 320 && canvas.height === 480 ? 'interstitial' : 'inline';
 
   switch (target) {

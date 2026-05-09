@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
-import { renderScratchRevealExport } from '../export-renderers';
+import { renderScratchRevealExport } from '../scratch-reveal.export';
 import { renderScratchRevealStage } from '../scratch-reveal.renderer';
 import { ScratchRevealInspector } from '../scratch-reveal.inspector';
 import { ScratchRevealThumb } from '../../registry/widget-thumbnails';

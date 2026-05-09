@@ -47,12 +47,16 @@ describe('architecture guardrails', () => {
       'src/shared/browser/storage.ts',
       'src/integrations/fetch-cache.ts',
       'src/testing/setup.ts',
-      // runtime-script.ts generates JavaScript that runs inside exported HTML banners —
+      // runtime-script*.ts generates JavaScript that runs inside exported HTML banners —
       // localStorage usage there is intentional runtime code, not application storage access.
       'src/export/runtime-script.ts',
+      'src/export/runtime-script-sections.ts',
+      'src/export/runtime-script-map.ts',
+      'src/export/runtime-script-interactive.ts',
+      'src/export/runtime-script-environment.ts',
       // dynamic-map and weather-conditions cache API responses in localStorage for
       // offline/preview resilience inside the studio canvas renderer.
-      'src/widgets/modules/dynamic-map.shared.ts',
+      'src/widgets/modules/dynamic-map/places-loader.ts',
       'src/widgets/modules/weather-conditions.shared.ts',
     ]);
     const offenders = files.flatMap((file) => {
@@ -67,9 +71,13 @@ describe('architecture guardrails', () => {
     const allowedFiles = new Set([
       'src/shared/net/http-json.ts',
       'src/integrations/fetch-cache.ts',
-      // runtime-script.ts generates JavaScript injected into exported HTML banners —
+      // runtime-script*.ts generates JavaScript injected into exported HTML banners —
       // fetch() there is runtime code for the banner, not an application network call.
       'src/export/runtime-script.ts',
+      'src/export/runtime-script-sections.ts',
+      'src/export/runtime-script-map.ts',
+      'src/export/runtime-script-interactive.ts',
+      'src/export/runtime-script-environment.ts',
       // Known technical debt: useVAST fetches VAST XML directly (requires CORS proxy
       // in production). action-effects fires tracking URLs inline.
       // TODO: migrate both to src/shared/net/http-json.ts

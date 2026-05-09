@@ -7,6 +7,7 @@ import type { ExportChannel } from './export-channels';
 import { publishStudioProjectToAdServer } from './studio-publication';
 import { useToast } from '../../../shared/ui/ToastProvider';
 import { Button } from '../../../shared/ui/Button';
+import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 
 function formatSaveLabel(saveStatus: 'idle' | 'saving' | 'saved' | 'error', dirty: boolean): string {
   if (saveStatus === 'saving') return 'Saving…';
@@ -15,7 +16,7 @@ function formatSaveLabel(saveStatus: 'idle' | 'saving' | 'saved' | 'error', dirt
   return 'Save';
 }
 
-export function TopBarActions({ controller }: { controller: TopBarController }): JSX.Element {
+export function TopBarActions({ controller, onOpenBrandKitDrawer }: { controller: TopBarController; onOpenBrandKitDrawer: () => void }): JSX.Element {
   const { release, state, dirty } = controller.snapshot;
   const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'success' | 'error'>('idle');
   const { canSaveProjects } = controller.workspace;
@@ -159,6 +160,15 @@ export function TopBarActions({ controller }: { controller: TopBarController }):
 
   return (
     <div className="top-actions-cluster">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="top-brand-kit-button"
+        iconBefore={<StudioIcon icon={StudioIcons.tags} size={14} />}
+        onClick={onOpenBrandKitDrawer}
+      >
+        Brand Kit
+      </Button>
       <ExportMenu
         currentChannel={release.targetChannel}
         isExporting={resolvedZipStatus === 'exporting'}

@@ -1,4 +1,5 @@
 import type { AssetRecord } from '../../assets/types';
+import type { BrandKit } from '../../domain/brand-kit/types';
 import { normalizeStudioState } from '../../domain/document/normalize-state';
 import type { StudioState } from '../../domain/document/types';
 import type { RepositoryServices } from '../../repositories/services';
@@ -29,9 +30,11 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
   const projects = new Map<string, StudioState>();
   const projectSummaries = new Map<string, ProjectSummary>();
   const assets = new Map<string, AssetRecord>();
+  const brandKits = new Map<string, BrandKit>();
   const projectVersions = new Map<string, ProjectVersionSummary[]>();
   const projectVersionSnapshots = new Map<string, StudioState>();
   let assetCounter = 0;
+  let brandKitCounter = 0;
   let projectCounter = 0;
   let versionCounter = 0;
 
@@ -135,6 +138,39 @@ export function createInMemoryRepositoryServices(): RepositoryServices {
       async get(assetId) {
         const record = assetId ? assets.get(assetId) : undefined;
         return record ? { ...record } : undefined;
+      },
+    },
+    brandKits: {
+      mode: 'local',
+      async list() {
+        return [...brandKits.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map((item) => ({ ...item }));
+      },
+      async get(brandKitId) {
+        const brandKit = brandKits.get(brandKitId);
+        return brandKit ? { ...brandKit } : undefined;
+      },
+      async save(input, brandKitId) {
+        const now = new Date().toISOString();
+        const saved: BrandKit = {
+          id: brandKitId ?? `memory-brand-kit-${++brandKitCounter}`,
+          workspaceId: 'memory-client',
+          name: input.name,
+          description: input.description,
+          brandId: input.brandId,
+          brandName: input.brandName,
+          colors: input.colors ?? {},
+          typography: input.typography ?? {},
+          radii: input.radii ?? {},
+          motion: input.motion ?? {},
+          logos: input.logos ?? {},
+          createdAt: brandKits.get(brandKitId ?? '')?.createdAt ?? now,
+          updatedAt: now,
+        };
+        brandKits.set(saved.id, saved);
+        return { ...saved };
+      },
+      async delete(brandKitId) {
+        brandKits.delete(brandKitId);
       },
     },
   };

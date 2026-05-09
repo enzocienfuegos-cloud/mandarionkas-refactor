@@ -115,29 +115,33 @@ export function createEmptyDocument(options: InitialDocumentOptions = {}): Studi
   };
 }
 
+export function createInitialUiState(): StudioState['ui'] {
+  return {
+    zoom: 1,
+    playheadMs: 0,
+    isPlaying: false,
+    previewMode: false,
+    previewContext: 'none',
+    editModeWireframe: false,
+    hoveredWidgetId: undefined,
+    activeWidgetId: undefined,
+    lastTriggeredActionLabel: undefined,
+    activeVariant: 'default',
+    activeFeedSource: 'product',
+    activeFeedRecordId: 'product_summer',
+    activeProjectId: undefined,
+    activeLeftTab: 'widgets',
+    stageBackdrop: 'dark',
+    showStageRulers: true,
+    showWidgetBadges: true,
+  };
+}
+
 export function createInitialState(options: InitialDocumentOptions = {}): StudioState {
   const document = syncDocumentCanvasToVariant(createEmptyDocument(options));
   return {
     document,
-    ui: {
-      zoom: 1,
-      playheadMs: 0,
-      isPlaying: false,
-      previewMode: false,
-      previewContext: 'none',
-      editModeWireframe: false,
-      hoveredWidgetId: undefined,
-      activeWidgetId: undefined,
-      lastTriggeredActionLabel: undefined,
-      activeVariant: 'default',
-      activeFeedSource: 'product',
-      activeFeedRecordId: 'product_summer',
-      activeProjectId: undefined,
-      activeLeftTab: 'widgets',
-      stageBackdrop: 'dark',
-      showStageRulers: true,
-      showWidgetBadges: true,
-    },
+    ui: createInitialUiState(),
   };
 }
 

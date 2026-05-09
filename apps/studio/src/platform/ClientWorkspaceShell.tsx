@@ -1,10 +1,10 @@
 import type { CSSProperties } from 'react';
 import { getCanvasPresetById } from '../domain/document/canvas-presets';
 import { getProjectStarters } from '../app/shell/topbar/project-starters';
-import { ensureWorldCupStarterRegistered } from '../app/shell/topbar/world-cup-starter';
 import { Button } from '../shared/ui/Button';
 import { useClientWorkspaceController } from './client-workspace/use-client-workspace-controller';
 import { StudioIcon, StudioIcons } from '../shared/ui/icons';
+import { TemplateGallery } from './template-gallery/TemplateGallery';
 
 type ClientWorkspaceShellProps = {
   onBackToAgencyShell(): void;
@@ -21,7 +21,6 @@ function buildClientWorkspaceFrameStyle(borderColor: string, aspectRatio: string
 }
 
 export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: ClientWorkspaceShellProps): JSX.Element {
-  ensureWorldCupStarterRegistered();
   const controller = useClientWorkspaceController();
   const starters = getProjectStarters();
   const {
@@ -66,6 +65,14 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
     await controller.createProjectDraft();
     onEnterEditor();
   }
+
+  async function handleCreateFromStarter(starterId: string): Promise<void> {
+    const starter = starters.find((item) => item.id === starterId);
+    await projectSession.handleCreateProjectFromStarter(starterId, starter?.label);
+    onEnterEditor();
+  }
+
+  const hasProjects = stats.totalProjects > 0;
 
   return (
     <div className="workspace-hub-shell">
@@ -154,6 +161,24 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
           <Button variant="primary" size="md" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>Create and open editor</Button>
         </div>
       </section>
+
+      {!hasProjects ? (
+        <section className="workspace-hub-onboarding">
+          <div className="workspace-hub-onboarding__intro">
+            <div>
+              <div className="workspace-hub-kicker">Studio hub</div>
+              <h2>Start from a template instead of an empty editor</h2>
+              <p>There are no projects in this client workspace yet. Pick a launch point by vertical, or create a blank project if you want full control from the start.</p>
+            </div>
+            <div className="workspace-hub-onboarding__actions">
+              <Button variant="primary" size="md" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
+                Blank project
+              </Button>
+            </div>
+          </div>
+          <TemplateGallery onUseTemplate={(templateId) => void handleCreateFromStarter(templateId)} />
+        </section>
+      ) : null}
 
       <section className="workspace-hub-toolbar">
         <div className="workspace-hub-folder-bar">
@@ -312,7 +337,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         {pageItems.length === 0 ? (
           <div className="workspace-hub-empty-state panel">
             <h3>No projects match this view</h3>
-            <p>Change the filters, switch client, or create a fresh document from the banner-size picker.</p>
+            <p>Change the filters, switch client, or create a fresh document from the starter gallery above.</p>
           </div>
         ) : null}
       </section>

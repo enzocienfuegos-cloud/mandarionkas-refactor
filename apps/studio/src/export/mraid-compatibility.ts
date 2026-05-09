@@ -177,16 +177,18 @@ function evaluateHotspot(widget: PortableExportWidget): MraidWidgetCompatibility
   return issues;
 }
 
+const MRAID_WIDGET_EVALUATORS: Partial<Record<WidgetType, (widget: PortableExportWidget) => MraidWidgetCompatibility[]>> = {
+  'video-hero': evaluateVideoHero,
+  'weather-conditions': evaluateWeather,
+  'shoppable-sidebar': evaluateShoppable,
+  'interactive-hotspot': evaluateHotspot,
+};
+
 function evaluateWidget(widget: PortableExportWidget): MraidWidgetCompatibility[] {
   const base = baseCompatibility(widget.type, widget.id);
   if (base.level === 'blocked') return [base];
 
-  const behaviorIssues =
-    widget.type === 'video-hero' ? evaluateVideoHero(widget)
-      : widget.type === 'weather-conditions' ? evaluateWeather(widget)
-        : widget.type === 'shoppable-sidebar' ? evaluateShoppable(widget)
-          : widget.type === 'interactive-hotspot' ? evaluateHotspot(widget)
-            : [];
+  const behaviorIssues = MRAID_WIDGET_EVALUATORS[widget.type]?.(widget) ?? [];
 
   if (behaviorIssues.length) return behaviorIssues;
   return base.level === 'warning' ? [base] : [];

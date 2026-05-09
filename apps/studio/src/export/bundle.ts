@@ -12,6 +12,7 @@ import { buildChannelHtml, buildPlayableSingleFileHtml } from './html';
 import { buildExportManifest } from './manifest';
 import { buildExportPackageMetrics } from './package-metrics';
 import { validateExportPackage } from './package-compliance';
+import { buildSharedAssetEntries, buildSizeSetManifest, type ExportSizeSetManifest, type SharedAssetRecord } from './bundle-size-set';
 import { buildExportExitConfig, buildExportPackagingPlan } from './packaging';
 import { buildPortableProjectExport } from './portable';
 import { buildExportReadiness } from './readiness';
@@ -29,32 +30,7 @@ export type ExportBundle = {
   channel: StudioState['document']['metadata']['release']['targetChannel'];
   files: ExportBundleFile[];
 };
-
-export type ExportSizeSetManifest = {
-  documentId: string;
-  documentName: string;
-  exportedAt: string;
-  targetChannel: StudioState['document']['metadata']['release']['targetChannel'];
-  variantCount: number;
-  sharedAssetCount: number;
-  sharedAssets: Array<{
-    sourceUrl: string;
-    kind: string;
-    path: string;
-    fileName: string;
-    variantCount: number;
-  }>;
-  variants: Array<{
-    id: string;
-    label: string;
-    slug: string;
-    width: number;
-    height: number;
-    isMaster: boolean;
-    path: string;
-    fileCount: number;
-  }>;
-};
+export type { ExportSizeSetManifest };
 
 type PreparedExportBundleInput = {
   portableProject: ReturnType<typeof buildPortableProjectExport>;
@@ -69,14 +45,6 @@ type SizeSetVariantPlan = {
   state: StudioState;
   portableProject: ReturnType<typeof buildPortableProjectExport>;
   assetPlan: ReturnType<typeof buildExportAssetPlan>;
-};
-
-type SharedAssetRecord = {
-  sourceUrl: string;
-  kind: string;
-  fileName: string;
-  packagingPath: string;
-  variantCount: number;
 };
 
 function toVariantSlug(width: number, height: number): string {
@@ -306,15 +274,7 @@ export function buildExportSizeSetBundle(state: StudioState): ExportBundle {
   const variantPlans = buildSizeSetVariantPlans(state);
   const sharedAssets = buildSharedAssetRegistry(variantPlans);
   const sharedAssetPathMap = new Map(sharedAssets.map((asset) => [asset.sourceUrl, asset.packagingPath]));
-  const sharedAssetEntries = sharedAssets.map((asset) => ({
-    id: asset.sourceUrl,
-    widgetId: 'shared',
-    kind: asset.kind as ReturnType<typeof buildExportAssetPlan>[number]['kind'],
-    sourceUrl: asset.sourceUrl,
-    packagingPath: asset.packagingPath,
-    fileName: asset.fileName,
-    strategy: asset.sourceUrl.startsWith('data:') ? 'inline-data-uri' : 'bundled-copy',
-  } as ReturnType<typeof buildExportAssetPlan>[number]));
+  const sharedAssetEntries = buildSharedAssetEntries(sharedAssets);
   const variantBundles = variantPlans.map((plan) => {
     const localizedEntries = plan.assetPlan.map((entry) =>
       sharedAssetPathMap.has(entry.sourceUrl)
@@ -334,32 +294,7 @@ export function buildExportSizeSetBundle(state: StudioState): ExportBundle {
       bundle,
     };
   });
-
-  const manifest: ExportSizeSetManifest = {
-    documentId: state.document.id,
-    documentName: state.document.name,
-    exportedAt: new Date().toISOString(),
-    targetChannel: state.document.metadata.release.targetChannel,
-    variantCount: variantBundles.length,
-    sharedAssetCount: sharedAssets.length,
-    sharedAssets: sharedAssets.map((asset) => ({
-      sourceUrl: asset.sourceUrl,
-      kind: asset.kind,
-      path: `bundle/${asset.packagingPath}`,
-      fileName: asset.fileName,
-      variantCount: asset.variantCount,
-    })),
-    variants: variantBundles.map(({ variant, slug, bundle }) => ({
-      id: variant.id,
-      label: variant.label,
-      slug,
-      width: variant.width,
-      height: variant.height,
-      isMaster: variant.isMaster,
-      path: `bundle/${slug}`,
-      fileCount: bundle.files.length,
-    })),
-  };
+  const manifest = buildSizeSetManifest(state, sharedAssets, variantBundles);
 
   return {
     channel: state.document.metadata.release.targetChannel,
@@ -378,15 +313,7 @@ export async function buildExportSizeSetBundleWithRemoteAssets(
   const variantPlans = buildSizeSetVariantPlans(state);
   const sharedAssets = buildSharedAssetRegistry(variantPlans);
   const sharedAssetPathMap = new Map(sharedAssets.map((asset) => [asset.sourceUrl, asset.packagingPath]));
-  const sharedAssetEntries = sharedAssets.map((asset) => ({
-    id: asset.sourceUrl,
-    widgetId: 'shared',
-    kind: asset.kind as ReturnType<typeof buildExportAssetPlan>[number]['kind'],
-    sourceUrl: asset.sourceUrl,
-    packagingPath: asset.packagingPath,
-    fileName: asset.fileName,
-    strategy: asset.sourceUrl.startsWith('data:') ? 'inline-data-uri' : 'bundled-copy',
-  } as ReturnType<typeof buildExportAssetPlan>[number]));
+  const sharedAssetEntries = buildSharedAssetEntries(sharedAssets);
   const variantBundles = await Promise.all(
     variantPlans.map(async (plan) => {
       const localizedEntries = plan.assetPlan.map((entry) =>
@@ -411,32 +338,7 @@ export async function buildExportSizeSetBundleWithRemoteAssets(
       };
     }),
   );
-
-  const manifest: ExportSizeSetManifest = {
-    documentId: state.document.id,
-    documentName: state.document.name,
-    exportedAt: new Date().toISOString(),
-    targetChannel: state.document.metadata.release.targetChannel,
-    variantCount: variantBundles.length,
-    sharedAssetCount: sharedAssets.length,
-    sharedAssets: sharedAssets.map((asset) => ({
-      sourceUrl: asset.sourceUrl,
-      kind: asset.kind,
-      path: `bundle/${asset.packagingPath}`,
-      fileName: asset.fileName,
-      variantCount: asset.variantCount,
-    })),
-    variants: variantBundles.map(({ variant, slug, bundle }) => ({
-      id: variant.id,
-      label: variant.label,
-      slug,
-      width: variant.width,
-      height: variant.height,
-      isMaster: variant.isMaster,
-      path: `bundle/${slug}`,
-      fileCount: bundle.files.length,
-    })),
-  };
+  const manifest = buildSizeSetManifest(state, sharedAssets, variantBundles);
 
   return {
     channel: state.document.metadata.release.targetChannel,

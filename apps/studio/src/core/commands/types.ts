@@ -75,6 +75,7 @@ export type StudioCommand =
   | { type: 'SET_SHARE_LINK'; shareLink: string }
   | { type: 'UPDATE_RELEASE_SETTINGS'; patch: Partial<import('../../domain/document/types').ReleaseSettings> }
   | { type: 'UPDATE_DOCUMENT_PLATFORM_METADATA'; patch: Partial<import('../../domain/document/types').ProjectPlatformMetadata> }
+  | { type: 'APPLY_DOCUMENT_VARIANT_RULES'; context: import('../../domain/variants/types').VariantContext; rules?: import('../../domain/variants/types').VariantRule[] }
   | { type: 'MARK_DOCUMENT_SAVED'; at: string }
   | { type: 'UNDO' }
   | { type: 'REDO' };

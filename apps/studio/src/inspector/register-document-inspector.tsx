@@ -1,4 +1,5 @@
 import { ApprovalsSection } from './sections/document/ApprovalsSection';
+import { BrandKitSection } from './sections/document/BrandKitSection';
 import { CanvasSection } from './sections/document/CanvasSection';
 import { CommentsSection } from './sections/document/CommentsSection';
 import { DiagnosticsSection } from './sections/document/DiagnosticsSection';
@@ -7,6 +8,7 @@ import { RemoteJsonImportSection } from './sections/document/RemoteJsonImportSec
 import { RuntimeSection } from './sections/document/RuntimeSection';
 import { ScenesSection } from './sections/document/ScenesSection';
 import { ShareHandoffSection } from './sections/document/ShareHandoffSection';
+import { VariantRulesSection } from './sections/document/VariantRulesSection';
 import { VideoAnalyticsSection } from './sections/document/VideoAnalyticsSection';
 import { channelSupportsFeedCatalog } from './sections/document/channel-capabilities';
 import {
@@ -80,12 +82,26 @@ export function registerDocumentInspectorBuiltins(): void {
     Component: CanvasRuntimePanel,
   });
   registerDocumentInspectorPanel({
+    key: 'brand-kit',
+    title: 'Brand kit',
+    subtitle: 'Apply or review reusable creative styling kits',
+    defaultOpen: true,
+    Component: BrandKitSection,
+  });
+  registerDocumentInspectorPanel({
     key: 'feed-catalog',
     title: 'Feed catalog',
     subtitle: 'Dynamic data sources and records',
     defaultOpen: true,
     visible: (state) => channelSupportsFeedCatalog(state.document.metadata.release.targetChannel),
     Component: FeedCatalogSection,
+  });
+  registerDocumentInspectorPanel({
+    key: 'variant-rules',
+    title: 'Variants',
+    subtitle: 'Audience and locale rules for DCO previews',
+    defaultOpen: true,
+    Component: VariantRulesSection,
   });
   registerDocumentInspectorPanel({
     key: 'imports-diagnostics',
@@ -108,6 +124,6 @@ export function registerDocumentInspectorBuiltins(): void {
   });
 
   registerDocumentInspectorTab({ id: 'overview', label: 'Overview', panels: ['scenes', 'canvas-runtime'] });
-  registerDocumentInspectorTab({ id: 'data', label: 'Data', panels: ['feed-catalog', 'imports-diagnostics'] });
+  registerDocumentInspectorTab({ id: 'data', label: 'Data', panels: ['brand-kit', 'variant-rules', 'feed-catalog', 'imports-diagnostics'] });
   registerDocumentInspectorTab({ id: 'collab', label: 'Collab', panels: ['comments', 'approvals-handoff'] });
 }

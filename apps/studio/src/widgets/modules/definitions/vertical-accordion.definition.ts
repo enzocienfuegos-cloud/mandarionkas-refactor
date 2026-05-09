@@ -17,6 +17,7 @@ export const VerticalAccordionDefinition = createModuleDefinition({
     color: VERTICAL_ACCORDION_DEFAULTS.color,
     borderRadius: 0,
     opacity: 1,
+    modulePreset: 'glass',
   },
   renderStage: renderVerticalAccordionStage,
   renderInspector: (node) => createElement(VerticalAccordionInspector, { node }),

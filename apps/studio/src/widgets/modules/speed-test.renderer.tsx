@@ -22,19 +22,16 @@ const speedTestStatGridStyle = {
   display: 'grid',
   gap: 6,
 } as const;
-
 const speedTestGaugeFrameBaseStyle = {
   position: 'relative',
   borderRadius: 999,
 } as const;
-
 const speedTestGaugeCenterStyle = {
   position: 'absolute',
   inset: 0,
   display: 'grid',
   placeItems: 'center',
 } as const;
-
 const speedTestGaugeScaleRowBaseStyle = {
   position: 'absolute',
   display: 'flex',
@@ -42,14 +39,12 @@ const speedTestGaugeScaleRowBaseStyle = {
   fontWeight: 900,
   opacity: 0.82,
 } as const;
-
 const speedTestGaugeHubStyle = {
   position: 'absolute',
   bottom: 10,
   borderRadius: '50%',
   background: speedTestBrandPalette.lightSurface,
 } as const;
-
 const speedTestGaugeReadoutStyle = {
   position: 'absolute',
   bottom: 8,
@@ -57,36 +52,30 @@ const speedTestGaugeReadoutStyle = {
   placeItems: 'center',
   gap: 2,
 } as const;
-
 const speedTestSummaryRowStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 10,
 } as const;
-
 const speedTestPrimaryButtonBaseStyle = {
   border: 'none',
   cursor: 'pointer',
   fontWeight: 900,
 } as const;
-
 const speedTestBarTrackStyle = {
   height: 12,
   borderRadius: 999,
   background: speedTestBrandPalette.trackSurface,
   overflow: 'hidden',
 } as const;
-
 const speedTestBarFillBaseStyle = {
   height: '100%',
 } as const;
-
 const speedTestSimpleValueStyle = {
   fontSize: 26,
   fontWeight: 900,
 } as const;
-
 const speedTestSimpleUnitsStyle = {
   fontSize: 13,
   opacity: 0.8,

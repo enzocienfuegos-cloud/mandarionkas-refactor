@@ -1,4 +1,5 @@
 import type { StudioState } from './types';
+import { isCtaWidgetType } from './widget-type-groups';
 
 export type ExportValidationIssue = {
   level: 'error' | 'warning';
@@ -21,7 +22,7 @@ export function validateExport(state: StudioState): ExportValidationIssue[] {
     }
   });
   Object.values(state.document.widgets).forEach((widget) => {
-    if (widget.type === 'cta') {
+    if (isCtaWidgetType(widget.type)) {
       const actionIds = Object.values(state.document.actions).filter((action) => action.widgetId === widget.id);
       const hasUrl = actionIds.some((action) => action.type === 'open-url' && action.url);
       if (!hasUrl) {

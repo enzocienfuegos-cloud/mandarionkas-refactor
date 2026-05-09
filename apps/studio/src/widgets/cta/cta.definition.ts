@@ -3,6 +3,15 @@ import { renderCtaWidget } from './cta.renderer';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
 import { renderCtaExport } from '../registry/base-exporters';
 import { CtaThumb } from '../registry/widget-thumbnails';
+import { defaultsFromWidgetSchema, defineWidgetSchema } from '../../domain/widget-schema';
+
+const ctaSchema = defineWidgetSchema({
+  version: 1,
+  fields: {
+    text: { type: 'string', default: 'Learn more', minLength: 1, maxLength: 120 },
+    url: { type: 'string', default: '' },
+  },
+});
 
 export const ctaDefinition: WidgetDefinition = {
   type: 'cta',
@@ -16,7 +25,7 @@ export const ctaDefinition: WidgetDefinition = {
     sceneId,
     zIndex,
     frame: { x: 360, y: 180, width: 240, height: 44, rotation: 0 },
-    props: { text: 'Learn more', url: '' },
+    props: defaultsFromWidgetSchema(ctaSchema),
     style: { color: '#10161c', backgroundColor: '#ffd400', fontSize: 24, fontWeight: 700 },
     timeline: { startMs: 0, endMs: 15000 },
   }),
@@ -34,6 +43,7 @@ export const ctaDefinition: WidgetDefinition = {
     exposesActions: true,
     hasTextVariant: true,
   },
+  schema: ctaSchema,
   renderStage: renderCtaWidget,
   renderExport: (node) => renderCtaExport(node),
   buildPortableExport: (node) => ({

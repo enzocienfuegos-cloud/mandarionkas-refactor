@@ -1,5 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
-import { renderCountdownExport } from '../export-renderers';
+import { renderCountdownExport } from '../countdown.export';
 import { renderCountdownStage } from '../countdown.renderer';
 import { CountdownThumb } from '../../registry/widget-thumbnails';
 

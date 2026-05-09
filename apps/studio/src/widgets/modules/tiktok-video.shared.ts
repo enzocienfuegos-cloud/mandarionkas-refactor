@@ -5,6 +5,8 @@ export const TIKTOK_VIDEO_DEFAULT_LIKES_COUNT = '12.4K';
 export const TIKTOK_VIDEO_DEFAULT_COMMENTS_COUNT = '842';
 export const TIKTOK_VIDEO_DEFAULT_SHARES_COUNT = '1.2K';
 export const TIKTOK_VIDEO_DEFAULT_CTA_LABEL = 'Shop Now';
+export const TIKTOK_VIDEO_DEFAULT_CTA_COLOR = '#fe2c55';
+export const TIKTOK_VIDEO_DEFAULT_CTA_TEXT_COLOR = '#ffffff';
 
 export const TIKTOK_VIDEO_DEFAULT_PROPS = {
   title: 'TikTok Video',
@@ -21,8 +23,8 @@ export const TIKTOK_VIDEO_DEFAULT_PROPS = {
   sharesCount: TIKTOK_VIDEO_DEFAULT_SHARES_COUNT,
   ctaLabel: TIKTOK_VIDEO_DEFAULT_CTA_LABEL,
   ctaUrl: '',
-  ctaColor: '#fe2c55',
-  ctaTextColor: '#ffffff',
+  ctaColor: TIKTOK_VIDEO_DEFAULT_CTA_COLOR,
+  ctaTextColor: TIKTOK_VIDEO_DEFAULT_CTA_TEXT_COLOR,
   showHearts: true,
   showProgressBar: true,
   showMuteButton: true,

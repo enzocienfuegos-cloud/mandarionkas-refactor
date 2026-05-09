@@ -8,7 +8,7 @@ export function renderTextExport(node: WidgetNode): string {
 }
 
 export function renderCtaExport(node: WidgetNode): string {
-  const base = `${getBaseWidgetStyle(node)};cursor:pointer;justify-content:${resolveExportVerticalAlign(node)};align-items:${resolveExportHorizontalAlign(node)};text-align:${resolveExportTextAlign(node)};`;
+  const base = `${getBaseWidgetStyle(node)};cursor:pointer;justify-content:${resolveExportVerticalAlign(node)};align-items:${resolveExportHorizontalAlign(node)};text-align:${resolveExportTextAlign(node)};border-radius:${Number(node.style.borderRadius ?? 10)}px;`;
   return `<button class="widget widget-cta" data-widget-id="${node.id}" style="${base}">${escapeHtml(node.props.text ?? node.name)}</button>`;
 }
 

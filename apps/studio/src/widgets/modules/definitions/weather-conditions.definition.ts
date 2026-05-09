@@ -1,5 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
-import { renderWeatherConditionsExport } from '../export-renderers';
+import { renderWeatherConditionsExport } from '../weather-conditions.export';
 import { renderWeatherConditionsStage } from '../weather-conditions.renderer';
 import { WeatherConditionsThumb } from '../../registry/widget-thumbnails';
 

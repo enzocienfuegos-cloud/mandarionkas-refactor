@@ -1,5 +1,6 @@
-import { createInitialState } from '../../../domain/document/factories';
+import { createInitialState, createInitialUiState } from '../../../domain/document/factories';
 import type { StudioState } from '../../../domain/document/types';
+import { getTemplate, listTemplates } from '../../../templates/library/registry';
 
 export type ProjectStarterId = 'blank' | string;
 
@@ -39,7 +40,13 @@ export function registerProjectStarter(option: ProjectStarterOption): void {
 }
 
 export function getProjectStarters(): ProjectStarterOption[] {
-  return [...BUILT_IN_STARTERS, ...extraStarters];
+  const templateStarters = listTemplates().map((template) => ({
+    id: template.metadata.id,
+    label: template.metadata.name,
+    description: template.metadata.description,
+    canvasPresetId: template.metadata.canvasPresetId,
+  }));
+  return [...BUILT_IN_STARTERS, ...templateStarters, ...extraStarters];
 }
 
 export function registerProjectStarterHandler(id: string, handler: StarterHandlerFn): void {
@@ -69,6 +76,15 @@ export function createProjectStarterState(options: StarterOptions): StudioState 
   const handler = starterHandlers.get(options.starterId);
   if (handler) {
     return handler(options);
+  }
+  const template = getTemplate(options.starterId);
+  if (template) {
+    return applyProjectPlatformMeta({
+      ui: createInitialUiState(),
+      document: template.buildDocument({
+        name: options.name,
+      }),
+    }, options);
   }
   return applyProjectPlatformMeta(
     createInitialState({

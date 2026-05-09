@@ -1,166 +1,29 @@
-import { useEffect, useMemo, useState, type CSSProperties, type Dispatch, type DragEvent, type SetStateAction } from 'react';
+import { useMemo, useRef, useState, type DragEvent } from 'react';
 import { resolveAssetQualityPreference, selectAssetDerivative } from '../../../assets/policy';
 import { describeAssetSource } from '../../../assets/pipeline';
 import type { AssetQualityPreference, AssetRecord } from '../../../assets/types';
-import { resolveFontAssetFamily } from '../../../assets/font-family';
 import type { LeftRailController } from './use-left-rail-controller';
 import { clearAssetLibraryDragPayload, createAssetLibraryDragPayload, writeAssetLibraryDragPayload } from '../../../canvas/stage/asset-library-drag';
+import { useVirtualWindow, useVirtualWindowPadding } from '../../../shared/hooks/use-virtual-window';
 import { Tooltip } from '../../../shared/ui/Tooltip';
 import { Button } from '../../../shared/ui/Button';
 import { acceptsAssetKind, getAcceptedAssetKinds } from '../../../widgets/registry/widget-definition';
 import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
-
-function buildFontAssetPreviewStyle(asset: AssetRecord): CSSProperties {
-  return { fontFamily: resolveFontAssetFamily(asset) };
-}
-
-function buildAssetDerivativeProgressStyle(progress: number): CSSProperties {
-  return { width: `${progress}%` };
-}
-
-function formatAssetMetaBytes(sizeBytes?: number): string | null {
-  if (!sizeBytes || Number.isNaN(sizeBytes)) return null;
-  if (sizeBytes < 1024) return `${sizeBytes} B`;
-  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
-  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatAssetDimensions(width?: number, height?: number): string | null {
-  if (!width || !height) return null;
-  return `${width}×${height}`;
-}
-
-function formatAssetDuration(durationMs?: number): string | null {
-  if (!durationMs || Number.isNaN(durationMs)) return null;
-  const seconds = Math.max(1, Math.round(durationMs / 1000));
-  const minutes = Math.floor(seconds / 60);
-  const remaining = seconds % 60;
-  return minutes ? `${minutes}:${remaining.toString().padStart(2, '0')}` : `${seconds}s`;
-}
-
-function formatProcessingLabel(asset: AssetRecord): string | null {
-  if (!asset.processingStatus) return null;
-  return asset.processingStatus.replace(/-/g, ' ');
-}
-
-function describeAvailableDerivatives(asset: AssetRecord): string[] {
-  const labels: string[] = [];
-  if (asset.derivatives?.low?.src) labels.push('low');
-  if (asset.derivatives?.mid?.src) labels.push('mid');
-  if (asset.derivatives?.high?.src) labels.push('high');
-  if (asset.derivatives?.thumbnail?.src) labels.push('thumb');
-  if (asset.derivatives?.poster?.src) labels.push('poster');
-  return labels;
-}
-
-function describeExpectedDerivatives(asset: AssetRecord): string[] {
-  if (asset.kind === 'image' && asset.storageMode === 'object-storage') return ['low', 'mid', 'high', 'thumb'];
-  if (asset.kind === 'video' && asset.storageMode === 'object-storage') return ['low', 'mid', 'high', 'poster'];
-  return [];
-}
-
-function describeMissingDerivatives(asset: AssetRecord): string[] {
-  const expected = describeExpectedDerivatives(asset);
-  if (!expected.length) return [];
-  return expected.filter((label) => {
-    if (label === 'low') return !asset.derivatives?.low?.src;
-    if (label === 'mid') return !asset.derivatives?.mid?.src;
-    if (label === 'high') return !asset.derivatives?.high?.src;
-    if (label === 'thumb') return !asset.derivatives?.thumbnail?.src;
-    if (label === 'poster') return !asset.derivatives?.poster?.src;
-    return false;
-  });
-}
-
-function resolveDerivativeProgress(asset: AssetRecord): number | null {
-  const expected = describeExpectedDerivatives(asset);
-  if (!expected.length) return null;
-  const available = expected.length - describeMissingDerivatives(asset).length;
-  if (asset.processingStatus === 'completed') return 100;
-  if (asset.processingStatus === 'failed' || asset.processingStatus === 'blocked') return Math.round((available / expected.length) * 100);
-  if (asset.processingStatus === 'planned') return Math.max(10, Math.round((available / expected.length) * 100));
-  if (asset.processingStatus === 'queued') return Math.max(5, Math.round((available / expected.length) * 100));
-  if (asset.processingStatus === 'processing') return Math.max(20, Math.round((available / expected.length) * 100));
-  return available ? Math.round((available / expected.length) * 100) : null;
-}
-
-function canReprocessAsset(asset: AssetRecord | undefined): boolean {
-  if (!asset) return false;
-  if (asset.storageMode !== 'object-storage') return false;
-  if (asset.processingStatus !== 'blocked' && asset.processingStatus !== 'failed') return false;
-  if (asset.kind === 'video') return true;
-  return asset.kind === 'image' && ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(String(asset.mimeType || '').trim().toLowerCase());
-}
-
-function buildProcessingHistory(asset: AssetRecord): Array<{ label: string; at?: string; detail?: string }> {
-  const items: Array<{ label: string; at?: string; detail?: string }> = [
-    {
-      label: 'Asset created',
-      at: asset.createdAt,
-      detail: asset.processingStatus ? `Current status: ${asset.processingStatus}` : undefined,
-    },
-  ];
-
-  if (typeof asset.processingAttempts === 'number' && asset.processingAttempts > 0) {
-    items.push({
-      label: `Processing attempt ${asset.processingAttempts}`,
-      at: asset.processingLastRetryAt ?? undefined,
-      detail: asset.processingMessage || undefined,
-    });
-  }
-
-  if (asset.processingNextRetryAt) {
-    items.push({
-      label: 'Next automatic retry',
-      at: asset.processingNextRetryAt,
-      detail: 'Scheduled by worker backoff',
-    });
-  }
-
-  if (asset.processingStatus === 'completed') {
-    items.push({
-      label: 'Derivatives ready',
-      detail: 'Remote derivatives completed successfully',
-    });
-  }
-
-  if (asset.processingStatus === 'failed') {
-    items.push({
-      label: 'Processing failed',
-      detail: asset.processingMessage || 'Retries exhausted',
-    });
-  }
-
-  if (asset.processingStatus === 'blocked') {
-    items.push({
-      label: 'Processing blocked',
-      detail: asset.processingMessage || 'Worker requirements are missing',
-    });
-  }
-
-  return items;
-}
-
-function hasRemoteDerivativeReadiness(asset: AssetRecord): boolean {
-  const expected = describeExpectedDerivatives(asset);
-  if (!expected.length) return false;
-  return describeMissingDerivatives(asset).length === 0;
-}
-
-function assetPreview(asset: AssetRecord, previewUrl: string): JSX.Element {
-  if (asset.kind === 'image') return <img src={previewUrl} alt={asset.name} className="asset-preview-media" />;
-  if (asset.kind === 'video') return <video src={previewUrl} poster={asset.derivatives?.poster?.src ?? asset.posterSrc} muted className="asset-preview-media" />;
-  if (asset.kind === 'font') return <div className="asset-preview-fallback asset-preview-fallback--font" style={buildFontAssetPreviewStyle(asset)}>Aa</div>;
-  return <div className="asset-preview-fallback">FILE</div>;
-}
-
-function useRenameDraft(asset?: AssetRecord): [string, Dispatch<SetStateAction<string>>] {
-  const [value, setValue] = useState(asset?.name ?? '');
-  useEffect(() => {
-    setValue(asset?.name ?? '');
-  }, [asset?.id, asset?.name]);
-  return [value, setValue];
-}
+import {
+  assetPreview,
+  buildAssetDerivativeProgressStyle,
+  buildProcessingHistory,
+  canReprocessAsset,
+  describeAvailableDerivatives,
+  describeMissingDerivatives,
+  formatAssetDimensions,
+  formatAssetDuration,
+  formatAssetMetaBytes,
+  formatProcessingLabel,
+  hasRemoteDerivativeReadiness,
+  resolveDerivativeProgress,
+  useRenameDraft,
+} from './asset-library-section-helpers';
 
 export function AssetLibrarySection({
   controller,
@@ -208,7 +71,17 @@ export function AssetLibrarySection({
     targetChannel,
   } = controller;
   const [isDropActive, setIsDropActive] = useState(false);
+  const assetGridScrollRef = useRef<HTMLDivElement>(null);
+  const assetGridStackRef = useRef<HTMLDivElement>(null);
   const [renameDraft, setRenameDraft] = useRenameDraft(selectedAsset);
+  const virtualAssetTiles = useVirtualWindow(filteredAssets, {
+    scrollRef: assetGridScrollRef,
+    estimateSize: 168,
+    gap: 10,
+    lanes: 2,
+    overscan: 4,
+  });
+  useVirtualWindowPadding(assetGridStackRef, virtualAssetTiles.paddingStart, virtualAssetTiles.paddingEnd);
 
   const compatibleWithSelection = useMemo(() => {
     if (!selectedAsset || !primaryWidget) return false;
@@ -225,6 +98,58 @@ export function AssetLibrarySection({
     setIsDropActive(false);
     const file = event.dataTransfer.files?.[0];
     if (file) handleFileUpload(file);
+  }
+
+  function renderAssetTile(asset: AssetRecord): JSX.Element {
+    const isSelected = asset.id === (selectedAssetId || selectedAsset?.id);
+    const dimensions = formatAssetDimensions(asset.width, asset.height);
+    const durationLabel = formatAssetDuration(asset.durationMs);
+    const processingLabel = formatProcessingLabel(asset);
+    const remoteReady = hasRemoteDerivativeReadiness(asset);
+    const missingDerivatives = describeMissingDerivatives(asset);
+    const derivativeProgress = resolveDerivativeProgress(asset);
+    return (
+      <Tooltip
+        key={asset.id}
+        content={(asset.kind === 'image' || asset.kind === 'video') ? 'Click to select, double-click to apply, or drag to canvas' : 'Click to select or double-click to apply'}
+      >
+        <div
+          draggable={asset.kind === 'image' || asset.kind === 'video'}
+          role="button"
+          tabIndex={0}
+          className={`asset-tile${isSelected ? ' is-selected' : ''} ${(asset.kind === 'image' || asset.kind === 'video') ? 'is-draggable' : ''}`}
+          onClick={() => setSelectedAssetId(asset.id)}
+          onDoubleClick={() => compatibleWithSelection ? assignAsset(asset) : undefined}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              setSelectedAssetId(asset.id);
+            }
+          }}
+          onDragStart={(event) => {
+            if (asset.kind !== 'image' && asset.kind !== 'video') return;
+            writeAssetLibraryDragPayload(event.dataTransfer, createAssetLibraryDragPayload(asset));
+          }}
+          onDragEnd={() => {
+            clearAssetLibraryDragPayload();
+          }}
+        >
+          <div className="asset-tile-preview">{assetPreview(asset, resolveAssetPreviewUrl(asset))}</div>
+          <div className="asset-tile-meta">
+            <strong title={asset.name}>{asset.name}</strong>
+            <small className="muted">{asset.kind}</small>
+            <div className="asset-tile-badges">
+              {dimensions ? <span className="pill">{dimensions}</span> : null}
+              {durationLabel ? <span className="pill">{durationLabel}</span> : null}
+              {processingLabel ? <span className="pill">{processingLabel}</span> : null}
+              {derivativeProgress !== null ? <span className="pill">{derivativeProgress}%</span> : null}
+              {remoteReady ? <span className="pill">remote ready</span> : null}
+              {!remoteReady && missingDerivatives.length ? <span className="pill">missing tiers</span> : null}
+            </div>
+          </div>
+        </div>
+      </Tooltip>
+    );
   }
 
   return (
@@ -291,58 +216,14 @@ export function AssetLibrarySection({
           {assetError ? <small className="muted" role="alert">{assetError}</small> : null}
 
           {filteredAssets.length ? (
-            <div className="asset-library-grid">
-              {filteredAssets.map((asset) => {
-                const isSelected = asset.id === (selectedAssetId || selectedAsset?.id);
-                const dimensions = formatAssetDimensions(asset.width, asset.height);
-                const durationLabel = formatAssetDuration(asset.durationMs);
-                const processingLabel = formatProcessingLabel(asset);
-                const remoteReady = hasRemoteDerivativeReadiness(asset);
-                const missingDerivatives = describeMissingDerivatives(asset);
-                const derivativeProgress = resolveDerivativeProgress(asset);
-                return (
-                  <Tooltip
-                    key={asset.id}
-                    content={(asset.kind === 'image' || asset.kind === 'video') ? 'Click to select, double-click to apply, or drag to canvas' : 'Click to select or double-click to apply'}
-                  >
-                    <div
-                      draggable={asset.kind === 'image' || asset.kind === 'video'}
-                      role="button"
-                      tabIndex={0}
-                      className={`asset-tile${isSelected ? ' is-selected' : ''} ${(asset.kind === 'image' || asset.kind === 'video') ? 'is-draggable' : ''}`}
-                      onClick={() => setSelectedAssetId(asset.id)}
-                      onDoubleClick={() => compatibleWithSelection ? assignAsset(asset) : undefined}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setSelectedAssetId(asset.id);
-                        }
-                      }}
-                      onDragStart={(event) => {
-                        if (asset.kind !== 'image' && asset.kind !== 'video') return;
-                        writeAssetLibraryDragPayload(event.dataTransfer, createAssetLibraryDragPayload(asset));
-                      }}
-                      onDragEnd={() => {
-                        clearAssetLibraryDragPayload();
-                      }}
-                    >
-                      <div className="asset-tile-preview">{assetPreview(asset, resolveAssetPreviewUrl(asset))}</div>
-                      <div className="asset-tile-meta">
-                        <strong title={asset.name}>{asset.name}</strong>
-                        <small className="muted">{asset.kind}</small>
-                        <div className="asset-tile-badges">
-                          {dimensions ? <span className="pill">{dimensions}</span> : null}
-                          {durationLabel ? <span className="pill">{durationLabel}</span> : null}
-                          {processingLabel ? <span className="pill">{processingLabel}</span> : null}
-                          {derivativeProgress !== null ? <span className="pill">{derivativeProgress}%</span> : null}
-                          {remoteReady ? <span className="pill">remote ready</span> : null}
-                          {!remoteReady && missingDerivatives.length ? <span className="pill">missing tiers</span> : null}
-                        </div>
-                      </div>
-                    </div>
-                  </Tooltip>
-                );
-              })}
+            <div ref={assetGridScrollRef} className="left-rail-virtual-scroll left-rail-virtual-scroll--assets">
+              <div ref={assetGridStackRef} className="asset-library-virtual-stack virtual-window-pad">
+                {virtualAssetTiles.rows.map((row) => (
+                  <div key={row.index} className="asset-library-grid">
+                    {row.items.map(({ item }) => renderAssetTile(item))}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : <small className="muted">No assets saved yet.</small>}
 

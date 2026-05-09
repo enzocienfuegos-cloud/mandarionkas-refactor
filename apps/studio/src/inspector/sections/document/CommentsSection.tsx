@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStudioStore } from '../../../core/store/use-studio-store';
 import { useCollaborationActions } from '../../../hooks/use-studio-actions';
+import { createInspectorField } from '../../contract-driven';
 import { Button } from '../../../shared/ui/Button';
 import { commentAnchorLabel, nextCommentStatus, statusButtonLabel } from './document-inspector-shared';
 
@@ -19,20 +20,33 @@ export function CommentsSection(): JSX.Element {
     <div className="field-stack">
       <div className="meta-line"><span className="pill">Open {openCount}</span><span className="pill">Total {comments.length}</span></div>
       <div className="fields-grid">
-        <div>
-          <label>Anchor</label>
-          <select value={anchorType} onChange={(event) => setAnchorType(event.target.value as 'document' | 'scene' | 'widget')}>
-            <option value="document">Document</option>
-            <option value="scene">Scene</option>
-            <option value="widget" disabled={!selectedWidgetId}>Widget</option>
-          </select>
-        </div>
-        <div><label>Author</label><input value="Reviewer" readOnly /></div>
+        {createInspectorField({
+          kind: 'select',
+          label: 'Anchor',
+          value: anchorType,
+          onChange: (value) => setAnchorType(value as 'document' | 'scene' | 'widget'),
+          options: [
+            { label: 'Document', value: 'document' },
+            { label: 'Scene', value: 'scene' },
+            { label: 'Widget', value: 'widget', disabled: !selectedWidgetId },
+          ],
+        })}
+        {createInspectorField({
+          kind: 'text',
+          label: 'Author',
+          value: 'Reviewer',
+          readOnly: true,
+          onChange: () => undefined,
+        })}
       </div>
-      <div>
-        <label>Comment</label>
-        <textarea rows={3} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Leave review feedback, QA notes or handoff comments..." />
-      </div>
+      {createInspectorField({
+        kind: 'textarea',
+        label: 'Comment',
+        rows: 3,
+        value: message,
+        placeholder: 'Leave review feedback, QA notes or handoff comments...',
+        onChange: setMessage,
+      })}
       <Button variant="primary" disabled={!message.trim()} onClick={() => { addComment({ type: anchorType, targetId }, message.trim(), 'Reviewer'); setMessage(''); }}>Add comment</Button>
       <div className="field-stack">
         {comments.length ? comments.map((comment) => (

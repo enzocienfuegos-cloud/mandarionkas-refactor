@@ -2,6 +2,12 @@ import type { StudioState, WidgetNode } from '../domain/document/types';
 import { resolveAssetDeliveryUrl } from '../assets/policy';
 import { getAsset } from '../repositories/asset';
 import type { AssetQualityPreference, AssetRecord } from '../assets/types';
+import {
+  isCarouselAssetWidgetType,
+  isDirectAssetWidgetType,
+  isInteractiveGalleryAssetWidgetType,
+  isVideoAssetWidgetType,
+} from './widget-type-groups';
 
 function readWidgetAssetId(node: WidgetNode): string | undefined {
   return typeof node.props.assetId === 'string' && node.props.assetId.trim() ? node.props.assetId : undefined;
@@ -94,14 +100,14 @@ function stringifyGalleryItems(items: Array<{ src: string; title: string; subtit
 function resolvePreparedWidgetProps(node: WidgetNode, asset: AssetRecord, targetChannel: StudioState['document']['metadata']['release']['targetChannel']): Record<string, unknown> {
   const qualityPreference = readWidgetAssetQualityPreference(node) ?? asset.qualityPreference ?? 'auto';
   const resolvedSrc = resolveAssetDeliveryUrl(asset, targetChannel, qualityPreference);
-  if (node.type === 'video-hero' || node.type === 'interactive-video') {
+  if (isVideoAssetWidgetType(node.type)) {
     return {
       ...node.props,
       src: resolvedSrc,
       posterSrc: asset.derivatives?.poster?.src ?? asset.posterSrc ?? node.props.posterSrc,
     };
   }
-  if (node.type === 'image' || node.type === 'hero-image') {
+  if (isDirectAssetWidgetType(node.type)) {
     return {
       ...node.props,
       src: resolvedSrc,
@@ -174,10 +180,10 @@ export async function prepareExportStateWithResolvedAssets(state: StudioState): 
     Object.values(state.document.widgets)
       .flatMap((widget) => {
         const directAssetId = readWidgetAssetId(widget);
-        const slideAssetIds = widget.type === 'image-carousel'
+        const slideAssetIds = isCarouselAssetWidgetType(widget.type)
           ? parseCarouselSlideSpecs(widget.props.slides).map((slide) => slide.assetId).filter((assetId): assetId is string => Boolean(assetId))
           : [];
-        const galleryAssetIds = widget.type === 'interactive-gallery'
+        const galleryAssetIds = isInteractiveGalleryAssetWidgetType(widget.type)
           ? parseGalleryItemSpecs(widget.props.items).map((item) => item.assetId).filter((assetId): assetId is string => Boolean(assetId))
           : [];
         return [...(directAssetId ? [directAssetId] : []), ...slideAssetIds, ...galleryAssetIds];
@@ -194,7 +200,7 @@ export async function prepareExportStateWithResolvedAssets(state: StudioState): 
   const widgets = Object.fromEntries(
     Object.entries(state.document.widgets).map(([widgetId, widget]) => {
       const assetId = readWidgetAssetId(widget);
-      if (widget.type === 'image-carousel') {
+      if (isCarouselAssetWidgetType(widget.type)) {
         return [
           widgetId,
           {
@@ -203,7 +209,7 @@ export async function prepareExportStateWithResolvedAssets(state: StudioState): 
           },
         ];
       }
-      if (widget.type === 'interactive-gallery') {
+      if (isInteractiveGalleryAssetWidgetType(widget.type)) {
         return [
           widgetId,
           {

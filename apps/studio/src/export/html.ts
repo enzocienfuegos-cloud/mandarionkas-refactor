@@ -1,6 +1,6 @@
 import { getActiveFeedRecord } from '../domain/document/resolvers';
-import type { StudioState, WidgetNode } from '../domain/document/types';
-import { getWidgetDefinition } from '../widgets/registry/widget-registry';
+import type { StudioState } from '../domain/document/types';
+import { renderWidgetExport } from '../widgets/modules/export-registry';
 import type { GamHtml5AdapterResult, GenericHtml5AdapterResult, GoogleDisplayAdapterResult, MraidAdapterResult, PlayableExportAdapterResult, VastSimidAdapterResult } from './adapters';
 import { buildExportAssetPathMap, buildExportAssetPlan } from './assets';
 import { buildExportManifest } from './manifest';
@@ -31,35 +31,12 @@ export function escapeHtml(value: unknown): string {
 }
 
 function widgetHtml(node: PortableExportWidget, state: StudioState, assetPathMap: Record<string, string>): string {
-  const definition = getWidgetDefinition(node.type);
-  if (definition.renderExport) {
-    return definition.renderExport(node as unknown as WidgetNode, state, assetPathMap);
-  }
-  const frame = node.frame;
-  const style = node.style ?? {};
-  const base = [
-    `position:absolute`,
-    `left:${frame.x}px`,
-    `top:${frame.y}px`,
-    `width:${frame.width}px`,
-    `height:${frame.height}px`,
-    `transform:rotate(${frame.rotation}deg)`,
-    `opacity:${Number(style.opacity ?? 1)}`,
-    `display:flex`,
-    `align-items:center`,
-    `justify-content:center`,
-    `overflow:hidden`,
-    `box-sizing:border-box`,
-    `border-radius:${Number(style.borderRadius ?? 12)}px`,
-    `background:${String(style.backgroundColor ?? 'transparent')}`,
-    `color:${String(style.color ?? '#ffffff')}`,
-    `font-size:${Number(style.fontSize ?? 18)}px`,
-    `font-weight:${Number(style.fontWeight ?? 700)}`,
-    `border:1px solid ${String(style.borderColor ?? 'rgba(255,255,255,0.14)')}`,
-    `padding:8px`,
-    `text-align:center`,
-  ].join(';');
-  return `<div class="widget widget-module" data-widget-id="${node.id}" style="${base};flex-direction:column;gap:6px;"><strong>${String(node.name)}</strong><span style="font-size:12px;opacity:.8;">${String(node.type)}</span></div>`;
+  return renderWidgetExport({
+    node,
+    state,
+    assetPathMap,
+    channel: state.document.metadata.release.targetChannel,
+  });
 }
 
 function sceneHtml(

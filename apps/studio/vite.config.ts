@@ -107,5 +107,6 @@ export default defineConfig(({ command }) => ({
     environment: 'node',
     setupFiles:  ['./src/testing/setup.ts'],
     envFiles: ['.env.test'],
+    exclude: ['tests/visual/**', '**/node_modules/**', '**/dist/**', '**/.{idea,git,cache,output,temp}/**'],
   },
 }));

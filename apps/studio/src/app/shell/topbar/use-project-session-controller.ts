@@ -5,11 +5,9 @@ import { listProjectVersions, loadProjectVersion, saveProjectVersion } from '../
 import type { ProjectSessionController, TopBarStudioSnapshot, WorkspaceController } from './top-bar-types';
 import { useStudioSessionActions } from '../../../hooks/use-studio-actions';
 import { getProjectRepositoryMode, setProjectRepositoryMode } from '../../../repositories/mode';
-import { createProjectStarterState } from './project-starters';
-import { ensureWorldCupStarterRegistered } from './world-cup-starter';
+import { createProjectStarterState, getProjectStarters, type ProjectStarterId } from './project-starters';
 
 export function useProjectSessionController(snapshot: TopBarStudioSnapshot, workspace: Pick<WorkspaceController, 'activeClientId' | 'clients' | 'canCreateProjects'>): ProjectSessionController {
-  ensureWorldCupStarterRegistered();
   const [projectTick, setProjectTick] = useState(0);
   const [newProjectName, setNewProjectName] = useState('');
   const [projects, setProjects] = useState<ProjectSessionController['projects']>([]);
@@ -116,13 +114,11 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     }
   }
 
-  async function handleCreateProject(): Promise<void> {
-    if (!workspace.canCreateProjects) return;
-    const projectName = newProjectName.trim() || 'Untitled Project';
+  async function createProjectFromStarter(starterId: typeof newProjectStarterId, projectName: string, canvasPresetId: string): Promise<void> {
     const seededState = createProjectStarterState({
-      starterId: newProjectStarterId,
+      starterId,
       name: projectName,
-      canvasPresetId: newProjectPresetId,
+      canvasPresetId,
       clientId: workspace.activeClientId,
       clientName: workspace.clients.find((item) => item.id === workspace.activeClientId)?.name ?? '',
       brandName: snapshot.platformMeta?.brandName ?? '',
@@ -164,6 +160,19 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
       setSaveMessage(error instanceof Error ? error.message : 'Project creation failed');
       throw error;
     }
+  }
+
+  async function handleCreateProject(): Promise<void> {
+    if (!workspace.canCreateProjects) return;
+    const projectName = newProjectName.trim() || 'Untitled Project';
+    await createProjectFromStarter(newProjectStarterId, projectName, newProjectPresetId);
+  }
+
+  async function handleCreateProjectFromStarter(starterId: typeof newProjectStarterId, name?: string): Promise<void> {
+    if (!workspace.canCreateProjects) return;
+    const projectName = name?.trim() || getProjectStarterLabel(starterId) || 'Untitled Project';
+    const starterPresetId = getProjectStarterPresetId(starterId) ?? newProjectPresetId;
+    await createProjectFromStarter(starterId, projectName, starterPresetId);
   }
 
   async function handleLoadProject(projectId: string): Promise<void> {
@@ -247,6 +256,7 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     setNewProjectPresetId,
     newProjectStarterId,
     setNewProjectStarterId,
+    handleCreateProjectFromStarter,
     handleCreateProject,
     handleLoadProject,
     handleSaveProject,
@@ -264,4 +274,12 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     saveStatus,
     saveMessage,
   };
+}
+
+function getProjectStarterLabel(starterId: ProjectStarterId): string | undefined {
+  return getProjectStarters().find((starter) => starter.id === starterId)?.label;
+}
+
+function getProjectStarterPresetId(starterId: ProjectStarterId): string | undefined {
+  return getProjectStarters().find((starter) => starter.id === starterId)?.canvasPresetId;
 }

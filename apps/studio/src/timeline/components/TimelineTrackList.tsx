@@ -1,7 +1,11 @@
+import type { RefObject } from 'react';
+import { useRef } from 'react';
+import { useVirtualWindow, useVirtualWindowPadding } from '../../shared/hooks/use-virtual-window';
 import { TimelineTrackRow } from './TimelineTrackRow';
 import type { TimelineDragState, TimelineDisplayRow } from '../types';
 
 export function TimelineTrackList({
+  scrollContainerRef,
   displayedWidgets,
   selectedIds,
   playheadMs,
@@ -18,6 +22,7 @@ export function TimelineTrackList({
   onToggleGroupCollapse,
   onDragStart,
 }: {
+  scrollContainerRef: RefObject<HTMLDivElement>;
   displayedWidgets: TimelineDisplayRow[];
   selectedIds: string[];
   playheadMs: number;
@@ -34,9 +39,19 @@ export function TimelineTrackList({
   onToggleGroupCollapse: (widgetId: string) => void;
   onDragStart: (drag: Exclude<TimelineDragState, null>) => void;
 }): JSX.Element {
+  const rowsRef = useRef<HTMLDivElement>(null);
+  const virtualRows = useVirtualWindow(displayedWidgets, {
+    scrollRef: scrollContainerRef,
+    contentOffset: 40,
+    estimateSize: 38,
+    gap: 2,
+    overscan: 10,
+  });
+  useVirtualWindowPadding(rowsRef, 6 + virtualRows.paddingStart, virtualRows.paddingEnd);
+
   return (
-    <div className="timeline-rows" data-collapsed-groups={collapsedGroupIds.length}>
-      {displayedWidgets.map((row) => {
+    <div ref={rowsRef} className="timeline-rows virtual-window-pad" data-collapsed-groups={collapsedGroupIds.length}>
+      {virtualRows.visibleItems.map(({ item: row }) => {
         const { widget, timing } = row;
         const selected = selectedIds.includes(widget.id);
         const isActive = playheadMs >= timing.startMs && playheadMs <= timing.endMs;

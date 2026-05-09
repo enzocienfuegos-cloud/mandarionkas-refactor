@@ -2,6 +2,7 @@ import { useStudioStore } from '../../core/store/use-studio-store';
 import { getBindingSuggestions, getFeedCatalogSources } from '../../domain/document/resolvers';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import type { BindingSource, VariantName, WidgetNode } from '../../domain/document/types';
+import { createInspectorField, createInspectorSection } from '../contract-driven';
 import { Button } from '../../shared/ui/Button';
 
 export function ConditionsSection({ widget }: { widget: WidgetNode }): JSX.Element {
@@ -18,11 +19,11 @@ export function ConditionsSection({ widget }: { widget: WidgetNode }): JSX.Eleme
     updateWidgetConditions(widget.id, { variants: next });
   };
 
-  return (
-    <section className="section section-premium">
-      <h3>Conditions</h3>
-      <div className="field-stack">
-        <small className="muted">Show a widget only for specific variants, records or feed values.</small>
+  return createInspectorSection({
+    title: 'Conditions',
+    description: 'Show a widget only for specific variants, records or feed values.',
+    children: (
+      <>
         <div>
           <label>Allowed variants</label>
           <div className="inline-actions section-offset-top">
@@ -31,39 +32,43 @@ export function ConditionsSection({ widget }: { widget: WidgetNode }): JSX.Eleme
             ))}
           </div>
         </div>
-        <div>
-          <label>Only for record IDs</label>
-          <input value={(widget.conditions?.records ?? []).join(', ')} onChange={(event) => updateWidgetConditions(widget.id, { records: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} placeholder="product_summer, product_clearance" />
-        </div>
+        {createInspectorField({
+          kind: 'text',
+          label: 'Only for record IDs',
+          value: (widget.conditions?.records ?? []).join(', '),
+          placeholder: 'product_summer, product_clearance',
+          onChange: (value) => updateWidgetConditions(widget.id, { records: value.split(',').map((item) => item.trim()).filter(Boolean) }),
+        })}
         <div className="fields-grid">
-          <div>
-            <label>Rule source</label>
-            <select value={source} onChange={(event) => updateWidgetConditions(widget.id, { equals: { source: event.target.value as BindingSource, operator: widget.conditions?.equals?.operator ?? 'equals', field: widget.conditions?.equals?.field ?? suggestions[0] ?? '', value: widget.conditions?.equals?.value ?? '' } })}>
-              {sources.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </div>
-          <div>
-            <label>Operator</label>
-            <select value={widget.conditions?.equals?.operator ?? 'equals'} onChange={(event) => updateWidgetConditions(widget.id, { equals: { source, operator: event.target.value as 'equals' | 'not-equals' | 'contains' | 'starts-with', field: widget.conditions?.equals?.field ?? suggestions[0] ?? '', value: widget.conditions?.equals?.value ?? '' } })}>
-              <option value="equals">equals</option>
-              <option value="not-equals">not-equals</option>
-              <option value="contains">contains</option>
-              <option value="starts-with">starts-with</option>
-            </select>
-          </div>
-          <div>
-            <label>Rule field</label>
-            <select value={widget.conditions?.equals?.field ?? ''} onChange={(event) => updateWidgetConditions(widget.id, { equals: { source, operator: widget.conditions?.equals?.operator ?? 'equals', field: event.target.value, value: widget.conditions?.equals?.value ?? '' } })}>
-              <option value="">No rule</option>
-              {suggestions.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </div>
-          <div>
-            <label>Rule value</label>
-            <input value={widget.conditions?.equals?.value ?? ''} onChange={(event) => updateWidgetConditions(widget.id, { equals: { source, operator: widget.conditions?.equals?.operator ?? 'equals', field: widget.conditions?.equals?.field ?? suggestions[0] ?? '', value: event.target.value } })} />
-          </div>
+          {createInspectorField({
+            kind: 'select',
+            label: 'Rule source',
+            value: source,
+            onChange: (value) => updateWidgetConditions(widget.id, { equals: { source: value as BindingSource, operator: widget.conditions?.equals?.operator ?? 'equals', field: widget.conditions?.equals?.field ?? suggestions[0] ?? '', value: widget.conditions?.equals?.value ?? '' } }),
+            options: sources.map((item) => ({ label: item, value: item })),
+          })}
+          {createInspectorField({
+            kind: 'select',
+            label: 'Operator',
+            value: widget.conditions?.equals?.operator ?? 'equals',
+            onChange: (value) => updateWidgetConditions(widget.id, { equals: { source, operator: value as 'equals' | 'not-equals' | 'contains' | 'starts-with', field: widget.conditions?.equals?.field ?? suggestions[0] ?? '', value: widget.conditions?.equals?.value ?? '' } }),
+            options: ['equals', 'not-equals', 'contains', 'starts-with'].map((item) => ({ label: item, value: item })),
+          })}
+          {createInspectorField({
+            kind: 'select',
+            label: 'Rule field',
+            value: widget.conditions?.equals?.field ?? '',
+            onChange: (value) => updateWidgetConditions(widget.id, { equals: { source, operator: widget.conditions?.equals?.operator ?? 'equals', field: value, value: widget.conditions?.equals?.value ?? '' } }),
+            options: [{ label: 'No rule', value: '' }, ...suggestions.map((item) => ({ label: item, value: item }))],
+          })}
+          {createInspectorField({
+            kind: 'text',
+            label: 'Rule value',
+            value: widget.conditions?.equals?.value ?? '',
+            onChange: (value) => updateWidgetConditions(widget.id, { equals: { source, operator: widget.conditions?.equals?.operator ?? 'equals', field: widget.conditions?.equals?.field ?? suggestions[0] ?? '', value } }),
+          })}
         </div>
-      </div>
-    </section>
-  );
+      </>
+    ),
+  });
 }

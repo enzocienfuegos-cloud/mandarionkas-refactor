@@ -1,0 +1,347 @@
+:root {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color-scheme: dark;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.4;
+  font-weight: 400;
+
+  --bg: #111820;
+  --bg-deep: #0b1020;
+  --bg-deep-2: #121a2b;
+  --bg-deep-3: #101823;
+  --bg-deep-4: #0c131b;
+  --bg-deep-5: #0a1017;
+  --bg-deep-6: #111922;
+  --panel: #18222d;
+  --panel-2: #1f2c39;
+  --panel-3: #253444;
+  --stroke: #314658;
+  --stroke-2: #45617c;
+  --text: #eef3f8;
+  --muted: #9db0c2;
+  --muted-text: #93a0bd;
+  --accent: #f5a524;
+  --accent-2: #27c286;
+  --danger: #e26a6a;
+  --warning: #e8b34a;
+  --info: #6f8bff;
+
+  --surface-1: #141d26;
+  --surface-2: #16202a;
+  --surface-3: #17212b;
+  --surface-4: #1c2733;
+  --surface-5: #27343a;
+
+  --canvas-light: #f5f7fb;
+  --canvas-gray-top: #3d4958;
+  --canvas-gray-bottom: #2a3441;
+  --canvas-dark-bottom: #0b1120;
+  --canvas-swatch-gray: #98a2b3;
+
+  --white: #ffffff;
+  --white-soft: #f8fbff;
+  --white-soft-2: #f5f7fa;
+  --white-soft-3: #f8fafc;
+  --ink-strong: #0b1116;
+  --danger-strong: #ef5b5b;
+  --danger-soft: #fecaca;
+  --danger-soft-2: #ffc5c5;
+  --danger-soft-3: #ffb9b9;
+  --accent-soft: #ffb54a;
+  --accent-warm: #f5d38a;
+  --focus-accent: #7c5cff;
+
+  /*
+   * Transparency ladder.
+   *
+   * Standard tokens use percentage-style names: --white-a-04 = 4% opacity.
+   * The canonical ladder is: 01, 02, 03, 04, 06, 08, 12, 18, 24, 28, 35, 45,
+   * 55, 62, 75, 85, 90, 95. Other color ladders should stay similarly compact
+   * unless a documented visual need justifies a new stop.
+   */
+  --white-a-02: rgba(255, 255, 255, 0.02);
+  --white-a-03: rgba(255, 255, 255, 0.03);
+  --white-a-04: rgba(255, 255, 255, 0.04);
+  --white-a-06: rgba(255, 255, 255, 0.06);
+  --white-a-08: rgba(255, 255, 255, 0.08);
+  --white-a-01: rgba(255, 255, 255, 0.01);
+  --white-a-12: rgba(255, 255, 255, 0.12);
+  --white-a-18: rgba(255, 255, 255, 0.18);
+  --white-a-24: rgba(255, 255, 255, 0.24);
+  --white-a-28: rgba(255, 255, 255, 0.28);
+  --white-a-35: rgba(255, 255, 255, 0.35);
+  --white-a-45: rgba(255, 255, 255, 0.45);
+  --white-a-55: rgba(255, 255, 255, 0.55);
+  --white-a-62: rgba(255, 255, 255, 0.62);
+  --white-a-75: rgba(255, 255, 255, 0.75);
+  --white-a-85: rgba(255, 255, 255, 0.85);
+  --white-a-90: rgba(255, 255, 255, 0.90);
+  --white-a-95: rgba(255, 255, 255, 0.95);
+
+  --black-a-12: rgba(0, 0, 0, 0.12);
+  --black-a-15: rgba(0, 0, 0, 0.15);
+  --black-a-16: rgba(0, 0, 0, 0.16);
+  --black-a-18: rgba(0, 0, 0, 0.18);
+  --black-a-20: rgba(0, 0, 0, 0.20);
+  --black-a-22: rgba(0, 0, 0, 0.22);
+  --black-a-24: rgba(0, 0, 0, 0.24);
+  --black-a-25: rgba(0, 0, 0, 0.25);
+  --black-a-28: rgba(0, 0, 0, 0.28);
+  --black-a-34: rgba(0, 0, 0, 0.34);
+  --black-a-35: rgba(0, 0, 0, 0.35);
+  --black-a-36: rgba(0, 0, 0, 0.36);
+  --black-a-40: rgba(0, 0, 0, 0.40);
+  --black-a-50: rgba(0, 0, 0, 0.50);
+  --black-a-75: rgba(0, 0, 0, 0.75);
+
+  --stroke-a-14: rgba(120, 144, 168, 0.14);
+  --stroke-a-16: rgba(120, 144, 168, 0.16);
+  --stroke-a-18: rgba(120, 144, 168, 0.18);
+  --stroke-a-20: rgba(120, 144, 168, 0.20);
+  --stroke-a-24: rgba(120, 144, 168, 0.24);
+  --stroke-a-26: rgba(120, 144, 168, 0.26);
+
+  --accent-a-12: rgba(245, 165, 36, 0.12);
+  --accent-a-22: rgba(245, 165, 36, 0.22);
+  --accent-a-24: rgba(245, 165, 36, 0.24);
+  --accent-a-28: rgba(245, 165, 36, 0.28);
+  --accent-a-35: rgba(245, 165, 36, 0.35);
+  --accent-a-42: rgba(245, 165, 36, 0.42);
+  --accent-a-45: rgba(245, 165, 36, 0.45);
+  --accent-a-85: rgba(245, 165, 36, 0.85);
+  --accent-a-96: rgba(245, 165, 36, 0.96);
+
+  --accent-2-a-08: rgba(39, 194, 134, 0.08);
+  --accent-2-a-18: rgba(39, 194, 134, 0.18);
+  --accent-2-a-24: rgba(39, 194, 134, 0.24);
+  --accent-2-a-34: rgba(39, 194, 134, 0.34);
+  --accent-2-a-38: rgba(39, 194, 134, 0.38);
+  --accent-2-a-55: rgba(39, 194, 134, 0.55);
+  --accent-2-a-92: rgba(39, 194, 134, 0.92);
+  --accent-cyan-bright: #00e5ff;
+  --accent-cyan-a-12: rgba(0, 229, 255, 0.12);
+
+  --focus-a-06: rgba(124, 92, 255, 0.06);
+  --focus-a-08: rgba(124, 92, 255, 0.08);
+  --focus-a-12: rgba(124, 92, 255, 0.12);
+  --focus-a-18: rgba(124, 92, 255, 0.18);
+  --focus-a-24: rgba(124, 92, 255, 0.24);
+  --focus-a-28: rgba(124, 92, 255, 0.28);
+  --focus-a-35: rgba(124, 92, 255, 0.35);
+  --focus-a-45: rgba(124, 92, 255, 0.45);
+  --focus-a-62: rgba(124, 92, 255, 0.62);
+
+  --success-a-14: rgba(86, 196, 126, 0.14);
+  --success-a-18: rgba(86, 196, 126, 0.18);
+  --success-a-20: rgba(86, 196, 126, 0.20);
+  --success-a-22: rgba(86, 196, 126, 0.22);
+  --success-a-34: rgba(86, 196, 126, 0.34);
+  --success-a-36: rgba(86, 196, 126, 0.36);
+  --success-a-44: rgba(86, 196, 126, 0.44);
+  --success-a-55: rgba(86, 196, 126, 0.55);
+
+  --danger-a-18: rgba(226, 106, 106, 0.18);
+  --danger-a-34: rgba(226, 106, 106, 0.34);
+  --danger-a-42: rgba(226, 106, 106, 0.42);
+  --danger-bright-a-16: rgba(248, 113, 113, 0.16);
+  --danger-bright-a-30: rgba(248, 113, 113, 0.30);
+  --danger-alt-a-08: rgba(231, 111, 111, 0.08);
+  --danger-alt-a-28: rgba(231, 111, 111, 0.28);
+  --warning-a-45: rgba(245, 158, 11, 0.45);
+
+  --border-soft: var(--white-a-04);
+  --border-subtle: var(--white-a-08);
+  --border-emphasis: var(--white-a-12);
+  --border-strong: var(--white-a-18);
+  --border-muted: var(--stroke-a-20);
+  --border-divider: var(--stroke-a-14);
+  --border-hover: var(--white-a-12);
+  --border-accent-soft: var(--accent-a-35);
+  --border-accent-strong: var(--accent-a-45);
+  --border-accent-active: var(--accent-a-45);
+  --border-success-soft: var(--accent-2-a-34);
+  --border-success-strong: var(--accent-2-a-55);
+  --border-danger-soft: var(--danger-a-34);
+  --border-danger-strong: var(--danger-a-42);
+  --border-focus-soft: var(--focus-a-24);
+  --border-focus-strong: var(--focus-a-35);
+  --border-focus-guide: var(--focus-a-62);
+  --border-stage-dashed: rgba(148, 163, 184, 0.85);
+
+  --bg-overlay-ghost: var(--white-a-02);
+  --bg-overlay-low: var(--white-a-03);
+  --bg-overlay-card: var(--white-a-02);
+  --bg-overlay-soft: var(--white-a-06);
+  --bg-overlay-med: var(--white-a-08);
+  --bg-overlay-high: var(--white-a-12);
+  --bg-overlay-active: var(--white-a-03);
+  --bg-hover-soft: var(--white-a-04);
+  --bg-hover-strong: var(--white-a-08);
+  --bg-selected-soft: var(--accent-a-12);
+  --bg-selected-med: var(--accent-a-12);
+  --bg-selected-strong: var(--accent-a-22);
+  --bg-selected-bright: rgba(245, 165, 36, 0.92);
+  --bg-selected-bright-soft: rgba(245, 165, 36, 0.52);
+  --bg-selected-tint: rgba(245, 165, 36, 0.10);
+  --bg-selected-hover: rgba(245, 165, 36, 0.17);
+  --bg-success-soft: var(--accent-2-a-08);
+  --bg-success-strong: rgba(39, 194, 134, 0.10);
+  --bg-success-drop: var(--success-a-18);
+  --bg-success-med: var(--success-a-14);
+  --bg-success-bright: rgba(39, 194, 134, 0.95);
+  --bg-danger-soft: var(--danger-alt-a-08);
+  --bg-danger-alert: var(--danger-bright-a-16);
+  --bg-muted-soft: rgba(148, 163, 184, 0.12);
+  --bg-focus-soft: var(--focus-a-08);
+  --bg-focus-med: var(--focus-a-18);
+  --bg-focus-strong: var(--focus-a-45);
+  --bg-focus-glow: var(--focus-a-12);
+  --bg-overlay-strong: rgba(255, 255, 255, 0.10);
+  --bg-overlay-ruler: var(--white-a-04);
+  --bg-overlay-dashed: rgba(15, 23, 42, 0.02);
+
+  --surface-tooltip: rgba(10, 14, 20, 0.96);
+  --surface-toast: rgba(10, 14, 20, 0.96);
+  --surface-backdrop: rgba(6, 10, 16, 0.56);
+  --surface-panel-header: #1b2428;
+  --surface-panel-elevated-top: rgba(24, 34, 45, 0.92);
+  --surface-panel-elevated-bottom: rgba(15, 22, 30, 0.94);
+  --surface-panel-strong-top: rgba(19, 28, 37, 0.96);
+  --surface-panel-strong-bottom: rgba(13, 19, 27, 0.98);
+  --surface-shell-deep: rgba(8, 12, 24, 0.92);
+  --surface-shell-soft: rgba(9, 13, 18, 0.74);
+  --surface-shell-overlay: rgba(17, 24, 32, 0.70);
+  --surface-shell-overlay-strong: rgba(17, 24, 32, 0.78);
+  --surface-shell-ruler: rgba(17, 24, 34, 0.90);
+  --surface-shell-ruler-muted: rgba(20, 29, 38, 0.94);
+  --surface-shell-ruler-hover: rgba(11, 17, 22, 0.54);
+  --surface-shell-strong: rgba(20, 29, 38, 0.96);
+  --surface-shell-muted: rgba(20, 29, 38, 0.94);
+  --surface-shell-sticky: rgba(20, 29, 38, 0.95);
+  --surface-shell-panel: rgba(20, 29, 38, 0.92);
+  --surface-shell-flyout: rgba(12, 18, 28, 0.98);
+  --surface-shell-panel-top: rgba(23, 33, 43, 0.96);
+  --surface-shell-panel-bottom: rgba(23, 33, 43, 0.84);
+  --surface-shell-left-rail-top: rgba(18, 27, 36, 0.96);
+  --surface-shell-left-rail-bottom: rgba(18, 27, 36, 0.84);
+  --surface-shell-modal-top: rgba(17, 24, 32, 0.96);
+  --surface-shell-modal-bottom: rgba(17, 24, 32, 0.88);
+  --glass-bg: rgba(17, 24, 32, 0.72);
+  --glass-bg-strong: rgba(13, 19, 27, 0.88);
+  --glass-border: var(--white-a-06);
+  --glass-blur: blur(20px) saturate(140%);
+  --glass-blur-soft: blur(14px) saturate(130%);
+
+  --text-soft: var(--white-a-90);
+  --text-muted-soft: rgba(214, 223, 228, 0.62);
+  --text-muted-base: rgba(214, 223, 228, 0.72);
+  --text-muted-strong: rgba(214, 223, 228, 0.84);
+  --text-muted-faint: rgba(214, 223, 228, 0.58);
+  --text-muted-subtle: rgba(214, 223, 228, 0.68);
+  --text-accent-strong: rgba(255, 240, 214, 0.96);
+  --text-accent-bright: rgba(255, 233, 208, 0.98);
+  --text-accent-bright-soft: rgba(255, 238, 220, 0.98);
+  --text-success-strong: rgba(235, 245, 238, 0.96);
+  --text-success-soft: rgba(228, 241, 232, 0.92);
+  --text-danger-soft: #ffd3d3;
+  --text-danger-strong: #ffb1b1;
+  --text-ruler-base: rgba(232, 239, 244, 0.82);
+  --text-ruler-strong: rgba(232, 239, 244, 0.86);
+  --text-stage-ruler: rgba(226, 232, 240, 0.84);
+  --text-stage-ruler-soft: rgba(226, 232, 240, 0.82);
+  --text-focus-bright: rgba(239, 232, 255, 0.96);
+  --text-focus-soft: rgba(244, 239, 255, 0.96);
+  --text-live-muted: rgba(208, 220, 230, 0.6);
+  --text-soft-strong: var(--white-a-95);
+
+  --gradient-brand-start: var(--accent-a-22);
+  --gradient-brand-end: var(--focus-a-12);
+  --gradient-success-end: #1da774;
+  --gradient-panel-end: #1c2934;
+  --gradient-keyframe-y: #7c9cff;
+  --gradient-stage-annotation: #f4f0e8;
+  --gradient-panel-elevated: linear-gradient(180deg, var(--surface-panel-elevated-top), var(--surface-panel-elevated-bottom));
+  --gradient-panel-strong: linear-gradient(180deg, var(--surface-panel-strong-top), var(--surface-panel-strong-bottom));
+  --gradient-panel-header: linear-gradient(180deg, var(--surface-shell-panel-top), var(--surface-shell-panel-bottom));
+  --gradient-left-rail-surface: linear-gradient(180deg, var(--surface-shell-left-rail-top), var(--surface-shell-left-rail-bottom));
+  --gradient-modal-surface: linear-gradient(180deg, var(--surface-shell-modal-top), var(--surface-shell-modal-bottom));
+  --gradient-card-warm: radial-gradient(circle at top left, var(--accent-a-12), transparent 42%), linear-gradient(180deg, var(--white-a-04), var(--white-a-02));
+  --gradient-card-warm-hover: radial-gradient(circle at top left, var(--bg-selected-hover), transparent 42%), linear-gradient(180deg, var(--white-a-04), var(--white-a-03));
+  --gradient-card-soft: radial-gradient(circle at top left, var(--bg-selected-soft), transparent 32%), linear-gradient(180deg, var(--bg-overlay-low), var(--bg-overlay-ghost));
+  --gradient-card-frosted: linear-gradient(180deg, var(--white-a-03), var(--white-a-01));
+  --gradient-card-focus: linear-gradient(180deg, var(--surface-shell-modal-top), var(--surface-shell-modal-bottom)), radial-gradient(circle at top left, var(--bg-focus-glow), transparent 38%);
+  --gradient-inspector-summary: linear-gradient(180deg, var(--bg-selected-tint), var(--bg-overlay-ghost) 56%, var(--white-a-01));
+  --gradient-timeline-surface: linear-gradient(180deg, rgba(16, 23, 30, 0.98), rgba(18, 27, 35, 0.98));
+  --gradient-keyframe-focus: linear-gradient(180deg, rgba(124, 92, 255, 0.94), rgba(88, 62, 190, 0.94));
+  --gradient-timeline-playhead: linear-gradient(180deg, var(--bg-selected-bright), var(--bg-selected-bright-soft));
+  --gradient-timeline-playhead-cap: linear-gradient(180deg, rgba(255, 224, 195, 0.98), var(--bg-selected-bright));
+  --gradient-timeline-live: linear-gradient(180deg, var(--accent-2-a-18), var(--accent-2-a-08));
+  --gradient-timeline-grid: linear-gradient(180deg, var(--white-a-04), var(--white-a-01));
+  --gradient-timeline-stripes: repeating-linear-gradient(90deg, var(--white-a-02) 0, var(--white-a-02) 1px, transparent 1px, transparent 32px);
+  --gradient-timeline-bar: linear-gradient(90deg, var(--accent-a-12), var(--accent-a-12));
+  --gradient-timeline-scrub: linear-gradient(90deg, rgba(245, 165, 36, 0.75), rgba(39, 194, 134, 0.8));
+  --gradient-timeline-active: linear-gradient(90deg, var(--bg-focus-soft), transparent);
+  --gradient-timeline-active-selected: linear-gradient(90deg, var(--bg-selected-med), var(--bg-success-soft));
+  --gradient-stage-marquee: linear-gradient(180deg, var(--focus-a-08), var(--focus-a-18));
+  --gradient-stage-wireframe: linear-gradient(180deg, var(--white-a-04), transparent), linear-gradient(135deg, var(--accent-a-12), var(--focus-a-08));
+  --gradient-stage-overlay: radial-gradient(circle at 50% 34%, var(--white-a-04), transparent 26%), radial-gradient(circle at 50% 38%, var(--bg-focus-glow), transparent 42%), linear-gradient(180deg, var(--white-a-02), transparent 22%, transparent 78%, rgba(0, 0, 0, 0.10));
+  --gradient-stage-selection-handle: radial-gradient(circle at 30% 30%, var(--white) 0%, var(--white) 45%, var(--gradient-stage-annotation) 100%);
+  --gradient-stage-wireframe-fill: linear-gradient(var(--white-a-02), var(--white-a-02));
+  --gradient-accent-success: linear-gradient(90deg, var(--accent-a-96), var(--accent-2-a-92));
+  --drop-accent-ring: rgba(168, 85, 247, 0.28);
+  --drop-accent-border: rgba(168, 85, 247, 0.5);
+  --drop-accent-bg: rgba(168, 85, 247, 0.42);
+  --drop-accent-surface: rgba(168, 85, 247, 0.92);
+  --drop-danger-ring: rgba(248, 113, 113, 0.24);
+  --drop-danger-border: rgba(248, 113, 113, 0.44);
+  --drop-danger-surface: rgba(248, 113, 113, 0.9);
+
+  --neutral-black: #000000;
+  --neutral-black-soft: #111111;
+  --neutral-slate-900: #111827;
+  --neutral-slate-800: #1f2937;
+  --neutral-slate-700: #475569;
+  --neutral-gray-500: #888888;
+  --neutral-gray-700: #222222;
+  --neutral-gray-800: #333333;
+  --surface-card-light: #ffffff;
+  --surface-card-muted: #f8fafc;
+
+  --text-on-media-strong: var(--white-a-95);
+  --text-on-media-soft: var(--white-a-90);
+  --text-on-media-muted: var(--white-a-75);
+  --text-on-media-faint: var(--white-a-35);
+
+  --scrim-top-strong: linear-gradient(to bottom, var(--black-a-50) 0%, transparent 100%);
+  --scrim-bottom-strong: linear-gradient(to top, var(--black-a-75) 0%, transparent 100%);
+  --scrim-panel-soft: rgba(15, 23, 42, 0.68);
+
+  --shadow-text-on-media: 0 1px 3px var(--black-a-40);
+  --shadow-text-on-media-strong: 0 1px 4px var(--black-a-50);
+  --shadow-card-elev1: 0 1px 3px var(--black-a-12);
+  --shadow-card-elev2: 0 2px 6px var(--black-a-15);
+  --shadow-card-soft: 0 4px 14px rgba(15, 23, 42, 0.08);
+  --shadow-flyout-soft: 0 2px 10px rgba(15, 23, 42, 0.12);
+  --border-card-soft: rgba(15, 23, 42, 0.10);
+  --surface-analytics-panel: rgba(4, 8, 18, 0.86);
+  --text-analytics-panel: #dfe7ff;
+
+  --shadow-color-soft: var(--black-a-12);
+  --shadow-color-base: var(--black-a-18);
+  --shadow-color-strong: var(--black-a-28);
+  --shadow-color-med: var(--black-a-16);
+  --shadow-hover-soft: 0 12px 32px var(--black-a-18);
+  --shadow-hover-base: 0 18px 36px var(--black-a-18);
+  --shadow-hover-strong: 0 18px 44px var(--black-a-35);
+  --shadow-floating-soft: 0 8px 18px var(--black-a-18);
+  --shadow-floating-base: 0 10px 22px var(--black-a-18);
+  --shadow-floating-strong: 0 20px 40px var(--black-a-24);
+  --shadow-drop-surface: 0 28px 60px rgba(15, 23, 42, 0.22);
+  --shadow-drop-pill: 0 16px 36px rgba(15, 23, 42, 0.28);
+  --elevation-1: 0 1px 2px var(--black-a-20), 0 1px 3px var(--black-a-12);
+  --elevation-2: 0 4px 6px var(--black-a-20), 0 2px 4px var(--black-a-15);
+  --elevation-3: 0 10px 15px var(--black-a-24), 0 4px 6px var(--black-a-12);
+  --elevation-overlay: 0 25px 50px var(--black-a-40);
+
+}

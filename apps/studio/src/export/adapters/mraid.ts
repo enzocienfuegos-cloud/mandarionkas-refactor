@@ -4,6 +4,7 @@ import { buildExportRuntimeModelFromPortable } from '../runtime-model';
 import { validatePortableExport } from '../compliance';
 import { getPortableChannelRequirements } from '../channel-compliance';
 import { getMraidStandardPresets, getPresetForSize } from '../../domain/document/canvas-presets';
+import { projectRequiresMraidLocation } from '../widget-type-groups';
 
 export type MraidAdapterResult = {
   adapter: 'mraid';
@@ -38,9 +39,7 @@ export function buildMraidAdapter(state: StudioState): MraidAdapterResult {
   const matchingPreset = getPresetForSize(portableProject.canvas.width, portableProject.canvas.height);
   const standardSize = Boolean(matchingPreset?.mraidStandard);
   const placement = matchingPreset?.mraidPlacement ?? (sizeKey === '320x480' ? 'interstitial' : 'inline');
-  const requiresLocation = portableProject.scenes.some((scene) =>
-    scene.widgets.some((widget) => widget.type === 'dynamic-map' && Boolean(widget.props.requestUserLocation ?? false)),
-  );
+  const requiresLocation = projectRequiresMraidLocation(portableProject);
 
   return {
     adapter: 'mraid',

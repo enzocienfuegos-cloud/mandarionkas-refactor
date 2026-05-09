@@ -1,0 +1,14 @@
+import type { RenderContext } from '../../../canvas/stage/render-context';
+import type { WidgetNode } from '../../../domain/document/types';
+
+export function renderPromoPillExample(node: WidgetNode, _ctx: RenderContext): JSX.Element {
+  const title = String(node.props.title ?? node.name);
+  const caption = String(node.props.caption ?? '');
+
+  return (
+    <div className="example-promo-pill">
+      <strong>{title}</strong>
+      {caption ? <span>{caption}</span> : null}
+    </div>
+  );
+}

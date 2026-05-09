@@ -100,7 +100,7 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
       />
 
       {activeTab ? (
-        <section role="tabpanel" id={`widget-inspector-panel-${activeTab.id}`} aria-labelledby={`widget-inspector-tab-${activeTab.id}`}>
+        <section className="inspector-tab-panel" role="tabpanel" id={`widget-inspector-panel-${activeTab.id}`} aria-labelledby={`widget-inspector-tab-${activeTab.id}`}>
           {activeTab.panels.map((panelKey, index) => {
             const panel = renderWidgetInspectorPanel(panelKey, { widget, definition, state, playheadMs, actions });
             if (!panel) return null;

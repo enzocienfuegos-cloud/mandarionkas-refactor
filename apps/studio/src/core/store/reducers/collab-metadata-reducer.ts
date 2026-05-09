@@ -1,6 +1,7 @@
 import type { StudioCommand } from '../../commands/types';
 import type { StudioState } from '../../../domain/document/types';
 import { createApprovalId, createCommentId, withDirty } from '../store-utils';
+import { evaluateVariantRules } from '../../../domain/variants/rule-engine';
 
 export function collabMetadataReducer(state: StudioState, command: StudioCommand): StudioState {
   switch (command.type) {
@@ -115,6 +116,27 @@ export function collabMetadataReducer(state: StudioState, command: StudioCommand
           },
         },
       });
+    case 'APPLY_DOCUMENT_VARIANT_RULES': {
+      const rules = command.rules ?? state.document.metadata.platform?.variantRules ?? [];
+      if (!rules.length) return state;
+      const evaluation = evaluateVariantRules(state.document, command.context, rules);
+      if (!evaluation.matches.some((entry) => entry.matched)) return state;
+      return withDirty({
+        ...state,
+        document: {
+          ...evaluation.document,
+          metadata: {
+            ...evaluation.document.metadata,
+            platform: {
+              ...(evaluation.document.metadata.platform ?? {}),
+              variantRules: rules,
+              variantPreviewContext: command.context,
+              variantLastAppliedAt: new Date().toISOString(),
+            },
+          },
+        },
+      });
+    }
     case 'MARK_DOCUMENT_SAVED':
       return {
         ...state,

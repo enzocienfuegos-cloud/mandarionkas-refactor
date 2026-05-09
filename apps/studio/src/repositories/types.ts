@@ -1,5 +1,6 @@
 import type { StudioState } from '../domain/document/types';
 import type { AssetDraft, AssetFolder, AssetQualityPreference, AssetRecord } from '../assets/types';
+import type { BrandKit, BrandKitDraft } from '../domain/brand-kit/types';
 import type { ProjectAccessScope } from '@smx/contracts';
 
 export type ProjectSummary = {
@@ -75,4 +76,12 @@ export interface AssetRepository {
   createFolder(name: string, parentId?: string): Promise<AssetFolder>;
   renameFolder(folderId: string, name: string): Promise<AssetFolder | undefined>;
   deleteFolder(folderId: string): Promise<void>;
+}
+
+export interface BrandKitRepository {
+  mode?: 'local' | 'api';
+  list(): Promise<BrandKit[]>;
+  get(brandKitId: string): Promise<BrandKit | undefined>;
+  save(input: BrandKitDraft, brandKitId?: string): Promise<BrandKit>;
+  delete(brandKitId: string): Promise<void>;
 }

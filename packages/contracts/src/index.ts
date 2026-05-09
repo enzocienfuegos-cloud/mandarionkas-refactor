@@ -7,6 +7,8 @@
  *     SessionResponseDto, ProjectSummaryDto…) — required by apps/studio
  */
 
+export * from './brand-kits';
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION A — Creative Studio platform types
 // ═══════════════════════════════════════════════════════════════════════════

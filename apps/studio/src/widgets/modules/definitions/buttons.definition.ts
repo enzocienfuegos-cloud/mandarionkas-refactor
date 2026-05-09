@@ -1,6 +1,6 @@
 import { createModuleDefinition } from '../module-definition-factory';
 import { BUTTONS_DEFAULT_PROPS } from '../buttons.shared';
-import { renderButtonsExport } from '../export-renderers';
+import { renderButtonsExport } from '../buttons.export';
 import { renderButtonsStage } from '../buttons.renderer';
 import { ButtonsThumb } from '../../registry/widget-thumbnails';
 

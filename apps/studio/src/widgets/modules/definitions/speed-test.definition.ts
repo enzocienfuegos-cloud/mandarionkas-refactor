@@ -1,5 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
-import { renderSpeedTestExport } from '../export-renderers';
+import { renderSpeedTestExport } from '../speed-test.export';
 import { renderSpeedTestStage } from '../speed-test.renderer';
 import { SPEED_TEST_DEFAULT_PROPS } from '../speed-test.shared';
 import { SpeedTestThumb } from '../../registry/widget-thumbnails';

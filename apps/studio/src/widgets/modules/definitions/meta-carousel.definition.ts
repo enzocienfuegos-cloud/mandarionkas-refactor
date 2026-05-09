@@ -17,7 +17,12 @@ export const MetaCarouselDefinition = createModuleDefinition({
   mraidCompatibility: 'warning',
   frame: { x: 10, y: 10, width: 300, height: 420, rotation: 0 },
   props: META_CAROUSEL_DEFAULT_PROPS,
-  style: { backgroundColor: '#ffffff', accentColor: '#1877f2', color: '#050505' },
+  style: {
+    backgroundColor: '#ffffff',
+    accentColor: '#1877f2',
+    color: '#050505',
+    modulePreset: 'social',
+  },
   renderStage: renderMetaCarouselStage,
   renderInspector: (node) => createElement(MetaCarouselInspector, { node }),
   exportDetail: 'Meta Carousel Ad · up to 5 slides',

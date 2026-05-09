@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStudioStore } from '../core/store/use-studio-store';
 import { useSceneActions, useTimelineActions, useUiActions, useWidgetActions } from '../hooks/use-studio-actions';
 import { buildTimelineSnapTargets, getTimelineGridStepMs, snapTimelineMs } from '../shared/timeline-snapping';
@@ -17,6 +17,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
   const [selectedOnly, setSelectedOnly] = useState(false);
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<string[]>([]);
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
   const timelineActions = useTimelineActions();
   const widgetActions = useWidgetActions();
   const uiActions = useUiActions();
@@ -235,7 +236,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
         onSeek={(ms) => timelineActions.setPlayhead(ms)}
       />
 
-      <div className="timeline-scroll">
+      <div ref={timelineScrollRef} className="timeline-scroll">
         <div className="timeline-grid-shell" style={gridShellStyle}>
           <TimelineRuler
             rulerTicks={rulerTicks}
@@ -247,6 +248,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
             onPointerDown={(clientX, startMs) => setDrag({ mode: 'playhead', originX: clientX, startMs })}
           />
           <TimelineTrackList
+            scrollContainerRef={timelineScrollRef}
             displayedWidgets={displayedWidgets}
             selectedIds={selectedIds}
             playheadMs={playheadMs}

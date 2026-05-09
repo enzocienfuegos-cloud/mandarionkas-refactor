@@ -1,5 +1,5 @@
 import { createModuleDefinition } from '../module-definition-factory';
-import { renderRangeSliderExport } from '../export-renderers';
+import { renderRangeSliderExport } from '../slider.export';
 import { renderRangeSliderStage } from '../range-slider.renderer';
 import { RangeSliderThumb } from '../../registry/widget-thumbnails';
 

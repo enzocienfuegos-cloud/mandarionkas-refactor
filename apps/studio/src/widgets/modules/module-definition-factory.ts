@@ -7,6 +7,7 @@ import {
 } from '../registry/widget-definition';
 import { createModuleExportRenderer } from './module-exporter';
 import type { PortableExportWidget } from '../../export/portable';
+import type { WidgetSchemaDefinition } from '../../domain/widget-schema';
 
 export type ModuleSpec = {
   type: WidgetType;
@@ -28,6 +29,7 @@ export type ModuleSpec = {
   renderInspector?: WidgetDefinition['renderInspector'];
   renderExport?: WidgetDefinition['renderExport'];
   inspectorFields?: WidgetDefinition['inspectorFields'];
+  schema?: WidgetSchemaDefinition;
   capabilities?: WidgetCapabilities;
   exportDetail?: string;
   buildPortableExport?: WidgetDefinition['buildPortableExport'];
@@ -79,6 +81,7 @@ export function createModuleDefinition(spec: ModuleSpec): WidgetDefinition {
     renderInspector: spec.renderInspector,
     inspectorTitle: spec.label,
     inspectorFields: spec.inspectorFields,
+    schema: spec.schema,
     capabilities: resolveModuleCapabilities(spec),
     renderExport: spec.renderExport ?? createModuleExportRenderer(spec.exportDetail ?? spec.label),
     buildPortableExport: spec.buildPortableExport ?? ((node) => buildModulePortableExport(node)),

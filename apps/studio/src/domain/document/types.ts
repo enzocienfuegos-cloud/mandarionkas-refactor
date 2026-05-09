@@ -162,10 +162,15 @@ export type ReleaseSettings = {
 export type ProjectPlatformMetadata = {
   clientId?: string;
   clientName?: string;
+  brandKitId?: string;
+  brandKitName?: string;
   brandId?: string;
   brandName?: string;
   campaignName?: string;
   accessScope?: import('@smx/contracts').ProjectAccessScope;
+  variantRules?: import('../variants/types').VariantRule[];
+  variantPreviewContext?: import('../variants/types').VariantContext;
+  variantLastAppliedAt?: string;
 };
 export type StudioDocument = { id: string; name: string; version: number; canvas: CanvasNode; canvasVariants: CanvasVariant[]; activeCanvasVariantId: string; widgetOverrides: Record<string, Record<string, WidgetNodeOverride>>; sharedLayers: Record<string, SharedWidgetLayer>; scenes: SceneNode[]; widgets: Record<string, WidgetNode>; actions: Record<string, ActionNode>; feeds: FeedCatalog; collaboration: CollaborationState; selection: { widgetIds: string[]; activeSceneId: string; primaryWidgetId?: string }; metadata: { dirty: boolean; lastSavedAt?: string; lastAutosavedAt?: string; release: ReleaseSettings; platform?: ProjectPlatformMetadata; }; };
 export type StudioState = { document: StudioDocument; ui: { zoom: number; playheadMs: number; isPlaying: boolean; previewMode: boolean; previewContext: import('../preview/preview-frames').PreviewFrameId; editModeWireframe: boolean; hoveredWidgetId?: string; activeWidgetId?: string; lastTriggeredActionLabel?: string; activeVariant: VariantName; activeFeedSource: BindingSource; activeFeedRecordId: string; activeProjectId?: string; activeLeftTab: 'widgets' | 'layers' | 'assets' | 'flow'; stageBackdrop: 'dark' | 'gray' | 'light'; showStageRulers: boolean; showWidgetBadges: boolean; }; };

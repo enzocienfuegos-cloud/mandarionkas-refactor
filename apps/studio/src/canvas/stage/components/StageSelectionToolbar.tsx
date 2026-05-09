@@ -84,8 +84,8 @@ export const StageSelectionToolbar = forwardRef<HTMLDivElement, StageSelectionTo
   onDelete,
 }, ref): JSX.Element {
   const style = {
-    left: position.x,
-    top: position.y,
+    left: Math.round(position.x),
+    top: Math.round(position.y),
     '--selection-toolbar-pill-width': '88px',
   } as CSSProperties;
 

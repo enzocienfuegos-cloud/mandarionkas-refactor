@@ -1,15 +1,17 @@
 import { createId } from '../../domain/document/factories';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
-import { getBaseWidgetStyle, escapeHtml } from '../registry/export-helpers';
 import { BadgeThumb } from '../registry/widget-thumbnails';
+import { renderBadgeExport } from './badge.export';
 import { renderBadgeWidget } from './badge.renderer';
+import { defaultsFromWidgetSchema, defineWidgetSchema } from '../../domain/widget-schema';
 
-function renderBadgeExport(node: import('../../domain/document/types').WidgetNode): string {
-  const base = `${getBaseWidgetStyle(node)};display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 14px;border-radius:${Number(node.style.borderRadius ?? 999)}px;background:${escapeHtml(String(node.style.backgroundColor ?? '#7c3aed'))};border:1px solid ${escapeHtml(String(node.style.borderColor ?? 'rgba(255,255,255,0.18)'))};box-shadow:${escapeHtml(String(node.style.boxShadow ?? '0 12px 24px rgba(0,0,0,0.18)'))};`;
-  const icon = String(node.props.icon ?? '').trim();
-  const text = escapeHtml(String(node.props.text ?? 'Badge'));
-  return `<div class="widget widget-badge" data-widget-id="${node.id}" style="${base}">${icon ? `<span aria-hidden="true">${escapeHtml(icon)}</span>` : ''}<span>${text}</span></div>`;
-}
+const badgeSchema = defineWidgetSchema({
+  version: 1,
+  fields: {
+    text: { type: 'string', default: 'New badge', minLength: 1, maxLength: 80 },
+    icon: { type: 'string', default: '★', maxLength: 8 },
+  },
+});
 
 export const badgeDefinition: WidgetDefinition = {
   type: 'badge',
@@ -23,7 +25,7 @@ export const badgeDefinition: WidgetDefinition = {
     sceneId,
     zIndex,
     frame: { x: 40, y: 40, width: 180, height: 44, rotation: 0 },
-    props: { text: 'New badge', icon: '★' },
+    props: defaultsFromWidgetSchema(badgeSchema),
     style: {
       color: '#ffffff',
       fontSize: 16,
@@ -46,6 +48,7 @@ export const badgeDefinition: WidgetDefinition = {
     { key: 'text', label: 'Label', type: 'text' },
     { key: 'icon', label: 'Icon', type: 'text' },
   ],
+  schema: badgeSchema,
   capabilities: {
     acceptsFontAsset: true,
     acceptsAssetSwap: true,
