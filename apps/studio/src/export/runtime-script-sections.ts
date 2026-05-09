@@ -1,3 +1,8 @@
 export { EXPORT_RUNTIME_MAP_SECTION } from './runtime-script-map';
 export { EXPORT_RUNTIME_INTERACTIVE_SECTION } from './runtime-script-interactive';
-export { EXPORT_RUNTIME_ENVIRONMENT_SECTION } from './runtime-script-environment';
+export {
+  EXPORT_RUNTIME_COUNTDOWN_SECTION,
+  EXPORT_RUNTIME_ENVIRONMENT_SECTION,
+  EXPORT_RUNTIME_SCRATCH_SECTION,
+  EXPORT_RUNTIME_WEATHER_SECTION,
+} from './runtime-script-environment';

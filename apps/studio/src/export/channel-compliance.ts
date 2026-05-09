@@ -121,7 +121,7 @@ export function getPortableChannelRequirements(
           id: 'mraid-scene-budget',
           label: 'MRAID creative keeps scene count compact (<= 3)',
           passed: sceneCount <= 3,
-          severity: 'warning',
+          severity: 'error',
         },
         {
           id: 'mraid-mobile-orientation',

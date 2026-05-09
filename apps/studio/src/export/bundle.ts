@@ -17,7 +17,7 @@ import { buildExportExitConfig, buildExportPackagingPlan } from './packaging';
 import { buildPortableProjectExport } from './portable';
 import { buildExportReadiness } from './readiness';
 import { buildExportRuntimeModelFromPortable } from './runtime-model';
-import { buildExportRuntimeScript } from './runtime-script';
+import { compileRuntime } from './runtime-script';
 
 export type ExportBundleFile = {
   path: string;
@@ -179,7 +179,8 @@ function buildBundleFromPreparedAssets(
       : buildChannelHtml(state, localizedAdapter as any);
   const packagingPlan = buildExportPackagingPlan(localizedAdapter);
   const exitConfig = buildExportExitConfig(localizedAdapter);
-  const runtimeScript = buildExportRuntimeScript(adapter);
+  const runtimeProject = adapter.adapter === 'playable-ad' ? adapter.playableProject : adapter.portableProject;
+  const runtimeScript = compileRuntime(runtimeProject, adapter);
   const bundleFiles: ExportBundleFile[] = [
     { path: 'index.html', mime: 'text/html;charset=utf-8', content: html },
     ...(localizedAdapter.adapter === 'vast-simid'

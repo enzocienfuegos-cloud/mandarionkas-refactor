@@ -28,7 +28,7 @@ export {
   buildExportRuntimeModelFromPortable,
 } from './runtime-model';
 export { buildExportExitConfig, buildExportPackagingPlan } from './packaging';
-export { buildExportRuntimeScript } from './runtime-script';
+export { analyzeRuntimeCapabilities, buildExportRuntimeScript, compileRuntime } from './runtime-script';
 export {
   buildGenericHtml5Adapter,
   buildGamHtml5Adapter,

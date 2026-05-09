@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../../../domain/document/factories';
-import { buildChannelHtml, buildExportAssetPlan, buildExportBundle, buildExportBundleWithRemoteAssets, buildExportExitConfig, buildExportHandoff, buildExportManifest, buildExportPackagingPlan, buildExportPackageMetrics, buildExportPreflight, buildExportReadiness, buildExportRuntimeModel, buildExportRuntimeScript, buildExportSizeSetBundle, buildExportSizeSetBundleWithRemoteAssets, buildGamHtml5Adapter, buildGenericHtml5Adapter, buildGoogleDisplayAdapter, buildMraidAdapter, buildPlayableExportAdapter, buildPlayableSingleFileHtml, buildLocalizedPortableProject, buildPortableProjectExport, buildPublishPackage, buildRemoteAssetFetchPlan, buildReviewPackage, buildStandaloneHtml, buildVastSimidAdapter, buildVastSimidXml, buildZipFromBundle, getChannelRequirements, materializeExportAssetFiles, materializeRemoteExportAssetFiles, validateExport, validateExportPackage, validatePortableExport } from '../../../export/engine';
+import { buildChannelHtml, buildExportAssetPlan, buildExportBundle, buildExportBundleWithRemoteAssets, buildExportExitConfig, buildExportHandoff, buildExportManifest, buildExportPackagingPlan, buildExportPackageMetrics, buildExportPreflight, buildExportReadiness, buildExportRuntimeModel, buildExportSizeSetBundle, buildExportSizeSetBundleWithRemoteAssets, buildGamHtml5Adapter, buildGenericHtml5Adapter, buildGoogleDisplayAdapter, buildMraidAdapter, buildPlayableExportAdapter, buildPlayableSingleFileHtml, buildLocalizedPortableProject, buildPortableProjectExport, buildPublishPackage, buildRemoteAssetFetchPlan, buildReviewPackage, buildStandaloneHtml, buildVastSimidAdapter, buildVastSimidXml, buildZipFromBundle, compileRuntime, getChannelRequirements, materializeExportAssetFiles, materializeRemoteExportAssetFiles, validateExport, validateExportPackage, validatePortableExport } from '../../../export/engine';
 import { reduceBySlices } from '../../../core/store/reducers';
 import { documentSceneReducer } from '../../../core/store/reducers/document-scene-reducer';
 import { buildNearbyPlacesCsv, parseNearbyPlaces } from '../../../widgets/modules/dynamic-map.shared';
@@ -140,42 +140,39 @@ describe('export engine', () => {
     state.document.metadata.release.targetChannel = 'gam-html5';
     const gam = buildGamHtml5Adapter(state);
 
-    const script = buildExportRuntimeScript(gam);
+    const script = compileRuntime(gam.portableProject, gam);
 
     expect(script).toContain('document.querySelectorAll(\'.widget-cta[data-widget-id]\')');
-    expect(script).toContain('window.smxRuntime =');
+    expect(script).toContain('window.smxRuntime=');
     expect(script).toContain('showScene(0)');
-    expect(script).toContain('updateCarousel');
-    expect(script).toContain('updateGallery');
-    expect(script).toContain('button-select');
-    expect(script).toContain('hotspot-toggle');
-    expect(script).toContain('qr-open');
-    expect(script).toContain('speed-test-start');
-    expect(script).toContain('runSpeedTest');
-    expect(script).toContain('initScratchReveal');
-    expect(script).toContain('data-scratch-canvas');
-    expect(script).toContain('updateShoppable');
-    expect(script).toContain('shoppable-cta');
-    expect(script).toContain('renderMapCards');
-    expect(script).toContain('renderMapSearchBar');
-    expect(script).toContain('map-place-cta');
-    expect(script).toContain('initWeatherWidget');
-    expect(script).toContain('api.open-meteo.com');
+    expect(script).not.toContain('initWeatherWidget');
+    expect(script).not.toContain('api.open-meteo.com');
   });
 
   it('builds a runtime script that prefers mraid location for locator flows', () => {
     const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
     state.document.metadata.release.targetChannel = 'mraid';
     state.document.canvas.width = 320;
     state.document.canvas.height = 480;
+    state.document.widgets.map_1 = {
+      id: 'map_1',
+      type: 'dynamic-map',
+      name: 'Map',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 280, height: 180, rotation: 0 },
+      style: {},
+      props: { requestUserLocation: true },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('map_1');
     const mraid = buildMraidAdapter(state);
 
-    const script = buildExportRuntimeScript(mraid);
+    const script = compileRuntime(mraid.portableProject, mraid);
 
     expect(script).toContain('function requestMraidUserPosition');
     expect(script).toContain('window.mraid.getLocation');
-    expect(script).toContain('window.smxMraidState');
-    expect(script).toContain('supports.location');
     expect(script).toContain('parseUserPositionPayload');
     expect(script).toContain('if (requestMraidUserPosition(onSuccess, onError)) return;');
   });

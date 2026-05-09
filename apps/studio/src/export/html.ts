@@ -7,7 +7,7 @@ import { buildExportManifest } from './manifest';
 import { buildExportRuntimeModelFromPortable } from './runtime-model';
 import { buildExportExitConfig } from './packaging';
 import { buildExportLeafletMapSrcdoc } from './leaflet-map-srcdoc';
-import { buildExportRuntimeScript } from './runtime-script';
+import { compileRuntime } from './runtime-script';
 import { buildPortableProjectExport, type PortableExportScene, type PortableExportWidget } from './portable';
 
 const BANNER_BASE_CSS = `
@@ -109,6 +109,10 @@ export type ExportHtmlAdapter =
   | MraidAdapterResult
   | PlayableExportAdapterResult
   | VastSimidAdapterResult;
+
+function getRuntimeProject(adapter: ExportHtmlAdapter) {
+  return adapter.adapter === 'playable-ad' ? adapter.playableProject : adapter.portableProject;
+}
 
 function getPrimaryClickthroughUrl(adapter: ExportHtmlAdapter): string {
   if (adapter.adapter === 'playable-ad') {
@@ -292,7 +296,7 @@ export function buildPlayableSingleFileHtml(
   const canvas = adapter.playableProject.canvas;
   const documentName = adapter.playableProject.name || state.document.name || 'SMX Playable';
   const orderedScenes = [...adapter.playableProject.scenes].sort((left, right) => left.order - right.order);
-  const runtimeScript = buildExportRuntimeScript(adapter);
+  const runtimeScript = compileRuntime(getRuntimeProject(adapter), adapter);
   const exitBootstrap = buildExitBootstrap(adapter);
 
   return `<!doctype html>

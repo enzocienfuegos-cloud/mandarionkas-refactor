@@ -8,7 +8,7 @@ import { buildExportExitConfig, buildExportPackagingPlan } from './packaging';
 import { buildExportPreflight } from './preflight';
 import { buildPortableProjectExport } from './portable';
 import { buildExportRuntimeModelFromPortable } from './runtime-model';
-import { buildExportRuntimeScript } from './runtime-script';
+import { compileRuntime } from './runtime-script';
 import { buildExportReadiness } from './readiness';
 import { buildGenericHtml5Adapter } from './adapters/generic-html5';
 import { buildGamHtml5Adapter } from './adapters/gam-html5';
@@ -107,7 +107,8 @@ export function buildPublishPackage(state: StudioState, exportedState: StudioSta
     : { ...channelAdapter, portableProject: localizedPortableProject };
   const packagingPlan = buildExportPackagingPlan(localizedAdapter);
   const exitConfig = buildExportExitConfig(localizedAdapter);
-  const runtimeScript = buildExportRuntimeScript(channelAdapter);
+  const runtimeProject = channelAdapter.adapter === 'playable-ad' ? channelAdapter.playableProject : channelAdapter.portableProject;
+  const runtimeScript = compileRuntime(runtimeProject, channelAdapter);
   const playableHtml = localizedAdapter.adapter === 'playable-ad'
     ? buildPlayableSingleFileHtml(exportedState, localizedAdapter as PlayableExportAdapterResult, {})
     : null;

@@ -1,4 +1,6 @@
-export const EXPORT_RUNTIME_ENVIRONMENT_SECTION = `
+export const EXPORT_RUNTIME_ENVIRONMENT_SECTION = ``;
+
+export const EXPORT_RUNTIME_WEATHER_SECTION = `
   function resolveWeatherCondition(code) {
     if (code === 0) return 'Clear';
     if (code === 1 || code === 2) return 'Partly cloudy';
@@ -124,7 +126,9 @@ export const EXPORT_RUNTIME_ENVIRONMENT_SECTION = `
   document.querySelectorAll('.widget-weather-conditions[data-widget-id]').forEach((root) => {
     void initWeatherWidget(root);
   });
+`;
 
+export const EXPORT_RUNTIME_SCRATCH_SECTION = `
   function paintScratchCover(canvas, coverImage, coverBlur, accent, onReady) {
     const ctx = canvas?.getContext('2d');
     if (!ctx) return;
@@ -243,7 +247,9 @@ export const EXPORT_RUNTIME_ENVIRONMENT_SECTION = `
   document.querySelectorAll('.scratch-reveal-shell[data-scratch-widget-id]').forEach((node) => {
     initScratchReveal(node);
   });
+`;
 
+export const EXPORT_RUNTIME_COUNTDOWN_SECTION = `
   function renderCountdown(root) {
     const total = Math.max(0, Number(root?.getAttribute('data-countdown-seconds') || 0));
     const startedAt = Date.now();
