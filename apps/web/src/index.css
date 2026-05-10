@@ -1,0 +1,220 @@
+@import './system/tokens.css';
+
+/* ========================================================================== */
+/* Fonts: Inter (body + display) + JetBrains Mono (numerics)                  */
+/*                                                                            */
+/* These are loaded via @fontsource packages installed as npm deps.           */
+/* See package.json: @fontsource-variable/inter, @fontsource-variable/jetbrains-mono */
+/* ========================================================================== */
+
+@import '@fontsource-variable/inter/index.css';
+@import '@fontsource-variable/jetbrains-mono/index.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================================================== */
+/* Base reset                                                                 */
+/* ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background: var(--dusk-bg);
+  color: var(--dusk-text-primary);
+  font-family: var(--dusk-font-body);
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--dusk-bg);
+  color: var(--dusk-text-primary);
+  font-family: var(--dusk-font-body);
+  font-size: var(--dusk-text-sm);
+  line-height: var(--dusk-leading-normal);
+}
+
+/* Tabular numerals for any element marked with .tabular */
+.tabular,
+[data-tabular='true'],
+.dusk-table td.numeric,
+.dusk-metric-value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* Headings use display variant of Inter */
+h1, h2, h3, h4, h5, h6,
+.dusk-title,
+.dusk-subtitle {
+  font-family: var(--dusk-font-display);
+  letter-spacing: var(--dusk-tracking-tight);
+}
+
+/* Mono for code, IDs, raw values */
+code, pre, kbd, samp,
+.dusk-mono {
+  font-family: var(--dusk-font-mono);
+  font-feature-settings: 'tnum', 'zero';
+}
+
+/* ========================================================================== */
+/* Selection                                                                  */
+/* ========================================================================== */
+
+::selection {
+  background: var(--dusk-brand-500);
+  color: var(--dusk-text-inverse);
+}
+
+/* ========================================================================== */
+/* Native form controls in dark mode                                          */
+/* ========================================================================== */
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: var(--dusk-surface-muted);
+  color: var(--dusk-text-primary);
+  border-color: var(--dusk-border-default);
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: var(--dusk-text-soft);
+}
+
+/* ========================================================================== */
+/* Component-layer utilities                                                  */
+/* ========================================================================== */
+
+@layer components {
+  /* Page chrome — every page should wrap content in this */
+  .dusk-page {
+    @apply mx-auto w-full;
+    max-width: var(--dusk-content-max);
+    padding-inline: var(--dusk-content-pad-x);
+    padding-block: var(--dusk-content-pad-y);
+  }
+
+  .dusk-page > * + * {
+    margin-top: var(--dusk-space-6);
+  }
+
+  /* Compact page header — no marketing hero */
+  .dusk-page-header {
+    @apply flex items-start justify-between gap-4;
+    margin-bottom: var(--dusk-space-4);
+  }
+
+  .dusk-page-header__title {
+    font-family: var(--dusk-font-display);
+    font-size: var(--dusk-text-2xl);
+    font-weight: 600;
+    letter-spacing: var(--dusk-tracking-tight);
+    line-height: var(--dusk-leading-tight);
+    color: var(--dusk-text-primary);
+  }
+
+  .dusk-page-header__subtitle {
+    margin-top: var(--dusk-space-1);
+    font-size: var(--dusk-text-sm);
+    color: var(--dusk-text-muted);
+  }
+
+  /* Kicker — ALL CAPS micro-label */
+  .dusk-kicker {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: var(--dusk-tracking-kicker);
+    text-transform: uppercase;
+    color: var(--dusk-text-soft);
+  }
+
+  /* Scrollbar */
+  .dusk-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--dusk-border-strong) transparent;
+  }
+
+  .dusk-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .dusk-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .dusk-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--dusk-border-strong);
+    border-radius: var(--dusk-radius-full);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .dusk-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--dusk-brand-500);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  /* Universal focus-visible ring (consistent across all interactive elements) */
+  .dusk-focus,
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [role='button']:focus-visible,
+  [role='tab']:focus-visible,
+  [role='menuitem']:focus-visible {
+    outline: none;
+    box-shadow: var(--dusk-focus-ring);
+  }
+}
+
+/* ========================================================================== */
+/* Legacy color compatibility                                                 */
+/* --------------------------------------------------------------------------*/
+/* IMPORTANT: This block is LEGACY-ONLY. New code MUST NOT rely on these.    */
+/* It exists to soften the migration of indigo-* / slate-* / red-*           */
+/* references. The ESLint rule no-legacy-tailwind-colors blocks new usage.   */
+/* When the migration is complete, delete this block.                        */
+/* ========================================================================== */
+
+/* indigo → brand (was the legacy primary color in 2023) */
+.bg-indigo-500,
+.bg-indigo-600,
+.bg-indigo-700 { background-color: var(--dusk-brand-500) !important; }
+.hover\:bg-indigo-600:hover,
+.hover\:bg-indigo-700:hover { background-color: var(--dusk-brand-600) !important; }
+.text-indigo-600,
+.text-indigo-700 { color: var(--dusk-brand-600) !important; }
+.border-indigo-200,
+.border-indigo-300 { border-color: var(--dusk-brand-200) !important; }
+html.dark .border-indigo-200,
+html.dark .border-indigo-300 { border-color: var(--dusk-brand-500) !important; opacity: 0.32; }
+.focus\:ring-indigo-500:focus { box-shadow: var(--dusk-focus-ring) !important; }
+.focus\:border-indigo-500:focus { border-color: var(--dusk-brand-500) !important; }
+
+/* green-600 / red-600 (legacy approve/reject) → semantic tokens */
+.bg-green-600 { background-color: var(--dusk-status-success-fg) !important; }
+.hover\:bg-green-700:hover { filter: brightness(0.92); }
+.bg-red-600 { background-color: var(--dusk-status-critical-fg) !important; }
+.hover\:bg-red-700:hover { filter: brightness(0.92); }

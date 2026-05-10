@@ -1,0 +1,27 @@
+{
+  "name": "@smx/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./html5-detector": "./src/html5-detector.mjs",
+    "./src/html5-detector.mjs": "./src/html5-detector.mjs",
+    "./dsp-macros": {
+      "types": "./src/dsp-macros.d.ts",
+      "import": "./src/dsp-macros.mjs",
+      "default": "./src/dsp-macros.mjs"
+    },
+    "./tag-snippets": {
+      "types": "./src/tag-snippets.d.ts",
+      "import": "./src/tag-snippets.mjs",
+      "default": "./src/tag-snippets.mjs"
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "scripts": {
+    "test": "node --test src/tag-snippets.test.mjs"
+  }
+}

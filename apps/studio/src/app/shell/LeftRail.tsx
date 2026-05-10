@@ -1,0 +1,80 @@
+import { useState } from 'react';
+import { LeftTabBar } from './LeftTabBar';
+import { CollaborationSection } from './left-rail/CollaborationSection';
+import { LayersSection } from './left-rail/LayersSection';
+import { StoryFlowSection } from './left-rail/StoryFlowSection';
+import { WidgetLibrarySection } from './left-rail/WidgetLibrarySection';
+import { useLeftRailController } from './left-rail/use-left-rail-controller';
+import { IconButton } from '../../shared/ui/IconButton';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
+
+export function LeftRail({
+  onOpenShortcuts,
+  onToggleCollapse,
+  onResizeStart,
+}: {
+  onOpenShortcuts: () => void;
+  onToggleCollapse: () => void;
+  onResizeStart: (startX: number, edge: 'left' | 'right') => void;
+}): JSX.Element {
+  const controller = useLeftRailController();
+  const [showMore, setShowMore] = useState(false);
+
+  return (
+    <aside className="left-rail left-rail-tabs">
+      <LeftTabBar activeTab={controller.activeLeftTab} onSelectTab={controller.setActiveLeftTab} onOpenMore={() => setShowMore((value) => !value)} onOpenShortcuts={onOpenShortcuts} />
+      <div className="left-rail-panel-shell">
+        <div className="left-rail-panel-head">
+          <div>
+            <small className="left-title">Tools</small>
+            <strong className="rail-heading">
+              {controller.activeLeftTab === 'widgets' ? 'Widgets' : null}
+              {controller.activeLeftTab === 'layers' ? 'Layers' : null}
+              {controller.activeLeftTab === 'flow' ? 'Flow' : null}
+            </strong>
+          </div>
+          <IconButton
+            className="panel-collapse-button"
+            variant="ghost"
+            size="md"
+            label="Hide left panel"
+            tooltipPlacement="bottom"
+            tooltipDelay={240}
+            icon={<StudioIcon icon={StudioIcons.chevronLeft} size={18} />}
+            onClick={onToggleCollapse}
+          />
+        </div>
+        <div className="left-rail-panel">
+          {controller.activeLeftTab === 'widgets' ? <WidgetLibrarySection /> : null}
+          {controller.activeLeftTab === 'layers' ? <LayersSection controller={controller} /> : null}
+          {controller.activeLeftTab === 'flow' ? <StoryFlowSection controller={controller} /> : null}
+        </div>
+      </div>
+      {showMore ? (
+        <div className="left-rail-more panel">
+          <CollaborationSection controller={controller} />
+        </div>
+      ) : null}
+      <div
+        className="left-rail-resize-handle left-rail-resize-handle-left"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          onResizeStart(event.clientX, 'left');
+        }}
+        aria-label="Resize panel from left edge"
+        role="separator"
+        aria-orientation="vertical"
+      />
+      <div
+        className="left-rail-resize-handle"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          onResizeStart(event.clientX, 'right');
+        }}
+        aria-label="Resize panel from right edge"
+        role="separator"
+        aria-orientation="vertical"
+      />
+    </aside>
+  );
+}

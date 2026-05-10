@@ -1,0 +1,213 @@
+.workspace-hub-shell {
+  min-height: 100vh;
+  padding: 28px;
+  background:
+    radial-gradient(circle at top right, var(--accent-a-22), transparent 28%),
+    radial-gradient(circle at top left, var(--accent-2-a-18), transparent 26%),
+    linear-gradient(180deg, var(--bg-deep-3) 0%, var(--bg-deep-4) 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.workspace-hub-topbar,
+.workspace-hub-hero,
+.workspace-hub-storage,
+.workspace-hub-toolbar,
+.workspace-hub-pagination {
+  display: flex;
+  gap: var(--space-8);
+  align-items: stretch;
+}
+
+.workspace-hub-topbar {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.workspace-hub-topbar h1 {
+  margin: 6px 0 8px;
+  font-size: var(--font-size-display);
+}
+
+.workspace-hub-topbar p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.workspace-hub-kicker,
+.workspace-project-meta-label,
+.workspace-hub-stat-label {
+  font-size: var(--font-size-xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--brand-cyan-400);
+}
+
+.workspace-hub-session {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+}
+
+.workspace-hub-hero {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.workspace-hub-stat-card,
+.workspace-hub-toolbar,
+.workspace-project-card,
+.workspace-hub-empty-state {
+  border: 1px solid var(--stroke-a-20);
+  background: var(--gradient-panel-elevated);
+  border-radius: var(--radius-4xl);
+  box-shadow: 0 18px 36px var(--black-a-18);
+}
+
+.workspace-hub-stat-card {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.workspace-hub-stat-card strong {
+  font-size: var(--font-size-display);
+}
+
+.workspace-hub-stat-card small {
+  color: var(--muted);
+}
+
+.workspace-hub-stat-card--form {
+  gap: var(--space-6);
+}
+
+.workspace-hub-stat-card--form small {
+  color: var(--text-muted-subtle);
+  line-height: 1.4;
+}
+
+.workspace-hub-toolbar {
+  flex-direction: column;
+  padding: 16px;
+}
+
+.workspace-hub-folder-bar,
+.workspace-hub-folder-list,
+.workspace-hub-folder-create,
+.workspace-project-folder-row {
+  display: flex;
+  gap: var(--space-6);
+}
+
+.workspace-hub-folder-bar,
+.workspace-hub-folder-create {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.workspace-hub-folder-bar {
+  flex-wrap: wrap;
+}
+
+.workspace-hub-folder-list {
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.workspace-folder-card {
+  min-width: 132px;
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--stroke-a-20);
+  background: var(--white-a-03);
+  padding: 12px 14px;
+  display: inline-flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+.workspace-folder-card span,
+.workspace-folder-card strong {
+  pointer-events: none;
+}
+
+.workspace-folder-card.is-active {
+  border-color: var(--border-focus-strong);
+  box-shadow: 0 0 0 1px var(--focus-a-35);
+  background: var(--bg-focus-glow);
+}
+
+.workspace-folder-card strong {
+  color: var(--accent);
+}
+
+.workspace-hub-folder-create {
+  flex-wrap: wrap;
+}
+
+.workspace-hub-folder-create input {
+  min-width: 260px;
+}
+
+.workspace-hub-storage {
+  flex-direction: column;
+  padding: 18px;
+  border: 1px solid var(--stroke-a-20);
+  background: var(--gradient-panel-elevated);
+  border-radius: var(--radius-4xl);
+  box-shadow: 0 18px 36px var(--black-a-18);
+}
+
+.workspace-hub-storage-header,
+.workspace-hub-storage-actions,
+.workspace-hub-storage-meta {
+  display: flex;
+  gap: var(--space-6);
+}
+
+.workspace-hub-storage-header {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.workspace-hub-storage-header h2 {
+  margin: 6px 0 8px;
+  font-size: var(--font-size-5xl);
+}
+
+.workspace-hub-storage-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.workspace-hub-storage-actions,
+.workspace-hub-storage-meta {
+  flex-wrap: wrap;
+}
+
+.workspace-hub-storage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-8);
+}
+
+.workspace-hub-toolbar-row {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) 180px 180px 180px;
+  gap: var(--space-6);
+}
+
+.workspace-hub-toolbar-row--actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.workspace-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-8);
+}
