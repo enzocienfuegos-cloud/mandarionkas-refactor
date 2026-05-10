@@ -12,6 +12,13 @@
   -webkit-backdrop-filter: blur(var(--space-7));
 }
 
+.top-bar.top-bar-ux {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-topbar);
+  overflow: visible;
+}
+
 .top-bar.top-bar-ux .top-bar-left-cluster,
 .top-bar.top-bar-ux .top-bar-center,
 .top-bar.top-bar-ux .top-actions-cluster {
@@ -47,10 +54,11 @@
 }
 
 .smx-topbar-logo {
-  height: 18px;
+  display: block;
+  height: 20px;
   width: auto;
-  color: var(--text);
   flex-shrink: 0;
+  object-fit: contain;
 }
 
 .top-bar-divider {

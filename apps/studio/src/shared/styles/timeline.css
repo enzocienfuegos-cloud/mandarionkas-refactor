@@ -31,6 +31,7 @@
   left: var(--timeline-ruler-left, 0px);
   width: var(--timeline-track-width, auto);
   height: 34px;
+  cursor: ew-resize;
   border-bottom: 1px solid var(--white-a-06);
   background:
     var(--gradient-timeline-grid),
@@ -289,8 +290,8 @@
   min-width: 240px;
   border: 1px solid var(--border-subtle);
   overflow: hidden;
-  cursor: pointer;
   height: 36px;
+  cursor: ew-resize;
   border-radius: var(--radius-2xl);
   background:
     linear-gradient(180deg, var(--white-a-04), var(--white-a-01)),

@@ -5,6 +5,7 @@ import { WIDGET_LIBRARY_GROUP_LABELS } from '../../../widgets/registry/widget-de
 import { PlaceholderThumb } from '../../../widgets/registry/widget-thumbnails';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { Button } from '../../../shared/ui/Button';
+import { IconButton } from '../../../shared/ui/IconButton';
 import { CATEGORY_COLOR } from './widget-library-category-colors';
 
 const CAPABILITY_PILLS: Array<{ key: keyof NonNullable<WidgetDefinition['capabilities']>; label: string }> = [
@@ -168,6 +169,17 @@ export function WidgetLibraryItemCard({
       >
         <span className="widget-library-row__thumb">{renderWidgetThumbnail(widget, false)}</span>
         <span className="widget-library-row__label">{widget.label}</span>
+        <IconButton
+          variant="ghost"
+          size="sm"
+          className="widget-library-row__preview"
+          label={`Preview ${widget.label}`}
+          icon={<StudioIcon icon={StudioIcons.scanSearch} size={12} />}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenDetails();
+          }}
+        />
         {widget.requiresAsset ? <StudioIcon icon={StudioIcons.upload} size={12} className="widget-library-row__hint" aria-hidden="true" /> : null}
       </div>
     );
@@ -233,6 +245,19 @@ export function WidgetLibraryItemCard({
           <strong>{widget.label}</strong>
           <small>{widget.libraryTags?.[0] ?? sectionLabel}</small>
         </div>
+        <div className="widget-library-cozy-card__actions">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="widget-library-cozy-card__preview-btn"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenDetails();
+            }}
+          >
+            Preview
+          </Button>
+        </div>
       </div>
     );
   }
@@ -244,7 +269,7 @@ export function WidgetLibraryItemCard({
         tabIndex={0}
         data-widget-type={widget.type}
         data-library-group={group}
-        className={`left-button widget-library-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
+        className={`widget-library-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
         aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
         style={cardStyle}
         onClick={addWidget}
@@ -326,7 +351,7 @@ export function WidgetLibraryItemCard({
                 onOpenDetails();
               }}
             >
-              Ver detalles
+              Preview
             </Button>
           </div>
         </div>

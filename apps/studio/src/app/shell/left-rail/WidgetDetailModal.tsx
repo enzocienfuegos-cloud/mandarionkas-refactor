@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '../../../shared/ui/Button';
 import { IconButton } from '../../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
@@ -42,6 +43,8 @@ export function WidgetDetailModal({
     const shell = shellRef.current;
     const focusables = getFocusableElements(shell);
     focusables[0]?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
 
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.key === 'Escape') {
@@ -64,10 +67,13 @@ export function WidgetDetailModal({
     }
 
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [onClose]);
 
-  return (
+  const content = (
     <div
       className="widget-detail-modal-shell"
       role="dialog"
@@ -179,4 +185,6 @@ export function WidgetDetailModal({
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 }

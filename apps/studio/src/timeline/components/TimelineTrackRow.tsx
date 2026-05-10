@@ -190,6 +190,7 @@ export function TimelineTrackRow({
             aria-label={`${keyframe.property} at ${keyframe.atMs} milliseconds with ${keyframe.easing ?? 'linear'} easing`}
             style={buildTimelineKeyframeStyle(keyframe.atMs * rowMsToPx)}
             onPointerDown={(event) => {
+              event.preventDefault();
               event.stopPropagation();
               onSelect(false);
               if (widget.locked) return;
@@ -214,6 +215,7 @@ export function TimelineTrackRow({
           ].filter(Boolean).join(' ')}
           onPointerDown={(event) => {
             if (widget.locked) return;
+            event.preventDefault();
             event.stopPropagation();
             onDragStart({
               mode: 'move-bar',
@@ -231,6 +233,7 @@ export function TimelineTrackRow({
             aria-label={`Trim start of ${widget.name}`}
             onPointerDown={(event) => {
               if (widget.locked) return;
+              event.preventDefault();
               event.stopPropagation();
               onDragStart({
                 mode: 'trim-start',
@@ -252,6 +255,7 @@ export function TimelineTrackRow({
             aria-label={`Trim end of ${widget.name}`}
             onPointerDown={(event) => {
               if (widget.locked) return;
+              event.preventDefault();
               event.stopPropagation();
               onDragStart({
                 mode: 'trim-end',

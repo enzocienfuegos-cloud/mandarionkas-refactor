@@ -57,13 +57,11 @@ export function ExportMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Export ${channelLabel(currentChannel)}`}
+        iconBefore={isExporting ? undefined : <StudioIcon icon={StudioIcons.download} size={14} />}
+        iconAfter={isExporting ? undefined : <StudioIcon icon={StudioIcons.chevronDown} size={14} />}
         onClick={() => setOpen((value) => !value)}
       >
-        {isExporting ? 'Exporting…' : <>
-          <StudioIcon icon={StudioIcons.download} size={14} />
-          Export
-          <StudioIcon icon={StudioIcons.chevronDown} size={14} />
-        </>}
+        {isExporting ? 'Exporting…' : 'Export'}
       </Button>
 
       {open ? (

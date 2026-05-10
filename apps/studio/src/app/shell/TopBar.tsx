@@ -4,7 +4,6 @@ import { useTopBarController } from './topbar/use-top-bar-controller';
 import { IconButton } from '../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { TopBarCenterContent } from './topbar/TopBarCenterContent';
-import { SmxLogo } from '../../assets/SmxLogo';
 
 type TopBarProps = {
   onOpenWorkspaceHub(): void;
@@ -28,7 +27,11 @@ export function TopBar({ onOpenWorkspaceHub, onOpenAssetLibrary, onOpenBrandKitD
           icon={<StudioIcon icon={StudioIcons.arrowLeft} size={16} />}
           onClick={onOpenWorkspaceHub}
         />
-        <SmxLogo className="smx-topbar-logo" />
+        <img
+          src="/assets/mandarion-logo-white.svg"
+          alt="MandaRion"
+          className="smx-topbar-logo"
+        />
         <div className="top-bar-divider" aria-hidden="true" />
         <TopBarProjectName controller={controller} />
       </div>

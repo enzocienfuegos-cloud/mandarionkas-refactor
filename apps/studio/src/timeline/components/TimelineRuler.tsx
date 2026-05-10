@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { formatTime, ROW_GUTTER } from '../timeline-utils';
+import { clamp, formatTime, ROW_GUTTER } from '../timeline-utils';
 
 function buildTimelineTickStyle(left: number): CSSProperties {
   return { '--timeline-tick-left': `${left}px` } as CSSProperties;
@@ -9,14 +9,12 @@ export function TimelineRuler({
   rulerTicks,
   rowMsToPx,
   trackWidth,
-  playheadMs,
   snapGuideMs,
   onPointerDown,
 }: {
   rulerTicks: Array<{ atMs: number; isMajor: boolean }>;
   rowMsToPx: number;
   trackWidth: number;
-  playheadMs: number;
   snapGuideMs?: number;
   onPointerDown: (clientX: number, startMs: number) => void;
 }): JSX.Element {
@@ -27,7 +25,16 @@ export function TimelineRuler({
   } as CSSProperties;
 
   return (
-    <div className="timeline-ruler" style={rulerStyle} onPointerDown={(event) => onPointerDown(event.clientX, playheadMs)}>
+    <div
+      className="timeline-ruler"
+      style={rulerStyle}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        const bounds = event.currentTarget.getBoundingClientRect();
+        const startMs = clamp(Math.round((event.clientX - bounds.left) / Math.max(rowMsToPx, 0.0001)), 0, Math.round(trackWidth / Math.max(rowMsToPx, 0.0001)));
+        onPointerDown(event.clientX, startMs);
+      }}
+    >
       {rulerTicks.map((tick) => (
         <div
           key={tick.atMs}

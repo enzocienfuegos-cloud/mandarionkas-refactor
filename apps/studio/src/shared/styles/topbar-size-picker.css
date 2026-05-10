@@ -44,7 +44,7 @@
   display: grid;
   gap: var(--space-5);
   padding: var(--space-5);
-  z-index: var(--z-popover);
+  z-index: calc(var(--z-popover) + 2);
 }
 
 .top-size-picker__section {
@@ -185,7 +185,7 @@
   position: absolute;
   top: calc(100% + var(--space-3));
   right: 0;
-  z-index: var(--z-sticky);
+  z-index: calc(var(--z-popover) + 2);
   min-width: 260px;
   display: flex;
   flex-direction: column;

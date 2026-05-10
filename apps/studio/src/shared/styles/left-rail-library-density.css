@@ -4,7 +4,7 @@
 }
 
 .widget-library-grid--cozy {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
 }
 
@@ -112,6 +112,16 @@
   display: grid;
   gap: var(--space-1);
   min-width: 0;
+}
+
+.widget-library-cozy-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+.widget-library-cozy-card__preview-btn.btn {
+  min-height: 28px;
 }
 
 .widget-library-cozy-card__meta strong,

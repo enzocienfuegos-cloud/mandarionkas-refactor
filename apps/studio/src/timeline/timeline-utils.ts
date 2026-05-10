@@ -3,7 +3,7 @@ import { getCapability } from '../widgets/registry/widget-definition';
 import { getWidgetDefinition } from '../widgets/registry/widget-registry';
 
 export const BASE_ROW_MS_TO_PX = 0.03;
-export const ROW_GUTTER = 160;
+export const ROW_GUTTER = 220;
 export const MIN_WIDGET_DURATION_MS = 100;
 
 export function formatTime(ms: number): string {

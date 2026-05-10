@@ -22,6 +22,12 @@ export function TimelineOverview({
   sceneDurationMs: number;
   onSeek: (ms: number) => void;
 }): JSX.Element {
+  function seekFromPointer(target: HTMLDivElement, clientX: number): void {
+    const bounds = target.getBoundingClientRect();
+    const ratio = clamp((clientX - bounds.left) / Math.max(1, bounds.width), 0, 1);
+    onSeek(Math.round(sceneDurationMs * ratio));
+  }
+
   return (
     <div className="timeline-overview-shell section">
       <div className="timeline-overview-labels">
@@ -31,9 +37,22 @@ export function TimelineOverview({
         ref={overviewRef}
         className="timeline-overview"
         onPointerDown={(event) => {
-          const bounds = event.currentTarget.getBoundingClientRect();
-          const ratio = clamp((event.clientX - bounds.left) / Math.max(1, bounds.width), 0, 1);
-          onSeek(Math.round(sceneDurationMs * ratio));
+          event.preventDefault();
+          const target = event.currentTarget;
+          seekFromPointer(target, event.clientX);
+
+          const handleMove = (moveEvent: PointerEvent) => {
+            seekFromPointer(target, moveEvent.clientX);
+          };
+          const handleUp = () => {
+            window.removeEventListener('pointermove', handleMove);
+            window.removeEventListener('pointerup', handleUp);
+            window.removeEventListener('pointercancel', handleUp);
+          };
+
+          window.addEventListener('pointermove', handleMove);
+          window.addEventListener('pointerup', handleUp, { once: true });
+          window.addEventListener('pointercancel', handleUp, { once: true });
         }}
       >
         {displayedWidgets.map(({ widget, timing }) => {

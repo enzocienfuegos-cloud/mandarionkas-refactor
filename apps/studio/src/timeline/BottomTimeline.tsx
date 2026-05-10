@@ -52,6 +52,10 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
 
   useEffect(() => {
     if (!drag) return;
+    const previousUserSelect = document.body.style.userSelect;
+    const previousCursor = document.body.style.cursor;
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = drag.mode === 'playhead' ? 'ew-resize' : 'grabbing';
 
     const snapTargets = snapEnabled
       ? buildTimelineSnapTargets(widgets, {
@@ -61,6 +65,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
       : [];
 
     const onMove = (event: PointerEvent) => {
+      if (event.buttons === 0) return;
       const deltaMs = Math.round((event.clientX - drag.originX) / rowMsToPx);
 
       if (drag.mode === 'playhead') {
@@ -179,9 +184,13 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
 
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp, { once: true });
+    window.addEventListener('pointercancel', onUp, { once: true });
     return () => {
+      document.body.style.userSelect = previousUserSelect;
+      document.body.style.cursor = previousCursor;
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
     };
   }, [drag, playheadMs, rowMsToPx, scene.durationMs, snapEnabled, snapStepMs, snapThresholdMs, timelineActions, widgetActions, widgets]);
 
@@ -248,9 +257,11 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
             rulerTicks={rulerTicks}
             rowMsToPx={rowMsToPx}
             trackWidth={trackWidth}
-            playheadMs={playheadMs}
             snapGuideMs={snapGuideMs}
-            onPointerDown={(clientX, startMs) => setDrag({ mode: 'playhead', originX: clientX, startMs })}
+            onPointerDown={(clientX, startMs) => {
+              timelineActions.setPlayhead(startMs);
+              setDrag({ mode: 'playhead', originX: clientX, startMs });
+            }}
           />
           <TimelineTrackList
             scrollContainerRef={timelineScrollRef}
