@@ -23,7 +23,7 @@ export async function gotoStudio(page: Page, hash = '/#/hub'): Promise<void> {
 export async function loginToStudio(page: Page): Promise<void> {
   await gotoStudio(page);
   await expect(page.locator('.platform-login-shell')).toBeVisible();
-  await page.getByRole('button', { name: 'Enter platform' }).click();
+  await page.getByRole('button', { name: /Entrar a la plataforma|Enter platform/i }).click();
   await expect(page.locator('.studio-shell-topbar__brand-meta')).toContainText('Hub de clientes');
   await disableMotion(page);
 }

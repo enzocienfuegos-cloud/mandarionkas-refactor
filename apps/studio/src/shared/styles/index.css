@@ -27,6 +27,7 @@
 @import './template-marketplace.css';
 @import './variant-rules.css';
 @import './platform.css';
+@import './platform-login.css';
 @import './platform-workspace.css';
 @import './platform-workspace-project-cards.css';
 @import './platform-workspace-launchpad.css';
