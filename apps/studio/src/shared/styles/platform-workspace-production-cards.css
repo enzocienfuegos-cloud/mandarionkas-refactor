@@ -204,8 +204,8 @@
 }
 
 .client-workspace-banner-list__row.is-inspected {
-  border-color: rgba(111, 60, 255, 0.45);
-  box-shadow: 0 0 0 1px rgba(111, 60, 255, 0.18);
+  border-color: rgba(48, 232, 255, 0.16);
+  box-shadow: none;
 }
 
 .client-workspace-banner-list__name {

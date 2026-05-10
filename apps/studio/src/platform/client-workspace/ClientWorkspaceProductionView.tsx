@@ -264,8 +264,6 @@ export function ClientWorkspaceProductionView({
         quickFilterOptions={quickFilterOptions}
         creatingFolder={creatingFolder}
         folderDraftName={folderDraftName}
-        totalBanners={controller.stats.totalProjects}
-        totalCampaigns={campaignFolders.length + ((folderOptions.find((folder) => folder.id === 'root')?.count ?? 0) > 0 ? 1 : 0)}
         onSetActiveFolderId={setActiveFolderId}
         onSetQuickFilter={setQuickFilter}
         onSetCreatingFolder={setCreatingFolder}

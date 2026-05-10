@@ -11,25 +11,12 @@ type ClientWorkspaceSidebarProps = {
   quickFilterOptions: Array<{ id: QuickFilterId; label: string; count: number }>;
   creatingFolder: boolean;
   folderDraftName: string;
-  totalBanners: number;
-  totalCampaigns: number;
   onSetActiveFolderId(folderId: string): void;
   onSetQuickFilter(filterId: QuickFilterId): void;
   onSetCreatingFolder(value: boolean): void;
   onSetFolderDraftName(value: string): void;
   onCreateFolder(): void;
 };
-
-function buildClientInitials(name?: string): string {
-  return (
-    name
-      ?.split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? '')
-      .join('') || 'CL'
-  );
-}
 
 function resolveBrandPalette(activeClient?: ClientWorkspace): string[] {
   const primaryBrand = activeClient?.brands?.[0];
@@ -58,8 +45,6 @@ export function ClientWorkspaceSidebar({
   quickFilterOptions,
   creatingFolder,
   folderDraftName,
-  totalBanners,
-  totalCampaigns,
   onSetActiveFolderId,
   onSetQuickFilter,
   onSetCreatingFolder,
@@ -72,18 +57,6 @@ export function ClientWorkspaceSidebar({
 
   return (
     <aside className="client-workspace-production__sidebar panel">
-      <section className="client-workspace-sidebar__client-card">
-        <div className="client-workspace-sidebar__client-card-header">
-          <div className="client-workspace-sidebar__client-avatar" aria-hidden="true">
-            {activeClient?.logoUrl ? <img src={activeClient.logoUrl} alt="" /> : <span>{buildClientInitials(activeClient?.name)}</span>}
-          </div>
-          <div className="client-workspace-sidebar__client-copy">
-            <strong>{activeClient?.name ?? 'Active client'}</strong>
-            <span>{totalBanners} banners · {totalCampaigns} campaigns</span>
-          </div>
-        </div>
-      </section>
-
       <section className="client-workspace-sidebar__section">
         <div className="client-workspace-sidebar__section-header">
           <div className="workspace-hub-kicker">Campaign folders</div>

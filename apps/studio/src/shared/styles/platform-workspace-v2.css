@@ -55,15 +55,31 @@
   gap: var(--space-5);
   padding: calc(var(--space-8) + var(--space-1)) calc(var(--space-9) + var(--space-1));
   border-radius: var(--radius-3xl);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background:
-    radial-gradient(circle at top left, rgba(48, 232, 255, 0.05), transparent 36%),
-    linear-gradient(180deg, rgba(24, 34, 45, 0.88), rgba(15, 22, 30, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.015);
 }
 
 .draft-recovery-banner small,
 .workspace-folders-panel p {
   color: var(--muted);
+}
+
+.draft-recovery-banner > div:first-child {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.draft-recovery-banner strong {
+  display: block;
+  margin: 0;
+  font-size: var(--font-size-3xl);
+  letter-spacing: -0.02em;
+}
+
+.draft-recovery-banner small {
+  display: block;
+  margin: 0;
+  font-size: var(--font-size-md);
 }
 
 .draft-recovery-banner__actions {

@@ -8,10 +8,10 @@
   --color-accent-mid: rgba(37, 99, 235, 0.22);
   --color-accent-text: #ffffff;
 
-  --scrollbar-track: rgba(255, 255, 255, 0.04);
-  --scrollbar-thumb: rgba(111, 60, 255, 0.54);
-  --scrollbar-thumb-hover: rgba(37, 99, 235, 0.72);
-  --scrollbar-edge: rgba(255, 255, 255, 0.12);
+  --scrollbar-track: rgba(255, 255, 255, 0.03);
+  --scrollbar-thumb: rgba(120, 144, 168, 0.38);
+  --scrollbar-thumb-hover: rgba(148, 173, 199, 0.54);
+  --scrollbar-edge: rgba(255, 255, 255, 0.08);
   --scrollbar-size: 12px;
   --scrollbar-thumb-inset: 3px;
 

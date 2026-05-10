@@ -51,7 +51,7 @@
   max-height: calc(100vh - 130px);
   overflow-y: auto;
   display: grid;
-  gap: var(--space-7);
+  gap: var(--space-6);
   border-left: 0;
   border-radius: var(--radius-none) var(--workspace-shell-panel-radius) var(--workspace-shell-panel-radius) var(--radius-none);
 }
