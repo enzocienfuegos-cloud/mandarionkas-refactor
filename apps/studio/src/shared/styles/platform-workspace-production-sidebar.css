@@ -41,7 +41,7 @@
 }
 
 .client-workspace-sidebar__client-copy strong {
-  font-size: var(--font-size-3xl);
+  font-size: var(--font-size-2xl);
 }
 
 .client-workspace-sidebar__client-copy span,
@@ -126,6 +126,10 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
+}
+
+.client-workspace-sidebar__section:first-of-type {
+  margin-top: calc(var(--space-2) * -1);
 }
 
 .client-workspace-sidebar__brand-card {

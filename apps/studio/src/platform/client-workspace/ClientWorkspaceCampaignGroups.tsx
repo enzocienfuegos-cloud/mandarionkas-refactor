@@ -18,12 +18,14 @@ type CampaignGroupsProps = {
   viewMode: 'card' | 'list';
   expandedGroupIds: string[];
   selectedSet: Set<string>;
+  inspectedProjectId?: string;
   visibleProjectsCount: number;
   allVisibleSelected: boolean;
   onToggleVisibleSelection(): void;
   onToggleGroup(groupId: string): void;
   onToggleGroupSelection(group: CampaignGroup): void;
   onToggleProjectSelection(projectId: string): void;
+  onInspectProject(projectId: string): void;
   onOpenProject(projectId: string): void;
 };
 
@@ -38,24 +40,28 @@ function ProductionStatusPill({ status }: { status: BannerStatusKey }): JSX.Elem
 function BannerListRow({
   project,
   selected,
+  inspected,
+  onInspectProject,
   onToggleProjectSelection,
   onOpenProject,
 }: {
   project: WorkspaceProjectItem;
   selected: boolean;
+  inspected: boolean;
+  onInspectProject(projectId: string): void;
   onToggleProjectSelection(projectId: string): void;
   onOpenProject(projectId: string): void;
 }): JSX.Element {
   const status = resolveStatusKey(project);
   return (
-    <div className={`client-workspace-banner-list__row ${selected ? 'is-selected' : ''}`.trim()}>
+    <div className={`client-workspace-banner-list__row ${selected ? 'is-selected' : ''} ${inspected ? 'is-inspected' : ''}`.trim()}>
       <label className="client-workspace-banner-list__name">
         <input
           type="checkbox"
           checked={selected}
           onChange={() => onToggleProjectSelection(project.id)}
         />
-        <button type="button" onClick={() => onOpenProject(project.id)}>
+        <button type="button" onClick={() => onInspectProject(project.id)}>
           <strong>{project.name}</strong>
           <small>{project.brandName ?? 'No brand'} · {project.ownerName ?? project.ownerUserId}</small>
         </button>
@@ -65,7 +71,12 @@ function BannerListRow({
       <span>{resolveBannerRuntime(project)}</span>
       <ProductionStatusPill status={status} />
       <span>{resolveWeightEstimate(project)}</span>
-      <span>{formatRelativeTime(project.updatedAt)}</span>
+      <div className="client-workspace-banner-list__actions">
+        <span>{formatRelativeTime(project.updatedAt)}</span>
+        <Button variant="ghost" size="sm" className="compact-action" onClick={() => onOpenProject(project.id)}>
+          Open
+        </Button>
+      </div>
     </div>
   );
 }
@@ -74,18 +85,22 @@ function BannerCard({
   project,
   groupName,
   selected,
+  inspected,
+  onInspectProject,
   onToggleProjectSelection,
   onOpenProject,
 }: {
   project: WorkspaceProjectItem;
   groupName: string;
   selected: boolean;
+  inspected: boolean;
+  onInspectProject(projectId: string): void;
   onToggleProjectSelection(projectId: string): void;
   onOpenProject(projectId: string): void;
 }): JSX.Element {
   const status = resolveStatusKey(project);
   return (
-    <article className={`client-workspace-banner-card ${selected ? 'is-selected' : ''}`.trim()}>
+    <article className={`client-workspace-banner-card ${selected ? 'is-selected' : ''} ${inspected ? 'is-inspected' : ''}`.trim()}>
       <div className={`client-workspace-banner-card__preview client-workspace-banner-card__preview--${resolveThumbVariant(project)}`.trim()}>
         <label className="client-workspace-banner-card__check">
           <input
@@ -95,7 +110,7 @@ function BannerCard({
           />
           <span>Select</span>
         </label>
-        <button type="button" className="client-workspace-banner-card__surface" onClick={() => onOpenProject(project.id)}>
+        <button type="button" className="client-workspace-banner-card__surface" onClick={() => onInspectProject(project.id)}>
           <div className="client-workspace-banner-card__frame">
             <span>{formatCanvas(project)}</span>
             <small>{resolveBannerFormatLabel(project)}</small>
@@ -152,12 +167,14 @@ export function ClientWorkspaceCampaignGroups({
   viewMode,
   expandedGroupIds,
   selectedSet,
+  inspectedProjectId,
   visibleProjectsCount,
   allVisibleSelected,
   onToggleVisibleSelection,
   onToggleGroup,
   onToggleGroupSelection,
   onToggleProjectSelection,
+  onInspectProject,
   onOpenProject,
 }: CampaignGroupsProps): JSX.Element {
   return (
@@ -198,6 +215,17 @@ export function ClientWorkspaceCampaignGroups({
                     <span>{group.projects.length} banners</span>
                     <span>Updated {formatRelativeTime(group.updatedAt)}</span>
                     <ProductionStatusPill status={group.status} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="compact-action"
+                      onClick={() => {
+                        if (group.projects[0]) onOpenProject(group.projects[0].id);
+                      }}
+                      disabled={!group.projects[0]}
+                    >
+                      Open
+                    </Button>
                   </div>
                 </div>
 
@@ -218,6 +246,8 @@ export function ClientWorkspaceCampaignGroups({
                           key={project.id}
                           project={project}
                           selected={selectedSet.has(project.id)}
+                          inspected={project.id === inspectedProjectId}
+                          onInspectProject={onInspectProject}
                           onToggleProjectSelection={onToggleProjectSelection}
                           onOpenProject={onOpenProject}
                         />
@@ -231,6 +261,8 @@ export function ClientWorkspaceCampaignGroups({
                           project={project}
                           groupName={group.name}
                           selected={selectedSet.has(project.id)}
+                          inspected={project.id === inspectedProjectId}
+                          onInspectProject={onInspectProject}
                           onToggleProjectSelection={onToggleProjectSelection}
                           onOpenProject={onOpenProject}
                         />

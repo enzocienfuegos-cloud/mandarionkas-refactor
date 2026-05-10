@@ -1,4 +1,5 @@
 import { Button } from '../shared/ui/Button';
+import { useToast } from '../shared/ui/ToastProvider';
 import { useClientWorkspaceController } from './client-workspace/use-client-workspace-controller';
 import { ClientWorkspaceProductionView } from './client-workspace/ClientWorkspaceProductionView';
 import { StudioTopbar } from './shared/StudioTopbar';
@@ -10,6 +11,7 @@ type ClientWorkspaceShellProps = {
 
 export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: ClientWorkspaceShellProps): JSX.Element {
   const controller = useClientWorkspaceController();
+  const { pushToast } = useToast();
   const { workspace, projectSession, activeClient } = controller;
   const userName = workspace.currentUser?.name?.trim() || 'Guest';
   const userInitials = userName
@@ -27,7 +29,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
   return (
     <div className="client-workspace-shell-v2">
       <StudioTopbar
-        eyebrow="Client Workspace"
+        eyebrow="Project Workspace"
         title={activeClient?.name ?? 'Client'}
         searchLabel="Search"
         searchPlaceholder="Search banner, campaign, or format..."
@@ -41,6 +43,17 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
             }
           },
           disabled: !workspace.canCreateProjects,
+          icon: 'plus',
+        }}
+        secondaryAction={{
+          label: 'Export',
+          icon: 'download',
+          onClick: () => {
+            pushToast({
+              title: 'Export starts in Studio',
+              description: 'Open a banner to export packages, previews, or review bundles.',
+            });
+          },
         }}
         user={{
           label: userName,
@@ -48,7 +61,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         }}
         showLogout={false}
         backAction={{
-          label: 'Client hub',
+          label: 'Client Hub',
           onClick: onBackToAgencyShell,
         }}
         className="studio-shell-topbar--workspace"

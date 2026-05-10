@@ -5,6 +5,7 @@ type StudioTopbarAction = {
   label: string;
   onClick(): void;
   disabled?: boolean;
+  icon?: keyof typeof StudioIcons;
 };
 
 type StudioTopbarUser = {
@@ -88,6 +89,7 @@ export function StudioTopbar({
             variant="ghost"
             size="md"
             className="compact-action studio-shell-topbar__action studio-shell-topbar__action--ghost"
+            iconBefore={secondaryAction.icon ? <StudioIcon icon={StudioIcons[secondaryAction.icon]} size={13} /> : undefined}
             onClick={secondaryAction.onClick}
             disabled={secondaryAction.disabled}
           >
@@ -99,7 +101,7 @@ export function StudioTopbar({
           variant="primary"
           size="md"
           className="compact-action studio-shell-topbar__action studio-shell-topbar__action--primary"
-          iconBefore={<StudioIcon icon={StudioIcons.plus} size={13} />}
+          iconBefore={<StudioIcon icon={StudioIcons[primaryAction.icon ?? 'plus']} size={13} />}
           onClick={primaryAction.onClick}
           disabled={primaryAction.disabled}
         >

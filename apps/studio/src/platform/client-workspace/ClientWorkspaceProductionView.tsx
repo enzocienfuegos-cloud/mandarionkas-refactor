@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../shared/ui/ToastProvider';
-import { Button } from '../../shared/ui/Button';
-import { SegmentedControl } from '../../shared/ui/SegmentedControl';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
+import { ClientWorkspaceInspector } from './ClientWorkspaceInspector';
+import { ClientWorkspaceToolbar } from './ClientWorkspaceToolbar';
 import type { useClientWorkspaceController } from './use-client-workspace-controller';
 import { ClientWorkspaceBulkBar } from './ClientWorkspaceBulkBar';
 import { ClientWorkspaceCampaignGroups } from './ClientWorkspaceCampaignGroups';
@@ -18,7 +18,6 @@ import {
 } from './production-helpers';
 
 type ClientWorkspaceController = ReturnType<typeof useClientWorkspaceController>;
-type ViewMode = 'card' | 'list';
 
 type ClientWorkspaceProductionViewProps = {
   controller: ClientWorkspaceController;
@@ -61,6 +60,7 @@ export function ClientWorkspaceProductionView({
   const [quickFilter, setQuickFilter] = useState<QuickFilterId>('all');
   const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
   const [bulkFolderId, setBulkFolderId] = useState<string>('root');
+  const [inspectedProjectId, setInspectedProjectId] = useState<string | undefined>();
 
   const folderNameById = useMemo(
     () => Object.fromEntries(campaignFolders.map((folder) => [folder.id, folder.name])),
@@ -117,9 +117,19 @@ export function ClientWorkspaceProductionView({
     });
   }, [campaignGroups]);
 
+  useEffect(() => {
+    if (!inspectedProjectId) return;
+    if (visibleProjects.some((project) => project.id === inspectedProjectId)) return;
+    setInspectedProjectId(undefined);
+  }, [inspectedProjectId, visibleProjects]);
+
   const visibleProjectIds = useMemo(
     () => campaignGroups.flatMap((group) => group.projects.map((project) => project.id)),
     [campaignGroups],
+  );
+  const inspectedProject = useMemo(
+    () => visibleProjects.find((project) => project.id === inspectedProjectId),
+    [inspectedProjectId, visibleProjects],
   );
   const selectedSet = useMemo(() => new Set(selectedProjectIds), [selectedProjectIds]);
   const allVisibleSelected = visibleProjectIds.length > 0 && visibleProjectIds.every((projectId) => selectedSet.has(projectId));
@@ -295,61 +305,20 @@ export function ClientWorkspaceProductionView({
       />
 
       <div className="client-workspace-production__main">
-        <section className="client-workspace-main__hero panel">
-          <div>
-            <div className="workspace-hub-kicker">Project workspace</div>
-            <h2>Active client production</h2>
-            <p className="client-workspace-main__description">Campaigns, banners, and operational states for the active client, without mixing clients or hub brand kits.</p>
-          </div>
-
-          <div className="client-workspace-main__toolbar">
-            <label className="client-workspace-search">
-              <StudioIcon icon={StudioIcons.scanSearch} size={16} />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by banner, brand, campaign, or owner"
-                aria-label="Search banners"
-              />
-            </label>
-            <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)} aria-label="Sort banners">
-              <option value="recent">Recently updated</option>
-              <option value="name">A to Z</option>
-            </select>
-            <SegmentedControl
-              options={[
-                { id: 'card', label: 'Cards' },
-                { id: 'list', label: 'List' },
-              ]}
-              value={viewMode as ViewMode}
-              onChange={(value) => setViewMode(value)}
-              ariaLabel="Banner view mode"
-            />
-            <Button variant="ghost" size="sm" className="compact-action" iconBefore={<StudioIcon icon={StudioIcons.plus} size={14} />} onClick={() => setCreatingFolder(true)}>
-              New folder
-            </Button>
-            <Button variant="primary" size="sm" className="compact-action" iconBefore={<StudioIcon icon={StudioIcons.upload} size={14} />} onClick={() => void handleUploadBanner()} disabled={!workspace.canCreateProjects}>
-              New banner
-            </Button>
-          </div>
-        </section>
-
-        <div className="client-workspace-main__subfilters">
-          <button type="button" className={`filter-pill ${quickFilter === 'all' ? 'is-active' : ''}`.trim()} onClick={() => setQuickFilter('all')}>
-            All
-          </button>
-          {quickFilterOptions.slice(1).map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              className={`filter-pill ${quickFilter === filter.id ? 'is-active' : ''}`.trim()}
-              onClick={() => setQuickFilter(filter.id)}
-            >
-              {filter.label}
-              <span>{filter.count}</span>
-            </button>
-          ))}
-        </div>
+        <ClientWorkspaceToolbar
+          search={search}
+          onSearchChange={setSearch}
+          quickFilter={quickFilter}
+          onQuickFilterChange={setQuickFilter}
+          quickFilterOptions={quickFilterOptions}
+          sortMode={sortMode}
+          onSortModeChange={setSortMode}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onCreateFolder={() => setCreatingFolder(true)}
+          onCreateBanner={() => { void handleUploadBanner(); }}
+          canCreateProjects={workspace.canCreateProjects}
+        />
 
         {selectedProjectIds.length > 0 ? (
           <ClientWorkspaceBulkBar
@@ -369,20 +338,30 @@ export function ClientWorkspaceProductionView({
 
         <ClientWorkspaceCampaignGroups
           campaignGroups={campaignGroups}
-          viewMode={viewMode as ViewMode}
+          viewMode={viewMode}
           expandedGroupIds={expandedGroupIds}
           selectedSet={selectedSet}
+          inspectedProjectId={inspectedProjectId}
           visibleProjectsCount={visibleProjects.length}
           allVisibleSelected={allVisibleSelected}
           onToggleVisibleSelection={handleToggleVisibleSelection}
           onToggleGroup={(groupId) => setExpandedGroupIds((current) => current.includes(groupId) ? current.filter((id) => id !== groupId) : [...current, groupId])}
           onToggleGroupSelection={handleToggleGroupSelection}
           onToggleProjectSelection={handleToggleProjectSelection}
+          onInspectProject={setInspectedProjectId}
           onOpenProject={(projectId) => {
             void handleOpenProject(projectId);
           }}
         />
       </div>
+
+      <ClientWorkspaceInspector
+        activeClient={activeClient}
+        project={inspectedProject}
+        onOpenProject={(projectId) => {
+          void handleOpenProject(projectId);
+        }}
+      />
     </section>
   );
 }

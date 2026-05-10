@@ -21,6 +21,8 @@
   --shell-topbar-primary-shadow: 0 10px 24px rgba(37, 99, 235, 0.2);
   --shell-topbar-hub-inset-right: 24px;
   --shell-topbar-hub-actions-space: 12px;
+  --shell-topbar-workspace-space-main: 22px;
+  --shell-topbar-workspace-inset-x: 20px;
   --shell-topbar-mobile-inset-y: 16px;
   --shell-topbar-mobile-inset-x: 24px;
   --shell-topbar-mobile-logo-inline-size: 132px;
@@ -220,11 +222,13 @@
 }
 
 .studio-shell-topbar--workspace {
-  gap: 22px;
+  gap: var(--shell-topbar-workspace-space-main);
+  padding-inline: var(--shell-topbar-workspace-inset-x);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 .studio-shell-topbar--workspace .studio-shell-topbar__search {
-  max-width: 560px;
+  max-width: 1000px;
 }
 
 .studio-shell-topbar--workspace .studio-shell-topbar__actions {
