@@ -1,4 +1,5 @@
 import type { StudioState } from '../../domain/document/types';
+import { normalizeStudioState } from '../../domain/document/normalize-state';
 import { getRepositoryApiBase } from '../api-config';
 import { fetchOptionalJson } from '../../shared/net/http-json';
 import type { ProjectVersionRepository, ProjectVersionSummary } from '../types';
@@ -37,7 +38,8 @@ function unwrapState(
   response: LoadProjectVersionResponseDto | StudioState | null,
 ): StudioState | null {
   if (!response) return null;
-  return 'state' in response ? (response.state as StudioState | null) : response;
+  const state = 'state' in response ? (response.state as StudioState | null) : response;
+  return state ? normalizeStudioState(state) : null;
 }
 
 export const apiProjectVersionRepository: ProjectVersionRepository = {

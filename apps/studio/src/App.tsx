@@ -6,6 +6,9 @@ import { AutosaveGate } from './persistence/autosave/AutosaveGate';
 import { PlatformShell } from './platform/PlatformShell';
 import { FontAssetRuntime } from './assets/FontAssetRuntime';
 import { ToastProvider } from './shared/ui/ToastProvider';
+import { registerBuiltins } from './widgets/registry/register-builtins';
+
+registerBuiltins();
 
 export default function App(): JSX.Element {
   const previewRoute = typeof window !== 'undefined' ? readClientPreviewRoute(window.location) : null;

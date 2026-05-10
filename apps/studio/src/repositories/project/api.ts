@@ -1,4 +1,5 @@
 import type { StudioState } from '../../domain/document/types';
+import { normalizeStudioState } from '../../domain/document/normalize-state';
 import { getRepositoryApiBase } from '../api-config';
 import { fetchJson, fetchOptionalJson } from '../../shared/net/http-json';
 import type { ProjectRepository, ProjectSummary } from '../types';
@@ -33,7 +34,8 @@ function unwrapProject(response: SaveProjectResponseDto | ProjectSummary | null)
 
 function unwrapState(response: LoadProjectResponseDto | StudioState | null): StudioState | null {
   if (!response) return null;
-  return 'state' in response ? (response.state as StudioState | null) : response;
+  const state = 'state' in response ? (response.state as StudioState | null) : response;
+  return state ? normalizeStudioState(state) : null;
 }
 
 export const apiProjectRepository: ProjectRepository = {
