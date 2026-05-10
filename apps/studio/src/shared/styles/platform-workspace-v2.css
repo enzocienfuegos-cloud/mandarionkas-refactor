@@ -89,6 +89,7 @@
 }
 
 .draft-recovery-banner {
+  margin-inline: var(--workspace-shell-inset-x);
   padding-inline: 0;
   padding-top: var(--space-3);
   padding-bottom: var(--space-1);

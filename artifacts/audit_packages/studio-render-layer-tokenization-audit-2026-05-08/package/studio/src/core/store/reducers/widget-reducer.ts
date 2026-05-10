@@ -1,1 +1,0 @@
-export { widgetReducer } from './widgets';
