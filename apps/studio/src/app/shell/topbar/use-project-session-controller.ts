@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { clearAutosaveDraft, hasAutosaveDraft, loadAutosaveDraft } from '../../../repositories/document';
+import { clearAutosaveDraft, loadAutosaveDraft } from '../../../repositories/document';
 import { archiveProject, changeProjectOwner, duplicateProject, getProjectRepository, listProjects, loadProject, restoreProject, saveProject } from '../../../repositories/project';
 import { listProjectVersions, loadProjectVersion, saveProjectVersion } from '../../../repositories/project-versions';
 import type { ProjectSessionController, TopBarStudioSnapshot, WorkspaceController } from './top-bar-types';
 import { useStudioSessionActions } from '../../../hooks/use-studio-actions';
 import { getProjectRepositoryMode, setProjectRepositoryMode } from '../../../repositories/mode';
 import type { ProjectStarterId } from './project-starters';
+import { createPersistenceSignature, createPersistenceSnapshot } from '../../../core/persistence/persistence-snapshot';
 
 export function useProjectSessionController(snapshot: TopBarStudioSnapshot, workspace: Pick<WorkspaceController, 'activeClientId' | 'clients' | 'canCreateProjects'>): ProjectSessionController {
   const [projectTick, setProjectTick] = useState(0);
@@ -14,7 +15,7 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
   const [newProjectPresetId, setNewProjectPresetId] = useState('custom');
   const [newProjectStarterId, setNewProjectStarterId] = useState<ProjectSessionController['newProjectStarterId']>('blank');
   const [autosaveAvailable, setAutosaveAvailable] = useState(false);
-  const [suppressedAutosaveMarker, setSuppressedAutosaveMarker] = useState<string | undefined>(undefined);
+  const [suppressedAutosaveSignature, setSuppressedAutosaveSignature] = useState<string | undefined>(undefined);
   const [versions, setVersions] = useState<ProjectSessionController['versions']>([]);
   const [selectedVersionId, setSelectedVersionId] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -58,15 +59,15 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
 
   useEffect(() => {
     let cancelled = false;
-    void hasAutosaveDraft()
-      .then((exists) => {
+    void loadAutosaveDraft()
+      .then((draft) => {
         if (cancelled) return;
-        if (!exists) {
+        if (!draft) {
           setAutosaveAvailable(false);
           return;
         }
-        const currentMarker = snapshot.lastAutosavedAt ?? snapshot.activeProjectId ?? 'workspace-autosave';
-        setAutosaveAvailable(currentMarker !== suppressedAutosaveMarker);
+        const signature = createPersistenceSignature(draft);
+        setAutosaveAvailable(signature !== suppressedAutosaveSignature);
       })
       .catch(() => {
         if (!cancelled) setAutosaveAvailable(false);
@@ -74,7 +75,7 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     return () => {
       cancelled = true;
     };
-  }, [projectTick, snapshot.activeProjectId, snapshot.lastAutosavedAt, suppressedAutosaveMarker]);
+  }, [projectTick, snapshot.activeProjectId, snapshot.lastAutosavedAt, suppressedAutosaveSignature]);
 
   function refreshProjects(): void {
     setProjectTick((value) => value + 1);
@@ -258,13 +259,14 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
       return;
     }
     sessionActions.replaceState(draft);
-    setSuppressedAutosaveMarker(undefined);
+    setSuppressedAutosaveSignature(undefined);
     setAutosaveAvailable(true);
   }
 
   async function handleClearDraft(): Promise<void> {
+    const currentSignature = createPersistenceSignature(createPersistenceSnapshot(snapshot.state));
     await clearAutosaveDraft();
-    setSuppressedAutosaveMarker(snapshot.lastAutosavedAt ?? snapshot.activeProjectId ?? 'workspace-autosave');
+    setSuppressedAutosaveSignature(currentSignature);
     setAutosaveAvailable(false);
   }
 
