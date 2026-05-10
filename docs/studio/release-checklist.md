@@ -21,10 +21,12 @@
 - confirm inspector tabs stay coherent
 - confirm selection and stage rendering still work
 - add at least one focused unit or parity test
+- confirm heavy runtime code is not pulled eagerly into hub/login/editor boot unless explicitly intended
 
 ## If The Change Touches Shell Or Inspector
 
 - confirm login, hub, editor, and inspector baselines still pass
+- confirm library and timeline visual baselines still pass when touched
 - confirm `files over threshold` does not regress
 - avoid introducing inline styles or new mega-files
 

@@ -8,6 +8,7 @@ import { publishStudioProjectToAdServer } from './studio-publication';
 import { useToast } from '../../../shared/ui/ToastProvider';
 import { Button } from '../../../shared/ui/Button';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
+import { channelLabel } from './export-channels';
 
 function formatSaveLabel(saveStatus: 'idle' | 'saving' | 'saved' | 'error', dirty: boolean): string {
   if (saveStatus === 'saving') return 'Saving…';
@@ -16,12 +17,19 @@ function formatSaveLabel(saveStatus: 'idle' | 'saving' | 'saved' | 'error', dirt
   return 'Save';
 }
 
+function getExportSummaryIcon(tone: 'danger' | 'good' | 'accent' | 'warn') {
+  if (tone === 'danger') return StudioIcons.x;
+  if (tone === 'good') return StudioIcons.check;
+  if (tone === 'accent') return StudioIcons.workflow;
+  return StudioIcons.info;
+}
+
 export function TopBarActions({ controller, onOpenBrandKitDrawer }: { controller: TopBarController; onOpenBrandKitDrawer: () => void }): JSX.Element {
   const { release, state, dirty } = controller.snapshot;
   const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'success' | 'error'>('idle');
   const { canSaveProjects } = controller.workspace;
   const { updateReleaseSettings } = useDocumentActions();
-  const { resolvedZipStatus, triggerExportZipBundleResolved, triggerExportPublishPackage } = controller.exportReadiness;
+  const { resolvedZipStatus, resolvedZipMessage, triggerExportZipBundleResolved, triggerExportPublishPackage } = controller.exportReadiness;
   const { handleSaveProject, saveStatus } = controller.projectSession;
   const activeProjectId = controller.snapshot.activeProjectId;
   const { pushToast } = useToast();
@@ -157,9 +165,40 @@ export function TopBarActions({ controller, onOpenBrandKitDrawer }: { controller
       ? 'Published'
       : 'Publish';
   const saveLabel = formatSaveLabel(saveStatus, dirty);
+  const exportTargetLabel = channelLabel(release.targetChannel);
+  const packageModeLabel = state.document.canvasVariants.length > 1 ? 'Size set' : 'Single size';
+  const exportSummaryTone = resolvedZipStatus === 'error'
+    ? 'danger'
+    : resolvedZipStatus === 'success'
+      ? 'good'
+      : resolvedZipStatus === 'exporting'
+        ? 'accent'
+        : controller.exportReadiness.preflight.summary.readyForBundleZip
+          ? 'good'
+          : 'warn';
+  const exportSummaryTitle = resolvedZipStatus === 'exporting'
+    ? 'Building package'
+    : resolvedZipStatus === 'success'
+      ? 'Package ready'
+      : resolvedZipStatus === 'error'
+        ? 'Needs attention'
+        : controller.exportReadiness.preflight.summary.readyForBundleZip
+          ? 'Ready to export'
+          : 'Review before export';
+  const exportSummaryDetail = resolvedZipMessage ?? controller.exportReadiness.preflight.summary.recommendedNextStep;
 
   return (
     <div className="top-actions-cluster">
+      <div className={`top-actions-summary top-actions-summary--${exportSummaryTone}`.trim()} aria-label="Export readiness summary">
+        <span className="top-actions-summary__icon" aria-hidden="true">
+          <StudioIcon icon={getExportSummaryIcon(exportSummaryTone)} size={15} />
+        </span>
+        <div className="top-actions-summary__copy">
+          <div className="top-actions-summary__eyebrow">{exportTargetLabel} · {packageModeLabel}</div>
+          <strong className="top-actions-summary__title">{exportSummaryTitle}</strong>
+          <small className="top-actions-summary__detail">{exportSummaryDetail}</small>
+        </div>
+      </div>
       <Button
         variant="ghost"
         size="sm"

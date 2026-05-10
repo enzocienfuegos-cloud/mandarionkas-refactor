@@ -65,6 +65,57 @@
   gap: 2px;
   padding-top: 6px;
 }
+
+.timeline-rows--empty {
+  min-height: 176px;
+}
+
+.timeline-empty-state {
+  display: grid;
+  gap: 12px;
+  align-content: center;
+  justify-items: start;
+  min-height: 160px;
+  padding: 18px;
+  border-radius: var(--radius-3xl);
+  border: 1px solid var(--white-a-06);
+  background:
+    radial-gradient(circle at top left, var(--focus-a-12), transparent 32%),
+    radial-gradient(circle at 82% 18%, var(--accent-a-14), transparent 28%),
+    linear-gradient(180deg, var(--white-a-03), var(--white-a-01)),
+    var(--surface-shell-flyout);
+}
+
+.timeline-empty-state__icon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xl);
+  color: var(--text-focus-bright);
+  background: linear-gradient(180deg, var(--focus-a-18), var(--accent-a-12));
+  box-shadow: 0 8px 18px var(--black-a-16);
+}
+
+.timeline-empty-state__copy {
+  display: grid;
+  gap: 6px;
+}
+
+.timeline-empty-state__copy p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 560px;
+}
+
+.timeline-empty-state__tips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .timeline-row {
   display: grid;
   align-items: center;
@@ -127,6 +178,33 @@
   letter-spacing: .01em;
   box-shadow: 0 10px 24px var(--black-a-15);
   overflow: hidden;
+}
+
+.timeline-bar-label {
+  position: relative;
+  z-index: var(--z-local-1);
+  display: grid;
+  gap: 1px;
+  justify-items: center;
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-inline: 10px;
+}
+
+.timeline-bar-label strong,
+.timeline-bar-label em {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-bar-label em {
+  font-style: normal;
+  font-size: var(--font-size-3xs);
+  color: var(--white-a-72);
 }
 .timeline-trim {
   position: absolute;

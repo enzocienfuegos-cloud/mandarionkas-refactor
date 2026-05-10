@@ -192,12 +192,37 @@
   font-size: var(--font-size-xs);
 }
 .chip.is-active {
-  border-color: var(--border-success-strong);
-  background: var(--bg-success-med);
+  border-color: var(--border-accent-fuchsia);
+  background: var(--accent-a-12);
+  color: var(--text-accent-fuchsia);
 }
+.widget-library-sections {
+  display: grid;
+  gap: 18px;
+}
+
+.widget-library-section {
+  display: grid;
+  gap: 10px;
+}
+
+.widget-library-section__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.widget-library-section__title {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--font-size-md);
+  line-height: 1.2;
+}
+
 .widget-library-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
 }
 .widget-library-card {
@@ -205,10 +230,13 @@
   gap: 12px;
   align-content: start;
   min-height: 0;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-3xl);
-  background: var(--gradient-card-warm);
+  border-radius: var(--radius-4xl);
+  background:
+    radial-gradient(circle at top left, var(--accent-a-12), transparent 34%),
+    linear-gradient(180deg, var(--white-a-04), var(--bg-overlay-ghost)),
+    var(--gradient-card-warm);
   transition:
     transform var(--motion-duration-fast) var(--motion-ease-out),
     border-color var(--motion-duration-base) var(--motion-ease-out),
@@ -217,10 +245,13 @@
 }
 .widget-library-card:hover,
 .widget-library-card:focus-visible {
-  border-color: var(--border-accent-strong);
-  background: var(--gradient-card-warm-hover);
-  box-shadow: var(--shadow-hover-soft);
-  transform: translateY(-2px) scale(1.02);
+  border-color: var(--border-accent-fuchsia);
+  background:
+    radial-gradient(circle at top left, var(--accent-a-22), transparent 38%),
+    linear-gradient(180deg, var(--white-a-06), var(--bg-overlay-low)),
+    var(--gradient-card-warm-hover);
+  box-shadow: 0 0 0 1px var(--accent-a-12), var(--shadow-fuchsia-soft);
+  transform: translateY(-2px);
 }
 .rail-action-grid {
   display: grid;

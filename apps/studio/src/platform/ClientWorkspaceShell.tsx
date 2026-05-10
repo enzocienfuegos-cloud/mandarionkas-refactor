@@ -23,6 +23,7 @@ function buildClientWorkspaceFrameStyle(borderColor: string, aspectRatio: string
 export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: ClientWorkspaceShellProps): JSX.Element {
   const controller = useClientWorkspaceController();
   const starters = getProjectStarters();
+  const defaultTemplateStarter = starters.find((starter) => starter.id !== 'blank');
   const {
     workspace,
     projectSession,
@@ -72,15 +73,19 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
     onEnterEditor();
   }
 
+  function handleJumpToTemplateMarketplace(): void {
+    document.getElementById('template-marketplace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   const hasProjects = stats.totalProjects > 0;
 
   return (
     <div className="workspace-hub-shell">
-      <header className="workspace-hub-topbar">
+      <header className="workspace-hub-topbar workspace-hub-topbar--launchpad">
         <div>
-          <div className="workspace-hub-kicker">Client workspace</div>
+          <div className="workspace-hub-kicker">Client launchpad</div>
           <h1>{activeClient?.name ?? 'Choose a workspace'}</h1>
-          <p>Projects, folders, owners and bulk actions stay scoped to the selected client workspace.</p>
+          <p>Templates, blank starts, variants, folders and bulk actions stay scoped to the selected client workspace.</p>
         </div>
         <div className="workspace-hub-session">
           <Button
@@ -92,11 +97,51 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
           >
             Agency shell
           </Button>
+          <Button variant="primary" size="md" className="compact-action" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
+            Create campaign
+          </Button>
           <div className="pill">{workspace.currentUser?.name ?? 'Guest'}</div>
           <div className="pill">{workspace.workspaceRole ?? workspace.currentUser?.role ?? 'viewer'}</div>
           <Button variant="ghost" size="sm" className="compact-action" onClick={() => void workspace.handleLogout()}>Logout</Button>
         </div>
       </header>
+
+      <section className="workspace-launchpad">
+        <div className="workspace-launchpad__hero">
+          <div>
+            <div className="workspace-hub-kicker">Creative launchpad</div>
+            <h2>Start from a template, a blank canvas, or a DCO-ready scaffold.</h2>
+            <p>Creation paths should be explicit before the project grid takes over. Use the launch cards below or drop into the template marketplace.</p>
+          </div>
+          <div className="workspace-launchpad__hero-pills">
+            <span className="pill">{stats.totalProjects - stats.archived} active</span>
+            <span className="pill">{stats.shared} shared</span>
+            <span className="pill">{starters.length - 1} starters</span>
+          </div>
+        </div>
+        <div className="workspace-launchpad__paths">
+          <button type="button" className="workspace-launch-card" onClick={handleJumpToTemplateMarketplace}>
+            <span className="workspace-launch-card__eyebrow">Marketplace</span>
+            <strong>Start from template</strong>
+            <p>Browse vertical-ready campaign starters with stronger previews and faster setup.</p>
+          </button>
+          <button type="button" className="workspace-launch-card" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
+            <span className="workspace-launch-card__eyebrow">Blank creative</span>
+            <strong>Open a clean canvas</strong>
+            <p>Jump straight into the editor with full control over size, layout, widgets and motion.</p>
+          </button>
+          <button
+            type="button"
+            className="workspace-launch-card"
+            onClick={() => defaultTemplateStarter ? void handleCreateFromStarter(defaultTemplateStarter.id) : void handleCreateAndEnter()}
+            disabled={!workspace.canCreateProjects}
+          >
+            <span className="workspace-launch-card__eyebrow">Variants & DCO</span>
+            <strong>Use a scalable starter</strong>
+            <p>{defaultTemplateStarter ? `Kick off from ${defaultTemplateStarter.label} and layer variants, feeds or brand rules later.` : 'Use the best available starter and evolve it into a dynamic campaign.'}</p>
+          </button>
+        </div>
+      </section>
 
       <section className="workspace-hub-hero">
         <div className="workspace-hub-stat-card">
@@ -162,13 +207,12 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         </div>
       </section>
 
-      {!hasProjects ? (
-        <section className="workspace-hub-onboarding">
+      <section className={`workspace-hub-onboarding ${hasProjects ? 'workspace-hub-onboarding--compact' : ''}`.trim()} id="template-marketplace">
           <div className="workspace-hub-onboarding__intro">
             <div>
-              <div className="workspace-hub-kicker">Studio hub</div>
-              <h2>Start from a template instead of an empty editor</h2>
-              <p>There are no projects in this client workspace yet. Pick a launch point by vertical, or create a blank project if you want full control from the start.</p>
+              <div className="workspace-hub-kicker">Template marketplace</div>
+              <h2>{hasProjects ? 'Keep new briefs moving with stronger launch points' : 'Start from a template instead of an empty editor'}</h2>
+              <p>{hasProjects ? 'Marketplace-style starters keep new campaigns on-brand and reduce repetitive setup before teams enter the editor.' : 'There are no projects in this client workspace yet. Pick a launch point by vertical, or create a blank project if you want full control from the start.'}</p>
             </div>
             <div className="workspace-hub-onboarding__actions">
               <Button variant="primary" size="md" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
@@ -177,8 +221,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
             </div>
           </div>
           <TemplateGallery onUseTemplate={(templateId) => void handleCreateFromStarter(templateId)} />
-        </section>
-      ) : null}
+      </section>
 
       <section className="workspace-hub-toolbar">
         <div className="workspace-hub-folder-bar">
@@ -233,35 +276,37 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
           </select>
           <div className="pill">Client-scoped view</div>
         </div>
-        <div className="workspace-hub-toolbar-row workspace-hub-toolbar-row--actions">
-          <div className="pill">{controller.filteredProjects.length} results</div>
-          <div className="pill">{selectedProjectIds.length} selected</div>
-          <Button variant="ghost" size="sm" className="compact-action" onClick={selectAllVisible}>Select page</Button>
-          <Button variant="ghost" size="sm" className="compact-action" onClick={clearSelection}>Clear</Button>
-          <select
-            value={bulkTargetFolderId}
-            onChange={(event) => setBulkTargetFolderId(event.target.value)}
-            disabled={selectedProjectIds.length === 0}
-          >
-            <option value="root">Move to unfiled</option>
-            {folderCards.filter((folder) => folder.id !== 'all' && folder.id !== 'root').map((folder) => (
-              <option key={folder.id} value={folder.id}>{folder.name}</option>
-            ))}
-          </select>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="compact-action"
-            onClick={() => controller.moveSelectedProjectsToFolder(bulkTargetFolderId === 'root' ? undefined : bulkTargetFolderId)}
-            disabled={selectedProjectIds.length === 0}
-          >
-            Move selected
-          </Button>
-          <Button variant="ghost" size="sm" className="compact-action" onClick={() => void controller.archiveSelectedProjects()} disabled={selectedProjectIds.length === 0 || !workspace.canDeleteProjects}>Archive selected</Button>
-          <Button variant="ghost" size="sm" className="compact-action" onClick={() => void controller.restoreSelectedProjects()} disabled={selectedProjectIds.length === 0 || !workspace.canDeleteProjects}>Restore selected</Button>
-          <Button variant="ghost" size="sm" className="compact-action" onClick={() => void controller.deleteSelectedProjects()} disabled={selectedProjectIds.length === 0 || !workspace.canDeleteProjects}>Delete selected</Button>
-          <Button variant="ghost" size="sm" className="compact-action" onClick={() => void projectSession.handleRecoverDraft()} disabled={!projectSession.autosaveAvailable}>Recover draft</Button>
-        </div>
+        {selectedProjectIds.length > 0 || projectSession.autosaveAvailable ? (
+          <div className="workspace-hub-toolbar-row workspace-hub-toolbar-row--actions">
+            <div className="pill">{controller.filteredProjects.length} results</div>
+            <div className="pill">{selectedProjectIds.length} selected</div>
+            <Button variant="ghost" size="sm" className="compact-action" onClick={selectAllVisible}>Select page</Button>
+            <Button variant="ghost" size="sm" className="compact-action" onClick={clearSelection}>Clear</Button>
+            <select
+              value={bulkTargetFolderId}
+              onChange={(event) => setBulkTargetFolderId(event.target.value)}
+              disabled={selectedProjectIds.length === 0}
+            >
+              <option value="root">Move to unfiled</option>
+              {folderCards.filter((folder) => folder.id !== 'all' && folder.id !== 'root').map((folder) => (
+                <option key={folder.id} value={folder.id}>{folder.name}</option>
+              ))}
+            </select>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="compact-action"
+              onClick={() => controller.moveSelectedProjectsToFolder(bulkTargetFolderId === 'root' ? undefined : bulkTargetFolderId)}
+              disabled={selectedProjectIds.length === 0}
+            >
+              Move selected
+            </Button>
+            <Button variant="ghost" size="sm" className="compact-action" onClick={() => void controller.archiveSelectedProjects()} disabled={selectedProjectIds.length === 0 || !workspace.canDeleteProjects}>Archive selected</Button>
+            <Button variant="ghost" size="sm" className="compact-action" onClick={() => void controller.restoreSelectedProjects()} disabled={selectedProjectIds.length === 0 || !workspace.canDeleteProjects}>Restore selected</Button>
+            <Button variant="ghost" size="sm" className="compact-action" onClick={() => void controller.deleteSelectedProjects()} disabled={selectedProjectIds.length === 0 || !workspace.canDeleteProjects}>Delete selected</Button>
+            <Button variant="ghost" size="sm" className="compact-action" onClick={() => void projectSession.handleRecoverDraft()} disabled={!projectSession.autosaveAvailable}>Recover draft</Button>
+          </div>
+        ) : null}
       </section>
 
       <section className="workspace-hub-grid">

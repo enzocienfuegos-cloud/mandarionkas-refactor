@@ -69,6 +69,7 @@ export type BrandKitController = {
   updateDraftColors(patch: NonNullable<BrandKitDraft['colors']>): void;
   updateDraftTypography(patch: NonNullable<BrandKitDraft['typography']>): void;
   updateDraftRadii(patch: NonNullable<BrandKitDraft['radii']>): void;
+  updateDraftMotion(patch: NonNullable<BrandKitDraft['motion']>): void;
   refresh(): Promise<void>;
   startNewDraft(): void;
   applySelectedBrandKit(mode?: ApplyMode): void;
@@ -145,6 +146,10 @@ export function useBrandKitController(): BrandKitController {
 
   function updateDraftRadii(patch: NonNullable<BrandKitDraft['radii']>): void {
     setDraft((current) => cloneDraft({ ...current, radii: { ...(current.radii ?? {}), ...patch } }));
+  }
+
+  function updateDraftMotion(patch: NonNullable<BrandKitDraft['motion']>): void {
+    setDraft((current) => cloneDraft({ ...current, motion: { ...(current.motion ?? {}), ...patch } }));
   }
 
   function startNewDraft(): void {
@@ -244,6 +249,7 @@ export function useBrandKitController(): BrandKitController {
     updateDraftColors,
     updateDraftTypography,
     updateDraftRadii,
+    updateDraftMotion,
     refresh,
     startNewDraft,
     applySelectedBrandKit,

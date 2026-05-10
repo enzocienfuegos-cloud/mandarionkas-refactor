@@ -42,6 +42,8 @@ export function LeftRail({
             variant="ghost"
             size="md"
             label="Hide left panel"
+            tooltipPlacement="bottom"
+            tooltipDelay={240}
             icon={<StudioIcon icon={StudioIcons.chevronLeft} size={18} />}
             onClick={onToggleCollapse}
           />

@@ -3,6 +3,7 @@ import { Tooltip } from './Tooltip';
 
 type IconButtonVariant = 'ghost' | 'solid' | 'danger';
 type IconButtonSize = 'sm' | 'md' | 'lg';
+type TooltipPlacement = 'top' | 'bottom';
 
 type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
   variant?: IconButtonVariant;
@@ -10,8 +11,11 @@ type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'>
   label: string;
   icon: ReactNode;
   isActive?: boolean;
+  pressed?: boolean;
   tooltip?: ReactNode;
   showTooltip?: boolean;
+  tooltipPlacement?: TooltipPlacement;
+  tooltipDelay?: number;
 };
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
@@ -21,8 +25,11 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
     label,
     icon,
     isActive = false,
+    pressed,
     tooltip,
     showTooltip = true,
+    tooltipPlacement = 'top',
+    tooltipDelay,
     className = '',
     type,
     ...rest
@@ -36,7 +43,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       type={type ?? 'button'}
       className={`icon-btn icon-btn--${variant} icon-btn--${size} ${isActive ? 'is-active' : ''} ${className}`.trim()}
       aria-label={label}
-      aria-pressed={isActive}
+      aria-pressed={pressed}
     >
       {icon}
     </button>
@@ -47,7 +54,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
   }
 
   return (
-    <Tooltip content={tooltip ?? label}>
+    <Tooltip content={tooltip ?? label} placement={tooltipPlacement} delay={tooltipDelay}>
       {button}
     </Tooltip>
   );

@@ -6,6 +6,11 @@ test('blank editor stage baseline', async ({ page }) => {
   await expect(page.locator('.workspace')).toHaveScreenshot('stage-blank-editor.png');
 });
 
+test('widget library baseline', async ({ page }) => {
+  await openEditor(page);
+  await expect(page.locator('.left-rail')).toHaveScreenshot('stage-widget-library.png');
+});
+
 test('text widget stage baseline', async ({ page }) => {
   await openEditor(page);
   await addWidget(page, 'text');

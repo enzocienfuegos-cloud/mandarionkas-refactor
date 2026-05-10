@@ -45,8 +45,8 @@
   --shadow-2: 0 4px 10px var(--black-a-18);
   --shadow-3: 0 8px 24px var(--black-a-24);
   --shadow-4: 0 14px 34px var(--black-a-28);
-  --shadow-focus: 0 0 0 3px var(--accent-a-22);
-  --shadow-focus-keyboard: 0 0 0 3px var(--focus-a-18), 0 0 0 1px var(--focus-a-35) inset;
+  --shadow-focus: var(--focus-ring-premium);
+  --shadow-focus-keyboard: 0 0 0 3px var(--focus-a-18), 0 0 0 1px var(--accent-a-45) inset;
 
   --motion-fast: 120ms;
   --motion-base: 160ms;

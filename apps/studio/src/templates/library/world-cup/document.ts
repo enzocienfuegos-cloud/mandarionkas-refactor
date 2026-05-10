@@ -1,9 +1,8 @@
 import { createInitialState } from '../../../domain/document/factories';
 import { isDropZoneWidgetType } from '../../../domain/document/widget-type-groups';
 import type { ActionNode, SceneNode, StudioDocument, WidgetNode, WidgetType } from '../../../domain/document/types';
-import { registerBuiltins } from '../../../widgets/registry/register-builtins';
-import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
 import type { TemplateBuildOptions } from '../types';
+import { createTemplateWidgetSeed } from '../helpers/template-widget-defaults';
 import { createEndCardScene, createGameStepScene, getTokenAsset } from './scene-builders';
 import { BOCADELI_WORLD_CUP_TOKENS } from './teams';
 
@@ -206,8 +205,7 @@ type WidgetSeedPatch = Partial<Omit<WidgetNode, 'id' | 'type' | 'sceneId' | 'zIn
 };
 
 function seedWidget(type: WidgetType, sceneId: string, zIndex: number, patch: WidgetSeedPatch): WidgetNode {
-  registerBuiltins();
-  const base = getWidgetDefinition(type).defaults(sceneId, zIndex);
+  const base = createTemplateWidgetSeed(type, sceneId, zIndex);
   return {
     ...base,
     ...patch,

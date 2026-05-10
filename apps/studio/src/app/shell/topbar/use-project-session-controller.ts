@@ -5,7 +5,7 @@ import { listProjectVersions, loadProjectVersion, saveProjectVersion } from '../
 import type { ProjectSessionController, TopBarStudioSnapshot, WorkspaceController } from './top-bar-types';
 import { useStudioSessionActions } from '../../../hooks/use-studio-actions';
 import { getProjectRepositoryMode, setProjectRepositoryMode } from '../../../repositories/mode';
-import { createProjectStarterState, getProjectStarters, type ProjectStarterId } from './project-starters';
+import type { ProjectStarterId } from './project-starters';
 
 export function useProjectSessionController(snapshot: TopBarStudioSnapshot, workspace: Pick<WorkspaceController, 'activeClientId' | 'clients' | 'canCreateProjects'>): ProjectSessionController {
   const [projectTick, setProjectTick] = useState(0);
@@ -115,6 +115,7 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
   }
 
   async function createProjectFromStarter(starterId: typeof newProjectStarterId, projectName: string, canvasPresetId: string): Promise<void> {
+    const { createProjectStarterState } = await import('./project-starters');
     const seededState = createProjectStarterState({
       starterId,
       name: projectName,
@@ -170,8 +171,9 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
 
   async function handleCreateProjectFromStarter(starterId: typeof newProjectStarterId, name?: string): Promise<void> {
     if (!workspace.canCreateProjects) return;
-    const projectName = name?.trim() || getProjectStarterLabel(starterId) || 'Untitled Project';
-    const starterPresetId = getProjectStarterPresetId(starterId) ?? newProjectPresetId;
+    const starterOptions = await getProjectStarterOptions(starterId);
+    const projectName = name?.trim() || starterOptions?.label || 'Untitled Project';
+    const starterPresetId = starterOptions?.canvasPresetId ?? newProjectPresetId;
     await createProjectFromStarter(starterId, projectName, starterPresetId);
   }
 
@@ -276,10 +278,7 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
   };
 }
 
-function getProjectStarterLabel(starterId: ProjectStarterId): string | undefined {
-  return getProjectStarters().find((starter) => starter.id === starterId)?.label;
-}
-
-function getProjectStarterPresetId(starterId: ProjectStarterId): string | undefined {
-  return getProjectStarters().find((starter) => starter.id === starterId)?.canvasPresetId;
+async function getProjectStarterOptions(starterId: ProjectStarterId): Promise<{ label: string; canvasPresetId?: string } | undefined> {
+  const { getProjectStarters } = await import('./project-starters');
+  return getProjectStarters().find((starter) => starter.id === starterId);
 }

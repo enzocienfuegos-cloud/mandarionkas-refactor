@@ -1,0 +1,57 @@
+.top-actions-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: min(320px, 32vw);
+  padding: 8px 12px;
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--white-a-08);
+  background: linear-gradient(180deg, var(--white-a-04), var(--bg-overlay-ghost));
+  box-shadow: inset 0 1px 0 var(--white-a-03), var(--shadow-2);
+}
+.top-actions-summary__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: var(--white-a-04);
+  border: 1px solid var(--white-a-08);
+}
+.top-actions-summary__copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.top-actions-summary__eyebrow,
+.top-actions-summary__detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.top-actions-summary__title {
+  line-height: 1.1;
+}
+.top-actions-summary--good .top-actions-summary__icon {
+  color: var(--success);
+  border-color: var(--success-a-26);
+  background: var(--success-a-12);
+}
+.top-actions-summary--warn .top-actions-summary__icon {
+  color: var(--accent);
+  border-color: var(--accent-a-26);
+  background: var(--accent-a-12);
+}
+.top-actions-summary--danger .top-actions-summary__icon {
+  color: var(--danger-strong);
+  border-color: var(--danger-a-26);
+  background: var(--danger-a-12);
+}
+.top-actions-summary--accent .top-actions-summary__icon {
+  color: var(--text-accent-bright);
+  border-color: var(--focus-a-30);
+  background: var(--focus-a-14);
+}

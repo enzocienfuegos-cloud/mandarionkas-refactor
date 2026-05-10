@@ -1,18 +1,46 @@
 import { useMemo, useState } from 'react';
 import { listWidgetDefinitions } from '../../../widgets/registry/widget-registry';
+import {
+  WIDGET_LIBRARY_GROUP_LABELS,
+  WIDGET_LIBRARY_GROUP_ORDER,
+  type WidgetDefinition,
+  type WidgetLibraryGroup,
+} from '../../../widgets/registry/widget-definition';
 
-export const CATEGORY_ORDER = ['content', 'media', 'interactive', 'layout'] as const;
-export type CategoryFilter = 'all' | (typeof CATEGORY_ORDER)[number];
+export const CATEGORY_ORDER = WIDGET_LIBRARY_GROUP_ORDER;
+export type CategoryFilter = 'all' | WidgetLibraryGroup;
 
 export type LeftRailWidgetLibraryState = {
   query: string;
   setQuery: React.Dispatch<React.SetStateAction<string>>;
   category: CategoryFilter;
   setCategory: React.Dispatch<React.SetStateAction<CategoryFilter>>;
-  widgets: ReturnType<typeof listWidgetDefinitions>;
-  filteredWidgets: ReturnType<typeof listWidgetDefinitions>;
-  counts: Record<string, number>;
+  widgets: WidgetDefinition[];
+  filteredWidgets: WidgetDefinition[];
+  groupedWidgets: Array<{ group: WidgetLibraryGroup; label: string; widgets: WidgetDefinition[] }>;
+  counts: Record<WidgetLibraryGroup, number>;
 };
+
+export function buildWidgetLibrarySearchText(widget: WidgetDefinition): string {
+  return [
+    widget.label,
+    widget.type,
+    widget.category,
+    widget.description ?? '',
+    widget.libraryGroup ? WIDGET_LIBRARY_GROUP_LABELS[widget.libraryGroup] : '',
+    ...(widget.libraryTags ?? []),
+  ].join(' ').toLowerCase();
+}
+
+export function groupWidgetsByLibraryGroup(widgets: WidgetDefinition[]): Array<{ group: WidgetLibraryGroup; label: string; widgets: WidgetDefinition[] }> {
+  return WIDGET_LIBRARY_GROUP_ORDER
+    .map((group) => ({
+      group,
+      label: WIDGET_LIBRARY_GROUP_LABELS[group],
+      widgets: widgets.filter((widget) => widget.libraryGroup === group),
+    }))
+    .filter((section) => section.widgets.length > 0);
+}
 
 export function useLeftRailWidgetLibrary(): LeftRailWidgetLibraryState {
   const [query, setQuery] = useState('');
@@ -22,18 +50,27 @@ export function useLeftRailWidgetLibrary(): LeftRailWidgetLibraryState {
   const filteredWidgets = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return widgets.filter((widget) => {
-      const matchesCategory = category === 'all' || widget.category === category;
-      const matchesQuery = !normalized || `${widget.label} ${widget.type} ${widget.category} ${widget.description ?? ''}`.toLowerCase().includes(normalized);
+      const matchesCategory = category === 'all' || widget.libraryGroup === category;
+      const matchesQuery = !normalized || buildWidgetLibrarySearchText(widget).includes(normalized);
       return matchesCategory && matchesQuery;
     });
   }, [widgets, category, query]);
 
+  const groupedWidgets = useMemo(() => groupWidgetsByLibraryGroup(filteredWidgets), [filteredWidgets]);
+
   const counts = useMemo(
     () =>
-      CATEGORY_ORDER.reduce<Record<string, number>>((acc, item) => {
-        acc[item] = widgets.filter((widget) => widget.category === item).length;
+      WIDGET_LIBRARY_GROUP_ORDER.reduce<Record<WidgetLibraryGroup, number>>((acc, item) => {
+        acc[item] = widgets.filter((widget) => widget.libraryGroup === item).length;
         return acc;
-      }, {}),
+      }, {
+        essentials: 0,
+        commerce: 0,
+        'video-social': 0,
+        interactive: 0,
+        'data-utility': 0,
+        'premium-fx': 0,
+      }),
     [widgets],
   );
 
@@ -44,6 +81,7 @@ export function useLeftRailWidgetLibrary(): LeftRailWidgetLibraryState {
     setCategory,
     widgets,
     filteredWidgets,
+    groupedWidgets,
     counts,
   };
 }

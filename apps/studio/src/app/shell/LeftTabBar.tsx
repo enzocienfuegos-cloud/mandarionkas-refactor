@@ -30,6 +30,9 @@ export function LeftTabBar({
             size="lg"
             label={tab.label}
             isActive={activeTab === tab.key}
+            pressed={activeTab === tab.key}
+            tooltipPlacement="bottom"
+            tooltipDelay={240}
             icon={<StudioIcon icon={StudioIcons[tab.icon]} size={18} />}
             onClick={() => onSelectTab(tab.key)}
           />
@@ -39,15 +42,20 @@ export function LeftTabBar({
         <IconButton
           className="left-tab-button"
           size="lg"
-          label="Keyboard shortcuts"
+          label="Open keyboard shortcuts"
           tooltip="Keyboard shortcuts (?)"
+          tooltipPlacement="bottom"
+          tooltipDelay={240}
           icon={<StudioIcon icon={StudioIcons.info} size={18} />}
           onClick={onOpenShortcuts}
         />
         <IconButton
           className="left-tab-button left-tab-button--gear"
           size="lg"
-          label="More"
+          label="Open collaboration and workspace tools"
+          tooltip="Collaboration and workspace tools"
+          tooltipPlacement="bottom"
+          tooltipDelay={240}
           icon={<StudioIcon icon={StudioIcons.settings} size={18} />}
           onClick={onOpenMore}
         />

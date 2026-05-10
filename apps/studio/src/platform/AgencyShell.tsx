@@ -1,7 +1,10 @@
-import type { CSSProperties } from 'react';
-import { getCanvasPresetById } from '../domain/document/canvas-presets';
 import { Button } from '../shared/ui/Button';
 import { useAgencyShellController } from './agency-shell/use-agency-shell-controller';
+import { AgencyCommandHero } from './agency-shell/AgencyCommandHero';
+import { AgencyShellEmptyState } from './agency-shell/AgencyShellEmptyState';
+import { ClientRail } from './agency-shell/ClientRail';
+import { ReviewActivityRail } from './agency-shell/ReviewActivityRail';
+import { listTemplates } from '../templates/library/registry';
 
 type AgencyShellProps = {
   onOpenClientWorkspace(clientId: string): void;
@@ -13,12 +16,9 @@ function formatDate(value?: string): string {
   return new Date(value).toLocaleString();
 }
 
-function buildAgencyProjectFrameStyle(aspectRatio: string): CSSProperties {
-  return { aspectRatio };
-}
-
 export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShellProps): JSX.Element {
   const controller = useAgencyShellController();
+  const templates = listTemplates();
   const {
     workspace,
     projectSession,
@@ -47,6 +47,29 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
     toggleProjectFavorite,
   } = controller;
 
+  const focusedClient = (
+    activeClientFilter !== 'all'
+      ? workspace.visibleClients.find((client) => client.id === activeClientFilter)
+      : workspace.visibleClients[0]
+  ) ?? null;
+
+  const featuredProject = recentProjects[0];
+  const topProjects = (remoteOverview?.topProjects ?? []).slice(0, 3).map((project) => ({
+    id: project.id,
+    name: project.name,
+    workspaceName: project.workspaceName,
+    sceneCount: project.sceneCount,
+    widgetCount: project.widgetCount,
+  }));
+
+  const recentActivity = (remoteOverview?.recentActivity ?? []).slice(0, 4).map((activity) => ({
+    id: activity.id,
+    actorName: activity.actorName ?? 'Studio teammate',
+    projectName: activity.projectName,
+    action: activity.action,
+    createdAt: activity.createdAt,
+  }));
+
   async function handleResumeProject(projectId: string, clientId?: string): Promise<void> {
     if (clientId && workspace.activeClientId !== clientId) {
       await workspace.handleActiveClientChange(clientId);
@@ -56,22 +79,97 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
     onEnterEditor();
   }
 
+  async function handleCreateCampaign(): Promise<void> {
+    const nextClientId = focusedClient?.id ?? workspace.activeClientId ?? workspace.visibleClients[0]?.id;
+    if (nextClientId && workspace.activeClientId !== nextClientId) {
+      await workspace.handleActiveClientChange(nextClientId);
+    }
+    await projectSession.handleCreateProject();
+    onEnterEditor();
+  }
+
+  function handleJumpToReview(): void {
+    document.getElementById('agency-review-rail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   return (
     <div className="agency-shell">
-      <header className="agency-shell-topbar">
-        <div>
+      <header className="agency-shell-topbar agency-shell-topbar--premium">
+        <div className="agency-shell-topbar__brand">
           <div className="workspace-hub-kicker">Agency command center</div>
-          <h1>Cross-client studio operations</h1>
-          <p>Track recent work, jump between client workspaces, and monitor studio throughput from one global shell.</p>
+          <h1>Continue work, launch campaigns, and review exports without leaving the hub.</h1>
+          <p>Studio stays cross-client, but the hierarchy is centered on the next action instead of the whole backlog.</p>
         </div>
-        <div className="workspace-hub-session">
+        <div className="agency-shell-topbar__actions">
+          <label className="agency-shell-command">
+            <span className="workspace-project-meta-label">Search / command</span>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search project, client, brand, owner"
+              aria-label="Search projects and clients"
+            />
+          </label>
+          <Button variant="primary" size="md" className="compact-action" onClick={() => void handleCreateCampaign()}>
+            New campaign
+          </Button>
           <div className="pill">{workspace.currentUser?.name ?? 'Guest'}</div>
           <div className="pill">{workspace.workspaceRole ?? workspace.currentUser?.role ?? 'viewer'}</div>
           <Button variant="ghost" size="sm" className="compact-action" onClick={() => void workspace.handleLogout()}>Logout</Button>
         </div>
       </header>
 
-      <section className="agency-shell-hero">
+      <section className="agency-command-grid">
+        <ClientRail
+          items={clientCards.slice(0, 6).map(({ client, activeCount, sharedCount, recentProjectName }) => ({
+            id: client.id,
+            name: client.name,
+            plan: client.plan,
+            activeCount,
+            sharedCount,
+            recentProjectName,
+          }))}
+          activeClientId={activeClientFilter === 'all' ? focusedClient?.id ?? '' : activeClientFilter}
+          onSelect={setActiveClientId}
+          onOpen={onOpenClientWorkspace}
+        />
+
+        <AgencyCommandHero
+          selectedClientName={focusedClient?.name ?? 'all visible clients'}
+          templateCount={templates.length}
+          featuredProject={featuredProject ? {
+            name: featuredProject.name,
+            summary: `${featuredProject.brandName ?? 'No brand'} · ${featuredProject.campaignName ?? 'No campaign'} · ${featuredProject.sceneCount ?? 1} scenes · ${featuredProject.widgetCount ?? 0} widgets`,
+            detail: `${formatDate(projectInsights[featuredProject.id]?.lastOpenedAt ?? featuredProject.updatedAt)} · ${projectInsights[featuredProject.id]?.visitCount ?? 0} opens`,
+          } : null}
+          onContinue={() => {
+            if (!featuredProject) return;
+            void handleResumeProject(featuredProject.id, featuredProject.clientId);
+          }}
+          onCreateCampaign={() => void handleCreateCampaign()}
+          onOpenClientWorkspace={() => {
+            if (!focusedClient) return;
+            onOpenClientWorkspace(focusedClient.id);
+          }}
+          onJumpToReview={handleJumpToReview}
+        />
+
+        <ReviewActivityRail
+          topProjects={topProjects}
+          recentActivity={recentActivity}
+          totals={{
+            exports: efficiency.totalExportEvents,
+            shares: efficiency.totalShareEvents,
+            openToExportMinutes: efficiency.averageOpenToExportMinutes,
+          }}
+          onResumeProject={(projectId) => {
+            const target = remoteOverview?.topProjects.find((project) => project.id === projectId);
+            void handleResumeProject(projectId, target?.workspaceId);
+          }}
+        />
+      </section>
+
+      <section className="agency-shell-metrics-row">
         <article className="workspace-hub-stat-card">
           <span className="workspace-hub-stat-label">Visible clients</span>
           <strong>{stats.clientCount}</strong>
@@ -87,11 +185,6 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
           <strong>{efficiency.averageOpenToSaveMinutes == null ? '—' : `${efficiency.averageOpenToSaveMinutes}m`}</strong>
           <small>{efficiency.totalOpenEvents} opens · {efficiency.totalSaveEvents} saves · {efficiency.totalExportEvents} exports</small>
         </article>
-        <article className="workspace-hub-stat-card">
-          <span className="workspace-hub-stat-label">Export efficiency</span>
-          <strong>{efficiency.averageOpenToExportMinutes == null ? '—' : `${efficiency.averageOpenToExportMinutes}m`}</strong>
-          <small>{efficiency.totalVersionSaveEvents} versions · {efficiency.totalShareEvents} shares · busiest client: {efficiency.busiestClientName}</small>
-        </article>
       </section>
 
       <section className="agency-shell-section">
@@ -103,11 +196,6 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
           <div className="pill">{filteredProjects.length} results</div>
         </div>
         <div className="agency-shell-toolbar">
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by project, brand, campaign, owner or client"
-          />
           <select value={activeClientFilter} onChange={(event) => setActiveClientId(event.target.value)}>
             <option value="all">All clients</option>
             {workspace.visibleClients.map((client) => (
@@ -152,10 +240,10 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
             );
           })}
           {paginatedProjects.length === 0 ? (
-            <div className="agency-empty-state">
-              <h3>No projects match this view</h3>
-              <p>Adjust client, favorites, or shared filters to widen the global project explorer.</p>
-            </div>
+            <AgencyShellEmptyState
+              title="No projects match this view"
+              description="Adjust client, favorites, or shared filters to widen the global project explorer."
+            />
           ) : null}
         </div>
         <footer className="workspace-hub-pagination">
@@ -165,44 +253,6 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
             <Button variant="ghost" size="sm" className="compact-action" onClick={() => setPage(Math.min(pageCount, page + 1))} disabled={page >= pageCount}>Next</Button>
           </div>
         </footer>
-      </section>
-
-      <section className="agency-shell-section">
-        <div className="agency-shell-section-head">
-          <div>
-            <div className="workspace-hub-kicker">Continue where you left off</div>
-            <h2>Recent projects</h2>
-          </div>
-        </div>
-        <div className="agency-shell-slider">
-          {recentProjects.map((project) => {
-            const preset = getCanvasPresetById(project.canvasPresetId);
-            return (
-              <article key={project.id} className="agency-project-card">
-                <button className="agency-project-card__preview" type="button" onClick={() => void handleResumeProject(project.id, project.clientId)}>
-                  <div className="workspace-project-frame" style={buildAgencyProjectFrameStyle(preset ? `${preset.width} / ${preset.height}` : '16 / 9')}>
-                    <div className="workspace-project-frame-label">{preset?.label ?? 'Saved project'}</div>
-                    <div className="workspace-project-frame-meta">{project.sceneCount ?? 1} scenes · {project.widgetCount ?? 0} widgets</div>
-                  </div>
-                </button>
-                <div className="agency-project-card__body">
-                  <h3>{project.name}</h3>
-                  <p>{project.brandName ?? 'No brand'} · {project.campaignName ?? 'No campaign'}</p>
-                  <small>{formatDate(projectInsights[project.id]?.lastOpenedAt ?? project.updatedAt)}</small>
-                </div>
-                <Button variant="ghost" size="sm" className="compact-action" onClick={() => toggleProjectFavorite(project.id)}>
-                  {projectInsights[project.id]?.isFavorite ? '★ Favorite' : '☆ Favorite'}
-                </Button>
-              </article>
-            );
-          })}
-          {recentProjects.length === 0 ? (
-            <div className="agency-empty-state">
-              <h3>No recent work yet</h3>
-              <p>Open a project from any client workspace and it will start showing up here.</p>
-            </div>
-          ) : null}
-        </div>
       </section>
 
       <section className="agency-shell-section">
@@ -227,10 +277,44 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
             </article>
           ))}
           {favoriteProjects.length === 0 ? (
-            <div className="agency-empty-state">
-              <h3>No favorites yet</h3>
-              <p>Star projects from the recent rail to keep your cross-client priority list visible here.</p>
-            </div>
+            <AgencyShellEmptyState
+              title="No favorites yet"
+              description="Star projects from the recent rail to keep your cross-client priority list visible here."
+            />
+          ) : null}
+        </div>
+      </section>
+
+      <section className="agency-shell-section">
+        <div className="agency-shell-section-head">
+          <div>
+            <div className="workspace-hub-kicker">Momentum</div>
+            <h2>Most visited projects</h2>
+          </div>
+        </div>
+        <div className="agency-shell-slider">
+          {mostVisitedProjects.map((project) => (
+            <article key={project.id} className="agency-project-card agency-project-card--compact">
+              <div className="agency-project-card__body">
+                <h3>{project.name}</h3>
+                <p>{project.brandName ?? 'No brand'} · {project.campaignName ?? 'No campaign'}</p>
+                <small>{projectInsights[project.id]?.visitCount ?? 0} opens · {formatDate(project.updatedAt)}</small>
+              </div>
+              <div className="agency-project-card__actions">
+                <Button variant="ghost" size="sm" className="compact-action" onClick={() => toggleProjectFavorite(project.id)}>
+                  {projectInsights[project.id]?.isFavorite ? '★ Favorited' : '☆ Pin'}
+                </Button>
+                <Button variant="primary" size="md" className="compact-action" onClick={() => void handleResumeProject(project.id, project.clientId)}>
+                  Resume
+                </Button>
+              </div>
+            </article>
+          ))}
+          {mostVisitedProjects.length === 0 ? (
+            <AgencyShellEmptyState
+              title="No visit history yet"
+              description="Once the team starts opening projects, the most visited queue will appear here."
+            />
           ) : null}
         </div>
       </section>
@@ -282,67 +366,6 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
       <section className="agency-shell-section">
         <div className="agency-shell-section-head">
           <div>
-            <div className="workspace-hub-kicker">Efficiency signals</div>
-            <h2>Team and client leaderboard</h2>
-          </div>
-        </div>
-        <div className="agency-leaderboard-grid">
-          <article className="agency-leaderboard-card">
-            <h3>Designers by throughput</h3>
-            <div className="agency-leaderboard-list">
-              {(remoteOverview?.contributorLeaderboard ?? []).map((entry, index) => (
-                <div key={`${entry.actorUserId}-${index}`} className="agency-leaderboard-row">
-                  <div>
-                    <strong>{entry.actorName}</strong>
-                    <p>{entry.projectCount} projects touched</p>
-                  </div>
-                  <div className="agency-project-index-meta">
-                    <div className="pill">{entry.exportCount} exports</div>
-                    <div className="pill">{entry.versionSaveCount} versions</div>
-                    <div className="pill">{entry.saveCount} saves</div>
-                    <div className="pill">{entry.openCount} opens</div>
-                  </div>
-                </div>
-              ))}
-              {(remoteOverview?.contributorLeaderboard?.length ?? 0) === 0 ? (
-                <div className="agency-empty-state">
-                  <h3>No contributor metrics yet</h3>
-                  <p>As projects are opened and saved, this leaderboard will start ranking active designers.</p>
-                </div>
-              ) : null}
-            </div>
-          </article>
-          <article className="agency-leaderboard-card">
-            <h3>Clients by throughput</h3>
-            <div className="agency-leaderboard-list">
-              {(remoteOverview?.clientLeaderboard ?? []).map((entry) => (
-                <div key={entry.workspaceId} className="agency-leaderboard-row">
-                  <div>
-                    <strong>{entry.workspaceName}</strong>
-                    <p>{entry.projectCount} projects active in metrics</p>
-                  </div>
-                  <div className="agency-project-index-meta">
-                    <div className="pill">{entry.exportCount} exports</div>
-                    <div className="pill">{entry.versionSaveCount} versions</div>
-                    <div className="pill">{entry.saveCount} saves</div>
-                    <div className="pill">{entry.openCount} opens</div>
-                  </div>
-                </div>
-              ))}
-              {(remoteOverview?.clientLeaderboard?.length ?? 0) === 0 ? (
-                <div className="agency-empty-state">
-                  <h3>No client metrics yet</h3>
-                  <p>Once the team keeps working across client workspaces, this will highlight where the throughput is concentrating.</p>
-                </div>
-              ) : null}
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section className="agency-shell-section">
-        <div className="agency-shell-section-head">
-          <div>
             <div className="workspace-hub-kicker">Most visited right now</div>
             <h2>High-activity banners</h2>
           </div>
@@ -359,15 +382,15 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
                 <Button variant="ghost" size="sm" className="compact-action" onClick={() => toggleProjectFavorite(project.id)}>
                   {projectInsights[project.id]?.isFavorite ? '★ Favorite' : '☆ Favorite'}
                 </Button>
-                <Button variant="ghost" size="sm" className="compact-action" onClick={() => void handleResumeProject(project.id, project.clientId)}>Resume</Button>
+                <Button variant="primary" size="md" className="compact-action" onClick={() => void handleResumeProject(project.id, project.clientId)}>Resume</Button>
               </div>
             </article>
           ))}
           {mostVisitedProjects.length === 0 ? (
-            <div className="agency-empty-state">
-              <h3>No visit data yet</h3>
-              <p>As people keep opening banners from this shell and the client workspace, this list will start surfacing the busiest work.</p>
-            </div>
+            <AgencyShellEmptyState
+              title="No visit data yet"
+              description="As people keep opening banners from this shell and the client workspace, this list will start surfacing the busiest work."
+            />
           ) : null}
         </div>
       </section>

@@ -2,8 +2,8 @@
   min-height: 100vh;
   padding: 28px;
   background:
-    radial-gradient(circle at top right, var(--focus-a-12), transparent 28%),
-    radial-gradient(circle at top left, var(--accent-2-a-08), transparent 26%),
+    radial-gradient(circle at top right, var(--accent-a-22), transparent 28%),
+    radial-gradient(circle at top left, var(--accent-2-a-18), transparent 26%),
     linear-gradient(180deg, var(--bg-deep-3) 0%, var(--bg-deep-4) 100%);
   display: flex;
   flex-direction: column;
@@ -41,7 +41,7 @@
   font-size: var(--font-size-xs);
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--brand-cyan-400);
 }
 
 .workspace-hub-session {
@@ -221,7 +221,7 @@
 
 .workspace-project-card.is-selected {
   border-color: var(--border-accent-active);
-  box-shadow: 0 0 0 1px var(--bg-focus-strong), var(--shadow-hover-base);
+  box-shadow: 0 0 0 1px var(--accent-a-35), var(--shadow-fuchsia-soft);
 }
 
 .workspace-project-select {

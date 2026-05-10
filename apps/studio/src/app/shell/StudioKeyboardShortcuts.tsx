@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Suspense, lazy, useMemo } from 'react';
 import { triggerExportZipBundleResolved } from '../../export/engine';
 import type { StudioState } from '../../domain/document/types';
 import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
@@ -7,11 +7,12 @@ import { clampZoom } from '../../canvas/stage/controllers/stage-viewport';
 import { buildWidgetClipboardPayload, getWidgetClipboardPayload, setWidgetClipboardPayload } from '../../canvas/stage/widget-clipboard';
 import { useStudioStore, useStudioStoreRef, shallowEqual } from '../../core/store/use-studio-store';
 import { buildResolvedWidgetsById } from '../../domain/document/canvas-variants';
-import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 import { SHORTCUT_CATALOG } from './shortcut-catalog';
 import { type ShortcutBinding, useKeyboardShortcuts } from './use-keyboard-shortcuts';
 import { useTopBarController } from './topbar/use-top-bar-controller';
 import { getPreviewFrame, type PreviewFrameId } from '../../domain/preview/preview-frames';
+
+const KeyboardShortcutsModal = lazy(async () => import('./KeyboardShortcutsModal').then((module) => ({ default: module.KeyboardShortcutsModal })));
 
 function getActiveSceneWidgets(state: StudioState) {
   const widgetsById = buildResolvedWidgetsById(state.document);
@@ -75,7 +76,7 @@ export function StudioKeyboardShortcuts({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}): JSX.Element {
+}): JSX.Element | null {
   const controller = useTopBarController();
   const uiActions = useUiActions();
   const widgetActions = useWidgetActions();
@@ -202,11 +203,15 @@ export function StudioKeyboardShortcuts({
 
   useKeyboardShortcuts(bindings);
 
+  if (!open) return null;
+
   return (
-    <KeyboardShortcutsModal
-      open={open}
-      shortcuts={SHORTCUT_CATALOG}
-      onClose={() => onOpenChange(false)}
-    />
+    <Suspense fallback={null}>
+      <KeyboardShortcutsModal
+        open={open}
+        shortcuts={SHORTCUT_CATALOG}
+        onClose={() => onOpenChange(false)}
+      />
+    </Suspense>
   );
 }

@@ -86,3 +86,22 @@ When in doubt, see:
 
 - `docs/studio/architecture.md`
 - `docs/studio/world-class-roadmap.md`
+- `docs/studio/ux-redesign/world-class-ux-ui-plan.md`
+- `docs/studio/ux-redesign/visual-direction.md`
+
+### Studio UX/UI rules
+
+- Prefer small, reviewable changes in `apps/studio`.
+- Any visual change must preserve or improve accessibility.
+- Any visual change must update or add visual snapshots.
+- Do not add inline styles, `!important`, numeric `z-index`, or raw color literals outside theme token files.
+- Prefer fuchsia/violet/cyan as the premium creative accent system.
+- Keep `Agency Hub`, `Client Workspace`, `Editor`, `Inspector`, `Timeline`, `Library`, and `Widgets` decoupled.
+- Do not introduce new dependencies without explicit justification.
+
+For Studio visual work, also run:
+
+```bash
+npm run audit:visual-debt -w @smx/studio
+npm run test:visual -w @smx/studio
+```

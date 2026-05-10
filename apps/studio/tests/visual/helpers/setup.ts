@@ -24,7 +24,7 @@ export async function loginToStudio(page: Page): Promise<void> {
   await gotoStudio(page);
   await expect(page.locator('.platform-login-shell')).toBeVisible();
   await page.getByRole('button', { name: 'Enter platform' }).click();
-  await expect(page.getByRole('heading', { name: 'Cross-client studio operations' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Continue work, launch campaigns, and review exports without leaving the hub.' })).toBeVisible();
   await disableMotion(page);
 }
 
@@ -61,6 +61,8 @@ export async function openExportMenu(page: Page): Promise<void> {
 }
 
 export async function openPreflightTray(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /Preflight/ }).click();
+  const toggle = page.locator('.preflight-tray__toggle');
+  await expect(toggle).toBeVisible();
+  await toggle.click();
   await expect(page.locator('.preflight-tray__panel')).toBeVisible();
 }

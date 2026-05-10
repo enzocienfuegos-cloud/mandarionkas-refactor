@@ -130,9 +130,9 @@ export function StageFloatingToolbar({
       ) : (
         <>
           <span className="pill">Stage</span>
-          <IconButton label="Toggle rulers" icon={<StudioIcon icon={StudioIcons.ruler} size={16} />} isActive={showStageRulers} onClick={onToggleRulers} />
-          <IconButton label="Toggle badges" icon={<StudioIcon icon={StudioIcons.tag} size={16} />} isActive={showWidgetBadges} onClick={onToggleWidgetBadges} />
-          <IconButton label="Toggle wireframe mode (W)" icon={<StudioIcon icon={StudioIcons.boxes} size={16} />} isActive={editModeWireframe} onClick={onToggleWireframe} />
+          <IconButton label="Toggle rulers" icon={<StudioIcon icon={StudioIcons.ruler} size={16} />} isActive={showStageRulers} pressed={showStageRulers} onClick={onToggleRulers} />
+          <IconButton label="Toggle badges" icon={<StudioIcon icon={StudioIcons.tag} size={16} />} isActive={showWidgetBadges} pressed={showWidgetBadges} onClick={onToggleWidgetBadges} />
+          <IconButton label="Toggle wireframe mode (W)" icon={<StudioIcon icon={StudioIcons.boxes} size={16} />} isActive={editModeWireframe} pressed={editModeWireframe} onClick={onToggleWireframe} />
         </>
       )}
     </div>

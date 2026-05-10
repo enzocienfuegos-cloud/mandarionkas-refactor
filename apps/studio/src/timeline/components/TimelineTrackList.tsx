@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import { useRef } from 'react';
 import { useVirtualWindow, useVirtualWindowPadding } from '../../shared/hooks/use-virtual-window';
+import { TimelineEmptyState } from './TimelineEmptyState';
 import { TimelineTrackRow } from './TimelineTrackRow';
 import type { TimelineDragState, TimelineDisplayRow } from '../types';
 
@@ -14,6 +15,7 @@ export function TimelineTrackList({
   trackWidth,
   snapGuideMs,
   collapsedGroupIds,
+  selectedOnly,
   onSelectWidget,
   onToggleWidgetHidden,
   onToggleWidgetLocked,
@@ -31,6 +33,7 @@ export function TimelineTrackList({
   trackWidth: number;
   snapGuideMs?: number;
   collapsedGroupIds: string[];
+  selectedOnly: boolean;
   onSelectWidget: (widgetId: string, additive?: boolean) => void;
   onToggleWidgetHidden: (widgetId: string) => void;
   onToggleWidgetLocked: (widgetId: string) => void;
@@ -48,6 +51,14 @@ export function TimelineTrackList({
     overscan: 10,
   });
   useVirtualWindowPadding(rowsRef, 6 + virtualRows.paddingStart, virtualRows.paddingEnd);
+
+  if (!displayedWidgets.length) {
+    return (
+      <div ref={rowsRef} className="timeline-rows timeline-rows--empty virtual-window-pad" data-collapsed-groups={collapsedGroupIds.length}>
+        <TimelineEmptyState selectedOnly={selectedOnly} />
+      </div>
+    );
+  }
 
   return (
     <div ref={rowsRef} className="timeline-rows virtual-window-pad" data-collapsed-groups={collapsedGroupIds.length}>

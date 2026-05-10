@@ -1,10 +1,15 @@
 .workspace-hub-onboarding {
+  display: grid;
   flex-direction: column;
   padding: 22px;
   border: 1px solid var(--stroke-a-20);
   background: var(--gradient-panel-elevated);
   border-radius: var(--radius-4xl);
   box-shadow: 0 18px 36px var(--black-a-18);
+}
+
+.workspace-hub-onboarding--compact {
+  padding-top: 18px;
 }
 
 .workspace-hub-onboarding__intro,

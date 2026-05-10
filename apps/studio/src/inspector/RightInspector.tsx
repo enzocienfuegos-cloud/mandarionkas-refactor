@@ -19,12 +19,12 @@ export function RightInspector({
     return activeScene?.name ?? 'Scene';
   });
 
-  const inspectorTitle = selectionIds.length === 0 ? documentName : selectionIds.length === 1 ? 'Widget properties' : 'Multi-selection';
-  const inspectorStateLabel = selectionIds.length === 0 ? 'Document overview' : selectionIds.length === 1 ? 'Single widget selected' : 'Group editing';
+  const inspectorTitle = selectionIds.length === 0 ? documentName : selectionIds.length === 1 ? 'Selected widget' : 'Multi-selection';
+  const inspectorStateLabel = selectionIds.length === 0 ? 'Document command panel' : selectionIds.length === 1 ? 'Focused editing' : 'Batch editing';
   const inspectorHint = selectionIds.length === 0
     ? 'Canvas, scenes, data, release and collaboration live here.'
     : selectionIds.length === 1
-      ? 'Core controls stay visible first. Advanced settings are tucked into collapsible groups.'
+      ? 'Design choices stay up front, while timing, rules and data remain grouped below.'
       : 'Use bulk actions and layer review for the current selection.';
 
   return (
@@ -51,6 +51,8 @@ export function RightInspector({
               variant="ghost"
               size="md"
               label="Hide inspector"
+              tooltipPlacement="bottom"
+              tooltipDelay={240}
               icon={<StudioIcon icon={StudioIcons.chevronRight} size={18} />}
               onClick={onToggleCollapse}
             />

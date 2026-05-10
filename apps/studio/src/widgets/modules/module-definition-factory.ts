@@ -4,6 +4,7 @@ import {
   createInspectorTabs,
   type WidgetCapabilities,
   type WidgetDefinition,
+  type WidgetLibraryGroup,
 } from '../registry/widget-definition';
 import { createModuleExportRenderer } from './module-exporter';
 import type { PortableExportWidget } from '../../export/portable';
@@ -13,6 +14,9 @@ export type ModuleSpec = {
   type: WidgetType;
   label: string;
   category: 'interactive' | 'media' | 'content' | 'layout';
+  libraryGroup?: WidgetLibraryGroup;
+  libraryTags?: string[];
+  libraryRank?: number;
   thumbnail?: WidgetDefinition['thumbnail'];
   renderLibraryPreview?: WidgetDefinition['renderLibraryPreview'];
   description?: WidgetDefinition['description'];
@@ -40,6 +44,9 @@ export function createModuleDefinition(spec: ModuleSpec): WidgetDefinition {
     type: spec.type,
     label: spec.label,
     category: spec.category,
+    libraryGroup: spec.libraryGroup,
+    libraryTags: spec.libraryTags,
+    libraryRank: spec.libraryRank,
     thumbnail: spec.thumbnail,
     renderLibraryPreview: spec.renderLibraryPreview,
     description: spec.description,

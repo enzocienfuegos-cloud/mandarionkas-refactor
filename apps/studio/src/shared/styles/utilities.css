@@ -159,7 +159,7 @@
 .pill-highlight {
   border-color: var(--border-accent-strong);
   background: var(--bg-selected-soft);
-  color: var(--text);
+  color: var(--text-accent-fuchsia);
 }
 .compact-action { min-height: 38px;
 }

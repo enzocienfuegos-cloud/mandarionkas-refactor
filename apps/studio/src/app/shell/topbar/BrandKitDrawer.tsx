@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Button } from '../../../shared/ui/Button';
 import { ColorControl } from '../../../shared/ui/ColorControl';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
@@ -11,9 +12,31 @@ function numberInputValue(value: number | undefined): string {
   return typeof value === 'number' ? String(value) : '';
 }
 
+function formatBrandKitDate(value: string | undefined): string {
+  if (!value) return 'Draft';
+  return new Date(value).toLocaleDateString();
+}
+
 export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
   const controller = useBrandKitController();
   const { draft, selectedBrandKit, brandKits } = controller;
+  const previewTitle = draft.brandName || draft.name || 'Untitled brand';
+  const previewAccent = draft.colors?.accent || 'Set accent color';
+  const previewText = draft.colors?.text || 'Set text color';
+  const previewBackground = draft.colors?.background || 'Set background';
+  const previewHeadingFont = draft.typography?.headingFamily || draft.typography?.fontFamily || 'Heading family';
+  const previewBodyFont = draft.typography?.bodyFamily || draft.typography?.fontFamily || 'Body family';
+  const previewRadius = draft.radii?.md ?? draft.radii?.lg ?? draft.radii?.sm;
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
 
   return (
     <div className="brand-kit-drawer-shell" role="dialog" aria-modal="true" aria-labelledby="brand-kit-drawer-title" onClick={onClose}>
@@ -22,14 +45,19 @@ export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
           <div className="brand-kit-drawer-copy">
             <p className="section-kicker">Brand Kit</p>
             <h2 id="brand-kit-drawer-title">Brand system and document styling</h2>
-            <p>Create reusable creative kits, then apply them to the active document in replace or merge mode.</p>
+            <p>Shape the palette, typography, and interaction tone for this document, then apply it in replace or merge mode.</p>
+            <div className="brand-kit-drawer-header-pills">
+              <span className="pill pill-highlight">{selectedBrandKit ? 'Editing saved kit' : 'Draft from document'}</span>
+              <span className="pill">{brandKits.length} kits in workspace</span>
+              {controller.activeBrandKitId ? <span className="pill">Applied to current document</span> : null}
+            </div>
           </div>
           <div className="brand-kit-drawer-actions">
             <Button variant="ghost" size="sm" onClick={() => controller.startNewDraft()}>
-              New kit
+              New draft
             </Button>
             <Button variant="ghost" size="sm" onClick={() => void controller.refresh()} disabled={controller.loading}>
-              Refresh
+              {controller.loading ? 'Refreshing…' : 'Refresh'}
             </Button>
             <Button variant="ghost" size="sm" iconBefore={<StudioIcon icon={StudioIcons.x} size={14} />} onClick={onClose}>
               Close
@@ -40,7 +68,7 @@ export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
         <div className="brand-kit-drawer-body">
           <aside className="brand-kit-drawer-list">
             <div className="brand-kit-drawer-toolbar">
-              <span className="pill">{brandKits.length} kits</span>
+              <span className="pill">Library</span>
               {controller.activeBrandKitId ? <span className="pill pill-highlight">Applied</span> : null}
             </div>
             <div className="brand-kit-drawer-list-grid">
@@ -49,6 +77,7 @@ export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
                   key={brandKit.id}
                   type="button"
                   className={`brand-kit-card ${controller.selectedBrandKitId === brandKit.id ? 'is-selected' : ''} ${controller.activeBrandKitId === brandKit.id ? 'is-applied' : ''}`.trim()}
+                  aria-label={`${brandKit.name}${controller.activeBrandKitId === brandKit.id ? ', currently applied to this document' : ''}`}
                   onClick={() => controller.setSelectedBrandKitId(brandKit.id)}
                 >
                   <div className="brand-kit-card__top">
@@ -57,8 +86,9 @@ export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
                   </div>
                   <div className="brand-kit-card__meta">
                     <span>{brandKit.brandName ?? 'Unassigned brand'}</span>
-                    <span>{new Date(brandKit.updatedAt).toLocaleDateString()}</span>
+                    <span>{formatBrandKitDate(brandKit.updatedAt)}</span>
                   </div>
+                  {brandKit.description ? <p className="brand-kit-card__description">{brandKit.description}</p> : null}
                   <div className="brand-kit-card__swatches">
                     {brandKit.colors?.background ? <span className="brand-kit-card__token">BG {brandKit.colors.background}</span> : null}
                     {brandKit.colors?.accent ? <span className="brand-kit-card__token">AC {brandKit.colors.accent}</span> : null}
@@ -66,7 +96,15 @@ export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
                   </div>
                 </button>
               ))}
-              {!brandKits.length ? <div className="brand-kit-empty">No Brand Kits yet. Start one from the current document.</div> : null}
+              {!brandKits.length ? (
+                <div className="brand-kit-empty">
+                  <strong>No Brand Kits yet</strong>
+                  <p>Start from the current document, then save your first reusable kit for this workspace.</p>
+                  <Button variant="primary" size="sm" onClick={() => controller.startNewDraft()}>
+                    Create from current document
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </aside>
 
@@ -74,12 +112,45 @@ export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
             <div className="brand-kit-editor-head">
               <div>
                 <h3>{selectedBrandKit ? 'Edit Brand Kit' : 'New Brand Kit'}</h3>
-                <p>Keep the first version simple: palette, typography, radius and identifiers.</p>
+                <p>Define the core creative language first: palette, typography, radii, and motion cadence.</p>
               </div>
               {controller.errorMessage ? <span className="pill pill-danger">{controller.errorMessage}</span> : null}
             </div>
 
             <div className="field-stack">
+              <section className="brand-kit-preview-strip" aria-label="Brand Kit preview">
+                <article className="brand-kit-preview-card">
+                  <div className="brand-kit-preview-card__eyebrow">Creative voice</div>
+                  <div className="brand-kit-preview-card__title">{previewTitle}</div>
+                  <p className="brand-kit-preview-card__copy">{draft.description || 'Build a reusable look and feel for paid social, display, and rich media.'}</p>
+                  <div className="brand-kit-preview-chip-row">
+                    <span className="pill pill-highlight">Accent {previewAccent}</span>
+                    <span className="pill">Text {previewText}</span>
+                    <span className="pill">BG {previewBackground}</span>
+                  </div>
+                </article>
+                <article className="brand-kit-preview-card brand-kit-preview-card--type">
+                  <div className="brand-kit-preview-card__eyebrow">Typography</div>
+                  <div className="brand-kit-preview-type-sample">
+                    <strong>{previewHeadingFont}</strong>
+                    <span>{previewBodyFont}</span>
+                  </div>
+                  <div className="brand-kit-preview-copy-block">
+                    <span>Own the first frame.</span>
+                    <small>Readable, bold, and campaign-ready.</small>
+                  </div>
+                </article>
+                <article className="brand-kit-preview-card brand-kit-preview-card--cta">
+                  <div className="brand-kit-preview-card__eyebrow">Surface + CTA</div>
+                  <div className="brand-kit-preview-shell">
+                    <div className="brand-kit-preview-shell__surface">
+                      <span>Radius {previewRadius ? `${previewRadius}px` : 'Set medium radius'}</span>
+                      <button type="button" className="brand-kit-preview-button">Launch creative</button>
+                    </div>
+                  </div>
+                </article>
+              </section>
+
               <div className="fields-grid">
                 <div>
                   <label>Name</label>
@@ -159,12 +230,36 @@ export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
                   </div>
                 </div>
               </section>
+
+              <section className="brand-kit-editor-section">
+                <h4>Motion</h4>
+                <div className="fields-grid">
+                  <div>
+                    <label>Duration (ms)</label>
+                    <input
+                      type="number"
+                      value={numberInputValue(draft.motion?.durationMs)}
+                      onChange={(event) => controller.updateDraftMotion({ durationMs: event.target.value ? Number(event.target.value) : undefined })}
+                      placeholder="320"
+                    />
+                  </div>
+                  <div>
+                    <label>Easing</label>
+                    <input
+                      value={draft.motion?.easing ?? ''}
+                      onChange={(event) => controller.updateDraftMotion({ easing: event.target.value })}
+                      placeholder="cubic-bezier(0.2, 0.8, 0.2, 1)"
+                    />
+                  </div>
+                </div>
+              </section>
             </div>
           </section>
         </div>
 
         <div className="brand-kit-drawer-footer">
           <div className="brand-kit-drawer-apply">
+            <span className="brand-kit-drawer-footer-label">Apply to current document</span>
             <Button variant="ghost" size="sm" onClick={() => controller.applySelectedBrandKit('merge')} disabled={!selectedBrandKit}>
               Apply merge
             </Button>
@@ -173,6 +268,7 @@ export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
             </Button>
           </div>
           <div className="brand-kit-drawer-commit">
+            <span className="brand-kit-drawer-footer-label">Save to workspace</span>
             <Button variant="ghost" size="sm" onClick={() => void controller.removeSelectedBrandKit()} disabled={!selectedBrandKit || !controller.canManageBrandkits || controller.deleting}>
               {controller.deleting ? 'Deleting…' : 'Delete'}
             </Button>

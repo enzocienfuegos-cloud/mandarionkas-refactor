@@ -1,11 +1,12 @@
 import type { WidgetDefinition } from './widget-definition';
 import type { WidgetType } from '../../domain/document/types';
 import type { WidgetPluginManifestEntry } from './builtin-widget-plugins';
+import { withWidgetLibraryMetadata } from './widget-library-taxonomy';
 
 const registry = new Map<WidgetType, WidgetDefinition>();
 
 export function registerWidget(definition: WidgetDefinition): void {
-  registry.set(definition.type, definition);
+  registry.set(definition.type, withWidgetLibraryMetadata(definition));
 }
 
 export function registerWidgetPlugins(plugins: WidgetPluginManifestEntry[]): void {
@@ -29,5 +30,9 @@ export function getWidgetDefinition(type: WidgetType): WidgetDefinition {
 }
 
 export function listWidgetDefinitions(): WidgetDefinition[] {
-  return [...registry.values()];
+  return [...registry.values()].sort((a, b) => {
+    const aRank = a.libraryRank ?? Number.MAX_SAFE_INTEGER;
+    const bRank = b.libraryRank ?? Number.MAX_SAFE_INTEGER;
+    return aRank - bRank || a.label.localeCompare(b.label) || a.type.localeCompare(b.type);
+  });
 }

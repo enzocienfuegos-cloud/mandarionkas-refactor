@@ -20,6 +20,9 @@ export function TopBar({ onOpenWorkspaceHub, onOpenBrandKitDrawer }: TopBarProps
           className="top-back-button"
           size="lg"
           label="Go back to workspace"
+          tooltip="Back to workspace"
+          tooltipPlacement="bottom"
+          tooltipDelay={240}
           icon={<StudioIcon icon={StudioIcons.arrowLeft} size={18} />}
           onClick={onOpenWorkspaceHub}
         />

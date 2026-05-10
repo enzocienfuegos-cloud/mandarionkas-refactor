@@ -1,8 +1,7 @@
-import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
+import type { ComponentType } from 'react';
+import type { WidgetNode } from '../../../domain/document/types';
 import { renderDynamicMapExport } from '../dynamic-map.export';
-import { renderDynamicMapStage } from '../dynamic-map.renderer';
-import { DynamicMapInspector } from '../dynamic-map.inspector';
 import {
   DYNAMIC_MAP_DEFAULT_CACHE_TTL_MS,
   DYNAMIC_MAP_DEFAULT_CTA_LABEL,
@@ -19,6 +18,22 @@ import {
   DYNAMIC_MAP_DEFAULT_ZOOM,
 } from '../dynamic-map.shared';
 import { MapThumb } from '../../registry/widget-thumbnails';
+import { createLazyInspectorRenderer, createLazyStageRenderer } from '../../registry/lazy-widget-runtime';
+
+const renderDynamicMapStage = createLazyStageRenderer(
+  'Dynamic Map',
+  () => import('../dynamic-map.renderer').then((mod) => ({
+    default: ({ node, ctx }) => mod.renderDynamicMapStage(node, ctx),
+  })),
+);
+
+const renderDynamicMapInspector = createLazyInspectorRenderer(
+  'Dynamic Map',
+  (): Promise<{ default: ComponentType<{ widget: WidgetNode }> }> => import('../dynamic-map.inspector').then((mod) => ({
+    default: mod.DynamicMapInspector,
+  })),
+  (widget) => ({ widget }),
+);
 
 export const DynamicMapDefinition = createModuleDefinition({
   type: 'dynamic-map',
@@ -82,6 +97,6 @@ export const DynamicMapDefinition = createModuleDefinition({
     requiresMraidHost: true,
   },
   renderStage: renderDynamicMapStage,
-  renderInspector: (widget) => createElement(DynamicMapInspector, { widget }),
+  renderInspector: renderDynamicMapInspector,
   renderExport: (node) => renderDynamicMapExport(node),
 });

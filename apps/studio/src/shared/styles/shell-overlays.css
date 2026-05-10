@@ -55,7 +55,7 @@
 
 .preflight-badge--clean {
   background: var(--bg-success-soft);
-  color: var(--accent-2);
+  color: var(--success);
 }
 
 .preflight-tray__panel {

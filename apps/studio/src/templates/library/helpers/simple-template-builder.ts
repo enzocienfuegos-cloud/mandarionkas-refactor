@@ -1,8 +1,7 @@
 import { createInitialState } from '../../../domain/document/factories';
 import type { StudioDocument, WidgetNode, WidgetType } from '../../../domain/document/types';
-import { registerBuiltins } from '../../../widgets/registry/register-builtins';
-import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
 import type { StudioTemplate, StudioTemplateMetadata, TemplateBuildOptions } from '../types';
+import { createTemplateWidgetSeed } from './template-widget-defaults';
 
 type SimpleTemplateSpec = {
   metadata: StudioTemplateMetadata;
@@ -53,8 +52,7 @@ function buildTemplatePoster(label: string, accent: string, surface: string, tex
 }
 
 function seedWidget(type: WidgetType, sceneId: string, zIndex: number, patch: WidgetSeedPatch): WidgetNode {
-  registerBuiltins();
-  const base = getWidgetDefinition(type).defaults(sceneId, zIndex);
+  const base = createTemplateWidgetSeed(type, sceneId, zIndex);
   return {
     ...base,
     ...patch,

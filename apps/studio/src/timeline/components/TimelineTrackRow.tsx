@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
+import { IconButton } from '../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
-import { Tooltip } from '../../shared/ui/Tooltip';
 import { TimelineRowNameEditor } from './TimelineRowNameEditor';
 import { formatTime } from '../timeline-utils';
 import type { TimelineDragState, TimelineDisplayRow } from '../types';
@@ -45,6 +45,7 @@ export function TimelineTrackRow({
 }): JSX.Element {
   const { widget, timing, keyframes, depth, isGroup, childCount, isCollapsed } = row;
   const definition = getWidgetDefinition(widget.type);
+  const durationMs = Math.max(0, timing.endMs - timing.startMs);
   const barLeft = timing.startMs * rowMsToPx;
   const barWidth = Math.max(16, (timing.endMs - timing.startMs) * rowMsToPx);
   const metaIndent = 8 + depth * 16;
@@ -76,52 +77,52 @@ export function TimelineTrackRow({
       <div className="timeline-row-meta">
         <div className="timeline-row-meta-top">
           {isGroup ? (
-            <Tooltip content={isCollapsed ? 'Expand group' : 'Collapse group'}>
-              <button
-                type="button"
-                className="timeline-disclosure-button"
-                aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onToggleCollapse?.();
-                }}
-              >
-                <StudioIcon icon={isCollapsed ? StudioIcons.chevronRight : StudioIcons.chevronDown} size={14} />
-              </button>
-            </Tooltip>
+            <IconButton
+              variant="ghost"
+              size="sm"
+              className="timeline-disclosure-button"
+              label={isCollapsed ? 'Expand group' : 'Collapse group'}
+              tooltipPlacement="bottom"
+              tooltipDelay={220}
+              icon={<StudioIcon icon={isCollapsed ? StudioIcons.chevronRight : StudioIcons.chevronDown} size={14} />}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleCollapse?.();
+              }}
+            />
           ) : (
             <span className="timeline-disclosure-spacer" />
           )}
 
-          <Tooltip content={widget.hidden ? 'Show layer' : 'Hide layer'}>
-            <button
-              type="button"
-              className={`timeline-layer-toggle${widget.hidden ? ' is-off' : ''}`}
-              aria-label={widget.hidden ? 'Show layer' : 'Hide layer'}
-              aria-pressed={!widget.hidden}
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleHidden();
-              }}
-            >
-              <StudioIcon icon={widget.hidden ? StudioIcons.eyeOff : StudioIcons.eye} size={13} strokeWidth={1.75} />
-            </button>
-          </Tooltip>
+          <IconButton
+            variant="ghost"
+            size="sm"
+            className={`timeline-layer-toggle${widget.hidden ? ' is-off' : ''}`}
+            label={widget.hidden ? 'Show layer' : 'Hide layer'}
+            pressed={!widget.hidden}
+            tooltipPlacement="bottom"
+            tooltipDelay={220}
+            icon={<StudioIcon icon={widget.hidden ? StudioIcons.eyeOff : StudioIcons.eye} size={13} strokeWidth={1.75} />}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleHidden();
+            }}
+          />
 
-          <Tooltip content={widget.locked ? 'Unlock layer' : 'Lock layer'}>
-            <button
-              type="button"
-              className={`timeline-layer-toggle${widget.locked ? ' is-off' : ''}`}
-              aria-label={widget.locked ? 'Unlock layer' : 'Lock layer'}
-              aria-pressed={widget.locked}
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleLocked();
-              }}
-            >
-              <StudioIcon icon={widget.locked ? StudioIcons.lock : StudioIcons.lockOpen} size={13} strokeWidth={1.75} />
-            </button>
-          </Tooltip>
+          <IconButton
+            variant="ghost"
+            size="sm"
+            className={`timeline-layer-toggle${widget.locked ? ' is-off' : ''}`}
+            label={widget.locked ? 'Unlock layer' : 'Lock layer'}
+            pressed={widget.locked}
+            tooltipPlacement="bottom"
+            tooltipDelay={220}
+            icon={<StudioIcon icon={widget.locked ? StudioIcons.lock : StudioIcons.lockOpen} size={13} strokeWidth={1.75} />}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleLocked();
+            }}
+          />
 
           <div className="timeline-row-name-editor-shell">
             <TimelineRowNameEditor widgetId={widget.id} value={widget.name} onCommit={onRename} />
@@ -129,48 +130,54 @@ export function TimelineTrackRow({
         </div>
 
         <div className="timeline-row-meta-bottom">
-          <small className="muted timeline-row-type-label">
-            {definition.label}
-            {widget.sharedLayerId ? (
-              <>
-                {' · '}
-                <span className="timeline-shared-layer-label">
-                  <StudioIcon icon={StudioIcons.layers} size={11} />
-                  Shared
-                </span>
-              </>
-            ) : null}
-            {isGroup && childCount > 0 ? ` · ${childCount}` : null}
-            {depth ? ` · L${depth + 1}` : null}
-          </small>
+          <div className="timeline-row-meta-stack">
+            <small className="muted timeline-row-type-label">
+              {definition.label}
+              {widget.sharedLayerId ? (
+                <>
+                  {' · '}
+                  <span className="timeline-shared-layer-label">
+                    <StudioIcon icon={StudioIcons.layers} size={11} />
+                    Shared
+                  </span>
+                </>
+              ) : null}
+              {isGroup && childCount > 0 ? ` · ${childCount}` : null}
+              {depth ? ` · L${depth + 1}` : null}
+            </small>
+            <div className="timeline-row-badges">
+              <span className="timeline-row-badge">Start {formatTime(timing.startMs)}</span>
+              <span className="timeline-row-badge">Length {formatTime(durationMs)}</span>
+            </div>
+          </div>
 
           <div className="timeline-row-order-actions" onClick={(event) => event.stopPropagation()}>
-            <Tooltip content="Bring forward">
-              <button
-                type="button"
-                className="timeline-order-button"
-                aria-label="Bring forward"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onReorder('forward');
-                }}
-              >
-                <StudioIcon icon={StudioIcons.arrowUp} size={12} />
-              </button>
-            </Tooltip>
-            <Tooltip content="Send backward">
-              <button
-                type="button"
-                className="timeline-order-button"
-                aria-label="Send backward"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onReorder('backward');
-                }}
-              >
-                <StudioIcon icon={StudioIcons.arrowDown} size={12} />
-              </button>
-            </Tooltip>
+            <IconButton
+              variant="ghost"
+              size="sm"
+              className="timeline-order-button"
+              label="Bring forward"
+              tooltipPlacement="bottom"
+              tooltipDelay={220}
+              icon={<StudioIcon icon={StudioIcons.arrowUp} size={12} />}
+              onClick={(event) => {
+                event.stopPropagation();
+                onReorder('forward');
+              }}
+            />
+            <IconButton
+              variant="ghost"
+              size="sm"
+              className="timeline-order-button"
+              label="Send backward"
+              tooltipPlacement="bottom"
+              tooltipDelay={220}
+              icon={<StudioIcon icon={StudioIcons.arrowDown} size={12} />}
+              onClick={(event) => {
+                event.stopPropagation();
+                onReorder('backward');
+              }}
+            />
           </div>
         </div>
       </div>
@@ -224,6 +231,7 @@ export function TimelineTrackRow({
         >
           <button
             className="timeline-trim timeline-trim-start"
+            aria-label={`Trim start of ${widget.name}`}
             onPointerDown={(event) => {
               if (widget.locked) return;
               event.stopPropagation();
@@ -238,9 +246,13 @@ export function TimelineTrackRow({
               });
             }}
           />
-          <span>{widget.name} · {formatTime(timing.startMs)} to {formatTime(timing.endMs)}</span>
+          <span className="timeline-bar-label">
+            <strong>{widget.name}</strong>
+            <em>{formatTime(timing.startMs)} to {formatTime(timing.endMs)}</em>
+          </span>
           <button
             className="timeline-trim timeline-trim-end"
+            aria-label={`Trim end of ${widget.name}`}
             onPointerDown={(event) => {
               if (widget.locked) return;
               event.stopPropagation();

@@ -4,6 +4,7 @@ import { clearWidgetLibraryDragPayload, createWidgetLibraryDragPayload, writeWid
 import { SegmentedControl } from '../../../shared/ui/SegmentedControl';
 import { PlaceholderThumb } from '../../../widgets/registry/widget-thumbnails';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
+import { WIDGET_LIBRARY_GROUP_LABELS } from '../../../widgets/registry/widget-definition';
 
 const CAPABILITY_PILLS: Array<{ key: keyof NonNullable<LeftRailController['filteredWidgets'][number]['capabilities']>; label: string }> = [
   { key: 'isInteractive', label: 'Interactive' },
@@ -59,12 +60,12 @@ function getCapabilityIcon(label: string) {
 }
 
 export function WidgetLibrarySection({ controller }: { controller: LeftRailController }): JSX.Element {
-  const { filteredWidgets, query, setQuery, category, setCategory, counts, widgetActions } = controller;
+  const { filteredWidgets, groupedWidgets, query, setQuery, category, setCategory, counts, widgetActions } = controller;
   const [draggingWidgetType, setDraggingWidgetType] = useState<string | null>(null);
   const [previewWidgetType, setPreviewWidgetType] = useState<string | null>(null);
   const categoryOptions = [
     { id: 'all' as const, label: 'All' },
-    ...CATEGORY_ORDER.map((item) => ({ id: item, label: item, count: counts[item] })),
+    ...CATEGORY_ORDER.map((item) => ({ id: item, label: WIDGET_LIBRARY_GROUP_LABELS[item], count: counts[item] })),
   ];
 
   function renderWidgetThumbnail(widget: LeftRailController['filteredWidgets'][number], previewActive: boolean): JSX.Element {
@@ -90,84 +91,118 @@ export function WidgetLibrarySection({ controller }: { controller: LeftRailContr
       <div className="left-rail-section-head">
         <div>
           <div className="left-title">Widget Library</div>
-          <strong className="rail-heading">Canvas modules</strong>
+          <strong className="rail-heading">Creative module marketplace</strong>
         </div>
         <div className="pill">{filteredWidgets.length} shown</div>
       </div>
 
       <div className="field-stack rail-search-stack">
-        <input aria-label="Search widgets" placeholder="Search modules..." value={query} onChange={(event) => setQuery(event.target.value)} />
+        <input aria-label="Search widgets" placeholder="Search modules, tags, intent..." value={query} onChange={(event) => setQuery(event.target.value)} />
         <SegmentedControl options={categoryOptions} value={category} onChange={setCategory} ariaLabel="Widget categories" className="chip-row" />
       </div>
 
-      <div className="widget-library-grid">
-        {filteredWidgets.map((widget) => {
-          const metadataPills = getMetadataPills(widget);
-          const capabilityPills = getCapabilityPills(widget);
-          return (
-            <div
-            key={widget.type}
-            draggable
-            role="button"
-            tabIndex={0}
-            data-widget-type={widget.type}
-            className={`left-button widget-library-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''}`}
-            aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
-            onClick={() => widgetActions.createWidget(widget.type)}
-            onMouseEnter={() => setPreviewWidgetType(widget.type)}
-            onMouseLeave={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
-            onFocus={() => setPreviewWidgetType(widget.type)}
-            onBlur={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                widgetActions.createWidget(widget.type);
-              }
-            }}
-            onDragStart={(event) => {
-              setDraggingWidgetType(widget.type);
-              writeWidgetLibraryDragPayload(event.dataTransfer, createWidgetLibraryDragPayload(widget.type, widget.label));
-            }}
-            onDragEnd={() => {
-              setDraggingWidgetType(null);
-              clearWidgetLibraryDragPayload();
-            }}
-          >
-            <div className="widget-library-card__thumb">
-              {renderWidgetThumbnail(widget, previewWidgetType === widget.type)}
-            </div>
+      {!groupedWidgets.length ? (
+        <div className="story-flow-canvas-hint">
+          <StudioIcon icon={StudioIcons.scanSearch} size={14} />
+          No modules matched this search. Try another keyword or switch categories.
+        </div>
+      ) : null}
 
-            <div className="widget-library-card__meta">
-              <div className="widget-library-card__header">
-                <div className="content-min-w-0">
-                  <div className="widget-library-card__label">{widget.label}</div>
-                  {widget.description ? (
-                    <div className="widget-library-card__description">{widget.description}</div>
-                  ) : null}
-                </div>
+      <div className="widget-library-sections">
+        {groupedWidgets.map((section) => (
+          <section key={section.group} className="widget-library-section" aria-label={section.label}>
+            <div className="widget-library-section__head">
+              <div>
+                <div className="left-title">Category</div>
+                <strong className="widget-library-section__title">{section.label}</strong>
               </div>
-              {metadataPills.length ? (
-                <div className="widget-library-card__metrics">
-                  {metadataPills.map((item) => (
-                    <span key={item} className="widget-library-card__metric">
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-              <div className="widget-library-card__capabilities">
-                {capabilityPills.map((item) => (
-                  <span key={item} className="widget-library-card__capability">
-                    <StudioIcon icon={getCapabilityIcon(item)} size={12} />
-                    {item}
-                  </span>
-                ))}
-              </div>
-              <div className="widget-library-card__hint">Click to add or drag to canvas</div>
+              <div className="pill">{section.widgets.length}</div>
             </div>
-          </div>
-          );
-        })}
+            <div className="widget-library-grid">
+              {section.widgets.map((widget) => {
+                const metadataPills = getMetadataPills(widget);
+                const capabilityPills = getCapabilityPills(widget);
+                return (
+                  <div
+                    key={widget.type}
+                    draggable
+                    role="button"
+                    tabIndex={0}
+                    data-widget-type={widget.type}
+                    className={`left-button widget-library-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''}`}
+                    aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
+                    onClick={() => widgetActions.createWidget(widget.type)}
+                    onMouseEnter={() => setPreviewWidgetType(widget.type)}
+                    onMouseLeave={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
+                    onFocus={() => setPreviewWidgetType(widget.type)}
+                    onBlur={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        widgetActions.createWidget(widget.type);
+                      }
+                    }}
+                    onDragStart={(event) => {
+                      setDraggingWidgetType(widget.type);
+                      writeWidgetLibraryDragPayload(event.dataTransfer, createWidgetLibraryDragPayload(widget.type, widget.label));
+                    }}
+                    onDragEnd={() => {
+                      setDraggingWidgetType(null);
+                      clearWidgetLibraryDragPayload();
+                    }}
+                  >
+                    <div className="widget-library-card__thumb">
+                      {renderWidgetThumbnail(widget, previewWidgetType === widget.type)}
+                    </div>
+
+                    <div className="widget-library-card__meta">
+                      <div className="widget-library-card__header">
+                        <div className="content-min-w-0">
+                          <div className="widget-library-card__eyebrow">{section.label}</div>
+                          <div className="widget-library-card__label">{widget.label}</div>
+                          {widget.description ? (
+                            <div className="widget-library-card__description">{widget.description}</div>
+                          ) : null}
+                        </div>
+                        <span className="widget-library-card__add" aria-hidden="true">Add +</span>
+                      </div>
+                      {widget.libraryTags?.length ? (
+                        <div className="widget-library-card__tags">
+                          {widget.libraryTags.slice(0, 3).map((item) => (
+                            <span key={item} className="widget-library-card__tag">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      {metadataPills.length ? (
+                        <div className="widget-library-card__metrics">
+                          {metadataPills.map((item) => (
+                            <span key={item} className="widget-library-card__metric">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="widget-library-card__capabilities">
+                        {capabilityPills.map((item) => (
+                          <span key={item} className="widget-library-card__capability">
+                            <StudioIcon icon={getCapabilityIcon(item)} size={12} />
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="widget-library-card__footer">
+                        <div className="widget-library-card__hint">Click to add or drag to canvas</div>
+                        <div className="widget-library-card__type">{widget.type}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </>
   );

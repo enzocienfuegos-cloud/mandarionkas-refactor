@@ -47,10 +47,6 @@ export default defineConfig(({ command }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('/src/widgets/modules/')) {
-            return 'widget-modules';
-          }
-
           if (!id.includes('/node_modules/')) return undefined;
 
           if (

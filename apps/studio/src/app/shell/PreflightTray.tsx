@@ -221,6 +221,7 @@ export function PreflightTray(): JSX.Element {
         className="preflight-tray__toggle"
         onClick={() => setCollapsed((value) => !value)}
         aria-expanded={!collapsed}
+        aria-label={collapsed ? 'Open preflight tray' : 'Collapse preflight tray'}
       >
         <span className="preflight-tray__toggle-label">
           <StudioIcon icon={errorCount ? StudioIcons.x : warningCount ? StudioIcons.info : StudioIcons.check} size={14} />

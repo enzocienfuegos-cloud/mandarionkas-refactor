@@ -89,10 +89,12 @@
   background: var(--bg-overlay-strong);
 }
 .stage-guide.active {
-  background: var(--bg-selected-bright);
+  background: var(--canvas-guide);
+  box-shadow: 0 0 0 1px var(--focus-a-24);
 }
 .stage-guide.is-center {
-  background: var(--bg-success-bright);
+  background: var(--focus-accent);
+  box-shadow: 0 0 0 1px var(--focus-a-35);
 }
 .stage-guide-horizontal {
   left: 0;

@@ -257,6 +257,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
             trackWidth={trackWidth}
             snapGuideMs={snapGuideMs}
             collapsedGroupIds={collapsedGroupIds}
+            selectedOnly={selectedOnly}
             onSelectWidget={(widgetId, additive) => widgetActions.selectWidget(widgetId, additive)}
             onToggleWidgetHidden={(widgetId) => widgetActions.toggleWidgetHidden(widgetId)}
             onToggleWidgetLocked={(widgetId) => widgetActions.toggleWidgetLocked(widgetId)}

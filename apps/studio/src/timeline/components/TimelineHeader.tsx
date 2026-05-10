@@ -72,6 +72,7 @@ export function TimelineHeader({
 }): JSX.Element {
   const [editingDuration, setEditingDuration] = useState(false);
   const [draftDurationSec, setDraftDurationSec] = useState('');
+  const activeSceneIndex = Math.max(0, scenes.findIndex((scene) => scene.id === activeSceneId));
 
   function startEditDuration(): void {
     setDraftDurationSec((sceneDurationMs / 1000).toFixed(1));
@@ -100,6 +101,8 @@ export function TimelineHeader({
           variant="ghost"
           size="md"
           label="Resize timeline"
+          tooltipPlacement="bottom"
+          tooltipDelay={220}
           icon={<StudioIcon icon={StudioIcons.chevronsUpDown} size={16} />}
           onPointerDown={(event) => {
             event.preventDefault();
@@ -109,6 +112,11 @@ export function TimelineHeader({
         <div className="timeline-title-copy">
           <strong>Timeline</strong>
           <small>{displayedCount} track{displayedCount === 1 ? '' : 's'} · {selectedCount} selected</small>
+          <div className="timeline-title-pills">
+            <span className="pill pill-highlight timeline-scene-pill">Scene {activeSceneIndex + 1} of {Math.max(1, scenes.length)}</span>
+            <span className="pill">Motion timing</span>
+            <span className="pill">Trim + keyframes</span>
+          </div>
         </div>
       </div>
       <div className="timeline-controls">
@@ -119,6 +127,8 @@ export function TimelineHeader({
             className="timeline-scene-switcher__nav"
             onClick={onPreviousScene}
             label="Previous scene"
+            tooltipPlacement="bottom"
+            tooltipDelay={220}
             icon={<StudioIcon icon={StudioIcons.arrowLeft} size={14} />}
           />
           <label className="timeline-scene-switcher__select">
@@ -137,6 +147,8 @@ export function TimelineHeader({
             className="timeline-scene-switcher__nav"
             onClick={onNextScene}
             label="Next scene"
+            tooltipPlacement="bottom"
+            tooltipDelay={220}
             icon={<StudioIcon icon={StudioIcons.arrowRight} size={14} />}
           />
         </div>
@@ -148,6 +160,8 @@ export function TimelineHeader({
             variant="ghost"
             size="md"
             label="Go to start"
+            tooltipPlacement="bottom"
+            tooltipDelay={220}
             icon={<StudioIcon icon={StudioIcons.skipBack} size={16} />}
             onClick={onResetPlayhead}
           />
@@ -200,6 +214,8 @@ export function TimelineHeader({
             variant="ghost"
             size="md"
             label="Zoom out"
+            tooltipPlacement="bottom"
+            tooltipDelay={220}
             icon={<StudioIcon icon={StudioIcons.minus} size={16} />}
             onClick={onZoomOut}
           />
@@ -210,6 +226,8 @@ export function TimelineHeader({
             variant="ghost"
             size="md"
             label="Zoom in"
+            tooltipPlacement="bottom"
+            tooltipDelay={220}
             icon={<StudioIcon icon={StudioIcons.plus} size={16} />}
             onClick={onZoomIn}
           />
@@ -264,6 +282,8 @@ export function TimelineHeader({
           variant="ghost"
           size="md"
           label="Hide timeline"
+          tooltipPlacement="bottom"
+          tooltipDelay={220}
           icon={<StudioIcon icon={StudioIcons.chevronDown} size={18} />}
           onClick={onToggleCollapse}
         />

@@ -46,6 +46,32 @@ export type WidgetFieldSpec = {
 
 export type WidgetAssetKind = 'image' | 'video' | 'font';
 
+export type WidgetLibraryGroup =
+  | 'essentials'
+  | 'commerce'
+  | 'video-social'
+  | 'interactive'
+  | 'data-utility'
+  | 'premium-fx';
+
+export const WIDGET_LIBRARY_GROUP_ORDER: WidgetLibraryGroup[] = [
+  'essentials',
+  'commerce',
+  'video-social',
+  'interactive',
+  'data-utility',
+  'premium-fx',
+];
+
+export const WIDGET_LIBRARY_GROUP_LABELS: Record<WidgetLibraryGroup, string> = {
+  essentials: 'Essentials',
+  commerce: 'Commerce',
+  'video-social': 'Video / Social',
+  interactive: 'Interactive',
+  'data-utility': 'Data / Utility',
+  'premium-fx': 'Premium FX',
+};
+
 export type WidgetCapabilities = {
   acceptsImageAsset?: boolean;
   acceptsVideoAsset?: boolean;
@@ -76,6 +102,9 @@ export type WidgetDefinition = {
   type: WidgetType;
   label: string;
   category: 'content' | 'media' | 'interactive' | 'layout';
+  libraryGroup?: WidgetLibraryGroup;
+  libraryTags?: string[];
+  libraryRank?: number;
   thumbnail?: string | (() => JSX.Element);
   renderLibraryPreview?: () => JSX.Element;
   description?: string;

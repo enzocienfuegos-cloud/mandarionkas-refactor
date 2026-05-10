@@ -1,7 +1,4 @@
-import { useCallback, useState, type CSSProperties } from 'react';
-import { AssetLibraryModal } from './AssetLibraryModal';
-import { BrandKitDrawer } from './topbar/BrandKitDrawer';
-import { PreflightTray } from './PreflightTray';
+import { Suspense, lazy, useCallback, useState, type CSSProperties } from 'react';
 import { TopBar } from './TopBar';
 import { StudioKeyboardShortcuts } from './StudioKeyboardShortcuts';
 import { LeftRail } from './LeftRail';
@@ -10,6 +7,7 @@ import { RightInspector } from '../../inspector/RightInspector';
 import { BottomTimeline } from '../../timeline/BottomTimeline';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { SurfaceButton } from '../../shared/ui/SurfaceButton';
+import { PreflightTray } from './PreflightTray';
 import {
   LEFT_RAIL_MAX_WIDTH,
   LEFT_RAIL_MIN_WIDTH,
@@ -20,6 +18,12 @@ import {
   useShellLayout,
 } from './use-shell-layout';
 import { useShellResize } from './use-shell-resize';
+import { registerBuiltins } from '../../widgets/registry/register-builtins';
+
+registerBuiltins();
+
+const AssetLibraryModal = lazy(async () => import('./AssetLibraryModal').then((module) => ({ default: module.AssetLibraryModal })));
+const BrandKitDrawer = lazy(async () => import('./topbar/BrandKitDrawer').then((module) => ({ default: module.BrandKitDrawer })));
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -151,8 +155,16 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
           <span>Timeline</span>
         </SurfaceButton>
       ) : null}
-      {assetLibraryOpen ? <AssetLibraryModal onClose={() => setAssetLibraryOpen(false)} /> : null}
-      {brandKitDrawerOpen ? <BrandKitDrawer onClose={() => setBrandKitDrawerOpen(false)} /> : null}
+      {assetLibraryOpen ? (
+        <Suspense fallback={null}>
+          <AssetLibraryModal onClose={() => setAssetLibraryOpen(false)} />
+        </Suspense>
+      ) : null}
+      {brandKitDrawerOpen ? (
+        <Suspense fallback={null}>
+          <BrandKitDrawer onClose={() => setBrandKitDrawerOpen(false)} />
+        </Suspense>
+      ) : null}
       <StudioKeyboardShortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );

@@ -1,14 +1,29 @@
-import { createElement } from 'react';
 import { createModuleDefinition } from '../module-definition-factory';
+import type { ComponentType } from 'react';
+import type { WidgetNode } from '../../../domain/document/types';
 import {
   INTERACTIVE_VIDEO_DEFAULT_COUNTDOWN_COMPLETED_LABEL,
   INTERACTIVE_VIDEO_DEFAULT_CTA_LABEL,
   INTERACTIVE_VIDEO_DEFAULT_SKIP_COUNTING_LABEL,
   INTERACTIVE_VIDEO_DEFAULT_SKIP_LABEL,
 } from '../interactive-video.shared';
-import { renderInteractiveVideoStage } from '../interactive-video.renderer';
-import { InteractiveVideoInspector } from '../interactive-video.inspector';
 import { InteractiveVideoLibraryPreview, InteractiveVideoThumb } from '../../registry/widget-thumbnails';
+import { createLazyInspectorRenderer, createLazyStageRenderer } from '../../registry/lazy-widget-runtime';
+
+const renderInteractiveVideoStage = createLazyStageRenderer(
+  'Interactive Video',
+  () => import('../interactive-video.renderer').then((mod) => ({
+    default: ({ node, ctx }) => mod.renderInteractiveVideoStage(node, ctx),
+  })),
+);
+
+const renderInteractiveVideoInspector = createLazyInspectorRenderer(
+  'Interactive Video',
+  (): Promise<{ default: ComponentType<{ node: WidgetNode }> }> => import('../interactive-video.inspector').then((mod) => ({
+    default: mod.InteractiveVideoInspector,
+  })),
+  (node) => ({ node }),
+);
 
 export const InteractiveVideoDefinition = createModuleDefinition({
   type: 'interactive-video',
@@ -111,7 +126,7 @@ export const InteractiveVideoDefinition = createModuleDefinition({
     opacity: 1,
   },
   renderStage: renderInteractiveVideoStage,
-  renderInspector: (node) => createElement(InteractiveVideoInspector, { node }),
+  renderInspector: renderInteractiveVideoInspector,
   exportDetail: 'Interactive video with configurable overlays and timeline actions',
   buildPortableExport: (node) => ({
     props: {

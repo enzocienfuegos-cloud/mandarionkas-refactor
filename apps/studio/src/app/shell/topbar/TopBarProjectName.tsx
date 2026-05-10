@@ -17,12 +17,23 @@ function toneForGrade(grade: string): 'good' | 'warn' | 'danger' {
   return 'danger';
 }
 
+function buildSceneLabel(controller: TopBarController): string {
+  const index = controller.snapshot.scenes.findIndex((scene) => scene.id === controller.snapshot.activeSceneId);
+  const activeScene = controller.snapshot.scenes[index];
+  if (!activeScene) return 'Scene';
+  const base = activeScene.name?.trim() ? activeScene.name : `Scene ${index + 1}`;
+  return index >= 0 ? `${index + 1}. ${base}` : base;
+}
+
 export function TopBarProjectName({ controller }: { controller: TopBarController }): JSX.Element {
   const { name, dirty } = controller.snapshot;
   const { documentActions } = controller.document;
   const { readiness } = controller.exportReadiness;
   const breadcrumb = buildBreadcrumb(controller);
   const tone = toneForGrade(readiness.grade);
+  const sceneLabel = buildSceneLabel(controller);
+  const sizeVariantCount = controller.snapshot.state.document.canvasVariants.length;
+  const selectionLabel = controller.snapshot.selectionCount ? `${controller.snapshot.selectionCount} selected` : 'Canvas focus';
 
   return (
     <div className="top-name-block">
@@ -38,6 +49,11 @@ export function TopBarProjectName({ controller }: { controller: TopBarController
         <Tooltip content={breadcrumb}>
           <small className="top-project-breadcrumb" tabIndex={0}>{breadcrumb}</small>
         </Tooltip>
+      </div>
+      <div className="top-context-row">
+        <span className="top-context-pill">{sceneLabel}</span>
+        <span className="top-context-pill">{sizeVariantCount} size variants</span>
+        <span className={`top-context-pill ${controller.snapshot.selectionCount ? 'top-context-pill--accent' : ''}`.trim()}>{selectionLabel}</span>
       </div>
     </div>
   );
