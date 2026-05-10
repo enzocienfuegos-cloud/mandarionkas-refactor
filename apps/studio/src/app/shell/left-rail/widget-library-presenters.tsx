@@ -110,7 +110,7 @@ export function WidgetLibraryItemCard({
 }: {
   widget: WidgetLibraryItem;
   sectionLabel: string;
-  density: 'compact' | 'cozy';
+  density: 'compact' | 'expanded';
   draggingWidgetType: string | null;
   previewWidgetType: string | null;
   setDraggingWidgetType: Dispatch<SetStateAction<string | null>>;
@@ -200,7 +200,7 @@ export function WidgetLibraryItemCard({
     );
   }
 
-  if (density === 'cozy') {
+  if (density === 'expanded') {
     return (
       <div
         draggable

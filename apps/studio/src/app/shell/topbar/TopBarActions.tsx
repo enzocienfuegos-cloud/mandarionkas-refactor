@@ -245,21 +245,14 @@ export function TopBarActions({
 
       <div className="top-bar-divider" aria-hidden="true" />
 
-      <Button
-        variant="ghost"
-        size="sm"
-        className={`top-preflight-button top-preflight-button--${preflight.tone}`.trim()}
-        iconBefore={<span className={`top-preflight-dot top-preflight-dot--${preflight.tone}`.trim()} aria-hidden="true" />}
-        onClick={openPreflightPanel}
-      >
-        {preflightLabel}
-      </Button>
-
       <ExportMenu
         currentChannel={release.targetChannel}
         isExporting={resolvedZipStatus === 'exporting'}
         publishLabel={publishLabel}
+        preflightLabel={preflightLabel}
+        preflightTone={preflight.tone}
         onExportAs={(channel) => void handleExportAs(channel)}
+        onOpenPreflight={openPreflightPanel}
         onShare={() => void handleShare()}
         onCopyPreviewLink={() => void handleCopyPreviewLink()}
         onPublish={() => void handlePublishToAdServer()}

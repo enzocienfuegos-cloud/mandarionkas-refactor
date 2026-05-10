@@ -10,7 +10,7 @@ import { WidgetLibraryItemCard } from './widget-library-presenters';
 
 const DENSITY_ICONS = {
   compact: StudioIcons.list,
-  cozy: StudioIcons.layoutGrid,
+  expanded: StudioIcons.boxes,
 } as const;
 
 export function WidgetLibrarySection(): JSX.Element {
@@ -66,7 +66,7 @@ export function WidgetLibrarySection(): JSX.Element {
           })}
         </div>
         <div className="widget-library-density-toggle" role="group" aria-label="Card density">
-          {(['compact', 'cozy'] as const).map((option) => (
+          {(['compact', 'expanded'] as const).map((option) => (
             <IconButton
               key={option}
               variant="ghost"
