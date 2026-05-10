@@ -8,6 +8,13 @@
   --color-accent-mid: rgba(37, 99, 235, 0.22);
   --color-accent-text: #ffffff;
 
+  --scrollbar-track: rgba(255, 255, 255, 0.04);
+  --scrollbar-thumb: rgba(111, 60, 255, 0.54);
+  --scrollbar-thumb-hover: rgba(37, 99, 235, 0.72);
+  --scrollbar-edge: rgba(255, 255, 255, 0.12);
+  --scrollbar-size: 12px;
+  --scrollbar-thumb-inset: 3px;
+
   --color-success: #16a34a;
   --color-success-dim: rgba(22, 163, 74, 0.12);
   --color-warning: #b45309;
