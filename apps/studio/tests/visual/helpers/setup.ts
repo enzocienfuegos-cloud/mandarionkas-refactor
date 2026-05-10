@@ -24,7 +24,7 @@ export async function loginToStudio(page: Page): Promise<void> {
   await gotoStudio(page);
   await expect(page.locator('.platform-login-shell')).toBeVisible();
   await page.getByRole('button', { name: 'Enter platform' }).click();
-  await expect(page.getByRole('heading', { name: 'Agency hub' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hub de clientes' })).toBeVisible();
   await disableMotion(page);
 }
 

@@ -2,21 +2,18 @@ import { readScopedStorageItem, writeScopedStorageItem } from '../../shared/brow
 
 const STORAGE_KEY = 'smx-studio-v4:agency-shell-preferences';
 
-export type AgencyProjectFilter = 'all' | 'favorites' | 'shared' | 'archived';
-export type AgencySortMode = 'recent' | 'name' | 'most-visited';
+export type AgencySortMode = 'newest' | 'oldest';
 
 export type AgencyShellPreferences = {
   search: string;
   activeClientId: string;
-  projectFilter: AgencyProjectFilter;
   sortMode: AgencySortMode;
 };
 
 const DEFAULT_PREFERENCES: AgencyShellPreferences = {
   search: '',
   activeClientId: 'all',
-  projectFilter: 'all',
-  sortMode: 'recent',
+  sortMode: 'newest',
 };
 
 export function readAgencyShellPreferences(): AgencyShellPreferences {
@@ -27,11 +24,8 @@ export function readAgencyShellPreferences(): AgencyShellPreferences {
     return {
       search: typeof parsed.search === 'string' ? parsed.search : DEFAULT_PREFERENCES.search,
       activeClientId: typeof parsed.activeClientId === 'string' ? parsed.activeClientId : DEFAULT_PREFERENCES.activeClientId,
-      projectFilter: parsed.projectFilter === 'favorites' || parsed.projectFilter === 'shared' || parsed.projectFilter === 'archived'
-        ? parsed.projectFilter
-        : DEFAULT_PREFERENCES.projectFilter,
-      sortMode: parsed.sortMode === 'name' || parsed.sortMode === 'most-visited'
-        ? parsed.sortMode
+      sortMode: parsed.sortMode === 'oldest'
+        ? 'oldest'
         : DEFAULT_PREFERENCES.sortMode,
     };
   } catch {

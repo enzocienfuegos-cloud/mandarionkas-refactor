@@ -1,50 +1,51 @@
 type ClientCardProps = {
-  client: { id: string; name: string; plan?: string; brandColor?: string };
-  activeCount: number;
-  sharedCount: number;
+  client: { id: string; name: string; slug: string; plan?: string; logoUrl?: string | null };
+  projectCount: number;
   recentProjectName: string;
-  recentUpdatedAt?: string;
+  latestActivityAt?: string;
   onOpen(): void;
 };
 
-function formatRelativeTime(value?: string): string {
-  if (!value) return 'No recent updates';
-  const diffMinutes = Math.max(1, Math.round((Date.now() - new Date(value).getTime()) / 60000));
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  const diffHours = Math.round(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.round(diffHours / 24);
-  return `${diffDays}d ago`;
+function formatLastActivity(value?: string): string {
+  if (!value) return 'Sin actividad reciente';
+  return new Intl.DateTimeFormat('es-SV', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 }
 
-function buildStatus(activeCount: number, sharedCount: number): string {
-  if (sharedCount > 0) return 'In review';
-  if (activeCount > 0) return 'Campaign active';
-  return 'Quiet';
+function buildClientInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'CL';
 }
 
-function Card({ client, activeCount, sharedCount, recentProjectName, recentUpdatedAt, onOpen }: ClientCardProps): JSX.Element {
+function Card({ client, projectCount, recentProjectName, latestActivityAt, onOpen }: ClientCardProps): JSX.Element {
   return (
-    <article className="agency-client-card-v2">
-      <button type="button" className="agency-client-card-v2__surface" onClick={onOpen}>
-        <div className="agency-client-card-v2__header">
-          <div className="agency-client-card-v2__title">
-            <span className="agency-client-card-v2__status-dot" />
-            <div>
-              <strong>{client.name}</strong>
-              <small>{client.plan ?? 'studio'}</small>
-            </div>
+    <article className="mandarion-client-card">
+      <button type="button" className="mandarion-client-card__surface" onClick={onOpen}>
+        <div className="mandarion-client-card__header">
+          <div className="mandarion-client-card__avatar" aria-hidden="true">
+            {client.logoUrl ? <img src={client.logoUrl} alt="" /> : <span>{buildClientInitials(client.name)}</span>}
           </div>
-          <span className="workspace-status-badge workspace-status-badge--review">{buildStatus(activeCount, sharedCount)}</span>
+          <div className="mandarion-client-card__copy">
+            <strong>{client.name}</strong>
+            <small>{client.slug}</small>
+          </div>
         </div>
-        <div className="agency-client-card-v2__meta">
-          <span>{activeCount} active projects</span>
-          <span>{sharedCount} shared</span>
+        <div className="mandarion-client-card__stats">
+          <span className="pill">{projectCount} proyectos activos</span>
+          {client.plan ? <span className="pill">{client.plan}</span> : null}
         </div>
-        <div className="agency-client-card-v2__recent">
-          <span className="workspace-project-meta-label">Last project</span>
-          <strong>{recentProjectName || 'No projects yet'}</strong>
-          <small>{formatRelativeTime(recentUpdatedAt)}</small>
+        <div className="mandarion-client-card__recent">
+          <span className="workspace-project-meta-label">Último proyecto</span>
+          <strong>{recentProjectName}</strong>
+          <small>{formatLastActivity(latestActivityAt)}</small>
         </div>
       </button>
     </article>

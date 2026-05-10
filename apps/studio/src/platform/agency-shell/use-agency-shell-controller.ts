@@ -1,145 +1,189 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTopBarController } from '../../app/shell/topbar/use-top-bar-controller';
-import { getProjectInsightMap, listFavoriteProjects, listMostVisitedProjects, listRecentProjects, recordProjectVisit, toggleFavoriteProject } from './project-insights-store';
-import { readAgencyShellPreferences, writeAgencyShellPreferences, type AgencyProjectFilter, type AgencySortMode } from './agency-shell-preferences';
-import { fetchAgencyHubOverview, type AgencyHubOverview } from './api';
-import { listTemplates } from '../../templates/library/registry';
+import type { ClientWorkspace } from '../types';
+import type { ProjectSummary } from '../../repositories/types';
+import { recordProjectVisit } from './project-insights-store';
+import { readAgencyShellPreferences, writeAgencyShellPreferences, type AgencySortMode } from './agency-shell-preferences';
+import { getProjectWorkflowStatuses, type ProjectWorkflowStatusRecord } from '../client-workspace/project-folder-store';
+import { useToast } from '../../shared/ui/ToastProvider';
+
+const PROJECT_PAGE_SIZE = 5;
+
+type AgencyProjectStatus = 'draft' | 'review' | 'ready' | 'exported' | 'archived';
+
+export type AgencyProjectRow = ProjectSummary & {
+  clientName: string;
+  status: AgencyProjectStatus;
+  statusLabel: string;
+};
+
+function slugifyClientName(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function resolveProjectStatus(
+  project: ProjectSummary,
+  workflowStatuses: Record<string, ProjectWorkflowStatusRecord | undefined>,
+): AgencyProjectStatus {
+  if (project.archivedAt || project.isArchived) return 'archived';
+  return workflowStatuses[project.id]?.value ?? 'draft';
+}
+
+function getProjectStatusLabel(status: AgencyProjectStatus): string {
+  switch (status) {
+    case 'review':
+      return 'En revisión';
+    case 'ready':
+      return 'Listo';
+    case 'exported':
+      return 'Entregado';
+    case 'archived':
+      return 'Archivado';
+    case 'draft':
+    default:
+      return 'Diseño';
+  }
+}
+
+function getClientNameMap(clients: ClientWorkspace[]): Map<string, string> {
+  return new Map(clients.map((client) => [client.id, client.name]));
+}
+
+function matchesProjectSearch(project: ProjectSummary, clientName: string, query: string): boolean {
+  if (!query) return true;
+  const haystack = [
+    project.name,
+    clientName,
+    project.brandName,
+    project.campaignName,
+    project.ownerName,
+    project.ownerUserId,
+    project.channel,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(query);
+}
+
+function matchesClientSearch(client: ClientWorkspace, recentProjectName: string, query: string): boolean {
+  if (!query) return true;
+  return `${client.name} ${client.slug} ${recentProjectName}`.toLowerCase().includes(query);
+}
 
 export function useAgencyShellController() {
   const topBar = useTopBarController();
   const { workspace, projectSession } = topBar;
   const { visibleClients, currentUser } = workspace;
-  const [insightTick, setInsightTick] = useState(0);
+  const { pushToast } = useToast();
   const [preferences, setPreferences] = useState(() => readAgencyShellPreferences());
   const [page, setPage] = useState(1);
-  const [remoteOverview, setRemoteOverview] = useState<AgencyHubOverview | null>(null);
-  const pageSize = 9;
+  const [isCreateClientOpen, setIsCreateClientOpen] = useState(false);
+  const [createClientName, setCreateClientName] = useState('');
+  const [isCreatingClient, setIsCreatingClient] = useState(false);
+  const [createClientError, setCreateClientError] = useState<string | null>(null);
+
+  useEffect(() => {
+    writeAgencyShellPreferences(preferences);
+  }, [preferences]);
+
+  const workflowStatuses = useMemo(
+    () => getProjectWorkflowStatuses(),
+    [projectSession.projects.length],
+  );
 
   const projects = useMemo(
     () => [...projectSession.projects].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [projectSession.projects],
   );
 
-  const projectInsights = useMemo(
-    () => getProjectInsightMap(currentUser?.id),
-    [currentUser?.id, insightTick],
+  const clientNameMap = useMemo(
+    () => getClientNameMap(visibleClients),
+    [visibleClients],
   );
 
-  const recentProjects = useMemo(
-    () => listRecentProjects(projects, currentUser?.id, 8),
-    [currentUser?.id, insightTick, projects],
+  const activeProjects = useMemo(
+    () => projects.filter((project) => !(project.archivedAt || project.isArchived)),
+    [projects],
   );
-
-  const favoriteProjects = useMemo(
-    () => listFavoriteProjects(projects, currentUser?.id, 6),
-    [currentUser?.id, insightTick, projects],
-  );
-
-  const mostVisitedProjects = useMemo(
-    () => listMostVisitedProjects(projects, currentUser?.id, 8),
-    [currentUser?.id, insightTick, projects],
-  );
-
-  useEffect(() => {
-    writeAgencyShellPreferences(preferences);
-  }, [preferences]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchAgencyHubOverview()
-      .then((overview) => {
-        if (!cancelled) setRemoteOverview(overview);
-      })
-      .catch(() => {
-        if (!cancelled) setRemoteOverview(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [insightTick, projectSession.projects.length]);
 
   const filteredProjects = useMemo(() => {
     const loweredSearch = preferences.search.trim().toLowerCase();
-    const next = projects.filter((project) => {
-      if (preferences.activeClientId !== 'all' && project.clientId !== preferences.activeClientId) return false;
-      if (preferences.projectFilter === 'favorites' && !projectInsights[project.id]?.isFavorite) return false;
-      if (preferences.projectFilter === 'shared' && project.ownerUserId === currentUser?.id) return false;
-      if (preferences.projectFilter === 'archived' && !project.archivedAt) return false;
-      if (!loweredSearch) return true;
-      const haystack = [project.name, project.brandName, project.campaignName, project.ownerName, project.ownerUserId, project.clientId]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(loweredSearch);
-    });
+    const next = activeProjects
+      .filter((project) => {
+        if (preferences.activeClientId !== 'all' && project.clientId !== preferences.activeClientId) {
+          return false;
+        }
+        const clientName = clientNameMap.get(project.clientId) ?? 'Cliente sin nombre';
+        return matchesProjectSearch(project, clientName, loweredSearch);
+      })
+      .map<AgencyProjectRow>((project) => {
+        const status = resolveProjectStatus(project, workflowStatuses);
+        return {
+          ...project,
+          clientName: clientNameMap.get(project.clientId) ?? 'Cliente sin nombre',
+          status,
+          statusLabel: getProjectStatusLabel(status),
+        };
+      });
 
-    next.sort((a, b) => {
-      if (preferences.sortMode === 'name') return a.name.localeCompare(b.name);
-      if (preferences.sortMode === 'most-visited') {
-        const bVisits = projectInsights[b.id]?.visitCount ?? 0;
-        const aVisits = projectInsights[a.id]?.visitCount ?? 0;
-        if (bVisits !== aVisits) return bVisits - aVisits;
-      }
-      return b.updatedAt.localeCompare(a.updatedAt);
-    });
+    next.sort((a, b) => (
+      preferences.sortMode === 'oldest'
+        ? a.updatedAt.localeCompare(b.updatedAt)
+        : b.updatedAt.localeCompare(a.updatedAt)
+    ));
 
     return next;
-  }, [currentUser?.id, preferences, projectInsights, projects]);
+  }, [activeProjects, clientNameMap, preferences.activeClientId, preferences.search, preferences.sortMode, workflowStatuses]);
 
-  const pageCount = Math.max(1, Math.ceil(filteredProjects.length / pageSize));
+  const pageCount = Math.max(1, Math.ceil(filteredProjects.length / PROJECT_PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  const paginatedProjects = filteredProjects.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const paginatedProjects = filteredProjects.slice((safePage - 1) * PROJECT_PAGE_SIZE, safePage * PROJECT_PAGE_SIZE);
 
-  const clientCards = useMemo(() => (
-    visibleClients.map((client) => {
-      const clientProjects = projects.filter((project) => project.clientId === client.id);
-      const activeProjects = clientProjects.filter((project) => !project.archivedAt);
-      const recent = clientProjects[0];
-      return {
-        client,
-        projectCount: clientProjects.length,
-        activeCount: activeProjects.length,
-        archivedCount: clientProjects.length - activeProjects.length,
-        sharedCount: activeProjects.filter((project) => project.ownerUserId !== currentUser?.id).length,
-        recentProjectName: recent?.name ?? 'No recent projects',
-        recentUpdatedAt: recent?.updatedAt,
-      };
-    })
-  ), [currentUser?.id, projects, visibleClients]);
+  const visibleClientCards = useMemo(() => {
+    const loweredSearch = preferences.search.trim().toLowerCase();
+    return visibleClients
+      .map((client) => {
+        const clientProjects = activeProjects.filter((project) => project.clientId === client.id);
+        const recentProject = clientProjects[0];
+        return {
+          client,
+          projectCount: clientProjects.length,
+          recentProjectName: recentProject?.name ?? 'Sin proyectos recientes',
+          recentProjectId: recentProject?.id,
+          recentUpdatedAt: recentProject?.updatedAt,
+          latestActivityAt: recentProject?.updatedAt,
+        };
+      })
+      .filter((entry) => matchesClientSearch(entry.client, entry.recentProjectName, loweredSearch))
+      .sort((a, b) => (b.recentUpdatedAt ?? '').localeCompare(a.recentUpdatedAt ?? ''));
+  }, [activeProjects, preferences.search, visibleClients]);
 
-  const stats = {
-    clientCount: visibleClients.length,
-    totalProjects: projects.length,
-    activeProjects: projects.filter((project) => !project.archivedAt).length,
-    archivedProjects: projects.filter((project) => Boolean(project.archivedAt)).length,
-    sharedProjects: projects.filter((project) => project.ownerUserId !== currentUser?.id && !project.archivedAt).length,
-  };
+  const clientFilterOptions = useMemo(
+    () => [
+      { value: 'all', label: 'Todos los clientes' },
+      ...visibleClients.map((client) => ({ value: client.id, label: client.name })),
+    ],
+    [visibleClients],
+  );
 
-  const efficiency = {
-    averageWidgetsPerProject: projects.length
-      ? Math.round(projects.reduce((sum, project) => sum + (project.widgetCount ?? 0), 0) / projects.length)
-      : 0,
-    averageScenesPerProject: projects.length
-      ? Number((projects.reduce((sum, project) => sum + (project.sceneCount ?? 1), 0) / projects.length).toFixed(1))
-      : 0,
-    busiestClientName: clientCards.slice().sort((a, b) => b.activeCount - a.activeCount)[0]?.client.name ?? 'No clients yet',
-    averageOpenToSaveMinutes: remoteOverview?.efficiency?.averageOpenToSaveMinutes ?? null,
-    averageOpenToExportMinutes: remoteOverview?.efficiency?.averageOpenToExportMinutes ?? null,
-    totalOpenEvents: remoteOverview?.efficiency?.totalOpenEvents ?? 0,
-    totalSaveEvents: remoteOverview?.efficiency?.totalSaveEvents ?? 0,
-    totalVersionSaveEvents: remoteOverview?.efficiency?.totalVersionSaveEvents ?? 0,
-    totalExportEvents: remoteOverview?.efficiency?.totalExportEvents ?? 0,
-    totalShareEvents: remoteOverview?.efficiency?.totalShareEvents ?? 0,
-  };
+  const summary = useMemo(() => {
+    const latestUpdatedAt = activeProjects[0]?.updatedAt;
+    return {
+      activeClientCount: visibleClients.length,
+      activeProjectCount: activeProjects.length,
+      latestUpdatedAt,
+    };
+  }, [activeProjects, visibleClients.length]);
 
   function markProjectOpened(projectId: string): void {
     recordProjectVisit(currentUser?.id, projectId);
-    setInsightTick((current) => current + 1);
-  }
-
-  function toggleProjectFavorite(projectId: string): void {
-    toggleFavoriteProject(currentUser?.id, projectId);
-    setInsightTick((current) => current + 1);
   }
 
   function setSearch(value: string): void {
@@ -152,62 +196,98 @@ export function useAgencyShellController() {
     setPreferences((current) => ({ ...current, activeClientId: value }));
   }
 
-  function setProjectFilter(value: AgencyProjectFilter): void {
-    setPage(1);
-    setPreferences((current) => ({ ...current, projectFilter: value }));
-  }
-
   function setSortMode(value: AgencySortMode): void {
+    setPage(1);
     setPreferences((current) => ({ ...current, sortMode: value }));
   }
 
-  async function openAddClientDialog(): Promise<void> {
-    if (!workspace.canCreateClient || typeof window === 'undefined') return;
-    const nextName = window.prompt('New client name', workspace.newClientName || '')?.trim();
-    if (!nextName) return;
-    await workspace.handleCreateClient(nextName);
+  function openCreateClientModal(): void {
+    if (!workspace.canCreateClient) return;
+    setCreateClientName('');
+    setCreateClientError(null);
+    setIsCreateClientOpen(true);
   }
 
-  async function handleUseTemplateGlobally(templateId: string, targetClientId?: string): Promise<void> {
-    const nextClientId = targetClientId ?? workspace.activeClientId ?? workspace.visibleClients[0]?.id;
-    if (nextClientId && workspace.activeClientId !== nextClientId) {
-      await workspace.handleActiveClientChange(nextClientId);
+  function closeCreateClientModal(): void {
+    if (isCreatingClient) return;
+    setIsCreateClientOpen(false);
+    setCreateClientError(null);
+  }
+
+  async function submitCreateClient(): Promise<ClientWorkspace | null> {
+    const nextName = createClientName.trim();
+    if (!nextName) {
+      setCreateClientError('Ingresá un nombre para crear el cliente.');
+      return null;
     }
-    const template = listTemplates().find((item) => item.metadata.id === templateId);
-    await projectSession.handleCreateProjectFromStarter(templateId as import('../../app/shell/topbar/project-starters').ProjectStarterId, template?.metadata.name);
+    if (!workspace.canCreateClient) {
+      setCreateClientError('Tu cuenta no tiene permisos para crear clientes.');
+      return null;
+    }
+
+    setIsCreatingClient(true);
+    setCreateClientError(null);
+    try {
+      const createdClient = await workspace.handleCreateClient(nextName);
+      if (!createdClient) {
+        setCreateClientError('No se pudo crear el cliente. Intentá nuevamente.');
+        pushToast({
+          title: 'No se pudo crear el cliente',
+          description: 'Revisá el nombre e intentá nuevamente.',
+          tone: 'danger',
+        });
+        return null;
+      }
+      setIsCreateClientOpen(false);
+      setCreateClientName('');
+      pushToast({
+        title: 'Cliente creado',
+        description: `${createdClient.name} ya está disponible en el hub.`,
+        tone: 'success',
+      });
+      return createdClient;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo crear el cliente.';
+      setCreateClientError(message);
+      pushToast({
+        title: 'No se pudo crear el cliente',
+        description: message,
+        tone: 'danger',
+      });
+      return null;
+    } finally {
+      setIsCreatingClient(false);
+    }
   }
 
   return {
     topBar,
     workspace,
     projectSession,
-    visibleClients,
-    projectInsights,
-    recentProjects,
-    favoriteProjects,
-    mostVisitedProjects,
+    summary,
     filteredProjects,
     paginatedProjects,
-    clientCards,
-    remoteOverview,
-    stats,
-    efficiency,
-    preferences,
+    visibleClientCards,
+    clientFilterOptions,
+    pageSize: PROJECT_PAGE_SIZE,
     search: preferences.search,
     activeClientFilter: preferences.activeClientId,
-    projectFilter: preferences.projectFilter,
     sortMode: preferences.sortMode,
-    templateCount: listTemplates().length,
-    setSearch,
-    setActiveClientId,
-    setProjectFilter,
-    setSortMode,
     page: safePage,
     setPage,
     pageCount,
+    setSearch,
+    setActiveClientId,
+    setSortMode,
     markProjectOpened,
-    toggleProjectFavorite,
-    openAddClientDialog,
-    handleUseTemplateGlobally,
+    isCreateClientOpen,
+    openCreateClientModal,
+    closeCreateClientModal,
+    createClientName,
+    setCreateClientName,
+    createClientSlug: slugifyClientName(createClientName),
+    createClientError,
+    isCreatingClient,
+    submitCreateClient,
   };
 }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
 import { usePlatformActions, usePlatformPermission } from '../../../platform/runtime';
+import type { ClientWorkspace } from '../../../platform/types';
 import type { TopBarStudioSnapshot, WorkspaceController } from './top-bar-types';
 
 export function useWorkspaceController(snapshot: TopBarStudioSnapshot): WorkspaceController {
@@ -37,11 +38,12 @@ export function useWorkspaceController(snapshot: TopBarStudioSnapshot): Workspac
     platform.logout();
   }
 
-  async function handleCreateClient(nameOverride?: string): Promise<void> {
+  async function handleCreateClient(nameOverride?: string): Promise<ClientWorkspace | null> {
     const nextClientName = nameOverride ?? newClientName;
     const client = await platform.createClient(nextClientName);
-    if (!client) return;
+    if (!client) return null;
     setNewClientName('');
+    return client;
   }
 
   async function handleCreateBrand(): Promise<void> {

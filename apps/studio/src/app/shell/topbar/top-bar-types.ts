@@ -96,7 +96,7 @@ export type WorkspaceController = {
   inviteRole: 'editor' | 'reviewer';
   setInviteRole(value: 'editor' | 'reviewer'): void;
   handleActiveClientChange(clientId: string): Promise<void>;
-  handleCreateClient(nameOverride?: string): Promise<void>;
+  handleCreateClient(nameOverride?: string): Promise<ClientWorkspace | null>;
   handleCreateBrand(): Promise<void>;
   handleInviteMember(): Promise<void>;
   handleLogout(): void;
