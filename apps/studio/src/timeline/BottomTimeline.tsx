@@ -55,7 +55,9 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
     const previousUserSelect = document.body.style.userSelect;
     const previousCursor = document.body.style.cursor;
     document.body.style.userSelect = 'none';
-    document.body.style.cursor = drag.mode === 'playhead' ? 'ew-resize' : 'grabbing';
+    document.body.style.cursor = drag.mode === 'playhead' || drag.mode === 'trim-start' || drag.mode === 'trim-end'
+      ? 'ew-resize'
+      : 'grabbing';
 
     const snapTargets = snapEnabled
       ? buildTimelineSnapTargets(widgets, {

@@ -183,7 +183,7 @@ export function LayersSection({ controller }: { controller: LeftRailController }
 
       <div className="left-card left-card--section left-card-grid">
         <div className="meta-line meta-line--between meta-line--start">
-          <div className="content-min-w-0">
+          <div className="field-stack field-stack--tight content-min-w-0">
             <strong>Scenes</strong>
             <small className="muted">Select a scene to inspect its hierarchy here.</small>
           </div>
@@ -213,7 +213,7 @@ export function LayersSection({ controller }: { controller: LeftRailController }
 
       <div className="left-card left-card--section left-card-grid">
         <div className="meta-line meta-line--between meta-line--start">
-          <div className="content-min-w-0">
+          <div className="field-stack field-stack--tight content-min-w-0">
             <strong>{scene.name}</strong>
             <small className="muted">{visibleLayerIds.length} visible rows in the outline</small>
           </div>

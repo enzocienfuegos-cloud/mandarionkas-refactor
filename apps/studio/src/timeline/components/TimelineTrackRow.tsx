@@ -209,7 +209,7 @@ export function TimelineTrackRow({
         <button
           type="button"
           className="timeline-row-playhead"
-          aria-label={`Scrub playhead at ${formatTime(playheadMs)}`}
+          aria-label={`Scrub timeline position at ${formatTime(playheadMs)}`}
           onPointerDown={(event) => {
             event.preventDefault();
             event.stopPropagation();

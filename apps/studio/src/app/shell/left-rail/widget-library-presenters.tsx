@@ -3,8 +3,6 @@ import { clearWidgetLibraryDragPayload, createWidgetLibraryDragPayload, writeWid
 import type { WidgetDefinition } from '../../../widgets/registry/widget-definition';
 import { PlaceholderThumb } from '../../../widgets/registry/widget-thumbnails';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
-import { Button } from '../../../shared/ui/Button';
-import { IconButton } from '../../../shared/ui/IconButton';
 import { CATEGORY_COLOR } from './widget-library-category-colors';
 
 const CAPABILITY_PILLS: Array<{ key: keyof NonNullable<WidgetDefinition['capabilities']>; label: string }> = [
@@ -131,10 +129,6 @@ export function renderWidgetThumbnail(
   return <PlaceholderThumb category={widget.category} />;
 }
 
-function stopNestedDragInteraction(event: ReactPointerEvent<HTMLElement> | ReactMouseEvent<HTMLElement> | ReactDragEvent<HTMLElement>): void {
-  event.stopPropagation();
-}
-
 export function WidgetLibraryItemCard({
   widget,
   sectionLabel,
@@ -257,19 +251,6 @@ export function WidgetLibraryItemCard({
             <StudioIcon icon={StudioIcons.upload} size={14} />
           </span>
         ) : null}
-        <IconButton
-          variant="ghost"
-          size="sm"
-          className="widget-library-row__preview"
-          label={hasPreview ? `Preview ${widget.label}` : `View ${widget.label} details`}
-          icon={<StudioIcon icon={StudioIcons.eye} size={14} />}
-          onPointerDown={stopNestedDragInteraction}
-          onDragStart={(event) => event.preventDefault()}
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpenDetails();
-          }}
-        />
       </div>
     );
   }
@@ -381,22 +362,6 @@ export function WidgetLibraryItemCard({
             <div className="template-rail-card__hint widget-rail-card__hint">
               Click to add · drag to canvas
             </div>
-            {hasPreview ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="widget-library-card__detail-btn"
-                draggable={false}
-                onPointerDown={stopNestedDragInteraction}
-                onDragStart={(event) => event.preventDefault()}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onOpenDetails();
-                }}
-              >
-                Preview
-              </Button>
-            ) : null}
           </div>
         </div>
       </div>

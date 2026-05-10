@@ -2,7 +2,7 @@ import type { StudioTemplate } from '../../templates/library/types';
 import { Button } from '../../shared/ui/Button';
 import { getCanvasPresetById } from '../../domain/document/canvas-presets';
 
-type TemplateCardVariant = 'standard' | 'featured' | 'rail';
+type TemplateCardVariant = 'standard' | 'featured' | 'rail' | 'rail-list';
 type TemplatePreviewIntent = 'pan' | 'slide' | 'carousel' | 'pulse';
 
 const VERTICAL_LABELS: Record<StudioTemplate['metadata']['vertical'], string> = {
@@ -132,6 +132,58 @@ export function TemplateCard({
               </Button>
             </div>
           </div>
+        </div>
+      </article>
+    );
+  }
+
+  if (variant === 'rail-list') {
+    return (
+      <article
+        className={`template-rail-list ${template.metadata.featured ? 'is-featured' : ''}`.trim()}
+        data-preview-intent={previewIntent}
+      >
+        <div className="template-rail-list__media">
+          <div className="template-rail-list__media-visual">
+            {PreviewComponent
+              ? <PreviewComponent />
+              : template.metadata.thumbnail
+                ? <img src={template.metadata.thumbnail} alt="" loading="lazy" />
+                : (
+                  <div className="template-rail-card__placeholder">
+                    <span>{VERTICAL_LABELS[template.metadata.vertical]}</span>
+                    <strong>{template.metadata.name}</strong>
+                  </div>
+                )}
+          </div>
+        </div>
+        <div className="template-rail-list__main">
+          <div className="template-rail-list__header">
+            <h3>{template.metadata.name}</h3>
+            <div className="template-rail-list__eyebrows">
+              <span className="template-rail-card__eyebrow">
+                {VERTICAL_LABELS[template.metadata.vertical]}
+              </span>
+              {preset ? <span className="template-rail-card__tag">{preset.label}</span> : null}
+            </div>
+          </div>
+          <p>{template.metadata.description}</p>
+          <div className="template-rail-list__facts">
+            {template.metadata.sceneCount ? (
+              <span className="template-rail-card__capability">{template.metadata.sceneCount} scenes</span>
+            ) : null}
+            {template.metadata.featuredLabel ? (
+              <span className="template-rail-card__capability">{template.metadata.featuredLabel}</span>
+            ) : null}
+            {highlights.slice(0, 2).map((highlight) => (
+              <span key={highlight} className="template-rail-card__tag">{highlight}</span>
+            ))}
+          </div>
+        </div>
+        <div className="template-rail-list__actions">
+          <Button variant="ghost" size="sm" onClick={() => onUse?.(template.metadata.id)}>
+            Use
+          </Button>
         </div>
       </article>
     );

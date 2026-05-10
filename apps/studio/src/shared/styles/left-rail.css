@@ -492,6 +492,9 @@
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
 }
+.left-rail-templates__grid--list {
+  gap: var(--space-3);
+}
 .left-rail-templates .template-rail-card {
   min-width: 0;
   padding: 14px;
@@ -545,6 +548,28 @@
 }
 .left-rail-templates .template-rail-card__hint {
   max-width: 18ch;
+}
+.left-rail-templates .template-rail-card__media .template-preview--world-cup,
+.left-rail-templates .template-rail-list__media .template-preview--world-cup {
+  padding: var(--space-5);
+  gap: var(--space-3);
+}
+.left-rail-templates .template-rail-card__media .template-preview__headline,
+.left-rail-templates .template-rail-list__media .template-preview__headline {
+  font-size: var(--font-size-3xl);
+  line-height: 1.06;
+  max-width: 10ch;
+}
+.left-rail-templates .template-rail-card__media .template-preview__timer span,
+.left-rail-templates .template-rail-list__media .template-preview__timer span {
+  min-width: 44px;
+  min-height: 44px;
+  font-size: var(--font-size-2xl);
+}
+.left-rail-templates .template-rail-card__media .template-preview__cta,
+.left-rail-templates .template-rail-list__media .template-preview__cta {
+  min-height: 38px;
+  padding-inline: var(--space-5);
 }
 .left-rail-templates__empty {
   display: grid;
@@ -670,7 +695,7 @@
 
 .template-rail-card__media-visual > .template-preview {
   transform: scale(0.9);
-  transform-origin: center;
+  transform-origin: top center;
 }
 
 .widget-rail-card__media-visual > .widget-thumb-svg,
@@ -838,6 +863,155 @@
   flex-shrink: 0;
 }
 
+.template-rail-list {
+  display: grid;
+  grid-template-columns: minmax(88px, 104px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 12px;
+  border-radius: var(--radius-3xl);
+  border: 1px solid var(--border-subtle);
+  background:
+    radial-gradient(circle at top left, var(--accent-a-10), transparent 28%),
+    linear-gradient(180deg, var(--white-a-04), var(--bg-overlay-ghost)),
+    var(--gradient-card-warm);
+  transition:
+    transform var(--motion-duration-fast) var(--motion-ease-out),
+    border-color var(--motion-duration-base) var(--motion-ease-out),
+    background var(--motion-duration-base) var(--motion-ease-out),
+    box-shadow var(--motion-duration-base) var(--motion-ease-out);
+}
+
+.template-rail-list:hover,
+.template-rail-list:focus-within {
+  border-color: var(--border-accent-fuchsia);
+  background:
+    radial-gradient(circle at top left, var(--accent-a-16), transparent 30%),
+    linear-gradient(180deg, var(--white-a-06), var(--bg-overlay-low)),
+    var(--gradient-card-warm-hover);
+  box-shadow: 0 0 0 1px var(--accent-a-12), var(--shadow-fuchsia-soft);
+  transform: translateY(-1px);
+}
+
+.template-rail-list__media {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  aspect-ratio: 16 / 10;
+  min-height: 64px;
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--border-subtle);
+  background:
+    radial-gradient(circle at top left, var(--accent-a-16), transparent 32%),
+    radial-gradient(circle at 84% 18%, var(--accent-2-a-16), transparent 30%),
+    var(--bg-overlay-low);
+  box-shadow: inset 0 1px 0 var(--white-a-05);
+}
+
+.template-rail-list__media-visual {
+  width: 100%;
+  height: 100%;
+  transition:
+    transform var(--motion-duration-base) var(--motion-ease-out),
+    filter var(--motion-duration-base) var(--motion-ease-out);
+  animation: library-card-idle 6.4s ease-in-out infinite;
+  will-change: transform, filter;
+}
+
+.template-rail-list__media-visual > img,
+.template-rail-list__media-visual > * {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.template-rail-list__media-visual > img {
+  object-fit: cover;
+  object-position: center top;
+}
+
+.template-rail-list__media-visual > .template-preview {
+  transform: scale(0.82);
+  transform-origin: top center;
+}
+
+.template-rail-list__main {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.template-rail-list__header {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.template-rail-list__header h3,
+.template-rail-list__main p {
+  margin: 0;
+  min-width: 0;
+}
+
+.template-rail-list__header h3 {
+  font-size: var(--font-size-md);
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.template-rail-list__eyebrows,
+.template-rail-list__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.template-rail-list__main p {
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.template-rail-list__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.template-rail-list__actions .btn {
+  min-height: 30px;
+  padding-inline: var(--space-4);
+}
+
+.template-rail-list[data-preview-intent='pan']:hover .template-rail-list__media-visual,
+.template-rail-list[data-preview-intent='pan']:focus-within .template-rail-list__media-visual {
+  animation: widget-thumb-pan 1.8s ease-in-out infinite alternate;
+}
+
+.template-rail-list[data-preview-intent='slide']:hover .template-rail-list__media-visual,
+.template-rail-list[data-preview-intent='slide']:focus-within .template-rail-list__media-visual {
+  animation: widget-thumb-slide 1.25s ease-in-out infinite alternate;
+}
+
+.template-rail-list[data-preview-intent='carousel']:hover .template-rail-list__media-visual,
+.template-rail-list[data-preview-intent='carousel']:focus-within .template-rail-list__media-visual {
+  animation: widget-thumb-carousel 1.9s ease-in-out infinite;
+}
+
+.template-rail-list[data-preview-intent='pulse']:hover .template-rail-list__media-visual,
+.template-rail-list[data-preview-intent='pulse']:focus-within .template-rail-list__media-visual {
+  animation: widget-thumb-pulse 1.35s ease-in-out infinite;
+}
+
 .template-rail-card[data-preview-intent='pan'].is-preview-active .template-rail-card__media-visual,
 .template-rail-card[data-preview-intent='pan']:hover .template-rail-card__media-visual,
 .template-rail-card[data-preview-intent='pan']:focus-within .template-rail-card__media-visual {
@@ -987,6 +1161,19 @@
 @media (max-width: 768px) {
   .template-rail-card__body {
     grid-template-columns: 1fr;
+  }
+
+  .template-rail-list {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .template-rail-list__media {
+    max-width: 148px;
+  }
+
+  .template-rail-list__actions {
+    justify-content: flex-start;
   }
 
   .template-rail-card__copy p {
