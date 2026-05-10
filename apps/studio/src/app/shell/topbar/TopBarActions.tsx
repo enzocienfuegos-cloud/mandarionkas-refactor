@@ -173,6 +173,8 @@ export function TopBarActions({ controller, onOpenBrandKitDrawer }: { controller
   const saveLabel = formatSaveLabel(saveStatus, dirty);
   const exportTargetLabel = channelLabel(release.targetChannel);
   const packageModeLabel = state.document.canvasVariants.length > 1 ? 'Size set' : 'Single size';
+  const warningCount = controller.exportReadiness.preflight.summary.blockers
+    + controller.exportReadiness.preflight.summary.warnings;
   const exportSummaryTone = resolvedZipStatus === 'error'
     ? 'danger'
     : resolvedZipStatus === 'success'
@@ -198,12 +200,12 @@ export function TopBarActions({ controller, onOpenBrandKitDrawer }: { controller
       <Tooltip content={`${exportTargetLabel} · ${packageModeLabel}${exportSummaryDetail ? `\n${exportSummaryDetail}` : ''}`} placement="bottom">
         <button
           type="button"
-          className={`top-actions-pill top-actions-pill--${exportSummaryTone}`.trim()}
+          className={`top-actions-icon-button top-actions-icon-button--${exportSummaryTone}`.trim()}
           aria-label={`${exportSummaryTitle}. Click to open preflight.`}
           onClick={openPreflightPanel}
         >
-          <StudioIcon icon={getExportSummaryIcon(exportSummaryTone)} size={14} />
-          <span>{exportSummaryTitle}</span>
+          <StudioIcon icon={getExportSummaryIcon(exportSummaryTone)} size={16} />
+          {warningCount > 0 ? <span className="top-actions-icon-button__badge">{warningCount}</span> : null}
         </button>
       </Tooltip>
       <Button

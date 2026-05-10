@@ -48,6 +48,10 @@ export async function openEditor(page: Page): Promise<void> {
 }
 
 export async function addWidget(page: Page, widgetType: string): Promise<void> {
+  const widgetTrigger = page.getByRole('button', { name: /^Widget$/ });
+  await expect(widgetTrigger).toBeVisible();
+  await widgetTrigger.click();
+  await expect(page.locator('.top-widget-library-popover')).toBeVisible();
   await page.locator(`[data-widget-type="${widgetType}"]`).click();
   await page.waitForTimeout(150);
 }

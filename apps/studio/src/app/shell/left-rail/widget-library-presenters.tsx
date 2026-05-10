@@ -1,12 +1,10 @@
-import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
-import { CATEGORY_ORDER, type LeftRailController } from './use-left-rail-controller';
+import { type Dispatch, type SetStateAction } from 'react';
 import { clearWidgetLibraryDragPayload, createWidgetLibraryDragPayload, writeWidgetLibraryDragPayload } from '../../../canvas/stage/widget-library-drag';
+import type { WidgetDefinition } from '../../../widgets/registry/widget-definition';
 import { PlaceholderThumb } from '../../../widgets/registry/widget-thumbnails';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
-import { WIDGET_LIBRARY_GROUP_LABELS } from '../../../widgets/registry/widget-definition';
-import { SegmentedControl } from '../../../shared/ui/SegmentedControl';
 
-const CAPABILITY_PILLS: Array<{ key: keyof NonNullable<LeftRailController['filteredWidgets'][number]['capabilities']>; label: string }> = [
+const CAPABILITY_PILLS: Array<{ key: keyof NonNullable<WidgetDefinition['capabilities']>; label: string }> = [
   { key: 'isInteractive', label: 'Interactive' },
   { key: 'isMedia', label: 'Media' },
   { key: 'isContainer', label: 'Container' },
@@ -16,7 +14,7 @@ const CAPABILITY_PILLS: Array<{ key: keyof NonNullable<LeftRailController['filte
 ];
 
 export type WidgetCardDensity = 'compact' | 'cozy' | 'expanded';
-export type WidgetLibraryItem = LeftRailController['filteredWidgets'][number];
+export type WidgetLibraryItem = WidgetDefinition;
 
 export function getCapabilityPills(widget: WidgetLibraryItem): string[] {
   const pills = CAPABILITY_PILLS.filter((item) => widget.capabilities?.[item.key]).map((item) => item.label);
@@ -97,7 +95,7 @@ export function WidgetLibraryItemCard({
   previewWidgetType: string | null;
   setDraggingWidgetType: Dispatch<SetStateAction<string | null>>;
   setPreviewWidgetType: Dispatch<SetStateAction<string | null>>;
-  onCreate(widgetType: string): void;
+  onCreate(widgetType: WidgetLibraryItem['type']): void;
 }): JSX.Element {
   const metadataPills = getMetadataPills(widget);
   const capabilityPills = getCapabilityPills(widget);
@@ -207,14 +205,6 @@ export function WidgetLibraryItemCard({
         <div className="widget-library-card__thumb-stage">
           {renderWidgetThumbnail(widget, previewActive)}
         </div>
-        <div className="widget-library-card__thumb-overlay" aria-hidden="true">
-          <span>
-            {widget.renderLibraryPreview
-              ? (previewActive ? 'Preview live' : 'Hover for motion')
-              : ''}
-          </span>
-          <strong>{widget.recommendedSize?.label ?? sectionLabel}</strong>
-        </div>
       </div>
 
       <div className="widget-library-card__meta">
@@ -254,73 +244,6 @@ export function WidgetLibraryItemCard({
         <div className="widget-library-card__footer">
           <div className="widget-library-card__hint">Click to add · drag to canvas</div>
           <div className="widget-library-card__type">{previewActive ? 'Previewing' : 'Ready'}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function WidgetLibraryModal({
-  controller,
-  onClose,
-}: {
-  controller: LeftRailController;
-  onClose(): void;
-}): JSX.Element {
-  const [draggingWidgetType, setDraggingWidgetType] = useState<string | null>(null);
-  const [previewWidgetType, setPreviewWidgetType] = useState<string | null>(null);
-  const categoryOptions = [
-    { id: 'all' as const, label: 'All' },
-    ...CATEGORY_ORDER.map((item) => ({ id: item, label: WIDGET_LIBRARY_GROUP_LABELS[item], count: controller.counts[item] })),
-  ];
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape') onClose();
-    }
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
-
-  return (
-    <div className="asset-library-modal-shell" role="dialog" aria-modal="true" aria-label="Browse all widgets" onClick={onClose}>
-      <div className="widget-library-modal" onClick={(event) => event.stopPropagation()}>
-        <div className="asset-library-browser-header">
-          <strong>Browse all widgets</strong>
-          <span className="muted">Explore the full module catalog with full previews and metadata.</span>
-        </div>
-        <div className="widget-library-modal__body">
-          <div className="field-stack rail-search-stack widget-library-modal__filters">
-            <input aria-label="Search widgets" placeholder="Search modules, tags, intent..." value={controller.query} onChange={(event) => controller.setQuery(event.target.value)} />
-            <SegmentedControl options={categoryOptions} value={controller.category} onChange={controller.setCategory} ariaLabel="Widget categories" className="chip-row" />
-          </div>
-          {controller.groupedWidgets.map((section) => (
-            <section key={section.group} className="widget-library-section" aria-label={section.label}>
-              <div className="widget-library-section__head">
-                <div>
-                  <div className="left-title">Category</div>
-                  <strong className="widget-library-section__title">{section.label}</strong>
-                </div>
-                <div className="pill">{section.widgets.length}</div>
-              </div>
-              <div className="widget-library-grid widget-library-grid--expanded">
-                {section.widgets.map((widget) => (
-                  <WidgetLibraryItemCard
-                    key={widget.type}
-                    widget={widget}
-                    sectionLabel={section.label}
-                    density="expanded"
-                    draggingWidgetType={draggingWidgetType}
-                    previewWidgetType={previewWidgetType}
-                    setDraggingWidgetType={setDraggingWidgetType}
-                    setPreviewWidgetType={setPreviewWidgetType}
-                    onCreate={controller.widgetActions.createWidget}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
         </div>
       </div>
     </div>

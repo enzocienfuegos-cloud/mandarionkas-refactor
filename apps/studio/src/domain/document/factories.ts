@@ -130,10 +130,10 @@ export function createInitialUiState(): StudioState['ui'] {
     activeFeedSource: 'product',
     activeFeedRecordId: 'product_summer',
     activeProjectId: undefined,
-    activeLeftTab: 'widgets',
+    activeLeftTab: 'layers',
     stageBackdrop: 'dark',
     showStageRulers: true,
-    showWidgetBadges: true,
+    showWidgetBadges: false,
   };
 }
 

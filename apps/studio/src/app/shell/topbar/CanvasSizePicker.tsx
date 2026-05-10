@@ -18,7 +18,7 @@ const PRESET_CATEGORY_LABELS: Record<CanvasPreset['category'], string> = {
 };
 
 function formatCanvasLabel(preset: CanvasPreset | undefined, width: number, height: number): string {
-  if (!preset || preset.id === 'custom') return `Custom · ${width}×${height}`;
+  if (!preset || preset.id === 'custom') return `${width}×${height}`;
   return preset.label;
 }
 

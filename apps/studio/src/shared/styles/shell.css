@@ -1,6 +1,6 @@
 .studio-shell {
   display: grid;
-  --shell-left-w: 288px;
+  --shell-left-w: 240px;
   --shell-right-w: 328px;
   --shell-top-h: 64px;
   --shell-bottom-h: 260px;
@@ -209,7 +209,7 @@
 }
 @media (max-width: 1280px) {
   .studio-shell {
-    grid-template-columns: 264px minmax(0, 1fr) 304px;
+    grid-template-columns: 220px minmax(0, 1fr) 304px;
   }
 }
 .section label {

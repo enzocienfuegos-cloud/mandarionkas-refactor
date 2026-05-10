@@ -13,7 +13,6 @@ type StageFloatingToolbarProps = {
   sceneName: string;
   stageBackdrop: 'light' | 'gray' | 'dark';
   showStageRulers: boolean;
-  showWidgetBadges: boolean;
   editModeWireframe: boolean;
   zoom: number;
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -24,7 +23,6 @@ type StageFloatingToolbarProps = {
   onPreviousScene: () => void;
   onNextScene: () => void;
   onToggleRulers: () => void;
-  onToggleWidgetBadges: () => void;
   onToggleWireframe: () => void;
   onSetBackdrop: (tone: 'light' | 'gray' | 'dark') => void;
   onZoomOut: () => void;
@@ -39,7 +37,6 @@ export function StageFloatingToolbar({
   sceneName,
   stageBackdrop,
   showStageRulers,
-  showWidgetBadges,
   editModeWireframe,
   zoom,
   onPointerDown,
@@ -50,7 +47,6 @@ export function StageFloatingToolbar({
   onPreviousScene,
   onNextScene,
   onToggleRulers,
-  onToggleWidgetBadges,
   onToggleWireframe,
   onSetBackdrop,
   onZoomOut,
@@ -97,7 +93,6 @@ export function StageFloatingToolbar({
             onClick={onNextScene}
           />
           <Button variant="ghost" size="sm" className={showStageRulers ? 'is-active' : ''} aria-pressed={showStageRulers} iconBefore={<StudioIcon icon={StudioIcons.ruler} size={16} />} onClick={onToggleRulers}>Rulers</Button>
-          <Button variant="ghost" size="sm" className={showWidgetBadges ? 'is-active' : ''} aria-pressed={showWidgetBadges} iconBefore={<StudioIcon icon={StudioIcons.tag} size={16} />} onClick={onToggleWidgetBadges}>Badges</Button>
           <Button variant="ghost" size="sm" className={editModeWireframe ? 'is-active' : ''} aria-pressed={editModeWireframe} iconBefore={<StudioIcon icon={StudioIcons.boxes} size={16} />} onClick={onToggleWireframe}>Wireframe</Button>
           <div className="stage-backdrop-switch" aria-label="Canvas preview background">
             {(['light', 'gray', 'dark'] as const).map((tone) => (
@@ -131,7 +126,6 @@ export function StageFloatingToolbar({
         <>
           <span className="pill">Stage</span>
           <IconButton label="Toggle rulers" icon={<StudioIcon icon={StudioIcons.ruler} size={16} />} isActive={showStageRulers} pressed={showStageRulers} onClick={onToggleRulers} />
-          <IconButton label="Toggle badges" icon={<StudioIcon icon={StudioIcons.tag} size={16} />} isActive={showWidgetBadges} pressed={showWidgetBadges} onClick={onToggleWidgetBadges} />
           <IconButton label="Toggle wireframe mode (W)" icon={<StudioIcon icon={StudioIcons.boxes} size={16} />} isActive={editModeWireframe} pressed={editModeWireframe} onClick={onToggleWireframe} />
         </>
       )}

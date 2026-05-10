@@ -4,6 +4,7 @@ import { useTopBarController } from './topbar/use-top-bar-controller';
 import { IconButton } from '../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { TopBarCenterContent } from './topbar/TopBarCenterContent';
+import { WidgetLibraryDropdown } from './topbar/WidgetLibraryDropdown';
 
 type TopBarProps = {
   onOpenWorkspaceHub(): void;
@@ -29,6 +30,7 @@ export function TopBar({ onOpenWorkspaceHub, onOpenBrandKitDrawer }: TopBarProps
         <TopBarProjectName controller={controller} />
       </div>
       <div className="top-bar-center top-bar-center--ux">
+        <WidgetLibraryDropdown />
         <TopBarCenterContent controller={controller} />
       </div>
       <TopBarActions controller={controller} onOpenBrandKitDrawer={onOpenBrandKitDrawer} />

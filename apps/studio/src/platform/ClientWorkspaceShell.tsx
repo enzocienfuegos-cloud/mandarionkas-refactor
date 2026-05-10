@@ -18,7 +18,20 @@ type WorkspaceTab = 'templates' | 'projects' | 'folders' | 'brand-kit';
 const WORKSPACE_TABS: readonly WorkspaceTab[] = ['templates', 'projects', 'folders', 'brand-kit'];
 
 function buildClientWorkspaceFrameStyle(borderColor: string, aspectRatio: string): CSSProperties {
-  return { borderColor, aspectRatio };
+  return {
+    aspectRatio,
+    ['--brand-color' as string]: borderColor,
+  };
+}
+
+function getPresetIcon(presetId?: string) {
+  if (presetId?.includes('story') || presetId?.includes('vertical') || presetId?.includes('reel')) {
+    return StudioIcons.smartphone;
+  }
+  if (presetId?.includes('custom')) {
+    return StudioIcons.boxes;
+  }
+  return StudioIcons.library;
 }
 
 export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: ClientWorkspaceShellProps): JSX.Element {
@@ -214,9 +227,12 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
                       <span>Select</span>
                     </label>
                     <button className="workspace-project-preview" type="button" onClick={() => void handleOpen(project.id)}>
-                      <div className="workspace-project-frame" style={buildClientWorkspaceFrameStyle(`${brandColor}66`, aspectRatio)}>
-                        <div className="workspace-project-frame-label">{preset?.label ?? 'Saved project'}</div>
-                        <div className="workspace-project-frame-meta">{project.sceneCount ?? 1} scenes · {project.widgetCount ?? 0} widgets</div>
+                      <div className="workspace-project-thumb" style={buildClientWorkspaceFrameStyle(brandColor, aspectRatio)}>
+                        <div className="workspace-project-thumb__placeholder">
+                          <StudioIcon icon={getPresetIcon(preset?.id)} size={28} />
+                          <span>{preset?.label ?? 'Custom'}</span>
+                          <small>{project.sceneCount ?? 1} scenes · {project.widgetCount ?? 0} widgets</small>
+                        </div>
                       </div>
                     </button>
                     <div className="workspace-project-card__body">

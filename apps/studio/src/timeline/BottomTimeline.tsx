@@ -10,7 +10,7 @@ import { TimelineRuler } from './components/TimelineRuler';
 import { TimelineTrackList } from './components/TimelineTrackList';
 import { BASE_ROW_MS_TO_PX, MIN_WIDGET_DURATION_MS, ROW_GUTTER, buildRulerTicks, buildTimelineDisplayRows, clamp, getDisplayKeyframes, getDisplayTiming } from './timeline-utils';
 import type { TimelineDragState, TimelineWidget } from './types';
-import { usePlaybackMs } from '../hooks/use-playback-engine';
+import { usePlaybackMsThrottled } from '../hooks/use-playback-engine';
 
 export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeStart: (startY: number) => void; onToggleCollapse: () => void; }): JSX.Element {
   const [drag, setDrag] = useState<TimelineDragState>(null);
@@ -38,7 +38,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
       isPlaying: state.ui.isPlaying,
     };
   });
-  const playheadMs = usePlaybackMs(storePlayheadMs);
+  const playheadMs = usePlaybackMsThrottled(storePlayheadMs);
 
 
   const rowMsToPx = BASE_ROW_MS_TO_PX * timelineZoom;

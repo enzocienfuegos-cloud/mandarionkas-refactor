@@ -57,14 +57,6 @@ function IconButton({ label, danger = false, disabled = false, placeholder = fal
   );
 }
 
-function PlaceholderIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 12" />
-    </svg>
-  );
-}
-
 function supportsMediaAssetLibrary(widget: WidgetNode): boolean {
   const definition = getWidgetDefinition(widget.type);
   return Boolean(getCapability(definition, 'acceptsImageAsset') || getCapability(definition, 'acceptsVideoAsset'));
@@ -86,7 +78,6 @@ export const StageSelectionToolbar = forwardRef<HTMLDivElement, StageSelectionTo
   const style = {
     left: Math.round(position.x),
     top: Math.round(position.y),
-    '--selection-toolbar-pill-width': '140px',
   } as CSSProperties;
 
   const stopPropagation = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -94,7 +85,6 @@ export const StageSelectionToolbar = forwardRef<HTMLDivElement, StageSelectionTo
   };
   const definition = getWidgetDefinition(widget.type);
   const acceptsVideoAsset = Boolean(getCapability(definition, 'acceptsVideoAsset'));
-  const widgetSummary = `${Math.round(widget.frame.width)}×${Math.round(widget.frame.height)}`;
 
   return (
     <div
@@ -104,11 +94,6 @@ export const StageSelectionToolbar = forwardRef<HTMLDivElement, StageSelectionTo
       onPointerDown={stopPropagation}
       {...createStageInteractionProps(STAGE_INTERACTION.selectionToolbar)}
     >
-      <div className="stage-selection-summary" title={definition.renderLabel(widget)}>
-        <strong className="stage-selection-title">{widget.name}</strong>
-        <span className="pill stage-selection-pill">{definition.label}</span>
-        <small className="stage-selection-meta">{widgetSummary}</small>
-      </div>
       <IconButton label={widget.hidden ? 'Show widget' : 'Hide widget'} onClick={onToggleVisibility}>
         <StudioIcon icon={widget.hidden ? StudioIcons.eyeOff : StudioIcons.eye} size={14} />
       </IconButton>
@@ -124,16 +109,7 @@ export const StageSelectionToolbar = forwardRef<HTMLDivElement, StageSelectionTo
             <StudioIcon icon={StudioIcons.library} size={14} />
           </IconButton>
         </>
-      ) : (
-        <>
-          <IconButton label="" placeholder onClick={() => {}}>
-            <PlaceholderIcon />
-          </IconButton>
-          <IconButton label="" placeholder onClick={() => {}}>
-            <PlaceholderIcon />
-          </IconButton>
-        </>
-      )}
+      ) : null}
       <IconButton label="Send layer backward" onClick={onMoveBackward}>
         <StudioIcon icon={StudioIcons.arrowDownToLine} size={14} />
       </IconButton>

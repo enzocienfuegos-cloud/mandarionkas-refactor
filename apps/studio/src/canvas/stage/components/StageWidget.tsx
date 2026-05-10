@@ -7,6 +7,7 @@ import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interac
 import { isNativeStageDragWidgetType } from '../../../domain/document/widget-type-groups';
 
 const HANDLE_SIZE = 10;
+const showDebugWidgetTags = import.meta.env.DEV && import.meta.env.VITE_SHOW_WIDGET_TAGS === 'true';
 
 type StageWidgetProps = {
   node: WidgetNode;
@@ -89,7 +90,7 @@ export const StageWidget = memo(function StageWidget({
       <div className="stage-widget-content" style={widgetContentStyle}>
         {renderWidgetContents(node, { previewMode, playheadMs, sceneDurationMs, hovered, active, triggerWidgetAction, executeAction: onExecuteAction }, { wireframe: useWireframe })}
       </div>
-      {!previewMode && showBadge && !useWireframe ? <div className="edit-mode-label">{node.type} · {node.name}</div> : null}
+      {!previewMode && showBadge && !useWireframe && showDebugWidgetTags ? <div className="edit-mode-label">{node.type} · {node.name}</div> : null}
       {selected ? <SelectionOverlay primary={primary} onResizePointerDown={onResizePointerDown} /> : null}
     </div>
   );

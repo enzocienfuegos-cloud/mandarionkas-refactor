@@ -4,7 +4,6 @@ import { AssetLibrarySection } from './left-rail/AssetLibrarySection';
 import { CollaborationSection } from './left-rail/CollaborationSection';
 import { LayersSection } from './left-rail/LayersSection';
 import { StoryFlowSection } from './left-rail/StoryFlowSection';
-import { WidgetLibrarySection } from './left-rail/WidgetLibrarySection';
 import { useLeftRailController } from './left-rail/use-left-rail-controller';
 import { IconButton } from '../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
@@ -29,9 +28,8 @@ export function LeftRail({
       <div className="left-rail-panel-shell">
         <div className="left-rail-panel-head">
           <div>
-            <small className="left-title">Library</small>
+            <small className="left-title">Tools</small>
             <strong className="rail-heading">
-              {controller.activeLeftTab === 'widgets' ? 'Widgets' : null}
               {controller.activeLeftTab === 'layers' ? 'Layers' : null}
               {controller.activeLeftTab === 'assets' ? 'Assets' : null}
               {controller.activeLeftTab === 'flow' ? 'Flow' : null}
@@ -49,7 +47,6 @@ export function LeftRail({
           />
         </div>
         <div className="left-rail-panel">
-          {controller.activeLeftTab === 'widgets' ? <WidgetLibrarySection controller={controller} /> : null}
           {controller.activeLeftTab === 'layers' ? <LayersSection controller={controller} /> : null}
           {controller.activeLeftTab === 'assets' ? <AssetLibrarySection controller={controller} onOpenLibraryModal={onOpenAssetLibrary} /> : null}
           {controller.activeLeftTab === 'flow' ? <StoryFlowSection controller={controller} /> : null}

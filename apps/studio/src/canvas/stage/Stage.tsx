@@ -362,7 +362,6 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
         sceneName={scene.name}
         stageBackdrop={stageBackdrop}
         showStageRulers={showStageRulers}
-        showWidgetBadges={showWidgetBadges}
         editModeWireframe={editModeWireframe}
         zoom={zoom}
         onPointerDown={beginToolbarDrag}
@@ -373,7 +372,6 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
         onPreviousScene={() => sceneActions.previousScene()}
         onNextScene={() => sceneActions.nextScene()}
         onToggleRulers={() => uiActions.setStageRulers(!showStageRulers)}
-        onToggleWidgetBadges={() => uiActions.setWidgetBadgesVisibility(!showWidgetBadges)}
         onToggleWireframe={() => uiActions.setEditModeWireframe(!editModeWireframe)}
         onSetBackdrop={(tone) => uiActions.setStageBackdrop(tone)}
         onZoomOut={() => uiActions.setZoom(Math.max(ZOOM_MIN, zoom - 0.1))}

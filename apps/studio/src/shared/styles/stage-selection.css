@@ -38,20 +38,15 @@
 }
 
 .selection-mini-toolbar {
-  flex-wrap: wrap;
-  padding-inline: var(--space-1);
-  display: inline-grid;
-  grid-auto-flow: column;
-  grid-auto-columns: max-content;
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 5px;
-  border-radius: var(--radius-xl);
+  padding: var(--space-1);
+  border-radius: var(--radius-pill);
   background: var(--surface-shell-overlay-strong);
-  border: 1px solid var(--stroke-a-14);
-  box-shadow: 0 10px 22px var(--black-a-18);
-  backdrop-filter: blur(10px);
-  width: max-content;
+  border: 1px solid var(--border-emphasis);
+  box-shadow: var(--shadow-floating-base);
+  backdrop-filter: blur(8px);
 }
 .selection-mini-toolbar .ghost {
   min-height: 26px;
@@ -70,72 +65,17 @@
   z-index: var(--z-selection-toolbar);
   right: auto;
   bottom: auto;
-  display: grid;
-  grid-template-columns: var(--selection-toolbar-pill-width, 132px) repeat(8, 26px);
+  display: inline-flex;
   align-items: center;
-  justify-items: center;
-  gap: var(--space-2);
+  justify-content: center;
+  gap: var(--space-1);
   transform: translate(-50%, calc(-100% - 6px));
   transform-origin: bottom center;
   user-select: none;
   white-space: nowrap;
   pointer-events: auto;
-  max-width: none;
-  padding: 5px 6px;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--white-a-06);
-  background:
-    radial-gradient(circle at top left, var(--accent-a-12), transparent 36%),
-    radial-gradient(circle at 84% 18%, var(--accent-2-a-18), transparent 30%),
-    var(--surface-shell-overlay-strong);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 10px 22px var(--black-a-16);
   width: max-content;
   box-sizing: border-box;
-}
-
-.stage-selection-summary {
-  width: var(--selection-toolbar-pill-width, 132px);
-  display: grid;
-  gap: var(--space-1);
-}
-
-.stage-selection-title {
-  display: block;
-  text-align: center;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stage-selection-toolbar .pill {
-  min-height: 26px;
-  padding-inline: var(--space-4);
-  text-transform: none;
-  font-size: var(--font-size-2xs);
-  letter-spacing: .01em;
-}
-
-.stage-selection-pill {
-  width: var(--selection-toolbar-pill-width, 132px);
-  justify-content: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.stage-selection-meta {
-  display: block;
-  text-align: center;
-  color: var(--muted);
-  font-size: var(--font-size-3xs);
-  letter-spacing: .06em;
-  text-transform: uppercase;
 }
 
 .selection-mini-toolbar .icon-only {

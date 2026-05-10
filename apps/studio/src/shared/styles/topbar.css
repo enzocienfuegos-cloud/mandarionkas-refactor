@@ -223,6 +223,8 @@
 .top-bar-center--ux {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: var(--space-4);
   min-width: 0;
   flex: 1;
 }
@@ -237,7 +239,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-5);
+  gap: var(--space-4);
   min-width: 0;
   flex-wrap: nowrap;
 }

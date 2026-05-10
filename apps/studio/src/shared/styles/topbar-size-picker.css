@@ -16,9 +16,11 @@
 .top-size-picker__trigger {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-height: 34px;
-  padding: 0 var(--space-5);
+  min-width: 0;
+  max-width: 200px;
+  padding: 0 var(--space-3);
   border-radius: var(--radius-pill);
   border: 1px solid var(--stroke-a-24);
   background: var(--white-a-04);
@@ -26,7 +28,7 @@
 }
 
 .top-size-picker__label {
-  max-width: 184px;
+  max-width: 144px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

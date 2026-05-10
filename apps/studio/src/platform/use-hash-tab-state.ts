@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 function readHashState(): { path: string; params: URLSearchParams } {
   if (typeof window === 'undefined') {
@@ -21,12 +21,19 @@ export function useHashTabState<T extends string>(
   validTabs: readonly T[],
   defaultTab: T,
 ): [T, (tabId: T) => void] {
+  const routePathRef = useRef(routePath);
+  const validTabsRef = useRef(validTabs);
+  const defaultTabRef = useRef(defaultTab);
+  routePathRef.current = routePath;
+  validTabsRef.current = validTabs;
+  defaultTabRef.current = defaultTab;
+
   const readCurrentTab = useCallback((): T => {
     const { path, params } = readHashState();
-    if (path !== routePath) return defaultTab;
+    if (path !== routePathRef.current) return defaultTabRef.current;
     const candidate = params.get('tab');
-    return validTabs.includes(candidate as T) ? (candidate as T) : defaultTab;
-  }, [defaultTab, routePath, validTabs]);
+    return validTabsRef.current.includes(candidate as T) ? (candidate as T) : defaultTabRef.current;
+  }, []);
 
   const [activeTab, setActiveTabState] = useState<T>(readCurrentTab);
 
@@ -38,15 +45,15 @@ export function useHashTabState<T extends string>(
 
   useEffect(() => {
     setActiveTabState(readCurrentTab());
-  }, [readCurrentTab]);
+  }, [routePath, readCurrentTab]);
 
   const setActiveTab = useCallback((tabId: T) => {
     setActiveTabState(tabId);
     const { path, params } = readHashState();
-    if (path !== routePath) return;
+    if (path !== routePathRef.current) return;
     params.set('tab', tabId);
     writeHashState(path, params);
-  }, [routePath]);
+  }, []);
 
   return [activeTab, setActiveTab];
 }

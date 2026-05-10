@@ -16,16 +16,24 @@ export function useStageRuntimeController(args: {
   const [sceneTransitionActive, setSceneTransitionActive] = useState(false);
   const previousPlayheadRef = useRef(0);
   const previousSceneIdRef = useRef<string | undefined>(undefined);
+  const playheadMsRef = useRef(playheadMs);
+  const sceneActionsRef = useRef(sceneActions);
+  const timelineActionsRef = useRef(timelineActions);
+  const widgetActionsRef = useRef(widgetActions);
+  playheadMsRef.current = playheadMs;
+  sceneActionsRef.current = sceneActions;
+  timelineActionsRef.current = timelineActions;
+  widgetActionsRef.current = widgetActions;
 
   useEffect(() => {
     if (!scene.durationMs || !isPlaying) return;
 
     let rafId = 0;
     let lastTimestamp: number | null = null;
-    let lastSyncedMs = playheadMs;
-    let previousActionPlayheadMs = playheadMs;
+    let lastSyncedMs = playheadMsRef.current;
+    let previousActionPlayheadMs = playheadMsRef.current;
 
-    playbackEngine.setCurrentMs(playheadMs);
+    playbackEngine.setCurrentMs(playheadMsRef.current);
 
     const tick = (timestamp: number) => {
       if (lastTimestamp === null) {
@@ -40,25 +48,27 @@ export function useStageRuntimeController(args: {
       const nextTime = Math.round(playbackEngine.getCurrentMs() + elapsed);
       if (nextTime >= scene.durationMs) {
         playbackEngine.setCurrentMs(scene.durationMs);
+        playbackEngine.flushReact();
         const fullState = fullStateRef.current;
         const nextSceneId = resolveNextSceneId(fullState, fullState.document.selection.activeSceneId);
         if (nextSceneId && nextSceneId !== fullState.document.selection.activeSceneId) {
-          sceneActions.selectScene(nextSceneId);
-          timelineActions.setPlayhead(0);
+          sceneActionsRef.current.selectScene(nextSceneId);
+          timelineActionsRef.current.setPlayhead(0);
           playbackEngine.setCurrentMs(0);
+          playbackEngine.flushReact();
           return;
         }
-        timelineActions.setPlayhead(scene.durationMs);
-        timelineActions.setPlaying(false);
+        timelineActionsRef.current.setPlayhead(scene.durationMs);
+        timelineActionsRef.current.setPlaying(false);
         return;
       }
 
       playbackEngine.setCurrentMs(nextTime);
       const timelineEnterActions = getTimelineEnterActions(fullStateRef.current, nextTime, previousActionPlayheadMs);
-      timelineEnterActions.forEach((action) => widgetActions.executeAction(action.id));
+      timelineEnterActions.forEach((action) => widgetActionsRef.current.executeAction(action.id));
       previousActionPlayheadMs = nextTime;
       if (nextTime - lastSyncedMs >= playbackEngine.getSyncIntervalMs()) {
-        timelineActions.setPlayhead(nextTime);
+        timelineActionsRef.current.setPlayhead(nextTime);
         lastSyncedMs = nextTime;
       }
       rafId = requestAnimationFrame(tick);
@@ -67,18 +77,20 @@ export function useStageRuntimeController(args: {
     rafId = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(rafId);
-      timelineActions.setPlayhead(playbackEngine.getCurrentMs());
+      timelineActionsRef.current.setPlayhead(playbackEngine.getCurrentMs());
+      playbackEngine.flushReact();
     };
-  }, [fullStateRef, isPlaying, playheadMs, scene.durationMs, sceneActions, timelineActions, widgetActions]);
+  }, [fullStateRef, isPlaying, scene.durationMs]);
 
   useEffect(() => {
     if (isPlaying) return;
     const previous = previousPlayheadRef.current;
     const timelineEnterActions = getTimelineEnterActions(fullStateRef.current, playheadMs, previous);
-    timelineEnterActions.forEach((action) => widgetActions.executeAction(action.id));
+    timelineEnterActions.forEach((action) => widgetActionsRef.current.executeAction(action.id));
     previousPlayheadRef.current = playheadMs;
     playbackEngine.setCurrentMs(playheadMs);
-  }, [fullStateRef, isPlaying, playheadMs, widgetActions]);
+    playbackEngine.flushReact();
+  }, [fullStateRef, isPlaying, playheadMs]);
 
   useEffect(() => {
     const previousSceneId = previousSceneIdRef.current;
