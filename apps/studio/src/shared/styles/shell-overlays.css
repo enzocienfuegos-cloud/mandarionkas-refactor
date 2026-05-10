@@ -1,6 +1,7 @@
 .preflight-tray {
   position: fixed;
-  top: calc(var(--shell-top-h) + 14px);
+  top: auto;
+  bottom: calc(var(--shell-bottom-h) + 18px);
   right: calc(var(--shell-right-w) + 18px);
   z-index: var(--z-floating);
   display: grid;
@@ -361,6 +362,8 @@
 
 @media (max-width: 900px) {
   .preflight-tray {
+    top: auto;
+    bottom: 12px;
     right: 12px;
     left: 12px;
     justify-items: stretch;
