@@ -3,7 +3,7 @@ import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
 import { IconButton } from '../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { TimelineRowNameEditor } from './TimelineRowNameEditor';
-import { formatTime } from '../timeline-utils';
+import { clamp, formatTime } from '../timeline-utils';
 import type { TimelineDragState, TimelineDisplayRow } from '../types';
 
 function buildTimelineKeyframeStyle(left: number): CSSProperties {
@@ -18,6 +18,7 @@ export function TimelineTrackRow({
   rowMsToPx,
   trackWidth,
   snapGuideMs,
+  sceneDurationMs,
   onSelect,
   onToggleHidden,
   onToggleLocked,
@@ -25,6 +26,7 @@ export function TimelineTrackRow({
   onReorder,
   onToggleCollapse,
   onDragStart,
+  onScrubStart,
 }: {
   row: TimelineDisplayRow;
   selected: boolean;
@@ -33,6 +35,7 @@ export function TimelineTrackRow({
   rowMsToPx: number;
   trackWidth: number;
   snapGuideMs?: number;
+  sceneDurationMs: number;
   onSelect: (additive: boolean) => void;
   onToggleHidden: () => void;
   onToggleLocked: () => void;
@@ -40,6 +43,7 @@ export function TimelineTrackRow({
   onReorder: (direction: 'forward' | 'backward') => void;
   onToggleCollapse?: () => void;
   onDragStart: (drag: Exclude<TimelineDragState, null>) => void;
+  onScrubStart: (clientX: number, startMs: number) => void;
 }): JSX.Element {
   const { widget, timing, keyframes, depth, isGroup, childCount, isCollapsed } = row;
   const definition = getWidgetDefinition(widget.type);
@@ -55,6 +59,16 @@ export function TimelineTrackRow({
     '--timeline-bar-width': `${barWidth}px`,
     '--timeline-group-badge-left': `${barLeft + Math.min(barWidth + 10, 140)}px`,
   } as CSSProperties;
+
+  function scrubFromTrack(trackElement: HTMLDivElement, clientX: number): void {
+    const bounds = trackElement.getBoundingClientRect();
+    const nextMs = clamp(
+      Math.round((clientX - bounds.left) / Math.max(rowMsToPx, 0.0001)),
+      0,
+      sceneDurationMs,
+    );
+    onScrubStart(clientX, nextMs);
+  }
 
   return (
     <div
@@ -152,11 +166,11 @@ export function TimelineTrackRow({
             <IconButton
               variant="ghost"
               size="sm"
-              className="timeline-order-button"
+              className="timeline-order-button timeline-order-button--up"
               label="Bring forward"
               tooltipPlacement="bottom"
               tooltipDelay={220}
-              icon={<StudioIcon icon={StudioIcons.arrowUp} size={12} />}
+              icon={<StudioIcon icon={StudioIcons.chevronUp} size={12} />}
               onClick={(event) => {
                 event.stopPropagation();
                 onReorder('forward');
@@ -165,11 +179,11 @@ export function TimelineTrackRow({
             <IconButton
               variant="ghost"
               size="sm"
-              className="timeline-order-button"
+              className="timeline-order-button timeline-order-button--down"
               label="Send backward"
               tooltipPlacement="bottom"
               tooltipDelay={220}
-              icon={<StudioIcon icon={StudioIcons.arrowDown} size={12} />}
+              icon={<StudioIcon icon={StudioIcons.chevronDown} size={12} />}
               onClick={(event) => {
                 event.stopPropagation();
                 onReorder('backward');
@@ -179,8 +193,27 @@ export function TimelineTrackRow({
         </div>
       </div>
 
-      <div className="timeline-track">
-        <div className="timeline-row-playhead" />
+      <div
+        className="timeline-track"
+        onPointerDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          event.preventDefault();
+          event.stopPropagation();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          scrubFromTrack(event.currentTarget, event.clientX);
+        }}
+      >
+        <button
+          type="button"
+          className="timeline-row-playhead"
+          aria-label={`Scrub playhead at ${formatTime(playheadMs)}`}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            onScrubStart(event.clientX, playheadMs);
+          }}
+        />
         {snapGuideMs !== undefined ? <div className="timeline-snap-guide" /> : null}
         {keyframes.map((keyframe) => (
           <button

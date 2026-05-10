@@ -13,6 +13,7 @@ export function TimelineTrackList({
   rowMsToPx,
   trackWidth,
   snapGuideMs,
+  sceneDurationMs,
   collapsedGroupIds,
   selectedOnly,
   onSelectWidget,
@@ -22,6 +23,7 @@ export function TimelineTrackList({
   onReorderWidget,
   onToggleGroupCollapse,
   onDragStart,
+  onScrubStart,
 }: {
   scrollContainerRef: RefObject<HTMLDivElement>;
   displayedWidgets: TimelineDisplayRow[];
@@ -30,6 +32,7 @@ export function TimelineTrackList({
   rowMsToPx: number;
   trackWidth: number;
   snapGuideMs?: number;
+  sceneDurationMs: number;
   collapsedGroupIds: string[];
   selectedOnly: boolean;
   onSelectWidget: (widgetId: string, additive?: boolean) => void;
@@ -39,6 +42,7 @@ export function TimelineTrackList({
   onReorderWidget: (widgetId: string, direction: 'forward' | 'backward') => void;
   onToggleGroupCollapse: (widgetId: string) => void;
   onDragStart: (drag: Exclude<TimelineDragState, null>) => void;
+  onScrubStart: (clientX: number, startMs: number) => void;
 }): JSX.Element {
   const rowsRef = useRef<HTMLDivElement>(null);
   const virtualRows = useVirtualWindow(displayedWidgets, {
@@ -74,6 +78,7 @@ export function TimelineTrackList({
             rowMsToPx={rowMsToPx}
             trackWidth={trackWidth}
             snapGuideMs={snapGuideMs}
+            sceneDurationMs={sceneDurationMs}
             onSelect={(additive) => onSelectWidget(widget.id, additive)}
             onToggleHidden={() => onToggleWidgetHidden(widget.id)}
             onToggleLocked={() => onToggleWidgetLocked(widget.id)}
@@ -81,6 +86,7 @@ export function TimelineTrackList({
             onReorder={(direction) => onReorderWidget(widget.id, direction)}
             onToggleCollapse={row.isGroup ? () => onToggleGroupCollapse(widget.id) : undefined}
             onDragStart={onDragStart}
+            onScrubStart={onScrubStart}
           />
         );
       })}

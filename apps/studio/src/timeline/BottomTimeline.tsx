@@ -10,7 +10,7 @@ import { TimelineRuler } from './components/TimelineRuler';
 import { TimelineTrackList } from './components/TimelineTrackList';
 import { BASE_ROW_MS_TO_PX, MIN_WIDGET_DURATION_MS, ROW_GUTTER, buildRulerTicks, buildTimelineDisplayRows, clamp, getDisplayKeyframes, getDisplayTiming, getDynamicRulerStepMs } from './timeline-utils';
 import type { TimelineDragState, TimelineWidget } from './types';
-import { usePlaybackMsThrottled } from '../hooks/use-playback-engine';
+import { playbackEngine, usePlaybackMsThrottled } from '../hooks/use-playback-engine';
 import { useTimelinePlayhead } from './use-timeline-playhead';
 import { useTimelineZoom } from './use-timeline-zoom';
 
@@ -68,7 +68,10 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
       const deltaMs = Math.round((event.clientX - drag.originX) / rowMsToPx);
 
       if (drag.mode === 'playhead') {
-        timelineActions.setPlayhead(drag.startMs + deltaMs);
+        const nextMs = clamp(drag.startMs + deltaMs, 0, scene.durationMs);
+        playbackEngine.setCurrentMs(nextMs);
+        playbackEngine.flushReact();
+        timelineActions.setPlayhead(nextMs);
         return;
       }
 
@@ -210,6 +213,19 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
   const rulerTicks = buildRulerTicks(scene.durationMs, rulerStepMs, majorTickMs);
   const gridShellStyle = { '--timeline-grid-shell-width': `${ROW_GUTTER + trackWidth + 32}px` } as CSSProperties;
 
+  function seekPlayheadImmediate(nextMs: number): void {
+    uiActions.setPreviewMode(true);
+    timelineActions.setPlaying(false);
+    playbackEngine.setCurrentMs(nextMs);
+    playbackEngine.flushReact();
+    timelineActions.setPlayhead(nextMs);
+  }
+
+  function beginPlayheadDrag(clientX: number, startMs: number): void {
+    seekPlayheadImmediate(startMs);
+    setDrag({ mode: 'playhead', originX: clientX, startMs });
+  }
+
   return (
     <section className={`bottom-timeline ${isPlaying ? 'is-playing' : ''}`}>
       <TimelineHeader
@@ -247,7 +263,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
         displayedWidgets={displayedWidgets}
         selectedIds={selectedIds}
         sceneDurationMs={scene.durationMs}
-        onSeek={(ms) => timelineActions.setPlayhead(ms)}
+        onSeek={seekPlayheadImmediate}
       />
 
       <div ref={timelineScrollRef} className="timeline-scroll" onWheel={onWheel}>
@@ -257,10 +273,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
             rowMsToPx={rowMsToPx}
             trackWidth={trackWidth}
             snapGuideMs={snapGuideMs}
-            onPointerDown={(clientX, startMs) => {
-              timelineActions.setPlayhead(startMs);
-              setDrag({ mode: 'playhead', originX: clientX, startMs });
-            }}
+            onPointerDown={beginPlayheadDrag}
           />
           <TimelineTrackList
             scrollContainerRef={timelineScrollRef}
@@ -270,6 +283,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
             rowMsToPx={rowMsToPx}
             trackWidth={trackWidth}
             snapGuideMs={snapGuideMs}
+            sceneDurationMs={scene.durationMs}
             collapsedGroupIds={collapsedGroupIds}
             selectedOnly={selectedOnly}
             onSelectWidget={(widgetId, additive) => widgetActions.selectWidget(widgetId, additive)}
@@ -279,6 +293,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
             onReorderWidget={(widgetId, direction) => widgetActions.reorderWidget(widgetId, direction)}
             onToggleGroupCollapse={(widgetId) => setCollapsedGroupIds((current) => current.includes(widgetId) ? current.filter((id) => id !== widgetId) : [...current, widgetId])}
             onDragStart={(nextDrag) => setDrag(nextDrag)}
+            onScrubStart={beginPlayheadDrag}
           />
         </div>
       </div>
