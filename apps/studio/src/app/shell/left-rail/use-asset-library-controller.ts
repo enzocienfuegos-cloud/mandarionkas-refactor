@@ -77,6 +77,7 @@ export type AssetLibraryController = {
 
   // Actions
   handleCreateFolder: () => Promise<void>;
+  handleRenameFolder: (folderId: string, nextName: string) => Promise<void>;
   handleRenameActiveFolder: () => Promise<void>;
   handleDeleteActiveFolder: () => Promise<void>;
   handleDeleteSelected: () => Promise<void>;
@@ -240,10 +241,16 @@ export function useAssetLibraryController(
     if (!activeFolder || !assetController.canUpdateAssets || typeof window === 'undefined') return;
     const nextName = window.prompt('Rename folder', activeFolder.name)?.trim();
     if (!nextName || nextName === activeFolder.name) return;
+    await handleRenameFolder(activeFolder.id, nextName);
+  }
+
+  async function handleRenameFolder(folderId: string, nextName: string): Promise<void> {
+    const trimmed = nextName.trim();
+    if (!trimmed || !assetController.canUpdateAssets) return;
     setFolderBusy(true);
     setFolderError('');
     try {
-      const renamed = await renameAssetFolder(activeFolder.id, nextName);
+      const renamed = await renameAssetFolder(folderId, trimmed);
       if (!renamed) throw new Error('Could not rename folder.');
       setFolders((current) => current.map((f) => (f.id === renamed.id ? renamed : f)));
     } catch (error) {
@@ -370,6 +377,7 @@ export function useAssetLibraryController(
     selectedReprocessableCount,
     visibleReprocessableCount,
     handleCreateFolder,
+    handleRenameFolder,
     handleRenameActiveFolder,
     handleDeleteActiveFolder,
     handleDeleteSelected,

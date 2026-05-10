@@ -64,7 +64,7 @@ export function TimelineTrackList({
 
   return (
     <div ref={rowsRef} className="timeline-rows virtual-window-pad" data-collapsed-groups={collapsedGroupIds.length}>
-      {virtualRows.visibleItems.map(({ item: row }) => {
+      {virtualRows.visibleItems.map(({ item: row, index }) => {
         const { widget, timing } = row;
         const selected = selectedIds.includes(widget.id);
         const isActive = playheadMs >= timing.startMs && playheadMs <= timing.endMs;
@@ -72,6 +72,7 @@ export function TimelineTrackList({
           <TimelineTrackRow
             key={widget.id}
             row={row}
+            layerIndex={index}
             selected={selected}
             isActive={isActive}
             playheadMs={playheadMs}

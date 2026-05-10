@@ -64,6 +64,7 @@ export type LeftRailAssetsState = {
   resolveAssetPreviewUrl: (asset: AssetRecord) => string;
   refreshAssets: () => void;
   deleteAsset: (assetId: string) => Promise<void>;
+  renameAssetById: (assetId: string, name: string) => Promise<void>;
   renameSelectedAsset: (name: string) => Promise<void>;
   reprocessSelectedAsset: () => Promise<void>;
 };
@@ -312,11 +313,17 @@ export function useLeftRailAssets({
     refreshAssets();
   }
 
+  async function renameAssetById(assetId: string, name: string): Promise<void> {
+    const trimmed = name.trim();
+    if (!assetId || !trimmed || !canUpdateAssets) return;
+    await renameAsset(assetId, trimmed);
+    refreshAssets();
+  }
+
   async function renameSelectedAsset(name: string): Promise<void> {
     const trimmed = name.trim();
     if (!selectedAsset?.id || !trimmed || !canUpdateAssets) return;
-    await renameAsset(selectedAsset.id, trimmed);
-    refreshAssets();
+    await renameAssetById(selectedAsset.id, trimmed);
   }
 
   async function reprocessSelectedAsset(): Promise<void> {
@@ -372,6 +379,7 @@ export function useLeftRailAssets({
     resolveAssetPreviewUrl,
     refreshAssets,
     deleteAsset,
+    renameAssetById,
     renameSelectedAsset,
     reprocessSelectedAsset,
   };

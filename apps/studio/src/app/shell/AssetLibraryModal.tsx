@@ -59,8 +59,8 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
               </div>
 
               {lib.selectedAssetIds.length > 0 ? (
-                <div className="asset-bulk-actions">
-                  <strong className="asset-bulk-actions-title">Bulk actions</strong>
+                <div className="asset-bulk-bar">
+                  <span>{lib.selectedAssetIds.length} selected</span>
                   <select
                     value={lib.bulkTargetFolderId}
                     onChange={(e) => lib.setBulkTargetFolderId(e.target.value)}
@@ -74,8 +74,8 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
                       </option>
                     ))}
                   </select>
-                  <Button variant="ghost" size="sm" className="compact-action" disabled={lib.folderBusy} onClick={() => void lib.handleMoveSelectedToFolderChoice()}>Move selected</Button>
-                  <Button variant="ghost" size="sm" className="compact-action" disabled={!assetController.canDeleteAssets} onClick={() => void lib.handleDeleteSelected()}>Delete selected</Button>
+                  <Button variant="ghost" size="sm" className="compact-action" disabled={lib.folderBusy} onClick={() => void lib.handleMoveSelectedToFolderChoice()}>Move to…</Button>
+                  <Button variant="ghost" size="sm" className="compact-action" disabled={!assetController.canDeleteAssets} onClick={() => void lib.handleDeleteSelected()}>Delete</Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -83,9 +83,9 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
                     disabled={lib.selectedReprocessableCount === 0 || lib.folderBusy || !assetController.canUpdateAssets}
                     onClick={() => void lib.handleReprocessFailed()}
                   >
-                    Reprocess selected
+                    Reprocess
                   </Button>
-                  <Button variant="ghost" size="sm" className="compact-action" onClick={lib.clearSelection}>Clear selection</Button>
+                  <Button variant="ghost" size="sm" className="compact-action" onClick={lib.clearSelection}>Clear</Button>
                 </div>
               ) : (
                 <small className="muted asset-browser-inline-hint">

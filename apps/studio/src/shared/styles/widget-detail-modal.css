@@ -51,7 +51,7 @@
 }
 
 .widget-detail-preview--light {
-  background: linear-gradient(180deg, #dbe5f4, #edf2f8);
+  background: var(--widget-preview-canvas-light);
 }
 
 .widget-detail-preview-inner {

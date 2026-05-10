@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useLeftRailController } from './left-rail/use-left-rail-controller';
 import { useAssetLibraryController, formatAssetMeta, type FolderTreeNode } from './left-rail/use-asset-library-controller';
 import type { AssetRecord } from '../../assets/types';
@@ -16,8 +16,32 @@ function buildAssetModalUploadProgressStyle(progress: number): CSSProperties {
 
 function AssetThumb({ asset }: { asset: AssetRecord }): JSX.Element {
   if (asset.kind === 'image') return <img src={asset.src} alt={asset.name} className="asset-browser-thumb" draggable={false} />;
-  if (asset.kind === 'video') return <video src={asset.src} poster={asset.posterSrc} className="asset-browser-thumb" muted draggable={false} />;
+  if (asset.kind === 'video') return <video src={asset.src} poster={asset.posterSrc} className="asset-browser-thumb" muted playsInline preload="metadata" draggable={false} />;
   return <div className="asset-browser-thumb asset-browser-thumb--fallback">{asset.kind.toUpperCase()}</div>;
+}
+
+function AssetDetailMedia({
+  asset,
+  previewUrl,
+}: {
+  asset: AssetRecord;
+  previewUrl: string;
+}): JSX.Element {
+  if (asset.kind === 'video') {
+    return (
+      <video
+        className="asset-detail-video"
+        src={previewUrl}
+        poster={asset.posterSrc}
+        controls
+        muted
+        loop
+        playsInline
+      />
+    );
+  }
+
+  return <img className="asset-detail-img" src={previewUrl} alt={asset.name} />;
 }
 
 function FolderTreeItems({
@@ -247,6 +271,16 @@ export function AssetLibraryFoldersSection({
   assetController: AssetController;
   lib: AssetLibraryController;
 }): JSX.Element {
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState('');
+
+  async function commitFolderRename(folderId: string, originalName: string): Promise<void> {
+    const trimmed = editingFolderName.trim();
+    setEditingFolderId(null);
+    if (!trimmed || trimmed === originalName) return;
+    await lib.handleRenameFolder(folderId, trimmed);
+  }
+
   return (
     <div className="asset-library-browser-section">
       <div className="asset-library-browser-section-head">Folders</div>
@@ -291,7 +325,7 @@ export function AssetLibraryFoldersSection({
           <SurfaceButton
             key={folder.id}
             size="sm"
-            className={`asset-folder-card ${typeof folder.depth === 'number' && folder.depth > 0 ? 'asset-folder-card--depth' : ''} ${lib.activeFolderId === folder.id ? 'is-active' : ''}`}
+            className={`asset-folder-card ${typeof folder.depth === 'number' && folder.depth > 0 ? 'asset-folder-card--depth' : ''} ${lib.activeFolderId === folder.id ? 'is-active' : ''} ${editingFolderId === folder.id ? 'is-renaming' : ''}`}
             onClick={() => lib.setActiveFolderId(folder.id)}
             style={typeof folder.depth === 'number' && folder.depth > 0 ? { '--asset-folder-offset': `${folder.depth * 10}px` } as React.CSSProperties : undefined}
             onDragOver={(e) => { if (!lib.draggedAssetIds.length || folder.id.startsWith('project:')) return; e.preventDefault(); lib.setDragOverFolderId(folder.id); }}
@@ -300,7 +334,39 @@ export function AssetLibraryFoldersSection({
             data-drop-target={lib.dragOverFolderId === folder.id ? 'true' : 'false'}
           >
             <span className="asset-folder-icon"><StudioIcon icon={StudioIcons.folder} size={16} /></span>
-            <span className="asset-folder-name">{folder.name}</span>
+            {editingFolderId === folder.id ? (
+              <input
+                className="asset-rename-input"
+                value={editingFolderName}
+                autoFocus
+                onChange={(event) => setEditingFolderName(event.target.value)}
+                onClick={(event) => event.stopPropagation()}
+                onBlur={() => void commitFolderRename(folder.id, folder.name)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void commitFolderRename(folder.id, folder.name);
+                  }
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    setEditingFolderId(null);
+                    setEditingFolderName('');
+                  }
+                }}
+              />
+            ) : (
+              <span
+                className="asset-folder-name"
+                onDoubleClick={(event) => {
+                  if (!assetController.canUpdateAssets || folder.id.startsWith('project:')) return;
+                  event.stopPropagation();
+                  setEditingFolderId(folder.id);
+                  setEditingFolderName(folder.name);
+                }}
+              >
+                {folder.name}
+              </span>
+            )}
           </SurfaceButton>
         ))}
         {!lib.folderCards.length ? <div className="asset-browser-empty">No project folders yet.</div> : null}
@@ -318,6 +384,17 @@ export function AssetLibraryFilesSection({
   lib: AssetLibraryController;
   onClose: () => void;
 }): JSX.Element {
+  const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
+  const [editingAssetName, setEditingAssetName] = useState('');
+  const selectedAsset = assetController.selectedAsset;
+
+  async function commitAssetRename(assetId: string, originalName: string): Promise<void> {
+    const trimmed = editingAssetName.trim();
+    setEditingAssetId(null);
+    if (!trimmed || trimmed === originalName) return;
+    await assetController.renameAssetById(assetId, trimmed);
+  }
+
   return (
     <div className="asset-library-browser-section">
       <div className="asset-library-browser-section-head">Files</div>
@@ -335,7 +412,24 @@ export function AssetLibraryFilesSection({
       {lib.dragActive ? (
         <div className="asset-browser-drop-hint">Drop images, videos, or fonts anywhere in this modal to upload them.</div>
       ) : null}
-      <div className="asset-browser-grid">
+      {selectedAsset ? (
+        <div className="asset-detail-card">
+          <div className="meta-line asset-detail-head">
+            <div className="asset-detail-title">
+              <strong>{selectedAsset.name}</strong>
+              <small>{formatAssetMeta(selectedAsset)}</small>
+            </div>
+            <div className="asset-tile-badges">
+              <span className="pill">{selectedAsset.kind}</span>
+              {selectedAsset.folderId ? <span className="pill">folder</span> : <span className="pill">root</span>}
+            </div>
+          </div>
+          <div className="asset-detail-preview">
+            <AssetDetailMedia asset={selectedAsset} previewUrl={assetController.resolveAssetPreviewUrl(selectedAsset)} />
+          </div>
+        </div>
+      ) : null}
+      <div className={`asset-browser-grid ${lib.selectedAssetIds.length > 0 ? 'is-selecting' : ''}`.trim()}>
         {lib.pageAssets.map((asset) => {
           const isSelected = lib.selectedAssetIds.includes(asset.id);
           return (
@@ -344,7 +438,7 @@ export function AssetLibraryFilesSection({
               role="button"
               tabIndex={0}
               draggable={asset.kind === 'image' || asset.kind === 'video'}
-              className={`asset-browser-card ${isSelected ? 'is-selected' : ''} ${(asset.kind === 'image' || asset.kind === 'video') ? 'is-draggable' : ''}`}
+              className={`asset-browser-card ${isSelected ? 'is-selected' : ''} ${editingAssetId === asset.id ? 'is-renaming' : ''} ${(asset.kind === 'image' || asset.kind === 'video') ? 'is-draggable' : ''}`}
               onClick={(e) => lib.toggleAssetSelection(asset.id, e.metaKey || e.ctrlKey, e.shiftKey)}
               onDoubleClick={() => {
                 assetController.setSelectedAssetId(asset.id);
@@ -362,24 +456,52 @@ export function AssetLibraryFilesSection({
               onDragStart={(e) => lib.handleDragStart(e, asset)}
               onDragEnd={lib.handleDragEnd}
             >
-              <div className="meta-line asset-browser-card-head">
-                <label className="checkbox-row checkbox-row--flush">
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      lib.toggleAssetSelection(asset.id, true);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <span className="muted asset-browser-select-copy">Select</span>
-                </label>
-                {isSelected ? <span className="pill">Selected</span> : null}
-              </div>
+              <button
+                type="button"
+                className="asset-browser-card__check"
+                aria-checked={isSelected}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  lib.toggleAssetSelection(asset.id, true);
+                }}
+              >
+                <StudioIcon icon={StudioIcons.check} size={12} />
+              </button>
               <div className="asset-browser-media"><AssetThumb asset={asset} /></div>
               <div className="asset-browser-meta">
-                <strong title={asset.name}>{asset.name}</strong>
+                {editingAssetId === asset.id ? (
+                  <input
+                    className="asset-rename-input"
+                    value={editingAssetName}
+                    autoFocus
+                    onChange={(event) => setEditingAssetName(event.target.value)}
+                    onClick={(event) => event.stopPropagation()}
+                    onBlur={() => void commitAssetRename(asset.id, asset.name)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        void commitAssetRename(asset.id, asset.name);
+                      }
+                      if (event.key === 'Escape') {
+                        event.preventDefault();
+                        setEditingAssetId(null);
+                        setEditingAssetName('');
+                      }
+                    }}
+                  />
+                ) : (
+                  <strong
+                    title={asset.name}
+                    onDoubleClick={(event) => {
+                      if (!assetController.canUpdateAssets) return;
+                      event.stopPropagation();
+                      setEditingAssetId(asset.id);
+                      setEditingAssetName(asset.name);
+                    }}
+                  >
+                    {asset.name}
+                  </strong>
+                )}
                 <small>{formatAssetMeta(asset)}</small>
               </div>
             </div>

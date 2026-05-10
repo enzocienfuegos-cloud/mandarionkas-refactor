@@ -203,13 +203,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--ink-strong);
+  color: var(--layer-bar-text, rgba(232, 240, 255, 0.97));
   font-weight: 700;
   top: 8px;
   height: 22px;
   touch-action: none;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, var(--bg-selected-bright), var(--accent-2-a-92));
+  background: var(--layer-bar-bg, linear-gradient(90deg, var(--bg-selected-bright), var(--accent-2-a-92)));
   font-size: var(--font-size-2xs);
   letter-spacing: .01em;
   box-shadow: 0 10px 24px var(--black-a-15);
@@ -224,6 +224,7 @@
   justify-items: center;
   text-align: center;
   width: 100%;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -233,6 +234,7 @@
 .timeline-bar-label strong,
 .timeline-bar-label em {
   max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -342,4 +344,17 @@
   box-shadow: 0 0 0 1px var(--black-a-25);
   width: 2px;
   background: linear-gradient(180deg, var(--white-a-95), var(--white-a-55));
+}
+
+.timeline-row[data-layer-index="0"] { --layer-bar-bg: var(--layer-0-bar-bg); --layer-bar-text: var(--layer-0-bar-text); }
+.timeline-row[data-layer-index="1"] { --layer-bar-bg: var(--layer-1-bar-bg); --layer-bar-text: var(--layer-1-bar-text); }
+.timeline-row[data-layer-index="2"] { --layer-bar-bg: var(--layer-2-bar-bg); --layer-bar-text: var(--layer-2-bar-text); }
+.timeline-row[data-layer-index="3"] { --layer-bar-bg: var(--layer-3-bar-bg); --layer-bar-text: var(--layer-3-bar-text); }
+.timeline-row[data-layer-index="4"] { --layer-bar-bg: var(--layer-4-bar-bg); --layer-bar-text: var(--layer-4-bar-text); }
+.timeline-row[data-layer-index="5"] { --layer-bar-bg: var(--layer-5-bar-bg); --layer-bar-text: var(--layer-5-bar-text); }
+.timeline-row[data-layer-index="6"] { --layer-bar-bg: var(--layer-6-bar-bg); --layer-bar-text: var(--layer-6-bar-text); }
+.timeline-row[data-layer-index="7"] { --layer-bar-bg: var(--layer-7-bar-bg); --layer-bar-text: var(--layer-7-bar-text); }
+
+.timeline-row[data-layer-index] .timeline-bar {
+  color: var(--layer-bar-text, rgba(232, 240, 255, 0.97));
 }

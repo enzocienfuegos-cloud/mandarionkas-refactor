@@ -57,4 +57,37 @@
    * Canonical size for single/two-letter client initials in avatars.
    * ─────────────────────────────────────────────────────────────────────── */
   --platform-avatar-initials-size: var(--font-size-sm);
+
+  /* ─── Timeline layer color palette ────────────────────────────────────────
+   * 8 colors for distinct timeline layers. Assigned via data-layer-index.
+   * ─────────────────────────────────────────────────────────────────────── */
+  --layer-0-bar-bg: linear-gradient(90deg, rgba(37, 99, 235, 0.92), rgba(111, 60, 255, 0.88));
+  --layer-0-bar-text: rgba(232, 240, 255, 0.97);
+
+  --layer-1-bar-bg: linear-gradient(90deg, rgba(6, 182, 212, 0.88), rgba(37, 99, 235, 0.82));
+  --layer-1-bar-text: rgba(220, 248, 255, 0.97);
+
+  --layer-2-bar-bg: linear-gradient(90deg, rgba(139, 92, 246, 0.88), rgba(196, 73, 232, 0.82));
+  --layer-2-bar-text: rgba(240, 225, 255, 0.97);
+
+  --layer-3-bar-bg: linear-gradient(90deg, rgba(16, 185, 129, 0.85), rgba(6, 182, 212, 0.80));
+  --layer-3-bar-text: rgba(210, 252, 238, 0.97);
+
+  --layer-4-bar-bg: linear-gradient(90deg, rgba(245, 158, 11, 0.85), rgba(239, 68, 68, 0.75));
+  --layer-4-bar-text: rgba(255, 240, 200, 0.97);
+
+  --layer-5-bar-bg: linear-gradient(90deg, rgba(239, 68, 68, 0.82), rgba(245, 158, 11, 0.78));
+  --layer-5-bar-text: rgba(255, 228, 228, 0.97);
+
+  --layer-6-bar-bg: linear-gradient(90deg, rgba(20, 184, 166, 0.85), rgba(16, 185, 129, 0.80));
+  --layer-6-bar-text: rgba(210, 250, 245, 0.97);
+
+  --layer-7-bar-bg: linear-gradient(90deg, rgba(148, 163, 184, 0.65), rgba(100, 116, 139, 0.60));
+  --layer-7-bar-text: rgba(226, 232, 240, 0.95);
+
+  /* ─── Widget detail preview canvas ─────────────────────────────────────── */
+  --widget-preview-canvas-light-top: #dbe5f4;
+  --widget-preview-canvas-light-bottom: #edf2f8;
+  --widget-preview-canvas-light:
+    linear-gradient(180deg, var(--widget-preview-canvas-light-top), var(--widget-preview-canvas-light-bottom));
 }

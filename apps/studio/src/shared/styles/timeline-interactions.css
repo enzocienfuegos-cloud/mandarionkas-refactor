@@ -158,12 +158,13 @@
 }
 
 .timeline-row-meta-top {
-  padding-right: 40px;
+  padding-right: var(--space-2);
 }
 
 .timeline-row-meta-bottom {
+  justify-content: space-between;
   padding-left: var(--space-2);
-  padding-right: var(--space-4);
+  padding-right: var(--space-2);
 }
 
 .timeline-row-meta-stack {
@@ -233,9 +234,7 @@
 }
 
 .timeline-row-order-actions {
-  position: absolute;
-  top: 5px;
-  right: 6px;
+  position: static;
   display: flex;
   gap: var(--space-1);
   padding: 2px;
@@ -246,6 +245,7 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity  var(--motion-fast) ease;
+  flex-shrink: 0;
 }
 
 .timeline-row:hover .timeline-row-order-actions,

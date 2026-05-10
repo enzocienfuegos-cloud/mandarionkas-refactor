@@ -12,6 +12,7 @@ function buildTimelineKeyframeStyle(left: number): CSSProperties {
 
 export function TimelineTrackRow({
   row,
+  layerIndex,
   selected,
   isActive,
   playheadMs,
@@ -29,6 +30,7 @@ export function TimelineTrackRow({
   onScrubStart,
 }: {
   row: TimelineDisplayRow;
+  layerIndex: number;
   selected: boolean;
   isActive: boolean;
   playheadMs: number;
@@ -82,6 +84,7 @@ export function TimelineTrackRow({
         depth ? 'is-nested' : '',
         isGroup ? 'is-group-row' : '',
       ].filter(Boolean).join(' ')}
+      data-layer-index={String(layerIndex % 8)}
       style={rowStyle}
       onClick={(event) => onSelect(event.shiftKey || event.metaKey || event.ctrlKey)}
     >
