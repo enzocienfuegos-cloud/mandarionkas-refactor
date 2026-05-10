@@ -9,7 +9,6 @@ export function TimelineRuler({
   rulerTicks,
   rowMsToPx,
   trackWidth,
-  playheadLeft,
   playheadMs,
   snapGuideMs,
   onPointerDown,
@@ -17,7 +16,6 @@ export function TimelineRuler({
   rulerTicks: Array<{ atMs: number; isMajor: boolean }>;
   rowMsToPx: number;
   trackWidth: number;
-  playheadLeft: number;
   playheadMs: number;
   snapGuideMs?: number;
   onPointerDown: (clientX: number, startMs: number) => void;
@@ -25,7 +23,6 @@ export function TimelineRuler({
   const rulerStyle = {
     '--timeline-ruler-left': `${ROW_GUTTER}px`,
     '--timeline-track-width': `${trackWidth}px`,
-    '--timeline-playhead-left': `${playheadLeft}px`,
     '--timeline-snap-guide-left': snapGuideMs !== undefined ? `${snapGuideMs * rowMsToPx}px` : undefined,
   } as CSSProperties;
 
@@ -41,7 +38,9 @@ export function TimelineRuler({
         </div>
       ))}
       {snapGuideMs !== undefined ? <div className="timeline-snap-guide" /> : null}
-      <div className="timeline-playhead" />
+      <div className="timeline-playhead">
+        <span className="timeline-playhead-cap" />
+      </div>
     </div>
   );
 }

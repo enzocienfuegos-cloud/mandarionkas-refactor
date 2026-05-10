@@ -15,7 +15,6 @@ export function TimelineTrackRow({
   selected,
   isActive,
   playheadMs,
-  playheadLeft,
   rowMsToPx,
   trackWidth,
   snapGuideMs,
@@ -31,7 +30,6 @@ export function TimelineTrackRow({
   selected: boolean;
   isActive: boolean;
   playheadMs: number;
-  playheadLeft: number;
   rowMsToPx: number;
   trackWidth: number;
   snapGuideMs?: number;
@@ -52,7 +50,6 @@ export function TimelineTrackRow({
   const rowStyle = {
     '--timeline-meta-indent': `${metaIndent}px`,
     '--timeline-track-width': `${trackWidth}px`,
-    '--timeline-playhead-left': `${playheadLeft}px`,
     '--timeline-snap-guide-left': snapGuideMs !== undefined ? `${snapGuideMs * rowMsToPx}px` : undefined,
     '--timeline-bar-left': `${barLeft}px`,
     '--timeline-bar-width': `${barWidth}px`,
@@ -189,7 +186,7 @@ export function TimelineTrackRow({
           <button
             key={keyframe.id}
             type="button"
-            className="timeline-keyframe-dot"
+            className={`timeline-keyframe-dot property-${keyframe.property}`.trim()}
             aria-label={`${keyframe.property} at ${keyframe.atMs} milliseconds with ${keyframe.easing ?? 'linear'} easing`}
             style={buildTimelineKeyframeStyle(keyframe.atMs * rowMsToPx)}
             onPointerDown={(event) => {

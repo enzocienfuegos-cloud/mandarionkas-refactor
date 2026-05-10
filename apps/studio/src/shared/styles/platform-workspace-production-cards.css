@@ -1,3 +1,10 @@
+.client-workspace-banner-grid,
+.client-workspace-banner-list {
+  --client-workspace-status-draft-text: #d9ccff;
+  --client-workspace-status-review-text: #ffe2a5;
+  --client-workspace-status-live-text: #bff8dd;
+}
+
 .client-workspace-banner-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -280,20 +287,20 @@
 .client-workspace-inline-status--draft {
   border-color: rgba(111, 60, 255, 0.34);
   background: rgba(111, 60, 255, 0.14);
-  color: #d9ccff;
+  color: var(--client-workspace-status-draft-text);
 }
 
 .client-workspace-inline-status--qa,
 .client-workspace-inline-status--review {
   border-color: rgba(245, 158, 11, 0.45);
   background: rgba(232, 179, 74, 0.16);
-  color: #ffe2a5;
+  color: var(--client-workspace-status-review-text);
 }
 
 .client-workspace-inline-status--live {
   border-color: rgba(86, 196, 126, 0.34);
   background: rgba(86, 196, 126, 0.14);
-  color: #bff8dd;
+  color: var(--client-workspace-status-live-text);
 }
 
 .client-workspace-empty-state {

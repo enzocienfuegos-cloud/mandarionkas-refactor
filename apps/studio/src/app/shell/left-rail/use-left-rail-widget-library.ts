@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { readScopedStorageItem, writeScopedStorageItem } from '../../../shared/browser/storage';
 import { listWidgetDefinitions } from '../../../widgets/registry/widget-registry';
 import {
   WIDGET_LIBRARY_GROUP_LABELS,
@@ -9,12 +10,22 @@ import {
 
 export const CATEGORY_ORDER = WIDGET_LIBRARY_GROUP_ORDER;
 export type CategoryFilter = 'all' | WidgetLibraryGroup;
+export type WidgetCardDensity = 'compact' | 'cozy' | 'expanded';
+
+const DENSITY_KEY = 'smx:widget-library:density';
+
+function readStoredDensity(): WidgetCardDensity {
+  const stored = readScopedStorageItem(DENSITY_KEY, 'cozy', 'persistent');
+  return stored === 'compact' || stored === 'cozy' || stored === 'expanded' ? stored : 'cozy';
+}
 
 export type LeftRailWidgetLibraryState = {
   query: string;
   setQuery: React.Dispatch<React.SetStateAction<string>>;
   category: CategoryFilter;
   setCategory: React.Dispatch<React.SetStateAction<CategoryFilter>>;
+  density: WidgetCardDensity;
+  setDensity: React.Dispatch<React.SetStateAction<WidgetCardDensity>>;
   widgets: WidgetDefinition[];
   filteredWidgets: WidgetDefinition[];
   groupedWidgets: Array<{ group: WidgetLibraryGroup; label: string; widgets: WidgetDefinition[] }>;
@@ -45,7 +56,12 @@ export function groupWidgetsByLibraryGroup(widgets: WidgetDefinition[]): Array<{
 export function useLeftRailWidgetLibrary(): LeftRailWidgetLibraryState {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('all');
+  const [density, setDensity] = useState<WidgetCardDensity>(readStoredDensity);
   const widgets = listWidgetDefinitions();
+
+  useEffect(() => {
+    writeScopedStorageItem(DENSITY_KEY, density, 'persistent');
+  }, [density]);
 
   const filteredWidgets = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -79,6 +95,8 @@ export function useLeftRailWidgetLibrary(): LeftRailWidgetLibraryState {
     setQuery,
     category,
     setCategory,
+    density,
+    setDensity,
     widgets,
     filteredWidgets,
     groupedWidgets,

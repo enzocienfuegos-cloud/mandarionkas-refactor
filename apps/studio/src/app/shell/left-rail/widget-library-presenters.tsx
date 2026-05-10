@@ -1,8 +1,11 @@
-import { type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useRef, type CSSProperties, type Dispatch, type SetStateAction } from 'react';
 import { clearWidgetLibraryDragPayload, createWidgetLibraryDragPayload, writeWidgetLibraryDragPayload } from '../../../canvas/stage/widget-library-drag';
 import type { WidgetDefinition } from '../../../widgets/registry/widget-definition';
+import { WIDGET_LIBRARY_GROUP_LABELS } from '../../../widgets/registry/widget-definition';
 import { PlaceholderThumb } from '../../../widgets/registry/widget-thumbnails';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
+import { Button } from '../../../shared/ui/Button';
+import { CATEGORY_COLOR } from './widget-library-category-colors';
 
 const CAPABILITY_PILLS: Array<{ key: keyof NonNullable<WidgetDefinition['capabilities']>; label: string }> = [
   { key: 'isInteractive', label: 'Interactive' },
@@ -13,7 +16,6 @@ const CAPABILITY_PILLS: Array<{ key: keyof NonNullable<WidgetDefinition['capabil
   { key: 'hasVideoAnalytics', label: 'Analytics' },
 ];
 
-export type WidgetCardDensity = 'compact' | 'cozy' | 'expanded';
 export type WidgetLibraryItem = WidgetDefinition;
 
 export function getCapabilityPills(widget: WidgetLibraryItem): string[] {
@@ -60,7 +62,19 @@ function getCapabilityIcon(label: string) {
   }
 }
 
-function renderWidgetThumbnail(widget: WidgetLibraryItem, previewActive: boolean): JSX.Element {
+export function renderWidgetThumbnail(
+  widget: WidgetLibraryItem,
+  previewActive: boolean,
+  preferWireframe = false,
+): JSX.Element {
+  if (preferWireframe && widget.renderWireframe) {
+    return (
+      <div className="widget-library-wireframe-thumb">
+        {widget.renderWireframe(widget.defaults('preview-scene', 0), { previewMode: false, playheadMs: 0, sceneDurationMs: 15000, hovered: false, active: false, triggerWidgetAction: () => undefined, executeAction: () => undefined })}
+      </div>
+    );
+  }
+
   if (previewActive && widget.renderLibraryPreview) {
     const LibraryPreview = widget.renderLibraryPreview;
     return <LibraryPreview />;
@@ -87,19 +101,43 @@ export function WidgetLibraryItemCard({
   setDraggingWidgetType,
   setPreviewWidgetType,
   onCreate,
+  onOpenDetails,
 }: {
   widget: WidgetLibraryItem;
   sectionLabel: string;
-  density: WidgetCardDensity;
+  density: 'compact' | 'cozy' | 'expanded';
   draggingWidgetType: string | null;
   previewWidgetType: string | null;
   setDraggingWidgetType: Dispatch<SetStateAction<string | null>>;
   setPreviewWidgetType: Dispatch<SetStateAction<string | null>>;
   onCreate(widgetType: WidgetLibraryItem['type']): void;
+  onOpenDetails(): void;
 }): JSX.Element {
   const metadataPills = getMetadataPills(widget);
   const capabilityPills = getCapabilityPills(widget);
   const previewActive = previewWidgetType === widget.type;
+  const longPressTimerRef = useRef<number | null>(null);
+  const suppressClickRef = useRef(false);
+  const group = widget.libraryGroup ?? 'essentials';
+  const category = CATEGORY_COLOR[group];
+  const cardStyle = {
+    '--widget-library-thumb-tint': category.thumbTint,
+  } as CSSProperties;
+
+  useEffect(() => () => {
+    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+  }, []);
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const addWidget = () => {
+    onCreate(widget.type);
+  };
 
   if (density === 'compact') {
     return (
@@ -108,13 +146,15 @@ export function WidgetLibraryItemCard({
         role="button"
         tabIndex={0}
         data-widget-type={widget.type}
+        data-library-group={group}
         className={`widget-library-row ${draggingWidgetType === widget.type ? 'is-dragging' : ''}`.trim()}
         aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
-        onClick={() => onCreate(widget.type)}
+        style={cardStyle}
+        onClick={addWidget}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            onCreate(widget.type);
+            addWidget();
           }
         }}
         onDragStart={(event) => {
@@ -140,17 +180,41 @@ export function WidgetLibraryItemCard({
         role="button"
         tabIndex={0}
         data-widget-type={widget.type}
+        data-library-group={group}
         className={`widget-library-cozy-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''}`.trim()}
         aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
-        onClick={() => onCreate(widget.type)}
+        style={cardStyle}
+        onClick={(event) => {
+          if (suppressClickRef.current) {
+            suppressClickRef.current = false;
+            return;
+          }
+          if (event.altKey) {
+            onOpenDetails();
+            return;
+          }
+          addWidget();
+        }}
         onMouseEnter={() => setPreviewWidgetType(widget.type)}
         onMouseLeave={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
         onFocus={() => setPreviewWidgetType(widget.type)}
         onBlur={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          clearLongPress();
+          suppressClickRef.current = false;
+          longPressTimerRef.current = window.setTimeout(() => {
+            suppressClickRef.current = true;
+            onOpenDetails();
+          }, 420);
+        }}
+        onPointerUp={clearLongPress}
+        onPointerLeave={clearLongPress}
+        onPointerCancel={clearLongPress}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            onCreate(widget.type);
+            addWidget();
           }
         }}
         onDragStart={(event) => {
@@ -175,21 +239,27 @@ export function WidgetLibraryItemCard({
 
   return (
     <div
-      draggable
-      role="button"
-      tabIndex={0}
-      data-widget-type={widget.type}
-      className={`left-button widget-library-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
-      aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
-      onClick={() => onCreate(widget.type)}
+        draggable
+        role="button"
+        tabIndex={0}
+        data-widget-type={widget.type}
+        data-library-group={group}
+        className={`left-button widget-library-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
+        aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
+        style={cardStyle}
+        onClick={addWidget}
       onMouseEnter={() => setPreviewWidgetType(widget.type)}
       onMouseLeave={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
       onFocus={() => setPreviewWidgetType(widget.type)}
       onBlur={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
       onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
+        if (event.key === 'Enter') {
           event.preventDefault();
-          onCreate(widget.type);
+          onOpenDetails();
+        }
+        if (event.key === ' ') {
+          event.preventDefault();
+          addWidget();
         }
       }}
       onDragStart={(event) => {
@@ -210,7 +280,9 @@ export function WidgetLibraryItemCard({
       <div className="widget-library-card__meta">
         <div className="widget-library-card__header">
           <div className="content-min-w-0">
-            <div className="widget-library-card__eyebrow">{sectionLabel}</div>
+            <div className={`widget-library-card__eyebrow chip ${category.badgeClass} is-active`}>
+              {WIDGET_LIBRARY_GROUP_LABELS[group] ?? sectionLabel}
+            </div>
             <div className="widget-library-card__label">{widget.label}</div>
             {widget.description ? <div className="widget-library-card__description">{widget.description}</div> : null}
           </div>
@@ -243,7 +315,20 @@ export function WidgetLibraryItemCard({
         </div>
         <div className="widget-library-card__footer">
           <div className="widget-library-card__hint">Click to add · drag to canvas</div>
-          <div className="widget-library-card__type">{previewActive ? 'Previewing' : 'Ready'}</div>
+          <div className="widget-library-card__footer-actions">
+            <div className="widget-library-card__type">{previewActive ? 'Previewing' : 'Ready'}</div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="widget-library-card__detail-btn"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenDetails();
+              }}
+            >
+              Ver detalles
+            </Button>
+          </div>
         </div>
       </div>
     </div>

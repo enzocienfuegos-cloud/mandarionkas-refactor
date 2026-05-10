@@ -13,6 +13,7 @@
 @import './left-rail.css';
 @import './left-rail-library.css';
 @import './left-rail-library-density.css';
+@import './widget-detail-modal.css';
 @import './left-rail-assets.css';
 @import './inspector.css';
 @import './inspector-advanced.css';
@@ -47,5 +48,6 @@
 @import './platform-client-hub.css';
 @import './platform-client-hub-table.css';
 @import './platform-client-hub-clients.css';
+@import './client-preview.css';
 @import './timeline-ux.css';
 @import './timeline-interactions.css';

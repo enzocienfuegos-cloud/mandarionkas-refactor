@@ -1,36 +1,37 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useWidgetActions } from '../../../hooks/use-studio-actions';
-import { SegmentedControl } from '../../../shared/ui/SegmentedControl';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { WIDGET_LIBRARY_GROUP_LABELS } from '../../../widgets/registry/widget-definition';
+import { IconButton } from '../../../shared/ui/IconButton';
 import { CATEGORY_ORDER, useLeftRailWidgetLibrary } from './use-left-rail-widget-library';
-import { type WidgetCardDensity, WidgetLibraryItemCard } from './widget-library-presenters';
+import { CATEGORY_COLOR } from './widget-library-category-colors';
+import { WidgetDetailModal } from './WidgetDetailModal';
+import { WidgetLibraryItemCard } from './widget-library-presenters';
+
+const DENSITY_ICONS = {
+  compact: StudioIcons.list,
+  cozy: StudioIcons.layoutGrid,
+  expanded: StudioIcons.boxes,
+} as const;
 
 export function WidgetLibrarySection(): JSX.Element {
-  const { filteredWidgets, groupedWidgets, query, setQuery, category, setCategory, counts } = useLeftRailWidgetLibrary();
+  const { filteredWidgets, groupedWidgets, query, setQuery, category, setCategory, density, setDensity, counts } = useLeftRailWidgetLibrary();
   const widgetActions = useWidgetActions();
   const [draggingWidgetType, setDraggingWidgetType] = useState<string | null>(null);
   const [previewWidgetType, setPreviewWidgetType] = useState<string | null>(null);
-  const [density, setDensity] = useState<WidgetCardDensity>('compact');
-  const sectionRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const target = sectionRef.current;
-    if (!target || typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(([entry]) => {
-      setDensity(entry.contentRect.width > 360 ? 'cozy' : 'compact');
-    });
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, []);
+  const [detailWidgetType, setDetailWidgetType] = useState<string | null>(null);
 
   const categoryOptions = useMemo(() => [
     { id: 'all' as const, label: 'All' },
     ...CATEGORY_ORDER.map((item) => ({ id: item, label: WIDGET_LIBRARY_GROUP_LABELS[item], count: counts[item] })),
   ], [counts]);
 
+  const detailWidget = filteredWidgets.find((widget) => widget.type === detailWidgetType)
+    ?? groupedWidgets.flatMap((section) => section.widgets).find((widget) => widget.type === detailWidgetType)
+    ?? null;
+
   return (
-    <div ref={sectionRef}>
+    <div>
       <div className="left-rail-section-head">
         <div>
           <div className="left-title">Widget Library</div>
@@ -46,13 +47,39 @@ export function WidgetLibrarySection(): JSX.Element {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        <SegmentedControl
-          options={categoryOptions}
-          value={category}
-          onChange={setCategory}
-          ariaLabel="Widget categories"
-          className="chip-row"
-        />
+        <div className="chip-row widget-library-chip-row" role="radiogroup" aria-label="Widget categories">
+          {categoryOptions.map((option) => {
+            const active = option.id === category;
+            const badgeClass = option.id === 'all' ? 'chip--all' : CATEGORY_COLOR[option.id].badgeClass;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                className={`chip ${badgeClass} ${active ? 'is-active' : ''}`.trim()}
+                onClick={() => setCategory(option.id)}
+              >
+                <span>{option.label}</span>
+                {'count' in option && typeof option.count === 'number' ? <span className="chip__count">{option.count}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+        <div className="widget-library-density-toggle" role="group" aria-label="Card density">
+          {(['compact', 'cozy', 'expanded'] as const).map((option) => (
+            <IconButton
+              key={option}
+              variant="ghost"
+              size="sm"
+              className="widget-library-density-toggle__button"
+              label={`Use ${option} density`}
+              isActive={density === option}
+              icon={<StudioIcon icon={DENSITY_ICONS[option]} size={14} />}
+              onClick={() => setDensity(option)}
+            />
+          ))}
+        </div>
       </div>
 
       {!groupedWidgets.length ? (
@@ -66,11 +93,10 @@ export function WidgetLibrarySection(): JSX.Element {
         {groupedWidgets.map((section) => (
           <section key={section.group} className="widget-library-section" aria-label={section.label}>
             <div className="widget-library-section__head">
-              <div>
-                <div className="left-title">Category</div>
-                <strong className="widget-library-section__title">{section.label}</strong>
-              </div>
-              <div className="pill">{section.widgets.length}</div>
+              <span className={`widget-library-card__eyebrow chip ${CATEGORY_COLOR[section.group].badgeClass} is-active`}>
+                {section.label}
+              </span>
+              <span className="widget-library-section__count">{section.widgets.length}</span>
             </div>
             <div className={`widget-library-grid widget-library-grid--${density}`.trim()}>
               {section.widgets.map((widget) => (
@@ -84,12 +110,21 @@ export function WidgetLibrarySection(): JSX.Element {
                   setDraggingWidgetType={setDraggingWidgetType}
                   setPreviewWidgetType={setPreviewWidgetType}
                   onCreate={widgetActions.createWidget}
+                  onOpenDetails={() => setDetailWidgetType(widget.type)}
                 />
               ))}
             </div>
           </section>
         ))}
       </div>
+
+      {detailWidget ? (
+        <WidgetDetailModal
+          widget={detailWidget}
+          onClose={() => setDetailWidgetType(null)}
+          onCreate={widgetActions.createWidget}
+        />
+      ) : null}
     </div>
   );
 }

@@ -275,6 +275,26 @@
   --text-live-muted: rgba(208, 220, 230, 0.6);
   --text-soft-strong: var(--white-a-95);
 
+  /* Widget library category accents */
+  --cobalt-chip-bg: rgba(37, 99, 235, 0.12);
+  --cobalt-chip-border: rgba(37, 99, 235, 0.35);
+  --cobalt-chip-text: rgba(189, 210, 255, 0.96);
+  --amber-chip-bg: rgba(245, 158, 11, 0.10);
+  --amber-chip-border: rgba(245, 158, 11, 0.34);
+  --amber-chip-text: rgba(255, 220, 130, 0.95);
+  --violet-chip-bg: rgba(111, 60, 255, 0.11);
+  --violet-chip-border: rgba(111, 60, 255, 0.36);
+  --violet-chip-text: rgba(210, 185, 255, 0.96);
+  --cyan-chip-bg: rgba(48, 232, 255, 0.08);
+  --cyan-chip-border: rgba(48, 232, 255, 0.30);
+  --cyan-chip-text: rgba(180, 245, 255, 0.95);
+  --slate-chip-bg: rgba(148, 163, 184, 0.10);
+  --slate-chip-border: rgba(148, 163, 184, 0.28);
+  --slate-chip-text: rgba(214, 223, 228, 0.90);
+  --pink-chip-bg: rgba(139, 92, 255, 0.11);
+  --pink-chip-border: rgba(139, 92, 255, 0.34);
+  --pink-chip-text: rgba(220, 185, 255, 0.96);
+
   --gradient-brand-start: var(--accent-a-22);
   --gradient-brand-end: var(--accent-2-a-24);
   --gradient-success-end: #1da774;

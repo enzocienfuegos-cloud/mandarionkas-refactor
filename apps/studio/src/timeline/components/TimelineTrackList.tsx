@@ -10,7 +10,6 @@ export function TimelineTrackList({
   displayedWidgets,
   selectedIds,
   playheadMs,
-  playheadLeft,
   rowMsToPx,
   trackWidth,
   snapGuideMs,
@@ -28,7 +27,6 @@ export function TimelineTrackList({
   displayedWidgets: TimelineDisplayRow[];
   selectedIds: string[];
   playheadMs: number;
-  playheadLeft: number;
   rowMsToPx: number;
   trackWidth: number;
   snapGuideMs?: number;
@@ -73,7 +71,6 @@ export function TimelineTrackList({
             selected={selected}
             isActive={isActive}
             playheadMs={playheadMs}
-            playheadLeft={playheadLeft}
             rowMsToPx={rowMsToPx}
             trackWidth={trackWidth}
             snapGuideMs={snapGuideMs}

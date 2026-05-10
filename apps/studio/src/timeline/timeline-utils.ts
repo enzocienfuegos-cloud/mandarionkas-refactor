@@ -40,6 +40,13 @@ export function buildRulerTicks(sceneDurationMs: number, rulerStepMs: number, ma
   });
 }
 
+export function getDynamicRulerStepMs(rowMsToPx: number): number {
+  const pixelsPerSecond = rowMsToPx * 1000;
+  const targetSeconds = 80 / Math.max(1, pixelsPerSecond);
+  const niceIntervals = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30];
+  return Math.round((niceIntervals.find((interval) => interval >= targetSeconds) ?? 30) * 1000);
+}
+
 export function buildTimelineDisplayRows(
   widgets: TimelineWidget[],
   selectedIds: string[],
