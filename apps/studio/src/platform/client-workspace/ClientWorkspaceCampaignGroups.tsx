@@ -253,18 +253,6 @@ export function ClientWorkspaceCampaignGroups({
                     <span>{group.projects.length} banners</span>
                     <span>Updated {formatRelativeTime(group.updatedAt)}</span>
                     <ProductionStatusPill status={group.status} />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="compact-action"
-                      iconAfter={<StudioIcon icon={StudioIcons.externalLink} size={11} />}
-                      onClick={() => {
-                        if (group.projects[0]) onOpenProject(group.projects[0].id);
-                      }}
-                      disabled={!group.projects[0]}
-                    >
-                      Open
-                    </Button>
                   </div>
                 </div>
 
