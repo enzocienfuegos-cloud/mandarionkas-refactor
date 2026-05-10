@@ -29,7 +29,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
   return (
     <div className="client-workspace-shell-v2">
       <StudioTopbar
-        eyebrow="Project Workspace"
+        eyebrow="Client Workspace"
         title={activeClient?.name ?? 'Client'}
         searchLabel="Search"
         searchPlaceholder="Search banner, campaign, or format..."
@@ -64,7 +64,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
           label: 'Client Hub',
           onClick: onBackToAgencyShell,
         }}
-        className="studio-shell-topbar--workspace"
+        className="studio-shell-topbar--workspace client-workspace-shell-topbar"
       />
 
       {projectSession.autosaveAvailable ? (

@@ -53,10 +53,12 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-5);
-  padding: var(--space-5) var(--space-6);
+  padding: calc(var(--space-8) + var(--space-1)) calc(var(--space-9) + var(--space-1));
   border-radius: var(--radius-3xl);
-  border: 1px solid var(--focus-a-20);
-  background: linear-gradient(135deg, var(--focus-a-10), var(--white-a-03));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle at top left, rgba(48, 232, 255, 0.05), transparent 36%),
+    linear-gradient(180deg, rgba(24, 34, 45, 0.88), rgba(15, 22, 30, 0.92));
 }
 
 .draft-recovery-banner small,

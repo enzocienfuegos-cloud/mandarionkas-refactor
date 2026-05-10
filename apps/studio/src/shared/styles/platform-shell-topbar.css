@@ -227,6 +227,15 @@
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
+.client-workspace-shell-topbar {
+  background: rgba(5, 8, 14, 0.88);
+}
+
+.client-workspace-shell-topbar .studio-shell-topbar__brand-meta strong {
+  font-size: var(--font-size-lg);
+  letter-spacing: -0.02em;
+}
+
 .studio-shell-topbar--workspace .studio-shell-topbar__search {
   max-width: 1000px;
 }

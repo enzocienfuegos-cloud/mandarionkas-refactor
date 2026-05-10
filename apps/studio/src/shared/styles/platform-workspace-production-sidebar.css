@@ -1,10 +1,12 @@
 .client-workspace-sidebar__client-card {
   display: grid;
   gap: var(--space-5);
-  padding: var(--space-5);
-  border-radius: var(--radius-2xl);
-  border: 1px solid var(--border-subtle);
-  background: linear-gradient(180deg, var(--white-a-04), rgba(255, 255, 255, 0.02));
+  padding: calc(var(--space-8) + var(--space-1));
+  border-radius: var(--workspace-shell-panel-radius);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle at top left, rgba(48, 232, 255, 0.05), transparent 36%),
+    rgba(255, 255, 255, 0.03);
 }
 
 .client-workspace-sidebar__client-card-header {
@@ -41,7 +43,8 @@
 }
 
 .client-workspace-sidebar__client-copy strong {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-xl);
+  letter-spacing: -0.02em;
 }
 
 .client-workspace-sidebar__client-copy span,
@@ -49,6 +52,7 @@
 .client-workspace-bulk-bar__summary span {
   margin: 0;
   color: var(--muted);
+  font-size: var(--font-size-md);
 }
 
 .client-workspace-sidebar__section {
@@ -71,7 +75,7 @@
 
 .client-workspace-sidebar__link,
 .client-workspace-sidebar__filter {
-  min-height: 40px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -94,8 +98,10 @@
 .client-workspace-sidebar__link.is-active,
 .client-workspace-sidebar__filter:hover,
 .client-workspace-sidebar__filter.is-active {
-  background: var(--white-a-04);
-  border-color: var(--focus-a-20);
+  background:
+    radial-gradient(circle at top left, rgba(48, 232, 255, 0.05), transparent 36%),
+    rgba(255, 255, 255, 0.04);
+  border-color: rgba(48, 232, 255, 0.22);
   transform: translateY(-1px);
 }
 
@@ -137,10 +143,12 @@
   display: grid;
   align-content: start;
   gap: var(--space-2);
-  padding: var(--space-4);
-  border-radius: var(--radius-2xl);
-  border: 1px solid var(--border-subtle);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+  padding: var(--space-5);
+  border-radius: var(--workspace-shell-panel-radius);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle at top left, rgba(48, 232, 255, 0.04), transparent 36%),
+    rgba(255, 255, 255, 0.025);
 }
 
 .client-workspace-sidebar__brand-card small {
