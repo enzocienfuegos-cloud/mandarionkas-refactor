@@ -33,6 +33,7 @@
 @import './platform-workspace-onboarding.css';
 @import './platform-workspace-v2.css';
 @import './platform-workspace-production.css';
+@import './platform-workspace-production-sidebar.css';
 @import './platform-workspace-production-cards.css';
 @import './platform-shell-topbar.css';
 @import './platform-agency.css';
@@ -42,6 +43,7 @@
 @import './platform-agency-mandarion.css';
 @import './platform-agency-brand-kits.css';
 @import './platform-client-hub.css';
+@import './platform-client-hub-table.css';
 @import './platform-client-hub-clients.css';
 @import './timeline-ux.css';
 @import './timeline-interactions.css';

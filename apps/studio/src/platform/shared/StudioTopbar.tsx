@@ -7,6 +7,12 @@ type StudioTopbarAction = {
   disabled?: boolean;
 };
 
+type StudioTopbarUser = {
+  label: string;
+  detail?: string;
+  avatarText?: string;
+};
+
 type StudioTopbarProps = {
   eyebrow: string;
   title: string;
@@ -15,9 +21,13 @@ type StudioTopbarProps = {
   searchValue: string;
   onSearchChange(value: string): void;
   primaryAction: StudioTopbarAction;
+  secondaryAction?: StudioTopbarAction;
   userLabel?: string;
-  onLogout(): void;
+  user?: StudioTopbarUser;
+  onLogout?(): void;
+  showLogout?: boolean;
   backAction?: StudioTopbarAction;
+  className?: string;
 };
 
 export function StudioTopbar({
@@ -28,12 +38,18 @@ export function StudioTopbar({
   searchValue,
   onSearchChange,
   primaryAction,
+  secondaryAction,
   userLabel,
+  user,
   onLogout,
+  showLogout = true,
   backAction,
+  className = '',
 }: StudioTopbarProps): JSX.Element {
+  const userLabelValue = user?.label ?? userLabel ?? 'Invitado';
+
   return (
-    <header className="studio-shell-topbar">
+    <header className={`studio-shell-topbar ${className}`.trim()}>
       <div className="studio-shell-topbar__brand">
         <div className="studio-shell-topbar__logo-box" aria-hidden="true">
           <img src="/assets/mandarion-logo.svg" alt="" className="studio-shell-topbar__logo" />
@@ -67,10 +83,22 @@ export function StudioTopbar({
           </Button>
         ) : null}
 
+        {secondaryAction ? (
+          <Button
+            variant="ghost"
+            size="md"
+            className="compact-action studio-shell-topbar__action studio-shell-topbar__action--ghost"
+            onClick={secondaryAction.onClick}
+            disabled={secondaryAction.disabled}
+          >
+            {secondaryAction.label}
+          </Button>
+        ) : null}
+
         <Button
           variant="primary"
           size="md"
-          className="compact-action"
+          className="compact-action studio-shell-topbar__action studio-shell-topbar__action--primary"
           iconBefore={<StudioIcon icon={StudioIcons.plus} size={13} />}
           onClick={primaryAction.onClick}
           disabled={primaryAction.disabled}
@@ -78,17 +106,31 @@ export function StudioTopbar({
           {primaryAction.label}
         </Button>
 
-        <span className="studio-shell-topbar__user-pill">{userLabel ?? 'Invitado'}</span>
+        {user ? (
+          <div className="studio-shell-topbar__user">
+            <span className="studio-shell-topbar__user-avatar" aria-hidden="true">
+              {user.avatarText ?? user.label.slice(0, 2).toUpperCase()}
+            </span>
+            <div className="studio-shell-topbar__user-meta">
+              <strong>{user.label}</strong>
+              {user.detail ? <small>{user.detail}</small> : null}
+            </div>
+          </div>
+        ) : (
+          <span className="studio-shell-topbar__user-pill">{userLabelValue}</span>
+        )}
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="compact-action"
-          iconBefore={<StudioIcon icon={StudioIcons.logOut} size={12} />}
-          onClick={onLogout}
-        >
-          Salir
-        </Button>
+        {showLogout && onLogout ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="compact-action studio-shell-topbar__action studio-shell-topbar__action--ghost"
+            iconBefore={<StudioIcon icon={StudioIcons.logOut} size={12} />}
+            onClick={onLogout}
+          >
+            Salir
+          </Button>
+        ) : null}
       </div>
     </header>
   );

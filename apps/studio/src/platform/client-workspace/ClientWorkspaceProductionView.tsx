@@ -149,6 +149,32 @@ export function ClientWorkspaceProductionView({
     ];
   }, [filteredProjects]);
 
+  const summaryChips = useMemo(
+    () => [
+      {
+        id: 'banners',
+        icon: StudioIcons.layoutGrid,
+        label: `${controller.stats.totalProjects} banners`,
+      },
+      {
+        id: 'qa',
+        icon: StudioIcons.info,
+        label: `${quickFilterOptions.find((item) => item.id === 'qa')?.count ?? 0} en QA`,
+      },
+      {
+        id: 'live',
+        icon: StudioIcons.check,
+        label: `${quickFilterOptions.find((item) => item.id === 'live')?.count ?? 0} en vivo`,
+      },
+      {
+        id: 'formats',
+        icon: StudioIcons.play,
+        label: `${(quickFilterOptions.find((item) => item.id === 'mraid')?.count ?? 0) + (quickFilterOptions.find((item) => item.id === 'vast')?.count ?? 0)} MRAID/VAST`,
+      },
+    ],
+    [controller.stats.totalProjects, quickFilterOptions],
+  );
+
   async function handleOpenProject(projectId: string): Promise<void> {
     await openProject(projectId);
     onEnterEditor();
@@ -242,13 +268,25 @@ export function ClientWorkspaceProductionView({
 
   return (
     <section className="client-workspace-production">
+      <div className="client-workspace-summary-bar">
+        {summaryChips.map((chip) => (
+          <div key={chip.id} className="client-workspace-summary-chip">
+            <StudioIcon icon={chip.icon} size={14} />
+            <span>{chip.label}</span>
+          </div>
+        ))}
+      </div>
+
       <ClientWorkspaceSidebar
+        activeClient={activeClient}
         activeFolderId={activeFolderId}
         folderOptions={folderOptions}
         quickFilter={quickFilter}
         quickFilterOptions={quickFilterOptions}
         creatingFolder={creatingFolder}
         folderDraftName={folderDraftName}
+        totalBanners={controller.stats.totalProjects}
+        totalCampaigns={campaignFolders.length + ((folderOptions.find((folder) => folder.id === 'root')?.count ?? 0) > 0 ? 1 : 0)}
         onSetActiveFolderId={setActiveFolderId}
         onSetQuickFilter={setQuickFilter}
         onSetCreatingFolder={setCreatingFolder}

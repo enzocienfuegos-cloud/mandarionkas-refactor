@@ -60,8 +60,9 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
   }
 
   return (
-    <div className="agency-shell agency-shell--v2 agency-shell--mandarion agency-shell--client-hub">
+    <div className="agency-shell agency-shell--mandarion agency-shell--client-hub">
       <StudioTopbar
+        className="studio-shell-topbar--hub"
         eyebrow="Studio Hub"
         title="Hub de clientes"
         searchLabel="Buscar"
@@ -82,7 +83,7 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
           <div className="hub-intro-text">
             <div className="kicker">Hub de clientes</div>
             <h2>Retomá los trabajos que importan.</h2>
-            <p>Clientes activos, brand kits y trabajos recientes en un solo lugar antes de entrar al workspace operativo.</p>
+            <p>Clientes activos, trabajos recientes y creación de cuentas en un solo lugar.</p>
           </div>
           <div className="hub-stats">
             <div className="hub-stat">

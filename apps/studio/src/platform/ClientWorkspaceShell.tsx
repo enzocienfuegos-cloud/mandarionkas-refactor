@@ -11,6 +11,13 @@ type ClientWorkspaceShellProps = {
 export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: ClientWorkspaceShellProps): JSX.Element {
   const controller = useClientWorkspaceController();
   const { workspace, projectSession, activeClient } = controller;
+  const userName = workspace.currentUser?.name?.trim() || 'Invitado';
+  const userInitials = userName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'IN';
 
   async function handleCreateAndEnter(): Promise<void> {
     await controller.createProjectDraft();
@@ -20,7 +27,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
   return (
     <div className="client-workspace-shell-v2">
       <StudioTopbar
-        eyebrow="Project Workspace"
+        eyebrow="Client Workspace"
         title={activeClient?.name ?? 'Client'}
         searchLabel="Buscar"
         searchPlaceholder="Buscar banner, campaña o formato..."
@@ -35,12 +42,16 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
           },
           disabled: !workspace.canCreateProjects,
         }}
-        userLabel={workspace.currentUser?.name ?? 'Invitado'}
-        onLogout={() => void workspace.handleLogout()}
+        user={{
+          label: userName,
+          avatarText: userInitials,
+        }}
+        showLogout={false}
         backAction={{
           label: 'Hub de clientes',
           onClick: onBackToAgencyShell,
         }}
+        className="studio-shell-topbar--workspace"
       />
 
       {projectSession.autosaveAvailable ? (
