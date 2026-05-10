@@ -20,6 +20,7 @@ export type TopBarStudioSnapshot = {
   isPlaying: boolean;
   previewMode: boolean;
   previewContext: PreviewFrameId;
+  editModeWireframe: boolean;
   lastAction?: string;
   activeVariant: VariantName;
   activeFeedSource: BindingSource;

@@ -54,7 +54,7 @@
   gap: var(--space-4);
   flex-wrap: wrap;
 }
-.top-bar-ux {
+.top-bar.top-bar-ux {
   padding: 0 var(--space-8);
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);

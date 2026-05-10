@@ -2,21 +2,92 @@ import { useEffect, useMemo, useState } from 'react';
 import { CANVAS_PRESETS, getCanvasPresetById } from '../../domain/document/canvas-presets';
 import { useTopBarController } from '../../app/shell/topbar/use-top-bar-controller';
 import type { ProjectSummary } from '../../repositories/types';
-import { assignProjectsToFolder, createProjectFolder, getProjectFolderAssignments, listProjectFolders, type ProjectFolderRecord } from '../client-workspace/project-folder-store';
+import {
+  WORKSPACE_VIEW_MODE_STORAGE_KEY,
+  assignProjectsToFolder,
+  createProjectFolder,
+  getProjectFolderAssignments,
+  getProjectWorkflowStatuses,
+  listProjectFolders,
+  setProjectWorkflowStatus,
+  type ProjectFolderRecord,
+  type ProjectWorkflowStatus,
+  type ProjectWorkflowStatusRecord,
+} from '../client-workspace/project-folder-store';
 import { recordProjectVisit } from '../agency-shell/project-insights-store';
 import { listTemplates } from '../../templates/library/registry';
+import { readScopedStorageItem, writeScopedStorageItem } from '../../shared/browser/storage';
 
 type ProjectFilter = 'all' | 'mine' | 'shared';
-type ProjectView = 'active' | 'archived' | 'all';
+type ProjectStateFilter = 'all' | 'active' | 'inactive';
 type SortMode = 'recent' | 'name';
+export type WorkspaceViewMode = 'card' | 'list';
+export type WorkspaceProjectStatus = ProjectWorkflowStatus | 'archived';
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const DEFAULT_VIEW_MODE: WorkspaceViewMode = 'card';
+
+function readWorkspaceViewMode(): WorkspaceViewMode {
+  const value = readScopedStorageItem(WORKSPACE_VIEW_MODE_STORAGE_KEY).trim();
+  return value === 'list' ? 'list' : DEFAULT_VIEW_MODE;
+}
+
+function writeWorkspaceViewMode(value: WorkspaceViewMode): void {
+  writeScopedStorageItem(WORKSPACE_VIEW_MODE_STORAGE_KEY, value);
+}
 
 function matchesSearch(project: ProjectSummary, query: string): boolean {
   if (!query) return true;
-  const haystack = [project.name, project.brandName, project.campaignName, project.id, project.ownerName, project.ownerUserId]
+  const haystack = [
+    project.name,
+    project.brandName,
+    project.campaignName,
+    project.channel,
+    project.id,
+    project.ownerName,
+    project.ownerUserId,
+  ]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
   return haystack.includes(query.toLowerCase());
+}
+
+function resolveProjectStatus(
+  project: ProjectSummary,
+  workflowStatuses: Record<string, ProjectWorkflowStatusRecord | undefined>,
+): WorkspaceProjectStatus {
+  if (project.archivedAt || project.isArchived) return 'archived';
+  return workflowStatuses[project.id]?.value ?? 'draft';
+}
+
+function isProjectInactive(
+  project: ProjectSummary,
+  workflowStatuses: Record<string, ProjectWorkflowStatusRecord | undefined>,
+): boolean {
+  const status = resolveProjectStatus(project, workflowStatuses);
+  if (status === 'archived') return true;
+  if (status !== 'exported') return false;
+  const exportedAt = workflowStatuses[project.id]?.updatedAt ?? project.updatedAt;
+  const exportedMs = new Date(exportedAt).getTime();
+  return Number.isFinite(exportedMs) && (Date.now() - exportedMs) > THIRTY_DAYS_MS;
+}
+
+function formatChannelBadge(project: ProjectSummary): string {
+  switch (project.channel) {
+    case 'google-display':
+      return 'Display';
+    case 'playable':
+      return 'Playable';
+    case 'mraid':
+      return 'MRAID';
+    case 'vast-simid':
+      return 'SIMID';
+    case 'generic-html5':
+      return 'HTML5';
+    default:
+      return project.channel?.trim() || 'Studio';
+  }
 }
 
 export function useWorkspaceHubController() {
@@ -24,12 +95,12 @@ export function useWorkspaceHubController() {
   const [search, setSearch] = useState('');
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [projectFilter, setProjectFilter] = useState<ProjectFilter>('all');
-  const [projectView, setProjectView] = useState<ProjectView>('active');
+  const [stateFilter, setStateFilter] = useState<ProjectStateFilter>('all');
   const [sortMode, setSortMode] = useState<SortMode>('recent');
+  const [viewMode, setViewMode] = useState<WorkspaceViewMode>(() => readWorkspaceViewMode());
   const [page, setPage] = useState(1);
   const [activeFolderId, setActiveFolderId] = useState<string>('all');
   const [newFolderName, setNewFolderName] = useState('');
-  const [bulkTargetFolderId, setBulkTargetFolderId] = useState<string>('root');
   const [folderTick, setFolderTick] = useState(0);
   const pageSize = 8;
 
@@ -38,13 +109,29 @@ export function useWorkspaceHubController() {
   const activeClient = visibleClients.find((client) => client.id === activeClientId) ?? workspace.activeClient;
 
   useEffect(() => {
+    writeWorkspaceViewMode(viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
     setActiveFolderId('all');
-    setBulkTargetFolderId('root');
+    setPage(1);
+    setSelectedProjectIds([]);
   }, [activeClientId]);
+
+  useEffect(() => {
+    if (viewMode === 'card' && selectedProjectIds.length > 0) {
+      setSelectedProjectIds([]);
+    }
+  }, [selectedProjectIds.length, viewMode]);
 
   const projectFolders = useMemo<ProjectFolderRecord[]>(
     () => (activeClientId ? listProjectFolders(activeClientId) : []),
     [activeClientId, folderTick],
+  );
+
+  const workflowStatuses = useMemo(
+    () => getProjectWorkflowStatuses(),
+    [folderTick],
   );
 
   const folderAssignments = useMemo(
@@ -57,31 +144,45 @@ export function useWorkspaceHubController() {
     [projectSession.projects, activeClientId],
   );
 
+  const decoratedProjects = useMemo(
+    () => clientProjects.map((project) => ({
+      ...project,
+      workspaceStatus: resolveProjectStatus(project, workflowStatuses),
+      inactive: isProjectInactive(project, workflowStatuses),
+      channelBadge: formatChannelBadge(project),
+    })),
+    [clientProjects, workflowStatuses],
+  );
+
   const filteredProjects = useMemo(() => {
-    const next = clientProjects.filter((project) => {
+    const next = decoratedProjects.filter((project) => {
       if (!matchesSearch(project, search)) return false;
       const projectFolderId = folderAssignments[project.id];
       if (activeFolderId === 'root' && projectFolderId) return false;
       if (activeFolderId !== 'all' && activeFolderId !== 'root' && projectFolderId !== activeFolderId) return false;
-      if (projectView === 'active' && project.archivedAt) return false;
-      if (projectView === 'archived' && !project.archivedAt) return false;
-      if (projectFilter === 'mine') return project.ownerUserId === currentUser?.id;
-      if (projectFilter === 'shared') return project.ownerUserId !== currentUser?.id;
+      if (projectFilter === 'mine' && project.ownerUserId !== currentUser?.id) return false;
+      if (projectFilter === 'shared' && project.ownerUserId === currentUser?.id) return false;
+      if (stateFilter === 'active' && project.inactive) return false;
+      if (stateFilter === 'inactive' && !project.inactive) return false;
       return true;
     });
+
     next.sort((a, b) => {
       if (sortMode === 'name') return a.name.localeCompare(b.name);
       return b.updatedAt.localeCompare(a.updatedAt);
     });
     return next;
-  }, [activeFolderId, clientProjects, currentUser?.id, folderAssignments, projectFilter, projectView, search, sortMode]);
+  }, [activeFolderId, currentUser?.id, decoratedProjects, folderAssignments, projectFilter, search, sortMode, stateFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filteredProjects.length / pageSize));
   const safePage = Math.min(page, pageCount);
   const pageItems = filteredProjects.slice((safePage - 1) * pageSize, safePage * pageSize);
   const selectedProjects = filteredProjects.filter((project) => selectedProjectIds.includes(project.id));
+  const allVisibleSelected = pageItems.length > 0 && pageItems.every((project) => selectedProjectIds.includes(project.id));
+  const someVisibleSelected = pageItems.some((project) => selectedProjectIds.includes(project.id));
 
   function toggleProjectSelection(projectId: string): void {
+    if (viewMode !== 'list') return;
     setSelectedProjectIds((current) => current.includes(projectId) ? current.filter((item) => item !== projectId) : [...current, projectId]);
   }
 
@@ -89,22 +190,48 @@ export function useWorkspaceHubController() {
     setSelectedProjectIds([]);
   }
 
-  function selectAllVisible(): void {
-    setSelectedProjectIds(pageItems.map((project) => project.id));
+  function selectAllVisible(nextSelected?: boolean): void {
+    if (viewMode !== 'list') return;
+    const shouldSelect = nextSelected ?? !allVisibleSelected;
+    if (!shouldSelect) {
+      setSelectedProjectIds((current) => current.filter((projectId) => !pageItems.some((project) => project.id === projectId)));
+      return;
+    }
+    setSelectedProjectIds((current) => Array.from(new Set([...current, ...pageItems.map((project) => project.id)])));
   }
 
-  async function createFolderDraft(): Promise<void> {
-    if (!activeClientId || !newFolderName.trim()) return;
-    createProjectFolder(activeClientId, newFolderName);
+  async function createFolderDraft(nameOverride?: string): Promise<void> {
+    const nextName = (nameOverride ?? newFolderName).trim();
+    if (!activeClientId || !nextName) return;
+    createProjectFolder(activeClientId, nextName);
     setNewFolderName('');
     setFolderTick((current) => current + 1);
   }
 
-  function moveSelectedProjectsToFolder(folderId?: string): void {
-    if (!selectedProjectIds.length) return;
-    assignProjectsToFolder(selectedProjectIds, folderId);
+  function moveProjectsToFolder(projectIds: string[], folderId?: string): void {
+    if (!projectIds.length) return;
+    assignProjectsToFolder(projectIds, folderId);
     setFolderTick((current) => current + 1);
+  }
+
+  function moveSelectedProjectsToFolder(folderId?: string): void {
+    moveProjectsToFolder(selectedProjectIds, folderId);
     clearSelection();
+  }
+
+  function moveProjectToFolder(projectId: string, folderId?: string): void {
+    moveProjectsToFolder([projectId], folderId);
+  }
+
+  function updateSelectedProjectStatus(status: ProjectWorkflowStatus): void {
+    if (!selectedProjectIds.length) return;
+    setProjectWorkflowStatus(selectedProjectIds, status);
+    setFolderTick((current) => current + 1);
+  }
+
+  function updateProjectStatus(projectId: string, status: ProjectWorkflowStatus): void {
+    setProjectWorkflowStatus([projectId], status);
+    setFolderTick((current) => current + 1);
   }
 
   async function deleteSelectedProjects(): Promise<void> {
@@ -160,7 +287,8 @@ export function useWorkspaceHubController() {
     totalProjects: clientProjects.length,
     mine: clientProjects.filter((project) => project.ownerUserId === currentUser?.id && !project.archivedAt).length,
     shared: clientProjects.filter((project) => project.ownerUserId !== currentUser?.id && !project.archivedAt).length,
-    archived: clientProjects.filter((project) => Boolean(project.archivedAt)).length,
+    inactive: decoratedProjects.filter((project) => project.inactive).length,
+    active: decoratedProjects.filter((project) => !project.inactive).length,
     clientCount: visibleClients.length,
   };
 
@@ -172,17 +300,25 @@ export function useWorkspaceHubController() {
     }));
   }, [activeClient?.memberUserIds, currentUser?.id, currentUser?.name]);
 
-  const folderCards = useMemo(
+  const campaignFolders = useMemo(
+    () => projectFolders.map((folder) => ({
+      ...folder,
+      count: clientProjects.filter((project) => folderAssignments[project.id] === folder.id).length,
+    })),
+    [clientProjects, folderAssignments, projectFolders],
+  );
+
+  const folderOptions = useMemo(
     () => [
       { id: 'all', name: 'All projects', count: clientProjects.length },
       { id: 'root', name: 'Unfiled', count: clientProjects.filter((project) => !folderAssignments[project.id]).length },
-      ...projectFolders.map((folder) => ({
+      ...campaignFolders.map((folder) => ({
         id: folder.id,
         name: folder.name,
-        count: clientProjects.filter((project) => folderAssignments[project.id] === folder.id).length,
+        count: folder.count,
       })),
     ],
-    [clientProjects, folderAssignments, projectFolders],
+    [campaignFolders, clientProjects, folderAssignments],
   );
 
   return {
@@ -196,6 +332,8 @@ export function useWorkspaceHubController() {
     setSearch,
     selectedProjectIds,
     selectedProjects,
+    allVisibleSelected,
+    someVisibleSelected,
     toggleProjectSelection,
     clearSelection,
     selectAllVisible,
@@ -204,25 +342,28 @@ export function useWorkspaceHubController() {
     restoreSelectedProjects,
     projectFilter,
     setProjectFilter,
-    projectView,
-    setProjectView,
+    stateFilter,
+    setStateFilter,
     sortMode,
     setSortMode,
+    viewMode,
+    setViewMode,
     page: safePage,
     setPage,
     pageCount,
     pageItems,
     filteredProjects,
+    decoratedProjects,
     pageSize,
     activeFolderId,
     setActiveFolderId,
     newFolderName,
     setNewFolderName,
-    bulkTargetFolderId,
-    setBulkTargetFolderId,
     projectFolders,
-    folderCards,
+    folderOptions,
+    campaignFolders,
     folderAssignments,
+    workflowStatuses,
     openProject,
     duplicateProjectCard,
     archiveProjectCard,
@@ -230,7 +371,10 @@ export function useWorkspaceHubController() {
     changeProjectOwner,
     createProjectDraft,
     createFolderDraft,
+    moveProjectToFolder,
     moveSelectedProjectsToFolder,
+    updateProjectStatus,
+    updateSelectedProjectStatus,
     stats,
     templateCount: listTemplates().length,
     ownerOptions,

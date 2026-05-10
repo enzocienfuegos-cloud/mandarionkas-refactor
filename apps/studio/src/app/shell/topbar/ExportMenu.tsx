@@ -50,15 +50,20 @@ export function ExportMenu({
   return (
     <div ref={containerRef} className="top-export-menu">
       <Button
-        variant="secondary"
+        variant="primary"
         size="sm"
+        className="top-export-button"
         disabled={isExporting}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Export ${channelLabel(currentChannel)}`}
         onClick={() => setOpen((value) => !value)}
       >
-        {isExporting ? 'Exporting…' : <>Export <StudioIcon icon={StudioIcons.chevronDown} size={14} /></>}
+        {isExporting ? 'Exporting…' : <>
+          <StudioIcon icon={StudioIcons.download} size={14} />
+          Export
+          <StudioIcon icon={StudioIcons.chevronDown} size={14} />
+        </>}
       </Button>
 
       {open ? (

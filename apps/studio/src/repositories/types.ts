@@ -15,6 +15,8 @@ export type ProjectSummary = {
   campaignName?: string;
   accessScope?: ProjectAccessScope;
   archivedAt?: string;
+  isArchived?: boolean;
+  channel?: string;
   canvasPresetId?: string;
   sceneCount?: number;
   widgetCount?: number;

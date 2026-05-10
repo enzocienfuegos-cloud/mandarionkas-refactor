@@ -1,25 +1,23 @@
 import { Button } from '../shared/ui/Button';
-import { TabBar } from '../shared/ui/TabBar';
-import { useHashTabState } from './use-hash-tab-state';
 import { useAgencyShellController } from './agency-shell/use-agency-shell-controller';
 import { ClientGrid } from './agency-shell/ClientGrid';
 import { AddClientCard } from './agency-shell/AddClientCard';
-import { RecentWorkSlider } from './agency-shell/RecentWorkSlider';
-import { TemplateMarketplace } from './template-gallery/TemplateMarketplace';
+import { ReviewActivityRail } from './agency-shell/ReviewActivityRail';
 
 type AgencyShellProps = {
   onOpenClientWorkspace(clientId: string): void;
   onEnterEditor(): void;
 };
 
-type HubTab = 'clients' | 'recent' | 'templates';
-
-const HUB_TABS: readonly HubTab[] = ['clients', 'recent', 'templates'];
+function buildGreeting(name?: string): string {
+  const hour = new Date().getHours();
+  const dayPeriod = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  return `${dayPeriod}, ${name ?? 'there'} — Sprint 55`;
+}
 
 export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShellProps): JSX.Element {
   const controller = useAgencyShellController();
-  const [activeTab, setActiveTab] = useHashTabState('/hub', HUB_TABS, 'clients');
-  const { workspace, projectSession, recentProjects, clientCards, search, setSearch, markProjectOpened } = controller;
+  const { workspace, projectSession, recentProjects, clientCards, search, setSearch, markProjectOpened, remoteOverview } = controller;
 
   async function handleResumeProject(projectId: string, clientId?: string): Promise<void> {
     if (clientId && workspace.activeClientId !== clientId) {
@@ -30,19 +28,37 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
     onEnterEditor();
   }
 
-  const tabs = [
-    { id: 'clients' as const, label: 'Clients', count: clientCards.length },
-    { id: 'recent' as const, label: 'Recent work', count: recentProjects.length },
-    { id: 'templates' as const, label: 'Templates', count: controller.templateCount },
-  ];
+  const recentActivity = remoteOverview?.recentActivity?.length
+    ? remoteOverview.recentActivity.map((entry) => ({
+      id: entry.id,
+      actorName: entry.actorName ?? 'Studio',
+      projectName: entry.projectName,
+      action: entry.action,
+      createdAt: entry.createdAt,
+      projectId: entry.projectId,
+    }))
+    : recentProjects.map((project) => ({
+      id: project.id,
+      actorName: workspace.currentUser?.name ?? 'Studio',
+      projectName: project.name,
+      action: 'edited this project',
+      createdAt: project.updatedAt ?? new Date().toISOString(),
+      projectId: project.id,
+    }));
+  const searchQuery = search.trim().toLowerCase();
+  const visibleClientCards = searchQuery
+    ? clientCards.filter(({ client, recentProjectName }) => `${client.name} ${recentProjectName}`.toLowerCase().includes(searchQuery))
+    : clientCards;
+  const visibleActivity = searchQuery
+    ? recentActivity.filter((entry) => `${entry.projectName} ${entry.actorName} ${entry.action}`.toLowerCase().includes(searchQuery))
+    : recentActivity;
 
   return (
     <div className="agency-shell agency-shell--v2">
-      <header className="agency-shell-topbar">
+      <header className="agency-shell-topbar agency-shell-topbar--premium">
         <div className="agency-shell-topbar__brand">
-          <div className="workspace-hub-kicker">Agency hub</div>
-          <h1>Agency hub</h1>
-          <p>Resume work, open a client workspace, or browse templates.</p>
+          <div className="workspace-hub-kicker">Agency Hub</div>
+          <h1>Agency Hub</h1>
         </div>
         <div className="agency-shell-topbar__actions">
           <label className="agency-shell-command">
@@ -64,48 +80,41 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
         </div>
       </header>
 
-      <TabBar tabs={tabs} activeTab={activeTab} onSelectTab={setActiveTab} ariaLabel="Agency hub sections" />
+      <main className="agency-shell-content agency-shell-content--command-center">
+        <section className="agency-greeting panel">
+          <h2>{buildGreeting(workspace.currentUser?.name)}</h2>
+        </section>
 
-      <main className="agency-shell-content">
-        {activeTab === 'clients' ? (
-          <section className="agency-clients-tab" aria-labelledby="agency-clients-heading">
-            <h2 id="agency-clients-heading" className="visually-hidden">Clients</h2>
-            <div className="agency-clients-grid">
-              {clientCards.map(({ client, activeCount, sharedCount, recentProjectName }) => (
-                <ClientGrid.Card
-                  key={client.id}
-                  client={client}
-                  activeCount={activeCount}
-                  sharedCount={sharedCount}
-                  recentProjectName={recentProjectName}
-                  onOpen={() => onOpenClientWorkspace(client.id)}
-                />
-              ))}
-              {workspace.canCreateClient ? <AddClientCard onAdd={() => void controller.openAddClientDialog()} /> : null}
+        <section className="agency-clients-section" aria-labelledby="agency-clients-heading">
+          <div className="agency-section-head">
+            <div>
+              <div className="workspace-hub-kicker">Clients</div>
+              <h2 id="agency-clients-heading">Open a client workspace and keep the team moving.</h2>
             </div>
-          </section>
-        ) : null}
+          </div>
+          <div className="agency-clients-grid">
+            {visibleClientCards.map(({ client, activeCount, sharedCount, recentProjectName, recentUpdatedAt }) => (
+              <ClientGrid.Card
+                key={client.id}
+                client={client}
+                activeCount={activeCount}
+                sharedCount={sharedCount}
+                recentProjectName={recentProjectName}
+                recentUpdatedAt={recentUpdatedAt}
+                onOpen={() => onOpenClientWorkspace(client.id)}
+              />
+            ))}
+            {workspace.canCreateClient ? <AddClientCard onAdd={() => void controller.openAddClientDialog()} /> : null}
+          </div>
+        </section>
 
-        {activeTab === 'recent' ? (
-          <section className="agency-recent-tab" aria-labelledby="agency-recent-heading">
-            <h2 id="agency-recent-heading" className="visually-hidden">Recent work</h2>
-            <RecentWorkSlider
-              projects={recentProjects}
-              clients={workspace.visibleClients}
-              onResume={(projectId, clientId) => void handleResumeProject(projectId, clientId)}
-            />
-          </section>
-        ) : null}
-
-        {activeTab === 'templates' ? (
-          <section className="agency-templates-tab" aria-labelledby="agency-templates-heading">
-            <h2 id="agency-templates-heading" className="visually-hidden">Templates</h2>
-            <TemplateMarketplace
-              onUseTemplate={(templateId, targetClientId) => void controller.handleUseTemplateGlobally(templateId, targetClientId).then(onEnterEditor)}
-              showVerticalFilters
-            />
-          </section>
-        ) : null}
+        <ReviewActivityRail
+          recentActivity={visibleActivity}
+          onResumeProject={(projectId) => {
+            const project = recentProjects.find((entry) => entry.id === projectId);
+            void handleResumeProject(projectId, project?.clientId);
+          }}
+        />
       </main>
     </div>
   );

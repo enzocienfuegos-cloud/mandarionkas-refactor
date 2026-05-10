@@ -1,92 +1,64 @@
 import { Button } from '../../shared/ui/Button';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 
 type ReviewActivityRailProps = {
-  topProjects: Array<{
-    id: string;
-    name: string;
-    workspaceName: string;
-    sceneCount: number;
-    widgetCount: number;
-  }>;
   recentActivity: Array<{
     id: string;
     actorName: string;
     projectName: string;
     action: string;
     createdAt: string;
+    projectId?: string;
   }>;
-  totals: {
-    exports: number;
-    shares: number;
-    openToExportMinutes: number | null;
-  };
-  onResumeProject(projectId: string): void;
+  onResumeProject?(projectId: string): void;
 };
 
-function formatDate(value: string): string {
-  return new Date(value).toLocaleString();
+function formatRelativeTime(value: string): string {
+  const diffMinutes = Math.max(1, Math.round((Date.now() - new Date(value).getTime()) / 60000));
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.round(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
+function iconForAction(action: string) {
+  if (action.includes('export')) return StudioIcons.download;
+  if (action.includes('share') || action.includes('comment')) return StudioIcons.workflow;
+  return StudioIcons.library;
 }
 
 export function ReviewActivityRail({
-  topProjects,
   recentActivity,
-  totals,
   onResumeProject,
 }: ReviewActivityRailProps): JSX.Element {
   return (
-    <section className="agency-side-rail agency-side-rail--review" id="agency-review-rail">
-      <div className="agency-side-rail__head">
+    <section className="agency-activity-feed panel" aria-labelledby="agency-activity-heading">
+      <div className="agency-activity-feed__head">
         <div>
-          <div className="workspace-hub-kicker">Review lane</div>
-          <h2>Readiness & activity</h2>
+          <div className="workspace-hub-kicker">Recent activity</div>
+          <h2 id="agency-activity-heading">Keep moving through live work</h2>
         </div>
       </div>
 
-      <div className="agency-review-summary">
-        <div className="agency-review-summary__card">
-          <span className="workspace-project-meta-label">Exports</span>
-          <strong>{totals.exports}</strong>
-          <small>Recent export actions across visible clients</small>
-        </div>
-        <div className="agency-review-summary__card">
-          <span className="workspace-project-meta-label">Shares</span>
-          <strong>{totals.shares}</strong>
-          <small>Collaboration events in the current overview window</small>
-        </div>
-        <div className="agency-review-summary__card">
-          <span className="workspace-project-meta-label">Open → export</span>
-          <strong>{totals.openToExportMinutes == null ? '—' : `${totals.openToExportMinutes}m`}</strong>
-          <small>Time-to-export pulse for the agency shell</small>
-        </div>
-      </div>
-
-      <div className="agency-review-list">
-        <div className="agency-review-block">
-          <h3>Recent activity</h3>
-          {recentActivity.map((entry) => (
-            <div key={entry.id} className="agency-review-row">
-              <div>
-                <strong>{entry.projectName}</strong>
-                <p>{entry.actorName} {entry.action} · {formatDate(entry.createdAt)}</p>
-              </div>
+      <div className="agency-activity-feed__list">
+        {recentActivity.map((entry) => (
+          <article key={entry.id} className="agency-activity-item">
+            <div className="agency-activity-item__icon" aria-hidden="true">
+              <StudioIcon icon={iconForAction(entry.action)} size={14} />
             </div>
-          ))}
-        </div>
-
-        <div className="agency-review-block">
-          <h3>Top projects</h3>
-          {topProjects.map((project) => (
-            <div key={project.id} className="agency-review-row">
-              <div>
-                <strong>{project.name}</strong>
-                <p>{project.workspaceName} · {project.sceneCount} scenes · {project.widgetCount} widgets</p>
-              </div>
-              <Button variant="ghost" size="sm" className="compact-action" onClick={() => onResumeProject(project.id)}>
-                Resume
+            <div className="agency-activity-item__copy">
+              <strong>{entry.projectName}</strong>
+              <p>{entry.actorName} {entry.action}</p>
+              <small>{formatRelativeTime(entry.createdAt)}</small>
+            </div>
+            {entry.projectId && onResumeProject ? (
+              <Button variant="ghost" size="sm" className="compact-action" onClick={() => onResumeProject(entry.projectId!)}>
+                Open
               </Button>
-            </div>
-          ))}
-        </div>
+            ) : null}
+          </article>
+        ))}
       </div>
     </section>
   );

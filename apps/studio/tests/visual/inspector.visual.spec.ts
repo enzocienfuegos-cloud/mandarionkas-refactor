@@ -3,7 +3,7 @@ import { addWidget, openDocumentDataTab, openEditor } from './helpers/setup';
 
 test('brand kit drawer baseline', async ({ page }) => {
   await openEditor(page);
-  await page.getByRole('button', { name: 'Brand Kit' }).click();
+  await page.getByRole('button', { name: /^Brand$/ }).click();
   await expect(page.locator('.brand-kit-drawer-card')).toHaveScreenshot('inspector-brand-kit-drawer.png');
 });
 

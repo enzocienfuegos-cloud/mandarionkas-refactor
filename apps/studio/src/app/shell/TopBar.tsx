@@ -4,6 +4,7 @@ import { useTopBarController } from './topbar/use-top-bar-controller';
 import { IconButton } from '../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { TopBarCenterContent } from './topbar/TopBarCenterContent';
+import { SmxLogo } from '../../assets/SmxLogo';
 
 type TopBarProps = {
   onOpenWorkspaceHub(): void;
@@ -19,14 +20,16 @@ export function TopBar({ onOpenWorkspaceHub, onOpenAssetLibrary, onOpenBrandKitD
       <div className="top-bar-left-cluster">
         <IconButton
           className="top-back-button"
-          size="lg"
+          size="sm"
           label="Go back to workspace"
           tooltip="Back to workspace"
           tooltipPlacement="bottom"
           tooltipDelay={240}
-          icon={<StudioIcon icon={StudioIcons.arrowLeft} size={18} />}
+          icon={<StudioIcon icon={StudioIcons.arrowLeft} size={16} />}
           onClick={onOpenWorkspaceHub}
         />
+        <SmxLogo className="smx-topbar-logo" />
+        <div className="top-bar-divider" aria-hidden="true" />
         <TopBarProjectName controller={controller} />
       </div>
       <div className="top-bar-center top-bar-center--ux">

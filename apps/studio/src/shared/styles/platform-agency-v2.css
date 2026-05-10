@@ -105,8 +105,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
+  min-width: var(--space-5);
+  height: var(--space-5);
   padding-inline: var(--space-2);
   border-radius: var(--radius-pill);
   background: var(--white-a-08);
@@ -243,8 +243,8 @@
 .agency-add-client-card__icon {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: var(--space-12);
+  height: var(--space-12);
   border-radius: var(--radius-2xl);
   background: var(--white-a-06);
 }

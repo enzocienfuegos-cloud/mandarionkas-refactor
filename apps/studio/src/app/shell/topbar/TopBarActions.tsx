@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
 import { recordHubProjectActivity } from '../../../platform/agency-shell/activity-api';
+import { markProjectExported } from '../../../platform/client-workspace/project-folder-store';
 import type { TopBarController } from './use-top-bar-controller';
 import { ExportMenu } from './ExportMenu';
 import type { ExportChannel } from './export-channels';
@@ -8,26 +9,35 @@ import { publishStudioProjectToAdServer } from './studio-publication';
 import { useToast } from '../../../shared/ui/ToastProvider';
 import { Button } from '../../../shared/ui/Button';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
-import { channelLabel } from './export-channels';
-import { Tooltip } from '../../../shared/ui/Tooltip';
-
-function formatSaveLabel(saveStatus: 'idle' | 'saving' | 'saved' | 'error', dirty: boolean): string {
-  if (saveStatus === 'saving') return 'Saving…';
-  if (saveStatus === 'saved' && !dirty) return 'Saved';
-  if (saveStatus === 'error') return 'Retry save';
-  return 'Save';
-}
-
-function getExportSummaryIcon(tone: 'danger' | 'good' | 'accent' | 'warn') {
-  if (tone === 'danger') return StudioIcons.x;
-  if (tone === 'good') return StudioIcons.check;
-  if (tone === 'accent') return StudioIcons.workflow;
-  return StudioIcons.info;
-}
 
 function openPreflightPanel(): void {
   const toggle = document.querySelector<HTMLButtonElement>('.preflight-tray__toggle');
   toggle?.click();
+}
+
+function buildInitials(name?: string): string {
+  const parts = (name ?? 'Guest')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '');
+  return parts.join('') || 'G';
+}
+
+function getPreflightSummary(controller: TopBarController): {
+  label: string;
+  tone: 'ready' | 'warnings' | 'errors';
+  count: number;
+} {
+  const blockers = controller.exportReadiness.preflight.summary.blockers;
+  const warnings = controller.exportReadiness.preflight.summary.warnings;
+  if (blockers > 0) {
+    return { label: 'Errors', tone: 'errors', count: blockers };
+  }
+  if (warnings > 0) {
+    return { label: 'Warnings', tone: 'warnings', count: warnings };
+  }
+  return { label: 'Ready', tone: 'ready', count: 0 };
 }
 
 export function TopBarActions({
@@ -39,15 +49,38 @@ export function TopBarActions({
   onOpenAssetLibrary: () => void;
   onOpenBrandKitDrawer: () => void;
 }): JSX.Element {
-  const { release, state, dirty } = controller.snapshot;
+  const { release, state } = controller.snapshot;
   const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'success' | 'error'>('idle');
-  const { canSaveProjects } = controller.workspace;
+  const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
+  const sessionMenuRef = useRef<HTMLDivElement | null>(null);
   const { updateReleaseSettings } = useDocumentActions();
-  const { resolvedZipStatus, resolvedZipMessage, triggerExportZipBundleResolved, triggerExportPublishPackage } = controller.exportReadiness;
-  const { handleSaveProject, saveStatus } = controller.projectSession;
+  const { resolvedZipStatus, triggerExportZipBundleResolved, triggerExportPublishPackage } = controller.exportReadiness;
   const activeProjectId = controller.snapshot.activeProjectId;
   const { pushToast } = useToast();
   const shareLink = state.document.collaboration.shareLink ?? `smx://review/${state.document.id}`;
+  const currentUser = controller.workspace.currentUser;
+  const preflight = getPreflightSummary(controller);
+
+  useEffect(() => {
+    if (!sessionMenuOpen) return undefined;
+
+    function handleMouseDown(event: MouseEvent): void {
+      if (sessionMenuRef.current && !sessionMenuRef.current.contains(event.target as Node)) {
+        setSessionMenuOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === 'Escape') setSessionMenuOpen(false);
+    }
+
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [sessionMenuOpen]);
 
   async function handleExportAs(channel: ExportChannel): Promise<void> {
     const patchedState = {
@@ -67,14 +100,15 @@ export function TopBarActions({
     updateReleaseSettings({ targetChannel: channel });
     try {
       await triggerExportZipBundleResolved(patchedState);
+      if (activeProjectId) {
+        markProjectExported(activeProjectId);
+        await recordHubProjectActivity(activeProjectId, 'exported', { channel });
+      }
       pushToast({
         title: 'Export ready',
         description: `Built ${channel} package successfully.`,
         tone: 'success',
       });
-      if (activeProjectId) {
-        await recordHubProjectActivity(activeProjectId, 'exported', { channel });
-      }
     } catch (error) {
       pushToast({
         title: 'Export failed',
@@ -156,84 +190,48 @@ export function TopBarActions({
     }
   }
 
-  async function handleSave(): Promise<void> {
-    try {
-      await handleSaveProject();
-      pushToast({
-        title: 'Project saved',
-        description: 'The latest changes are now stored in the workspace.',
-        tone: 'success',
-      });
-    } catch (error) {
-      pushToast({
-        title: 'Save failed',
-        description: error instanceof Error ? error.message : 'Unable to save this project.',
-        tone: 'danger',
-      });
-    }
-  }
-
   const publishLabel = publishStatus === 'publishing'
     ? 'Publishing…'
     : publishStatus === 'success'
       ? 'Published'
       : 'Publish';
-  const saveLabel = formatSaveLabel(saveStatus, dirty);
-  const exportTargetLabel = channelLabel(release.targetChannel);
-  const packageModeLabel = state.document.canvasVariants.length > 1 ? 'Size set' : 'Single size';
-  const warningCount = controller.exportReadiness.preflight.summary.blockers
-    + controller.exportReadiness.preflight.summary.warnings;
-  const exportSummaryTone = resolvedZipStatus === 'error'
-    ? 'danger'
-    : resolvedZipStatus === 'success'
-      ? 'good'
-      : resolvedZipStatus === 'exporting'
-        ? 'accent'
-        : controller.exportReadiness.preflight.summary.readyForBundleZip
-          ? 'good'
-          : 'warn';
-  const exportSummaryTitle = resolvedZipStatus === 'exporting'
-    ? 'Building package'
-    : resolvedZipStatus === 'success'
-      ? 'Package ready'
-      : resolvedZipStatus === 'error'
-        ? 'Needs attention'
-        : controller.exportReadiness.preflight.summary.readyForBundleZip
-          ? 'Ready to export'
-          : 'Review before export';
-  const exportSummaryDetail = resolvedZipMessage ?? controller.exportReadiness.preflight.summary.recommendedNextStep;
+
+  const preflightLabel = preflight.count > 0 ? `${preflight.label} ${preflight.count}` : preflight.label;
 
   return (
     <div className="top-actions-cluster">
-      <Tooltip content={`${exportTargetLabel} · ${packageModeLabel}${exportSummaryDetail ? `\n${exportSummaryDetail}` : ''}`} placement="bottom">
-        <button
-          type="button"
-          className={`top-actions-icon-button top-actions-icon-button--${exportSummaryTone}`.trim()}
-          aria-label={`${exportSummaryTitle}. Click to open preflight.`}
-          onClick={openPreflightPanel}
-        >
-          <StudioIcon icon={getExportSummaryIcon(exportSummaryTone)} size={16} />
-          {warningCount > 0 ? <span className="top-actions-icon-button__badge">{warningCount}</span> : null}
-        </button>
-      </Tooltip>
       <Button
         variant="ghost"
         size="sm"
-        className="top-assets-button"
+        className="top-action-button top-action-button--assets"
         iconBefore={<StudioIcon icon={StudioIcons.images} size={14} />}
         onClick={onOpenAssetLibrary}
       >
         Assets
       </Button>
+
       <Button
         variant="ghost"
         size="sm"
-        className="top-brand-kit-button"
-        iconBefore={<StudioIcon icon={StudioIcons.tags} size={14} />}
+        className="top-action-button top-action-button--brand"
+        iconBefore={<StudioIcon icon={StudioIcons.palette} size={14} />}
         onClick={onOpenBrandKitDrawer}
       >
-        Brand Kit
+        Brand
       </Button>
+
+      <div className="top-bar-divider" aria-hidden="true" />
+
+      <Button
+        variant="ghost"
+        size="sm"
+        className={`top-preflight-button top-preflight-button--${preflight.tone}`.trim()}
+        iconBefore={<span className={`top-preflight-dot top-preflight-dot--${preflight.tone}`.trim()} aria-hidden="true" />}
+        onClick={openPreflightPanel}
+      >
+        {preflightLabel}
+      </Button>
+
       <ExportMenu
         currentChannel={release.targetChannel}
         isExporting={resolvedZipStatus === 'exporting'}
@@ -244,15 +242,35 @@ export function TopBarActions({
         onPublish={() => void handlePublishToAdServer()}
       />
 
-      <Button
-        variant="primary"
-        size="sm"
-        className="top-save-button"
-        onClick={() => void handleSave()}
-        disabled={!canSaveProjects || saveStatus === 'saving'}
-      >
-        {saveLabel}
-      </Button>
+      <div ref={sessionMenuRef} className="top-session-menu">
+        <button
+          type="button"
+          className="top-avatar-button"
+          aria-label="Open session menu"
+          onClick={() => setSessionMenuOpen((current) => !current)}
+        >
+          {buildInitials(currentUser?.name)}
+        </button>
+        {sessionMenuOpen ? (
+          <div className="top-session-popover panel" role="menu" aria-label="Session menu">
+            <div className="top-session-popover__header">
+              <strong>{currentUser?.name ?? 'Guest'}</strong>
+              <span>{currentUser?.email ?? 'No session email'}</span>
+            </div>
+            <button
+              type="button"
+              role="menuitem"
+              className="top-session-popover__action"
+              onClick={() => {
+                setSessionMenuOpen(false);
+                controller.workspace.handleLogout();
+              }}
+            >
+              Sign out
+            </button>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

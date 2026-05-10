@@ -18,7 +18,12 @@ function readIndex(): ProjectSummary[] {
   try {
     const parsed = JSON.parse(raw) as ProjectSummary[];
     return Array.isArray(parsed)
-      ? parsed.map((item) => ({ ...item, accessScope: item.accessScope ?? 'client', archivedAt: item.archivedAt }))
+      ? parsed.map((item) => ({
+        ...item,
+        accessScope: item.accessScope ?? 'client',
+        archivedAt: item.archivedAt,
+        isArchived: item.isArchived ?? Boolean(item.archivedAt),
+      }))
       : [];
   } catch {
     return [];
@@ -52,6 +57,8 @@ function buildSummary(id: string, state: StudioState, ctx: PlatformRepositoryCon
     campaignName: state.document.metadata.platform?.campaignName,
     accessScope: (state.document.metadata.platform?.accessScope ?? (ctx.can('projects:share-client') ? 'client' : 'private')) as ProjectAccessScope,
     archivedAt: existing?.archivedAt,
+    isArchived: Boolean(existing?.archivedAt),
+    channel: state.document.metadata.release.targetChannel,
     canvasPresetId: state.document.canvas.presetId,
     sceneCount: state.document.scenes.length,
     widgetCount: state.document.scenes.reduce((count, scene) => count + scene.widgetIds.length, 0),
@@ -148,14 +155,23 @@ export const localProjectRepository: ProjectRepository = {
     const items = readIndex();
     const summary = items.find((item) => item.id === projectId);
     if (!summary || !canManageProject(summary, ctx)) return;
-    writeIndex(items.map((item) => item.id === projectId ? { ...item, archivedAt: new Date().toISOString() } : item));
+    writeIndex(items.map((item) => item.id === projectId ? {
+      ...item,
+      archivedAt: new Date().toISOString(),
+      isArchived: true,
+    } : item));
   },
   async restore(projectId: string) {
     const ctx = getRepositoryContext();
     const items = readIndex();
     const summary = items.find((item) => item.id === projectId);
     if (!summary || !canManageProject(summary, ctx)) return;
-    writeIndex(items.map((item) => item.id === projectId ? { ...item, archivedAt: undefined, updatedAt: new Date().toISOString() } : item));
+    writeIndex(items.map((item) => item.id === projectId ? {
+      ...item,
+      archivedAt: undefined,
+      isArchived: false,
+      updatedAt: new Date().toISOString(),
+    } : item));
   },
   async changeOwner(projectId: string, ownerUserId: string, ownerName?: string) {
     const ctx = getRepositoryContext();

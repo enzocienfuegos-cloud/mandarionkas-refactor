@@ -15,6 +15,7 @@ export function useTopBarStudioSnapshot(): TopBarStudioSnapshot {
     isPlaying: state.ui.isPlaying,
     previewMode: state.ui.previewMode,
     previewContext: state.ui.previewContext,
+    editModeWireframe: state.ui.editModeWireframe,
     lastAction: state.ui.lastTriggeredActionLabel,
     activeVariant: state.ui.activeVariant,
     activeFeedSource: state.ui.activeFeedSource,

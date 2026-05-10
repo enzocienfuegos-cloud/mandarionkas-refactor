@@ -1,38 +1,22 @@
-import type { CSSProperties } from 'react';
-import { getCanvasPresetById } from '../domain/document/canvas-presets';
+import { useState } from 'react';
 import { Button } from '../shared/ui/Button';
+import { SegmentedControl } from '../shared/ui/SegmentedControl';
 import { StudioIcon, StudioIcons } from '../shared/ui/icons';
 import { TabBar } from '../shared/ui/TabBar';
-import { useHashTabState } from './use-hash-tab-state';
-import { useClientWorkspaceController } from './client-workspace/use-client-workspace-controller';
-import { TemplateMarketplace } from './template-gallery/TemplateMarketplace';
 import { BrandKitDrawer } from '../app/shell/topbar/BrandKitDrawer';
+import { useHashTabState } from './use-hash-tab-state';
+import { useClientWorkspaceController, type WorkspaceViewMode } from './client-workspace/use-client-workspace-controller';
+import { ProjectCard, WorkspaceProjectBulkBar, WorkspaceProjectTable, type WorkspaceProjectItem } from './client-workspace/WorkspaceProjectViews';
+import { TemplateMarketplace } from './template-gallery/TemplateMarketplace';
 
 type ClientWorkspaceShellProps = {
   onBackToAgencyShell(): void;
   onEnterEditor(): void;
 };
 
-type WorkspaceTab = 'projects' | 'templates' | 'folders' | 'brand-kit';
+type WorkspaceTab = 'projects' | 'templates' | 'brand-kit';
 
-const WORKSPACE_TABS: readonly WorkspaceTab[] = ['projects', 'templates', 'folders', 'brand-kit'];
-
-function buildClientWorkspaceFrameStyle(borderColor: string, aspectRatio: string): CSSProperties {
-  return {
-    aspectRatio,
-    ['--brand-color' as string]: borderColor,
-  };
-}
-
-function getPresetIcon(presetId?: string) {
-  if (presetId?.includes('story') || presetId?.includes('vertical') || presetId?.includes('reel')) {
-    return StudioIcons.smartphone;
-  }
-  if (presetId?.includes('custom')) {
-    return StudioIcons.boxes;
-  }
-  return StudioIcons.library;
-}
+const WORKSPACE_TABS: readonly WorkspaceTab[] = ['projects', 'templates', 'brand-kit'];
 
 export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: ClientWorkspaceShellProps): JSX.Element {
   const controller = useClientWorkspaceController();
@@ -45,31 +29,34 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
     setSearch,
     projectFilter,
     setProjectFilter,
-    projectView,
-    setProjectView,
+    stateFilter,
+    setStateFilter,
     sortMode,
     setSortMode,
+    viewMode,
+    setViewMode,
     page,
     setPage,
     pageCount,
     pageItems,
+    filteredProjects,
     activeFolderId,
     setActiveFolderId,
     newFolderName,
     setNewFolderName,
-    bulkTargetFolderId,
-    setBulkTargetFolderId,
-    folderCards,
+    campaignFolders,
+    folderOptions,
     folderAssignments,
     selectedProjectIds,
+    allVisibleSelected,
     toggleProjectSelection,
     clearSelection,
     selectAllVisible,
     ownerOptions,
   } = controller;
   const routePath = `/hub/client/${encodeURIComponent(activeClient?.id ?? workspace.activeClientId ?? 'client')}`;
-  const defaultTab: WorkspaceTab = 'projects';
-  const [activeTab, setActiveTab] = useHashTabState(routePath, WORKSPACE_TABS, defaultTab);
+  const [activeTab, setActiveTab] = useHashTabState(routePath, WORKSPACE_TABS, 'projects');
+  const [creatingFolder, setCreatingFolder] = useState(false);
 
   async function handleOpen(projectId: string): Promise<void> {
     await controller.openProject(projectId);
@@ -86,11 +73,49 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
     onEnterEditor();
   }
 
+  function handleDeleteProject(projectId: string, projectName: string): void {
+    if (!window.confirm(`Delete "${projectName}"? This cannot be undone.`)) return;
+    void projectSession.handleLoadProject(projectId).then(async () => {
+      await projectSession.handleDeleteProject();
+      projectSession.refreshProjects();
+    });
+  }
+
+  function getProjectActions(project: WorkspaceProjectItem) {
+    return {
+      onOpen: () => void handleOpen(project.id),
+      onDuplicate: () => void controller.duplicateProjectCard(project.id),
+      onArchive: () => void controller.archiveProjectCard(project.id),
+      onRestore: () => void controller.restoreProjectCard(project.id),
+      onDelete: () => handleDeleteProject(project.id, project.name),
+      onMoveToFolder: (folderId?: string) => controller.moveProjectToFolder(project.id, folderId),
+      onSetStatus: (status: 'draft' | 'review' | 'ready') => controller.updateProjectStatus(project.id, status),
+    };
+  }
+
+  function handleFolderDraftBlur(): void {
+    if (newFolderName.trim()) {
+      void controller.createFolderDraft().then(() => setCreatingFolder(false));
+      return;
+    }
+    setCreatingFolder(false);
+  }
+
   const tabs = [
-    { id: 'projects' as const, label: 'Projects', count: stats.totalProjects - stats.archived },
+    { id: 'projects' as const, label: 'Projects', count: stats.active },
     { id: 'templates' as const, label: 'Templates', count: controller.templateCount ?? undefined },
-    { id: 'folders' as const, label: 'Folders', count: Math.max(0, folderCards.length - 2) },
     { id: 'brand-kit' as const, label: 'Brand kit' },
+  ];
+
+  const viewModeOptions = [
+    { id: 'card' as const, label: 'Cards' },
+    { id: 'list' as const, label: 'List' },
+  ];
+
+  const stateFilterOptions = [
+    { id: 'all' as const, label: 'All' },
+    { id: 'active' as const, label: 'Active' },
+    { id: 'inactive' as const, label: 'Inactive' },
   ];
 
   return (
@@ -113,7 +138,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         </div>
         <div className="client-workspace-topbar__actions">
           <Button variant="primary" size="md" className="compact-action" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
-            New campaign
+            New ad
           </Button>
           <div className="pill">{workspace.currentUser?.name ?? 'Guest'}</div>
           <Button variant="ghost" size="sm" className="compact-action" onClick={() => void workspace.handleLogout()}>
@@ -153,192 +178,167 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         ) : null}
 
         {activeTab === 'projects' ? (
-          <>
-            <section className="workspace-hub-toolbar">
-              <div className="workspace-hub-folder-bar">
-                <div className="workspace-hub-folder-list">
-                  {folderCards.map((folder) => (
+          <section className="workspace-projects-shell">
+            <aside className="workspace-projects-sidebar panel">
+              <div className="workspace-projects-sidebar__section">
+                <div className="workspace-hub-kicker">Campaigns</div>
+                <div className="workspace-projects-sidebar__list">
+                  {folderOptions.map((folder) => (
                     <button
                       key={folder.id}
-                      className={`workspace-folder-card ${activeFolderId === folder.id ? 'is-active' : ''}`}
                       type="button"
-                      onClick={() => {
-                        setActiveFolderId(folder.id);
-                        setPage(1);
-                      }}
+                      className={`workspace-campaign-link ${activeFolderId === folder.id ? 'is-active' : ''}`.trim()}
+                      onClick={() => setActiveFolderId(folder.id)}
                     >
-                      <span>{folder.name}</span>
+                      <span className="workspace-campaign-link__label">
+                        <StudioIcon icon={StudioIcons.folder} size={14} />
+                        {folder.name}
+                      </span>
                       <strong>{folder.count}</strong>
                     </button>
                   ))}
                 </div>
+                {creatingFolder ? (
+                  <input
+                    autoFocus
+                    value={newFolderName}
+                    className="workspace-campaign-input"
+                    placeholder="New campaign folder"
+                    onChange={(event) => setNewFolderName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        void controller.createFolderDraft().then(() => setCreatingFolder(false));
+                      }
+                      if (event.key === 'Escape') {
+                        setCreatingFolder(false);
+                        setNewFolderName('');
+                      }
+                    }}
+                    onBlur={handleFolderDraftBlur}
+                  />
+                ) : (
+                  <button type="button" className="workspace-campaign-create" onClick={() => setCreatingFolder(true)}>
+                    + New campaign folder
+                  </button>
+                )}
               </div>
-              <div className="workspace-hub-toolbar-row">
-                <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search by project, brand, campaign or owner" />
-                <select value={projectFilter} onChange={(event) => { setProjectFilter(event.target.value as typeof projectFilter); setPage(1); }}>
-                  <option value="all">All projects</option>
-                  <option value="mine">My projects</option>
-                  <option value="shared">Shared with me</option>
-                </select>
-                <select value={projectView} onChange={(event) => { setProjectView(event.target.value as typeof projectView); setPage(1); }}>
-                  <option value="active">Active only</option>
-                  <option value="archived">Archived only</option>
-                  <option value="all">Everything</option>
-                </select>
-                <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)}>
-                  <option value="recent">Recently updated</option>
-                  <option value="name">A to Z</option>
-                </select>
-              </div>
-              <div className="workspace-hub-toolbar-row workspace-hub-toolbar-row--actions">
-                <div className="pill">{controller.filteredProjects.length} results</div>
-                <div className="pill">{selectedProjectIds.length} selected</div>
-                <Button variant="ghost" size="sm" className="compact-action" onClick={selectAllVisible}>Select page</Button>
-                <Button variant="ghost" size="sm" className="compact-action" onClick={clearSelection}>Clear</Button>
-                <select value={bulkTargetFolderId} onChange={(event) => setBulkTargetFolderId(event.target.value)} disabled={selectedProjectIds.length === 0}>
-                  <option value="root">Move to unfiled</option>
-                  {folderCards.filter((folder) => folder.id !== 'all' && folder.id !== 'root').map((folder) => (
-                    <option key={folder.id} value={folder.id}>{folder.name}</option>
-                  ))}
-                </select>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="compact-action"
-                  onClick={() => controller.moveSelectedProjectsToFolder(bulkTargetFolderId === 'root' ? undefined : bulkTargetFolderId)}
-                  disabled={selectedProjectIds.length === 0}
-                >
-                  Move selected
-                </Button>
-              </div>
-            </section>
+            </aside>
 
-            {!pageItems.length ? (
-              <section className="workspace-hub-empty-state panel">
-                <div>
-                  <div className="workspace-hub-kicker">Projects</div>
-                  <h3>No projects yet</h3>
-                  <p>Start from a template or create a blank campaign. This workspace should open on projects first, even when it is still empty.</p>
-                </div>
-                <div className="workspace-project-actions">
-                  <Button variant="ghost" size="sm" className="compact-action" onClick={() => setActiveTab('templates')}>
-                    Browse templates
-                  </Button>
+            <div className="workspace-projects-main">
+              <section className="workspace-hub-toolbar workspace-hub-toolbar--workspace">
+                <div className="workspace-hub-toolbar-row workspace-hub-toolbar-row--primary">
+                  <div className="workspace-project-search">
+                    <input
+                      value={search}
+                      onChange={(event) => { setSearch(event.target.value); setPage(1); }}
+                      placeholder="Search by project, brand, campaign or owner"
+                    />
+                  </div>
+                  <SegmentedControl
+                    options={stateFilterOptions}
+                    value={stateFilter}
+                    onChange={(value) => { setStateFilter(value); setPage(1); }}
+                    ariaLabel="Project state filter"
+                  />
+                  <SegmentedControl
+                    options={viewModeOptions}
+                    value={viewMode}
+                    onChange={(value) => setViewMode(value as WorkspaceViewMode)}
+                    ariaLabel="Project view mode"
+                  />
+                  <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)} aria-label="Sort projects">
+                    <option value="recent">Recently edited</option>
+                    <option value="name">A to Z</option>
+                  </select>
                   <Button variant="primary" size="sm" className="compact-action" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
-                    Blank canvas
+                    New ad
                   </Button>
+                </div>
+                <div className="workspace-hub-toolbar-row workspace-hub-toolbar-row--secondary">
+                  <select value={projectFilter} onChange={(event) => { setProjectFilter(event.target.value as typeof projectFilter); setPage(1); }} aria-label="Project ownership filter">
+                    <option value="all">All owners</option>
+                    <option value="mine">Mine</option>
+                    <option value="shared">Shared</option>
+                  </select>
+                  <div className="pill">{filteredProjects.length} projects</div>
+                  <div className="pill">{stats.inactive} inactive</div>
                 </div>
               </section>
-            ) : (
-            <section className="workspace-hub-grid">
-              {pageItems.map((project) => {
-                const preset = getCanvasPresetById(project.canvasPresetId ?? (project.id === controller.snapshot.activeProjectId ? controller.snapshot.canvasPresetId : undefined));
-                const isSelected = selectedProjectIds.includes(project.id);
-                const brandColor = activeClient?.brands?.find((brand) => brand.id === project.brandId)?.primaryColor ?? activeClient?.brandColor ?? '#7c5cff';
-                const aspectRatio = preset ? `${preset.width} / ${preset.height}` : '16 / 9';
-                const assignedFolderName = folderCards.find((folder) => folder.id === folderAssignments[project.id])?.name ?? 'Unfiled';
-                return (
-                  <article key={project.id} className={`workspace-project-card ${isSelected ? 'is-selected' : ''} ${project.archivedAt ? 'is-archived' : ''}`.trim()}>
-                    <label className="workspace-project-select">
-                      <input type="checkbox" checked={isSelected} onChange={() => toggleProjectSelection(project.id)} />
-                      <span>Select</span>
-                    </label>
-                    <button className="workspace-project-preview" type="button" onClick={() => void handleOpen(project.id)}>
-                      <div className="workspace-project-thumb" style={buildClientWorkspaceFrameStyle(brandColor, aspectRatio)}>
-                        <div className="workspace-project-thumb__placeholder">
-                          <StudioIcon icon={getPresetIcon(preset?.id)} size={28} />
-                          <span>{preset?.label ?? 'Custom'}</span>
-                          <small>{project.sceneCount ?? 1} scenes · {project.widgetCount ?? 0} widgets</small>
-                        </div>
-                      </div>
-                    </button>
-                    <div className="workspace-project-card__body">
-                      <div className="workspace-project-card__header">
-                        <div>
-                          <h3>{project.name}</h3>
-                          <p>{project.brandName ?? 'No brand'} · {project.campaignName ?? 'No campaign'}</p>
-                        </div>
-                        <span className="pill">{assignedFolderName}</span>
-                      </div>
-                      <div className="workspace-project-card__meta-grid">
-                        <div>
-                          <span className="workspace-project-meta-label">Owner</span>
-                          <select value={project.ownerUserId ?? ''} onChange={(event) => void controller.changeProjectOwner(project.id, event.target.value)}>
-                            {ownerOptions.map((option) => <option key={option.userId} value={option.userId}>{option.label}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <span className="workspace-project-meta-label">Updated</span>
-                          <strong>{new Date(project.updatedAt).toLocaleString()}</strong>
-                        </div>
-                        <div>
-                          <span className="workspace-project-meta-label">Canvas</span>
-                          <strong>{preset ? `${preset.width}×${preset.height}` : 'Custom'}</strong>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="workspace-project-card__footer">
-                      <Button variant="primary" size="sm" onClick={() => void handleOpen(project.id)}>Open</Button>
-                      <Button variant="ghost" size="sm" onClick={() => void controller.duplicateProjectCard(project.id)}>Duplicate</Button>
-                      {project.archivedAt ? (
-                        <Button variant="ghost" size="sm" onClick={() => void controller.restoreProjectCard(project.id)}>Restore</Button>
-                      ) : (
-                        <Button variant="ghost" size="sm" onClick={() => void controller.archiveProjectCard(project.id)}>Archive</Button>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </section>
-            )}
 
-            <div className="workspace-hub-pagination">
-              <div className="pill">Page {page} of {pageCount}</div>
-              <div className="workspace-project-actions">
-                <Button variant="ghost" size="sm" className="compact-action" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1}>Previous</Button>
-                <Button variant="ghost" size="sm" className="compact-action" onClick={() => setPage((current) => Math.min(pageCount, current + 1))} disabled={page >= pageCount}>Next</Button>
-              </div>
-            </div>
-          </>
-        ) : null}
-
-        {activeTab === 'folders' ? (
-          <section className="workspace-folders-panel">
-            <div className="workspace-folders-panel__head">
-              <div>
-                <div className="workspace-hub-kicker">Folders</div>
-                <h2>Organize campaign families</h2>
-                <p>Create client-specific folders and keep active work grouped by launch stream or brand line.</p>
-              </div>
-            </div>
-            <div className="workspace-hub-folder-create">
-              <input
-                value={newFolderName}
-                onChange={(event) => setNewFolderName(event.target.value)}
-                placeholder="Create a folder in this client workspace"
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="compact-action"
-                onClick={() => void controller.createFolderDraft()}
-                disabled={!newFolderName.trim() || !activeClient?.id}
-              >
-                New folder
-              </Button>
-            </div>
-            <div className="agency-clients-grid">
-              {folderCards.filter((folder) => folder.id !== 'all').map((folder) => (
-                <article key={folder.id} className="agency-client-card-v2 workspace-folder-showcase">
-                  <div className="agency-client-card-v2__title">
-                    <strong>{folder.name}</strong>
-                    <small>{folder.count} projects</small>
+              {!pageItems.length ? (
+                <section className="workspace-hub-empty-state panel">
+                  <div>
+                    <div className="workspace-hub-kicker">Projects</div>
+                    <h3>No projects yet</h3>
+                    <p>Start from a template or create a blank campaign. This workspace opens on projects first, even when it is still empty.</p>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => { setActiveFolderId(folder.id); setActiveTab('projects'); }}>
-                    View projects
-                  </Button>
-                </article>
-              ))}
+                  <div className="workspace-project-actions">
+                    <Button variant="ghost" size="sm" className="compact-action" onClick={() => setActiveTab('templates')}>
+                      Browse templates
+                    </Button>
+                    <Button variant="primary" size="sm" className="compact-action" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
+                      Blank canvas
+                    </Button>
+                  </div>
+                </section>
+              ) : viewMode === 'card' ? (
+                <section className="workspace-project-grid">
+                  {pageItems.map((project) => {
+                    const folderName = campaignFolders.find((folder) => folder.id === folderAssignments[project.id])?.name ?? 'Unfiled';
+                    return (
+                      <ProjectCard
+                        key={project.id}
+                        project={project as WorkspaceProjectItem}
+                        folderName={folderName}
+                        folders={campaignFolders}
+                        canDelete={workspace.canDeleteProjects}
+                        ownerOptions={ownerOptions}
+                        onChangeOwner={(ownerUserId) => void controller.changeProjectOwner(project.id, ownerUserId)}
+                        {...getProjectActions(project as WorkspaceProjectItem)}
+                      />
+                    );
+                  })}
+                </section>
+              ) : (
+                <section className="workspace-project-table panel">
+                  <WorkspaceProjectTable
+                    projects={pageItems as WorkspaceProjectItem[]}
+                    selectedProjectIds={selectedProjectIds}
+                    allVisibleSelected={allVisibleSelected}
+                    canDelete={workspace.canDeleteProjects}
+                    folders={campaignFolders}
+                    onSelectAll={selectAllVisible}
+                    onToggleSelection={toggleProjectSelection}
+                    getProjectActions={(project) => getProjectActions(project)}
+                  />
+
+                  <WorkspaceProjectBulkBar
+                    visible={selectedProjectIds.length > 0}
+                    selectedCount={selectedProjectIds.length}
+                    canDelete={workspace.canDeleteProjects}
+                    folders={campaignFolders}
+                    onMoveToFolder={(folderId) => controller.moveSelectedProjectsToFolder(folderId)}
+                    onSetStatus={(status: 'draft' | 'review' | 'ready') => controller.updateSelectedProjectStatus(status)}
+                    onArchive={() => void controller.archiveSelectedProjects()}
+                    onDelete={() => {
+                      if (window.confirm(`Delete ${selectedProjectIds.length} selected project(s)? This cannot be undone.`)) {
+                        void controller.deleteSelectedProjects();
+                      }
+                    }}
+                  />
+                </section>
+              )}
+
+              <div className="workspace-hub-pagination">
+                <div className="pill">Page {page} of {pageCount}</div>
+                <div className="workspace-project-actions">
+                  <Button variant="ghost" size="sm" className="compact-action" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1}>Previous</Button>
+                  {selectedProjectIds.length > 0 ? (
+                    <Button variant="ghost" size="sm" className="compact-action" onClick={clearSelection}>Clear selection</Button>
+                  ) : null}
+                  <Button variant="ghost" size="sm" className="compact-action" onClick={() => setPage((current) => Math.min(pageCount, current + 1))} disabled={page >= pageCount}>Next</Button>
+                </div>
+              </div>
             </div>
           </section>
         ) : null}

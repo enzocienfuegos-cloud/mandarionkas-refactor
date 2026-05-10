@@ -37,6 +37,6 @@ describe('export tokens', () => {
 
   it('exposes helpers for direct export usage', () => {
     expect(exportColor('panel')).toBe(exportTokens.panel);
-    expect(exportAlpha('accent', 0.12)).toBe('rgba(255,47,214,0.12)');
+    expect(exportAlpha('accent', 0.12)).toBe('rgba(37,99,235,0.12)');
   });
 });
