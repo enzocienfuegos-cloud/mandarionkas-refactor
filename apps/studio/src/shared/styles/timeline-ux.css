@@ -7,8 +7,8 @@
 }
 
 .timeline-header-strip--ux {
-  min-height: 52px;
-  padding: 10px 14px;
+  min-height: 48px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--white-a-06);
   display: flex;
   align-items: center;
@@ -49,7 +49,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -58,7 +58,7 @@
   display: inline-flex;
   align-items: stretch;
   gap: 6px;
-  padding: 4px;
+  padding: 3px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--white-a-08);
   background: var(--white-a-03);
@@ -100,7 +100,7 @@
 .timeline-ctrl-group {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .timeline-ctrl-group .ghost,
@@ -183,7 +183,7 @@
 .timeline-title-copy {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .timeline-title-pills {

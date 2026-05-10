@@ -149,9 +149,9 @@
   text-transform: uppercase;
 }
 .top-context-pill--accent {
-  border-color: var(--border-accent-soft);
-  background: var(--bg-selected-soft);
-  color: var(--text-accent-fuchsia);
+  border-color: var(--focus-a-24);
+  background: var(--focus-a-10);
+  color: var(--text-focus-bright);
 }
 .top-status-pill {
   display: inline-flex;
@@ -171,8 +171,8 @@
   border-color: var(--success-a-34);
 }
 .top-status-pill--warn {
-  color: var(--accent);
-  border-color: var(--accent-a-35);
+  color: var(--warning-strong);
+  border-color: var(--warning-a-45);
 }
 .top-status-pill--danger {
   color: var(--danger-strong);
@@ -322,7 +322,7 @@
   align-items: center;
   gap: 10px;
   justify-content: flex-end;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 .top-brand-kit-button {
   white-space: nowrap;

@@ -1,7 +1,7 @@
 .preflight-tray {
   position: fixed;
-  right: 18px;
-  bottom: calc(var(--shell-bottom-h) + 18px);
+  top: calc(var(--shell-top-h) + 14px);
+  right: calc(var(--shell-right-w) + 18px);
   z-index: var(--z-floating);
   display: grid;
   justify-items: end;
@@ -13,7 +13,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-width: 172px;
+  min-width: 188px;
   min-height: 40px;
   padding: 0 12px;
   border-radius: var(--radius-pill);
@@ -60,7 +60,7 @@
 
 .preflight-tray__panel {
   width: min(360px, calc(100vw - 32px));
-  max-height: min(420px, calc(100vh - var(--shell-top-h) - var(--shell-bottom-h) - 48px));
+  max-height: min(420px, calc(100vh - var(--shell-top-h) - 48px));
   overflow: auto;
   display: grid;
   gap: 10px;

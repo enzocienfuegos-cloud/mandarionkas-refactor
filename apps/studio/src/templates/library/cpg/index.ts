@@ -7,6 +7,11 @@ export const CPG_FLAVOR_SPOTLIGHT_TEMPLATE = createSimpleTemplate({
     description: 'CPG launch template for flavor pushes, packaging reveals and rotation campaigns.',
     vertical: 'cpg',
     canvasPresetId: 'leaderboard',
+    featuredLabel: 'Launch favorite',
+    curationRank: 74,
+    sceneCount: 1,
+    moduleHighlights: ['Pack-led visual system', 'Retail-ready CTA'],
+    recommendedFor: 'Flavor launches, seasonal rotations and pack reveals',
   },
   palette: {
     background: '#fff9e8',
@@ -31,6 +36,10 @@ export const CPG_RETAIL_WIN_TEMPLATE = createSimpleTemplate({
     description: 'Retail-ready banner system for promo weeks, shelf callouts and local store campaigns.',
     vertical: 'cpg',
     canvasPresetId: 'leaderboard',
+    curationRank: 64,
+    sceneCount: 1,
+    moduleHighlights: ['Retail callouts', 'Promo framing'],
+    recommendedFor: 'Retail media, shelf support and promo weeks',
   },
   palette: {
     background: '#f0fff7',

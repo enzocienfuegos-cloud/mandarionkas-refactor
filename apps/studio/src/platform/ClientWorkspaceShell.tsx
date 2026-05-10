@@ -23,7 +23,7 @@ function buildClientWorkspaceFrameStyle(borderColor: string, aspectRatio: string
 export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: ClientWorkspaceShellProps): JSX.Element {
   const controller = useClientWorkspaceController();
   const starters = getProjectStarters();
-  const defaultTemplateStarter = starters.find((starter) => starter.id !== 'blank');
+  const defaultTemplateStarter = starters.find((starter) => starter.id === 'bocadeli-worldcup') ?? starters.find((starter) => starter.id !== 'blank');
   const {
     workspace,
     projectSession,
@@ -85,7 +85,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         <div>
           <div className="workspace-hub-kicker">Client launchpad</div>
           <h1>{activeClient?.name ?? 'Choose a workspace'}</h1>
-          <p>Templates, blank starts, variants, folders and bulk actions stay scoped to the selected client workspace.</p>
+          <p>Templates, blank starts, folders and draft recovery stay scoped to this client instead of competing with admin-heavy forms.</p>
         </div>
         <div className="workspace-hub-session">
           <Button
@@ -102,7 +102,9 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
           </Button>
           <div className="pill">{workspace.currentUser?.name ?? 'Guest'}</div>
           <div className="pill">{workspace.workspaceRole ?? workspace.currentUser?.role ?? 'viewer'}</div>
-          <Button variant="ghost" size="sm" className="compact-action" onClick={() => void workspace.handleLogout()}>Logout</Button>
+          <Button variant="ghost" size="sm" className="compact-action" onClick={() => void workspace.handleLogout()}>
+            Logout
+          </Button>
         </div>
       </header>
 
@@ -110,8 +112,8 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         <div className="workspace-launchpad__hero">
           <div>
             <div className="workspace-hub-kicker">Creative launchpad</div>
-            <h2>Start from a template, a blank canvas, or a DCO-ready scaffold.</h2>
-            <p>Creation paths should be explicit before the project grid takes over. Use the launch cards below or drop into the template marketplace.</p>
+            <h2>Choose a clear start: template, blank canvas, or scalable starter.</h2>
+            <p>Creation paths should be obvious before the project grid takes over. The strongest starters surface first and the editor stays one click away.</p>
           </div>
           <div className="workspace-launchpad__hero-pills">
             <span className="pill">{stats.totalProjects - stats.archived} active</span>
@@ -123,7 +125,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
           <button type="button" className="workspace-launch-card" onClick={handleJumpToTemplateMarketplace}>
             <span className="workspace-launch-card__eyebrow">Marketplace</span>
             <strong>Start from template</strong>
-            <p>Browse vertical-ready campaign starters with stronger previews and faster setup.</p>
+            <p>Browse curated campaign starters with stronger previews, clearer hierarchy and faster setup.</p>
           </button>
           <button type="button" className="workspace-launch-card" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
             <span className="workspace-launch-card__eyebrow">Blank creative</span>
@@ -143,7 +145,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         </div>
       </section>
 
-      <section className="workspace-hub-hero">
+      <section className="workspace-client-overview">
         <div className="workspace-hub-stat-card">
           <span className="workspace-hub-stat-label">Active projects</span>
           <strong>{stats.totalProjects - stats.archived}</strong>
@@ -152,12 +154,12 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         <div className="workspace-hub-stat-card">
           <span className="workspace-hub-stat-label">Archived</span>
           <strong>{stats.archived}</strong>
-          <small>Restorable from the hub</small>
+          <small>Restorable from the client workspace</small>
         </div>
         <div className="workspace-hub-stat-card">
           <span className="workspace-hub-stat-label">Clients</span>
           <strong>{stats.clientCount}</strong>
-          <small>Visible in this session</small>
+          <small>Visible in this Studio session</small>
         </div>
         <div className="workspace-hub-stat-card workspace-hub-stat-card--form">
           <label>
@@ -166,61 +168,34 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
               {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
             </select>
           </label>
+          <small>Switch the workspace lens without leaving the launchpad.</small>
         </div>
-        <div className="workspace-hub-stat-card workspace-hub-stat-card--form">
-          <label>
-            Create client
-            <input
-              value={workspace.newClientName}
-              onChange={(event) => workspace.setNewClientName(event.target.value)}
-              placeholder="New client / workspace name"
-            />
-          </label>
-          <Button variant="ghost" size="sm" className="compact-action" onClick={() => void workspace.handleCreateClient()} disabled={!workspace.canCreateClient || !workspace.newClientName.trim()}>Create client</Button>
-          <small>Creates the workspace remotely and updates the server session.</small>
-        </div>
-        <div className="workspace-hub-stat-card workspace-hub-stat-card--form">
-          <label>
-            New project name
-            <input value={projectSession.newProjectName} onChange={(event) => projectSession.setNewProjectName(event.target.value)} placeholder="Campaign Spring launch" />
-          </label>
-          <label>
-            Starter
-            <select value={projectSession.newProjectStarterId} onChange={(event) => projectSession.setNewProjectStarterId(event.target.value as typeof projectSession.newProjectStarterId)}>
-              {starters.map((starter) => <option key={starter.id} value={starter.id}>{starter.label}</option>)}
-            </select>
-          </label>
-          <label>
-            Banner size
-            <select
-              value={projectSession.newProjectPresetId}
-              onChange={(event) => projectSession.setNewProjectPresetId(event.target.value)}
-              disabled={projectSession.newProjectStarterId !== 'blank'}
-            >
-              {controller.canvasPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
-            </select>
-          </label>
-          <small>
-            {starters.find((starter) => starter.id === projectSession.newProjectStarterId)?.description}
-          </small>
-          <Button variant="primary" size="md" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>Create and open editor</Button>
-        </div>
+        {projectSession.autosaveAvailable ? (
+          <div className="workspace-hub-stat-card workspace-hub-stat-card--form">
+            <span className="workspace-hub-stat-label">Recovered work</span>
+            <strong>Draft available</strong>
+            <small>Jump back into the last autosaved editor state from this client workspace.</small>
+            <Button variant="ghost" size="sm" className="compact-action" onClick={() => void projectSession.handleRecoverDraft()}>
+              Recover draft
+            </Button>
+          </div>
+        ) : null}
       </section>
 
       <section className={`workspace-hub-onboarding ${hasProjects ? 'workspace-hub-onboarding--compact' : ''}`.trim()} id="template-marketplace">
-          <div className="workspace-hub-onboarding__intro">
-            <div>
-              <div className="workspace-hub-kicker">Template marketplace</div>
-              <h2>{hasProjects ? 'Keep new briefs moving with stronger launch points' : 'Start from a template instead of an empty editor'}</h2>
-              <p>{hasProjects ? 'Marketplace-style starters keep new campaigns on-brand and reduce repetitive setup before teams enter the editor.' : 'There are no projects in this client workspace yet. Pick a launch point by vertical, or create a blank project if you want full control from the start.'}</p>
-            </div>
-            <div className="workspace-hub-onboarding__actions">
-              <Button variant="primary" size="md" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
-                Blank project
-              </Button>
-            </div>
+        <div className="workspace-hub-onboarding__intro">
+          <div>
+            <div className="workspace-hub-kicker">Template marketplace</div>
+            <h2>{hasProjects ? 'Keep new briefs moving with a smaller set of stronger launch points' : 'Start from a curated template instead of an empty editor'}</h2>
+            <p>{hasProjects ? 'The marketplace now surfaces the best launch points first, including the real Bocadeli World Cup starter for interactive sports activations.' : 'There are no projects in this client workspace yet. Pick a curated launch point by vertical, or create a blank project if you want full control from the start.'}</p>
           </div>
-          <TemplateGallery onUseTemplate={(templateId) => void handleCreateFromStarter(templateId)} />
+          <div className="workspace-hub-onboarding__actions">
+            <Button variant="primary" size="md" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
+              Blank project
+            </Button>
+          </div>
+        </div>
+        <TemplateGallery onUseTemplate={(templateId) => void handleCreateFromStarter(templateId)} />
       </section>
 
       <section className="workspace-hub-toolbar">
@@ -274,7 +249,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
             <option value="recent">Recently updated</option>
             <option value="name">A to Z</option>
           </select>
-          <div className="pill">Client-scoped view</div>
+          <div className="pill">Client-scoped project view</div>
         </div>
         {selectedProjectIds.length > 0 || projectSession.autosaveAvailable ? (
           <div className="workspace-hub-toolbar-row workspace-hub-toolbar-row--actions">
@@ -367,7 +342,9 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
                   </label>
                 </div>
                 <div className="workspace-project-actions">
-                  <Button variant="primary" size="md" className="compact-action" onClick={() => void handleOpen(project.id)} disabled={Boolean(project.archivedAt)}>Open in editor</Button>
+                  <Button variant="primary" size="md" className="compact-action" onClick={() => void handleOpen(project.id)} disabled={Boolean(project.archivedAt)}>
+                    Open in editor
+                  </Button>
                   <Button variant="ghost" size="sm" className="compact-action" onClick={() => void controller.duplicateProjectCard(project.id)}>Duplicate</Button>
                   {project.archivedAt ? (
                     <Button variant="ghost" size="sm" className="compact-action" onClick={() => void controller.restoreProjectCard(project.id)} disabled={!workspace.canDeleteProjects}>Restore</Button>

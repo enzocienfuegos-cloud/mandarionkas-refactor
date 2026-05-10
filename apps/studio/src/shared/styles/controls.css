@@ -38,10 +38,10 @@
 }
 .icon-btn--ghost:hover {
   background:
-    radial-gradient(circle at top, var(--accent-a-18), transparent 62%),
-    var(--bg-accent-fuchsia-soft);
-  border-color: var(--border-accent-soft);
-  box-shadow: 0 0 0 1px var(--accent-a-12);
+    radial-gradient(circle at top, var(--focus-a-14), transparent 62%),
+    var(--white-a-05);
+  border-color: var(--focus-a-18);
+  box-shadow: 0 0 0 1px var(--focus-a-10);
   transform: translateY(-1px);
 }
 .icon-btn--solid {
@@ -81,10 +81,10 @@
   transform: none;
 }
 .icon-btn.is-active {
-  background: var(--accent-a-12);
-  color: var(--text-accent-fuchsia);
-  border-color: var(--border-accent-fuchsia);
-  box-shadow: 0 0 0 1px var(--accent-a-12);
+  background: var(--focus-a-12);
+  color: var(--text-focus-bright);
+  border-color: var(--focus-a-24);
+  box-shadow: 0 0 0 1px var(--focus-a-12);
 }
 .icon-btn.is-active .studio-icon {
   transform: scale(1.02);

@@ -3,6 +3,10 @@
     grid-template-columns: minmax(240px, 1fr) minmax(0, 1fr) auto;
     gap: 12px;
   }
+
+  .top-actions-summary__detail {
+    display: none;
+  }
 }
 
 @media (max-width: 1100px) {

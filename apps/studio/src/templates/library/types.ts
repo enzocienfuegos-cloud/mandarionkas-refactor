@@ -16,6 +16,12 @@ export type StudioTemplateMetadata = {
   canvasPresetId?: string;
   thumbnail?: string;
   workspaceScopes?: string[];
+  featured?: boolean;
+  featuredLabel?: string;
+  curationRank?: number;
+  sceneCount?: number;
+  moduleHighlights?: string[];
+  recommendedFor?: string;
 };
 
 export type StudioTemplate = {

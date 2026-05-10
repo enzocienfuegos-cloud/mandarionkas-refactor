@@ -19,7 +19,8 @@ export function RightInspector({
     return activeScene?.name ?? 'Scene';
   });
 
-  const inspectorTitle = selectionIds.length === 0 ? documentName : selectionIds.length === 1 ? 'Selected widget' : 'Multi-selection';
+  const inspectorTitle = selectionIds.length === 0 ? (documentName?.trim() || 'Untitled project') : selectionIds.length === 1 ? 'Selected widget' : 'Multi-selection';
+  const inspectorEyebrow = selectionIds.length === 0 ? 'Document' : selectionIds.length === 1 ? 'Widget' : 'Selection';
   const inspectorStateLabel = selectionIds.length === 0 ? 'Document command panel' : selectionIds.length === 1 ? 'Focused editing' : 'Batch editing';
   const inspectorHint = selectionIds.length === 0
     ? 'Canvas, scenes, data, release and collaboration live here.'
@@ -42,8 +43,8 @@ export function RightInspector({
       <div className="inspector-shell">
         <div className="inspector-hero">
           <div className="inspector-hero-head">
-            <div>
-              <small className="muted">Inspector</small>
+            <div className="inspector-hero-title-stack">
+              <small className="muted">{inspectorEyebrow}</small>
               <strong>{inspectorTitle}</strong>
             </div>
             <IconButton
@@ -58,7 +59,7 @@ export function RightInspector({
             />
           </div>
           <div className="meta-line">
-            <span className="pill">{activeSceneName}</span>
+            <span className="pill pill-highlight">{activeSceneName}</span>
             <span className="pill">{inspectorStateLabel}</span>
           </div>
           <small className="muted inspector-hero-caption">{inspectorHint}</small>

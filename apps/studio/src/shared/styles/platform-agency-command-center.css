@@ -20,8 +20,8 @@
   gap: 8px;
   padding: 12px 14px;
   border-radius: var(--radius-3xl);
-  border: 1px solid var(--border-accent-soft);
-  background: linear-gradient(180deg, var(--white-a-04), var(--bg-overlay-ghost));
+  border: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, var(--white-a-03), var(--bg-overlay-ghost));
   box-shadow: inset 0 1px 0 var(--white-a-03), var(--shadow-card-soft);
 }
 
@@ -123,8 +123,8 @@
   display: grid;
   gap: 16px;
   background:
-    radial-gradient(circle at top left, var(--accent-a-24), transparent 34%),
-    radial-gradient(circle at 78% 14%, var(--accent-2-a-18), transparent 30%),
+    radial-gradient(circle at top left, var(--focus-a-12), transparent 34%),
+    radial-gradient(circle at 78% 14%, var(--accent-2-a-14), transparent 30%),
     var(--gradient-panel-elevated);
 }
 
@@ -134,7 +134,7 @@
 }
 
 .agency-command-hero__intro p strong {
-  color: var(--text-accent-fuchsia);
+  color: var(--text-focus-bright);
 }
 
 .agency-command-hero__featured {
@@ -142,11 +142,11 @@
   gap: 12px;
   padding: 18px;
   border-radius: var(--radius-4xl);
-  border: 1px solid var(--border-accent-soft);
+  border: 1px solid var(--border-subtle-strong);
   background:
     linear-gradient(180deg, var(--white-a-04), var(--bg-overlay-ghost)),
-    radial-gradient(circle at top left, var(--accent-a-12), transparent 42%);
-  box-shadow: var(--shadow-fuchsia-soft);
+    radial-gradient(circle at top left, var(--focus-a-10), transparent 42%);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .agency-command-hero__featured h3,
@@ -186,8 +186,8 @@
 
 .agency-quick-action-card:not(.agency-quick-action-card--static):hover {
   transform: translateY(-2px);
-  border-color: var(--border-accent-fuchsia);
-  box-shadow: var(--shadow-fuchsia-soft);
+  border-color: var(--focus-a-20);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .agency-quick-action-card strong,
@@ -206,9 +206,14 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-2xl);
-  border: 1px solid var(--border-accent-soft);
-  background: var(--accent-a-12);
-  color: var(--text-accent-fuchsia);
+  border: 1px solid var(--focus-a-18);
+  background: var(--focus-a-10);
+  color: var(--text-focus-bright);
+}
+
+.agency-client-card.is-active {
+  border-color: var(--focus-a-26);
+  box-shadow: 0 0 0 1px var(--focus-a-12), var(--shadow-card-soft);
 }
 
 .agency-review-summary {

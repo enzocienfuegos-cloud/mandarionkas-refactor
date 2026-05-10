@@ -8,6 +8,12 @@ export const WORLD_CUP_TEMPLATE: StudioTemplate = {
     description: 'Seeds the World Cup interactive layout with configurable game widgets on 320x480.',
     vertical: 'sports',
     canvasPresetId: 'interstitial',
+    featured: true,
+    featuredLabel: 'Flagship starter',
+    curationRank: 100,
+    sceneCount: 4,
+    moduleHighlights: ['Interactive flow', 'Live score moments', 'Reward end card'],
+    recommendedFor: 'Event activations, sweepstakes and branded mini-games',
   },
   buildDocument: buildWorldCupTemplateDocument,
 };

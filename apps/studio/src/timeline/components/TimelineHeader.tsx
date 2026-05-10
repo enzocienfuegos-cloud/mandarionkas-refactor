@@ -111,11 +111,9 @@ export function TimelineHeader({
         />
         <div className="timeline-title-copy">
           <strong>Timeline</strong>
-          <small>{displayedCount} track{displayedCount === 1 ? '' : 's'} · {selectedCount} selected</small>
+          <small>{displayedCount} track{displayedCount === 1 ? '' : 's'} · Scene {activeSceneIndex + 1} of {Math.max(1, scenes.length)} · {selectedCount} selected</small>
           <div className="timeline-title-pills">
-            <span className="pill pill-highlight timeline-scene-pill">Scene {activeSceneIndex + 1} of {Math.max(1, scenes.length)}</span>
-            <span className="pill">Motion timing</span>
-            <span className="pill">Trim + keyframes</span>
+            <span className="pill pill-highlight timeline-scene-pill">Trim, timing and keyframes</span>
           </div>
         </div>
       </div>
@@ -189,7 +187,7 @@ export function TimelineHeader({
             onClick={onToggleSnap}
             tooltip={snapEnabled ? `Snap enabled — step ${snapStepMs}ms` : 'Snap disabled'}
           >
-            {snapEnabled ? `Snap · ${snapStepMs}ms` : 'Snap off'}
+            {snapEnabled ? `Snap ${snapStepMs}ms` : 'Snap off'}
           </Button>
         </div>
 
@@ -203,7 +201,7 @@ export function TimelineHeader({
             onClick={onToggleSelectedOnly}
             tooltip={selectedOnly ? 'Showing selected layers only — click to show all' : 'Click to show selected layers only'}
           >
-            {selectedOnly ? 'Selection' : 'All'}
+            {selectedOnly ? 'Selected only' : 'All layers'}
           </Button>
         </div>
 

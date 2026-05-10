@@ -12,7 +12,6 @@ type AgencyCommandHeroProps = {
   onContinue(): void;
   onCreateCampaign(): void;
   onOpenClientWorkspace(): void;
-  onJumpToReview(): void;
 };
 
 export function AgencyCommandHero({
@@ -22,15 +21,14 @@ export function AgencyCommandHero({
   onContinue,
   onCreateCampaign,
   onOpenClientWorkspace,
-  onJumpToReview,
 }: AgencyCommandHeroProps): JSX.Element {
   return (
     <section className="agency-command-hero">
       <div className="agency-command-hero__intro">
-        <div className="workspace-hub-kicker">Agency command center</div>
-        <h2>Continue campaigns, review exports, and launch client work from one place.</h2>
+        <div className="workspace-hub-kicker">Agency hub</div>
+        <h2>Continue the next project fast, then move cleanly into the right client space.</h2>
         <p>
-          Focus the shell on the next best action instead of scanning a dashboard. The current client lens is
+          The shell should feel like an edit queue instead of a dashboard. The current client lens is
           <strong> {selectedClientName}</strong>.
         </p>
       </div>
@@ -58,21 +56,21 @@ export function AgencyCommandHero({
             <StudioIcon icon={StudioIcons.folder} size={18} />
           </span>
           <strong>Open client workspace</strong>
-          <p>Jump into the active client context and keep briefs, templates, and projects scoped.</p>
+          <p>Jump into the active client context and keep briefs, templates and projects tightly scoped.</p>
         </button>
-        <button type="button" className="agency-quick-action-card" onClick={onJumpToReview}>
+        <button type="button" className="agency-quick-action-card" onClick={onCreateCampaign}>
           <span className="agency-quick-action-card__icon">
-            <StudioIcon icon={StudioIcons.scanSearch} size={18} />
+            <StudioIcon icon={StudioIcons.plus} size={18} />
           </span>
-          <strong>Review exports</strong>
-          <p>See readiness and recent export-related activity without leaving the command center.</p>
+          <strong>Start a new campaign</strong>
+          <p>Use a blank canvas or jump into the curated template paths without scanning backlog metrics first.</p>
         </button>
         <div className="agency-quick-action-card agency-quick-action-card--static">
           <span className="agency-quick-action-card__icon">
             <StudioIcon icon={StudioIcons.library} size={18} />
           </span>
           <strong>Template marketplace</strong>
-          <p>{templateCount} launch-ready starters available across verticals and formats.</p>
+          <p>{templateCount} stronger launch-ready starters, led by the Bocadeli World Cup flagship flow.</p>
         </div>
       </div>
     </section>

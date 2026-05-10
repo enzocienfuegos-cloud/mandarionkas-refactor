@@ -7,6 +7,11 @@ export const ECOMMERCE_FLASH_DROP_TEMPLATE = createSimpleTemplate({
     description: 'High-contrast ecommerce launch with strong CTA focus and product-first framing.',
     vertical: 'ecommerce',
     canvasPresetId: 'leaderboard',
+    featuredLabel: 'Top performer',
+    curationRank: 80,
+    sceneCount: 1,
+    moduleHighlights: ['Product-first hero', 'Strong CTA framing'],
+    recommendedFor: 'Launches, scarcity drops and creator collaborations',
   },
   palette: {
     background: '#fff5ef',
@@ -31,6 +36,10 @@ export const ECOMMERCE_CART_RESCUE_TEMPLATE = createSimpleTemplate({
     description: 'Recovery template for discount reminders, urgency nudges and abandoned-cart retargeting.',
     vertical: 'ecommerce',
     canvasPresetId: 'medium-rectangle',
+    curationRank: 68,
+    sceneCount: 1,
+    moduleHighlights: ['Offer framing', 'Retargeting copy'],
+    recommendedFor: 'Abandoned-cart retargeting and offer recovery',
   },
   palette: {
     background: '#eef7ff',

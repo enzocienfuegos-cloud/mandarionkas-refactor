@@ -194,10 +194,10 @@ export function TopBarActions({ controller, onOpenBrandKitDrawer }: { controller
           <StudioIcon icon={getExportSummaryIcon(exportSummaryTone)} size={15} />
         </span>
         <div className="top-actions-summary__copy">
-          <div className="top-actions-summary__eyebrow">{exportTargetLabel} · {packageModeLabel}</div>
           <strong className="top-actions-summary__title">{exportSummaryTitle}</strong>
-          <small className="top-actions-summary__detail">{exportSummaryDetail}</small>
+          <small className="top-actions-summary__eyebrow">{exportTargetLabel} · {packageModeLabel}</small>
         </div>
+        <small className="top-actions-summary__detail">{exportSummaryDetail}</small>
       </div>
       <Button
         variant="ghost"

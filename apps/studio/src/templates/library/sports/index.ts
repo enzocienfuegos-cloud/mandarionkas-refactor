@@ -8,6 +8,11 @@ export const SPORTS_MATCHDAY_COUNTDOWN_TEMPLATE = createSimpleTemplate({
     description: 'Sports countdown layout for matchday hype, pre-game reminders and ticket sales.',
     vertical: 'sports',
     canvasPresetId: 'interstitial',
+    featuredLabel: 'Fast launch',
+    curationRank: 84,
+    sceneCount: 1,
+    moduleHighlights: ['Countdown framing', 'High-attention CTA'],
+    recommendedFor: 'Ticket pushes, sponsor countdowns and matchday reminders',
   },
   palette: {
     background: '#07111f',
@@ -32,6 +37,10 @@ export const SPORTS_FAN_REWARD_TEMPLATE = createSimpleTemplate({
     description: 'Reward-driven sports creative for loyalty pushes, second-screen promos and fan activations.',
     vertical: 'sports',
     canvasPresetId: 'medium-rectangle',
+    curationRank: 72,
+    sceneCount: 1,
+    moduleHighlights: ['Reward loop', 'Second-screen promo'],
+    recommendedFor: 'Loyalty activations and fan reward drops',
   },
   palette: {
     background: '#101827',

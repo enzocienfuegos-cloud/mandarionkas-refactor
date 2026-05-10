@@ -122,6 +122,7 @@ export function WidgetLibrarySection({ controller }: { controller: LeftRailContr
               {section.widgets.map((widget) => {
                 const metadataPills = getMetadataPills(widget);
                 const capabilityPills = getCapabilityPills(widget);
+                const previewActive = previewWidgetType === widget.type;
                 return (
                   <div
                     key={widget.type}
@@ -129,7 +130,7 @@ export function WidgetLibrarySection({ controller }: { controller: LeftRailContr
                     role="button"
                     tabIndex={0}
                     data-widget-type={widget.type}
-                    className={`left-button widget-library-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''}`}
+                    className={`left-button widget-library-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
                     aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
                     onClick={() => widgetActions.createWidget(widget.type)}
                     onMouseEnter={() => setPreviewWidgetType(widget.type)}
@@ -152,7 +153,13 @@ export function WidgetLibrarySection({ controller }: { controller: LeftRailContr
                     }}
                   >
                     <div className="widget-library-card__thumb">
-                      {renderWidgetThumbnail(widget, previewWidgetType === widget.type)}
+                      <div className="widget-library-card__thumb-stage">
+                        {renderWidgetThumbnail(widget, previewActive)}
+                      </div>
+                      <div className="widget-library-card__thumb-overlay" aria-hidden="true">
+                        <span>{previewActive ? 'Preview live' : 'Hover for motion'}</span>
+                        <strong>{widget.recommendedSize?.label ?? section.label}</strong>
+                      </div>
                     </div>
 
                     <div className="widget-library-card__meta">
@@ -164,11 +171,14 @@ export function WidgetLibrarySection({ controller }: { controller: LeftRailContr
                             <div className="widget-library-card__description">{widget.description}</div>
                           ) : null}
                         </div>
-                        <span className="widget-library-card__add" aria-hidden="true">Add +</span>
+                        <span className="widget-library-card__add" aria-hidden="true">
+                          <StudioIcon icon={StudioIcons.plus} size={12} />
+                          Add
+                        </span>
                       </div>
                       {widget.libraryTags?.length ? (
                         <div className="widget-library-card__tags">
-                          {widget.libraryTags.slice(0, 3).map((item) => (
+                          {widget.libraryTags.slice(0, 2).map((item) => (
                             <span key={item} className="widget-library-card__tag">
                               {item}
                             </span>
@@ -177,7 +187,7 @@ export function WidgetLibrarySection({ controller }: { controller: LeftRailContr
                       ) : null}
                       {metadataPills.length ? (
                         <div className="widget-library-card__metrics">
-                          {metadataPills.map((item) => (
+                          {metadataPills.slice(0, 2).map((item) => (
                             <span key={item} className="widget-library-card__metric">
                               {item}
                             </span>
@@ -185,7 +195,7 @@ export function WidgetLibrarySection({ controller }: { controller: LeftRailContr
                         </div>
                       ) : null}
                       <div className="widget-library-card__capabilities">
-                        {capabilityPills.map((item) => (
+                        {capabilityPills.slice(0, 2).map((item) => (
                           <span key={item} className="widget-library-card__capability">
                             <StudioIcon icon={getCapabilityIcon(item)} size={12} />
                             {item}
@@ -193,8 +203,8 @@ export function WidgetLibrarySection({ controller }: { controller: LeftRailContr
                         ))}
                       </div>
                       <div className="widget-library-card__footer">
-                        <div className="widget-library-card__hint">Click to add or drag to canvas</div>
-                        <div className="widget-library-card__type">{widget.type}</div>
+                        <div className="widget-library-card__hint">Click to add · drag to canvas</div>
+                        <div className="widget-library-card__type">{previewActive ? 'Previewing' : 'Ready'}</div>
                       </div>
                     </div>
                   </div>

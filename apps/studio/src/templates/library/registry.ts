@@ -36,7 +36,13 @@ Object.values(templateModules).forEach((mod) => {
 export function listTemplates(filter?: { vertical?: string }): StudioTemplate[] {
   return [...templates.values()]
     .filter((template) => !filter?.vertical || template.metadata.vertical === filter.vertical)
-    .sort((a, b) => a.metadata.name.localeCompare(b.metadata.name) || a.metadata.id.localeCompare(b.metadata.id));
+    .sort((a, b) => {
+      const featuredDelta = Number(Boolean(b.metadata.featured)) - Number(Boolean(a.metadata.featured));
+      if (featuredDelta) return featuredDelta;
+      const rankDelta = (b.metadata.curationRank ?? 0) - (a.metadata.curationRank ?? 0);
+      if (rankDelta) return rankDelta;
+      return a.metadata.name.localeCompare(b.metadata.name) || a.metadata.id.localeCompare(b.metadata.id);
+    });
 }
 
 export function getTemplate(id: string): StudioTemplate | undefined {
