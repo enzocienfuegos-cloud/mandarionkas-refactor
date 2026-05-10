@@ -55,12 +55,6 @@
   left: var(--space-4);
   z-index: var(--z-local-1);
   display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--white-a-80);
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .client-workspace-banner-card__surface {
@@ -185,6 +179,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  color: inherit;
 }
 
 .client-workspace-banner-list__name button {
@@ -193,6 +193,7 @@
   background: transparent;
   color: var(--text);
   text-align: left;
+  cursor: pointer;
 }
 
 .client-workspace-banner-list__name small {

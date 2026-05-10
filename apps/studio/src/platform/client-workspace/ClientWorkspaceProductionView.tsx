@@ -105,6 +105,8 @@ export function ClientWorkspaceProductionView({
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }, [activeClient?.name, folderAssignments, folderNameById, visibleProjects]);
 
+  const selectedSet = useMemo(() => new Set(selectedProjectIds), [selectedProjectIds]);
+
   useEffect(() => {
     if (campaignGroups.length === 0) {
       setExpandedGroupIds([]);
@@ -118,10 +120,14 @@ export function ClientWorkspaceProductionView({
   }, [campaignGroups]);
 
   useEffect(() => {
-    if (!inspectedProjectId) return;
-    if (visibleProjects.some((project) => project.id === inspectedProjectId)) return;
-    setInspectedProjectId(undefined);
-  }, [inspectedProjectId, visibleProjects]);
+    const selectedVisibleProject = visibleProjects.find((project) => selectedSet.has(project.id));
+    if (selectedVisibleProject && selectedVisibleProject.id !== inspectedProjectId) {
+      setInspectedProjectId(selectedVisibleProject.id);
+      return;
+    }
+    if (inspectedProjectId && visibleProjects.some((project) => project.id === inspectedProjectId)) return;
+    setInspectedProjectId(visibleProjects[0]?.id);
+  }, [inspectedProjectId, selectedSet, visibleProjects]);
 
   const visibleProjectIds = useMemo(
     () => campaignGroups.flatMap((group) => group.projects.map((project) => project.id)),
@@ -131,7 +137,6 @@ export function ClientWorkspaceProductionView({
     () => visibleProjects.find((project) => project.id === inspectedProjectId),
     [inspectedProjectId, visibleProjects],
   );
-  const selectedSet = useMemo(() => new Set(selectedProjectIds), [selectedProjectIds]);
   const allVisibleSelected = visibleProjectIds.length > 0 && visibleProjectIds.every((projectId) => selectedSet.has(projectId));
 
   const quickFilterOptions = useMemo(() => {

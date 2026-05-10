@@ -86,6 +86,27 @@ export function ClientWorkspaceInspector({
     ];
   }, [activeClient?.name, project]);
 
+  const overviewItems = useMemo(
+    () => [
+      {
+        id: 'client',
+        label: 'Client',
+        detail: activeClient?.name ?? 'No active client',
+      },
+      {
+        id: 'members',
+        label: 'Members',
+        detail: `${activeClient?.memberUserIds?.length ?? activeClient?.members?.length ?? 0} active users`,
+      },
+      {
+        id: 'brandkits',
+        label: 'Brand kits',
+        detail: `${activeClient?.brands?.length ?? 0} available in client hub`,
+      },
+    ],
+    [activeClient],
+  );
+
   return (
     <aside className="client-workspace-inspector panel">
       <Tabs
@@ -156,8 +177,16 @@ export function ClientWorkspaceInspector({
         ) : (
           <div className="client-workspace-inspector__empty">
             <StudioIcon icon={StudioIcons.layoutGrid} size={32} />
-            <h3>No banner selected</h3>
-            <p>Click a banner in the workspace to inspect its props, export surface, and recent activity.</p>
+            <h3>Workspace overview</h3>
+            <p>Select a banner to inspect props, export surface, and recent activity. Until then, the workspace stays anchored to the active client.</p>
+            <div className="client-workspace-inspector__history">
+              {overviewItems.map((item) => (
+                <div key={item.id} className="client-workspace-inspector__history-item">
+                  <span>{item.label}</span>
+                  <strong>{item.detail}</strong>
+                </div>
+              ))}
+            </div>
             {palette.length > 0 ? (
               <div className="client-workspace-inspector__palette" aria-hidden="true">
                 {palette.map((color) => (

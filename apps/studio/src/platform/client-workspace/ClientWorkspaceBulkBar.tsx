@@ -34,13 +34,16 @@ export function ClientWorkspaceBulkBar({
         <span>Move, duplicate, archive or export the selected banners.</span>
       </div>
       <div className="client-workspace-bulk-bar__actions">
-        <select value={bulkFolderId} onChange={(event) => onSetBulkFolderId(event.target.value)} aria-label="Move selected banners">
-          <option value="root">Move</option>
-          <option value="unfiled">Unfiled</option>
-          {campaignFolders.map((folder) => (
-            <option key={folder.id} value={folder.id}>{folder.name}</option>
-          ))}
-        </select>
+        <label className="client-workspace-toolbar-select client-workspace-toolbar-select--compact">
+          <span>Move to</span>
+          <select value={bulkFolderId} onChange={(event) => onSetBulkFolderId(event.target.value)} aria-label="Move selected banners">
+            <option value="root">Choose folder</option>
+            <option value="unfiled">Unfiled</option>
+            {campaignFolders.map((folder) => (
+              <option key={folder.id} value={folder.id}>{folder.name}</option>
+            ))}
+          </select>
+        </label>
         <Button variant="ghost" size="sm" className="compact-action" onClick={onMove}>
           Move
         </Button>

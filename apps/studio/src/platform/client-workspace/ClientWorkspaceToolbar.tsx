@@ -44,22 +44,28 @@ export function ClientWorkspaceToolbar({
             aria-label="Filter in the workspace"
           />
         </label>
-        <select
-          value={resolveFilterFormatOption(quickFilter)}
-          onChange={(event) => onQuickFilterChange(resolveQuickFilterSelection(event.target.value))}
-          aria-label="Filter banners by format"
-        >
-          <option value="all">All formats</option>
-          <option value="html5">HTML5</option>
-          <option value="mraid">MRAID</option>
-          <option value="vast">VAST</option>
-          <option value="static">Static</option>
-          <option value="playable">Playable</option>
-        </select>
-        <select value={sortMode} onChange={(event) => onSortModeChange(event.target.value as 'recent' | 'name')} aria-label="Sort banners">
-          <option value="recent">Recently updated</option>
-          <option value="name">A to Z</option>
-        </select>
+        <label className="client-workspace-toolbar-select">
+          <span>Format</span>
+          <select
+            value={resolveFilterFormatOption(quickFilter)}
+            onChange={(event) => onQuickFilterChange(resolveQuickFilterSelection(event.target.value))}
+            aria-label="Filter banners by format"
+          >
+            <option value="all">All formats</option>
+            <option value="html5">HTML5</option>
+            <option value="mraid">MRAID</option>
+            <option value="vast">VAST</option>
+            <option value="static">Static</option>
+            <option value="playable">Playable</option>
+          </select>
+        </label>
+        <label className="client-workspace-toolbar-select">
+          <span>Sort</span>
+          <select value={sortMode} onChange={(event) => onSortModeChange(event.target.value as 'recent' | 'name')} aria-label="Sort banners">
+            <option value="recent">Recently updated</option>
+            <option value="name">A to Z</option>
+          </select>
+        </label>
         <SegmentedControl
           options={[
             { id: 'card', label: 'Cards' },

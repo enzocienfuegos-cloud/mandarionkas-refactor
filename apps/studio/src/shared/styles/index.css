@@ -34,6 +34,7 @@
 @import './platform-workspace-onboarding.css';
 @import './platform-workspace-v2.css';
 @import './platform-workspace-production.css';
+@import './platform-workspace-production-inspector.css';
 @import './platform-workspace-production-sidebar.css';
 @import './platform-workspace-production-cards.css';
 @import './platform-shell-topbar.css';

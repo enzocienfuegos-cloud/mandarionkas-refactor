@@ -37,6 +37,27 @@ function ProductionStatusPill({ status }: { status: BannerStatusKey }): JSX.Elem
   );
 }
 
+function SelectionCheckbox({
+  checked,
+  label,
+  quiet = false,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  quiet?: boolean;
+  onChange(): void;
+}): JSX.Element {
+  return (
+    <label className={`client-workspace-checkbox ${quiet ? 'client-workspace-checkbox--quiet' : ''}`.trim()}>
+      <input type="checkbox" checked={checked} aria-label={label} onChange={onChange} />
+      <span className="client-workspace-checkbox__box" aria-hidden="true">
+        <StudioIcon icon={StudioIcons.check} size={12} />
+      </span>
+    </label>
+  );
+}
+
 function BannerListRow({
   project,
   selected,
@@ -56,9 +77,9 @@ function BannerListRow({
   return (
     <div className={`client-workspace-banner-list__row ${selected ? 'is-selected' : ''} ${inspected ? 'is-inspected' : ''}`.trim()}>
       <label className="client-workspace-banner-list__name">
-        <input
-          type="checkbox"
+        <SelectionCheckbox
           checked={selected}
+          label={`Select ${project.name}`}
           onChange={() => onToggleProjectSelection(project.id)}
         />
         <button type="button" onClick={() => onInspectProject(project.id)}>
@@ -102,14 +123,14 @@ function BannerCard({
   return (
     <article className={`client-workspace-banner-card ${selected ? 'is-selected' : ''} ${inspected ? 'is-inspected' : ''}`.trim()}>
       <div className={`client-workspace-banner-card__preview client-workspace-banner-card__preview--${resolveThumbVariant(project)}`.trim()}>
-        <label className="client-workspace-banner-card__check">
-          <input
-            type="checkbox"
+        <div className="client-workspace-banner-card__check">
+          <SelectionCheckbox
             checked={selected}
+            label={`Select ${project.name}`}
+            quiet
             onChange={() => onToggleProjectSelection(project.id)}
           />
-          <span>Select</span>
-        </label>
+        </div>
         <button type="button" className="client-workspace-banner-card__surface" onClick={() => onInspectProject(project.id)}>
           <div className="client-workspace-banner-card__frame">
             <span>{formatCanvas(project)}</span>
@@ -199,10 +220,9 @@ export function ClientWorkspaceCampaignGroups({
               <section key={group.id} className="client-workspace-campaign">
                 <div className="client-workspace-campaign__row">
                   <div className="client-workspace-campaign__row-main">
-                    <input
-                      type="checkbox"
+                    <SelectionCheckbox
                       checked={groupSelected}
-                      aria-label={`Select ${group.name}`}
+                      label={`Select ${group.name}`}
                       onChange={() => onToggleGroupSelection(group)}
                     />
                     <button type="button" className="client-workspace-campaign__toggle" onClick={() => onToggleGroup(group.id)}>
