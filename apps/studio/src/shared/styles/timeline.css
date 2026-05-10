@@ -140,7 +140,7 @@
   min-height: 38px;
   border-bottom: 0;
   border-radius: var(--radius-xl);
-  overflow: hidden;
+  overflow: visible;
   cursor: pointer;
   position: relative;
   transition: background  var(--motion-base) ease, border-color var(--motion-base) ease, transform var(--motion-base) ease;
@@ -213,7 +213,7 @@
   font-size: var(--font-size-2xs);
   letter-spacing: .01em;
   box-shadow: 0 10px 24px var(--black-a-15);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .timeline-bar-label {
@@ -246,17 +246,18 @@
 }
 .timeline-trim {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: -2px;
+  bottom: -2px;
   border: 0;
   border-radius: var(--radius-pill);
   padding: 0;
-  width: 10px;
+  width: 12px;
   touch-action: none;
   background: var(--surface-shell-ruler-hover);
+  z-index: var(--z-local-1);
 }
-.timeline-trim-start { left: 0; cursor: ew-resize; }
-.timeline-trim-end { right: 0; cursor: ew-resize; }
+.timeline-trim-start { left: -2px; cursor: ew-resize; }
+.timeline-trim-end { right: -2px; cursor: ew-resize; }
 .keyframe-dot {
   position: absolute;
   top: 14px;

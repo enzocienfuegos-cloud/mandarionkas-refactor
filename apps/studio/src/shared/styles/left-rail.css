@@ -55,10 +55,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  min-height: 40px;
   border: 1px solid var(--stroke);
   background: var(--white-a-02);
   cursor: pointer;
-  padding: 6px 8px;
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
 }
 .layer-row.compact {
@@ -75,6 +76,7 @@
 .layer-meta {
   display: flex;
   flex-direction: column;
+  gap: var(--space-1);
   min-width: 0;
   flex: 1;
 }
@@ -84,7 +86,7 @@
 .layer-outline-tree,
 .layer-outline-children {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 .left-rail-virtual-scroll {
   overflow: auto;
@@ -595,11 +597,6 @@
   padding: 8px 10px;
 }
 
-.widget-library-row__preview.icon-btn {
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
 .template-rail-card {
   display: grid;
   padding: 12px;
@@ -635,7 +632,7 @@
 
 .template-rail-card__body {
   display: grid;
-  grid-template-columns: minmax(148px, 168px) minmax(0, 1fr);
+  grid-template-columns: minmax(120px, 148px) minmax(0, 1fr);
   gap: var(--space-6);
   align-items: start;
 }
@@ -644,7 +641,7 @@
   position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 10;
-  min-height: 136px;
+  min-height: 88px;
   border-radius: var(--radius-3xl);
   border: 1px solid var(--border-subtle);
   background:
