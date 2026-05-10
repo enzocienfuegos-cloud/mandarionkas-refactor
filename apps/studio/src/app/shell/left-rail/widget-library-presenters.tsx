@@ -1,7 +1,6 @@
 import { useEffect, useRef, type CSSProperties, type Dispatch, type DragEvent as ReactDragEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type SetStateAction } from 'react';
 import { clearWidgetLibraryDragPayload, createWidgetLibraryDragPayload, writeWidgetLibraryDragPayload } from '../../../canvas/stage/widget-library-drag';
 import type { WidgetDefinition } from '../../../widgets/registry/widget-definition';
-import { WIDGET_LIBRARY_GROUP_LABELS } from '../../../widgets/registry/widget-definition';
 import { PlaceholderThumb } from '../../../widgets/registry/widget-thumbnails';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { Button } from '../../../shared/ui/Button';
@@ -179,7 +178,7 @@ export function WidgetLibraryItemCard({
     onCreate(widget.type);
   };
 
-  if (density === 'expanded') {
+  if (density === 'compact') {
     return (
       <div
         draggable
@@ -188,9 +187,13 @@ export function WidgetLibraryItemCard({
         data-widget-type={widget.type}
         data-library-group={group}
         data-preview-intent={previewIntent}
-        className={`widget-library-cozy-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
+        className={`widget-library-row ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
         aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
         style={cardStyle}
+        onDoubleClick={(event) => {
+          event.preventDefault();
+          onOpenDetails();
+        }}
         onClick={(event) => {
           if (suppressClickRef.current) {
             suppressClickRef.current = false;
@@ -233,36 +236,26 @@ export function WidgetLibraryItemCard({
           clearWidgetLibraryDragPayload();
         }}
       >
-        <div className="widget-library-cozy-card__thumb">
-          {renderWidgetThumbnail(widget, previewActive)}
+        <div className="widget-library-row__thumb" aria-hidden="true">
+          <div className="widget-library-row__thumb-stage">
+            {renderWidgetThumbnail(widget, previewActive, true)}
+          </div>
         </div>
-        <div className="widget-library-cozy-card__meta">
-          <strong>{widget.label}</strong>
-          <small>{widget.libraryTags?.[0] ?? sectionLabel}</small>
+        <div className="widget-library-row__meta">
+          <span className="widget-library-row__label">{widget.label}</span>
         </div>
-        <div className="widget-library-cozy-card__actions">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="widget-library-cozy-card__preview-btn"
-            draggable={false}
-            onPointerDown={stopNestedDragInteraction}
-            onDragStart={(event) => event.preventDefault()}
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpenDetails();
-            }}
-          >
-            Preview
-          </Button>
-        </div>
+        {widget.capabilities?.acceptsAssetSwap ? (
+          <span className="widget-library-row__addon" aria-hidden="true">
+            <StudioIcon icon={StudioIcons.upload} size={14} />
+          </span>
+        ) : null}
       </div>
     );
   }
 
-  const compactTags = widget.libraryTags?.slice(0, density === 'compact' ? 1 : 2) ?? [];
-  const compactCapabilities = capabilityPills.slice(0, density === 'compact' ? 1 : 2);
-  const compactMetrics = metadataPills.slice(0, density === 'compact' ? 1 : 2);
+  const compactTags = widget.libraryTags?.slice(0, 2) ?? [];
+  const compactCapabilities = capabilityPills.slice(0, 2);
+  const compactMetrics = metadataPills.slice(0, 2);
 
   return (
     <div
@@ -275,17 +268,35 @@ export function WidgetLibraryItemCard({
       className={`template-rail-card widget-rail-card widget-rail-card--${density} ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
       aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
       style={cardStyle}
-      onClick={addWidget}
+      onClick={(event) => {
+        if (suppressClickRef.current) {
+          suppressClickRef.current = false;
+          return;
+        }
+        if (event.altKey) {
+          onOpenDetails();
+          return;
+        }
+        addWidget();
+      }}
       onMouseEnter={() => setPreviewWidgetType(widget.type)}
       onMouseLeave={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
       onFocus={() => setPreviewWidgetType(widget.type)}
       onBlur={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        clearLongPress();
+        suppressClickRef.current = false;
+        longPressTimerRef.current = window.setTimeout(() => {
+          suppressClickRef.current = true;
           onOpenDetails();
-        }
-        if (event.key === ' ') {
+        }, 420);
+      }}
+      onPointerUp={clearLongPress}
+      onPointerLeave={clearLongPress}
+      onPointerCancel={clearLongPress}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           addWidget();
         }
@@ -310,7 +321,7 @@ export function WidgetLibraryItemCard({
           <div className="template-rail-card__header widget-rail-card__header">
             <div className="template-rail-card__eyebrows widget-rail-card__eyebrows">
               <div className={`template-rail-card__eyebrow widget-rail-card__eyebrow ${category.badgeClass} is-active`}>
-                {WIDGET_LIBRARY_GROUP_LABELS[group] ?? sectionLabel}
+                {sectionLabel}
               </div>
               {compactMetrics[0] ? <span className="template-rail-card__tag widget-rail-card__tag">{compactMetrics[0]}</span> : null}
             </div>
@@ -349,7 +360,7 @@ export function WidgetLibraryItemCard({
           </div>
           <div className="template-rail-card__footer widget-rail-card__footer">
             <div className="template-rail-card__hint widget-rail-card__hint">
-              {density === 'compact' ? 'Click to add' : 'Click to add · drag to canvas'}
+              Click to add · drag to canvas
             </div>
             <Button
               variant="ghost"

@@ -92,9 +92,10 @@ export function WidgetLibrarySection(): JSX.Element {
         {groupedWidgets.map((section) => (
           <section key={section.group} className="widget-library-section" aria-label={section.label}>
             <div className="widget-library-section__head">
-              <span className={`widget-library-card__eyebrow chip ${CATEGORY_COLOR[section.group].badgeClass} is-active`}>
-                {section.label}
-              </span>
+              <div className="widget-library-section__title-block">
+                <span className="widget-library-section__kicker">Category</span>
+                <strong className="widget-library-section__title">{section.label}</strong>
+              </div>
               <span className="widget-library-section__count">{section.widgets.length}</span>
             </div>
             <div className={`widget-library-grid widget-library-grid--${density}`.trim()}>

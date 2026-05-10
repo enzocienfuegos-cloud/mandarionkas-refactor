@@ -63,6 +63,8 @@ export function TemplateCard({
 }): JSX.Element {
   const preset = template.metadata.canvasPresetId ? getCanvasPresetById(template.metadata.canvasPresetId) : null;
   const highlights = (template.metadata.tags ?? template.metadata.moduleHighlights)?.slice(0, 4) ?? [];
+  const railTags = (template.metadata.tags ?? []).slice(0, 2);
+  const railHighlights = (template.metadata.moduleHighlights ?? []).slice(0, 2);
   const previewIntent = getTemplatePreviewIntent(template);
   const PreviewComponent = template.metadata.previewComponent;
 
@@ -95,17 +97,19 @@ export function TemplateCard({
                 </span>
                 {preset ? <span className="template-rail-card__tag">{preset.label}</span> : null}
               </div>
-              <span className="template-rail-card__add" aria-hidden="true">
-                + Apply
-              </span>
             </div>
             <div className="template-rail-card__copy">
               <h3>{template.metadata.name}</h3>
               <p>{template.metadata.description}</p>
             </div>
-            {highlights.length ? (
+            {template.metadata.recommendedFor ? (
+              <div className="template-rail-card__supporting">
+                {template.metadata.recommendedFor}
+              </div>
+            ) : null}
+            {railTags.length ? (
               <div className="template-rail-card__tags">
-                {highlights.slice(0, 2).map((highlight) => (
+                {railTags.map((highlight) => (
                   <span key={highlight} className="template-rail-card__tag">{highlight}</span>
                 ))}
               </div>
@@ -114,12 +118,12 @@ export function TemplateCard({
               {template.metadata.sceneCount ? (
                 <span className="template-rail-card__capability">{template.metadata.sceneCount} scenes</span>
               ) : null}
-              {template.metadata.recommendedFor ? (
-                <span className="template-rail-card__capability">{template.metadata.recommendedFor}</span>
-              ) : null}
               {template.metadata.featuredLabel ? (
                 <span className="template-rail-card__capability">{template.metadata.featuredLabel}</span>
               ) : null}
+              {railHighlights.map((highlight) => (
+                <span key={highlight} className="template-rail-card__capability">{highlight}</span>
+              ))}
             </div>
             <div className="template-rail-card__footer">
               <div className="template-rail-card__hint">Replace canvas with template</div>
