@@ -18,12 +18,12 @@
   --client-hub-controls-space: 8px;
   --client-hub-control-stack: 4px;
   --client-hub-control-label-size: 10px;
-  --client-hub-table-space: 8px;
-  --client-hub-row-space: 12px;
-  --client-hub-row-radius: 16px;
-  --client-hub-row-inset-y: 10px;
-  --client-hub-cell-inset-x: 14px;
-  --client-hub-main-space: 10px;
+  --client-hub-table-space: 10px;
+  --client-hub-row-space: 16px;
+  --client-hub-row-radius: 18px;
+  --client-hub-row-inset-y: 14px;
+  --client-hub-cell-inset-x: 20px;
+  --client-hub-main-space: 14px;
   --client-hub-avatar-size: 36px;
   --client-hub-avatar-radius: 12px;
   --client-hub-avatar-font-size: 10px;
@@ -139,9 +139,9 @@
 .section-head {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: var(--client-hub-heading-space);
-  padding: var(--client-hub-heading-inset) var(--client-hub-heading-inset) 0;
+  padding: var(--client-hub-heading-inset) var(--client-hub-heading-inset) 6px;
 }
 
 .section-head-text .kicker,
@@ -174,6 +174,7 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--client-hub-controls-space);
   min-width: 300px;
+  align-self: start;
 }
 
 .control-field {
@@ -219,7 +220,7 @@
 }
 
 .proj-table {
-  margin: var(--space-8) var(--client-hub-heading-inset) 0;
+  margin: calc(var(--space-7) + var(--space-1)) var(--client-hub-heading-inset) 0;
   display: grid;
   gap: var(--client-hub-table-space);
 }
@@ -233,35 +234,43 @@
 }
 
 .proj-row-head {
-  padding: var(--space-3) var(--client-hub-cell-inset-x);
+  padding: 0 var(--client-hub-cell-inset-x) var(--space-4);
   color: var(--muted);
   font-size: var(--client-hub-control-label-size);
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border-bottom: 1px solid rgba(120, 144, 168, 0.14);
+  align-items: end;
 }
 
 .proj-row {
-  min-height: 62px;
+  min-height: 74px;
   padding: var(--client-hub-row-inset-y) var(--client-hub-cell-inset-x);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--client-hub-row-radius);
   background:
-    radial-gradient(circle at top left, rgba(48, 232, 255, 0.05), transparent 36%),
-    rgba(255, 255, 255, 0.03);
+    radial-gradient(circle at top left, rgba(48, 232, 255, 0.035), transparent 34%),
+    linear-gradient(180deg, rgba(33, 44, 56, 0.9), rgba(24, 32, 41, 0.92));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 1px 2px rgba(0, 0, 0, 0.12);
   transition:
     transform var(--motion-duration-base) var(--motion-ease-out),
     border-color var(--motion-duration-base) var(--motion-ease-out),
-    background var(--motion-duration-base) var(--motion-ease-out);
+    background var(--motion-duration-base) var(--motion-ease-out),
+    box-shadow var(--motion-duration-base) var(--motion-ease-out);
 }
 
 .proj-row:hover {
   transform: translateY(-1px);
-  border-color: rgba(48, 232, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.16);
   background:
-    radial-gradient(circle at top left, rgba(48, 232, 255, 0.07), transparent 36%),
-    rgba(255, 255, 255, 0.045);
+    radial-gradient(circle at top left, rgba(48, 232, 255, 0.045), transparent 34%),
+    linear-gradient(180deg, rgba(37, 49, 62, 0.94), rgba(27, 36, 46, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 24px rgba(0, 0, 0, 0.16);
 }
 
 .proj-main {
@@ -278,9 +287,9 @@
   place-items: center;
   flex: 0 0 auto;
   border-radius: var(--client-hub-avatar-radius);
-  border: 1px solid rgba(48, 232, 255, 0.18);
+  border: 1px solid rgba(89, 121, 148, 0.28);
   background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 32%),
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.11), transparent 32%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
   color: var(--focus-accent);
   font-size: var(--client-hub-avatar-font-size);
@@ -313,7 +322,15 @@
 }
 
 .proj-info small {
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
+  line-height: 1.35;
+}
+
+.proj-client,
+.proj-date,
+.proj-row .sbadge,
+.proj-row .btn {
+  align-self: center;
 }
 
 @media (max-width: 1120px) {
