@@ -242,6 +242,7 @@
 
 .proj-row {
   min-height: 74px;
+  cursor: pointer;
   padding: var(--client-hub-row-inset-y) var(--client-hub-cell-inset-x);
   border: 1px solid var(--platform-panel-border);
   border-radius: var(--client-hub-row-radius);
@@ -256,6 +257,14 @@
     border-color var(--motion-duration-base) var(--motion-ease-out),
     background var(--motion-duration-base) var(--motion-ease-out),
     box-shadow var(--motion-duration-base) var(--motion-ease-out);
+}
+
+.proj-row:focus-visible {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 3px rgba(77, 139, 255, 0.16);
 }
 
 .proj-row:hover {

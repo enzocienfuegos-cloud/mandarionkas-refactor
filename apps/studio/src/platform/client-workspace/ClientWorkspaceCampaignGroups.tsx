@@ -52,15 +52,21 @@ function SelectionCheckbox({
   checked,
   label,
   quiet = false,
+  stopPropagation = false,
   onChange,
 }: {
   checked: boolean;
   label: string;
   quiet?: boolean;
+  stopPropagation?: boolean;
   onChange(): void;
 }): JSX.Element {
   return (
-    <label className={`client-workspace-checkbox ${quiet ? 'client-workspace-checkbox--quiet' : ''}`.trim()}>
+    <label
+      className={`client-workspace-checkbox ${quiet ? 'client-workspace-checkbox--quiet' : ''}`.trim()}
+      onClick={stopPropagation ? (event) => event.stopPropagation() : undefined}
+      onKeyDown={stopPropagation ? (event) => event.stopPropagation() : undefined}
+    >
       <input type="checkbox" checked={checked} aria-label={label} onChange={onChange} />
       <span className="client-workspace-checkbox__box" aria-hidden="true">
         <StudioIcon icon={StudioIcons.check} size={12} />
@@ -86,19 +92,37 @@ function BannerListRow({
 }): JSX.Element {
   const status = resolveStatusKey(project);
   return (
-    <div className={`client-workspace-banner-list__row ${selected ? 'is-selected' : ''} ${inspected ? 'is-inspected' : ''}`.trim()}>
-      <label className="client-workspace-banner-list__name">
+    <div
+      className={`client-workspace-banner-list__row ${selected ? 'is-selected' : ''} ${inspected ? 'is-inspected' : ''}`.trim()}
+      role="button"
+      tabIndex={0}
+      onClick={() => onInspectProject(project.id)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onInspectProject(project.id);
+        }
+      }}
+    >
+      <div className="client-workspace-banner-list__name">
         <SelectionCheckbox
           checked={selected}
           label={`Select ${project.name}`}
+          stopPropagation
           onChange={() => onToggleProjectSelection(project.id)}
         />
         <span className="client-workspace-banner-list__avatar" aria-hidden="true">{buildProjectInitials(project)}</span>
-        <button type="button" onClick={() => onInspectProject(project.id)}>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onInspectProject(project.id);
+          }}
+        >
           <strong>{project.name}</strong>
           <small>{project.brandName ?? 'No brand'} · {project.ownerName ?? project.ownerUserId}</small>
         </button>
-      </label>
+      </div>
       <span className="client-workspace-banner-list__meta">{formatCanvas(project)}</span>
       <span className="client-workspace-banner-list__meta">{resolveBannerFormatLabel(project)}</span>
       <span className="client-workspace-banner-list__meta">{resolveBannerRuntime(project)}</span>
@@ -111,7 +135,10 @@ function BannerListRow({
           size="sm"
           className="compact-action"
           iconAfter={<StudioIcon icon={StudioIcons.externalLink} size={11} />}
-          onClick={() => onOpenProject(project.id)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenProject(project.id);
+          }}
         >
           Open
         </Button>
@@ -139,17 +166,36 @@ function BannerCard({
 }): JSX.Element {
   const status = resolveStatusKey(project);
   return (
-    <article className={`client-workspace-banner-card ${selected ? 'is-selected' : ''} ${inspected ? 'is-inspected' : ''}`.trim()}>
+    <article
+      className={`client-workspace-banner-card ${selected ? 'is-selected' : ''} ${inspected ? 'is-inspected' : ''}`.trim()}
+      role="button"
+      tabIndex={0}
+      onClick={() => onInspectProject(project.id)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onInspectProject(project.id);
+        }
+      }}
+    >
       <div className={`client-workspace-banner-card__preview client-workspace-banner-card__preview--${resolveThumbVariant(project)}`.trim()}>
         <div className="client-workspace-banner-card__check">
           <SelectionCheckbox
             checked={selected}
             label={`Select ${project.name}`}
             quiet
+            stopPropagation
             onChange={() => onToggleProjectSelection(project.id)}
           />
         </div>
-        <button type="button" className="client-workspace-banner-card__surface" onClick={() => onInspectProject(project.id)}>
+        <button
+          type="button"
+          className="client-workspace-banner-card__surface"
+          onClick={(event) => {
+            event.stopPropagation();
+            onInspectProject(project.id);
+          }}
+        >
           <div className="client-workspace-banner-card__frame">
             <span>{formatCanvas(project)}</span>
             <small>{resolveBannerFormatLabel(project)}</small>
@@ -192,7 +238,15 @@ function BannerCard({
         </div>
         <div className="client-workspace-banner-card__footer">
           <span className="pill">{project.ownerName ?? project.ownerUserId}</span>
-          <Button variant="ghost" size="sm" className="compact-action" onClick={() => onOpenProject(project.id)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="compact-action"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenProject(project.id);
+            }}
+          >
             Open
           </Button>
         </div>

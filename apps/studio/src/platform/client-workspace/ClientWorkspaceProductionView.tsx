@@ -62,6 +62,8 @@ export function ClientWorkspaceProductionView({
   const [bulkFolderId, setBulkFolderId] = useState<string>('root');
   const [inspectedProjectId, setInspectedProjectId] = useState<string | undefined>();
   const [brandKitOpen, setBrandKitOpen] = useState(false);
+  const [leftRailCollapsed, setLeftRailCollapsed] = useState(false);
+  const [rightRailCollapsed, setRightRailCollapsed] = useState(false);
 
   const folderNameById = useMemo(
     () => Object.fromEntries(campaignFolders.map((folder) => [folder.id, folder.name])),
@@ -257,7 +259,13 @@ export function ClientWorkspaceProductionView({
   }
 
   return (
-    <section className="client-workspace-production">
+    <section
+      className={[
+        'client-workspace-production',
+        leftRailCollapsed ? 'is-left-collapsed' : '',
+        rightRailCollapsed ? 'is-right-collapsed' : '',
+      ].filter(Boolean).join(' ')}
+    >
       <ClientWorkspaceSidebar
         activeClient={activeClient}
         canManageBrandkits={workspace.canManageBrandkits}
@@ -273,6 +281,8 @@ export function ClientWorkspaceProductionView({
         onSetFolderDraftName={setFolderDraftName}
         onCreateFolder={() => { void handleCreateFolder(); }}
         onOpenBrandKit={() => setBrandKitOpen(true)}
+        collapsed={leftRailCollapsed}
+        onToggleCollapsed={() => setLeftRailCollapsed((current) => !current)}
       />
 
       <div className="client-workspace-production__main">
@@ -332,6 +342,8 @@ export function ClientWorkspaceProductionView({
         onOpenProject={(projectId) => {
           void handleOpenProject(projectId);
         }}
+        collapsed={rightRailCollapsed}
+        onToggleCollapsed={() => setRightRailCollapsed((current) => !current)}
       />
 
       <PlatformBrandKitModal

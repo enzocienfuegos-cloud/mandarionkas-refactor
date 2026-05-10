@@ -8,6 +8,7 @@
 .client-workspace-banner-card {
   display: flex;
   flex-direction: column;
+  cursor: pointer;
   border-radius: var(--radius-4xl);
   border: 1px solid var(--platform-panel-border);
   background:
@@ -175,6 +176,7 @@
 
 .client-workspace-banner-list__row {
   min-height: 62px;
+  cursor: pointer;
   border: 1px solid var(--platform-panel-border);
   border-radius: var(--radius-4xl);
   background:
@@ -211,6 +213,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  min-width: 0;
   margin: 0;
   font-size: inherit;
   font-weight: inherit;
@@ -242,6 +245,15 @@
   color: var(--text);
   text-align: left;
   cursor: pointer;
+  min-width: 0;
+}
+
+.client-workspace-banner-list__name button,
+.client-workspace-banner-list__name strong,
+.client-workspace-banner-list__name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .client-workspace-banner-list__name strong {

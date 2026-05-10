@@ -21,6 +21,8 @@ type ClientWorkspaceInspectorProps = {
   activeClient?: ClientWorkspace;
   project?: WorkspaceProjectItem;
   onOpenProject(projectId: string): void;
+  collapsed: boolean;
+  onToggleCollapsed(): void;
 };
 
 function ProjectPreview({ project }: { project: WorkspaceProjectItem }): JSX.Element {
@@ -47,6 +49,8 @@ export function ClientWorkspaceInspector({
   activeClient,
   project,
   onOpenProject,
+  collapsed,
+  onToggleCollapsed,
 }: ClientWorkspaceInspectorProps): JSX.Element {
   const [tab, setTab] = useState<InspectorTab>('props');
 
@@ -107,8 +111,49 @@ export function ClientWorkspaceInspector({
     [activeClient],
   );
 
+  if (collapsed) {
+    return (
+      <aside className="client-workspace-inspector client-workspace-inspector--collapsed panel">
+        <div className="client-workspace-inspector__collapsed-actions">
+          <button
+            type="button"
+            className="client-workspace-inspector__collapse-toggle"
+            aria-label="Expand inspector"
+            onClick={onToggleCollapsed}
+          >
+            <StudioIcon icon={StudioIcons.panelRightOpen} size={16} />
+          </button>
+          {(['props', 'export', 'history'] as const).map((tabId) => (
+            <button
+              key={tabId}
+              type="button"
+              className={`client-workspace-inspector__collapsed-tab ${tab === tabId ? 'is-active' : ''}`.trim()}
+              onClick={() => {
+                setTab(tabId);
+                onToggleCollapsed();
+              }}
+            >
+              {tabId.slice(0, 1).toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside className="client-workspace-inspector panel">
+      <div className="client-workspace-inspector__topbar">
+        <span className="ws-sidebar-kicker">Inspector</span>
+        <button
+          type="button"
+          className="client-workspace-inspector__collapse-toggle"
+          aria-label="Collapse inspector"
+          onClick={onToggleCollapsed}
+        >
+          <StudioIcon icon={StudioIcons.panelRightOpen} size={16} />
+        </button>
+      </div>
       <Tabs
         tabs={[
           { id: 'props', label: 'Props' },

@@ -91,19 +91,23 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
       </section>
 
       {projectSession.autosaveAvailable ? (
-        <div className="draft-recovery-banner" role="status">
-          <div>
-            <div className="draft-recovery-banner__kicker">Autosave available</div>
-            <strong>Recovered work is available</strong>
-            <small>You can return to the last autosaved Studio state for this client.</small>
-          </div>
-          <div className="draft-recovery-banner__actions">
-            <Button variant="ghost" size="sm" className="compact-action" onClick={() => void projectSession.handleClearDraft()}>
-              Dismiss
-            </Button>
-            <Button variant="primary" size="sm" className="compact-action" onClick={() => void projectSession.handleRecoverDraft().then(onEnterEditor)}>
-              Recover draft
-            </Button>
+        <div className="workspace-recovery-toast-wrap">
+          <div className="workspace-recovery-toast" role="status">
+            <div className="workspace-recovery-toast__copy">
+              <span className="workspace-recovery-toast__badge">Autosave</span>
+              <div>
+                <strong>Recovered work is available</strong>
+                <small>You can return to the last autosaved Studio state for this client.</small>
+              </div>
+            </div>
+            <div className="workspace-recovery-toast__actions">
+              <Button variant="ghost" size="sm" className="compact-action" onClick={() => void projectSession.handleClearDraft()}>
+                Dismiss
+              </Button>
+              <Button variant="primary" size="sm" className="compact-action" onClick={() => void projectSession.handleRecoverDraft().then(onEnterEditor)}>
+                Recover draft
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}

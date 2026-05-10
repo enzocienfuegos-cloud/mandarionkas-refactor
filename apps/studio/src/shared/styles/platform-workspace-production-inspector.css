@@ -7,6 +7,38 @@
   border-radius: var(--workspace-shell-panel-radius);
 }
 
+.client-workspace-inspector__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5) 0;
+}
+
+.client-workspace-inspector__collapse-toggle,
+.client-workspace-inspector__collapsed-tab {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(120, 144, 168, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+}
+
+.client-workspace-inspector__collapsed-actions {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.client-workspace-inspector__collapsed-tab.is-active {
+  border-color: var(--border-accent-fuchsia);
+  background: var(--bg-selected-soft);
+  color: var(--text-accent-bright-soft);
+}
+
 .client-workspace-inspector__tabs {
   padding: 0;
   gap: 0;

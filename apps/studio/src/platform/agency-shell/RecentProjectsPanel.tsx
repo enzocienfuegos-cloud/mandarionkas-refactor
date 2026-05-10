@@ -94,7 +94,19 @@ export function RecentProjectsPanel({
           </div>
 
           {projects.map((project) => (
-            <article key={project.id} className="proj-row" role="row">
+            <article
+              key={project.id}
+              className="proj-row proj-row--clickable"
+              role="button"
+              tabIndex={0}
+              onClick={() => onOpenProject(project)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onOpenProject(project);
+                }
+              }}
+            >
               <div className="proj-main">
                 <span className="proj-avatar" aria-hidden="true">{buildClientInitials(project.clientName)}</span>
                 <div className="proj-info">
@@ -113,7 +125,10 @@ export function RecentProjectsPanel({
                   size="sm"
                   className="compact-action"
                   iconAfter={<StudioIcon icon={StudioIcons.externalLink} size={11} />}
-                  onClick={() => onOpenProject(project)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpenProject(project);
+                  }}
                 >
                   Open
                 </Button>
