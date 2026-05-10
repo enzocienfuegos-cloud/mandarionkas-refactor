@@ -106,11 +106,8 @@ ON CONFLICT DO NOTHING;
 UPDATE asset_processing_jobs
 SET
   status = 'completed',
-  output = jsonb_build_object(
-    'migrated', true,
-    'migratedTo', 'video_transcode_jobs',
-    'migratedAt', TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
-  ),
+  output = '{"migrated": true, "migratedTo": "video_transcode_jobs", "migratedAt": "' ||
+    TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"}'::jsonb,
   completed_at = NOW(),
   updated_at = NOW()
 WHERE job_type = 'video-transcode'

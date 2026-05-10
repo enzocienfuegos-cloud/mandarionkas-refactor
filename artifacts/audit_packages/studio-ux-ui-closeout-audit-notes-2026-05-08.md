@@ -45,7 +45,6 @@ Key files:
 - Keyboard shortcuts are centralized and exposed through a cheat sheet.
 - Widget library now supports richer metadata and thumbnail/previews.
 - Preflight tray is persistent in-shell.
-- Scene switching was moved from the top bar to the timeline header, implemented as a documented dropdown divergence rather than a chip strip to keep the header single-row on common widths.
 
 Key files:
 
@@ -150,13 +149,13 @@ Automated validation completed successfully:
 
 Latest result:
 
-- `55` test files passing
-- `254` tests passing
+- `54` test files passing
+- `253` tests passing
 - production build green
 
 Build snapshot from the last validation:
 
-- `dist/assets/index-*.js`: about `200 KB`
+- `dist/assets/index-*.js`: about `203 KB`
 - `dist/assets/StudioShell-*.js`: about `204 KB`
 - `dist/assets/widget-modules-*.js`: about `475 KB`
 - `dist/assets/video-core-*.js`: about `567 KB`
