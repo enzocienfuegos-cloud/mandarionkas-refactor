@@ -211,7 +211,7 @@ export function LayersSection({ controller }: { controller: LeftRailController }
         </div>
       </div>
 
-      <div className="left-card left-card--section left-card-grid layer-scene-card">
+      <div className="left-card left-card--section left-card-grid layer-scene-card layer-outline-panel">
         <div className="meta-line meta-line--between meta-line--start">
           <div className="field-stack field-stack--tight content-min-w-0 layer-scene-summary">
             <strong>{scene.name}</strong>

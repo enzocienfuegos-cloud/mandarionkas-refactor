@@ -48,6 +48,24 @@ export function TemplatesSection(): JSX.Element {
       : allTemplates.filter((template) => template.metadata.vertical === activeVertical),
     [activeVertical, allTemplates],
   );
+  const groupedTemplates = useMemo(() => {
+    const order = Object.keys(VERTICAL_LABELS) as StudioTemplateVertical[];
+    if (activeVertical !== 'all') {
+      return filteredTemplates.length ? [{
+        key: activeVertical,
+        label: VERTICAL_LABELS[activeVertical],
+        templates: filteredTemplates,
+      }] : [];
+    }
+
+    return order
+      .map((vertical) => ({
+        key: vertical,
+        label: VERTICAL_LABELS[vertical],
+        templates: filteredTemplates.filter((template) => template.metadata.vertical === vertical),
+      }))
+      .filter((section) => section.templates.length > 0);
+  }, [activeVertical, filteredTemplates]);
 
   useEffect(() => {
     writeScopedStorageItem(TEMPLATE_VIEW_STORAGE_KEY, view);
@@ -165,16 +183,43 @@ export function TemplatesSection(): JSX.Element {
         ))}
       </div>
 
-      <div className={`left-rail-templates__grid left-rail-templates__grid--${view}`.trim()}>
-        {filteredTemplates.map((template) => (
-          <TemplateCard
-            key={template.metadata.id}
-            template={template}
-            variant={view === 'list' ? 'rail-list' : 'rail'}
-            onUse={applyTemplate}
-          />
-        ))}
-      </div>
+      {view === 'list' ? (
+        <div className="widget-library-sections left-rail-templates__sections">
+          {groupedTemplates.map((section) => (
+            <section key={section.key} className="widget-library-section">
+              <div className="widget-library-section__head">
+                <div className="widget-library-section__title-block">
+                  <span className="widget-library-section__kicker">Category</span>
+                  <strong className="widget-library-section__title">{section.label}</strong>
+                </div>
+                <span className="widget-library-section__count">{section.templates.length}</span>
+              </div>
+
+              <div className="left-rail-templates__grid left-rail-templates__grid--list">
+                {section.templates.map((template) => (
+                  <TemplateCard
+                    key={template.metadata.id}
+                    template={template}
+                    variant="rail-list"
+                    onUse={applyTemplate}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <div className="left-rail-templates__grid left-rail-templates__grid--cards">
+          {filteredTemplates.map((template) => (
+            <TemplateCard
+              key={template.metadata.id}
+              template={template}
+              variant="rail"
+              onUse={applyTemplate}
+            />
+          ))}
+        </div>
+      )}
 
       {!filteredTemplates.length ? (
         <div className="left-rail-templates__empty">

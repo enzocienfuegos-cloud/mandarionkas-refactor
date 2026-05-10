@@ -138,7 +138,10 @@ export function TemplateCard({
   }
 
   if (variant === 'rail-list') {
-    const listHighlights = railHighlights.slice(0, 1);
+    const supportLabel = [
+      preset?.label,
+      template.metadata.sceneCount ? `${template.metadata.sceneCount} scene${template.metadata.sceneCount === 1 ? '' : 's'}` : null,
+    ].filter(Boolean).join(' · ');
     return (
       <article
         className={`template-rail-list ${template.metadata.featured ? 'is-featured' : ''}`.trim()}
@@ -159,33 +162,14 @@ export function TemplateCard({
           </div>
         </div>
         <div className="template-rail-list__main">
-          <div className="template-rail-list__header">
-            <div className="template-rail-list__eyebrows">
-              <span className="template-rail-card__eyebrow">
-                {VERTICAL_LABELS[template.metadata.vertical]}
-              </span>
-              {preset ? <span className="template-rail-card__tag">{preset.label}</span> : null}
-            </div>
+          <div className="template-rail-list__copy">
             <h3>{template.metadata.name}</h3>
+            <p>{supportLabel || template.metadata.description}</p>
           </div>
-          <p>{template.metadata.description}</p>
-          <div className="template-rail-list__footer">
-            <div className="template-rail-list__facts">
-            {template.metadata.sceneCount ? (
-              <span className="template-rail-card__capability">{template.metadata.sceneCount} scenes</span>
-            ) : null}
-            {template.metadata.featuredLabel ? (
-              <span className="template-rail-card__capability">{template.metadata.featuredLabel}</span>
-            ) : null}
-            {listHighlights.map((highlight) => (
-              <span key={highlight} className="template-rail-card__tag">{highlight}</span>
-            ))}
-            </div>
-            <div className="template-rail-list__actions">
-              <Button variant="ghost" size="sm" onClick={() => onUse?.(template.metadata.id)}>
-                Use
-              </Button>
-            </div>
+          <div className="template-rail-list__actions">
+            <Button variant="ghost" size="sm" onClick={() => onUse?.(template.metadata.id)}>
+              Use
+            </Button>
           </div>
         </div>
       </article>
