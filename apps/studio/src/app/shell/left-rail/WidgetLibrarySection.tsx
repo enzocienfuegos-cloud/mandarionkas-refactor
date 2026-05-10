@@ -1,219 +1,109 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CATEGORY_ORDER, type LeftRailController } from './use-left-rail-controller';
-import { clearWidgetLibraryDragPayload, createWidgetLibraryDragPayload, writeWidgetLibraryDragPayload } from '../../../canvas/stage/widget-library-drag';
+import { Button } from '../../../shared/ui/Button';
 import { SegmentedControl } from '../../../shared/ui/SegmentedControl';
-import { PlaceholderThumb } from '../../../widgets/registry/widget-thumbnails';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { WIDGET_LIBRARY_GROUP_LABELS } from '../../../widgets/registry/widget-definition';
-
-const CAPABILITY_PILLS: Array<{ key: keyof NonNullable<LeftRailController['filteredWidgets'][number]['capabilities']>; label: string }> = [
-  { key: 'isInteractive', label: 'Interactive' },
-  { key: 'isMedia', label: 'Media' },
-  { key: 'isContainer', label: 'Container' },
-  { key: 'acceptsAssetSwap', label: 'Asset swap' },
-  { key: 'isAssetGallery', label: 'Gallery' },
-  { key: 'hasVideoAnalytics', label: 'Analytics' },
-];
-
-export function getCapabilityPills(widget: LeftRailController['filteredWidgets'][number]): string[] {
-  const pills = CAPABILITY_PILLS.filter((item) => widget.capabilities?.[item.key]).map((item) => item.label);
-  return pills.length ? pills.slice(0, 3) : [widget.category];
-}
-
-export function getMraidLabel(level: LeftRailController['filteredWidgets'][number]['mraidCompatibility']): string | null {
-  if (level === 'supported') return 'MRAID ready';
-  if (level === 'warning') return 'MRAID review';
-  if (level === 'blocked') return 'MRAID blocked';
-  return null;
-}
-
-export function getMetadataPills(widget: LeftRailController['filteredWidgets'][number]): string[] {
-  const pills: string[] = [];
-  if (widget.recommendedSize) {
-    const { width, height, label } = widget.recommendedSize;
-    pills.push(label ? `${label} · ${width}×${height}` : `${width}×${height}`);
-  }
-  if (typeof widget.estimatedRuntimeKb === 'number') {
-    pills.push(`${widget.estimatedRuntimeKb} KB runtime`);
-  }
-  const mraidLabel = getMraidLabel(widget.mraidCompatibility);
-  if (mraidLabel) pills.push(mraidLabel);
-  if (widget.requiresAsset) pills.push('Needs assets');
-  return pills.slice(0, 3);
-}
-
-function getCapabilityIcon(label: string) {
-  switch (label) {
-    case 'Interactive':
-      return StudioIcons.workflow;
-    case 'Media':
-      return StudioIcons.images;
-    case 'Container':
-      return StudioIcons.boxes;
-    case 'Asset swap':
-      return StudioIcons.upload;
-    case 'Gallery':
-      return StudioIcons.library;
-    default:
-      return StudioIcons.info;
-  }
-}
+import { type WidgetCardDensity, WidgetLibraryItemCard, WidgetLibraryModal } from './widget-library-presenters';
 
 export function WidgetLibrarySection({ controller }: { controller: LeftRailController }): JSX.Element {
   const { filteredWidgets, groupedWidgets, query, setQuery, category, setCategory, counts, widgetActions } = controller;
   const [draggingWidgetType, setDraggingWidgetType] = useState<string | null>(null);
   const [previewWidgetType, setPreviewWidgetType] = useState<string | null>(null);
-  const categoryOptions = [
+  const [browseAllOpen, setBrowseAllOpen] = useState(false);
+  const [density, setDensity] = useState<WidgetCardDensity>('compact');
+  const sectionRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const target = sectionRef.current;
+    if (!target || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(([entry]) => {
+      setDensity(entry.contentRect.width > 360 ? 'cozy' : 'compact');
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
+
+  const categoryOptions = useMemo(() => [
     { id: 'all' as const, label: 'All' },
     ...CATEGORY_ORDER.map((item) => ({ id: item, label: WIDGET_LIBRARY_GROUP_LABELS[item], count: counts[item] })),
-  ];
-
-  function renderWidgetThumbnail(widget: LeftRailController['filteredWidgets'][number], previewActive: boolean): JSX.Element {
-    if (previewActive && widget.renderLibraryPreview) {
-      const LibraryPreview = widget.renderLibraryPreview;
-      return <LibraryPreview />;
-    }
-
-    if (typeof widget.thumbnail === 'string') {
-      return <img src={widget.thumbnail} alt="" className="widget-library-card__thumb-image" loading="lazy" />;
-    }
-
-    if (widget.thumbnail) {
-      const Thumbnail = widget.thumbnail;
-      return <Thumbnail />;
-    }
-
-    return <PlaceholderThumb category={widget.category} />;
-  }
+  ], [counts]);
 
   return (
     <>
-      <div className="left-rail-section-head">
-        <div>
-          <div className="left-title">Widget Library</div>
-          <strong className="rail-heading">Creative module marketplace</strong>
+      <div ref={sectionRef}>
+        <div className="left-rail-section-head">
+          <div>
+            <div className="left-title">Widget Library</div>
+            <strong className="rail-heading">Creative module palette</strong>
+          </div>
+          <div className="pill">{filteredWidgets.length} shown</div>
         </div>
-        <div className="pill">{filteredWidgets.length} shown</div>
-      </div>
 
-      <div className="field-stack rail-search-stack">
-        <input aria-label="Search widgets" placeholder="Search modules, tags, intent..." value={query} onChange={(event) => setQuery(event.target.value)} />
-        <SegmentedControl options={categoryOptions} value={category} onChange={setCategory} ariaLabel="Widget categories" className="chip-row" />
-      </div>
-
-      {!groupedWidgets.length ? (
-        <div className="story-flow-canvas-hint">
-          <StudioIcon icon={StudioIcons.scanSearch} size={14} />
-          No modules matched this search. Try another keyword or switch categories.
+        <div className="field-stack rail-search-stack">
+          <input
+            aria-label="Search widgets"
+            placeholder="Search modules, tags, intent..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <SegmentedControl
+            options={categoryOptions}
+            value={category}
+            onChange={setCategory}
+            ariaLabel="Widget categories"
+            className="chip-row"
+          />
         </div>
-      ) : null}
 
-      <div className="widget-library-sections">
-        {groupedWidgets.map((section) => (
-          <section key={section.group} className="widget-library-section" aria-label={section.label}>
-            <div className="widget-library-section__head">
-              <div>
-                <div className="left-title">Category</div>
-                <strong className="widget-library-section__title">{section.label}</strong>
+        {!groupedWidgets.length ? (
+          <div className="story-flow-canvas-hint">
+            <StudioIcon icon={StudioIcons.scanSearch} size={14} />
+            No modules matched this search. Try another keyword or switch categories.
+          </div>
+        ) : null}
+
+        <div className="widget-library-sections">
+          {groupedWidgets.map((section) => (
+            <section key={section.group} className="widget-library-section" aria-label={section.label}>
+              <div className="widget-library-section__head">
+                <div>
+                  <div className="left-title">Category</div>
+                  <strong className="widget-library-section__title">{section.label}</strong>
+                </div>
+                <div className="pill">{section.widgets.length}</div>
               </div>
-              <div className="pill">{section.widgets.length}</div>
-            </div>
-            <div className="widget-library-grid">
-              {section.widgets.map((widget) => {
-                const metadataPills = getMetadataPills(widget);
-                const capabilityPills = getCapabilityPills(widget);
-                const previewActive = previewWidgetType === widget.type;
-                return (
-                  <div
+              <div className={`widget-library-grid widget-library-grid--${density}`.trim()}>
+                {section.widgets.map((widget) => (
+                  <WidgetLibraryItemCard
                     key={widget.type}
-                    draggable
-                    role="button"
-                    tabIndex={0}
-                    data-widget-type={widget.type}
-                    className={`left-button widget-library-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
-                    aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
-                    onClick={() => widgetActions.createWidget(widget.type)}
-                    onMouseEnter={() => setPreviewWidgetType(widget.type)}
-                    onMouseLeave={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
-                    onFocus={() => setPreviewWidgetType(widget.type)}
-                    onBlur={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        widgetActions.createWidget(widget.type);
-                      }
-                    }}
-                    onDragStart={(event) => {
-                      setDraggingWidgetType(widget.type);
-                      writeWidgetLibraryDragPayload(event.dataTransfer, createWidgetLibraryDragPayload(widget.type, widget.label));
-                    }}
-                    onDragEnd={() => {
-                      setDraggingWidgetType(null);
-                      clearWidgetLibraryDragPayload();
-                    }}
-                  >
-                    <div className="widget-library-card__thumb">
-                      <div className="widget-library-card__thumb-stage">
-                        {renderWidgetThumbnail(widget, previewActive)}
-                      </div>
-                      <div className="widget-library-card__thumb-overlay" aria-hidden="true">
-                        <span>{previewActive ? 'Preview live' : 'Hover for motion'}</span>
-                        <strong>{widget.recommendedSize?.label ?? section.label}</strong>
-                      </div>
-                    </div>
+                    widget={widget}
+                    sectionLabel={section.label}
+                    density={density}
+                    draggingWidgetType={draggingWidgetType}
+                    previewWidgetType={previewWidgetType}
+                    setDraggingWidgetType={setDraggingWidgetType}
+                    setPreviewWidgetType={setPreviewWidgetType}
+                    onCreate={widgetActions.createWidget}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
 
-                    <div className="widget-library-card__meta">
-                      <div className="widget-library-card__header">
-                        <div className="content-min-w-0">
-                          <div className="widget-library-card__eyebrow">{section.label}</div>
-                          <div className="widget-library-card__label">{widget.label}</div>
-                          {widget.description ? (
-                            <div className="widget-library-card__description">{widget.description}</div>
-                          ) : null}
-                        </div>
-                        <span className="widget-library-card__add" aria-hidden="true">
-                          <StudioIcon icon={StudioIcons.plus} size={12} />
-                          Add
-                        </span>
-                      </div>
-                      {widget.libraryTags?.length ? (
-                        <div className="widget-library-card__tags">
-                          {widget.libraryTags.slice(0, 2).map((item) => (
-                            <span key={item} className="widget-library-card__tag">
-                              {item}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                      {metadataPills.length ? (
-                        <div className="widget-library-card__metrics">
-                          {metadataPills.slice(0, 2).map((item) => (
-                            <span key={item} className="widget-library-card__metric">
-                              {item}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                      <div className="widget-library-card__capabilities">
-                        {capabilityPills.slice(0, 2).map((item) => (
-                          <span key={item} className="widget-library-card__capability">
-                            <StudioIcon icon={getCapabilityIcon(item)} size={12} />
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="widget-library-card__footer">
-                        <div className="widget-library-card__hint">Click to add · drag to canvas</div>
-                        <div className="widget-library-card__type">{previewActive ? 'Previewing' : 'Ready'}</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="widget-library-browse-all"
+          iconBefore={<StudioIcon icon={StudioIcons.scanSearch} size={14} />}
+          onClick={() => setBrowseAllOpen(true)}
+        >
+          Browse all widgets
+        </Button>
       </div>
+
+      {browseAllOpen ? <WidgetLibraryModal controller={controller} onClose={() => setBrowseAllOpen(false)} /> : null}
     </>
   );
 }

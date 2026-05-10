@@ -26,7 +26,7 @@ export function AgencyCommandHero({
     <section className="agency-command-hero">
       <div className="agency-command-hero__intro">
         <div className="workspace-hub-kicker">Agency hub</div>
-        <h2>Continue the next project fast, then move cleanly into the right client space.</h2>
+        <h2>Move fast</h2>
         <p>
           The shell should feel like an edit queue instead of a dashboard. The current client lens is
           <strong> {selectedClientName}</strong>.

@@ -1,18 +1,10 @@
-import { CANVAS_PRESETS } from '../../../domain/document/canvas-presets';
 import type { TopBarController } from './use-top-bar-controller';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { Button } from '../../../shared/ui/Button';
 import { getPreviewFrame, PREVIEW_FRAMES } from '../../../domain/preview/preview-frames';
+import { CanvasSizePicker } from './CanvasSizePicker';
 
 const ZOOM_OPTIONS = [25, 50, 75, 100, 125, 150, 200] as const;
-
-function formatCanvasOptionLabel(presetId: string, width: number, height: number): string {
-  const preset = CANVAS_PRESETS.find((item) => item.id === presetId);
-  if (!preset || preset.id === 'custom') {
-    return `Custom · ${width}×${height}`;
-  }
-  return preset.label;
-}
 
 function fitZoomForWorkspace(args: {
   canvas: { width: number; height: number };
@@ -41,7 +33,6 @@ export function TopBarCenterContent({ controller }: { controller: TopBarControll
   const { canvas } = state.document;
   const zoomValue = Math.round(zoom * 100);
   const zoomSelectValue = ZOOM_OPTIONS.includes(zoomValue as typeof ZOOM_OPTIONS[number]) ? String(zoomValue) : 'fit';
-  const canvasOptionLabel = formatCanvasOptionLabel(canvasPresetId, canvas.width, canvas.height);
 
   return (
     <div className="top-center-shell">
@@ -77,43 +68,13 @@ export function TopBarCenterContent({ controller }: { controller: TopBarControll
           </div>
         ) : null}
 
-        <div className="top-select-shell">
-          <span className="top-select-shell__icon" aria-hidden="true">
-            <StudioIcon icon={StudioIcons.boxes} size={14} />
-          </span>
-          <select
-            className="top-select-control"
-            aria-label="Canvas size preset"
-            value={canvasPresetId}
-            onChange={(event) => documentActions.applyCanvasPreset(event.target.value)}
-          >
-            {CANVAS_PRESETS.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.id === 'custom' ? canvasOptionLabel : preset.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {canvasPresetId === 'custom' ? (
-          <div className="top-custom-size">
-            <input
-              aria-label="Custom canvas width"
-              type="number"
-              min={1}
-              value={canvas.width}
-              onChange={(event) => documentActions.updateCanvasSize(Number(event.target.value) || 1, canvas.height)}
-            />
-            <span className="top-custom-size__separator">×</span>
-            <input
-              aria-label="Custom canvas height"
-              type="number"
-              min={1}
-              value={canvas.height}
-              onChange={(event) => documentActions.updateCanvasSize(canvas.width, Number(event.target.value) || 1)}
-            />
-          </div>
-        ) : null}
+        <CanvasSizePicker
+          presetId={canvasPresetId}
+          width={canvas.width}
+          height={canvas.height}
+          onPresetChange={documentActions.applyCanvasPreset}
+          onCustomSize={documentActions.updateCanvasSize}
+        />
 
         <div className="top-select-shell">
           <span className="top-select-shell__icon" aria-hidden="true">

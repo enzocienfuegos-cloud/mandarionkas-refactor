@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatTime } from '../timeline-utils';
 import { Button } from '../../shared/ui/Button';
 import { IconButton } from '../../shared/ui/IconButton';
@@ -72,7 +72,30 @@ export function TimelineHeader({
 }): JSX.Element {
   const [editingDuration, setEditingDuration] = useState(false);
   const [draftDurationSec, setDraftDurationSec] = useState('');
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const optionsRef = useRef<HTMLDivElement | null>(null);
   const activeSceneIndex = Math.max(0, scenes.findIndex((scene) => scene.id === activeSceneId));
+
+  useEffect(() => {
+    if (!optionsOpen) return undefined;
+
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === 'Escape') setOptionsOpen(false);
+    }
+
+    function handleMouseDown(event: MouseEvent): void {
+      if (optionsRef.current && !optionsRef.current.contains(event.target as Node)) {
+        setOptionsOpen(false);
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleMouseDown);
+    };
+  }, [optionsOpen]);
 
   function startEditDuration(): void {
     setDraftDurationSec((sceneDurationMs / 1000).toFixed(1));
@@ -112,9 +135,6 @@ export function TimelineHeader({
         <div className="timeline-title-copy">
           <strong>Timeline</strong>
           <small>{displayedCount} track{displayedCount === 1 ? '' : 's'} · Scene {activeSceneIndex + 1} of {Math.max(1, scenes.length)} · {selectedCount} selected</small>
-          <div className="timeline-title-pills">
-            <span className="pill pill-highlight timeline-scene-pill">Trim, timing and keyframes</span>
-          </div>
         </div>
       </div>
       <div className="timeline-controls">
@@ -175,34 +195,6 @@ export function TimelineHeader({
           <div className={`timeline-live-pill${isPlaying ? ' is-live' : ''}`} aria-live="polite">
             {isPlaying ? 'Live' : 'Idle'}
           </div>
-        </div>
-
-        <div className="timeline-ctrl-divider" aria-hidden="true" />
-
-        <div className="timeline-ctrl-group">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={snapEnabled ? 'is-active' : ''}
-            onClick={onToggleSnap}
-            tooltip={snapEnabled ? `Snap enabled — step ${snapStepMs}ms` : 'Snap disabled'}
-          >
-            {snapEnabled ? `Snap ${snapStepMs}ms` : 'Snap off'}
-          </Button>
-        </div>
-
-        <div className="timeline-ctrl-divider" aria-hidden="true" />
-
-        <div className="timeline-ctrl-group">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={selectedOnly ? 'is-active' : ''}
-            onClick={onToggleSelectedOnly}
-            tooltip={selectedOnly ? 'Showing selected layers only — click to show all' : 'Click to show selected layers only'}
-          >
-            {selectedOnly ? 'Selected only' : 'All layers'}
-          </Button>
         </div>
 
         <div className="timeline-ctrl-divider" aria-hidden="true" />
@@ -273,6 +265,33 @@ export function TimelineHeader({
               </span>
             </Tooltip>
           ) : null}
+        </div>
+
+        <div className="timeline-ctrl-group timeline-ctrl-group--options">
+          <div ref={optionsRef} className="timeline-options-shell">
+            <IconButton
+              className="timeline-options-trigger"
+              variant="ghost"
+              size="md"
+              label="Timeline options"
+              tooltipPlacement="bottom"
+              tooltipDelay={220}
+              icon={<StudioIcon icon={StudioIcons.moreHorizontal} size={16} />}
+              onClick={() => setOptionsOpen((value) => !value)}
+            />
+            {optionsOpen ? (
+              <div className="timeline-options-popover panel" role="menu" aria-label="Timeline options">
+                <button type="button" className="timeline-options-item" role="menuitemcheckbox" aria-checked={snapEnabled} onClick={() => { onToggleSnap(); setOptionsOpen(false); }}>
+                  <span>Snap {snapEnabled ? `${snapStepMs}ms` : 'off'}</span>
+                  <span className="pill">{snapEnabled ? 'On' : 'Off'}</span>
+                </button>
+                <button type="button" className="timeline-options-item" role="menuitemcheckbox" aria-checked={selectedOnly} onClick={() => { onToggleSelectedOnly(); setOptionsOpen(false); }}>
+                  <span>Selected only</span>
+                  <span className="pill">{selectedOnly ? 'On' : 'Off'}</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <IconButton

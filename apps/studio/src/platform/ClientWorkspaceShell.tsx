@@ -20,10 +20,15 @@ function buildClientWorkspaceFrameStyle(borderColor: string, aspectRatio: string
   return { borderColor, aspectRatio };
 }
 
+function buildLaunchPreviewStyle(aspectRatio: string): CSSProperties {
+  return { aspectRatio };
+}
+
 export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: ClientWorkspaceShellProps): JSX.Element {
   const controller = useClientWorkspaceController();
   const starters = getProjectStarters();
   const defaultTemplateStarter = starters.find((starter) => starter.id === 'bocadeli-worldcup') ?? starters.find((starter) => starter.id !== 'blank');
+  const defaultTemplatePreset = getCanvasPresetById(defaultTemplateStarter?.canvasPresetId);
   const {
     workspace,
     projectSession,
@@ -112,8 +117,8 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         <div className="workspace-launchpad__hero">
           <div>
             <div className="workspace-hub-kicker">Creative launchpad</div>
-            <h2>Choose a clear start: template, blank canvas, or scalable starter.</h2>
-            <p>Creation paths should be obvious before the project grid takes over. The strongest starters surface first and the editor stays one click away.</p>
+            <h2>Start a creative</h2>
+            <p>Pick a template, open a blank canvas, or kick off from a scalable starter.</p>
           </div>
           <div className="workspace-launchpad__hero-pills">
             <span className="pill">{stats.totalProjects - stats.archived} active</span>
@@ -141,6 +146,17 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
             <span className="workspace-launch-card__eyebrow">Variants & DCO</span>
             <strong>Use a scalable starter</strong>
             <p>{defaultTemplateStarter ? `Kick off from ${defaultTemplateStarter.label} and layer variants, feeds or brand rules later.` : 'Use the best available starter and evolve it into a dynamic campaign.'}</p>
+            {defaultTemplateStarter ? (
+              <span
+                className="workspace-launch-card__preview"
+                style={buildLaunchPreviewStyle(defaultTemplatePreset ? `${defaultTemplatePreset.width} / ${defaultTemplatePreset.height}` : '16 / 9')}
+              >
+                <span className="workspace-launch-card__preview-label">{defaultTemplateStarter.label}</span>
+                <span className="workspace-launch-card__preview-meta">
+                  {defaultTemplatePreset ? `${defaultTemplatePreset.width}×${defaultTemplatePreset.height}` : (defaultTemplateStarter.canvasPresetId ?? 'Custom')}
+                </span>
+              </span>
+            ) : null}
           </button>
         </div>
       </section>
@@ -186,8 +202,8 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         <div className="workspace-hub-onboarding__intro">
           <div>
             <div className="workspace-hub-kicker">Template marketplace</div>
-            <h2>{hasProjects ? 'Keep new briefs moving with a smaller set of stronger launch points' : 'Start from a curated template instead of an empty editor'}</h2>
-            <p>{hasProjects ? 'The marketplace now surfaces the best launch points first, including the real Bocadeli World Cup starter for interactive sports activations.' : 'There are no projects in this client workspace yet. Pick a curated launch point by vertical, or create a blank project if you want full control from the start.'}</p>
+            <h2>{hasProjects ? 'Launch points' : 'Pick a template'}</h2>
+            <p>{hasProjects ? 'The marketplace surfaces the best starters first, including the real Bocadeli World Cup flagship flow.' : 'There are no projects in this client workspace yet. Start from a curated launch point by vertical, or open a blank project for full control.'}</p>
           </div>
           <div className="workspace-hub-onboarding__actions">
             <Button variant="primary" size="md" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
@@ -319,10 +335,6 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
                   <div>
                     <span className="workspace-project-meta-label">Updated</span>
                     <strong>{formatDate(project.updatedAt)}</strong>
-                  </div>
-                  <div>
-                    <span className="workspace-project-meta-label">Owner</span>
-                    <strong>{project.ownerName ?? project.ownerUserId}</strong>
                   </div>
                   <div>
                     <span className="workspace-project-meta-label">Format</span>

@@ -61,8 +61,8 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
       <header className="agency-shell-topbar agency-shell-topbar--premium">
         <div className="agency-shell-topbar__brand">
           <div className="workspace-hub-kicker">Agency hub</div>
-          <h1>Continue editing, move into a client space, or launch the next campaign without dashboard clutter.</h1>
-          <p>The hierarchy is centered on momentum: resume work first, then navigate by client context.</p>
+          <h1>Agency hub</h1>
+          <p className="agency-shell-topbar__tagline">Resume work, switch client, or launch a new campaign.</p>
         </div>
         <div className="agency-shell-topbar__actions">
           <label className="agency-shell-command">

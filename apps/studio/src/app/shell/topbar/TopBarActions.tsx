@@ -9,6 +9,7 @@ import { useToast } from '../../../shared/ui/ToastProvider';
 import { Button } from '../../../shared/ui/Button';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { channelLabel } from './export-channels';
+import { Tooltip } from '../../../shared/ui/Tooltip';
 
 function formatSaveLabel(saveStatus: 'idle' | 'saving' | 'saved' | 'error', dirty: boolean): string {
   if (saveStatus === 'saving') return 'Saving…';
@@ -22,6 +23,11 @@ function getExportSummaryIcon(tone: 'danger' | 'good' | 'accent' | 'warn') {
   if (tone === 'good') return StudioIcons.check;
   if (tone === 'accent') return StudioIcons.workflow;
   return StudioIcons.info;
+}
+
+function openPreflightPanel(): void {
+  const toggle = document.querySelector<HTMLButtonElement>('.preflight-tray__toggle');
+  toggle?.click();
 }
 
 export function TopBarActions({ controller, onOpenBrandKitDrawer }: { controller: TopBarController; onOpenBrandKitDrawer: () => void }): JSX.Element {
@@ -189,16 +195,17 @@ export function TopBarActions({ controller, onOpenBrandKitDrawer }: { controller
 
   return (
     <div className="top-actions-cluster">
-      <div className={`top-actions-summary top-actions-summary--${exportSummaryTone}`.trim()} aria-label="Export readiness summary">
-        <span className="top-actions-summary__icon" aria-hidden="true">
-          <StudioIcon icon={getExportSummaryIcon(exportSummaryTone)} size={15} />
-        </span>
-        <div className="top-actions-summary__copy">
-          <strong className="top-actions-summary__title">{exportSummaryTitle}</strong>
-          <small className="top-actions-summary__eyebrow">{exportTargetLabel} · {packageModeLabel}</small>
-        </div>
-        <small className="top-actions-summary__detail">{exportSummaryDetail}</small>
-      </div>
+      <Tooltip content={`${exportTargetLabel} · ${packageModeLabel}${exportSummaryDetail ? `\n${exportSummaryDetail}` : ''}`} placement="bottom">
+        <button
+          type="button"
+          className={`top-actions-pill top-actions-pill--${exportSummaryTone}`.trim()}
+          aria-label={`${exportSummaryTitle}. Click to open preflight.`}
+          onClick={openPreflightPanel}
+        >
+          <StudioIcon icon={getExportSummaryIcon(exportSummaryTone)} size={14} />
+          <span>{exportSummaryTitle}</span>
+        </button>
+      </Tooltip>
       <Button
         variant="ghost"
         size="sm"

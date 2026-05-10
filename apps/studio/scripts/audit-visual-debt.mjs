@@ -12,6 +12,7 @@ const COLOR_LITERAL_PATTERN = /#(?:[0-9a-fA-F]{3,8})\b|rgba?\([^)]*\)|hsla?\([^)
 const Z_INDEX_PATTERN = /\bz-index\s*:\s*-?\d+\b/g;
 const IMPORTANT_PATTERN = /!important\b/g;
 const TYPE_BRANCH_PATTERN = /\b(?:widget|node)\.type\s*===\s*['"][^'"]+['"]/g;
+const SPACING_LITERAL_PATTERN = /\b(?:gap|column-gap|row-gap|padding(?:-(?:top|right|bottom|left|inline(?:-start|-end)?|block(?:-start|-end)?)?)|margin(?:-(?:top|right|bottom|left|inline(?:-start|-end)?|block(?:-start|-end)?)?))\s*:\s*(?:2|4|6|8|10|12|14|16|20|24|28|32)px\b/g;
 
 const DEFAULT_TOP = 20;
 const DEFAULT_LINE_THRESHOLD = 400;
@@ -60,6 +61,9 @@ function parseArgs(argv) {
         break;
       case 'max-type-branches':
         args.thresholds.typeBranches = Number(value);
+        break;
+      case 'max-spacing-literals':
+        args.thresholds.spacingLiterals = Number(value);
         break;
       default:
         break;
@@ -165,6 +169,7 @@ for (const filePath of walk(srcRoot.pathname)) {
     zIndexCount: countMatches(content, Z_INDEX_PATTERN),
     importantCount: countMatches(content, IMPORTANT_PATTERN),
     typeBranches: countMatches(content, TYPE_BRANCH_PATTERN),
+    spacingLiterals: relativePath.endsWith('.css') ? countMatches(content, SPACING_LITERAL_PATTERN) : 0,
   });
 }
 
@@ -175,6 +180,7 @@ const totals = fileStats.reduce((acc, file) => ({
   zIndexCount: acc.zIndexCount + file.zIndexCount,
   importantCount: acc.importantCount + file.importantCount,
   typeBranches: acc.typeBranches + file.typeBranches,
+  spacingLiterals: acc.spacingLiterals + file.spacingLiterals,
 }), {
   inlineStyles: 0,
   colorLiterals: 0,
@@ -182,6 +188,7 @@ const totals = fileStats.reduce((acc, file) => ({
   zIndexCount: 0,
   importantCount: 0,
   typeBranches: 0,
+  spacingLiterals: 0,
 });
 
 console.log('Studio visual debt audit');
@@ -224,6 +231,12 @@ formatTable(
   (file, index) => `${String(index + 1).padStart(2, ' ')}. ${file.relativePath} - ${file.typeBranches}`,
 );
 
+formatTable(
+  'Files with hardcoded spacing literals',
+  fileStats.filter((file) => file.spacingLiterals > 0).sort((a, b) => b.spacingLiterals - a.spacingLiterals || a.relativePath.localeCompare(b.relativePath)).slice(0, args.top),
+  (file, index) => `${String(index + 1).padStart(2, ' ')}. ${file.relativePath} - ${file.spacingLiterals}`,
+);
+
 console.log('\nTotals');
 console.log(`- inline styles: ${totals.inlineStyles}`);
 console.log(`- color literals: ${totals.colorLiterals}`);
@@ -231,6 +244,7 @@ console.log(`- files over threshold: ${totals.largeFiles}`);
 console.log(`- numeric z-index uses: ${totals.zIndexCount}`);
 console.log(`- !important uses: ${totals.importantCount}`);
 console.log(`- hardcoded widget type branches: ${totals.typeBranches}`);
+console.log(`- hardcoded spacing literals: ${totals.spacingLiterals}`);
 
 const failures = [];
 for (const [key, max] of Object.entries(args.thresholds)) {

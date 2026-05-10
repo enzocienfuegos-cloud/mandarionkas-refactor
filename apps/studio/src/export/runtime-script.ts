@@ -20,6 +20,9 @@ type RuntimeCapabilities = {
 };
 
 const MAP_WIDGET_TYPES = new Set<string>(['dynamic-map', 'leaflet-map']);
+const WEATHER_WIDGET_TYPES = new Set<string>(['weather-conditions']);
+const SCRATCH_WIDGET_TYPES = new Set<string>(['scratch-reveal']);
+const COUNTDOWN_WIDGET_TYPES = new Set<string>(['countdown']);
 const INTERACTIVE_WIDGET_TYPES = new Set<string>([
   'form',
   'image-carousel',
@@ -60,9 +63,9 @@ export function analyzeRuntimeCapabilities(document: PortableExportProject): Run
   const hasInteractiveAction = widgets.some((widget) =>
     widget.interactions.some((interaction) => !interaction.disabled && INTERACTIVE_ACTION_TYPES.has(interaction.type)),
   ) || document.interactions.some((interaction) => !interaction.disabled && INTERACTIVE_ACTION_TYPES.has(interaction.type));
-  const hasWeather = widgets.some((widget) => widget.type === 'weather-conditions');
-  const hasScratchReveal = widgets.some((widget) => widget.type === 'scratch-reveal');
-  const hasCountdown = widgets.some((widget) => widget.type === 'countdown');
+  const hasWeather = widgets.some((widget) => WEATHER_WIDGET_TYPES.has(widget.type));
+  const hasScratchReveal = widgets.some((widget) => SCRATCH_WIDGET_TYPES.has(widget.type));
+  const hasCountdown = widgets.some((widget) => COUNTDOWN_WIDGET_TYPES.has(widget.type));
 
   return {
     hasMap,

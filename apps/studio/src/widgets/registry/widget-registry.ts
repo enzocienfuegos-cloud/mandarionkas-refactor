@@ -1,12 +1,19 @@
+import { createElement } from 'react';
 import type { WidgetDefinition } from './widget-definition';
 import type { WidgetType } from '../../domain/document/types';
 import type { WidgetPluginManifestEntry } from './builtin-widget-plugins';
 import { withWidgetLibraryMetadata } from './widget-library-taxonomy';
+import { PlaceholderThumb } from './widget-thumbnails';
 
 const registry = new Map<WidgetType, WidgetDefinition>();
 
 export function registerWidget(definition: WidgetDefinition): void {
-  registry.set(definition.type, withWidgetLibraryMetadata(definition));
+  const hydrated = withWidgetLibraryMetadata(definition);
+  registry.set(definition.type, {
+    ...hydrated,
+    description: hydrated.description ?? `${hydrated.label} widget`,
+    thumbnail: hydrated.thumbnail ?? (() => createElement(PlaceholderThumb, { category: hydrated.category })),
+  });
 }
 
 export function registerWidgetPlugins(plugins: WidgetPluginManifestEntry[]): void {

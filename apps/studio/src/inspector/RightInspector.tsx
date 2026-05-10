@@ -21,12 +21,6 @@ export function RightInspector({
 
   const inspectorTitle = selectionIds.length === 0 ? (documentName?.trim() || 'Untitled project') : selectionIds.length === 1 ? 'Selected widget' : 'Multi-selection';
   const inspectorEyebrow = selectionIds.length === 0 ? 'Document' : selectionIds.length === 1 ? 'Widget' : 'Selection';
-  const inspectorStateLabel = selectionIds.length === 0 ? 'Document command panel' : selectionIds.length === 1 ? 'Focused editing' : 'Batch editing';
-  const inspectorHint = selectionIds.length === 0
-    ? 'Canvas, scenes, data, release and collaboration live here.'
-    : selectionIds.length === 1
-      ? 'Design choices stay up front, while timing, rules and data remain grouped below.'
-      : 'Use bulk actions and layer review for the current selection.';
 
   return (
     <aside className="right-inspector">
@@ -44,8 +38,8 @@ export function RightInspector({
         <div className="inspector-hero">
           <div className="inspector-hero-head">
             <div className="inspector-hero-title-stack">
-              <small className="muted">{inspectorEyebrow}</small>
               <strong>{inspectorTitle}</strong>
+              <small className="muted">{inspectorEyebrow} · {activeSceneName}</small>
             </div>
             <IconButton
               className="panel-collapse-button"
@@ -58,11 +52,6 @@ export function RightInspector({
               onClick={onToggleCollapse}
             />
           </div>
-          <div className="meta-line">
-            <span className="pill pill-highlight">{activeSceneName}</span>
-            <span className="pill">{inspectorStateLabel}</span>
-          </div>
-          <small className="muted inspector-hero-caption">{inspectorHint}</small>
         </div>
         {selectionIds.length === 0 ? (
           <DocumentInspectorPanel />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getCapabilityPills, getMetadataPills, getMraidLabel } from '../../../app/shell/left-rail/WidgetLibrarySection';
+import { getCapabilityPills, getMetadataPills, getMraidLabel } from '../../../app/shell/left-rail/widget-library-presenters';
 import { groupDefinition } from '../../../widgets/group/group.definition';
 import { imageDefinition } from '../../../widgets/image/image.definition';
 import { InteractiveVideoDefinition } from '../../../widgets/modules/definitions/interactive-video.definition';

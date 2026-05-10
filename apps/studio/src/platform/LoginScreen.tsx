@@ -29,7 +29,7 @@ export function LoginScreen(): JSX.Element {
       <div className="platform-login-card">
         <div className="platform-login-copy">
           <span className="brand-mark">SMX Studio Platform</span>
-          <h1>Cloud-native login with real sessions and persistent workspaces.</h1>
+          <h1>Sign in</h1>
           <p>Seed users: <strong>admin@smx.studio</strong> and <strong>editor@smx.studio</strong> · password <strong>demo123</strong>.</p>
           <p className="muted-copy">Remember session creates a persistent server session for 30 days. Turning it off keeps this as a shorter browser session.</p>
         </div>

@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  padding-bottom: 10px;
+  padding-bottom: var(--space-5);
 }
 .inspector-hero {
   position: sticky;
@@ -14,8 +14,8 @@
   flex-direction: column;
   backdrop-filter: var(--glass-blur-soft);
   -webkit-backdrop-filter: var(--glass-blur-soft);
-  gap: 4px;
-  padding: 12px 14px 10px;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-7);
   background: linear-gradient(180deg, var(--glass-bg-strong), var(--glass-bg));
   border-bottom: 1px solid var(--glass-border);
   box-shadow: var(--elevation-1);
@@ -39,20 +39,19 @@
   flex-wrap: wrap;
 }
 .inspector-hero strong {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-2xl);
   line-height: 1.2;
 }
 .inspector-hero-title-stack {
   min-width: 0;
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
 }
 .inspector-hero-title-stack strong {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.inspector-hero .meta-line { gap: 6px; }
 .inspector-tabs button {
   min-height: 34px;
   padding: 7px 10px;

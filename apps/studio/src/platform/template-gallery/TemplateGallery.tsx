@@ -66,9 +66,14 @@ export function TemplateGallery({
             {featuredTemplate.metadata.thumbnail
               ? <img src={featuredTemplate.metadata.thumbnail} alt="" />
               : (
-                <div className="template-card__placeholder">
-                  <span>{featuredTemplate.metadata.vertical}</span>
-                  <strong>{featuredTemplate.metadata.name}</strong>
+                <div className="template-gallery-featured__preview-card">
+                  <div className="template-gallery-featured__preview-stage">
+                    <div className="template-gallery-featured__preview-inner">
+                      <span>{featuredTemplate.metadata.vertical}</span>
+                      <strong>{featuredTemplate.metadata.name}</strong>
+                      <small>{featuredTemplate.metadata.sceneCount ?? 1} scenes · {(featuredTemplate.metadata.moduleHighlights ?? []).length || 1} highlights</small>
+                    </div>
+                  </div>
                 </div>
               )}
           </div>
