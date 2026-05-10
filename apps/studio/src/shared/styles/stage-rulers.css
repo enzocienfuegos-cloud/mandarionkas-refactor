@@ -89,7 +89,7 @@
 .stage-backdrop-switch {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   padding: 4px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--white-a-08);

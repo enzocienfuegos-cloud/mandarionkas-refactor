@@ -30,7 +30,7 @@
 .top-actions-summary {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-5);
   min-width: min(220px, 24vw);
   max-width: min(360px, 30vw);
   padding: 7px 10px;

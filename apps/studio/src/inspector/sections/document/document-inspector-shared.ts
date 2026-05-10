@@ -3,6 +3,7 @@ import { useStudioStore } from '../../../core/store/use-studio-store';
 import { resolveNextSceneId } from '../../../domain/document/resolvers';
 import type { ApprovalStatus, CommentStatus, StudioState } from '../../../domain/document/types';
 import { usePlatformSnapshot } from '../../../platform/runtime';
+import { usePlaybackMs } from '../../../hooks/use-playback-engine';
 
 export type DocumentInspectorTab = 'overview' | 'data' | 'collab';
 
@@ -13,7 +14,7 @@ export function useDocumentInspectorTab(initial: DocumentInspectorTab | string =
 export function useDocumentInspectorContext() {
   const state = useStudioStore((value) => value);
   const document = state.document;
-  const playheadMs = state.ui.playheadMs;
+  const playheadMs = usePlaybackMs(state.ui.playheadMs);
   const lastAction = state.ui.lastTriggeredActionLabel;
   const activeVariant = state.ui.activeVariant;
   const activeSceneId = state.document.selection.activeSceneId;

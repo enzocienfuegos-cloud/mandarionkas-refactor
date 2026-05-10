@@ -3,6 +3,7 @@ import { useTopBarController } from '../../app/shell/topbar/use-top-bar-controll
 import { getProjectInsightMap, listFavoriteProjects, listMostVisitedProjects, listRecentProjects, recordProjectVisit, toggleFavoriteProject } from './project-insights-store';
 import { readAgencyShellPreferences, writeAgencyShellPreferences, type AgencyProjectFilter, type AgencySortMode } from './agency-shell-preferences';
 import { fetchAgencyHubOverview, type AgencyHubOverview } from './api';
+import { listTemplates } from '../../templates/library/registry';
 
 export function useAgencyShellController() {
   const topBar = useTopBarController();
@@ -160,6 +161,22 @@ export function useAgencyShellController() {
     setPreferences((current) => ({ ...current, sortMode: value }));
   }
 
+  async function openAddClientDialog(): Promise<void> {
+    if (!workspace.canCreateClient || typeof window === 'undefined') return;
+    const nextName = window.prompt('New client name', workspace.newClientName || '')?.trim();
+    if (!nextName) return;
+    await workspace.handleCreateClient(nextName);
+  }
+
+  async function handleUseTemplateGlobally(templateId: string, targetClientId?: string): Promise<void> {
+    const nextClientId = targetClientId ?? workspace.activeClientId ?? workspace.visibleClients[0]?.id;
+    if (nextClientId && workspace.activeClientId !== nextClientId) {
+      await workspace.handleActiveClientChange(nextClientId);
+    }
+    const template = listTemplates().find((item) => item.metadata.id === templateId);
+    await projectSession.handleCreateProjectFromStarter(templateId as import('../../app/shell/topbar/project-starters').ProjectStarterId, template?.metadata.name);
+  }
+
   return {
     topBar,
     workspace,
@@ -180,6 +197,7 @@ export function useAgencyShellController() {
     activeClientFilter: preferences.activeClientId,
     projectFilter: preferences.projectFilter,
     sortMode: preferences.sortMode,
+    templateCount: listTemplates().length,
     setSearch,
     setActiveClientId,
     setProjectFilter,
@@ -189,5 +207,7 @@ export function useAgencyShellController() {
     pageCount,
     markProjectOpened,
     toggleProjectFavorite,
+    openAddClientDialog,
+    handleUseTemplateGlobally,
   };
 }

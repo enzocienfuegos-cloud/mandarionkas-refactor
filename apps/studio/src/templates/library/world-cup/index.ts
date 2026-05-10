@@ -1,5 +1,6 @@
 import type { StudioTemplate } from '../types';
 import { buildWorldCupTemplateDocument } from './document';
+import { BocadeliWorldCupPreview } from './library-preview';
 
 export const WORLD_CUP_TEMPLATE: StudioTemplate = {
   metadata: {
@@ -14,6 +15,8 @@ export const WORLD_CUP_TEMPLATE: StudioTemplate = {
     sceneCount: 4,
     moduleHighlights: ['Interactive flow', 'Live score moments', 'Reward end card'],
     recommendedFor: 'Event activations, sweepstakes and branded mini-games',
+    previewComponent: BocadeliWorldCupPreview,
+    tags: ['Sports', 'Live data', '4 scenes', 'Reward end card'],
   },
   buildDocument: buildWorldCupTemplateDocument,
 };

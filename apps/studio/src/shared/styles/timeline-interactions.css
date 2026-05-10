@@ -98,7 +98,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-inline: 2px;
+  padding-inline: var(--space-1);
 }
 
 .timeline-trim:hover {
@@ -154,29 +154,29 @@
 .timeline-row-meta-bottom {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .timeline-row-meta-top {
-  padding-right: 28px;
+  padding-right: var(--space-11);
 }
 
 .timeline-row-meta-bottom {
-  padding-left: 4px;
-  padding-right: 8px;
+  padding-left: var(--space-2);
+  padding-right: var(--space-4);
 }
 
 .timeline-row-meta-stack {
   flex: 1;
   min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .timeline-row-badges {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -237,7 +237,7 @@
   top: 4px;
   right: 4px;
   display: flex;
-  gap: 2px;
+  gap: var(--space-1);
   opacity: 0;
   pointer-events: none;
   transition: opacity  var(--motion-fast) ease;
@@ -276,7 +276,7 @@
 .timeline-row-type-label {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   font-size: var(--font-size-2xs);
   opacity: 0.55;
   white-space: nowrap;
@@ -294,7 +294,7 @@
 .timeline-shared-layer-label {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   color: var(--text-accent-strong);
 }
 
@@ -317,7 +317,7 @@
 .timeline-row-hierarchy-controls {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-4);
   min-width: 72px;
 }
 

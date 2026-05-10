@@ -13,14 +13,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: var(--space-7);
   background: var(--gradient-modal-surface);
 }
 
 .timeline-title-stack {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-5);
 }
 
 .timeline-resize-handle {
@@ -57,7 +57,7 @@
 .timeline-scene-switcher {
   display: inline-flex;
   align-items: stretch;
-  gap: 6px;
+  gap: var(--space-3);
   padding: 3px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--white-a-08);
@@ -75,7 +75,7 @@
 .timeline-scene-switcher__select {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-4);
   min-width: 0;
 }
 
@@ -110,7 +110,7 @@
 }
 
 .timeline-ctrl-group--duration {
-  gap: 8px;
+  gap: var(--space-4);
 }
 
 .timeline-ctrl-divider {
@@ -126,7 +126,7 @@
 }
 
 .timeline-duration-btn {
-  padding-inline: 10px;
+  padding-inline: var(--space-5);
 }
 
 .timeline-duration-input {
@@ -177,7 +177,7 @@
   font-size: var(--font-size-xs);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .timeline-title-copy {

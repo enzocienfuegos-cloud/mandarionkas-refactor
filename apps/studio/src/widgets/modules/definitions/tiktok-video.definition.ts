@@ -13,7 +13,7 @@ import {
   TIKTOK_VIDEO_DEFAULT_SHARES_COUNT,
   TIKTOK_VIDEO_DEFAULT_USERNAME,
 } from '../tiktok-video.shared';
-import { TikTokVideoThumb } from '../../registry/widget-thumbnails';
+import { TikTokVideoLibraryPreview, TikTokVideoThumb } from '../../registry/widget-thumbnails';
 import { tiktokVideoSchema } from '../tiktok-video/schema';
 
 export const TikTokVideoDefinition = createModuleDefinition({
@@ -21,6 +21,7 @@ export const TikTokVideoDefinition = createModuleDefinition({
   label: 'TikTok Video',
   category: 'media',
   thumbnail: TikTokVideoThumb,
+  renderLibraryPreview: TikTokVideoLibraryPreview,
   frame: { x: 40, y: 40, width: 300, height: 600, rotation: 0 },
   props: defaultsFromWidgetSchema(tiktokVideoSchema),
   schema: tiktokVideoSchema,

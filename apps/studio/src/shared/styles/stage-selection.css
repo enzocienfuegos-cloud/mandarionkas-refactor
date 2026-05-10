@@ -39,12 +39,12 @@
 
 .selection-mini-toolbar {
   flex-wrap: wrap;
-  padding-inline: 2px;
+  padding-inline: var(--space-1);
   display: inline-grid;
   grid-auto-flow: column;
   grid-auto-columns: max-content;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   padding: 5px;
   border-radius: var(--radius-xl);
   background: var(--surface-shell-overlay-strong);
@@ -74,7 +74,7 @@
   grid-template-columns: var(--selection-toolbar-pill-width, 132px) repeat(8, 26px);
   align-items: center;
   justify-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   transform: translate(-50%, calc(-100% - 6px));
   transform-origin: bottom center;
   user-select: none;
@@ -97,7 +97,7 @@
 .stage-selection-summary {
   width: var(--selection-toolbar-pill-width, 132px);
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .stage-selection-title {
@@ -114,7 +114,7 @@
 
 .stage-selection-toolbar .pill {
   min-height: 26px;
-  padding-inline: 8px;
+  padding-inline: var(--space-4);
   text-transform: none;
   font-size: var(--font-size-2xs);
   letter-spacing: .01em;

@@ -37,8 +37,9 @@ export function useWorkspaceController(snapshot: TopBarStudioSnapshot): Workspac
     platform.logout();
   }
 
-  async function handleCreateClient(): Promise<void> {
-    const client = await platform.createClient(newClientName);
+  async function handleCreateClient(nameOverride?: string): Promise<void> {
+    const nextClientName = nameOverride ?? newClientName;
+    const client = await platform.createClient(nextClientName);
     if (!client) return;
     setNewClientName('');
   }

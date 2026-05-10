@@ -3,13 +3,14 @@ import { createModuleDefinition } from '../module-definition-factory';
 import { renderScratchRevealExport } from '../scratch-reveal.export';
 import { renderScratchRevealStage } from '../scratch-reveal.renderer';
 import { ScratchRevealInspector } from '../scratch-reveal.inspector';
-import { ScratchRevealThumb } from '../../registry/widget-thumbnails';
+import { ScratchRevealLibraryPreview, ScratchRevealThumb } from '../../registry/widget-thumbnails';
 
 export const ScratchRevealDefinition = createModuleDefinition({
   type: 'scratch-reveal',
   label: 'Scratch & Reveal',
   category: 'interactive',
   thumbnail: ScratchRevealThumb,
+  renderLibraryPreview: ScratchRevealLibraryPreview,
   frame: { x: 80, y: 60, width: 220, height: 116, rotation: 0 },
   props: {
     title: 'Scratch & Reveal',

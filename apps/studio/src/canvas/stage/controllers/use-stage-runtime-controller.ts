@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getTimelineEnterActions } from '../../../actions/runtime';
 import { resolveNextSceneId } from '../../../domain/document/resolvers';
+import { playbackEngine } from '../../../hooks/use-playback-engine';
 
 export function useStageRuntimeController(args: {
   fullStateRef: React.MutableRefObject<import('../../../domain/document/types').StudioState>;
@@ -21,6 +22,10 @@ export function useStageRuntimeController(args: {
 
     let rafId = 0;
     let lastTimestamp: number | null = null;
+    let lastSyncedMs = playheadMs;
+    let previousActionPlayheadMs = playheadMs;
+
+    playbackEngine.setCurrentMs(playheadMs);
 
     const tick = (timestamp: number) => {
       if (lastTimestamp === null) {
@@ -32,13 +37,15 @@ export function useStageRuntimeController(args: {
       const elapsed = timestamp - lastTimestamp;
       lastTimestamp = timestamp;
 
-      const fullState = fullStateRef.current;
-      const nextTime = Math.round(fullState.ui.playheadMs + elapsed);
+      const nextTime = Math.round(playbackEngine.getCurrentMs() + elapsed);
       if (nextTime >= scene.durationMs) {
+        playbackEngine.setCurrentMs(scene.durationMs);
+        const fullState = fullStateRef.current;
         const nextSceneId = resolveNextSceneId(fullState, fullState.document.selection.activeSceneId);
         if (nextSceneId && nextSceneId !== fullState.document.selection.activeSceneId) {
           sceneActions.selectScene(nextSceneId);
           timelineActions.setPlayhead(0);
+          playbackEngine.setCurrentMs(0);
           return;
         }
         timelineActions.setPlayhead(scene.durationMs);
@@ -46,20 +53,32 @@ export function useStageRuntimeController(args: {
         return;
       }
 
-      timelineActions.setPlayhead(nextTime);
+      playbackEngine.setCurrentMs(nextTime);
+      const timelineEnterActions = getTimelineEnterActions(fullStateRef.current, nextTime, previousActionPlayheadMs);
+      timelineEnterActions.forEach((action) => widgetActions.executeAction(action.id));
+      previousActionPlayheadMs = nextTime;
+      if (nextTime - lastSyncedMs >= playbackEngine.getSyncIntervalMs()) {
+        timelineActions.setPlayhead(nextTime);
+        lastSyncedMs = nextTime;
+      }
       rafId = requestAnimationFrame(tick);
     };
 
     rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [fullStateRef, isPlaying, scene.durationMs, sceneActions, timelineActions]);
+    return () => {
+      cancelAnimationFrame(rafId);
+      timelineActions.setPlayhead(playbackEngine.getCurrentMs());
+    };
+  }, [fullStateRef, isPlaying, playheadMs, scene.durationMs, sceneActions, timelineActions, widgetActions]);
 
   useEffect(() => {
+    if (isPlaying) return;
     const previous = previousPlayheadRef.current;
     const timelineEnterActions = getTimelineEnterActions(fullStateRef.current, playheadMs, previous);
     timelineEnterActions.forEach((action) => widgetActions.executeAction(action.id));
     previousPlayheadRef.current = playheadMs;
-  }, [fullStateRef, playheadMs, widgetActions]);
+    playbackEngine.setCurrentMs(playheadMs);
+  }, [fullStateRef, isPlaying, playheadMs, widgetActions]);
 
   useEffect(() => {
     const previousSceneId = previousSceneIdRef.current;

@@ -7,13 +7,13 @@
     linear-gradient(180deg, var(--bg-deep-4) 0%, var(--bg-deep-5) 100%);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-9);
 }
 
 .agency-shell-topbar,
 .agency-shell-section {
   display: flex;
-  gap: 16px;
+  gap: var(--space-8);
   align-items: stretch;
 }
 
@@ -52,7 +52,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  gap: var(--space-8);
 }
 
 .agency-shell-slider,
@@ -61,7 +61,7 @@
 .agency-shell-toolbar,
 .agency-shell-metrics-row {
   display: grid;
-  gap: 16px;
+  gap: var(--space-8);
 }
 
 .agency-project-card,
@@ -75,7 +75,7 @@
 .agency-project-card__actions,
 .agency-empty-state {
   display: flex;
-  gap: 10px;
+  gap: var(--space-5);
 }
 
 .agency-project-card__actions {
@@ -90,7 +90,7 @@
 
 .agency-review-summary__card {
   display: grid;
-  gap: 8px;
+  gap: var(--space-4);
 }
 
 .agency-review-summary__card small,
@@ -102,9 +102,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding-top: 12px;
-  margin-top: 12px;
+  gap: var(--space-6);
+  padding-top: var(--space-6);
+  margin-top: var(--space-6);
   border-top: 1px solid var(--border-divider);
 }
 
@@ -142,7 +142,7 @@
 .agency-shell-metrics-row .workspace-hub-stat-card {
   padding: 18px;
   display: grid;
-  gap: 8px;
+  gap: var(--space-4);
 }
 
 .agency-shell-slider {
@@ -162,7 +162,7 @@
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-6);
 }
 
 .agency-project-card__preview {
@@ -175,7 +175,7 @@
 .agency-client-card__footer {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .agency-project-card__body h3,
@@ -192,7 +192,7 @@
 .agency-client-card__metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--space-5);
 }
 
 .agency-client-card__metrics strong,
@@ -211,7 +211,7 @@
 .agency-project-index-row {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr) auto;
-  gap: 16px;
+  gap: var(--space-8);
   align-items: center;
   padding: 16px;
   border: 1px solid var(--stroke-a-20);
@@ -221,7 +221,7 @@
 
 .agency-project-index-meta {
   display: flex;
-  gap: 10px;
+  gap: var(--space-5);
   flex-wrap: wrap;
 }
 

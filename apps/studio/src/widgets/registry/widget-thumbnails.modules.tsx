@@ -81,6 +81,29 @@ export function FourFacesThumb(): JSX.Element {
   );
 }
 
+export function FourFacesLibraryPreview(): JSX.Element {
+  return (
+    <ThumbFrame background={thumbColors.darkCard}>
+      <g>
+        <rect x="28" y="20" width="42" height="24" rx="8" fill={thumbColors.amber500} />
+        <rect x="76" y="20" width="42" height="24" rx="8" fill={thumbColors.green500} />
+        <rect x="28" y="50" width="42" height="24" rx="8" fill={thumbColors.slate50} opacity="0.16" />
+        <rect x="76" y="50" width="42" height="24" rx="8" fill={thumbColors.red500} />
+        <animateTransform attributeName="transform" type="translate" values="0 0;4 0;0 0;-4 0;0 0" dur="2.2s" repeatCount="indefinite" />
+      </g>
+      <circle cx="72" cy="84" r="3" fill={thumbColors.slate50} opacity="0.95">
+        <animate attributeName="opacity" values="0.95;0.4;0.4;0.95" dur="2.2s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="80" cy="84" r="3" fill={thumbColors.slate50} opacity="0.4">
+        <animate attributeName="opacity" values="0.4;0.95;0.4;0.4" dur="2.2s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="88" cy="84" r="3" fill={thumbColors.slate50} opacity="0.4">
+        <animate attributeName="opacity" values="0.4;0.4;0.95;0.4" dur="2.2s" repeatCount="indefinite" />
+      </circle>
+    </ThumbFrame>
+  );
+}
+
 export function GenAiImageThumb(): JSX.Element {
   return (
     <ThumbFrame background={thumbColors.ink900}>
@@ -99,6 +122,26 @@ export function InteractiveGalleryThumb(): JSX.Element {
       <rect x="76" y="22" width="42" height="24" rx="8" fill={thumbColors.slate50} opacity="0.2" />
       <rect x="28" y="52" width="42" height="24" rx="8" fill={thumbColors.amber500} opacity="0.86" />
       <rect x="76" y="52" width="42" height="24" rx="8" fill={thumbColors.slate50} opacity="0.12" />
+    </ThumbFrame>
+  );
+}
+
+export function InteractiveGalleryLibraryPreview(): JSX.Element {
+  return (
+    <ThumbFrame background={thumbColors.darkCard}>
+      <rect x="28" y="22" width="90" height="54" rx="12" fill={thumbAlpha.white05} />
+      <rect x="28" y="22" width="90" height="54" rx="12" fill={thumbColors.green500} opacity="0.74">
+        <animate attributeName="opacity" values="0.74;0;0" dur="2.4s" repeatCount="indefinite" />
+      </rect>
+      <rect x="28" y="22" width="90" height="54" rx="12" fill={thumbColors.amber500} opacity="0">
+        <animate attributeName="opacity" values="0;0.82;0" dur="2.4s" repeatCount="indefinite" />
+      </rect>
+      <rect x="28" y="22" width="90" height="54" rx="12" fill={thumbColors.pink500} opacity="0">
+        <animate attributeName="opacity" values="0;0;0.78" dur="2.4s" repeatCount="indefinite" />
+      </rect>
+      <rect x="122" y="30" width="10" height="10" rx="5" fill={thumbColors.slate50} opacity="0.9" />
+      <rect x="122" y="46" width="10" height="10" rx="5" fill={thumbColors.slate50} opacity="0.55" />
+      <rect x="122" y="62" width="10" height="10" rx="5" fill={thumbColors.slate50} opacity="0.32" />
     </ThumbFrame>
   );
 }
@@ -160,6 +203,25 @@ export function ParticleHaloThumb(): JSX.Element {
   );
 }
 
+export function ParticleHaloLibraryPreview(): JSX.Element {
+  return (
+    <ThumbFrame background={thumbColors.darkCard}>
+      <circle cx="80" cy="50" r="16" fill={thumbColors.cyan400} opacity="0.9">
+        <animate attributeName="r" values="14;18;14" dur="1.8s" repeatCount="indefinite" />
+      </circle>
+      <g>
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, index) => {
+          const radians = (angle * Math.PI) / 180;
+          const x = 80 + Math.cos(radians) * 28;
+          const y = 50 + Math.sin(radians) * 28;
+          return <circle key={`halo-preview-${index}`} cx={x} cy={y} r="3.5" fill={thumbColors.slate50} opacity="0.72" />;
+        })}
+        <animateTransform attributeName="transform" type="rotate" values="0 80 50;360 80 50" dur="3.2s" repeatCount="indefinite" />
+      </g>
+    </ThumbFrame>
+  );
+}
+
 export function QrCodeThumb(): JSX.Element {
   const cells = [
     [0, 0], [1, 0], [2, 0], [4, 0], [5, 0],
@@ -198,6 +260,21 @@ export function ScratchRevealThumb(): JSX.Element {
       <rect x="28" y="20" width="104" height="60" rx="16" fill={thumbColors.amber500} opacity="0.82" />
       <path d="M34 30L126 72M34 42L112 78M48 24L132 62" stroke={thumbColors.slate50} strokeWidth="4" opacity="0.42" />
       <rect x="44" y="34" width="72" height="32" rx="10" fill={thumbColors.ink900} opacity="0.22" />
+    </ThumbFrame>
+  );
+}
+
+export function ScratchRevealLibraryPreview(): JSX.Element {
+  return (
+    <ThumbFrame background={thumbColors.darkCard}>
+      <rect x="28" y="20" width="104" height="60" rx="16" fill={thumbColors.amber500} opacity="0.82" />
+      <rect x="44" y="34" width="72" height="32" rx="10" fill={thumbColors.ink900} opacity="0.22" />
+      <path d="M34 32L128 74" stroke={thumbColors.slate50} strokeWidth="4" opacity="0.52">
+        <animate attributeName="d" values="M34 32L128 74;M26 44L120 82;M34 32L128 74" dur="1.8s" repeatCount="indefinite" />
+      </path>
+      <path d="M42 24L136 66" stroke={thumbColors.slate50} strokeWidth="4" opacity="0.3">
+        <animate attributeName="d" values="M42 24L136 66;M34 36L128 78;M42 24L136 66" dur="1.8s" repeatCount="indefinite" />
+      </path>
     </ThumbFrame>
   );
 }
@@ -252,6 +329,20 @@ export function TikTokVideoThumb(): JSX.Element {
       <path d="M72 36L90 46L72 56V36Z" fill={thumbColors.slate50} />
       <path d="M110 38C110 34 113 31 117 31C121 31 124 34 124 38C124 43 117 48 117 48C117 48 110 43 110 38Z" fill={thumbColors.pink500} />
       <rect x="64" y="72" width="32" height="4" rx="2" fill={thumbColors.slate50} opacity="0.58" />
+    </ThumbFrame>
+  );
+}
+
+export function TikTokVideoLibraryPreview(): JSX.Element {
+  return (
+    <ThumbFrame background={thumbColors.ink900}>
+      <rect x="52" y="10" width="56" height="80" rx="18" fill={thumbColors.ink900} stroke={thumbColors.slate800} />
+      <path d="M72 36L90 46L72 56V36Z" fill={thumbColors.slate50} />
+      <path d="M110 38C110 34 113 31 117 31C121 31 124 34 124 38C124 43 117 48 117 48C117 48 110 43 110 38Z" fill={thumbColors.pink500} />
+      <rect x="64" y="72" width="32" height="4" rx="2" fill={thumbColors.slate50} opacity="0.22" />
+      <rect x="64" y="72" width="12" height="4" rx="2" fill={thumbColors.pink500}>
+        <animate attributeName="width" values="10;30;10" dur="1.8s" repeatCount="indefinite" />
+      </rect>
     </ThumbFrame>
   );
 }

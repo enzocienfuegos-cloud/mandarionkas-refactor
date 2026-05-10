@@ -24,29 +24,31 @@ const AgencyShell = lazy(async () => {
 });
 
 type PlatformRoute =
-  | { kind: 'agency' }
-  | { kind: 'client-workspace'; clientId?: string }
-  | { kind: 'editor' };
+  | { kind: 'agency'; search?: string }
+  | { kind: 'client-workspace'; clientId?: string; search?: string }
+  | { kind: 'editor'; search?: string };
 
 function readRouteFromHash(): PlatformRoute {
   if (typeof window === 'undefined') return { kind: 'agency' };
   const hash = window.location.hash.replace(/^#/, '');
-  if (hash === '/editor') return { kind: 'editor' };
-  if (hash.startsWith('/hub/client/')) {
-    return { kind: 'client-workspace', clientId: decodeURIComponent(hash.slice('/hub/client/'.length)) };
+  const [path = '/hub', search = ''] = hash.split('?');
+  if (path === '/editor') return { kind: 'editor', search };
+  if (path.startsWith('/hub/client/')) {
+    return { kind: 'client-workspace', clientId: decodeURIComponent(path.slice('/hub/client/'.length)), search };
   }
-  return { kind: 'agency' };
+  return { kind: 'agency', search };
 }
 
 function routeToHash(route: PlatformRoute): string {
+  const suffix = route.search ? `?${route.search}` : '';
   switch (route.kind) {
     case 'editor':
-      return '#/editor';
+      return `#/editor${suffix}`;
     case 'client-workspace':
-      return route.clientId ? `#/hub/client/${encodeURIComponent(route.clientId)}` : '#/hub/client';
+      return route.clientId ? `#/hub/client/${encodeURIComponent(route.clientId)}${suffix}` : `#/hub/client${suffix}`;
     case 'agency':
     default:
-      return '#/hub';
+      return `#/hub${suffix}`;
   }
 }
 

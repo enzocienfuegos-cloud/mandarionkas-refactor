@@ -3,7 +3,7 @@ import { createModuleDefinition } from '../module-definition-factory';
 import { renderFourFacesStage } from '../four-faces.renderer';
 import { FourFacesInspector } from '../four-faces.inspector';
 import { defaultsFromWidgetSchema } from '../../../domain/widget-schema';
-import { FourFacesThumb } from '../../registry/widget-thumbnails';
+import { FourFacesLibraryPreview, FourFacesThumb } from '../../registry/widget-thumbnails';
 import { fourFacesSchema } from '../four-faces/schema';
 
 export const FourFacesDefinition = createModuleDefinition({
@@ -11,6 +11,7 @@ export const FourFacesDefinition = createModuleDefinition({
   label: 'Four Faces',
   category: 'interactive',
   thumbnail: FourFacesThumb,
+  renderLibraryPreview: FourFacesLibraryPreview,
   frame: { x: 40, y: 40, width: 320, height: 480, rotation: 0 },
   props: defaultsFromWidgetSchema(fourFacesSchema),
   schema: fourFacesSchema,

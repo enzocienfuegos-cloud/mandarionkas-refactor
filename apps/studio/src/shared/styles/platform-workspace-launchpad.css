@@ -35,7 +35,7 @@
 .workspace-launchpad__hero-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-5);
 }
 
 .workspace-launchpad__paths {
@@ -117,7 +117,7 @@
 .workspace-client-overview {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--space-8);
 }
 
 @media (max-width: 1180px) {

@@ -2,7 +2,7 @@
   align-items: center;
   left: 50%;
   transform: translateX(-50%);
-  gap: 10px;
+  gap: var(--space-5);
   right: 18px;
   bottom: 18px;
   padding: 8px 10px;
@@ -62,14 +62,14 @@
   backdrop-filter: blur(14px);
   box-shadow: 0 18px 42px var(--black-a-28);
   display: grid;
-  gap: 10px;
+  gap: var(--space-5);
 }
 
 .stage-canvas-quick-panel__header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-6);
 }
 
 .stage-canvas-quick-panel__header strong {
@@ -85,7 +85,7 @@
 .stage-canvas-quick-panel__swatches {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
+  gap: var(--space-4);
 }
 
 .stage-canvas-quick-panel__swatch {
@@ -100,7 +100,7 @@
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   background:
     linear-gradient(45deg, var(--white-a-12) 25%, transparent 25%, transparent 75%, var(--white-a-12) 75%, var(--white-a-12)),
     linear-gradient(45deg, var(--white-a-12) 25%, transparent 25%, transparent 75%, var(--white-a-12) 75%, var(--white-a-12));
@@ -136,7 +136,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-6);
   font-size: var(--font-size-sm);
   color: var(--muted);
 }
@@ -190,7 +190,7 @@
   bottom: auto;
   z-index: var(--z-floating);
   transform: none;
-  gap: 8px;
+  gap: var(--space-4);
   user-select: none;
 }
 
@@ -225,7 +225,7 @@
   }
   .workspace-toolbar--ux {
     padding: 10px 12px;
-    gap: 12px;
+    gap: var(--space-6);
   }
   .workspace-toolbar--ux .ghost,
   .workspace-toolbar--ux .pill {
@@ -308,7 +308,7 @@
   pointer-events: none;
   display: inline-flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 124px;
   padding: 8px 10px;
   border-radius: var(--radius-xl);

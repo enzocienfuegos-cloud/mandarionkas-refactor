@@ -5,6 +5,7 @@ import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { useBrandKitController } from './use-brand-kit-controller';
 
 type BrandKitDrawerProps = {
+  embedded?: boolean;
   onClose(): void;
 };
 
@@ -17,7 +18,7 @@ function formatBrandKitDate(value: string | undefined): string {
   return new Date(value).toLocaleDateString();
 }
 
-export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
+export function BrandKitDrawer({ embedded = false, onClose }: BrandKitDrawerProps): JSX.Element {
   const controller = useBrandKitController();
   const { draft, selectedBrandKit, brandKits } = controller;
   const previewTitle = draft.brandName || draft.name || 'Untitled brand';
@@ -29,6 +30,7 @@ export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
   const previewRadius = draft.radii?.md ?? draft.radii?.lg ?? draft.radii?.sm;
 
   useEffect(() => {
+    if (embedded) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
@@ -36,11 +38,10 @@ export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  }, [embedded, onClose]);
 
-  return (
-    <div className="brand-kit-drawer-shell" role="dialog" aria-modal="true" aria-labelledby="brand-kit-drawer-title" onClick={onClose}>
-      <div className="brand-kit-drawer-card" onClick={(event) => event.stopPropagation()}>
+  const drawer = (
+    <div className={`brand-kit-drawer-card ${embedded ? 'brand-kit-drawer-card--embedded' : ''}`.trim()} onClick={(event) => event.stopPropagation()}>
         <div className="brand-kit-drawer-header">
           <div className="brand-kit-drawer-copy">
             <p className="section-kicker">Brand Kit</p>
@@ -278,6 +279,15 @@ export function BrandKitDrawer({ onClose }: BrandKitDrawerProps): JSX.Element {
           </div>
         </div>
       </div>
+  );
+
+  if (embedded) {
+    return <div className="brand-kit-drawer-embedded-shell">{drawer}</div>;
+  }
+
+  return (
+    <div className="brand-kit-drawer-shell" role="dialog" aria-modal="true" aria-labelledby="brand-kit-drawer-title" onClick={onClose}>
+      {drawer}
     </div>
   );
 }

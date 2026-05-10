@@ -208,7 +208,11 @@ export function WidgetLibraryItemCard({
           {renderWidgetThumbnail(widget, previewActive)}
         </div>
         <div className="widget-library-card__thumb-overlay" aria-hidden="true">
-          <span>{previewActive ? 'Preview live' : 'Hover for motion'}</span>
+          <span>
+            {widget.renderLibraryPreview
+              ? (previewActive ? 'Preview live' : 'Hover for motion')
+              : ''}
+          </span>
           <strong>{widget.recommendedSize?.label ?? sectionLabel}</strong>
         </div>
       </div>

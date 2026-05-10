@@ -52,14 +52,14 @@
 }
 .asset-tree-children {
   display: grid;
-  gap: 6px;
-  margin-top: 8px;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
 }
 .asset-tree-branch {
-  padding-left: 14px;
+  padding-left: var(--space-7);
 }
 .asset-root-dropzone {
-  margin-top: 10px;
+  margin-top: var(--space-5);
   padding: 10px 12px;
   border-radius: var(--radius-md);
   border: 1px dashed var(--white-a-18);
@@ -79,7 +79,7 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-4);
   min-height: 36px;
   padding: 0 12px;
   border-radius: var(--radius-sm);
@@ -119,7 +119,7 @@
 .asset-library-browser-toolbar {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 16px;
+  gap: var(--space-8);
   align-items: center;
 }
 .asset-library-browser-title strong {
@@ -128,7 +128,7 @@
 .asset-library-browser-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-5);
 }
 .asset-library-browser-controls input {
   max-width: 220px;
@@ -139,19 +139,19 @@
 .asset-library-browser-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-5);
 }
 .asset-library-browser-section {
   display: grid;
-  gap: 12px;
+  gap: var(--space-6);
 }
 .asset-browser-selection-row {
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-6);
 }
 .asset-browser-card-head {
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-4);
 }
 .asset-browser-select-copy {
   font-size: var(--font-size-xs);
@@ -159,16 +159,16 @@
 .asset-bulk-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-4);
   flex-wrap: wrap;
-  margin-top: 10px;
+  margin-top: var(--space-5);
 }
 .asset-bulk-actions-title {
   font-size: var(--font-size-xs);
 }
 .asset-browser-inline-hint {
   display: block;
-  margin-top: 10px;
+  margin-top: var(--space-5);
 }
 .asset-library-browser-section-head {
   font-size: var(--font-size-md);
@@ -178,18 +178,18 @@
 .asset-folder-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--space-5);
 }
 .asset-folder-create-row {
   display: flex;
-  gap: 10px;
+  gap: var(--space-5);
   align-items: center;
 }
 .asset-folder-card {
   min-height: 50px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-5);
   padding: 0 14px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--white-a-04);
@@ -224,7 +224,7 @@
 .asset-browser-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-6);
 }
 .asset-browser-inline-error {
   padding: 10px 12px;
@@ -236,8 +236,8 @@
 }
 .asset-upload-status {
   display: grid;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
   padding: 12px 14px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--white-a-06);
@@ -267,7 +267,7 @@
   transition: width  var(--motion-slow) ease;
 }
 .asset-browser-drop-hint {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-6);
   padding: 14px;
   border-radius: var(--radius-lg);
   border: 1px dashed var(--success-a-36);
@@ -313,7 +313,7 @@
 }
 .asset-browser-meta {
   display: grid;
-  gap: 4px;
+  gap: var(--space-2);
   padding: 8px 10px 10px;
 }
 .asset-browser-meta strong {
@@ -336,9 +336,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-6);
 }
 .asset-browser-pagination-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-5);
 }

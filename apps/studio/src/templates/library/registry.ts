@@ -1,4 +1,5 @@
 import type { StudioTemplate } from './types';
+import { buildTemplateThumbnailDataUrl } from './template-thumbnails';
 
 const templates = new Map<string, StudioTemplate>();
 
@@ -16,6 +17,9 @@ function isStudioTemplate(value: unknown): value is StudioTemplate {
 }
 
 export function registerTemplate(template: StudioTemplate): void {
+  if (!template.metadata.thumbnail) {
+    template.metadata.thumbnail = buildTemplateThumbnailDataUrl(template.metadata);
+  }
   const existing = templates.get(template.metadata.id);
   if (existing && existing !== template) {
     throw new Error(`Duplicate template registered: ${template.metadata.id}`);

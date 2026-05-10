@@ -15,6 +15,8 @@ export type StudioTemplateMetadata = {
   vertical: StudioTemplateVertical;
   canvasPresetId?: string;
   thumbnail?: string;
+  previewComponent?: () => JSX.Element;
+  tags?: string[];
   workspaceScopes?: string[];
   featured?: boolean;
   featuredLabel?: string;

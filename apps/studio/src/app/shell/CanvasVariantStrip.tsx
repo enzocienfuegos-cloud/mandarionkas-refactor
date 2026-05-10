@@ -4,16 +4,21 @@ import { useDocumentActions } from '../../hooks/use-studio-actions';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { Button } from '../../shared/ui/Button';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
+import { useTopBarController } from './topbar/use-top-bar-controller';
+import { buildSceneLabel } from './topbar/TopBarProjectName';
 
 export function CanvasVariantStrip(): JSX.Element {
   const { canvasVariants, activeCanvasVariantId } = useStudioStore((state) => ({
     canvasVariants: state.document.canvasVariants,
     activeCanvasVariantId: state.document.activeCanvasVariantId,
   }));
+  const selectionCount = useStudioStore((state) => state.document.selection.widgetIds.length);
+  const controller = useTopBarController();
   const { addCanvasVariant, selectCanvasVariant, renameCanvasVariant, duplicateCanvasVariant, deleteCanvasVariant, setMasterCanvasVariant } = useDocumentActions();
   const addablePresets = useMemo(() => CANVAS_PRESETS.filter((preset) => preset.id !== 'custom' && !canvasVariants.some((variant) => variant.width === preset.width && variant.height === preset.height)), [canvasVariants]);
   const [draftPresetId, setDraftPresetId] = useState(addablePresets[0]?.id ?? '');
   const activeVariant = canvasVariants.find((variant) => variant.id === activeCanvasVariantId) ?? canvasVariants[0];
+  const sceneLabel = buildSceneLabel(controller);
 
   useEffect(() => {
     if (!addablePresets.length) {
@@ -39,6 +44,11 @@ export function CanvasVariantStrip(): JSX.Element {
 
   return (
     <section className="canvas-variant-strip" aria-label="Canvas size set">
+      <div className="canvas-variant-strip__context">
+        <span className="pill">{sceneLabel}</span>
+        <span className="pill">{canvasVariants.length} size variants</span>
+        {selectionCount > 0 ? <span className="pill pill-highlight">{selectionCount} selected</span> : <span className="pill">Canvas focus</span>}
+      </div>
       <div className="canvas-variant-strip__list" role="tablist" aria-label="Canvas variants">
         {canvasVariants.map((variant) => {
           const active = variant.id === activeCanvasVariantId;

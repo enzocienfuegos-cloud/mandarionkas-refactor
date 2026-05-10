@@ -4,6 +4,7 @@ import { useTopBarController } from '../../app/shell/topbar/use-top-bar-controll
 import type { ProjectSummary } from '../../repositories/types';
 import { assignProjectsToFolder, createProjectFolder, getProjectFolderAssignments, listProjectFolders, type ProjectFolderRecord } from '../client-workspace/project-folder-store';
 import { recordProjectVisit } from '../agency-shell/project-insights-store';
+import { listTemplates } from '../../templates/library/registry';
 
 type ProjectFilter = 'all' | 'mine' | 'shared';
 type ProjectView = 'active' | 'archived' | 'all';
@@ -231,6 +232,7 @@ export function useWorkspaceHubController() {
     createFolderDraft,
     moveSelectedProjectsToFolder,
     stats,
+    templateCount: listTemplates().length,
     ownerOptions,
     canvasPresets: CANVAS_PRESETS,
     currentPreset: getCanvasPresetById(snapshot.canvasPresetId),

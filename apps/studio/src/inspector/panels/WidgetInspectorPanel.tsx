@@ -8,6 +8,7 @@ import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
 import { DocumentInspectorPanel } from './DocumentInspectorPanel';
 import { getWidgetBehaviorPanelCount, getWidgetInspectorPanelMeta, getWidgetInspectorTabs, renderWidgetInspectorPanel } from '../../widgets/registry/widget-inspector-layout';
 import { getCapability, type WidgetDefinition, type WidgetInspectorPanelKey, type WidgetInspectorTabId } from '../../widgets/registry/widget-definition';
+import { usePlaybackMs } from '../../hooks/use-playback-engine';
 
 const EMPTY_TABS: ReturnType<typeof getWidgetInspectorTabs> = [];
 
@@ -68,7 +69,8 @@ function WidgetInspectorAccordion({
 export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.Element {
   const state = useStudioStore((current) => current);
   const widget = useStudioStore((current) => resolveWidgetForCanvasVariant(current.document, current.document.widgets[widgetId]));
-  const playheadMs = useStudioStore((state) => state.ui.playheadMs);
+  const storePlayheadMs = useStudioStore((state) => state.ui.playheadMs);
+  const playheadMs = usePlaybackMs(storePlayheadMs);
   const actions = useStudioStore((state) => Object.values(state.document.actions).filter((action) => action.widgetId === widgetId));
   const { updateWidgetName } = useWidgetActions();
   const [tab, setTab] = useState<WidgetInspectorTabId>('basics');

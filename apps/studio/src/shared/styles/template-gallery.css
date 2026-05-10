@@ -7,7 +7,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-8);
 }
 
 .template-gallery__head h2 {
@@ -22,7 +22,7 @@
 .template-filters {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-5);
   flex-wrap: wrap;
 }
 
@@ -61,7 +61,7 @@
 .template-gallery-featured__copy,
 .template-gallery-featured__actions {
   display: grid;
-  gap: 12px;
+  gap: var(--space-6);
 }
 
 .template-gallery-featured__copy h3,
@@ -80,7 +80,7 @@
 .template-card__facts {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-4);
 }
 
 .template-gallery-featured__facts span,
@@ -161,12 +161,12 @@
 .template-gallery__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
+  gap: var(--space-8);
 }
 
 .template-card {
   display: grid;
-  gap: 12px;
+  gap: var(--space-6);
   padding: 14px;
   border-radius: var(--radius-3xl);
   border: 1px solid var(--glass-border);
@@ -207,7 +207,7 @@
   height: 100%;
   display: grid;
   align-content: end;
-  gap: 6px;
+  gap: var(--space-3);
   padding: 16px;
   color: var(--text);
   font-weight: 800;
@@ -229,13 +229,13 @@
 
 .template-card__body {
   display: grid;
-  gap: 8px;
+  gap: var(--space-4);
 }
 
 .template-card__badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-4);
 }
 
 .template-card__body h3,

@@ -37,8 +37,10 @@ export async function openClientWorkspace(page: Page): Promise<void> {
 
 export async function openEditor(page: Page): Promise<void> {
   await openClientWorkspace(page);
-  await expect(page.getByRole('button', { name: 'Blank project' })).toBeVisible();
-  await page.getByRole('button', { name: 'Blank project' }).click();
+  await page.getByRole('tab', { name: 'Templates' }).click();
+  const blankCanvasButton = page.getByRole('button', { name: /Blank canvas/i }).first();
+  await expect(blankCanvasButton).toBeVisible();
+  await blankCanvasButton.click();
   await expect(page.locator('.studio-shell')).toBeVisible();
   await expect(page.getByLabel('Go back to workspace')).toBeVisible();
   await page.waitForTimeout(250);

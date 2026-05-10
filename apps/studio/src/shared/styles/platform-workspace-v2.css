@@ -1,0 +1,101 @@
+.client-workspace-shell-v2 {
+  min-height: 100vh;
+  padding: var(--space-10);
+  background:
+    radial-gradient(circle at top right, var(--accent-a-20), transparent 26%),
+    radial-gradient(circle at top left, var(--accent-2-a-18), transparent 22%),
+    linear-gradient(180deg, var(--bg-deep-3) 0%, var(--bg-deep-4) 100%);
+  display: flex;
+  flex-direction: column;
+}
+
+.client-workspace-topbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-7);
+  padding: var(--space-7) var(--space-10);
+  border-radius: var(--radius-4xl);
+  border: 1px solid var(--border-subtle);
+  background: var(--gradient-panel-elevated);
+  box-shadow: var(--elevation-2);
+}
+
+.client-workspace-topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+}
+
+.client-workspace-topbar h1 {
+  margin: 0;
+  font-size: var(--font-size-display);
+  font-weight: 700;
+}
+
+.client-workspace-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.client-workspace-content {
+  padding: var(--space-5) 0 0;
+  display: grid;
+  gap: var(--space-7);
+}
+
+.draft-recovery-banner,
+.workspace-folders-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-3xl);
+  border: 1px solid var(--focus-a-20);
+  background: linear-gradient(135deg, var(--focus-a-10), var(--white-a-03));
+}
+
+.draft-recovery-banner small,
+.workspace-folders-panel p {
+  color: var(--muted);
+}
+
+.draft-recovery-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.workspace-folders-panel {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.workspace-folders-panel__head h2 {
+  margin: var(--space-2) 0;
+}
+
+.brand-kit-inline-panel {
+  min-height: 0;
+}
+
+@media (max-width: 1024px) {
+  .client-workspace-shell-v2 {
+    padding: var(--space-7);
+  }
+
+  .client-workspace-topbar {
+    grid-template-columns: 1fr;
+  }
+
+  .client-workspace-topbar__brand,
+  .draft-recovery-banner,
+  .draft-recovery-banner__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -15,7 +15,7 @@
 .workspace-hub-onboarding__intro,
 .workspace-hub-onboarding__actions {
   display: flex;
-  gap: 16px;
+  gap: var(--space-8);
   align-items: flex-start;
   justify-content: space-between;
 }

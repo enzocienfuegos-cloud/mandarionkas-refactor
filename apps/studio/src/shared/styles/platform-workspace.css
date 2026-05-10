@@ -16,7 +16,7 @@
 .workspace-hub-toolbar,
 .workspace-hub-pagination {
   display: flex;
-  gap: 16px;
+  gap: var(--space-8);
   align-items: stretch;
 }
 
@@ -46,7 +46,7 @@
 
 .workspace-hub-session {
   display: flex;
-  gap: 10px;
+  gap: var(--space-5);
   align-items: center;
 }
 
@@ -69,7 +69,7 @@
   padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-4);
 }
 
 .workspace-hub-stat-card strong {
@@ -81,7 +81,7 @@
 }
 
 .workspace-hub-stat-card--form {
-  gap: 12px;
+  gap: var(--space-6);
 }
 
 .workspace-hub-stat-card--form small {
@@ -99,7 +99,7 @@
 .workspace-hub-folder-create,
 .workspace-project-folder-row {
   display: flex;
-  gap: 12px;
+  gap: var(--space-6);
 }
 
 .workspace-hub-folder-bar,
@@ -126,7 +126,7 @@
   display: inline-flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-6);
 }
 
 .workspace-folder-card span,
@@ -165,7 +165,7 @@
 .workspace-hub-storage-actions,
 .workspace-hub-storage-meta {
   display: flex;
-  gap: 12px;
+  gap: var(--space-6);
 }
 
 .workspace-hub-storage-header {
@@ -191,13 +191,13 @@
 .workspace-hub-storage-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--space-8);
 }
 
 .workspace-hub-toolbar-row {
   display: grid;
   grid-template-columns: minmax(280px, 1fr) 180px 180px 180px;
-  gap: 12px;
+  gap: var(--space-6);
 }
 
 .workspace-hub-toolbar-row--actions {
@@ -209,5 +209,5 @@
 .workspace-hub-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  gap: var(--space-8);
 }

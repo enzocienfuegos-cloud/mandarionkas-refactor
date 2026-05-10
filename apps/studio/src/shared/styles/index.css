@@ -23,13 +23,16 @@
 @import './stage-selection.css';
 @import './asset-library.css';
 @import './template-gallery.css';
+@import './template-marketplace.css';
 @import './variant-rules.css';
 @import './platform.css';
 @import './platform-workspace.css';
 @import './platform-workspace-project-cards.css';
 @import './platform-workspace-launchpad.css';
 @import './platform-workspace-onboarding.css';
+@import './platform-workspace-v2.css';
 @import './platform-agency.css';
 @import './platform-agency-command-center.css';
+@import './platform-agency-v2.css';
 @import './timeline-ux.css';
 @import './timeline-interactions.css';
