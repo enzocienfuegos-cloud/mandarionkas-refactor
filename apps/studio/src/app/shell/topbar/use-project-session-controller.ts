@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { clearAutosaveDraft, loadAutosaveDraft } from '../../../repositories/document';
+import { clearAutosaveDraft, hasAutosaveDraft, loadAutosaveDraft } from '../../../repositories/document';
 import { archiveProject, changeProjectOwner, duplicateProject, getProjectRepository, listProjects, loadProject, restoreProject, saveProject } from '../../../repositories/project';
 import { listProjectVersions, loadProjectVersion, saveProjectVersion } from '../../../repositories/project-versions';
 import type { ProjectSessionController, TopBarStudioSnapshot, WorkspaceController } from './top-bar-types';
@@ -13,7 +13,8 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
   const [projects, setProjects] = useState<ProjectSessionController['projects']>([]);
   const [newProjectPresetId, setNewProjectPresetId] = useState('custom');
   const [newProjectStarterId, setNewProjectStarterId] = useState<ProjectSessionController['newProjectStarterId']>('blank');
-  const [autosaveAvailable, setAutosaveAvailable] = useState(true);
+  const [autosaveAvailable, setAutosaveAvailable] = useState(false);
+  const [suppressedAutosaveMarker, setSuppressedAutosaveMarker] = useState<string | undefined>(undefined);
   const [versions, setVersions] = useState<ProjectSessionController['versions']>([]);
   const [selectedVersionId, setSelectedVersionId] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -54,6 +55,26 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
       cancelled = true;
     };
   }, [projectTick, snapshot.activeProjectId, snapshot.lastSavedAt]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void hasAutosaveDraft()
+      .then((exists) => {
+        if (cancelled) return;
+        if (!exists) {
+          setAutosaveAvailable(false);
+          return;
+        }
+        const currentMarker = snapshot.lastAutosavedAt ?? snapshot.activeProjectId ?? 'workspace-autosave';
+        setAutosaveAvailable(currentMarker !== suppressedAutosaveMarker);
+      })
+      .catch(() => {
+        if (!cancelled) setAutosaveAvailable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectTick, snapshot.activeProjectId, snapshot.lastAutosavedAt, suppressedAutosaveMarker]);
 
   function refreshProjects(): void {
     setProjectTick((value) => value + 1);
@@ -237,11 +258,13 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
       return;
     }
     sessionActions.replaceState(draft);
+    setSuppressedAutosaveMarker(undefined);
     setAutosaveAvailable(true);
   }
 
   async function handleClearDraft(): Promise<void> {
     await clearAutosaveDraft();
+    setSuppressedAutosaveMarker(snapshot.lastAutosavedAt ?? snapshot.activeProjectId ?? 'workspace-autosave');
     setAutosaveAvailable(false);
   }
 
