@@ -164,11 +164,11 @@ export function ClientWorkspaceCampaignGroups({
     <section className="client-workspace-rows panel">
       <div className="client-workspace-rows__header">
         <div>
-          <div className="workspace-hub-kicker">Cola de producción</div>
-          <h3>{visibleProjectsCount} banners en el workspace activo.</h3>
+          <div className="workspace-hub-kicker">Production queue</div>
+          <h3>{visibleProjectsCount} banners in the active workspace.</h3>
         </div>
         <Button variant="ghost" size="sm" className="compact-action" onClick={onToggleVisibleSelection}>
-          {allVisibleSelected ? 'Limpiar visibles' : 'Seleccionar visibles'}
+          {allVisibleSelected ? 'Clear visible' : 'Select visible'}
         </Button>
       </div>
 
@@ -244,8 +244,8 @@ export function ClientWorkspaceCampaignGroups({
         </div>
       ) : (
         <div className="client-workspace-empty-state">
-          <h3>No hay banners para este filtro del workspace.</h3>
-          <p>Probá otra campaña, filtro rápido o búsqueda para volver a traer trabajo a la cola de producción.</p>
+          <h3>No banners match this workspace filter.</h3>
+          <p>Try another campaign, quick filter, or search to bring work back into the production queue.</p>
         </div>
       )}
     </section>

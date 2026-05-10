@@ -11,7 +11,7 @@ type ClientWorkspaceShellProps = {
 export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: ClientWorkspaceShellProps): JSX.Element {
   const controller = useClientWorkspaceController();
   const { workspace, projectSession, activeClient } = controller;
-  const userName = workspace.currentUser?.name?.trim() || 'Invitado';
+  const userName = workspace.currentUser?.name?.trim() || 'Guest';
   const userInitials = userName
     .split(/\s+/)
     .filter(Boolean)
@@ -29,12 +29,12 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
       <StudioTopbar
         eyebrow="Client Workspace"
         title={activeClient?.name ?? 'Client'}
-        searchLabel="Buscar"
-        searchPlaceholder="Buscar banner, campaña o formato..."
+        searchLabel="Search"
+        searchPlaceholder="Search banner, campaign, or format..."
         searchValue={controller.search}
         onSearchChange={controller.setSearch}
         primaryAction={{
-          label: 'Nuevo banner',
+          label: 'New banner',
           onClick: () => {
             if (workspace.canCreateProjects) {
               void handleCreateAndEnter();
@@ -48,7 +48,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         }}
         showLogout={false}
         backAction={{
-          label: 'Hub de clientes',
+          label: 'Client hub',
           onClick: onBackToAgencyShell,
         }}
         className="studio-shell-topbar--workspace"
@@ -57,15 +57,15 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
       {projectSession.autosaveAvailable ? (
         <div className="draft-recovery-banner" role="status">
           <div>
-            <strong>Hay trabajo recuperado disponible</strong>
-            <small>Podés volver al último estado autoguardado del Studio para este cliente.</small>
+            <strong>Recovered work is available</strong>
+            <small>You can return to the last autosaved Studio state for this client.</small>
           </div>
           <div className="draft-recovery-banner__actions">
             <Button variant="ghost" size="sm" className="compact-action" onClick={() => void projectSession.handleClearDraft()}>
-              Descartar
+              Dismiss
             </Button>
             <Button variant="primary" size="sm" className="compact-action" onClick={() => void projectSession.handleRecoverDraft().then(onEnterEditor)}>
-              Recuperar draft
+              Recover draft
             </Button>
           </div>
         </div>

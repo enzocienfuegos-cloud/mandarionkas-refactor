@@ -137,11 +137,11 @@ export function ClientWorkspaceProductionView({
       live: filteredProjects.filter((project) => resolveStatusKey(project) === 'live').length,
     };
     return [
-      { id: 'all' as const, label: 'Todo', count: counts.all },
+      { id: 'all' as const, label: 'All', count: counts.all },
       { id: 'html5' as const, label: 'HTML5', count: counts.html5 },
       { id: 'mraid' as const, label: 'MRAID', count: counts.mraid },
       { id: 'vast' as const, label: 'VAST', count: counts.vast },
-      { id: 'static' as const, label: 'Estático', count: counts.static },
+      { id: 'static' as const, label: 'Static', count: counts.static },
       { id: 'playable' as const, label: 'Playable', count: counts.playable },
       { id: 'draft' as const, label: 'Draft', count: counts.draft },
       { id: 'qa' as const, label: 'QA', count: counts.qa },
@@ -159,12 +159,12 @@ export function ClientWorkspaceProductionView({
       {
         id: 'qa',
         icon: StudioIcons.info,
-        label: `${quickFilterOptions.find((item) => item.id === 'qa')?.count ?? 0} en QA`,
+        label: `${quickFilterOptions.find((item) => item.id === 'qa')?.count ?? 0} in QA`,
       },
       {
         id: 'live',
         icon: StudioIcons.check,
-        label: `${quickFilterOptions.find((item) => item.id === 'live')?.count ?? 0} en vivo`,
+        label: `${quickFilterOptions.find((item) => item.id === 'live')?.count ?? 0} live`,
       },
       {
         id: 'formats',
@@ -191,8 +191,8 @@ export function ClientWorkspaceProductionView({
     setFolderDraftName('');
     setCreatingFolder(false);
     pushToast({
-      title: 'Carpeta creada',
-      description: 'La carpeta de campaña ya está disponible en el workspace.',
+      title: 'Folder created',
+      description: 'The campaign folder is now available in this workspace.',
       tone: 'success',
     });
   }
@@ -226,8 +226,8 @@ export function ClientWorkspaceProductionView({
   async function handleMoveSelected(): Promise<void> {
     moveSelectedProjectsToFolder(bulkFolderId === 'root' || bulkFolderId === 'unfiled' ? undefined : bulkFolderId);
     pushToast({
-      title: 'Banners movidos',
-      description: 'Los banners seleccionados fueron reasignados a la nueva carpeta de campaña.',
+      title: 'Banners moved',
+      description: 'The selected banners were reassigned to the new campaign folder.',
       tone: 'success',
     });
   }
@@ -235,8 +235,8 @@ export function ClientWorkspaceProductionView({
   async function handleDuplicateSelected(): Promise<void> {
     await duplicateSelectedProjects();
     pushToast({
-      title: 'Banners duplicados',
-      description: 'Se agregaron nuevas copias al workspace activo.',
+      title: 'Banners duplicated',
+      description: 'New copies were added to the active workspace.',
       tone: 'success',
     });
   }
@@ -244,8 +244,8 @@ export function ClientWorkspaceProductionView({
   async function handleArchiveSelected(): Promise<void> {
     await archiveSelectedProjects();
     pushToast({
-      title: 'Banners archivados',
-      description: 'Los banners seleccionados salieron de la cola activa de producción.',
+      title: 'Banners archived',
+      description: 'The selected banners were removed from the active production queue.',
       tone: 'success',
     });
   }
@@ -253,16 +253,16 @@ export function ClientWorkspaceProductionView({
   async function handleDeleteSelected(): Promise<void> {
     await deleteSelectedProjects();
     pushToast({
-      title: 'Banners eliminados',
-      description: 'Los banners seleccionados fueron removidos de este workspace.',
+      title: 'Banners deleted',
+      description: 'The selected banners were removed from this workspace.',
       tone: 'success',
     });
   }
 
   function handleExportSelected(): void {
     pushToast({
-      title: 'Export disponible en Studio',
-      description: 'Abrí un banner en el editor para exportar paquetes o revisar bundles.',
+      title: 'Export is available in Studio',
+      description: 'Open a banner in the editor to export packages or review bundles.',
     });
   }
 
@@ -297,9 +297,9 @@ export function ClientWorkspaceProductionView({
       <div className="client-workspace-production__main">
         <section className="client-workspace-main__hero panel">
           <div>
-            <div className="workspace-hub-kicker">Workspace de proyecto</div>
-            <h2>Producción activa del cliente</h2>
-            <p className="client-workspace-main__description">Campañas, banners y estados operativos del cliente activo, sin mezclar clientes ni brand kits del hub.</p>
+            <div className="workspace-hub-kicker">Project workspace</div>
+            <h2>Active client production</h2>
+            <p className="client-workspace-main__description">Campaigns, banners, and operational states for the active client, without mixing clients or hub brand kits.</p>
           </div>
 
           <div className="client-workspace-main__toolbar">
@@ -308,35 +308,35 @@ export function ClientWorkspaceProductionView({
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar por banner, marca, campaña o responsable"
-                aria-label="Buscar banners"
+                placeholder="Search by banner, brand, campaign, or owner"
+                aria-label="Search banners"
               />
             </label>
-            <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)} aria-label="Ordenar banners">
-              <option value="recent">Actualizados recientemente</option>
-              <option value="name">A a Z</option>
+            <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)} aria-label="Sort banners">
+              <option value="recent">Recently updated</option>
+              <option value="name">A to Z</option>
             </select>
             <SegmentedControl
               options={[
                 { id: 'card', label: 'Cards' },
-                { id: 'list', label: 'Lista' },
+                { id: 'list', label: 'List' },
               ]}
               value={viewMode as ViewMode}
               onChange={(value) => setViewMode(value)}
-              ariaLabel="Modo de vista de banners"
+              ariaLabel="Banner view mode"
             />
             <Button variant="ghost" size="sm" className="compact-action" iconBefore={<StudioIcon icon={StudioIcons.plus} size={14} />} onClick={() => setCreatingFolder(true)}>
-              Nueva carpeta
+              New folder
             </Button>
             <Button variant="primary" size="sm" className="compact-action" iconBefore={<StudioIcon icon={StudioIcons.upload} size={14} />} onClick={() => void handleUploadBanner()} disabled={!workspace.canCreateProjects}>
-              Nuevo banner
+              New banner
             </Button>
           </div>
         </section>
 
         <div className="client-workspace-main__subfilters">
           <button type="button" className={`filter-pill ${quickFilter === 'all' ? 'is-active' : ''}`.trim()} onClick={() => setQuickFilter('all')}>
-            Todo
+            All
           </button>
           {quickFilterOptions.slice(1).map((filter) => (
             <button

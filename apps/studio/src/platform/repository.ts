@@ -10,6 +10,7 @@ import type {
 } from './types';
 
 const MAX_AUDIT_ENTRIES = 80;
+const PLATFORM_STATE_STORAGE_KEY = 'smx-studio-v4:platform-state';
 
 function createId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -39,7 +40,7 @@ function normalizeMembers(client: ClientWorkspace): ClientWorkspace {
 }
 
 export function readPlatformState(): PlatformState {
-  return {
+  const emptyState: PlatformState = {
     clients: [],
     session: {
       currentUser: undefined,
@@ -53,15 +54,58 @@ export function readPlatformState(): PlatformState {
     },
     auditLog: [],
   };
+
+  if (typeof globalThis.localStorage === 'undefined' && typeof globalThis.sessionStorage === 'undefined') return emptyState;
+
+  const raw =
+    globalThis.localStorage?.getItem(PLATFORM_STATE_STORAGE_KEY)
+    ?? globalThis.sessionStorage?.getItem(PLATFORM_STATE_STORAGE_KEY);
+
+  if (!raw) return emptyState;
+
+  try {
+    const parsed = JSON.parse(raw) as PlatformState;
+    const expiresAt = parsed.session.expiresAt ? new Date(parsed.session.expiresAt).getTime() : null;
+    if (expiresAt && Number.isFinite(expiresAt) && expiresAt < Date.now()) {
+      clearPlatformSessionStorage();
+      return emptyState;
+    }
+    return {
+      clients: Array.isArray(parsed.clients) ? parsed.clients.map(normalizeMembers) : [],
+      session: {
+        ...emptyState.session,
+        ...parsed.session,
+        permissions: Array.isArray(parsed.session?.permissions) ? parsed.session.permissions : [],
+        isAuthenticated: Boolean(parsed.session?.isAuthenticated),
+      },
+      auditLog: Array.isArray(parsed.auditLog) ? parsed.auditLog.slice(0, MAX_AUDIT_ENTRIES) : [],
+    };
+  } catch {
+    clearPlatformSessionStorage();
+    return emptyState;
+  }
 }
 
-export function writePlatformState(_state: PlatformState): void {
-  // Platform auth now lives on the API via httpOnly cookies.
-  // Frontend runtime state is in-memory only.
+export function writePlatformState(state: PlatformState): void {
+  if (typeof globalThis.localStorage === 'undefined' && typeof globalThis.sessionStorage === 'undefined') return;
+
+  const serialized = JSON.stringify(state);
+  globalThis.localStorage?.removeItem(PLATFORM_STATE_STORAGE_KEY);
+  globalThis.sessionStorage?.removeItem(PLATFORM_STATE_STORAGE_KEY);
+
+  if (!state.session.isAuthenticated) return;
+
+  const targetStorage = state.session.persistenceMode === 'local'
+    ? globalThis.localStorage
+    : globalThis.sessionStorage;
+
+  targetStorage?.setItem(PLATFORM_STATE_STORAGE_KEY, serialized);
 }
 
 export function clearPlatformSessionStorage(): void {
-  // No-op in the new architecture: auth state is not stored in browser storage.
+  if (typeof globalThis.localStorage === 'undefined' && typeof globalThis.sessionStorage === 'undefined') return;
+  globalThis.localStorage?.removeItem(PLATFORM_STATE_STORAGE_KEY);
+  globalThis.sessionStorage?.removeItem(PLATFORM_STATE_STORAGE_KEY);
 }
 
 export function createBrandKit(name: string, primaryColor: string): BrandKit {

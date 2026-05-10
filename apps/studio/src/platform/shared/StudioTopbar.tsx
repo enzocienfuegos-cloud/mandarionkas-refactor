@@ -46,13 +46,13 @@ export function StudioTopbar({
   backAction,
   className = '',
 }: StudioTopbarProps): JSX.Element {
-  const userLabelValue = user?.label ?? userLabel ?? 'Invitado';
+  const userLabelValue = user?.label ?? userLabel ?? 'Guest';
 
   return (
     <header className={`studio-shell-topbar ${className}`.trim()}>
       <div className="studio-shell-topbar__brand">
         <div className="studio-shell-topbar__logo-box" aria-hidden="true">
-          <img src="/assets/mandarion-logo.svg" alt="" className="studio-shell-topbar__logo" />
+          <img src="/assets/mandarion-logo-white.svg" alt="" className="studio-shell-topbar__logo" />
         </div>
         <div className="studio-shell-topbar__brand-meta">
           <span className="studio-shell-topbar__eyebrow">{eyebrow}</span>
@@ -128,7 +128,7 @@ export function StudioTopbar({
             iconBefore={<StudioIcon icon={StudioIcons.logOut} size={12} />}
             onClick={onLogout}
           >
-            Salir
+            Sign out
           </Button>
         ) : null}
       </div>

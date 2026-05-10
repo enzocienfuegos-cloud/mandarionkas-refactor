@@ -3,7 +3,7 @@ import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import type { AgencyProjectRow } from './use-agency-shell-controller';
 
 function formatProjectUpdatedAt(value: string): string {
-  return new Intl.DateTimeFormat('es-SV', {
+  return new Intl.DateTimeFormat('en-US', {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
@@ -55,14 +55,14 @@ export function RecentProjectsPanel({
     <section className="mandarion-projects-panel panel" aria-labelledby="mandarion-projects-heading">
       <div className="section-head">
         <div className="section-head-text">
-          <div className="kicker">Trabajos recientes</div>
-          <h2 id="mandarion-projects-heading">Proyectos activos</h2>
-          <p>Ordenados por fecha de actualización, con paginación para ver más.</p>
+          <div className="kicker">Recent work</div>
+          <h2 id="mandarion-projects-heading">Active projects</h2>
+          <p>Sorted by last update, with pagination to browse more.</p>
         </div>
         <div className="section-controls">
           <label className="control-field">
-            <span className="control-label">Cliente</span>
-          <select value={activeClientId} onChange={(event) => onClientFilterChange(event.target.value)} aria-label="Filtrar proyectos por cliente">
+            <span className="control-label">Client</span>
+          <select value={activeClientId} onChange={(event) => onClientFilterChange(event.target.value)} aria-label="Filter projects by client">
             {clientOptions.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
@@ -70,27 +70,27 @@ export function RecentProjectsPanel({
           </label>
 
           <label className="control-field">
-            <span className="control-label">Orden</span>
+            <span className="control-label">Sort</span>
             <select
               value={sortMode}
               onChange={(event) => onSortModeChange(event.target.value as 'newest' | 'oldest')}
-              aria-label="Ordenar proyectos por fecha"
+              aria-label="Sort projects by date"
             >
-              <option value="newest">Más recientes</option>
-              <option value="oldest">Más antiguos</option>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
             </select>
           </label>
         </div>
       </div>
 
       {projects.length > 0 ? (
-        <div className="proj-table" role="table" aria-label="Proyectos recientes">
+        <div className="proj-table" role="table" aria-label="Recent projects">
           <div className="proj-row-head" role="row">
-            <span role="columnheader">Proyecto</span>
-            <span role="columnheader">Cliente</span>
-            <span role="columnheader">Estado</span>
-            <span role="columnheader">Actualizado</span>
-            <span role="columnheader" aria-label="Acción" />
+            <span role="columnheader">Project</span>
+            <span role="columnheader">Client</span>
+            <span role="columnheader">Status</span>
+            <span role="columnheader">Updated</span>
+            <span role="columnheader" aria-label="Action" />
           </div>
 
           {projects.map((project) => (
@@ -115,7 +115,7 @@ export function RecentProjectsPanel({
                   iconAfter={<StudioIcon icon={StudioIcons.externalLink} size={11} />}
                   onClick={() => onOpenProject(project)}
                 >
-                  Abrir
+                  Open
                 </Button>
               </span>
             </article>
@@ -123,13 +123,13 @@ export function RecentProjectsPanel({
         </div>
       ) : (
         <div className="empty-state">
-          <strong>Sin proyectos</strong>
-          <p>Probá limpiando la búsqueda o cambiando el filtro de cliente.</p>
+          <strong>No projects</strong>
+          <p>Try clearing the search or changing the client filter.</p>
         </div>
       )}
 
       <footer className="pagination">
-        <span>Mostrando {rangeStart}-{rangeEnd} de {totalCount}</span>
+        <span>Showing {rangeStart}-{rangeEnd} of {totalCount}</span>
         <div className="pagination-actions">
           <Button
             variant="ghost"
@@ -139,9 +139,9 @@ export function RecentProjectsPanel({
             disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
           >
-            Anterior
+            Previous
           </Button>
-          <span>Página {page} / {pageCount}</span>
+          <span>Page {page} / {pageCount}</span>
           <Button
             variant="ghost"
             size="sm"
@@ -150,7 +150,7 @@ export function RecentProjectsPanel({
             disabled={page >= pageCount}
             onClick={() => onPageChange(page + 1)}
           >
-            Siguiente
+            Next
           </Button>
         </div>
       </footer>

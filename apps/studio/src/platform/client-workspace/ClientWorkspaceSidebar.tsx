@@ -78,8 +78,8 @@ export function ClientWorkspaceSidebar({
             {activeClient?.logoUrl ? <img src={activeClient.logoUrl} alt="" /> : <span>{buildClientInitials(activeClient?.name)}</span>}
           </div>
           <div className="client-workspace-sidebar__client-copy">
-            <strong>{activeClient?.name ?? 'Cliente activo'}</strong>
-            <span>{totalBanners} banners · {totalCampaigns} campañas</span>
+            <strong>{activeClient?.name ?? 'Active client'}</strong>
+            <span>{totalBanners} banners · {totalCampaigns} campaigns</span>
           </div>
         </div>
       </section>
@@ -110,7 +110,7 @@ export function ClientWorkspaceSidebar({
             <input
               autoFocus
               value={folderDraftName}
-              placeholder="Nombre de la carpeta"
+              placeholder="Folder name"
               onChange={(event) => onSetFolderDraftName(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') onCreateFolder();
@@ -130,10 +130,10 @@ export function ClientWorkspaceSidebar({
                   onSetFolderDraftName('');
                 }}
               >
-                Cancelar
+                Cancel
               </Button>
               <Button variant="primary" size="sm" className="compact-action" onClick={onCreateFolder}>
-                Guardar
+                Save
               </Button>
             </div>
           </div>
@@ -145,13 +145,13 @@ export function ClientWorkspaceSidebar({
             iconBefore={<StudioIcon icon={StudioIcons.plus} size={14} />}
             onClick={() => onSetCreatingFolder(true)}
           >
-            Nueva carpeta
+            New folder
           </Button>
         )}
       </section>
 
       <section className="client-workspace-sidebar__section">
-        <div className="workspace-hub-kicker">Filtros rápidos</div>
+        <div className="workspace-hub-kicker">Quick filters</div>
         <div className="client-workspace-sidebar__filters">
           {quickFilterOptions.slice(1).map((filter) => (
             <button
@@ -168,11 +168,11 @@ export function ClientWorkspaceSidebar({
       </section>
 
       <section className="client-workspace-sidebar__section">
-        <div className="workspace-hub-kicker">Brand kit</div>
+        <div className="workspace-hub-kicker">Brand Kit</div>
         <div className="client-workspace-sidebar__brand-grid">
           <article className="client-workspace-sidebar__brand-card">
-            <strong>Colores</strong>
-            <small>{primaryBrand?.name ?? activeClient?.name ?? 'Cliente activo'}</small>
+            <strong>Colors</strong>
+            <small>{primaryBrand?.name ?? activeClient?.name ?? 'Active client'}</small>
             <div className="client-workspace-sidebar__swatches" aria-hidden="true">
               {palette.length > 0 ? (
                 palette.map((color) => (
@@ -181,14 +181,14 @@ export function ClientWorkspaceSidebar({
                   </svg>
                 ))
               ) : (
-                <span className="client-workspace-sidebar__swatch-placeholder">Sin palette</span>
+                <span className="client-workspace-sidebar__swatch-placeholder">No palette</span>
               )}
             </div>
           </article>
 
           <article className="client-workspace-sidebar__brand-card">
-            <strong>Tipografía</strong>
-            <small>{fontFamily ?? 'Sin definir todavía'}</small>
+            <strong>Typography</strong>
+            <small>{fontFamily ?? 'Not defined yet'}</small>
             <div className="client-workspace-sidebar__font-preview">{fontFamily ? 'Aa' : 'Aa'}</div>
           </article>
         </div>

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getPlatformState, hydratePlatformState } from '../../../platform/state';
 import { platformStore } from '../../../platform/store';
+import { readPlatformState } from '../../../platform/repository';
 import { getDocumentRepositoryMode, getProjectRepositoryMode } from '../../../repositories/mode';
 import { setPlatformApiBase, buildLoginResponse, makeFetchMock } from '../../helpers/api-mocks';
 
@@ -37,6 +38,17 @@ describe('platform session persistence', () => {
     expect(state.session.isAuthenticated).toBe(true);
     expect(state.session.currentUser?.role).toBe('editor');
     expect(state.session.sessionId).toBe('sess_editor_demo');
+  });
+
+  it('restores a remembered session from browser storage on reload', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('connect ECONNREFUSED')));
+    await platformStore.login('admin@smx.studio', 'demo123', { remember: true });
+
+    const restored = readPlatformState();
+
+    expect(restored.session.isAuthenticated).toBe(true);
+    expect(restored.session.currentUser?.email).toBe('admin@smx.studio');
+    expect(restored.session.persistenceMode).toBe('local');
   });
 
   it('falls back to local demo login in development when the platform API is unavailable', async () => {

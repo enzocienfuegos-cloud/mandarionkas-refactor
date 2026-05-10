@@ -6,15 +6,15 @@ type ClientCardProps = {
 };
 
 function formatLastActivity(value?: string): string {
-  if (!value) return 'Sin actualizaciones';
+  if (!value) return 'No updates yet';
   const minutes = Math.max(1, Math.round((Date.now() - new Date(value).getTime()) / 60000));
-  const formatter = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
+  const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
   if (minutes < 60) return formatter.format(-minutes, 'minute');
   const hours = Math.round(minutes / 60);
   if (hours < 24) return formatter.format(-hours, 'hour');
   const days = Math.round(hours / 24);
   if (days < 30) return formatter.format(-days, 'day');
-  return new Intl.DateTimeFormat('es-SV', { day: '2-digit', month: 'short' }).format(new Date(value));
+  return new Intl.DateTimeFormat('en-US', { day: '2-digit', month: 'short' }).format(new Date(value));
 }
 
 function buildClientInitials(name: string): string {
@@ -47,16 +47,16 @@ function Card({ clientCard, onOpen }: ClientCardProps): JSX.Element {
           </div>
           <div className="client-card-title">
             <strong>{client.name}</strong>
-            <small>{client.plan ?? 'studio'}</small>
+            <small>{client.plan ?? 'Studio'}</small>
           </div>
-          <span className={`sbadge sbadge--client-${statusLabel === 'Compartido' ? 'shared' : statusLabel === 'En progreso' ? 'active' : 'idle'}`}>
+          <span className={`sbadge sbadge--client-${statusLabel === 'Shared' ? 'shared' : statusLabel === 'Active' ? 'active' : 'idle'}`}>
             {statusLabel}
           </span>
         </div>
 
         <div className="client-card-meta">
-          <span>{activeProjectCount} activos</span>
-          <span>{sharedProjectCount} compartidos</span>
+          <span>{activeProjectCount} active</span>
+          <span>{sharedProjectCount} shared</span>
           <span>{brandKitCount} brand kits</span>
         </div>
 
@@ -71,13 +71,13 @@ function Card({ clientCard, onOpen }: ClientCardProps): JSX.Element {
               ))}
             </div>
           ) : (
-            <small>Sin kit cargado todavía</small>
+            <small>No kit loaded yet</small>
           )}
         </div>
 
         <div className="client-card-recent">
-          <span className="client-recent-label">Último trabajo</span>
-          <strong>{recentProjectName || 'Sin proyectos todavía'}</strong>
+          <span className="client-recent-label">Latest project</span>
+          <strong>{recentProjectName || 'No projects yet'}</strong>
           <small>{formatLastActivity(latestActivityAt)}</small>
         </div>
       </button>

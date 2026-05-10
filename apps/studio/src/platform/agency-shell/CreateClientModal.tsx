@@ -48,14 +48,14 @@ export function CreateClientModal({
       >
         <header className="mandarion-client-modal__header">
           <div>
-            <div className="workspace-hub-kicker">Nuevo cliente</div>
-            <h2 id="mandarion-create-client-title">Crear cliente</h2>
-            <p>Creá un nuevo workspace del studio con nombre real y slug generado automáticamente.</p>
+            <div className="workspace-hub-kicker">New client</div>
+            <h2 id="mandarion-create-client-title">Create client</h2>
+            <p>Create a new studio workspace with a real name and an automatically generated slug.</p>
           </div>
           <IconButton
             variant="ghost"
             size="sm"
-            label="Cerrar modal de cliente"
+            label="Close client modal"
             showTooltip={false}
             icon={<StudioIcon icon={StudioIcons.x} size={14} />}
             onClick={onClose}
@@ -64,19 +64,19 @@ export function CreateClientModal({
 
         <div className="mandarion-client-modal__body">
           <label className="mandarion-field">
-            <span>Nombre del cliente</span>
+            <span>Client name</span>
             <input
               value={clientName}
               onChange={(event) => onNameChange(event.target.value)}
-              placeholder="Ej. Retail Group"
+              placeholder="e.g. Retail Group"
               autoFocus
             />
           </label>
 
           <label className="mandarion-field">
             <span>Slug</span>
-            <input value={clientSlug || 'se-generara-al-crear'} readOnly aria-readonly="true" />
-            <small>El slug se genera automáticamente con el nombre actual.</small>
+            <input value={clientSlug || 'generated-on-create'} readOnly aria-readonly="true" />
+            <small>The slug is generated automatically from the current name.</small>
           </label>
 
           {error ? <p className="mandarion-client-modal__error">{error}</p> : null}
@@ -84,10 +84,10 @@ export function CreateClientModal({
 
         <footer className="mandarion-client-modal__footer">
           <Button variant="ghost" size="md" onClick={onClose} disabled={isSubmitting}>
-            Cancelar
+            Cancel
           </Button>
           <Button variant="primary" size="md" onClick={onSubmit} loading={isSubmitting}>
-            Crear cliente
+            Create client
           </Button>
         </footer>
       </div>

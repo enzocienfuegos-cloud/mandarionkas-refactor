@@ -24,7 +24,7 @@ export async function loginToStudio(page: Page): Promise<void> {
   await gotoStudio(page);
   await expect(page.locator('.platform-login-shell')).toBeVisible();
   await page.getByRole('button', { name: /Entrar a la plataforma|Enter platform/i }).click();
-  await expect(page.locator('.studio-shell-topbar__brand-meta')).toContainText('Hub de clientes');
+  await expect(page.locator('.studio-shell-topbar__brand-meta')).toContainText('Client Hub');
   await disableMotion(page);
 }
 
@@ -37,7 +37,7 @@ export async function openClientWorkspace(page: Page): Promise<void> {
 
 export async function openEditor(page: Page): Promise<void> {
   await openClientWorkspace(page);
-  const newAdButton = page.locator('.studio-shell-topbar').getByRole('button', { name: /New ad|Nuevo banner/i });
+  const newAdButton = page.locator('.studio-shell-topbar').getByRole('button', { name: /New banner|New ad|Nuevo banner/i });
   await expect(newAdButton).toBeVisible();
   await newAdButton.click();
   await expect(page.locator('.studio-shell')).toBeVisible();

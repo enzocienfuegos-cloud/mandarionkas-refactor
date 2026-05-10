@@ -64,39 +64,39 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
       <StudioTopbar
         className="studio-shell-topbar--hub"
         eyebrow="Studio Hub"
-        title="Hub de clientes"
-        searchLabel="Buscar"
-        searchPlaceholder="Cliente o trabajo..."
+        title="Client Hub"
+        searchLabel="Search"
+        searchPlaceholder="Client or project..."
         searchValue={search}
         onSearchChange={setSearch}
         primaryAction={{
-          label: 'Crear cliente',
+          label: 'Create client',
           onClick: openCreateClientModal,
           disabled: !workspace.canCreateClient,
         }}
-        userLabel={workspace.currentUser?.name ?? 'Invitado'}
+        userLabel={workspace.currentUser?.name ?? 'Guest'}
         onLogout={() => void workspace.handleLogout()}
       />
 
       <main className="hub-content">
-        <section className="hub-intro" aria-label="Resumen del hub">
+        <section className="hub-intro" aria-label="Hub summary">
           <div className="hub-intro-text">
-            <div className="kicker">Hub de clientes</div>
-            <h2>Retomá los trabajos que importan.</h2>
-            <p>Clientes activos, trabajos recientes y creación de cuentas en un solo lugar.</p>
+            <div className="kicker">Client hub</div>
+            <h2>Pick up what matters.</h2>
+            <p>Active clients, recent projects, and account creation in one place.</p>
           </div>
           <div className="hub-stats">
             <div className="hub-stat">
               <StudioIcon icon={StudioIcons.users} size={13} className="hub-stat__icon" />
-              <span><b>{summary.activeClientCount}</b> clientes</span>
+              <span><b>{summary.activeClientCount}</b> clients</span>
             </div>
             <div className="hub-stat">
               <StudioIcon icon={StudioIcons.layoutGrid} size={13} className="hub-stat__icon" />
-              <span><b>{summary.activeProjectCount}</b> proyectos activos</span>
+              <span><b>{summary.activeProjectCount}</b> active projects</span>
             </div>
             <div className="hub-stat">
               <StudioIcon icon={StudioIcons.calendar} size={13} className="hub-stat__icon" />
-              <span><b>{pageSize}</b> por página</span>
+              <span><b>{pageSize}</b> per page</span>
             </div>
           </div>
         </section>
@@ -122,9 +122,9 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
           <section className="mandarion-clients-panel client-hub-clients-panel panel" aria-labelledby="mandarion-clients-heading">
             <div className="clients-section-head">
               <div>
-                <div className="workspace-hub-kicker">Clientes</div>
-                <h2 id="mandarion-clients-heading">Directorio activo</h2>
-                <p>Abrí un workspace o creá un cliente nuevo. Los brand kits viven y sobreviven en este hub.</p>
+                <div className="workspace-hub-kicker">Clients</div>
+                <h2 id="mandarion-clients-heading">Active directory</h2>
+                <p>Open a workspace or create a new client. Brand kits live and persist in this hub.</p>
               </div>
               <span className="clients-count-pill">{visibleClientCards.length}</span>
             </div>
@@ -142,8 +142,8 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
               </div>
             ) : (
               <div className="empty-state">
-                <strong>Sin clientes</strong>
-                <p>Probá limpiando la búsqueda o creá un nuevo cliente desde el hub.</p>
+                <strong>No clients yet</strong>
+                <p>Try clearing the search or create a new client from the hub.</p>
               </div>
             )}
           </section>

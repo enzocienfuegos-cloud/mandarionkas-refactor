@@ -28,7 +28,7 @@ export type AgencyClientCard = {
   latestActivityAt?: string;
   brandKitCount: number;
   palette: string[];
-  statusLabel: 'Compartido' | 'En progreso' | 'Sin actividad';
+  statusLabel: 'Shared' | 'Active' | 'Idle';
 };
 
 function slugifyClientName(value: string): string {
@@ -52,16 +52,16 @@ function resolveProjectStatus(
 function getProjectStatusLabel(status: AgencyProjectStatus): string {
   switch (status) {
     case 'review':
-      return 'En revisión';
+      return 'In review';
     case 'ready':
-      return 'Listo';
+      return 'Ready';
     case 'exported':
-      return 'Entregado';
+      return 'Delivered';
     case 'archived':
-      return 'Archivado';
+      return 'Archived';
     case 'draft':
     default:
-      return 'Diseño';
+      return 'Design';
   }
 }
 
@@ -134,14 +134,14 @@ export function useAgencyShellController() {
         if (preferences.activeClientId !== 'all' && project.clientId !== preferences.activeClientId) {
           return false;
         }
-        const clientName = clientNameMap.get(project.clientId) ?? 'Cliente sin nombre';
+        const clientName = clientNameMap.get(project.clientId) ?? 'Unnamed client';
         return matchesProjectSearch(project, clientName, loweredSearch);
       })
       .map<AgencyProjectRow>((project) => {
         const status = resolveProjectStatus(project, workflowStatuses);
         return {
           ...project,
-          clientName: clientNameMap.get(project.clientId) ?? 'Cliente sin nombre',
+          clientName: clientNameMap.get(project.clientId) ?? 'Unnamed client',
           status,
           statusLabel: getProjectStatusLabel(status),
         };
@@ -174,13 +174,13 @@ export function useAgencyShellController() {
           client.brands?.[0]?.secondaryColor,
           client.brands?.[0]?.accentColor,
         ].filter((color): color is string => Boolean(color));
-        const statusLabel = sharedProjectCount > 0 ? 'Compartido' : activeProjectCount > 0 ? 'En progreso' : 'Sin actividad';
+        const statusLabel = sharedProjectCount > 0 ? 'Shared' : activeProjectCount > 0 ? 'Active' : 'Idle';
         return {
           client,
           projectCount: clientProjects.length,
           sharedProjectCount,
           activeProjectCount,
-          recentProjectName: recentProject?.name ?? 'Sin proyectos recientes',
+          recentProjectName: recentProject?.name ?? 'No recent projects',
           recentProjectId: recentProject?.id,
           recentUpdatedAt: recentProject?.updatedAt,
           latestActivityAt: recentProject?.updatedAt,
@@ -195,7 +195,7 @@ export function useAgencyShellController() {
 
   const clientFilterOptions = useMemo(
     () => [
-      { value: 'all', label: 'Todos los clientes' },
+      { value: 'all', label: 'All clients' },
       ...visibleClients.map((client) => ({ value: client.id, label: client.name })),
     ],
     [visibleClients],
@@ -249,11 +249,11 @@ export function useAgencyShellController() {
   async function submitCreateClient(): Promise<ClientWorkspace | null> {
     const nextName = createClientName.trim();
     if (!nextName) {
-      setCreateClientError('Ingresá un nombre para crear el cliente.');
+      setCreateClientError('Enter a client name to create the account.');
       return null;
     }
     if (!workspace.canCreateClient) {
-      setCreateClientError('Tu cuenta no tiene permisos para crear clientes.');
+      setCreateClientError('Your account does not have permission to create clients.');
       return null;
     }
 
@@ -262,10 +262,10 @@ export function useAgencyShellController() {
     try {
       const createdClient = await workspace.handleCreateClient(nextName);
       if (!createdClient) {
-        setCreateClientError('No se pudo crear el cliente. Intentá nuevamente.');
+        setCreateClientError('Could not create the client. Please try again.');
         pushToast({
-          title: 'No se pudo crear el cliente',
-          description: 'Revisá el nombre e intentá nuevamente.',
+          title: 'Client creation failed',
+          description: 'Check the name and try again.',
           tone: 'danger',
         });
         return null;
@@ -273,16 +273,16 @@ export function useAgencyShellController() {
       setIsCreateClientOpen(false);
       setCreateClientName('');
       pushToast({
-        title: 'Cliente creado',
-        description: `${createdClient.name} ya está disponible en el hub.`,
+        title: 'Client created',
+        description: `${createdClient.name} is now available in the hub.`,
         tone: 'success',
       });
       return createdClient;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo crear el cliente.';
+      const message = error instanceof Error ? error.message : 'Could not create the client.';
       setCreateClientError(message);
       pushToast({
-        title: 'No se pudo crear el cliente',
+        title: 'Client creation failed',
         description: message,
         tone: 'danger',
       });

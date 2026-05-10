@@ -47,6 +47,7 @@ describe('architecture guardrails', () => {
       'src/shared/browser/storage.ts',
       'src/integrations/fetch-cache.ts',
       'src/testing/setup.ts',
+      'src/platform/repository.ts',
       // runtime-script*.ts generates JavaScript that runs inside exported HTML banners —
       // localStorage usage there is intentional runtime code, not application storage access.
       'src/export/runtime-script.ts',

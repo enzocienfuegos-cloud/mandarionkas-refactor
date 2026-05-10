@@ -6,8 +6,8 @@ export function AddClientCard({ onAdd }: { onAdd(): void }): JSX.Element {
       <span className="add-client-card__icon">
         <StudioIcon icon={StudioIcons.plus} size={28} />
       </span>
-      <strong>Crear cliente</strong>
-      <small>Sumá una nueva cuenta al hub y abrí su workspace operativo desde acá.</small>
+      <strong>Create client</strong>
+      <small>Add a new account to the hub and open its operational workspace from here.</small>
     </button>
   );
 }

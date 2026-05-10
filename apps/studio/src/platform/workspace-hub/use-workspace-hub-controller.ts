@@ -313,8 +313,8 @@ export function useWorkspaceHubController() {
 
   const folderOptions = useMemo(
     () => [
-      { id: 'all', name: 'Todos los proyectos', count: clientProjects.length },
-      { id: 'root', name: 'Sin carpeta', count: clientProjects.filter((project) => !folderAssignments[project.id]).length },
+      { id: 'all', name: 'All projects', count: clientProjects.length },
+      { id: 'root', name: 'Unfiled', count: clientProjects.filter((project) => !folderAssignments[project.id]).length },
       ...campaignFolders.map((folder) => ({
         id: folder.id,
         name: folder.name,
