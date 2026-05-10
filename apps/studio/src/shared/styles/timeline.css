@@ -263,6 +263,19 @@
 }
 .timeline-trim-start { left: -4px; cursor: ew-resize; }
 .timeline-trim-end { right: -4px; cursor: ew-resize; }
+
+.bottom-timeline.is-pointer-dragging .timeline-row,
+.bottom-timeline.is-pointer-dragging .timeline-bar,
+.bottom-timeline.is-pointer-dragging .timeline-bar::after,
+.bottom-timeline.is-pointer-dragging .timeline-row::before,
+.bottom-timeline.is-pointer-dragging .timeline-row-order-actions {
+  transition: none;
+}
+
+.bottom-timeline.is-trimming .timeline-row-order-actions {
+  opacity: 0;
+  pointer-events: none;
+}
 .keyframe-dot {
   position: absolute;
   top: 14px;

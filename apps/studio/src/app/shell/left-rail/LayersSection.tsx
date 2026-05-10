@@ -181,9 +181,9 @@ export function LayersSection({ controller }: { controller: LeftRailController }
         <Button className="left-button compact-action" size="sm" onClick={() => widgetActions.ungroupSelected()} disabled={!selectedIds.length}>Ungroup</Button>
       </div>
 
-      <div className="left-card left-card--section left-card-grid">
+      <div className="left-card left-card--section left-card-grid layer-scene-card">
         <div className="meta-line meta-line--between meta-line--start">
-          <div className="field-stack field-stack--tight content-min-w-0">
+          <div className="field-stack field-stack--tight content-min-w-0 layer-scene-summary">
             <strong>Scenes</strong>
             <small className="muted">Select a scene to inspect its hierarchy here.</small>
           </div>
@@ -211,9 +211,9 @@ export function LayersSection({ controller }: { controller: LeftRailController }
         </div>
       </div>
 
-      <div className="left-card left-card--section left-card-grid">
+      <div className="left-card left-card--section left-card-grid layer-scene-card">
         <div className="meta-line meta-line--between meta-line--start">
-          <div className="field-stack field-stack--tight content-min-w-0">
+          <div className="field-stack field-stack--tight content-min-w-0 layer-scene-summary">
             <strong>{scene.name}</strong>
             <small className="muted">{visibleLayerIds.length} visible rows in the outline</small>
           </div>
