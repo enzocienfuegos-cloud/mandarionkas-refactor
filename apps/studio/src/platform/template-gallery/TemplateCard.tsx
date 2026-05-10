@@ -1,5 +1,6 @@
 import type { StudioTemplate } from '../../templates/library/types';
 import { Button } from '../../shared/ui/Button';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { getCanvasPresetById } from '../../domain/document/canvas-presets';
 
 type TemplateCardVariant = 'standard' | 'featured' | 'rail' | 'rail-list';
@@ -52,6 +53,51 @@ function getTemplatePreviewIntent(template: StudioTemplate): TemplatePreviewInte
   return 'pulse';
 }
 
+function getTemplateThumbIcon(
+  vertical: StudioTemplate['metadata']['vertical'],
+  previewIntent: TemplatePreviewIntent,
+) {
+  if (previewIntent === 'carousel') return StudioIcons.layoutGrid;
+  if (previewIntent === 'slide') return StudioIcons.workflow;
+  if (vertical === 'sports') return StudioIcons.calendar;
+  if (vertical === 'ecommerce') return StudioIcons.library;
+  if (previewIntent === 'pan') return StudioIcons.images;
+  return StudioIcons.boxes;
+}
+
+function renderTemplateLibraryThumb(
+  template: StudioTemplate,
+  previewIntent: TemplatePreviewIntent,
+): JSX.Element {
+  const icon = getTemplateThumbIcon(template.metadata.vertical, previewIntent);
+  const accentLabel = template.metadata.featuredLabel ?? VERTICAL_LABELS[template.metadata.vertical];
+
+  return (
+    <div
+      className="template-library-thumb"
+      data-preview-intent={previewIntent}
+      data-vertical={template.metadata.vertical}
+      aria-hidden="true"
+    >
+      <div className="template-library-thumb__frame">
+        <div className="template-library-thumb__hero">
+          <span className="template-library-thumb__icon">
+            <StudioIcon icon={icon} size={16} />
+          </span>
+          <span className="template-library-thumb__badge">{accentLabel}</span>
+        </div>
+        <div className="template-library-thumb__lane template-library-thumb__lane--primary" />
+        <div className="template-library-thumb__lane template-library-thumb__lane--secondary" />
+        <div className="template-library-thumb__metrics">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TemplateCard({
   template,
   variant = 'standard',
@@ -66,7 +112,7 @@ export function TemplateCard({
   const railTags = (template.metadata.tags ?? []).slice(0, 2);
   const railHighlights = (template.metadata.moduleHighlights ?? []).slice(0, 2);
   const previewIntent = getTemplatePreviewIntent(template);
-  const PreviewComponent = template.metadata.previewComponent;
+  const FeaturedPreview = template.metadata.previewComponent;
 
   if (variant === 'rail') {
     return (
@@ -77,16 +123,7 @@ export function TemplateCard({
         <div className="template-rail-card__body">
           <div className="template-rail-card__media">
             <div className="template-rail-card__media-visual">
-              {PreviewComponent
-                ? <PreviewComponent />
-                : template.metadata.thumbnail
-                  ? <img src={template.metadata.thumbnail} alt="" loading="lazy" />
-                  : (
-                    <div className="template-rail-card__placeholder">
-                      <span>{VERTICAL_LABELS[template.metadata.vertical]}</span>
-                      <strong>{template.metadata.name}</strong>
-                    </div>
-                  )}
+              {renderTemplateLibraryThumb(template, previewIntent)}
             </div>
           </div>
           <div className="template-rail-card__meta">
@@ -149,16 +186,7 @@ export function TemplateCard({
       >
         <div className="template-rail-list__media">
           <div className="template-rail-list__media-visual">
-            {PreviewComponent
-              ? <PreviewComponent />
-              : template.metadata.thumbnail
-                ? <img src={template.metadata.thumbnail} alt="" loading="lazy" />
-                : (
-                  <div className="template-rail-card__placeholder">
-                    <span>{VERTICAL_LABELS[template.metadata.vertical]}</span>
-                    <strong>{template.metadata.name}</strong>
-                  </div>
-                )}
+            {renderTemplateLibraryThumb(template, previewIntent)}
           </div>
         </div>
         <div className="template-rail-list__main">
@@ -180,8 +208,8 @@ export function TemplateCard({
     return (
       <article className="template-card-featured">
         <div className="template-card-featured__preview">
-          {PreviewComponent
-            ? <PreviewComponent />
+          {FeaturedPreview
+            ? <FeaturedPreview />
             : template.metadata.thumbnail
               ? <img src={template.metadata.thumbnail} alt="" loading="lazy" />
               : null}
