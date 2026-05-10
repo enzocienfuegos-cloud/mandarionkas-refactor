@@ -119,6 +119,10 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
               <strong>{summary.activeClientCount}</strong>
             </div>
             <div className="mandarion-summary-card">
+              <span>Brand kits</span>
+              <strong>{summary.brandKitCount}</strong>
+            </div>
+            <div className="mandarion-summary-card">
               <span>Proyectos activos</span>
               <strong>{summary.activeProjectCount}</strong>
             </div>
@@ -151,20 +155,17 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
             <div className="agency-section-head mandarion-section-head">
               <div>
                 <div className="workspace-hub-kicker">Clientes</div>
-                <h2 id="mandarion-clients-heading">Directorio activo del studio.</h2>
+                <h2 id="mandarion-clients-heading">Directorio activo de clientes y brand kits.</h2>
               </div>
             </div>
 
             {visibleClientCards.length > 0 ? (
               <div className="mandarion-clients-panel__grid">
-                {visibleClientCards.map(({ client, projectCount, recentProjectName, latestActivityAt }) => (
+                {visibleClientCards.map((clientCard) => (
                   <ClientGrid.Card
-                    key={client.id}
-                    client={client}
-                    projectCount={projectCount}
-                    recentProjectName={recentProjectName}
-                    latestActivityAt={latestActivityAt}
-                    onOpen={() => onOpenClientWorkspace(client.id)}
+                    key={clientCard.client.id}
+                    clientCard={clientCard}
+                    onOpen={() => onOpenClientWorkspace(clientCard.client.id)}
                   />
                 ))}
                 {workspace.canCreateClient ? <AddClientCard onAdd={openCreateClientModal} /> : null}

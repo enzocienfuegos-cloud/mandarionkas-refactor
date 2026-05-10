@@ -1,0 +1,21 @@
+.mandarion-client-card__brand-kits {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.mandarion-client-card__brand-kits small {
+  color: var(--muted);
+}
+
+.mandarion-client-card__swatches {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mandarion-client-card__swatches svg {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 0 0.4rem rgba(255, 255, 255, 0.08));
+}

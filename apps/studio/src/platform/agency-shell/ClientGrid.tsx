@@ -1,8 +1,7 @@
+import type { AgencyClientCard } from './use-agency-shell-controller';
+
 type ClientCardProps = {
-  client: { id: string; name: string; slug: string; plan?: string; logoUrl?: string | null };
-  projectCount: number;
-  recentProjectName: string;
-  latestActivityAt?: string;
+  clientCard: AgencyClientCard;
   onOpen(): void;
 };
 
@@ -25,7 +24,8 @@ function buildClientInitials(name: string): string {
     .join('') || 'CL';
 }
 
-function Card({ client, projectCount, recentProjectName, latestActivityAt, onOpen }: ClientCardProps): JSX.Element {
+function Card({ clientCard, onOpen }: ClientCardProps): JSX.Element {
+  const { client, projectCount, recentProjectName, latestActivityAt, brandKitCount, palette } = clientCard;
   return (
     <article className="mandarion-client-card">
       <button type="button" className="mandarion-client-card__surface" onClick={onOpen}>
@@ -40,7 +40,22 @@ function Card({ client, projectCount, recentProjectName, latestActivityAt, onOpe
         </div>
         <div className="mandarion-client-card__stats">
           <span className="pill">{projectCount} proyectos activos</span>
+          <span className="pill">{brandKitCount} brand kits</span>
           {client.plan ? <span className="pill">{client.plan}</span> : null}
+        </div>
+        <div className="mandarion-client-card__brand-kits">
+          <span className="workspace-project-meta-label">Brand system</span>
+          {palette.length > 0 ? (
+            <div className="mandarion-client-card__swatches" aria-hidden="true">
+              {palette.map((color) => (
+                <svg key={color} viewBox="0 0 12 12" focusable="false" aria-hidden="true">
+                  <circle cx="6" cy="6" r="5" fill={color} />
+                </svg>
+              ))}
+            </div>
+          ) : (
+            <small>Sin kit cargado todavía</small>
+          )}
         </div>
         <div className="mandarion-client-card__recent">
           <span className="workspace-project-meta-label">Último proyecto</span>

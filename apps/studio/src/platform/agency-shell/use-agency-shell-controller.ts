@@ -17,6 +17,17 @@ export type AgencyProjectRow = ProjectSummary & {
   statusLabel: string;
 };
 
+export type AgencyClientCard = {
+  client: ClientWorkspace;
+  projectCount: number;
+  recentProjectName: string;
+  recentProjectId?: string;
+  recentUpdatedAt?: string;
+  latestActivityAt?: string;
+  brandKitCount: number;
+  palette: string[];
+};
+
 function slugifyClientName(value: string): string {
   return value
     .normalize('NFD')
@@ -149,9 +160,15 @@ export function useAgencyShellController() {
   const visibleClientCards = useMemo(() => {
     const loweredSearch = preferences.search.trim().toLowerCase();
     return visibleClients
-      .map((client) => {
+      .map<AgencyClientCard>((client) => {
         const clientProjects = activeProjects.filter((project) => project.clientId === client.id);
         const recentProject = clientProjects[0];
+        const palette = [
+          client.brandColor,
+          client.brands?.[0]?.primaryColor,
+          client.brands?.[0]?.secondaryColor,
+          client.brands?.[0]?.accentColor,
+        ].filter((color): color is string => Boolean(color));
         return {
           client,
           projectCount: clientProjects.length,
@@ -159,6 +176,8 @@ export function useAgencyShellController() {
           recentProjectId: recentProject?.id,
           recentUpdatedAt: recentProject?.updatedAt,
           latestActivityAt: recentProject?.updatedAt,
+          brandKitCount: client.brands?.length ?? 0,
+          palette: Array.from(new Set(palette)).slice(0, 3),
         };
       })
       .filter((entry) => matchesClientSearch(entry.client, entry.recentProjectName, loweredSearch))
@@ -175,9 +194,13 @@ export function useAgencyShellController() {
 
   const summary = useMemo(() => {
     const latestUpdatedAt = activeProjects[0]?.updatedAt;
+    const brandKitCount = visibleClients.reduce((total, client) => total + (client.brands?.length ?? 0), 0);
+    const clientsWithoutBrandKit = visibleClients.filter((client) => (client.brands?.length ?? 0) === 0).length;
     return {
       activeClientCount: visibleClients.length,
       activeProjectCount: activeProjects.length,
+      brandKitCount,
+      clientsWithoutBrandKit,
       latestUpdatedAt,
     };
   }, [activeProjects, visibleClients.length]);

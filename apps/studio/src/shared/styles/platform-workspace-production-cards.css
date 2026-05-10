@@ -1,0 +1,264 @@
+.client-workspace-banner-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
+  padding: var(--space-6);
+}
+
+.client-workspace-banner-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+  overflow: hidden;
+  transition: transform var(--motion-base) var(--motion-ease), border-color var(--motion-base) var(--motion-ease), box-shadow var(--motion-base) var(--motion-ease);
+}
+
+.client-workspace-banner-card:hover,
+.client-workspace-banner-card.is-selected {
+  transform: translateY(-2px);
+  border-color: var(--focus-a-35);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.24);
+}
+
+.client-workspace-banner-card__preview {
+  position: relative;
+  padding: var(--space-5);
+  background:
+    radial-gradient(circle at top right, var(--accent-a-28), transparent 36%),
+    radial-gradient(circle at bottom left, var(--focus-a-18), transparent 30%),
+    linear-gradient(180deg, rgba(12, 18, 30, 0.96), rgba(15, 22, 33, 0.92));
+}
+
+.client-workspace-banner-card__preview--portrait .client-workspace-banner-card__frame {
+  aspect-ratio: 4 / 5;
+  max-width: 220px;
+  margin-inline: auto;
+}
+
+.client-workspace-banner-card__preview--square .client-workspace-banner-card__frame {
+  aspect-ratio: 1 / 1;
+  max-width: 220px;
+  margin-inline: auto;
+}
+
+.client-workspace-banner-card__check {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  z-index: var(--z-local-1);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--white-a-80);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.client-workspace-banner-card__surface {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.client-workspace-banner-card__frame {
+  width: 100%;
+  min-height: 180px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-2xl);
+  background:
+    linear-gradient(160deg, rgba(111,60,255,.82), rgba(37,99,235,.76)),
+    linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--space-6);
+  color: var(--text-on-media-strong);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+
+.client-workspace-banner-card__frame span {
+  font-size: var(--font-size-4xl);
+  font-weight: 700;
+}
+
+.client-workspace-banner-card__frame small {
+  color: var(--white-a-72);
+}
+
+.client-workspace-banner-card__body {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-6);
+}
+
+.client-workspace-banner-card__title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.client-workspace-banner-card__title h4,
+.client-workspace-banner-card__title p {
+  margin: 0;
+}
+
+.client-workspace-banner-card__title p {
+  margin-top: var(--space-2);
+  color: var(--muted);
+}
+
+.client-workspace-banner-card__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.client-workspace-banner-card__meta div,
+.client-workspace-banner-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.client-workspace-banner-card__meta div {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.client-workspace-banner-card__meta span {
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.client-workspace-banner-card__meta strong {
+  font-size: var(--font-size-md);
+}
+
+.client-workspace-banner-list {
+  display: grid;
+}
+
+.client-workspace-banner-list__head,
+.client-workspace-banner-list__row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) repeat(6, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4) var(--space-6);
+}
+
+.client-workspace-banner-list__head {
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.client-workspace-banner-list__row {
+  border-top: 1px solid var(--border-divider);
+  background: rgba(255,255,255,0.01);
+}
+
+.client-workspace-banner-list__row.is-selected {
+  background: rgba(48, 232, 255, 0.08);
+}
+
+.client-workspace-banner-list__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.client-workspace-banner-list__name button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.client-workspace-banner-list__name small {
+  display: block;
+  margin-top: var(--space-2);
+  color: var(--muted);
+}
+
+.client-workspace-inline-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.client-workspace-inline-status--draft {
+  background: var(--white-a-04);
+}
+
+.client-workspace-inline-status--qa,
+.client-workspace-inline-status--review {
+  background: rgba(255, 190, 92, 0.14);
+}
+
+.client-workspace-inline-status--live {
+  background: rgba(73, 197, 141, 0.16);
+}
+
+.client-workspace-empty-state {
+  padding: var(--space-10);
+  border-radius: var(--radius-2xl);
+  border: 1px dashed var(--border-subtle);
+  background: rgba(255,255,255,0.02);
+}
+
+@media (max-width: 1240px) {
+  .client-workspace-banner-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .client-workspace-production {
+    grid-template-columns: 1fr;
+  }
+
+  .client-workspace-banner-list__head,
+  .client-workspace-banner-list__row {
+    grid-template-columns: minmax(200px, 1.2fr) repeat(3, minmax(0, 1fr));
+  }
+
+  .client-workspace-banner-list__head span:nth-child(n + 5),
+  .client-workspace-banner-list__row > span:nth-child(n + 5) {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .client-workspace-shell-v2 {
+    padding: var(--space-7);
+  }
+
+  .client-workspace-banner-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .client-workspace-banner-list__head {
+    display: none;
+  }
+
+  .client-workspace-banner-list__row {
+    grid-template-columns: 1fr;
+  }
+}

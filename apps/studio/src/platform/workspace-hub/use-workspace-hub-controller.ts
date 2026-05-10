@@ -118,12 +118,6 @@ export function useWorkspaceHubController() {
     setSelectedProjectIds([]);
   }, [activeClientId]);
 
-  useEffect(() => {
-    if (viewMode === 'card' && selectedProjectIds.length > 0) {
-      setSelectedProjectIds([]);
-    }
-  }, [selectedProjectIds.length, viewMode]);
-
   const projectFolders = useMemo<ProjectFolderRecord[]>(
     () => (activeClientId ? listProjectFolders(activeClientId) : []),
     [activeClientId, folderTick],
@@ -182,7 +176,6 @@ export function useWorkspaceHubController() {
   const someVisibleSelected = pageItems.some((project) => selectedProjectIds.includes(project.id));
 
   function toggleProjectSelection(projectId: string): void {
-    if (viewMode !== 'list') return;
     setSelectedProjectIds((current) => current.includes(projectId) ? current.filter((item) => item !== projectId) : [...current, projectId]);
   }
 
@@ -190,8 +183,11 @@ export function useWorkspaceHubController() {
     setSelectedProjectIds([]);
   }
 
+  function replaceSelectedProjectIds(projectIds: string[]): void {
+    setSelectedProjectIds(Array.from(new Set(projectIds)));
+  }
+
   function selectAllVisible(nextSelected?: boolean): void {
-    if (viewMode !== 'list') return;
     const shouldSelect = nextSelected ?? !allVisibleSelected;
     if (!shouldSelect) {
       setSelectedProjectIds((current) => current.filter((projectId) => !pageItems.some((project) => project.id === projectId)));
@@ -246,6 +242,13 @@ export function useWorkspaceHubController() {
   async function archiveSelectedProjects(): Promise<void> {
     for (const project of selectedProjects.filter((item) => !item.archivedAt)) {
       await projectSession.handleArchiveProject(project.id);
+    }
+    clearSelection();
+  }
+
+  async function duplicateSelectedProjects(): Promise<void> {
+    for (const project of selectedProjects) {
+      await projectSession.handleDuplicateProject(project.id);
     }
     clearSelection();
   }
@@ -310,8 +313,8 @@ export function useWorkspaceHubController() {
 
   const folderOptions = useMemo(
     () => [
-      { id: 'all', name: 'All projects', count: clientProjects.length },
-      { id: 'root', name: 'Unfiled', count: clientProjects.filter((project) => !folderAssignments[project.id]).length },
+      { id: 'all', name: 'Todos los proyectos', count: clientProjects.length },
+      { id: 'root', name: 'Sin carpeta', count: clientProjects.filter((project) => !folderAssignments[project.id]).length },
       ...campaignFolders.map((folder) => ({
         id: folder.id,
         name: folder.name,
@@ -336,10 +339,12 @@ export function useWorkspaceHubController() {
     someVisibleSelected,
     toggleProjectSelection,
     clearSelection,
+    replaceSelectedProjectIds,
     selectAllVisible,
     deleteSelectedProjects,
     archiveSelectedProjects,
     restoreSelectedProjects,
+    duplicateSelectedProjects,
     projectFilter,
     setProjectFilter,
     stateFilter,
