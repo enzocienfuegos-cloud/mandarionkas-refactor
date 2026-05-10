@@ -20,7 +20,7 @@ export function LoginScreen(): JSX.Element {
     try {
       const result = await login(email, password, { remember });
       if (!result.ok) {
-        setError(result.message ?? 'Credenciales incorrectas.');
+        setError(result.message ?? 'Incorrect credentials.');
         return;
       }
       setError('');
@@ -42,12 +42,10 @@ export function LoginScreen(): JSX.Element {
       <div className="platform-login-card">
         <section className="platform-login-copy">
           <div>
-            <img src="/assets/mandarion-logo.svg" alt="MandaRion" className="platform-login-copy__logo" />
-            <div className="platform-login-copy__eyebrow">Studio Platform</div>
-            <h1>Sign in</h1>
-            <p>Accedé a tus proyectos, campañas y banners desde un solo lugar.</p>
+            <img src="/assets/mandarion-logo-white.svg" alt="MandaRion" className="platform-login-copy__logo" />
+            <p>Access your projects, campaigns, and banners from one place.</p>
             <p className="platform-login-copy__muted">
-              Remember session crea una sesión persistente de 30 días. Sin ella la sesión dura mientras dure el browser.
+              Remember session keeps a persistent session for 30 days. Without it, the session lasts only for the current browser session.
             </p>
 
             <div className="platform-login-copy__seed">
@@ -69,8 +67,8 @@ export function LoginScreen(): JSX.Element {
 
         <form className="platform-login-form" onSubmit={(event) => void handleSubmit(event)}>
           <header className="platform-login-form__header">
-            <h2>Iniciar sesión</h2>
-            <p>Ingresá tus credenciales para continuar.</p>
+            <h2>Sign in</h2>
+            <p>Enter your credentials to continue.</p>
           </header>
 
           <label className="platform-login-field">
@@ -79,7 +77,7 @@ export function LoginScreen(): JSX.Element {
               <input
                 type="email"
                 value={email}
-                placeholder="tu@email.com"
+                placeholder="your@email.com"
                 autoComplete="email"
                 disabled={isSubmitting}
                 onChange={(event) => {
@@ -91,7 +89,7 @@ export function LoginScreen(): JSX.Element {
           </label>
 
           <label className="platform-login-field">
-            <span className="platform-login-field__label">Contraseña</span>
+            <span className="platform-login-field__label">Password</span>
             <div className="platform-login-field__wrap">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -107,7 +105,7 @@ export function LoginScreen(): JSX.Element {
               <button
                 type="button"
                 className="platform-login-field__toggle"
-                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
                 onClick={() => setShowPassword((current) => !current)}
               >
                 <StudioIcon icon={showPassword ? StudioIcons.eyeOff : StudioIcons.eye} size={16} />
@@ -141,21 +139,21 @@ export function LoginScreen(): JSX.Element {
             className={`platform-login-submit ${isSubmitting ? 'is-loading' : ''}`.trim()}
           >
             {isSubmitting ? <span className="platform-login-submit__spinner" aria-hidden="true" /> : null}
-            <span>{isSubmitting ? 'Entrando…' : 'Entrar a la plataforma'}</span>
+            <span>{isSubmitting ? 'Signing in…' : 'Enter platform'}</span>
           </button>
 
           <div className="platform-login-form__demo">
             <button type="button" onClick={handleFillDemo}>
-              Completar con usuario demo
+              Fill with demo user
             </button>
           </div>
 
           <div className="platform-login-form__divider" aria-hidden="true" />
 
           <footer className="platform-login-form__footer">
-            Plataforma privada · Solo usuarios autorizados.
+            Private platform · Authorized users only.
             <br />
-            Seed users: <strong>admin@smx.studio</strong> y <strong>editor@smx.studio</strong>
+            Seed users: <strong>admin@smx.studio</strong> and <strong>editor@smx.studio</strong>
           </footer>
         </form>
       </div>
