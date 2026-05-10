@@ -253,9 +253,9 @@ export function WidgetLibraryItemCard({
     );
   }
 
-  const compactTags = widget.libraryTags?.slice(0, 2) ?? [];
-  const compactCapabilities = capabilityPills.slice(0, 2);
-  const compactMetrics = metadataPills.slice(0, 2);
+  const railTags = widget.libraryTags?.slice(0, 2) ?? [];
+  const railCapabilities = capabilityPills.slice(0, 2);
+  const railMetrics = metadataPills.slice(0, 2);
 
   return (
     <div
@@ -323,38 +323,34 @@ export function WidgetLibraryItemCard({
               <div className={`template-rail-card__eyebrow widget-rail-card__eyebrow ${category.badgeClass} is-active`}>
                 {sectionLabel}
               </div>
-              {compactMetrics[0] ? <span className="template-rail-card__tag widget-rail-card__tag">{compactMetrics[0]}</span> : null}
+              {railMetrics[0] ? <span className="template-rail-card__tag widget-rail-card__tag">{railMetrics[0]}</span> : null}
             </div>
-            <span className="template-rail-card__add widget-rail-card__add" aria-hidden="true">
-              <StudioIcon icon={StudioIcons.plus} size={12} />
-              Add
-            </span>
           </div>
           <div className="template-rail-card__copy widget-rail-card__copy">
             <h3>{widget.label}</h3>
             {widget.description ? <p>{widget.description}</p> : null}
           </div>
-          {compactTags.length ? (
+          {railTags.length ? (
             <div className="template-rail-card__tags widget-rail-card__tags">
-              {compactTags.map((item) => (
+              {railTags.map((item) => (
                 <span key={item} className="template-rail-card__tag widget-rail-card__tag">{item}</span>
               ))}
             </div>
           ) : null}
           <div className="template-rail-card__facts widget-rail-card__facts">
-            {compactCapabilities.map((item) => (
+            {railCapabilities.map((item) => (
               <span key={item} className="template-rail-card__capability widget-rail-card__capability">
                 <StudioIcon icon={getCapabilityIcon(item)} size={12} />
                 {item}
               </span>
             ))}
-            {compactMetrics.slice(1).map((item) => (
+            {railMetrics.slice(1).map((item) => (
               <span key={item} className="template-rail-card__tag widget-rail-card__tag">{item}</span>
             ))}
-            {!compactMetrics.length && widget.requiresAsset ? (
+            {!railMetrics.length && widget.requiresAsset ? (
               <span className="template-rail-card__tag widget-rail-card__tag">Needs assets</span>
             ) : null}
-            {!compactMetrics.length && !widget.requiresAsset && widget.libraryTags?.[0] ? (
+            {!railMetrics.length && !widget.requiresAsset && widget.libraryTags?.[0] ? (
               <span className="template-rail-card__tag widget-rail-card__tag">{widget.libraryTags[0]}</span>
             ) : null}
           </div>

@@ -901,6 +901,61 @@
   box-shadow: 0 2px 10px var(--black-a-18);
 }
 
+.widget-rail-card--expanded {
+  padding: 14px;
+}
+
+.widget-rail-card--expanded .template-rail-card__body {
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+.widget-rail-card--expanded .template-rail-card__media {
+  min-height: 156px;
+  aspect-ratio: 16 / 9;
+}
+
+.widget-rail-card--expanded .template-rail-card__meta {
+  gap: var(--space-3);
+}
+
+.widget-rail-card--expanded .template-rail-card__header {
+  gap: var(--space-3);
+}
+
+.widget-rail-card--expanded .template-rail-card__eyebrows,
+.widget-rail-card--expanded .template-rail-card__tags,
+.widget-rail-card--expanded .template-rail-card__facts {
+  gap: var(--space-2);
+}
+
+.widget-rail-card--expanded .template-rail-card__eyebrow,
+.widget-rail-card--expanded .template-rail-card__tag,
+.widget-rail-card--expanded .template-rail-card__capability {
+  min-height: 26px;
+  padding-inline: var(--space-4);
+}
+
+.widget-rail-card--expanded .template-rail-card__copy h3 {
+  font-size: var(--font-size-xl);
+  -webkit-line-clamp: 2;
+}
+
+.widget-rail-card--expanded .template-rail-card__copy p {
+  max-width: none;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  -webkit-line-clamp: 3;
+}
+
+.widget-rail-card--expanded .template-rail-card__footer {
+  align-items: flex-end;
+}
+
+.widget-rail-card--expanded .template-rail-card__hint {
+  max-width: 16ch;
+}
+
 @keyframes library-card-idle {
   0%, 100% {
     transform: translateY(0) scale(1);
