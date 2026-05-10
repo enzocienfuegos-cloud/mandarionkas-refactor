@@ -37,7 +37,7 @@
 
 .clients-count-pill {
   font-size: var(--client-hub-clients-count-size);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--platform-panel-border);
   border-radius: var(--radius-pill);
   padding: 3px 9px;
   color: var(--muted);
@@ -54,7 +54,7 @@
 .client-card,
 .add-client-card {
   border-radius: var(--client-hub-card-radius);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--platform-panel-border);
   background: linear-gradient(180deg, rgba(24, 34, 45, 0.92), rgba(15, 22, 30, 0.94));
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.12);
   overflow: hidden;
@@ -150,7 +150,7 @@
 
 .client-card-meta span,
 .client-card-brand small {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--platform-panel-border);
   border-radius: var(--radius-pill);
   padding: var(--client-hub-card-chip-inset-y) var(--client-hub-card-chip-inset-x);
   background: rgba(255, 255, 255, 0.03);
@@ -178,7 +178,7 @@
 
 .client-card-recent {
   padding-top: var(--client-hub-card-space);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--platform-panel-border);
   display: flex;
   flex-direction: column;
   gap: var(--client-hub-card-recent-space);

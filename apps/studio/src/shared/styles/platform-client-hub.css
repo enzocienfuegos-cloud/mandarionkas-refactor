@@ -1,5 +1,5 @@
 .agency-shell.agency-shell--client-hub {
-  --client-hub-panel-radius: 22px;
+  --client-hub-panel-radius: var(--platform-panel-radius);
   --client-hub-title-size: 26px;
   --client-hub-content-inset-x: 28px;
   --client-hub-content-inset-bottom: 40px;
@@ -30,10 +30,6 @@
   --client-hub-project-title-size: 13px;
   --client-hub-project-meta-size: 12px;
   --client-hub-badge-font-size: 10px;
-  --client-hub-badge-review-text: #ffe2a5;
-  --client-hub-badge-shared-text: #b9f6ff;
-  --client-hub-badge-active-text: #bff8dd;
-  --client-hub-badge-draft-text: #d9ccff;
   --client-hub-empty-min-height: 180px;
   --client-hub-empty-inset: 18px;
   --client-hub-empty-copy-size: 13px;
@@ -124,7 +120,7 @@
 
 .client-hub-clients-panel,
 .mandarion-projects-panel {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--platform-panel-border);
   border-radius: var(--client-hub-panel-radius);
   background: linear-gradient(180deg, rgba(24, 34, 45, 0.92), rgba(15, 22, 30, 0.94));
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.15);
@@ -247,7 +243,7 @@
 .proj-row {
   min-height: 74px;
   padding: var(--client-hub-row-inset-y) var(--client-hub-cell-inset-x);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--platform-panel-border);
   border-radius: var(--client-hub-row-radius);
   background:
     radial-gradient(circle at top left, rgba(48, 232, 255, 0.035), transparent 34%),

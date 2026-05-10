@@ -40,7 +40,7 @@
 .client-workspace-inspector {
   padding: var(--workspace-shell-panel-inset);
   border-radius: var(--workspace-shell-panel-radius);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--platform-panel-border);
   background: linear-gradient(180deg, rgba(24, 34, 45, 0.92), rgba(15, 22, 30, 0.94));
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.15);
 }
@@ -186,10 +186,10 @@
 }
 
 .client-workspace-checkbox input:checked + .client-workspace-checkbox__box {
-  border-color: rgba(98, 102, 255, 0.72);
-  background: linear-gradient(160deg, rgba(134, 92, 255, 0.92), rgba(55, 132, 255, 0.84));
+  border-color: var(--accent-a-45);
+  background: var(--gradient-cta-premium);
   color: var(--text-on-media-strong);
-  box-shadow: 0 0 0 1px rgba(98, 102, 255, 0.14), 0 8px 22px rgba(82, 64, 196, 0.24);
+  box-shadow: 0 0 0 1px var(--accent-a-22), 0 8px 22px var(--accent-2-a-24);
 }
 
 .client-workspace-checkbox input:focus-visible + .client-workspace-checkbox__box {

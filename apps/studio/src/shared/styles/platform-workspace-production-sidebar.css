@@ -27,7 +27,7 @@
   background: var(--gradient-cta-premium);
   color: rgba(255, 255, 255, 0.98);
   box-shadow: 0 10px 24px rgba(37, 99, 235, 0.18);
-  font-size: var(--font-size-lg);
+  font-size: var(--platform-avatar-initials-size);
   font-weight: 900;
 }
 
@@ -208,4 +208,18 @@
   .client-workspace-sidebar__brand-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ─── Section kicker — matches Hub editorial pattern ─────────────────────
+ * Adds cyan uppercase eyebrow label to sidebar sections.
+ * Usage: <span class="ws-sidebar-kicker">Folders</span>
+ * ─────────────────────────────────────────────────────────────────────── */
+.ws-sidebar-kicker {
+  display: block;
+  color: var(--focus-accent);
+  font-size: var(--font-size-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 900;
+  margin-bottom: var(--space-2);
 }

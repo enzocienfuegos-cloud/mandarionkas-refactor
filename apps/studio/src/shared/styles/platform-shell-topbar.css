@@ -36,7 +36,7 @@
   gap: var(--shell-topbar-space-main);
   padding: 0 var(--shell-topbar-inset-x);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(5, 8, 14, 0.84);
+  background: var(--platform-topbar-bg);
   backdrop-filter: blur(16px);
 }
 
@@ -228,7 +228,7 @@
 }
 
 .client-workspace-shell-topbar {
-  background: rgba(5, 8, 14, 0.88);
+  background: var(--platform-topbar-bg);
 }
 
 .client-workspace-shell-topbar .studio-shell-topbar__brand-meta strong {

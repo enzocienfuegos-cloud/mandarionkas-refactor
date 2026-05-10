@@ -1,10 +1,3 @@
-.client-workspace-banner-grid,
-.client-workspace-banner-list {
-  --client-workspace-status-draft-text: #d9ccff;
-  --client-workspace-status-review-text: #ffe2a5;
-  --client-workspace-status-live-text: #bff8dd;
-}
-
 .client-workspace-banner-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -16,7 +9,7 @@
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-4xl);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--platform-panel-border);
   background:
     linear-gradient(180deg, rgba(33, 44, 56, 0.9), rgba(24, 32, 41, 0.92));
   box-shadow:
@@ -182,7 +175,7 @@
 
 .client-workspace-banner-list__row {
   min-height: 62px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--platform-panel-border);
   border-radius: var(--radius-4xl);
   background:
     linear-gradient(180deg, rgba(33, 44, 56, 0.9), rgba(24, 32, 41, 0.92));
@@ -293,20 +286,20 @@
 .client-workspace-inline-status--draft {
   border-color: rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(217, 204, 255, 0.88);
+  color: var(--status-draft-text);
 }
 
 .client-workspace-inline-status--qa,
 .client-workspace-inline-status--review {
   border-color: rgba(245, 158, 11, 0.24);
   background: rgba(232, 179, 74, 0.1);
-  color: rgba(255, 226, 165, 0.9);
+  color: var(--status-review-text);
 }
 
 .client-workspace-inline-status--live {
   border-color: rgba(86, 196, 126, 0.22);
   background: rgba(86, 196, 126, 0.1);
-  color: rgba(191, 248, 221, 0.9);
+  color: var(--status-live-text);
 }
 
 .client-workspace-empty-state {

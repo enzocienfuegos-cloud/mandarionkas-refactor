@@ -21,4 +21,40 @@
   --color-warning-dim: rgba(180, 83, 9, 0.12);
   --color-danger: #dc2626;
   --color-danger-dim: rgba(220, 38, 38, 0.11);
+
+  /* ─── Status badge tokens (canonical) ─────────────────────────────────────
+   * Single source of truth for status colors used in Hub and Workspace.
+   * Both surfaces must reference these; do not define status colors locally.
+   * ─────────────────────────────────────────────────────────────────────── */
+  --status-draft-text: #d9ccff;
+  --status-draft-border: rgba(111, 60, 255, 0.34);
+  --status-draft-bg: rgba(111, 60, 255, 0.14);
+
+  --status-review-text: #ffe2a5;
+  --status-review-border: rgba(245, 158, 11, 0.45);
+  --status-review-bg: rgba(232, 179, 74, 0.16);
+
+  --status-live-text: #bff8dd;
+  --status-live-border: rgba(86, 196, 126, 0.34);
+  --status-live-bg: rgba(86, 196, 126, 0.14);
+
+  --status-shared-text: #b9f6ff;
+  --status-shared-border: rgba(48, 232, 255, 0.35);
+  --status-shared-bg: rgba(48, 232, 255, 0.08);
+
+  /* ─── Panel surface tokens (canonical) ────────────────────────────────────
+   * Single radius and border for all platform panels across surfaces.
+   * ─────────────────────────────────────────────────────────────────────── */
+  --platform-panel-radius: var(--radius-4xl);
+  --platform-panel-border: var(--white-a-08);
+
+  /* ─── Topbar surface token ────────────────────────────────────────────────
+   * Canonical topbar background. Use in all platform shell topbars.
+   * ─────────────────────────────────────────────────────────────────────── */
+  --platform-topbar-bg: rgba(5, 8, 14, 0.84);
+
+  /* ─── Avatar initials font size ───────────────────────────────────────────
+   * Canonical size for single/two-letter client initials in avatars.
+   * ─────────────────────────────────────────────────────────────────────── */
+  --platform-avatar-initials-size: var(--font-size-sm);
 }

@@ -62,6 +62,7 @@ export function ClientWorkspaceSidebar({
   return (
     <aside className="client-workspace-production__sidebar panel">
       <section className="client-workspace-sidebar__section">
+        <span className="ws-sidebar-kicker">Folders</span>
         <div className="client-workspace-sidebar__section-header">
           <div className="workspace-hub-kicker">Campaign folders</div>
           <span className="pill">{Math.max(folderOptions.length - 2, 0)}</span>
@@ -128,6 +129,7 @@ export function ClientWorkspaceSidebar({
       </section>
 
       <section className="client-workspace-sidebar__section">
+        <span className="ws-sidebar-kicker">Filters</span>
         <div className="workspace-hub-kicker">Quick filters</div>
         <div className="client-workspace-sidebar__filters">
           {quickFilterOptions.slice(1).map((filter) => (
