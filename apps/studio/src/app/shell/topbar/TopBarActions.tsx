@@ -11,11 +11,6 @@ import { Button } from '../../../shared/ui/Button';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { buildClientPreviewToken, buildClientPreviewUrl, persistClientPreviewSnapshot } from '../../../features/client-preview/project-loader';
 
-function openPreflightPanel(): void {
-  const toggle = document.querySelector<HTMLButtonElement>('.preflight-tray__toggle');
-  toggle?.click();
-}
-
 function buildInitials(name?: string): string {
   const parts = (name ?? 'Guest')
     .split(/\s+/)
@@ -23,22 +18,6 @@ function buildInitials(name?: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? '');
   return parts.join('') || 'G';
-}
-
-function getPreflightSummary(controller: TopBarController): {
-  label: string;
-  tone: 'ready' | 'warnings' | 'errors';
-  count: number;
-} {
-  const blockers = controller.exportReadiness.preflight.summary.blockers;
-  const warnings = controller.exportReadiness.preflight.summary.warnings;
-  if (blockers > 0) {
-    return { label: 'Errors', tone: 'errors', count: blockers };
-  }
-  if (warnings > 0) {
-    return { label: 'Warnings', tone: 'warnings', count: warnings };
-  }
-  return { label: 'Ready', tone: 'ready', count: 0 };
 }
 
 export function TopBarActions({
@@ -59,7 +38,6 @@ export function TopBarActions({
   const activeProjectId = controller.snapshot.activeProjectId;
   const { pushToast } = useToast();
   const currentUser = controller.workspace.currentUser;
-  const preflight = getPreflightSummary(controller);
   const previewProjectId = activeProjectId ?? state.document.id;
   const previewToken = buildClientPreviewToken(previewProjectId, state.document.version);
   const saveStatus = controller.projectSession.saveStatus;
@@ -209,8 +187,6 @@ export function TopBarActions({
       ? 'Published'
       : 'Publish';
 
-  const preflightLabel = preflight.count > 0 ? `${preflight.label} ${preflight.count}` : preflight.label;
-
   return (
     <div className="top-actions-cluster">
       <Button
@@ -249,10 +225,7 @@ export function TopBarActions({
         currentChannel={release.targetChannel}
         isExporting={resolvedZipStatus === 'exporting'}
         publishLabel={publishLabel}
-        preflightLabel={preflightLabel}
-        preflightTone={preflight.tone}
         onExportAs={(channel) => void handleExportAs(channel)}
-        onOpenPreflight={openPreflightPanel}
         onShare={() => void handleShare()}
         onCopyPreviewLink={() => void handleCopyPreviewLink()}
         onPublish={() => void handlePublishToAdServer()}

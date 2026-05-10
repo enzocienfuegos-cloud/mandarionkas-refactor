@@ -244,36 +244,3 @@
   color: var(--muted);
   font-size: var(--font-size-xs);
 }
-
-.export-menu-item--preflight {
-  gap: var(--space-4);
-}
-
-.export-menu-status {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-pill);
-  font-size: var(--font-size-2xs);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.export-menu-status--ready {
-  background: var(--success-a-12);
-  color: var(--success-strong);
-  border: 1px solid var(--success-a-26);
-}
-
-.export-menu-status--warnings {
-  background: var(--warning-a-12);
-  color: var(--warning-strong);
-  border: 1px solid var(--warning-a-26);
-}
-
-.export-menu-status--errors {
-  background: var(--danger-a-12);
-  color: var(--danger-strong);
-  border: 1px solid var(--danger-a-26);
-}

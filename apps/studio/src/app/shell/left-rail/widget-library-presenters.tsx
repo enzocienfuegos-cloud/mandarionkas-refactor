@@ -314,66 +314,70 @@ export function WidgetLibraryItemCard({
         clearWidgetLibraryDragPayload();
       }}
     >
-      <div className="widget-library-card__thumb">
-        <div className="widget-library-card__thumb-stage">
-          {renderWidgetThumbnail(widget, previewActive)}
+      <div className="widget-library-card__body">
+        <div className="widget-library-card__thumb">
+          <div className="widget-library-card__thumb-stage">
+            {renderWidgetThumbnail(widget, previewActive)}
+          </div>
         </div>
-      </div>
 
-      <div className="widget-library-card__meta">
-        <div className="widget-library-card__header">
-          <div className="content-min-w-0">
-            <div className={`widget-library-card__eyebrow chip ${category.badgeClass} is-active`}>
-              {WIDGET_LIBRARY_GROUP_LABELS[group] ?? sectionLabel}
+        <div className="widget-library-card__meta">
+          <div className="widget-library-card__header">
+            <div className="content-min-w-0">
+              <div className={`widget-library-card__eyebrow chip ${category.badgeClass} is-active`}>
+                {WIDGET_LIBRARY_GROUP_LABELS[group] ?? sectionLabel}
+              </div>
             </div>
+            <span className="widget-library-card__add" aria-hidden="true">
+              <StudioIcon icon={StudioIcons.plus} size={12} />
+              Add
+            </span>
+          </div>
+          <div className="widget-library-card__copy">
             <div className="widget-library-card__label">{widget.label}</div>
             {widget.description ? <div className="widget-library-card__description">{widget.description}</div> : null}
           </div>
-          <span className="widget-library-card__add" aria-hidden="true">
-            <StudioIcon icon={StudioIcons.plus} size={12} />
-            Add
-          </span>
-        </div>
-        {widget.libraryTags?.length ? (
-          <div className="widget-library-card__tags">
-            {widget.libraryTags.slice(0, 2).map((item) => (
-              <span key={item} className="widget-library-card__tag">{item}</span>
+          {widget.libraryTags?.length ? (
+            <div className="widget-library-card__tags">
+              {widget.libraryTags.slice(0, 2).map((item) => (
+                <span key={item} className="widget-library-card__tag">{item}</span>
+              ))}
+            </div>
+          ) : null}
+          <div className="widget-library-card__capabilities">
+            {capabilityPills.slice(0, 2).map((item) => (
+              <span key={item} className="widget-library-card__capability">
+                <StudioIcon icon={getCapabilityIcon(item)} size={12} />
+                {item}
+              </span>
             ))}
           </div>
-        ) : null}
-        {metadataPills.length ? (
-          <div className="widget-library-card__metrics">
-            {metadataPills.slice(0, 2).map((item) => (
-              <span key={item} className="widget-library-card__metric">{item}</span>
-            ))}
-          </div>
-        ) : null}
-        <div className="widget-library-card__capabilities">
-          {capabilityPills.slice(0, 2).map((item) => (
-            <span key={item} className="widget-library-card__capability">
-              <StudioIcon icon={getCapabilityIcon(item)} size={12} />
-              {item}
-            </span>
-          ))}
-        </div>
-        <div className="widget-library-card__footer">
-          <div className="widget-library-card__hint">Click to add · drag to canvas</div>
-          <div className="widget-library-card__footer-actions">
-            <div className="widget-library-card__type">{previewActive ? 'Previewing' : 'Ready'}</div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="widget-library-card__detail-btn"
-              draggable={false}
-              onPointerDown={stopNestedDragInteraction}
-              onDragStart={(event) => event.preventDefault()}
-              onClick={(event) => {
-                event.stopPropagation();
-                onOpenDetails();
-              }}
-            >
-              Preview
-            </Button>
+          {metadataPills.length ? (
+            <div className="widget-library-card__metrics">
+              {metadataPills.slice(0, 2).map((item) => (
+                <span key={item} className="widget-library-card__metric">{item}</span>
+              ))}
+            </div>
+          ) : null}
+          <div className="widget-library-card__footer">
+            <div className="widget-library-card__hint">Click to add · drag to canvas</div>
+            <div className="widget-library-card__footer-actions">
+              <div className="widget-library-card__type">{previewActive ? 'Previewing' : 'Ready'}</div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="widget-library-card__detail-btn"
+                draggable={false}
+                onPointerDown={stopNestedDragInteraction}
+                onDragStart={(event) => event.preventDefault()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenDetails();
+                }}
+              >
+                Preview
+              </Button>
+            </div>
           </div>
         </div>
       </div>

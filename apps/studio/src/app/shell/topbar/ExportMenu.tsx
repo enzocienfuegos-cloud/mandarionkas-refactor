@@ -7,10 +7,7 @@ type ExportMenuProps = {
   currentChannel: ExportChannel;
   isExporting: boolean;
   publishLabel: string;
-  preflightLabel: string;
-  preflightTone: 'ready' | 'warnings' | 'errors';
   onExportAs(channel: ExportChannel): void;
-  onOpenPreflight(): void;
   onShare(): void;
   onCopyPreviewLink(): void;
   onPublish(): void;
@@ -20,10 +17,7 @@ export function ExportMenu({
   currentChannel,
   isExporting,
   publishLabel,
-  preflightLabel,
-  preflightTone,
   onExportAs,
-  onOpenPreflight,
   onShare,
   onCopyPreviewLink,
   onPublish,
@@ -72,22 +66,6 @@ export function ExportMenu({
 
       {open ? (
         <div className="top-export-popover" role="menu" aria-label="Export format">
-          <div className="export-menu-section-label">Checks</div>
-          <Button
-            variant="ghost"
-            size="sm"
-            role="menuitem"
-            className={`export-menu-item export-menu-item--preflight export-menu-item--preflight-${preflightTone}`.trim()}
-            onClick={() => {
-              setOpen(false);
-              onOpenPreflight();
-            }}
-          >
-            <span>Open preflight</span>
-            <span className={`export-menu-status export-menu-status--${preflightTone}`.trim()}>{preflightLabel}</span>
-          </Button>
-
-          <div className="export-menu-divider" aria-hidden="true" />
           <div className="export-menu-section-label">Export</div>
           <Button
             variant="ghost"
