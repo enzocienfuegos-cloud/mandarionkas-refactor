@@ -20,6 +20,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<string[]>([]);
   const dragRef = useRef<TimelineDragState>(null);
+  const dragRafRef = useRef<number | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
   const timelineGridRef = useRef<HTMLDivElement>(null);
   const timelineOverviewRef = useRef<HTMLDivElement>(null);
@@ -44,6 +45,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
     };
   });
   const playheadMs = usePlaybackMsThrottled(storePlayheadMs);
+  const playheadRef = useRef(playheadMs);
 
 
   const rowMsToPx = BASE_ROW_MS_TO_PX * timelineZoom;
@@ -52,18 +54,48 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
   const trimSnapThresholdMs = snapEnabled ? Math.min(90, Math.max(28, snapStepMs * 0.18)) : 0;
   useTimelinePlayhead(timelineGridRef, timelineOverviewRef, playheadMs, rowMsToPx, scene.durationMs, isPlaying);
 
-  function setDragState(next: TimelineDragState): void {
+  useEffect(() => {
+    playheadRef.current = playheadMs;
+  }, [playheadMs]);
+
+  function flushDragVisual(next: TimelineDragState): void {
     dragRef.current = next;
     setDrag(next);
+  }
+
+  function scheduleDragVisual(next: TimelineDragState): void {
+    dragRef.current = next;
+    if (typeof window === 'undefined') {
+      setDrag(next);
+      return;
+    }
+    if (dragRafRef.current !== null) return;
+    dragRafRef.current = window.requestAnimationFrame(() => {
+      dragRafRef.current = null;
+      setDrag(dragRef.current);
+    });
+  }
+
+  function setDragState(next: TimelineDragState): void {
+    if (!next && dragRafRef.current !== null && typeof window !== 'undefined') {
+      window.cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = null;
+    }
+    flushDragVisual(next);
   }
 
   function updateDragState(updater: (current: Exclude<TimelineDragState, null>) => Exclude<TimelineDragState, null>): void {
     const current = dragRef.current;
     if (!current) return;
     const next = updater(current);
-    dragRef.current = next;
-    setDrag(next);
+    scheduleDragVisual(next);
   }
+
+  useEffect(() => () => {
+    if (dragRafRef.current !== null && typeof window !== 'undefined') {
+      window.cancelAnimationFrame(dragRafRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     if (!drag) {
@@ -217,14 +249,28 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
     };
   }, [Boolean(drag), playheadMs, rowMsToPx, scene.durationMs, snapEnabled, snapStepMs, snapThresholdMs, trimSnapThresholdMs, timelineActions, widgetActions, widgets]);
 
-  const displayedWidgets = useMemo(() => {
+  const baseRows = useMemo(() => {
     const collapsedSet = new Set(collapsedGroupIds);
-    return buildTimelineDisplayRows(widgets, selectedIds, collapsedSet, selectedOnly).map((row) => ({
-      ...row,
-      timing: getDisplayTiming(row.widget, drag),
-      keyframes: getDisplayKeyframes(row.widget, drag),
-    }));
-  }, [collapsedGroupIds, drag, selectedIds, selectedOnly, widgets]);
+    return buildTimelineDisplayRows(widgets, selectedIds, collapsedSet, selectedOnly);
+  }, [collapsedGroupIds, selectedIds, selectedOnly, widgets]);
+
+  const displayedWidgets = useMemo(() => {
+    if (!drag || drag.mode === 'playhead') return baseRows;
+    return baseRows.map((row) => {
+      if (drag.mode === 'move-keyframe') {
+        if (row.widget.id !== drag.widgetId) return row;
+        return {
+          ...row,
+          keyframes: getDisplayKeyframes(row.widget, drag),
+        };
+      }
+      if (row.widget.id !== drag.widgetId) return row;
+      return {
+        ...row,
+        timing: getDisplayTiming(row.widget, drag),
+      };
+    });
+  }, [baseRows, drag]);
 
   const trackWidth = Math.max(scene.durationMs * rowMsToPx, 420);
   const snapGuideMs = drag && drag.mode !== 'playhead' ? drag.snapTargetMs : undefined;
@@ -242,7 +288,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
     timelineActions.setPlayhead(nextMs);
   }
 
-  function beginPlayheadDrag(clientX: number, startMs: number): void {
+  function beginPlayheadDrag(clientX: number, startMs = playheadRef.current): void {
     seekPlayheadImmediate(startMs);
     setDragState({ mode: 'playhead', originX: clientX, startMs });
   }

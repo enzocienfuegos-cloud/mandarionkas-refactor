@@ -170,6 +170,7 @@
   height: 38px;
   background: var(--gradient-timeline-stripes);
   border-left: 1px solid var(--white-a-04);
+  contain: layout paint;
 }
 .timeline-row-playhead {
   position: absolute;
@@ -215,6 +216,8 @@
   box-shadow: 0 10px 24px var(--black-a-15);
   overflow: visible;
   cursor: grab;
+  will-change: left, width;
+  contain: layout paint;
 }
 
 .timeline-bar:active {

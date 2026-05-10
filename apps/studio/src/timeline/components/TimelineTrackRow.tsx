@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { memo, type CSSProperties } from 'react';
 import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
 import { IconButton } from '../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
@@ -10,22 +10,21 @@ function buildTimelineKeyframeStyle(left: number): CSSProperties {
   return { '--timeline-keyframe-left': `${left}px` } as CSSProperties;
 }
 
-export function TimelineTrackRow({
+function TimelineTrackRowComponent({
   row,
   layerIndex,
   selected,
   isActive,
-  playheadMs,
   rowMsToPx,
   trackWidth,
   snapGuideMs,
   sceneDurationMs,
-  onSelect,
-  onToggleHidden,
-  onToggleLocked,
+  onSelectWidget,
+  onToggleWidgetHidden,
+  onToggleWidgetLocked,
   onRename,
-  onReorder,
-  onToggleCollapse,
+  onReorderWidget,
+  onToggleGroupCollapse,
   onDragStart,
   onScrubStart,
 }: {
@@ -33,19 +32,18 @@ export function TimelineTrackRow({
   layerIndex: number;
   selected: boolean;
   isActive: boolean;
-  playheadMs: number;
   rowMsToPx: number;
   trackWidth: number;
   snapGuideMs?: number;
   sceneDurationMs: number;
-  onSelect: (additive: boolean) => void;
-  onToggleHidden: () => void;
-  onToggleLocked: () => void;
+  onSelectWidget: (widgetId: string, additive: boolean) => void;
+  onToggleWidgetHidden: (widgetId: string) => void;
+  onToggleWidgetLocked: (widgetId: string) => void;
   onRename: (widgetId: string, nextName: string) => void;
-  onReorder: (direction: 'forward' | 'backward') => void;
-  onToggleCollapse?: () => void;
+  onReorderWidget: (widgetId: string, direction: 'forward' | 'backward') => void;
+  onToggleGroupCollapse?: (widgetId: string) => void;
   onDragStart: (drag: Exclude<TimelineDragState, null>) => void;
-  onScrubStart: (clientX: number, startMs: number) => void;
+  onScrubStart: (clientX: number, startMs?: number) => void;
 }): JSX.Element {
   const { widget, timing, keyframes, depth, isGroup, childCount, isCollapsed } = row;
   const definition = getWidgetDefinition(widget.type);
@@ -86,7 +84,7 @@ export function TimelineTrackRow({
       ].filter(Boolean).join(' ')}
       data-layer-index={String(layerIndex % 8)}
       style={rowStyle}
-      onClick={(event) => onSelect(event.shiftKey || event.metaKey || event.ctrlKey)}
+      onClick={(event) => onSelectWidget(widget.id, event.shiftKey || event.metaKey || event.ctrlKey)}
     >
       <div className="timeline-row-meta">
         <div className="timeline-row-meta-top">
@@ -101,7 +99,7 @@ export function TimelineTrackRow({
               icon={<StudioIcon icon={isCollapsed ? StudioIcons.chevronRight : StudioIcons.chevronDown} size={14} />}
               onClick={(event) => {
                 event.stopPropagation();
-                onToggleCollapse?.();
+                onToggleGroupCollapse?.(widget.id);
               }}
             />
           ) : (
@@ -119,7 +117,7 @@ export function TimelineTrackRow({
             icon={<StudioIcon icon={widget.hidden ? StudioIcons.eyeOff : StudioIcons.eye} size={13} strokeWidth={1.75} />}
             onClick={(event) => {
               event.stopPropagation();
-              onToggleHidden();
+              onToggleWidgetHidden(widget.id);
             }}
           />
 
@@ -134,7 +132,7 @@ export function TimelineTrackRow({
             icon={<StudioIcon icon={widget.locked ? StudioIcons.lock : StudioIcons.lockOpen} size={13} strokeWidth={1.75} />}
             onClick={(event) => {
               event.stopPropagation();
-              onToggleLocked();
+              onToggleWidgetLocked(widget.id);
             }}
           />
 
@@ -176,7 +174,7 @@ export function TimelineTrackRow({
               icon={<StudioIcon icon={StudioIcons.chevronUp} size={12} />}
               onClick={(event) => {
                 event.stopPropagation();
-                onReorder('forward');
+                onReorderWidget(widget.id, 'forward');
               }}
             />
             <IconButton
@@ -189,7 +187,7 @@ export function TimelineTrackRow({
               icon={<StudioIcon icon={StudioIcons.chevronDown} size={12} />}
               onClick={(event) => {
                 event.stopPropagation();
-                onReorder('backward');
+                onReorderWidget(widget.id, 'backward');
               }}
             />
           </div>
@@ -209,12 +207,12 @@ export function TimelineTrackRow({
         <button
           type="button"
           className="timeline-row-playhead"
-          aria-label={`Scrub timeline position at ${formatTime(playheadMs)}`}
+          aria-label="Scrub timeline position"
           onPointerDown={(event) => {
             event.preventDefault();
             event.stopPropagation();
             event.currentTarget.setPointerCapture(event.pointerId);
-            onScrubStart(event.clientX, playheadMs);
+            onScrubStart(event.clientX);
           }}
         />
         {snapGuideMs !== undefined ? <div className="timeline-snap-guide" /> : null}
@@ -229,7 +227,7 @@ export function TimelineTrackRow({
               event.preventDefault();
               event.stopPropagation();
               event.currentTarget.setPointerCapture(event.pointerId);
-              onSelect(false);
+              onSelectWidget(widget.id, false);
               if (widget.locked) return;
               onDragStart({
                 mode: 'move-keyframe',
@@ -318,3 +316,5 @@ export function TimelineTrackRow({
     </div>
   );
 }
+
+export const TimelineTrackRow = memo(TimelineTrackRowComponent);
