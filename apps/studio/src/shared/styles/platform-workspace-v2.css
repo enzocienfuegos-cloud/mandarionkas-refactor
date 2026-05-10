@@ -54,9 +54,9 @@
   justify-content: space-between;
   gap: var(--space-5);
   padding: calc(var(--space-8) + var(--space-1)) calc(var(--space-9) + var(--space-1));
-  border-radius: var(--radius-3xl);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.015);
+  border-radius: var(--radius-none);
+  border: 0;
+  background: transparent;
 }
 
 .draft-recovery-banner small,
@@ -86,6 +86,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+.draft-recovery-banner {
+  padding-inline: 0;
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .workspace-folders-panel {
