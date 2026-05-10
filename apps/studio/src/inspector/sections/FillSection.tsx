@@ -4,12 +4,13 @@ import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import type { AssetRecord } from '../../assets/types';
 import type { WidgetNode } from '../../domain/document/types';
-import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { Button } from '../../shared/ui/Button';
 import { getCapability } from '../../widgets/registry/widget-definition';
 import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
 import { badgeStateFromInheritance, useWidgetInheritance, type InheritanceBadgeState } from '../use-widget-inheritance';
+import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 function hasAny(keys: Set<string>, targets: string[]): boolean {
   return targets.some((target) => keys.has(target));
@@ -17,7 +18,6 @@ function hasAny(keys: Set<string>, targets: string[]): boolean {
 
 export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
   const widgetActions = useWidgetActions();
-  const uiActions = useUiActions();
   const platform = usePlatformSnapshot();
   const {
     baseWidget,
@@ -180,7 +180,7 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
               <option value="">No linked asset</option>
               {eligibleAssets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
             </select>
-              <Button size="sm" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</Button>
+              <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
             </div>
           </div>
           {acceptsVideoAsset ? <div>

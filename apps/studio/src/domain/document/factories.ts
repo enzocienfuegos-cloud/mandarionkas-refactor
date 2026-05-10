@@ -130,7 +130,7 @@ export function createInitialUiState(): StudioState['ui'] {
     activeFeedSource: 'product',
     activeFeedRecordId: 'product_summer',
     activeProjectId: undefined,
-    activeLeftTab: 'layers',
+    activeLeftTab: 'widgets',
     stageBackdrop: 'dark',
     showStageRulers: true,
     showWidgetBadges: false,

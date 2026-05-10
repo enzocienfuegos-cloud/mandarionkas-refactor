@@ -4,12 +4,12 @@ import type { AssetRecord } from '../../assets/types';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { usePlatformSnapshot } from '../../platform/runtime';
-import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { Button } from '../../shared/ui/Button';
+import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.Element {
   const widgetActions = useWidgetActions();
-  const uiActions = useUiActions();
   const platform = usePlatformSnapshot();
   const [assets, setAssets] = useState<AssetRecord[]>([]);
 
@@ -67,7 +67,7 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
           </select>
         </div>
         <div className="asset-inline-actions">
-          <Button size="sm" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</Button>
+          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
         </div>
         <div>
           <label>Cover blur</label>

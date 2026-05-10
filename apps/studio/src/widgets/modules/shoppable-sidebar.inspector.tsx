@@ -1,13 +1,12 @@
 import { useMemo } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
-import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { Button } from '../../shared/ui/Button';
 import { buildShoppableProductsValue, parseShoppableProducts, type ShoppableProduct } from './shoppable-sidebar.shared';
+import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): JSX.Element {
   const widgetActions = useWidgetActions();
-  const uiActions = useUiActions();
-
   const products = useMemo(() => parseShoppableProducts(widget.props.products), [widget.props.products]);
   const ctaBackgroundColor = String((widget.style as Record<string, unknown>).ctaBackgroundColor ?? widget.style.accentColor ?? '#9a3412');
   const ctaTextColor = String((widget.style as Record<string, unknown>).ctaTextColor ?? '#111827');
@@ -103,7 +102,7 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
           <div className="field-stack">
             <small className="muted">Add product images from the asset library. This module no longer shows a preloaded image list here.</small>
             <div className="rail-action-grid">
-              <Button size="sm" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</Button>
+              <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
               <Button size="sm" className="left-button compact-action" onClick={addBlankProduct}>Add blank product</Button>
             </div>
           </div>

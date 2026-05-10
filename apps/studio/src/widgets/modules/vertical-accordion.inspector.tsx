@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AssetRecord } from '../../assets/types';
 import type { WidgetNode } from '../../domain/document/types';
-import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { Button } from '../../shared/ui/Button';
 import { VERTICAL_ACCORDION_DEFAULTS, VERTICAL_ACCORDION_ROW_DEFAULTS } from './vertical-accordion.shared';
+import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 function useImageAssets(): AssetRecord[] {
   const platform = usePlatformSnapshot();
@@ -49,7 +50,6 @@ function AssetPicker({
   placeholder?: string;
 }): JSX.Element {
   const { updateWidgetProps } = useWidgetActions();
-  const uiActions = useUiActions();
   const assets = useImageAssets();
   const linkedAssetId = String(node.props[assetIdKey] ?? '');
 
@@ -94,7 +94,7 @@ function AssetPicker({
               </option>
             ))}
           </select>
-          <Button size="sm" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</Button>
+          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
         </div>
       </div>
     </div>

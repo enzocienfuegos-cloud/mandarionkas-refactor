@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ColorControl } from '../../shared/ui/ColorControl';
-import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { useWidgetActions } from '../../hooks/use-studio-actions';
 import type { WidgetNode } from '../../domain/document/types';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
@@ -9,6 +9,7 @@ import { resolveFontAssetFamily } from '../../assets/FontAssetRuntime';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { Button } from '../../shared/ui/Button';
 import { badgeStateFromInheritance, useWidgetInheritance, type InheritanceBadgeState } from '../use-widget-inheritance';
+import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 function hasAny(keys: Set<string>, targets: string[]): boolean {
   return targets.some((target) => keys.has(target));
@@ -16,7 +17,6 @@ function hasAny(keys: Set<string>, targets: string[]): boolean {
 
 export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
   const { updateWidgetProps, updateWidgetStyle } = useWidgetActions();
-  const uiActions = useUiActions();
   const platform = usePlatformSnapshot();
   const {
     baseWidget,
@@ -212,7 +212,7 @@ export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
               <option value="">No linked font</option>
               {fontAssets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
             </select>
-            <Button size="sm" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Browse fonts</Button>
+            <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Browse fonts</Button>
           </div>
         </div>
       </div>

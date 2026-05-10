@@ -15,7 +15,9 @@ function normalizeFeeds(feeds: StudioState['document']['feeds'] | undefined): Fe
 export function normalizeStudioState(raw: StudioState): StudioState {
   const base = createInitialState();
   const rawLeftTab = raw.ui?.activeLeftTab as string | undefined;
-  const normalizedLeftTab = rawLeftTab === 'widgets' ? 'layers' : ((rawLeftTab as StudioState['ui']['activeLeftTab'] | undefined) ?? base.ui.activeLeftTab);
+  const normalizedLeftTab = rawLeftTab === 'assets'
+    ? 'widgets'
+    : ((rawLeftTab as StudioState['ui']['activeLeftTab'] | undefined) ?? base.ui.activeLeftTab);
   const activeSceneId = raw.document.selection?.activeSceneId && raw.document.scenes.some((scene) => scene.id === raw.document.selection.activeSceneId)
     ? raw.document.selection.activeSceneId
     : raw.document.scenes[0]?.id ?? base.document.selection.activeSceneId;

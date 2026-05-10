@@ -3,8 +3,8 @@ import { IconButton } from '../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 
 const TABS: Array<{ key: StudioState['ui']['activeLeftTab']; label: string; icon: keyof typeof StudioIcons }> = [
+  { key: 'widgets', label: 'Widgets', icon: 'plus' },
   { key: 'layers', label: 'Layers', icon: 'layers' },
-  { key: 'assets', label: 'Assets', icon: 'images' },
   { key: 'flow', label: 'Flow', icon: 'workflow' },
 ];
 

@@ -26,7 +26,11 @@ function fitZoomForWorkspace(args: {
   );
 }
 
-export function TopBarCenterContent({ controller }: { controller: TopBarController }): JSX.Element {
+export function TopBarCenterContent({
+  controller,
+}: {
+  controller: TopBarController;
+}): JSX.Element {
   const { previewMode, previewContext, zoom, state } = controller.snapshot;
   const { canvasPresetId } = controller.snapshot;
   const { documentActions, uiActions } = controller.document;

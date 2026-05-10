@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AssetRecord } from '../../assets/types';
 import type { WidgetNode } from '../../domain/document/types';
-import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { Button } from '../../shared/ui/Button';
 import { FOUR_FACES_DEFAULT_GLOBAL, FOUR_FACES_DEFAULT_HOME, FOUR_FACES_FACE_DEFAULTS, FOUR_FACES_FACE_LABELS, type FaceDir } from './four-faces.shared';
+import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 function useImageAssets(): AssetRecord[] {
   const platform = usePlatformSnapshot();
@@ -39,7 +40,6 @@ function useImageAssets(): AssetRecord[] {
 
 function AssetPicker({ node, srcKey, assetIdKey }: { node: WidgetNode; srcKey: string; assetIdKey: string }): JSX.Element {
   const { updateWidgetProps } = useWidgetActions();
-  const uiActions = useUiActions();
   const assets = useImageAssets();
   const linkedId = String(node.props[assetIdKey] ?? '');
 
@@ -84,7 +84,7 @@ function AssetPicker({ node, srcKey, assetIdKey }: { node: WidgetNode; srcKey: s
               </option>
             ))}
           </select>
-          <Button size="sm" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</Button>
+          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
         </div>
       </div>
     </div>

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AssetRecord } from '../../assets/types';
 import type { WidgetNode } from '../../domain/document/types';
-import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { Button } from '../../shared/ui/Button';
+import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 import {
   TIKTOK_VIDEO_DEFAULT_CAPTION,
   TIKTOK_VIDEO_DEFAULT_COMMENTS_COUNT,
@@ -49,7 +50,6 @@ function useAssets(kind: 'image' | 'video' | 'both'): AssetRecord[] {
 
 function VideoAssetPicker({ node }: { node: WidgetNode }): JSX.Element {
   const { updateWidgetProps } = useWidgetActions();
-  const uiActions = useUiActions();
   const assets = useAssets('video');
   const linkedId = String(node.props.videoAssetId ?? '');
   const linkedAsset = useMemo(() => assets.find((asset) => asset.id === linkedId), [assets, linkedId]);
@@ -84,7 +84,7 @@ function VideoAssetPicker({ node }: { node: WidgetNode }): JSX.Element {
               </option>
             ))}
           </select>
-          <Button size="sm" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</Button>
+          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
         </div>
       </div>
       {linkedAsset ? <small className="muted">Linked: {linkedAsset.name}</small> : null}
@@ -104,7 +104,6 @@ function ImageAssetPicker({
   label: string;
 }): JSX.Element {
   const { updateWidgetProps } = useWidgetActions();
-  const uiActions = useUiActions();
   const assets = useAssets('image');
   const linkedId = String(node.props[assetIdKey] ?? '');
 
@@ -149,7 +148,7 @@ function ImageAssetPicker({
               </option>
             ))}
           </select>
-          <Button size="sm" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</Button>
+          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
         </div>
       </div>
     </div>

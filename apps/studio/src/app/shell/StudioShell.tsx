@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useState, type CSSProperties } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { TopBar } from './TopBar';
 import { StudioKeyboardShortcuts } from './StudioKeyboardShortcuts';
 import { LeftRail } from './LeftRail';
@@ -19,6 +19,7 @@ import {
 } from './use-shell-layout';
 import { useShellResize } from './use-shell-resize';
 import { registerBuiltins } from '../../widgets/registry/register-builtins';
+import { subscribeToOpenAssetLibrary } from '../../shared/asset-library-events';
 
 registerBuiltins();
 
@@ -47,6 +48,10 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
     rightInspectorHidden,
     timelineHidden,
   } = layout;
+
+  useEffect(() => {
+    return subscribeToOpenAssetLibrary(() => setAssetLibraryOpen(true));
+  }, []);
 
   const handleLeftRailResizeStart = useCallback((startX: number, edge: 'left' | 'right') => {
     const startWidth = leftRailWidth;
@@ -100,11 +105,14 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
       className={`studio-shell ${leftRailHidden ? 'is-left-collapsed' : ''} ${rightInspectorHidden ? 'is-right-collapsed' : ''} ${timelineHidden ? 'is-bottom-collapsed' : ''}`.trim()}
       style={shellStyle}
     >
-      <TopBar onOpenWorkspaceHub={onOpenWorkspaceHub} onOpenBrandKitDrawer={() => setBrandKitDrawerOpen(true)} />
+      <TopBar
+        onOpenWorkspaceHub={onOpenWorkspaceHub}
+        onOpenAssetLibrary={() => setAssetLibraryOpen(true)}
+        onOpenBrandKitDrawer={() => setBrandKitDrawerOpen(true)}
+      />
       {!leftRailHidden ? (
         <LeftRail
           onOpenShortcuts={() => setShortcutsOpen(true)}
-          onOpenAssetLibrary={() => setAssetLibraryOpen(true)}
           onToggleCollapse={() => setLayout((current) => ({ ...current, leftRailHidden: true }))}
           onResizeStart={handleLeftRailResizeStart}
         />

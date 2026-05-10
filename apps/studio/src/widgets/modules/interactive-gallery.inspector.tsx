@@ -3,13 +3,14 @@ import { resolveAssetQualityPreference } from '../../assets/policy';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import type { WidgetNode } from '../../domain/document/types';
-import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import type { AssetRecord } from '../../assets/types';
 import { Button } from '../../shared/ui/Button';
 import { IconButton } from '../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
+import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 type GalleryItemDraft = {
   src: string;
@@ -71,7 +72,6 @@ function stringifyGalleryItemDrafts(items: GalleryItemDraft[]): string {
 
 export function InteractiveGalleryInspector({ widget }: { widget: WidgetNode }): JSX.Element {
   const { updateWidgetProps } = useWidgetActions();
-  const uiActions = useUiActions();
   const platform = usePlatformSnapshot();
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState('');
@@ -194,7 +194,7 @@ export function InteractiveGalleryInspector({ widget }: { widget: WidgetNode }):
               ))}
             </select>
             <Button size="sm" className="left-button compact-action" onClick={addAssetItem} disabled={!selectedAsset}>Add item</Button>
-            <Button size="sm" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</Button>
+            <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
           </div>
         </div>
 

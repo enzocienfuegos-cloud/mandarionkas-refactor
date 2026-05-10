@@ -24,13 +24,19 @@
 }
 
 .workspace-project-preview {
+  display: block;
+  width: 100%;
   min-height: 160px;
   padding: 0;
+  border: none;
+  appearance: none;
+  -webkit-appearance: none;
   overflow: hidden;
   background: transparent;
 }
 
 .workspace-project-thumb {
+  width: 100%;
   min-height: 160px;
   border-radius: var(--radius-2xl);
   overflow: hidden;

@@ -1,21 +1,19 @@
 import { useState } from 'react';
 import { LeftTabBar } from './LeftTabBar';
-import { AssetLibrarySection } from './left-rail/AssetLibrarySection';
 import { CollaborationSection } from './left-rail/CollaborationSection';
 import { LayersSection } from './left-rail/LayersSection';
 import { StoryFlowSection } from './left-rail/StoryFlowSection';
+import { WidgetLibrarySection } from './left-rail/WidgetLibrarySection';
 import { useLeftRailController } from './left-rail/use-left-rail-controller';
 import { IconButton } from '../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 
 export function LeftRail({
   onOpenShortcuts,
-  onOpenAssetLibrary,
   onToggleCollapse,
   onResizeStart,
 }: {
   onOpenShortcuts: () => void;
-  onOpenAssetLibrary: () => void;
   onToggleCollapse: () => void;
   onResizeStart: (startX: number, edge: 'left' | 'right') => void;
 }): JSX.Element {
@@ -30,8 +28,8 @@ export function LeftRail({
           <div>
             <small className="left-title">Tools</small>
             <strong className="rail-heading">
+              {controller.activeLeftTab === 'widgets' ? 'Widgets' : null}
               {controller.activeLeftTab === 'layers' ? 'Layers' : null}
-              {controller.activeLeftTab === 'assets' ? 'Assets' : null}
               {controller.activeLeftTab === 'flow' ? 'Flow' : null}
             </strong>
           </div>
@@ -47,8 +45,8 @@ export function LeftRail({
           />
         </div>
         <div className="left-rail-panel">
+          {controller.activeLeftTab === 'widgets' ? <WidgetLibrarySection /> : null}
           {controller.activeLeftTab === 'layers' ? <LayersSection controller={controller} /> : null}
-          {controller.activeLeftTab === 'assets' ? <AssetLibrarySection controller={controller} onOpenLibraryModal={onOpenAssetLibrary} /> : null}
           {controller.activeLeftTab === 'flow' ? <StoryFlowSection controller={controller} /> : null}
         </div>
       </div>

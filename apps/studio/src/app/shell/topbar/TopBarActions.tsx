@@ -30,7 +30,15 @@ function openPreflightPanel(): void {
   toggle?.click();
 }
 
-export function TopBarActions({ controller, onOpenBrandKitDrawer }: { controller: TopBarController; onOpenBrandKitDrawer: () => void }): JSX.Element {
+export function TopBarActions({
+  controller,
+  onOpenAssetLibrary,
+  onOpenBrandKitDrawer,
+}: {
+  controller: TopBarController;
+  onOpenAssetLibrary: () => void;
+  onOpenBrandKitDrawer: () => void;
+}): JSX.Element {
   const { release, state, dirty } = controller.snapshot;
   const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'success' | 'error'>('idle');
   const { canSaveProjects } = controller.workspace;
@@ -208,6 +216,15 @@ export function TopBarActions({ controller, onOpenBrandKitDrawer }: { controller
           {warningCount > 0 ? <span className="top-actions-icon-button__badge">{warningCount}</span> : null}
         </button>
       </Tooltip>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="top-assets-button"
+        iconBefore={<StudioIcon icon={StudioIcons.images} size={14} />}
+        onClick={onOpenAssetLibrary}
+      >
+        Assets
+      </Button>
       <Button
         variant="ghost"
         size="sm"

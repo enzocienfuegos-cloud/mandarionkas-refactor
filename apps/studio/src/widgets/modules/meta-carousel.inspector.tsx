@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AssetRecord } from '../../assets/types';
 import type { WidgetNode } from '../../domain/document/types';
-import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { usePlatformSnapshot } from '../../platform/runtime';
@@ -11,6 +11,7 @@ import {
   META_CAROUSEL_DEFAULT_PRIMARY_TEXT,
   META_CAROUSEL_DEFAULT_SPONSORED_LABEL,
 } from './meta-carousel.shared';
+import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 function useAssets() {
   const platform = usePlatformSnapshot();
@@ -31,7 +32,6 @@ function AssetPicker({ node, srcKey, assetIdKey, kindFilter, placeholder }: {
   kindFilter: 'image' | 'video' | 'both'; placeholder?: string;
 }) {
   const { updateWidgetProps } = useWidgetActions();
-  const uiActions = useUiActions();
   const assets = useAssets();
   const eligible = useMemo(() => assets.filter((a) =>
     kindFilter === 'both' ? a.kind === 'image' || a.kind === 'video'
@@ -63,7 +63,7 @@ function AssetPicker({ node, srcKey, assetIdKey, kindFilter, placeholder }: {
             <option value="">No linked asset</option>
             {eligible.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
-          <Button size="sm" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</Button>
+          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
         </div>
       </div>
     </div>

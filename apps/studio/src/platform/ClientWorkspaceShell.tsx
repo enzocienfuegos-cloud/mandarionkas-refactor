@@ -13,9 +13,9 @@ type ClientWorkspaceShellProps = {
   onEnterEditor(): void;
 };
 
-type WorkspaceTab = 'templates' | 'projects' | 'folders' | 'brand-kit';
+type WorkspaceTab = 'projects' | 'templates' | 'folders' | 'brand-kit';
 
-const WORKSPACE_TABS: readonly WorkspaceTab[] = ['templates', 'projects', 'folders', 'brand-kit'];
+const WORKSPACE_TABS: readonly WorkspaceTab[] = ['projects', 'templates', 'folders', 'brand-kit'];
 
 function buildClientWorkspaceFrameStyle(borderColor: string, aspectRatio: string): CSSProperties {
   return {
@@ -68,7 +68,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
     ownerOptions,
   } = controller;
   const routePath = `/hub/client/${encodeURIComponent(activeClient?.id ?? workspace.activeClientId ?? 'client')}`;
-  const defaultTab: WorkspaceTab = stats.totalProjects > 0 ? 'projects' : 'templates';
+  const defaultTab: WorkspaceTab = 'projects';
   const [activeTab, setActiveTab] = useHashTabState(routePath, WORKSPACE_TABS, defaultTab);
 
   async function handleOpen(projectId: string): Promise<void> {
@@ -87,8 +87,8 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
   }
 
   const tabs = [
-    { id: 'templates' as const, label: 'Templates', count: controller.templateCount ?? undefined },
     { id: 'projects' as const, label: 'Projects', count: stats.totalProjects - stats.archived },
+    { id: 'templates' as const, label: 'Templates', count: controller.templateCount ?? undefined },
     { id: 'folders' as const, label: 'Folders', count: Math.max(0, folderCards.length - 2) },
     { id: 'brand-kit' as const, label: 'Brand kit' },
   ];
@@ -213,6 +213,23 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
               </div>
             </section>
 
+            {!pageItems.length ? (
+              <section className="workspace-hub-empty-state panel">
+                <div>
+                  <div className="workspace-hub-kicker">Projects</div>
+                  <h3>No projects yet</h3>
+                  <p>Start from a template or create a blank campaign. This workspace should open on projects first, even when it is still empty.</p>
+                </div>
+                <div className="workspace-project-actions">
+                  <Button variant="ghost" size="sm" className="compact-action" onClick={() => setActiveTab('templates')}>
+                    Browse templates
+                  </Button>
+                  <Button variant="primary" size="sm" className="compact-action" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
+                    Blank canvas
+                  </Button>
+                </div>
+              </section>
+            ) : (
             <section className="workspace-hub-grid">
               {pageItems.map((project) => {
                 const preset = getCanvasPresetById(project.canvasPresetId ?? (project.id === controller.snapshot.activeProjectId ? controller.snapshot.canvasPresetId : undefined));
@@ -273,6 +290,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
                 );
               })}
             </section>
+            )}
 
             <div className="workspace-hub-pagination">
               <div className="pill">Page {page} of {pageCount}</div>
@@ -327,7 +345,7 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
 
         {activeTab === 'brand-kit' ? (
           <div className="brand-kit-inline-panel">
-            <BrandKitDrawer embedded onClose={() => setActiveTab('templates')} />
+            <BrandKitDrawer embedded onClose={() => setActiveTab('projects')} />
           </div>
         ) : null}
       </main>

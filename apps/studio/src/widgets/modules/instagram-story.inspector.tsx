@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AssetRecord } from '../../assets/types';
 import type { WidgetNode } from '../../domain/document/types';
-import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { Button } from '../../shared/ui/Button';
 import { INSTAGRAM_STORY_DEFAULT_USERNAME } from './instagram-story.shared';
+import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 // ─── Shared asset hook ────────────────────────────────────────────────────────
 
@@ -43,7 +44,6 @@ function SlideConfig({
   assets: AssetRecord[];
 }) {
   const { updateWidgetProps } = useWidgetActions();
-  const uiActions = useUiActions();
   const n = slideIndex;
 
   const srcKey = `slide${n}Src` as const;
@@ -108,7 +108,7 @@ function SlideConfig({
               <option value="">No linked asset</option>
               {eligibleAssets.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
-            <Button size="sm" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</Button>
+            <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
           </div>
         </div>
 
@@ -139,7 +139,6 @@ function SlideConfig({
 
 export function InstagramStoryInspector({ node }: { node: WidgetNode }): JSX.Element {
   const { updateWidgetProps } = useWidgetActions();
-  const uiActions = useUiActions();
   const assets = useAssets();
 
   const avatarAssets = useMemo(() => assets.filter((a) => a.kind === 'image'), [assets]);
@@ -181,7 +180,7 @@ export function InstagramStoryInspector({ node }: { node: WidgetNode }): JSX.Ele
                 <option value="">No linked asset</option>
                 {avatarAssets.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
-              <Button size="sm" className="left-button compact-action" onClick={() => uiActions.setLeftTab('assets')}>Open library</Button>
+              <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
             </div>
           </div>
           <label className="checkbox-row">
