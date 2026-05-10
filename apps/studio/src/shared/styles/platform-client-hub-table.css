@@ -1,0 +1,93 @@
+.sbadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: var(--client-hub-badge-font-size);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.sbadge--draft,
+.sbadge--client-idle {
+  color: var(--muted);
+}
+
+.sbadge--review {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(232, 179, 74, 0.16);
+  color: var(--client-hub-badge-review-text);
+}
+
+.sbadge--client-shared {
+  border-color: rgba(48, 232, 255, 0.35);
+  background: rgba(48, 232, 255, 0.08);
+  color: var(--client-hub-badge-shared-text);
+}
+
+.sbadge--ready,
+.sbadge--exported,
+.sbadge--client-active {
+  border-color: rgba(86, 196, 126, 0.34);
+  background: rgba(86, 196, 126, 0.14);
+  color: var(--client-hub-badge-active-text);
+}
+
+.sbadge--draft {
+  border-color: rgba(111, 60, 255, 0.34);
+  background: rgba(111, 60, 255, 0.14);
+  color: var(--client-hub-badge-draft-text);
+}
+
+.sbadge--archived {
+  opacity: 0.72;
+}
+
+.empty-state {
+  display: grid;
+  gap: var(--space-4);
+  min-height: var(--client-hub-empty-min-height);
+  place-content: center;
+  text-align: center;
+  border: 1px dashed rgba(120, 144, 168, 0.26);
+  border-radius: var(--radius-4xl);
+  background: rgba(255, 255, 255, 0.02);
+  margin: var(--space-8) var(--space-9);
+  padding: var(--client-hub-empty-inset);
+}
+
+.empty-state p {
+  color: var(--muted);
+  margin: 0;
+  font-size: var(--client-hub-empty-copy-size);
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--client-hub-page-space);
+  padding: var(--client-hub-page-inset);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--muted);
+  font-size: var(--client-hub-pagination-size);
+  margin-top: var(--client-hub-page-space);
+}
+
+.pagination-actions {
+  display: flex;
+  gap: var(--client-hub-stats-space);
+  align-items: center;
+}
+
+.pagination-actions span {
+  font-size: var(--client-hub-pagination-size);
+  color: var(--muted);
+  min-width: 80px;
+  text-align: center;
+}

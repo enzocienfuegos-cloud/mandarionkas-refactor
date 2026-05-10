@@ -1,0 +1,70 @@
+import { normalizeStudioState } from '../../domain/document/normalize-state';
+import type { StudioState } from '../../domain/document/types';
+import { loadProject } from '../../repositories/project';
+import { readStorageItem, writeStorageItem } from '../../shared/browser/storage';
+import type { LoadedClientPreviewProject } from './types';
+
+const PROJECT_KEY_PREFIX = 'smx-studio-v4:project:';
+
+function normalizePreviewPath(path: string): string {
+  return path.replace(/\/+$/, '');
+}
+
+export function readClientPreviewRoute(url = window.location): { projectId: string; token: string } | null {
+  const pathname = normalizePreviewPath(url.pathname);
+  const hashPath = normalizePreviewPath(url.hash.replace(/^#/, '').split('?')[0] ?? '');
+  const match = pathname.match(/\/preview\/([^/]+)\/([^/]+)$/)
+    ?? hashPath.match(/^\/?preview\/([^/]+)\/([^/]+)$/);
+  if (!match) return null;
+  return {
+    projectId: decodeURIComponent(match[1]),
+    token: decodeURIComponent(match[2]),
+  };
+}
+
+export function buildClientPreviewToken(projectId: string, version?: number): string {
+  const safeProjectId = projectId.replace(/[^a-zA-Z0-9_-]+/g, '-');
+  return `review-${safeProjectId}-${version ?? 0}`;
+}
+
+export function buildClientPreviewUrl(url: Location, projectId: string, token: string): string {
+  const route = `/preview/${encodeURIComponent(projectId)}/${encodeURIComponent(token)}`;
+  return `${url.origin}${url.pathname}${url.search}#${route}`;
+}
+
+export function persistClientPreviewSnapshot(projectId: string, state: StudioState): StudioState {
+  const snapshot = normalizeStudioState({
+    ...state,
+    document: {
+      ...state.document,
+      id: projectId,
+    },
+    ui: {
+      ...state.ui,
+      activeProjectId: projectId,
+    },
+  });
+  writeStorageItem(`${PROJECT_KEY_PREFIX}${projectId}`, JSON.stringify(snapshot));
+  return snapshot;
+}
+
+function readProjectFromLocalStorage(projectId: string): StudioState | null {
+  const raw = readStorageItem(`${PROJECT_KEY_PREFIX}${projectId}`, '');
+  if (!raw) return null;
+  try {
+    return normalizeStudioState(JSON.parse(raw) as StudioState);
+  } catch {
+    return null;
+  }
+}
+
+export async function loadClientPreviewProject(projectId: string, token: string): Promise<LoadedClientPreviewProject | null> {
+  const loaded = await loadProject(projectId).catch(() => null);
+  const state = loaded ?? readProjectFromLocalStorage(projectId);
+  if (!state) return null;
+  return {
+    projectId,
+    token,
+    state,
+  };
+}

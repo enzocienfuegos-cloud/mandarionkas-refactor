@@ -1,0 +1,143 @@
+@import './theme-tokens.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-height: 38px;
+  background: linear-gradient(180deg, var(--bg-deep), var(--bg-deep-4));
+  color: var(--text);
+  border: 1px solid var(--stroke-a-24);
+  border-radius: var(--radius-xl);
+  padding: 9px 11px;
+  box-shadow: inset 0 1px 0 var(--white-a-02);
+  transition:
+    border-color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease),
+    background var(--motion-base) var(--motion-ease);
+}
+
+textarea {
+  min-height: 82px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--white-a-28);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent-a-45);
+  box-shadow: var(--shadow-focus), inset 0 1px 0 var(--white-a-03);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--white-a-62);
+}
+
+select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--white-a-85) 50%),
+    linear-gradient(135deg, var(--white-a-85) 50%, transparent 50%);
+  background-position: calc(100% - 17px) calc(50% - 2px), calc(100% - 12px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: var(--space-12);
+}
+
+label {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--white-a-90);
+  margin-bottom: 7px;
+}
+
+small.muted {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+code.inline {
+  background: var(--bg-deep-4);
+  border: 1px solid var(--stroke);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.icon-button {
+  min-width: var(--control-h-md);
+  min-height: var(--control-h-md);
+  border-radius: var(--radius-lg);
+  padding: 0;
+}
+
+.compact-action {
+  min-height: 34px;
+  border-radius: var(--radius-lg);
+  padding-inline: var(--space-5);
+}
+
+.checkbox-row {
+  min-height: 36px;
+  padding: 0 2px;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.studio-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+  button:focus-visible,
+.icon-button:focus-visible,
+.panel-collapse-button:focus-visible,
+.collapsed-panel-tab:focus-visible,
+.timeline-keyframe-dot:focus-visible,
+.timeline-trim:focus-visible,
+.selection-handle:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-keyboard);
+}
