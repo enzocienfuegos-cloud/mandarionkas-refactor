@@ -1,8 +1,10 @@
+import { Button } from '../../shared/ui/Button';
 import type { AgencyClientCard } from './use-agency-shell-controller';
 
 type ClientCardProps = {
   clientCard: AgencyClientCard;
   onOpen(): void;
+  onManageBrandKit(): void;
 };
 
 function formatLastActivity(value?: string): string {
@@ -26,7 +28,7 @@ function buildClientInitials(name: string): string {
     .join('') || 'CL';
 }
 
-function Card({ clientCard, onOpen }: ClientCardProps): JSX.Element {
+function Card({ clientCard, onOpen, onManageBrandKit }: ClientCardProps): JSX.Element {
   const {
     client,
     activeProjectCount,
@@ -81,6 +83,15 @@ function Card({ clientCard, onOpen }: ClientCardProps): JSX.Element {
           <small>{formatLastActivity(latestActivityAt)}</small>
         </div>
       </button>
+
+      <div className="client-card-actions">
+        <Button variant="ghost" size="sm" className="compact-action" onClick={onManageBrandKit}>
+          Brand Kit
+        </Button>
+        <Button variant="ghost" size="sm" className="compact-action" onClick={onOpen}>
+          Open workspace
+        </Button>
+      </div>
     </article>
   );
 }

@@ -206,6 +206,19 @@
   font-size: var(--client-hub-card-add-copy-size);
 }
 
+.client-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--client-hub-card-inset) var(--client-hub-card-inset);
+}
+
+.client-card-actions .btn {
+  flex: 1 1 0;
+  justify-content: center;
+}
+
 .add-client-card {
   border-style: dashed;
   cursor: pointer;

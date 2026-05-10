@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { useAgencyShellController } from './agency-shell/use-agency-shell-controller';
 import { ClientGrid } from './agency-shell/ClientGrid';
 import { AddClientCard } from './agency-shell/AddClientCard';
@@ -5,6 +6,7 @@ import { RecentProjectsPanel } from './agency-shell/RecentProjectsPanel';
 import { CreateClientModal } from './agency-shell/CreateClientModal';
 import { StudioTopbar } from './shared/StudioTopbar';
 import { StudioIcon, StudioIcons } from '../shared/ui/icons';
+import { PlatformBrandKitModal } from './shared/PlatformBrandKitModal';
 
 type AgencyShellProps = {
   onOpenClientWorkspace(clientId: string): void;
@@ -13,6 +15,7 @@ type AgencyShellProps = {
 
 export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShellProps): JSX.Element {
   const controller = useAgencyShellController();
+  const [brandKitClientId, setBrandKitClientId] = useState<string | null>(null);
   const {
     workspace,
     projectSession,
@@ -42,6 +45,10 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
     isCreatingClient,
     submitCreateClient,
   } = controller;
+  const activeBrandKitClient = useMemo(
+    () => visibleClientCards.find((entry) => entry.client.id === brandKitClientId)?.client,
+    [brandKitClientId, visibleClientCards],
+  );
 
   async function handleOpenProject(projectId: string, clientId?: string): Promise<void> {
     if (clientId && workspace.activeClientId !== clientId) {
@@ -136,6 +143,7 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
                     key={clientCard.client.id}
                     clientCard={clientCard}
                     onOpen={() => onOpenClientWorkspace(clientCard.client.id)}
+                    onManageBrandKit={() => setBrandKitClientId(clientCard.client.id)}
                   />
                 ))}
                 {workspace.canCreateClient ? <AddClientCard onAdd={openCreateClientModal} /> : null}
@@ -161,6 +169,13 @@ export function AgencyShell({ onOpenClientWorkspace, onEnterEditor }: AgencyShel
         onSubmit={() => {
           void handleCreateClient();
         }}
+      />
+
+      <PlatformBrandKitModal
+        open={Boolean(brandKitClientId)}
+        activeClient={activeBrandKitClient}
+        canManageBrandkits={workspace.canManageBrandkits}
+        onClose={() => setBrandKitClientId(null)}
       />
     </div>
   );

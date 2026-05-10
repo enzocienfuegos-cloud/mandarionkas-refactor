@@ -151,6 +151,29 @@
     rgba(255, 255, 255, 0.025);
 }
 
+.client-workspace-sidebar__brand-card--interactive {
+  width: 100%;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    transform var(--motion-duration-base) var(--motion-ease-out),
+    border-color var(--motion-duration-base) var(--motion-ease-out),
+    background var(--motion-duration-base) var(--motion-ease-out);
+}
+
+.client-workspace-sidebar__brand-card--interactive:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(48, 232, 255, 0.22);
+  background:
+    radial-gradient(circle at top left, rgba(48, 232, 255, 0.06), transparent 36%),
+    rgba(255, 255, 255, 0.04);
+}
+
+.client-workspace-sidebar__brand-card--interactive:disabled {
+  cursor: default;
+}
+
 .client-workspace-sidebar__brand-card small {
   color: var(--muted);
 }

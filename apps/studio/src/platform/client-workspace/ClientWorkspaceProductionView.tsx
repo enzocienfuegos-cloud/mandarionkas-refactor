@@ -6,6 +6,7 @@ import type { useClientWorkspaceController } from './use-client-workspace-contro
 import { ClientWorkspaceBulkBar } from './ClientWorkspaceBulkBar';
 import { ClientWorkspaceCampaignGroups } from './ClientWorkspaceCampaignGroups';
 import { ClientWorkspaceSidebar } from './ClientWorkspaceSidebar';
+import { PlatformBrandKitModal } from '../shared/PlatformBrandKitModal';
 import {
   matchesQuickFilter,
   resolveFormatKey,
@@ -60,6 +61,7 @@ export function ClientWorkspaceProductionView({
   const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
   const [bulkFolderId, setBulkFolderId] = useState<string>('root');
   const [inspectedProjectId, setInspectedProjectId] = useState<string | undefined>();
+  const [brandKitOpen, setBrandKitOpen] = useState(false);
 
   const folderNameById = useMemo(
     () => Object.fromEntries(campaignFolders.map((folder) => [folder.id, folder.name])),
@@ -258,6 +260,7 @@ export function ClientWorkspaceProductionView({
     <section className="client-workspace-production">
       <ClientWorkspaceSidebar
         activeClient={activeClient}
+        canManageBrandkits={workspace.canManageBrandkits}
         activeFolderId={activeFolderId}
         folderOptions={folderOptions}
         quickFilter={quickFilter}
@@ -269,6 +272,7 @@ export function ClientWorkspaceProductionView({
         onSetCreatingFolder={setCreatingFolder}
         onSetFolderDraftName={setFolderDraftName}
         onCreateFolder={() => { void handleCreateFolder(); }}
+        onOpenBrandKit={() => setBrandKitOpen(true)}
       />
 
       <div className="client-workspace-production__main">
@@ -328,6 +332,13 @@ export function ClientWorkspaceProductionView({
         onOpenProject={(projectId) => {
           void handleOpenProject(projectId);
         }}
+      />
+
+      <PlatformBrandKitModal
+        open={brandKitOpen}
+        activeClient={activeClient}
+        canManageBrandkits={workspace.canManageBrandkits}
+        onClose={() => setBrandKitOpen(false)}
       />
     </section>
   );

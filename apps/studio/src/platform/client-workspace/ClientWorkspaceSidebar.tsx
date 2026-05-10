@@ -5,6 +5,7 @@ import type { QuickFilterId } from './production-helpers';
 
 type ClientWorkspaceSidebarProps = {
   activeClient?: ClientWorkspace;
+  canManageBrandkits: boolean;
   activeFolderId: string;
   folderOptions: Array<{ id: string; name: string; count: number }>;
   quickFilter: QuickFilterId;
@@ -16,6 +17,7 @@ type ClientWorkspaceSidebarProps = {
   onSetCreatingFolder(value: boolean): void;
   onSetFolderDraftName(value: string): void;
   onCreateFolder(): void;
+  onOpenBrandKit(): void;
 };
 
 function resolveBrandPalette(activeClient?: ClientWorkspace): string[] {
@@ -39,6 +41,7 @@ function resolveBrandFont(primaryBrand?: BrandKit): string | null {
 
 export function ClientWorkspaceSidebar({
   activeClient,
+  canManageBrandkits,
   activeFolderId,
   folderOptions,
   quickFilter,
@@ -50,6 +53,7 @@ export function ClientWorkspaceSidebar({
   onSetCreatingFolder,
   onSetFolderDraftName,
   onCreateFolder,
+  onOpenBrandKit,
 }: ClientWorkspaceSidebarProps): JSX.Element {
   const primaryBrand = activeClient?.brands?.[0];
   const palette = resolveBrandPalette(activeClient);
@@ -141,9 +145,27 @@ export function ClientWorkspaceSidebar({
       </section>
 
       <section className="client-workspace-sidebar__section">
-        <div className="workspace-hub-kicker">Brand Kit</div>
+        <div className="client-workspace-sidebar__section-header">
+          <div className="workspace-hub-kicker">Brand Kit</div>
+          {canManageBrandkits ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="compact-action"
+              iconBefore={<StudioIcon icon={StudioIcons.palette} size={14} />}
+              onClick={onOpenBrandKit}
+            >
+              Open
+            </Button>
+          ) : null}
+        </div>
         <div className="client-workspace-sidebar__brand-grid">
-          <article className="client-workspace-sidebar__brand-card">
+          <button
+            type="button"
+            className="client-workspace-sidebar__brand-card client-workspace-sidebar__brand-card--interactive"
+            onClick={onOpenBrandKit}
+            disabled={!canManageBrandkits}
+          >
             <strong>Colors</strong>
             <small>{primaryBrand?.name ?? activeClient?.name ?? 'Active client'}</small>
             <div className="client-workspace-sidebar__swatches" aria-hidden="true">
@@ -157,13 +179,18 @@ export function ClientWorkspaceSidebar({
                 <span className="client-workspace-sidebar__swatch-placeholder">No palette</span>
               )}
             </div>
-          </article>
+          </button>
 
-          <article className="client-workspace-sidebar__brand-card">
+          <button
+            type="button"
+            className="client-workspace-sidebar__brand-card client-workspace-sidebar__brand-card--interactive"
+            onClick={onOpenBrandKit}
+            disabled={!canManageBrandkits}
+          >
             <strong>Typography</strong>
             <small>{fontFamily ?? 'Not defined yet'}</small>
             <div className="client-workspace-sidebar__font-preview">{fontFamily ? 'Aa' : 'Aa'}</div>
-          </article>
+          </button>
         </div>
       </section>
     </aside>
