@@ -96,11 +96,15 @@ function BannerListRow({
       className={`client-workspace-banner-list__row ${selected ? 'is-selected' : ''} ${inspected ? 'is-inspected' : ''}`.trim()}
       role="button"
       tabIndex={0}
-      onClick={() => onInspectProject(project.id)}
+      onClick={() => {
+        onInspectProject(project.id);
+        onOpenProject(project.id);
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onInspectProject(project.id);
+          onOpenProject(project.id);
         }
       }}
     >
@@ -117,6 +121,7 @@ function BannerListRow({
           onClick={(event) => {
             event.stopPropagation();
             onInspectProject(project.id);
+            onOpenProject(project.id);
           }}
         >
           <strong>{project.name}</strong>
@@ -170,11 +175,15 @@ function BannerCard({
       className={`client-workspace-banner-card ${selected ? 'is-selected' : ''} ${inspected ? 'is-inspected' : ''}`.trim()}
       role="button"
       tabIndex={0}
-      onClick={() => onInspectProject(project.id)}
+      onClick={() => {
+        onInspectProject(project.id);
+        onOpenProject(project.id);
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onInspectProject(project.id);
+          onOpenProject(project.id);
         }
       }}
     >
@@ -194,6 +203,7 @@ function BannerCard({
           onClick={(event) => {
             event.stopPropagation();
             onInspectProject(project.id);
+            onOpenProject(project.id);
           }}
         >
           <div className="client-workspace-banner-card__frame">
