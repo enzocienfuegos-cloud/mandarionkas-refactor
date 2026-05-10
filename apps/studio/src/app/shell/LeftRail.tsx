@@ -3,6 +3,7 @@ import { LeftTabBar } from './LeftTabBar';
 import { CollaborationSection } from './left-rail/CollaborationSection';
 import { LayersSection } from './left-rail/LayersSection';
 import { StoryFlowSection } from './left-rail/StoryFlowSection';
+import { TemplatesSection } from './left-rail/TemplatesSection';
 import { WidgetLibrarySection } from './left-rail/WidgetLibrarySection';
 import { useLeftRailController } from './left-rail/use-left-rail-controller';
 import { IconButton } from '../../shared/ui/IconButton';
@@ -29,6 +30,7 @@ export function LeftRail({
             <small className="left-title">Tools</small>
             <strong className="rail-heading">
               {controller.activeLeftTab === 'widgets' ? 'Widgets' : null}
+              {controller.activeLeftTab === 'templates' ? 'Templates' : null}
               {controller.activeLeftTab === 'layers' ? 'Layers' : null}
               {controller.activeLeftTab === 'flow' ? 'Flow' : null}
             </strong>
@@ -46,6 +48,7 @@ export function LeftRail({
         </div>
         <div className="left-rail-panel">
           {controller.activeLeftTab === 'widgets' ? <WidgetLibrarySection /> : null}
+          {controller.activeLeftTab === 'templates' ? <TemplatesSection /> : null}
           {controller.activeLeftTab === 'layers' ? <LayersSection controller={controller} /> : null}
           {controller.activeLeftTab === 'flow' ? <StoryFlowSection controller={controller} /> : null}
         </div>

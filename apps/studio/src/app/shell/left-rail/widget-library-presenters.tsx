@@ -110,7 +110,7 @@ export function WidgetLibraryItemCard({
 }: {
   widget: WidgetLibraryItem;
   sectionLabel: string;
-  density: 'compact' | 'cozy' | 'expanded';
+  density: 'compact' | 'cozy';
   draggingWidgetType: string | null;
   previewWidgetType: string | null;
   setDraggingWidgetType: Dispatch<SetStateAction<string | null>>;
@@ -152,10 +152,14 @@ export function WidgetLibraryItemCard({
         tabIndex={0}
         data-widget-type={widget.type}
         data-library-group={group}
-        className={`widget-library-row ${draggingWidgetType === widget.type ? 'is-dragging' : ''}`.trim()}
+        className={`widget-library-row ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
         aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
         style={cardStyle}
         onClick={addWidget}
+        onMouseEnter={() => setPreviewWidgetType(widget.type)}
+        onMouseLeave={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
+        onFocus={() => setPreviewWidgetType(widget.type)}
+        onBlur={() => setPreviewWidgetType((current) => (current === widget.type ? null : current))}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
@@ -171,7 +175,11 @@ export function WidgetLibraryItemCard({
           clearWidgetLibraryDragPayload();
         }}
       >
-        <span className="widget-library-row__thumb">{renderWidgetThumbnail(widget, false)}</span>
+        <span className="widget-library-row__thumb">
+          <span className="widget-library-row__thumb-stage">
+            {renderWidgetThumbnail(widget, previewActive)}
+          </span>
+        </span>
         <span className="widget-library-row__label">{widget.label}</span>
         <IconButton
           variant="ghost"
@@ -200,7 +208,7 @@ export function WidgetLibraryItemCard({
         tabIndex={0}
         data-widget-type={widget.type}
         data-library-group={group}
-        className={`widget-library-cozy-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''}`.trim()}
+        className={`widget-library-cozy-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
         aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
         style={cardStyle}
         onClick={(event) => {

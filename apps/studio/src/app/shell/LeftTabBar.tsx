@@ -4,6 +4,7 @@ import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 
 const TABS: Array<{ key: StudioState['ui']['activeLeftTab']; label: string; icon: keyof typeof StudioIcons }> = [
   { key: 'widgets', label: 'Widgets', icon: 'plus' },
+  { key: 'templates', label: 'Templates', icon: 'layoutGrid' },
   { key: 'layers', label: 'Layers', icon: 'layers' },
   { key: 'flow', label: 'Flow', icon: 'workflow' },
 ];

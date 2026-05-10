@@ -10,13 +10,13 @@ import {
 
 export const CATEGORY_ORDER = WIDGET_LIBRARY_GROUP_ORDER;
 export type CategoryFilter = 'all' | WidgetLibraryGroup;
-export type WidgetCardDensity = 'compact' | 'cozy' | 'expanded';
+export type WidgetCardDensity = 'compact' | 'cozy';
 
 const DENSITY_KEY = 'smx:widget-library:density';
 
 function readStoredDensity(): WidgetCardDensity {
   const stored = readScopedStorageItem(DENSITY_KEY, 'cozy', 'persistent');
-  return stored === 'compact' || stored === 'cozy' || stored === 'expanded' ? stored : 'cozy';
+  return stored === 'compact' ? 'compact' : 'cozy';
 }
 
 export type LeftRailWidgetLibraryState = {

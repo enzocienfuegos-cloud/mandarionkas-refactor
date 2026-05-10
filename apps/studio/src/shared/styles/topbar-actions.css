@@ -148,7 +148,8 @@
 }
 
 .top-action-button.btn--sm,
-.top-preflight-button.btn--sm {
+.top-preflight-button.btn--sm,
+.top-save-button.btn--sm {
   min-height: var(--control-h-sm);
   padding: 0 var(--space-5);
   border-radius: var(--radius-sm);
@@ -159,6 +160,10 @@
 .top-action-button.btn--ghost,
 .top-preflight-button.btn--ghost {
   background: var(--white-a-03);
+}
+
+.top-save-button {
+  min-width: 92px;
 }
 
 .top-preflight-button {

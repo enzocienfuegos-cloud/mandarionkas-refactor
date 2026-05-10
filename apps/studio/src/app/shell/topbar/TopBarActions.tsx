@@ -62,6 +62,10 @@ export function TopBarActions({
   const preflight = getPreflightSummary(controller);
   const previewProjectId = activeProjectId ?? state.document.id;
   const previewToken = buildClientPreviewToken(previewProjectId, state.document.version);
+  const saveStatus = controller.projectSession.saveStatus;
+  const canSaveProject = controller.workspace.canSaveProjects;
+  const saveButtonLabel = saveStatus === 'saving' ? 'Saving…' : 'Save';
+  const saveButtonVariant = controller.snapshot.dirty || saveStatus === 'error' ? 'primary' : 'secondary';
 
   useEffect(() => {
     if (!sessionMenuOpen) return undefined;
@@ -209,6 +213,16 @@ export function TopBarActions({
 
   return (
     <div className="top-actions-cluster">
+      <Button
+        variant={saveButtonVariant}
+        size="sm"
+        className="top-save-button"
+        onClick={() => void controller.projectSession.handleSaveProject()}
+        disabled={!canSaveProject || saveStatus === 'saving'}
+      >
+        {saveButtonLabel}
+      </Button>
+
       <Button
         variant="ghost"
         size="sm"
