@@ -56,17 +56,25 @@ export function PlatformShell(): JSX.Element {
   const snapshot = usePlatformSnapshot();
   const isAuthenticated = snapshot.session.isAuthenticated;
   const [route, setRoute] = useState<PlatformRoute>(readRouteFromHash);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
 
   useEffect(() => {
-    void restoreSession();
+    let cancelled = false;
+    void restoreSession().finally(() => {
+      if (!cancelled) setIsRestoringSession(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
+    if (isRestoringSession) return;
     if (!isAuthenticated) {
       setRoute({ kind: 'agency' });
       if (typeof window !== 'undefined') window.location.hash = '#/hub';
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isRestoringSession]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -84,13 +92,16 @@ export function PlatformShell(): JSX.Element {
   }, [route]);
 
   useEffect(() => {
+    if (isRestoringSession) return;
     if (route.kind !== 'client-workspace' || !route.clientId || snapshot.session.activeClientId === route.clientId) return;
     void getPlatformServices().setActiveClient(route.clientId);
-  }, [route, snapshot.session.activeClientId]);
+  }, [route, snapshot.session.activeClientId, isRestoringSession]);
 
   return (
     <Suspense fallback={<div className="platform-loading-shell">Loading studio…</div>}>
-      {!isAuthenticated
+      {isRestoringSession
+        ? <div className="platform-loading-shell">Loading studio…</div>
+        : !isAuthenticated
         ? <LoginScreen />
         : route.kind === 'agency'
           ? (
