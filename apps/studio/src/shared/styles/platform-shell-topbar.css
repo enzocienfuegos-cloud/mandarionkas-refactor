@@ -224,7 +224,7 @@
 .studio-shell-topbar--workspace {
   gap: var(--shell-topbar-workspace-space-main);
   padding-inline: var(--shell-topbar-workspace-inset-x);
-  border-bottom-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: var(--platform-panel-border);
 }
 
 .client-workspace-shell-topbar {

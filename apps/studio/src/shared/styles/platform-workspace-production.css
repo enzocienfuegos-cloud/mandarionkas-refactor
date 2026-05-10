@@ -41,8 +41,8 @@
   padding: var(--workspace-shell-panel-inset);
   border-radius: var(--workspace-shell-panel-radius);
   border: 1px solid var(--platform-panel-border);
-  background: linear-gradient(180deg, rgba(24, 34, 45, 0.92), rgba(15, 22, 30, 0.94));
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.15);
+  background: var(--gradient-panel-elevated);
+  box-shadow: var(--elevation-2);
 }
 
 .client-workspace-production__sidebar {
@@ -52,8 +52,7 @@
   overflow-y: auto;
   display: grid;
   gap: var(--space-6);
-  border-left: 0;
-  border-radius: var(--radius-none) var(--workspace-shell-panel-radius) var(--workspace-shell-panel-radius) var(--radius-none);
+  border-radius: var(--workspace-shell-panel-radius);
 }
 
 .client-workspace-production__main {
@@ -214,22 +213,34 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 30px;
-  padding: 0 var(--space-3);
+  min-height: 26px;
+  padding: 0 var(--space-4);
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--soft);
+  border: 1px solid var(--platform-panel-border);
+  background: var(--bg-overlay-soft);
+  color: var(--muted);
   font-size: var(--workspace-shell-stat-size);
-  font-weight: 700;
+  font-weight: 900;
   cursor: pointer;
-  transition: border-color var(--motion-base) var(--motion-ease), background var(--motion-base) var(--motion-ease), transform var(--motion-base) var(--motion-ease);
+  white-space: nowrap;
+  transition:
+    border-color var(--motion-base) var(--motion-ease),
+    background var(--motion-base) var(--motion-ease),
+    color var(--motion-base) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
 }
 
-.filter-pill:hover,
+.filter-pill:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-emphasis);
+  background: var(--bg-overlay-med);
+  color: var(--text);
+}
+
 .filter-pill.is-active {
-  border-color: var(--focus-a-35);
-  background: var(--white-a-06);
+  border-color: var(--border-accent-fuchsia);
+  background: var(--bg-selected-soft);
+  color: var(--text-accent-bright-soft);
   transform: translateY(-1px);
 }
 
@@ -282,13 +293,45 @@
 
 .client-workspace-campaign {
   border-radius: var(--workspace-shell-row-radius);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background:
-    linear-gradient(180deg, rgba(34, 45, 57, 0.92), rgba(24, 32, 41, 0.94));
+  border: 1px solid var(--platform-panel-border);
+  background: var(--gradient-panel-strong);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 1px 2px rgba(0, 0, 0, 0.12);
   overflow: hidden;
+}
+
+.workspace-intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--client-hub-intro-space, 16px);
+  padding: 2px var(--workspace-shell-inset-x) 0;
+}
+
+.workspace-intro__text {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.workspace-intro__headline {
+  margin: 0;
+  font-size: var(--client-hub-title-size, 26px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.workspace-intro__copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--client-hub-copy-size, 13px);
+}
+
+.workspace-intro__stats {
+  display: flex;
+  gap: var(--client-hub-stats-space, 8px);
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .client-workspace-campaign__row {
@@ -375,7 +418,6 @@
     top: auto;
     max-height: none;
     border-radius: var(--radius-3xl);
-    border-inline: 1px solid var(--border-subtle);
   }
 
   .client-workspace-main__toolbar .segmented-control {
@@ -385,5 +427,11 @@
   .client-workspace-toolbar-select {
     min-width: 0;
     width: 100%;
+  }
+
+  .workspace-intro,
+  .workspace-intro__stats {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

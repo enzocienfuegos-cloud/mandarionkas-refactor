@@ -4,8 +4,7 @@
   max-height: calc(100vh - 130px);
   padding: 0;
   overflow: hidden auto;
-  border-right: 0;
-  border-radius: var(--workspace-shell-panel-radius) var(--radius-none) var(--radius-none) var(--workspace-shell-panel-radius);
+  border-radius: var(--workspace-shell-panel-radius);
 }
 
 .client-workspace-inspector__tabs {
@@ -140,7 +139,6 @@
     position: relative;
     top: auto;
     max-height: none;
-    border-right: 1px solid var(--border-subtle);
     border-radius: var(--radius-3xl);
   }
 }
@@ -151,6 +149,5 @@
     top: auto;
     max-height: none;
     border-radius: var(--radius-3xl);
-    border-inline: 1px solid var(--border-subtle);
   }
 }

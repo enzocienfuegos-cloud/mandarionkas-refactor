@@ -1,4 +1,5 @@
 import { Button } from '../shared/ui/Button';
+import { StudioIcon, StudioIcons } from '../shared/ui/icons';
 import { useToast } from '../shared/ui/ToastProvider';
 import { useClientWorkspaceController } from './client-workspace/use-client-workspace-controller';
 import { ClientWorkspaceProductionView } from './client-workspace/ClientWorkspaceProductionView';
@@ -67,9 +68,32 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
         className="studio-shell-topbar--workspace client-workspace-shell-topbar"
       />
 
+      <section className="workspace-intro" aria-label="Workspace summary">
+        <div className="workspace-intro__text">
+          <div className="workspace-hub-kicker">Client Workspace</div>
+          <h2 className="workspace-intro__headline">
+            {activeClient?.name ?? 'Client'}
+          </h2>
+          <p className="workspace-intro__copy">
+            Production queue, folders, and brand assets for this client.
+          </p>
+        </div>
+        <div className="workspace-intro__stats">
+          <div className="hub-stat">
+            <StudioIcon icon={StudioIcons.layoutGrid} size={13} className="hub-stat__icon" aria-hidden />
+            <span><b>{controller.filteredProjects.length}</b> banners</span>
+          </div>
+          <div className="hub-stat">
+            <StudioIcon icon={StudioIcons.folder} size={13} className="hub-stat__icon" aria-hidden />
+            <span><b>{controller.campaignFolders.length}</b> folders</span>
+          </div>
+        </div>
+      </section>
+
       {projectSession.autosaveAvailable ? (
         <div className="draft-recovery-banner" role="status">
           <div>
+            <div className="draft-recovery-banner__kicker">Autosave available</div>
             <strong>Recovered work is available</strong>
             <small>You can return to the last autosaved Studio state for this client.</small>
           </div>

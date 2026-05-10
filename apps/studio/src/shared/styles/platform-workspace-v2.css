@@ -72,7 +72,7 @@
 .draft-recovery-banner strong {
   display: block;
   margin: 0;
-  font-size: var(--font-size-3xl);
+  font-size: var(--client-hub-section-title-size, 18px);
   letter-spacing: -0.02em;
   line-height: 1.1;
 }
@@ -95,9 +95,19 @@
     calc(var(--space-4) + var(--space-1))
     var(--workspace-shell-inset-x)
     var(--space-3);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border-divider);
   background:
-    linear-gradient(90deg, rgba(9, 24, 34, 0.76), rgba(18, 18, 36, 0.54) 62%, rgba(8, 10, 16, 0));
+    linear-gradient(90deg, var(--accent-2-a-08), transparent 62%),
+    var(--gradient-panel-elevated);
+}
+
+.draft-recovery-banner__kicker {
+  color: var(--warning);
+  font-size: var(--font-size-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 900;
+  margin-bottom: var(--space-2);
 }
 
 .workspace-folders-panel {
