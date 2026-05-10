@@ -6,13 +6,15 @@ type ClientCardProps = {
 };
 
 function formatLastActivity(value?: string): string {
-  if (!value) return 'Sin actividad reciente';
-  return new Intl.DateTimeFormat('es-SV', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
+  if (!value) return 'Sin actualizaciones';
+  const minutes = Math.max(1, Math.round((Date.now() - new Date(value).getTime()) / 60000));
+  const formatter = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
+  if (minutes < 60) return formatter.format(-minutes, 'minute');
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return formatter.format(-hours, 'hour');
+  const days = Math.round(hours / 24);
+  if (days < 30) return formatter.format(-days, 'day');
+  return new Intl.DateTimeFormat('es-SV', { day: '2-digit', month: 'short' }).format(new Date(value));
 }
 
 function buildClientInitials(name: string): string {
@@ -25,28 +27,43 @@ function buildClientInitials(name: string): string {
 }
 
 function Card({ clientCard, onOpen }: ClientCardProps): JSX.Element {
-  const { client, projectCount, recentProjectName, latestActivityAt, brandKitCount, palette } = clientCard;
+  const {
+    client,
+    activeProjectCount,
+    sharedProjectCount,
+    recentProjectName,
+    latestActivityAt,
+    brandKitCount,
+    palette,
+    statusLabel,
+  } = clientCard;
+
   return (
-    <article className="mandarion-client-card">
-      <button type="button" className="mandarion-client-card__surface" onClick={onOpen}>
-        <div className="mandarion-client-card__header">
-          <div className="mandarion-client-card__avatar" aria-hidden="true">
+    <article className="client-card">
+      <button type="button" className="client-card-btn" onClick={onOpen}>
+        <div className="client-card-header">
+          <div className="client-card-avatar" aria-hidden="true">
             {client.logoUrl ? <img src={client.logoUrl} alt="" /> : <span>{buildClientInitials(client.name)}</span>}
           </div>
-          <div className="mandarion-client-card__copy">
+          <div className="client-card-title">
             <strong>{client.name}</strong>
-            <small>{client.slug}</small>
+            <small>{client.plan ?? 'studio'}</small>
           </div>
+          <span className={`sbadge sbadge--client-${statusLabel === 'Compartido' ? 'shared' : statusLabel === 'En progreso' ? 'active' : 'idle'}`}>
+            {statusLabel}
+          </span>
         </div>
-        <div className="mandarion-client-card__stats">
-          <span className="pill">{projectCount} proyectos activos</span>
-          <span className="pill">{brandKitCount} brand kits</span>
-          {client.plan ? <span className="pill">{client.plan}</span> : null}
+
+        <div className="client-card-meta">
+          <span>{activeProjectCount} activos</span>
+          <span>{sharedProjectCount} compartidos</span>
+          <span>{brandKitCount} brand kits</span>
         </div>
-        <div className="mandarion-client-card__brand-kits">
-          <span className="workspace-project-meta-label">Brand system</span>
+
+        <div className="client-card-brand">
+          <span className="client-recent-label">Brand system</span>
           {palette.length > 0 ? (
-            <div className="mandarion-client-card__swatches" aria-hidden="true">
+            <div className="client-card-swatches" aria-hidden="true">
               {palette.map((color) => (
                 <svg key={color} viewBox="0 0 12 12" focusable="false" aria-hidden="true">
                   <circle cx="6" cy="6" r="5" fill={color} />
@@ -57,9 +74,10 @@ function Card({ clientCard, onOpen }: ClientCardProps): JSX.Element {
             <small>Sin kit cargado todavía</small>
           )}
         </div>
-        <div className="mandarion-client-card__recent">
-          <span className="workspace-project-meta-label">Último proyecto</span>
-          <strong>{recentProjectName}</strong>
+
+        <div className="client-card-recent">
+          <span className="client-recent-label">Último trabajo</span>
+          <strong>{recentProjectName || 'Sin proyectos todavía'}</strong>
           <small>{formatLastActivity(latestActivityAt)}</small>
         </div>
       </button>

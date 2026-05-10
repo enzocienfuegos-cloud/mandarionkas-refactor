@@ -24,20 +24,20 @@ export async function loginToStudio(page: Page): Promise<void> {
   await gotoStudio(page);
   await expect(page.locator('.platform-login-shell')).toBeVisible();
   await page.getByRole('button', { name: 'Enter platform' }).click();
-  await expect(page.getByRole('heading', { name: 'Hub de clientes' })).toBeVisible();
+  await expect(page.locator('.studio-shell-topbar__brand-meta')).toContainText('Hub de clientes');
   await disableMotion(page);
 }
 
 export async function openClientWorkspace(page: Page): Promise<void> {
   await loginToStudio(page);
   await page.goto('/#/hub/client/ws_retail');
-  await expect(page.getByRole('heading', { name: 'Retail Group' })).toBeVisible();
+  await expect(page.locator('.studio-shell-topbar__brand-meta')).toContainText('Retail Group');
   await disableMotion(page);
 }
 
 export async function openEditor(page: Page): Promise<void> {
   await openClientWorkspace(page);
-  const newAdButton = page.locator('.client-workspace-topbar').getByRole('button', { name: /New ad|Nuevo banner/i });
+  const newAdButton = page.locator('.studio-shell-topbar').getByRole('button', { name: /New ad|Nuevo banner/i });
   await expect(newAdButton).toBeVisible();
   await newAdButton.click();
   await expect(page.locator('.studio-shell')).toBeVisible();

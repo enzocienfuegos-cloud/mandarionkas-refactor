@@ -1,7 +1,7 @@
 import { Button } from '../shared/ui/Button';
-import { StudioIcon, StudioIcons } from '../shared/ui/icons';
 import { useClientWorkspaceController } from './client-workspace/use-client-workspace-controller';
 import { ClientWorkspaceProductionView } from './client-workspace/ClientWorkspaceProductionView';
+import { StudioTopbar } from './shared/StudioTopbar';
 
 type ClientWorkspaceShellProps = {
   onBackToAgencyShell(): void;
@@ -19,32 +19,29 @@ export function ClientWorkspaceShell({ onBackToAgencyShell, onEnterEditor }: Cli
 
   return (
     <div className="client-workspace-shell-v2">
-      <header className="client-workspace-topbar">
-        <div className="client-workspace-topbar__brand">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="compact-action"
-            iconBefore={<StudioIcon icon={StudioIcons.arrowLeft} size={16} />}
-            onClick={onBackToAgencyShell}
-          >
-            Hub de clientes
-          </Button>
-          <div>
-            <div className="workspace-hub-kicker">Workspace del cliente</div>
-            <h1>{activeClient?.name ?? 'Client'}</h1>
-          </div>
-        </div>
-        <div className="client-workspace-topbar__actions">
-          <Button variant="primary" size="md" className="compact-action" onClick={() => void handleCreateAndEnter()} disabled={!workspace.canCreateProjects}>
-            Nuevo banner
-          </Button>
-          <div className="pill">{workspace.currentUser?.name ?? 'Invitado'}</div>
-          <Button variant="ghost" size="sm" className="compact-action" onClick={() => void workspace.handleLogout()}>
-            Salir
-          </Button>
-        </div>
-      </header>
+      <StudioTopbar
+        eyebrow="Project Workspace"
+        title={activeClient?.name ?? 'Client'}
+        searchLabel="Buscar"
+        searchPlaceholder="Buscar banner, campaña o formato..."
+        searchValue={controller.search}
+        onSearchChange={controller.setSearch}
+        primaryAction={{
+          label: 'Nuevo banner',
+          onClick: () => {
+            if (workspace.canCreateProjects) {
+              void handleCreateAndEnter();
+            }
+          },
+          disabled: !workspace.canCreateProjects,
+        }}
+        userLabel={workspace.currentUser?.name ?? 'Invitado'}
+        onLogout={() => void workspace.handleLogout()}
+        backAction={{
+          label: 'Hub de clientes',
+          onClick: onBackToAgencyShell,
+        }}
+      />
 
       {projectSession.autosaveAvailable ? (
         <div className="draft-recovery-banner" role="status">

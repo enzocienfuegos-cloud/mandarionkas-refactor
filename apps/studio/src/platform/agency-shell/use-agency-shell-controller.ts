@@ -20,12 +20,15 @@ export type AgencyProjectRow = ProjectSummary & {
 export type AgencyClientCard = {
   client: ClientWorkspace;
   projectCount: number;
+  sharedProjectCount: number;
+  activeProjectCount: number;
   recentProjectName: string;
   recentProjectId?: string;
   recentUpdatedAt?: string;
   latestActivityAt?: string;
   brandKitCount: number;
   palette: string[];
+  statusLabel: 'Compartido' | 'En progreso' | 'Sin actividad';
 };
 
 function slugifyClientName(value: string): string {
@@ -163,26 +166,32 @@ export function useAgencyShellController() {
       .map<AgencyClientCard>((client) => {
         const clientProjects = activeProjects.filter((project) => project.clientId === client.id);
         const recentProject = clientProjects[0];
+        const sharedProjectCount = clientProjects.filter((project) => project.ownerUserId && project.ownerUserId !== currentUser?.id).length;
+        const activeProjectCount = clientProjects.length;
         const palette = [
           client.brandColor,
           client.brands?.[0]?.primaryColor,
           client.brands?.[0]?.secondaryColor,
           client.brands?.[0]?.accentColor,
         ].filter((color): color is string => Boolean(color));
+        const statusLabel = sharedProjectCount > 0 ? 'Compartido' : activeProjectCount > 0 ? 'En progreso' : 'Sin actividad';
         return {
           client,
           projectCount: clientProjects.length,
+          sharedProjectCount,
+          activeProjectCount,
           recentProjectName: recentProject?.name ?? 'Sin proyectos recientes',
           recentProjectId: recentProject?.id,
           recentUpdatedAt: recentProject?.updatedAt,
           latestActivityAt: recentProject?.updatedAt,
           brandKitCount: client.brands?.length ?? 0,
           palette: Array.from(new Set(palette)).slice(0, 3),
+          statusLabel,
         };
       })
       .filter((entry) => matchesClientSearch(entry.client, entry.recentProjectName, loweredSearch))
       .sort((a, b) => (b.recentUpdatedAt ?? '').localeCompare(a.recentUpdatedAt ?? ''));
-  }, [activeProjects, preferences.search, visibleClients]);
+  }, [activeProjects, currentUser?.id, preferences.search, visibleClients]);
 
   const clientFilterOptions = useMemo(
     () => [

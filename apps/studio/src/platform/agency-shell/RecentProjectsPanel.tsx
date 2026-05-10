@@ -1,4 +1,5 @@
 import { Button } from '../../shared/ui/Button';
+import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import type { AgencyProjectRow } from './use-agency-shell-controller';
 
 function formatProjectUpdatedAt(value: string): string {
@@ -40,85 +41,115 @@ export function RecentProjectsPanel({
   const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = totalCount === 0 ? 0 : Math.min(page * pageSize, totalCount);
 
+  function buildClientInitials(name: string): string {
+    return name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('') || '??';
+  }
+
   return (
     <section className="mandarion-projects-panel panel" aria-labelledby="mandarion-projects-heading">
-      <div className="agency-section-head mandarion-section-head">
-        <div>
-          <div className="workspace-hub-kicker">Trabajos recientes</div>
-          <h2 id="mandarion-projects-heading">Proyectos activos recientes</h2>
-          <p>Primeros 5 proyectos activos ordenados por fecha de actualización.</p>
+      <div className="section-head">
+        <div className="section-head-text">
+          <div className="kicker">Trabajos recientes</div>
+          <h2 id="mandarion-projects-heading">Proyectos activos</h2>
+          <p>Ordenados por fecha de actualización, con paginación para ver más.</p>
         </div>
-      </div>
-
-      <div className="mandarion-projects-panel__controls">
-        <label className="mandarion-field">
-          <span>Cliente</span>
+        <div className="section-controls">
+          <label className="control-field">
+            <span className="control-label">Cliente</span>
           <select value={activeClientId} onChange={(event) => onClientFilterChange(event.target.value)} aria-label="Filtrar proyectos por cliente">
             {clientOptions.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-        </label>
+          </label>
 
-        <label className="mandarion-field">
-          <span>Orden</span>
-          <select
-            value={sortMode}
-            onChange={(event) => onSortModeChange(event.target.value as 'newest' | 'oldest')}
-            aria-label="Ordenar proyectos por fecha"
-          >
-            <option value="newest">Más recientes</option>
-            <option value="oldest">Más antiguos</option>
-          </select>
-        </label>
+          <label className="control-field">
+            <span className="control-label">Orden</span>
+            <select
+              value={sortMode}
+              onChange={(event) => onSortModeChange(event.target.value as 'newest' | 'oldest')}
+              aria-label="Ordenar proyectos por fecha"
+            >
+              <option value="newest">Más recientes</option>
+              <option value="oldest">Más antiguos</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       {projects.length > 0 ? (
-        <div className="mandarion-projects-table" role="table" aria-label="Listado de proyectos recientes">
-          <div className="mandarion-projects-table__head" role="row">
-            <span>Proyecto</span>
-            <span>Cliente</span>
-            <span>Estado</span>
-            <span>Actualizado</span>
-            <span>Acción</span>
+        <div className="proj-table" role="table" aria-label="Proyectos recientes">
+          <div className="proj-row-head" role="row">
+            <span role="columnheader">Proyecto</span>
+            <span role="columnheader">Cliente</span>
+            <span role="columnheader">Estado</span>
+            <span role="columnheader">Actualizado</span>
+            <span role="columnheader" aria-label="Acción" />
           </div>
 
-          <div className="mandarion-projects-table__body">
-            {projects.map((project) => (
-              <article key={project.id} className="mandarion-project-row" role="row">
-                <div className="mandarion-project-row__title">
+          {projects.map((project) => (
+            <article key={project.id} className="proj-row" role="row">
+              <div className="proj-main">
+                <span className="proj-avatar" aria-hidden="true">{buildClientInitials(project.clientName)}</span>
+                <div className="proj-info">
                   <strong>{project.name}</strong>
                   <small>{project.sceneCount ?? 1} escenas · {project.widgetCount ?? 0} widgets</small>
                 </div>
-                <span>{project.clientName}</span>
-                <span>
-                  <span className={`workspace-status-badge workspace-status-badge--${project.status}`}>{project.statusLabel}</span>
-                </span>
-                <span>{formatProjectUpdatedAt(project.updatedAt)}</span>
-                <span>
-                  <Button variant="ghost" size="sm" className="compact-action" onClick={() => onOpenProject(project)}>
-                    Abrir
-                  </Button>
-                </span>
-              </article>
-            ))}
-          </div>
+              </div>
+              <span className="proj-client">{project.clientName}</span>
+              <span>
+                <span className={`sbadge sbadge--${project.status}`}>{project.statusLabel}</span>
+              </span>
+              <span className="proj-date">{formatProjectUpdatedAt(project.updatedAt)}</span>
+              <span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="compact-action"
+                  iconAfter={<StudioIcon icon={StudioIcons.externalLink} size={11} />}
+                  onClick={() => onOpenProject(project)}
+                >
+                  Abrir
+                </Button>
+              </span>
+            </article>
+          ))}
         </div>
       ) : (
-        <div className="mandarion-empty-state">
-          <h3>No encontramos trabajos para este filtro.</h3>
-          <p>Ajustá la búsqueda o cambiá el cliente para ver proyectos activos.</p>
+        <div className="empty-state">
+          <strong>Sin proyectos</strong>
+          <p>Probá limpiando la búsqueda o cambiando el filtro de cliente.</p>
         </div>
       )}
 
-      <footer className="mandarion-projects-panel__footer">
+      <footer className="pagination">
         <span>Mostrando {rangeStart}-{rangeEnd} de {totalCount}</span>
-        <div className="mandarion-projects-panel__pagination">
-          <Button variant="ghost" size="sm" className="compact-action" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+        <div className="pagination-actions">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="compact-action"
+            iconBefore={<StudioIcon icon={StudioIcons.chevronLeft} size={12} />}
+            disabled={page <= 1}
+            onClick={() => onPageChange(page - 1)}
+          >
             Anterior
           </Button>
-          <span>Página {page} de {pageCount}</span>
-          <Button variant="ghost" size="sm" className="compact-action" disabled={page >= pageCount} onClick={() => onPageChange(page + 1)}>
+          <span>Página {page} / {pageCount}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="compact-action"
+            iconAfter={<StudioIcon icon={StudioIcons.chevronRight} size={12} />}
+            disabled={page >= pageCount}
+            onClick={() => onPageChange(page + 1)}
+          >
             Siguiente
           </Button>
         </div>
