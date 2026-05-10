@@ -37,6 +37,17 @@ function ProductionStatusPill({ status }: { status: BannerStatusKey }): JSX.Elem
   );
 }
 
+function buildProjectInitials(project: WorkspaceProjectItem): string {
+  const source = project.brandName ?? project.ownerName ?? project.name;
+  return source
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'AD';
+}
+
 function SelectionCheckbox({
   checked,
   label,
@@ -82,19 +93,26 @@ function BannerListRow({
           label={`Select ${project.name}`}
           onChange={() => onToggleProjectSelection(project.id)}
         />
+        <span className="client-workspace-banner-list__avatar" aria-hidden="true">{buildProjectInitials(project)}</span>
         <button type="button" onClick={() => onInspectProject(project.id)}>
           <strong>{project.name}</strong>
           <small>{project.brandName ?? 'No brand'} · {project.ownerName ?? project.ownerUserId}</small>
         </button>
       </label>
-      <span>{formatCanvas(project)}</span>
-      <span>{resolveBannerFormatLabel(project)}</span>
-      <span>{resolveBannerRuntime(project)}</span>
+      <span className="client-workspace-banner-list__meta">{formatCanvas(project)}</span>
+      <span className="client-workspace-banner-list__meta">{resolveBannerFormatLabel(project)}</span>
+      <span className="client-workspace-banner-list__meta">{resolveBannerRuntime(project)}</span>
       <ProductionStatusPill status={status} />
-      <span>{resolveWeightEstimate(project)}</span>
+      <span className="client-workspace-banner-list__meta">{resolveWeightEstimate(project)}</span>
       <div className="client-workspace-banner-list__actions">
-        <span>{formatRelativeTime(project.updatedAt)}</span>
-        <Button variant="ghost" size="sm" className="compact-action" onClick={() => onOpenProject(project.id)}>
+        <span className="client-workspace-banner-list__meta">{formatRelativeTime(project.updatedAt)}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="compact-action"
+          iconAfter={<StudioIcon icon={StudioIcons.externalLink} size={11} />}
+          onClick={() => onOpenProject(project.id)}
+        >
           Open
         </Button>
       </div>
@@ -239,6 +257,7 @@ export function ClientWorkspaceCampaignGroups({
                       variant="ghost"
                       size="sm"
                       className="compact-action"
+                      iconAfter={<StudioIcon icon={StudioIcons.externalLink} size={11} />}
                       onClick={() => {
                         if (group.projects[0]) onOpenProject(group.projects[0].id);
                       }}

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../shared/ui/ToastProvider';
-import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { ClientWorkspaceInspector } from './ClientWorkspaceInspector';
 import { ClientWorkspaceToolbar } from './ClientWorkspaceToolbar';
 import type { useClientWorkspaceController } from './use-client-workspace-controller';
@@ -164,32 +163,6 @@ export function ClientWorkspaceProductionView({
     ];
   }, [filteredProjects]);
 
-  const summaryChips = useMemo(
-    () => [
-      {
-        id: 'banners',
-        icon: StudioIcons.layoutGrid,
-        label: `${controller.stats.totalProjects} banners`,
-      },
-      {
-        id: 'qa',
-        icon: StudioIcons.info,
-        label: `${quickFilterOptions.find((item) => item.id === 'qa')?.count ?? 0} in QA`,
-      },
-      {
-        id: 'live',
-        icon: StudioIcons.check,
-        label: `${quickFilterOptions.find((item) => item.id === 'live')?.count ?? 0} live`,
-      },
-      {
-        id: 'formats',
-        icon: StudioIcons.play,
-        label: `${(quickFilterOptions.find((item) => item.id === 'mraid')?.count ?? 0) + (quickFilterOptions.find((item) => item.id === 'vast')?.count ?? 0)} MRAID/VAST`,
-      },
-    ],
-    [controller.stats.totalProjects, quickFilterOptions],
-  );
-
   async function handleOpenProject(projectId: string): Promise<void> {
     await openProject(projectId);
     onEnterEditor();
@@ -283,15 +256,6 @@ export function ClientWorkspaceProductionView({
 
   return (
     <section className="client-workspace-production">
-      <div className="client-workspace-summary-bar">
-        {summaryChips.map((chip) => (
-          <div key={chip.id} className="client-workspace-summary-chip">
-            <StudioIcon icon={chip.icon} size={14} />
-            <span>{chip.label}</span>
-          </div>
-        ))}
-      </div>
-
       <ClientWorkspaceSidebar
         activeClient={activeClient}
         activeFolderId={activeFolderId}
