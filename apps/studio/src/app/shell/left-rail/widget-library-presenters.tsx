@@ -19,6 +19,8 @@ const CAPABILITY_PILLS: Array<{ key: keyof NonNullable<WidgetDefinition['capabil
 
 export type WidgetLibraryItem = WidgetDefinition;
 
+type WidgetPreviewIntent = 'pan' | 'slide' | 'carousel' | 'pulse';
+
 export function getCapabilityPills(widget: WidgetLibraryItem): string[] {
   const pills = CAPABILITY_PILLS.filter((item) => widget.capabilities?.[item.key]).map((item) => item.label);
   return pills.length ? pills.slice(0, 3) : [widget.category];
@@ -44,6 +46,39 @@ export function getMetadataPills(widget: WidgetLibraryItem): string[] {
   if (mraidLabel) pills.push(mraidLabel);
   if (widget.requiresAsset) pills.push('Needs assets');
   return pills.slice(0, 3);
+}
+
+function getWidgetPreviewIntent(widget: WidgetLibraryItem): WidgetPreviewIntent {
+  const type = widget.type.toLowerCase();
+  const tags = (widget.libraryTags ?? []).map((item) => item.toLowerCase());
+
+  if (
+    type.includes('carousel')
+    || type.includes('gallery')
+    || tags.some((item) => ['carousel', 'gallery', 'slides', 'story'].includes(item))
+  ) {
+    return 'carousel';
+  }
+
+  if (
+    type.includes('slider')
+    || type.includes('countdown')
+    || type.includes('timer')
+    || tags.some((item) => ['swipe', 'drag', 'range', 'progress', 'countdown', 'timer'].includes(item))
+  ) {
+    return 'slide';
+  }
+
+  if (
+    widget.category === 'media'
+    || type.includes('image')
+    || type.includes('video')
+    || tags.some((item) => ['hero', 'cover', 'photo', 'image', 'video'].includes(item))
+  ) {
+    return 'pan';
+  }
+
+  return 'pulse';
 }
 
 function getCapabilityIcon(label: string) {
@@ -125,6 +160,7 @@ export function WidgetLibraryItemCard({
   const suppressClickRef = useRef(false);
   const group = widget.libraryGroup ?? 'essentials';
   const category = CATEGORY_COLOR[group];
+  const previewIntent = getWidgetPreviewIntent(widget);
   const cardStyle = {
     '--widget-library-thumb-tint': category.thumbTint,
   } as CSSProperties;
@@ -152,6 +188,7 @@ export function WidgetLibraryItemCard({
         tabIndex={0}
         data-widget-type={widget.type}
         data-library-group={group}
+        data-preview-intent={previewIntent}
         className={`widget-library-row ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
         aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
         style={cardStyle}
@@ -208,6 +245,7 @@ export function WidgetLibraryItemCard({
         tabIndex={0}
         data-widget-type={widget.type}
         data-library-group={group}
+        data-preview-intent={previewIntent}
         className={`widget-library-cozy-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
         aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
         style={cardStyle}
@@ -287,6 +325,7 @@ export function WidgetLibraryItemCard({
         tabIndex={0}
         data-widget-type={widget.type}
         data-library-group={group}
+        data-preview-intent={previewIntent}
         className={`widget-library-card ${draggingWidgetType === widget.type ? 'is-dragging' : ''} ${previewActive ? 'is-preview-active' : ''}`.trim()}
         aria-label={`${widget.label} widget. Click to add or drag to canvas.`}
         style={cardStyle}

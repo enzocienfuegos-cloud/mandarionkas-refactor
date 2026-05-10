@@ -440,11 +440,8 @@
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
 }
-.left-rail-templates .template-card {
+.left-rail-templates .template-rail-card {
   min-width: 0;
-}
-.left-rail-templates .template-card__footer .btn {
-  width: 100%;
 }
 .left-rail-templates__empty {
   display: grid;
@@ -500,4 +497,240 @@
 .widget-library-row__preview.icon-btn {
   margin-left: auto;
   flex-shrink: 0;
+}
+
+.template-rail-card {
+  display: grid;
+  padding: 12px;
+  border-radius: var(--radius-4xl);
+  border: 1px solid var(--border-subtle);
+  background:
+    radial-gradient(circle at top left, var(--accent-a-12), transparent 34%),
+    linear-gradient(180deg, var(--white-a-04), var(--bg-overlay-ghost)),
+    var(--gradient-card-warm);
+  transition:
+    transform var(--motion-duration-fast) var(--motion-ease-out),
+    border-color var(--motion-duration-base) var(--motion-ease-out),
+    background var(--motion-duration-base) var(--motion-ease-out),
+    box-shadow var(--motion-duration-base) var(--motion-ease-out);
+}
+
+.template-rail-card:hover,
+.template-rail-card:focus-within {
+  border-color: var(--border-accent-fuchsia);
+  background:
+    radial-gradient(circle at top left, var(--accent-a-22), transparent 38%),
+    linear-gradient(180deg, var(--white-a-06), var(--bg-overlay-low)),
+    var(--gradient-card-warm-hover);
+  box-shadow: 0 0 0 1px var(--accent-a-12), var(--shadow-fuchsia-soft);
+  transform: translateY(-2px);
+}
+
+.template-rail-card__body {
+  display: grid;
+  grid-template-columns: minmax(132px, 156px) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.template-rail-card__media {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  min-height: 136px;
+  border-radius: var(--radius-3xl);
+  border: 1px solid var(--border-subtle);
+  background:
+    radial-gradient(circle at top left, var(--accent-a-16), transparent 32%),
+    radial-gradient(circle at 84% 18%, var(--accent-2-a-16), transparent 30%),
+    var(--bg-overlay-low);
+}
+
+.template-rail-card__media-visual {
+  width: 100%;
+  height: 100%;
+  transition:
+    transform var(--motion-duration-base) var(--motion-ease-out),
+    filter var(--motion-duration-base) var(--motion-ease-out);
+}
+
+.template-rail-card__media-visual > img,
+.template-rail-card__media-visual > * {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.template-rail-card__media-visual > img {
+  object-fit: cover;
+}
+
+.template-rail-card__placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  align-content: end;
+  gap: var(--space-3);
+  padding: 14px;
+}
+
+.template-rail-card__placeholder span {
+  color: var(--text-focus-bright);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.template-rail-card__placeholder strong {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--font-size-lg);
+  line-height: 1.15;
+}
+
+.template-rail-card__meta {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  align-content: start;
+}
+
+.template-rail-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.template-rail-card__eyebrows,
+.template-rail-card__tags,
+.template-rail-card__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.template-rail-card__eyebrow,
+.template-rail-card__tag,
+.template-rail-card__capability,
+.template-rail-card__add {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--space-5);
+  border-radius: calc(var(--radius-pill) + var(--space-1));
+  white-space: nowrap;
+}
+
+.template-rail-card__eyebrow {
+  border: 1px solid var(--focus-a-20);
+  background: var(--focus-a-08);
+  color: var(--text-focus-bright);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.template-rail-card__tag {
+  border: 1px solid var(--border-subtle);
+  background: var(--white-a-03);
+  color: var(--text-muted-soft);
+  font-size: var(--font-size-2xs);
+}
+
+.template-rail-card__capability {
+  border: 1px solid var(--focus-a-18);
+  background: var(--focus-a-08);
+  color: var(--text-focus-soft);
+  font-size: var(--font-size-2xs);
+}
+
+.template-rail-card__add {
+  border: 1px solid var(--focus-a-20);
+  background: linear-gradient(135deg, var(--focus-a-14), var(--accent-2-a-14));
+  color: var(--text);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 var(--white-a-06);
+}
+
+.template-rail-card__copy {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.template-rail-card__copy h3,
+.template-rail-card__copy p {
+  margin: 0;
+}
+
+.template-rail-card__copy h3 {
+  font-size: calc(var(--font-size-2xl) + 1px);
+  line-height: 1.14;
+}
+
+.template-rail-card__copy p {
+  color: var(--muted);
+  font-size: var(--font-size-lg);
+  line-height: 1.3;
+  max-width: 20ch;
+}
+
+.template-rail-card__footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-2);
+}
+
+.template-rail-card__hint {
+  color: var(--muted);
+  font-size: var(--font-size-2xs);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+.template-rail-card__footer .btn {
+  min-height: 30px;
+  padding-inline: var(--space-4);
+}
+
+.template-rail-card[data-preview-intent='pan']:hover .template-rail-card__media-visual,
+.template-rail-card[data-preview-intent='pan']:focus-within .template-rail-card__media-visual {
+  animation: widget-thumb-pan 1.8s ease-in-out infinite alternate;
+}
+
+.template-rail-card[data-preview-intent='slide']:hover .template-rail-card__media-visual,
+.template-rail-card[data-preview-intent='slide']:focus-within .template-rail-card__media-visual {
+  animation: widget-thumb-slide 1.25s ease-in-out infinite alternate;
+}
+
+.template-rail-card[data-preview-intent='carousel']:hover .template-rail-card__media-visual,
+.template-rail-card[data-preview-intent='carousel']:focus-within .template-rail-card__media-visual {
+  animation: widget-thumb-carousel 1.9s ease-in-out infinite;
+}
+
+.template-rail-card[data-preview-intent='pulse']:hover .template-rail-card__media-visual,
+.template-rail-card[data-preview-intent='pulse']:focus-within .template-rail-card__media-visual {
+  animation: widget-thumb-pulse 1.35s ease-in-out infinite;
+}
+
+@media (max-width: 768px) {
+  .template-rail-card__body {
+    grid-template-columns: 1fr;
+  }
+
+  .template-rail-card__copy p {
+    max-width: none;
+  }
+
+  .template-rail-card__footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

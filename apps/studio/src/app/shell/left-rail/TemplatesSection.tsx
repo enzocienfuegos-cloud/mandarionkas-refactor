@@ -135,7 +135,7 @@ export function TemplatesSection(): JSX.Element {
           <TemplateCard
             key={template.metadata.id}
             template={template}
-            variant="standard"
+            variant="rail"
             onUse={applyTemplate}
           />
         ))}
