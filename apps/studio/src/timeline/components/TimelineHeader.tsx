@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { formatTime } from '../timeline-utils';
 import { Button } from '../../shared/ui/Button';
 import { IconButton } from '../../shared/ui/IconButton';
@@ -75,6 +75,15 @@ export function TimelineHeader({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const optionsRef = useRef<HTMLDivElement | null>(null);
   const activeSceneIndex = Math.max(0, scenes.findIndex((scene) => scene.id === activeSceneId));
+  const deferredPlayheadMs = useDeferredValue(playheadMs);
+  const displayPlayheadMs = useMemo(
+    () => Math.max(0, Math.floor(deferredPlayheadMs / 100) * 100),
+    [deferredPlayheadMs],
+  );
+  const displaySceneDurationMs = useMemo(
+    () => Math.max(0, Math.floor(sceneDurationMs / 100) * 100),
+    [sceneDurationMs],
+  );
 
   useEffect(() => {
     if (!optionsOpen) return undefined;
@@ -226,7 +235,7 @@ export function TimelineHeader({
         <div className="timeline-ctrl-divider" aria-hidden="true" />
 
         <div className="timeline-ctrl-group timeline-ctrl-group--duration">
-          <span className="timeline-playhead-time">{formatTime(playheadMs)}</span>
+          <span className="timeline-playhead-time">{formatTime(displayPlayheadMs)}</span>
           <span className="timeline-duration-sep">/</span>
           {editingDuration ? (
             <input
@@ -250,9 +259,9 @@ export function TimelineHeader({
                 size="sm"
                 className="timeline-duration-btn"
                 onClick={startEditDuration}
-                aria-label={`Banner duration: ${formatTime(sceneDurationMs)} — click to edit`}
+                aria-label={`Banner duration: ${formatTime(displaySceneDurationMs)} — click to edit`}
               >
-                {formatTime(sceneDurationMs)}
+                {formatTime(displaySceneDurationMs)}
               </Button>
             </Tooltip>
           )}
