@@ -14,6 +14,28 @@ import { playbackEngine, usePlaybackMsThrottled } from '../hooks/use-playback-en
 import { useTimelinePlayhead } from './use-timeline-playhead';
 import { useTimelineZoom } from './use-timeline-zoom';
 
+type StickySnapDrag = Exclude<Exclude<TimelineDragState, null>, { mode: 'playhead' }>;
+
+function holdSnapTarget(
+  rawValueMs: number,
+  currentDrag: StickySnapDrag,
+  minMs: number,
+  maxMs: number,
+  releaseThresholdMs: number,
+) {
+  if (currentDrag.snapTargetMs === undefined) return null;
+  if (Math.abs(rawValueMs - currentDrag.snapTargetMs) > releaseThresholdMs) return null;
+  return {
+    valueMs: clamp(currentDrag.snapTargetMs, minMs, maxMs),
+    snapped: true,
+    target: {
+      ms: currentDrag.snapTargetMs,
+      kind: 'grid' as const,
+      label: currentDrag.snapLabel ?? 'Snap point',
+    },
+  };
+}
+
 export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeStart: (startY: number) => void; onToggleCollapse: () => void; }): JSX.Element {
   const [drag, setDrag] = useState<TimelineDragState>(null);
   const [selectedOnly, setSelectedOnly] = useState(false);
@@ -52,6 +74,8 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
   const snapStepMs = snapEnabled ? getTimelineGridStepMs(timelineZoom) : 0;
   const snapThresholdMs = snapEnabled ? Math.min(150, Math.max(60, snapStepMs * 0.35)) : 0;
   const trimSnapThresholdMs = snapEnabled ? Math.min(90, Math.max(28, snapStepMs * 0.18)) : 0;
+  const snapReleaseThresholdMs = snapEnabled ? Math.max(snapThresholdMs + 36, snapThresholdMs * 1.75) : 0;
+  const trimSnapReleaseThresholdMs = snapEnabled ? Math.max(trimSnapThresholdMs + 28, trimSnapThresholdMs * 2.1) : 0;
   useTimelinePlayhead(timelineGridRef, timelineOverviewRef, playheadMs, rowMsToPx, scene.durationMs, isPlaying);
 
   useEffect(() => {
@@ -131,13 +155,14 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
 
       if (currentDrag.mode === 'move-keyframe') {
         const rawAtMs = clamp(currentDrag.startAtMs + deltaMs, 0, scene.durationMs);
-        const snapped = snapTimelineMs(rawAtMs, {
-          minMs: 0,
-          maxMs: scene.durationMs,
-          stepMs: snapStepMs,
-          thresholdMs: snapThresholdMs,
-          targets: snapTargets.filter((target) => !(target.kind === 'keyframe' && target.keyframeId === currentDrag.keyframeId)),
-        });
+        const snapped = holdSnapTarget(rawAtMs, currentDrag, 0, scene.durationMs, snapReleaseThresholdMs)
+          ?? snapTimelineMs(rawAtMs, {
+            minMs: 0,
+            maxMs: scene.durationMs,
+            stepMs: snapStepMs,
+            thresholdMs: snapThresholdMs,
+            targets: snapTargets.filter((target) => !(target.kind === 'keyframe' && target.keyframeId === currentDrag.keyframeId)),
+          });
         updateDragState((current) => current.mode === 'move-keyframe'
           ? {
               ...current,
@@ -184,7 +209,13 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
 
       if (currentDrag.mode === 'trim-start') {
         const rawStartMs = clamp(currentDrag.startStartMs + deltaMs, 0, currentDrag.startEndMs - MIN_WIDGET_DURATION_MS);
-        const snapped = snapTimelineMs(rawStartMs, {
+        const snapped = holdSnapTarget(
+          rawStartMs,
+          currentDrag,
+          0,
+          currentDrag.startEndMs - MIN_WIDGET_DURATION_MS,
+          trimSnapReleaseThresholdMs,
+        ) ?? snapTimelineMs(rawStartMs, {
           minMs: 0,
           maxMs: currentDrag.startEndMs - MIN_WIDGET_DURATION_MS,
           stepMs: snapStepMs,
@@ -205,7 +236,13 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
 
       if (currentDrag.mode === 'trim-end') {
         const rawEndMs = clamp(currentDrag.startEndMs + deltaMs, currentDrag.startStartMs + MIN_WIDGET_DURATION_MS, scene.durationMs);
-        const snapped = snapTimelineMs(rawEndMs, {
+        const snapped = holdSnapTarget(
+          rawEndMs,
+          currentDrag,
+          currentDrag.startStartMs + MIN_WIDGET_DURATION_MS,
+          scene.durationMs,
+          trimSnapReleaseThresholdMs,
+        ) ?? snapTimelineMs(rawEndMs, {
           minMs: currentDrag.startStartMs + MIN_WIDGET_DURATION_MS,
           maxMs: scene.durationMs,
           stepMs: snapStepMs,
@@ -342,6 +379,12 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
             snapGuideMs={snapGuideMs}
             onPointerDown={beginPlayheadDrag}
           />
+          {snapGuideMs !== undefined ? (
+            <div
+              className="timeline-snap-guide-global"
+              style={{ '--timeline-snap-guide-left': `${ROW_GUTTER + snapGuideMs * rowMsToPx}px` } as CSSProperties}
+            />
+          ) : null}
           <TimelineTrackList
             scrollContainerRef={timelineScrollRef}
             displayedWidgets={displayedWidgets}
@@ -349,7 +392,6 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
             playheadMs={playheadMs}
             rowMsToPx={rowMsToPx}
             trackWidth={trackWidth}
-            snapGuideMs={snapGuideMs}
             sceneDurationMs={scene.durationMs}
             collapsedGroupIds={collapsedGroupIds}
             selectedOnly={selectedOnly}

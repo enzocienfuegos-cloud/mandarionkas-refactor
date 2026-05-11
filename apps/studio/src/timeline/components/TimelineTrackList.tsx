@@ -12,7 +12,6 @@ export function TimelineTrackList({
   playheadMs,
   rowMsToPx,
   trackWidth,
-  snapGuideMs,
   sceneDurationMs,
   collapsedGroupIds,
   selectedOnly,
@@ -31,7 +30,6 @@ export function TimelineTrackList({
   playheadMs: number;
   rowMsToPx: number;
   trackWidth: number;
-  snapGuideMs?: number;
   sceneDurationMs: number;
   collapsedGroupIds: string[];
   selectedOnly: boolean;
@@ -77,7 +75,6 @@ export function TimelineTrackList({
             isActive={isActive}
             rowMsToPx={rowMsToPx}
             trackWidth={trackWidth}
-            snapGuideMs={snapGuideMs}
             sceneDurationMs={sceneDurationMs}
             onSelectWidget={onSelectWidget}
             onToggleWidgetHidden={onToggleWidgetHidden}

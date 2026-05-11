@@ -17,7 +17,6 @@ function TimelineTrackRowComponent({
   isActive,
   rowMsToPx,
   trackWidth,
-  snapGuideMs,
   sceneDurationMs,
   onSelectWidget,
   onToggleWidgetHidden,
@@ -34,7 +33,6 @@ function TimelineTrackRowComponent({
   isActive: boolean;
   rowMsToPx: number;
   trackWidth: number;
-  snapGuideMs?: number;
   sceneDurationMs: number;
   onSelectWidget: (widgetId: string, additive: boolean) => void;
   onToggleWidgetHidden: (widgetId: string) => void;
@@ -54,7 +52,6 @@ function TimelineTrackRowComponent({
   const rowStyle = {
     '--timeline-meta-indent': `${metaIndent}px`,
     '--timeline-track-width': `${trackWidth}px`,
-    '--timeline-snap-guide-left': snapGuideMs !== undefined ? `${snapGuideMs * rowMsToPx}px` : undefined,
     '--timeline-bar-left': `${barLeft}px`,
     '--timeline-bar-width': `${barWidth}px`,
     '--timeline-group-badge-left': `${barLeft + Math.min(barWidth + 10, 140)}px`,
@@ -215,7 +212,6 @@ function TimelineTrackRowComponent({
             onScrubStart(event.clientX);
           }}
         />
-        {snapGuideMs !== undefined ? <div className="timeline-snap-guide" /> : null}
         {keyframes.map((keyframe) => (
           <button
             key={keyframe.id}

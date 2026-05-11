@@ -25,6 +25,17 @@
   width: var(--timeline-grid-shell-width, auto);
   --timeline-playhead-left: 0px;
 }
+.timeline-snap-guide-global {
+  position: absolute;
+  top: 34px;
+  bottom: 0;
+  left: var(--timeline-snap-guide-left, 0px);
+  width: 1px;
+  background: linear-gradient(180deg, var(--white-a-55), var(--focus-a-24));
+  box-shadow: 0 0 0 1px var(--focus-a-10);
+  pointer-events: none;
+  z-index: var(--z-local-3);
+}
 .timeline-ruler {
   position: sticky;
   top: 0;
