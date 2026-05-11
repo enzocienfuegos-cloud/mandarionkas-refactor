@@ -8,7 +8,7 @@ import { TimelineHeader } from './components/TimelineHeader';
 import { TimelineOverview } from './components/TimelineOverview';
 import { TimelineRuler } from './components/TimelineRuler';
 import { TimelineTrackList } from './components/TimelineTrackList';
-import { BASE_ROW_MS_TO_PX, MIN_WIDGET_DURATION_MS, ROW_GUTTER, buildRulerTicks, buildTimelineDisplayRows, clamp, getDisplayKeyframes, getDisplayTiming, getDynamicRulerStepMs } from './timeline-utils';
+import { BASE_ROW_MS_TO_PX, MIN_WIDGET_DURATION_MS, ROW_GUTTER, buildRulerTicks, buildTimelineDisplayRows, clamp, getDynamicRulerStepMs } from './timeline-utils';
 import type { TimelineDragState, TimelineWidget } from './types';
 import { playbackEngine, usePlaybackMsThrottled } from '../hooks/use-playback-engine';
 import { useTimelinePlayhead } from './use-timeline-playhead';
@@ -121,6 +121,30 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
     }
   }, []);
 
+  function getTimelineRowElement(widgetId: string): HTMLElement | null {
+    return timelineGridRef.current?.querySelector(`[data-timeline-widget-id="${widgetId}"]`) ?? null;
+  }
+
+  function getTimelineKeyframeElement(keyframeId: string): HTMLElement | null {
+    return timelineGridRef.current?.querySelector(`[data-timeline-keyframe-id="${keyframeId}"]`) ?? null;
+  }
+
+  function applyBarPreview(widgetId: string, startMs: number, endMs: number): void {
+    const rowElement = getTimelineRowElement(widgetId);
+    if (!rowElement) return;
+    const barLeft = startMs * rowMsToPx;
+    const barWidth = Math.max(16, (endMs - startMs) * rowMsToPx);
+    rowElement.style.setProperty('--timeline-bar-left', `${barLeft}px`);
+    rowElement.style.setProperty('--timeline-bar-width', `${barWidth}px`);
+    rowElement.style.setProperty('--timeline-group-badge-left', `${barLeft + Math.min(barWidth + 10, 140)}px`);
+  }
+
+  function applyKeyframePreview(keyframeId: string, atMs: number): void {
+    const keyframeElement = getTimelineKeyframeElement(keyframeId);
+    if (!keyframeElement) return;
+    keyframeElement.style.setProperty('--timeline-keyframe-left', `${atMs * rowMsToPx}px`);
+  }
+
   useEffect(() => {
     if (!drag) {
       dragRef.current = null;
@@ -163,6 +187,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
             thresholdMs: snapThresholdMs,
             targets: snapTargets.filter((target) => !(target.kind === 'keyframe' && target.keyframeId === currentDrag.keyframeId)),
           });
+        applyKeyframePreview(currentDrag.keyframeId, snapped.valueMs);
         updateDragState((current) => current.mode === 'move-keyframe'
           ? {
               ...current,
@@ -195,6 +220,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
         const useEndSnap = !!endSnap.target && (!startSnap.target || Math.abs(endSnap.valueMs - rawEndMs) < Math.abs(startSnap.valueMs - rawStartMs));
         const nextStartMs = useEndSnap ? clamp(endSnap.valueMs - duration, 0, scene.durationMs - duration) : startSnap.valueMs;
         const snapTarget = useEndSnap ? endSnap.target : startSnap.target;
+        applyBarPreview(currentDrag.widgetId, nextStartMs, nextStartMs + duration);
         updateDragState((current) => current.mode === 'move-bar'
           ? {
               ...current,
@@ -222,6 +248,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
           thresholdMs: trimSnapThresholdMs,
           targets: snapTargets,
         });
+        applyBarPreview(currentDrag.widgetId, snapped.valueMs, currentDrag.startEndMs);
         updateDragState((current) => current.mode === 'trim-start'
           ? {
               ...current,
@@ -249,6 +276,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
           thresholdMs: trimSnapThresholdMs,
           targets: snapTargets,
         });
+        applyBarPreview(currentDrag.widgetId, currentDrag.startStartMs, snapped.valueMs);
         updateDragState((current) => current.mode === 'trim-end'
           ? {
               ...current,
@@ -291,23 +319,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
     return buildTimelineDisplayRows(widgets, selectedIds, collapsedSet, selectedOnly);
   }, [collapsedGroupIds, selectedIds, selectedOnly, widgets]);
 
-  const displayedWidgets = useMemo(() => {
-    if (!drag || drag.mode === 'playhead') return baseRows;
-    return baseRows.map((row) => {
-      if (drag.mode === 'move-keyframe') {
-        if (row.widget.id !== drag.widgetId) return row;
-        return {
-          ...row,
-          keyframes: getDisplayKeyframes(row.widget, drag),
-        };
-      }
-      if (row.widget.id !== drag.widgetId) return row;
-      return {
-        ...row,
-        timing: getDisplayTiming(row.widget, drag),
-      };
-    });
-  }, [baseRows, drag]);
+  const displayedWidgets = baseRows;
 
   const trackWidth = Math.max(scene.durationMs * rowMsToPx, 420);
   const snapGuideMs = drag && drag.mode !== 'playhead' ? drag.snapTargetMs : undefined;

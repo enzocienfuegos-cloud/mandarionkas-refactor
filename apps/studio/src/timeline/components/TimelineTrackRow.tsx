@@ -79,6 +79,7 @@ function TimelineTrackRowComponent({
         depth ? 'is-nested' : '',
         isGroup ? 'is-group-row' : '',
       ].filter(Boolean).join(' ')}
+      data-timeline-widget-id={widget.id}
       data-layer-index={String(layerIndex % 8)}
       style={rowStyle}
       onClick={(event) => onSelectWidget(widget.id, event.shiftKey || event.metaKey || event.ctrlKey)}
@@ -217,6 +218,7 @@ function TimelineTrackRowComponent({
             key={keyframe.id}
             type="button"
             className={`timeline-keyframe-dot property-${keyframe.property}`.trim()}
+            data-timeline-keyframe-id={keyframe.id}
             aria-label={`${keyframe.property} at ${keyframe.atMs} milliseconds with ${keyframe.easing ?? 'linear'} easing`}
             style={buildTimelineKeyframeStyle(keyframe.atMs * rowMsToPx)}
             onPointerDown={(event) => {
