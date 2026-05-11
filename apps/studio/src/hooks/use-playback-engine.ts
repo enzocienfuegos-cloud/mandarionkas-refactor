@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type DomSubscriber = (ms: number) => void;
 type ReactSubscriber = () => void;
@@ -74,16 +74,25 @@ export function usePlaybackMsThrottled(fallbackMs: number): number {
     const initial = playbackEngine.getCurrentMs();
     return Number.isFinite(initial) && initial > 0 ? initial : fallbackMs;
   });
+  const fallbackRef = useRef(fallbackMs);
+
+  useEffect(() => {
+    fallbackRef.current = fallbackMs;
+    const current = playbackEngine.getCurrentMs();
+    if (!Number.isFinite(current) || current <= 0) {
+      setValue(fallbackMs);
+    }
+  }, [fallbackMs]);
 
   useEffect(() => {
     const sync = () => {
       const next = playbackEngine.getCurrentMs();
-      setValue(Number.isFinite(next) ? next : fallbackMs);
+      setValue(Number.isFinite(next) ? next : fallbackRef.current);
     };
 
     sync();
     return playbackEngine.subscribeReact(sync);
-  }, [fallbackMs]);
+  }, []);
 
   return Number.isFinite(value) ? value : fallbackMs;
 }
