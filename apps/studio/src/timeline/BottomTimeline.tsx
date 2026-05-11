@@ -323,7 +323,6 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
 
   const trackWidth = Math.max(scene.durationMs * rowMsToPx, 420);
   const snapGuideMs = drag && drag.mode !== 'playhead' ? drag.snapTargetMs : undefined;
-  const snapLabel = drag && drag.mode !== 'playhead' ? drag.snapLabel : undefined;
   const rulerStepMs = getDynamicRulerStepMs(rowMsToPx);
   const majorTickMs = Math.max(1000, rulerStepMs * 4);
   const rulerTicks = buildRulerTicks(scene.durationMs, rulerStepMs, majorTickMs);
@@ -356,7 +355,6 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
         snapStepMs={snapStepMs}
         selectedOnly={selectedOnly}
         timelineZoom={timelineZoom}
-        snapLabel={snapLabel}
         onResizeStart={onResizeStart}
         onToggleCollapse={onToggleCollapse}
         onTogglePlay={() => {

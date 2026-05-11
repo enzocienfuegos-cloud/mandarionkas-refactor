@@ -31,7 +31,6 @@ export function TimelineHeader({
   snapStepMs,
   selectedOnly,
   timelineZoom,
-  snapLabel,
   onResizeStart,
   onToggleCollapse,
   onTogglePlay,
@@ -56,7 +55,6 @@ export function TimelineHeader({
   snapStepMs: number;
   selectedOnly: boolean;
   timelineZoom: number;
-  snapLabel?: string;
   onResizeStart: (startY: number) => void;
   onToggleCollapse: () => void;
   onTogglePlay: () => void;
@@ -265,15 +263,6 @@ export function TimelineHeader({
               </Button>
             </Tooltip>
           )}
-          {snapLabel ? (
-            <Tooltip content="Snap target">
-              <span className="pill timeline-snap-pill" tabIndex={0}>
-              <StudioIcon icon={StudioIcons.workflow} size={14} />
-              {' '}
-              {snapLabel}
-              </span>
-            </Tooltip>
-          ) : null}
         </div>
 
         <div className="timeline-ctrl-group timeline-ctrl-group--options">
