@@ -54,6 +54,7 @@ test('maintenance job releases its client but does not close the shared pool', a
         return 3;
       },
       reconcileStalledVideoTranscodeJobs: async () => ({ stalled: 4, requeued: 5, exhausted: 6 }),
+      reconcileStalledHtml5Publishes: async () => ({ stalled: 8, requeued: 9, exhausted: 10 }),
       pruneFrequencyCapEvents: async () => 7,
       runIdentityStitching: async () => {
         throw new Error('identity stitching should not run without active workspaces');
@@ -70,6 +71,9 @@ test('maintenance job releases its client but does not close the shared pool', a
   assert.equal(result.stalledTranscodes, 4);
   assert.equal(result.requeuedTranscodes, 5);
   assert.equal(result.exhaustedTranscodes, 6);
+  assert.equal(result.stalledHtml5Publishes, 8);
+  assert.equal(result.requeuedHtml5Publishes, 9);
+  assert.equal(result.exhaustedHtml5Publishes, 10);
   assert.equal(result.prunedCapEvents, 7);
   assert.equal(result.stitchedEdges, 0);
   assert.equal(result.skipped, false);
