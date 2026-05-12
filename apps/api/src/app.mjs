@@ -30,6 +30,7 @@ import { getPool } from '@smx/db/src/pool.mjs';
 
 const { env, warnings } = getApiConfig();
 let trackerBuffer = null;
+const RAW_BODY_ROUTE_RE = /^\/v1\/creative-ingestions\/[^/]+\/upload-proxy$/;
 
 function initTrackerBuffer() {
   const connectionString = env.databasePoolUrl || env.databaseUrl || '';
@@ -114,7 +115,8 @@ export function createApp() {
       return;
     }
 
-    const body = method === 'GET' || method === 'HEAD' ? null : await readJsonBody(req);
+    const expectsRawBody = RAW_BODY_ROUTE_RE.test(pathname);
+    const body = method === 'GET' || method === 'HEAD' || expectsRawBody ? null : await readJsonBody(req);
     if (body && body.__invalidJson) {
       sendJson(res, 400, {
         ok: false,

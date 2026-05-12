@@ -4,7 +4,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { detectClickTagInHtml, detectDimensionsInHtml, validateHtml5Bundle } from '@smx/contracts/src/html5-detector.mjs';
 import { getPool } from '@smx/db/src/pool.mjs';
 import unzipper from 'unzipper';
-import { badRequest, forbidden, sendJson, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
+import { badRequest, forbidden, sendJson, sendNoContent, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
 import { logWarn } from '../../../lib/logger.mjs';
 import { withReadOnlySession, withSession, hasPermission } from '../../../lib/session.mjs';
 import {
@@ -426,6 +426,14 @@ async function signUploadUrl(env, { storageKey, mimeType }) {
     ContentType: trimText(mimeType) || undefined,
   });
   return getSignedUrl(getR2Client(env), command, { expiresIn: PREPARE_UPLOAD_TTL_SECONDS });
+}
+
+async function readBinaryBody(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
 }
 
 function normalizeCreative(row) {
@@ -1046,6 +1054,52 @@ export async function handleCreativeRoutes(ctx) {
         upload: { ingestionId, storageKey, uploadUrl, publicUrl },
         requestId,
       });
+    });
+  }
+
+  if (method === 'POST' && /^\/v1\/creative-ingestions\/[^/]+\/upload-proxy$/.test(pathname)) {
+    return withSession(ctx, async (session) => {
+      if (!hasPermission(session, 'projects:create')) {
+        return forbidden(res, requestId, 'You do not have permission to upload creatives.');
+      }
+      if (!isR2SigningReady(ctx.env)) {
+        return badRequest(res, requestId, 'Creative uploads are not configured yet.');
+      }
+
+      const ingestionId = pathname.split('/')[3];
+      const workspaceId = await resolveTargetWorkspaceId(
+        session.client,
+        session.user.id,
+        session.session.activeWorkspaceId,
+        url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
+      );
+      const ingestion = await getCreativeIngestion(session.client, workspaceId, ingestionId);
+      if (!ingestion) return badRequest(res, requestId, 'Creative ingestion not found.');
+      if (!trimText(ingestion.storage_key)) {
+        return badRequest(res, requestId, 'Creative ingestion is missing a storage key.');
+      }
+
+      const bodyBuffer = await readBinaryBody(req);
+      if (!bodyBuffer.length) {
+        return badRequest(res, requestId, 'Upload body is empty.');
+      }
+
+      const contentType = trimText(ingestion.mime_type || req.headers['content-type']) || 'application/octet-stream';
+      await getR2Client(ctx.env).send(new PutObjectCommand({
+        Bucket: ctx.env.r2Bucket,
+        Key: ingestion.storage_key,
+        Body: bodyBuffer,
+        ContentType: contentType,
+        ContentLength: bodyBuffer.length,
+      }));
+
+      await updateCreativeIngestion(session.client, workspaceId, ingestionId, {
+        mime_type: contentType,
+        size_bytes: bodyBuffer.length,
+        public_url: trimText(ingestion.public_url) || buildPublicUrl(ctx.env, ingestion.storage_key),
+      });
+
+      return sendNoContent(res);
     });
   }
 

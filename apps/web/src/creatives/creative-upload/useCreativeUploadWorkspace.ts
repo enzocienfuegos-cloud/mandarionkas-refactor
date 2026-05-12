@@ -4,7 +4,7 @@ import {
   createCreativeIngestionUpload,
   loadCreativeIngestion,
   publishCreativeIngestion,
-  uploadFileToSignedUrl,
+  uploadFileViaApiProxy,
   type CreativeIngestion,
 } from '../catalog';
 import { loadWorkspaces, type WorkspaceOption } from '../../shared/workspaces';
@@ -359,7 +359,7 @@ export function useCreativeUploadWorkspace({ onComplete }: Params) {
           ...videoMetadata,
         });
 
-        await uploadFileToSignedUrl(upload.upload.uploadUrl, file, ({ loadedBytes, totalBytes }) => {
+        await uploadFileViaApiProxy(upload.ingestion.id, workspaceState.workspaceId, file, ({ loadedBytes, totalBytes }) => {
           loadedBytesByIndex[index] = totalBytes > 0 && loadedBytes >= totalBytes ? totalBytes : loadedBytes;
           refreshOverallProgress();
           refreshActiveProgress();

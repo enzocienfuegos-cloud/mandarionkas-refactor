@@ -395,6 +395,38 @@ export async function uploadFileToSignedUrl(
   });
 }
 
+export async function uploadFileViaApiProxy(
+  ingestionId: string,
+  workspaceId: string | undefined,
+  file: File,
+  onProgress?: (progress: { loadedBytes: number; totalBytes: number; percent: number }) => void,
+) {
+  await new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    const qs = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : '';
+    request.open('POST', `/v1/creative-ingestions/${ingestionId}/upload-proxy${qs}`, true);
+    request.withCredentials = true;
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const loadedBytes = event.loaded;
+      const totalBytes = event.total || file.size || 0;
+      const percent = totalBytes > 0 ? Math.min(100, Math.round((loadedBytes / totalBytes) * 100)) : 0;
+      onProgress?.({ loadedBytes, totalBytes, percent });
+    };
+    request.onerror = () => reject(new Error('Upload failed'));
+    request.onabort = () => reject(new Error('Upload canceled'));
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.({ loadedBytes: file.size, totalBytes: file.size, percent: 100 });
+        resolve();
+        return;
+      }
+      reject(new Error(`Upload failed (${request.status})`));
+    };
+    request.send(file);
+  });
+}
+
 export async function completeCreativeIngestion(ingestionId: string, input: {
   workspaceId?: string;
   file: File;
