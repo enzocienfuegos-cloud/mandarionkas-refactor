@@ -30,13 +30,6 @@ const ReportIcon = ({ className }: IconProps) => (
   </svg>
 );
 
-const TableIcon = ({ className }: IconProps) => (
-  <svg {...iconProps(className)}>
-    <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
-    <path d="M4 10h16M10 5v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
-
 type Params = {
   deletingId: string | null;
   onEdit: (tag: Tag) => void;
@@ -155,11 +148,10 @@ export function useTagColumns({ deletingId, onEdit, onPreview, onExport, onDelet
               onEdit(tag);
             }}
             aria-label={`Edit ${tag.name}`}
-            variant="ghost"
+            variant="secondary"
             size="sm"
-            className="px-2"
           >
-            <TableIcon className="h-4 w-4" />
+            Edit
           </Button>
           <Button
             type="button"
