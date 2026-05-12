@@ -355,7 +355,7 @@ export async function createCreativeIngestionUpload(input: {
 }) {
   return fetchJson<{
     ingestion: CreativeIngestion;
-    upload: { ingestionId: string; storageKey: string; uploadUrl: string; publicUrl?: string };
+    upload: { ingestionId: string; storageKey: string; uploadUrl: string; uploadMethod?: string; publicUrl?: string };
   }>('/v1/creative-ingestions/upload-url', {
     method: 'POST',
     body: JSON.stringify({
@@ -406,15 +406,15 @@ export async function uploadFileToSignedUrl(
 }
 
 export async function uploadFileViaApiProxy(
-  ingestionId: string,
-  workspaceId: string | undefined,
+  uploadUrl: string,
   file: File,
   onProgress?: (progress: { loadedBytes: number; totalBytes: number; percent: number }) => void,
 ) {
   await new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest();
-    const qs = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : '';
-    request.open('POST', resolveApiUrl(`/v1/creative-ingestions/${ingestionId}/upload-proxy${qs}`), true);
+    const resolvedUrl = resolveApiUrl(uploadUrl);
+    console.info('[upload] step 3: resolved upload URL', { uploadUrl, resolvedUrl });
+    request.open('POST', resolvedUrl, true);
     request.withCredentials = true;
     request.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
@@ -426,6 +426,10 @@ export async function uploadFileViaApiProxy(
     request.onerror = () => reject(new Error('Upload failed'));
     request.onabort = () => reject(new Error('Upload canceled'));
     request.onload = () => {
+      console.info('[upload] step 4: proxy returned', {
+        status: request.status,
+        responseText: request.responseText?.slice?.(0, 500) || '',
+      });
       if (request.status >= 200 && request.status < 300) {
         onProgress?.({ loadedBytes: file.size, totalBytes: file.size, percent: 100 });
         resolve();

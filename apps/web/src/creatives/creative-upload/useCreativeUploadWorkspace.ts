@@ -338,6 +338,12 @@ export function useCreativeUploadWorkspace({ onComplete }: Params) {
 
     try {
       const processFile = async (file: File, index: number) => {
+        console.info('[upload] step 1: starting file upload', {
+          index,
+          fileName: file.name,
+          fileSize: file.size,
+          sourceKind,
+        });
         const fileKey = buildFileKey(file);
         const requestedClickUrl = normalizeHttpUrl(
           clickUrlState.manualByFileKey[fileKey]
@@ -358,11 +364,18 @@ export function useCreativeUploadWorkspace({ onComplete }: Params) {
           clickUrl: requestedClickUrl,
           ...videoMetadata,
         });
+        console.info('[upload] step 2: ingestion created', {
+          ingestionId: upload.ingestion.id,
+          upload,
+        });
 
-        await uploadFileViaApiProxy(upload.ingestion.id, workspaceState.workspaceId, file, ({ loadedBytes, totalBytes }) => {
+        await uploadFileViaApiProxy(upload.upload.uploadUrl, file, ({ loadedBytes, totalBytes }) => {
           loadedBytesByIndex[index] = totalBytes > 0 && loadedBytes >= totalBytes ? totalBytes : loadedBytes;
           refreshOverallProgress();
           refreshActiveProgress();
+        });
+        console.info('[upload] step 5: upload request completed', {
+          ingestionId: upload.ingestion.id,
         });
 
         loadedBytesByIndex[index] = file.size;
@@ -377,6 +390,9 @@ export function useCreativeUploadWorkspace({ onComplete }: Params) {
           clickUrl: requestedClickUrl,
           ...videoMetadata,
         });
+        console.info('[upload] step 6: ingestion marked complete', {
+          ingestionId: upload.ingestion.id,
+        });
 
         processingStartedAtByIndex[index] = Date.now();
         activeProcessingIndexes.add(index);
@@ -388,6 +404,10 @@ export function useCreativeUploadWorkspace({ onComplete }: Params) {
         const publishResult = await publishCreativeIngestion(upload.ingestion.id, {
           workspaceId: workspaceState.workspaceId,
           clickUrl: requestedClickUrl,
+        });
+        console.info('[upload] step 7: publish started', {
+          ingestionId: upload.ingestion.id,
+          publishStatus: publishResult.ingestion?.status ?? null,
         });
         processingStateByIndex[index] = publishResult.ingestion ?? null;
         refreshOverallProgress();
@@ -471,12 +491,14 @@ export function useCreativeUploadWorkspace({ onComplete }: Params) {
       });
       window.setTimeout(onComplete, 1200);
     } catch (submitError: any) {
+      console.error('[upload] FAILED', submitError);
       setFeedback({
         status: '',
         error: submitError.message ?? 'Upload failed',
         loading: false,
       });
     } finally {
+      console.info('[upload] cleanup');
       window.clearInterval(processingInterval);
       setFeedback((current) => ({ ...current, loading: false }));
     }

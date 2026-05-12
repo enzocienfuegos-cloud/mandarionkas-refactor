@@ -410,6 +410,20 @@ function buildPublicUrl(env, storageKey) {
   return base && storageKey ? `${base}/${storageKey}` : null;
 }
 
+function resolveBaseUrl(ctx) {
+  const explicit = trimText(ctx.env.apiBaseUrl || ctx.env.apiPublicBaseUrl || ctx.env.baseUrl);
+  if (explicit) return explicit.replace(/\/+$/, '');
+  const protocol = trimText(ctx.req.headers['x-forwarded-proto']) || 'https';
+  const host = trimText(ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host);
+  return host ? `${protocol}://${host}` : 'https://localhost';
+}
+
+function buildCreativeUploadProxyUrl(ctx, ingestionId, workspaceId) {
+  const base = resolveBaseUrl(ctx);
+  const query = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : '';
+  return `${base}/v1/creative-ingestions/${ingestionId}/upload-proxy${query}`;
+}
+
 function inferStorageKeyFromPublicUrl(env, publicUrl) {
   const base = trimBaseUrl(env.assetsPublicBaseUrl);
   const normalizedUrl = trimText(publicUrl);
@@ -1026,10 +1040,7 @@ export async function handleCreativeRoutes(ctx) {
       const ingestionId = randomUUID();
       const storageKey = buildCreativeStorageKey({ workspaceId, ingestionId, filename });
       const publicUrl = buildPublicUrl(ctx.env, storageKey);
-      const uploadUrl = await signUploadUrl(ctx.env, {
-        storageKey,
-        mimeType: ctx.body?.mimeType || ctx.body?.mime_type,
-      });
+      const uploadUrl = buildCreativeUploadProxyUrl(ctx, ingestionId, workspaceId);
       const ingestion = await createCreativeIngestion(session.client, {
         id: ingestionId,
         workspaceId,
@@ -1051,7 +1062,7 @@ export async function handleCreativeRoutes(ctx) {
       });
       return sendJson(res, 200, {
         ingestion: normalizeCreativeIngestion(ingestion),
-        upload: { ingestionId, storageKey, uploadUrl, publicUrl },
+        upload: { ingestionId, storageKey, uploadUrl, uploadMethod: 'POST', publicUrl },
         requestId,
       });
     });
