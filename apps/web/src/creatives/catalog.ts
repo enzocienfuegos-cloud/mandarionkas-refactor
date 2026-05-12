@@ -371,9 +371,9 @@ export async function uploadFileToSignedUrl(
   await new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open('PUT', uploadUrl, true);
-    if (file.type) {
-      request.setRequestHeader('Content-Type', file.type);
-    }
+    // Keep the presigned upload request "simple" so browsers do not trigger
+    // a preflight against the R2 object endpoint. The creative ingestion flow
+    // persists mimeType separately when we complete the upload.
     request.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
       const loadedBytes = event.loaded;

@@ -14,7 +14,9 @@ async function uploadFileToSignedUrl(
   await new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open('PUT', uploadUrl, true);
-    if (mimeType) request.setRequestHeader('Content-Type', mimeType);
+    // Avoid a browser preflight on the R2 presigned URL. The API stores the
+    // intended mimeType when the upload is finalized, so the direct PUT does
+    // not need a Content-Type header.
     request.upload.onprogress = (event) => {
       if (!event.lengthComputable || !onProgress) return;
       onProgress({
