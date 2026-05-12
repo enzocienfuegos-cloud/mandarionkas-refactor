@@ -4,6 +4,7 @@ import {
   createCreativeIngestionUpload,
   loadCreativeIngestion,
   publishCreativeIngestion,
+  uploadFileToSignedUrl,
   uploadFileViaApiProxy,
   type CreativeIngestion,
 } from '../catalog';
@@ -50,6 +51,14 @@ type UploadProgressState = {
   overallProgress: number;
 };
 
+type CreativeUploadTransport = {
+  presignedUrl?: string | null;
+  proxyUrl?: string | null;
+  uploadUrl?: string | null;
+};
+
+type UploadProgressCallback = (progress: { loadedBytes: number; totalBytes: number; percent: number }) => void;
+
 type WorkspaceState = {
   workspaces: WorkspaceOption[];
   workspaceId: string;
@@ -64,6 +73,32 @@ const EMPTY_PROGRESS: UploadProgressState = {
   currentProcessingMessage: '',
   overallProgress: 0,
 };
+
+export async function uploadCreativeFileForIngestion(
+  upload: CreativeUploadTransport,
+  file: File,
+  onProgress?: UploadProgressCallback,
+) {
+  const proxyUrl = upload.proxyUrl || upload.uploadUrl || null;
+
+  if (upload.presignedUrl) {
+    try {
+      await uploadFileToSignedUrl(upload.presignedUrl, file, onProgress);
+      return 'presigned';
+    } catch (error) {
+      if (!proxyUrl) throw error;
+      console.warn('[upload] presigned upload failed, falling back to API proxy', error);
+      onProgress?.({ loadedBytes: 0, totalBytes: file.size, percent: 0 });
+    }
+  }
+
+  if (!proxyUrl) {
+    throw new Error('Creative upload response did not include an upload URL.');
+  }
+
+  await uploadFileViaApiProxy(proxyUrl, file, onProgress);
+  return 'proxy';
+}
 
 export function useCreativeUploadWorkspace({ onComplete }: Params) {
   const [sourceKind, setSourceKind] = useState<SourceKind>('html5_zip');
@@ -371,7 +406,7 @@ export function useCreativeUploadWorkspace({ onComplete }: Params) {
           upload,
         });
 
-        await uploadFileViaApiProxy(upload.upload.uploadUrl, file, ({ loadedBytes, totalBytes }) => {
+        await uploadCreativeFileForIngestion(upload.upload, file, ({ loadedBytes, totalBytes }) => {
           loadedBytesByIndex[index] = totalBytes > 0 && loadedBytes >= totalBytes ? totalBytes : loadedBytes;
           refreshOverallProgress();
           refreshActiveProgress();

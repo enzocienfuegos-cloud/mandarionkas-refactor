@@ -1040,7 +1040,11 @@ export async function handleCreativeRoutes(ctx) {
       const ingestionId = randomUUID();
       const storageKey = buildCreativeStorageKey({ workspaceId, ingestionId, filename });
       const publicUrl = buildPublicUrl(ctx.env, storageKey);
-      const uploadUrl = buildCreativeUploadProxyUrl(ctx, ingestionId, workspaceId);
+      const uploadProxyUrl = buildCreativeUploadProxyUrl(ctx, ingestionId, workspaceId);
+      const presignedUrl = await signUploadUrl(ctx.env, {
+        storageKey,
+        mimeType: ctx.body?.mimeType || ctx.body?.mime_type || null,
+      });
       const ingestion = await createCreativeIngestion(session.client, {
         id: ingestionId,
         workspaceId,
@@ -1062,7 +1066,20 @@ export async function handleCreativeRoutes(ctx) {
       });
       return sendJson(res, 200, {
         ingestion: normalizeCreativeIngestion(ingestion),
-        upload: { ingestionId, storageKey, uploadUrl, uploadMethod: 'POST', publicUrl },
+        upload: {
+          ingestionId,
+          storageKey,
+          publicUrl,
+          presignedUrl: presignedUrl ?? null,
+          presignedMethod: 'PUT',
+          presignedExpiresAt: presignedUrl
+            ? new Date(Date.now() + PREPARE_UPLOAD_TTL_SECONDS * 1000).toISOString()
+            : null,
+          proxyUrl: uploadProxyUrl,
+          proxyMethod: 'POST',
+          uploadUrl: uploadProxyUrl,
+          uploadMethod: 'POST',
+        },
         requestId,
       });
     });
