@@ -38,6 +38,7 @@ import { runMaintenanceJob } from './jobs/maintenance.mjs';
 import { runPublishHtml5ArchiveJob } from './jobs/publish-html5-archive.mjs';
 import { JOB_NAME as TRACKER_FLUSH_JOB, runTrackerFlushJob } from './jobs/tracker-flush.mjs';
 import { runTranscodeVideoJob } from './jobs/transcode-video.mjs';
+import { closeAllPools } from '@smx/db/src/pool.mjs';
 import {
   ensureBossStarted,
   getBoss,
@@ -169,7 +170,11 @@ async function main() {
     }
 
     try {
-      await stopBoss();
+      try {
+        await stopBoss();
+      } finally {
+        await closeAllPools();
+      }
       log('info', { event: 'shutdown_complete' });
     } catch (e) {
       log('error', { event: 'shutdown_error', message: e?.message });

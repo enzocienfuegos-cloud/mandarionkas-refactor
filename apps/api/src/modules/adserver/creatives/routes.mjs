@@ -657,7 +657,7 @@ function normalizeOptionalPositiveInteger(value) {
 }
 
 export async function handleCreativeRoutes(ctx) {
-  const { method, pathname, res, requestId, url } = ctx;
+  const { method, pathname, req, res, requestId, url } = ctx;
 
   if (method === 'GET' && pathname === '/v1/creatives') {
     return withReadOnlySession(ctx, async (session) => {
@@ -1046,7 +1046,7 @@ export async function handleCreativeRoutes(ctx) {
         workspaceId,
         createdBy: session.user.id,
         sourceKind,
-        status: 'uploaded',
+        status: 'pending_upload',
         originalFilename: filename,
         mimeType: ctx.body?.mimeType || ctx.body?.mime_type || null,
         sizeBytes: ctx.body?.sizeBytes ?? ctx.body?.size_bytes ?? null,
@@ -1090,12 +1090,12 @@ export async function handleCreativeRoutes(ctx) {
         return badRequest(res, requestId, 'Creative ingestion is missing a storage key.');
       }
 
-      const bodyBuffer = await readBinaryBody(request);
+      const bodyBuffer = await readBinaryBody(req);
       if (!bodyBuffer.length) {
         return badRequest(res, requestId, 'Upload body is empty.');
       }
 
-      const contentType = trimText(ingestion.mime_type || request.headers['content-type']) || 'application/octet-stream';
+      const contentType = trimText(ingestion.mime_type || req.headers['content-type']) || 'application/octet-stream';
       await getR2Client(ctx.env).send(new PutObjectCommand({
         Bucket: ctx.env.r2Bucket,
         Key: ingestion.storage_key,
@@ -1105,6 +1105,7 @@ export async function handleCreativeRoutes(ctx) {
       }));
 
       await updateCreativeIngestion(session.client, workspaceId, ingestionId, {
+        status: 'uploaded',
         mime_type: contentType,
         size_bytes: bodyBuffer.length,
         public_url: trimText(ingestion.public_url) || buildPublicUrl(ctx.env, ingestion.storage_key),
