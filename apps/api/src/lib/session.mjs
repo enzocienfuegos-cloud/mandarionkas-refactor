@@ -86,6 +86,26 @@ export async function withReadOnlySession(ctx, callback) {
   return callback(session);
 }
 
+/**
+ * Run a callback inside a Postgres transaction on the provided client.
+ * Re-throws the original error so route-level error handling stays unchanged.
+ */
+export async function withTransaction(client, callback) {
+  await client.query('BEGIN');
+  try {
+    const result = await callback(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (_) {
+      // Preserve the original failure; rollback errors are secondary here.
+    }
+    throw err;
+  }
+}
+
 // ─── hasPermission ─────────────────────────────────────────────────────────────
 
 /**

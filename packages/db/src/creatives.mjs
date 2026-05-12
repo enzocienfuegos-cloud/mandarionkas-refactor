@@ -818,7 +818,7 @@ export async function updateCreativeIngestion(pool, workspaceId, ingestionId, in
   return rows[0] ?? null;
 }
 
-export async function createPublishedCreative(pool, input = {}) {
+export async function createPublishedCreative(client, input = {}) {
   const {
     workspaceId,
     createdBy,
@@ -873,7 +873,7 @@ export async function createPublishedCreative(pool, input = {}) {
       : {}),
   };
 
-  const creativeResult = await pool.query(
+  const creativeResult = await client.query(
     `INSERT INTO creatives (
        workspace_id, name, type, file_url, thumbnail_url, file_size, mime_type,
        width, height, duration_ms, click_url, metadata, approval_status, transcode_status
@@ -902,7 +902,7 @@ export async function createPublishedCreative(pool, input = {}) {
   );
   const creative = creativeResult.rows[0];
 
-  const versionResult = await pool.query(
+  const versionResult = await client.query(
     `INSERT INTO creative_versions (
        workspace_id, creative_id, version_number, source_kind, serving_format,
        status, public_url, entry_path, mime_type, width, height, duration_ms,
@@ -932,7 +932,7 @@ export async function createPublishedCreative(pool, input = {}) {
   );
   const creativeVersion = versionResult.rows[0];
 
-  await pool.query(
+  await client.query(
     `INSERT INTO creative_artifacts (
        workspace_id, creative_version_id, kind, storage_key, public_url, mime_type,
        size_bytes, checksum, metadata
@@ -953,7 +953,7 @@ export async function createPublishedCreative(pool, input = {}) {
   let transcode = null;
 
   if (normalizedSourceKind === 'video_mp4') {
-    await pool.query(
+    await client.query(
       `INSERT INTO video_renditions (
          workspace_id, creative_version_id, artifact_id, label, width, height,
          bitrate_kbps, codec, mime_type, status, is_source, sort_order,
@@ -994,12 +994,12 @@ export async function createPublishedCreative(pool, input = {}) {
       ],
     );
 
-    await regenerateVideoRenditions(pool, workspaceId, creativeVersion.id);
+    await regenerateVideoRenditions(client, workspaceId, creativeVersion.id);
 
     const resolvedStorageKey = storageKey || null;
     const resolvedPublicUrl = publicUrl || creativeVersion.public_url || null;
     if (resolvedStorageKey && resolvedPublicUrl && createdBy) {
-      transcode = await queueVideoTranscodeForCreativeVersion(pool, {
+      transcode = await queueVideoTranscodeForCreativeVersion(client, {
         workspaceId,
         creativeId: creative.id,
         creativeVersionId: creativeVersion.id,
@@ -1021,13 +1021,13 @@ export async function createPublishedCreative(pool, input = {}) {
 
     if (!transcode?.queued) {
       const blockedReason = transcode?.reason || 'transcode_not_queued';
-      await updateCreativeVersionVideoProcessingState(pool, {
+      await updateCreativeVersionVideoProcessingState(client, {
         workspaceId,
         creativeVersionId: creativeVersion.id,
         status: 'blocked',
         reason: blockedReason,
       });
-      await pool.query(
+      await client.query(
         `UPDATE creatives
          SET transcode_status = 'blocked',
              updated_at = NOW()
@@ -1037,7 +1037,7 @@ export async function createPublishedCreative(pool, input = {}) {
     }
   }
 
-  const ingestion = await updateCreativeIngestion(pool, workspaceId, ingestionId, {
+  const ingestion = await updateCreativeIngestion(client, workspaceId, ingestionId, {
     creative_id: creative.id,
     creative_version_id: creativeVersion.id,
     status: ingestionStatus || (shouldDeferHtml5ArchivePublish ? 'processing' : 'published'),
@@ -1045,8 +1045,8 @@ export async function createPublishedCreative(pool, input = {}) {
     validation_report: ingestionValidationReport || { published: true },
   });
 
-  const latestCreative = await getCreative(pool, workspaceId, creative.id);
-  const latestCreativeVersion = await getCreativeVersion(pool, workspaceId, creativeVersion.id);
+  const latestCreative = await getCreative(client, workspaceId, creative.id);
+  const latestCreativeVersion = await getCreativeVersion(client, workspaceId, creativeVersion.id);
 
   return {
     creative: latestCreative ?? creative,

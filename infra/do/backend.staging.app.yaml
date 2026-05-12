@@ -79,7 +79,7 @@ services:
       - key: ASSETS_PUBLIC_BASE_URL
         scope: RUN_TIME
         type: GENERAL
-        value: https://cdn-staging.duskplatform.co
+        value: https://pub.duskplatform.co
       - key: PLATFORM_OBSERVABILITY_ENABLED
         scope: RUN_TIME
         type: GENERAL
@@ -139,7 +139,7 @@ services:
       - key: R2_BUCKET
         scope: RUN_TIME
         type: GENERAL
-        value: smx-assets
+        value: smx-assets-staging
       - key: R2_ACCESS_KEY_ID
         scope: RUN_TIME
         type: SECRET
@@ -151,7 +151,7 @@ services:
       - key: R2_PUBLIC_BASE
         scope: RUN_TIME
         type: GENERAL
-        value: https://cdn-staging.duskplatform.co
+        value: https://pub.duskplatform.co
       - key: APP_GIT_SHA
         scope: RUN_TIME
         type: GENERAL
@@ -202,7 +202,7 @@ workers:
       - key: R2_BUCKET
         scope: RUN_TIME
         type: GENERAL
-        value: smx-assets
+        value: smx-assets-staging
       - key: R2_ACCESS_KEY_ID
         scope: RUN_TIME
         type: SECRET
@@ -214,4 +214,4 @@ workers:
       - key: R2_PUBLIC_BASE
         scope: RUN_TIME
         type: GENERAL
-        value: https://cdn-staging.duskplatform.co
+        value: https://pub.duskplatform.co

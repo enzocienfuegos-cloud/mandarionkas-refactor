@@ -6,7 +6,7 @@ import { getPool } from '@smx/db/src/pool.mjs';
 import unzipper from 'unzipper';
 import { badRequest, forbidden, sendJson, sendNoContent, serviceUnavailable, unauthorized } from '../../../lib/http.mjs';
 import { logWarn } from '../../../lib/logger.mjs';
-import { withReadOnlySession, withSession, hasPermission } from '../../../lib/session.mjs';
+import { withReadOnlySession, withSession, hasPermission, withTransaction } from '../../../lib/session.mjs';
 import {
   createCreativeSizeVariant,
   createCreativeSizeVariantsBulk,
@@ -1206,31 +1206,39 @@ export async function handleCreativeRoutes(ctx) {
 
           try {
             if (!creativeVersionId) {
-              const result = await createPublishedCreative(pool, {
-                workspaceId,
-                createdBy: session.user.id,
-                ingestionId,
-                sourceKind: snapshotExisting.source_kind,
-                name: trimText(backgroundBody?.name) || snapshotExisting.metadata?.requestedName || snapshotExisting.original_filename,
-                clickUrl: resolveRequestedClickUrl(backgroundBody, snapshotExisting.metadata?.clickUrl || null),
-                publicUrl: snapshotExisting.public_url,
-                storageKey: snapshotExisting.storage_key || inferStorageKeyFromPublicUrl(backgroundEnv, snapshotExisting.public_url),
-                originalFilename: snapshotExisting.original_filename,
-                mimeType: snapshotExisting.mime_type,
-                sizeBytes: snapshotExisting.size_bytes,
-                width: normalizeOptionalPositiveInteger(backgroundBody?.width) ?? snapshotExisting.metadata?.width ?? null,
-                height: normalizeOptionalPositiveInteger(backgroundBody?.height) ?? snapshotExisting.metadata?.height ?? null,
-                durationMs: normalizeOptionalPositiveInteger(backgroundBody?.durationMs ?? backgroundBody?.duration_ms) ?? snapshotExisting.metadata?.durationMs ?? null,
-                metadata: queuedPublishMetadata,
-                deferHtml5ArchivePublish: true,
-                ingestionStatus: 'processing',
-                ingestionMetadata: queuedPublishMetadata,
-                ingestionValidationReport: {
-                  ...(snapshotExisting.validation_report || {}),
-                  readyToPublish: true,
-                  publishQueued: true,
-                },
-              });
+              const client = await pool.connect();
+              let result;
+              try {
+                result = await withTransaction(client, (tx) =>
+                  createPublishedCreative(tx, {
+                    workspaceId,
+                    createdBy: session.user.id,
+                    ingestionId,
+                    sourceKind: snapshotExisting.source_kind,
+                    name: trimText(backgroundBody?.name) || snapshotExisting.metadata?.requestedName || snapshotExisting.original_filename,
+                    clickUrl: resolveRequestedClickUrl(backgroundBody, snapshotExisting.metadata?.clickUrl || null),
+                    publicUrl: snapshotExisting.public_url,
+                    storageKey: snapshotExisting.storage_key || inferStorageKeyFromPublicUrl(backgroundEnv, snapshotExisting.public_url),
+                    originalFilename: snapshotExisting.original_filename,
+                    mimeType: snapshotExisting.mime_type,
+                    sizeBytes: snapshotExisting.size_bytes,
+                    width: normalizeOptionalPositiveInteger(backgroundBody?.width) ?? snapshotExisting.metadata?.width ?? null,
+                    height: normalizeOptionalPositiveInteger(backgroundBody?.height) ?? snapshotExisting.metadata?.height ?? null,
+                    durationMs: normalizeOptionalPositiveInteger(backgroundBody?.durationMs ?? backgroundBody?.duration_ms) ?? snapshotExisting.metadata?.durationMs ?? null,
+                    metadata: queuedPublishMetadata,
+                    deferHtml5ArchivePublish: true,
+                    ingestionStatus: 'processing',
+                    ingestionMetadata: queuedPublishMetadata,
+                    ingestionValidationReport: {
+                      ...(snapshotExisting.validation_report || {}),
+                      readyToPublish: true,
+                      publishQueued: true,
+                    },
+                  }),
+                );
+              } finally {
+                client.release();
+              }
               creativeVersionId = result.creativeVersion?.id;
             } else {
               await markCreativeIngestionStatus(pool, workspaceId, ingestionId, {
@@ -1291,23 +1299,25 @@ export async function handleCreativeRoutes(ctx) {
         return true;
       }
 
-      const result = await createPublishedCreative(session.client, {
-        workspaceId,
-        createdBy: session.user.id,
-        ingestionId,
-        sourceKind: existing.source_kind,
-        name: trimText(ctx.body?.name) || existing.metadata?.requestedName || existing.original_filename,
-        clickUrl: resolveRequestedClickUrl(ctx.body, existing.metadata?.clickUrl || null),
-        publicUrl: existing.public_url,
-        storageKey: existing.storage_key || inferStorageKeyFromPublicUrl(ctx.env, existing.public_url),
-        originalFilename: existing.original_filename,
-        mimeType: existing.mime_type,
-        sizeBytes: existing.size_bytes,
-        width: normalizeOptionalPositiveInteger(ctx.body?.width) ?? existing.metadata?.width ?? null,
-        height: normalizeOptionalPositiveInteger(ctx.body?.height) ?? existing.metadata?.height ?? null,
-        durationMs: normalizeOptionalPositiveInteger(ctx.body?.durationMs ?? ctx.body?.duration_ms) ?? existing.metadata?.durationMs ?? null,
-        metadata: existing.metadata || {},
-      });
+      const result = await withTransaction(session.client, (tx) =>
+        createPublishedCreative(tx, {
+          workspaceId,
+          createdBy: session.user.id,
+          ingestionId,
+          sourceKind: existing.source_kind,
+          name: trimText(ctx.body?.name) || existing.metadata?.requestedName || existing.original_filename,
+          clickUrl: resolveRequestedClickUrl(ctx.body, existing.metadata?.clickUrl || null),
+          publicUrl: existing.public_url,
+          storageKey: existing.storage_key || inferStorageKeyFromPublicUrl(ctx.env, existing.public_url),
+          originalFilename: existing.original_filename,
+          mimeType: existing.mime_type,
+          sizeBytes: existing.size_bytes,
+          width: normalizeOptionalPositiveInteger(ctx.body?.width) ?? existing.metadata?.width ?? null,
+          height: normalizeOptionalPositiveInteger(ctx.body?.height) ?? existing.metadata?.height ?? null,
+          durationMs: normalizeOptionalPositiveInteger(ctx.body?.durationMs ?? ctx.body?.duration_ms) ?? existing.metadata?.durationMs ?? null,
+          metadata: existing.metadata || {},
+        }),
+      );
 
       return sendJson(res, 200, {
         ingestion: normalizeCreativeIngestion(result.ingestion),
