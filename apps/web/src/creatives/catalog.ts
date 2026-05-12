@@ -150,6 +150,16 @@ export interface CreativeIngestion {
   updatedAt: string;
 }
 
+function normalizeApiBaseUrl(value: string) {
+  return value.replace(/\/+$/, '').replace(/\/v1$/, '');
+}
+
+function resolveApiUrl(path: string) {
+  const apiBaseUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL ?? '');
+  if (!apiBaseUrl || !path.startsWith('/')) return path;
+  return `${apiBaseUrl}${path}`;
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     credentials: 'include',
@@ -404,7 +414,7 @@ export async function uploadFileViaApiProxy(
   await new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest();
     const qs = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : '';
-    request.open('POST', `/v1/creative-ingestions/${ingestionId}/upload-proxy${qs}`, true);
+    request.open('POST', resolveApiUrl(`/v1/creative-ingestions/${ingestionId}/upload-proxy${qs}`), true);
     request.withCredentials = true;
     request.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
