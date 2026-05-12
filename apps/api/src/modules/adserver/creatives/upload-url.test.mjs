@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const ROUTES_FILE = new URL('./routes.mjs', import.meta.url);
+const ROUTES_FILE = new URL('./routes/router-ingestions.mjs', import.meta.url);
 
 test('upload-url response exposes presigned primary path and API proxy fallback', async () => {
   const source = await readFile(ROUTES_FILE, 'utf8');

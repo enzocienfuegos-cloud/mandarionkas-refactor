@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const CREATIVES_FILE = new URL('./creatives.mjs', import.meta.url);
+const CREATIVES_FILE = new URL('./creatives/publish-service.mjs', import.meta.url);
 
 test('createPublishedCreative uses the transaction client supplied by the caller', async () => {
   const source = await readFile(CREATIVES_FILE, 'utf8');

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const ROUTES_FILE = new URL('./routes.mjs', import.meta.url);
+const ROUTES_FILE = new URL('./routes/router-ingestions.mjs', import.meta.url);
 
 test('HTML5 publish route relies on NOTIFY trigger instead of direct pg-boss insert', async () => {
   const source = await readFile(ROUTES_FILE, 'utf8');
