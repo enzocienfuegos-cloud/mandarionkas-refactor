@@ -21,6 +21,8 @@ import {
 } from './utils';
 
 const MAX_PARALLEL_UPLOADS = 4;
+const CREATIVE_PROCESSING_POLL_INTERVAL_MS = 2000;
+const MAX_CREATIVE_PROCESSING_POLLS = 60;
 
 type Params = {
   onComplete: () => void;
@@ -414,8 +416,16 @@ export function useCreativeUploadWorkspace({ onComplete }: Params) {
         refreshProcessingProgress();
 
         let latestIngestion = publishResult.ingestion;
+        let pollCount = 0;
         while (latestIngestion?.status === 'processing') {
-          await new Promise((resolve) => window.setTimeout(resolve, 2000));
+          if (pollCount >= MAX_CREATIVE_PROCESSING_POLLS) {
+            throw new Error(
+              `Creative is still processing after ${(MAX_CREATIVE_PROCESSING_POLLS * CREATIVE_PROCESSING_POLL_INTERVAL_MS) / 1000} seconds. ` +
+              'Check the queue panel later; the publish job may still complete in the background.',
+            );
+          }
+          pollCount += 1;
+          await new Promise((resolve) => window.setTimeout(resolve, CREATIVE_PROCESSING_POLL_INTERVAL_MS));
           latestIngestion = await loadCreativeIngestion(upload.ingestion.id, { workspaceId: workspaceState.workspaceId });
           processingStateByIndex[index] = latestIngestion;
           refreshOverallProgress();

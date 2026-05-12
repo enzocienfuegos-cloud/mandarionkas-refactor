@@ -135,7 +135,7 @@ export interface TagBinding {
 export interface CreativeIngestion {
   id: string;
   sourceKind: 'html5_zip' | 'video_mp4';
-  status: 'uploaded' | 'processing' | 'validated' | 'failed' | 'published';
+  status: 'pending_upload' | 'uploaded' | 'processing' | 'validated' | 'failed' | 'published';
   originalFilename: string;
   mimeType?: string;
   sizeBytes?: number;
