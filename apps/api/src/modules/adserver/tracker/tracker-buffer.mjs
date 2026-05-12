@@ -3,27 +3,36 @@ import { logError, logInfo } from '../../../lib/logger.mjs';
 
 const DEFAULT_FLUSH_INTERVAL_MS = 5_000;
 const DEFAULT_FLUSH_THRESHOLD = 1_000;
+const DEFAULT_PERSIST_INTERVAL_MS = 200;
 
 export class TrackerBuffer {
   #pool;
   #flushIntervalMs;
   #flushThreshold;
+  #persistIntervalMs;
   #timer = null;
+  #persistTimer = null;
   #flushing = false;
   #pendingCount = 0;
   #impressions = new Map();
   #clicks = new Map();
   #engagements = new Map();
 
-  constructor(pool, { flushIntervalMs = DEFAULT_FLUSH_INTERVAL_MS, flushThreshold = DEFAULT_FLUSH_THRESHOLD } = {}) {
+  constructor(pool, {
+    flushIntervalMs = DEFAULT_FLUSH_INTERVAL_MS,
+    flushThreshold = DEFAULT_FLUSH_THRESHOLD,
+    persistIntervalMs = DEFAULT_PERSIST_INTERVAL_MS,
+  } = {}) {
     if (!pool) throw new Error('TrackerBuffer requires a pg.Pool instance.');
     this.#pool = pool;
     this.#flushIntervalMs = flushIntervalMs;
     this.#flushThreshold = flushThreshold;
+    this.#persistIntervalMs = persistIntervalMs;
   }
 
   start() {
     if (this.#timer) return;
+    void this.#logPendingStagingCount();
     this.#timer = setInterval(() => {
       this.#flush().catch(() => undefined);
     }, this.#flushIntervalMs);
@@ -40,6 +49,10 @@ export class TrackerBuffer {
     if (this.#timer) {
       clearInterval(this.#timer);
       this.#timer = null;
+    }
+    if (this.#persistTimer) {
+      clearTimeout(this.#persistTimer);
+      this.#persistTimer = null;
     }
     await this.#flush();
     logInfo({ service: 'smx-tracker-buffer', event: 'stopped' });
@@ -85,12 +98,50 @@ export class TrackerBuffer {
   #maybeFlushAsync() {
     if (this.#pendingCount >= this.#flushThreshold && !this.#flushing) {
       this.#flush().catch(() => undefined);
+      return;
+    }
+    this.#schedulePersistAsync();
+  }
+
+  #schedulePersistAsync() {
+    if (this.#persistTimer) return;
+    this.#persistTimer = setTimeout(() => {
+      this.#persistTimer = null;
+      this.#flush().catch(() => undefined);
+    }, this.#persistIntervalMs);
+    if (this.#persistTimer.unref) this.#persistTimer.unref();
+  }
+
+  async #logPendingStagingCount() {
+    try {
+      const { rows } = await this.#pool.query(`
+        SELECT
+          (SELECT COUNT(*)::bigint FROM tracker_events_staging WHERE flushed = FALSE) AS event_rows,
+          (SELECT COUNT(*)::bigint FROM tracker_engagement_staging WHERE flushed = FALSE) AS engagement_rows
+      `);
+      const row = rows?.[0] || {};
+      logInfo({
+        service: 'smx-tracker-buffer',
+        event: 'staging_pending_on_boot',
+        eventRows: Number(row.event_rows || 0),
+        engagementRows: Number(row.engagement_rows || 0),
+      });
+    } catch (err) {
+      logError({
+        service: 'smx-tracker-buffer',
+        event: 'staging_pending_count_error',
+        message: err?.message,
+      });
     }
   }
 
   async #flush() {
     if (this.#flushing) return;
     if (this.#pendingCount === 0) return;
+    if (this.#persistTimer) {
+      clearTimeout(this.#persistTimer);
+      this.#persistTimer = null;
+    }
 
     this.#flushing = true;
     const impressions = this.#impressions;
@@ -130,6 +181,7 @@ export class TrackerBuffer {
       }
     } finally {
       this.#flushing = false;
+      if (this.#pendingCount > 0) this.#schedulePersistAsync();
     }
   }
 }
