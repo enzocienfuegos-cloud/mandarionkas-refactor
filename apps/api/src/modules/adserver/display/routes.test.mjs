@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildDisplayHtml, buildDisplayJs, pickWeightedCreativeRow } from './routes.mjs';
+import {
+  buildCreativeAssetProxyUrl,
+  buildDisplayHtml,
+  buildDisplayJs,
+  pickWeightedCreativeRow,
+  resolveCreativeAssetStorageKey,
+} from './routes.mjs';
 
 test('pickWeightedCreativeRow ignores rows without public_url', () => {
   const row = pickWeightedCreativeRow([
@@ -362,5 +368,34 @@ test('buildDisplayJs removes the script tag and inserts the iframe in its place'
   assert.ok(
     js.includes('parent.removeChild(script)'),
     'JS should remove the original script tag',
+  );
+});
+
+test('buildCreativeAssetProxyUrl keeps HTML5 bundle serving on the API host', () => {
+  const url = buildCreativeAssetProxyUrl('https://api.example.com', 'tag-1', {
+    binding_id: 'binding-1',
+    public_url: 'https://cdn.example.com/workspaces/ws/creative-versions/ver/html5/index.html',
+    entry_path: 'index.html',
+  });
+
+  assert.equal(
+    url,
+    'https://api.example.com/v1/tags/display/tag-1/bindings/binding-1/index.html',
+  );
+});
+
+test('resolveCreativeAssetStorageKey maps HTML5 bundle assets from the entry URL', () => {
+  const storageKey = resolveCreativeAssetStorageKey(
+    { assetsPublicBaseUrl: 'https://cdn.example.com' },
+    {
+      public_url: 'https://cdn.example.com/workspaces/ws-1/creative-versions/ver-1/html5/index.html',
+      entry_path: 'index.html',
+    },
+    'scripts/main.js',
+  );
+
+  assert.equal(
+    storageKey,
+    'workspaces/ws-1/creative-versions/ver-1/html5/scripts/main.js',
   );
 });

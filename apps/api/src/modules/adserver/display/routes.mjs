@@ -1,8 +1,12 @@
 import { getPool } from '@smx/db/src/pool.mjs';
 import { resolveActiveCreativeForTag as resolveActiveCreativeForTagRows } from '@smx/db/src/tags.mjs';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { wrapTrackedClickUrlWithDspMacro } from '../../../../../../packages/contracts/src/dsp-macros.mjs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const R2_REGION = 'auto';
+let cachedR2Client = null;
+let cachedR2Key = '';
 
 function trimText(value) {
   return String(value ?? '').trim();
@@ -29,6 +33,250 @@ function getDatabasePool(env) {
   return cs ? getPool(cs) : null;
 }
 
+function trimBaseUrl(value) {
+  return trimText(value).replace(/\/+$/, '');
+}
+
+function isR2Ready(env) {
+  return Boolean(env.r2Endpoint && env.r2Bucket && env.r2AccessKeyId && env.r2SecretAccessKey);
+}
+
+function getR2Client(env) {
+  const cacheKey = `${env.r2Endpoint}|${env.r2AccessKeyId}|${env.r2Bucket}`;
+  if (cachedR2Client && cachedR2Key === cacheKey) return cachedR2Client;
+  cachedR2Client = new S3Client({
+    region: R2_REGION,
+    endpoint: env.r2Endpoint,
+    credentials: {
+      accessKeyId: env.r2AccessKeyId,
+      secretAccessKey: env.r2SecretAccessKey,
+    },
+  });
+  cachedR2Key = cacheKey;
+  return cachedR2Client;
+}
+
+function decodeUriComponentSafe(value) {
+  try {
+    return decodeURIComponent(String(value ?? ''));
+  } catch {
+    return String(value ?? '');
+  }
+}
+
+function normalizeCreativeAssetPath(rawPath) {
+  const trimmed = decodeUriComponentSafe(rawPath).trim().replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!trimmed) return null;
+  if (trimmed.split('/').some((segment) => !segment || segment === '.' || segment === '..')) return null;
+  return trimmed;
+}
+
+function encodePathSegments(pathname) {
+  return String(pathname ?? '')
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
+function guessCreativeAssetContentType(filename) {
+  const ext = String(filename || '').toLowerCase().split('.').pop();
+  const map = {
+    html: 'text/html; charset=utf-8',
+    htm: 'text/html; charset=utf-8',
+    js: 'application/javascript; charset=utf-8',
+    mjs: 'application/javascript; charset=utf-8',
+    css: 'text/css; charset=utf-8',
+    json: 'application/json; charset=utf-8',
+    svg: 'image/svg+xml',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    avif: 'image/avif',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    woff: 'font/woff',
+    woff2: 'font/woff2',
+    ttf: 'font/ttf',
+    otf: 'font/otf',
+    txt: 'text/plain; charset=utf-8',
+    zip: 'application/zip',
+  };
+  return map[ext] || 'application/octet-stream';
+}
+
+function getCreativeEntryAssetPath(row) {
+  const explicit = normalizeCreativeAssetPath(row?.entry_path);
+  if (explicit) return explicit;
+  const publicUrl = trimText(row?.public_url);
+  if (!publicUrl) return null;
+  try {
+    const url = new URL(publicUrl);
+    const pathname = decodeUriComponentSafe(url.pathname || '');
+    const filename = pathname.split('/').pop() || '';
+    return normalizeCreativeAssetPath(filename);
+  } catch {
+    const filename = publicUrl.split('/').pop() || '';
+    return normalizeCreativeAssetPath(filename);
+  }
+}
+
+function inferStorageKeyFromCreativeUrl(env, publicUrl) {
+  const normalizedUrl = trimText(publicUrl);
+  if (!normalizedUrl) return null;
+  const publicBase = trimBaseUrl(env.assetsPublicBaseUrl || env.r2PublicBaseUrl);
+  if (publicBase && normalizedUrl.startsWith(`${publicBase}/`)) {
+    return normalizedUrl.slice(publicBase.length + 1) || null;
+  }
+  try {
+    const url = new URL(normalizedUrl);
+    const pathname = normalizeCreativeAssetPath(url.pathname);
+    if (pathname && pathname.startsWith('workspaces/')) return pathname;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export function resolveCreativeAssetStorageKey(env, row, requestedAssetPath) {
+  const entryStorageKey = normalizeCreativeAssetPath(inferStorageKeyFromCreativeUrl(env, row?.public_url));
+  if (!entryStorageKey) return null;
+  const targetAssetPath = normalizeCreativeAssetPath(requestedAssetPath) || getCreativeEntryAssetPath(row);
+  if (!targetAssetPath) return entryStorageKey;
+  const entryAssetPath = getCreativeEntryAssetPath(row);
+  if (entryAssetPath && entryStorageKey.endsWith(entryAssetPath)) {
+    const storagePrefix = entryStorageKey.slice(0, entryStorageKey.length - entryAssetPath.length).replace(/\/+$/, '');
+    return storagePrefix ? `${storagePrefix}/${targetAssetPath}` : targetAssetPath;
+  }
+  const slashIndex = entryStorageKey.lastIndexOf('/');
+  return slashIndex === -1
+    ? targetAssetPath
+    : `${entryStorageKey.slice(0, slashIndex)}/${targetAssetPath}`;
+}
+
+function isSeedDemoCreative(row) {
+  const publicUrl = trimText(row?.public_url).toLowerCase();
+  return publicUrl.includes('/demo/creatives/bocadeli-spring/index.html');
+}
+
+function buildSeedDemoCreativeHtml({
+  width,
+  height,
+  clickTag,
+}) {
+  const w = Number(width) || 300;
+  const h = Number(height) || 250;
+  const safeClickTag = trimText(clickTag);
+  const safeClickTagJs = safeClickTag ? escapeScriptContext(JSON.stringify(safeClickTag)) : 'null';
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="ad.size" content="width=${w},height=${h}">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:${w}px;height:${h}px;overflow:hidden;font-family:Inter,system-ui,sans-serif;background:#fff9ec;color:#172033}
+button{all:unset;cursor:pointer;display:block;width:100%;height:100%}
+.card{position:relative;display:flex;flex-direction:column;justify-content:space-between;width:100%;height:100%;padding:18px;border:1px solid rgba(23,32,51,.08);background:
+radial-gradient(circle at top right, rgba(255,196,80,.45), transparent 42%),
+linear-gradient(135deg, #fff3d3 0%, #ffffff 54%, #f6fbff 100%)}
+.eyebrow{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:#d2591f;font-weight:700}
+.headline{max-width:170px;font-size:28px;line-height:.94;font-weight:800}
+.sub{max-width:185px;font-size:12px;line-height:1.4;color:#48536a}
+.cta{align-self:flex-start;padding:8px 12px;border-radius:999px;background:#172033;color:#fff;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.accent{position:absolute;right:-18px;bottom:-18px;width:120px;height:120px;border-radius:999px;background:linear-gradient(135deg,#ffcc4d,#ff7a18);opacity:.92}
+.chip{position:absolute;right:16px;top:16px;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.82);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+</style>
+</head>
+<body>
+<button id="smx-demo-creative" type="button" aria-label="Open advertiser landing page">
+  <div class="card">
+    <div>
+      <div class="eyebrow">Dusk Demo</div>
+      <div class="headline">Bocadeli Spring</div>
+    </div>
+    <div>
+      <div class="sub">Fallback creative served by the ad server while CDN DNS is unavailable.</div>
+      <div class="cta">Learn more</div>
+    </div>
+    <div class="chip">HTML5</div>
+    <div class="accent" aria-hidden="true"></div>
+  </div>
+</button>
+<script>
+(function(){
+  var clickTag = ${safeClickTagJs};
+  function resolveClickTag(nextUrl) {
+    if (typeof nextUrl === 'string' && nextUrl) clickTag = nextUrl;
+  }
+  var qs = new URLSearchParams(window.location.search);
+  resolveClickTag(qs.get('clickTag'));
+  window.addEventListener('message', function(event) {
+    try {
+      var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+      if (data && data.type === 'smx:init') resolveClickTag(data.clickTag);
+    } catch (_) {}
+  });
+  var target = document.getElementById('smx-demo-creative');
+  if (!target) return;
+  target.addEventListener('click', function() {
+    if (!clickTag) return;
+    try {
+      parent.postMessage(JSON.stringify({ type: 'smx:exit', url: clickTag }), '*');
+    } catch (_) {
+      window.location.href = clickTag;
+    }
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
+export function buildCreativeAssetProxyUrl(baseUrl, tagId, row) {
+  const entryAssetPath = getCreativeEntryAssetPath(row);
+  if (!trimText(baseUrl) || !trimText(tagId) || !trimText(row?.binding_id) || !entryAssetPath) {
+    return trimText(row?.public_url);
+  }
+  return `${baseUrl}/v1/tags/display/${tagId}/bindings/${row.binding_id}/${encodePathSegments(entryAssetPath)}`;
+}
+
+async function readR2ObjectBuffer(env, storageKey) {
+  const response = await getR2Client(env).send(new GetObjectCommand({
+    Bucket: env.r2Bucket,
+    Key: storageKey,
+  }));
+  const chunks = [];
+  for await (const chunk of response.Body) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+async function fetchCreativeAssetByUrl(row, requestedAssetPath) {
+  const publicUrl = trimText(row?.public_url);
+  if (!publicUrl) return null;
+  const entryAssetPath = getCreativeEntryAssetPath(row);
+  const normalizedRequestedPath = normalizeCreativeAssetPath(requestedAssetPath) || entryAssetPath;
+  if (!normalizedRequestedPath) return null;
+  try {
+    const assetUrl = (!entryAssetPath || normalizedRequestedPath.toLowerCase() === entryAssetPath.toLowerCase())
+      ? publicUrl
+      : new URL(normalizedRequestedPath, publicUrl).toString();
+    const response = await fetch(assetUrl);
+    if (!response.ok) return null;
+    const body = Buffer.from(await response.arrayBuffer());
+    const contentType = trimText(response.headers.get('content-type')) || guessCreativeAssetContentType(normalizedRequestedPath);
+    return { body, contentType };
+  } catch {
+    return null;
+  }
+}
+
 function applyPublicCors(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.removeHeader('Access-Control-Allow-Credentials');
@@ -50,6 +298,30 @@ function sendJs(res, js, status = 200) {
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.end(js);
+  return true;
+}
+
+function sendAsset(res, body, {
+  contentType,
+  cacheControl,
+  status = 200,
+} = {}) {
+  const resolvedContentType = trimText(contentType) || 'application/octet-stream';
+  res.statusCode = status;
+  res.setHeader('Content-Type', resolvedContentType);
+  res.setHeader(
+    'Cache-Control',
+    trimText(cacheControl) || (
+      resolvedContentType.startsWith('text/html')
+        ? 'no-store, no-cache, must-revalidate'
+        : 'public, max-age=300'
+    ),
+  );
+  if (resolvedContentType.startsWith('text/html')) {
+    res.setHeader('Content-Security-Policy', 'frame-ancestors *');
+    res.removeHeader('X-Frame-Options');
+  }
+  res.end(body);
   return true;
 }
 
@@ -422,6 +694,67 @@ export async function handleDisplayRoutes(ctx) {
     return true;
   }
 
+  const bindingAssetMatch = pathname.match(/^\/v1\/tags\/display\/([^/]+)\/bindings\/([^/]+)(?:\/(.*))?$/);
+  if (method === 'GET' && bindingAssetMatch) {
+    const [, rawTagId, rawBindingId, rawAssetPath = ''] = bindingAssetMatch;
+    applyPublicCors(req, res);
+
+    if (!isValidTagId(rawTagId) || !isValidTagId(rawBindingId)) {
+      res.statusCode = 400;
+      res.end();
+      return true;
+    }
+
+    const pool = getDatabasePool(env);
+    const rows = await resolveActiveCreativeForTagRows(pool, rawTagId);
+    const row = Array.isArray(rows)
+      ? rows.find((candidate) => trimText(candidate?.binding_id) === rawBindingId)
+      : null;
+    if (!row) {
+      res.statusCode = 404;
+      res.end();
+      return true;
+    }
+
+    const requestedAssetPath = normalizeCreativeAssetPath(rawAssetPath) || getCreativeEntryAssetPath(row);
+    if (!requestedAssetPath) {
+      res.statusCode = 404;
+      res.end();
+      return true;
+    }
+
+    if (isSeedDemoCreative(row) && requestedAssetPath.toLowerCase() === (getCreativeEntryAssetPath(row) || '').toLowerCase()) {
+      return sendHtml(res, buildSeedDemoCreativeHtml({
+        width: row.width,
+        height: row.height,
+        clickTag: trimText(url.searchParams.get('clickTag')),
+      }));
+    }
+
+    const storageKey = resolveCreativeAssetStorageKey(env, row, requestedAssetPath);
+    if (storageKey && isR2Ready(env)) {
+      try {
+        const body = await readR2ObjectBuffer(env, storageKey);
+        return sendAsset(res, body, {
+          contentType: guessCreativeAssetContentType(requestedAssetPath),
+        });
+      } catch {
+        // Fall through to URL relay below when object storage lookup is unavailable.
+      }
+    }
+
+    const relayedAsset = await fetchCreativeAssetByUrl(row, requestedAssetPath);
+    if (relayedAsset) {
+      return sendAsset(res, relayedAsset.body, {
+        contentType: relayedAsset.contentType,
+      });
+    }
+
+    res.statusCode = 404;
+    res.end();
+    return true;
+  }
+
   if (method === 'GET' && /^\/v1\/tags\/display\/[^/]+\.html$/.test(pathname)) {
     const rawId = pathname.split('/')[4].replace(/\.html$/, '');
     applyPublicCors(req, res);
@@ -475,7 +808,7 @@ export async function handleDisplayRoutes(ctx) {
     const wrappedClickTag = wrapTrackedClickUrlWithDspMacro(baseClickTag, dspQuery, dspQuery.smx_dsp || dspQuery.dsp);
 
     const html = buildDisplayHtml({
-      creativeUrl: row.public_url ?? '',
+      creativeUrl: buildCreativeAssetProxyUrl(baseUrl, tagId, row),
       width: row.width,
       height: row.height,
       clickTrackerUrl,
@@ -555,7 +888,7 @@ export async function handleDisplayRoutes(ctx) {
     const clickTag = wrapTrackedClickUrlWithDspMacro(baseClickTag, dspQuery, dspQuery.smx_dsp || dspQuery.dsp);
 
     return sendJs(res, buildDisplayJs({
-      creativeUrl: trimText(row.public_url),
+      creativeUrl: buildCreativeAssetProxyUrl(baseUrl, tagId, row),
       impressionUrl,
       clickTrackerUrl,
       engagementTrackerUrl,
