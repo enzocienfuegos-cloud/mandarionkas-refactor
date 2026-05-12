@@ -36,6 +36,7 @@ import { runExtractMetadataJob } from './jobs/extract-metadata.mjs';
 import { runGenerateThumbnailsJob } from './jobs/generate-thumbnails.mjs';
 import { runMaintenanceJob } from './jobs/maintenance.mjs';
 import { runPublishHtml5ArchiveJob } from './jobs/publish-html5-archive.mjs';
+import { runSweepOrphanR2ObjectsJob } from './jobs/sweep-orphan-r2-objects.mjs';
 import { JOB_NAME as TRACKER_FLUSH_JOB, runTrackerFlushJob } from './jobs/tracker-flush.mjs';
 import { runTranscodeVideoJob } from './jobs/transcode-video.mjs';
 import { closeAllPools } from '@smx/db/src/pool.mjs';
@@ -91,6 +92,12 @@ async function handleTrackerFlush(job) {
   log('info', { event: 'job_done', queue: TRACKER_FLUSH_JOB, pgbossJobId: job.id, ...result });
 }
 
+async function handleSweepOrphanR2Objects(job) {
+  log('info', { event: 'job_start', queue: QUEUE.SWEEP_ORPHAN_R2_OBJECTS, pgbossJobId: job.id });
+  const result = await runSweepOrphanR2ObjectsJob();
+  log('info', { event: 'job_done', queue: QUEUE.SWEEP_ORPHAN_R2_OBJECTS, pgbossJobId: job.id, ...result });
+}
+
 // ─── Work registration ────────────────────────────────────────────────────────
 
 async function registerHandlers() {
@@ -108,7 +115,9 @@ async function registerHandlers() {
   // Maintenance: at most 1 at a time
   await boss.work(QUEUE.MAINTENANCE, { teamSize: 1, teamConcurrency: 1 }, handleMaintenance);
   await boss.work(TRACKER_FLUSH_JOB, { teamSize: 1, teamConcurrency: 1 }, handleTrackerFlush);
+  await boss.work(QUEUE.SWEEP_ORPHAN_R2_OBJECTS, { teamSize: 1, teamConcurrency: 1 }, handleSweepOrphanR2Objects);
   await boss.schedule(TRACKER_FLUSH_JOB, '*/10 * * * * *');
+  await boss.schedule(QUEUE.SWEEP_ORPHAN_R2_OBJECTS, '0 * * * *');
 
   log('info', { event: 'handlers_registered', queues: Object.values(QUEUE) });
 }

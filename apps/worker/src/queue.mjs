@@ -54,6 +54,7 @@ export const QUEUE = Object.freeze({
   PUBLISH_HTML5_ARCHIVE: 'smx.publish-html5-archive',
   MAINTENANCE:        'smx.maintenance',
   TRACKER_FLUSH:      'smx.tracker.flush',
+  SWEEP_ORPHAN_R2_OBJECTS: 'smx.sweep-orphan-r2-objects',
 });
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
@@ -139,6 +140,7 @@ export async function ensureBossStarted(source = process.env) {
     await instance.createQueue(QUEUE.PUBLISH_HTML5_ARCHIVE);
     await instance.createQueue(QUEUE.MAINTENANCE);
     await instance.createQueue(QUEUE.TRACKER_FLUSH);
+    await instance.createQueue(QUEUE.SWEEP_ORPHAN_R2_OBJECTS);
     boss = instance;
 
     console.log(JSON.stringify({
@@ -269,6 +271,17 @@ export async function sendTrackerFlushJob(opts = {}) {
     singletonSeconds: 8,
     retryLimit: 1,
     expireInSeconds: 60,
+    ...opts,
+  });
+}
+
+export async function sendSweepOrphanR2ObjectsJob(opts = {}) {
+  const b = getBoss();
+  return b.send(QUEUE.SWEEP_ORPHAN_R2_OBJECTS, {}, {
+    singletonKey: 'global',
+    singletonSeconds: 55 * 60,
+    retryLimit: 1,
+    expireInSeconds: 15 * 60,
     ...opts,
   });
 }
