@@ -126,14 +126,33 @@ function buildPublicUrl(env, storageKey) {
   return `${base}/${storageKey}`;
 }
 
+function isValidAbsoluteUrl(value) {
+  const normalized = normalizeString(value);
+  if (!normalized) return false;
+  try {
+    const url = new URL(normalized);
+    return Boolean(url.protocol && url.host);
+  } catch {
+    return false;
+  }
+}
+
 function isR2SigningReady(env) {
-  return Boolean(env.r2Endpoint && env.r2Bucket && env.r2AccessKeyId && env.r2SecretAccessKey);
+  return Boolean(
+    isValidAbsoluteUrl(env.r2Endpoint)
+    && env.r2Bucket
+    && env.r2AccessKeyId
+    && env.r2SecretAccessKey,
+  );
 }
 
 let cachedR2Client = null;
 let cachedR2Key = '';
 
 function getR2Client(env) {
+  if (!isValidAbsoluteUrl(env.r2Endpoint)) {
+    throw new Error('R2_ENDPOINT must be a valid absolute URL.');
+  }
   const cacheKey = `${env.r2Endpoint}|${env.r2AccessKeyId}|${env.r2Bucket}`;
   if (cachedR2Client && cachedR2Key === cacheKey) return cachedR2Client;
   cachedR2Client = new S3Client({

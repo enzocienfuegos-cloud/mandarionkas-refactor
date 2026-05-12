@@ -37,11 +37,30 @@ function trimBaseUrl(value) {
   return trimText(value).replace(/\/+$/, '');
 }
 
+function isValidAbsoluteUrl(value) {
+  const normalized = trimText(value);
+  if (!normalized) return false;
+  try {
+    const url = new URL(normalized);
+    return Boolean(url.protocol && url.host);
+  } catch {
+    return false;
+  }
+}
+
 function isR2Ready(env) {
-  return Boolean(env.r2Endpoint && env.r2Bucket && env.r2AccessKeyId && env.r2SecretAccessKey);
+  return Boolean(
+    isValidAbsoluteUrl(env.r2Endpoint)
+    && env.r2Bucket
+    && env.r2AccessKeyId
+    && env.r2SecretAccessKey,
+  );
 }
 
 function getR2Client(env) {
+  if (!isValidAbsoluteUrl(env.r2Endpoint)) {
+    throw new Error('R2_ENDPOINT must be a valid absolute URL.');
+  }
   const cacheKey = `${env.r2Endpoint}|${env.r2AccessKeyId}|${env.r2Bucket}`;
   if (cachedR2Client && cachedR2Key === cacheKey) return cachedR2Client;
   cachedR2Client = new S3Client({
@@ -857,10 +876,7 @@ export async function handleDisplayRoutes(ctx) {
       const val = url.searchParams.get(key);
       if (val !== null && val !== '') trackerParams.set(key, val);
     }
-    if (trimText(row.creative_id)) trackerParams.set('smx_creative_id', trimText(row.creative_id));
-    if (trimText(row.creative_size_variant_id)) trackerParams.set('smx_variant_id', trimText(row.creative_size_variant_id));
     const dspQuery = Object.fromEntries(url.searchParams.entries());
-    const trackerSuffix = trackerParams.toString() ? `?${trackerParams.toString()}` : '';
     const width = row?.width || 300;
     const height = row?.height || 250;
 
@@ -874,6 +890,10 @@ export async function handleDisplayRoutes(ctx) {
   script.parentNode&&script.parentNode.removeChild(script);
 })();`);
     }
+
+    if (trimText(row.creative_id)) trackerParams.set('smx_creative_id', trimText(row.creative_id));
+    if (trimText(row.creative_size_variant_id)) trackerParams.set('smx_variant_id', trimText(row.creative_size_variant_id));
+    const trackerSuffix = trackerParams.toString() ? `?${trackerParams.toString()}` : '';
 
     const suppressImpression = url.searchParams.get('smx_no_imp') === '1';
     const impressionUrl = suppressImpression ? '' : `${baseUrl}/v1/tags/tracker/${tagId}/impression.gif${trackerSuffix}`;
