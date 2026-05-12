@@ -88,6 +88,27 @@ test('TrackerBuffer triggers a threshold flush', async () => {
   await buffer.stop();
 });
 
+test('TrackerBuffer persists events to staging shortly after receipt', async () => {
+  const pool = createFakePool();
+  const buffer = new TrackerBuffer(pool, {
+    flushIntervalMs: 60_000,
+    flushThreshold: 100_000,
+    persistIntervalMs: 20,
+  });
+
+  buffer.addImpression('tag-durable');
+  assert.equal(buffer.pendingCount, 1);
+
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.equal(buffer.pendingCount, 0);
+  assert.ok(
+    pool.fakeClient.queries.some((q) => q.sql.includes('INSERT INTO tracker_events_staging')),
+    'buffer should write impressions to tracker_events_staging without waiting for stop()',
+  );
+  await buffer.stop();
+});
+
 test('impression route returns a GIF without requiring a database', async () => {
   const handler = createTrackerRoutes(null);
   const ctx = createCtx('GET', '/v1/tags/tracker/tag-abc/impression.gif');
