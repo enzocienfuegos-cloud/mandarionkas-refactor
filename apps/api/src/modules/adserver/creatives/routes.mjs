@@ -42,7 +42,6 @@ import {
   updateVideoRendition,
   upsertPublishedHtmlArtifact,
 } from '@smx/db/src/creatives.mjs';
-import { dispatchHtml5ArchivePublishJob } from '@smx/db/src/job-dispatch.mjs';
 import {
   deriveTranscodeDisplayStatus,
   getVideoTranscodeJobForVersion,
@@ -1241,30 +1240,8 @@ export async function handleCreativeRoutes(ctx) {
 
             if (!creativeVersionId) throw new Error('Failed to resolve creative_version_id for HTML5 publish.');
 
-            const dispatched = await dispatchHtml5ArchivePublishJob(pool, ingestionId);
-
-            if (dispatched) {
-              logWarn({ event: 'html5_publish_dispatched_to_worker', ingestionId, creativeVersionId });
-              return;
-            }
-
-            logWarn({ event: 'html5_publish_pgboss_unavailable', ingestionId, fallback: 'in_process' });
-
-            if (!isR2SigningReady(backgroundEnv)) {
-              throw new Error('R2 is not configured — cannot publish HTML5 archive in-process.');
-            }
-
-            await publishHtml5ArchiveInProcess(backgroundEnv, pool, {
-              ingestionId,
-              workspaceId,
-              creativeVersionId,
-              ingestionStorageKey: trimText(snapshotExisting.storage_key),
-              ingestionPublicUrl: trimText(snapshotExisting.public_url),
-              creativeVersionEntryPath: snapshotExisting.metadata?.entryPath || 'index.html',
-              initialMetadata: queuedPublishMetadata,
-            });
-
-            logWarn({ event: 'html5_publish_inprocess_completed', ingestionId, creativeVersionId });
+            logWarn({ event: 'html5_publish_dispatched_via_notify', ingestionId, creativeVersionId });
+            return;
           } catch (err) {
             logWarn({
               event: 'html5_publish_bg_error',
