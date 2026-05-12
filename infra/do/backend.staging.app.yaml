@@ -1,4 +1,4 @@
-# DigitalOcean App Platform — Backend staging (API + Worker + pre-deploy migration)
+# DigitalOcean App Platform — Backend staging (API + Worker)
 #
 # Staging spec for branch: codex/s50-staging-rc
 # Repo: enzocienfuegos-cloud/mandarionkas-refactor
@@ -215,23 +215,3 @@ workers:
         scope: RUN_TIME
         type: GENERAL
         value: https://cdn-staging.duskplatform.co
-
-jobs:
-  - name: migrate
-    kind: PRE_DEPLOY
-    github:
-      repo: enzocienfuegos-cloud/mandarionkas-refactor
-      branch: codex/s50-staging-rc
-      deploy_on_push: false
-    source_dir: ./
-    environment_slug: node-js
-    build_command: npm ci
-    run_command: node packages/db/scripts/run-migrations.mjs
-    instance_size_slug: apps-s-1vcpu-0.5gb
-    instance_count: 1
-
-    envs:
-      - key: DATABASE_URL
-        scope: RUN_TIME
-        type: SECRET
-        value: REPLACE_IN_DO_SECRET
