@@ -355,7 +355,18 @@ export async function createCreativeIngestionUpload(input: {
 }) {
   return fetchJson<{
     ingestion: CreativeIngestion;
-    upload: { ingestionId: string; storageKey: string; uploadUrl: string; uploadMethod?: string; publicUrl?: string };
+    upload: {
+      ingestionId: string;
+      storageKey: string;
+      publicUrl?: string;
+      presignedUrl: string | null;
+      presignedMethod: 'PUT';
+      presignedExpiresAt: string | null;
+      proxyUrl: string;
+      proxyMethod: 'POST';
+      uploadUrl: string;
+      uploadMethod?: string;
+    };
   }>('/v1/creative-ingestions/upload-url', {
     method: 'POST',
     body: JSON.stringify({
