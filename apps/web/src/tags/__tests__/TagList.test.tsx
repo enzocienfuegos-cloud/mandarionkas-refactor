@@ -123,6 +123,7 @@ describe('TagList', () => {
 
     expect(screen.getByText('Bueno 1')).toBeTruthy();
     expect(screen.getByText('Video')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Edit Bueno 1' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /saved views/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /health/i })).toBeTruthy();
   });

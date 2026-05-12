@@ -454,6 +454,7 @@ export default function TagList() {
               columns={tagColumns}
               data={filteredTags}
               rowKey={(tag: (typeof filteredTags)[number]) => tag.id}
+              onRowClick={(tag: (typeof filteredTags)[number]) => navigate(`/tags/${tag.id}`)}
               selectable
               density={density}
               densityKey="tags-main"
