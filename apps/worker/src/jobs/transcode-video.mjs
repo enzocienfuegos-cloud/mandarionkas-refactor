@@ -16,6 +16,7 @@ import {
 import {
   syncCreativeVideoTranscodeOutputs,
 } from '@smx/db/src/creatives.mjs';
+import { getWorkerConnectionString } from '../db-connection.mjs';
 
 function log(level, payload) {
   const line = JSON.stringify({ level, time: new Date().toISOString(), service: 'smx-worker', job: 'transcode-video', ...payload });
@@ -51,7 +52,7 @@ function getFfmpegBin(source = process.env) {
 }
 
 function getConnectionString(source = process.env) {
-  return String(source.DATABASE_POOL_URL || source.DATABASE_URL || '').trim();
+  return getWorkerConnectionString(source);
 }
 
 function transcodeEnabled(source = process.env) {

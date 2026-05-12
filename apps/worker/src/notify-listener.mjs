@@ -23,6 +23,7 @@
 //   next heartbeat cycle as a safety net.
 
 import pg from 'pg';
+import { getWorkerConnectionString } from './db-connection.mjs';
 import { sendTranscodeJob } from './queue.mjs';
 
 const CHANNEL = 'smx.transcode-video';
@@ -44,7 +45,7 @@ let stopped = false;
 let reconnectTimer = null;
 
 function getConnectionString(source = process.env) {
-  return String(source.DATABASE_POOL_URL || source.DATABASE_URL || '').trim();
+  return getWorkerConnectionString(source);
 }
 
 async function connect(source = process.env) {

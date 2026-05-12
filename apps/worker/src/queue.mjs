@@ -44,6 +44,7 @@
 //   await boss.send('smx.transcode-video', { creativeVersionId }, { singletonKey: creativeVersionId });
 
 import PgBoss from 'pg-boss';
+import { describeWorkerConnection, getWorkerConnectionString } from './db-connection.mjs';
 
 // ─── Queue names ───────────────────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ export async function ensureBossStarted(source = process.env) {
   if (boss) return boss;
   if (startPromise) return startPromise;
 
-  const connectionString = String(source.DATABASE_POOL_URL || source.DATABASE_URL || '').trim();
+  const connectionString = getWorkerConnectionString(source);
   if (!connectionString) {
     throw new Error('pg-boss: DATABASE_URL or DATABASE_POOL_URL is required');
   }
@@ -81,6 +82,14 @@ export async function ensureBossStarted(source = process.env) {
   const deleteAfterDays              = Number(source.PGBOSS_DELETE_AFTER_DAYS               ?? 7);
 
   startPromise = (async () => {
+    console.log(JSON.stringify({
+      level: 'info',
+      time: new Date().toISOString(),
+      service: 'smx-worker',
+      event: 'pgboss_connecting',
+      ...describeWorkerConnection(source),
+    }));
+
     const instance = new PgBoss({
       connectionString,
       ssl: { rejectUnauthorized: false },

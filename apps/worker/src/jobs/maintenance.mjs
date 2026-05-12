@@ -8,6 +8,7 @@ import { runIdentityStitching } from '@smx/db/src/identity-stitching.mjs';
 import { expirePendingUploadSessions, pruneOldDrafts, revokeExpiredSessions } from '@smx/db/src/maintenance.mjs';
 import { reconcileStalledVideoTranscodeJobs } from '@smx/db/src/video-transcode-jobs.mjs';
 import { pruneFrequencyCapEvents } from '@smx/db/src/frequency-cap.mjs';
+import { getWorkerConnectionString } from '../db-connection.mjs';
 
 function log(level, payload) {
   console[level === 'error' ? 'error' : 'log'](
@@ -18,7 +19,7 @@ const logInfo  = (p) => log('info', p);
 const logError = (p) => log('error', p);
 
 function getConnectionString(source = process.env) {
-  return String(source.DATABASE_POOL_URL || source.DATABASE_URL || '').trim();
+  return getWorkerConnectionString(source);
 }
 
 export async function runMaintenanceJob(source = process.env) {
