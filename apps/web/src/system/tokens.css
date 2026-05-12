@@ -143,7 +143,7 @@
   /* ─── Z-index scale ─────────────────────────────────────────────────── */
   --dusk-z-base:     0;
   --dusk-z-dropdown: 100;
-  --dusk-z-popover:  300; /* between sticky and overlay */
+  --dusk-z-popover:  1050; /* above modal/drawer surfaces so portaled menus stay visible */
   --dusk-z-sticky:   200;
   --dusk-z-overlay:  900;
   --dusk-z-modal:    1000;
