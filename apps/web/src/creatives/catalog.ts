@@ -410,35 +410,47 @@ export async function uploadFileViaApiProxy(
   file: File,
   onProgress?: (progress: { loadedBytes: number; totalBytes: number; percent: number }) => void,
 ) {
-  await new Promise<void>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    const resolvedUrl = resolveApiUrl(uploadUrl);
-    console.info('[upload] step 3: resolved upload URL', { uploadUrl, resolvedUrl });
-    request.open('POST', resolvedUrl, true);
-    request.withCredentials = true;
-    request.upload.onprogress = (event) => {
-      if (!event.lengthComputable) return;
-      const loadedBytes = event.loaded;
-      const totalBytes = event.total || file.size || 0;
-      const percent = totalBytes > 0 ? Math.min(100, Math.round((loadedBytes / totalBytes) * 100)) : 0;
-      onProgress?.({ loadedBytes, totalBytes, percent });
-    };
-    request.onerror = () => reject(new Error('Upload failed'));
-    request.onabort = () => reject(new Error('Upload canceled'));
-    request.onload = () => {
-      console.info('[upload] step 4: proxy returned', {
-        status: request.status,
-        responseText: request.responseText?.slice?.(0, 500) || '',
-      });
-      if (request.status >= 200 && request.status < 300) {
-        onProgress?.({ loadedBytes: file.size, totalBytes: file.size, percent: 100 });
-        resolve();
-        return;
-      }
-      reject(new Error(`Upload failed (${request.status})`));
-    };
-    request.send(file);
+  const resolvedUrl = resolveApiUrl(uploadUrl);
+  console.info('[upload] step 3: resolved upload URL', {
+    uploadUrl,
+    resolvedUrl,
+    contentType: file.type || 'application/octet-stream',
+    size: file.size,
   });
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(new Error('Upload timeout')), 60_000);
+
+  try {
+    onProgress?.({ loadedBytes: 0, totalBytes: file.size, percent: 0 });
+    const response = await fetch(resolvedUrl, {
+      method: 'POST',
+      body: file,
+      credentials: 'include',
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+      },
+      signal: controller.signal,
+    });
+
+    console.info('[upload] step 4: proxy returned', {
+      status: response.status,
+      ok: response.ok,
+      type: response.type,
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text().catch(() => '');
+      throw new Error(`Upload failed (${response.status})${responseText ? `: ${responseText.slice(0, 500)}` : ''}`);
+    }
+
+    onProgress?.({ loadedBytes: file.size, totalBytes: file.size, percent: 100 });
+  } catch (error) {
+    console.error('[upload] proxy request failed', error);
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 export async function completeCreativeIngestion(ingestionId: string, input: {
