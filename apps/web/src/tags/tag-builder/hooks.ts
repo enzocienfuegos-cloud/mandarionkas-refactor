@@ -177,7 +177,7 @@ export function useTagBuilderData({
   const selectedWorkspaceId = form.workspaceId || selectedCampaign?.workspaceId || selectedCampaign?.workspace_id || '';
   const filteredCampaigns = selectedWorkspaceId
     ? campaigns.filter((campaign) => (campaign.workspaceId ?? campaign.workspace_id ?? '') === selectedWorkspaceId)
-    : campaigns;
+    : [];
   const selectedCampaignWorkspaceId = selectedCampaign?.workspaceId ?? selectedCampaign?.workspace_id ?? null;
   const selectedCampaignDsp = readCampaignDsp(
     selectedCampaign?.metadata ?? savedTag?.campaign?.metadata ?? null,
@@ -272,8 +272,21 @@ export function useTagBuilderData({
   const setField = (field: keyof TagForm) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
-    setForm((current) => ({ ...current, [field]: event.target.value }));
-    setErrors((current) => ({ ...current, [field]: undefined }));
+    const value = event.target.value;
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      if (field === 'workspaceId' && current.campaignId) {
+        const currentCampaign = campaigns.find((campaign) => campaign.id === current.campaignId);
+        const currentCampaignWorkspaceId = currentCampaign?.workspaceId ?? currentCampaign?.workspace_id ?? '';
+        if (currentCampaignWorkspaceId !== value) next.campaignId = '';
+      }
+      return next;
+    });
+    setErrors((current) => ({
+      ...current,
+      [field]: undefined,
+      ...(field === 'workspaceId' ? { campaignId: undefined } : {}),
+    }));
     if (field !== 'name') setSuccessMessage('');
   };
 

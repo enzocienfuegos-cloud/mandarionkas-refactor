@@ -42,6 +42,11 @@ export function useTagBindingManager({
     const selectedTag = tags.find((tag) => tag.id === bindingState.tagId);
     setBindingState((current) => current ? { ...current, loading: true, error: '' } : current);
     try {
+      if (selectedTag?.workspaceId && selectedTag.workspaceId !== activeWorkspaceId) {
+        setWorkspaceBusy(true);
+        await switchWorkspace(selectedTag.workspaceId);
+        setActiveWorkspaceId(selectedTag.workspaceId);
+      }
       await assignCreativeVersionToTag({
         creativeVersionId: bindingState.versionId,
         tagId: bindingState.tagId,
@@ -52,6 +57,8 @@ export function useTagBindingManager({
     } catch (assignError: any) {
       const message = assignError?.message ?? 'Assignment failed';
       setBindingState((current) => current ? { ...current, loading: false, error: message } : current);
+    } finally {
+      setWorkspaceBusy(false);
     }
   };
 
@@ -67,6 +74,7 @@ export function useTagBindingManager({
       setBindingState({
         creativeId: creative.id,
         creativeName: creative.name,
+        workspaceId: creative.workspaceId ?? activeWorkspaceId,
         versionId: version.id,
         servingFormat: version.servingFormat,
         tagId: '',
@@ -112,12 +120,13 @@ export function useTagBindingManager({
     setBindingState((current) => current ? { ...current, loading: true, error: '' } : current);
     try {
       const createdTag = await createTag({
+        workspaceId: bindingState.workspaceId ?? activeWorkspaceId,
         name,
         format: quickCreateTagState.suggestedFormat as 'display' | 'native' | 'VAST',
         status: 'draft',
       });
       const [nextTags, bindings] = await Promise.all([
-        loadTags(),
+        loadTags({ workspaceId: bindingState.workspaceId ?? activeWorkspaceId }),
         createdTag?.id ? loadTagBindings(createdTag.id) : Promise.resolve([]),
       ]);
       setTags(nextTags);
