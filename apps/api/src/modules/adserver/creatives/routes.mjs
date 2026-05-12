@@ -1079,12 +1079,12 @@ export async function handleCreativeRoutes(ctx) {
         return badRequest(res, requestId, 'Creative ingestion is missing a storage key.');
       }
 
-      const bodyBuffer = await readBinaryBody(req);
+      const bodyBuffer = await readBinaryBody(request);
       if (!bodyBuffer.length) {
         return badRequest(res, requestId, 'Upload body is empty.');
       }
 
-      const contentType = trimText(ingestion.mime_type || req.headers['content-type']) || 'application/octet-stream';
+      const contentType = trimText(ingestion.mime_type || request.headers['content-type']) || 'application/octet-stream';
       await getR2Client(ctx.env).send(new PutObjectCommand({
         Bucket: ctx.env.r2Bucket,
         Key: ingestion.storage_key,
