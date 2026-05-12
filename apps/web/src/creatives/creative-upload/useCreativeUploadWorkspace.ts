@@ -182,8 +182,8 @@ export function useCreativeUploadWorkspace({ onComplete }: Params) {
     setFeedback((current) => ({ ...current, error: '' }));
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSubmit = async (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
     if (files.length === 0) {
       setFeedback((current) => ({ ...current, error: 'Select at least one file first.' }));
       return;

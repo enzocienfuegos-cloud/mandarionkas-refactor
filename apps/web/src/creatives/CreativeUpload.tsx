@@ -45,7 +45,7 @@ export default function CreativeUpload() {
         </p>
       </div>
 
-      <Panel as="form" onSubmit={handleSubmit} className="space-y-6 rounded-2xl">
+      <Panel className="space-y-6 rounded-2xl">
         <div className="space-y-6">
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:items-start">
             <div className="space-y-2">
@@ -299,7 +299,10 @@ export default function CreativeUpload() {
             Cancel
           </Button>
           <Button
-            type="submit"
+            type="button"
+            onClick={() => {
+              void handleSubmit();
+            }}
             loading={loading}
           >
             {loading ? 'Uploading…' : 'Upload and Publish'}
