@@ -6,3 +6,4 @@ export * from './publish-service.mjs';
 export * from './renditions-repo.mjs';
 export * from './bindings-repo.mjs';
 export * from './variants-repo.mjs';
+export { normalizeRawClickUrl } from './shared.mjs';
