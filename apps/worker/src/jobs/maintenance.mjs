@@ -6,6 +6,7 @@
 import { getPool } from '@smx/db/src/pool.mjs';
 import { runIdentityStitching } from '@smx/db/src/identity-stitching.mjs';
 import { expirePendingUploadSessions, pruneOldDrafts, revokeExpiredSessions } from '@smx/db/src/maintenance.mjs';
+import { reconcileStalledHtml5Publishes } from '@smx/db/src/creative-ingestion-reconciler.mjs';
 import { reconcileStalledVideoTranscodeJobs } from '@smx/db/src/video-transcode-jobs.mjs';
 import { pruneFrequencyCapEvents } from '@smx/db/src/frequency-cap.mjs';
 import { getWorkerConnectionString } from '../db-connection.mjs';
@@ -27,6 +28,7 @@ const defaultMaintenanceDeps = {
   expirePendingUploadSessions,
   revokeExpiredSessions,
   pruneOldDrafts,
+  reconcileStalledHtml5Publishes,
   reconcileStalledVideoTranscodeJobs,
   pruneFrequencyCapEvents,
   runIdentityStitching,
@@ -41,7 +43,20 @@ export async function runMaintenanceJobWithDeps(source = process.env, deps = def
   const connectionString = getConnectionString(source);
   if (!connectionString) {
     logInfo({ status: 'skipped', reason: 'database_not_configured' });
-    return { expiredUploadSessions: 0, revokedSessions: 0, prunedDrafts: 0, stalledTranscodes: 0, prunedCapEvents: 0, skipped: true };
+    return {
+      expiredUploadSessions: 0,
+      revokedSessions: 0,
+      prunedDrafts: 0,
+      stalledTranscodes: 0,
+      requeuedTranscodes: 0,
+      exhaustedTranscodes: 0,
+      stalledHtml5Publishes: 0,
+      requeuedHtml5Publishes: 0,
+      exhaustedHtml5Publishes: 0,
+      prunedCapEvents: 0,
+      stitchedEdges: 0,
+      skipped: true,
+    };
   }
 
   const pool   = resolvedDeps.getPool(connectionString);
@@ -68,6 +83,21 @@ export async function runMaintenanceJobWithDeps(source = process.env, deps = def
       }
     } catch (reconcileError) {
       logError({ event: 'transcode_reconciliation_error', message: reconcileError?.message });
+    }
+
+    let stalledHtml5Result = { stalled: 0, requeued: 0, exhausted: 0 };
+    try {
+      stalledHtml5Result = await resolvedDeps.reconcileStalledHtml5Publishes(client);
+      if (stalledHtml5Result.stalled > 0) {
+        logInfo({
+          event: 'html5_publish_reconciliation',
+          stalled:   stalledHtml5Result.stalled,
+          requeued:  stalledHtml5Result.requeued,
+          exhausted: stalledHtml5Result.exhausted,
+        });
+      }
+    } catch (reconcileError) {
+      logError({ event: 'html5_publish_reconciliation_error', message: reconcileError?.message });
     }
 
     // ── S46: Frequency cap events housekeeping ─────────────────────────
@@ -108,6 +138,9 @@ export async function runMaintenanceJobWithDeps(source = process.env, deps = def
       stalledTranscodes:   stalledTranscodeResult.stalled,
       requeuedTranscodes:  stalledTranscodeResult.requeued,
       exhaustedTranscodes: stalledTranscodeResult.exhausted,
+      stalledHtml5Publishes:   stalledHtml5Result.stalled,
+      requeuedHtml5Publishes:  stalledHtml5Result.requeued,
+      exhaustedHtml5Publishes: stalledHtml5Result.exhausted,
       prunedCapEvents,
       stitchedEdges,
       skipped: false,
