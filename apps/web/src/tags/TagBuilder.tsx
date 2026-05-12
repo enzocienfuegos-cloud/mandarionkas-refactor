@@ -595,6 +595,7 @@ export default function TagBuilder() {
       <TagFormPanel
         isEdit={isEdit}
         form={form}
+        workspaces={workspaces}
         campaigns={campaigns}
         errors={errors}
         saving={saving}

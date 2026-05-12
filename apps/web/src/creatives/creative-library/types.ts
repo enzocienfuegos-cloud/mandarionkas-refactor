@@ -47,6 +47,7 @@ export type PrototypeCheck = {
 export interface BindingState {
   creativeId: string;
   creativeName: string;
+  workspaceId?: string | null;
   versionId: string;
   servingFormat: string;
   tagId: string;

@@ -1,26 +1,7 @@
 import React, { FormEvent } from 'react';
 import { Badge, Button, FormField, Input, Panel, ReadOnlyValue, Select } from '../system';
-
-interface Campaign {
-  id: string;
-  name: string;
-  metadata?: { dsp?: string | null; mediaType?: string | null } | null;
-}
-
-type TagFormat = 'VAST' | 'display' | 'native' | 'tracker';
-type TagStatus = 'draft' | 'active' | 'paused' | 'archived';
-type TrackerType = 'click' | 'impression';
-
-interface TagForm {
-  name: string;
-  campaignId: string;
-  format: TagFormat;
-  status: TagStatus;
-  clickUrl: string;
-  servingWidth: string;
-  servingHeight: string;
-  trackerType: TrackerType;
-}
+import type { WorkspaceOption } from '../shared/workspaces';
+import type { Campaign, TagForm, TagFormat, TagStatus } from './tag-builder-shared';
 
 const DISPLAY_SIZE_PRESETS = [
   { label: '300x250', width: 300, height: 250 },
@@ -43,6 +24,7 @@ function getDisplaySizePreset(width?: string, height?: string): string {
 interface TagFormPanelProps {
   isEdit: boolean;
   form: TagForm;
+  workspaces: WorkspaceOption[];
   campaigns: Campaign[];
   errors: Partial<Record<keyof TagForm, string>>;
   saving: boolean;
@@ -60,6 +42,7 @@ interface TagFormPanelProps {
 export default function TagFormPanel({
   isEdit,
   form,
+  workspaces,
   campaigns,
   errors,
   saving,
@@ -73,6 +56,8 @@ export default function TagFormPanel({
   onSubmit,
   onCancel,
 }: TagFormPanelProps) {
+  const clientLocked = isEdit && Boolean(form.workspaceId);
+
   return (
     <Panel className="mb-6 p-6">
       {generalError && (
@@ -87,6 +72,27 @@ export default function TagFormPanel({
       )}
 
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
+        <FormField label="Client" required error={errors.workspaceId}>
+          <Select
+            value={form.workspaceId}
+            onChange={onSet('workspaceId')}
+            invalid={Boolean(errors.workspaceId)}
+            disabled={clientLocked}
+          >
+            <option value="">Select a client</option>
+            {workspaces.map((workspace) => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.name}
+              </option>
+            ))}
+          </Select>
+          {clientLocked && (
+            <p className="mt-2 text-xs text-[color:var(--dusk-text-secondary)]">
+              Client is locked after a tag is created so creative bindings stay scoped to the original workspace.
+            </p>
+          )}
+        </FormField>
+
         <FormField label="Tag Name" required error={errors.name}>
           <Input
             type="text"
@@ -98,12 +104,17 @@ export default function TagFormPanel({
         </FormField>
 
         <FormField label="Campaign">
-          <Select value={form.campaignId} onChange={onSet('campaignId')}>
+          <Select value={form.campaignId} onChange={onSet('campaignId')} disabled={!form.workspaceId}>
             <option value="">— No campaign —</option>
             {campaigns.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </Select>
+          {!form.workspaceId && (
+            <p className="mt-2 text-xs text-[color:var(--dusk-text-secondary)]">
+              Select a client first to show that client&apos;s campaigns.
+            </p>
+          )}
         </FormField>
 
         {selectedCampaignMacroLabel && (
