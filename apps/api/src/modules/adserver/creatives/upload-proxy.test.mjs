@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const ROUTES_FILE = new URL('./routes.mjs', import.meta.url);
+const ROUTES_FILE = new URL('./routes/router-ingestions.mjs', import.meta.url);
 
 test('upload proxy handler reads from the request object provided by route context', async () => {
   const source = await readFile(ROUTES_FILE, 'utf8');
@@ -10,7 +10,7 @@ test('upload proxy handler reads from the request object provided by route conte
   assert.match(
     source,
     /const\s+\{\s*method,\s*pathname,\s*req,\s*res,\s*requestId,\s*url\s*\}\s*=\s*ctx;/,
-    'handleCreativeRoutes must destructure req from ctx',
+    'handleCreativeIngestionRoutes must destructure req from ctx',
   );
   assert.match(source, /readBinaryBody\(req\)/, 'upload-proxy must pass req into readBinaryBody');
   assert.match(source, /req\.headers\['content-type'\]/, 'upload-proxy must read content-type from req.headers');
