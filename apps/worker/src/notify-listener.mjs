@@ -9,8 +9,8 @@
 //   This module owns one long-lived pg.Client for the sole purpose of listening.
 //
 // Flow:
-//   1. PostgreSQL trigger fires pg_notify('smx.transcode-video', creativeVersionId)
-//      on INSERT into video_transcode_jobs WHERE status = 'pending'.
+//   1. PostgreSQL trigger fires pg_notify(channel, payload) when platform tables
+//      transition into a queueable state.
 //   2. This listener receives the notification on the persistent client.
 //   3. It calls sendTranscodeJob(creativeVersionId) → boss.send('smx.transcode-video').
 //   4. pgboss wakes the worker handler via its own LISTEN/NOTIFY mechanism.
@@ -24,9 +24,19 @@
 
 import pg from 'pg';
 import { getWorkerConnectionString } from './db-connection.mjs';
-import { sendTranscodeJob } from './queue.mjs';
+import { sendHtml5ArchivePublishJob, sendTranscodeJob } from './queue.mjs';
 
-const CHANNEL = 'smx.transcode-video';
+const CHANNELS = Object.freeze({
+  'smx.transcode-video': {
+    payloadKey: 'creativeVersionId',
+    send: sendTranscodeJob,
+  },
+  'smx.publish-html5-archive': {
+    payloadKey: 'ingestionId',
+    send: sendHtml5ArchivePublishJob,
+  },
+});
+const CHANNEL_NAMES = Object.freeze(Object.keys(CHANNELS));
 const RECONNECT_DELAY_MS = 5_000;
 
 function log(level, payload) {
@@ -70,43 +80,20 @@ async function connect(source = process.env) {
 
   c.on('end', () => {
     if (!stopped) {
-      log('warn', { event: 'client_disconnected', channel: CHANNEL });
+      log('warn', { event: 'client_disconnected', channels: CHANNEL_NAMES });
       scheduleReconnect(source);
     }
   });
 
-  c.on('notification', async (msg) => {
-    if (msg.channel !== CHANNEL) return;
-
-    const creativeVersionId = msg.payload;
-    if (!creativeVersionId) {
-      log('warn', { event: 'notify_empty_payload', channel: msg.channel });
-      return;
-    }
-
-    try {
-      const jobId = await sendTranscodeJob(creativeVersionId);
-      log('info', {
-        event: 'notify_bridge',
-        channel: CHANNEL,
-        creativeVersionId,
-        pgbossJobId: jobId ?? null,
-      });
-    } catch (err) {
-      log('error', {
-        event: 'notify_bridge_error',
-        channel: CHANNEL,
-        creativeVersionId,
-        message: err?.message,
-      });
-    }
-  });
+  c.on('notification', createNotificationHandler());
 
   await c.connect();
-  await c.query(`LISTEN "${CHANNEL}"`);
+  for (const channel of CHANNEL_NAMES) {
+    await c.query(`LISTEN "${channel}"`);
+  }
 
   client = c;
-  log('info', { event: 'listening', channel: CHANNEL });
+  log('info', { event: 'listening', channels: CHANNEL_NAMES });
 }
 
 function scheduleReconnect(source = process.env) {
@@ -119,7 +106,7 @@ function scheduleReconnect(source = process.env) {
     reconnectTimer = null;
     if (stopped) return;
 
-    log('info', { event: 'reconnecting', channel: CHANNEL });
+    log('info', { event: 'reconnecting', channels: CHANNEL_NAMES });
     try {
       await connect(source);
     } catch (err) {
@@ -132,6 +119,36 @@ function scheduleReconnect(source = process.env) {
 export async function startNotifyListener(source = process.env) {
   stopped = false;
   await connect(source);
+}
+
+export function createNotificationHandler(channels = CHANNELS) {
+  return async function handleNotification(msg) {
+    const bridge = channels[msg.channel];
+    if (!bridge) return;
+
+    const payload = msg.payload;
+    if (!payload) {
+      log('warn', { event: 'notify_empty_payload', channel: msg.channel });
+      return;
+    }
+
+    try {
+      const jobId = await bridge.send(payload);
+      log('info', {
+        event: 'notify_bridge',
+        channel: msg.channel,
+        [bridge.payloadKey]: payload,
+        pgbossJobId: jobId ?? null,
+      });
+    } catch (err) {
+      log('error', {
+        event: 'notify_bridge_error',
+        channel: msg.channel,
+        [bridge.payloadKey]: payload,
+        message: err?.message,
+      });
+    }
+  };
 }
 
 export async function stopNotifyListener() {

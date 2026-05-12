@@ -197,7 +197,7 @@ async function main() {
   // 3. Start the NOTIFY→pgboss bridge listener
   //    Must be after ensureBossStarted() so sendTranscodeJob() can call getBoss().
   await startNotifyListener();
-  log('info', { event: 'notify_listener_started', channel: 'smx.transcode-video' });
+  log('info', { event: 'notify_listener_started', channels: ['smx.transcode-video', 'smx.publish-html5-archive'] });
 
   // 4. Start maintenance heartbeat
   const heartbeatIntervalMs = Number(process.env.WORKER_POLL_INTERVAL_MS ?? 30_000);
