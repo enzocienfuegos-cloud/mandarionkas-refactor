@@ -46,6 +46,7 @@ import {
   deriveTranscodeDisplayStatus,
   getVideoTranscodeJobForVersion,
 } from '@smx/db/src/video-transcode-jobs.mjs';
+import { checkCreativeUploadRateLimit } from './upload-rate-limit.mjs';
 
 const R2_REGION = 'auto';
 const PREPARE_UPLOAD_TTL_SECONDS = 60 * 15;
@@ -151,6 +152,16 @@ function isR2SigningReady(env) {
     && env.r2AccessKeyId
     && env.r2SecretAccessKey,
   );
+}
+
+function sendUploadRateLimited(res, requestId, limit) {
+  return sendJson(res, 429, {
+    ok: false,
+    requestId,
+    code: 'rate_limited',
+    message: 'Too many creative upload requests. Please retry shortly.',
+    retryAfterSeconds: limit.retryAfterSeconds,
+  }, { 'Retry-After': String(limit.retryAfterSeconds || 1) });
 }
 
 function getR2Client(env) {
@@ -1036,6 +1047,17 @@ export async function handleCreativeRoutes(ctx) {
         session.session.activeWorkspaceId,
         ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
       );
+      const rateLimit = await checkCreativeUploadRateLimit({
+        client: session.client,
+        env: ctx.env,
+        headers: req.headers,
+        userId: session.user.id,
+        workspaceId,
+      });
+      if (!rateLimit.ok) {
+        return sendUploadRateLimited(res, requestId, rateLimit);
+      }
+
       const ingestionId = randomUUID();
       const storageKey = buildCreativeStorageKey({ workspaceId, ingestionId, filename });
       const publicUrl = buildPublicUrl(ctx.env, storageKey);
@@ -1100,6 +1122,17 @@ export async function handleCreativeRoutes(ctx) {
         session.session.activeWorkspaceId,
         url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
       );
+      const rateLimit = await checkCreativeUploadRateLimit({
+        client: session.client,
+        env: ctx.env,
+        headers: req.headers,
+        userId: session.user.id,
+        workspaceId,
+      });
+      if (!rateLimit.ok) {
+        return sendUploadRateLimited(res, requestId, rateLimit);
+      }
+
       const ingestion = await getCreativeIngestion(session.client, workspaceId, ingestionId);
       if (!ingestion) return badRequest(res, requestId, 'Creative ingestion not found.');
       if (!trimText(ingestion.storage_key)) {
