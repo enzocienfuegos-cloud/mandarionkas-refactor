@@ -10,14 +10,15 @@ export async function runTrackerFlushJob(pool) {
     await client.query(`
       INSERT INTO tag_daily_stats (tag_id, date, impressions, clicks, updated_at)
       SELECT
-        tag_id,
-        event_date,
-        COALESCE(SUM(impressions), 0),
-        COALESCE(SUM(clicks), 0),
+        s.tag_id,
+        s.event_date,
+        COALESCE(SUM(s.impressions), 0),
+        COALESCE(SUM(s.clicks), 0),
         NOW()
-      FROM tracker_events_staging
-      WHERE flushed = FALSE
-      GROUP BY tag_id, event_date
+      FROM tracker_events_staging s
+      JOIN ad_tags t ON t.id = s.tag_id
+      WHERE s.flushed = FALSE
+      GROUP BY s.tag_id, s.event_date
       ON CONFLICT (tag_id, date) DO UPDATE
         SET impressions = tag_daily_stats.impressions + EXCLUDED.impressions,
             clicks      = tag_daily_stats.clicks + EXCLUDED.clicks,
@@ -28,15 +29,16 @@ export async function runTrackerFlushJob(pool) {
       INSERT INTO tag_engagement_daily_stats
         (tag_id, date, event_type, event_count, total_duration_ms, updated_at)
       SELECT
-        tag_id,
-        event_date,
-        event_type,
-        COALESCE(SUM(event_count), 0),
-        COALESCE(SUM(duration_ms), 0),
+        s.tag_id,
+        s.event_date,
+        s.event_type,
+        COALESCE(SUM(s.event_count), 0),
+        COALESCE(SUM(s.duration_ms), 0),
         NOW()
-      FROM tracker_engagement_staging
-      WHERE flushed = FALSE
-      GROUP BY tag_id, event_date, event_type
+      FROM tracker_engagement_staging s
+      JOIN ad_tags t ON t.id = s.tag_id
+      WHERE s.flushed = FALSE
+      GROUP BY s.tag_id, s.event_date, s.event_type
       ON CONFLICT (tag_id, date, event_type) DO UPDATE
         SET event_count       = tag_engagement_daily_stats.event_count + EXCLUDED.event_count,
             total_duration_ms = tag_engagement_daily_stats.total_duration_ms + EXCLUDED.total_duration_ms,

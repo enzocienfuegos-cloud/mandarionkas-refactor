@@ -94,6 +94,10 @@ test('flushTrackerBatch writes impressions, clicks and engagements in one transa
   assert.equal(result.engagements, 14);
   assert.ok(pool.fakeClient.queries.some((q) => q.sql.startsWith('BEGIN')));
   assert.ok(pool.fakeClient.queries.some((q) => q.sql.startsWith('COMMIT')));
+  assert.ok(
+    pool.fakeClient.queries.some((q) => q.sql.includes('where exists (select 1 from ad_tags where id = $1)')),
+    'flushTrackerBatch should skip orphan tag rows instead of violating FK constraints',
+  );
 });
 
 test('flushTrackerBatch returns zeros for an empty batch', async () => {

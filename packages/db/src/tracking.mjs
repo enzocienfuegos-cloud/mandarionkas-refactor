@@ -257,7 +257,8 @@ export async function flushTrackerBatch(pool, batch) {
       await client.query(
         `
           insert into tag_daily_stats (tag_id, date, impressions, updated_at)
-          values ($1, current_date, $2, now())
+          select $1, current_date, $2, now()
+          where exists (select 1 from ad_tags where id = $1)
           on conflict (tag_id, date) do update
             set impressions = tag_daily_stats.impressions + $2,
                 updated_at = now()
@@ -271,7 +272,8 @@ export async function flushTrackerBatch(pool, batch) {
       await client.query(
         `
           insert into tag_daily_stats (tag_id, date, clicks, updated_at)
-          values ($1, current_date, $2, now())
+          select $1, current_date, $2, now()
+          where exists (select 1 from ad_tags where id = $1)
           on conflict (tag_id, date) do update
             set clicks = tag_daily_stats.clicks + $2,
                 updated_at = now()
@@ -287,7 +289,8 @@ export async function flushTrackerBatch(pool, batch) {
         `
           insert into tag_engagement_daily_stats
             (tag_id, date, event_type, event_count, total_duration_ms, updated_at)
-          values ($1, current_date, $2, $3, $4, now())
+          select $1, current_date, $2, $3, $4, now()
+          where exists (select 1 from ad_tags where id = $1)
           on conflict (tag_id, date, event_type) do update
             set event_count = tag_engagement_daily_stats.event_count + $3,
                 total_duration_ms = tag_engagement_daily_stats.total_duration_ms + $4,
