@@ -1,4 +1,5 @@
 import { parseBrowserFromUA, parseDeviceTypeFromUA, parseOsFromUA } from './ua-parser.mjs';
+import { deriveSpendMetrics, normalizeCostMetadata } from './costing.mjs';
 
 function addDateFilters(params, conditions, alias, dateFrom, dateTo) {
   if (dateFrom) {
@@ -188,6 +189,128 @@ function identityKeyExpression(alias) {
 
 function resolvedIdentityExpression(alias, edgeAlias) {
   return `COALESCE(NULLIF(${edgeAlias}.canonical_id, ''), NULLIF(${alias}.device_id, ''), ${identityKeyExpression(alias)})`;
+}
+
+function withSpendMetrics(row, {
+  metadataField = 'campaign_metadata',
+  impressionsField = 'impressions',
+  recordedSpendField = 'spend',
+  budgetField = 'budget',
+  impressionGoalField = 'impression_goal',
+} = {}) {
+  const metadata = normalizeCostMetadata(row?.[metadataField]);
+  const spendMetrics = deriveSpendMetrics({
+    impressions: row?.[impressionsField],
+    recordedSpend: row?.[recordedSpendField],
+    metadata,
+    fallbackBudget: row?.[budgetField],
+    impressionGoal: row?.[impressionGoalField],
+  });
+
+  return {
+    ...row,
+    campaign_metadata: metadata,
+    media_spend: spendMetrics.mediaSpend,
+    serving_fee_spend: spendMetrics.servingFeeSpend,
+    margin_spend: spendMetrics.marginSpend,
+    spend_without_margin: spendMetrics.spendWithoutMargin,
+    spend_with_margin: spendMetrics.spendWithMargin,
+    spend: spendMetrics.spendWithoutMargin,
+  };
+}
+
+function toFiniteNumber(value) {
+  const numeric = Number(value ?? 0);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function roundMetric(value, digits = 4) {
+  return Number(toFiniteNumber(value).toFixed(digits));
+}
+
+function mapCreativeReportingStatus(status) {
+  if (status === 'approved' || status === 'active') return 'active';
+  if (status === 'rejected' || status === 'archived') return 'archived';
+  if (status === 'paused') return 'paused';
+  if (status === 'pending_review') return 'limited';
+  return 'draft';
+}
+
+function collapseAllocatedCreativeRows(rows = [], { limit = 25, variantMode = false } = {}) {
+  const byId = new Map();
+
+  for (const rawRow of rows.map((row) => withSpendMetrics(row))) {
+    const entityId = variantMode
+      ? (String(rawRow.variant_entity_id || '').trim() || String(rawRow.id || '').trim())
+      : String(rawRow.id || '').trim();
+    if (!entityId) continue;
+
+    const current = byId.get(entityId) ?? {
+      id: entityId,
+      name: variantMode
+        ? [rawRow.name, rawRow.variant_label].filter(Boolean).join(' · ')
+        : rawRow.name,
+      status: mapCreativeReportingStatus(rawRow.approval_status),
+      approval_status: rawRow.approval_status || 'draft',
+      creative_type: rawRow.creative_type || null,
+      source_kind: rawRow.source_kind || null,
+      serving_format: rawRow.serving_format || null,
+      variant_id: rawRow.variant_id || null,
+      variant_label: rawRow.variant_label || null,
+      allocation_model: 'binding_weight',
+      has_exact_attribution: false,
+      impressions: 0,
+      clicks: 0,
+      viewable_imps: 0,
+      measured_imps: 0,
+      undetermined_imps: 0,
+      media_spend: 0,
+      serving_fee_spend: 0,
+      margin_spend: 0,
+      spend_without_margin: 0,
+      spend_with_margin: 0,
+    };
+
+    current.impressions += toFiniteNumber(rawRow.impressions);
+    current.clicks += toFiniteNumber(rawRow.clicks);
+    current.viewable_imps += toFiniteNumber(rawRow.viewable_imps);
+    current.measured_imps += toFiniteNumber(rawRow.measured_imps);
+    current.undetermined_imps += toFiniteNumber(rawRow.undetermined_imps);
+    current.media_spend += toFiniteNumber(rawRow.media_spend);
+    current.serving_fee_spend += toFiniteNumber(rawRow.serving_fee_spend);
+    current.margin_spend += toFiniteNumber(rawRow.margin_spend);
+    current.spend_without_margin += toFiniteNumber(rawRow.spend_without_margin);
+    current.spend_with_margin += toFiniteNumber(rawRow.spend_with_margin);
+    current.has_exact_attribution = current.has_exact_attribution || Boolean(Number(rawRow.has_exact_attribution || 0));
+    current.allocation_model = current.has_exact_attribution ? 'event_hybrid' : 'binding_weight';
+    byId.set(entityId, current);
+  }
+
+  return Array.from(byId.values())
+    .map((row) => {
+      const impressions = roundMetric(row.impressions, 2);
+      const clicks = roundMetric(row.clicks, 2);
+      const measured = roundMetric(row.measured_imps, 2);
+      const viewable = roundMetric(row.viewable_imps, 2);
+      return {
+        ...row,
+        impressions,
+        clicks,
+        viewable_imps: viewable,
+        measured_imps: measured,
+        undetermined_imps: roundMetric(row.undetermined_imps, 2),
+        media_spend: roundMetric(row.media_spend),
+        serving_fee_spend: roundMetric(row.serving_fee_spend),
+        margin_spend: roundMetric(row.margin_spend),
+        spend_without_margin: roundMetric(row.spend_without_margin),
+        spend_with_margin: roundMetric(row.spend_with_margin),
+        spend: roundMetric(row.spend_without_margin),
+        ctr: impressions > 0 ? roundMetric((clicks / impressions) * 100) : 0,
+        viewability_rate: measured > 0 ? roundMetric((viewable / measured) * 100) : 0,
+      };
+    })
+    .sort((left, right) => toFiniteNumber(right.impressions) - toFiniteNumber(left.impressions) || String(left.name || '').localeCompare(String(right.name || '')))
+    .slice(0, normalizeLimit(limit, 25, 200));
 }
 
 export async function getTagStats(pool, workspaceId, tagId, opts = {}) {
@@ -573,6 +696,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   const frequencyRes = await frequencyQuery;
   const activeCampaignsRes = await activeCampaignsQuery;
   const activeTagsRes = await activeTagsQuery;
+  const spendBreakdown = await getWorkspaceCampaignBreakdown(pool, workspaceId, { ...opts, limit: 500 });
 
   const summary = summaryRes.rows[0] ?? {};
   const engagement = engagementRes.rows[0] ?? {};
@@ -580,6 +704,19 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   const frequency = frequencyRes.rows[0] ?? {};
   const activeCampaigns = activeCampaignsRes.rows[0] ?? {};
   const activeTags = activeTagsRes.rows[0] ?? {};
+  const spendTotals = spendBreakdown.reduce((accumulator, row) => ({
+    mediaSpend: accumulator.mediaSpend + Number(row.media_spend ?? 0),
+    servingFeeSpend: accumulator.servingFeeSpend + Number(row.serving_fee_spend ?? 0),
+    marginSpend: accumulator.marginSpend + Number(row.margin_spend ?? 0),
+    spendWithoutMargin: accumulator.spendWithoutMargin + Number(row.spend_without_margin ?? row.spend ?? 0),
+    spendWithMargin: accumulator.spendWithMargin + Number(row.spend_with_margin ?? row.spend ?? 0),
+  }), {
+    mediaSpend: 0,
+    servingFeeSpend: 0,
+    marginSpend: 0,
+    spendWithoutMargin: 0,
+    spendWithMargin: 0,
+  });
   const totalImpressions = Number(summary.total_impressions ?? 0);
   const videoStarts = Number(engagement.video_starts ?? 0);
   const videoCompletions = Number(engagement.video_completions ?? 0);
@@ -597,7 +734,12 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   return {
     total_impressions: totalImpressions,
     total_clicks: Number(summary.total_clicks ?? 0),
-    total_spend: Number(summary.total_spend ?? 0),
+    total_spend: Number(spendTotals.spendWithoutMargin.toFixed(4)),
+    total_media_spend: Number(spendTotals.mediaSpend.toFixed(4)),
+    total_serving_fees: Number(spendTotals.servingFeeSpend.toFixed(4)),
+    total_margin: Number(spendTotals.marginSpend.toFixed(4)),
+    total_spend_without_margin: Number(spendTotals.spendWithoutMargin.toFixed(4)),
+    total_spend_with_margin: Number(spendTotals.spendWithMargin.toFixed(4)),
     total_viewable_impressions: viewableCount,
     total_measured_impressions: totalImpressions,
     total_undetermined_impressions: 0,
@@ -660,6 +802,9 @@ export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}
        c.id,
        c.name,
        c.status,
+       c.budget,
+       c.impression_goal,
+       c.metadata AS campaign_metadata,
        COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
        COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
        COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
@@ -678,12 +823,12 @@ export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}
      LEFT JOIN ad_tags t ON t.campaign_id = c.id AND t.workspace_id = c.workspace_id
      LEFT JOIN tag_daily_stats ds ON ds.tag_id = t.id${joinDateFilter}
      WHERE ${conditions.join(' AND ')}
-     GROUP BY c.id, c.name, c.status
+     GROUP BY c.id, c.name, c.status, c.budget, c.impression_goal, c.metadata
      ORDER BY COALESCE(SUM(ds.impressions), 0) DESC, c.name ASC
      LIMIT $${params.length}`,
     params,
   );
-  return rows;
+  return rows.map((row) => withSpendMetrics(row));
 }
 
 export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
@@ -698,9 +843,14 @@ export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
   const { rows } = await pool.query(
     `SELECT
        t.id,
+       t.campaign_id,
        t.name,
        t.format,
        t.status,
+       c.name AS campaign_name,
+       c.budget,
+       c.impression_goal,
+       c.metadata AS campaign_metadata,
        COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
        COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
        COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
@@ -716,14 +866,15 @@ export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
          THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
          ELSE 0 END AS viewability_rate
      FROM ad_tags t
+     LEFT JOIN campaigns c ON c.id = t.campaign_id AND c.workspace_id = t.workspace_id
      LEFT JOIN tag_daily_stats ds ON ds.tag_id = t.id
      WHERE ${conditions.join(' AND ')}
-     GROUP BY t.id, t.name, t.format, t.status
+     GROUP BY t.id, t.campaign_id, t.name, t.format, t.status, c.name, c.budget, c.impression_goal, c.metadata
      ORDER BY COALESCE(SUM(ds.impressions), 0) DESC, t.name ASC
      LIMIT $${params.length}`,
     params,
   );
-  return rows;
+  return rows.map((row) => withSpendMetrics(row));
 }
 
 async function getImpressionGroupedBreakdown(pool, workspaceId, groupSql, labelAlias, opts = {}) {
@@ -832,12 +983,284 @@ export async function getWorkspaceEngagementBreakdown(pool, workspaceId, opts = 
   return rows;
 }
 
-export async function getWorkspaceCreativeBreakdown() {
-  return [];
+async function getWorkspaceAllocatedCreativeRows(pool, workspaceId, opts = {}) {
+  const {
+    dateFrom,
+    dateTo,
+    advertiserId = '',
+    campaignId = '',
+    tagIds: rawTagIds = [],
+    tagId = '',
+    creativeId = '',
+    variantId = '',
+  } = opts;
+  const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
+  const params = [workspaceId];
+  const conditions = ['t.workspace_id = $1'];
+  const postAllocationConditions = [];
+  addTagScopeFilters(params, conditions, 't', campaignId, tagIds, advertiserId);
+  addDateFilters(params, conditions, 'ds', dateFrom, dateTo);
+  if (creativeId) {
+    params.push(creativeId);
+    postAllocationConditions.push(`id = $${params.length}`);
+  }
+  if (variantId) {
+    params.push(variantId);
+    postAllocationConditions.push(`variant_id = $${params.length}`);
+  }
+
+  const { rows } = await pool.query(
+    `WITH tag_daily AS (
+       SELECT
+         ds.tag_id,
+         ds.date,
+         COALESCE(ds.impressions, 0)::numeric AS tag_impressions,
+         COALESCE(ds.clicks, 0)::numeric AS tag_clicks,
+         COALESCE(ds.viewable_imps, 0)::numeric AS tag_viewable_imps,
+         COALESCE(ds.measured_imps, 0)::numeric AS tag_measured_imps,
+         COALESCE(ds.undetermined_imps, 0)::numeric AS tag_undetermined_imps,
+         COALESCE(ds.spend, 0)::numeric AS tag_spend,
+         camp.budget,
+         camp.impression_goal,
+         camp.metadata AS campaign_metadata
+       FROM tag_daily_stats ds
+       JOIN ad_tags t ON t.id = ds.tag_id
+       LEFT JOIN campaigns camp ON camp.id = t.campaign_id AND camp.workspace_id = t.workspace_id
+       WHERE ${conditions.join(' AND ')}
+     ),
+     binding_roster AS (
+       SELECT
+         td.tag_id,
+         td.date,
+         cv.creative_id AS id,
+         c.name,
+         c.approval_status,
+         c.type AS creative_type,
+         cv.source_kind,
+         cv.serving_format,
+         COALESCE(b.creative_size_variant_id, '') AS variant_id,
+         COALESCE(
+           NULLIF(v.label, ''),
+           CASE
+             WHEN COALESCE(v.width, 0) > 0 AND COALESCE(v.height, 0) > 0 THEN CONCAT(v.width, 'x', v.height)
+             ELSE 'Default'
+           END
+         ) AS variant_label,
+         td.budget,
+         td.impression_goal,
+         td.campaign_metadata,
+         GREATEST(COALESCE(b.weight, 1), 1)::numeric AS binding_weight,
+         SUM(GREATEST(COALESCE(b.weight, 1), 1)::numeric) OVER (PARTITION BY td.tag_id, td.date) AS total_binding_weight,
+         td.tag_impressions,
+         td.tag_clicks,
+         td.tag_viewable_imps,
+         td.tag_measured_imps,
+         td.tag_undetermined_imps,
+         td.tag_spend
+       FROM tag_daily td
+       JOIN ad_tags t ON t.id = td.tag_id
+       JOIN creative_tag_bindings b
+         ON b.tag_id = t.id
+        AND b.workspace_id = t.workspace_id
+        AND b.status <> 'draft'
+        AND (b.start_at IS NULL OR b.start_at::date <= td.date)
+        AND (
+          COALESCE(
+            b.end_at::date,
+            CASE WHEN b.status IN ('paused', 'archived') THEN b.updated_at::date ELSE NULL END
+          ) IS NULL
+          OR COALESCE(
+            b.end_at::date,
+            CASE WHEN b.status IN ('paused', 'archived') THEN b.updated_at::date ELSE NULL END
+          ) >= td.date
+        )
+       JOIN creative_versions cv
+         ON cv.id = b.creative_version_id
+        AND cv.workspace_id = b.workspace_id
+       JOIN creatives c
+         ON c.id = cv.creative_id
+        AND c.workspace_id = cv.workspace_id
+       LEFT JOIN creative_size_variants v ON v.id = b.creative_size_variant_id
+     ),
+     scoped_days AS (
+       SELECT DISTINCT tag_id, date
+       FROM tag_daily
+     ),
+     exact_impression_counts AS (
+       SELECT
+         ie.tag_id,
+         ie.timestamp::date AS date,
+         ie.creative_id AS id,
+         COALESCE(ie.creative_size_variant_id, '') AS variant_id,
+         COUNT(*)::numeric AS exact_impressions,
+         COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::numeric AS exact_viewable_imps,
+         COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0)::numeric AS exact_measured_imps,
+         COALESCE(SUM(CASE WHEN ie.viewable IS NULL THEN 1 ELSE 0 END), 0)::numeric AS exact_undetermined_imps
+       FROM impression_events ie
+       JOIN scoped_days sd
+         ON sd.tag_id = ie.tag_id
+        AND sd.date = ie.timestamp::date
+       WHERE ie.workspace_id = $1
+         AND COALESCE(ie.creative_id, '') <> ''
+       GROUP BY ie.tag_id, ie.timestamp::date, ie.creative_id, COALESCE(ie.creative_size_variant_id, '')
+     ),
+     exact_impression_totals AS (
+       SELECT
+         tag_id,
+         date,
+         COALESCE(SUM(exact_impressions), 0)::numeric AS tag_exact_impressions,
+         COALESCE(SUM(exact_viewable_imps), 0)::numeric AS tag_exact_viewable_imps,
+         COALESCE(SUM(exact_measured_imps), 0)::numeric AS tag_exact_measured_imps,
+         COALESCE(SUM(exact_undetermined_imps), 0)::numeric AS tag_exact_undetermined_imps
+       FROM exact_impression_counts
+       GROUP BY tag_id, date
+     ),
+     exact_click_counts AS (
+       SELECT
+         ce.tag_id,
+         ce.timestamp::date AS date,
+         ce.creative_id AS id,
+         COALESCE(ce.creative_size_variant_id, '') AS variant_id,
+         COUNT(*)::numeric AS exact_clicks
+       FROM click_events ce
+       JOIN scoped_days sd
+         ON sd.tag_id = ce.tag_id
+        AND sd.date = ce.timestamp::date
+       WHERE ce.workspace_id = $1
+         AND COALESCE(ce.creative_id, '') <> ''
+       GROUP BY ce.tag_id, ce.timestamp::date, ce.creative_id, COALESCE(ce.creative_size_variant_id, '')
+     ),
+     exact_click_totals AS (
+       SELECT
+         tag_id,
+         date,
+         COALESCE(SUM(exact_clicks), 0)::numeric AS tag_exact_clicks
+       FROM exact_click_counts
+       GROUP BY tag_id, date
+     ),
+     resolved_binding_day AS (
+       SELECT
+         br.*,
+         COALESCE(ei.exact_impressions, 0)::numeric AS exact_impressions,
+         COALESCE(ei.exact_viewable_imps, 0)::numeric AS exact_viewable_imps,
+         COALESCE(ei.exact_measured_imps, 0)::numeric AS exact_measured_imps,
+         COALESCE(ei.exact_undetermined_imps, 0)::numeric AS exact_undetermined_imps,
+         COALESCE(ec.exact_clicks, 0)::numeric AS exact_clicks,
+         COALESCE(eit.tag_exact_impressions, 0)::numeric AS tag_exact_impressions,
+         COALESCE(eit.tag_exact_viewable_imps, 0)::numeric AS tag_exact_viewable_imps,
+         COALESCE(eit.tag_exact_measured_imps, 0)::numeric AS tag_exact_measured_imps,
+         COALESCE(eit.tag_exact_undetermined_imps, 0)::numeric AS tag_exact_undetermined_imps,
+         COALESCE(ect.tag_exact_clicks, 0)::numeric AS tag_exact_clicks,
+         CASE
+           WHEN br.tag_impressions > 0 AND COALESCE(eit.tag_exact_impressions, 0) > br.tag_impressions AND COALESCE(eit.tag_exact_impressions, 0) > 0
+             THEN COALESCE(ei.exact_impressions, 0)::numeric * (br.tag_impressions / eit.tag_exact_impressions)
+           ELSE COALESCE(ei.exact_impressions, 0)::numeric
+             + GREATEST(br.tag_impressions - COALESCE(eit.tag_exact_impressions, 0), 0)
+               * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
+         END AS resolved_impressions,
+         CASE
+           WHEN br.tag_clicks > 0 AND COALESCE(ect.tag_exact_clicks, 0) > br.tag_clicks AND COALESCE(ect.tag_exact_clicks, 0) > 0
+             THEN COALESCE(ec.exact_clicks, 0)::numeric * (br.tag_clicks / ect.tag_exact_clicks)
+           ELSE COALESCE(ec.exact_clicks, 0)::numeric
+             + GREATEST(br.tag_clicks - COALESCE(ect.tag_exact_clicks, 0), 0)
+               * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
+         END AS resolved_clicks,
+         CASE
+           WHEN br.tag_viewable_imps > 0 AND COALESCE(eit.tag_exact_viewable_imps, 0) > br.tag_viewable_imps AND COALESCE(eit.tag_exact_viewable_imps, 0) > 0
+             THEN COALESCE(ei.exact_viewable_imps, 0)::numeric * (br.tag_viewable_imps / eit.tag_exact_viewable_imps)
+           ELSE COALESCE(ei.exact_viewable_imps, 0)::numeric
+             + GREATEST(br.tag_viewable_imps - COALESCE(eit.tag_exact_viewable_imps, 0), 0)
+               * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
+         END AS resolved_viewable_imps,
+         CASE
+           WHEN br.tag_measured_imps > 0 AND COALESCE(eit.tag_exact_measured_imps, 0) > br.tag_measured_imps AND COALESCE(eit.tag_exact_measured_imps, 0) > 0
+             THEN COALESCE(ei.exact_measured_imps, 0)::numeric * (br.tag_measured_imps / eit.tag_exact_measured_imps)
+           ELSE COALESCE(ei.exact_measured_imps, 0)::numeric
+             + GREATEST(br.tag_measured_imps - COALESCE(eit.tag_exact_measured_imps, 0), 0)
+               * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
+         END AS resolved_measured_imps,
+         CASE
+           WHEN br.tag_undetermined_imps > 0 AND COALESCE(eit.tag_exact_undetermined_imps, 0) > br.tag_undetermined_imps AND COALESCE(eit.tag_exact_undetermined_imps, 0) > 0
+             THEN COALESCE(ei.exact_undetermined_imps, 0)::numeric * (br.tag_undetermined_imps / eit.tag_exact_undetermined_imps)
+           ELSE COALESCE(ei.exact_undetermined_imps, 0)::numeric
+             + GREATEST(br.tag_undetermined_imps - COALESCE(eit.tag_exact_undetermined_imps, 0), 0)
+               * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
+         END AS resolved_undetermined_imps
+       FROM binding_roster br
+       LEFT JOIN exact_impression_counts ei
+         ON ei.tag_id = br.tag_id
+        AND ei.date = br.date
+        AND ei.id = br.id
+        AND ei.variant_id = br.variant_id
+       LEFT JOIN exact_click_counts ec
+         ON ec.tag_id = br.tag_id
+        AND ec.date = br.date
+        AND ec.id = br.id
+        AND ec.variant_id = br.variant_id
+       LEFT JOIN exact_impression_totals eit
+         ON eit.tag_id = br.tag_id
+        AND eit.date = br.date
+       LEFT JOIN exact_click_totals ect
+         ON ect.tag_id = br.tag_id
+        AND ect.date = br.date
+     )
+     SELECT
+       id,
+       name,
+       approval_status,
+       creative_type,
+       source_kind,
+       serving_format,
+       variant_id,
+       variant_label,
+       budget,
+       impression_goal,
+       campaign_metadata,
+       COALESCE(SUM(resolved_impressions), 0) AS impressions,
+       COALESCE(SUM(resolved_clicks), 0) AS clicks,
+       COALESCE(SUM(resolved_viewable_imps), 0) AS viewable_imps,
+       COALESCE(SUM(resolved_measured_imps), 0) AS measured_imps,
+       COALESCE(SUM(resolved_undetermined_imps), 0) AS undetermined_imps,
+       COALESCE(SUM(
+         CASE
+           WHEN tag_impressions > 0 THEN tag_spend * (resolved_impressions / tag_impressions)
+           WHEN total_binding_weight > 0 THEN tag_spend * (binding_weight / total_binding_weight)
+           ELSE 0
+         END
+       ), 0) AS spend,
+       MAX(CASE WHEN exact_impressions > 0 OR exact_clicks > 0 THEN 1 ELSE 0 END) AS has_exact_attribution
+     FROM resolved_binding_day
+     ${postAllocationConditions.length ? `WHERE ${postAllocationConditions.join(' AND ')}` : ''}
+     GROUP BY
+       id,
+       name,
+       approval_status,
+       creative_type,
+       source_kind,
+       serving_format,
+       variant_id,
+       variant_label,
+       budget,
+       impression_goal,
+       campaign_metadata`,
+    params,
+  );
+
+  return rows;
 }
 
-export async function getWorkspaceVariantBreakdown() {
-  return [];
+export async function getWorkspaceCreativeBreakdown(pool, workspaceId, opts = {}) {
+  const rows = await getWorkspaceAllocatedCreativeRows(pool, workspaceId, opts);
+  return collapseAllocatedCreativeRows(rows, { limit: opts.limit, variantMode: false });
+}
+
+export async function getWorkspaceVariantBreakdown(pool, workspaceId, opts = {}) {
+  const rows = await getWorkspaceAllocatedCreativeRows(pool, workspaceId, opts);
+  const enrichedRows = rows.map((row) => ({
+    ...row,
+    variant_entity_id: row.variant_id || `${row.id}:default`,
+  }));
+  return collapseAllocatedCreativeRows(enrichedRows, { limit: opts.limit, variantMode: true });
 }
 
 export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) {

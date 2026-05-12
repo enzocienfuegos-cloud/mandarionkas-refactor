@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Kicker, Panel, Select } from '../system';
-import { buildFileKey, normalizeHttpUrl, ACCEPTED_EXTENSIONS } from './creative-upload/utils';
+import { buildFileKey, ACCEPTED_EXTENSIONS } from './creative-upload/utils';
 import { useCreativeUploadWorkspace } from './creative-upload/useCreativeUploadWorkspace';
 
 export default function CreativeUpload() {
@@ -86,8 +86,27 @@ export default function CreativeUpload() {
                       mergeFiles(Array.from(event.target.files ?? []));
                       event.currentTarget.value = '';
                     }}
-                    className="block w-full rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 px-3 py-2 text-sm text-[color:var(--dusk-text-secondary)] file:mr-3 file:rounded-md file:border-0 file:bg-surface-muted file:px-3 file:py-2 file:text-sm file:font-medium"
+                    className="sr-only"
                   />
+                  <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 p-3 sm:flex-row sm:items-center">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="shrink-0"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Choose Files
+                    </Button>
+                    <div className="min-w-0 text-sm text-[color:var(--dusk-text-secondary)]">
+                      <span className="block truncate">
+                        {files.length === 0
+                          ? 'No file chosen'
+                          : files.length === 1
+                            ? files[0].name
+                            : `${files.length} files selected`}
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <p className="mt-2 text-xs text-[color:var(--dusk-text-muted)]">
                   Accepted: {ACCEPTED_EXTENSIONS[sourceKind]} · each creative will use its file name as the creative name.
@@ -108,11 +127,11 @@ export default function CreativeUpload() {
                   if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
                 variant="secondary"
-                className={`h-auto justify-start rounded-xl px-4 py-3 text-left ${sourceKind === 'html5_zip' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
+                className={`h-auto min-w-0 justify-start overflow-hidden rounded-xl px-4 py-3 text-left ${sourceKind === 'html5_zip' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
               >
-                <div className="space-y-1">
+                <div className="min-w-0 space-y-1">
                   <div className="font-medium text-[color:var(--dusk-text-primary)]">HTML5 ZIP</div>
-                  <div className="text-sm leading-6 text-[color:var(--dusk-text-muted)]">
+                  <div className="break-words text-sm leading-6 text-[color:var(--dusk-text-muted)]">
                     Publishes `index.html` and all packaged assets to hosted display creative artifacts.
                   </div>
                 </div>
@@ -123,11 +142,11 @@ export default function CreativeUpload() {
                   if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
                 variant="secondary"
-                className={`h-auto justify-start rounded-xl px-4 py-3 text-left ${sourceKind === 'video_mp4' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
+                className={`h-auto min-w-0 justify-start overflow-hidden rounded-xl px-4 py-3 text-left ${sourceKind === 'video_mp4' ? 'border-brand-500 bg-[color:var(--dusk-status-info-bg)] text-text-brand' : 'text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover'}`}
               >
-                <div className="space-y-1">
+                <div className="min-w-0 space-y-1">
                   <div className="font-medium text-[color:var(--dusk-text-primary)]">Video MP4</div>
-                  <div className="text-sm leading-6 text-[color:var(--dusk-text-muted)]">
+                  <div className="break-words text-sm leading-6 text-[color:var(--dusk-text-muted)]">
                     Creates a video creative version for VAST serving as soon as publishing finishes.
                   </div>
                 </div>
@@ -135,6 +154,12 @@ export default function CreativeUpload() {
             </div>
           </div>
         </div>
+
+        {error && (
+          <div className="rounded-lg border border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] px-4 py-3 text-sm text-[color:var(--dusk-status-critical-fg)]">
+            {error}
+          </div>
+        )}
 
         {files.length > 0 && (
           <div className="rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-muted p-3">
@@ -160,8 +185,8 @@ export default function CreativeUpload() {
                   className="space-y-4 rounded-lg border border-[color:var(--dusk-border-default)] bg-surface-1 p-3"
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="truncate font-medium text-[color:var(--dusk-text-primary)]">{file.name}</span>
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="break-all font-medium text-[color:var(--dusk-text-primary)]">{file.name}</span>
                       <span className="shrink-0 text-xs text-[color:var(--dusk-text-muted)]">
                         {(file.size / 1024 / 1024).toFixed(2)} MB
                       </span>
@@ -179,7 +204,7 @@ export default function CreativeUpload() {
                     <p className="mt-1 text-[11px] text-[color:var(--dusk-text-muted)]">
                       {sourceKind === 'video_mp4'
                         ? 'Videos need a destination URL before they can be published for serving.'
-                        : 'For HTML5, we auto-detect clickTag/click URL from the archive. If none is found, this fallback URL is required.'}
+                        : 'For HTML5, we auto-detect clickTag/click URL from the archive. If none is found, a manual destination URL is required before upload.'}
                     </p>
                     {sourceKind === 'html5_zip' && detectingFileKeys.includes(buildFileKey(file)) && (
                       <p className="mt-1 text-[11px] text-[color:var(--dusk-status-warning-fg)]">
@@ -187,7 +212,7 @@ export default function CreativeUpload() {
                       </p>
                     )}
                     {detectedClickUrls[buildFileKey(file)] && (
-                      <p className="mt-1 flex items-center gap-1 text-[11px] text-[color:var(--dusk-status-success-fg)]">
+                      <p className="mt-1 flex items-start gap-1 text-[11px] text-[color:var(--dusk-status-success-fg)]">
                         <span>
                           clickTag auto-detected:{' '}
                           <span className="break-all font-medium">

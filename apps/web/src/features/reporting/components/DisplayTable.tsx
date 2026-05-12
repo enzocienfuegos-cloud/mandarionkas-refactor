@@ -21,7 +21,14 @@ export function DisplayTable({ title, rows, icon = 'campaign' }: { title: string
     {
       id: 'name',
       header: 'Name',
-      cell: (row) => <span className="font-semibold text-[color:var(--dusk-text-primary)]">{row.name}</span>,
+      cell: (row) => (
+        <div>
+          <span className="font-semibold text-[color:var(--dusk-text-primary)]">{row.name}</span>
+          {row.secondaryLabel ? (
+            <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">{row.secondaryLabel}</p>
+          ) : null}
+        </div>
+      ),
       sortAccessor: (row) => row.name,
     },
     {
@@ -46,6 +53,29 @@ export function DisplayTable({ title, rows, icon = 'campaign' }: { title: string
       cell: (row) => fmtNum(row.clicks),
       sortAccessor: (row) => row.clicks,
     },
+    ...(rows.some((row) => typeof row.spend === 'number')
+      ? [{
+        id: 'spend',
+        header: 'Spend',
+        align: 'right',
+        numeric: true,
+        sortAccessor: (row: CampaignPerformanceRow) => Number(row.spend ?? 0),
+        cell: (row: CampaignPerformanceRow) => (
+          <div className="text-right">
+            <div>{new Intl.NumberFormat('en-US', {
+              style: 'currency',
+              currency: 'USD',
+              maximumFractionDigits: 2,
+            }).format(Number(row.spend ?? 0))}</div>
+            {row.spendHelper ? (
+              <p className="mt-1 max-w-[14rem] whitespace-normal text-xs leading-5 text-[color:var(--dusk-text-soft)]">
+                {row.spendHelper}
+              </p>
+            ) : null}
+          </div>
+        ),
+      } satisfies ColumnDef<CampaignPerformanceRow>]
+      : []),
     {
       id: 'ctr',
       header: 'CTR',

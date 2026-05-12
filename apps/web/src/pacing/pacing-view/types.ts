@@ -2,6 +2,7 @@ export type TrendDirection = 'up' | 'down' | 'flat';
 export type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
 export type PrioritySeverity = 'Critical' | 'Warning' | 'Notice';
 export type PacingStatus = 'On pace' | 'Underpacing' | 'Overpacing' | 'At risk' | 'Paused';
+export type SpendView = 'without_margin' | 'with_margin';
 
 export type Metric = {
   id: string;
@@ -22,9 +23,13 @@ export type PacingRow = {
   pacing: string;
   pacingPct: number;
   spend: string;
+  spendValue: number;
   budget: string;
+  budgetValue: number;
   dailyTarget: string;
+  dailyTargetValue: number;
   projected: string;
+  projectedValue: number;
   risk: PrioritySeverity;
   owner: string;
 };
@@ -43,6 +48,12 @@ export interface PacingCampaign {
   remainingDays: number;
   startDate: string;
   endDate: string;
+  budget?: number | null;
+  dailyBudget?: number | null;
+  estimatedRate?: number | null;
+  markupPercent?: number | null;
+  servingFeeCpm?: number | null;
+  servingCostMode?: string | null;
 }
 
 export interface PacingAlert {

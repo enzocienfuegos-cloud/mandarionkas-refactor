@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, DataTable, DensityToggle, IconButton, Kicker, Panel, type ColumnDef, type Density } from '../../system';
-import type { CampaignRow, IconProps, TrendDirection } from './types';
+import type { CampaignRow, CampaignSpendView, IconProps, TrendDirection } from './types';
 import { classNames, statusBadge } from './utils';
 import { getDensity } from '../../shared/preferences';
 import { BulkCampaignActions } from './BulkCampaignActions';
@@ -91,6 +91,7 @@ export function CampaignsTable({
   liveCampaigns,
   blockedOrLimited,
   draftSetup,
+  spendView,
   onEdit,
   onDelete,
   deletingId,
@@ -106,6 +107,7 @@ export function CampaignsTable({
   liveCampaigns: number;
   blockedOrLimited: number;
   draftSetup: number;
+  spendView: CampaignSpendView;
   onEdit: (row: CampaignRow) => void;
   onDelete: (row: CampaignRow) => void;
   deletingId: string | null;
@@ -148,7 +150,7 @@ export function CampaignsTable({
     },
     {
       id: 'spend',
-      header: 'Spend',
+      header: spendView === 'with_margin' ? 'Spend / Budget (With margin)' : 'Spend / Budget (Without margin)',
       align: 'right',
       cell: (campaign) => (
         <span className="tabular-nums text-text-secondary">
@@ -156,7 +158,7 @@ export function CampaignsTable({
           <span className="text-[color:var(--dusk-text-soft)]"> / {campaign.budget}</span>
         </span>
       ),
-      sortAccessor: (campaign) => campaign.spend,
+      sortAccessor: (campaign) => campaign.spendValue,
     },
     {
       id: 'tags',
@@ -227,7 +229,9 @@ export function CampaignsTable({
         <div>
           <Kicker>Campaign workspace</Kicker>
           <h2 className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Active &amp; setup campaigns</h2>
-          <p className="mt-2 text-sm text-text-muted">Operational view for pacing, tag health, creative QA and launch readiness.</p>
+          <p className="mt-2 text-sm text-text-muted">
+            Operational view for pacing, tag health, creative QA and launch readiness. Spend is shown {spendView === 'with_margin' ? 'with' : 'without'} margin.
+          </p>
         </div>
         <Link to="/campaigns/new">
           <Button variant="primary" size="sm">New campaign</Button>

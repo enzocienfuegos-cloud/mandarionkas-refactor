@@ -11,6 +11,7 @@ import type {
   RegionRow,
   ReportingKpi,
   ReportingMode,
+  SpendView,
   TrackerHealthRow,
   TrendSeries,
   VideoFormatRow,
@@ -24,6 +25,11 @@ type WorkspaceStats = {
   total_impressions: number;
   total_clicks: number;
   total_spend: number;
+  total_media_spend?: number;
+  total_serving_fees?: number;
+  total_margin?: number;
+  total_spend_without_margin?: number;
+  total_spend_with_margin?: number;
   total_viewable_impressions: number;
   total_measured_impressions: number;
   total_undetermined_impressions: number;
@@ -65,12 +71,26 @@ type CampaignBreakdownRow = {
   status: 'active' | 'paused' | 'archived' | 'draft';
   impressions: number;
   clicks: number;
+  spend?: number;
+  spend_without_margin?: number;
+  spend_with_margin?: number;
+  margin_spend?: number;
   ctr: number;
   viewability_rate: number;
 };
 
 type TagBreakdownRow = CampaignBreakdownRow & {
   format?: string | null;
+};
+
+type CreativeBreakdownRow = CampaignBreakdownRow & {
+  approval_status?: string;
+  creative_type?: string | null;
+  source_kind?: string | null;
+  serving_format?: string | null;
+  variant_id?: string | null;
+  variant_label?: string | null;
+  allocation_model?: string | null;
 };
 
 type RegionBreakdownRow = {
@@ -140,6 +160,7 @@ type HookArgs = {
   customDateRange: DateRange;
   advertiserId: string;
   statusFilter: StatusFilter;
+  spendView: SpendView;
   search: string;
 };
 
@@ -156,6 +177,7 @@ type HookState = {
   campaignRows: CampaignPerformanceRow[];
   tagRows: CampaignPerformanceRow[];
   creativeRows: CampaignPerformanceRow[];
+  variantRows: CampaignPerformanceRow[];
   videoFormatRows: VideoFormatRow[];
   identityFrequencyRows: FrequencyBucketRow[];
   identityKeyRows: Array<{ label: string; value: string; helper: string }>;
@@ -234,6 +256,21 @@ function formatMoney(value: number) {
 
 function formatPercent(value: number, digits = 2) {
   return `${toNumber(value).toFixed(digits)}%`;
+}
+
+function resolveWorkspaceSpend(stats: WorkspaceStats, spendView: SpendView) {
+  const withoutMargin = toNumber(stats.total_spend_without_margin ?? stats.total_spend);
+  const withMargin = toNumber(stats.total_spend_with_margin ?? withoutMargin);
+  return spendView === 'with_margin' ? withMargin : withoutMargin;
+}
+
+function resolveRowSpend(
+  row: { spend?: unknown; spend_without_margin?: unknown; spend_with_margin?: unknown },
+  spendView: SpendView,
+) {
+  const withoutMargin = toNumber(row.spend_without_margin ?? row.spend);
+  const withMargin = toNumber(row.spend_with_margin ?? withoutMargin);
+  return spendView === 'with_margin' ? withMargin : withoutMargin;
 }
 
 function formatDurationMs(value: number) {
@@ -318,6 +355,7 @@ function buildKpis(
   stats: WorkspaceStats,
   timeline: TimelineRow[],
   presets: IdentitySegmentPresetRow[],
+  spendView: SpendView,
 ): ReportingKpi[] {
   const impressionsSeries = timeline.map((row) => toNumber(row.impressions));
   const clicksSeries = timeline.map((row) => toNumber(row.clicks));
@@ -327,6 +365,19 @@ function buildKpis(
   const highFrequencyUsers = presets.find((row) => row.preset === 'high_frequency_exposed')?.identity_count ?? 0;
   const exportableAudiences = presets.filter((row) => row.identity_count > 0).length;
   const identityCoverage = stats.total_impressions > 0 ? (stats.total_identities / stats.total_impressions) * 100 : 0;
+  const spendValue = resolveWorkspaceSpend(stats, spendView);
+  const spendHelper = spendView === 'with_margin'
+    ? `Includes ${formatMoney(toNumber(stats.total_margin))} margin on top of ${formatMoney(toNumber(stats.total_spend_without_margin ?? stats.total_spend))} net spend.`
+    : `Net of margin. Serving fees in scope: ${formatMoney(toNumber(stats.total_serving_fees))}.`;
+  const spendKpi: ReportingKpi = {
+    id: spendView === 'with_margin' ? 'spend-with-margin' : 'spend-without-margin',
+    label: spendView === 'with_margin' ? 'Spend with margin' : 'Spend without margin',
+    value: formatMoney(spendValue),
+    rawValue: spendValue,
+    tone: 'amber',
+    icon: 'spend',
+    helper: spendHelper,
+  };
 
   const withDelta = (label: string, value: string, icon: string, tone: ReportingKpi['tone'], sparkline: number[], helper?: string): ReportingKpi => {
     const delta = seriesDelta(sparkline);
@@ -350,6 +401,7 @@ function buildKpis(
       withDelta('Clicks', formatCount(stats.total_clicks), 'clicks', 'fuchsia', clicksSeries, 'Response volume'),
       withDelta('CTR', formatPercent(stats.avg_ctr), 'ctr', 'violet', ctrSeries, 'Click efficiency'),
       withDelta('Viewability', formatPercent(stats.viewability_rate), 'viewability', 'blue', viewabilitySeries, 'Measured delivery quality'),
+      spendKpi,
       {
         id: 'attention-time',
         label: 'Attention time',
@@ -387,6 +439,7 @@ function buildKpis(
 
   if (mode === 'video') {
     return [
+      spendKpi,
       { id: 'video-starts', label: 'Video starts', value: formatCount(stats.video_starts), tone: 'blue', icon: 'video', helper: 'Started plays in range' },
       { id: 'video-q1', label: '25% viewed', value: formatCount(stats.video_first_quartile), tone: 'blue', icon: 'video', helper: 'First quartile beacons' },
       { id: 'video-q2', label: '50% viewed', value: formatCount(stats.video_midpoint), tone: 'blue', icon: 'video', helper: 'Midpoint beacons' },
@@ -413,6 +466,7 @@ function buildKpis(
 
   return [
     withDelta('Impressions', formatCount(stats.total_impressions), 'impressions', 'fuchsia', impressionsSeries, 'Delivered across the selected range'),
+    spendKpi,
     withDelta('Clicks', formatCount(stats.total_clicks), 'clicks', 'fuchsia', clicksSeries, 'Click volume'),
     withDelta('CTR', formatPercent(stats.avg_ctr), 'ctr', 'violet', ctrSeries, 'Cross-channel engagement rate'),
     withDelta('Viewability', formatPercent(stats.viewability_rate), 'viewability', 'blue', viewabilitySeries, 'Measured inventory quality'),
@@ -530,6 +584,7 @@ const INITIAL_STATE: HookState = {
   campaignRows: [],
   tagRows: [],
   creativeRows: [],
+  variantRows: [],
   videoFormatRows: [],
   identityFrequencyRows: [],
   identityKeyRows: [],
@@ -545,6 +600,7 @@ export function useReportingData({
   customDateRange,
   advertiserId,
   statusFilter,
+  spendView,
   search,
 }: HookArgs) {
   const [state, setState] = useState<HookState>(INITIAL_STATE);
@@ -564,6 +620,8 @@ export function useReportingData({
       const workspacePayload = await fetchJson<{ stats: WorkspaceStats; timeline: TimelineRow[] }>(`/v1/reporting/workspace${query}`);
       const campaignPayload = await fetchJson<{ breakdown: CampaignBreakdownRow[] }>(`/v1/reporting/workspace/campaign-breakdown${query}`);
       const tagPayload = await fetchJson<{ breakdown: TagBreakdownRow[] }>(`/v1/reporting/workspace/tag-breakdown${query}`);
+      const creativePayload = await fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/creative-breakdown${query}`);
+      const variantPayload = await fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/variant-breakdown${query}`);
       const regionPayload = await fetchJson<{ breakdown: RegionBreakdownRow[] }>(`/v1/reporting/workspace/region-breakdown${query}`);
       const trackerPayload = await fetchJson<{ breakdown: TrackerBreakdownRow[] }>(`/v1/reporting/workspace/tracker-breakdown${query}`);
       const identityFrequencyPayload = await fetchJson<{ breakdown: IdentityFrequencyApiRow[] }>(`/v1/reporting/workspace/identity-frequency-buckets${query}`);
@@ -584,6 +642,8 @@ export function useReportingData({
           impressions: toNumber(row.impressions),
           clicks: toNumber(row.clicks),
           ctr: toNumber(row.ctr),
+          spend: resolveRowSpend(row, spendView),
+          spendHelper: spendView === 'with_margin' ? 'Includes configured margin.' : 'Net of configured margin.',
           viewability: toNumber(row.viewability_rate),
         }))
         .filter((row) => matchesStatus(row.status, statusFilter) && matchesSearch(row.name, search));
@@ -596,19 +656,66 @@ export function useReportingData({
           impressions: toNumber(row.impressions),
           clicks: toNumber(row.clicks),
           ctr: toNumber(row.ctr),
+          spend: resolveRowSpend(row, spendView),
+          spendHelper: spendView === 'with_margin' ? 'Includes configured margin.' : 'Net of configured margin.',
           viewability: toNumber(row.viewability_rate),
         }))
         .filter((row) => matchesStatus(row.status, statusFilter) && matchesSearch(row.name, search));
 
-      const creativeRows = creatives
-        .map<CampaignPerformanceRow>((creative: Creative) => ({
-          id: creative.id,
-          name: creative.name,
-          status: statusFromApproval(creative.approvalStatus),
-          impressions: 0,
-          clicks: 0,
-          ctr: 0,
-          completionRate: creative.format === 'vast_video' ? toNumber(creative.latestVersion?.durationMs) / 1000 : undefined,
+      const creativeRowsFromBreakdown = (creativePayload.breakdown ?? [])
+        .map<CampaignPerformanceRow>((row) => ({
+          id: row.id,
+          name: row.name,
+          secondaryLabel: [row.creative_type, row.serving_format ?? row.source_kind].filter(Boolean).join(' · ') || undefined,
+          status: statusFromApproval(String(row.approval_status ?? row.status ?? 'draft')),
+          impressions: Math.round(toNumber(row.impressions)),
+          clicks: Math.round(toNumber(row.clicks)),
+          ctr: toNumber(row.ctr),
+          spend: resolveRowSpend(row, spendView),
+          spendHelper: row.allocation_model === 'event_hybrid'
+            ? `Uses exact tracked creative events when available, with weighted fallback for unattributed delivery${spendView === 'with_margin' ? '. Includes configured margin.' : '.'}`
+            : row.allocation_model === 'binding_weight'
+              ? 'Estimated from tag delivery and creative binding weights.'
+              : spendView === 'with_margin'
+                ? 'Includes configured margin.'
+                : 'Net of configured margin.',
+          viewability: toNumber(row.viewability_rate),
+        }))
+        .filter((row) => matchesStatus(row.status, statusFilter) && matchesSearch(row.name, search));
+
+      const creativeRows = creativeRowsFromBreakdown.length
+        ? creativeRowsFromBreakdown.slice(0, 25)
+        : creatives
+          .map<CampaignPerformanceRow>((creative: Creative) => ({
+            id: creative.id,
+            name: creative.name,
+            status: statusFromApproval(creative.approvalStatus),
+            impressions: 0,
+            clicks: 0,
+            ctr: 0,
+            completionRate: creative.format === 'vast_video' ? toNumber(creative.latestVersion?.durationMs) / 1000 : undefined,
+          }))
+          .filter((row) => matchesStatus(row.status, statusFilter) && matchesSearch(row.name, search))
+          .slice(0, 25);
+
+      const variantRows = (variantPayload.breakdown ?? [])
+        .map<CampaignPerformanceRow>((row) => ({
+          id: row.id,
+          name: row.name,
+          secondaryLabel: [row.variant_label || 'Default variant', row.serving_format ?? row.source_kind].filter(Boolean).join(' · '),
+          status: statusFromApproval(String(row.approval_status ?? row.status ?? 'draft')),
+          impressions: Math.round(toNumber(row.impressions)),
+          clicks: Math.round(toNumber(row.clicks)),
+          ctr: toNumber(row.ctr),
+          spend: resolveRowSpend(row, spendView),
+          spendHelper: row.allocation_model === 'event_hybrid'
+            ? `Uses exact tracked variant events when available, with weighted fallback for unattributed delivery${spendView === 'with_margin' ? '. Includes configured margin.' : '.'}`
+            : row.allocation_model === 'binding_weight'
+              ? 'Estimated from tag delivery and variant binding weights.'
+              : spendView === 'with_margin'
+                ? 'Includes configured margin.'
+                : 'Net of configured margin.',
+          viewability: toNumber(row.viewability_rate),
         }))
         .filter((row) => matchesStatus(row.status, statusFilter) && matchesSearch(row.name, search))
         .slice(0, 25);
@@ -703,7 +810,7 @@ export function useReportingData({
         ).values(),
       ).sort((a, b) => a.label.localeCompare(b.label));
 
-      const kpis = buildKpis(mode, stats, timeline, identitySegmentPayload.breakdown ?? []);
+      const kpis = buildKpis(mode, stats, timeline, identitySegmentPayload.breakdown ?? [], spendView);
       const trend = buildTrend(mode, timeline, stats);
       const recommendations = buildRecommendations(mode, stats, trackerHealth, identitySegmentPayload.breakdown ?? []);
 
@@ -720,6 +827,7 @@ export function useReportingData({
         campaignRows,
         tagRows,
         creativeRows,
+        variantRows,
         videoFormatRows,
         identityFrequencyRows,
         identityKeyRows,
@@ -735,7 +843,7 @@ export function useReportingData({
         error: error instanceof Error ? error.message : 'Failed to load reporting workspace',
       }));
     }
-  }, [advertiserId, dateRange, mode, query, search, statusFilter]);
+  }, [advertiserId, dateRange, mode, query, search, spendView, statusFilter]);
 
   useEffect(() => {
     reload();

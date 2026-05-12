@@ -6,6 +6,7 @@ import {
   readCampaignDsp,
   shouldUseDspVideoDelivery,
 } from '@smx/contracts/dsp-macros';
+import { loadWorkspaces, type WorkspaceOption } from '../../shared/workspaces';
 import {
   emptyForm,
   normalizeTagRecord,
@@ -164,6 +165,7 @@ export function useTagBuilderData({
 }) {
   const [form, setForm] = useState<TagForm>(emptyForm);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [errors, setErrors] = useState<Partial<Record<keyof TagForm, string>>>({});
   const [generalError, setGeneralError] = useState('');
   const [loading, setLoading] = useState(isEdit);
@@ -172,6 +174,10 @@ export function useTagBuilderData({
   const [successMessage, setSuccessMessage] = useState('');
 
   const selectedCampaign = campaigns.find((campaign) => campaign.id === form.campaignId) ?? null;
+  const selectedWorkspaceId = form.workspaceId || selectedCampaign?.workspaceId || selectedCampaign?.workspace_id || '';
+  const filteredCampaigns = selectedWorkspaceId
+    ? campaigns.filter((campaign) => (campaign.workspaceId ?? campaign.workspace_id ?? '') === selectedWorkspaceId)
+    : campaigns;
   const selectedCampaignWorkspaceId = selectedCampaign?.workspaceId ?? selectedCampaign?.workspace_id ?? null;
   const selectedCampaignDsp = readCampaignDsp(
     selectedCampaign?.metadata ?? savedTag?.campaign?.metadata ?? null,
@@ -181,9 +187,14 @@ export function useTagBuilderData({
   const selectedCampaignMacroConfig = getDspMacroConfig(selectedCampaignDsp);
 
   useEffect(() => {
-    fetch('/v1/campaigns', { credentials: 'include' })
-      .then((response) => response.json())
-      .then((payload) => setCampaigns(payload?.campaigns ?? payload ?? []))
+    Promise.all([
+      fetch('/v1/campaigns?scope=all', { credentials: 'include' }).then((response) => response.json()),
+      loadWorkspaces('ad_server').catch(() => [] as WorkspaceOption[]),
+    ])
+      .then(([payload, workspaceList]) => {
+        setCampaigns(payload?.campaigns ?? payload ?? []);
+        setWorkspaces(workspaceList);
+      })
       .catch(() => {});
   }, []);
 
@@ -201,6 +212,7 @@ export function useTagBuilderData({
         const format = (data.format as TagFormat | undefined) ?? 'VAST';
 
         setForm({
+          workspaceId: String(data.workspaceId ?? data.workspace_id ?? ''),
           name: String(data.name ?? ''),
           campaignId: String((data.campaign as { id?: string } | undefined)?.id ?? data.campaignId ?? ''),
           format,
@@ -232,6 +244,24 @@ export function useTagBuilderData({
     }));
     setErrors((current) => ({ ...current, format: undefined }));
   }, [videoCampaign, form.format, isEdit]);
+
+  useEffect(() => {
+    if (!selectedCampaignWorkspaceId) return;
+    if (form.workspaceId === selectedCampaignWorkspaceId) return;
+    setForm((prev) => ({ ...prev, workspaceId: selectedCampaignWorkspaceId }));
+    setErrors((current) => ({ ...current, workspaceId: undefined }));
+  }, [form.workspaceId, selectedCampaignWorkspaceId]);
+
+  useEffect(() => {
+    if (!form.campaignId) return;
+    if (!selectedWorkspaceId) return;
+    const campaignStillMatchesWorkspace = campaigns.some((campaign) => (
+      campaign.id === form.campaignId
+      && (campaign.workspaceId ?? campaign.workspace_id ?? '') === selectedWorkspaceId
+    ));
+    if (campaignStillMatchesWorkspace) return;
+    setForm((prev) => ({ ...prev, campaignId: '' }));
+  }, [campaigns, form.campaignId, selectedWorkspaceId]);
 
   useEffect(() => {
     if (form.format === 'tracker' && form.trackerType === 'click') return;
@@ -283,6 +313,7 @@ export function useTagBuilderData({
 
   const validate = () => {
     const nextErrors: Partial<Record<keyof TagForm, string>> = {};
+    if (!form.workspaceId && !selectedCampaignWorkspaceId) nextErrors.workspaceId = 'Client is required.';
     if (!form.name.trim()) nextErrors.name = 'Name is required.';
     if (form.format === 'display') {
       const width = Number(form.servingWidth);
@@ -302,6 +333,9 @@ export function useTagBuilderData({
 
     if (step === 'campaign' && nextErrors.name) {
       scopedErrors.name = nextErrors.name;
+    }
+    if (step === 'campaign' && nextErrors.workspaceId) {
+      scopedErrors.workspaceId = nextErrors.workspaceId;
     }
 
     if (step === 'format') {
@@ -325,6 +359,7 @@ export function useTagBuilderData({
     setSaving(true);
     const nextForm = { ...form, ...overrides };
     const body = {
+      workspaceId: nextForm.workspaceId || selectedCampaignWorkspaceId || null,
       name: nextForm.name.trim(),
       campaignId: nextForm.campaignId || null,
       format: nextForm.format,
@@ -374,7 +409,8 @@ export function useTagBuilderData({
 
   return {
     form,
-    campaigns,
+    campaigns: filteredCampaigns,
+    workspaces,
     errors,
     generalError,
     loading,

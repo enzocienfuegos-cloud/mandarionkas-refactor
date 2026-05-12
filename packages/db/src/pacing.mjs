@@ -71,6 +71,9 @@ export async function listWorkspacePacingCampaigns(pool, workspaceId) {
        c.status,
        c.start_date,
        c.end_date,
+       c.budget,
+       c.daily_budget,
+       c.metadata,
        c.impression_goal,
        adv.name AS advertiser,
        COALESCE(SUM(ds.impressions), 0)::bigint AS impressions
@@ -91,6 +94,9 @@ export async function listWorkspacePacingCampaigns(pool, workspaceId) {
     advertiser: row.advertiser || '—',
     startDate: row.start_date,
     endDate: row.end_date,
+    budget: row.budget ?? null,
+    dailyBudget: row.daily_budget ?? null,
+    metadata: row.metadata ?? {},
     ...getPacingMetrics(row),
   }));
 }

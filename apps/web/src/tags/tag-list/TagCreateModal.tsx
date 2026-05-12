@@ -4,6 +4,7 @@ import { DISPLAY_SIZE_PRESETS, type CreateTagForm, type Tag } from './types';
 
 export function TagCreateModal({
   clients,
+  campaigns,
   createError,
   createForm,
   onClose,
@@ -11,6 +12,7 @@ export function TagCreateModal({
   setCreateForm,
 }: {
   clients: Array<{ id: string; name: string }>;
+  campaigns: Array<{ id: string; name: string; workspaceId?: string | null }>;
   createError: string;
   createForm: CreateTagForm;
   onClose: () => void;
@@ -26,6 +28,9 @@ export function TagCreateModal({
     label: preset.label,
     description: `${preset.width}x${preset.height}`,
   }));
+  const availableCampaigns = createForm.workspaceId
+    ? campaigns.filter((campaign) => (campaign.workspaceId ?? '') === createForm.workspaceId)
+    : campaigns;
 
   return (
     <Modal
@@ -52,7 +57,14 @@ export function TagCreateModal({
           <label className="mb-1 block text-sm font-medium text-text-secondary">Client</label>
           <Combobox
             value={createForm.workspaceId}
-            onChange={(value) => setCreateForm((current) => ({ ...current, workspaceId: Array.isArray(value) ? value[0] ?? '' : value }))}
+            onChange={(value) => {
+              const nextWorkspaceId = Array.isArray(value) ? value[0] ?? '' : value;
+              setCreateForm((current) => ({
+                ...current,
+                workspaceId: nextWorkspaceId,
+                campaignId: current.workspaceId === nextWorkspaceId ? current.campaignId : '',
+              }));
+            }}
             options={clientOptions}
             placeholder="Select a client"
           />
@@ -64,6 +76,18 @@ export function TagCreateModal({
             value={createForm.name}
             onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))}
             placeholder="Homepage 300x250 display"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-text-secondary">Campaign</label>
+          <Select
+            value={createForm.campaignId}
+            onChange={(event) => setCreateForm((current) => ({ ...current, campaignId: event.target.value }))}
+            options={[
+              { value: '', label: 'No campaign' },
+              ...availableCampaigns.map((campaign) => ({ value: campaign.id, label: campaign.name })),
+            ]}
           />
         </div>
 

@@ -45,6 +45,7 @@ export default function TagBuilder() {
   const {
     form,
     campaigns,
+    workspaces,
     errors,
     generalError,
     loading,
@@ -205,6 +206,16 @@ export default function TagBuilder() {
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
+                  <FormField label="Client" required error={errors.workspaceId}>
+                    <Select value={form.workspaceId} onChange={setField('workspaceId')}>
+                      <option value="">Select a client</option>
+                      {workspaces.map((workspace) => (
+                        <option key={workspace.id} value={workspace.id}>
+                          {workspace.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
                   <FormField label="Tag Name" required error={errors.name}>
                     <Input
                       value={form.name}

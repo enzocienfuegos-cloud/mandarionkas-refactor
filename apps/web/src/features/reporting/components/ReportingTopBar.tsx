@@ -13,6 +13,8 @@ export interface ReportingTopBarProps {
   onCustomDateRangeChange: (range: DateRange) => void;
   statusFilter: 'all' | 'active' | 'paused' | 'archived';
   onStatusChange: (value: 'all' | 'active' | 'paused' | 'archived') => void;
+  spendView: 'without_margin' | 'with_margin';
+  onSpendViewChange: (value: 'without_margin' | 'with_margin') => void;
   search: string;
   onSearchChange: (value: string) => void;
   onCustomizeWidgets?: () => void;
@@ -31,6 +33,11 @@ const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
   { value: 'paused', label: 'Paused' },
   { value: 'archived', label: 'Archived' },
+];
+
+const SPEND_VIEW_OPTIONS = [
+  { value: 'without_margin', label: 'Without margin' },
+  { value: 'with_margin', label: 'With margin' },
 ];
 
 function formatDateInputValue(value: Date | null) {
@@ -54,6 +61,8 @@ export function ReportingTopBar({
   onCustomDateRangeChange,
   statusFilter,
   onStatusChange,
+  spendView,
+  onSpendViewChange,
   search,
   onSearchChange,
   onCustomizeWidgets,
@@ -63,6 +72,7 @@ export function ReportingTopBar({
     advertiserFilter !== '',
     dateRangeFilter !== '30d',
     statusFilter !== 'all',
+    spendView !== 'without_margin',
     search.trim() !== '',
   ].filter(Boolean).length;
 
@@ -92,6 +102,13 @@ export function ReportingTopBar({
               value: statusFilter,
               options: STATUS_OPTIONS,
               onChange: (value) => onStatusChange(value as 'all' | 'active' | 'paused' | 'archived'),
+            },
+            {
+              id: 'spend-view',
+              label: 'Spend view',
+              value: spendView,
+              options: SPEND_VIEW_OPTIONS,
+              onChange: (value) => onSpendViewChange(value as 'without_margin' | 'with_margin'),
             },
           ]}
           search={{

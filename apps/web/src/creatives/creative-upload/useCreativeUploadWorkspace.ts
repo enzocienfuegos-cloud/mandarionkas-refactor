@@ -85,7 +85,11 @@ export function useCreativeUploadWorkspace({ onComplete }: Params) {
   useEffect(() => {
     loadWorkspaces()
       .then((workspaceList) => {
-        setWorkspaceState((current) => ({ ...current, workspaces: workspaceList }));
+        setWorkspaceState((current) => ({
+          ...current,
+          workspaces: workspaceList,
+          workspaceId: current.workspaceId || workspaceList[0]?.id || '',
+        }));
       })
       .catch(() => {});
   }, []);
@@ -200,16 +204,26 @@ export function useCreativeUploadWorkspace({ onComplete }: Params) {
       }));
       return;
     }
-    if (sourceKind === 'video_mp4') {
-      const missingVideoClickUrl = files.find((file) => !normalizeHttpUrl(clickUrlState.manualByFileKey[buildFileKey(file)] ?? ''));
-      if (missingVideoClickUrl) {
-        setFeedback((current) => ({
-          ...current,
-          error: `"${missingVideoClickUrl.name}" needs a destination URL before upload.`,
-        }));
-        return;
-      }
+    const missingDestinationUrlFile = files.find((file) => {
+      const fileKey = buildFileKey(file);
+      const resolvedDestinationUrl = normalizeHttpUrl(
+        clickUrlState.manualByFileKey[fileKey]
+        ?? clickUrlState.detectedByFileKey[fileKey]
+        ?? '',
+      );
+      return !resolvedDestinationUrl;
+    });
+
+    if (missingDestinationUrlFile) {
+      setFeedback((current) => ({
+        ...current,
+        error: sourceKind === 'video_mp4'
+          ? `"${missingDestinationUrlFile.name}" needs a destination URL before upload.`
+          : `"${missingDestinationUrlFile.name}" needs a destination URL. Add one manually or wait for clickTag detection to populate it.`,
+      }));
+      return;
     }
+
     if (sourceKind === 'html5_zip' && clickUrlState.detectingFileKeys.length > 0) {
       setFeedback((current) => ({
         ...current,
@@ -324,7 +338,12 @@ export function useCreativeUploadWorkspace({ onComplete }: Params) {
 
     try {
       const processFile = async (file: File, index: number) => {
-        const requestedClickUrl = normalizeHttpUrl(clickUrlState.manualByFileKey[buildFileKey(file)] ?? '') || null;
+        const fileKey = buildFileKey(file);
+        const requestedClickUrl = normalizeHttpUrl(
+          clickUrlState.manualByFileKey[fileKey]
+          ?? clickUrlState.detectedByFileKey[fileKey]
+          ?? '',
+        ) || null;
         const videoMetadata = sourceKind === 'video_mp4'
           ? await readVideoFileMetadata(file)
           : { width: null, height: null, durationMs: null };

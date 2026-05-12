@@ -22,6 +22,7 @@ export function useTagListWorkspace({
 }: Params) {
   const [tags, setTags] = useState<Tag[]>([]);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
+  const [campaigns, setCampaigns] = useState<Array<{ id: string; name: string; workspaceId?: string | null }>>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [filters, setFilters] = useState({
     selectedClientId: '',
@@ -49,10 +50,11 @@ export function useTagListWorkspace({
         if (!response.ok) throw new Error('Couldn’t load tags for this workspace.');
         return response.json();
       }),
+      fetch('/v1/campaigns?scope=all', { credentials: 'include' }).then((response) => response.ok ? response.json() : { campaigns: [] }),
       loadWorkspaces('ad_server'),
       loadAuthMe(),
     ])
-      .then(([tagsResult, workspaceResult, authResult]) => {
+      .then(([tagsResult, campaignsResult, workspaceResult, authResult]) => {
         if (tagsResult.status !== 'fulfilled') {
           throw tagsResult.reason instanceof Error
             ? tagsResult.reason
@@ -61,6 +63,17 @@ export function useTagListWorkspace({
 
         const payload = tagsResult.value;
         setTags(payload?.tags ?? payload ?? []);
+
+        if (campaignsResult.status === 'fulfilled') {
+          const campaignPayload = campaignsResult.value;
+          setCampaigns((campaignPayload?.campaigns ?? campaignPayload ?? []).map((campaign: any) => ({
+            id: String(campaign.id ?? ''),
+            name: String(campaign.name ?? ''),
+            workspaceId: campaign.workspaceId ?? campaign.workspace_id ?? null,
+          })));
+        } else {
+          setCampaigns([]);
+        }
 
         if (workspaceResult.status === 'fulfilled') {
           setClients(workspaceResult.value.map((workspace) => ({ id: workspace.id, name: workspace.name })));
@@ -96,6 +109,20 @@ export function useTagListWorkspace({
       },
     }));
   }, [createState.creating, filters.selectedClientId]);
+
+  useEffect(() => {
+    const selectedWorkspaceId = createState.createForm.workspaceId;
+    if (!selectedWorkspaceId || !createState.createForm.campaignId) return;
+    const campaignStillMatches = campaigns.some((campaign) => campaign.id === createState.createForm.campaignId && (campaign.workspaceId ?? '') === selectedWorkspaceId);
+    if (campaignStillMatches) return;
+    setCreateState((current) => ({
+      ...current,
+      createForm: {
+        ...current.createForm,
+        campaignId: '',
+      },
+    }));
+  }, [campaigns, createState.createForm.campaignId, createState.createForm.workspaceId]);
 
   const normalizedTagSearch = filters.tagSearch.trim().toLowerCase();
   const filteredTags = useMemo(() => tags.filter((tag) => {
@@ -351,6 +378,7 @@ export function useTagListWorkspace({
   return {
     tags,
     clients,
+    campaigns,
     activeWorkspaceId,
     selectedClientId: filters.selectedClientId,
     setSelectedClientId,

@@ -16,12 +16,14 @@ export function ScopeBar({
   lastUpdated,
   scopeLabel = 'Current workspace',
   dateRangeLabel = 'Last 30 days',
+  spendViewLabel = 'Without margin',
 }: {
   mode: ReportingMode;
   onShare?: () => void;
   lastUpdated?: string;
   scopeLabel?: string;
   dateRangeLabel?: string;
+  spendViewLabel?: string;
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-[18px] border border-[color:var(--dusk-border-default)] bg-surface-1 p-4 shadow-2 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
@@ -32,6 +34,7 @@ export function ScopeBar({
         </span>
         <span className="rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--dusk-text-secondary)]">Workspace: {scopeLabel}</span>
         <span className="rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--dusk-text-secondary)]">Date range: {dateRangeLabel}</span>
+        <span className="rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--dusk-text-secondary)]">Spend view: {spendViewLabel}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-[color:var(--dusk-text-muted)]">
         {lastUpdated ? (

@@ -1,20 +1,62 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { loadAuthMe, loadWorkspaces } from '../../shared/workspaces';
-import type { Campaign, CampaignRow, CampaignStatus } from './types';
+import { deriveSpendMetrics, resolveSpendViewValue, type CostMetadata } from '../../shared/costing';
+import type { Campaign, CampaignRow, CampaignSpendView, CampaignStatus } from './types';
 import { formatCompactMoney, formatDateRange, toNumber } from './utils';
+
+function getCampaignBudgetBaseValue(campaign: Campaign) {
+  const lifetimeBudget = toNumber(campaign.budget);
+  if (lifetimeBudget > 0) return lifetimeBudget;
+  const dailyBudget = toNumber(campaign.dailyBudget);
+  if (dailyBudget <= 0) return 0;
+  const startDate = campaign.startDate ?? campaign.start_date;
+  const endDate = campaign.endDate ?? campaign.end_date;
+  if (startDate && endDate) {
+    const durationMs = new Date(endDate).getTime() - new Date(startDate).getTime();
+    const durationDays = Math.max(Math.floor(durationMs / 86400000) + 1, 1);
+    return dailyBudget * durationDays;
+  }
+  return dailyBudget * 30;
+}
+
+function getCampaignCostMetadata(campaign: Campaign): CostMetadata {
+  return campaign.metadata ?? {};
+}
+
+function getCampaignBudgetValue(campaign: Campaign, spendView: CampaignSpendView) {
+  const budget = getCampaignBudgetBaseValue(campaign);
+  if (budget <= 0) return 0;
+  const markupPercent = spendView === 'with_margin'
+    ? Math.max(toNumber(campaign.metadata?.markupPercent), 0)
+    : 0;
+  return budget * (1 + (markupPercent / 100));
+}
+
+function getCampaignSpendValue(campaign: Campaign, spendView: CampaignSpendView) {
+  const budget = getCampaignBudgetBaseValue(campaign);
+  const spend = deriveSpendMetrics({
+    impressions: campaign.impressions,
+    metadata: getCampaignCostMetadata(campaign),
+    fallbackBudget: budget,
+    impressionGoal: campaign.impressionGoal ?? campaign.impression_goal,
+  });
+  return resolveSpendViewValue(spend, spendView);
+}
 
 export function useCampaignFilters(initialSearch = '') {
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [search, setSearch] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'limited' | 'blocked' | 'ready' | 'draft'>('all');
+  const [spendView, setSpendView] = useState<CampaignSpendView>('without_margin');
 
   const resetAll = useCallback(() => {
     setSelectedClientIds([]);
     setStatusFilter('all');
     setSearch('');
+    setSpendView('without_margin');
   }, []);
 
-  const activeFilterCount = [selectedClientIds[0], statusFilter !== 'all', search.trim()].filter(Boolean).length;
+  const activeFilterCount = [selectedClientIds[0], statusFilter !== 'all', search.trim(), spendView !== 'without_margin'].filter(Boolean).length;
 
   return {
     selectedClientIds,
@@ -23,6 +65,8 @@ export function useCampaignFilters(initialSearch = '') {
     setSearch,
     statusFilter,
     setStatusFilter,
+    spendView,
+    setSpendView,
     resetAll,
     activeFilterCount,
   };
@@ -89,6 +133,7 @@ export function useCampaignViewModel({
   campaigns: Campaign[];
   filters: ReturnType<typeof useCampaignFilters>;
 }) {
+  const spendView = filters.spendView;
   const filteredCampaigns = useMemo(() => campaigns.filter((campaign) => {
     const clientMatch = !filters.selectedClientIds.length || filters.selectedClientIds.includes(campaign.workspace_id ?? '');
     const needle = filters.search.trim().toLowerCase();
@@ -107,6 +152,8 @@ export function useCampaignViewModel({
     const hoverMs = toNumber(campaign.totalHoverDurationMs ?? campaign.total_hover_duration_ms);
     const status = deriveCampaignStatus(campaign);
     const ctr = toNumber(campaign.ctr);
+    const spendValue = getCampaignSpendValue(campaign, spendView);
+    const budgetValue = getCampaignBudgetValue(campaign, spendView);
     const issues =
       (status === 'Blocked' ? 2 : 0)
       + (status === 'Limited' ? 1 : 0)
@@ -119,8 +166,10 @@ export function useCampaignViewModel({
       advertiser: campaign.workspace_name ?? campaign.advertiser?.name ?? 'Workspace',
       status,
       pacing: status === 'Ready' ? 'Not live' : status === 'Draft' ? 'Setup' : `${Math.max(0, Math.min(130, Math.round(ctr * 100)))}%`,
-      spend: formatCompactMoney(toNumber(campaign.dailyBudget) * 7),
-      budget: formatCompactMoney(toNumber(campaign.dailyBudget) * 10),
+      spend: formatCompactMoney(spendValue),
+      spendValue,
+      budget: formatCompactMoney(budgetValue),
+      budgetValue,
       tagHealth: impressions > 0 ? 'Healthy' : campaign.status === 'draft' ? 'Not generated' : 'Low firing',
       creativeStatus: hoverMs > 0 ? 'Approved' : campaign.status === 'draft' ? 'Not uploaded' : 'Pending QA',
       issues,
@@ -128,13 +177,13 @@ export function useCampaignViewModel({
       flight: formatDateRange(campaign.startDate ?? campaign.start_date, campaign.endDate ?? campaign.end_date),
       raw: campaign,
     };
-  }), [filteredCampaigns]);
+  }), [filteredCampaigns, spendView]);
 
   const liveCampaigns = campaignRows.filter((row) => row.status === 'Live').length;
   const blockedOrLimited = campaignRows.filter((row) => row.status === 'Blocked' || row.status === 'Limited').length;
   const draftSetup = campaignRows.filter((row) => row.status === 'Draft' || row.status === 'Ready').length;
   const openIssues = campaignRows.reduce((sum, row) => sum + row.issues, 0);
-  const trackedSpend = campaignRows.reduce((sum, row) => sum + toNumber(row.raw.dailyBudget) * 7, 0);
+  const trackedSpend = campaignRows.reduce((sum, row) => sum + row.spendValue, 0);
   const needsAttentionRows = campaignRows.filter((row) => row.status === 'Blocked' || row.status === 'Limited').slice(0, 3);
 
   return {

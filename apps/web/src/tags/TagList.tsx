@@ -95,6 +95,7 @@ export default function TagList() {
   const currentViewId = searchParams.get('view');
   const {
     clients,
+    campaigns,
     selectedClientId,
     setSelectedClientId,
     tagSearch,
@@ -502,6 +503,7 @@ export default function TagList() {
       {creating ? (
         <TagCreateModal
           clients={clients}
+          campaigns={campaigns}
           createError={createError}
           createForm={createForm}
           onClose={closeCreate}

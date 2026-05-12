@@ -35,15 +35,24 @@ async function resolveTargetWorkspaceId(client, userId, fallbackWorkspaceId, req
 
 function normalizeCampaign(row) {
   if (!row) return null;
+  const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
   return {
     ...row,
+    metadata,
     workspaceId: row.workspace_id ?? null,
     advertiserId: row.advertiser_id ?? null,
     advertiser: row.advertiser_id ? { id: row.advertiser_id, name: row.advertiser_name ?? '' } : null,
     startDate: row.start_date ?? null,
     endDate: row.end_date ?? null,
+    budget: row.budget ?? null,
     impressionGoal: row.impression_goal ?? null,
     dailyBudget: row.daily_budget ?? null,
+    estimatedRate: metadata.estimatedRate ?? null,
+    markupPercent: metadata.markupPercent ?? null,
+    servingFeeCpm: metadata.servingFeeCpm ?? null,
+    budgetDeliveryMode: metadata.budgetDeliveryMode ?? 'hybrid',
+    rateStrategy: metadata.rateStrategy ?? 'budget_only',
+    servingCostMode: metadata.servingCostMode ?? 'paid',
     totalHoverDurationMs: row.total_hover_duration_ms ?? 0,
     totalInViewDurationMs: row.total_in_view_duration_ms ?? 0,
     workspaceName: row.workspace_name ?? null,
@@ -106,8 +115,28 @@ function parseCampaignInput(body = {}, mode = 'create') {
   if (mode === 'create' || hasOwn(body, 'notes')) {
     input.notes = body.notes ?? null;
   }
-  if (mode === 'create' || hasOwn(body, 'metadata')) {
-    input.metadata = body.metadata && typeof body.metadata === 'object' ? body.metadata : {};
+
+  const metadataInput = body.metadata && typeof body.metadata === 'object' ? { ...body.metadata } : {};
+  if (hasOwn(body, 'estimatedRate') || hasOwn(body, 'estimated_rate')) {
+    metadataInput.estimatedRate = body.estimatedRate ?? body.estimated_rate ?? null;
+  }
+  if (hasOwn(body, 'markupPercent') || hasOwn(body, 'markup') || hasOwn(body, 'markup_percent')) {
+    metadataInput.markupPercent = body.markupPercent ?? body.markup ?? body.markup_percent ?? null;
+  }
+  if (hasOwn(body, 'servingFeeCpm') || hasOwn(body, 'serving_fee_cpm')) {
+    metadataInput.servingFeeCpm = body.servingFeeCpm ?? body.serving_fee_cpm ?? null;
+  }
+  if (hasOwn(body, 'budgetDeliveryMode') || hasOwn(body, 'budget_delivery_mode')) {
+    metadataInput.budgetDeliveryMode = body.budgetDeliveryMode ?? body.budget_delivery_mode ?? null;
+  }
+  if (hasOwn(body, 'rateStrategy') || hasOwn(body, 'rate_strategy')) {
+    metadataInput.rateStrategy = body.rateStrategy ?? body.rate_strategy ?? null;
+  }
+  if (hasOwn(body, 'servingCostMode') || hasOwn(body, 'serving_cost_mode')) {
+    metadataInput.servingCostMode = body.servingCostMode ?? body.serving_cost_mode ?? null;
+  }
+  if (mode === 'create' || hasOwn(body, 'metadata') || Object.keys(metadataInput).length > 0) {
+    input.metadata = metadataInput;
   }
 
   return input;
@@ -168,6 +197,9 @@ export async function handleCampaignRoutes(ctx) {
       }
 
       const input = parseCampaignInput(body, 'create');
+      if (!input.workspaceId) {
+        return badRequest(res, requestId, 'Client is required.');
+      }
       if (!input.name) {
         return badRequest(res, requestId, 'Campaign name is required.');
       }

@@ -67,6 +67,9 @@ export default function CampaignList() {
         filters.setStatusFilter((['all', 'live', 'limited', 'blocked', 'ready', 'draft'].includes(String(nextFilters.status))
           ? nextFilters.status
           : 'all') as 'all' | 'live' | 'limited' | 'blocked' | 'ready' | 'draft');
+        filters.setSpendView((['without_margin', 'with_margin'].includes(String(nextFilters.spendView))
+          ? nextFilters.spendView
+          : 'without_margin') as 'without_margin' | 'with_margin');
       })
       .catch(() => {
         if (!cancelled) {
@@ -84,6 +87,7 @@ export default function CampaignList() {
     currentViewId,
     filters.setSearch,
     filters.setSelectedClientIds,
+    filters.setSpendView,
     filters.setStatusFilter,
     setSearchParams,
   ]);
@@ -288,6 +292,7 @@ export default function CampaignList() {
                   clientId: filters.selectedClientIds[0] ?? '',
                   search: filters.search,
                   status: filters.statusFilter,
+                  spendView: filters.spendView,
                 }}
                 currentViewId={currentViewId}
                 onApplyView={(view) => {
@@ -356,6 +361,16 @@ export default function CampaignList() {
                 ],
                 onChange: (value) => filters.setStatusFilter(value as 'all' | 'live' | 'limited' | 'blocked' | 'ready' | 'draft'),
               },
+              {
+                id: 'spend-view',
+                label: 'Spend view',
+                value: filters.spendView,
+                options: [
+                  { value: 'without_margin', label: 'Without margin' },
+                  { value: 'with_margin', label: 'With margin' },
+                ],
+                onChange: (value) => filters.setSpendView(value as 'without_margin' | 'with_margin'),
+              },
             ]}
             search={{
               value: filters.search,
@@ -376,6 +391,7 @@ export default function CampaignList() {
               openIssues,
               trackedSpend,
               campaignCount: campaignRows.length,
+              spendView: filters.spendView,
             }}
           />
 
@@ -393,6 +409,7 @@ export default function CampaignList() {
           liveCampaigns={liveCampaigns}
           blockedOrLimited={blockedOrLimited}
           draftSetup={draftSetup}
+          spendView={filters.spendView}
           onEdit={(row) => void handleEdit(row)}
           onDelete={(row) => void handleDelete(row)}
           deletingId={deletingId}

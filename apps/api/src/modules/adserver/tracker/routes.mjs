@@ -183,6 +183,8 @@ function extractTrackingContext(req, url, geo) {
 function queueClickEventWrite(pool, {
   tagId,
   workspaceId,
+  creativeId,
+  creativeSizeVariantId,
   deviceId,
   ip,
   userAgent,
@@ -196,12 +198,14 @@ function queueClickEventWrite(pool, {
   if (!pool || !tagId || !workspaceId) return;
   pool.query(
     `INSERT INTO click_events
-       (tag_id, workspace_id, device_id, ip, user_agent, country, region, city, site_domain, referer, ip_fingerprint)
+       (tag_id, workspace_id, creative_id, creative_size_variant_id, device_id, ip, user_agent, country, region, city, site_domain, referer, ip_fingerprint)
      VALUES
-       ($1, $2, $3, $4::inet, $5, $6, $7, $8, $9, $10, $11)`,
+       ($1, $2, $3, $4, $5, $6::inet, $7, $8, $9, $10, $11, $12, $13)`,
     [
       tagId,
       workspaceId,
+      creativeId || null,
+      creativeSizeVariantId || null,
       deviceId || null,
       ip || null,
       userAgent || null,
@@ -294,6 +298,8 @@ export function createTrackerRoutes(buffer = null) {
           const carrier = trimText(p.get('carrier') || p.get('isp') || '') || null;
           const appStoreName = trimText(p.get('appstore') || p.get('store') || '') || null;
           const contentGenre = decodeStringSafe(p.get('genre') || p.get('contentgenre') || '') || null;
+          const creativeId = trimText(p.get('smx_creative_id') || p.get('creative_id') || '') || null;
+          const creativeSizeVariantId = trimText(p.get('smx_variant_id') || p.get('variant_id') || '') || null;
           const contextualIds = trimText(
             p.get('ctxid') || p.get('ctxids') || p.get('contextualid') || p.get('contextualids') || '',
           ) || null;
@@ -329,6 +335,8 @@ export function createTrackerRoutes(buffer = null) {
             queueImpressionEventWrite(pool, {
               tagId,
               workspaceId,
+              creativeId,
+              creativeSizeVariantId,
               remoteIp,
               userAgent,
               country,
@@ -410,11 +418,15 @@ export function createTrackerRoutes(buffer = null) {
       if (pool) {
         const geo = resolveGeoContext(req, url);
         const trackingContext = extractTrackingContext(req, url, geo);
+        const creativeId = trimText(url.searchParams.get('smx_creative_id') || url.searchParams.get('creative_id') || '') || null;
+        const creativeSizeVariantId = trimText(url.searchParams.get('smx_variant_id') || url.searchParams.get('variant_id') || '') || null;
         resolveTagWorkspaceId(pool, tagId).then((workspaceId) => {
           if (!workspaceId) return;
           queueClickEventWrite(pool, {
             tagId,
             workspaceId,
+            creativeId,
+            creativeSizeVariantId,
             deviceId,
             ip: trackingContext.remoteIp,
             userAgent: trackingContext.userAgent,
@@ -455,11 +467,15 @@ export function createTrackerRoutes(buffer = null) {
       if (pool) {
         const geo = resolveGeoContext(req, url);
         const trackingContext = extractTrackingContext(req, url, geo);
+        const creativeId = trimText(url.searchParams.get('smx_creative_id') || url.searchParams.get('creative_id') || '') || null;
+        const creativeSizeVariantId = trimText(url.searchParams.get('smx_variant_id') || url.searchParams.get('variant_id') || '') || null;
         resolveTagWorkspaceId(pool, tagId).then((workspaceId) => {
           if (!workspaceId) return;
           queueClickEventWrite(pool, {
             tagId,
             workspaceId,
+            creativeId,
+            creativeSizeVariantId,
             deviceId,
             ip: trackingContext.remoteIp,
             userAgent: trackingContext.userAgent,

@@ -34,8 +34,9 @@ export default function PacingView() {
     advertiserFilter: filters.advertiserFilter,
     dateRangeFilter: filters.dateRangeFilter,
     statusFilter: filters.statusFilter,
+    spendView: filters.spendView,
     exceptionsOnly: filters.exceptionsOnly,
-  }), [filters.advertiserFilter, filters.dateRangeFilter, filters.exceptionsOnly, filters.search, filters.statusFilter]);
+  }), [filters.advertiserFilter, filters.dateRangeFilter, filters.exceptionsOnly, filters.search, filters.spendView, filters.statusFilter]);
 
   useEffect(() => {
     if (!currentViewId) return;
@@ -60,6 +61,9 @@ export default function PacingView() {
         filters.setStatusFilter((['all', 'exceptions', 'on_pace', 'paused'].includes(String(nextFilters.statusFilter))
           ? nextFilters.statusFilter
           : 'all') as 'all' | 'exceptions' | 'on_pace' | 'paused');
+        filters.setSpendView((['without_margin', 'with_margin'].includes(String(nextFilters.spendView))
+          ? nextFilters.spendView
+          : 'without_margin') as 'without_margin' | 'with_margin');
         filters.setExceptionsOnly(Boolean(nextFilters.exceptionsOnly));
       })
       .catch(() => {
@@ -80,6 +84,7 @@ export default function PacingView() {
     filters.setDateRangeFilter,
     filters.setExceptionsOnly,
     filters.setSearch,
+    filters.setSpendView,
     filters.setStatusFilter,
     setSearchParams,
   ]);
@@ -197,6 +202,16 @@ export default function PacingView() {
             ],
             onChange: (value) => filters.setDateRangeFilter(value as '7d' | '30d' | '90d'),
           },
+          {
+            id: 'spend-view',
+            label: 'Spend view',
+            value: filters.spendView,
+            options: [
+              { value: 'without_margin', label: 'Without margin' },
+              { value: 'with_margin', label: 'With margin' },
+            ],
+            onChange: (value) => filters.setSpendView(value as 'without_margin' | 'with_margin'),
+          },
         ]}
         search={{
           value: filters.search,
@@ -292,6 +307,7 @@ export default function PacingView() {
               <PacingTable
                 rows={filteredRows}
                 campaigns={data?.campaigns ?? []}
+                spendView={filters.spendView}
                 onInspectCampaign={setSelectedCampaign}
               />
             </div>
@@ -308,7 +324,9 @@ export default function PacingView() {
                   </div>
                   <div className="rounded-2xl border border-border-default bg-surface-2 px-4 py-3">
                     <p className="font-semibold text-text-primary">Projected variance</p>
-                    <p className="mt-1 text-sm text-text-muted">{fmtCurrency(budgetRiskValue)} projected variance across under or over delivery campaigns.</p>
+                    <p className="mt-1 text-sm text-text-muted">
+                      {fmtCurrency(budgetRiskValue)} projected variance across under or over delivery campaigns, shown {filters.spendView === 'with_margin' ? 'with' : 'without'} margin.
+                    </p>
                   </div>
                   <div className="rounded-2xl border border-border-default bg-surface-2 px-4 py-3">
                     <p className="font-semibold text-text-primary">Active alerts</p>

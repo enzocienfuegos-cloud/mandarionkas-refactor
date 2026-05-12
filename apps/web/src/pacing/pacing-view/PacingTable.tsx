@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar, DataTable, DensityToggle, ProgressBar, type ColumnDef, type Density, type DropdownMenuEntry } from '../../system';
-import type { PacingCampaign, PacingRow } from './types';
+import type { PacingCampaign, PacingRow, SpendView } from './types';
 import { ExternalLink, Eye } from '../../system/icons';
 import { PacingStatusPill, SeverityPill } from './components';
 import { getDensity } from '../../shared/preferences';
@@ -9,10 +9,12 @@ import { getDensity } from '../../shared/preferences';
 export function PacingTable({
   rows,
   campaigns,
+  spendView,
   onInspectCampaign,
 }: {
   rows: PacingRow[];
   campaigns: PacingCampaign[];
+  spendView: SpendView;
   onInspectCampaign: (campaign: PacingCampaign) => void;
 }) {
   const navigate = useNavigate();
@@ -64,10 +66,10 @@ export function PacingTable({
     },
     {
       id: 'spend',
-      header: 'Spend',
+      header: spendView === 'with_margin' ? 'Spend / Budget (With margin)' : 'Spend / Budget (Without margin)',
       align: 'right',
       numeric: true,
-      sortAccessor: (row) => Number(row.spend.replace(/[^0-9.]/g, '')),
+      sortAccessor: (row) => row.spendValue,
       cell: (row) => (
         <span className="font-medium text-text-primary">
           {row.spend}
@@ -80,7 +82,7 @@ export function PacingTable({
       header: 'Daily target',
       align: 'right',
       numeric: true,
-      sortAccessor: (row) => Number(row.dailyTarget.replace(/[^0-9.]/g, '')),
+      sortAccessor: (row) => row.dailyTargetValue,
       cell: (row) => row.dailyTarget,
     },
     {
@@ -88,7 +90,7 @@ export function PacingTable({
       header: 'Projected',
       align: 'right',
       numeric: true,
-      sortAccessor: (row) => Number(row.projected.replace(/[^0-9.]/g, '')),
+      sortAccessor: (row) => row.projectedValue,
       cell: (row) => row.projected,
     },
     {
@@ -108,7 +110,7 @@ export function PacingTable({
         </div>
       ),
     },
-  ], [campaignMap, onInspectCampaign]);
+  ], [campaignMap, onInspectCampaign, spendView]);
 
   const rowActions = useMemo(
     () => (row: PacingRow): DropdownMenuEntry[] => {

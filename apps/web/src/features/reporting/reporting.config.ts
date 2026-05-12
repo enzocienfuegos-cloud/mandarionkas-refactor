@@ -13,10 +13,11 @@ const allWidgets = [
   { id: 'display-table', type: 'displayTable', title: 'Campaign performance', icon: 'campaign', tone: 'fuchsia', size: 'wide', order: 10, defaultVisible: true, visibleIn: ['display'] },
   { id: 'tag-table', type: 'tagPerformance', title: 'Tag performance', icon: 'tag', tone: 'fuchsia', size: 'large', order: 11, defaultVisible: true, visibleIn: ['display'] },
   { id: 'creative-table', type: 'creativePerformance', title: 'Creative performance', icon: 'creative', tone: 'fuchsia', size: 'large', order: 12, defaultVisible: true, visibleIn: ['display'] },
-  { id: 'identity-frequency', type: 'identityFrequency', title: 'Identity frequency buckets', icon: 'identity', tone: 'emerald', size: 'large', order: 13, defaultVisible: true, visibleIn: ['identity'] },
-  { id: 'identity-keys', type: 'identityKeys', title: 'Identity keys by event', icon: 'identity', tone: 'emerald', size: 'medium', order: 14, defaultVisible: true, visibleIn: ['identity'] },
-  { id: 'identity-attribution', type: 'identityAttribution', title: 'Attribution windows', icon: 'tracker', tone: 'emerald', size: 'medium', order: 15, defaultVisible: true, visibleIn: ['identity'] },
-  { id: 'audience-export', type: 'audienceExport', title: 'Audience export panel', icon: 'export', tone: 'emerald', size: 'medium', order: 16, defaultVisible: true, visibleIn: ['identity'] },
+  { id: 'variant-table', type: 'variantPerformance', title: 'Variant performance', icon: 'creative', tone: 'fuchsia', size: 'large', order: 13, defaultVisible: true, visibleIn: ['display'] },
+  { id: 'identity-frequency', type: 'identityFrequency', title: 'Identity frequency buckets', icon: 'identity', tone: 'emerald', size: 'large', order: 14, defaultVisible: true, visibleIn: ['identity'] },
+  { id: 'identity-keys', type: 'identityKeys', title: 'Identity keys by event', icon: 'identity', tone: 'emerald', size: 'medium', order: 15, defaultVisible: true, visibleIn: ['identity'] },
+  { id: 'identity-attribution', type: 'identityAttribution', title: 'Attribution windows', icon: 'tracker', tone: 'emerald', size: 'medium', order: 16, defaultVisible: true, visibleIn: ['identity'] },
+  { id: 'audience-export', type: 'audienceExport', title: 'Audience export panel', icon: 'export', tone: 'emerald', size: 'medium', order: 17, defaultVisible: true, visibleIn: ['identity'] },
 ] satisfies ReportingModeConfig['widgets'];
 
 export const reportingModeConfig: Record<ReportingModeConfig['id'], ReportingModeConfig> = {

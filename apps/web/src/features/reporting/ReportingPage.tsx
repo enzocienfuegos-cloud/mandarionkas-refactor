@@ -9,7 +9,7 @@ import {
   type DateRange,
 } from '../../system';
 import { reportingModeConfig } from './reporting.config';
-import type { ReportingMode } from './reporting.types';
+import type { ReportingMode, SpendView } from './reporting.types';
 import { KpiGrid } from './components/KpiGrid';
 import { ReportingHeader } from './components/ReportingHeader';
 import { ReportingShell } from './components/ReportingShell';
@@ -62,6 +62,7 @@ export function ReportingPage() {
   const [dateRangeFilter, setDateRangeFilter] = useState<'7d' | '30d' | '90d' | 'custom'>('30d');
   const [customDateRange, setCustomDateRange] = useState<DateRange>(() => createDefaultCustomDateRange());
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'archived'>('all');
+  const [spendView, setSpendView] = useState<SpendView>('without_margin');
   const [search, setSearch] = useState('');
   const currentViewId = searchParams.get('view');
   const config = reportingModeConfig[mode];
@@ -78,6 +79,7 @@ export function ReportingPage() {
     customDateRange,
     advertiserId: advertiserFilter,
     statusFilter,
+    spendView,
     search,
   });
 
@@ -127,6 +129,9 @@ export function ReportingPage() {
         setStatusFilter((['all', 'active', 'paused', 'archived'].includes(String(nextFilters.statusFilter))
           ? nextFilters.statusFilter
           : 'all') as 'all' | 'active' | 'paused' | 'archived');
+        setSpendView((['without_margin', 'with_margin'].includes(String(nextFilters.spendView))
+          ? nextFilters.spendView
+          : 'without_margin') as SpendView);
         setSearch(String(nextFilters.search ?? ''));
       })
       .catch(() => {
@@ -155,6 +160,7 @@ export function ReportingPage() {
               dateRangeFilter,
               customDateRange: serializeDateRange(customDateRange),
               statusFilter,
+              spendView,
               search,
             }}
             currentViewId={currentViewId}
@@ -183,6 +189,8 @@ export function ReportingPage() {
         onCustomDateRangeChange={setCustomDateRange}
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
+        spendView={spendView}
+        onSpendViewChange={setSpendView}
         search={search}
         onSearchChange={setSearch}
         onResetFilters={() => {
@@ -190,11 +198,17 @@ export function ReportingPage() {
           setDateRangeFilter('30d');
           setCustomDateRange(createDefaultCustomDateRange());
           setStatusFilter('all');
+          setSpendView('without_margin');
           setSearch('');
         }}
       />
       <ReportingHeader mode={mode} config={config} onModeChange={setMode} />
-      <ScopeBar mode={mode} scopeLabel={selectedAdvertiserLabel} dateRangeLabel={dateRangeLabel} />
+      <ScopeBar
+        mode={mode}
+        scopeLabel={selectedAdvertiserLabel}
+        dateRangeLabel={dateRangeLabel}
+        spendViewLabel={spendView === 'with_margin' ? 'With margin' : 'Without margin'}
+      />
       {loading && !kpis.length ? <CenteredSpinner label="Loading reporting workspace…" /> : null}
       {error ? (
         <Panel elevation={2} padding="md" className="border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)]">

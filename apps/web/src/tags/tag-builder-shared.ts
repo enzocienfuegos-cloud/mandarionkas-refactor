@@ -11,6 +11,7 @@ export type TagStatus = 'draft' | 'active' | 'paused' | 'archived';
 export type TrackerType = 'click' | 'impression';
 
 export interface TagForm {
+  workspaceId: string;
   name: string;
   campaignId: string;
   format: TagFormat;
@@ -118,6 +119,7 @@ export interface DeliveryDiagnosticsPayload {
 }
 
 export const emptyForm: TagForm = {
+  workspaceId: '',
   name: '',
   campaignId: '',
   format: 'VAST',
@@ -143,7 +145,7 @@ export function normalizeTagRecord(payload: unknown): SavedTag | null {
     id: String(source.id ?? ''),
     format,
     name: String(source.name ?? ''),
-    workspaceId: source.workspaceId != null ? String(source.workspaceId) : null,
+    workspaceId: source.workspaceId != null ? String(source.workspaceId) : source.workspace_id != null ? String(source.workspace_id) : null,
     campaign: source.campaign && typeof source.campaign === 'object'
       ? {
           id: String((source.campaign as Record<string, unknown>).id ?? ''),

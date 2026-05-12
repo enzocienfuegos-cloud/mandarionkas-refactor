@@ -1,3 +1,5 @@
+import type { SpendView } from '../../shared/costing';
+
 export type Severity = 'critical' | 'warning' | 'notice' | 'healthy';
 export type TrendDirection = 'up' | 'down' | 'flat';
 export type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
@@ -10,12 +12,21 @@ export interface Campaign {
   workspace_name?: string;
   name: string;
   advertiser?: { id: string; name: string };
-  metadata?: { dsp?: string | null };
+  metadata?: {
+    dsp?: string | null;
+    estimatedRate?: number | null;
+    markupPercent?: number | null;
+    servingFeeCpm?: number | null;
+    budgetDeliveryMode?: string | null;
+    rateStrategy?: string | null;
+    servingCostMode?: string | null;
+  };
   status: 'active' | 'paused' | 'archived' | 'draft';
   startDate: string | null;
   endDate: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  budget?: number | null;
   impressionGoal: number | null;
   impression_goal?: number | null;
   dailyBudget: number | null;
@@ -37,7 +48,9 @@ export type CampaignRow = {
   status: CampaignStatus;
   pacing: string;
   spend: string;
+  spendValue: number;
   budget: string;
+  budgetValue: number;
   tagHealth: string;
   creativeStatus: string;
   issues: number;
@@ -45,6 +58,8 @@ export type CampaignRow = {
   flight: string;
   raw: Campaign;
 };
+
+export type CampaignSpendView = SpendView;
 
 export type Metric = {
   id: string;

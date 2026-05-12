@@ -1,3 +1,4 @@
+import type { SpendView } from '../shared/costing';
 import type { MetricScope } from '../system/metrics/registry';
 import { formatCompactMoney } from './campaign-list/utils';
 
@@ -8,6 +9,7 @@ export interface CampaignMetricData {
   openIssues: number;
   trackedSpend: number;
   campaignCount: number;
+  spendView: SpendView;
 }
 
 export const campaignMetricScope: MetricScope<CampaignMetricData> = {
@@ -48,12 +50,14 @@ export const campaignMetricScope: MetricScope<CampaignMetricData> = {
       description: 'Tracked weekly budget across visible campaigns.',
       group: 'Budget',
       tone: 'success',
-      compute: ({ trackedSpend }) => ({
+      compute: ({ trackedSpend, spendView }) => ({
         id: 'spend',
-        label: 'Spend tracked',
+        label: spendView === 'with_margin' ? 'Spend tracked (gross)' : 'Spend tracked (net)',
         value: formatCompactMoney(trackedSpend),
         tone: 'success',
-        context: 'Against active campaign budgets',
+        context: spendView === 'with_margin'
+          ? 'Includes configured margin on visible campaigns'
+          : 'Net of configured margin on visible campaigns',
       }),
     },
     {

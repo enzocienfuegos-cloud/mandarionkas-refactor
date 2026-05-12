@@ -1,7 +1,7 @@
 import React from 'react';
 import type { WorkspaceOption } from '../../shared/workspaces';
 import { Button, Combobox, DateRangePicker, FormField, Input, NumberInput, Select, type DateRange } from '../../system';
-import { DSP_OPTIONS, STATUSES } from './constants';
+import { BUDGET_DELIVERY_MODES, DSP_OPTIONS, RATE_STRATEGIES, SERVING_COST_MODES, STATUSES } from './constants';
 import type { CampaignForm } from './types';
 
 type Props = {
@@ -12,7 +12,7 @@ type Props = {
   saving: boolean;
   onFieldChange: (field: keyof CampaignForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   onValueChange: (field: keyof CampaignForm) => (value: string | string[]) => void;
-  onNumberFieldChange: (field: 'impressionGoal' | 'dailyBudget') => (value: number | null) => void;
+  onNumberFieldChange: (field: 'impressionGoal' | 'dailyBudget' | 'lifetimeBudget' | 'estimatedRate' | 'markupPercent' | 'servingFeeCpm') => (value: number | null) => void;
   onDateRangeChange: (range: DateRange) => void;
   onCancel: () => void;
 };
@@ -51,17 +51,16 @@ export function CampaignEditorForm({
 
   return (
     <div className="space-y-5">
-      {!isEdit && (
-        <FormField label="Client" required error={errors.workspaceId}>
-          <Combobox
-            value={form.workspaceId}
-            onChange={onValueChange('workspaceId')}
-            options={workspaceOptions}
-            invalid={Boolean(errors.workspaceId)}
-            placeholder="Select a client"
-          />
-        </FormField>
-      )}
+      <FormField label="Client" required error={errors.workspaceId}>
+        <Combobox
+          value={form.workspaceId}
+          onChange={onValueChange('workspaceId')}
+          options={workspaceOptions}
+          invalid={Boolean(errors.workspaceId)}
+          placeholder="Select a client"
+          disabled={isEdit}
+        />
+      </FormField>
 
       <FormField label="Campaign Name" required error={errors.name}>
         <Input
@@ -105,7 +104,7 @@ export function CampaignEditorForm({
         <DateRangePicker value={scheduleRange} onChange={onDateRangeChange} />
       </FormField>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <FormField label="Impression Goal" error={errors.impressionGoal}>
           <NumberInput
             value={form.impressionGoal ? Number(form.impressionGoal) : null}
@@ -127,6 +126,82 @@ export function CampaignEditorForm({
             invalid={Boolean(errors.dailyBudget)}
             placeholder="500.00"
           />
+        </FormField>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <FormField label="Lifetime Budget ($)" error={errors.lifetimeBudget}>
+          <NumberInput
+            value={form.lifetimeBudget ? Number(form.lifetimeBudget) : null}
+            onChange={onNumberFieldChange('lifetimeBudget')}
+            format="currency"
+            currency="USD"
+            min={0}
+            step={0.01}
+            invalid={Boolean(errors.lifetimeBudget)}
+            placeholder="15000.00"
+          />
+        </FormField>
+        <FormField label="Budget Mode">
+          <Select value={form.budgetDeliveryMode} onChange={onFieldChange('budgetDeliveryMode')}>
+            {BUDGET_DELIVERY_MODES.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </Select>
+        </FormField>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <FormField label="Estimated Rate (CPM)" error={errors.estimatedRate}>
+          <NumberInput
+            value={form.estimatedRate ? Number(form.estimatedRate) : null}
+            onChange={onNumberFieldChange('estimatedRate')}
+            format="currency"
+            currency="USD"
+            min={0}
+            step={0.01}
+            invalid={Boolean(errors.estimatedRate)}
+            placeholder="2.50"
+          />
+        </FormField>
+        <FormField label="Markup / Margin (%)" error={errors.markupPercent}>
+          <NumberInput
+            value={form.markupPercent ? Number(form.markupPercent) : null}
+            onChange={onNumberFieldChange('markupPercent')}
+            min={0}
+            step={0.01}
+            invalid={Boolean(errors.markupPercent)}
+            placeholder="15"
+          />
+        </FormField>
+        <FormField label="Serving Fee CPM" error={errors.servingFeeCpm}>
+          <NumberInput
+            value={form.servingFeeCpm ? Number(form.servingFeeCpm) : null}
+            onChange={onNumberFieldChange('servingFeeCpm')}
+            format="currency"
+            currency="USD"
+            min={0}
+            step={0.0001}
+            invalid={Boolean(errors.servingFeeCpm)}
+            placeholder="0.10"
+          />
+        </FormField>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <FormField label="Rate Strategy">
+          <Select value={form.rateStrategy} onChange={onFieldChange('rateStrategy')}>
+            {RATE_STRATEGIES.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </Select>
+        </FormField>
+        <FormField label="Serving Cost">
+          <Select value={form.servingCostMode} onChange={onFieldChange('servingCostMode')}>
+            {SERVING_COST_MODES.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </Select>
         </FormField>
       </div>
 

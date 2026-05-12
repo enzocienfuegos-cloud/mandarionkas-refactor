@@ -65,6 +65,8 @@ function WidgetByType({
       return <DisplayTable title={widget.title} rows={data.tagRows} icon="tag" />;
     case 'creativePerformance':
       return <DisplayTable title={widget.title} rows={data.creativeRows} icon="creative" />;
+    case 'variantPerformance':
+      return <DisplayTable title={widget.title} rows={data.variantRows} icon="creative" />;
     case 'videoFunnel':
       return <VideoFunnel rows={data.videoFunnel} />;
     case 'videoFormat':

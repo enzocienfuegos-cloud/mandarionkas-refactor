@@ -1090,7 +1090,7 @@ export async function finalizePublishedHtml5Creative(pool, workspaceId, creative
      SET file_url      = $3,
          thumbnail_url = $3,
          click_url     = CASE
-           WHEN $4 IS NOT NULL THEN $4
+           WHEN $4::text IS NOT NULL THEN $4::text
            ELSE click_url
          END,
          width         = COALESCE($5, width),

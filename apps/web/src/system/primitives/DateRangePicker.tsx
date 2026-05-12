@@ -141,6 +141,15 @@ function renderWeekdayLabels(locale: string, weekStartsOn: 0 | 1) {
   });
 }
 
+function normalizeRange(range: DateRange, minDate?: Date, maxDate?: Date): DateRange {
+  const from = range.from ? clampDate(range.from, minDate, maxDate) : null;
+  const to = range.to ? clampDate(range.to, minDate, maxDate) : null;
+  if (from && to && to < from) {
+    return { from: to, to: from };
+  }
+  return { from, to };
+}
+
 export function DateRangePicker({
   value,
   onChange,
@@ -190,11 +199,19 @@ export function DateRangePicker({
       : { from: value.from, to: hoverDate };
   }, [dragAnchor, hoverDate, value]);
 
-  const commitRange = (next: DateRange) => {
+  const commitRange = (next: DateRange, options: { preserveInteraction?: boolean } = {}) => {
+    const normalizedNext = normalizeRange(next, minDate, maxDate);
+    const nextAnchorMonth = normalizedNext.from ?? normalizedNext.to ?? new Date();
+    setVisibleMonth(monthStart(nextAnchorMonth));
+    if (!options.preserveInteraction) {
+      setHoverDate(null);
+      setDragAnchor(null);
+      setIsDragging(false);
+    }
     if (selectingComparison && onComparisonChange) {
-      onComparisonChange(next);
+      onComparisonChange(normalizedNext);
     } else {
-      onChange(next);
+      onChange(normalizedNext);
     }
   };
 
@@ -240,6 +257,11 @@ export function DateRangePicker({
     return () => window.removeEventListener('mouseup', handleMouseUp);
   }, [isDragging, hoverDate, dragAnchor]);
 
+  useEffect(() => {
+    if (!open) return;
+    setVisibleMonth(monthStart(value.from ?? value.to ?? new Date()));
+  }, [open, value.from, value.to]);
+
   const renderCalendar = (monthDate: Date) => {
     const days = buildMonthGrid(monthDate, weekStartsOn);
     return (
@@ -270,7 +292,7 @@ export function DateRangePicker({
                   setDragAnchor(next);
                   setHoverDate(next);
                   setIsDragging(true);
-                  commitRange({ from: next, to: null });
+                  commitRange({ from: next, to: null }, { preserveInteraction: true });
                 }}
                 onMouseEnter={() => {
                   if (disabled) return;

@@ -1,9 +1,56 @@
+import { deriveSpendMetrics, normalizeCostMetadata } from './costing.mjs';
+
 function normalizeDays(value, fallback = 30) {
   return Math.min(Math.max(Number(value) || fallback, 1), 365);
 }
 
+async function getTagCostMetadata(pool, workspaceId, tagId) {
+  const { rows } = await pool.query(
+    `
+      select
+        c.metadata as campaign_metadata,
+        c.budget,
+        c.impression_goal
+      from ad_tags t
+      left join campaigns c
+        on c.id = t.campaign_id
+       and c.workspace_id = t.workspace_id
+      where t.workspace_id = $1
+        and t.id = $2
+      limit 1
+    `,
+    [workspaceId, tagId],
+  );
+  return {
+    metadata: normalizeCostMetadata(rows[0]?.campaign_metadata),
+    budget: rows[0]?.budget ?? null,
+    impressionGoal: rows[0]?.impression_goal ?? null,
+  };
+}
+
+function withSpendMetrics(row, costContext) {
+  const spendMetrics = deriveSpendMetrics({
+    impressions: row?.impressions,
+    recordedSpend: row?.spend,
+    metadata: costContext?.metadata,
+    fallbackBudget: costContext?.budget,
+    impressionGoal: costContext?.impressionGoal,
+  });
+
+  return {
+    ...row,
+    media_spend: spendMetrics.mediaSpend,
+    serving_fee_spend: spendMetrics.servingFeeSpend,
+    margin_spend: spendMetrics.marginSpend,
+    spend_without_margin: spendMetrics.spendWithoutMargin,
+    spend_with_margin: spendMetrics.spendWithMargin,
+    spend: spendMetrics.spendWithoutMargin,
+  };
+}
+
 export async function getTagTrackingSummary(pool, { workspaceId, tagId, days = 30 }) {
   const normalizedDays = normalizeDays(days);
+  const costContext = await getTagCostMetadata(pool, workspaceId, tagId);
   const { rows } = await pool.query(
     `
       select
@@ -21,11 +68,13 @@ export async function getTagTrackingSummary(pool, { workspaceId, tagId, days = 3
     `,
     [workspaceId, tagId, normalizedDays],
   );
-  return rows[0] || null;
+  if (!rows[0]) return null;
+  return withSpendMetrics(rows[0], costContext);
 }
 
 export async function listTagTrackingDailyStats(pool, { workspaceId, tagId, days = 30 }) {
   const normalizedDays = normalizeDays(days);
+  const costContext = await getTagCostMetadata(pool, workspaceId, tagId);
   const { rows } = await pool.query(
     `
       select
@@ -45,7 +94,7 @@ export async function listTagTrackingDailyStats(pool, { workspaceId, tagId, days
     `,
     [workspaceId, tagId, normalizedDays],
   );
-  return rows;
+  return rows.map((row) => withSpendMetrics(row, costContext));
 }
 
 export async function listTagTrackingEvents(pool, { workspaceId, tagId, days = 30 }) {

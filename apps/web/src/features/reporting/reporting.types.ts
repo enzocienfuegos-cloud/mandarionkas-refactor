@@ -1,4 +1,5 @@
 export type ReportingMode = 'all' | 'display' | 'video' | 'identity';
+export type SpendView = 'without_margin' | 'with_margin';
 
 export type Channel = 'display' | 'video' | 'identity';
 
@@ -22,6 +23,7 @@ export type WidgetType =
   | 'campaignPerformance'
   | 'tagPerformance'
   | 'creativePerformance'
+  | 'variantPerformance'
   | 'videoFunnel'
   | 'videoFormat'
   | 'identityInsights'
@@ -97,6 +99,9 @@ export type CampaignPerformanceRow = {
   impressions: number;
   clicks: number;
   ctr: number;
+  spend?: number;
+  spendHelper?: string;
+  secondaryLabel?: string;
   viewability?: number;
   completionRate?: number;
   identityReach?: number;

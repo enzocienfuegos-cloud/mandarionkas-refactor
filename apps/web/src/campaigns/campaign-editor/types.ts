@@ -8,4 +8,11 @@ export interface CampaignForm {
   endDate: string;
   impressionGoal: string;
   dailyBudget: string;
+  lifetimeBudget: string;
+  estimatedRate: string;
+  markupPercent: string;
+  servingFeeCpm: string;
+  budgetDeliveryMode: string;
+  rateStrategy: string;
+  servingCostMode: string;
 }

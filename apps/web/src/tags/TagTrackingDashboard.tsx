@@ -26,6 +26,8 @@ interface TrackingSummary {
   measured_impressions: number | string;
   undetermined_impressions: number | string;
   spend: number | string;
+  spend_without_margin?: number | string;
+  spend_with_margin?: number | string;
 }
 
 interface DailyStat {
@@ -36,6 +38,8 @@ interface DailyStat {
   measured_imps: number | string;
   undetermined_imps: number | string;
   spend: number | string;
+  spend_without_margin?: number | string;
+  spend_with_margin?: number | string;
 }
 
 interface EventStat {
@@ -46,6 +50,10 @@ interface EventStat {
 }
 
 const DAY_OPTIONS = [7, 14, 30, 60, 90];
+const SPEND_VIEW_OPTIONS = [
+  { value: 'without_margin', label: 'Without margin' },
+  { value: 'with_margin', label: 'With margin' },
+] as const;
 
 function formatNumber(value: number | string | null | undefined) {
   return new Intl.NumberFormat().format(Number(value || 0));
@@ -55,10 +63,20 @@ function formatCurrency(value: number | string | null | undefined) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(Number(value || 0));
 }
 
+function resolveSpendValue(
+  source: { spend?: number | string; spend_without_margin?: number | string; spend_with_margin?: number | string } | null | undefined,
+  spendView: 'without_margin' | 'with_margin',
+) {
+  const withoutMargin = Number(source?.spend_without_margin ?? source?.spend ?? 0);
+  const withMargin = Number(source?.spend_with_margin ?? withoutMargin);
+  return spendView === 'with_margin' ? withMargin : withoutMargin;
+}
+
 export default function TagTrackingDashboard() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [days, setDays] = useState(30);
+  const [spendView, setSpendView] = useState<'without_margin' | 'with_margin'>('without_margin');
   const [tag, setTag] = useState<TagRecord | null>(null);
   const [summary, setSummary] = useState<TrackingSummary | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([]);
@@ -192,10 +210,10 @@ export default function TagTrackingDashboard() {
       header: 'Spend',
       align: 'right',
       numeric: true,
-      sortAccessor: (row) => Number(row.spend || 0),
-      cell: (row) => formatCurrency(row.spend),
+      sortAccessor: (row) => resolveSpendValue(row, spendView),
+      cell: (row) => formatCurrency(resolveSpendValue(row, spendView)),
     },
-  ], [dailyRows]);
+  ], [dailyRows, spendView]);
 
   const eventRows = useMemo(() => {
     return events.map((event, index) => ({
@@ -256,6 +274,11 @@ export default function TagTrackingDashboard() {
             onChange={(event) => setDays(Number(event.target.value) || 30)}
             options={DAY_OPTIONS.map((option) => ({ value: String(option), label: `Last ${option} days` }))}
           />
+          <Select
+            value={spendView}
+            onChange={(event) => setSpendView(event.target.value as 'without_margin' | 'with_margin')}
+            options={SPEND_VIEW_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+          />
           <Button variant="secondary" onClick={() => navigate(`/tags/${id}`)}>Back to tag</Button>
           <Button variant="secondary" onClick={() => navigate(`/tags/${id}/pixels`)}>Pixels</Button>
           <Button variant="secondary" onClick={() => navigate(`/tags/${id}/reporting`)}>Reporting</Button>
@@ -273,7 +296,11 @@ export default function TagTrackingDashboard() {
         <MetricCard label="Impressions" value={formatNumber(summary?.impressions)} tone="brand" />
         <MetricCard label="CTR" value={`${rates.ctr.toFixed(2)}%`} context={`${formatNumber(summary?.clicks)} clicks`} tone="info" />
         <MetricCard label="Viewability" value={`${rates.viewability.toFixed(2)}%`} context={`${formatNumber(summary?.viewable_impressions)} of ${formatNumber(summary?.measured_impressions)} measured`} tone="success" />
-        <MetricCard label="Spend" value={formatCurrency(summary?.spend)} tone="warning" />
+        <MetricCard
+          label={spendView === 'with_margin' ? 'Spend with margin' : 'Spend without margin'}
+          value={formatCurrency(resolveSpendValue(summary, spendView))}
+          tone="warning"
+        />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,0.8fr)]">

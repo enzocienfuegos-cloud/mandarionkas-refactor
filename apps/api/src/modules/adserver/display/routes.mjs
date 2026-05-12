@@ -456,6 +456,8 @@ export async function handleDisplayRoutes(ctx) {
       const val = url.searchParams.get(key);
       if (val !== null && val !== '') trackerParams.set(key, val);
     }
+    if (trimText(row.creative_id)) trackerParams.set('smx_creative_id', trimText(row.creative_id));
+    if (trimText(row.creative_size_variant_id)) trackerParams.set('smx_variant_id', trimText(row.creative_size_variant_id));
     const dspQuery = Object.fromEntries(url.searchParams.entries());
     const trackerSuffix = trackerParams.toString() ? `?${trackerParams.toString()}` : '';
     const suppressImpression = url.searchParams.get('smx_no_imp') === '1';
@@ -522,6 +524,8 @@ export async function handleDisplayRoutes(ctx) {
       const val = url.searchParams.get(key);
       if (val !== null && val !== '') trackerParams.set(key, val);
     }
+    if (trimText(row.creative_id)) trackerParams.set('smx_creative_id', trimText(row.creative_id));
+    if (trimText(row.creative_size_variant_id)) trackerParams.set('smx_variant_id', trimText(row.creative_size_variant_id));
     const dspQuery = Object.fromEntries(url.searchParams.entries());
     const trackerSuffix = trackerParams.toString() ? `?${trackerParams.toString()}` : '';
     const width = row?.width || 300;

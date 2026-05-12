@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { BreakdownDay, PacingAlert, PacingCampaign, PacingData, PacingRow } from './types';
+import type { BreakdownDay, PacingAlert, PacingCampaign, PacingData, PacingRow, SpendView } from './types';
 import { buildPacingRow, normalizePacingAlert, normalizePacingCampaign } from './utils';
 
 export function usePacingFilters() {
@@ -7,6 +7,7 @@ export function usePacingFilters() {
   const [advertiserFilter, setAdvertiserFilter] = useState('');
   const [dateRangeFilter, setDateRangeFilter] = useState<'7d' | '30d' | '90d'>('30d');
   const [statusFilter, setStatusFilter] = useState<'all' | 'exceptions' | 'on_pace' | 'paused'>('all');
+  const [spendView, setSpendView] = useState<SpendView>('without_margin');
   const [exceptionsOnly, setExceptionsOnly] = useState(false);
 
   const resetAll = useCallback(() => {
@@ -14,6 +15,7 @@ export function usePacingFilters() {
     setAdvertiserFilter('');
     setDateRangeFilter('30d');
     setStatusFilter('all');
+    setSpendView('without_margin');
     setExceptionsOnly(false);
   }, []);
 
@@ -21,6 +23,7 @@ export function usePacingFilters() {
     advertiserFilter !== '',
     statusFilter !== 'all',
     dateRangeFilter !== '30d',
+    spendView !== 'without_margin',
     search.trim() !== '',
   ].filter(Boolean).length;
 
@@ -33,6 +36,8 @@ export function usePacingFilters() {
     setDateRangeFilter,
     statusFilter,
     setStatusFilter,
+    spendView,
+    setSpendView,
     exceptionsOnly,
     setExceptionsOnly,
     resetAll,
@@ -88,7 +93,10 @@ export function usePacingViewModel({
   data: PacingData | null;
   filters: ReturnType<typeof usePacingFilters>;
 }) {
-  const rows = useMemo(() => (data?.campaigns ?? []).map(buildPacingRow), [data]);
+  const rows = useMemo(
+    () => (data?.campaigns ?? []).map((campaign) => buildPacingRow(campaign, filters.spendView)),
+    [data, filters.spendView],
+  );
 
   const advertiserOptions = useMemo(
     () => Array.from(new Set(rows.map((row) => row.advertiser))).sort(),
@@ -139,7 +147,7 @@ export function usePacingViewModel({
   const budgetRiskValue = useMemo(
     () => rows
       .filter((row) => row.risk !== 'Notice')
-      .reduce((sum, row) => sum + Number(row.projected.replace(/[^0-9.]/g, '')), 0),
+      .reduce((sum, row) => sum + row.projectedValue, 0),
     [rows],
   );
   const prototypeChecks = useMemo(() => [
