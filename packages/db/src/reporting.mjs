@@ -1613,6 +1613,58 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
     deviceModelParams,
   );
 
+  const osParams = [...latestParams];
+  const osQuery = pool.query(
+    `SELECT COALESCE(NULLIF(ie.os, ''), 'Unknown') AS label,
+            COUNT(*)::bigint AS value
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     WHERE ${latestConditions.join(' AND ')}
+     GROUP BY 1
+     ORDER BY value DESC, label ASC
+     LIMIT 10`,
+    osParams,
+  );
+
+  const browserParams = [...latestParams];
+  const browserQuery = pool.query(
+    `SELECT COALESCE(NULLIF(ie.browser, ''), 'Unknown') AS label,
+            COUNT(*)::bigint AS value
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     WHERE ${latestConditions.join(' AND ')}
+     GROUP BY 1
+     ORDER BY value DESC, label ASC
+     LIMIT 10`,
+    browserParams,
+  );
+
+  const carrierParams = [...latestParams];
+  const carrierQuery = pool.query(
+    `SELECT COALESCE(NULLIF(ie.carrier, ''), 'Unknown') AS label,
+            COUNT(*)::bigint AS value
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     WHERE ${latestConditions.join(' AND ')}
+     GROUP BY 1
+     ORDER BY value DESC, label ASC
+     LIMIT 10`,
+    carrierParams,
+  );
+
+  const networkParams = [...latestParams];
+  const networkQuery = pool.query(
+    `SELECT COALESCE(NULLIF(ie.network_id, ''), 'Unknown') AS label,
+            COUNT(*)::bigint AS value
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     WHERE ${latestConditions.join(' AND ')}
+     GROUP BY 1
+     ORDER BY value DESC, label ASC
+     LIMIT 10`,
+    networkParams,
+  );
+
   const inventoryParams = [...latestParams];
   const inventoryQuery = pool.query(
     `SELECT
@@ -1635,12 +1687,20 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
   const latestResult = await latestQuery;
   const deviceTypeResult = await deviceTypeQuery;
   const deviceModelResult = await deviceModelQuery;
+  const osResult = await osQuery;
+  const browserResult = await browserQuery;
+  const carrierResult = await carrierQuery;
+  const networkResult = await networkQuery;
   const inventoryResult = await inventoryQuery;
 
   return {
     latest_context: latestResult.rows[0] ?? null,
     device_types: deviceTypeResult.rows,
     device_models: deviceModelResult.rows,
+    operating_systems: osResult.rows,
+    browsers: browserResult.rows,
+    carriers: carrierResult.rows,
+    networks: networkResult.rows,
     inventory_environments: inventoryResult.rows,
   };
 }

@@ -167,6 +167,10 @@ type ContextSnapshotRow = {
   latest_context: Record<string, unknown> | null;
   device_types: Array<{ label: string; value: number }>;
   device_models: Array<{ label: string; value: number }>;
+  operating_systems: Array<{ label: string; value: number }>;
+  browsers: Array<{ label: string; value: number }>;
+  carriers: Array<{ label: string; value: number }>;
+  networks: Array<{ label: string; value: number }>;
   inventory_environments: Array<{ label: string; value: number }>;
 };
 
@@ -667,10 +671,18 @@ function buildInventorySourceRows({
 function buildDeviceRows({
   deviceTypes,
   deviceModels,
+  operatingSystems,
+  browsers,
+  carriers,
+  networks,
   totalImpressions,
 }: {
   deviceTypes: Array<{ label: string; value: number }>;
   deviceModels: Array<{ label: string; value: number }>;
+  operatingSystems: Array<{ label: string; value: number }>;
+  browsers: Array<{ label: string; value: number }>;
+  carriers: Array<{ label: string; value: number }>;
+  networks: Array<{ label: string; value: number }>;
   totalImpressions: number;
 }): DeviceBreakdownRow[] {
   const toDeviceRow = (row: { label: string; value: number }, kind: DeviceBreakdownRow['kind']): DeviceBreakdownRow => {
@@ -691,9 +703,19 @@ function buildDeviceRows({
     ...deviceModels
       .filter((row) => String(row.label ?? '').trim().toLowerCase() !== 'unknown')
       .map((row) => toDeviceRow(row, 'Model')),
+    ...operatingSystems.map((row) => toDeviceRow(row, 'OS')),
+    ...browsers
+      .filter((row) => String(row.label ?? '').trim().toLowerCase() !== 'unknown')
+      .map((row) => toDeviceRow(row, 'Browser')),
+    ...carriers
+      .filter((row) => String(row.label ?? '').trim().toLowerCase() !== 'unknown')
+      .map((row) => toDeviceRow(row, 'Carrier')),
+    ...networks
+      .filter((row) => String(row.label ?? '').trim().toLowerCase() !== 'unknown')
+      .map((row) => toDeviceRow(row, 'Network')),
   ]
     .sort((a, b) => b.impressions - a.impressions || a.name.localeCompare(b.name))
-    .slice(0, 8);
+    .slice(0, 12);
 }
 
 const INITIAL_STATE: HookState = {
@@ -900,6 +922,10 @@ export function useReportingData({
       const deviceRows = buildDeviceRows({
         deviceTypes: contextSnapshotPayload.device_types ?? [],
         deviceModels: contextSnapshotPayload.device_models ?? [],
+        operatingSystems: contextSnapshotPayload.operating_systems ?? [],
+        browsers: contextSnapshotPayload.browsers ?? [],
+        carriers: contextSnapshotPayload.carriers ?? [],
+        networks: contextSnapshotPayload.networks ?? [],
         totalImpressions: toNumber(stats.total_impressions),
       });
 

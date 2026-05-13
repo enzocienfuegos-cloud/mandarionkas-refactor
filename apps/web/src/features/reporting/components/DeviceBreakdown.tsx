@@ -26,7 +26,7 @@ export function DeviceBreakdown({ rows }: { rows: DeviceBreakdownRow[] }) {
 
   return (
     <WidgetPanel
-      title="Device mix"
+      title="Device & connection"
       icon="identity"
       tone="cyan"
       action={rows.length ? (
@@ -51,7 +51,7 @@ export function DeviceBreakdown({ rows }: { rows: DeviceBreakdownRow[] }) {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="min-w-0 truncate font-semibold text-[color:var(--dusk-text-primary)]">{row.name}</p>
-                  <Badge tone={row.kind === 'Type' ? 'info' : 'neutral'} size="sm">{row.kind}</Badge>
+                  <Badge tone={row.kind === 'Type' || row.kind === 'OS' ? 'info' : 'neutral'} size="sm">{row.kind}</Badge>
                 </div>
                 <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">
                   {row.impressions.toLocaleString()} impressions
@@ -67,7 +67,7 @@ export function DeviceBreakdown({ rows }: { rows: DeviceBreakdownRow[] }) {
       ) : (
         <EmptyState
           title="No device signal yet"
-          description="Device type and model data will appear once the selected reporting scope records delivery context."
+          description="Device type, model, OS, browser and connection data will appear once the selected reporting scope records delivery context."
         />
       )}
     </WidgetPanel>

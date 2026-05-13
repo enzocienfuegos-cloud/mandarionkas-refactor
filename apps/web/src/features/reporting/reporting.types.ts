@@ -160,7 +160,7 @@ export type InventorySourceRow = RegionRow & {
 };
 
 export type DeviceBreakdownRow = RegionRow & {
-  kind: 'Type' | 'Model';
+  kind: 'Type' | 'Model' | 'OS' | 'Browser' | 'Carrier' | 'Network';
 };
 
 export type CreativeRow = {

@@ -12,7 +12,7 @@ const allWidgets = [
   { id: 'identity-insights', type: 'identityInsights', title: 'Identity insights', icon: 'identity', tone: 'emerald', size: 'medium', order: 9, defaultVisible: true, visibleIn: ['all', 'identity'] },
   { id: 'identity-methodology', type: 'identityMethodology', title: 'Identity methodology', icon: 'identity', tone: 'emerald', size: 'full', order: 10, defaultVisible: true, visibleIn: ['identity'] },
   { id: 'inventory-sources', type: 'inventorySources', title: 'Sites & apps', icon: 'geo', tone: 'slate', size: 'medium', order: 11, defaultVisible: true, visibleIn: ['all', 'display', 'video'] },
-  { id: 'device-breakdown', type: 'deviceBreakdown', title: 'Device mix', icon: 'identity', tone: 'cyan', size: 'medium', order: 12, defaultVisible: true, visibleIn: ['all', 'display', 'video', 'identity'] },
+  { id: 'device-breakdown', type: 'deviceBreakdown', title: 'Device & connection', icon: 'identity', tone: 'cyan', size: 'medium', order: 12, defaultVisible: true, visibleIn: ['all', 'display', 'video', 'identity'] },
   { id: 'top-regions', type: 'topRegions', title: 'Top departments / states', icon: 'geo', tone: 'violet', size: 'medium', order: 13, defaultVisible: true, visibleIn: ['all', 'display', 'video', 'identity'] },
   { id: 'top-creatives', type: 'topCreatives', title: 'Top creatives', icon: 'creative', tone: 'fuchsia', size: 'medium', order: 14, defaultVisible: true, visibleIn: ['all', 'display', 'video'] },
   { id: 'identity-frequency', type: 'identityFrequency', title: 'Identity frequency buckets', icon: 'identity', tone: 'emerald', size: 'large', order: 16, defaultVisible: true, visibleIn: ['identity'] },
