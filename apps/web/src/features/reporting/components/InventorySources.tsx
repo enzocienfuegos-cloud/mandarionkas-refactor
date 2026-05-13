@@ -8,23 +8,31 @@ export function InventorySources({ rows }: { rows: InventorySourceRow[] }) {
     <WidgetPanel title="Sites & apps" icon="geo" tone="slate">
       {rows.length ? (
         <div className="space-y-3">
-          {rows.map((row) => (
-            <div key={`${row.kind}:${row.name}`} className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-3">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="min-w-0 truncate font-semibold text-[color:var(--dusk-text-primary)]">{row.name}</p>
-                  <Badge tone={row.kind === 'App' ? 'info' : 'neutral'} size="sm">{row.kind}</Badge>
+          {rows.map((row) => {
+            const deliveryParts = [
+              `${row.impressions.toLocaleString()} impressions`,
+              typeof row.clicks === 'number' ? `${row.clicks.toLocaleString()} clicks` : '',
+              row.detail ?? '',
+            ].filter(Boolean);
+
+            return (
+              <div key={`${row.kind}:${row.name}`} className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="min-w-0 truncate font-semibold text-[color:var(--dusk-text-primary)]">{row.name}</p>
+                    <Badge tone={row.kind === 'App' ? 'info' : 'neutral'} size="sm">{row.kind}</Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">
+                    {deliveryParts.join(' · ')}
+                  </p>
                 </div>
-                <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">
-                  {row.impressions.toLocaleString()} impressions{row.detail ? ` · ${row.detail}` : ''}
-                </p>
+                <div className="shrink-0 text-right">
+                  <p className="font-bold text-[color:var(--dusk-text-primary)]">{row.metric}</p>
+                  <p className="text-xs text-[color:var(--dusk-text-soft)]">{row.metricLabel ?? 'Metric'} · {row.share} share</p>
+                </div>
               </div>
-              <div className="shrink-0 text-right">
-                <p className="font-bold text-[color:var(--dusk-text-primary)]">{row.metric}</p>
-                <p className="text-xs text-[color:var(--dusk-text-soft)]">{row.metricLabel ?? 'Metric'} · {row.share} share</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <EmptyState

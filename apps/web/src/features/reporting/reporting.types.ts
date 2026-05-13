@@ -153,6 +153,7 @@ export type RegionRow = {
 
 export type InventorySourceRow = RegionRow & {
   kind: 'Domain' | 'App';
+  clicks?: number;
   detail?: string;
 };
 

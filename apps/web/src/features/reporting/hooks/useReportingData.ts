@@ -103,6 +103,8 @@ type RegionBreakdownRow = {
 type SiteBreakdownRow = {
   site_domain: string;
   impressions: number;
+  clicks: number;
+  ctr: number;
   viewability_rate: number;
 };
 
@@ -613,17 +615,26 @@ function buildInventorySourceRows({
     };
   });
 
-  const siteRows = sites.map<InventorySourceRow>((row) => ({
-    kind: 'Domain',
-    name: row.site_domain || 'Unknown domain',
-    impressions: toNumber(row.impressions),
-    metric: formatPercent(toNumber(row.viewability_rate)),
-    metricLabel: 'Viewability',
-    share: totalImpressions > 0 ? formatPercent((toNumber(row.impressions) / totalImpressions) * 100, 1) : '0.0%',
-  }));
+  const siteRows = sites.map<InventorySourceRow>((row) => {
+    const impressions = toNumber(row.impressions);
+    const clicks = toNumber(row.clicks);
+    return {
+      kind: 'Domain',
+      name: row.site_domain || 'Unknown domain',
+      impressions,
+      clicks,
+      metric: formatPercent(toNumber(row.ctr)),
+      metricLabel: 'CTR',
+      share: totalImpressions > 0 ? formatPercent((impressions / totalImpressions) * 100, 1) : '0.0%',
+    };
+  });
 
   return [...appRows, ...siteRows]
-    .sort((a, b) => b.impressions - a.impressions || a.name.localeCompare(b.name))
+    .sort((a, b) => (
+      b.impressions - a.impressions
+      || (b.clicks ?? 0) - (a.clicks ?? 0)
+      || a.name.localeCompare(b.name)
+    ))
     .slice(0, 6);
 }
 
@@ -664,12 +675,18 @@ export function useReportingData({
 
   const query = useMemo(() => {
     const { dateFrom, dateTo } = resolveEffectiveDateRange(dateRange, customDateRange);
+    const channel = mode === 'video'
+      ? 'video'
+      : mode === 'display'
+        ? 'display'
+        : undefined;
     return buildQuery({
       dateFrom,
       dateTo,
       advertiserId: advertiserId || undefined,
+      channel,
     });
-  }, [advertiserId, customDateRange, dateRange]);
+  }, [advertiserId, customDateRange, dateRange, mode]);
 
   const reload = useCallback(async () => {
     setState((current) => ({ ...current, loading: true, error: '' }));

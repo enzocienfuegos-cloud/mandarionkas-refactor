@@ -41,6 +41,7 @@ function getOpts(url) {
     country: url.searchParams.get('country') || undefined,
     region: url.searchParams.get('region') || undefined,
     city: url.searchParams.get('city') || undefined,
+    channel: url.searchParams.get('channel') || undefined,
     segmentPreset: url.searchParams.get('segmentPreset') || undefined,
     minImpressions: url.searchParams.get('minImpressions') || undefined,
     minClicks: url.searchParams.get('minClicks') || undefined,
