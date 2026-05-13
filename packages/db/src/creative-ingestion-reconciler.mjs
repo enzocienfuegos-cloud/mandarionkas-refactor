@@ -1,4 +1,4 @@
-const HTML5_PUBLISH_STALL_THRESHOLD_SECONDS = 15 * 60;
+const HTML5_PUBLISH_STALL_THRESHOLD_SECONDS = 2 * 60;
 const HTML5_PUBLISH_MAX_RETRIES = 3;
 
 export async function reconcileStalledHtml5Publishes(client, {

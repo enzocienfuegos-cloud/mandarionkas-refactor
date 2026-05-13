@@ -386,6 +386,11 @@ export async function handleCreativeIngestionRoutes(ctx) {
               }
   
               if (!creativeVersionId) throw new Error('Failed to resolve creative_version_id for HTML5 publish.');
+
+              // The DB trigger is the normal queue signal, but an explicit NOTIFY
+              // makes this path resilient when a migration or listener reconnect
+              // gap would otherwise leave the creative in "publishing".
+              await pool.query(`SELECT pg_notify('smx.publish-html5-archive', $1)`, [ingestionId]);
   
               logWarn({ event: 'html5_publish_dispatched_via_notify', ingestionId, creativeVersionId });
               return;

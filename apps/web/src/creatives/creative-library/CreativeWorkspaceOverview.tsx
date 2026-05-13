@@ -1,6 +1,5 @@
 import React from 'react';
-import { Button, ConfigurableMetricStrip, FilterBar, PageHeader } from '../../system';
-import { creativeMetricScope } from '../creative.metrics';
+import { Button, FilterBar, PageHeader } from '../../system';
 import {
   AlertTriangleIcon,
 } from './ui';
@@ -26,14 +25,6 @@ type Props = {
   onSearchChange: (value: string) => void;
   onUploadCreative: () => void;
   attentionCount: number;
-  creativeMetricData: {
-    creativeAvailability: number;
-    publishingCreatives: number;
-    liveCreatives: number;
-    attentionCreatives: number;
-    previewMissingCreatives: number;
-    filteredCreativeCount: number;
-  };
 };
 
 export function CreativeWorkspaceOverview({
@@ -52,7 +43,6 @@ export function CreativeWorkspaceOverview({
   onSearchChange,
   onUploadCreative,
   attentionCount,
-  creativeMetricData,
 }: Props) {
   return (
     <>
@@ -149,8 +139,6 @@ export function CreativeWorkspaceOverview({
           onSearchChange('');
         }}
       />
-
-      <ConfigurableMetricStrip scope={creativeMetricScope} data={creativeMetricData} />
     </>
   );
 }
