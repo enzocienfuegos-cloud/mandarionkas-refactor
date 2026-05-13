@@ -442,7 +442,7 @@ ${omidBlock}
   marginwidth="0"
   marginheight="0"
   allowfullscreen
-  sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation"
+  sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms allow-top-navigation-by-user-activation"
 ></iframe>
 <script>
 (function(){
@@ -479,7 +479,11 @@ ${omidBlock}
         }
       }
       if (navigateTo) {
-        try { window.top.location.href = navigateTo; } catch(_) { window.open(navigateTo, '_blank'); }
+        var opened = null;
+        try { opened = window.open(navigateTo, '_blank', 'noopener'); } catch(_) {}
+        if (!opened) {
+          try { window.top.location.href = navigateTo; } catch(_) { window.location.href = navigateTo; }
+        }
       }
     } catch(_) {}
   });
@@ -639,7 +643,7 @@ export function buildDisplayJs({
   iframe.style.border   = '0';
   iframe.style.overflow = 'hidden';
   iframe.style.display  = 'block';
-  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation');
+  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms allow-top-navigation-by-user-activation');
 
   if (clickTag) {
     iframe.addEventListener('load', function() {
@@ -665,7 +669,11 @@ export function buildDisplayJs({
         try { fetch(t, { method: 'POST', keepalive: true, mode: 'no-cors', credentials: 'include' }); } catch(_) { (new Image()).src = t; }
       }
       if (navigateTo) {
-        try { window.top.location.href = navigateTo; } catch(_) { window.open(navigateTo, '_blank'); }
+        var opened = null;
+        try { opened = window.open(navigateTo, '_blank', 'noopener'); } catch(_) {}
+        if (!opened) {
+          try { window.top.location.href = navigateTo; } catch(_) { window.location.href = navigateTo; }
+        }
       }
     } catch(_) {}
   });
