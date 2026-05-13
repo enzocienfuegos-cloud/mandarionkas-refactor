@@ -72,6 +72,14 @@ test('buildDisplayHtml passes tracker URL as clickTag to the creative iframe', (
     html.includes('url%3Dhttps%253A%252F%252Fadvertiser.com'),
     'tracker URL should include the destination as encoded ?url= param',
   );
+  assert.ok(
+    html.includes('allow-popups-to-escape-sandbox'),
+    'HTML wrapper sandbox should let click popups open outside inherited sandbox restrictions',
+  );
+  assert.ok(
+    html.includes("window.open(navigateTo, '_blank', 'noopener')"),
+    'HTML wrapper should prefer a clean new tab after click',
+  );
 });
 
 test('buildDisplayHtml uses tracker URL as clickTag even when clickUrl is empty', () => {
@@ -303,8 +311,29 @@ test('buildDisplayJs includes postMessage listener for smx:exit', () => {
     'JS should handle smx:exit protocol',
   );
   assert.ok(
+    js.includes("window.open(navigateTo, '_blank', 'noopener')"),
+    'JS should prefer a clean new tab after click',
+  );
+  assert.ok(
     js.includes('window.top.location.href = navigateTo'),
-    'JS should navigate top window after click',
+    'JS should keep top-window navigation as a fallback',
+  );
+});
+
+test('buildDisplayJs lets popup clicks escape the iframe sandbox', () => {
+  const js = buildDisplayJs({
+    creativeUrl: 'https://cdn.example.com/banner/index.html',
+    impressionUrl: '',
+    clickTrackerUrl: '',
+    engagementTrackerUrl: '',
+    clickTag: 'https://api.example.com/v1/tags/tracker/tag-1/click?url=https%3A%2F%2Fadvertiser.com',
+    width: 300,
+    height: 250,
+  });
+
+  assert.ok(
+    js.includes('allow-popups-to-escape-sandbox'),
+    'sandbox should allow click popups to open outside inherited sandbox restrictions',
   );
 });
 
