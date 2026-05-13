@@ -57,45 +57,58 @@ function log(level, payload) {
 }
 
 // ─── Handler wrappers ─────────────────────────────────────────────────────────
-// pg-boss work() handlers receive a job object { id, name, data, ... }.
+// pg-boss work() handlers may receive a job object or a small batch array,
+// depending on pg-boss version/options.
 // We ignore the job data here because the actual job state lives in the
 // platform tables — the pg-boss job is just a dispatch signal.
 
+function normalizeBossJobs(jobOrJobs) {
+  return Array.isArray(jobOrJobs) ? jobOrJobs.filter(Boolean) : [jobOrJobs].filter(Boolean);
+}
+
+function getBossJobIds(jobOrJobs) {
+  return normalizeBossJobs(jobOrJobs)
+    .map((job) => job?.id)
+    .filter(Boolean);
+}
+
 async function handleTranscodeVideo(job) {
-  log('info', { event: 'job_start', queue: QUEUE.TRANSCODE_VIDEO, pgbossJobId: job.id });
+  log('info', { event: 'job_start', queue: QUEUE.TRANSCODE_VIDEO, pgbossJobIds: getBossJobIds(job) });
   const result = await runTranscodeVideoJob();
-  log('info', { event: 'job_done', queue: QUEUE.TRANSCODE_VIDEO, pgbossJobId: job.id, ...result });
+  log('info', { event: 'job_done', queue: QUEUE.TRANSCODE_VIDEO, pgbossJobIds: getBossJobIds(job), ...result });
 }
 
 async function handleImageDerivatives(job) {
-  log('info', { event: 'job_start', queue: QUEUE.IMAGE_DERIVATIVES, pgbossJobId: job.id });
+  log('info', { event: 'job_start', queue: QUEUE.IMAGE_DERIVATIVES, pgbossJobIds: getBossJobIds(job) });
   const result = await runGenerateImageDerivativesJob();
-  log('info', { event: 'job_done', queue: QUEUE.IMAGE_DERIVATIVES, pgbossJobId: job.id, ...result });
+  log('info', { event: 'job_done', queue: QUEUE.IMAGE_DERIVATIVES, pgbossJobIds: getBossJobIds(job), ...result });
 }
 
-async function handlePublishHtml5Archive(job) {
-  const ingestionId = String(job?.data?.ingestionId || '').trim();
-  log('info', { event: 'job_start', queue: QUEUE.PUBLISH_HTML5_ARCHIVE, pgbossJobId: job.id, ingestionId });
-  const result = await runPublishHtml5ArchiveJob(ingestionId);
-  log('info', { event: 'job_done', queue: QUEUE.PUBLISH_HTML5_ARCHIVE, pgbossJobId: job.id, ingestionId, ...result });
+async function handlePublishHtml5Archive(jobOrJobs) {
+  for (const job of normalizeBossJobs(jobOrJobs)) {
+    const ingestionId = String(job?.data?.ingestionId || '').trim();
+    log('info', { event: 'job_start', queue: QUEUE.PUBLISH_HTML5_ARCHIVE, pgbossJobId: job?.id, ingestionId });
+    const result = await runPublishHtml5ArchiveJob(ingestionId);
+    log('info', { event: 'job_done', queue: QUEUE.PUBLISH_HTML5_ARCHIVE, pgbossJobId: job?.id, ingestionId, ...result });
+  }
 }
 
 async function handleMaintenance(job) {
-  log('info', { event: 'job_start', queue: QUEUE.MAINTENANCE, pgbossJobId: job.id });
+  log('info', { event: 'job_start', queue: QUEUE.MAINTENANCE, pgbossJobIds: getBossJobIds(job) });
   const result = await runMaintenanceJob();
-  log('info', { event: 'job_done', queue: QUEUE.MAINTENANCE, pgbossJobId: job.id, ...result });
+  log('info', { event: 'job_done', queue: QUEUE.MAINTENANCE, pgbossJobIds: getBossJobIds(job), ...result });
 }
 
 async function handleTrackerFlush(job) {
-  log('info', { event: 'job_start', queue: TRACKER_FLUSH_JOB, pgbossJobId: job.id });
+  log('info', { event: 'job_start', queue: TRACKER_FLUSH_JOB, pgbossJobIds: getBossJobIds(job) });
   const result = await runTrackerFlushJob();
-  log('info', { event: 'job_done', queue: TRACKER_FLUSH_JOB, pgbossJobId: job.id, ...result });
+  log('info', { event: 'job_done', queue: TRACKER_FLUSH_JOB, pgbossJobIds: getBossJobIds(job), ...result });
 }
 
 async function handleSweepOrphanR2Objects(job) {
-  log('info', { event: 'job_start', queue: QUEUE.SWEEP_ORPHAN_R2_OBJECTS, pgbossJobId: job.id });
+  log('info', { event: 'job_start', queue: QUEUE.SWEEP_ORPHAN_R2_OBJECTS, pgbossJobIds: getBossJobIds(job) });
   const result = await runSweepOrphanR2ObjectsJob();
-  log('info', { event: 'job_done', queue: QUEUE.SWEEP_ORPHAN_R2_OBJECTS, pgbossJobId: job.id, ...result });
+  log('info', { event: 'job_done', queue: QUEUE.SWEEP_ORPHAN_R2_OBJECTS, pgbossJobIds: getBossJobIds(job), ...result });
 }
 
 // ─── Work registration ────────────────────────────────────────────────────────

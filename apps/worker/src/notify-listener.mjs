@@ -169,5 +169,5 @@ export async function stopNotifyListener() {
     }
   }
 
-  log('info', { event: 'stopped', channel: CHANNEL });
+  log('info', { event: 'stopped', channels: CHANNEL_NAMES });
 }
