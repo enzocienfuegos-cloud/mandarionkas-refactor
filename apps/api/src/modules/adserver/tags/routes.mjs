@@ -135,6 +135,20 @@ function applyTagClickUrlPolicy(input, { format, trackerType }) {
   return input;
 }
 
+async function assertCampaignBelongsToWorkspace(client, campaignId, workspaceId) {
+  const normalizedCampaignId = String(campaignId ?? '').trim();
+  if (!normalizedCampaignId) return;
+  const { rowCount } = await client.query(
+    `SELECT 1 FROM campaigns WHERE id = $1 AND workspace_id = $2 LIMIT 1`,
+    [normalizedCampaignId, workspaceId],
+  );
+  if (!rowCount) {
+    const error = new Error('Campaign must belong to the selected client.');
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
 function normalizeTagBinding(row) {
   if (!row) return null;
   return {
@@ -270,6 +284,7 @@ export async function handleTagRoutes(ctx) {
           session.session.activeWorkspaceId,
           input.workspaceId,
         );
+        await assertCampaignBelongsToWorkspace(session.client, input.campaign_id, workspaceId);
         const tag = await createTag(session.client, workspaceId, input);
         return sendJson(res, 201, { tag: normalizeTag(tag), requestId });
       } catch (error) {
@@ -296,9 +311,11 @@ export async function handleTagRoutes(ctx) {
           session.client,
           session.user.id,
           session.session.activeWorkspaceId,
-          input.workspaceId || baseTag.workspace_id,
+          baseTag.workspace_id,
         );
+        await assertCampaignBelongsToWorkspace(session.client, input.campaign_id, workspaceId);
         const tag = await updateTag(session.client, workspaceId, id, input);
+        if (!tag) return badRequest(res, requestId, 'Tag was not updated.');
         return sendJson(res, 200, { tag: normalizeTag(tag), requestId });
       } catch (error) {
         return badRequest(res, requestId, error.message);

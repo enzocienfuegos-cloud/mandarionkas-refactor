@@ -185,11 +185,11 @@ test('buildDisplayHtml includes engagementTracker variable when engagementTracke
     'HTML should contain IntersectionObserver for viewability measurement',
   );
   assert.ok(
-    html.includes('event=viewable'),
+    html.includes("'event', 'viewable'"),
     'HTML should beacon viewable event',
   );
   assert.ok(
-    html.includes('event=hover_end'),
+    html.includes("'event', 'hover_end'"),
     'HTML should beacon hover_end event for attention time',
   );
 });
@@ -230,6 +230,10 @@ test('buildDisplayJs fires impression pixel immediately when impressionUrl is pr
   assert.ok(
     js.includes('var impressionUrl     = "https://api.example.com/v1/tags/tracker/tag-1/impression.gif";'),
     'JS should embed the provided impression tracker URL',
+  );
+  assert.ok(
+    js.includes('smxWithRuntimeContext') && js.includes("url.searchParams.set('dom', domain)"),
+    'JS should add runtime page/domain context when DSP macros are absent or unresolved',
   );
 });
 
@@ -320,11 +324,11 @@ test('buildDisplayJs includes engagement tracking when engagementTrackerUrl is p
     'JS should include IntersectionObserver for viewability tracking',
   );
   assert.ok(
-    js.includes('event=viewable'),
+    js.includes("'event', 'viewable'"),
     'JS should send viewable event beacons',
   );
   assert.ok(
-    js.includes('event=hover_end'),
+    js.includes("'event', 'hover_end'"),
     'JS should send hover_end event beacons',
   );
 });

@@ -156,6 +156,28 @@ export function buildTagWorkflowSteps({
   });
 }
 
+function tagPayloadToForm(payload: unknown, fallback: TagForm = emptyForm): TagForm {
+  const data = (payload as { tag?: Record<string, unknown> } | null)?.tag
+    ?? (payload as Record<string, unknown> | null)
+    ?? {};
+  const trackerType = data.trackerType === 'impression' ? 'impression' : 'click';
+  const format = (data.format as TagFormat | undefined) ?? fallback.format;
+
+  return {
+    workspaceId: String(data.workspaceId ?? data.workspace_id ?? fallback.workspaceId ?? ''),
+    name: String(data.name ?? fallback.name ?? ''),
+    campaignId: String((data.campaign as { id?: string } | undefined)?.id ?? data.campaignId ?? fallback.campaignId ?? ''),
+    format,
+    status: (data.status as TagStatus | undefined) ?? fallback.status,
+    clickUrl: format === 'tracker' && trackerType === 'click'
+      ? String(data.clickUrl ?? fallback.clickUrl ?? '').trim()
+      : '',
+    servingWidth: String(data.servingWidth ?? data.width ?? fallback.servingWidth ?? ''),
+    servingHeight: String(data.servingHeight ?? data.height ?? fallback.servingHeight ?? ''),
+    trackerType,
+  };
+}
+
 export function useTagBuilderData({
   id,
   isEdit,
@@ -207,23 +229,7 @@ export function useTagBuilderData({
         return response.json();
       })
       .then((tagPayload) => {
-        const data = (tagPayload?.tag ?? tagPayload) as Record<string, unknown>;
-        const trackerType = data.trackerType === 'impression' ? 'impression' : 'click';
-        const format = (data.format as TagFormat | undefined) ?? 'VAST';
-
-        setForm({
-          workspaceId: String(data.workspaceId ?? data.workspace_id ?? ''),
-          name: String(data.name ?? ''),
-          campaignId: String((data.campaign as { id?: string } | undefined)?.id ?? data.campaignId ?? ''),
-          format,
-          status: (data.status as TagStatus | undefined) ?? 'draft',
-          clickUrl: format === 'tracker' && trackerType === 'click'
-            ? String(data.clickUrl ?? '').trim()
-            : '',
-          servingWidth: String(data.servingWidth ?? data.width ?? ''),
-          servingHeight: String(data.servingHeight ?? data.height ?? ''),
-          trackerType,
-        });
+        setForm(tagPayloadToForm(tagPayload));
         setSavedTag(normalizeTagRecord(tagPayload));
         setSuccessMessage('');
       })
@@ -255,6 +261,7 @@ export function useTagBuilderData({
   useEffect(() => {
     if (!form.campaignId) return;
     if (!selectedWorkspaceId) return;
+    if (campaigns.length === 0) return;
     const campaignStillMatchesWorkspace = campaigns.some((campaign) => (
       campaign.id === form.campaignId
       && (campaign.workspaceId ?? campaign.workspace_id ?? '') === selectedWorkspaceId
@@ -401,10 +408,12 @@ export function useTagBuilderData({
 
       const payload = await response.json();
       const normalized = normalizeTagRecord(payload);
-      setSavedTag(normalized);
-      if (Object.keys(overrides).length > 0) {
-        setForm((current) => ({ ...current, ...overrides }));
+      if (!normalized?.id) {
+        setGeneralError('Failed to save tag.');
+        return null;
       }
+      setSavedTag(normalized);
+      setForm((current) => tagPayloadToForm(payload, { ...current, ...overrides }));
       setSuccessMessage(isEdit ? 'Tag updated successfully.' : 'Tag created successfully.');
       return normalized;
     } catch {

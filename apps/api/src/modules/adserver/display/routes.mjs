@@ -20,6 +20,67 @@ function escapeScriptContext(jsonStr) {
   return jsonStr.replace(/<\//g, '<\\/');
 }
 
+const RUNTIME_TRACKING_CONTEXT_JS = `
+  function smxIsUnresolvedMacroValue(value) {
+    var text = String(value || '').trim();
+    return !text || /[{}]|\\$\\{|%%/.test(text) || /^(unknown|null|undefined|n\\/a)$/i.test(text);
+  }
+  function smxReadPageUrl() {
+    try {
+      if (window.top && window.top.location && window.top.location.href) return window.top.location.href;
+    } catch(_) {}
+    return document.referrer || window.location.href || '';
+  }
+  function smxReadDomain(pageUrl) {
+    try { return new URL(pageUrl).hostname; } catch(_) {}
+    try { return new URL(document.referrer).hostname; } catch(_) {}
+    return '';
+  }
+  function smxShouldContextualizeUrl(rawUrl) {
+    var text = String(rawUrl || '');
+    if (!text) return false;
+    if (text.indexOf('/v1/tags/tracker/') !== -1) return true;
+    try { if (decodeURIComponent(text).indexOf('/v1/tags/tracker/') !== -1) return true; } catch(_) {}
+    return /[?&](dom|domain|sd|sdmn|purl|pu|pageUrlEnc|site)=/i.test(text);
+  }
+  function smxWithRuntimeContext(rawUrl) {
+    if (!smxShouldContextualizeUrl(rawUrl)) return rawUrl;
+    try {
+      var url = new URL(rawUrl, window.location.href);
+      var pageUrl = smxReadPageUrl();
+      var domain = smxReadDomain(pageUrl);
+      var domainKeys = ['dom', 'domain', 'sd', 'sdmn'];
+      var pageKeys = ['purl', 'pu', 'pageUrlEnc', 'site'];
+      var hasDomainKey = false;
+      var hasPageKey = false;
+      domainKeys.forEach(function(key) {
+        if (!url.searchParams.has(key)) return;
+        hasDomainKey = true;
+        if (domain && smxIsUnresolvedMacroValue(url.searchParams.get(key))) url.searchParams.set(key, domain);
+      });
+      pageKeys.forEach(function(key) {
+        if (!url.searchParams.has(key)) return;
+        hasPageKey = true;
+        if (pageUrl && smxIsUnresolvedMacroValue(url.searchParams.get(key))) url.searchParams.set(key, pageUrl);
+      });
+      if (domain && !hasDomainKey) url.searchParams.set('dom', domain);
+      if (pageUrl && !hasPageKey) url.searchParams.set('purl', pageUrl);
+      return url.toString();
+    } catch(_) {
+      return rawUrl;
+    }
+  }
+  function smxAppendQuery(rawUrl, key, value) {
+    try {
+      var url = new URL(rawUrl, window.location.href);
+      url.searchParams.set(key, value);
+      return url.toString();
+    } catch(_) {
+      return rawUrl + (String(rawUrl).indexOf('?') === -1 ? '?' : '&') + encodeURIComponent(key) + '=' + encodeURIComponent(value);
+    }
+  }
+`;
+
 function resolveBaseUrl(ctx) {
   const explicit = trimText(ctx.env.apiBaseUrl || ctx.env.apiPublicBaseUrl || ctx.env.baseUrl);
   if (explicit) return explicit.replace(/\/+$/, '');
@@ -446,13 +507,22 @@ ${omidBlock}
 ></iframe>
 <script>
 (function(){
-  ${safeImpressionJs ? `(new Image()).src = ${safeImpressionJs};` : '// impression suppressed'}
-
+  ${RUNTIME_TRACKING_CONTEXT_JS}
+  var creativeUrl = ${escapeScriptContext(JSON.stringify(safeCreativeUrl))};
+  var impressionUrl = ${safeImpressionJs ?? 'null'};
   var clickTracker = ${safeClickTrackerJs};
   var engagementTracker = ${safeEngagementTracker ? escapeScriptContext(JSON.stringify(safeEngagementTracker)) : 'null'};
   var injectedClickTag = ${trackedClickTag ? escapeScriptContext(JSON.stringify(trackedClickTag)) : 'null'};
   var frame = document.getElementById('smx-creative-frame');
+  impressionUrl = smxWithRuntimeContext(impressionUrl);
+  clickTracker = smxWithRuntimeContext(clickTracker);
+  engagementTracker = smxWithRuntimeContext(engagementTracker);
+  injectedClickTag = smxWithRuntimeContext(injectedClickTag);
+  if (impressionUrl) (new Image()).src = impressionUrl;
+  if (injectedClickTag) window.clickTag = injectedClickTag;
   if (frame && injectedClickTag) {
+    var nextFrameSrc = creativeUrl + (creativeUrl.indexOf('?') === -1 ? '?' : '&') + 'clickTag=' + encodeURIComponent(injectedClickTag);
+    if (frame.getAttribute('src') !== nextFrameSrc) frame.src = nextFrameSrc;
     frame.addEventListener('load', function() {
       try {
         frame.contentWindow.postMessage(
@@ -471,7 +541,7 @@ ${omidBlock}
       var navigateTo = resolvedClickUrl || clickTracker || '';
       var isAlreadyTracked = clickTracker && resolvedClickUrl && resolvedClickUrl.indexOf(clickTracker) === 0;
       if (clickTracker && !isAlreadyTracked) {
-        var t = clickTracker + (clickTracker.indexOf('?') === -1 ? '?' : '&') + 'url=' + encodeURIComponent(resolvedClickUrl || clickTracker);
+        var t = smxAppendQuery(clickTracker, 'url', resolvedClickUrl || clickTracker);
         try {
           fetch(t, { method: 'POST', keepalive: true, mode: 'no-cors', credentials: 'include' });
         } catch(_) {
@@ -505,7 +575,7 @@ ${omidBlock}
       var duration = Date.now() - viewStart;
       viewStart = null;
       if (duration > 0) {
-        sendBeacon(engagementTracker + '?event=viewable&t=' + Math.round(duration));
+        sendBeacon(smxAppendQuery(smxAppendQuery(engagementTracker, 'event', 'viewable'), 't', Math.round(duration)));
       }
     }
 
@@ -514,7 +584,7 @@ ${omidBlock}
       var duration = Date.now() - hoverStart;
       hoverStart = null;
       if (duration > 0) {
-        sendBeacon(engagementTracker + '?event=hover_end&t=' + Math.round(duration));
+        sendBeacon(smxAppendQuery(smxAppendQuery(engagementTracker, 'event', 'hover_end'), 't', Math.round(duration)));
       }
     }
 
@@ -523,14 +593,14 @@ ${omidBlock}
       if (viewStart) {
         var viewDuration = Date.now() - viewStart;
         if (viewDuration > 0) {
-          sendBeacon(engagementTracker + '?event=viewable&t=' + Math.round(viewDuration));
+          sendBeacon(smxAppendQuery(smxAppendQuery(engagementTracker, 'event', 'viewable'), 't', Math.round(viewDuration)));
           viewStart = Date.now();
         }
       }
       if (hoverStart) {
         var hoverDuration = Date.now() - hoverStart;
         if (hoverDuration > 0) {
-          sendBeacon(engagementTracker + '?event=hover_end&t=' + Math.round(hoverDuration));
+          sendBeacon(smxAppendQuery(smxAppendQuery(engagementTracker, 'event', 'hover_end'), 't', Math.round(hoverDuration)));
           hoverStart = Date.now();
         }
       }
@@ -614,6 +684,12 @@ export function buildDisplayJs({
 
   if (!creativeUrl) return;
 
+  ${RUNTIME_TRACKING_CONTEXT_JS}
+  impressionUrl = smxWithRuntimeContext(impressionUrl);
+  clickTrackerUrl = smxWithRuntimeContext(clickTrackerUrl);
+  engagementUrl = smxWithRuntimeContext(engagementUrl);
+  clickTag = smxWithRuntimeContext(clickTag);
+
   var script = document.currentScript;
   if (!script) return;
   var parent = script.parentNode;
@@ -661,7 +737,7 @@ export function buildDisplayJs({
       var navigateTo = resolvedClickUrl || clickTrackerUrl || '';
       var isAlreadyTracked = clickTrackerUrl && resolvedClickUrl && resolvedClickUrl.indexOf(clickTrackerUrl) === 0;
       if (clickTrackerUrl && !isAlreadyTracked) {
-        var t = clickTrackerUrl + (clickTrackerUrl.indexOf('?') === -1 ? '?' : '&') + 'url=' + encodeURIComponent(resolvedClickUrl || clickTrackerUrl);
+        var t = smxAppendQuery(clickTrackerUrl, 'url', resolvedClickUrl || clickTrackerUrl);
         try { fetch(t, { method: 'POST', keepalive: true, mode: 'no-cors', credentials: 'include' }); } catch(_) { (new Image()).src = t; }
       }
       if (navigateTo) {
@@ -676,8 +752,8 @@ export function buildDisplayJs({
     function sendBeacon(url) {
       try { fetch(url, { method: 'GET', keepalive: true, mode: 'no-cors', credentials: 'include' }); } catch(_) { (new Image()).src = url; }
     }
-    function flushView() { if (!viewStart) return; var d = Date.now() - viewStart; viewStart = null; if (d > 0) sendBeacon(engagementUrl + '?event=viewable&t=' + Math.round(d)); }
-    function flushHover() { if (!hoverStart) return; var d = Date.now() - hoverStart; hoverStart = null; if (d > 0) sendBeacon(engagementUrl + '?event=hover_end&t=' + Math.round(d)); }
+    function flushView() { if (!viewStart) return; var d = Date.now() - viewStart; viewStart = null; if (d > 0) sendBeacon(smxAppendQuery(smxAppendQuery(engagementUrl, 'event', 'viewable'), 't', Math.round(d))); }
+    function flushHover() { if (!hoverStart) return; var d = Date.now() - hoverStart; hoverStart = null; if (d > 0) sendBeacon(smxAppendQuery(smxAppendQuery(engagementUrl, 'event', 'hover_end'), 't', Math.round(d))); }
     function flush() { if (flushed) return; flushed = true; flushView(); flushHover(); }
     if (typeof IntersectionObserver !== 'undefined') {
       var isMRC = false; var mrcTimer = null;
@@ -693,8 +769,8 @@ export function buildDisplayJs({
     window.addEventListener('beforeunload', flush);
     setInterval(function() {
       if (flushed) return;
-      if (viewStart) { var d = Date.now() - viewStart; if (d > 0) { sendBeacon(engagementUrl + '?event=viewable&t=' + Math.round(d)); viewStart = Date.now(); } }
-      if (hoverStart) { var d2 = Date.now() - hoverStart; if (d2 > 0) { sendBeacon(engagementUrl + '?event=hover_end&t=' + Math.round(d2)); hoverStart = Date.now(); } }
+      if (viewStart) { var d = Date.now() - viewStart; if (d > 0) { sendBeacon(smxAppendQuery(smxAppendQuery(engagementUrl, 'event', 'viewable'), 't', Math.round(d))); viewStart = Date.now(); } }
+      if (hoverStart) { var d2 = Date.now() - hoverStart; if (d2 > 0) { sendBeacon(smxAppendQuery(smxAppendQuery(engagementUrl, 'event', 'hover_end'), 't', Math.round(d2))); hoverStart = Date.now(); } }
     }, 5000);
   })();
 

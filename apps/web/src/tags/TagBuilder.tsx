@@ -106,9 +106,21 @@ export default function TagBuilder() {
     setWorkflowStep('publish');
   };
 
+  const saveCurrentEditableStep = async () => {
+    if (!isEdit) return true;
+    if (currentStep !== 'campaign' && currentStep !== 'format') return true;
+    if (!validateStep(currentStep)) return false;
+    const normalized = await saveTag();
+    return Boolean(normalized?.id);
+  };
+
   const handleWorkflowNext = async () => {
     if (currentStep === 'campaign' || currentStep === 'format') {
       if (!validateStep(currentStep)) return;
+      if (isEdit) {
+        const normalized = await saveTag();
+        if (!normalized?.id) return;
+      }
     }
 
     if (currentStep === 'creative' && !savedTag) {
@@ -122,6 +134,13 @@ export default function TagBuilder() {
     }
 
     setWorkflowStep(nextStep(currentStep));
+  };
+
+  const handleWorkflowStepClick = async (step: TagWorkflowStepId) => {
+    if (step === currentStep) return;
+    const saved = await saveCurrentEditableStep();
+    if (!saved) return;
+    setWorkflowStep(step);
   };
 
   const tagWorkflowSteps = buildTagWorkflowSteps({
@@ -187,7 +206,7 @@ export default function TagBuilder() {
                 Campaign, delivery contract, QA and snippet all move in order so traffickers can publish with confidence.
               </p>
             </div>
-            <Stepper steps={tagWorkflowSteps} onStepClick={(stepId) => setWorkflowStep(stepId as TagWorkflowStepId)} />
+            <Stepper steps={tagWorkflowSteps} onStepClick={(stepId) => { void handleWorkflowStepClick(stepId as TagWorkflowStepId); }} />
           </Panel>
 
           <div className="space-y-6">
@@ -246,8 +265,8 @@ export default function TagBuilder() {
                   <Button variant="ghost" onClick={() => navigate('/tags')} leadingIcon={<ArrowLeft />}>
                     Back to tags
                   </Button>
-                  <Button onClick={() => void handleWorkflowNext()} trailingIcon={<ArrowRight />}>
-                    Continue to format
+                  <Button onClick={() => void handleWorkflowNext()} loading={saving} trailingIcon={<ArrowRight />}>
+                    {isEdit ? 'Save and continue' : 'Continue to format'}
                   </Button>
                 </div>
               </Panel>
@@ -339,8 +358,8 @@ export default function TagBuilder() {
                   <Button variant="ghost" onClick={() => setWorkflowStep(previousStep(currentStep))} leadingIcon={<ArrowLeft />}>
                     Back
                   </Button>
-                  <Button onClick={() => void handleWorkflowNext()} trailingIcon={<ArrowRight />}>
-                    Continue to creative
+                  <Button onClick={() => void handleWorkflowNext()} loading={saving} trailingIcon={<ArrowRight />}>
+                    {isEdit ? 'Save and continue' : 'Continue to creative'}
                   </Button>
                 </div>
               </Panel>

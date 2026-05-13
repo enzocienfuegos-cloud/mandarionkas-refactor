@@ -84,10 +84,24 @@ export default function TagSnippetPanel({
       />
 
       {dspMacroSpec && activeSnippet ? (
-        <MacroResolver
-          tag={activeSnippet}
-          spec={dspMacroSpec}
-        />
+        <details className="group rounded-xl border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-elevated)] p-4">
+          <summary className="flex cursor-pointer list-none items-start justify-between gap-4">
+            <div>
+              <Kicker>Macros</Kicker>
+              <h2 className="mt-2 text-base font-semibold text-[color:var(--dusk-text-primary)]">Macro resolver</h2>
+              <p className="mt-1 text-xs text-[color:var(--dusk-text-secondary)]">
+                Open this only when you need to audit DSP macro expansion and passthrough values.
+              </p>
+            </div>
+            <span className="text-[color:var(--dusk-text-tertiary)] transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div className="mt-4">
+            <MacroResolver
+              tag={activeSnippet}
+              spec={dspMacroSpec}
+            />
+          </div>
+        </details>
       ) : null}
     </div>
   );

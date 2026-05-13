@@ -105,16 +105,24 @@ export default function TagDiagnosticsPanel({
   return (
     <Panel className="mt-6 p-6">
       <Kicker>Diagnostics</Kicker>
-      <div className="mt-3 space-y-2">
-        <h2 className="text-base font-semibold text-[color:var(--dusk-text-primary)]">System checks</h2>
-        <p className="text-sm text-[color:var(--dusk-text-secondary)]">
-          High-level delivery health before drilling into raw policy and URL detail.
-        </p>
-      </div>
-      <div className="mt-4">
-        <TagDiagnostics checks={summaryChecks} loading={deliveryDiagnosticsLoading} />
-      </div>
-      <details className="group rounded-lg border border-[color:var(--dusk-border-default)] px-4 py-3">
+      <details className="group mt-4 rounded-lg border border-[color:var(--dusk-border-default)] px-4 py-3">
+        <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-[color:var(--dusk-text-primary)]">System checks</h2>
+            <p className="mt-1 text-sm text-[color:var(--dusk-text-secondary)]">
+              High-level delivery health before drilling into raw policy and URL detail.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {deliveryDiagnosticsLoading && <span className="text-xs text-[color:var(--dusk-text-secondary)]">Loading…</span>}
+            <span className="text-[color:var(--dusk-text-tertiary)] transition-transform group-open:rotate-180">▾</span>
+          </div>
+        </summary>
+        <div className="mt-4">
+          <TagDiagnostics checks={summaryChecks} loading={deliveryDiagnosticsLoading} />
+        </div>
+      </details>
+      <details className="group mt-4 rounded-lg border border-[color:var(--dusk-border-default)] px-4 py-3">
         <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
           <div>
             <h2 className="mt-2 text-base font-semibold text-[color:var(--dusk-text-primary)]">Delivery Diagnostics</h2>

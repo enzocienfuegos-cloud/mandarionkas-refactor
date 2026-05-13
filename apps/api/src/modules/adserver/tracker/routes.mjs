@@ -52,6 +52,17 @@ function extractHostname(urlOrDomain) {
   }
 }
 
+function isUnresolvedMacroValue(value) {
+  const text = trimText(decodeStringSafe(value));
+  if (!text) return false;
+  return /[{}]|\$\{|%%/.test(text) || /^(unknown|null|undefined|n\/a)$/i.test(text);
+}
+
+function normalizeResolvedTrackingValue(value) {
+  const decoded = trimText(decodeStringSafe(value));
+  return decoded && !isUnresolvedMacroValue(decoded) ? decoded : '';
+}
+
 function trimQuotedHeader(value) {
   return trimText(value).replace(/^"+|"+$/g, '');
 }
@@ -151,23 +162,25 @@ function getDatabasePool(env) {
   return connectionString ? getPool(connectionString) : null;
 }
 
-function extractTrackingContext(req, url, geo) {
+export function extractTrackingContext(req, url, geo) {
   const p = url.searchParams;
-  const rawPageUrl = trimText(
+  const pageUrl = normalizeResolvedTrackingValue(
     p.get('purl') || p.get('pu') || p.get('pageUrlEnc') || p.get('site') || '',
   );
-  const rawDomain = trimText(
+  const domain = normalizeResolvedTrackingValue(
     p.get('dom') || p.get('sd') || p.get('domain') ||
     p.get('sdmn') || p.get('siteid') || p.get('inventoryUnitReportingName') || '',
   );
-  const siteDomain = rawDomain
-    ? extractHostname(decodeStringSafe(rawDomain))
-    : rawPageUrl
-      ? extractHostname(decodeStringSafe(rawPageUrl))
-      : extractHostname(trimText(req.headers.referer || req.headers.referrer || ''));
+  const headerReferer = trimText(req.headers.referer || req.headers.referrer || '');
+  const siteDomain = normalizeResolvedTrackingValue(
+    domain
+      ? extractHostname(domain)
+      : pageUrl
+        ? extractHostname(pageUrl)
+        : extractHostname(headerReferer),
+  );
 
-  const referer = decodeStringSafe(rawPageUrl) ||
-    trimText(req.headers.referer || req.headers.referrer || '') || null;
+  const referer = pageUrl || headerReferer || null;
 
   return {
     siteDomain: siteDomain || null,

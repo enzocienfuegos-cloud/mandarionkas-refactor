@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createTrackerRoutes } from './routes.mjs';
+import { createTrackerRoutes, extractTrackingContext } from './routes.mjs';
 import { TrackerBuffer } from './tracker-buffer.mjs';
 
 function createFakePool() {
@@ -134,6 +134,23 @@ test('click route redirects to explicit target without requiring a database', as
   assert.equal(handled, true);
   assert.equal(ctx.res.statusCode, 302);
   assert.equal(ctx.res.headers.Location, 'https://example.com/landing');
+});
+
+test('tracking context falls back to referer when DSP domain macros are unresolved', () => {
+  const url = new URL('http://localhost/v1/tags/tracker/tag-abc/impression.gif?dom={domain}&purl={pageUrlEnc}');
+  const ctx = extractTrackingContext(
+    {
+      headers: {
+        referer: 'https://preview.example.com/tools/tag-preview?slot=hero',
+        'user-agent': 'node-test',
+      },
+    },
+    url,
+    { country: null, region: null, city: null, ip: null },
+  );
+
+  assert.equal(ctx.siteDomain, 'preview.example.com');
+  assert.equal(ctx.referer, 'https://preview.example.com/tools/tag-preview?slot=hero');
 });
 
 test('tracker routes use the buffer when provided', async () => {
