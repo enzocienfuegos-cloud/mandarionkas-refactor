@@ -2,6 +2,7 @@ import React from 'react';
 import { EmptyState } from '../../../system';
 import type { ReportingMode, WidgetConfig, WidgetSize } from '../reporting.types';
 import type { ReportingDataViewModel } from '../hooks/useReportingData';
+import { DeviceBreakdown } from './DeviceBreakdown';
 import { DisplayTable } from './DisplayTable';
 import { IdentityInsights } from './IdentityInsights';
 import { IdentityMethodology } from './IdentityMethodology';
@@ -113,6 +114,8 @@ function WidgetByType({
       );
     case 'inventorySources':
       return <InventorySources rows={data.inventorySourceRows} />;
+    case 'deviceBreakdown':
+      return <DeviceBreakdown rows={data.deviceRows} />;
     case 'topRegions':
       return <TopRegions rows={data.topRegions} />;
     case 'topCreatives':

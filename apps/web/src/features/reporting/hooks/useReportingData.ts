@@ -5,6 +5,7 @@ import type {
   AttributionWindowRow,
   CampaignPerformanceRow,
   CreativeRow,
+  DeviceBreakdownRow,
   FrequencyBucketRow,
   IdentityTypeRow,
   InventorySourceRow,
@@ -193,6 +194,7 @@ type HookState = {
   topCreatives: CreativeRow[];
   topRegions: RegionRow[];
   inventorySourceRows: InventorySourceRow[];
+  deviceRows: DeviceBreakdownRow[];
   trackerHealth: TrackerHealthRow[];
   identitySegments: IdentityTypeRow[];
   videoFunnel: VideoFunnelRow[];
@@ -662,6 +664,38 @@ function buildInventorySourceRows({
     .slice(0, 6);
 }
 
+function buildDeviceRows({
+  deviceTypes,
+  deviceModels,
+  totalImpressions,
+}: {
+  deviceTypes: Array<{ label: string; value: number }>;
+  deviceModels: Array<{ label: string; value: number }>;
+  totalImpressions: number;
+}): DeviceBreakdownRow[] {
+  const toDeviceRow = (row: { label: string; value: number }, kind: DeviceBreakdownRow['kind']): DeviceBreakdownRow => {
+    const impressions = toNumber(row.value);
+    const label = String(row.label || 'Unknown').trim() || 'Unknown';
+    return {
+      kind,
+      name: kind === 'Type' ? titleCase(label) : label,
+      impressions,
+      metric: formatCount(impressions),
+      metricLabel: 'Impressions',
+      share: totalImpressions > 0 ? formatPercent((impressions / totalImpressions) * 100, 1) : '0.0%',
+    };
+  };
+
+  return [
+    ...deviceTypes.map((row) => toDeviceRow(row, 'Type')),
+    ...deviceModels
+      .filter((row) => String(row.label ?? '').trim().toLowerCase() !== 'unknown')
+      .map((row) => toDeviceRow(row, 'Model')),
+  ]
+    .sort((a, b) => b.impressions - a.impressions || a.name.localeCompare(b.name))
+    .slice(0, 8);
+}
+
 const INITIAL_STATE: HookState = {
   advertiserOptions: [],
   kpis: [],
@@ -669,6 +703,7 @@ const INITIAL_STATE: HookState = {
   topCreatives: [],
   topRegions: [],
   inventorySourceRows: [],
+  deviceRows: [],
   trackerHealth: [],
   identitySegments: [],
   videoFunnel: [],
@@ -862,6 +897,11 @@ export function useReportingData({
         apps: appPayload.breakdown ?? [],
         totalImpressions: toNumber(stats.total_impressions),
       });
+      const deviceRows = buildDeviceRows({
+        deviceTypes: contextSnapshotPayload.device_types ?? [],
+        deviceModels: contextSnapshotPayload.device_models ?? [],
+        totalImpressions: toNumber(stats.total_impressions),
+      });
 
       const trackerHealth = buildTrackerHealth(trackerPayload.breakdown ?? []);
 
@@ -953,6 +993,7 @@ export function useReportingData({
         topCreatives,
         topRegions,
         inventorySourceRows,
+        deviceRows,
         trackerHealth,
         identitySegments,
         videoFunnel,

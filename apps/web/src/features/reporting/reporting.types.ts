@@ -33,6 +33,7 @@ export type WidgetType =
   | 'identityAttribution'
   | 'audienceExport'
   | 'inventorySources'
+  | 'deviceBreakdown'
   | 'topRegions'
   | 'topCreatives'
   | 'trackerHealth'
@@ -156,6 +157,10 @@ export type InventorySourceRow = RegionRow & {
   kind: 'Domain' | 'App';
   clicks?: number;
   detail?: string;
+};
+
+export type DeviceBreakdownRow = RegionRow & {
+  kind: 'Type' | 'Model';
 };
 
 export type CreativeRow = {
