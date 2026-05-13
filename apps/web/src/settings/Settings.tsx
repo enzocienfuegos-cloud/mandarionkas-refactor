@@ -295,8 +295,8 @@ function NotificationsSection() {
           onChange={() => toggle('emailDiscrepancies')}
         />
         <ToggleRow
-          label="Approval requests"
-          description="Email me when a creative is submitted for approval."
+          label="Creative upload issues"
+          description="Email me when a creative upload, publish, or destination URL needs attention."
           checked={prefs.emailApprovals}
           onChange={() => toggle('emailApprovals')}
         />

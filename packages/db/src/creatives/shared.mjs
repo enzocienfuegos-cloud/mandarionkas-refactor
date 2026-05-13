@@ -30,22 +30,22 @@ export function extractJsonObject(value, fallback = {}) {
 }
 
 export function normalizeRawClickUrl(value) {
-  const raw = String(value ?? '').trim();
+  const raw = String(value ?? '').trim().replace(/^(https?):\/(?!\/)/i, '$1://');
   if (!raw) return null;
   try {
     const parsed = new URL(raw);
     if (parsed.pathname.includes('/v1/tags/tracker/') && parsed.searchParams.has('url')) {
-      const dest = parsed.searchParams.get('url');
+      const dest = String(parsed.searchParams.get('url') || '').trim().replace(/^(https?):\/(?!\/)/i, '$1://');
       if (dest) {
         try {
           const validated = new URL(dest);
-          if (validated.protocol === 'http:' || validated.protocol === 'https:') return dest;
+          if (validated.protocol === 'http:' || validated.protocol === 'https:') return validated.toString();
         } catch (_) {
           // Fall through to store the original raw URL if the extracted destination is invalid.
         }
       }
     }
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return raw;
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
     return null;
   } catch (_) {
     return null;

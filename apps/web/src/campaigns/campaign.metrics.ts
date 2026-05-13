@@ -32,16 +32,16 @@ export const campaignMetricScope: MetricScope<CampaignMetricData> = {
     },
     {
       id: 'blocked',
-      label: 'Blocked / limited',
-      description: 'Campaigns requiring trafficking review.',
+      label: 'Paused',
+      description: 'Campaigns intentionally not serving.',
       group: 'Risk',
       tone: 'warning',
       compute: ({ blockedOrLimited }) => ({
         id: 'blocked',
-        label: 'Blocked / limited',
+        label: 'Paused',
         value: String(blockedOrLimited),
         tone: blockedOrLimited > 0 ? 'warning' : 'success',
-        context: 'Need delivery review',
+        context: 'Not serving by campaign status',
       }),
     },
     {
@@ -63,7 +63,7 @@ export const campaignMetricScope: MetricScope<CampaignMetricData> = {
     {
       id: 'issues',
       label: 'Open issues',
-      description: 'Tags, creatives, and pacing blockers.',
+      description: 'Operational blockers from visible campaigns.',
       group: 'Risk',
       tone: 'critical',
       compute: ({ openIssues }) => ({
@@ -71,7 +71,7 @@ export const campaignMetricScope: MetricScope<CampaignMetricData> = {
         label: 'Open issues',
         value: String(openIssues),
         tone: openIssues > 0 ? 'critical' : 'success',
-        context: 'Tags, creatives and pacing',
+        context: 'Serving signal and status',
       }),
     },
     {

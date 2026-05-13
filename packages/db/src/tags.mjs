@@ -39,6 +39,16 @@ function baseTagSelect() {
             t.geo_targets, t.device_targets, t.created_at, t.updated_at,
             c.name AS campaign_name,
             c.metadata AS campaign_metadata,
+            COALESCE((
+              SELECT COUNT(*)::int
+              FROM impression_events ie
+              WHERE ie.tag_id = t.id
+            ), 0) AS total_impressions,
+            (
+              SELECT MAX(ie.timestamp)
+              FROM impression_events ie
+              WHERE ie.tag_id = t.id
+            ) AS last_impression_at,
             0::int AS assigned_count,
             ''::text AS assigned_names,
             COALESCE(tfc.display_width, 0) AS serving_width,

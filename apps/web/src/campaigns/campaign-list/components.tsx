@@ -230,7 +230,7 @@ export function CampaignsTable({
           <Kicker>Campaign workspace</Kicker>
           <h2 className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Active &amp; setup campaigns</h2>
           <p className="mt-2 text-sm text-text-muted">
-            Operational view for pacing, tag health, creative QA and launch readiness. Spend is shown {spendView === 'with_margin' ? 'with' : 'without'} margin.
+            Operational view for pacing, serving signal, auto-approved creatives and launch readiness. Spend is shown {spendView === 'with_margin' ? 'with' : 'without'} margin.
           </p>
         </div>
         <Link to="/campaigns/new">
@@ -241,7 +241,7 @@ export function CampaignsTable({
       <div className="mt-5 grid gap-3 md:grid-cols-4">
         <CampaignStatusCard title="Total" value={String(campaignRows.length)} helper="campaigns in workspace" />
         <CampaignStatusCard title="Live" value={String(liveCampaigns)} helper="eligible to deliver" />
-        <CampaignStatusCard title="Needs attention" value={String(blockedOrLimited)} helper="blocked or limited" />
+        <CampaignStatusCard title="Paused" value={String(blockedOrLimited)} helper="not serving by status" />
         <CampaignStatusCard title="Draft setup" value={String(draftSetup)} helper="missing setup steps" />
       </div>
 

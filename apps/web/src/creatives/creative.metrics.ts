@@ -61,7 +61,7 @@ export const creativeMetricScope: MetricScope<CreativeMetricData> = {
     {
       id: 'creative-attention',
       label: 'Needs attention',
-      description: 'Creatives blocked by missing preview, failed processing or invalid assets.',
+      description: 'Creatives blocked by upload, asset processing, or missing destination URL issues.',
       group: 'Risk',
       tone: 'critical',
       compute: ({ attentionCreatives }) => ({
@@ -69,7 +69,7 @@ export const creativeMetricScope: MetricScope<CreativeMetricData> = {
         label: 'Needs attention',
         value: String(attentionCreatives),
         tone: attentionCreatives > 0 ? 'critical' : 'success',
-        context: 'Blocked by preview or processing issues',
+        context: 'Upload, asset, or URL issues',
       }),
     },
     {

@@ -106,6 +106,12 @@ export function useCreativeCatalogViewModel({
     const transcodeStatus = String(version.transcodeStatus ?? '').toLowerCase();
     const videoProcessingStatus = String(metadata.videoProcessing?.status ?? '').toLowerCase();
     const html5PublishStatus = String(metadata.html5Publish?.status ?? '').toLowerCase();
+    const sourceKind = String(version.sourceKind ?? '').toLowerCase();
+    const servingFormat = String(version.servingFormat ?? '').toLowerCase();
+    const missingClickUrl = !String(creative.clickUrl ?? '').trim()
+      && !['vast_video', 'video'].includes(servingFormat)
+      && sourceKind !== 'video_mp4';
+
     return versionStatus === 'rejected'
       || transcodeStatus === 'failed'
       || transcodeStatus === 'blocked'
@@ -113,7 +119,8 @@ export function useCreativeCatalogViewModel({
       || videoProcessingStatus === 'failed'
       || videoProcessingStatus === 'blocked'
       || html5PublishStatus === 'failed'
-      || isHtml5PublishStale(metadata);
+      || isHtml5PublishStale(metadata)
+      || missingClickUrl;
   };
 
   const getCreativeIssueMessage = (creative: Creative) => {
@@ -121,6 +128,13 @@ export function useCreativeCatalogViewModel({
     const metadata = (version?.metadata ?? {}) as Record<string, any>;
     if (isHtml5PublishStale(metadata)) {
       return 'La publicación HTML5 lleva demasiado tiempo en cola. El worker va a reintentar automáticamente; si no cambia, vuelve a publicar el ZIP.';
+    }
+    if (version && !String(creative.clickUrl ?? '').trim()) {
+      const sourceKind = String(version.sourceKind ?? '').toLowerCase();
+      const servingFormat = String(version.servingFormat ?? '').toLowerCase();
+      if (!['vast_video', 'video'].includes(servingFormat) && sourceKind !== 'video_mp4') {
+        return 'Falta una URL de destino para el click-through del creativo.';
+      }
     }
     const html5PublishDetail = formatOperationalIssueMessage(metadata.html5Publish?.detail);
     if (html5PublishDetail) return html5PublishDetail;
@@ -336,7 +350,7 @@ export function useCreativeCatalogViewModel({
     { name: 'creative formats are valid', passed: creativeRows.every((row) => ['Display', 'HTML5', 'Video', 'Native'].includes(row.format)) },
     { name: 'operational signals are valid', passed: creativeRows.every((row) => ['Ready', 'Publishing', 'Needs attention', 'Inactive'].includes(row.signal)) },
     { name: 'preview state is represented', passed: creativeRows.every((row) => row.preview && row.owner) },
-    { name: 'primary CTA remains upload creative', passed: true },
+    { name: 'creative approval is automatic', passed: true },
   ];
 
   const toggleCreativeSelection = (creativeId: string) => {

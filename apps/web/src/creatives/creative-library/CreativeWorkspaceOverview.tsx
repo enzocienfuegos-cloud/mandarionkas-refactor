@@ -49,7 +49,7 @@ export function CreativeWorkspaceOverview({
       <PageHeader
         kicker="Creatives · Delivery workspace"
         title="Creatives"
-        meta={`${attentionCount} creatives need operational attention · upload and publish workspace`}
+        meta={`${attentionCount} creatives with upload or URL issues · upload and publish workspace`}
         primaryAction={(
           <Button
             type="button"
@@ -61,19 +61,19 @@ export function CreativeWorkspaceOverview({
           </Button>
         )}
         secondaryActions={secondaryActions}
-        alert={(
+        alert={attentionCount > 0 ? (
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-start gap-3">
               <AlertTriangleIcon className="mt-0.5 shrink-0" />
               <p className="text-sm font-medium">
-                {attentionCount} creatives need attention before they can serve cleanly.
+                {attentionCount} creatives have upload, asset, or destination URL issues.
               </p>
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => onStatusFilterChange('attention')} className="shrink-0">
               Filter to issues
             </Button>
           </div>
-        )}
+        ) : undefined}
       />
 
       <FilterBar

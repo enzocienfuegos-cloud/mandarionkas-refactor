@@ -4,7 +4,7 @@ export type Severity = 'critical' | 'warning' | 'notice' | 'healthy';
 export type TrendDirection = 'up' | 'down' | 'flat';
 export type Tone = 'fuchsia' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
 export type IconProps = { className?: string };
-export type CampaignStatus = 'Live' | 'Limited' | 'Blocked' | 'Ready' | 'Draft';
+export type CampaignStatus = 'Live' | 'Paused' | 'Ready' | 'Draft' | 'Archived';
 
 export interface Campaign {
   id: string;

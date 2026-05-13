@@ -1,14 +1,29 @@
 import React from 'react';
 import { Badge, EmptyState } from '../../../system';
 import type { InventorySourceRow } from '../reporting.types';
+import { RankSortToggle, type RankSortDirection } from './RankSortToggle';
 import { WidgetPanel } from './WidgetPanel';
 
 export function InventorySources({ rows }: { rows: InventorySourceRow[] }) {
+  const [sortDirection, setSortDirection] = React.useState<RankSortDirection>('desc');
+  const sortedRows = React.useMemo(() => (
+    [...rows].sort((left, right) => (
+      sortDirection === 'desc'
+        ? right.impressions - left.impressions
+        : left.impressions - right.impressions
+    ))
+  ), [rows, sortDirection]);
+
   return (
-    <WidgetPanel title="Sites & apps" icon="geo" tone="slate">
+    <WidgetPanel
+      title="Sites & apps"
+      icon="geo"
+      tone="slate"
+      action={rows.length ? <RankSortToggle direction={sortDirection} onChange={setSortDirection} /> : null}
+    >
       {rows.length ? (
         <div className="space-y-3">
-          {rows.map((row) => {
+          {sortedRows.map((row) => {
             const deliveryParts = [
               `${row.impressions.toLocaleString()} impressions`,
               typeof row.clicks === 'number' ? `${row.clicks.toLocaleString()} clicks` : '',

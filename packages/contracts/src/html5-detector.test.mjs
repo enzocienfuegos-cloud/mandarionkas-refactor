@@ -5,6 +5,7 @@ import {
   detectDimensionsInHtml,
   extractReferencedAssetPathsFromCss,
   extractReferencedAssetPathsFromHtml,
+  rewriteClickTagInHtml,
   validateHtml5Bundle,
 } from './html5-detector.mjs';
 
@@ -41,6 +42,28 @@ test('detects Adform bsClickTAG getVar pattern', () => {
 test('detects Xandr-style bsClickTAG fallback assignment after getClickTagValue', () => {
   const html = `<script>var bsClickTAG = decodeURIComponent(getClickTagValue()); if(bsClickTAG === '') {bsClickTAG = "https://wa.me/50325058000"} else {var encUrl = encodeURIComponent("https://wa.me/50325058000"); if (bsClickTAG.indexOf("https://wa.me/50325058000") === -1) bsClickTAG += encUrl; } window.bannerURL = "bsClickTAG";</script>`;
   assert.equal(detectClickTagInHtml(html), 'https://wa.me/50325058000');
+});
+
+test('rewrites clickTag URL without concatenating old and new destinations', () => {
+  const html = `<script>var clickTag = "https://bocadeli.com/";</script>`;
+  const result = rewriteClickTagInHtml(
+    html,
+    'https:/www.roblox.com/games/134720376226601/The-World-of-Bocadeli-Flavor',
+  );
+  assert.equal(result.replaced, true);
+  assert.equal(result.detectedClickUrl, 'https://bocadeli.com/');
+  assert.equal(
+    result.html,
+    `<script>var clickTag = "https://www.roblox.com/games/134720376226601/The-World-of-Bocadeli-Flavor";</script>`,
+  );
+});
+
+test('rewrites matching repeated clickTag destinations across the same asset', () => {
+  const html = `<script>var clickTag = "https://old.example/"; window.open("https://old.example/");</script>`;
+  const result = rewriteClickTagInHtml(html, 'https://new.example/path');
+  assert.equal(result.replaced, true);
+  assert.equal(result.html.includes('https://old.example/'), false);
+  assert.equal((result.html.match(/https:\/\/new\.example\/path/g) || []).length, 2);
 });
 
 test('rejects non-http values', () => {

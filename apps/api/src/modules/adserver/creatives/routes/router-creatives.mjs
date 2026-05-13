@@ -57,6 +57,7 @@ import {
   markCreativeIngestionStatus,
   normalizeRawClickUrl,
   regenerateVideoRenditions,
+  rewritePublishedHtml5ClickUrl,
   updateCreativeIngestion,
   updateCreative,
   updateCreativeSizeVariant,
@@ -125,12 +126,34 @@ export async function handleCreativeCatalogRoutes(ctx) {
           session.session.activeWorkspaceId,
           ctx.body?.workspaceId || ctx.body?.workspace_id || url.searchParams.get('workspaceId') || url.searchParams.get('clientId'),
         );
-        const creative = await updateCreative(session.client, workspaceId, creativeId, {
+        const hasClickUrlUpdate = hasOwn(ctx.body, 'clickUrl') || hasOwn(ctx.body, 'click_url');
+        const nextClickUrl = hasClickUrlUpdate
+          ? normalizeRawClickUrl(ctx.body?.clickUrl ?? ctx.body?.click_url ?? null)
+          : null;
+        const updateInput = {
           name: ctx.body?.name,
-          click_url: normalizeRawClickUrl(ctx.body?.clickUrl ?? ctx.body?.click_url ?? null),
-        });
+          ...(hasClickUrlUpdate ? { click_url: nextClickUrl } : {}),
+        };
+        const creative = await updateCreative(session.client, workspaceId, creativeId, updateInput);
         if (!creative) return badRequest(res, requestId, 'Creative not found.');
-        return sendJson(res, 200, { creative: normalizeCreative(creative), requestId });
+        let clickUrlRewrite = null;
+        if (hasClickUrlUpdate && nextClickUrl) {
+          try {
+            clickUrlRewrite = await rewritePublishedHtml5ClickUrl(ctx.env, session.client, {
+              workspaceId,
+              creativeId,
+              clickUrl: nextClickUrl,
+            });
+          } catch (err) {
+            logWarn({
+              event: 'creative_click_url_publish_rewrite_failed',
+              creativeId,
+              workspaceId,
+              message: err?.message ?? String(err),
+            });
+          }
+        }
+        return sendJson(res, 200, { creative: normalizeCreative(creative), clickUrlRewrite, requestId });
       });
     }
   

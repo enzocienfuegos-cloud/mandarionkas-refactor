@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../../shared/workspaces';
 import { EMPTY_CREATE_FORM, type CreateTagForm, type Tag } from './types';
+import { hasSignalGap } from './utils';
 
 type ConfirmFn = (options: any) => Promise<boolean>;
 type ToastFn = (options: { tone: 'warning' | 'critical' | 'success' | 'info'; title: string }) => void;
@@ -129,7 +130,7 @@ export function useTagListWorkspace({
     const matchesClient = !filters.selectedClientId || (tag.workspaceId ?? '') === filters.selectedClientId;
     if (!matchesClient) return false;
 
-    if (filters.statusFilter === 'qa' && !['paused', 'draft'].includes(tag.status)) {
+    if (filters.statusFilter === 'qa' && !hasSignalGap(tag)) {
       return false;
     }
 
@@ -137,7 +138,7 @@ export function useTagListWorkspace({
       return false;
     }
 
-    if (filters.needsQaOnly && !['paused', 'draft'].includes(tag.status)) {
+    if (filters.needsQaOnly && !hasSignalGap(tag)) {
       return false;
     }
 
@@ -165,9 +166,11 @@ export function useTagListWorkspace({
   const draftTags = filteredTags.filter((tag) => tag.status === 'draft').length;
   const archivedTags = filteredTags.filter((tag) => tag.status === 'archived').length;
   const totalTags = filteredTags.length;
-  const healthyRate = totalTags ? Math.round((activeTags / totalTags) * 100) : 0;
+  const signalGapTags = filteredTags.filter(hasSignalGap).length;
+  const eligibleSignalTags = filteredTags.filter((tag) => tag.status === 'active' && (Number(tag.totalImpressions ?? 0) > 0 || hasSignalGap(tag))).length;
+  const healthyRate = eligibleSignalTags ? Math.round(((eligibleSignalTags - signalGapTags) / eligibleSignalTags) * 100) : 100;
   const readyTags = filteredTags.filter((tag) => tag.status !== 'draft').length;
-  const needsAttentionCount = pausedTags + draftTags;
+  const needsAttentionCount = signalGapTags;
 
   useEffect(() => {
     setFilters((current) => ({

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { detectClickTagInHtml, detectDimensionsInHtml, validateHtml5Bundle } from '@smx/contracts/src/html5-detector.mjs';
+import { detectClickTagInHtml, detectDimensionsInHtml, rewriteClickTagInHtml, validateHtml5Bundle } from '@smx/contracts/src/html5-detector.mjs';
 import { getPool } from '@smx/db/src/pool.mjs';
 import unzipper from 'unzipper';
 import { badRequest, forbidden, sendJson, sendNoContent, serviceUnavailable, unauthorized } from '../../../../lib/http.mjs';
@@ -235,10 +235,17 @@ export function isHtml5TextAsset(filename) {
   return (
     lower.endsWith('.html')
     || lower.endsWith('.htm')
+    || lower.endsWith('.js')
+    || lower.endsWith('.mjs')
     || lower.endsWith('.css')
     || lower.endsWith('.svg')
     || lower.endsWith('.txt')
   );
+}
+
+export function isHtml5ClickUrlRewriteAsset(filename) {
+  const lower = String(filename || '').toLowerCase();
+  return lower.endsWith('.html') || lower.endsWith('.htm') || lower.endsWith('.js') || lower.endsWith('.mjs');
 }
 
 export function buildHtml5BundleAssetSources(entries) {
@@ -319,11 +326,26 @@ export async function publishHtml5ArchiveInProcess(env, pool, {
     throw new Error(`HTML5 archive references missing assets: ${bundleValidation.missingPaths.join(', ')}`);
   }
 
+  const entryHtmlSource = entryAsset.body ? entryAsset.body.toString('utf-8') : null;
+  const detectedClickUrl = detectClickTagInHtml(entryHtmlSource);
+  const requestedClickUrl = normalizeRawClickUrl(initialMetadata?.clickUrl || initialMetadata?.requestedClickUrl || null);
+  const resolvedClickUrl = requestedClickUrl || detectedClickUrl || null;
+  const detectedDimensions = detectDimensionsInHtml(entryHtmlSource);
+  let rewrittenAssetCount = 0;
+  const publishEntries = entries.map((entry) => {
+    if (!requestedClickUrl || !isHtml5ClickUrlRewriteAsset(entry.publishedPath)) return entry;
+    const rewrite = rewriteClickTagInHtml(entry.body.toString('utf-8'), requestedClickUrl);
+    if (!rewrite.replaced) return entry;
+    rewrittenAssetCount += 1;
+    const body = Buffer.from(rewrite.html, 'utf-8');
+    return { ...entry, body };
+  });
+
   const storagePrefix = `workspaces/${workspaceId}/creative-versions/${creativeVersionId}/html5`;
   const publicBase = trimBaseUrl(env.assetsPublicBaseUrl);
   const uploaded = [];
 
-  for (const entry of entries) {
+  for (const entry of publishEntries) {
     const storageKey = `${storagePrefix}/${entry.publishedPath}`;
     const contentType = guessHtml5ContentType(entry.publishedPath);
     const isHtml = entry.publishedPath.toLowerCase().endsWith('.html') || entry.publishedPath.toLowerCase().endsWith('.htm');
@@ -345,9 +367,6 @@ export async function publishHtml5ArchiveInProcess(env, pool, {
   }
 
   const publishedEntry = uploaded.find((e) => e.publishedPath === entryAsset.publishedPath) || uploaded[0];
-  const entryHtmlSource = entryAsset.body ? entryAsset.body.toString('utf-8') : null;
-  const detectedClickUrl = detectClickTagInHtml(entryHtmlSource);
-  const detectedDimensions = detectDimensionsInHtml(entryHtmlSource);
   const publishMetadata = {
     ...(initialMetadata || {}),
     html5Publish: {
@@ -357,7 +376,9 @@ export async function publishHtml5ArchiveInProcess(env, pool, {
       storagePrefix,
       entryPath: publishedEntry.publishedPath,
       publicUrl: publishedEntry.publicUrl,
+      ...(resolvedClickUrl ? { clickUrl: resolvedClickUrl } : {}),
       ...(detectedClickUrl ? { detectedClickUrl } : {}),
+      ...(rewrittenAssetCount ? { rewrittenAssetCount } : {}),
     },
   };
 
@@ -376,7 +397,7 @@ export async function publishHtml5ArchiveInProcess(env, pool, {
 
   await finalizePublishedHtml5Creative(pool, workspaceId, creativeVersionId, {
     publicUrl: publishedEntry.publicUrl,
-    detectedClickUrl: detectedClickUrl ?? null,
+    detectedClickUrl: resolvedClickUrl ?? null,
     width: detectedDimensions?.width ?? null,
     height: detectedDimensions?.height ?? null,
   });
@@ -440,6 +461,86 @@ export function inferStorageKeyFromPublicUrl(env, publicUrl) {
   if (!base || !normalizedUrl) return null;
   if (!normalizedUrl.startsWith(`${base}/`)) return null;
   return normalizedUrl.slice(base.length + 1) || null;
+}
+
+async function readObjectBodyToBuffer(body) {
+  const chunks = [];
+  for await (const chunk of body || []) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+function dirnameStorageKey(storageKey) {
+  const normalized = trimText(storageKey).replace(/^\/+/, '');
+  if (!normalized.includes('/')) return '';
+  return normalized.slice(0, normalized.lastIndexOf('/'));
+}
+
+async function listHtml5RewriteKeys(env, storagePrefix, fallbackStorageKey) {
+  const client = getR2Client(env);
+  const keys = new Set();
+  const prefix = trimText(storagePrefix).replace(/^\/+|\/+$/g, '');
+  if (prefix) {
+    try {
+      const response = await client.send(new ListObjectsV2Command({
+        Bucket: env.r2Bucket,
+        Prefix: `${prefix}/`,
+        MaxKeys: 1000,
+      }));
+      for (const item of response.Contents || []) {
+        if (item?.Key && isHtml5ClickUrlRewriteAsset(item.Key)) keys.add(item.Key);
+      }
+    } catch (_) {
+      // Some narrowly-scoped R2 keys can write objects but not list a prefix.
+      // In that case we still update the published entry HTML below.
+    }
+  }
+  if (fallbackStorageKey && isHtml5ClickUrlRewriteAsset(fallbackStorageKey)) keys.add(fallbackStorageKey);
+  return [...keys];
+}
+
+export async function rewritePublishedHtml5ClickUrl(env, pool, { workspaceId, creativeId, clickUrl }) {
+  const normalizedClickUrl = normalizeRawClickUrl(clickUrl);
+  if (!normalizedClickUrl || !isR2SigningReady(env)) return { rewritten: 0, skipped: true };
+
+  const versions = await listCreativeVersions(pool, workspaceId, creativeId);
+  const latestHtml5 = versions.find((version) => {
+    const sourceKind = trimText(version.source_kind).toLowerCase();
+    return sourceKind === 'html5_zip' && trimText(version.public_url);
+  });
+  if (!latestHtml5) return { rewritten: 0, skipped: true };
+
+  const metadata = latestHtml5.metadata && typeof latestHtml5.metadata === 'object' ? latestHtml5.metadata : {};
+  const publicUrl = trimText(metadata?.html5Publish?.publicUrl || latestHtml5.public_url);
+  const fallbackStorageKey = inferStorageKeyFromPublicUrl(env, publicUrl);
+  const storagePrefix = trimText(metadata?.html5Publish?.storagePrefix || metadata?.publishJob?.storagePrefix)
+    || dirnameStorageKey(fallbackStorageKey);
+  if (!storagePrefix && !fallbackStorageKey) return { rewritten: 0, skipped: true };
+
+  const client = getR2Client(env);
+  const keys = await listHtml5RewriteKeys(env, storagePrefix, fallbackStorageKey);
+  let rewritten = 0;
+  for (const storageKey of keys) {
+    const object = await client.send(new GetObjectCommand({ Bucket: env.r2Bucket, Key: storageKey }));
+    const body = await readObjectBodyToBuffer(object.Body);
+    const rewrite = rewriteClickTagInHtml(body.toString('utf-8'), normalizedClickUrl);
+    if (!rewrite.replaced) continue;
+    const nextBody = Buffer.from(rewrite.html, 'utf-8');
+    await client.send(new PutObjectCommand({
+      Bucket: env.r2Bucket,
+      Key: storageKey,
+      Body: nextBody,
+      ContentType: object.ContentType || guessHtml5ContentType(storageKey),
+      ContentLength: nextBody.length,
+      CacheControl: storageKey.toLowerCase().endsWith('.html') || storageKey.toLowerCase().endsWith('.htm')
+        ? 'no-store, no-cache, must-revalidate'
+        : 'public, max-age=300',
+    }));
+    rewritten += 1;
+  }
+
+  return { rewritten, skipped: false };
 }
 
 export async function signUploadUrl(env, { storageKey, mimeType }) {

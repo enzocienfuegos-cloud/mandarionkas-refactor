@@ -45,9 +45,11 @@ export function getLastSeenLabel(tag: Tag) {
 }
 
 export function getFiringLabel(tag: Tag) {
+  if (hasSignalGap(tag)) return 'No signal after 7 days';
+  if (Number(tag.totalImpressions ?? 0) > 0) return 'Firing';
   switch (tag.status) {
     case 'active':
-      return 'Live';
+      return 'Live · awaiting first signal';
     case 'paused':
       return 'Paused';
     case 'draft':
@@ -69,9 +71,21 @@ export function getDestinationLabel(tag: Tag) {
 }
 
 export function getRisk(tag: Tag): PrioritySeverity {
-  if (tag.status === 'draft') return 'Critical';
+  if (hasSignalGap(tag)) return 'Critical';
   if (tag.status === 'paused') return 'Warning';
   return 'Notice';
+}
+
+export function isOlderThanDays(value: string | null | undefined, days: number) {
+  const timestamp = Date.parse(String(value ?? ''));
+  if (!Number.isFinite(timestamp)) return false;
+  return Date.now() - timestamp >= days * 24 * 60 * 60 * 1000;
+}
+
+export function hasSignalGap(tag: Tag) {
+  return tag.status === 'active'
+    && Number(tag.totalImpressions ?? 0) === 0
+    && isOlderThanDays(tag.createdAt, 7);
 }
 
 export function getOwner(tag: Tag) {

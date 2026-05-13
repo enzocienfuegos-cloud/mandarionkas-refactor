@@ -29,7 +29,7 @@ export function CreativeSidebarInsights({
           <Panel className="px-4 py-4">
             <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Needs attention</p>
             <p className="mt-2 text-2xl font-semibold text-text-primary">{attentionCreatives}</p>
-            <p className="mt-1 text-sm text-text-muted">blocked by missing preview or failed processing</p>
+            <p className="mt-1 text-sm text-text-muted">upload, publish, or URL issues</p>
           </Panel>
           <Panel className="px-4 py-4">
             <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Missing preview</p>

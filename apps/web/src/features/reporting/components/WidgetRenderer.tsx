@@ -6,10 +6,8 @@ import { DisplayTable } from './DisplayTable';
 import { IdentityInsights } from './IdentityInsights';
 import { IdentityMethodology } from './IdentityMethodology';
 import { InventorySources } from './InventorySources';
-import { RecommendationsPanel } from './RecommendationsPanel';
 import { TopCreatives } from './TopCreatives';
 import { TopRegions } from './TopRegions';
-import { TrackerHealth } from './TrackerHealth';
 import { TrendChart } from './TrendChart';
 import { VideoFormatDonut } from './VideoFormatDonut';
 import { VideoFunnel } from './VideoFunnel';
@@ -119,10 +117,6 @@ function WidgetByType({
       return <TopRegions rows={data.topRegions} />;
     case 'topCreatives':
       return <TopCreatives mode={mode} rows={data.topCreatives} />;
-    case 'trackerHealth':
-      return <TrackerHealth rows={data.trackerHealth} />;
-    case 'recommendations':
-      return <RecommendationsPanel rows={data.recommendations} />;
     default:
       return null;
   }

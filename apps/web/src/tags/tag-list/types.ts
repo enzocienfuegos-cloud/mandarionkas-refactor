@@ -13,6 +13,8 @@ export interface Tag {
   trackerType?: 'click' | 'impression' | null;
   assignedCount?: number;
   assignedNames?: string;
+  totalImpressions?: number;
+  lastImpressionAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }

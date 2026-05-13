@@ -50,10 +50,10 @@ export function toneClass(tone: Tone) {
 export function statusBadge(status: CampaignStatus) {
   const map: Record<CampaignStatus, string> = {
     Live: 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]',
-    Limited: 'border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]',
-    Blocked: 'border-[color:var(--dusk-status-critical-border)] bg-[color:var(--dusk-status-critical-bg)] text-[color:var(--dusk-status-critical-fg)]',
+    Paused: 'border-[color:var(--dusk-status-warning-border)] bg-[color:var(--dusk-status-warning-bg)] text-[color:var(--dusk-status-warning-fg)]',
     Ready: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]',
     Draft: 'border-[color:var(--dusk-status-neutral-border)] bg-[color:var(--dusk-status-neutral-bg)] text-[color:var(--dusk-status-neutral-fg)]',
+    Archived: 'border-[color:var(--dusk-status-neutral-border)] bg-[color:var(--dusk-status-neutral-bg)] text-[color:var(--dusk-status-neutral-fg)]',
   };
   return map[status];
 }

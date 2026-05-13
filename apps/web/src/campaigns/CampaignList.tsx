@@ -64,9 +64,9 @@ export default function CampaignList() {
         const nextFilters = view.filters ?? {};
         filters.setSelectedClientIds(nextFilters.clientId ? [String(nextFilters.clientId)] : []);
         filters.setSearch(String(nextFilters.search ?? ''));
-        filters.setStatusFilter((['all', 'live', 'limited', 'blocked', 'ready', 'draft'].includes(String(nextFilters.status))
+        filters.setStatusFilter((['all', 'live', 'paused', 'ready', 'draft', 'archived'].includes(String(nextFilters.status))
           ? nextFilters.status
-          : 'all') as 'all' | 'live' | 'limited' | 'blocked' | 'ready' | 'draft');
+          : 'all') as 'all' | 'live' | 'paused' | 'ready' | 'draft' | 'archived');
         filters.setSpendView((['without_margin', 'with_margin'].includes(String(nextFilters.spendView))
           ? nextFilters.spendView
           : 'without_margin') as 'without_margin' | 'with_margin');
@@ -283,7 +283,7 @@ export default function CampaignList() {
           <PageHeader
             kicker="Campaigns · Delivery workspace"
             title="Campaigns"
-            meta={`${campaignRows.length} campaigns · ${blockedOrLimited} blocked or limited · delivery workspace`}
+            meta={`${campaignRows.length} campaigns · ${blockedOrLimited} paused · delivery workspace`}
             primaryAction={<Link to="/campaigns/new"><Button variant="primary">New campaign</Button></Link>}
             secondaryActions={(
               <SavedViewsMenu
@@ -314,12 +314,12 @@ export default function CampaignList() {
                 }}
               />
             )}
-            alert={(
+            alert={needsAttentionRows.length ? (
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
                   <AlertTriangleIcon className="mt-0.5 shrink-0" />
                   <p className="text-sm font-medium">
-                  {needsAttentionRows.length} campaigns need attention before new trafficking changes.
+                  {needsAttentionRows.length} campaigns need operational review before new trafficking changes.
                 </p>
               </div>
                 <Button
@@ -332,7 +332,7 @@ export default function CampaignList() {
                   Focus issues
                 </Button>
               </div>
-            )}
+            ) : undefined}
           />
 
           <FilterBar
@@ -354,12 +354,12 @@ export default function CampaignList() {
                 options: [
                   { value: 'all', label: 'Active + setup' },
                   { value: 'live', label: 'Live' },
-                  { value: 'limited', label: 'Limited' },
-                  { value: 'blocked', label: 'Blocked' },
+                  { value: 'paused', label: 'Paused' },
                   { value: 'ready', label: 'Ready' },
                   { value: 'draft', label: 'Draft' },
+                  { value: 'archived', label: 'Archived' },
                 ],
-                onChange: (value) => filters.setStatusFilter(value as 'all' | 'live' | 'limited' | 'blocked' | 'ready' | 'draft'),
+                onChange: (value) => filters.setStatusFilter(value as 'all' | 'live' | 'paused' | 'ready' | 'draft' | 'archived'),
               },
               {
                 id: 'spend-view',

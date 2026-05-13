@@ -111,7 +111,7 @@ export async function createPublishedCreative(client, input = {}) {
       resolvedDurationMs,
       normalizedClickUrl,
       JSON.stringify(creativeMetadata),
-      'draft',
+      'approved',
       normalizedSourceKind === 'video_mp4' ? 'queued' : 'ready',
     ],
   );
@@ -133,7 +133,7 @@ export async function createPublishedCreative(client, input = {}) {
       creative.id,
       normalizedSourceKind,
       servingFormat,
-      normalizeCreativeStatus(shouldDeferHtml5ArchivePublish ? 'processing' : 'draft'),
+      normalizeCreativeStatus(shouldDeferHtml5ArchivePublish ? 'processing' : 'approved'),
       initialCreativePublicUrl,
       resolvedEntryPath,
       mimeType,
@@ -287,7 +287,7 @@ export async function finalizePublishedHtml5Version(pool, workspaceId, creativeV
          width      = COALESCE($6, width),
          height     = COALESCE($7, height),
          metadata   = $8::jsonb,
-         status     = 'draft',
+         status     = 'approved',
          updated_at = NOW()
      WHERE workspace_id = $1 AND id = $2`,
     [workspaceId, creativeVersionId, publicUrl, publishedPath, mimeType, width, height, JSON.stringify(metadata || {})],

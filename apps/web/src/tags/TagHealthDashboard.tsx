@@ -22,7 +22,7 @@ const statusBadge = (status: TagHealth['status']) => {
     healthy: { tone: 'success', label: 'Healthy' },
     warning: { tone: 'warning', label: 'Warning' },
     critical: { tone: 'critical', label: 'Critical' },
-    unknown: { tone: 'neutral', label: 'Unknown' },
+    unknown: { tone: 'neutral', label: 'Not enough signal' },
   };
   const { tone, label } = cfg[status];
   return <Badge tone={tone}>{label}</Badge>;
@@ -122,8 +122,8 @@ export default function TagHealthDashboard() {
     <div>
       <PageHeader
         kicker="Tags"
-        title="Tag Health"
-        meta={`${tags.length} tags monitored · real-time delivery health across the workspace`}
+        title="Tag signal health"
+        meta={`${tags.length} tags monitored · new or inactive tags stay neutral until signal is expected`}
         secondaryActions={<Button onClick={load} variant="secondary">Refresh</Button>}
       />
 
@@ -132,7 +132,7 @@ export default function TagHealthDashboard() {
         <KpiCard label="Healthy" value={summary?.healthy ?? 0} tone="success" />
         <KpiCard label="Warning" value={summary?.warning ?? 0} tone="warning" />
         <KpiCard label="Critical" value={summary?.critical ?? 0} tone="critical" />
-        <KpiCard label="Unknown" value={summary?.unknown ?? 0} tone="neutral" />
+        <KpiCard label="Not enough signal" value={summary?.unknown ?? 0} tone="neutral" />
       </div>
 
       {/* Tags table */}
@@ -140,7 +140,7 @@ export default function TagHealthDashboard() {
         <Panel className="py-20">
           <EmptyState
             title="No health data available"
-            description="Tag health appears once tags begin serving. Activate a tag or widen the workspace scope to inspect delivery risk."
+            description="Signal health appears once active tags begin serving, or after an active tag has gone 7 days without impressions."
           />
         </Panel>
       ) : (

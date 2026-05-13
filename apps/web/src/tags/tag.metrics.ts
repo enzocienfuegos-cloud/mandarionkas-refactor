@@ -15,33 +15,33 @@ export const tagMetricScope: MetricScope<TagMetricData> = {
   metrics: [
     {
       id: 'tag-health',
-      label: 'Tag health',
-      description: 'Healthy share of visible tags.',
+      label: 'Signal health',
+      description: 'Share of signal-eligible active tags that are receiving impressions.',
       group: 'Health',
       tone: 'brand',
       compute: ({ totalTags, healthyRate }) => {
         if (totalTags === 0) return null;
         return {
           id: 'tag-health',
-          label: 'Tag health',
+          label: 'Signal health',
           value: `${healthyRate}%`,
           tone: healthyRate >= 80 ? 'success' : healthyRate >= 60 ? 'warning' : 'critical',
-          context: 'Validated firing across active placements',
+          context: 'Only evaluates active tags after signal is expected',
         };
       },
     },
     {
       id: 'low-firing',
-      label: 'Low / no firing',
-      description: 'Tags that need implementation review.',
+      label: 'Signal gaps',
+      description: 'Active tags older than 7 days with no impressions.',
       group: 'Risk',
       tone: 'warning',
       compute: ({ needsAttentionCount }) => ({
         id: 'low-firing',
-        label: 'Low / no firing',
+        label: 'Signal gaps',
         value: String(needsAttentionCount),
         tone: needsAttentionCount > 0 ? 'warning' : 'success',
-        context: 'Need implementation review',
+        context: 'Active 7+ days with no impressions',
       }),
     },
     {
@@ -60,16 +60,16 @@ export const tagMetricScope: MetricScope<TagMetricData> = {
     },
     {
       id: 'missing-tags',
-      label: 'Missing tags',
-      description: 'Draft tags blocking launch.',
-      group: 'Risk',
-      tone: 'critical',
+      label: 'Draft tags',
+      description: 'Tags still in setup.',
+      group: 'Setup',
+      tone: 'neutral',
       compute: ({ draftTags }) => ({
         id: 'missing-tags',
-        label: 'Missing tags',
+        label: 'Draft tags',
         value: String(draftTags),
-        tone: draftTags > 0 ? 'critical' : 'success',
-        context: 'Setup blockers before launch',
+        tone: 'neutral',
+        context: 'Not counted as signal risk',
       }),
     },
     {

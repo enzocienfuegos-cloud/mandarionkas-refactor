@@ -2,10 +2,11 @@ const HEALTHY_THRESHOLD_24H = 1;
 const WARNING_ERROR_RATE = 0.05;
 const CRITICAL_ERROR_RATE = 0.2;
 const STALE_HOURS = 48;
+const NO_SIGNAL_GRACE_DAYS = 7;
 
 export async function checkTagHealth(pool, workspaceId, tagId) {
   const { rows: tagRows } = await pool.query(
-    `SELECT id, name, status, workspace_id FROM ad_tags WHERE id = $1 AND workspace_id = $2`,
+    `SELECT id, name, status, workspace_id, created_at FROM ad_tags WHERE id = $1 AND workspace_id = $2`,
     [tagId, workspaceId],
   );
   if (!tagRows.length) return null;
@@ -28,8 +29,13 @@ export async function checkTagHealth(pool, workspaceId, tagId) {
   const errorRate = impressionCount24h > 0 ? nonViewable / impressionCount24h : 0;
 
   let status = 'unknown';
-  if (tag.status === 'archived') {
+  const ageDays = tag.created_at
+    ? (Date.now() - new Date(tag.created_at).getTime()) / 86_400_000
+    : 0;
+  if (tag.status !== 'active') {
     status = 'unknown';
+  } else if (!lastImpressionAt && ageDays >= NO_SIGNAL_GRACE_DAYS) {
+    status = 'critical';
   } else if (!lastImpressionAt) {
     status = 'unknown';
   } else {
@@ -45,6 +51,8 @@ export async function checkTagHealth(pool, workspaceId, tagId) {
 
   const details = {
     tag_status: tag.status,
+    tag_age_days: Math.max(0, Math.round(ageDays * 10) / 10),
+    no_signal_grace_days: NO_SIGNAL_GRACE_DAYS,
     error_rate: Math.round(errorRate * 10000) / 10000,
     non_viewable_count: nonViewable,
   };

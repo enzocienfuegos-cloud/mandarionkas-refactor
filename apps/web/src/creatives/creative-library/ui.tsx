@@ -117,7 +117,7 @@ export function formatBytes(value?: number | null) {
 export function statusBadge(status?: string) {
   const map: Record<string, React.ComponentProps<typeof Badge>['tone']> = {
     draft: 'neutral',
-    pending_review: 'warning',
+    pending_review: 'success',
     approved: 'success',
     rejected: 'critical',
     published: 'info',
@@ -128,7 +128,8 @@ export function statusBadge(status?: string) {
     unavailable: 'neutral',
     uploaded: 'neutral',
   };
-  return <Badge tone={map[status ?? 'draft'] ?? map.draft} className="capitalize">{(status ?? 'draft').replace(/_/g, ' ')}</Badge>;
+  const label = status === 'pending_review' ? 'approved' : (status ?? 'draft').replace(/_/g, ' ');
+  return <Badge tone={map[status ?? 'draft'] ?? map.draft} className="capitalize">{label}</Badge>;
 }
 
 export function readinessBadge(variant: CreativeSizeVariant) {

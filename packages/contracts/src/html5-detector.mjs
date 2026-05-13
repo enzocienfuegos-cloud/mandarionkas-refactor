@@ -56,6 +56,65 @@ export function detectClickTagInHtml(htmlSource) {
   return null;
 }
 
+export function rewriteClickTagInHtml(htmlSource, destinationUrl) {
+  const source = typeof htmlSource === 'string' ? htmlSource : '';
+  const replacementUrl = normalizeHttpUrl(destinationUrl);
+  if (!source || !replacementUrl) {
+    return { html: source, replaced: false, detectedClickUrl: null };
+  }
+
+  const detectedClickUrl = detectClickTagInHtml(source);
+  const patterns = [
+    [/(?:var\s+|window\.)clickTag\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/(?:var\s+|window\.)clickTAG\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/(?<![.\w])clickTag\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/Enabler\.exit\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/ExitApi\.exit\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/(?<!\w)bsClickTAG["']?\s*:\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/var\s+bsClickTAG\s*=\s*dhtml\.getVar\s*\(\s*["'][^"']{0,64}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']\s*\)/i, 1],
+    [/if\s*\(\s*bsClickTAG\s*===\s*["']{2}\s*\)\s*\{\s*bsClickTAG\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/dhtml\.getVar\s*\(\s*["'][^"']{0,32}(?:click|Click)[^"']{0,32}["']\s*,\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/window\.bannerURL\s*=\s*["'](https?:\/\/[^"'\\]{4,512})["']/i, 1],
+    [/(<a\b[^>]*\bhref\s*=\s*["'])(https?:\/\/[^"'\\]{4,1024})(["'])/i, 2],
+  ];
+
+  let rewritten = source;
+  let replaced = false;
+  for (const [pattern, group] of patterns) {
+    const match = rewritten.match(pattern);
+    const currentUrl = match?.[group];
+    if (!normalizeHttpUrl(currentUrl)) continue;
+    rewritten = rewritten.replace(pattern, (...args) => {
+      const fullMatch = args[0];
+      const capturedUrl = args[group];
+      return String(fullMatch).replace(capturedUrl, replacementUrl);
+    });
+    replaced = true;
+    break;
+  }
+
+  if (detectedClickUrl && detectedClickUrl !== replacementUrl) {
+    const next = rewritten.split(detectedClickUrl).join(replacementUrl);
+    if (next !== rewritten) {
+      rewritten = next;
+      replaced = true;
+    }
+  }
+
+  return { html: rewritten, replaced, detectedClickUrl };
+}
+
+function normalizeHttpUrl(value) {
+  const raw = String(value ?? '').trim().replace(/^(https?):\/(?!\/)/i, '$1://');
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Extracts banner dimensions (width x height) from an HTML5 index.html.
  *

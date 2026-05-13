@@ -14,8 +14,6 @@ const allWidgets = [
   { id: 'inventory-sources', type: 'inventorySources', title: 'Sites & apps', icon: 'geo', tone: 'slate', size: 'medium', order: 11, defaultVisible: true, visibleIn: ['all', 'display', 'video'] },
   { id: 'top-regions', type: 'topRegions', title: 'Top departments / states', icon: 'geo', tone: 'violet', size: 'medium', order: 12, defaultVisible: true, visibleIn: ['all', 'display', 'video', 'identity'] },
   { id: 'top-creatives', type: 'topCreatives', title: 'Top creatives', icon: 'creative', tone: 'fuchsia', size: 'medium', order: 13, defaultVisible: true, visibleIn: ['all', 'display', 'video'] },
-  { id: 'tracker-health', type: 'trackerHealth', title: 'Tracker health', icon: 'tracker', tone: 'amber', size: 'medium', order: 14, defaultVisible: true, visibleIn: ['all', 'display', 'video'] },
-  { id: 'recommendations', type: 'recommendations', title: 'Insights & recommendations', icon: 'health', tone: 'slate', size: 'medium', order: 15, defaultVisible: true, visibleIn: ['all', 'display', 'video', 'identity'] },
   { id: 'identity-frequency', type: 'identityFrequency', title: 'Identity frequency buckets', icon: 'identity', tone: 'emerald', size: 'large', order: 16, defaultVisible: true, visibleIn: ['identity'] },
   { id: 'identity-keys', type: 'identityKeys', title: 'Identity keys by event', icon: 'identity', tone: 'emerald', size: 'medium', order: 17, defaultVisible: true, visibleIn: ['identity'] },
   { id: 'identity-attribution', type: 'identityAttribution', title: 'Attribution windows', icon: 'tracker', tone: 'emerald', size: 'medium', order: 18, defaultVisible: true, visibleIn: ['identity'] },

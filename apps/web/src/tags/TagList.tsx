@@ -298,9 +298,9 @@ export default function TagList() {
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 py-6">
       <PageHeader
-        kicker="Tags · Pixel QA workspace"
+        kicker="Tags · Serving signal workspace"
         title="Tags"
-        meta={`${totalTags} tags · ${needsAttentionCount} need QA · implementation workspace`}
+        meta={`${totalTags} tags · ${needsAttentionCount} active tags with no signal after 7 days`}
         primaryAction={<Button type="button" onClick={openCreate} variant="primary">Generate tag</Button>}
         secondaryActions={(
           <SavedViewsMenu
@@ -328,19 +328,19 @@ export default function TagList() {
             }}
           />
         )}
-        alert={(
+        alert={needsAttentionCount > 0 ? (
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-start gap-3">
               <AlertTriangleIcon className="mt-0.5 shrink-0" />
               <p className="text-sm font-medium">
-                {needsAttentionCount} tags need implementation QA before launch or scale.
+                {needsAttentionCount} active tags have no impressions after 7 days. Review placement implementation.
               </p>
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => setNeedsQaOnly(true)} className="shrink-0">
-              Filter to QA risk
+              Filter to signal gaps
             </Button>
           </div>
-        )}
+        ) : undefined}
       />
 
       <FilterBar
@@ -361,7 +361,7 @@ export default function TagList() {
             value: statusFilter,
             options: [
               { value: 'all', label: 'All tags' },
-              { value: 'qa', label: 'Needs QA' },
+              { value: 'qa', label: 'Signal gaps' },
               { value: 'active', label: 'Active' },
               { value: 'paused', label: 'Paused' },
               { value: 'draft', label: 'Draft' },
@@ -411,9 +411,9 @@ export default function TagList() {
           <div className="flex flex-col gap-4 border-b border-border-default pb-5 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <Kicker>Tag workspace</Kicker>
-              <h2 className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Pixels, firing status & implementation QA</h2>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--dusk-text-primary)]">Pixels, firing status & implementation signal</h2>
               <p className="mt-2 text-sm text-text-muted">
-                Dense operational view for tag generation, validation, firing health and implementation risk.
+                Dense operational view for tag generation, serving state, firing signal and delayed implementation gaps.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -432,12 +432,12 @@ export default function TagList() {
             <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Firing</p>
               <p className="mt-2 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{activeTags}</p>
-              <p className="mt-1 text-sm text-text-muted">healthy signal flow</p>
+              <p className="mt-1 text-sm text-text-muted">currently eligible to serve</p>
             </div>
             <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Needs QA</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Signal gaps</p>
               <p className="mt-2 text-2xl font-semibold text-[color:var(--dusk-text-primary)]">{needsAttentionCount}</p>
-              <p className="mt-1 text-sm text-text-muted">low or missing firing</p>
+              <p className="mt-1 text-sm text-text-muted">active for 7+ days with no impressions</p>
             </div>
             <div className="rounded-2xl border border-border-default bg-surface-1/60 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Archived</p>

@@ -46,7 +46,7 @@ function getCampaignSpendValue(campaign: Campaign, spendView: CampaignSpendView)
 export function useCampaignFilters(initialSearch = '') {
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [search, setSearch] = useState(initialSearch);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'limited' | 'blocked' | 'ready' | 'draft'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'paused' | 'ready' | 'draft' | 'archived'>('all');
   const [spendView, setSpendView] = useState<CampaignSpendView>('without_margin');
 
   const resetAll = useCallback(() => {
@@ -117,12 +117,10 @@ export function useCampaignData() {
 
 function deriveCampaignStatus(campaign: Campaign): CampaignStatus {
   const impressions = toNumber(campaign.impressions);
-  const ctr = toNumber(campaign.ctr);
-  const hoverMs = toNumber(campaign.totalHoverDurationMs ?? campaign.total_hover_duration_ms);
-  if (campaign.status === 'draft' || campaign.status === 'archived') return 'Draft';
-  if (campaign.status === 'paused') return impressions > 0 ? 'Limited' : 'Blocked';
-  if (impressions === 0 && hoverMs === 0) return 'Ready';
-  if (ctr < 0.35 || impressions < 100) return 'Limited';
+  if (campaign.status === 'archived') return 'Archived';
+  if (campaign.status === 'draft') return 'Draft';
+  if (campaign.status === 'paused') return 'Paused';
+  if (impressions === 0) return 'Ready';
   return 'Live';
 }
 
@@ -149,15 +147,12 @@ export function useCampaignViewModel({
 
   const campaignRows = useMemo<CampaignRow[]>(() => filteredCampaigns.map((campaign) => {
     const impressions = toNumber(campaign.impressions);
-    const hoverMs = toNumber(campaign.totalHoverDurationMs ?? campaign.total_hover_duration_ms);
     const status = deriveCampaignStatus(campaign);
     const ctr = toNumber(campaign.ctr);
     const spendValue = getCampaignSpendValue(campaign, spendView);
     const budgetValue = getCampaignBudgetValue(campaign, spendView);
     const issues =
-      (status === 'Blocked' ? 2 : 0)
-      + (status === 'Limited' ? 1 : 0)
-      + (campaign.status === 'draft' ? 1 : 0)
+      (status === 'Paused' ? 1 : 0)
       + (ctr === 0 && impressions > 0 ? 1 : 0);
 
     return {
@@ -170,8 +165,8 @@ export function useCampaignViewModel({
       spendValue,
       budget: formatCompactMoney(budgetValue),
       budgetValue,
-      tagHealth: impressions > 0 ? 'Healthy' : campaign.status === 'draft' ? 'Not generated' : 'Low firing',
-      creativeStatus: hoverMs > 0 ? 'Approved' : campaign.status === 'draft' ? 'Not uploaded' : 'Pending QA',
+      tagHealth: impressions > 0 ? 'Receiving signal' : campaign.status === 'active' ? 'Awaiting first impression' : 'Not serving',
+      creativeStatus: campaign.status === 'draft' ? 'Not uploaded' : 'Auto-approved',
       issues,
       owner: campaign.metadata?.dsp ?? 'Ad Ops',
       flight: formatDateRange(campaign.startDate ?? campaign.start_date, campaign.endDate ?? campaign.end_date),
@@ -180,11 +175,11 @@ export function useCampaignViewModel({
   }), [filteredCampaigns, spendView]);
 
   const liveCampaigns = campaignRows.filter((row) => row.status === 'Live').length;
-  const blockedOrLimited = campaignRows.filter((row) => row.status === 'Blocked' || row.status === 'Limited').length;
+  const blockedOrLimited = campaignRows.filter((row) => row.status === 'Paused').length;
   const draftSetup = campaignRows.filter((row) => row.status === 'Draft' || row.status === 'Ready').length;
   const openIssues = campaignRows.reduce((sum, row) => sum + row.issues, 0);
   const trackedSpend = campaignRows.reduce((sum, row) => sum + row.spendValue, 0);
-  const needsAttentionRows = campaignRows.filter((row) => row.status === 'Blocked' || row.status === 'Limited').slice(0, 3);
+  const needsAttentionRows = campaignRows.filter((row) => row.issues > 0).slice(0, 3);
 
   return {
     filteredCampaigns,

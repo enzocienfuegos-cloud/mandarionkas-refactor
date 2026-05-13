@@ -1,11 +1,12 @@
 import path from 'node:path';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import unzipper from 'unzipper';
-import { detectClickTagInHtml, detectDimensionsInHtml, validateHtml5Bundle } from '@smx/contracts/src/html5-detector.mjs';
+import { detectClickTagInHtml, detectDimensionsInHtml, rewriteClickTagInHtml, validateHtml5Bundle } from '@smx/contracts/src/html5-detector.mjs';
 import { getPool } from '@smx/db/src/pool.mjs';
 import {
   getCreativeIngestion,
   getCreativeVersion,
+  normalizeRawClickUrl,
   updateCreativeIngestion,
   updateCreativeVersion,
 } from '@smx/db/src/creatives.mjs';
@@ -210,10 +211,31 @@ function isBundleTextAsset(filename) {
   return (
     lower.endsWith('.html')
     || lower.endsWith('.htm')
+    || lower.endsWith('.js')
+    || lower.endsWith('.mjs')
     || lower.endsWith('.css')
     || lower.endsWith('.svg')
     || lower.endsWith('.txt')
   );
+}
+
+function isClickUrlRewriteAsset(filename) {
+  const lower = String(filename || '').toLowerCase();
+  return lower.endsWith('.html') || lower.endsWith('.htm') || lower.endsWith('.js') || lower.endsWith('.mjs');
+}
+
+function rewriteEntryClickUrl(entry, clickUrl) {
+  if (!clickUrl || !isClickUrlRewriteAsset(entry?.publishedPath)) {
+    return { entry, replaced: false, detectedClickUrl: null };
+  }
+  const rewrite = rewriteClickTagInHtml(entry.body.toString('utf-8'), clickUrl);
+  if (!rewrite.replaced) return { entry, replaced: false, detectedClickUrl: rewrite.detectedClickUrl ?? null };
+  const body = Buffer.from(rewrite.html, 'utf-8');
+  return {
+    entry: { ...entry, body, sizeBytes: body.length },
+    replaced: true,
+    detectedClickUrl: rewrite.detectedClickUrl ?? null,
+  };
 }
 
 function buildBundleAssetSources(entries) {
@@ -383,10 +405,48 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
       throw new Error(`HTML5 archive references missing assets: ${bundleValidation.missingPaths.join(', ')}`);
     }
 
+    const entryHtmlSource = entryAsset.body ? entryAsset.body.toString('utf-8') : null;
+    const detectedClickUrl = detectClickTagInHtml(entryHtmlSource);
+    const requestedClickUrl = normalizeRawClickUrl(
+      initialMetadata.clickUrl
+      || creativeVersion.metadata?.clickUrl
+      || creativeVersion.metadata?.requestedClickUrl
+      || null,
+    );
+    const resolvedClickUrl = requestedClickUrl || detectedClickUrl || null;
+    const detectedDimensions = detectDimensionsInHtml(entryHtmlSource);
+
+    if (detectedClickUrl) {
+      deps.logInfo({
+        event: 'clicktag_detected',
+        ingestionId,
+        creativeVersionId: creativeVersion.id,
+        detectedClickUrl,
+      });
+    }
+
+    let rewrittenAssetCount = 0;
+    const publishEntries = entries.map((entry) => {
+      const result = rewriteEntryClickUrl(entry, requestedClickUrl);
+      if (result.replaced) rewrittenAssetCount += 1;
+      return result.entry;
+    });
+
+    if (rewrittenAssetCount > 0) {
+      deps.logInfo({
+        event: 'clicktag_rewritten',
+        ingestionId,
+        creativeVersionId: creativeVersion.id,
+        detectedClickUrl,
+        resolvedClickUrl,
+        rewrittenAssetCount,
+      });
+    }
+
     const storagePrefix = buildPublishedStoragePrefix(workspaceId, creativeVersion.id);
     const uploaded = [];
-    for (let index = 0; index < entries.length; index += 1) {
-      const entry = entries[index];
+    for (let index = 0; index < publishEntries.length; index += 1) {
+      const entry = publishEntries[index];
       const result = await deps.uploadBufferToR2({
         storageKey: `${storagePrefix}/${entry.publishedPath}`,
         body: entry.body,
@@ -413,19 +473,6 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
     }
 
     const publishedEntry = uploaded.find((entry) => entry.publishedPath === entryAsset.publishedPath) || uploaded[0];
-    const entryHtmlSource = entryAsset.body ? entryAsset.body.toString('utf-8') : null;
-    const detectedClickUrl = detectClickTagInHtml(entryHtmlSource);
-    const detectedDimensions = detectDimensionsInHtml(entryHtmlSource);
-
-    if (detectedClickUrl) {
-      deps.logInfo({
-        event: 'clicktag_detected',
-        ingestionId,
-        creativeVersionId: creativeVersion.id,
-        detectedClickUrl,
-      });
-    }
-
     const publishMetadata = {
       ...(creativeVersion.metadata || {}),
       html5Publish: {
@@ -435,12 +482,14 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
         storagePrefix,
         entryPath: publishedEntry.publishedPath,
         publicUrl: publishedEntry.publicUrl,
+        ...(resolvedClickUrl ? { clickUrl: resolvedClickUrl } : {}),
         ...(detectedClickUrl ? { detectedClickUrl } : {}),
+        ...(rewrittenAssetCount ? { rewrittenAssetCount } : {}),
       },
     };
 
     await deps.updateCreativeVersion(pool, workspaceId, creativeVersion.id, {
-      status: 'draft',
+      status: 'approved',
       metadata: publishMetadata,
     });
 
@@ -482,7 +531,7 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
         workspaceId,
         creativeVersion.creative_id,
         publishedEntry.publicUrl,
-        detectedClickUrl ?? null,
+        resolvedClickUrl ?? null,
         detectedDimensions?.width ?? null,
         detectedDimensions?.height ?? null,
       ],
