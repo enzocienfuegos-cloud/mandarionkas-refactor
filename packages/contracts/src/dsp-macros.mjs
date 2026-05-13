@@ -481,6 +481,11 @@ export function wrapTrackedClickUrlWithDspMacro(clickTrackUrl, query = {}, dsp =
   const normalizedDsp = normalizeDsp(dsp || query?.smx_dsp || query?.dsp);
   const encodedMacro = readDspMacroValue(query, 'clickMacro', normalizedDsp);
   if (!encodedMacro || !clickTrackUrl) return clickTrackUrl;
-  if (shouldBypassDspClickMacroForPreview({ dsp: normalizedDsp, macroValue: encodedMacro })) return clickTrackUrl;
+  if (
+    String(query?.smx_bypass_preview_click_macro ?? '').trim() === '1'
+    && shouldBypassDspClickMacroForPreview({ dsp: normalizedDsp, macroValue: encodedMacro })
+  ) {
+    return clickTrackUrl;
+  }
   return buildDspTrackedClickUrl(clickTrackUrl, encodedMacro, normalizedDsp);
 }

@@ -10,7 +10,7 @@ const TRACKED_CLICK_URL = 'https://api.example.com/v1/tags/tracker/tag-1/click?u
 const BASIS_PREVIEW_CLICK_MACRO = 'https://adpreview.sitescout.com/clk/692521909a93a222/969695cc20f3a972/6a04ca630008e47f03950005/0?adPreviewId=28a499ef-8c39-4608-8832-ae93f9841565&r=';
 const BASIS_LIVE_CLICK_MACRO = 'https://clickserv.sitescout.com/clk/12345?redirect=';
 
-test('Basis preview click macro is bypassed for destination-sensitive validators', () => {
+test('Basis preview click macro can be identified for opt-in bypass', () => {
   assert.equal(
     shouldBypassDspClickMacroForPreview({
       dsp: 'Basis',
@@ -18,10 +18,26 @@ test('Basis preview click macro is bypassed for destination-sensitive validators
     }),
     true,
   );
+});
 
+test('Basis preview click macro still wraps by default so Basis can detect clicks', () => {
   const clickTag = wrapTrackedClickUrlWithDspMacro(
     TRACKED_CLICK_URL,
     { dsp: 'Basis', cuu: BASIS_PREVIEW_CLICK_MACRO },
+    'Basis',
+  );
+
+  assert.equal(clickTag, `${BASIS_PREVIEW_CLICK_MACRO}${encodeURIComponent(TRACKED_CLICK_URL)}`);
+});
+
+test('Basis preview click macro bypass requires an explicit Dusk opt-in flag', () => {
+  const clickTag = wrapTrackedClickUrlWithDspMacro(
+    TRACKED_CLICK_URL,
+    {
+      dsp: 'Basis',
+      cuu: BASIS_PREVIEW_CLICK_MACRO,
+      smx_bypass_preview_click_macro: '1',
+    },
     'Basis',
   );
 
