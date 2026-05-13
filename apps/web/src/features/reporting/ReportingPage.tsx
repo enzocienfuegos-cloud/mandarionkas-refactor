@@ -16,7 +16,7 @@ import { ReportingShell } from './components/ReportingShell';
 import { ReportingTopBar } from './components/ReportingTopBar';
 import { ScopeBar } from './components/ScopeBar';
 import { WidgetRenderer } from './components/WidgetRenderer';
-import { useReportingData } from './hooks/useReportingData';
+import { useReportingData, type DateRangeFilter, type TimeGranularity } from './hooks/useReportingData';
 
 function formatDateLabel(value: Date) {
   return new Intl.DateTimeFormat('en-US', {
@@ -55,12 +55,20 @@ function parseDateRange(value: unknown): DateRange {
   };
 }
 
+function formatTimezoneLabel(value: string) {
+  if (value === 'America/El_Salvador') return 'CST';
+  if (value === 'UTC') return 'UTC';
+  return value.replace('America/', '').replace('Europe/', '').replace(/_/g, ' ');
+}
+
 export function ReportingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [mode, setMode] = useState<ReportingMode>('all');
   const [advertiserFilter, setAdvertiserFilter] = useState('');
-  const [dateRangeFilter, setDateRangeFilter] = useState<'7d' | '30d' | '90d' | 'custom'>('30d');
+  const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>('30d');
   const [customDateRange, setCustomDateRange] = useState<DateRange>(() => createDefaultCustomDateRange());
+  const [timeGranularity, setTimeGranularity] = useState<TimeGranularity>('day');
+  const [timezone, setTimezone] = useState('America/El_Salvador');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'archived'>('all');
   const [spendView, setSpendView] = useState<SpendView>('without_margin');
   const [search, setSearch] = useState('');
@@ -77,6 +85,8 @@ export function ReportingPage() {
     mode,
     dateRange: dateRangeFilter,
     customDateRange,
+    timeGranularity,
+    timezone,
     advertiserId: advertiserFilter,
     statusFilter,
     spendView,
@@ -92,6 +102,8 @@ export function ReportingPage() {
     [advertiserFilter, advertiserOptions],
   );
   const dateRangeLabel = useMemo(() => {
+    if (dateRangeFilter === 'today') return 'Today';
+    if (dateRangeFilter === 'yesterday') return 'Yesterday';
     if (dateRangeFilter === '7d') return 'Last 7 days';
     if (dateRangeFilter === '90d') return 'Last 90 days';
     if (dateRangeFilter === 'custom') {
@@ -122,10 +134,14 @@ export function ReportingPage() {
           ? nextFilters.mode
           : 'all') as ReportingMode);
         setAdvertiserFilter(String(nextFilters.advertiserFilter ?? ''));
-        setDateRangeFilter((['7d', '30d', '90d', 'custom'].includes(String(nextFilters.dateRangeFilter))
+        setDateRangeFilter((['today', 'yesterday', '7d', '30d', '90d', 'custom'].includes(String(nextFilters.dateRangeFilter))
           ? nextFilters.dateRangeFilter
-          : '30d') as '7d' | '30d' | '90d' | 'custom');
+          : '30d') as DateRangeFilter);
         setCustomDateRange(parseDateRange(nextFilters.customDateRange));
+        setTimeGranularity((['day', 'hour'].includes(String(nextFilters.timeGranularity))
+          ? nextFilters.timeGranularity
+          : 'day') as TimeGranularity);
+        setTimezone(String(nextFilters.timezone ?? 'America/El_Salvador') || 'America/El_Salvador');
         setStatusFilter((['all', 'active', 'paused', 'archived'].includes(String(nextFilters.statusFilter))
           ? nextFilters.statusFilter
           : 'all') as 'all' | 'active' | 'paused' | 'archived');
@@ -159,6 +175,8 @@ export function ReportingPage() {
               advertiserFilter,
               dateRangeFilter,
               customDateRange: serializeDateRange(customDateRange),
+              timeGranularity,
+              timezone,
               statusFilter,
               spendView,
               search,
@@ -187,6 +205,10 @@ export function ReportingPage() {
         onDateRangeChange={setDateRangeFilter}
         customDateRange={customDateRange}
         onCustomDateRangeChange={setCustomDateRange}
+        timeGranularity={timeGranularity}
+        onTimeGranularityChange={setTimeGranularity}
+        timezone={timezone}
+        onTimezoneChange={setTimezone}
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
         spendView={spendView}
@@ -201,6 +223,8 @@ export function ReportingPage() {
           setAdvertiserFilter('');
           setDateRangeFilter('30d');
           setCustomDateRange(createDefaultCustomDateRange());
+          setTimeGranularity('day');
+          setTimezone('America/El_Salvador');
           setStatusFilter('all');
           setSpendView('without_margin');
           setSearch('');
@@ -211,6 +235,7 @@ export function ReportingPage() {
         mode={mode}
         scopeLabel={selectedAdvertiserLabel}
         dateRangeLabel={dateRangeLabel}
+        timeScopeLabel={`${timeGranularity === 'hour' ? 'Hourly' : 'Daily'} · ${formatTimezoneLabel(timezone)}`}
         spendViewLabel={spendView === 'with_margin' ? 'With margin' : 'Without margin'}
       />
       {loading && !kpis.length ? <CenteredSpinner label="Loading reporting workspace…" /> : null}

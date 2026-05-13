@@ -23,6 +23,11 @@ function seriesValue(point: TrendSeries['points'][number], seriesId: string) {
   return point.previous ?? 0;
 }
 
+function formatAxisLabel(value: string) {
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:00$/.test(value)) return value.slice(11);
+  return value;
+}
+
 export function TrendChart({
   title = 'Performance over time',
   tone = 'fuchsia',
@@ -78,8 +83,9 @@ export function TrendChart({
               );
             })}
             {basePoints.map((point, index) => {
+              if (basePoints.length > 14 && index % Math.ceil(basePoints.length / 8) !== 0 && index !== basePoints.length - 1) return null;
               const x = pad.l + (index / Math.max(basePoints.length - 1, 1)) * chartW;
-              return <text key={point.date} x={x} y={height - 6} textAnchor="middle" fontSize="11" fill="var(--dusk-text-soft)">{point.date}</text>;
+              return <text key={point.date} x={x} y={height - 6} textAnchor="middle" fontSize="11" fill="var(--dusk-text-soft)">{formatAxisLabel(point.date)}</text>;
             })}
           </svg>
         </>

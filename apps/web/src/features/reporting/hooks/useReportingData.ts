@@ -19,7 +19,8 @@ import type {
   VideoFunnelRow,
 } from '../reporting.types';
 
-type DateRangeFilter = '7d' | '30d' | '90d' | 'custom';
+export type DateRangeFilter = 'today' | 'yesterday' | '7d' | '30d' | '90d' | 'custom';
+export type TimeGranularity = 'day' | 'hour';
 type StatusFilter = 'all' | 'active' | 'paused' | 'archived';
 
 type WorkspaceStats = {
@@ -113,6 +114,8 @@ type AppBreakdownRow = {
   app_bundle?: string | null;
   app_id?: string | null;
   impressions: number;
+  clicks?: number;
+  ctr?: number;
   viewability_rate: number;
 };
 
@@ -175,6 +178,8 @@ type HookArgs = {
   mode: ReportingMode;
   dateRange: DateRangeFilter;
   customDateRange: DateRange;
+  timeGranularity: TimeGranularity;
+  timezone: string;
   advertiserId: string;
   statusFilter: StatusFilter;
   spendView: SpendView;
@@ -228,33 +233,51 @@ function buildQuery(params: Record<string, string | undefined>) {
   return text ? `?${text}` : '';
 }
 
-function daysAgo(days: number) {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
+function formatDateInTimeZone(date: Date, timezone: string) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(date).map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function shiftDateString(dateString: string, days: number) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(Date.UTC(year, (month || 1) - 1, day || 1));
+  date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
 
-function resolveDateRange(range: DateRangeFilter) {
-  if (range === '7d') return { dateFrom: daysAgo(6), dateTo: new Date().toISOString().slice(0, 10) };
-  if (range === '90d') return { dateFrom: daysAgo(89), dateTo: new Date().toISOString().slice(0, 10) };
-  return { dateFrom: daysAgo(29), dateTo: new Date().toISOString().slice(0, 10) };
+function resolveDateRange(range: DateRangeFilter, timezone: string) {
+  const today = formatDateInTimeZone(new Date(), timezone);
+  if (range === 'today') return { dateFrom: today, dateTo: today };
+  if (range === 'yesterday') {
+    const yesterday = shiftDateString(today, -1);
+    return { dateFrom: yesterday, dateTo: yesterday };
+  }
+  if (range === '7d') return { dateFrom: shiftDateString(today, -6), dateTo: today };
+  if (range === '90d') return { dateFrom: shiftDateString(today, -89), dateTo: today };
+  return { dateFrom: shiftDateString(today, -29), dateTo: today };
 }
 
-function formatDateParam(value: Date) {
-  return value.toISOString().slice(0, 10);
+function formatDateParam(value: Date, timezone: string) {
+  return formatDateInTimeZone(value, timezone);
 }
 
-function resolveEffectiveDateRange(range: DateRangeFilter, customDateRange: DateRange) {
-  if (range !== 'custom') return resolveDateRange(range);
+function resolveEffectiveDateRange(range: DateRangeFilter, customDateRange: DateRange, timezone: string) {
+  if (range !== 'custom') return resolveDateRange(range, timezone);
   if (customDateRange.from && customDateRange.to) {
     const from = customDateRange.from <= customDateRange.to ? customDateRange.from : customDateRange.to;
     const to = customDateRange.from <= customDateRange.to ? customDateRange.to : customDateRange.from;
     return {
-      dateFrom: formatDateParam(from),
-      dateTo: formatDateParam(to),
+      dateFrom: formatDateParam(from, timezone),
+      dateTo: formatDateParam(to, timezone),
     };
   }
-  return resolveDateRange('30d');
+  return resolveDateRange('30d', timezone);
 }
 
 function toNumber(value: unknown) {
@@ -609,8 +632,9 @@ function buildInventorySourceRows({
       name: row.app_name || row.app_bundle || row.app_id || 'Unknown app',
       detail: detail || undefined,
       impressions: toNumber(row.impressions),
-      metric: formatPercent(toNumber(row.viewability_rate)),
-      metricLabel: 'Viewability',
+      clicks: toNumber(row.clicks),
+      metric: toNumber(row.clicks) > 0 ? formatPercent(toNumber(row.ctr)) : formatPercent(toNumber(row.viewability_rate)),
+      metricLabel: toNumber(row.clicks) > 0 ? 'CTR' : 'Viewability',
       share: totalImpressions > 0 ? formatPercent((toNumber(row.impressions) / totalImpressions) * 100, 1) : '0.0%',
     };
   });
@@ -666,6 +690,8 @@ export function useReportingData({
   mode,
   dateRange,
   customDateRange,
+  timeGranularity,
+  timezone,
   advertiserId,
   statusFilter,
   spendView,
@@ -674,7 +700,7 @@ export function useReportingData({
   const [state, setState] = useState<HookState>(INITIAL_STATE);
 
   const query = useMemo(() => {
-    const { dateFrom, dateTo } = resolveEffectiveDateRange(dateRange, customDateRange);
+    const { dateFrom, dateTo } = resolveEffectiveDateRange(dateRange, customDateRange, timezone);
     const channel = mode === 'video'
       ? 'video'
       : mode === 'display'
@@ -685,8 +711,10 @@ export function useReportingData({
       dateTo,
       advertiserId: advertiserId || undefined,
       channel,
+      granularity: timeGranularity,
+      timezone,
     });
-  }, [advertiserId, customDateRange, dateRange, mode]);
+  }, [advertiserId, customDateRange, dateRange, mode, timeGranularity, timezone]);
 
   const reload = useCallback(async () => {
     setState((current) => ({ ...current, loading: true, error: '' }));
@@ -697,8 +725,9 @@ export function useReportingData({
       const creativePayload = await fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/creative-breakdown${query}`);
       const variantPayload = await fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/variant-breakdown${query}`);
       const regionPayload = await fetchJson<{ breakdown: RegionBreakdownRow[] }>(`/v1/reporting/workspace/region-breakdown${query}`);
-      const sitePayload = await fetchJson<{ breakdown: SiteBreakdownRow[] }>(`/v1/reporting/workspace/site-breakdown${query}`);
-      const appPayload = await fetchJson<{ breakdown: AppBreakdownRow[] }>(`/v1/reporting/workspace/app-breakdown${query}`);
+      const expandedQuery = query ? `${query}&limit=100` : '?limit=100';
+      const sitePayload = await fetchJson<{ breakdown: SiteBreakdownRow[] }>(`/v1/reporting/workspace/site-breakdown${expandedQuery}`);
+      const appPayload = await fetchJson<{ breakdown: AppBreakdownRow[] }>(`/v1/reporting/workspace/app-breakdown${expandedQuery}`);
       const trackerPayload = await fetchJson<{ breakdown: TrackerBreakdownRow[] }>(`/v1/reporting/workspace/tracker-breakdown${query}`);
       const identityFrequencyPayload = await fetchJson<{ breakdown: IdentityFrequencyApiRow[] }>(`/v1/reporting/workspace/identity-frequency-buckets${query}`);
       const identitySegmentPayload = await fetchJson<{ breakdown: IdentitySegmentPresetRow[] }>(`/v1/reporting/workspace/identity-segment-presets${query}`);
@@ -836,19 +865,40 @@ export function useReportingData({
 
       const trackerHealth = buildTrackerHealth(trackerPayload.breakdown ?? []);
 
-      const topCreatives = creatives
-        .filter((creative) => mode !== 'video' || creative.format === 'vast_video')
-        .filter((creative) => mode !== 'display' || creative.format === 'display')
-        .filter((creative) => matchesSearch(creative.name, search))
-        .slice(0, 3)
-        .map<CreativeRow>((creative) => ({
-          name: creative.name,
-          format: titleCase(creative.format),
-          metric: creative.approvalStatus.replace(/_/g, ' '),
-          helper: creative.latestVersion?.width && creative.latestVersion?.height
-            ? `${creative.latestVersion.width}x${creative.latestVersion.height} · ${creative.latestVersion.sourceKind}`
-            : `${creative.latestVersion?.sourceKind ?? 'latest version'} · ${new Date(creative.createdAt).toLocaleDateString()}`,
-        }));
+      const topCreatives = creativeRowsFromBreakdown.length
+        ? creativeRowsFromBreakdown
+          .slice()
+          .sort((a, b) => (
+            b.impressions - a.impressions
+            || b.clicks - a.clicks
+            || a.name.localeCompare(b.name)
+          ))
+          .slice(0, 12)
+          .map<CreativeRow>((row) => ({
+            name: row.name,
+            format: row.secondaryLabel || 'Creative',
+            impressions: row.impressions,
+            clicks: row.clicks,
+            ctr: row.ctr,
+            metric: `${formatCount(row.impressions)} impressions`,
+            helper: `${formatCount(row.clicks)} clicks · ${formatPercent(row.ctr)} CTR`,
+          }))
+        : creatives
+          .filter((creative) => mode !== 'video' || creative.format === 'vast_video')
+          .filter((creative) => mode !== 'display' || creative.format === 'display')
+          .filter((creative) => matchesSearch(creative.name, search))
+          .slice(0, 12)
+          .map<CreativeRow>((creative) => ({
+            name: creative.name,
+            format: titleCase(creative.format),
+            impressions: 0,
+            clicks: 0,
+            ctr: 0,
+            metric: creative.approvalStatus.replace(/_/g, ' '),
+            helper: creative.latestVersion?.width && creative.latestVersion?.height
+              ? `${creative.latestVersion.width}x${creative.latestVersion.height} · ${creative.latestVersion.sourceKind}`
+              : `${creative.latestVersion?.sourceKind ?? 'latest version'} · ${new Date(creative.createdAt).toLocaleDateString()}`,
+          }));
 
       const inventoryTotal = (contextSnapshotPayload.inventory_environments ?? []).reduce((sum, row) => sum + toNumber(row.value), 0);
       const videoFormatRows = (contextSnapshotPayload.inventory_environments ?? [])

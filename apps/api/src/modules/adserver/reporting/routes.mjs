@@ -46,6 +46,8 @@ function getOpts(url) {
     minImpressions: url.searchParams.get('minImpressions') || undefined,
     minClicks: url.searchParams.get('minClicks') || undefined,
     limit: url.searchParams.get('limit') || undefined,
+    granularity: url.searchParams.get('granularity') || undefined,
+    timezone: url.searchParams.get('timezone') || undefined,
   };
 }
 

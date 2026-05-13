@@ -163,6 +163,9 @@ export type CreativeRow = {
   format: string;
   metric: string;
   helper: string;
+  impressions?: number;
+  clicks?: number;
+  ctr?: number;
 };
 
 export type TrackerHealthRow = {
