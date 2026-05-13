@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createTrackerRoutes, extractTrackingContext } from './routes.mjs';
+import {
+  buildClickBridgeHtml,
+  createTrackerRoutes,
+  extractTrackingContext,
+  isFrameHostileClickDestination,
+} from './routes.mjs';
 import { TrackerBuffer } from './tracker-buffer.mjs';
 
 function createFakePool() {
@@ -134,6 +139,49 @@ test('click route redirects to explicit target without requiring a database', as
   assert.equal(handled, true);
   assert.equal(ctx.res.statusCode, 302);
   assert.equal(ctx.res.headers.Location, 'https://example.com/landing');
+});
+
+test('click route serves a Dusk bridge for frame-hostile destinations', async () => {
+  const handler = createTrackerRoutes(null);
+  const destination = 'https://www.roblox.com/games/134720376226601/The-World-of-Bocadeli-Flavor';
+  const ctx = createCtx('GET', '/v1/tags/tracker/tag-abc/click', { url: destination });
+
+  const handled = await handler(ctx);
+
+  assert.equal(handled, true);
+  assert.equal(ctx.res.statusCode, 200);
+  assert.equal(ctx.res.headers.Location, undefined);
+  assert.equal(ctx.res.headers['Content-Type'], 'text/html; charset=utf-8');
+  assert.match(String(ctx.res._body), /Opening destination/);
+  assert.match(String(ctx.res._body), /window\.open/);
+  assert.match(String(ctx.res._body), /www\.roblox\.com/);
+});
+
+test('click route supports explicit bridge mode for any destination', async () => {
+  const handler = createTrackerRoutes(null);
+  const ctx = createCtx('GET', '/v1/tags/tracker/tag-abc/click', {
+    url: 'https://example.com/landing',
+    smx_click_mode: 'bridge',
+  });
+
+  const handled = await handler(ctx);
+
+  assert.equal(handled, true);
+  assert.equal(ctx.res.statusCode, 200);
+  assert.match(String(ctx.res._body), /https:\/\/example\.com\/landing/);
+});
+
+test('frame-hostile detection is scoped to Roblox destinations', () => {
+  assert.equal(isFrameHostileClickDestination('https://www.roblox.com/games/123'), true);
+  assert.equal(isFrameHostileClickDestination('https://create.roblox.com/store/asset/123'), true);
+  assert.equal(isFrameHostileClickDestination('https://example.com/landing'), false);
+});
+
+test('click bridge escapes destination output', () => {
+  const html = buildClickBridgeHtml('https://www.roblox.com/games/123?name=</script><img src=x>');
+  assert.ok(!html.includes('</script><img'));
+  assert.ok(html.includes('<\\/script>'));
+  assert.ok(html.includes('&lt;/script&gt;&lt;img src=x&gt;'));
 });
 
 test('tracking context falls back to referer when DSP domain macros are unresolved', () => {

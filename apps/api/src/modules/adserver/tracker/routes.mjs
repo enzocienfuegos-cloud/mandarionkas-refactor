@@ -37,9 +37,131 @@ function trimText(value) {
   return String(value ?? '').trim();
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeScriptContext(jsonStr) {
+  return String(jsonStr ?? '').replace(/<\//g, '<\\/');
+}
+
 function decodeStringSafe(value) {
   if (!value) return '';
   try { return decodeURIComponent(String(value)); } catch (_) { return String(value); }
+}
+
+function isHttpUrl(value) {
+  try {
+    const parsed = new URL(String(value));
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch (_) {
+    return false;
+  }
+}
+
+export function isFrameHostileClickDestination(destination) {
+  try {
+    const parsed = new URL(String(destination));
+    const hostname = parsed.hostname.toLowerCase();
+    return hostname === 'roblox.com' || hostname.endsWith('.roblox.com');
+  } catch (_) {
+    return false;
+  }
+}
+
+function shouldServeClickBridge(url, destination) {
+  const mode = trimText(url.searchParams.get('smx_click_mode') || url.searchParams.get('click_mode')).toLowerCase();
+  if (mode === 'direct' || mode === 'redirect') return false;
+  if (mode === 'bridge' || mode === 'dusk_bridge') return true;
+  return isFrameHostileClickDestination(destination);
+}
+
+export function buildClickBridgeHtml(destination) {
+  const safeDestination = isHttpUrl(destination) ? String(destination) : 'about:blank';
+  const destinationJson = escapeScriptContext(JSON.stringify(safeDestination));
+  const destinationHtml = escapeHtml(safeDestination);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Opening destination</title>
+<style>
+  :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; margin: 0; }
+  body {
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: #0b1020;
+    color: #f8fafc;
+  }
+  main {
+    width: min(420px, 100%);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 20px;
+    padding: 24px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.88));
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+  }
+  h1 { margin: 0 0 10px; font-size: 20px; line-height: 1.2; }
+  p { margin: 0 0 18px; color: #cbd5e1; line-height: 1.5; }
+  a.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #0f172a;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  small {
+    display: block;
+    margin-top: 16px;
+    color: #94a3b8;
+    overflow-wrap: anywhere;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Opening destination</h1>
+  <p>If the destination does not open automatically, use the button below.</p>
+  <a class="button" id="smx-open-destination" href="${destinationHtml}" target="_blank" rel="noopener noreferrer">Open destination</a>
+  <small>${destinationHtml}</small>
+</main>
+<script>
+(function(){
+  var destination = ${destinationJson};
+  try {
+    window.open(destination, '_blank', 'noopener,noreferrer');
+  } catch (_) {}
+})();
+</script>
+</body>
+</html>`;
+}
+
+function sendClickBridge(res, destination, cookie) {
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors *");
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  res.removeHeader('X-Frame-Options');
+  if (cookie) res.setHeader('Set-Cookie', cookie);
+  res.end(buildClickBridgeHtml(destination));
 }
 
 function extractHostname(urlOrDomain) {
@@ -470,11 +592,15 @@ export function createTrackerRoutes(buffer = null) {
       const { deviceId, cookie } = resolveDeviceId(req, env);
 
       applyPublicCors(req, res);
-      res.statusCode = 302;
-      res.setHeader('Location', destination);
-      res.setHeader('Cache-Control', 'private, no-store');
-      if (cookie) res.setHeader('Set-Cookie', cookie);
-      res.end();
+      if (shouldServeClickBridge(url, destination)) {
+        sendClickBridge(res, destination, cookie);
+      } else {
+        res.statusCode = 302;
+        res.setHeader('Location', destination);
+        res.setHeader('Cache-Control', 'private, no-store');
+        if (cookie) res.setHeader('Set-Cookie', cookie);
+        res.end();
+      }
 
       queueClickWrite(buffer, pool, tagId, requestId);
       if (pool) {
