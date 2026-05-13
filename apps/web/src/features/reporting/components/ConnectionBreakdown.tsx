@@ -1,6 +1,6 @@
 import React from 'react';
 import { Badge, EmptyState } from '../../../system';
-import type { DeviceBreakdownRow } from '../reporting.types';
+import type { ConnectionBreakdownRow } from '../reporting.types';
 import { RankSortToggle, type RankSortDirection } from './RankSortToggle';
 import { WidgetPanel } from './WidgetPanel';
 
@@ -11,7 +11,7 @@ function parseShare(share: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function DeviceBreakdown({ rows }: { rows: DeviceBreakdownRow[] }) {
+export function ConnectionBreakdown({ rows }: { rows: ConnectionBreakdownRow[] }) {
   const [sortDirection, setSortDirection] = React.useState<RankSortDirection>('desc');
   const [rankMetric, setRankMetric] = React.useState<RankMetric>('impressions');
   const sortedRows = React.useMemo(() => (
@@ -26,16 +26,16 @@ export function DeviceBreakdown({ rows }: { rows: DeviceBreakdownRow[] }) {
 
   return (
     <WidgetPanel
-      title="Device"
-      icon="identity"
-      tone="cyan"
+      title="Connection"
+      icon="tracker"
+      tone="emerald"
       action={rows.length ? (
         <div className="flex items-center gap-2">
           <select
             value={rankMetric}
             onChange={(event) => setRankMetric(event.target.value as RankMetric)}
             className="h-8 rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 text-xs font-semibold text-[color:var(--dusk-text-secondary)] outline-none"
-            aria-label="Rank devices by"
+            aria-label="Rank connections by"
           >
             <option value="impressions">Top impressions</option>
             <option value="share">Top share</option>
@@ -51,7 +51,7 @@ export function DeviceBreakdown({ rows }: { rows: DeviceBreakdownRow[] }) {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="min-w-0 truncate font-semibold text-[color:var(--dusk-text-primary)]">{row.name}</p>
-                  <Badge tone={row.kind === 'Type' || row.kind === 'OS' ? 'info' : 'neutral'} size="sm">{row.kind}</Badge>
+                  <Badge tone={row.kind === 'Connection' ? 'success' : 'neutral'} size="sm">{row.kind}</Badge>
                 </div>
                 <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">
                   {row.impressions.toLocaleString()} impressions
@@ -66,8 +66,8 @@ export function DeviceBreakdown({ rows }: { rows: DeviceBreakdownRow[] }) {
         </div>
       ) : (
         <EmptyState
-          title="No device signal yet"
-          description="Device type, model, OS and browser data will appear once the selected reporting scope records delivery context."
+          title="No connection signal yet"
+          description="Wifi/cellular connection type, effective network class, carrier and network data will appear when the browser or DSP provides those signals."
         />
       )}
     </WidgetPanel>

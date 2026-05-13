@@ -173,6 +173,14 @@
       signals.sf_touch = String(navigator.maxTouchPoints > 0 ? 1 : 0);
       if ('deviceMemory' in navigator && navigator.deviceMemory) signals.sf_mem = String(navigator.deviceMemory);
       if ('hardwareConcurrency' in navigator && navigator.hardwareConcurrency) signals.sf_cpu = String(navigator.hardwareConcurrency);
+      var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (connection) {
+        if (connection.type) signals.sf_conn_type = String(connection.type);
+        if (connection.effectiveType) signals.sf_conn_effective = String(connection.effectiveType);
+        if (connection.downlink) signals.sf_conn_downlink = String(connection.downlink);
+        if (connection.rtt) signals.sf_conn_rtt = String(connection.rtt);
+        if (connection.saveData !== undefined) signals.sf_conn_save_data = String(connection.saveData ? 1 : 0);
+      }
     } catch (_e) {}
     return signals;
   }

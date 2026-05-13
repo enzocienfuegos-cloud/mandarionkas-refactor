@@ -34,6 +34,7 @@ export type WidgetType =
   | 'audienceExport'
   | 'inventorySources'
   | 'deviceBreakdown'
+  | 'connectionBreakdown'
   | 'topRegions'
   | 'topCreatives'
   | 'trackerHealth'
@@ -160,7 +161,11 @@ export type InventorySourceRow = RegionRow & {
 };
 
 export type DeviceBreakdownRow = RegionRow & {
-  kind: 'Type' | 'Model' | 'OS' | 'Browser' | 'Carrier' | 'Network';
+  kind: 'Type' | 'Model' | 'OS' | 'Browser';
+};
+
+export type ConnectionBreakdownRow = RegionRow & {
+  kind: 'Connection' | 'Effective' | 'Carrier' | 'Network';
 };
 
 export type CreativeRow = {

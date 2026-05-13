@@ -1551,6 +1551,25 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
   addImpressionScopeFilters(latestParams, latestConditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTagChannelFilter(latestConditions, 't', channel);
   addTimestampFilters(latestParams, latestConditions, 'ie', dateFrom, dateTo, opts.timezone);
+  const connectionColumnResult = await pool.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'impression_events'
+       AND column_name IN (
+         'connection_type',
+         'effective_connection_type',
+         'connection_downlink_mbps',
+         'connection_rtt_ms',
+         'connection_save_data'
+       )`,
+  );
+  const connectionColumns = new Set(connectionColumnResult.rows.map((row) => row.column_name));
+  const connectionTypeExpression = connectionColumns.has('connection_type') ? 'ie.connection_type' : 'NULL::text';
+  const effectiveConnectionTypeExpression = connectionColumns.has('effective_connection_type') ? 'ie.effective_connection_type' : 'NULL::text';
+  const connectionDownlinkExpression = connectionColumns.has('connection_downlink_mbps') ? 'ie.connection_downlink_mbps' : 'NULL::numeric';
+  const connectionRttExpression = connectionColumns.has('connection_rtt_ms') ? 'ie.connection_rtt_ms' : 'NULL::integer';
+  const connectionSaveDataExpression = connectionColumns.has('connection_save_data') ? 'ie.connection_save_data' : 'NULL::boolean';
   const latestQuery = pool.query(
     `SELECT
        ie.site_domain,
@@ -1578,7 +1597,12 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
        ie.content_series,
        ie.carrier,
        ie.app_store_name,
-       ie.content_genre
+       ie.content_genre,
+       ${connectionTypeExpression} AS connection_type,
+       ${effectiveConnectionTypeExpression} AS effective_connection_type,
+       ${connectionDownlinkExpression} AS connection_downlink_mbps,
+       ${connectionRttExpression} AS connection_rtt_ms,
+       ${connectionSaveDataExpression} AS connection_save_data
      FROM impression_events ie
      JOIN ad_tags t ON t.id = ie.tag_id
      WHERE ${latestConditions.join(' AND ')}
@@ -1665,6 +1689,32 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
     networkParams,
   );
 
+  const connectionTypeParams = [...latestParams];
+  const connectionTypeQuery = pool.query(
+    `SELECT COALESCE(NULLIF(${connectionTypeExpression}, ''), 'Unknown') AS label,
+            COUNT(*)::bigint AS value
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     WHERE ${latestConditions.join(' AND ')}
+     GROUP BY 1
+     ORDER BY value DESC, label ASC
+     LIMIT 10`,
+    connectionTypeParams,
+  );
+
+  const effectiveConnectionTypeParams = [...latestParams];
+  const effectiveConnectionTypeQuery = pool.query(
+    `SELECT COALESCE(NULLIF(${effectiveConnectionTypeExpression}, ''), 'Unknown') AS label,
+            COUNT(*)::bigint AS value
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     WHERE ${latestConditions.join(' AND ')}
+     GROUP BY 1
+     ORDER BY value DESC, label ASC
+     LIMIT 10`,
+    effectiveConnectionTypeParams,
+  );
+
   const inventoryParams = [...latestParams];
   const inventoryQuery = pool.query(
     `SELECT
@@ -1691,6 +1741,8 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
   const browserResult = await browserQuery;
   const carrierResult = await carrierQuery;
   const networkResult = await networkQuery;
+  const connectionTypeResult = await connectionTypeQuery;
+  const effectiveConnectionTypeResult = await effectiveConnectionTypeQuery;
   const inventoryResult = await inventoryQuery;
 
   return {
@@ -1701,6 +1753,8 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
     browsers: browserResult.rows,
     carriers: carrierResult.rows,
     networks: networkResult.rows,
+    connection_types: connectionTypeResult.rows,
+    effective_connection_types: effectiveConnectionTypeResult.rows,
     inventory_environments: inventoryResult.rows,
   };
 }

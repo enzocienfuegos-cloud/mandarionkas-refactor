@@ -4,6 +4,7 @@ import type { DateRange } from '../../../system';
 import type {
   AttributionWindowRow,
   CampaignPerformanceRow,
+  ConnectionBreakdownRow,
   CreativeRow,
   DeviceBreakdownRow,
   FrequencyBucketRow,
@@ -171,6 +172,8 @@ type ContextSnapshotRow = {
   browsers: Array<{ label: string; value: number }>;
   carriers: Array<{ label: string; value: number }>;
   networks: Array<{ label: string; value: number }>;
+  connection_types: Array<{ label: string; value: number }>;
+  effective_connection_types: Array<{ label: string; value: number }>;
   inventory_environments: Array<{ label: string; value: number }>;
 };
 
@@ -199,6 +202,7 @@ type HookState = {
   topRegions: RegionRow[];
   inventorySourceRows: InventorySourceRow[];
   deviceRows: DeviceBreakdownRow[];
+  connectionRows: ConnectionBreakdownRow[];
   trackerHealth: TrackerHealthRow[];
   identitySegments: IdentityTypeRow[];
   videoFunnel: VideoFunnelRow[];
@@ -673,16 +677,12 @@ function buildDeviceRows({
   deviceModels,
   operatingSystems,
   browsers,
-  carriers,
-  networks,
   totalImpressions,
 }: {
   deviceTypes: Array<{ label: string; value: number }>;
   deviceModels: Array<{ label: string; value: number }>;
   operatingSystems: Array<{ label: string; value: number }>;
   browsers: Array<{ label: string; value: number }>;
-  carriers: Array<{ label: string; value: number }>;
-  networks: Array<{ label: string; value: number }>;
   totalImpressions: number;
 }): DeviceBreakdownRow[] {
   const toDeviceRow = (row: { label: string; value: number }, kind: DeviceBreakdownRow['kind']): DeviceBreakdownRow => {
@@ -707,15 +707,53 @@ function buildDeviceRows({
     ...browsers
       .filter((row) => String(row.label ?? '').trim().toLowerCase() !== 'unknown')
       .map((row) => toDeviceRow(row, 'Browser')),
-    ...carriers
-      .filter((row) => String(row.label ?? '').trim().toLowerCase() !== 'unknown')
-      .map((row) => toDeviceRow(row, 'Carrier')),
-    ...networks
-      .filter((row) => String(row.label ?? '').trim().toLowerCase() !== 'unknown')
-      .map((row) => toDeviceRow(row, 'Network')),
   ]
     .sort((a, b) => b.impressions - a.impressions || a.name.localeCompare(b.name))
-    .slice(0, 12);
+    .slice(0, 8);
+}
+
+function buildConnectionRows({
+  connectionTypes,
+  effectiveConnectionTypes,
+  carriers,
+  networks,
+  totalImpressions,
+}: {
+  connectionTypes: Array<{ label: string; value: number }>;
+  effectiveConnectionTypes: Array<{ label: string; value: number }>;
+  carriers: Array<{ label: string; value: number }>;
+  networks: Array<{ label: string; value: number }>;
+  totalImpressions: number;
+}): ConnectionBreakdownRow[] {
+  const toConnectionRow = (row: { label: string; value: number }, kind: ConnectionBreakdownRow['kind']): ConnectionBreakdownRow => {
+    const impressions = toNumber(row.value);
+    const label = String(row.label || 'Unknown').trim() || 'Unknown';
+    return {
+      kind,
+      name: kind === 'Connection' || kind === 'Effective' ? titleCase(label) : label,
+      impressions,
+      metric: formatCount(impressions),
+      metricLabel: 'Impressions',
+      share: totalImpressions > 0 ? formatPercent((impressions / totalImpressions) * 100, 1) : '0.0%',
+    };
+  };
+
+  return [
+    ...connectionTypes
+      .filter((row) => String(row.label ?? '').trim().toLowerCase() !== 'unknown')
+      .map((row) => toConnectionRow(row, 'Connection')),
+    ...effectiveConnectionTypes
+      .filter((row) => String(row.label ?? '').trim().toLowerCase() !== 'unknown')
+      .map((row) => toConnectionRow(row, 'Effective')),
+    ...carriers
+      .filter((row) => String(row.label ?? '').trim().toLowerCase() !== 'unknown')
+      .map((row) => toConnectionRow(row, 'Carrier')),
+    ...networks
+      .filter((row) => String(row.label ?? '').trim().toLowerCase() !== 'unknown')
+      .map((row) => toConnectionRow(row, 'Network')),
+  ]
+    .sort((a, b) => b.impressions - a.impressions || a.name.localeCompare(b.name))
+    .slice(0, 8);
 }
 
 const INITIAL_STATE: HookState = {
@@ -726,6 +764,7 @@ const INITIAL_STATE: HookState = {
   topRegions: [],
   inventorySourceRows: [],
   deviceRows: [],
+  connectionRows: [],
   trackerHealth: [],
   identitySegments: [],
   videoFunnel: [],
@@ -924,6 +963,11 @@ export function useReportingData({
         deviceModels: contextSnapshotPayload.device_models ?? [],
         operatingSystems: contextSnapshotPayload.operating_systems ?? [],
         browsers: contextSnapshotPayload.browsers ?? [],
+        totalImpressions: toNumber(stats.total_impressions),
+      });
+      const connectionRows = buildConnectionRows({
+        connectionTypes: contextSnapshotPayload.connection_types ?? [],
+        effectiveConnectionTypes: contextSnapshotPayload.effective_connection_types ?? [],
         carriers: contextSnapshotPayload.carriers ?? [],
         networks: contextSnapshotPayload.networks ?? [],
         totalImpressions: toNumber(stats.total_impressions),
@@ -1020,6 +1064,7 @@ export function useReportingData({
         topRegions,
         inventorySourceRows,
         deviceRows,
+        connectionRows,
         trackerHealth,
         identitySegments,
         videoFunnel,

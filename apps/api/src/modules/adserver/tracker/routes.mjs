@@ -328,6 +328,11 @@ export function createTrackerRoutes(buffer = null) {
           const sfTouch = p.get('sf_touch') === '1' ? true : p.get('sf_touch') === '0' ? false : null;
           const sfMem = p.get('sf_mem') ? Number(p.get('sf_mem')) || null : null;
           const sfCpu = p.get('sf_cpu') ? Number.parseInt(p.get('sf_cpu'), 10) || null : null;
+          const connectionType = trimText(p.get('sf_conn_type') || p.get('connectiontype') || p.get('connection') || '') || null;
+          const effectiveConnectionType = trimText(p.get('sf_conn_effective') || p.get('effectiveconnectiontype') || '') || null;
+          const connectionDownlink = p.get('sf_conn_downlink') ? Number(p.get('sf_conn_downlink')) || null : null;
+          const connectionRtt = p.get('sf_conn_rtt') ? Number.parseInt(p.get('sf_conn_rtt'), 10) || null : null;
+          const connectionSaveData = p.get('sf_conn_save_data') === '1' ? true : p.get('sf_conn_save_data') === '0' ? false : null;
 
           inferContext(pool, {
             siteDomain: trackingContext.siteDomain,
@@ -343,6 +348,7 @@ export function createTrackerRoutes(buffer = null) {
             pagePosition || contentLanguage || contentTitle || contentSeries || carrier ||
             appStoreName || contentGenre || contextualIds || region || city || deviceId ||
             ipFingerprint || sfTz || sfLang || sfScr || sfTouch !== null || sfMem !== null || sfCpu !== null ||
+            connectionType || effectiveConnectionType || connectionDownlink !== null || connectionRtt !== null || connectionSaveData !== null ||
             inferredContext !== 'unknown'
             ) {
             queueImpressionEventWrite(pool, {
@@ -386,6 +392,11 @@ export function createTrackerRoutes(buffer = null) {
               sfTouch,
               sfMem,
               sfCpu,
+              connectionType,
+              effectiveConnectionType,
+              connectionDownlink,
+              connectionRtt,
+              connectionSaveData,
               inferredContext: inferredContext || 'unknown',
             });
             }
