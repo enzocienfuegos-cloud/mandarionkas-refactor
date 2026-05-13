@@ -57,13 +57,35 @@ export function useCreativeCatalogViewModel({
     return message;
   };
 
+  const isHtml5PublishStale = (metadata: Record<string, any>) => {
+    const status = String(metadata.html5Publish?.status ?? '').toLowerCase();
+    if (!['queued', 'publishing', 'processing'].includes(status)) return false;
+    const timestamp = Date.parse(String(
+      metadata.html5Publish?.updatedAt
+      ?? metadata.html5Publish?.queuedAt
+      ?? metadata.publishJob?.updatedAt
+      ?? '',
+    ));
+    return Number.isFinite(timestamp) && Date.now() - timestamp > 5 * 60 * 1000;
+  };
+
   const getVersionProcessingState = (creative: Creative) => {
     const version = latestVersions[creative.id];
     const metadata = (version?.metadata ?? {}) as Record<string, any>;
+    const sourceKind = String(version?.sourceKind ?? '').toLowerCase();
     const versionStatus = String(version?.status ?? '').toLowerCase();
     const transcodeStatus = String(version?.transcodeStatus ?? '').toLowerCase();
     const videoProcessingStatus = String(metadata.videoProcessing?.status ?? '').toLowerCase();
     const html5PublishStatus = String(metadata.html5Publish?.status ?? '').toLowerCase();
+    const hasCompletedHtml5Preview = sourceKind === 'html5_zip'
+      && html5PublishStatus === 'completed'
+      && Boolean(
+        version?.previewUrl
+        || version?.publicUrl
+        || metadata.html5Publish?.publicUrl
+        || metadata.publishJob?.publicUrl,
+      );
+    if (hasCompletedHtml5Preview || isHtml5PublishStale(metadata)) return false;
     return versionStatus === 'processing'
       || transcodeStatus === 'queued'
       || transcodeStatus === 'processing'
@@ -90,12 +112,16 @@ export function useCreativeCatalogViewModel({
       || transcodeStatus === 'stalled'
       || videoProcessingStatus === 'failed'
       || videoProcessingStatus === 'blocked'
-      || html5PublishStatus === 'failed';
+      || html5PublishStatus === 'failed'
+      || isHtml5PublishStale(metadata);
   };
 
   const getCreativeIssueMessage = (creative: Creative) => {
     const version = latestVersions[creative.id];
     const metadata = (version?.metadata ?? {}) as Record<string, any>;
+    if (isHtml5PublishStale(metadata)) {
+      return 'La publicación HTML5 lleva demasiado tiempo en cola. El worker va a reintentar automáticamente; si no cambia, vuelve a publicar el ZIP.';
+    }
     const html5PublishDetail = formatOperationalIssueMessage(metadata.html5Publish?.detail);
     if (html5PublishDetail) return html5PublishDetail;
 

@@ -207,12 +207,8 @@ export default function CreativesView() {
     bulkAssignableTags,
     canBulkAssign,
     bulkAssignHint,
-    liveCreatives,
-    publishingCreatives,
     attentionCreatives,
-    previewMissingCount,
     creativeRows,
-    creativeAvailability,
     toggleCreativeSelection,
     toggleSelectAllVisibleCreatives,
   } = useCreativeCatalogViewModel({
@@ -344,14 +340,6 @@ export default function CreativesView() {
         onSearchChange={filters.setSearchTerm}
         onUploadCreative={() => navigate('/creatives/upload')}
         attentionCount={attentionCreatives}
-        creativeMetricData={{
-          creativeAvailability,
-          publishingCreatives,
-          liveCreatives,
-          attentionCreatives,
-          previewMissingCreatives: previewMissingCount,
-          filteredCreativeCount: filteredCreatives.length,
-        }}
       />
 
       {successMessage && (

@@ -237,6 +237,7 @@ export async function sendHtml5ArchivePublishJob(ingestionId, opts = {}) {
   const b = getBoss();
   return b.send(QUEUE.PUBLISH_HTML5_ARCHIVE, { ingestionId }, {
     singletonKey:      ingestionId,
+    singletonSeconds:  300,
     retryLimit:        3,
     retryDelay:        30,
     expireInSeconds:   900,
