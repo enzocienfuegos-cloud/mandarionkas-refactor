@@ -2,6 +2,7 @@ import { getPool } from '@smx/db/src/pool.mjs';
 import { resolveActiveCreativeForTag as resolveActiveCreativeForTagRows } from '@smx/db/src/tags.mjs';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { wrapTrackedClickUrlWithDspMacro } from '../../../../../../packages/contracts/src/dsp-macros.mjs';
+import { sanitizeClickTagRuntimeInHtml } from '../../../../../../packages/contracts/src/html5-detector.mjs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const R2_REGION = 'auto';
@@ -186,6 +187,14 @@ function guessCreativeAssetContentType(filename) {
     zip: 'application/zip',
   };
   return map[ext] || 'application/octet-stream';
+}
+
+function normalizeServedHtml5AssetBody(body, assetPath) {
+  const normalizedPath = trimText(assetPath).toLowerCase();
+  if (!normalizedPath.endsWith('.html') && !normalizedPath.endsWith('.htm')) return body;
+  const source = Buffer.isBuffer(body) ? body.toString('utf-8') : String(body ?? '');
+  const sanitized = sanitizeClickTagRuntimeInHtml(source);
+  return sanitized.replaced ? Buffer.from(sanitized.html, 'utf-8') : body;
 }
 
 function getCreativeEntryAssetPath(row) {
@@ -837,7 +846,7 @@ export async function handleDisplayRoutes(ctx) {
     const storageKey = resolveCreativeAssetStorageKey(env, row, requestedAssetPath);
     if (storageKey && isR2Ready(env)) {
       try {
-        const body = await readR2ObjectBuffer(env, storageKey);
+        const body = normalizeServedHtml5AssetBody(await readR2ObjectBuffer(env, storageKey), requestedAssetPath);
         return sendAsset(res, body, {
           contentType: guessCreativeAssetContentType(requestedAssetPath),
         });
@@ -848,7 +857,7 @@ export async function handleDisplayRoutes(ctx) {
 
     const relayedAsset = await fetchCreativeAssetByUrl(row, requestedAssetPath);
     if (relayedAsset) {
-      return sendAsset(res, relayedAsset.body, {
+      return sendAsset(res, normalizeServedHtml5AssetBody(relayedAsset.body, requestedAssetPath), {
         contentType: relayedAsset.contentType,
       });
     }

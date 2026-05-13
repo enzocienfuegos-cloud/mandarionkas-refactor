@@ -6,6 +6,7 @@ import {
   extractReferencedAssetPathsFromCss,
   extractReferencedAssetPathsFromHtml,
   rewriteClickTagInHtml,
+  sanitizeClickTagRuntimeInHtml,
   validateHtml5Bundle,
 } from './html5-detector.mjs';
 
@@ -64,6 +65,22 @@ test('rewrites matching repeated clickTag destinations across the same asset', (
   assert.equal(result.replaced, true);
   assert.equal(result.html.includes('https://old.example/'), false);
   assert.equal((result.html.match(/https:\/\/new\.example\/path/g) || []).length, 2);
+});
+
+test('neutralizes Adform fallback URL appending for wrapped clickTag values', () => {
+  const html = `<script>var bsClickTAG = decodeURIComponent(getClickTagValue()); if(bsClickTAG === '') {bsClickTAG = "https://www.roblox.com/games/134720376226601/The-World-of-Bocadeli-Flavor"} else {var encUrl = encodeURIComponent("https://www.roblox.com/games/134720376226601/The-World-of-Bocadeli-Flavor"); if (bsClickTAG.indexOf("https://www.roblox.com/games/134720376226601/The-World-of-Bocadeli-Flavor") === -1) bsClickTAG += encUrl; } window.open(bsClickTAG, "_blank");</script>`;
+  const result = sanitizeClickTagRuntimeInHtml(html);
+  assert.equal(result.replaced, true);
+  assert.equal(result.html.includes('bsClickTAG += encUrl'), false);
+  assert.equal(result.html.includes('window.open(bsClickTAG, "_blank")'), true);
+});
+
+test('rewrite also neutralizes Adform fallback appending after destination replacement', () => {
+  const html = `<script>var bsClickTAG = decodeURIComponent(getClickTagValue()); if(bsClickTAG === '') {bsClickTAG = "https://bocadeli.com/"} else {var encUrl = encodeURIComponent("https://bocadeli.com/"); if (bsClickTAG.indexOf("https://bocadeli.com/") === -1) bsClickTAG += encUrl; }</script>`;
+  const result = rewriteClickTagInHtml(html, 'https://www.roblox.com/games/134720376226601/The-World-of-Bocadeli-Flavor');
+  assert.equal(result.replaced, true);
+  assert.equal(result.html.includes('https://bocadeli.com/'), false);
+  assert.equal(result.html.includes('bsClickTAG += encUrl'), false);
 });
 
 test('rejects non-http values', () => {

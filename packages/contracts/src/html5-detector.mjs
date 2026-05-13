@@ -60,7 +60,7 @@ export function rewriteClickTagInHtml(htmlSource, destinationUrl) {
   const source = typeof htmlSource === 'string' ? htmlSource : '';
   const replacementUrl = normalizeHttpUrl(destinationUrl);
   if (!source || !replacementUrl) {
-    return { html: source, replaced: false, detectedClickUrl: null };
+    return { html: sanitizeClickTagRuntimeInHtml(source).html, replaced: false, detectedClickUrl: null };
   }
 
   const detectedClickUrl = detectClickTagInHtml(source);
@@ -101,7 +101,31 @@ export function rewriteClickTagInHtml(htmlSource, destinationUrl) {
     }
   }
 
-  return { html: rewritten, replaced, detectedClickUrl };
+  const sanitized = sanitizeClickTagRuntimeInHtml(rewritten);
+  return { html: sanitized.html, replaced: replaced || sanitized.replaced, detectedClickUrl };
+}
+
+export function sanitizeClickTagRuntimeInHtml(htmlSource) {
+  const source = typeof htmlSource === 'string' ? htmlSource : '';
+  if (!source) return { html: source, replaced: false };
+
+  let rewritten = source;
+
+  // Some Adform/Creatopy exports append the encoded fallback destination to any
+  // non-empty bsClickTAG unless the clickTag contains the raw destination URL.
+  // That breaks DSP/ad-server wrappers where the destination is correctly
+  // nested and encoded inside a tracker URL.
+  rewritten = rewritten.replace(
+    /else\s*\{\s*var\s+encUrl\s*=\s*encodeURIComponent\s*\(\s*["']https?:\/\/[^"']{4,1024}["']\s*\)\s*;\s*if\s*\(\s*bsClickTAG\.indexOf\s*\(\s*["']https?:\/\/[^"']{4,1024}["']\s*\)\s*===\s*-1\s*\)\s*bsClickTAG\s*\+=\s*encUrl\s*;\s*\}/gi,
+    'else {}',
+  );
+
+  rewritten = rewritten.replace(
+    /else\s*\{\s*var\s+encUrl\s*=\s*encodeURIComponent\s*\(\s*["']https?:\/\/[^"']{4,1024}["']\s*\)\s*;\s*if\s*\(\s*bsClickTAG\.indexOf\s*\(\s*["']https?:\/\/[^"']{4,1024}["']\s*\)\s*<\s*0\s*\)\s*bsClickTAG\s*\+=\s*encUrl\s*;\s*\}/gi,
+    'else {}',
+  );
+
+  return { html: rewritten, replaced: rewritten !== source };
 }
 
 function normalizeHttpUrl(value) {
