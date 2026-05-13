@@ -305,9 +305,12 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
   await deps.updateCreativeIngestion(pool, workspaceId, ingestionId, {
     status: 'processing',
     metadata: mergePublishJob(initialMetadata, {
+      status: 'processing',
       stage: 'starting',
       progressPercent: 5,
       message: 'Preparing background publish job…',
+      errorCode: null,
+      errorDetail: null,
     }),
     error_code: null,
     error_detail: null,
@@ -351,9 +354,12 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
     }
     await deps.updateCreativeIngestion(pool, workspaceId, ingestionId, {
       metadata: mergePublishJob(initialMetadata, {
+        status: 'processing',
         stage: 'publishing_html5_archive',
         progressPercent: 20,
         message: 'Publishing HTML5 assets…',
+        errorCode: null,
+        errorDetail: null,
       }),
     });
 
@@ -396,9 +402,12 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
       });
       await deps.updateCreativeIngestion(pool, workspaceId, ingestionId, {
         metadata: mergePublishJob(initialMetadata, {
+          status: 'processing',
           stage: 'publishing_html5_archive',
           progressPercent: Math.min(85, 20 + Math.round(((index + 1) / entries.length) * 60)),
           message: 'Publishing HTML5 assets…',
+          errorCode: null,
+          errorDetail: null,
         }),
       });
     }
@@ -532,6 +541,7 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
     }
 
     const completedMetadata = mergePublishJob(initialMetadata, {
+      status: 'completed',
       stage: 'completed',
       progressPercent: 100,
       message: 'Publish completed.',
@@ -539,6 +549,9 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
       assetCount: uploaded.length,
       entryPath: publishedEntry.publishedPath,
       storagePrefix,
+      errorCode: null,
+      errorDetail: null,
+      retryCount: 0,
     });
 
     await deps.updateCreativeIngestion(pool, workspaceId, ingestionId, {
@@ -565,6 +578,7 @@ export async function runPublishHtml5ArchiveJobWithDeps(ingestionId, source = pr
     };
   } catch (error) {
     const failedMetadata = mergePublishJob(initialMetadata, {
+      status: 'failed',
       stage: 'failed',
       progressPercent: 0,
       message: error?.message || 'HTML5 publish failed.',
