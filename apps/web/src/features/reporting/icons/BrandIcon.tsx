@@ -27,7 +27,7 @@ import {
 import type { Tone } from '../reporting.types';
 
 const toneClasses: Record<Tone, string> = {
-  fuchsia: 'border-brand-500/25 bg-[color:var(--dusk-surface-active)] text-text-brand shadow-brand',
+  fuchsia: 'border-[color:var(--dusk-border-strong)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)]',
   violet: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)] shadow-2',
   blue: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)] shadow-2',
   cyan: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)] shadow-2',

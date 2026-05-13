@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, FilterBar, FormField, Input, type DateRange } from '../../../system';
-import { Settings } from '../../../system/icons';
+import { RefreshCw, Settings } from '../../../system/icons';
 
 export interface ReportingTopBarProps {
   secondaryAction?: React.ReactNode;
@@ -17,6 +17,8 @@ export interface ReportingTopBarProps {
   onSpendViewChange: (value: 'without_margin' | 'with_margin') => void;
   search: string;
   onSearchChange: (value: string) => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
   onCustomizeWidgets?: () => void;
   onResetFilters?: () => void;
 }
@@ -65,6 +67,8 @@ export function ReportingTopBar({
   onSpendViewChange,
   search,
   onSearchChange,
+  onRefresh,
+  refreshing = false,
   onCustomizeWidgets,
   onResetFilters,
 }: ReportingTopBarProps) {
@@ -121,6 +125,17 @@ export function ReportingTopBar({
         />
 
         <div className="flex items-center gap-3">
+          {onRefresh ? (
+            <Button
+              type="button"
+              variant="secondary"
+              leadingIcon={<RefreshCw />}
+              loading={refreshing}
+              onClick={onRefresh}
+            >
+              Refresh
+            </Button>
+          ) : null}
           {secondaryAction}
           {onCustomizeWidgets ? (
             <Button

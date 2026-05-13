@@ -193,6 +193,10 @@ export function ReportingPage() {
         onSpendViewChange={setSpendView}
         search={search}
         onSearchChange={setSearch}
+        onRefresh={() => {
+          void reload();
+        }}
+        refreshing={loading}
         onResetFilters={() => {
           setAdvertiserFilter('');
           setDateRangeFilter('30d');

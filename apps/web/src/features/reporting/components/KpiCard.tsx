@@ -4,7 +4,7 @@ import { Sparkline as DuskSparkline } from '../../../system';
 import { BrandIcon } from '../icons/BrandIcon';
 
 const toneText: Record<Tone, string> = {
-  fuchsia: 'text-text-brand',
+  fuchsia: 'text-[color:var(--dusk-text-secondary)]',
   violet: 'text-[color:var(--dusk-status-info-fg)]',
   blue: 'text-[color:var(--dusk-status-info-fg)]',
   cyan: 'text-[color:var(--dusk-status-info-fg)]',
@@ -35,7 +35,7 @@ export function KpiCard({ item }: { item: ReportingKpi }) {
           series={item.sparkline}
           tone={
             item.tone === 'fuchsia'
-              ? 'brand'
+              ? 'neutral'
               : item.tone === 'emerald'
                 ? 'success'
                 : item.tone === 'amber'

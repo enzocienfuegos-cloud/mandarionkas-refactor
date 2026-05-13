@@ -914,6 +914,44 @@ export function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
   return getImpressionGroupedBreakdown(pool, workspaceId, `COALESCE(NULLIF(ie.site_domain, ''), 'Unknown')`, 'site_domain', opts);
 }
 
+export async function getWorkspaceAppBreakdown(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '' } = opts;
+  const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
+  const params = [workspaceId];
+  const conditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds, advertiserId);
+  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo);
+  conditions.push(`(COALESCE(ie.app_name, '') <> '' OR COALESCE(ie.app_bundle, '') <> '' OR COALESCE(ie.app_id, '') <> '')`);
+  params.push(normalizeLimit(limit));
+
+  const { rows } = await pool.query(
+    `SELECT
+       COALESCE(NULLIF(ie.app_name, ''), NULLIF(ie.app_bundle, ''), NULLIF(ie.app_id, ''), 'Unknown app') AS app_name,
+       MAX(NULLIF(ie.app_bundle, '')) AS app_bundle,
+       MAX(NULLIF(ie.app_id, '')) AS app_id,
+       COUNT(*)::bigint AS impressions,
+       0::bigint AS clicks,
+       COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::bigint AS viewable_imps,
+       COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0)::bigint AS measured_imps,
+       COALESCE(SUM(CASE WHEN ie.viewable IS NULL THEN 1 ELSE 0 END), 0)::bigint AS undetermined_imps,
+       0::bigint AS unique_identities,
+       0::numeric AS avg_frequency,
+       0::numeric AS ctr,
+       CASE WHEN COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0) > 0
+         THEN ROUND(COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::NUMERIC / SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END) * 100, 4)
+         ELSE 0 END AS viewability_rate
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY 1
+     ORDER BY impressions DESC, app_name ASC
+     LIMIT $${params.length}`,
+    params,
+  );
+
+  return rows.filter((row) => String(row.app_name ?? '').trim());
+}
+
 export function getWorkspaceCountryBreakdown(pool, workspaceId, opts = {}) {
   return getImpressionGroupedBreakdown(pool, workspaceId, `COALESCE(NULLIF(ie.country, ''), 'Unknown')`, 'country', opts);
 }

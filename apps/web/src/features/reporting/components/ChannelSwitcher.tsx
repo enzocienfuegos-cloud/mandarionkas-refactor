@@ -25,7 +25,7 @@ export function ChannelSwitcher({ mode, onModeChange }: { mode: ReportingMode; o
             variant={active ? 'secondary' : 'ghost'}
             className={[
               '!h-10 rounded-xl',
-              active ? 'border border-brand-500/40 bg-[color:var(--dusk-surface-active)] text-[color:var(--dusk-text-primary)] shadow-brand' : 'hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]',
+              active ? 'border border-[color:var(--dusk-border-strong)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-primary)] shadow-none' : 'hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]',
             ].join(' ')}
           >
             <item.Icon className="h-3.5 w-3.5" />

@@ -4,8 +4,8 @@ import { Calendar, Filter, Send } from '../../../system/icons';
 import type { ReportingMode } from '../reporting.types';
 
 const toneClasses: Record<ReportingMode, string> = {
-  all: 'border-brand-500/25 bg-[color:var(--dusk-surface-active)] text-text-brand',
-  display: 'border-brand-500/25 bg-[color:var(--dusk-surface-active)] text-text-brand',
+  all: 'border-[color:var(--dusk-border-strong)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)]',
+  display: 'border-[color:var(--dusk-border-strong)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)]',
   video: 'border-[color:var(--dusk-status-info-border)] bg-[color:var(--dusk-status-info-bg)] text-[color:var(--dusk-status-info-fg)]',
   identity: 'border-[color:var(--dusk-status-success-border)] bg-[color:var(--dusk-status-success-bg)] text-[color:var(--dusk-status-success-fg)]',
 };
