@@ -2,6 +2,7 @@ import { badRequest, sendJson, serviceUnavailable, unauthorized } from '../../..
 import {
   createSavedAudience,
   deleteSavedAudience,
+  getWorkspaceAppBreakdown,
   getWorkspaceCampaignBreakdown,
   getWorkspaceCityBreakdown,
   getWorkspaceContextSnapshot,
@@ -80,6 +81,13 @@ export async function handleReportingRoutes(ctx) {
   if (method === 'GET' && pathname === '/v1/reporting/workspace/site-breakdown') {
     return withReadOnlySession(ctx, async (session) => {
       const breakdown = await getWorkspaceSiteBreakdown(session.client, session.session.activeWorkspaceId, getOpts(url));
+      return sendJson(res, 200, { breakdown, requestId });
+    });
+  }
+
+  if (method === 'GET' && pathname === '/v1/reporting/workspace/app-breakdown') {
+    return withReadOnlySession(ctx, async (session) => {
+      const breakdown = await getWorkspaceAppBreakdown(session.client, session.session.activeWorkspaceId, getOpts(url));
       return sendJson(res, 200, { breakdown, requestId });
     });
   }

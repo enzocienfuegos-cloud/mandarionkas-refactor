@@ -7,6 +7,7 @@ import type {
   CreativeRow,
   FrequencyBucketRow,
   IdentityTypeRow,
+  InventorySourceRow,
   Recommendation,
   RegionRow,
   ReportingKpi,
@@ -99,6 +100,20 @@ type RegionBreakdownRow = {
   viewability_rate: number;
 };
 
+type SiteBreakdownRow = {
+  site_domain: string;
+  impressions: number;
+  viewability_rate: number;
+};
+
+type AppBreakdownRow = {
+  app_name: string;
+  app_bundle?: string | null;
+  app_id?: string | null;
+  impressions: number;
+  viewability_rate: number;
+};
+
 type TrackerBreakdownRow = {
   name: string;
   tracker_type: string;
@@ -170,6 +185,7 @@ type HookState = {
   trend: TrendSeries[];
   topCreatives: CreativeRow[];
   topRegions: RegionRow[];
+  inventorySourceRows: InventorySourceRow[];
   trackerHealth: TrackerHealthRow[];
   identitySegments: IdentityTypeRow[];
   videoFunnel: VideoFunnelRow[];
@@ -571,12 +587,53 @@ function buildTrackerHealth(rows: TrackerBreakdownRow[]): TrackerHealthRow[] {
   });
 }
 
+function buildInventorySourceRows({
+  sites,
+  apps,
+  totalImpressions,
+}: {
+  sites: SiteBreakdownRow[];
+  apps: AppBreakdownRow[];
+  totalImpressions: number;
+}): InventorySourceRow[] {
+  const appRows = apps.map<InventorySourceRow>((row) => {
+    const detail = [row.app_bundle, row.app_id]
+      .map((value) => String(value ?? '').trim())
+      .filter(Boolean)
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .join(' · ');
+    return {
+      kind: 'App',
+      name: row.app_name || row.app_bundle || row.app_id || 'Unknown app',
+      detail: detail || undefined,
+      impressions: toNumber(row.impressions),
+      metric: formatPercent(toNumber(row.viewability_rate)),
+      metricLabel: 'Viewability',
+      share: totalImpressions > 0 ? formatPercent((toNumber(row.impressions) / totalImpressions) * 100, 1) : '0.0%',
+    };
+  });
+
+  const siteRows = sites.map<InventorySourceRow>((row) => ({
+    kind: 'Domain',
+    name: row.site_domain || 'Unknown domain',
+    impressions: toNumber(row.impressions),
+    metric: formatPercent(toNumber(row.viewability_rate)),
+    metricLabel: 'Viewability',
+    share: totalImpressions > 0 ? formatPercent((toNumber(row.impressions) / totalImpressions) * 100, 1) : '0.0%',
+  }));
+
+  return [...appRows, ...siteRows]
+    .sort((a, b) => b.impressions - a.impressions || a.name.localeCompare(b.name))
+    .slice(0, 6);
+}
+
 const INITIAL_STATE: HookState = {
   advertiserOptions: [],
   kpis: [],
   trend: [],
   topCreatives: [],
   topRegions: [],
+  inventorySourceRows: [],
   trackerHealth: [],
   identitySegments: [],
   videoFunnel: [],
@@ -623,6 +680,8 @@ export function useReportingData({
       const creativePayload = await fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/creative-breakdown${query}`);
       const variantPayload = await fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/variant-breakdown${query}`);
       const regionPayload = await fetchJson<{ breakdown: RegionBreakdownRow[] }>(`/v1/reporting/workspace/region-breakdown${query}`);
+      const sitePayload = await fetchJson<{ breakdown: SiteBreakdownRow[] }>(`/v1/reporting/workspace/site-breakdown${query}`);
+      const appPayload = await fetchJson<{ breakdown: AppBreakdownRow[] }>(`/v1/reporting/workspace/app-breakdown${query}`);
       const trackerPayload = await fetchJson<{ breakdown: TrackerBreakdownRow[] }>(`/v1/reporting/workspace/tracker-breakdown${query}`);
       const identityFrequencyPayload = await fetchJson<{ breakdown: IdentityFrequencyApiRow[] }>(`/v1/reporting/workspace/identity-frequency-buckets${query}`);
       const identitySegmentPayload = await fetchJson<{ breakdown: IdentitySegmentPresetRow[] }>(`/v1/reporting/workspace/identity-segment-presets${query}`);
@@ -752,6 +811,12 @@ export function useReportingData({
           share: stats.total_impressions > 0 ? formatPercent((toNumber(row.impressions) / stats.total_impressions) * 100, 1) : '0.0%',
         }));
 
+      const inventorySourceRows = buildInventorySourceRows({
+        sites: sitePayload.breakdown ?? [],
+        apps: appPayload.breakdown ?? [],
+        totalImpressions: toNumber(stats.total_impressions),
+      });
+
       const trackerHealth = buildTrackerHealth(trackerPayload.breakdown ?? []);
 
       const topCreatives = creatives
@@ -820,6 +885,7 @@ export function useReportingData({
         trend,
         topCreatives,
         topRegions,
+        inventorySourceRows,
         trackerHealth,
         identitySegments,
         videoFunnel,

@@ -4,6 +4,7 @@ import type { ReportingMode, WidgetConfig, WidgetSize } from '../reporting.types
 import type { ReportingDataViewModel } from '../hooks/useReportingData';
 import { DisplayTable } from './DisplayTable';
 import { IdentityInsights } from './IdentityInsights';
+import { InventorySources } from './InventorySources';
 import { RecommendationsPanel } from './RecommendationsPanel';
 import { TopCreatives } from './TopCreatives';
 import { TopRegions } from './TopRegions';
@@ -109,6 +110,8 @@ function WidgetByType({
           rows={data.audienceExportRows}
         />
       );
+    case 'inventorySources':
+      return <InventorySources rows={data.inventorySourceRows} />;
     case 'topRegions':
       return <TopRegions rows={data.topRegions} />;
     case 'topCreatives':
