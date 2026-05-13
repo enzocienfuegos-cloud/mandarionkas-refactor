@@ -880,8 +880,8 @@ export function useReportingData({
       const audienceExportRows = (identitySegmentPayload.breakdown ?? [])
         .map((row) => ({
           label: row.label,
-          value: row.identity_count > 0 ? 'Ready' : 'Review',
-          helper: `${formatCount(toNumber(row.identity_count))} identities · ${formatCount(toNumber(row.clicks))} clicks · ${formatCount(toNumber(row.impressions))} impressions`,
+          value: row.identity_count > 0 ? 'Export-ready' : 'Review',
+          helper: `${formatCount(toNumber(row.identity_count))} identities · ${formatCount(toNumber(row.clicks))} clicks · ${formatCount(toNumber(row.impressions))} impressions · save as audience to persist`,
         }));
 
       const advertiserOptions = Array.from(

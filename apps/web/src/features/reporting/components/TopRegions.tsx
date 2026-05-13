@@ -5,7 +5,7 @@ import { WidgetPanel } from './WidgetPanel';
 
 export function TopRegions({ rows }: { rows: RegionRow[] }) {
   return (
-    <WidgetPanel title="Top regions" icon="geo" tone="violet">
+    <WidgetPanel title="Top departments / states" icon="geo" tone="violet">
       {rows.length ? (
         <div className="space-y-3">
           {rows.map((row) => (
@@ -23,8 +23,8 @@ export function TopRegions({ rows }: { rows: RegionRow[] }) {
         </div>
       ) : (
         <EmptyState
-          title="No regional signal yet"
-          description="Regions will populate once the selected reporting scope records delivery by geography."
+          title="No department or state signal yet"
+          description="Departments, states, and regions will populate once the selected reporting scope records delivery by geography."
         />
       )}
     </WidgetPanel>

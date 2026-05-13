@@ -1069,7 +1069,30 @@ export function getWorkspaceCountryBreakdown(pool, workspaceId, opts = {}) {
 }
 
 export function getWorkspaceRegionBreakdown(pool, workspaceId, opts = {}) {
-  return getImpressionGroupedBreakdown(pool, workspaceId, `COALESCE(NULLIF(ie.region, ''), 'Unknown')`, 'region', opts);
+  return getImpressionGroupedBreakdown(pool, workspaceId, `COALESCE(NULLIF(
+    CASE
+      WHEN UPPER(COALESCE(ie.country, '')) = 'SV' THEN
+        CASE UPPER(COALESCE(ie.region, ''))
+          WHEN 'AH' THEN 'Ahuachapan'
+          WHEN 'CA' THEN 'Cabanas'
+          WHEN 'CH' THEN 'Chalatenango'
+          WHEN 'CU' THEN 'Cuscatlan'
+          WHEN 'LI' THEN 'La Libertad'
+          WHEN 'MO' THEN 'Morazan'
+          WHEN 'PA' THEN 'La Paz'
+          WHEN 'SA' THEN 'Santa Ana'
+          WHEN 'SM' THEN 'San Miguel'
+          WHEN 'SO' THEN 'Sonsonate'
+          WHEN 'SS' THEN 'San Salvador'
+          WHEN 'SV' THEN 'San Vicente'
+          WHEN 'UN' THEN 'La Union'
+          WHEN 'US' THEN 'Usulutan'
+          ELSE NULLIF(ie.region, '')
+        END
+      ELSE NULLIF(ie.region, '')
+    END,
+    ''
+  ), 'Unknown')`, 'region', opts);
 }
 
 export function getWorkspaceCityBreakdown(pool, workspaceId, opts = {}) {

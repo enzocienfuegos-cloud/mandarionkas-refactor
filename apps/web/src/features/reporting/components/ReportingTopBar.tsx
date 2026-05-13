@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, FilterBar, FormField, Input, type DateRange } from '../../../system';
+import { Button, DateRangePicker, FilterBar, type DateRange } from '../../../system';
 import { RefreshCw, Settings } from '../../../system/icons';
 
 export interface ReportingTopBarProps {
@@ -41,16 +41,6 @@ const SPEND_VIEW_OPTIONS = [
   { value: 'without_margin', label: 'Without margin' },
   { value: 'with_margin', label: 'With margin' },
 ];
-
-function formatDateInputValue(value: Date | null) {
-  return value ? value.toISOString().slice(0, 10) : '';
-}
-
-function parseDateInputValue(value: string) {
-  if (!value) return null;
-  const parsed = new Date(`${value}T12:00:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
 
 export function ReportingTopBar({
   secondaryAction,
@@ -118,7 +108,7 @@ export function ReportingTopBar({
           search={{
             value: search,
             onChange: onSearchChange,
-            placeholder: 'Search campaign, creative, region',
+            placeholder: 'Search campaign, creative, department, state',
           }}
           activeFilterCount={activeFilterCount}
           onResetAll={onResetFilters}
@@ -151,41 +141,21 @@ export function ReportingTopBar({
       </div>
 
       {dateRangeFilter === 'custom' ? (
-        <div className="flex flex-col gap-4 rounded-[var(--dusk-radius-lg)] border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-subtle)] px-4 py-4">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-col gap-4 rounded-[var(--dusk-radius-xl)] border border-[color:var(--dusk-border-subtle)] bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.14),transparent_36%),color:var(--dusk-surface-subtle)] px-4 py-4 shadow-[var(--dusk-shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
             <p className="text-sm font-semibold text-[color:var(--dusk-text-primary)]">Custom reporting window</p>
-            <p className="text-xs text-[color:var(--dusk-text-muted)]">Choose the exact dates used across workspace reporting widgets.</p>
+            <p className="text-xs leading-5 text-[color:var(--dusk-text-muted)]">
+              Use the calendar range selector to drive every reporting widget with the same exact window.
+            </p>
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:max-w-[520px]">
-            <FormField label="From" helper="Start date for all visible reporting widgets.">
-              <Input
-                type="date"
-                inputSize="lg"
-                max={formatDateInputValue(customDateRange.to ?? new Date()) || undefined}
-                value={formatDateInputValue(customDateRange.from)}
-                onChange={(event) => {
-                  onCustomDateRangeChange({
-                    from: parseDateInputValue(event.target.value),
-                    to: customDateRange.to,
-                  });
-                }}
-              />
-            </FormField>
-            <FormField label="To" helper="End date for the active reporting window.">
-              <Input
-                type="date"
-                inputSize="lg"
-                min={formatDateInputValue(customDateRange.from) || undefined}
-                max={formatDateInputValue(new Date())}
-                value={formatDateInputValue(customDateRange.to)}
-                onChange={(event) => {
-                  onCustomDateRangeChange({
-                    from: customDateRange.from,
-                    to: parseDateInputValue(event.target.value),
-                  });
-                }}
-              />
-            </FormField>
+          <div className="flex shrink-0">
+            <DateRangePicker
+              value={customDateRange}
+              onChange={onCustomDateRangeChange}
+              maxDate={new Date()}
+              locale="en-US"
+              weekStartsOn={1}
+            />
           </div>
         </div>
       ) : null}

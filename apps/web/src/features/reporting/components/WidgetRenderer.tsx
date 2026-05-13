@@ -4,6 +4,7 @@ import type { ReportingMode, WidgetConfig, WidgetSize } from '../reporting.types
 import type { ReportingDataViewModel } from '../hooks/useReportingData';
 import { DisplayTable } from './DisplayTable';
 import { IdentityInsights } from './IdentityInsights';
+import { IdentityMethodology } from './IdentityMethodology';
 import { InventorySources } from './InventorySources';
 import { RecommendationsPanel } from './RecommendationsPanel';
 import { TopCreatives } from './TopCreatives';
@@ -74,6 +75,8 @@ function WidgetByType({
       return <VideoFormatDonut rows={data.videoFormatRows} />;
     case 'identityInsights':
       return <IdentityInsights rows={data.identitySegments} />;
+    case 'identityMethodology':
+      return <IdentityMethodology />;
     case 'identityFrequency':
       return (
         <GenericInfoPanel

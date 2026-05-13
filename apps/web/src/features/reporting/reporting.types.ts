@@ -27,6 +27,7 @@ export type WidgetType =
   | 'videoFunnel'
   | 'videoFormat'
   | 'identityInsights'
+  | 'identityMethodology'
   | 'identityFrequency'
   | 'identityKeys'
   | 'identityAttribution'
