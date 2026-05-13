@@ -412,6 +412,23 @@ export function resolveDspClickMacroValue(value) {
   return isResolvedDspMacroValue(text) ? text : '';
 }
 
+export function shouldBypassDspClickMacroForPreview({ dsp = '', macroValue = '' } = {}) {
+  const normalizedDsp = normalizeDsp(dsp);
+  if (normalizedDsp !== 'basis') return false;
+
+  const text = safeDecode(macroValue).trim();
+  if (!isResolvedDspMacroValue(text)) return false;
+
+  try {
+    const parsed = new URL(text);
+    return parsed.hostname === 'adpreview.sitescout.com'
+      && parsed.pathname.includes('/clk/')
+      && parsed.searchParams.has('adPreviewId');
+  } catch {
+    return false;
+  }
+}
+
 function isHttpUrl(value) {
   try {
     const parsed = new URL(String(value));
@@ -464,5 +481,6 @@ export function wrapTrackedClickUrlWithDspMacro(clickTrackUrl, query = {}, dsp =
   const normalizedDsp = normalizeDsp(dsp || query?.smx_dsp || query?.dsp);
   const encodedMacro = readDspMacroValue(query, 'clickMacro', normalizedDsp);
   if (!encodedMacro || !clickTrackUrl) return clickTrackUrl;
+  if (shouldBypassDspClickMacroForPreview({ dsp: normalizedDsp, macroValue: encodedMacro })) return clickTrackUrl;
   return buildDspTrackedClickUrl(clickTrackUrl, encodedMacro, normalizedDsp);
 }

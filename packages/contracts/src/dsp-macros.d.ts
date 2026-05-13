@@ -32,6 +32,10 @@ export declare function readDspMacroValue(
 ): string | null;
 export declare function isResolvedDspMacroValue(value: unknown): boolean;
 export declare function resolveDspClickMacroValue(value: unknown): string;
+export declare function shouldBypassDspClickMacroForPreview(details?: {
+  dsp?: unknown;
+  macroValue?: unknown;
+}): boolean;
 export declare function buildDspTrackedClickUrl(
   clickTrackUrl: string,
   macroValue: unknown,
