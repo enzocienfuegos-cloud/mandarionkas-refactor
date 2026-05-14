@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, DateRangePicker, FilterBar, type DateRange } from '../../../system';
-import { RefreshCw, Settings } from '../../../system/icons';
+import { Download, RefreshCw, Settings } from '../../../system/icons';
 import type { DateRangeFilter, TimeGranularity } from '../hooks/useReportingData';
 
 export interface ReportingTopBarProps {
@@ -24,6 +24,8 @@ export interface ReportingTopBarProps {
   onSearchChange: (value: string) => void;
   onRefresh?: () => void;
   refreshing?: boolean;
+  onDownloadCsv?: () => void;
+  downloadDisabled?: boolean;
   onCustomizeWidgets?: () => void;
   onResetFilters?: () => void;
 }
@@ -91,6 +93,8 @@ export function ReportingTopBar({
   onSearchChange,
   onRefresh,
   refreshing = false,
+  onDownloadCsv,
+  downloadDisabled = false,
   onCustomizeWidgets,
   onResetFilters,
 }: ReportingTopBarProps) {
@@ -172,6 +176,17 @@ export function ReportingTopBar({
               onClick={onRefresh}
             >
               Refresh
+            </Button>
+          ) : null}
+          {onDownloadCsv ? (
+            <Button
+              type="button"
+              variant="secondary"
+              leadingIcon={<Download />}
+              onClick={onDownloadCsv}
+              disabled={downloadDisabled}
+            >
+              Download CSV
             </Button>
           ) : null}
           {secondaryAction}

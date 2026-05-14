@@ -9,6 +9,7 @@ import {
   type DateRange,
 } from '../../system';
 import { reportingModeConfig } from './reporting.config';
+import { buildReportingCsv, downloadReportingCsv } from './reporting.export';
 import type { ReportingMode, SpendView } from './reporting.types';
 import { KpiGrid } from './components/KpiGrid';
 import { ReportingHeader } from './components/ReportingHeader';
@@ -114,6 +115,22 @@ export function ReportingPage() {
     }
     return 'Last 30 days';
   }, [customDateRange.from, customDateRange.to, dateRangeFilter]);
+  const timeScopeLabel = `${timeGranularity === 'hour' ? 'Hourly' : 'Daily'} · ${formatTimezoneLabel(timezone)}`;
+  const handleDownloadCsv = React.useCallback(() => {
+    const csv = buildReportingCsv({
+      mode,
+      advertiserLabel: selectedAdvertiserLabel,
+      dateRangeLabel,
+      timeScopeLabel,
+      statusFilter,
+      spendView,
+      search,
+      kpis,
+      data: reportingData,
+    });
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    downloadReportingCsv(`dusk-reporting-${mode}-${stamp}.csv`, csv);
+  }, [dateRangeLabel, kpis, mode, reportingData, search, selectedAdvertiserLabel, spendView, statusFilter, timeScopeLabel]);
 
   useEffect(() => {
     if (!currentViewId) return;
@@ -219,6 +236,8 @@ export function ReportingPage() {
           void reload();
         }}
         refreshing={loading}
+        onDownloadCsv={handleDownloadCsv}
+        downloadDisabled={loading && !kpis.length}
         onResetFilters={() => {
           setAdvertiserFilter('');
           setDateRangeFilter('30d');
@@ -235,7 +254,7 @@ export function ReportingPage() {
         mode={mode}
         scopeLabel={selectedAdvertiserLabel}
         dateRangeLabel={dateRangeLabel}
-        timeScopeLabel={`${timeGranularity === 'hour' ? 'Hourly' : 'Daily'} · ${formatTimezoneLabel(timezone)}`}
+        timeScopeLabel={timeScopeLabel}
         spendViewLabel={spendView === 'with_margin' ? 'With margin' : 'Without margin'}
       />
       {loading && !kpis.length ? <CenteredSpinner label="Loading reporting workspace…" /> : null}
