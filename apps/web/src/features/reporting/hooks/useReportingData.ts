@@ -250,6 +250,87 @@ export type ReportingReloadOptions = {
 const REPORTING_CACHE_TTL_MS = 60_000;
 const REPORTING_AUTO_REFRESH_MS = 60_000;
 const reportingPayloadCache = new Map<string, { timestamp: number; payloads: ReportingPayloads }>();
+const EMPTY_CONTEXT_SNAPSHOT: ContextSnapshotRow = {
+  latest_context: null,
+  device_types: [],
+  device_models: [],
+  operating_systems: [],
+  browsers: [],
+  carriers: [],
+  networks: [],
+  connection_types: [],
+  effective_connection_types: [],
+  inventory_environments: [],
+};
+
+async function fetchReportingPayloads(query: string, expandedQuery: string): Promise<ReportingPayloads> {
+  const [
+    workspacePayload,
+    campaignPayload,
+    tagPayload,
+    creativePayload,
+  ] = await Promise.all([
+    fetchJson<{ stats: WorkspaceStats; timeline: TimelineRow[] }>(`/v1/reporting/workspace${query}`),
+    fetchJson<{ breakdown: CampaignBreakdownRow[] }>(`/v1/reporting/workspace/campaign-breakdown${query}`),
+    fetchJson<{ breakdown: TagBreakdownRow[] }>(`/v1/reporting/workspace/tag-breakdown${query}`),
+    fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/creative-breakdown${query}`),
+  ]);
+
+  const [
+    variantPayload,
+    regionPayload,
+    sitePayload,
+    appPayload,
+  ] = await Promise.all([
+    fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/variant-breakdown${query}`),
+    fetchJson<{ breakdown: RegionBreakdownRow[] }>(`/v1/reporting/workspace/region-breakdown${query}`),
+    fetchJson<{ breakdown: SiteBreakdownRow[] }>(`/v1/reporting/workspace/site-breakdown${expandedQuery}`),
+    fetchJson<{ breakdown: AppBreakdownRow[] }>(`/v1/reporting/workspace/app-breakdown${expandedQuery}`),
+  ]);
+
+  const [
+    trackerPayload,
+    identityFrequencyPayload,
+    identitySegmentPayload,
+    identityKeyPayload,
+  ] = await Promise.all([
+    fetchJson<{ breakdown: TrackerBreakdownRow[] }>(`/v1/reporting/workspace/tracker-breakdown${query}`),
+    fetchJson<{ breakdown: IdentityFrequencyApiRow[] }>(`/v1/reporting/workspace/identity-frequency-buckets${query}`),
+    fetchJson<{ breakdown: IdentitySegmentPresetRow[] }>(`/v1/reporting/workspace/identity-segment-presets${query}`),
+    fetchJson<{ breakdown: IdentityKeyBreakdownRow[] }>(`/v1/reporting/workspace/identity-key-breakdown${query}`),
+  ]);
+
+  const [
+    identityAttributionPayload,
+    contextSnapshotPayload,
+    campaignListPayload,
+    creatives,
+  ] = await Promise.all([
+    fetchJson<{ breakdown: IdentityAttributionApiRow[] }>(`/v1/reporting/workspace/identity-attribution-windows${query}`),
+    fetchJson<ContextSnapshotRow>(`/v1/reporting/workspace/context-snapshot${query}`).catch(() => EMPTY_CONTEXT_SNAPSHOT),
+    fetchJson<{ campaigns: CampaignOption[] }>(`/v1/campaigns?scope=all`),
+    loadCreatives(),
+  ]);
+
+  return {
+    workspacePayload,
+    campaignPayload,
+    tagPayload,
+    creativePayload,
+    variantPayload,
+    regionPayload,
+    sitePayload,
+    appPayload,
+    trackerPayload,
+    identityFrequencyPayload,
+    identitySegmentPayload,
+    identityKeyPayload,
+    identityAttributionPayload,
+    contextSnapshotPayload,
+    campaignListPayload,
+    creatives,
+  };
+}
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { credentials: 'include' });
@@ -858,59 +939,7 @@ export function useReportingData({
       const cachedPayloads = reportingPayloadCache.get(query);
       const payloads = !force && cachedPayloads && Date.now() - cachedPayloads.timestamp < REPORTING_CACHE_TTL_MS
         ? cachedPayloads.payloads
-        : await Promise.all([
-          fetchJson<{ stats: WorkspaceStats; timeline: TimelineRow[] }>(`/v1/reporting/workspace${query}`),
-          fetchJson<{ breakdown: CampaignBreakdownRow[] }>(`/v1/reporting/workspace/campaign-breakdown${query}`),
-          fetchJson<{ breakdown: TagBreakdownRow[] }>(`/v1/reporting/workspace/tag-breakdown${query}`),
-          fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/creative-breakdown${query}`),
-          fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/variant-breakdown${query}`),
-          fetchJson<{ breakdown: RegionBreakdownRow[] }>(`/v1/reporting/workspace/region-breakdown${query}`),
-          fetchJson<{ breakdown: SiteBreakdownRow[] }>(`/v1/reporting/workspace/site-breakdown${expandedQuery}`),
-          fetchJson<{ breakdown: AppBreakdownRow[] }>(`/v1/reporting/workspace/app-breakdown${expandedQuery}`),
-          fetchJson<{ breakdown: TrackerBreakdownRow[] }>(`/v1/reporting/workspace/tracker-breakdown${query}`),
-          fetchJson<{ breakdown: IdentityFrequencyApiRow[] }>(`/v1/reporting/workspace/identity-frequency-buckets${query}`),
-          fetchJson<{ breakdown: IdentitySegmentPresetRow[] }>(`/v1/reporting/workspace/identity-segment-presets${query}`),
-          fetchJson<{ breakdown: IdentityKeyBreakdownRow[] }>(`/v1/reporting/workspace/identity-key-breakdown${query}`),
-          fetchJson<{ breakdown: IdentityAttributionApiRow[] }>(`/v1/reporting/workspace/identity-attribution-windows${query}`),
-          fetchJson<ContextSnapshotRow>(`/v1/reporting/workspace/context-snapshot${query}`),
-          fetchJson<{ campaigns: CampaignOption[] }>(`/v1/campaigns?scope=all`),
-          loadCreatives(),
-        ]).then(([
-          workspacePayload,
-          campaignPayload,
-          tagPayload,
-          creativePayload,
-          variantPayload,
-          regionPayload,
-          sitePayload,
-          appPayload,
-          trackerPayload,
-          identityFrequencyPayload,
-          identitySegmentPayload,
-          identityKeyPayload,
-          identityAttributionPayload,
-          contextSnapshotPayload,
-          campaignListPayload,
-          creatives,
-        ]) => {
-          const nextPayloads: ReportingPayloads = {
-            workspacePayload,
-            campaignPayload,
-            tagPayload,
-            creativePayload,
-            variantPayload,
-            regionPayload,
-            sitePayload,
-            appPayload,
-            trackerPayload,
-            identityFrequencyPayload,
-            identitySegmentPayload,
-            identityKeyPayload,
-            identityAttributionPayload,
-            contextSnapshotPayload,
-            campaignListPayload,
-            creatives,
-          };
+        : await fetchReportingPayloads(query, expandedQuery).then((nextPayloads) => {
           reportingPayloadCache.set(query, { timestamp: Date.now(), payloads: nextPayloads });
           return nextPayloads;
         });

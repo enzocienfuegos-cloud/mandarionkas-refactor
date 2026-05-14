@@ -1781,16 +1781,29 @@ export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) 
     inventoryParams,
   );
 
-  const latestResult = await latestQuery;
-  const deviceTypeResult = await deviceTypeQuery;
-  const deviceModelResult = await deviceModelQuery;
-  const osResult = await osQuery;
-  const browserResult = await browserQuery;
-  const carrierResult = await carrierQuery;
-  const networkResult = await networkQuery;
-  const connectionTypeResult = await connectionTypeQuery;
-  const effectiveConnectionTypeResult = await effectiveConnectionTypeQuery;
-  const inventoryResult = await inventoryQuery;
+  const [
+    latestResult,
+    deviceTypeResult,
+    deviceModelResult,
+    osResult,
+    browserResult,
+    carrierResult,
+    networkResult,
+    connectionTypeResult,
+    effectiveConnectionTypeResult,
+    inventoryResult,
+  ] = await Promise.all([
+    latestQuery,
+    deviceTypeQuery,
+    deviceModelQuery,
+    osQuery,
+    browserQuery,
+    carrierQuery,
+    networkQuery,
+    connectionTypeQuery,
+    effectiveConnectionTypeQuery,
+    inventoryQuery,
+  ]);
 
   return {
     latest_context: latestResult.rows[0] ?? null,

@@ -83,7 +83,11 @@ export async function withReadOnlySession(ctx, callback) {
     return false;
   }
 
-  return callback(session);
+  try {
+    return await callback(session);
+  } finally {
+    await session.finish();
+  }
 }
 
 /**
