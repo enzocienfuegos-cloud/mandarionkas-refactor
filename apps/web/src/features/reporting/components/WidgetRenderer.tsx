@@ -113,8 +113,10 @@ function WidgetByType({
           rows={data.audienceExportRows}
         />
       );
-    case 'inventorySources':
-      return <InventorySources rows={data.inventorySourceRows} />;
+    case 'topSites':
+      return <InventorySources rows={data.inventorySourceRows} kind="Domain" />;
+    case 'topApps':
+      return <InventorySources rows={data.inventorySourceRows} kind="App" />;
     case 'deviceBreakdown':
       return <DeviceBreakdown rows={data.deviceRows} />;
     case 'connectionBreakdown':

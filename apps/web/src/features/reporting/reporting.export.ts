@@ -179,7 +179,7 @@ export function buildReportingCsv({
   }));
 
   data.inventorySourceRows.forEach((row) => push({
-    section: 'sites_apps',
+    section: row.kind === 'App' ? 'top_apps' : 'top_sites',
     entity_type: row.kind.toLowerCase(),
     name: row.name,
     kind: row.kind,

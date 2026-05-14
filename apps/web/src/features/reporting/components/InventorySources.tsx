@@ -6,29 +6,37 @@ import { WidgetPanel } from './WidgetPanel';
 
 type RankMetric = 'impressions' | 'clicks';
 
-export function InventorySources({ rows }: { rows: InventorySourceRow[] }) {
+export function InventorySources({
+  rows,
+  kind,
+}: {
+  rows: InventorySourceRow[];
+  kind: InventorySourceRow['kind'];
+}) {
   const [sortDirection, setSortDirection] = React.useState<RankSortDirection>('desc');
   const [rankMetric, setRankMetric] = React.useState<RankMetric>('impressions');
+  const scopedRows = React.useMemo(() => rows.filter((row) => row.kind === kind), [kind, rows]);
   const sortedRows = React.useMemo(() => (
-    [...rows].sort((left, right) => (
-      sortDirection === 'desc'
-        ? (right[rankMetric] ?? 0) - (left[rankMetric] ?? 0)
-        : (left[rankMetric] ?? 0) - (right[rankMetric] ?? 0)
-    ))
-  ), [rankMetric, rows, sortDirection]);
+    [...scopedRows].sort((left, right) => {
+      const direction = sortDirection === 'desc' ? 1 : -1;
+      return direction * ((right[rankMetric] ?? 0) - (left[rankMetric] ?? 0))
+        || left.name.localeCompare(right.name);
+    })
+  ), [rankMetric, scopedRows, sortDirection]);
+  const label = kind === 'App' ? 'apps' : 'sites';
 
   return (
     <WidgetPanel
-      title="Sites & apps"
+      title={kind === 'App' ? 'Top apps' : 'Top sites'}
       icon="geo"
       tone="slate"
-      action={rows.length ? (
+      action={scopedRows.length ? (
         <div className="flex items-center gap-2">
           <select
             value={rankMetric}
             onChange={(event) => setRankMetric(event.target.value as RankMetric)}
             className="h-8 rounded-full border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 text-xs font-semibold text-[color:var(--dusk-text-secondary)] outline-none"
-            aria-label="Rank sites and apps by"
+            aria-label={`Rank ${label} by`}
           >
             <option value="impressions">Top impressions</option>
             <option value="clicks">Top clicks</option>
@@ -68,7 +76,7 @@ export function InventorySources({ rows }: { rows: InventorySourceRow[] }) {
       ) : (
         <EmptyState
           title="No site or app signal yet"
-          description="Domain and app data will appear once the selected reporting scope records inventory context."
+          description={`${kind === 'App' ? 'App' : 'Site'} data will appear once the selected reporting scope records that inventory context.`}
         />
       )}
     </WidgetPanel>
