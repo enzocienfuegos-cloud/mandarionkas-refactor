@@ -1,10 +1,20 @@
 import { logWarn } from '../../../lib/logger.mjs';
 
-let connectionColumnsReadyPromise = null;
+const CONNECTION_COLUMNS_CHECK_TTL_MS = 60_000;
+let connectionColumnsReady = false;
+let connectionColumnsCheckedAt = 0;
 
 async function hasConnectionColumns(pool) {
-  if (!connectionColumnsReadyPromise) {
-    connectionColumnsReadyPromise = pool.query(
+  if (connectionColumnsReady) return true;
+
+  const now = Date.now();
+  if (connectionColumnsCheckedAt && now - connectionColumnsCheckedAt < CONNECTION_COLUMNS_CHECK_TTL_MS) {
+    return false;
+  }
+  connectionColumnsCheckedAt = now;
+
+  try {
+    const { rows } = await pool.query(
       `SELECT COUNT(*)::int AS count
        FROM information_schema.columns
        WHERE table_schema = 'public'
@@ -16,9 +26,12 @@ async function hasConnectionColumns(pool) {
            'connection_rtt_ms',
            'connection_save_data'
          )`,
-    ).then(({ rows }) => Number(rows[0]?.count ?? 0) === 5).catch(() => false);
+    );
+    connectionColumnsReady = Number(rows[0]?.count ?? 0) === 5;
+    return connectionColumnsReady;
+  } catch (_) {
+    return false;
   }
-  return connectionColumnsReadyPromise;
 }
 
 export async function resolveTagWorkspaceId(pool, tagId) {

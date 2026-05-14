@@ -295,21 +295,21 @@ export function createTrackerRoutes(buffer = null) {
           const deviceModel = trimQuotedHeader(
             p.get('devicemodel') || p.get('deviceModel') || req.headers['sec-ch-ua-model'] || '',
           ) || null;
-          const appId = trimText(p.get('appid') || '') || null;
-          const appBundle = trimText(p.get('appb') || '') || null;
+          const appId = normalizeResolvedTrackingValue(p.get('appid') || '') || null;
+          const appBundle = normalizeResolvedTrackingValue(p.get('appb') || '') || null;
           const appName = decodeStringSafe(p.get('appn') || p.get('appne') || '') || null;
-          const exchangeId = trimText(p.get('excid') || '') || null;
-          const exchangePublisherId = trimText(p.get('excpubid') || '') || null;
-          const exchangeSiteIdOrDomain = trimText(p.get('excsiddmn') || '') || null;
-          const sourcePublisherId = trimText(p.get('srcpubid') || '') || null;
-          const networkId = trimText(p.get('nid') || '') || null;
-          const siteId = trimText(p.get('siteid') || '') || null;
-          const pagePosition = trimText(p.get('ppos') || p.get('pos') || p.get('position') || '') || null;
+          const exchangeId = normalizeResolvedTrackingValue(p.get('excid') || '') || null;
+          const exchangePublisherId = normalizeResolvedTrackingValue(p.get('excpubid') || '') || null;
+          const exchangeSiteIdOrDomain = normalizeResolvedTrackingValue(p.get('excsiddmn') || '') || null;
+          const sourcePublisherId = normalizeResolvedTrackingValue(p.get('srcpubid') || '') || null;
+          const networkId = normalizeResolvedTrackingValue(p.get('nid') || '') || null;
+          const siteId = normalizeResolvedTrackingValue(p.get('siteid') || '') || null;
+          const pagePosition = normalizeResolvedTrackingValue(p.get('ppos') || p.get('pos') || p.get('position') || '') || null;
           const contentLanguage = trimText(p.get('lang') || p.get('contentlang') || '') || null;
           const contentTitle = decodeStringSafe(p.get('title') || p.get('contenttitle') || '') || null;
           const contentSeries = decodeStringSafe(p.get('series') || p.get('contentseries') || '') || null;
-          const carrier = trimText(p.get('carrier') || p.get('isp') || '') || null;
-          const appStoreName = trimText(p.get('appstore') || p.get('store') || '') || null;
+          const carrier = normalizeResolvedTrackingValue(p.get('carrier') || p.get('isp') || '') || null;
+          const appStoreName = normalizeResolvedTrackingValue(p.get('appstore') || p.get('store') || '') || null;
           const contentGenre = decodeStringSafe(p.get('genre') || p.get('contentgenre') || '') || null;
           const creativeId = trimText(p.get('smx_creative_id') || p.get('creative_id') || '') || null;
           const creativeSizeVariantId = trimText(p.get('smx_variant_id') || p.get('variant_id') || '') || null;
@@ -328,8 +328,8 @@ export function createTrackerRoutes(buffer = null) {
           const sfTouch = p.get('sf_touch') === '1' ? true : p.get('sf_touch') === '0' ? false : null;
           const sfMem = p.get('sf_mem') ? Number(p.get('sf_mem')) || null : null;
           const sfCpu = p.get('sf_cpu') ? Number.parseInt(p.get('sf_cpu'), 10) || null : null;
-          const connectionType = trimText(p.get('sf_conn_type') || p.get('connectiontype') || p.get('connection') || '') || null;
-          const effectiveConnectionType = trimText(p.get('sf_conn_effective') || p.get('effectiveconnectiontype') || '') || null;
+          const connectionType = normalizeResolvedTrackingValue(p.get('sf_conn_type') || p.get('connectiontype') || p.get('connection') || '') || null;
+          const effectiveConnectionType = normalizeResolvedTrackingValue(p.get('sf_conn_effective') || p.get('effectiveconnectiontype') || '') || null;
           const connectionDownlink = p.get('sf_conn_downlink') ? Number(p.get('sf_conn_downlink')) || null : null;
           const connectionRtt = p.get('sf_conn_rtt') ? Number.parseInt(p.get('sf_conn_rtt'), 10) || null : null;
           const connectionSaveData = p.get('sf_conn_save_data') === '1' ? true : p.get('sf_conn_save_data') === '0' ? false : null;
