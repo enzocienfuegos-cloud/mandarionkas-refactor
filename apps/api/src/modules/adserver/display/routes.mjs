@@ -1,8 +1,17 @@
 import { getPool } from '@smx/db/src/pool.mjs';
+import geoip from 'geoip-lite';
+import { inferContext } from '@smx/db/src/context-classifier.mjs';
+import { recordImpression } from '@smx/db/src/tracking.mjs';
+import { parseBrowserFromUA, parseDeviceTypeFromUA, parseOsFromUA } from '@smx/db/src/ua-parser.mjs';
+import { recordFrequencyCapImpression } from '@smx/db/src/frequency-cap.mjs';
 import { resolveActiveCreativeForTag as resolveActiveCreativeForTagRows } from '@smx/db/src/tags.mjs';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { wrapTrackedClickUrlWithDspMacro } from '../../../../../../packages/contracts/src/dsp-macros.mjs';
 import { sanitizeClickTagRuntimeInHtml } from '../../../../../../packages/contracts/src/html5-detector.mjs';
+import { resolveDeviceId } from '../../../lib/device-id.mjs';
+import { hashIp } from '../../../lib/ip-fingerprint.mjs';
+import { logWarn } from '../../../lib/logger.mjs';
+import { queueImpressionEventWrite, resolveTagWorkspaceId } from '../tracker/service.mjs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const R2_REGION = 'auto';
@@ -11,6 +20,149 @@ let cachedR2Key = '';
 
 function trimText(value) {
   return String(value ?? '').trim();
+}
+
+function decodeStringSafe(value) {
+  if (!value) return '';
+  try { return decodeURIComponent(String(value)); } catch (_) { return String(value); }
+}
+
+function readHeader(req, name) {
+  const value = req?.headers?.[name];
+  return Array.isArray(value) ? trimText(value[0] || '') : trimText(value || '');
+}
+
+function trimQuotedHeader(value) {
+  return trimText(value).replace(/^"+|"+$/g, '');
+}
+
+function extractHostname(urlOrDomain) {
+  if (!urlOrDomain) return '';
+  try {
+    const s = urlOrDomain.startsWith('http') ? urlOrDomain : `https://${urlOrDomain}`;
+    return new URL(s).hostname;
+  } catch (_) {
+    return urlOrDomain.split('/')[0] || '';
+  }
+}
+
+function isUnresolvedMacroValue(value) {
+  const text = trimText(decodeStringSafe(value));
+  if (!text) return false;
+  return /[{}]|\$\{|%%/.test(text) || /^(unknown|null|undefined|n\/a)$/i.test(text);
+}
+
+function normalizeResolvedTrackingValue(value) {
+  const decoded = trimText(decodeStringSafe(value));
+  return decoded && !isUnresolvedMacroValue(decoded) ? decoded : '';
+}
+
+function normalizeCountryCode(value) {
+  const normalized = trimText(value).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+  if (!normalized || normalized === 'XX' || normalized === 'T1') return '';
+  return normalized;
+}
+
+function sanitizeGeoLabel(value) {
+  const normalized = decodeStringSafe(value).trim();
+  if (!normalized) return '';
+  if (/^(unknown|null|undefined|n\/a|xx|t1)$/i.test(normalized)) return '';
+  return normalized;
+}
+
+function normalizeLookupIp(value) {
+  const normalized = trimText(value).replace(/^\[|\]$/g, '');
+  if (!normalized) return '';
+  const v4Mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  if (v4Mapped?.[1]) return v4Mapped[1];
+  const zoneIndex = normalized.indexOf('%');
+  return zoneIndex === -1 ? normalized : normalized.slice(0, zoneIndex);
+}
+
+function resolveClientIp(req) {
+  const candidates = [
+    readHeader(req, 'do-connecting-ip'),
+    readHeader(req, 'cf-connecting-ip'),
+    readHeader(req, 'true-client-ip'),
+    readHeader(req, 'x-real-ip'),
+    trimText(readHeader(req, 'x-forwarded-for').split(',')[0] || ''),
+    trimText(req?.socket?.remoteAddress || ''),
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeLookupIp(candidate);
+    if (normalized) return normalized;
+  }
+  return null;
+}
+
+function resolveGeoContext(req, url) {
+  const p = url.searchParams;
+  const ip = resolveClientIp(req);
+  const lookup = ip ? geoip.lookup(ip) : null;
+
+  const countryFromMacros = normalizeCountryCode(p.get('country') || '');
+  const regionFromMacros = sanitizeGeoLabel(p.get('region') || p.get('subdivision_1') || p.get('state') || '');
+  const cityFromMacros = sanitizeGeoLabel(p.get('city') || p.get('metro') || '');
+
+  const countryFromHeaders = normalizeCountryCode(
+    readHeader(req, 'cf-ipcountry') ||
+    readHeader(req, 'x-vercel-ip-country') ||
+    readHeader(req, 'x-country-code') ||
+    '',
+  );
+  const regionFromHeaders = sanitizeGeoLabel(
+    readHeader(req, 'cf-region') ||
+    readHeader(req, 'cf-region-code') ||
+    readHeader(req, 'x-vercel-ip-country-region') ||
+    '',
+  );
+  const cityFromHeaders = sanitizeGeoLabel(
+    readHeader(req, 'cf-ipcity') ||
+    readHeader(req, 'x-vercel-ip-city') ||
+    '',
+  );
+
+  const countryFromIp = normalizeCountryCode(lookup?.country || '');
+  const regionFromIp = sanitizeGeoLabel(lookup?.region || '');
+  const cityFromIp = sanitizeGeoLabel(lookup?.city || '');
+
+  return {
+    ip,
+    country: countryFromMacros || countryFromHeaders || countryFromIp || null,
+    region: regionFromMacros || regionFromHeaders || regionFromIp || null,
+    city: cityFromMacros || cityFromHeaders || cityFromIp || null,
+  };
+}
+
+function extractTrackingContext(req, url, geo) {
+  const p = url.searchParams;
+  const pageUrl = normalizeResolvedTrackingValue(
+    p.get('purl') || p.get('pu') || p.get('pageUrlEnc') || p.get('site') || '',
+  );
+  const domain = normalizeResolvedTrackingValue(
+    p.get('dom') || p.get('sd') || p.get('domain') ||
+    p.get('sdmn') || p.get('siteid') || p.get('inventoryUnitReportingName') || '',
+  );
+  const headerReferer = trimText(req.headers.referer || req.headers.referrer || '');
+  const siteDomain = normalizeResolvedTrackingValue(
+    domain
+      ? extractHostname(domain)
+      : pageUrl
+        ? extractHostname(pageUrl)
+        : extractHostname(headerReferer),
+  );
+
+  const referer = pageUrl || headerReferer || null;
+
+  return {
+    siteDomain: siteDomain || null,
+    referer,
+    country: geo.country,
+    region: geo.region,
+    city: geo.city,
+    userAgent: trimText(req.headers['user-agent'] || '') || null,
+    remoteIp: geo.ip,
+  };
 }
 
 function isValidTagId(id) {
@@ -93,6 +245,151 @@ function resolveBaseUrl(ctx) {
 function getDatabasePool(env) {
   const cs = trimText(env.databasePoolUrl || env.databaseUrl);
   return cs ? getPool(cs) : null;
+}
+
+function queueDisplayFirstHopImpression(ctx, pool, tagId, row) {
+  const { req, res, url, env, requestId } = ctx;
+  if (!pool || !tagId || !row || url.searchParams.get('smx_no_imp') === '1') return null;
+
+  const { deviceId, cookie } = resolveDeviceId(req, env);
+  if (cookie) res.setHeader('Set-Cookie', cookie);
+
+  (async () => {
+    await recordImpression(pool, tagId);
+
+    const workspaceId = await resolveTagWorkspaceId(pool, tagId);
+    if (!workspaceId) return;
+
+    if (deviceId) {
+      recordFrequencyCapImpression(pool, { tagId, deviceId, workspaceId })
+        .catch((err) => logWarn({
+          service: 'smx-display-first-hop',
+          fn: 'recordFrequencyCapImpression',
+          tagId,
+          requestId,
+          message: err?.message,
+        }));
+    }
+
+    const p = url.searchParams;
+    const geo = resolveGeoContext(req, url);
+    const trackingContext = extractTrackingContext(req, url, geo);
+    const country = trackingContext.country;
+    const region = trackingContext.region;
+    const city = trackingContext.city;
+    const userAgent = trackingContext.userAgent;
+    const remoteIp = trackingContext.remoteIp;
+
+    const deviceTypeSignal = trimText(p.get('devicetype') || p.get('device') || p.get('dtyp') || '').toLowerCase() || null;
+    const deviceIdSignal = trimText(
+      p.get('adid') || p.get('ifa') ||
+      p.get('gadvid') || p.get('idfa') || p.get('googleAdvertisingId') || '',
+    ) || null;
+    const deviceModel = trimQuotedHeader(
+      p.get('devicemodel') || p.get('deviceModel') || req.headers['sec-ch-ua-model'] || '',
+    ) || null;
+    const appId = normalizeResolvedTrackingValue(p.get('appid') || p.get('app') || '') || null;
+    const appBundle = normalizeResolvedTrackingValue(p.get('appb') || p.get('app_bundle') || '') || null;
+    const appName = normalizeResolvedTrackingValue(p.get('appn') || p.get('appne') || p.get('app_name') || '') || null;
+    const exchangeId = normalizeResolvedTrackingValue(p.get('excid') || '') || null;
+    const exchangePublisherId = normalizeResolvedTrackingValue(p.get('excpubid') || '') || null;
+    const exchangeSiteIdOrDomain = normalizeResolvedTrackingValue(p.get('excsiddmn') || '') || null;
+    const sourcePublisherId = normalizeResolvedTrackingValue(p.get('srcpubid') || '') || null;
+    const networkId = normalizeResolvedTrackingValue(p.get('nid') || p.get('netid') || '') || null;
+    const siteId = normalizeResolvedTrackingValue(p.get('siteid') || p.get('sid') || '') || null;
+    const pagePosition = normalizeResolvedTrackingValue(p.get('ppos') || p.get('pos') || p.get('position') || '') || null;
+    const contentLanguage = trimText(p.get('lang') || p.get('contentlang') || p.get('cntlang') || '') || null;
+    const contentTitle = decodeStringSafe(p.get('title') || p.get('contenttitle') || p.get('cnttitle') || '') || null;
+    const contentSeries = decodeStringSafe(p.get('series') || p.get('contentseries') || p.get('cntseries') || '') || null;
+    const carrier = normalizeResolvedTrackingValue(p.get('carrier') || p.get('carr') || p.get('isp') || '') || null;
+    const appStoreName = normalizeResolvedTrackingValue(p.get('appstore') || p.get('appstnm') || p.get('store') || '') || null;
+    const contentGenre = decodeStringSafe(p.get('genre') || p.get('contentgenre') || p.get('cngen') || '') || null;
+    const creativeId = trimText(row.creative_id || p.get('smx_creative_id') || p.get('creative_id') || '') || null;
+    const creativeSizeVariantId = trimText(row.creative_size_variant_id || p.get('smx_variant_id') || p.get('variant_id') || '') || null;
+    const contextualIds = trimText(
+      p.get('ctxid') || p.get('ctxids') || p.get('contextualid') || p.get('contextualids') || '',
+    ) || null;
+    const browser = trimQuotedHeader(req.headers['sec-ch-ua'] || '') || parseBrowserFromUA(userAgent);
+    const os = trimQuotedHeader(req.headers['sec-ch-ua-platform'] || '') || parseOsFromUA(userAgent);
+    const deviceType = deviceTypeSignal || parseDeviceTypeFromUA(userAgent);
+    const ipFingerprint = hashIp(remoteIp, env?.sessionSecret);
+    const sfTz = trimText(p.get('sf_tz') || '') || null;
+    const sfLang = trimText(p.get('sf_lang') || '') || null;
+    const sfScr = trimText(p.get('sf_scr') || '') || null;
+    const sfTouch = p.get('sf_touch') === '1' ? true : p.get('sf_touch') === '0' ? false : null;
+    const sfMem = p.get('sf_mem') ? Number(p.get('sf_mem')) || null : null;
+    const sfCpu = p.get('sf_cpu') ? Number.parseInt(p.get('sf_cpu'), 10) || null : null;
+    const connectionType = normalizeResolvedTrackingValue(p.get('sf_conn_type') || p.get('connectiontype') || p.get('connection') || '') || null;
+    const effectiveConnectionType = normalizeResolvedTrackingValue(p.get('sf_conn_effective') || p.get('effectiveconnectiontype') || '') || null;
+    const connectionDownlink = p.get('sf_conn_downlink') ? Number(p.get('sf_conn_downlink')) || null : null;
+    const connectionRtt = p.get('sf_conn_rtt') ? Number.parseInt(p.get('sf_conn_rtt'), 10) || null : null;
+    const connectionSaveData = p.get('sf_conn_save_data') === '1' ? true : p.get('sf_conn_save_data') === '0' ? false : null;
+
+    const inferredContext = await inferContext(pool, {
+      siteDomain: trackingContext.siteDomain,
+      referer: trackingContext.referer,
+      appBundle,
+      appName,
+      contentGenre,
+    }).catch(() => 'unknown');
+
+    queueImpressionEventWrite(pool, {
+      tagId,
+      workspaceId,
+      creativeId,
+      creativeSizeVariantId,
+      remoteIp,
+      userAgent,
+      country,
+      region,
+      city,
+      siteDomain: trackingContext.siteDomain,
+      referer: trackingContext.referer,
+      deviceId: deviceId || deviceIdSignal,
+      deviceType: deviceType || null,
+      deviceModel,
+      browser: browser || null,
+      os: os || null,
+      networkId,
+      sourcePublisherId,
+      appId,
+      siteId,
+      exchangeId,
+      exchangePublisherId,
+      exchangeSiteIdOrDomain,
+      appBundle,
+      appName,
+      pagePosition,
+      contentLanguage,
+      contentTitle,
+      contentSeries,
+      carrier,
+      appStoreName,
+      contentGenre,
+      contextualIds,
+      ipFingerprint,
+      sfTz,
+      sfLang,
+      sfScr,
+      sfTouch,
+      sfMem,
+      sfCpu,
+      connectionType,
+      effectiveConnectionType,
+      connectionDownlink,
+      connectionRtt,
+      connectionSaveData,
+      inferredContext: inferredContext || 'unknown',
+    });
+  })().catch((err) => logWarn({
+    service: 'smx-display-first-hop',
+    fn: 'queueDisplayFirstHopImpression',
+    tagId,
+    requestId,
+    message: err?.message,
+  }));
+
+  return cookie;
 }
 
 function trimBaseUrl(value) {
@@ -905,10 +1202,8 @@ export async function handleDisplayRoutes(ctx) {
     if (trimText(row.creative_size_variant_id)) trackerParams.set('smx_variant_id', trimText(row.creative_size_variant_id));
     const dspQuery = Object.fromEntries(url.searchParams.entries());
     const trackerSuffix = trackerParams.toString() ? `?${trackerParams.toString()}` : '';
-    const suppressImpression = url.searchParams.get('smx_no_imp') === '1';
-    const impressionUrl = suppressImpression
-      ? ''
-      : `${baseUrl}/v1/tags/tracker/${tagId}/impression.gif${trackerSuffix}`;
+    queueDisplayFirstHopImpression(ctx, pool, tagId, row);
+    const impressionUrl = '';
     const clickTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/click${trackerSuffix}`;
     const engagementTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/engagement`;
     const resolvedClickUrl = trimText(row.creative_click_url) || '';
@@ -988,8 +1283,8 @@ export async function handleDisplayRoutes(ctx) {
     if (trimText(row.creative_size_variant_id)) trackerParams.set('smx_variant_id', trimText(row.creative_size_variant_id));
     const trackerSuffix = trackerParams.toString() ? `?${trackerParams.toString()}` : '';
 
-    const suppressImpression = url.searchParams.get('smx_no_imp') === '1';
-    const impressionUrl = suppressImpression ? '' : `${baseUrl}/v1/tags/tracker/${tagId}/impression.gif${trackerSuffix}`;
+    queueDisplayFirstHopImpression(ctx, pool, tagId, row);
+    const impressionUrl = '';
     const clickTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/click${trackerSuffix}`;
     const engagementTrackerUrl = `${baseUrl}/v1/tags/tracker/${tagId}/engagement`;
     const resolvedClickUrl = trimText(row.creative_click_url) || '';
