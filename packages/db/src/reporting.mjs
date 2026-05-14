@@ -1132,34 +1132,81 @@ export async function getWorkspaceAppBreakdown(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
-  const conditions = ['ie.workspace_id = $1'];
-  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds, advertiserId);
-  addTagChannelFilter(conditions, 't', channel);
-  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo, opts.timezone);
-  conditions.push(`(COALESCE(ie.app_name, '') <> '' OR COALESCE(ie.app_bundle, '') <> '' OR COALESCE(ie.app_id, '') <> '')`);
+  const impressionConditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds, advertiserId);
+  addTagChannelFilter(impressionConditions, 't', channel);
+  addTimestampFilters(params, impressionConditions, 'ie', dateFrom, dateTo, opts.timezone);
+  impressionConditions.push(`(COALESCE(ie.app_name, '') <> '' OR COALESCE(ie.app_bundle, '') <> '' OR COALESCE(ie.app_id, '') <> '')`);
+
+  const clickColumnResult = await pool.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'click_events'
+       AND column_name IN ('app_id', 'app_bundle', 'app_name')`,
+  );
+  const clickColumns = new Set(clickColumnResult.rows.map((row) => row.column_name));
+  const hasClickAppContext = ['app_id', 'app_bundle', 'app_name'].every((column) => clickColumns.has(column));
+
+  let clickConditions = [];
+  if (hasClickAppContext) {
+    params.push(workspaceId);
+    clickConditions = [`ce.workspace_id = $${params.length}`];
+    addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
+    addTagChannelFilter(clickConditions, 't_click', channel);
+    addTimestampFilters(params, clickConditions, 'ce', dateFrom, dateTo, opts.timezone);
+    clickConditions.push(`(COALESCE(ce.app_name, '') <> '' OR COALESCE(ce.app_bundle, '') <> '' OR COALESCE(ce.app_id, '') <> '')`);
+  }
   params.push(normalizeLimit(limit));
 
   const { rows } = await pool.query(
-    `SELECT
-       COALESCE(NULLIF(ie.app_name, ''), NULLIF(ie.app_bundle, ''), NULLIF(ie.app_id, ''), 'Unknown app') AS app_name,
-       MAX(NULLIF(ie.app_bundle, '')) AS app_bundle,
-       MAX(NULLIF(ie.app_id, '')) AS app_id,
-       COUNT(*)::bigint AS impressions,
-       0::bigint AS clicks,
-       COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::bigint AS viewable_imps,
-       COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0)::bigint AS measured_imps,
-       COALESCE(SUM(CASE WHEN ie.viewable IS NULL THEN 1 ELSE 0 END), 0)::bigint AS undetermined_imps,
+    `WITH impressions AS (
+       SELECT
+         COALESCE(NULLIF(ie.app_name, ''), NULLIF(ie.app_bundle, ''), NULLIF(ie.app_id, ''), 'Unknown app') AS app_name,
+         MAX(NULLIF(ie.app_bundle, '')) AS app_bundle,
+         MAX(NULLIF(ie.app_id, '')) AS app_id,
+         COUNT(*)::bigint AS impressions,
+         COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::bigint AS viewable_imps,
+         COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0)::bigint AS measured_imps,
+         COALESCE(SUM(CASE WHEN ie.viewable IS NULL THEN 1 ELSE 0 END), 0)::bigint AS undetermined_imps
+       FROM impression_events ie
+       JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${impressionConditions.join(' AND ')}
+       GROUP BY 1
+     ),
+     clicks AS (
+       ${hasClickAppContext
+        ? `SELECT
+             COALESCE(NULLIF(ce.app_name, ''), NULLIF(ce.app_bundle, ''), NULLIF(ce.app_id, ''), 'Unknown app') AS app_name,
+             MAX(NULLIF(ce.app_bundle, '')) AS app_bundle,
+             MAX(NULLIF(ce.app_id, '')) AS app_id,
+             COUNT(*)::bigint AS clicks
+           FROM click_events ce
+           JOIN ad_tags t_click ON t_click.id = ce.tag_id
+           WHERE ${clickConditions.join(' AND ')}
+           GROUP BY 1`
+        : `SELECT NULL::text AS app_name, NULL::text AS app_bundle, NULL::text AS app_id, 0::bigint AS clicks WHERE false`}
+     )
+     SELECT
+       COALESCE(i.app_name, c.app_name, 'Unknown app') AS app_name,
+       COALESCE(i.app_bundle, c.app_bundle) AS app_bundle,
+       COALESCE(i.app_id, c.app_id) AS app_id,
+       COALESCE(i.impressions, 0)::bigint AS impressions,
+       COALESCE(c.clicks, 0)::bigint AS clicks,
+       COALESCE(i.viewable_imps, 0)::bigint AS viewable_imps,
+       COALESCE(i.measured_imps, 0)::bigint AS measured_imps,
+       COALESCE(i.undetermined_imps, 0)::bigint AS undetermined_imps,
        0::bigint AS unique_identities,
        0::numeric AS avg_frequency,
-       0::numeric AS ctr,
-       CASE WHEN COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0) > 0
-         THEN ROUND(COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::NUMERIC / SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END) * 100, 4)
+       CASE WHEN COALESCE(i.impressions, 0) > 0
+         THEN ROUND(COALESCE(c.clicks, 0)::NUMERIC / i.impressions * 100, 4)
+         ELSE 0 END AS ctr,
+       CASE WHEN COALESCE(i.measured_imps, 0) > 0
+         THEN ROUND(COALESCE(i.viewable_imps, 0)::NUMERIC / i.measured_imps * 100, 4)
          ELSE 0 END AS viewability_rate
-     FROM impression_events ie
-     JOIN ad_tags t ON t.id = ie.tag_id
-     WHERE ${conditions.join(' AND ')}
-     GROUP BY 1
-     ORDER BY impressions DESC, app_name ASC
+     FROM impressions i
+     FULL OUTER JOIN clicks c ON c.app_name = i.app_name
+     ORDER BY impressions DESC, clicks DESC, app_name ASC
      LIMIT $${params.length}`,
     params,
   );

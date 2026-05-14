@@ -193,6 +193,30 @@ export function extractTrackingContext(req, url, geo) {
   };
 }
 
+const CLICK_APP_COLUMNS_CHECK_TTL_MS = 60_000;
+let clickAppColumnsReady = false;
+let clickAppColumnsCheckedAt = 0;
+
+async function hasClickAppColumns(pool) {
+  if (clickAppColumnsReady) return true;
+  const now = Date.now();
+  if (clickAppColumnsCheckedAt && now - clickAppColumnsCheckedAt < CLICK_APP_COLUMNS_CHECK_TTL_MS) return false;
+  clickAppColumnsCheckedAt = now;
+  try {
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'click_events'
+         AND column_name IN ('app_id', 'app_bundle', 'app_name')`,
+    );
+    clickAppColumnsReady = Number(rows[0]?.count ?? 0) === 3;
+    return clickAppColumnsReady;
+  } catch (_) {
+    return false;
+  }
+}
+
 function queueClickEventWrite(pool, {
   tagId,
   workspaceId,
@@ -206,30 +230,40 @@ function queueClickEventWrite(pool, {
   city,
   siteDomain,
   referer,
+  appId,
+  appBundle,
+  appName,
   ipFingerprint,
 }) {
   if (!pool || !tagId || !workspaceId) return;
-  pool.query(
-    `INSERT INTO click_events
-       (tag_id, workspace_id, creative_id, creative_size_variant_id, device_id, ip, user_agent, country, region, city, site_domain, referer, ip_fingerprint)
-     VALUES
-       ($1, $2, $3, $4, $5, $6::inet, $7, $8, $9, $10, $11, $12, $13)`,
-    [
-      tagId,
-      workspaceId,
-      creativeId || null,
-      creativeSizeVariantId || null,
-      deviceId || null,
-      ip || null,
-      userAgent || null,
-      country || null,
-      region || null,
-      city || null,
-      siteDomain || null,
-      referer || null,
+  (async () => {
+    const supportsAppContext = await hasClickAppColumns(pool);
+    const columns = [
+      'tag_id', 'workspace_id', 'creative_id', 'creative_size_variant_id', 'device_id', 'ip',
+      'user_agent', 'country', 'region', 'city', 'site_domain', 'referer', 'ip_fingerprint',
+    ];
+    const values = [
+      tagId, workspaceId, creativeId || null, creativeSizeVariantId || null, deviceId || null, ip || null,
+      userAgent || null, country || null, region || null, city || null, siteDomain || null, referer || null,
       ipFingerprint || null,
-    ],
-  ).catch((err) => logWarn({
+    ];
+
+    if (supportsAppContext) {
+      columns.push('app_id', 'app_bundle', 'app_name');
+      values.push(appId || null, appBundle || null, appName || null);
+    }
+
+    const placeholders = values.map((_, index) => {
+      const ordinal = index + 1;
+      return columns[index] === 'ip' ? `$${ordinal}::inet` : `$${ordinal}`;
+    });
+
+    await pool.query(
+      `INSERT INTO click_events (${columns.join(', ')})
+       VALUES (${placeholders.join(', ')})`,
+      values,
+    );
+  })().catch((err) => logWarn({
     service: 'smx-tracker',
     fn: 'click_identity_write',
     tagId,
@@ -444,6 +478,9 @@ export function createTrackerRoutes(buffer = null) {
         const trackingContext = extractTrackingContext(req, url, geo);
         const creativeId = trimText(url.searchParams.get('smx_creative_id') || url.searchParams.get('creative_id') || '') || null;
         const creativeSizeVariantId = trimText(url.searchParams.get('smx_variant_id') || url.searchParams.get('variant_id') || '') || null;
+        const appId = normalizeResolvedTrackingValue(url.searchParams.get('appid') || '') || null;
+        const appBundle = normalizeResolvedTrackingValue(url.searchParams.get('appb') || '') || null;
+        const appName = normalizeResolvedTrackingValue(url.searchParams.get('appn') || url.searchParams.get('appne') || '') || null;
         resolveTagWorkspaceId(pool, tagId).then((workspaceId) => {
           if (!workspaceId) return;
           queueClickEventWrite(pool, {
@@ -459,6 +496,9 @@ export function createTrackerRoutes(buffer = null) {
             city: trackingContext.city,
             siteDomain: trackingContext.siteDomain,
             referer: trackingContext.referer,
+            appId,
+            appBundle,
+            appName,
             ipFingerprint: hashIp(trackingContext.remoteIp, env?.sessionSecret),
           });
         }).catch(() => undefined);
@@ -493,6 +533,9 @@ export function createTrackerRoutes(buffer = null) {
         const trackingContext = extractTrackingContext(req, url, geo);
         const creativeId = trimText(url.searchParams.get('smx_creative_id') || url.searchParams.get('creative_id') || '') || null;
         const creativeSizeVariantId = trimText(url.searchParams.get('smx_variant_id') || url.searchParams.get('variant_id') || '') || null;
+        const appId = normalizeResolvedTrackingValue(url.searchParams.get('appid') || '') || null;
+        const appBundle = normalizeResolvedTrackingValue(url.searchParams.get('appb') || '') || null;
+        const appName = normalizeResolvedTrackingValue(url.searchParams.get('appn') || url.searchParams.get('appne') || '') || null;
         resolveTagWorkspaceId(pool, tagId).then((workspaceId) => {
           if (!workspaceId) return;
           queueClickEventWrite(pool, {
@@ -508,6 +551,9 @@ export function createTrackerRoutes(buffer = null) {
             city: trackingContext.city,
             siteDomain: trackingContext.siteDomain,
             referer: trackingContext.referer,
+            appId,
+            appBundle,
+            appName,
             ipFingerprint: hashIp(trackingContext.remoteIp, env?.sessionSecret),
           });
         }).catch(() => undefined);
