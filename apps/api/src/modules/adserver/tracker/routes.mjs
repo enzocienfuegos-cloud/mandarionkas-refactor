@@ -217,6 +217,52 @@ async function hasClickAppColumns(pool) {
   }
 }
 
+async function resolveRecentAppContextForClick(pool, {
+  tagId,
+  workspaceId,
+  deviceId,
+  ip,
+}) {
+  if (!pool || !tagId || !workspaceId || (!deviceId && !ip)) {
+    return { appId: null, appBundle: null, appName: null };
+  }
+
+  const params = [workspaceId, tagId];
+  const identityConditions = [];
+  if (deviceId) {
+    params.push(deviceId);
+    identityConditions.push(`ie.device_id = $${params.length}`);
+  }
+  if (ip) {
+    params.push(ip);
+    identityConditions.push(`ie.ip = $${params.length}::inet`);
+  }
+  if (!identityConditions.length) return { appId: null, appBundle: null, appName: null };
+
+  const { rows } = await pool.query(
+    `SELECT ie.app_id, ie.app_bundle, ie.app_name
+     FROM impression_events ie
+     WHERE ie.workspace_id = $1
+       AND ie.tag_id = $2
+       AND ie.timestamp >= NOW() - INTERVAL '24 hours'
+       AND (${identityConditions.join(' OR ')})
+       AND (
+         COALESCE(ie.app_name, '') <> ''
+         OR COALESCE(ie.app_bundle, '') <> ''
+         OR COALESCE(ie.app_id, '') <> ''
+       )
+     ORDER BY ie.timestamp DESC
+     LIMIT 1`,
+    params,
+  );
+
+  return {
+    appId: rows[0]?.app_id ?? null,
+    appBundle: rows[0]?.app_bundle ?? null,
+    appName: rows[0]?.app_name ?? null,
+  };
+}
+
 function queueClickEventWrite(pool, {
   tagId,
   workspaceId,
@@ -238,6 +284,22 @@ function queueClickEventWrite(pool, {
   if (!pool || !tagId || !workspaceId) return;
   (async () => {
     const supportsAppContext = await hasClickAppColumns(pool);
+    let resolvedAppId = appId || null;
+    let resolvedAppBundle = appBundle || null;
+    let resolvedAppName = appName || null;
+
+    if (supportsAppContext && !resolvedAppId && !resolvedAppBundle && !resolvedAppName) {
+      const recentAppContext = await resolveRecentAppContextForClick(pool, {
+        tagId,
+        workspaceId,
+        deviceId,
+        ip,
+      });
+      resolvedAppId = recentAppContext.appId || null;
+      resolvedAppBundle = recentAppContext.appBundle || null;
+      resolvedAppName = recentAppContext.appName || null;
+    }
+
     const columns = [
       'tag_id', 'workspace_id', 'creative_id', 'creative_size_variant_id', 'device_id', 'ip',
       'user_agent', 'country', 'region', 'city', 'site_domain', 'referer', 'ip_fingerprint',
@@ -250,7 +312,7 @@ function queueClickEventWrite(pool, {
 
     if (supportsAppContext) {
       columns.push('app_id', 'app_bundle', 'app_name');
-      values.push(appId || null, appBundle || null, appName || null);
+      values.push(resolvedAppId, resolvedAppBundle, resolvedAppName);
     }
 
     const placeholders = values.map((_, index) => {
