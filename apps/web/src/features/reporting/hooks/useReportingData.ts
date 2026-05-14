@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadCreatives, type Creative } from '../../../creatives/catalog';
 import type { DateRange } from '../../../system';
 import type {
@@ -182,6 +182,25 @@ type CampaignOption = {
   advertiser?: { id: string; name: string } | null;
 };
 
+type ReportingPayloads = {
+  workspacePayload: { stats: WorkspaceStats; timeline: TimelineRow[] };
+  campaignPayload: { breakdown: CampaignBreakdownRow[] };
+  tagPayload: { breakdown: TagBreakdownRow[] };
+  creativePayload: { breakdown: CreativeBreakdownRow[] };
+  variantPayload: { breakdown: CreativeBreakdownRow[] };
+  regionPayload: { breakdown: RegionBreakdownRow[] };
+  sitePayload: { breakdown: SiteBreakdownRow[] };
+  appPayload: { breakdown: AppBreakdownRow[] };
+  trackerPayload: { breakdown: TrackerBreakdownRow[] };
+  identityFrequencyPayload: { breakdown: IdentityFrequencyApiRow[] };
+  identitySegmentPayload: { breakdown: IdentitySegmentPresetRow[] };
+  identityKeyPayload: { breakdown: IdentityKeyBreakdownRow[] };
+  identityAttributionPayload: { breakdown: IdentityAttributionApiRow[] };
+  contextSnapshotPayload: ContextSnapshotRow;
+  campaignListPayload: { campaigns: CampaignOption[] };
+  creatives: Creative[];
+};
+
 type HookArgs = {
   mode: ReportingMode;
   dateRange: DateRangeFilter;
@@ -222,6 +241,15 @@ type HookState = {
 };
 
 export type ReportingDataViewModel = Omit<HookState, 'loading' | 'error' | 'advertiserOptions' | 'kpis'>;
+
+export type ReportingReloadOptions = {
+  force?: boolean;
+  silent?: boolean;
+};
+
+const REPORTING_CACHE_TTL_MS = 60_000;
+const REPORTING_AUTO_REFRESH_MS = 60_000;
+const reportingPayloadCache = new Map<string, { timestamp: number; payloads: ReportingPayloads }>();
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { credentials: 'include' });
@@ -795,6 +823,7 @@ export function useReportingData({
   search,
 }: HookArgs) {
   const [state, setState] = useState<HookState>(INITIAL_STATE);
+  const requestSequence = useRef(0);
 
   const query = useMemo(() => {
     const { dateFrom, dateTo } = resolveEffectiveDateRange(dateRange, customDateRange, timezone);
@@ -813,26 +842,99 @@ export function useReportingData({
     });
   }, [advertiserId, customDateRange, dateRange, mode, timeGranularity, timezone]);
 
-  const reload = useCallback(async () => {
-    setState((current) => ({ ...current, loading: true, error: '' }));
+  const reload = useCallback(async (options: ReportingReloadOptions = {}) => {
+    const { force = false, silent = false } = options;
+    const requestId = requestSequence.current + 1;
+    requestSequence.current = requestId;
+
+    if (!silent) {
+      setState((current) => ({ ...current, loading: true, error: '' }));
+    } else {
+      setState((current) => ({ ...current, error: '' }));
+    }
+
     try {
-      const workspacePayload = await fetchJson<{ stats: WorkspaceStats; timeline: TimelineRow[] }>(`/v1/reporting/workspace${query}`);
-      const campaignPayload = await fetchJson<{ breakdown: CampaignBreakdownRow[] }>(`/v1/reporting/workspace/campaign-breakdown${query}`);
-      const tagPayload = await fetchJson<{ breakdown: TagBreakdownRow[] }>(`/v1/reporting/workspace/tag-breakdown${query}`);
-      const creativePayload = await fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/creative-breakdown${query}`);
-      const variantPayload = await fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/variant-breakdown${query}`);
-      const regionPayload = await fetchJson<{ breakdown: RegionBreakdownRow[] }>(`/v1/reporting/workspace/region-breakdown${query}`);
       const expandedQuery = query ? `${query}&limit=100` : '?limit=100';
-      const sitePayload = await fetchJson<{ breakdown: SiteBreakdownRow[] }>(`/v1/reporting/workspace/site-breakdown${expandedQuery}`);
-      const appPayload = await fetchJson<{ breakdown: AppBreakdownRow[] }>(`/v1/reporting/workspace/app-breakdown${expandedQuery}`);
-      const trackerPayload = await fetchJson<{ breakdown: TrackerBreakdownRow[] }>(`/v1/reporting/workspace/tracker-breakdown${query}`);
-      const identityFrequencyPayload = await fetchJson<{ breakdown: IdentityFrequencyApiRow[] }>(`/v1/reporting/workspace/identity-frequency-buckets${query}`);
-      const identitySegmentPayload = await fetchJson<{ breakdown: IdentitySegmentPresetRow[] }>(`/v1/reporting/workspace/identity-segment-presets${query}`);
-      const identityKeyPayload = await fetchJson<{ breakdown: IdentityKeyBreakdownRow[] }>(`/v1/reporting/workspace/identity-key-breakdown${query}`);
-      const identityAttributionPayload = await fetchJson<{ breakdown: IdentityAttributionApiRow[] }>(`/v1/reporting/workspace/identity-attribution-windows${query}`);
-      const contextSnapshotPayload = await fetchJson<ContextSnapshotRow>(`/v1/reporting/workspace/context-snapshot${query}`);
-      const campaignListPayload = await fetchJson<{ campaigns: CampaignOption[] }>(`/v1/campaigns?scope=all`);
-      const creatives = await loadCreatives();
+      const cachedPayloads = reportingPayloadCache.get(query);
+      const payloads = !force && cachedPayloads && Date.now() - cachedPayloads.timestamp < REPORTING_CACHE_TTL_MS
+        ? cachedPayloads.payloads
+        : await Promise.all([
+          fetchJson<{ stats: WorkspaceStats; timeline: TimelineRow[] }>(`/v1/reporting/workspace${query}`),
+          fetchJson<{ breakdown: CampaignBreakdownRow[] }>(`/v1/reporting/workspace/campaign-breakdown${query}`),
+          fetchJson<{ breakdown: TagBreakdownRow[] }>(`/v1/reporting/workspace/tag-breakdown${query}`),
+          fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/creative-breakdown${query}`),
+          fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/variant-breakdown${query}`),
+          fetchJson<{ breakdown: RegionBreakdownRow[] }>(`/v1/reporting/workspace/region-breakdown${query}`),
+          fetchJson<{ breakdown: SiteBreakdownRow[] }>(`/v1/reporting/workspace/site-breakdown${expandedQuery}`),
+          fetchJson<{ breakdown: AppBreakdownRow[] }>(`/v1/reporting/workspace/app-breakdown${expandedQuery}`),
+          fetchJson<{ breakdown: TrackerBreakdownRow[] }>(`/v1/reporting/workspace/tracker-breakdown${query}`),
+          fetchJson<{ breakdown: IdentityFrequencyApiRow[] }>(`/v1/reporting/workspace/identity-frequency-buckets${query}`),
+          fetchJson<{ breakdown: IdentitySegmentPresetRow[] }>(`/v1/reporting/workspace/identity-segment-presets${query}`),
+          fetchJson<{ breakdown: IdentityKeyBreakdownRow[] }>(`/v1/reporting/workspace/identity-key-breakdown${query}`),
+          fetchJson<{ breakdown: IdentityAttributionApiRow[] }>(`/v1/reporting/workspace/identity-attribution-windows${query}`),
+          fetchJson<ContextSnapshotRow>(`/v1/reporting/workspace/context-snapshot${query}`),
+          fetchJson<{ campaigns: CampaignOption[] }>(`/v1/campaigns?scope=all`),
+          loadCreatives(),
+        ]).then(([
+          workspacePayload,
+          campaignPayload,
+          tagPayload,
+          creativePayload,
+          variantPayload,
+          regionPayload,
+          sitePayload,
+          appPayload,
+          trackerPayload,
+          identityFrequencyPayload,
+          identitySegmentPayload,
+          identityKeyPayload,
+          identityAttributionPayload,
+          contextSnapshotPayload,
+          campaignListPayload,
+          creatives,
+        ]) => {
+          const nextPayloads: ReportingPayloads = {
+            workspacePayload,
+            campaignPayload,
+            tagPayload,
+            creativePayload,
+            variantPayload,
+            regionPayload,
+            sitePayload,
+            appPayload,
+            trackerPayload,
+            identityFrequencyPayload,
+            identitySegmentPayload,
+            identityKeyPayload,
+            identityAttributionPayload,
+            contextSnapshotPayload,
+            campaignListPayload,
+            creatives,
+          };
+          reportingPayloadCache.set(query, { timestamp: Date.now(), payloads: nextPayloads });
+          return nextPayloads;
+        });
+
+      if (requestId !== requestSequence.current) return;
+
+      const {
+        workspacePayload,
+        campaignPayload,
+        tagPayload,
+        creativePayload,
+        variantPayload,
+        regionPayload,
+        sitePayload,
+        appPayload,
+        trackerPayload,
+        identityFrequencyPayload,
+        identitySegmentPayload,
+        identityKeyPayload,
+        identityAttributionPayload,
+        contextSnapshotPayload,
+        campaignListPayload,
+        creatives,
+      } = payloads;
 
       const stats = workspacePayload.stats;
       const timeline = workspacePayload.timeline ?? [];
@@ -1058,6 +1160,8 @@ export function useReportingData({
       const trend = buildTrend(mode, timeline, stats);
       const recommendations = buildRecommendations(mode, stats, trackerHealth, identitySegmentPayload.breakdown ?? []);
 
+      if (requestId !== requestSequence.current) return;
+
       setState({
         advertiserOptions,
         kpis,
@@ -1085,16 +1189,31 @@ export function useReportingData({
         error: '',
       });
     } catch (error) {
+      if (requestId !== requestSequence.current) return;
+
       setState((current) => ({
         ...current,
         loading: false,
         error: error instanceof Error ? error.message : 'Failed to load reporting workspace',
       }));
     }
-  }, [advertiserId, dateRange, mode, query, search, spendView, statusFilter]);
+  }, [mode, query, search, spendView, statusFilter]);
 
   useEffect(() => {
-    reload();
+    void reload();
+  }, [reload]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      void reload({ force: true, silent: true });
+    }, REPORTING_AUTO_REFRESH_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, [reload]);
 
   return {

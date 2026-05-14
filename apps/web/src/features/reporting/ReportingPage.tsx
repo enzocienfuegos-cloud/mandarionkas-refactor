@@ -73,8 +73,25 @@ export function ReportingPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'archived'>('all');
   const [spendView, setSpendView] = useState<SpendView>('without_margin');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const currentViewId = searchParams.get('view');
   const config = reportingModeConfig[mode];
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setDebouncedSearch(search);
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [search]);
+
   const {
     advertiserOptions,
     kpis,
@@ -91,7 +108,7 @@ export function ReportingPage() {
     advertiserId: advertiserFilter,
     statusFilter,
     spendView,
-    search,
+    search: debouncedSearch,
   });
 
   const widgets = useMemo(
@@ -233,7 +250,7 @@ export function ReportingPage() {
         search={search}
         onSearchChange={setSearch}
         onRefresh={() => {
-          void reload();
+          void reload({ force: true });
         }}
         refreshing={loading}
         onDownloadCsv={handleDownloadCsv}
@@ -265,7 +282,15 @@ export function ReportingPage() {
               <p className="font-semibold text-[color:var(--dusk-text-primary)]">Couldn&apos;t load reporting data</p>
               <p className="text-sm text-[color:var(--dusk-status-critical-fg)]">{error}</p>
             </div>
-            <Button type="button" variant="secondary" onClick={reload}>Retry</Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                void reload({ force: true });
+              }}
+            >
+              Retry
+            </Button>
           </div>
         </Panel>
       ) : null}
