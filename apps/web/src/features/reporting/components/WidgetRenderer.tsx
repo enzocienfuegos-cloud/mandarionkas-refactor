@@ -114,9 +114,9 @@ function WidgetByType({
         />
       );
     case 'topSites':
-      return <InventorySources rows={data.inventorySourceRows} kind="Domain" />;
+      return <InventorySources rows={data.rawInventorySourceRows} kind="Domain" />;
     case 'topApps':
-      return <InventorySources rows={data.inventorySourceRows} kind="App" />;
+      return <InventorySources rows={data.rawInventorySourceRows} kind="App" />;
     case 'deviceBreakdown':
       return <DeviceBreakdown rows={data.deviceRows} />;
     case 'connectionBreakdown':

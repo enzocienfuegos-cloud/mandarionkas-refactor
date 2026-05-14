@@ -178,8 +178,8 @@ export function buildReportingCsv({
     share: row.share,
   }));
 
-  data.inventorySourceRows.forEach((row) => push({
-    section: row.kind === 'App' ? 'top_apps' : 'top_sites',
+  data.rawInventorySourceRows.forEach((row) => push({
+    section: row.kind === 'App' ? 'apps' : 'sites',
     entity_type: row.kind.toLowerCase(),
     name: row.name,
     kind: row.kind,

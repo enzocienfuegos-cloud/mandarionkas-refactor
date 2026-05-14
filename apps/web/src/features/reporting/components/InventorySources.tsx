@@ -45,9 +45,9 @@ export function InventorySources({
         </div>
       ) : null}
     >
-      {rows.length ? (
+      {scopedRows.length ? (
         <div className="space-y-3">
-          {sortedRows.map((row) => {
+          {sortedRows.slice(0, 8).map((row) => {
             const deliveryParts = [
               `${row.impressions.toLocaleString()} impressions`,
               typeof row.clicks === 'number' ? `${row.clicks.toLocaleString()} clicks` : '',

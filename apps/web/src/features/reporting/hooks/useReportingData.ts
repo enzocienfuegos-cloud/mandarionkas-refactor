@@ -201,6 +201,7 @@ type HookState = {
   topCreatives: CreativeRow[];
   topRegions: RegionRow[];
   inventorySourceRows: InventorySourceRow[];
+  rawInventorySourceRows: InventorySourceRow[];
   deviceRows: DeviceBreakdownRow[];
   connectionRows: ConnectionBreakdownRow[];
   trackerHealth: TrackerHealthRow[];
@@ -668,8 +669,7 @@ function buildInventorySourceRows({
       b.impressions - a.impressions
       || (b.clicks ?? 0) - (a.clicks ?? 0)
       || a.name.localeCompare(b.name)
-    ))
-    .slice(0, 6);
+    ));
 }
 
 function buildDeviceRows({
@@ -763,6 +763,7 @@ const INITIAL_STATE: HookState = {
   topCreatives: [],
   topRegions: [],
   inventorySourceRows: [],
+  rawInventorySourceRows: [],
   deviceRows: [],
   connectionRows: [],
   trackerHealth: [],
@@ -958,6 +959,7 @@ export function useReportingData({
         apps: appPayload.breakdown ?? [],
         totalImpressions: toNumber(stats.total_impressions),
       });
+      const rawInventorySourceRows = inventorySourceRows;
       const deviceRows = buildDeviceRows({
         deviceTypes: contextSnapshotPayload.device_types ?? [],
         deviceModels: contextSnapshotPayload.device_models ?? [],
@@ -1062,7 +1064,8 @@ export function useReportingData({
         trend,
         topCreatives,
         topRegions,
-        inventorySourceRows,
+        inventorySourceRows: inventorySourceRows.slice(0, 12),
+        rawInventorySourceRows,
         deviceRows,
         connectionRows,
         trackerHealth,
