@@ -1,4 +1,4 @@
-import type { ActionNode, ActionTrigger, ActionType, BindingSource, KeyframeEasing, KeyframeProperty, VariantName, WidgetBinding, WidgetNode, WidgetType } from '../../domain/document/types';
+import type { ActionNode, ActionTrigger, ActionType, BindingSource, KeyframeEasing, KeyframeNode, KeyframeProperty, VariantName, WidgetBinding, WidgetNode, WidgetType } from '../../domain/document/types';
 
 export type WidgetCreatePlacement = { x: number; y: number; anchor?: 'center' | 'top-left' };
 export type WidgetClipboardPayload = { widgets: WidgetNode[]; actions: ActionNode[] };
@@ -60,6 +60,7 @@ export type StudioCommand =
   | { type: 'SET_HOVERED_WIDGET'; widgetId?: string }
   | { type: 'SET_ACTIVE_WIDGET'; widgetId?: string }
   | { type: 'ADD_KEYFRAME'; widgetId: string; property: KeyframeProperty; atMs: number }
+  | { type: 'SET_WIDGET_KEYFRAMES'; widgetId: string; keyframes: KeyframeNode[] }
   | { type: 'REMOVE_KEYFRAME'; widgetId: string; keyframeId: string }
   | { type: 'UPDATE_KEYFRAME'; widgetId: string; keyframeId: string; patch: { atMs?: number; value?: number; easing?: KeyframeEasing } }
   | { type: 'ADD_WIDGET_ACTION'; widgetId: string; trigger?: ActionTrigger; actionType?: ActionType }

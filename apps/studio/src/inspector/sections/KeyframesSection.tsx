@@ -1,17 +1,40 @@
-import { useTimelineActions } from '../../hooks/use-studio-actions';
+import { useTimelineActions, useWidgetActions } from '../../hooks/use-studio-actions';
 import type { WidgetNode } from '../../domain/document/types';
 import { Button } from '../../shared/ui/Button';
 import { Tile } from '../../shared/ui/Tile';
 import { KEYFRAME_PROPERTIES } from './widget-inspector-shared';
+import { applyAnimationPreset, supportsAnimationPresets, type SupportedAnimationPreset } from './animation-presets';
 
 export function KeyframesSection({ widget, playheadMs }: { widget: WidgetNode; playheadMs: number }): JSX.Element {
-  const { addKeyframe, setPlayhead, removeKeyframe, updateKeyframe } = useTimelineActions();
+  const { addKeyframe, setPlayhead, setWidgetKeyframes, removeKeyframe, updateKeyframe } = useTimelineActions();
+  const { updateWidgetStyle } = useWidgetActions();
   const keyframes = widget.timeline.keyframes ?? [];
+  const activePreset = typeof widget.style.animationPreset === 'string' ? widget.style.animationPreset : '';
+
+  const handleApplyPreset = (preset: SupportedAnimationPreset) => {
+    const { keyframes: nextKeyframes, stylePatch } = applyAnimationPreset(widget, preset);
+    setWidgetKeyframes(widget.id, nextKeyframes);
+    updateWidgetStyle(widget.id, stylePatch);
+  };
 
   return (
     <section className="section section-premium">
       <h3>Keyframes</h3>
       <div className="field-stack">
+        {supportsAnimationPresets(widget) ? (
+          <Tile>
+            <div className="meta-line">
+              <span className="pill">Animation presets</span>
+              {activePreset ? <span className="pill">Active {activePreset}</span> : null}
+            </div>
+            <small className="muted">Quick presets write timeline keyframes for this widget. You can still fine-tune them below afterward.</small>
+            <div className="inline-actions">
+              <Button size="sm" onClick={() => handleApplyPreset('appear')}>Appear</Button>
+              <Button size="sm" onClick={() => handleApplyPreset('fade-up')}>Fade up</Button>
+              <Button size="sm" onClick={() => handleApplyPreset('pulse')}>Pulse</Button>
+            </div>
+          </Tile>
+        ) : null}
         <div className="meta-line"><span className="pill">Playhead {playheadMs}ms</span><span className="pill">Tracks {new Set(keyframes.map((item) => item.property)).size}</span><span className="pill">Total {keyframes.length}</span></div>
         <small className="muted">Easing and markers are now isolated in their own section component, which makes the inspector panel much easier to evolve.</small>
         <div className="inline-actions">

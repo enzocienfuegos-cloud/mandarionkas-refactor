@@ -9,6 +9,7 @@ import type {
   CommentStatus,
   FeedRecord,
   KeyframeEasing,
+  KeyframeNode,
   KeyframeProperty,
   RuleOperator,
   VariantName,
@@ -96,6 +97,7 @@ export function useTimelineActions() {
     setPlayhead: (playheadMs: number) => dispatch({ type: 'SET_PLAYHEAD', playheadMs }),
     setPlaying: (isPlaying: boolean) => dispatch({ type: 'SET_PLAYING', isPlaying }),
     addKeyframe: (widgetId: string, property: KeyframeProperty, atMs?: number) => dispatch({ type: 'ADD_KEYFRAME', widgetId, property, atMs }),
+    setWidgetKeyframes: (widgetId: string, keyframes: KeyframeNode[]) => dispatch({ type: 'SET_WIDGET_KEYFRAMES', widgetId, keyframes }),
     updateKeyframe: (widgetId: string, keyframeId: string, patch: { atMs?: number; value?: number; easing?: KeyframeEasing }) => dispatch({ type: 'UPDATE_KEYFRAME', widgetId, keyframeId, patch }),
     removeKeyframe: (widgetId: string, keyframeId: string) => dispatch({ type: 'REMOVE_KEYFRAME', widgetId, keyframeId }),
   }), []);

@@ -51,6 +51,34 @@ export function timelineUiReducer(state: StudioState, command: StudioCommand): S
       const keyframe = { id: createId('kf'), atMs, property: command.property, value: defaultKeyframeValue(widget, command.property) };
       return withDirty({ ...state, document: { ...state.document, widgets: { ...state.document.widgets, [widget.id]: { ...widget, timeline: { ...widget.timeline, keyframes: [...keyframes, keyframe].sort((a, b) => a.atMs - b.atMs) } } } } });
     }
+    case 'SET_WIDGET_KEYFRAMES': {
+      const widget = state.document.widgets[command.widgetId];
+      const scene = currentScene(state);
+      if (!widget) return state;
+      const max = scene?.durationMs ?? Number.POSITIVE_INFINITY;
+      const keyframes = command.keyframes
+        .map((item) => ({
+          ...item,
+          atMs: Math.max(0, Math.min(item.atMs, max)),
+        }))
+        .sort((a, b) => a.atMs - b.atMs);
+      return withDirty({
+        ...state,
+        document: {
+          ...state.document,
+          widgets: {
+            ...state.document.widgets,
+            [widget.id]: {
+              ...widget,
+              timeline: {
+                ...widget.timeline,
+                keyframes,
+              },
+            },
+          },
+        },
+      });
+    }
     case 'UPDATE_KEYFRAME': {
       const target = state.document.widgets[command.widgetId];
       const scene = currentScene(state);
