@@ -51,6 +51,27 @@ describe('font export support', () => {
     expect(html).toContain('text-decoration:underline');
   });
 
+  it('normalizes numeric letter spacing values to px in exports', () => {
+    const html = renderTextExport({
+      id: 'text_3',
+      type: 'text',
+      name: 'Text',
+      sceneId: 'scene_1',
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 200, height: 60, rotation: 0 },
+      props: { text: 'Hello' },
+      style: {
+        color: '#ffffff',
+        fontSize: 28,
+        fontWeight: 600,
+        letterSpacing: '2',
+      },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any);
+
+    expect(html).toContain('letter-spacing:2px');
+  });
+
   it('packages linked font assets into the portable export asset graph', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;

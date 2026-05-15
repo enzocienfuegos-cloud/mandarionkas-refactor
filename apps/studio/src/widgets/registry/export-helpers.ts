@@ -41,6 +41,16 @@ function resolveLineHeightCss(value: unknown): string {
   return '1.1';
 }
 
+function resolveLetterSpacingCss(value: unknown): string {
+  if (typeof value === 'number' && Number.isFinite(value)) return `${value}px`;
+  if (typeof value === 'string' && value.trim()) {
+    if (value.trim().toLowerCase() === 'normal') return 'normal';
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? `${numeric}px` : escapeHtml(value);
+  }
+  return 'normal';
+}
+
 export function getBaseWidgetStyle(node: WidgetNode): string {
   const frame = node.frame;
   const style = node.style ?? {};
@@ -65,7 +75,7 @@ export function getBaseWidgetStyle(node: WidgetNode): string {
     `font-weight:${resolveFontWeightCss(style.fontWeight)}`,
     `font-style:${escapeHtml(style.fontStyle ?? 'normal')}`,
     `line-height:${resolveLineHeightCss(style.lineHeight)}`,
-    `letter-spacing:${escapeHtml(style.letterSpacing ?? 'normal')}`,
+    `letter-spacing:${resolveLetterSpacingCss(style.letterSpacing)}`,
     `text-transform:${escapeHtml(style.textTransform ?? 'none')}`,
     `text-decoration:${escapeHtml(style.textDecoration ?? 'none')}`,
     `border:1px solid ${escapeHtml(style.borderColor ?? 'rgba(255,255,255,0.14)')}`,

@@ -223,7 +223,7 @@ export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
                 isMasterVariant,
               }))}
             </label>
-            <input value={String(widget.style.letterSpacing ?? 'normal')} onChange={(event) => updateWidgetStyle(widget.id, { letterSpacing: event.target.value })} placeholder="normal, 0.04em, 1px" />
+            <input value={String(widget.style.letterSpacing ?? 'normal')} onChange={(event) => updateWidgetStyle(widget.id, { letterSpacing: event.target.value })} placeholder="normal, 1, 0.04em, 1px" />
           </div>
         </div>
         <div className="fields-grid">

@@ -58,6 +58,16 @@ function resolveLineHeight(value: unknown): CSSProperties['lineHeight'] {
   return 1.1;
 }
 
+function resolveLetterSpacing(value: unknown): CSSProperties['letterSpacing'] {
+  if (typeof value === 'number' && Number.isFinite(value)) return `${value}px`;
+  if (typeof value === 'string' && value.trim()) {
+    if (value.trim().toLowerCase() === 'normal') return 'normal';
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? `${numeric}px` : value;
+  }
+  return 'normal';
+}
+
 export const baseTextStyle = (node: WidgetNode, ctx?: RenderContext): CSSProperties => ({
   color: resolveWidgetColor(node, ctx),
   fontSize: Number(node.style.fontSize ?? 18),
@@ -65,7 +75,7 @@ export const baseTextStyle = (node: WidgetNode, ctx?: RenderContext): CSSPropert
   fontFamily: String(node.style.fontFamily ?? 'inherit'),
   fontStyle: String(node.style.fontStyle ?? 'normal'),
   lineHeight: resolveLineHeight(node.style.lineHeight),
-  letterSpacing: String(node.style.letterSpacing ?? 'normal'),
+  letterSpacing: resolveLetterSpacing(node.style.letterSpacing),
   textTransform: String(node.style.textTransform ?? 'none') as CSSProperties['textTransform'],
   textDecoration: String(node.style.textDecoration ?? 'none'),
   opacity: resolveWidgetOpacity(node, ctx),
