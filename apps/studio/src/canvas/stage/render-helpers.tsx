@@ -40,12 +40,34 @@ export const resolveWidgetShadow = (node: WidgetNode, ctx?: RenderContext): stri
   return ctx?.hovered ? DEFAULT_WIDGET_HOVER_SHADOW : DEFAULT_WIDGET_SHADOW;
 };
 
+function resolveFontWeight(value: unknown): CSSProperties['fontWeight'] {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim()) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : value;
+  }
+  return 700;
+}
+
+function resolveLineHeight(value: unknown): CSSProperties['lineHeight'] {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim()) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : value;
+  }
+  return 1.1;
+}
+
 export const baseTextStyle = (node: WidgetNode, ctx?: RenderContext): CSSProperties => ({
   color: resolveWidgetColor(node, ctx),
   fontSize: Number(node.style.fontSize ?? 18),
-  fontWeight: Number(node.style.fontWeight ?? 700),
+  fontWeight: resolveFontWeight(node.style.fontWeight),
   fontFamily: String(node.style.fontFamily ?? 'inherit'),
-  lineHeight: 1.1,
+  fontStyle: String(node.style.fontStyle ?? 'normal'),
+  lineHeight: resolveLineHeight(node.style.lineHeight),
+  letterSpacing: String(node.style.letterSpacing ?? 'normal'),
+  textTransform: String(node.style.textTransform ?? 'none') as CSSProperties['textTransform'],
+  textDecoration: String(node.style.textDecoration ?? 'none'),
   opacity: resolveWidgetOpacity(node, ctx),
 });
 

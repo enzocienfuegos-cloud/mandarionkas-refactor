@@ -20,6 +20,36 @@ describe('font export support', () => {
     expect(html).toContain('font-family:SMX_Headline_Sans_asset-');
   });
 
+  it('includes advanced typography styles in exported text widget styles', () => {
+    const html = renderTextExport({
+      id: 'text_2',
+      type: 'text',
+      name: 'Text',
+      sceneId: 'scene_1',
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 200, height: 60, rotation: 0 },
+      props: { text: 'Hello' },
+      style: {
+        fontFamily: 'Inter',
+        color: '#ffffff',
+        fontSize: 28,
+        fontWeight: 600,
+        fontStyle: 'italic',
+        lineHeight: 1.35,
+        letterSpacing: '0.04em',
+        textTransform: 'uppercase',
+        textDecoration: 'underline',
+      },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any);
+
+    expect(html).toContain('font-style:italic');
+    expect(html).toContain('line-height:1.35');
+    expect(html).toContain('letter-spacing:0.04em');
+    expect(html).toContain('text-transform:uppercase');
+    expect(html).toContain('text-decoration:underline');
+  });
+
   it('packages linked font assets into the portable export asset graph', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;

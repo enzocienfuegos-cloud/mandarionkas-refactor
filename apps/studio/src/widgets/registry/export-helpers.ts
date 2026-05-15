@@ -29,6 +29,18 @@ export function resolveExportTextAlign(node: WidgetNode): 'left' | 'center' | 'r
   return 'center';
 }
 
+function resolveFontWeightCss(value: unknown): string {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'string' && value.trim()) return escapeHtml(value);
+  return '700';
+}
+
+function resolveLineHeightCss(value: unknown): string {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'string' && value.trim()) return escapeHtml(value);
+  return '1.1';
+}
+
 export function getBaseWidgetStyle(node: WidgetNode): string {
   const frame = node.frame;
   const style = node.style ?? {};
@@ -50,7 +62,12 @@ export function getBaseWidgetStyle(node: WidgetNode): string {
     `color:${escapeHtml(style.color ?? '#ffffff')}`,
     `font-family:${escapeHtml(style.fontFamily ?? 'inherit')}`,
     `font-size:${Number(style.fontSize ?? 18)}px`,
-    `font-weight:${Number(style.fontWeight ?? 700)}`,
+    `font-weight:${resolveFontWeightCss(style.fontWeight)}`,
+    `font-style:${escapeHtml(style.fontStyle ?? 'normal')}`,
+    `line-height:${resolveLineHeightCss(style.lineHeight)}`,
+    `letter-spacing:${escapeHtml(style.letterSpacing ?? 'normal')}`,
+    `text-transform:${escapeHtml(style.textTransform ?? 'none')}`,
+    `text-decoration:${escapeHtml(style.textDecoration ?? 'none')}`,
     `border:1px solid ${escapeHtml(style.borderColor ?? 'rgba(255,255,255,0.14)')}`,
     `padding:8px`,
     `text-align:center`,

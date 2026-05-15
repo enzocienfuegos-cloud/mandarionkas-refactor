@@ -15,6 +15,21 @@ function hasAny(keys: Set<string>, targets: string[]): boolean {
   return targets.some((target) => keys.has(target));
 }
 
+const TYPOGRAPHY_STYLE_KEYS = [
+  'fontSize',
+  'fontWeight',
+  'fontStyle',
+  'lineHeight',
+  'letterSpacing',
+  'textTransform',
+  'textDecoration',
+  'color',
+  'horizontalAlign',
+  'textAlign',
+  'verticalAlign',
+  'fontFamily',
+] as const;
+
 export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
   const { updateWidgetProps, updateWidgetStyle } = useWidgetActions();
   const platform = usePlatformSnapshot();
@@ -50,9 +65,9 @@ export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
   const fontAssets = useMemo(() => assets.filter((asset) => asset.kind === 'font'), [assets]);
   const resetTarget = isSharedLayerClone ? inheritedSharedBaseWidget : baseWidget;
   const hasTextSectionOverride = hasAny(localVariantPropsOverrideKeys, ['text', 'fontAssetId', 'fontAssetSrc'])
-    || hasAny(localVariantStyleOverrideKeys, ['fontSize', 'color', 'horizontalAlign', 'textAlign', 'verticalAlign', 'fontFamily'])
+    || hasAny(localVariantStyleOverrideKeys, [...TYPOGRAPHY_STYLE_KEYS])
     || hasAny(localScenePropsOverrideKeys, ['text', 'fontAssetId', 'fontAssetSrc'])
-    || hasAny(localSceneStyleOverrideKeys, ['fontSize', 'color', 'horizontalAlign', 'textAlign', 'verticalAlign', 'fontFamily']);
+    || hasAny(localSceneStyleOverrideKeys, [...TYPOGRAPHY_STYLE_KEYS]);
 
   function renderInheritanceBadge(state: InheritanceBadgeState): JSX.Element | null {
     if (state === 'none') return null;
@@ -70,6 +85,12 @@ export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
     });
     updateWidgetStyle(widget.id, {
       fontSize: resetTarget.style.fontSize,
+      fontWeight: resetTarget.style.fontWeight,
+      fontStyle: resetTarget.style.fontStyle,
+      lineHeight: resetTarget.style.lineHeight,
+      letterSpacing: resetTarget.style.letterSpacing,
+      textTransform: resetTarget.style.textTransform,
+      textDecoration: resetTarget.style.textDecoration,
       color: resetTarget.style.color,
       horizontalAlign: resetTarget.style.horizontalAlign,
       textAlign: resetTarget.style.textAlign,
@@ -129,6 +150,40 @@ export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
             </label>
             <input type="number" value={Number(widget.style.fontSize ?? 16)} onChange={(event) => updateWidgetStyle(widget.id, { fontSize: Number(event.target.value) })} />
           </div>
+          <div>
+            <label className="inspector-field-label">
+              <span>Font weight</span>
+              {renderInheritanceBadge(badgeStateFromInheritance({
+                sceneLocal: localSceneStyleOverrideKeys.has('fontWeight'),
+                variantLocal: localVariantStyleOverrideKeys.has('fontWeight'),
+                sharedClone: isSharedLayerClone,
+                isMasterVariant,
+              }))}
+            </label>
+            <select value={String(widget.style.fontWeight ?? 700)} onChange={(event) => updateWidgetStyle(widget.id, { fontWeight: Number(event.target.value) })}>
+              <option value="300">Light</option>
+              <option value="400">Regular</option>
+              <option value="500">Medium</option>
+              <option value="600">Semibold</option>
+              <option value="700">Bold</option>
+              <option value="800">Extra bold</option>
+              <option value="900">Black</option>
+            </select>
+          </div>
+        </div>
+        <div className="fields-grid">
+          <div>
+            <label className="inspector-field-label">
+              <span>Line height</span>
+              {renderInheritanceBadge(badgeStateFromInheritance({
+                sceneLocal: localSceneStyleOverrideKeys.has('lineHeight'),
+                variantLocal: localVariantStyleOverrideKeys.has('lineHeight'),
+                sharedClone: isSharedLayerClone,
+                isMasterVariant,
+              }))}
+            </label>
+            <input type="number" step="0.05" min="0.8" value={Number(widget.style.lineHeight ?? 1.1)} onChange={(event) => updateWidgetStyle(widget.id, { lineHeight: Number(event.target.value) })} />
+          </div>
           <ColorControl
             label="Text color"
             labelAccessory={renderInheritanceBadge(badgeStateFromInheritance({
@@ -141,6 +196,70 @@ export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
             fallback="#ffffff"
             onChange={(value) => updateWidgetStyle(widget.id, { color: value })}
           />
+        </div>
+        <div className="fields-grid">
+          <div>
+            <label className="inspector-field-label">
+              <span>Font style</span>
+              {renderInheritanceBadge(badgeStateFromInheritance({
+                sceneLocal: localSceneStyleOverrideKeys.has('fontStyle'),
+                variantLocal: localVariantStyleOverrideKeys.has('fontStyle'),
+                sharedClone: isSharedLayerClone,
+                isMasterVariant,
+              }))}
+            </label>
+            <select value={String(widget.style.fontStyle ?? 'normal')} onChange={(event) => updateWidgetStyle(widget.id, { fontStyle: event.target.value })}>
+              <option value="normal">Regular</option>
+              <option value="italic">Italic</option>
+            </select>
+          </div>
+          <div>
+            <label className="inspector-field-label">
+              <span>Letter spacing</span>
+              {renderInheritanceBadge(badgeStateFromInheritance({
+                sceneLocal: localSceneStyleOverrideKeys.has('letterSpacing'),
+                variantLocal: localVariantStyleOverrideKeys.has('letterSpacing'),
+                sharedClone: isSharedLayerClone,
+                isMasterVariant,
+              }))}
+            </label>
+            <input value={String(widget.style.letterSpacing ?? 'normal')} onChange={(event) => updateWidgetStyle(widget.id, { letterSpacing: event.target.value })} placeholder="normal, 0.04em, 1px" />
+          </div>
+        </div>
+        <div className="fields-grid">
+          <div>
+            <label className="inspector-field-label">
+              <span>Text transform</span>
+              {renderInheritanceBadge(badgeStateFromInheritance({
+                sceneLocal: localSceneStyleOverrideKeys.has('textTransform'),
+                variantLocal: localVariantStyleOverrideKeys.has('textTransform'),
+                sharedClone: isSharedLayerClone,
+                isMasterVariant,
+              }))}
+            </label>
+            <select value={String(widget.style.textTransform ?? 'none')} onChange={(event) => updateWidgetStyle(widget.id, { textTransform: event.target.value })}>
+              <option value="none">None</option>
+              <option value="uppercase">Uppercase</option>
+              <option value="lowercase">Lowercase</option>
+              <option value="capitalize">Capitalize</option>
+            </select>
+          </div>
+          <div>
+            <label className="inspector-field-label">
+              <span>Decoration</span>
+              {renderInheritanceBadge(badgeStateFromInheritance({
+                sceneLocal: localSceneStyleOverrideKeys.has('textDecoration'),
+                variantLocal: localVariantStyleOverrideKeys.has('textDecoration'),
+                sharedClone: isSharedLayerClone,
+                isMasterVariant,
+              }))}
+            </label>
+            <select value={String(widget.style.textDecoration ?? 'none')} onChange={(event) => updateWidgetStyle(widget.id, { textDecoration: event.target.value })}>
+              <option value="none">None</option>
+              <option value="underline">Underline</option>
+              <option value="line-through">Strikethrough</option>
+            </select>
+          </div>
         </div>
         <div className="fields-grid">
           <div>
