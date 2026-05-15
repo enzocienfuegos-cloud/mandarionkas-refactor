@@ -136,9 +136,8 @@ async function registerHandlers() {
 }
 
 // ─── Maintenance heartbeat ────────────────────────────────────────────────────
-// Sends a maintenance job every 30s. pg-boss deduplicates within 25s windows
-// (singletonSeconds: 25 in queue.mjs) so only one runs per window even
-// if multiple workers are running.
+// Keep housekeeping frequent enough to recover stalled jobs, but not so frequent
+// that identity stitching competes with API/reporting traffic for DB connections.
 
 function startMaintenanceHeartbeat(intervalMs = 30_000) {
   let timer = null;
@@ -222,7 +221,17 @@ async function main() {
   log('info', { event: 'notify_listener_started', channels: ['smx.transcode-video', 'smx.publish-html5-archive'] });
 
   // 4. Start maintenance heartbeat
-  const heartbeatIntervalMs = Number(process.env.WORKER_POLL_INTERVAL_MS ?? 30_000);
+  const requestedHeartbeatIntervalMs = Number(
+    process.env.MAINTENANCE_HEARTBEAT_INTERVAL_MS
+      ?? process.env.WORKER_POLL_INTERVAL_MS
+      ?? 300_000,
+  );
+  const heartbeatIntervalMs = Math.max(
+    Number.isFinite(requestedHeartbeatIntervalMs) && requestedHeartbeatIntervalMs > 0
+      ? requestedHeartbeatIntervalMs
+      : 300_000,
+    300_000,
+  );
   stopHeartbeat = startMaintenanceHeartbeat(heartbeatIntervalMs);
 
   log('info', {

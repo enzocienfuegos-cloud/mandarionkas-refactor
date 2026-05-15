@@ -18,6 +18,12 @@ function log(level, payload) {
 }
 const logInfo  = (p) => log('info', p);
 const logError = (p) => log('error', p);
+let lastIdentityStitchAt = 0;
+
+function readPositiveInteger(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
 
 function getConnectionString(source = process.env) {
   return getWorkerConnectionString(source);
@@ -115,16 +121,27 @@ export async function runMaintenanceJobWithDeps(source = process.env, deps = def
 
     let stitchedEdges = 0;
     try {
-      const { rows: activeWs } = await client.query(
-        `SELECT DISTINCT workspace_id
-         FROM impression_events
-         WHERE timestamp > NOW() - INTERVAL '7 days'`,
-      );
-      const workspaceIds = activeWs.map((row) => row.workspace_id).filter(Boolean);
-      if (workspaceIds.length > 0) {
-        stitchedEdges = await resolvedDeps.runIdentityStitching(client, { workspaceIds });
-        if (stitchedEdges > 0) {
-          logInfo({ event: 'identity_stitching_completed', stitchedEdges, workspaceCount: workspaceIds.length });
+      const now = Date.now();
+      const stitchIntervalMs = readPositiveInteger(source.IDENTITY_STITCH_INTERVAL_MS, 15 * 60 * 1000);
+      if (lastIdentityStitchAt > 0 && now - lastIdentityStitchAt < stitchIntervalMs) {
+        logInfo({
+          event: 'identity_stitching_skipped',
+          reason: 'throttled',
+          nextEligibleInMs: stitchIntervalMs - (now - lastIdentityStitchAt),
+        });
+      } else {
+        const { rows: activeWs } = await client.query(
+          `SELECT DISTINCT workspace_id
+           FROM impression_events
+           WHERE timestamp > NOW() - INTERVAL '7 days'`,
+        );
+        const workspaceIds = activeWs.map((row) => row.workspace_id).filter(Boolean);
+        if (workspaceIds.length > 0) {
+          lastIdentityStitchAt = now;
+          stitchedEdges = await resolvedDeps.runIdentityStitching(client, { workspaceIds });
+          if (stitchedEdges > 0) {
+            logInfo({ event: 'identity_stitching_completed', stitchedEdges, workspaceCount: workspaceIds.length });
+          }
         }
       }
     } catch (stitchError) {

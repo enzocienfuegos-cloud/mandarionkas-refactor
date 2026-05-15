@@ -29,9 +29,9 @@ export function createPool(connectionString, overrides = {}) {
     throw new Error('A PostgreSQL connection string is required.');
   }
 
-  const max = Number(process.env.PG_POOL_MAX) || overrides.max || 4;
+  const max = Number(process.env.PG_POOL_MAX) || overrides.max || 8;
   const idleTimeoutMs = Number(process.env.PG_POOL_IDLE_TIMEOUT_MS) || overrides.idleTimeoutMs || 10_000;
-  const connectTimeoutMs = Number(process.env.PG_POOL_CONNECT_TIMEOUT_MS) || overrides.connectTimeoutMs || 5_000;
+  const connectTimeoutMs = Number(process.env.PG_POOL_CONNECT_TIMEOUT_MS) || overrides.connectTimeoutMs || 10_000;
   const pool = new Pool({
     connectionString,
     ssl: buildSslConfig(),

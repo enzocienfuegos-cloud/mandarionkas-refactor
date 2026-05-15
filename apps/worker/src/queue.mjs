@@ -260,9 +260,9 @@ export async function sendMaintenanceJob(opts = {}) {
   const b = getBoss();
   return b.send(QUEUE.MAINTENANCE, {}, {
     singletonKey:      'global',
-    singletonSeconds:  25,     // deduplicate within 25s windows (matches 30s poll)
+    singletonSeconds:  240,
     retryLimit:        1,
-    expireInSeconds:   120,
+    expireInSeconds:   300,
     ...opts,
   });
 }

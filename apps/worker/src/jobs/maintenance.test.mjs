@@ -78,3 +78,44 @@ test('maintenance job releases its client but does not close the shared pool', a
   assert.equal(result.stitchedEdges, 0);
   assert.equal(result.skipped, false);
 });
+
+test('maintenance job throttles identity stitching between runs', async () => {
+  const client = createClient();
+  let stitchCalls = 0;
+  client.query = async (sql) => {
+    client.queries.push(sql);
+    if (String(sql).includes('SELECT DISTINCT workspace_id')) {
+      return { rows: [{ workspace_id: 'workspace-1' }] };
+    }
+    return { rows: [] };
+  };
+
+  const deps = {
+    getPool: () => ({
+      connect: async () => client,
+      end: async () => {},
+    }),
+    expirePendingUploadSessions: async () => 0,
+    revokeExpiredSessions: async () => 0,
+    pruneOldDrafts: async () => 0,
+    reconcileStalledVideoTranscodeJobs: async () => ({ stalled: 0, requeued: 0, exhausted: 0 }),
+    pruneFrequencyCapEvents: async () => 0,
+    runIdentityStitching: async () => {
+      stitchCalls += 1;
+      return 10;
+    },
+  };
+
+  const source = {
+    DATABASE_URL: 'postgres://example',
+    DRAFT_RETENTION_DAYS: '30',
+    IDENTITY_STITCH_INTERVAL_MS: '60000',
+  };
+
+  const first = await runMaintenanceJobWithDeps(source, deps);
+  const second = await runMaintenanceJobWithDeps(source, deps);
+
+  assert.equal(first.stitchedEdges, 10);
+  assert.equal(second.stitchedEdges, 0);
+  assert.equal(stitchCalls, 1);
+});
