@@ -92,6 +92,38 @@ describe('runtime tree shake', () => {
     expect(script).toContain('Submitting…');
   });
 
+  it('includes the timeline runtime only when widgets define keyframes', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'gam-html5';
+    state.document.widgets.image_1 = {
+      id: 'image_1',
+      type: 'image',
+      name: 'Hero',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 300, height: 160, rotation: 0 },
+      style: { opacity: 1 },
+      props: { src: 'https://cdn.example.com/hero.png', alt: 'Hero' },
+      timeline: {
+        startMs: 0,
+        endMs: 1000,
+        keyframes: [
+          { id: 'kf_1', property: 'opacity', atMs: 0, value: 0, easing: 'linear' },
+          { id: 'kf_2', property: 'opacity', atMs: 1000, value: 1, easing: 'ease-out' },
+        ],
+      },
+    } as any;
+    state.document.scenes[0].widgetIds.push('image_1');
+
+    const adapter = buildGamHtml5Adapter(state);
+    const script = compileRuntime(adapter.portableProject, adapter);
+
+    expect(script).toContain('startWidgetTimelineLoop');
+    expect(script).toContain('getWidgetTrackValue');
+    expect(script).toContain('patchedShowScene');
+  });
+
   it('always includes environment scene management and keeps full runtime sections present when needed', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
