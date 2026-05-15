@@ -22,6 +22,8 @@ import { Tooltip } from '../../shared/ui/Tooltip';
 export function TimelineHeader({
   displayedCount,
   selectedCount,
+  canGroupSelection,
+  canUngroupSelection,
   activeSceneId,
   scenes,
   isPlaying,
@@ -38,6 +40,8 @@ export function TimelineHeader({
   onPreviousScene,
   onNextScene,
   onSelectScene,
+  onGroupSelection,
+  onUngroupSelection,
   onToggleSnap,
   onToggleSelectedOnly,
   onZoomOut,
@@ -46,6 +50,8 @@ export function TimelineHeader({
 }: {
   displayedCount: number;
   selectedCount: number;
+  canGroupSelection: boolean;
+  canUngroupSelection: boolean;
   activeSceneId: string;
   scenes: Array<{ id: string; name: string }>;
   isPlaying: boolean;
@@ -62,6 +68,8 @@ export function TimelineHeader({
   onPreviousScene: () => void;
   onNextScene: () => void;
   onSelectScene: (sceneId: string) => void;
+  onGroupSelection: () => void;
+  onUngroupSelection: () => void;
   onToggleSnap: () => void;
   onToggleSelectedOnly: () => void;
   onZoomOut: () => void;
@@ -228,6 +236,27 @@ export function TimelineHeader({
             icon={<StudioIcon icon={StudioIcons.plus} size={16} />}
             onClick={onZoomIn}
           />
+        </div>
+
+        <div className="timeline-ctrl-divider" aria-hidden="true" />
+
+        <div className="timeline-ctrl-group">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onGroupSelection}
+            disabled={!canGroupSelection}
+          >
+            Group
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onUngroupSelection}
+            disabled={!canUngroupSelection}
+          >
+            Ungroup
+          </Button>
         </div>
 
         <div className="timeline-ctrl-divider" aria-hidden="true" />

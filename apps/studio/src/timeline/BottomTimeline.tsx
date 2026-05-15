@@ -13,6 +13,8 @@ import type { TimelineDragState, TimelineWidget } from './types';
 import { playbackEngine, usePlaybackMsThrottled } from '../hooks/use-playback-engine';
 import { useTimelinePlayhead } from './use-timeline-playhead';
 import { useTimelineZoom } from './use-timeline-zoom';
+import { getCapability } from '../widgets/registry/widget-definition';
+import { getWidgetDefinition } from '../widgets/registry/widget-registry';
 
 type StickySnapDrag = Exclude<Exclude<TimelineDragState, null>, { mode: 'playhead' }>;
 
@@ -68,6 +70,9 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
   });
   const playheadMs = usePlaybackMsThrottled(storePlayheadMs);
   const playheadRef = useRef(playheadMs);
+  const selectedWidgets = useMemo(() => selectedIds.map((widgetId) => widgets.find((widget) => widget.id === widgetId)).filter(Boolean) as TimelineWidget[], [selectedIds, widgets]);
+  const groupableCount = useMemo(() => selectedWidgets.filter((widget) => !widget.parentId).length, [selectedWidgets]);
+  const ungroupableCount = useMemo(() => selectedWidgets.filter((widget) => Boolean(widget.parentId) || Boolean(getCapability(getWidgetDefinition(widget.type), 'isContainer'))).length, [selectedWidgets]);
 
 
   const rowMsToPx = BASE_ROW_MS_TO_PX * timelineZoom;
@@ -346,6 +351,8 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
       <TimelineHeader
         displayedCount={displayedWidgets.length}
         selectedCount={selectedIds.length}
+        canGroupSelection={groupableCount >= 2}
+        canUngroupSelection={ungroupableCount > 0}
         activeSceneId={activeSceneId}
         scenes={scenes.map((item) => ({ id: item.id, name: item.name }))}
         isPlaying={isPlaying}
@@ -365,6 +372,8 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
         onPreviousScene={() => sceneActions.previousScene()}
         onNextScene={() => sceneActions.nextScene()}
         onSelectScene={(sceneId) => sceneActions.selectScene(sceneId)}
+        onGroupSelection={() => widgetActions.groupSelected()}
+        onUngroupSelection={() => widgetActions.ungroupSelected()}
         onToggleSnap={() => setSnapEnabled((value) => !value)}
         onToggleSelectedOnly={() => setSelectedOnly((value) => !value)}
         onZoomOut={zoomOut}
