@@ -70,7 +70,7 @@ export function sortAssets(assets: AssetRecord[], mode: AssetSortMode): AssetRec
 
 export function widgetAcceptsAssetSwap(primaryWidget: WidgetNode | undefined): boolean {
   return primaryWidget
-    ? Boolean(getCapability(getWidgetDefinition(primaryWidget.type), 'acceptsAssetSwap'))
+    ? primaryWidget.type === 'scratch-reveal' || Boolean(getCapability(getWidgetDefinition(primaryWidget.type), 'acceptsAssetSwap'))
     : false;
 }
 
@@ -89,9 +89,21 @@ export function assignAssetToWidget({
 }): void {
   if (!primaryWidget) return;
   const definition = getWidgetDefinition(primaryWidget.type);
-  if (!acceptsAssetKind(definition, asset.kind as 'image' | 'video' | 'font')) return;
+  const supportsScratchRevealImage = primaryWidget.type === 'scratch-reveal' && asset.kind === 'image';
+  if (!supportsScratchRevealImage && !acceptsAssetKind(definition, asset.kind as 'image' | 'video' | 'font')) return;
 
   const resolvedSrc = resolveAssetPreviewUrl(asset);
+  if (primaryWidget.type === 'scratch-reveal') {
+    const currentAfter = String(primaryWidget.props.afterImage ?? '').trim();
+    const currentBefore = String(primaryWidget.props.beforeImage ?? '').trim();
+    widgetActions.updateWidgetProps(primaryWidget.id, !currentAfter
+      ? { afterAssetId: asset.id, afterImage: resolvedSrc }
+      : !currentBefore
+        ? { beforeAssetId: asset.id, beforeImage: resolvedSrc }
+        : { afterAssetId: asset.id, afterImage: resolvedSrc });
+    return;
+  }
+
   if (primaryWidget.type === 'image' || primaryWidget.type === 'hero-image') {
     widgetActions.updateWidgetProps(primaryWidget.id, {
       src: resolvedSrc,
