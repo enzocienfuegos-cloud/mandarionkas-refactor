@@ -297,14 +297,30 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     return (cleared / Math.max(1, progressCanvas.width * progressCanvas.height)) * 100;
   }
 
+  function playScratchRevealRevealAnimation(node, preset, durationMs) {
+    if (!node || !preset || preset === 'none' || typeof node.animate !== 'function') return;
+    node.getAnimations?.().forEach((animation) => animation.cancel());
+    const duration = Math.max(150, Math.min(3000, Number(durationMs || 700)));
+    const keyframes =
+      preset === 'appear'
+        ? [{ opacity: 0 }, { opacity: 1 }]
+        : preset === 'fade-up'
+          ? [{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'translateY(0px)' }]
+          : [{ opacity: 0.35, transform: 'scale(0.92)' }, { opacity: 1, transform: 'scale(1)' }];
+    node.animate(keyframes, { duration, easing: 'ease-out' });
+  }
+
   function initScratchReveal(root) {
     const canvas = root?.querySelector('[data-scratch-canvas]');
     if (!canvas) return;
+    const revealMedia = root.querySelector('[data-scratch-reveal-media]');
     const accent = root.getAttribute('data-scratch-accent') || '#f97316';
     const coverImage = root.getAttribute('data-scratch-cover-image') || '';
     const coverBlur = Number(root.getAttribute('data-scratch-cover-blur') || 0);
     const scratchRadius = Math.max(8, Number(root.getAttribute('data-scratch-radius') || 22));
     const autoRevealThreshold = Math.max(0, Math.min(100, Number(root.getAttribute('data-scratch-auto-reveal-threshold') || 10)));
+    const revealAnimationPreset = root.getAttribute('data-scratch-reveal-animation') || 'none';
+    const revealAnimationDuration = Number(root.getAttribute('data-scratch-reveal-animation-duration') || 700);
     const state = { pointerActive: false, completed: false, progressCanvas: null };
 
     function syncCanvasSize() {
@@ -313,6 +329,7 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
       canvas.height = Math.max(1, Math.round(rect.height));
       state.progressCanvas = createScratchProgressCanvas(canvas.width, canvas.height);
       state.completed = false;
+      revealMedia?.getAnimations?.().forEach((animation) => animation.cancel());
       paintScratchCover(canvas, coverImage, coverBlur, accent, () => {
         canvas.style.opacity = '1';
       });
@@ -331,6 +348,7 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      playScratchRevealRevealAnimation(revealMedia, revealAnimationPreset, revealAnimationDuration);
     }
 
     canvas.style.opacity = '0';

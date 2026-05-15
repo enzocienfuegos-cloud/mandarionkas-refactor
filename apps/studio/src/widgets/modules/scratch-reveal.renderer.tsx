@@ -20,6 +20,25 @@ const scratchRevealMediaStyle: CSSProperties = {
   objectFit: 'cover',
 };
 
+type ScratchRevealAnimationPreset = 'none' | 'appear' | 'fade-up' | 'zoom-in';
+
+function runScratchRevealRevealAnimation(
+  node: HTMLImageElement | null,
+  preset: ScratchRevealAnimationPreset,
+  durationMs: number,
+): void {
+  if (!node || preset === 'none' || typeof node.animate !== 'function') return;
+  node.getAnimations?.().forEach((animation) => animation.cancel());
+  const duration = Math.max(150, Math.min(3000, Number(durationMs || 700)));
+  const keyframes =
+    preset === 'appear'
+      ? [{ opacity: 0 }, { opacity: 1 }]
+      : preset === 'fade-up'
+        ? [{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'translateY(0px)' }]
+        : [{ opacity: 0.35, transform: 'scale(0.92)' }, { opacity: 1, transform: 'scale(1)' }];
+  node.animate(keyframes, { duration, easing: 'ease-out' });
+}
+
 const scratchRevealTitleStyle: CSSProperties = {
   position: 'absolute',
   top: 12,
@@ -206,12 +225,14 @@ function eraseScratchProgress(
 function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const revealMediaRef = useRef<HTMLImageElement | null>(null);
   const progressCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pointerActiveRef = useRef(false);
   const scratchCompletedRef = useRef(false);
   const previousPreviewModeRef = useRef(ctx.previewMode);
   const previousPlayheadRef = useRef(ctx.playheadMs);
   const [coverReady, setCoverReady] = useState(false);
+  const [revealAnimationTick, setRevealAnimationTick] = useState(0);
   const title = String(node.props.title ?? node.name);
   const coverLabel = String(node.props.coverLabel ?? 'Scratch to reveal');
   const revealLabel = String(node.props.revealLabel ?? '20% off today');
@@ -220,10 +241,13 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
   const autoRevealThresholdPercent = Math.max(0, Math.min(100, Number(node.props.autoRevealThresholdPercent ?? 10)));
+  const revealAnimationPreset = String(node.props.revealAnimationPreset ?? 'none') as ScratchRevealAnimationPreset;
+  const revealAnimationDurationMs = Math.max(150, Math.min(3000, Number(node.props.revealAnimationDurationMs ?? 700)));
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    revealMediaRef.current?.getAnimations?.().forEach((animation) => animation.cancel());
     const width = Math.max(1, Math.round(canvas.clientWidth));
     const height = Math.max(1, Math.round(canvas.clientHeight));
     canvas.width = width;
@@ -242,6 +266,7 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     if (!enteredPreview && !rewoundToStart) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
+    revealMediaRef.current?.getAnimations?.().forEach((animation) => animation.cancel());
     const width = Math.max(1, Math.round(canvas.clientWidth));
     const height = Math.max(1, Math.round(canvas.clientHeight));
     canvas.width = width;
@@ -251,6 +276,11 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     setCoverReady(false);
     paintScratchCover(canvas, beforeImage, coverBlur, accent, () => setCoverReady(true));
   }, [accent, beforeImage, coverBlur, ctx.playheadMs, ctx.previewMode]);
+
+  useEffect(() => {
+    if (!revealAnimationTick || !afterImage) return;
+    runScratchRevealRevealAnimation(revealMediaRef.current, revealAnimationPreset, revealAnimationDurationMs);
+  }, [afterImage, revealAnimationDurationMs, revealAnimationPreset, revealAnimationTick]);
 
   const scratchAtEvent = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -266,6 +296,7 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     if (clearedPercent < autoRevealThresholdPercent) return;
     scratchCompletedRef.current = true;
     clearScratchCompletion(canvas);
+    setRevealAnimationTick((current) => current + 1);
   };
 
   const revealBackground = useMemo(() => (
@@ -276,7 +307,7 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
 
   return (
     <div style={buildScratchRevealShellStyle(node, ctx, revealBackground ?? 'var(--neutral-slate-900)')}>
-      {afterImage ? <img src={afterImage} alt={revealLabel} style={scratchRevealMediaStyle} /> : null}
+      {afterImage ? <img ref={revealMediaRef} src={afterImage} alt={revealLabel} style={scratchRevealMediaStyle} /> : null}
       <div style={scratchRevealTitleStyle}>{title}</div>
       <div style={scratchRevealLabelBaseStyle}>{revealLabel}</div>
       <canvas

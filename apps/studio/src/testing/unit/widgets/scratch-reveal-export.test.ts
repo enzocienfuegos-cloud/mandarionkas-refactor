@@ -51,4 +51,12 @@ describe('scratch reveal export', () => {
 
     expect(html).toContain('data-scratch-auto-reveal-threshold="25"');
   });
+
+  it('exports reveal animation metadata for the inner reveal image', () => {
+    const html = renderScratchRevealExport(createScratchRevealWidget({ revealAnimationPreset: 'fade-up', revealAnimationDurationMs: 900 }));
+
+    expect(html).toContain('data-scratch-reveal-animation="fade-up"');
+    expect(html).toContain('data-scratch-reveal-animation-duration="900"');
+    expect(html).toContain('data-scratch-reveal-media');
+  });
 });

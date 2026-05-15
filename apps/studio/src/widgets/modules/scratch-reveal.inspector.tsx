@@ -120,6 +120,29 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
             onChange={(event) => widgetActions.updateWidgetProps(widget.id, { autoRevealThresholdPercent: Number(event.target.value) })}
           />
         </div>
+        <div>
+          <label>Reveal animation</label>
+          <select
+            value={String(widget.props.revealAnimationPreset ?? 'none')}
+            onChange={(event) => widgetActions.updateWidgetProps(widget.id, { revealAnimationPreset: event.target.value })}
+          >
+            <option value="none">None</option>
+            <option value="appear">Appear</option>
+            <option value="fade-up">Fade up</option>
+            <option value="zoom-in">Zoom in</option>
+          </select>
+        </div>
+        <div>
+          <label>Reveal animation ms</label>
+          <input
+            type="number"
+            step="50"
+            min="150"
+            max="3000"
+            value={String(widget.props.revealAnimationDurationMs ?? 700)}
+            onChange={(event) => widgetActions.updateWidgetProps(widget.id, { revealAnimationDurationMs: Number(event.target.value) })}
+          />
+        </div>
       </div>
     </section>
   );
