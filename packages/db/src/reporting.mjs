@@ -1137,7 +1137,21 @@ export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}
   const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
-  const conditions = ['c.workspace_id = $1'];
+  const rawImpressionConditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, rawImpressionConditions, 't', 'ie', campaignId, tagIds, advertiserId);
+  addTagChannelFilter(rawImpressionConditions, 't', channel);
+  addTimestampFilters(params, rawImpressionConditions, 'ie', dateFrom, dateTo, opts.timezone);
+
+  params.push(workspaceId);
+  const clickWorkspaceRef = `$${params.length}`;
+  const rawClickConditions = [`ce.workspace_id = ${clickWorkspaceRef}`];
+  addImpressionScopeFilters(params, rawClickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
+  addTagChannelFilter(rawClickConditions, 't_click', channel);
+  addTimestampFilters(params, rawClickConditions, 'ce', dateFrom, dateTo, opts.timezone);
+
+  params.push(workspaceId);
+  const campaignWorkspaceRef = `$${params.length}`;
+  const conditions = [`c.workspace_id = ${campaignWorkspaceRef}`];
   if (advertiserId) {
     params.push(advertiserId);
     conditions.push(`c.advertiser_id = $${params.length}`);
@@ -1167,33 +1181,69 @@ export async function getWorkspaceCampaignBreakdown(pool, workspaceId, opts = {}
   params.push(normalizeLimit(limit));
 
   const { rows } = await pool.query(
-    `SELECT
+    `WITH raw_impressions AS (
+       SELECT
+         t.campaign_id,
+         COUNT(*)::bigint AS impressions,
+         COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::bigint AS viewable_imps,
+         COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0)::bigint AS measured_imps,
+         COALESCE(SUM(CASE WHEN ie.viewable IS NULL THEN 1 ELSE 0 END), 0)::bigint AS undetermined_imps
+       FROM impression_events ie
+       JOIN ad_tags t ON t.id = ie.tag_id
+       WHERE ${rawImpressionConditions.join(' AND ')}
+       GROUP BY t.campaign_id
+     ),
+     raw_clicks AS (
+       SELECT
+         t_click.campaign_id,
+         COUNT(*)::bigint AS clicks
+       FROM click_events ce
+       JOIN ad_tags t_click ON t_click.id = ce.tag_id
+       WHERE ${rawClickConditions.join(' AND ')}
+       GROUP BY t_click.campaign_id
+     ),
+     daily AS (
+       SELECT
+         t.campaign_id,
+         COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
+         COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
+         COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
+         COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
+         COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps,
+         COALESCE(SUM(ds.spend), 0) AS spend
+       FROM ad_tags t
+       LEFT JOIN tag_daily_stats ds ON ds.tag_id = t.id${joinDateFilter}
+       GROUP BY t.campaign_id
+     )
+     SELECT
        c.id,
        c.name,
        c.status,
        c.budget,
        c.impression_goal,
        c.metadata AS campaign_metadata,
-       COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
-       COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
-       COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
-       COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
-       COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps,
-       COALESCE(SUM(ds.spend), 0) AS spend,
+       CASE WHEN COALESCE(ri.impressions, 0) > 0 OR COALESCE(rc.clicks, 0) > 0 THEN COALESCE(ri.impressions, 0) ELSE COALESCE(d.impressions, 0) END::bigint AS impressions,
+       CASE WHEN COALESCE(ri.impressions, 0) > 0 OR COALESCE(rc.clicks, 0) > 0 THEN COALESCE(rc.clicks, 0) ELSE COALESCE(d.clicks, 0) END::bigint AS clicks,
+       CASE WHEN COALESCE(ri.impressions, 0) > 0 THEN COALESCE(ri.viewable_imps, 0) ELSE COALESCE(d.viewable_imps, 0) END::bigint AS viewable_imps,
+       CASE WHEN COALESCE(ri.impressions, 0) > 0 THEN COALESCE(NULLIF(ri.measured_imps, 0), ri.impressions, 0) ELSE COALESCE(d.measured_imps, 0) END::bigint AS measured_imps,
+       CASE WHEN COALESCE(ri.impressions, 0) > 0 THEN COALESCE(ri.undetermined_imps, 0) ELSE COALESCE(d.undetermined_imps, 0) END::bigint AS undetermined_imps,
+       COALESCE(d.spend, 0) AS spend,
        0::bigint AS unique_identities,
        0::numeric AS avg_frequency,
-       CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
-         THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
+       CASE WHEN (CASE WHEN COALESCE(ri.impressions, 0) > 0 OR COALESCE(rc.clicks, 0) > 0 THEN COALESCE(ri.impressions, 0) ELSE COALESCE(d.impressions, 0) END) > 0
+         THEN ROUND((CASE WHEN COALESCE(ri.impressions, 0) > 0 OR COALESCE(rc.clicks, 0) > 0 THEN COALESCE(rc.clicks, 0) ELSE COALESCE(d.clicks, 0) END)::NUMERIC / (CASE WHEN COALESCE(ri.impressions, 0) > 0 OR COALESCE(rc.clicks, 0) > 0 THEN COALESCE(ri.impressions, 0) ELSE COALESCE(d.impressions, 0) END) * 100, 4)
          ELSE 0 END AS ctr,
-       CASE WHEN COALESCE(SUM(ds.measured_imps), 0) > 0
-         THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
+       CASE WHEN (CASE WHEN COALESCE(ri.impressions, 0) > 0 THEN COALESCE(NULLIF(ri.measured_imps, 0), ri.impressions, 0) ELSE COALESCE(d.measured_imps, 0) END) > 0
+         THEN ROUND((CASE WHEN COALESCE(ri.impressions, 0) > 0 THEN COALESCE(ri.viewable_imps, 0) ELSE COALESCE(d.viewable_imps, 0) END)::NUMERIC / (CASE WHEN COALESCE(ri.impressions, 0) > 0 THEN COALESCE(NULLIF(ri.measured_imps, 0), ri.impressions, 0) ELSE COALESCE(d.measured_imps, 0) END) * 100, 4)
          ELSE 0 END AS viewability_rate
      FROM campaigns c
      LEFT JOIN ad_tags t ON t.campaign_id = c.id AND t.workspace_id = c.workspace_id
-     LEFT JOIN tag_daily_stats ds ON ds.tag_id = t.id${joinDateFilter}
+     LEFT JOIN raw_impressions ri ON ri.campaign_id = c.id
+     LEFT JOIN raw_clicks rc ON rc.campaign_id = c.id
+     LEFT JOIN daily d ON d.campaign_id = c.id
      WHERE ${conditions.join(' AND ')}
-     GROUP BY c.id, c.name, c.status, c.budget, c.impression_goal, c.metadata
-     ORDER BY COALESCE(SUM(ds.impressions), 0) DESC, c.name ASC
+     GROUP BY c.id, c.name, c.status, c.budget, c.impression_goal, c.metadata, ri.impressions, ri.viewable_imps, ri.measured_imps, ri.undetermined_imps, rc.clicks, d.impressions, d.clicks, d.viewable_imps, d.measured_imps, d.undetermined_imps, d.spend
+     ORDER BY impressions DESC, c.name ASC
      LIMIT $${params.length}`,
     params,
   );
@@ -1204,14 +1254,66 @@ export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
   const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
-  const conditions = ['t.workspace_id = $1'];
+  const rawImpressionConditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, rawImpressionConditions, 't_raw', 'ie', campaignId, tagIds, advertiserId);
+  addTagChannelFilter(rawImpressionConditions, 't_raw', channel);
+  addTimestampFilters(params, rawImpressionConditions, 'ie', dateFrom, dateTo, opts.timezone);
+
+  params.push(workspaceId);
+  const clickWorkspaceRef = `$${params.length}`;
+  const rawClickConditions = [`ce.workspace_id = ${clickWorkspaceRef}`];
+  addImpressionScopeFilters(params, rawClickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
+  addTagChannelFilter(rawClickConditions, 't_click', channel);
+  addTimestampFilters(params, rawClickConditions, 'ce', dateFrom, dateTo, opts.timezone);
+
+  params.push(workspaceId);
+  const tagWorkspaceRef = `$${params.length}`;
+  const conditions = [`t.workspace_id = ${tagWorkspaceRef}`];
   addTagScopeFilters(params, conditions, 't', campaignId, tagIds, advertiserId);
   addTagChannelFilter(conditions, 't', channel);
-  addDateFilters(params, conditions, 'ds', dateFrom, dateTo);
+  const dailyConditions = [`t_daily.workspace_id = ${tagWorkspaceRef}`];
+  addTagScopeFilters(params, dailyConditions, 't_daily', campaignId, tagIds, advertiserId);
+  addTagChannelFilter(dailyConditions, 't_daily', channel);
+  addDateFilters(params, dailyConditions, 'ds', dateFrom, dateTo);
   params.push(normalizeLimit(limit));
 
   const { rows } = await pool.query(
-    `SELECT
+    `WITH raw_impressions AS (
+       SELECT
+         ie.tag_id,
+         COUNT(*)::bigint AS impressions,
+         COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::bigint AS viewable_imps,
+         COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0)::bigint AS measured_imps,
+         COALESCE(SUM(CASE WHEN ie.viewable IS NULL THEN 1 ELSE 0 END), 0)::bigint AS undetermined_imps
+       FROM impression_events ie
+       JOIN ad_tags t_raw ON t_raw.id = ie.tag_id
+       WHERE ${rawImpressionConditions.join(' AND ')}
+       GROUP BY ie.tag_id
+     ),
+     raw_clicks AS (
+       SELECT
+         ce.tag_id,
+         COUNT(*)::bigint AS clicks
+       FROM click_events ce
+       JOIN ad_tags t_click ON t_click.id = ce.tag_id
+       WHERE ${rawClickConditions.join(' AND ')}
+       GROUP BY ce.tag_id
+     ),
+     daily AS (
+       SELECT
+         t_daily.id AS tag_id,
+         COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
+         COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
+         COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
+         COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
+         COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps,
+         COALESCE(SUM(ds.spend), 0) AS spend
+       FROM ad_tags t_daily
+       LEFT JOIN tag_daily_stats ds ON ds.tag_id = t_daily.id
+       WHERE ${dailyConditions.join(' AND ')}
+       GROUP BY t_daily.id
+     )
+     SELECT
        t.id,
        t.campaign_id,
        t.name,
@@ -1221,26 +1323,28 @@ export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
        c.budget,
        c.impression_goal,
        c.metadata AS campaign_metadata,
-       COALESCE(SUM(ds.impressions), 0)::bigint AS impressions,
-       COALESCE(SUM(ds.clicks), 0)::bigint AS clicks,
-       COALESCE(SUM(ds.viewable_imps), 0)::bigint AS viewable_imps,
-       COALESCE(SUM(ds.measured_imps), 0)::bigint AS measured_imps,
-       COALESCE(SUM(ds.undetermined_imps), 0)::bigint AS undetermined_imps,
-       COALESCE(SUM(ds.spend), 0) AS spend,
+       CASE WHEN COALESCE(ri.impressions, 0) > 0 OR COALESCE(rc.clicks, 0) > 0 THEN COALESCE(ri.impressions, 0) ELSE COALESCE(d.impressions, 0) END::bigint AS impressions,
+       CASE WHEN COALESCE(ri.impressions, 0) > 0 OR COALESCE(rc.clicks, 0) > 0 THEN COALESCE(rc.clicks, 0) ELSE COALESCE(d.clicks, 0) END::bigint AS clicks,
+       CASE WHEN COALESCE(ri.impressions, 0) > 0 THEN COALESCE(ri.viewable_imps, 0) ELSE COALESCE(d.viewable_imps, 0) END::bigint AS viewable_imps,
+       CASE WHEN COALESCE(ri.impressions, 0) > 0 THEN COALESCE(NULLIF(ri.measured_imps, 0), ri.impressions, 0) ELSE COALESCE(d.measured_imps, 0) END::bigint AS measured_imps,
+       CASE WHEN COALESCE(ri.impressions, 0) > 0 THEN COALESCE(ri.undetermined_imps, 0) ELSE COALESCE(d.undetermined_imps, 0) END::bigint AS undetermined_imps,
+       COALESCE(d.spend, 0) AS spend,
        0::bigint AS unique_identities,
        0::numeric AS avg_frequency,
-       CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
-         THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
+       CASE WHEN (CASE WHEN COALESCE(ri.impressions, 0) > 0 OR COALESCE(rc.clicks, 0) > 0 THEN COALESCE(ri.impressions, 0) ELSE COALESCE(d.impressions, 0) END) > 0
+         THEN ROUND((CASE WHEN COALESCE(ri.impressions, 0) > 0 OR COALESCE(rc.clicks, 0) > 0 THEN COALESCE(rc.clicks, 0) ELSE COALESCE(d.clicks, 0) END)::NUMERIC / (CASE WHEN COALESCE(ri.impressions, 0) > 0 OR COALESCE(rc.clicks, 0) > 0 THEN COALESCE(ri.impressions, 0) ELSE COALESCE(d.impressions, 0) END) * 100, 4)
          ELSE 0 END AS ctr,
-       CASE WHEN COALESCE(SUM(ds.measured_imps), 0) > 0
-         THEN ROUND(COALESCE(SUM(ds.viewable_imps), 0)::NUMERIC / SUM(ds.measured_imps) * 100, 4)
+       CASE WHEN (CASE WHEN COALESCE(ri.impressions, 0) > 0 THEN COALESCE(NULLIF(ri.measured_imps, 0), ri.impressions, 0) ELSE COALESCE(d.measured_imps, 0) END) > 0
+         THEN ROUND((CASE WHEN COALESCE(ri.impressions, 0) > 0 THEN COALESCE(ri.viewable_imps, 0) ELSE COALESCE(d.viewable_imps, 0) END)::NUMERIC / (CASE WHEN COALESCE(ri.impressions, 0) > 0 THEN COALESCE(NULLIF(ri.measured_imps, 0), ri.impressions, 0) ELSE COALESCE(d.measured_imps, 0) END) * 100, 4)
          ELSE 0 END AS viewability_rate
      FROM ad_tags t
      LEFT JOIN campaigns c ON c.id = t.campaign_id AND c.workspace_id = t.workspace_id
-     LEFT JOIN tag_daily_stats ds ON ds.tag_id = t.id
+     LEFT JOIN raw_impressions ri ON ri.tag_id = t.id
+     LEFT JOIN raw_clicks rc ON rc.tag_id = t.id
+     LEFT JOIN daily d ON d.tag_id = t.id
      WHERE ${conditions.join(' AND ')}
-     GROUP BY t.id, t.campaign_id, t.name, t.format, t.status, c.name, c.budget, c.impression_goal, c.metadata
-     ORDER BY COALESCE(SUM(ds.impressions), 0) DESC, t.name ASC
+     GROUP BY t.id, t.campaign_id, t.name, t.format, t.status, c.name, c.budget, c.impression_goal, c.metadata, ri.impressions, ri.viewable_imps, ri.measured_imps, ri.undetermined_imps, rc.clicks, d.impressions, d.clicks, d.viewable_imps, d.measured_imps, d.undetermined_imps, d.spend
+     ORDER BY impressions DESC, t.name ASC
      LIMIT $${params.length}`,
     params,
   );
@@ -1597,6 +1701,8 @@ async function getWorkspaceAllocatedCreativeRows(pool, workspaceId, opts = {}) {
     params.push(variantId);
     postAllocationConditions.push(`variant_id = $${params.length}`);
   }
+  params.push(normalizeReportingTimezone(opts.timezone));
+  const timezoneRef = `$${params.length}`;
 
   const { rows } = await pool.query(
     `WITH tag_daily AS (
@@ -1678,7 +1784,7 @@ async function getWorkspaceAllocatedCreativeRows(pool, workspaceId, opts = {}) {
      exact_impression_counts AS (
        SELECT
          ie.tag_id,
-         ie.timestamp::date AS date,
+         (ie.timestamp AT TIME ZONE ${timezoneRef})::date AS date,
          ie.creative_id AS id,
          COALESCE(ie.creative_size_variant_id, '') AS variant_id,
          COUNT(*)::numeric AS exact_impressions,
@@ -1688,10 +1794,10 @@ async function getWorkspaceAllocatedCreativeRows(pool, workspaceId, opts = {}) {
        FROM impression_events ie
        JOIN scoped_days sd
          ON sd.tag_id = ie.tag_id
-        AND sd.date = ie.timestamp::date
+        AND sd.date = (ie.timestamp AT TIME ZONE ${timezoneRef})::date
        WHERE ie.workspace_id = $1
          AND COALESCE(ie.creative_id, '') <> ''
-       GROUP BY ie.tag_id, ie.timestamp::date, ie.creative_id, COALESCE(ie.creative_size_variant_id, '')
+       GROUP BY ie.tag_id, (ie.timestamp AT TIME ZONE ${timezoneRef})::date, ie.creative_id, COALESCE(ie.creative_size_variant_id, '')
      ),
      exact_impression_totals AS (
        SELECT
@@ -1707,17 +1813,17 @@ async function getWorkspaceAllocatedCreativeRows(pool, workspaceId, opts = {}) {
      exact_click_counts AS (
        SELECT
          ce.tag_id,
-         ce.timestamp::date AS date,
+         (ce.timestamp AT TIME ZONE ${timezoneRef})::date AS date,
          ce.creative_id AS id,
          COALESCE(ce.creative_size_variant_id, '') AS variant_id,
          COUNT(*)::numeric AS exact_clicks
        FROM click_events ce
        JOIN scoped_days sd
          ON sd.tag_id = ce.tag_id
-        AND sd.date = ce.timestamp::date
+        AND sd.date = (ce.timestamp AT TIME ZONE ${timezoneRef})::date
        WHERE ce.workspace_id = $1
          AND COALESCE(ce.creative_id, '') <> ''
-       GROUP BY ce.tag_id, ce.timestamp::date, ce.creative_id, COALESCE(ce.creative_size_variant_id, '')
+       GROUP BY ce.tag_id, (ce.timestamp AT TIME ZONE ${timezoneRef})::date, ce.creative_id, COALESCE(ce.creative_size_variant_id, '')
      ),
      exact_click_totals AS (
        SELECT

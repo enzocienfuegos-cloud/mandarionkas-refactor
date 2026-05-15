@@ -78,7 +78,11 @@ type CampaignBreakdownRow = {
   spend?: number;
   spend_without_margin?: number;
   spend_with_margin?: number;
+  media_spend?: number;
+  serving_fee_spend?: number;
   margin_spend?: number;
+  viewable_imps?: number;
+  measured_imps?: number;
   ctr: number;
   viewability_rate: number;
 };
@@ -416,6 +420,87 @@ function resolveEffectiveDateRange(range: DateRangeFilter, customDateRange: Date
 function toNumber(value: unknown) {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+type StatsFallbackRow = Partial<CampaignBreakdownRow & TagBreakdownRow & CreativeBreakdownRow>;
+type StatsFallbackTotals = {
+  impressions: number;
+  clicks: number;
+  spend: number;
+  spendWithMargin: number;
+  mediaSpend: number;
+  servingFees: number;
+  margin: number;
+  viewable: number;
+  measured: number;
+};
+
+function sumRowsForStats(rows: Array<Partial<CampaignBreakdownRow & TagBreakdownRow & CreativeBreakdownRow>> = []) {
+  return rows.reduce<StatsFallbackTotals>((accumulator, row) => {
+    const impressions = toNumber(row.impressions);
+    const clicks = toNumber(row.clicks);
+    const spend = resolveRowSpend(row, 'without_margin');
+    const spendWithMargin = resolveRowSpend(row, 'with_margin');
+    const viewable = toNumber(row.viewable_imps);
+    const measured = toNumber(row.measured_imps);
+    return {
+      impressions: accumulator.impressions + impressions,
+      clicks: accumulator.clicks + clicks,
+      spend: accumulator.spend + spend,
+      spendWithMargin: accumulator.spendWithMargin + spendWithMargin,
+      mediaSpend: accumulator.mediaSpend + toNumber(row.media_spend),
+      servingFees: accumulator.servingFees + toNumber(row.serving_fee_spend),
+      margin: accumulator.margin + toNumber(row.margin_spend),
+      viewable: accumulator.viewable + viewable,
+      measured: accumulator.measured + measured,
+    };
+  }, {
+    impressions: 0,
+    clicks: 0,
+    spend: 0,
+    spendWithMargin: 0,
+    mediaSpend: 0,
+    servingFees: 0,
+    margin: 0,
+    viewable: 0,
+    measured: 0,
+  });
+}
+
+function resolveStatsWithBreakdownFallback(
+  stats: WorkspaceStats,
+  sources: Array<StatsFallbackRow[] | undefined>,
+): WorkspaceStats {
+  const hasPrimaryMetrics = toNumber(stats.total_impressions) > 0
+    || toNumber(stats.total_clicks) > 0
+    || toNumber(stats.total_spend) > 0
+    || toNumber(stats.total_spend_without_margin) > 0;
+  if (hasPrimaryMetrics) return stats;
+
+  for (const source of sources) {
+    const totals = sumRowsForStats(source ?? []);
+    if (totals.impressions <= 0 && totals.clicks <= 0 && totals.spend <= 0) continue;
+    const measured = totals.measured > 0 ? totals.measured : totals.impressions;
+    return {
+      ...stats,
+      total_impressions: totals.impressions,
+      total_clicks: totals.clicks,
+      avg_ctr: totals.impressions > 0 ? Number(((totals.clicks / totals.impressions) * 100).toFixed(4)) : 0,
+      total_spend: totals.spend,
+      total_spend_without_margin: totals.spend,
+      total_spend_with_margin: totals.spendWithMargin || totals.spend,
+      total_media_spend: totals.mediaSpend,
+      total_serving_fees: totals.servingFees,
+      total_margin: totals.margin,
+      total_viewable_impressions: totals.viewable,
+      total_measured_impressions: measured,
+      total_undetermined_impressions: Math.max(totals.impressions - measured, 0),
+      measurable_rate: totals.impressions > 0 ? Number(((measured / totals.impressions) * 100).toFixed(4)) : 0,
+      viewability_rate: measured > 0 ? Number(((totals.viewable / measured) * 100).toFixed(4)) : 0,
+    };
+  }
+
+  return stats;
 }
 
 function formatCount(value: number) {
@@ -997,7 +1082,12 @@ export function useReportingData({
         creatives,
       } = payloads;
 
-      const stats = workspacePayload.stats;
+      const stats = resolveStatsWithBreakdownFallback(workspacePayload.stats, [
+        campaignPayload.breakdown,
+        tagPayload.breakdown,
+        creativePayload.breakdown,
+        variantPayload.breakdown,
+      ]);
       const timeline = workspacePayload.timeline ?? [];
       const campaignRows = (campaignPayload.breakdown ?? [])
         .map<CampaignPerformanceRow>((row) => ({
