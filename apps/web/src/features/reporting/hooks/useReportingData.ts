@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { loadCreatives, type Creative } from '../../../creatives/catalog';
+import { loadCreatives, loadTags, type Creative, type TagOption } from '../../../creatives/catalog';
 import type { DateRange } from '../../../system';
 import type {
   AttributionWindowRow,
@@ -179,8 +179,12 @@ type ContextSnapshotRow = {
 
 type CampaignOption = {
   id: string;
+  name?: string;
+  status?: string;
   advertiser?: { id: string; name: string } | null;
 };
+
+type SelectOption = { value: string; label: string };
 
 type ReportingPayloads = {
   workspacePayload: { stats: WorkspaceStats; timeline: TimelineRow[] };
@@ -198,6 +202,7 @@ type ReportingPayloads = {
   identityAttributionPayload: { breakdown: IdentityAttributionApiRow[] };
   contextSnapshotPayload: ContextSnapshotRow;
   campaignListPayload: { campaigns: CampaignOption[] };
+  tags: TagOption[];
   creatives: Creative[];
 };
 
@@ -208,13 +213,19 @@ type HookArgs = {
   timeGranularity: TimeGranularity;
   timezone: string;
   advertiserId: string;
+  campaignId: string;
+  tagId: string;
+  creativeId: string;
   statusFilter: StatusFilter;
   spendView: SpendView;
   search: string;
 };
 
 type HookState = {
-  advertiserOptions: Array<{ value: string; label: string }>;
+  advertiserOptions: SelectOption[];
+  campaignOptions: SelectOption[];
+  tagOptions: SelectOption[];
+  creativeOptions: SelectOption[];
   kpis: ReportingKpi[];
   trend: TrendSeries[];
   topCreatives: CreativeRow[];
@@ -240,7 +251,10 @@ type HookState = {
   error: string;
 };
 
-export type ReportingDataViewModel = Omit<HookState, 'loading' | 'error' | 'advertiserOptions' | 'kpis'>;
+export type ReportingDataViewModel = Omit<
+  HookState,
+  'loading' | 'error' | 'advertiserOptions' | 'campaignOptions' | 'tagOptions' | 'creativeOptions' | 'kpis'
+>;
 
 export type ReportingReloadOptions = {
   force?: boolean;
@@ -304,11 +318,13 @@ async function fetchReportingPayloads(query: string, expandedQuery: string): Pro
     identityAttributionPayload,
     contextSnapshotPayload,
     campaignListPayload,
+    tags,
     creatives,
   ] = await Promise.all([
     fetchJson<{ breakdown: IdentityAttributionApiRow[] }>(`/v1/reporting/workspace/identity-attribution-windows${query}`),
     fetchJson<ContextSnapshotRow>(`/v1/reporting/workspace/context-snapshot${query}`).catch(() => EMPTY_CONTEXT_SNAPSHOT),
     fetchJson<{ campaigns: CampaignOption[] }>(`/v1/campaigns?scope=all`),
+    loadTags({ scope: 'all' }),
     loadCreatives(),
   ]);
 
@@ -328,6 +344,7 @@ async function fetchReportingPayloads(query: string, expandedQuery: string): Pro
     identityAttributionPayload,
     contextSnapshotPayload,
     campaignListPayload,
+    tags,
     creatives,
   };
 }
@@ -865,8 +882,16 @@ function buildConnectionRows({
     .slice(0, 8);
 }
 
+function buildSelectOptions(entries: Array<[string, SelectOption]>) {
+  return Array.from(new Map<string, SelectOption>(entries).values())
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
 const INITIAL_STATE: HookState = {
   advertiserOptions: [],
+  campaignOptions: [],
+  tagOptions: [],
+  creativeOptions: [],
   kpis: [],
   trend: [],
   topCreatives: [],
@@ -899,6 +924,9 @@ export function useReportingData({
   timeGranularity,
   timezone,
   advertiserId,
+  campaignId,
+  tagId,
+  creativeId,
   statusFilter,
   spendView,
   search,
@@ -917,11 +945,14 @@ export function useReportingData({
       dateFrom,
       dateTo,
       advertiserId: advertiserId || undefined,
+      campaignId: campaignId || undefined,
+      tagId: tagId || undefined,
+      creativeId: creativeId || undefined,
       channel,
       granularity: timeGranularity,
       timezone,
     });
-  }, [advertiserId, customDateRange, dateRange, mode, timeGranularity, timezone]);
+  }, [advertiserId, campaignId, creativeId, customDateRange, dateRange, mode, tagId, timeGranularity, timezone]);
 
   const reload = useCallback(async (options: ReportingReloadOptions = {}) => {
     const { force = false, silent = false } = options;
@@ -962,6 +993,7 @@ export function useReportingData({
         identityAttributionPayload,
         contextSnapshotPayload,
         campaignListPayload,
+        tags,
         creatives,
       } = payloads;
 
@@ -1184,6 +1216,44 @@ export function useReportingData({
             .map((campaign) => [campaign.advertiser!.id, { value: campaign.advertiser!.id, label: campaign.advertiser!.name }]),
         ).values(),
       ).sort((a, b) => a.label.localeCompare(b.label));
+      const campaignOptions = buildSelectOptions([
+        ...(campaignListPayload.campaigns ?? [])
+          .filter((campaign) => campaign.id && campaign.name)
+          .map<[string, SelectOption]>((campaign) => [campaign.id, { value: campaign.id, label: campaign.name! }]),
+        ...(campaignPayload.breakdown ?? [])
+          .filter((campaign) => campaign.id && campaign.name)
+          .map<[string, SelectOption]>((campaign) => [campaign.id, { value: campaign.id, label: campaign.name }]),
+      ]);
+      const tagOptions = buildSelectOptions(
+        [
+          ...tags
+            .filter((tag) => tag.id && tag.name)
+            .map<[string, SelectOption]>((tag) => [
+              tag.id,
+              {
+                value: tag.id,
+                label: tag.format ? `${tag.name} · ${tag.format}` : tag.name,
+              },
+            ]),
+          ...(tagPayload.breakdown ?? [])
+            .filter((tag) => tag.id && tag.name)
+            .map<[string, SelectOption]>((tag) => [
+              tag.id,
+              {
+                value: tag.id,
+                label: tag.format ? `${tag.name} · ${tag.format}` : tag.name,
+              },
+            ]),
+        ],
+      );
+      const creativeOptions = buildSelectOptions([
+        ...(creativePayload.breakdown ?? [])
+          .filter((creative) => creative.id && creative.name)
+          .map<[string, SelectOption]>((creative) => [creative.id, { value: creative.id, label: creative.name }]),
+        ...creatives
+          .filter((creative) => creative.id && creative.name)
+          .map<[string, SelectOption]>((creative) => [creative.id, { value: creative.id, label: creative.name }]),
+      ]);
 
       const kpis = buildKpis(mode, stats, timeline, identitySegmentPayload.breakdown ?? [], spendView);
       const trend = buildTrend(mode, timeline, stats);
@@ -1193,6 +1263,9 @@ export function useReportingData({
 
       setState({
         advertiserOptions,
+        campaignOptions,
+        tagOptions,
+        creativeOptions,
         kpis,
         trend,
         topCreatives,

@@ -66,6 +66,7 @@ test('displayHtmlUrl must carry DSP macros for Basis', () => {
   assert.ok(displayUrl.includes('{pageUrlEnc}'), 'Basis display URL must carry {pageUrlEnc} macro');
   assert.ok(displayUrl.includes('cuu='), 'Basis display URL must carry click macro');
   assert.ok(displayUrl.includes('dsp=Basis'), 'Basis display URL must carry dsp param');
+  assert.ok(displayUrl.includes('appid={appId}'), 'Basis display URL must carry app id macro for app inventory reporting');
 });
 
 test('displayHtmlUrl must carry DSP macros for TTD', () => {
@@ -90,6 +91,7 @@ test('Basis display-iframe stays a normal iframe tag', () => {
   const iframeSrc = out.match(/src="([^"]+)"/)?.[1] ?? '';
   assert.ok(iframeSrc.includes('dsp=Basis'), 'Basis iframe must carry Basis DSP macros in src URL');
   assert.ok(iframeSrc.includes('{domain}'), 'iframe src must carry {domain} macro');
+  assert.ok(iframeSrc.includes('appid={appId}'), 'Basis iframe must carry app id macro for app inventory reporting');
 });
 
 test('display-js with empty base URL produces relative URLs', () => {

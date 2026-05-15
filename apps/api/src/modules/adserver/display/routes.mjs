@@ -288,9 +288,15 @@ function queueDisplayFirstHopImpression(ctx, pool, tagId, row) {
     const deviceModel = trimQuotedHeader(
       p.get('devicemodel') || p.get('deviceModel') || req.headers['sec-ch-ua-model'] || '',
     ) || null;
-    const appId = normalizeResolvedTrackingValue(p.get('appid') || p.get('app') || '') || null;
-    const appBundle = normalizeResolvedTrackingValue(p.get('appb') || p.get('app_bundle') || '') || null;
-    const appName = normalizeResolvedTrackingValue(p.get('appn') || p.get('appne') || p.get('app_name') || '') || null;
+    const appId = normalizeResolvedTrackingValue(
+      p.get('appid') || p.get('appId') || p.get('app_id') || p.get('app') || '',
+    ) || null;
+    const appBundle = normalizeResolvedTrackingValue(
+      p.get('appb') || p.get('appBundle') || p.get('app_bundle') || p.get('bundle') || p.get('bundleid') || '',
+    ) || null;
+    const appName = normalizeResolvedTrackingValue(
+      p.get('appn') || p.get('appne') || p.get('appName') || p.get('app_name') || '',
+    ) || null;
     const exchangeId = normalizeResolvedTrackingValue(p.get('excid') || '') || null;
     const exchangePublisherId = normalizeResolvedTrackingValue(p.get('excpubid') || '') || null;
     const exchangeSiteIdOrDomain = normalizeResolvedTrackingValue(p.get('excsiddmn') || '') || null;
@@ -1186,8 +1192,10 @@ export async function handleDisplayRoutes(ctx) {
     const baseUrl = resolveBaseUrl(ctx);
     const DSP_TRACKER_KEYS = [
       'dsp', 'dom', 'purl', 'cuu', 'ifa', 'idfa', 'gadvid', 'iuid',
-      'cmpid', 'netid', 'srcpubid', 'ppos', 'trftype', 'carr', 'appid',
-      'appb', 'appn', 'excid', 'excpubid', 'excsiddmn', 'sdmn', 'sid',
+      'cmpid', 'netid', 'srcpubid', 'ppos', 'trftype', 'carr',
+      'appid', 'appId', 'app_id', 'app', 'appb', 'appBundle', 'app_bundle',
+      'bundle', 'bundleid', 'appn', 'appne', 'appName', 'app_name',
+      'excid', 'excpubid', 'excsiddmn', 'sdmn', 'sid',
       'cntlang', 'cnttitle', 'cntseries', 'cngen', 'ctxid', 'appstnm',
       'gdpr', 'gdpr_consent', 'us_privacy',
       'cb', 'tmp', 'cmpne', 'adgne', 'adgid', 'crene', 'wbrse', 'oprsye',
@@ -1251,8 +1259,10 @@ export async function handleDisplayRoutes(ctx) {
     const baseUrl = resolveBaseUrl(ctx);
     const DSP_TRACKER_KEYS = [
       'dsp', 'dom', 'purl', 'cuu', 'ifa', 'idfa', 'gadvid', 'iuid',
-      'cmpid', 'netid', 'srcpubid', 'ppos', 'trftype', 'carr', 'appid',
-      'appb', 'appn', 'appne', 'excid', 'excpubid', 'excsiddmn', 'sdmn',
+      'cmpid', 'netid', 'srcpubid', 'ppos', 'trftype', 'carr',
+      'appid', 'appId', 'app_id', 'app', 'appb', 'appBundle', 'app_bundle',
+      'bundle', 'bundleid', 'appn', 'appne', 'appName', 'app_name',
+      'excid', 'excpubid', 'excsiddmn', 'sdmn',
       'sid', 'cntlang', 'cnttitle', 'cntseries', 'cngen', 'ctxid', 'appstnm',
       'gdpr', 'gdpr_consent', 'us_privacy',
       'cb', 'tmp', 'cmpne', 'cmpgrpid', 'adgne', 'adgid', 'crene', 'cresze',

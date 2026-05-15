@@ -8,6 +8,15 @@ export interface ReportingTopBarProps {
   advertiserFilter: string;
   advertiserOptions: Array<{ value: string; label: string }>;
   onAdvertiserChange: (value: string) => void;
+  campaignFilter: string;
+  campaignOptions: Array<{ value: string; label: string }>;
+  onCampaignChange: (value: string) => void;
+  tagFilter: string;
+  tagOptions: Array<{ value: string; label: string }>;
+  onTagChange: (value: string) => void;
+  creativeFilter: string;
+  creativeOptions: Array<{ value: string; label: string }>;
+  onCreativeChange: (value: string) => void;
   dateRangeFilter: DateRangeFilter;
   onDateRangeChange: (value: DateRangeFilter) => void;
   customDateRange: DateRange;
@@ -77,6 +86,15 @@ export function ReportingTopBar({
   advertiserFilter,
   advertiserOptions,
   onAdvertiserChange,
+  campaignFilter,
+  campaignOptions,
+  onCampaignChange,
+  tagFilter,
+  tagOptions,
+  onTagChange,
+  creativeFilter,
+  creativeOptions,
+  onCreativeChange,
   dateRangeFilter,
   onDateRangeChange,
   customDateRange,
@@ -100,6 +118,9 @@ export function ReportingTopBar({
 }: ReportingTopBarProps) {
   const activeFilterCount = [
     advertiserFilter !== '',
+    campaignFilter !== '',
+    tagFilter !== '',
+    creativeFilter !== '',
     dateRangeFilter !== '30d',
     timeGranularity !== 'day',
     timezone !== 'America/El_Salvador',
@@ -120,6 +141,27 @@ export function ReportingTopBar({
               value: advertiserFilter,
               options: [{ value: '', label: 'All advertisers' }, ...advertiserOptions],
               onChange: onAdvertiserChange,
+            },
+            {
+              id: 'campaign',
+              label: 'Campaign',
+              value: campaignFilter,
+              options: [{ value: '', label: 'All campaigns' }, ...campaignOptions],
+              onChange: onCampaignChange,
+            },
+            {
+              id: 'tag',
+              label: 'Tag',
+              value: tagFilter,
+              options: [{ value: '', label: 'All tags' }, ...tagOptions],
+              onChange: onTagChange,
+            },
+            {
+              id: 'creative',
+              label: 'Creative',
+              value: creativeFilter,
+              options: [{ value: '', label: 'All creatives' }, ...creativeOptions],
+              onChange: onCreativeChange,
             },
             {
               id: 'date-range',
@@ -160,7 +202,7 @@ export function ReportingTopBar({
           search={{
             value: search,
             onChange: onSearchChange,
-            placeholder: 'Search campaign, creative, department, state',
+            placeholder: 'Search visible rows, department, state, site, app',
           }}
           activeFilterCount={activeFilterCount}
           onResetAll={onResetFilters}

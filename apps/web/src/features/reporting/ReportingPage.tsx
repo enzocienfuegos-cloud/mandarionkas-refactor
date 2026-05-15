@@ -66,6 +66,9 @@ export function ReportingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [mode, setMode] = useState<ReportingMode>('all');
   const [advertiserFilter, setAdvertiserFilter] = useState('');
+  const [campaignFilter, setCampaignFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
+  const [creativeFilter, setCreativeFilter] = useState('');
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>('30d');
   const [customDateRange, setCustomDateRange] = useState<DateRange>(() => createDefaultCustomDateRange());
   const [timeGranularity, setTimeGranularity] = useState<TimeGranularity>('day');
@@ -94,6 +97,9 @@ export function ReportingPage() {
 
   const {
     advertiserOptions,
+    campaignOptions,
+    tagOptions,
+    creativeOptions,
     kpis,
     loading,
     error,
@@ -106,6 +112,9 @@ export function ReportingPage() {
     timeGranularity,
     timezone,
     advertiserId: advertiserFilter,
+    campaignId: campaignFilter,
+    tagId: tagFilter,
+    creativeId: creativeFilter,
     statusFilter,
     spendView,
     search: debouncedSearch,
@@ -119,6 +128,16 @@ export function ReportingPage() {
     () => advertiserOptions.find((option) => option.value === advertiserFilter)?.label ?? 'Current workspace',
     [advertiserFilter, advertiserOptions],
   );
+  const scopeLabel = useMemo(() => {
+    const segments = [selectedAdvertiserLabel];
+    const campaignLabel = campaignOptions.find((option) => option.value === campaignFilter)?.label;
+    const tagLabel = tagOptions.find((option) => option.value === tagFilter)?.label;
+    const creativeLabel = creativeOptions.find((option) => option.value === creativeFilter)?.label;
+    if (campaignLabel) segments.push(`Campaign: ${campaignLabel}`);
+    if (tagLabel) segments.push(`Tag: ${tagLabel}`);
+    if (creativeLabel) segments.push(`Creative: ${creativeLabel}`);
+    return segments.join(' · ');
+  }, [campaignFilter, campaignOptions, creativeFilter, creativeOptions, selectedAdvertiserLabel, tagFilter, tagOptions]);
   const dateRangeLabel = useMemo(() => {
     if (dateRangeFilter === 'today') return 'Today';
     if (dateRangeFilter === 'yesterday') return 'Yesterday';
@@ -133,6 +152,17 @@ export function ReportingPage() {
     return 'Last 30 days';
   }, [customDateRange.from, customDateRange.to, dateRangeFilter]);
   const timeScopeLabel = `${timeGranularity === 'hour' ? 'Hourly' : 'Daily'} · ${formatTimezoneLabel(timezone)}`;
+  const handleAdvertiserChange = React.useCallback((value: string) => {
+    setAdvertiserFilter(value);
+    setCampaignFilter('');
+    setTagFilter('');
+    setCreativeFilter('');
+  }, []);
+  const handleCampaignChange = React.useCallback((value: string) => {
+    setCampaignFilter(value);
+    setTagFilter('');
+    setCreativeFilter('');
+  }, []);
   const handleDownloadCsv = React.useCallback(() => {
     const csv = buildReportingCsv({
       mode,
@@ -168,6 +198,9 @@ export function ReportingPage() {
           ? nextFilters.mode
           : 'all') as ReportingMode);
         setAdvertiserFilter(String(nextFilters.advertiserFilter ?? ''));
+        setCampaignFilter(String(nextFilters.campaignFilter ?? ''));
+        setTagFilter(String(nextFilters.tagFilter ?? ''));
+        setCreativeFilter(String(nextFilters.creativeFilter ?? ''));
         setDateRangeFilter((['today', 'yesterday', '7d', '30d', '90d', 'custom'].includes(String(nextFilters.dateRangeFilter))
           ? nextFilters.dateRangeFilter
           : '30d') as DateRangeFilter);
@@ -207,6 +240,9 @@ export function ReportingPage() {
             currentFilters={{
               mode,
               advertiserFilter,
+              campaignFilter,
+              tagFilter,
+              creativeFilter,
               dateRangeFilter,
               customDateRange: serializeDateRange(customDateRange),
               timeGranularity,
@@ -234,7 +270,16 @@ export function ReportingPage() {
         )}
         advertiserFilter={advertiserFilter}
         advertiserOptions={advertiserOptions}
-        onAdvertiserChange={setAdvertiserFilter}
+        onAdvertiserChange={handleAdvertiserChange}
+        campaignFilter={campaignFilter}
+        campaignOptions={campaignOptions}
+        onCampaignChange={handleCampaignChange}
+        tagFilter={tagFilter}
+        tagOptions={tagOptions}
+        onTagChange={setTagFilter}
+        creativeFilter={creativeFilter}
+        creativeOptions={creativeOptions}
+        onCreativeChange={setCreativeFilter}
         dateRangeFilter={dateRangeFilter}
         onDateRangeChange={setDateRangeFilter}
         customDateRange={customDateRange}
@@ -257,6 +302,9 @@ export function ReportingPage() {
         downloadDisabled={loading && !kpis.length}
         onResetFilters={() => {
           setAdvertiserFilter('');
+          setCampaignFilter('');
+          setTagFilter('');
+          setCreativeFilter('');
           setDateRangeFilter('30d');
           setCustomDateRange(createDefaultCustomDateRange());
           setTimeGranularity('day');
@@ -269,7 +317,7 @@ export function ReportingPage() {
       <ReportingHeader mode={mode} config={config} onModeChange={setMode} />
       <ScopeBar
         mode={mode}
-        scopeLabel={selectedAdvertiserLabel}
+        scopeLabel={scopeLabel}
         dateRangeLabel={dateRangeLabel}
         timeScopeLabel={timeScopeLabel}
         spendViewLabel={spendView === 'with_margin' ? 'With margin' : 'Without margin'}

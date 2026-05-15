@@ -391,9 +391,15 @@ export function createTrackerRoutes(buffer = null) {
           const deviceModel = trimQuotedHeader(
             p.get('devicemodel') || p.get('deviceModel') || req.headers['sec-ch-ua-model'] || '',
           ) || null;
-          const appId = normalizeResolvedTrackingValue(p.get('appid') || '') || null;
-          const appBundle = normalizeResolvedTrackingValue(p.get('appb') || '') || null;
-          const appName = decodeStringSafe(p.get('appn') || p.get('appne') || '') || null;
+          const appId = normalizeResolvedTrackingValue(
+            p.get('appid') || p.get('appId') || p.get('app_id') || p.get('app') || '',
+          ) || null;
+          const appBundle = normalizeResolvedTrackingValue(
+            p.get('appb') || p.get('appBundle') || p.get('app_bundle') || p.get('bundle') || p.get('bundleid') || '',
+          ) || null;
+          const appName = decodeStringSafe(
+            p.get('appn') || p.get('appne') || p.get('appName') || p.get('app_name') || '',
+          ) || null;
           const exchangeId = normalizeResolvedTrackingValue(p.get('excid') || '') || null;
           const exchangePublisherId = normalizeResolvedTrackingValue(p.get('excpubid') || '') || null;
           const exchangeSiteIdOrDomain = normalizeResolvedTrackingValue(p.get('excsiddmn') || '') || null;
@@ -540,9 +546,15 @@ export function createTrackerRoutes(buffer = null) {
         const trackingContext = extractTrackingContext(req, url, geo);
         const creativeId = trimText(url.searchParams.get('smx_creative_id') || url.searchParams.get('creative_id') || '') || null;
         const creativeSizeVariantId = trimText(url.searchParams.get('smx_variant_id') || url.searchParams.get('variant_id') || '') || null;
-        const appId = normalizeResolvedTrackingValue(url.searchParams.get('appid') || '') || null;
-        const appBundle = normalizeResolvedTrackingValue(url.searchParams.get('appb') || '') || null;
-        const appName = normalizeResolvedTrackingValue(url.searchParams.get('appn') || url.searchParams.get('appne') || '') || null;
+        const appId = normalizeResolvedTrackingValue(
+          url.searchParams.get('appid') || url.searchParams.get('appId') || url.searchParams.get('app_id') || url.searchParams.get('app') || '',
+        ) || null;
+        const appBundle = normalizeResolvedTrackingValue(
+          url.searchParams.get('appb') || url.searchParams.get('appBundle') || url.searchParams.get('app_bundle') || url.searchParams.get('bundle') || url.searchParams.get('bundleid') || '',
+        ) || null;
+        const appName = normalizeResolvedTrackingValue(
+          url.searchParams.get('appn') || url.searchParams.get('appne') || url.searchParams.get('appName') || url.searchParams.get('app_name') || '',
+        ) || null;
         resolveTagWorkspaceId(pool, tagId).then((workspaceId) => {
           if (!workspaceId) return;
           queueClickEventWrite(pool, {
@@ -595,9 +607,15 @@ export function createTrackerRoutes(buffer = null) {
         const trackingContext = extractTrackingContext(req, url, geo);
         const creativeId = trimText(url.searchParams.get('smx_creative_id') || url.searchParams.get('creative_id') || '') || null;
         const creativeSizeVariantId = trimText(url.searchParams.get('smx_variant_id') || url.searchParams.get('variant_id') || '') || null;
-        const appId = normalizeResolvedTrackingValue(url.searchParams.get('appid') || '') || null;
-        const appBundle = normalizeResolvedTrackingValue(url.searchParams.get('appb') || '') || null;
-        const appName = normalizeResolvedTrackingValue(url.searchParams.get('appn') || url.searchParams.get('appne') || '') || null;
+        const appId = normalizeResolvedTrackingValue(
+          url.searchParams.get('appid') || url.searchParams.get('appId') || url.searchParams.get('app_id') || url.searchParams.get('app') || '',
+        ) || null;
+        const appBundle = normalizeResolvedTrackingValue(
+          url.searchParams.get('appb') || url.searchParams.get('appBundle') || url.searchParams.get('app_bundle') || url.searchParams.get('bundle') || url.searchParams.get('bundleid') || '',
+        ) || null;
+        const appName = normalizeResolvedTrackingValue(
+          url.searchParams.get('appn') || url.searchParams.get('appne') || url.searchParams.get('appName') || url.searchParams.get('app_name') || '',
+        ) || null;
         resolveTagWorkspaceId(pool, tagId).then((workspaceId) => {
           if (!workspaceId) return;
           queueClickEventWrite(pool, {

@@ -127,6 +127,17 @@ function addImpressionScopeFilters(params, conditions, tagAlias, eventAlias, cam
   }
 }
 
+function addCreativeEventFilters(params, conditions, alias, creativeId = '', variantId = '') {
+  if (creativeId) {
+    params.push(creativeId);
+    conditions.push(`COALESCE(${alias}.creative_id, '') = $${params.length}`);
+  }
+  if (variantId) {
+    params.push(variantId);
+    conditions.push(`COALESCE(${alias}.creative_size_variant_id, '') = $${params.length}`);
+  }
+}
+
 function normalizeReportingChannel(channel) {
   const normalized = String(channel ?? '').trim().toLowerCase();
   if (normalized === 'display' || normalized === 'video') return normalized;
@@ -622,7 +633,7 @@ export async function getTagSummary(pool, workspaceId, tagId, opts = {}) {
 }
 
 export async function getWorkspaceTimeline(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '' } = opts;
+  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '', creativeId = '', variantId = '' } = opts;
   const granularity = normalizeReportingTimeGranularity(opts.granularity);
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   if (granularity === 'hour') {
@@ -633,6 +644,7 @@ export async function getWorkspaceTimeline(pool, workspaceId, opts = {}) {
     addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds, advertiserId);
     addTagChannelFilter(impressionConditions, 't', channel);
     addZonedTimestampDateFilters(params, impressionConditions, 'ie', dateFrom, dateTo, timezoneRef);
+    addCreativeEventFilters(params, impressionConditions, 'ie', creativeId, variantId);
 
     params.push(workspaceId);
     const clickWorkspaceRef = `$${params.length}`;
@@ -640,6 +652,7 @@ export async function getWorkspaceTimeline(pool, workspaceId, opts = {}) {
     addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
     addTagChannelFilter(clickConditions, 't_click', channel);
     addZonedTimestampDateFilters(params, clickConditions, 'ce', dateFrom, dateTo, timezoneRef);
+    addCreativeEventFilters(params, clickConditions, 'ce', creativeId, variantId);
 
     const { rows } = await pool.query(
       `WITH impressions AS (
@@ -665,6 +678,67 @@ export async function getWorkspaceTimeline(pool, workspaceId, opts = {}) {
        )
        SELECT
          to_char(COALESCE(i.bucket, c.bucket), 'YYYY-MM-DD HH24:00') AS date,
+         COALESCE(i.impressions, 0)::bigint AS impressions,
+         COALESCE(c.clicks, 0)::bigint AS clicks,
+         COALESCE(i.viewable_imps, 0)::bigint AS viewable_imps,
+         COALESCE(i.measured_imps, 0)::bigint AS measured_imps,
+         COALESCE(i.undetermined_imps, 0)::bigint AS undetermined_imps,
+         CASE WHEN COALESCE(i.impressions, 0) > 0
+           THEN ROUND(COALESCE(c.clicks, 0)::NUMERIC / i.impressions * 100, 4)
+           ELSE 0 END AS ctr,
+         CASE WHEN COALESCE(i.measured_imps, 0) > 0
+           THEN ROUND(COALESCE(i.viewable_imps, 0)::NUMERIC / i.measured_imps * 100, 4)
+           ELSE 0 END AS viewability_rate
+       FROM impressions i
+       FULL OUTER JOIN clicks c ON c.bucket = i.bucket
+       ORDER BY COALESCE(i.bucket, c.bucket) ASC`,
+      params,
+    );
+    return rows;
+  }
+
+  if (creativeId || variantId) {
+    const timezone = normalizeReportingTimezone(opts.timezone);
+    const params = [workspaceId, timezone];
+    const timezoneRef = '$2';
+    const impressionConditions = ['ie.workspace_id = $1'];
+    addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds, advertiserId);
+    addTagChannelFilter(impressionConditions, 't', channel);
+    addZonedTimestampDateFilters(params, impressionConditions, 'ie', dateFrom, dateTo, timezoneRef);
+    addCreativeEventFilters(params, impressionConditions, 'ie', creativeId, variantId);
+
+    params.push(workspaceId);
+    const clickWorkspaceRef = `$${params.length}`;
+    const clickConditions = [`ce.workspace_id = ${clickWorkspaceRef}`];
+    addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
+    addTagChannelFilter(clickConditions, 't_click', channel);
+    addZonedTimestampDateFilters(params, clickConditions, 'ce', dateFrom, dateTo, timezoneRef);
+    addCreativeEventFilters(params, clickConditions, 'ce', creativeId, variantId);
+
+    const { rows } = await pool.query(
+      `WITH impressions AS (
+         SELECT
+           (ie.timestamp AT TIME ZONE ${timezoneRef})::date AS bucket,
+           COUNT(*)::bigint AS impressions,
+           COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::bigint AS viewable_imps,
+           COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0)::bigint AS measured_imps,
+           COALESCE(SUM(CASE WHEN ie.viewable IS NULL THEN 1 ELSE 0 END), 0)::bigint AS undetermined_imps
+         FROM impression_events ie
+         JOIN ad_tags t ON t.id = ie.tag_id
+         WHERE ${impressionConditions.join(' AND ')}
+         GROUP BY 1
+       ),
+       clicks AS (
+         SELECT
+           (ce.timestamp AT TIME ZONE ${timezoneRef})::date AS bucket,
+           COUNT(*)::bigint AS clicks
+         FROM click_events ce
+         JOIN ad_tags t_click ON t_click.id = ce.tag_id
+         WHERE ${clickConditions.join(' AND ')}
+         GROUP BY 1
+       )
+       SELECT
+         COALESCE(i.bucket, c.bucket) AS date,
          COALESCE(i.impressions, 0)::bigint AS impressions,
          COALESCE(c.clicks, 0)::bigint AS clicks,
          COALESCE(i.viewable_imps, 0)::bigint AS viewable_imps,
@@ -714,30 +788,81 @@ export async function getWorkspaceTimeline(pool, workspaceId, opts = {}) {
 }
 
 export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '' } = opts;
+  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '', creativeId = '', variantId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const summaryParams = [workspaceId];
-  const summaryConditions = ['t.workspace_id = $1'];
-  addTagScopeFilters(summaryParams, summaryConditions, 't', campaignId, tagIds, advertiserId);
-  addTagChannelFilter(summaryConditions, 't', channel);
-  addDateFilters(summaryParams, summaryConditions, 'ds', dateFrom, dateTo);
+  const hasCreativeScope = Boolean(creativeId || variantId);
+  let summaryQuery;
+  if (hasCreativeScope) {
+    const summaryConditions = ['ie.workspace_id = $1'];
+    addImpressionScopeFilters(summaryParams, summaryConditions, 't', 'ie', campaignId, tagIds, advertiserId);
+    addTagChannelFilter(summaryConditions, 't', channel);
+    addTimestampFilters(summaryParams, summaryConditions, 'ie', dateFrom, dateTo, opts.timezone);
+    addCreativeEventFilters(summaryParams, summaryConditions, 'ie', creativeId, variantId);
 
-  const summaryQuery = pool.query(
-    `SELECT
-       COALESCE(SUM(ds.impressions), 0)::bigint AS total_impressions,
-       COALESCE(SUM(ds.clicks), 0)::bigint AS total_clicks,
-       COALESCE(SUM(ds.spend), 0) AS total_spend,
-       CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
-         THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
-         ELSE 0 END AS avg_ctr,
-       CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
-         THEN 100
-         ELSE 0 END AS measurable_rate
-     FROM tag_daily_stats ds
-     JOIN ad_tags t ON t.id = ds.tag_id
-     WHERE ${summaryConditions.join(' AND ')}`,
-    summaryParams,
-  );
+    summaryParams.push(workspaceId);
+    const clickWorkspaceRef = `$${summaryParams.length}`;
+    const clickConditions = [`ce.workspace_id = ${clickWorkspaceRef}`];
+    addImpressionScopeFilters(summaryParams, clickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
+    addTagChannelFilter(clickConditions, 't_click', channel);
+    addTimestampFilters(summaryParams, clickConditions, 'ce', dateFrom, dateTo, opts.timezone);
+    addCreativeEventFilters(summaryParams, clickConditions, 'ce', creativeId, variantId);
+
+    summaryQuery = pool.query(
+      `WITH impressions AS (
+         SELECT
+           COUNT(*)::bigint AS total_impressions,
+           COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::bigint AS viewable_imps,
+           COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0)::bigint AS measured_imps
+         FROM impression_events ie
+         JOIN ad_tags t ON t.id = ie.tag_id
+         WHERE ${summaryConditions.join(' AND ')}
+       ),
+       clicks AS (
+         SELECT COUNT(*)::bigint AS total_clicks
+         FROM click_events ce
+         JOIN ad_tags t_click ON t_click.id = ce.tag_id
+         WHERE ${clickConditions.join(' AND ')}
+       )
+       SELECT
+         COALESCE(i.total_impressions, 0)::bigint AS total_impressions,
+         COALESCE(c.total_clicks, 0)::bigint AS total_clicks,
+         0::numeric AS total_spend,
+         COALESCE(i.viewable_imps, 0)::bigint AS viewable_imps,
+         COALESCE(i.measured_imps, 0)::bigint AS measured_imps,
+         CASE WHEN COALESCE(i.total_impressions, 0) > 0
+           THEN ROUND(COALESCE(c.total_clicks, 0)::NUMERIC / i.total_impressions * 100, 4)
+           ELSE 0 END AS avg_ctr,
+         CASE WHEN COALESCE(i.total_impressions, 0) > 0
+           THEN 100
+           ELSE 0 END AS measurable_rate
+       FROM impressions i
+       CROSS JOIN clicks c`,
+      summaryParams,
+    );
+  } else {
+    const summaryConditions = ['t.workspace_id = $1'];
+    addTagScopeFilters(summaryParams, summaryConditions, 't', campaignId, tagIds, advertiserId);
+    addTagChannelFilter(summaryConditions, 't', channel);
+    addDateFilters(summaryParams, summaryConditions, 'ds', dateFrom, dateTo);
+
+    summaryQuery = pool.query(
+      `SELECT
+         COALESCE(SUM(ds.impressions), 0)::bigint AS total_impressions,
+         COALESCE(SUM(ds.clicks), 0)::bigint AS total_clicks,
+         COALESCE(SUM(ds.spend), 0) AS total_spend,
+         CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
+           THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
+           ELSE 0 END AS avg_ctr,
+         CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
+           THEN 100
+           ELSE 0 END AS measurable_rate
+       FROM tag_daily_stats ds
+       JOIN ad_tags t ON t.id = ds.tag_id
+       WHERE ${summaryConditions.join(' AND ')}`,
+      summaryParams,
+    );
+  }
 
   const engagementParams = [workspaceId];
   const engagementConditions = ['t.workspace_id = $1'];
@@ -766,6 +891,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   addImpressionScopeFilters(durationParams, durationConditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTagChannelFilter(durationConditions, 't', channel);
   addTimestampFilters(durationParams, durationConditions, 'ie', dateFrom, dateTo, opts.timezone);
+  addCreativeEventFilters(durationParams, durationConditions, 'ie', creativeId, variantId);
   const durationQuery = pool.query(
     `SELECT
        COALESCE(COUNT(DISTINCT ie.device_id), 0)::bigint AS unique_device_ids
@@ -873,7 +999,10 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   const totalImpressions = Number(summary.total_impressions ?? 0);
   const videoStarts = Number(engagement.video_starts ?? 0);
   const videoCompletions = Number(engagement.video_completions ?? 0);
-  const viewableCount = Math.min(Number(engagement.viewable_count ?? 0), totalImpressions);
+  const viewableCount = Math.min(
+    Number(hasCreativeScope ? summary.viewable_imps ?? 0 : engagement.viewable_count ?? 0),
+    totalImpressions,
+  );
   const uniqueIdentityCount = Math.max(
     Number(frequency.unique_identities ?? 0),
     Number(duration.unique_device_ids ?? 0),
@@ -1033,13 +1162,14 @@ export async function getWorkspaceTagBreakdown(pool, workspaceId, opts = {}) {
 }
 
 async function getImpressionGroupedBreakdown(pool, workspaceId, groupSql, labelAlias, opts = {}) {
-  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '' } = opts;
+  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '', creativeId = '', variantId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const conditions = ['ie.workspace_id = $1'];
   addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTagChannelFilter(conditions, 't', channel);
   addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo, opts.timezone);
+  addCreativeEventFilters(params, conditions, 'ie', creativeId, variantId);
   params.push(normalizeLimit(limit));
   const { rows } = await pool.query(
     `SELECT
@@ -1067,19 +1197,21 @@ async function getImpressionGroupedBreakdown(pool, workspaceId, groupSql, labelA
 }
 
 export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '' } = opts;
+  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '', creativeId = '', variantId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const impressionConditions = ['ie.workspace_id = $1'];
   addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTagChannelFilter(impressionConditions, 't', channel);
   addTimestampFilters(params, impressionConditions, 'ie', dateFrom, dateTo, opts.timezone);
+  addCreativeEventFilters(params, impressionConditions, 'ie', creativeId, variantId);
 
   params.push(workspaceId);
   const clickConditions = [`ce.workspace_id = $${params.length}`];
   addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
   addTagChannelFilter(clickConditions, 't_click', channel);
   addTimestampFilters(params, clickConditions, 'ce', dateFrom, dateTo, opts.timezone);
+  addCreativeEventFilters(params, clickConditions, 'ce', creativeId, variantId);
 
   params.push(normalizeLimit(limit));
   const { rows } = await pool.query(
@@ -1129,13 +1261,14 @@ export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
 }
 
 export async function getWorkspaceAppBreakdown(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '' } = opts;
+  const { dateFrom, dateTo, limit = 25, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '', creativeId = '', variantId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const params = [workspaceId];
   const impressionConditions = ['ie.workspace_id = $1'];
   addImpressionScopeFilters(params, impressionConditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTagChannelFilter(impressionConditions, 't', channel);
   addTimestampFilters(params, impressionConditions, 'ie', dateFrom, dateTo, opts.timezone);
+  addCreativeEventFilters(params, impressionConditions, 'ie', creativeId, variantId);
   impressionConditions.push(`(COALESCE(ie.app_name, '') <> '' OR COALESCE(ie.app_bundle, '') <> '' OR COALESCE(ie.app_id, '') <> '')`);
 
   const clickColumnResult = await pool.query(
@@ -1153,6 +1286,7 @@ export async function getWorkspaceAppBreakdown(pool, workspaceId, opts = {}) {
   addImpressionScopeFilters(params, clickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
   addTagChannelFilter(clickConditions, 't_click', channel);
   addTimestampFilters(params, clickConditions, 'ce', dateFrom, dateTo, opts.timezone);
+  addCreativeEventFilters(params, clickConditions, 'ce', creativeId, variantId);
   const clickAppNameExpression = hasClickAppContext ? 'ce.app_name' : "''";
   const clickAppBundleExpression = hasClickAppContext ? 'ce.app_bundle' : "''";
   const clickAppIdExpression = hasClickAppContext ? 'ce.app_id' : "''";
@@ -1633,13 +1767,14 @@ export async function getWorkspaceVariantBreakdown(pool, workspaceId, opts = {})
 }
 
 export async function getWorkspaceContextSnapshot(pool, workspaceId, opts = {}) {
-  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '' } = opts;
+  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '', creativeId = '', variantId = '' } = opts;
   const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
   const latestParams = [workspaceId];
   const latestConditions = ['ie.workspace_id = $1'];
   addImpressionScopeFilters(latestParams, latestConditions, 't', 'ie', campaignId, tagIds, advertiserId);
   addTagChannelFilter(latestConditions, 't', channel);
   addTimestampFilters(latestParams, latestConditions, 'ie', dateFrom, dateTo, opts.timezone);
+  addCreativeEventFilters(latestParams, latestConditions, 'ie', creativeId, variantId);
   const connectionColumnResult = await pool.query(
     `SELECT column_name
      FROM information_schema.columns
