@@ -175,7 +175,7 @@ export function useAssetLibraryController(
   }
 
   function handleDragStart(event: React.DragEvent, asset: AssetRecord): void {
-    if (asset.kind !== 'image' && asset.kind !== 'video') return;
+    if (asset.kind !== 'image' && asset.kind !== 'video' && asset.kind !== 'font') return;
     const nextDraggedIds = selectedAssetIds.includes(asset.id) ? selectedAssetIds : [asset.id];
     setDraggedAssetIds(nextDraggedIds);
     if (!selectedAssetIds.includes(asset.id)) {

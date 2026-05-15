@@ -103,6 +103,7 @@ function parseShoppableSources(raw: unknown): string[] {
 
 function collectAssetRefs(widget: WidgetNode): PortableExportAsset[] {
   const candidates = [
+    widget.props.fontAssetSrc,
     widget.props.src,
     widget.props.posterSrc,
     widget.props.imageSrc,
