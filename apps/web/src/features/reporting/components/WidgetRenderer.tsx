@@ -1,6 +1,6 @@
 import React from 'react';
 import { EmptyState } from '../../../system';
-import type { ReportingMode, WidgetConfig, WidgetSize } from '../reporting.types';
+import type { DeviceBreakdownRow, ReportingMode, WidgetConfig, WidgetSize } from '../reporting.types';
 import type { ReportingDataViewModel } from '../hooks/useReportingData';
 import { ConnectionBreakdown } from './ConnectionBreakdown';
 import { DeviceBreakdown } from './DeviceBreakdown';
@@ -46,6 +46,10 @@ function GenericInfoPanel({ title, icon, tone, rows }: { title: string; icon: 'i
       )}
     </WidgetPanel>
   );
+}
+
+function filterDeviceRows(rows: DeviceBreakdownRow[], kinds: DeviceBreakdownRow['kind'][]) {
+  return rows.filter((row) => kinds.includes(row.kind));
 }
 
 function WidgetByType({
@@ -118,7 +122,34 @@ function WidgetByType({
     case 'topApps':
       return <InventorySources rows={data.rawInventorySourceRows} kind="App" />;
     case 'deviceBreakdown':
-      return <DeviceBreakdown rows={data.deviceRows} />;
+      return <DeviceBreakdown rows={data.deviceRows} title={widget.title} />;
+    case 'deviceTypeBreakdown':
+      return (
+        <DeviceBreakdown
+          rows={filterDeviceRows(data.deviceRows, ['Type', 'Model'])}
+          title={widget.title}
+          emptyTitle="No device type signal yet"
+          emptyDescription="Device type and model data will appear once delivery carries device context."
+        />
+      );
+    case 'osBreakdown':
+      return (
+        <DeviceBreakdown
+          rows={filterDeviceRows(data.deviceRows, ['OS'])}
+          title={widget.title}
+          emptyTitle="No OS signal yet"
+          emptyDescription="Operating system data will appear once delivery carries OS context."
+        />
+      );
+    case 'browserBreakdown':
+      return (
+        <DeviceBreakdown
+          rows={filterDeviceRows(data.deviceRows, ['Browser'])}
+          title={widget.title}
+          emptyTitle="No browser signal yet"
+          emptyDescription="Browser data will appear once delivery carries user-agent context."
+        />
+      );
     case 'connectionBreakdown':
       return <ConnectionBreakdown rows={data.connectionRows} />;
     case 'topRegions':

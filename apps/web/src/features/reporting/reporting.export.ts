@@ -203,7 +203,13 @@ export function buildReportingCsv({
   }));
 
   data.deviceRows.forEach((row) => push({
-    section: 'device',
+    section: row.kind === 'Type'
+      ? 'device_type'
+      : row.kind === 'Model'
+        ? 'device_model'
+        : row.kind === 'OS'
+          ? 'os'
+          : 'browser',
     entity_type: 'device_signal',
     name: row.name,
     kind: row.kind,

@@ -5,13 +5,24 @@ import { RankSortToggle, type RankSortDirection } from './RankSortToggle';
 import { WidgetPanel } from './WidgetPanel';
 
 type RankMetric = 'impressions' | 'share';
+type DeviceBreakdownProps = {
+  rows: DeviceBreakdownRow[];
+  title?: string;
+  emptyTitle?: string;
+  emptyDescription?: string;
+};
 
 function parseShare(share: string) {
   const parsed = Number(String(share).replace('%', ''));
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function DeviceBreakdown({ rows }: { rows: DeviceBreakdownRow[] }) {
+export function DeviceBreakdown({
+  rows,
+  title = 'Device',
+  emptyTitle = 'No device signal yet',
+  emptyDescription = 'Device type, model, OS and browser data will appear once the selected reporting scope records delivery context.',
+}: DeviceBreakdownProps) {
   const [sortDirection, setSortDirection] = React.useState<RankSortDirection>('desc');
   const [rankMetric, setRankMetric] = React.useState<RankMetric>('impressions');
   const sortedRows = React.useMemo(() => (
@@ -26,7 +37,7 @@ export function DeviceBreakdown({ rows }: { rows: DeviceBreakdownRow[] }) {
 
   return (
     <WidgetPanel
-      title="Device"
+      title={title}
       icon="identity"
       tone="cyan"
       action={rows.length ? (
@@ -66,8 +77,8 @@ export function DeviceBreakdown({ rows }: { rows: DeviceBreakdownRow[] }) {
         </div>
       ) : (
         <EmptyState
-          title="No device signal yet"
-          description="Device type, model, OS and browser data will appear once the selected reporting scope records delivery context."
+          title={emptyTitle}
+          description={emptyDescription}
         />
       )}
     </WidgetPanel>
