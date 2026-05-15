@@ -19,13 +19,15 @@ import { getTagClickDestination } from '@smx/db/src/vast.mjs';
 import { recordFrequencyCapImpression } from '@smx/db/src/frequency-cap.mjs';
 import { resolveDeviceId } from '../../../lib/device-id.mjs';
 import { hashIp } from '../../../lib/ip-fingerprint.mjs';
-import { logWarn } from '../../../lib/logger.mjs';
+import { logInfo, logWarn } from '../../../lib/logger.mjs';
 import { queueImpressionEventWrite, resolveTagWorkspaceId } from './service.mjs';
 
 const PIXEL_GIF = Buffer.from(
   'R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==',
   'base64',
 );
+
+const BOT_UA_REGEX = /bot|crawler|spider|preview|fetch|scanner|validator|monitor|headless|phantom|selenium|chrome-lighthouse|googleweblight|pagespeed|lighthouse|facebookexternalhit|slurp|curl|wget/i;
 
 function applyPublicCors(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -61,6 +63,61 @@ function isUnresolvedMacroValue(value) {
 function normalizeResolvedTrackingValue(value) {
   const decoded = trimText(decodeStringSafe(value));
   return decoded && !isUnresolvedMacroValue(decoded) ? decoded : '';
+}
+
+function parseBasisClickInvalid(value) {
+  const normalized = normalizeResolvedTrackingValue(value).toLowerCase();
+  if (!normalized) return null;
+  if (normalized === '1' || normalized === 'true' || normalized === 'yes') return 1;
+  if (normalized === '0' || normalized === 'false' || normalized === 'no') return 0;
+  return null;
+}
+
+function isPrefetchRequest(req) {
+  const purpose = readHeader(req, 'purpose').toLowerCase();
+  const secPurpose = readHeader(req, 'sec-purpose').toLowerCase();
+  const xMoz = readHeader(req, 'x-moz').toLowerCase();
+  return purpose === 'prefetch' || secPurpose.includes('prefetch') || xMoz === 'prefetch';
+}
+
+function classifyFilteredClick(req, url) {
+  const userAgent = readHeader(req, 'user-agent');
+  const clickInvalid = parseBasisClickInvalid(url.searchParams.get('click_invalid') || url.searchParams.get('clickInvalid') || '');
+  if (clickInvalid === 1) return { filtered: true, reason: 'basis_invalid', userAgent, clickInvalid };
+  if (isPrefetchRequest(req)) return { filtered: true, reason: 'prefetch', userAgent, clickInvalid };
+  if (BOT_UA_REGEX.test(userAgent)) return { filtered: true, reason: 'bot', userAgent, clickInvalid };
+  return { filtered: false, reason: '', userAgent, clickInvalid };
+}
+
+function logFilteredClick({ requestId, tagId, method, reason, userAgent }) {
+  logInfo({
+    service: 'smx-tracker',
+    event: 'click_filtered',
+    requestId,
+    tagId,
+    method,
+    reason,
+    userAgent,
+  });
+}
+
+function extractBasisMacroContext(p) {
+  const domain = normalizeResolvedTrackingValue(p.get('domain') || p.get('dom') || p.get('sdmn') || '');
+  return {
+    auctionId: normalizeResolvedTrackingValue(
+      p.get('auction_id') || p.get('auctionId') || p.get('auctionid') || p.get('postbackId') || '',
+    ) || null,
+    basisTs: normalizeResolvedTrackingValue(p.get('basis_ts') || p.get('ts') || p.get('cb') || p.get('tmp') || '') || null,
+    clickInvalid: parseBasisClickInvalid(p.get('click_invalid') || p.get('clickInvalid') || ''),
+    trafficType: normalizeResolvedTrackingValue(p.get('traffic_type') || p.get('trftype') || '') || null,
+    creativeType: normalizeResolvedTrackingValue(p.get('creative_type') || p.get('cretye') || '') || null,
+    dimensions: normalizeResolvedTrackingValue(p.get('dimensions') || p.get('cresze') || '') || null,
+    ifa: normalizeResolvedTrackingValue(p.get('ifa') || p.get('idfa') || p.get('gadvid') || p.get('googleAdvertisingId') || '') || null,
+    basisCampaignId: normalizeResolvedTrackingValue(p.get('basis_campaign_id') || p.get('cmpid') || p.get('campaignId') || '') || null,
+    basisAdId: normalizeResolvedTrackingValue(p.get('basis_ad_id') || p.get('adid') || p.get('adId') || '') || null,
+    sourceSiteId: normalizeResolvedTrackingValue(p.get('source_site_id') || p.get('sourceSiteId') || p.get('sid') || p.get('siteid') || '') || null,
+    domain: domain || null,
+  };
 }
 
 function trimQuotedHeader(value) {
@@ -196,6 +253,9 @@ export function extractTrackingContext(req, url, geo) {
 const CLICK_APP_COLUMNS_CHECK_TTL_MS = 60_000;
 let clickAppColumnsReady = false;
 let clickAppColumnsCheckedAt = 0;
+const CLICK_TRACKING_COLUMNS_CHECK_TTL_MS = 60_000;
+let clickTrackingColumnsReady = false;
+let clickTrackingColumnsCheckedAt = 0;
 
 async function hasClickAppColumns(pool) {
   if (clickAppColumnsReady) return true;
@@ -212,6 +272,42 @@ async function hasClickAppColumns(pool) {
     );
     clickAppColumnsReady = Number(rows[0]?.count ?? 0) === 3;
     return clickAppColumnsReady;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function hasClickTrackingColumns(pool) {
+  if (clickTrackingColumnsReady) return true;
+  const now = Date.now();
+  if (clickTrackingColumnsCheckedAt && now - clickTrackingColumnsCheckedAt < CLICK_TRACKING_COLUMNS_CHECK_TTL_MS) return false;
+  clickTrackingColumnsCheckedAt = now;
+  try {
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'click_events'
+         AND column_name IN (
+           'request_method',
+           'raw_click_url',
+           'auction_id',
+           'basis_ts',
+           'click_invalid',
+           'traffic_type',
+           'creative_type',
+           'dimensions',
+           'ifa',
+           'basis_campaign_id',
+           'basis_ad_id',
+           'source_site_id',
+           'domain',
+           'is_filtered',
+           'filter_reason'
+         )`,
+    );
+    clickTrackingColumnsReady = Number(rows[0]?.count ?? 0) === 15;
+    return clickTrackingColumnsReady;
   } catch (_) {
     return false;
   }
@@ -276,15 +372,31 @@ function queueClickEventWrite(pool, {
   city,
   siteDomain,
   referer,
-  appId,
-  appBundle,
-  appName,
-  ipFingerprint,
-}) {
-  if (!pool || !tagId || !workspaceId) return;
-  (async () => {
-    const supportsAppContext = await hasClickAppColumns(pool);
-    let resolvedAppId = appId || null;
+    appId,
+    appBundle,
+    appName,
+    ipFingerprint,
+    requestMethod,
+    rawClickUrl,
+    auctionId,
+    basisTs,
+    clickInvalid,
+    trafficType,
+    creativeType,
+    dimensions,
+    ifa,
+    basisCampaignId,
+    basisAdId,
+    sourceSiteId,
+    domain,
+    isFiltered,
+    filterReason,
+  }) {
+    if (!pool || !tagId || !workspaceId) return;
+    (async () => {
+      const supportsAppContext = await hasClickAppColumns(pool);
+      const supportsClickTracking = await hasClickTrackingColumns(pool);
+      let resolvedAppId = appId || null;
     let resolvedAppBundle = appBundle || null;
     let resolvedAppName = appName || null;
 
@@ -310,10 +422,47 @@ function queueClickEventWrite(pool, {
       ipFingerprint || null,
     ];
 
-    if (supportsAppContext) {
-      columns.push('app_id', 'app_bundle', 'app_name');
-      values.push(resolvedAppId, resolvedAppBundle, resolvedAppName);
-    }
+      if (supportsAppContext) {
+        columns.push('app_id', 'app_bundle', 'app_name');
+        values.push(resolvedAppId, resolvedAppBundle, resolvedAppName);
+      }
+
+      if (supportsClickTracking) {
+        columns.push(
+          'request_method',
+          'raw_click_url',
+          'auction_id',
+          'basis_ts',
+          'click_invalid',
+          'traffic_type',
+          'creative_type',
+          'dimensions',
+          'ifa',
+          'basis_campaign_id',
+          'basis_ad_id',
+          'source_site_id',
+          'domain',
+          'is_filtered',
+          'filter_reason',
+        );
+        values.push(
+          requestMethod || null,
+          rawClickUrl || null,
+          auctionId || null,
+          basisTs || null,
+          clickInvalid !== null && clickInvalid !== undefined ? clickInvalid : null,
+          trafficType || null,
+          creativeType || null,
+          dimensions || null,
+          ifa || null,
+          basisCampaignId || null,
+          basisAdId || null,
+          sourceSiteId || null,
+          domain || null,
+          Boolean(isFiltered),
+          filterReason || null,
+        );
+      }
 
     const placeholders = values.map((_, index) => {
       const ordinal = index + 1;
@@ -430,11 +579,12 @@ export function createTrackerRoutes(buffer = null) {
           const sfTouch = p.get('sf_touch') === '1' ? true : p.get('sf_touch') === '0' ? false : null;
           const sfMem = p.get('sf_mem') ? Number(p.get('sf_mem')) || null : null;
           const sfCpu = p.get('sf_cpu') ? Number.parseInt(p.get('sf_cpu'), 10) || null : null;
-          const connectionType = normalizeResolvedTrackingValue(p.get('sf_conn_type') || p.get('connectiontype') || p.get('connection') || '') || null;
-          const effectiveConnectionType = normalizeResolvedTrackingValue(p.get('sf_conn_effective') || p.get('effectiveconnectiontype') || '') || null;
-          const connectionDownlink = p.get('sf_conn_downlink') ? Number(p.get('sf_conn_downlink')) || null : null;
-          const connectionRtt = p.get('sf_conn_rtt') ? Number.parseInt(p.get('sf_conn_rtt'), 10) || null : null;
-          const connectionSaveData = p.get('sf_conn_save_data') === '1' ? true : p.get('sf_conn_save_data') === '0' ? false : null;
+            const connectionType = normalizeResolvedTrackingValue(p.get('sf_conn_type') || p.get('connectiontype') || p.get('connection') || '') || null;
+            const effectiveConnectionType = normalizeResolvedTrackingValue(p.get('sf_conn_effective') || p.get('effectiveconnectiontype') || '') || null;
+            const connectionDownlink = p.get('sf_conn_downlink') ? Number(p.get('sf_conn_downlink')) || null : null;
+            const connectionRtt = p.get('sf_conn_rtt') ? Number.parseInt(p.get('sf_conn_rtt'), 10) || null : null;
+            const connectionSaveData = p.get('sf_conn_save_data') === '1' ? true : p.get('sf_conn_save_data') === '0' ? false : null;
+            const basisMacroContext = extractBasisMacroContext(p);
 
           inferContext(pool, {
             siteDomain: trackingContext.siteDomain,
@@ -494,13 +644,14 @@ export function createTrackerRoutes(buffer = null) {
               sfTouch,
               sfMem,
               sfCpu,
-              connectionType,
-              effectiveConnectionType,
-              connectionDownlink,
-              connectionRtt,
-              connectionSaveData,
-              inferredContext: inferredContext || 'unknown',
-            });
+                connectionType,
+                effectiveConnectionType,
+                connectionDownlink,
+                connectionRtt,
+                connectionSaveData,
+                ...basisMacroContext,
+                inferredContext: inferredContext || 'unknown',
+              });
             }
           });
         }).catch(() => undefined);
@@ -537,14 +688,21 @@ export function createTrackerRoutes(buffer = null) {
       applyPublicCors(req, res);
       res.statusCode = 204;
       res.setHeader('Cache-Control', 'private, no-store');
-      if (cookie) res.setHeader('Set-Cookie', cookie);
-      res.end();
+        if (cookie) res.setHeader('Set-Cookie', cookie);
+        res.end();
 
-      queueClickWrite(buffer, pool, tagId, requestId);
-      if (pool) {
-        const geo = resolveGeoContext(req, url);
-        const trackingContext = extractTrackingContext(req, url, geo);
-        const creativeId = trimText(url.searchParams.get('smx_creative_id') || url.searchParams.get('creative_id') || '') || null;
+        const clickFilter = classifyFilteredClick(req, url);
+        if (clickFilter.filtered) {
+          logFilteredClick({ requestId, tagId, method, reason: clickFilter.reason, userAgent: clickFilter.userAgent });
+          return true;
+        }
+
+        queueClickWrite(buffer, pool, tagId, requestId);
+        if (pool) {
+          const geo = resolveGeoContext(req, url);
+          const trackingContext = extractTrackingContext(req, url, geo);
+          const basisMacroContext = extractBasisMacroContext(url.searchParams);
+          const creativeId = trimText(url.searchParams.get('smx_creative_id') || url.searchParams.get('creative_id') || '') || null;
         const creativeSizeVariantId = trimText(url.searchParams.get('smx_variant_id') || url.searchParams.get('variant_id') || '') || null;
         const appId = normalizeResolvedTrackingValue(
           url.searchParams.get('appid') || url.searchParams.get('appId') || url.searchParams.get('app_id') || url.searchParams.get('app') || '',
@@ -570,13 +728,16 @@ export function createTrackerRoutes(buffer = null) {
             city: trackingContext.city,
             siteDomain: trackingContext.siteDomain,
             referer: trackingContext.referer,
-            appId,
-            appBundle,
-            appName,
-            ipFingerprint: hashIp(trackingContext.remoteIp, env?.sessionSecret),
-          });
-        }).catch(() => undefined);
-      }
+              appId,
+              appBundle,
+              appName,
+              ipFingerprint: hashIp(trackingContext.remoteIp, env?.sessionSecret),
+              requestMethod: method,
+              rawClickUrl: trimText(url.searchParams.get('url') || '') || null,
+              ...basisMacroContext,
+            });
+          }).catch(() => undefined);
+        }
       return true;
     }
 
@@ -598,14 +759,21 @@ export function createTrackerRoutes(buffer = null) {
       res.statusCode = 302;
       res.setHeader('Location', destination);
       res.setHeader('Cache-Control', 'private, no-store');
-      if (cookie) res.setHeader('Set-Cookie', cookie);
-      res.end();
+        if (cookie) res.setHeader('Set-Cookie', cookie);
+        res.end();
 
-      queueClickWrite(buffer, pool, tagId, requestId);
-      if (pool) {
-        const geo = resolveGeoContext(req, url);
-        const trackingContext = extractTrackingContext(req, url, geo);
-        const creativeId = trimText(url.searchParams.get('smx_creative_id') || url.searchParams.get('creative_id') || '') || null;
+        const clickFilter = classifyFilteredClick(req, url);
+        if (clickFilter.filtered) {
+          logFilteredClick({ requestId, tagId, method, reason: clickFilter.reason, userAgent: clickFilter.userAgent });
+          return true;
+        }
+
+        queueClickWrite(buffer, pool, tagId, requestId);
+        if (pool) {
+          const geo = resolveGeoContext(req, url);
+          const trackingContext = extractTrackingContext(req, url, geo);
+          const basisMacroContext = extractBasisMacroContext(url.searchParams);
+          const creativeId = trimText(url.searchParams.get('smx_creative_id') || url.searchParams.get('creative_id') || '') || null;
         const creativeSizeVariantId = trimText(url.searchParams.get('smx_variant_id') || url.searchParams.get('variant_id') || '') || null;
         const appId = normalizeResolvedTrackingValue(
           url.searchParams.get('appid') || url.searchParams.get('appId') || url.searchParams.get('app_id') || url.searchParams.get('app') || '',
@@ -631,13 +799,16 @@ export function createTrackerRoutes(buffer = null) {
             city: trackingContext.city,
             siteDomain: trackingContext.siteDomain,
             referer: trackingContext.referer,
-            appId,
-            appBundle,
-            appName,
-            ipFingerprint: hashIp(trackingContext.remoteIp, env?.sessionSecret),
-          });
-        }).catch(() => undefined);
-      }
+              appId,
+              appBundle,
+              appName,
+              ipFingerprint: hashIp(trackingContext.remoteIp, env?.sessionSecret),
+              requestMethod: method,
+              rawClickUrl: destination,
+              ...basisMacroContext,
+            });
+          }).catch(() => undefined);
+        }
       return true;
     }
 

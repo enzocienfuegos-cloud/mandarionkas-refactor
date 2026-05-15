@@ -266,6 +266,24 @@ function inferDisplayContext({ siteDomain, referer, appId, appBundle, appName })
   return 'unknown';
 }
 
+function extractBasisMacroContext(p) {
+  const domain = normalizeResolvedTrackingValue(p.get('domain') || p.get('dom') || p.get('sdmn') || '');
+  return {
+    auctionId: normalizeResolvedTrackingValue(
+      p.get('auction_id') || p.get('auctionId') || p.get('auctionid') || p.get('postbackId') || '',
+    ) || null,
+    basisTs: normalizeResolvedTrackingValue(p.get('basis_ts') || p.get('ts') || p.get('cb') || p.get('tmp') || '') || null,
+    trafficType: normalizeResolvedTrackingValue(p.get('traffic_type') || p.get('trftype') || '') || null,
+    creativeType: normalizeResolvedTrackingValue(p.get('creative_type') || p.get('cretye') || '') || null,
+    dimensions: normalizeResolvedTrackingValue(p.get('dimensions') || p.get('cresze') || '') || null,
+    ifa: normalizeResolvedTrackingValue(p.get('ifa') || p.get('idfa') || p.get('gadvid') || p.get('googleAdvertisingId') || '') || null,
+    basisCampaignId: normalizeResolvedTrackingValue(p.get('basis_campaign_id') || p.get('cmpid') || p.get('campaignId') || '') || null,
+    basisAdId: normalizeResolvedTrackingValue(p.get('basis_ad_id') || p.get('adid') || p.get('adId') || '') || null,
+    sourceSiteId: normalizeResolvedTrackingValue(p.get('source_site_id') || p.get('sourceSiteId') || p.get('sid') || p.get('siteid') || '') || null,
+    domain: domain || null,
+  };
+}
+
 function queueDisplayFirstHopImpression(ctx, pool, tagId, row) {
   const { req, res, url, env, requestId, trackerBuffer } = ctx;
   if (!pool || !tagId || !row || url.searchParams.get('smx_no_imp') === '1') return null;
@@ -353,6 +371,7 @@ function queueDisplayFirstHopImpression(ctx, pool, tagId, row) {
     const connectionDownlink = p.get('sf_conn_downlink') ? Number(p.get('sf_conn_downlink')) || null : null;
     const connectionRtt = p.get('sf_conn_rtt') ? Number.parseInt(p.get('sf_conn_rtt'), 10) || null : null;
     const connectionSaveData = p.get('sf_conn_save_data') === '1' ? true : p.get('sf_conn_save_data') === '0' ? false : null;
+    const basisMacroContext = extractBasisMacroContext(p);
 
     const inferredContext = inferDisplayContext({
       siteDomain: trackingContext.siteDomain,
@@ -408,6 +427,7 @@ function queueDisplayFirstHopImpression(ctx, pool, tagId, row) {
       connectionDownlink,
       connectionRtt,
       connectionSaveData,
+      ...basisMacroContext,
       inferredContext: inferredContext || 'unknown',
     });
   })().catch((err) => logWarn({
@@ -845,14 +865,36 @@ ${omidBlock}
   ${RUNTIME_TRACKING_CONTEXT_JS}
   var creativeUrl = ${escapeScriptContext(JSON.stringify(safeCreativeUrl))};
   var impressionUrl = ${safeImpressionJs ?? 'null'};
-  var clickTracker = ${safeClickTrackerJs};
-  var engagementTracker = ${safeEngagementTracker ? escapeScriptContext(JSON.stringify(safeEngagementTracker)) : 'null'};
-  var injectedClickTag = ${trackedClickTag ? escapeScriptContext(JSON.stringify(trackedClickTag)) : 'null'};
-  var frame = document.getElementById('smx-creative-frame');
-  impressionUrl = smxWithRuntimeContext(impressionUrl);
-  clickTracker = smxWithRuntimeContext(clickTracker);
-  engagementTracker = smxWithRuntimeContext(engagementTracker);
-  injectedClickTag = smxWithRuntimeContext(injectedClickTag);
+    var clickTracker = ${safeClickTrackerJs};
+    var engagementTracker = ${safeEngagementTracker ? escapeScriptContext(JSON.stringify(safeEngagementTracker)) : 'null'};
+    var injectedClickTag = ${trackedClickTag ? escapeScriptContext(JSON.stringify(trackedClickTag)) : 'null'};
+    var frame = document.getElementById('smx-creative-frame');
+    function smxIsDuskTrackedClick(candidate, tracker) {
+      if (!candidate || !tracker) return false;
+      var needles = [String(tracker)];
+      try {
+        var trackerUrl = new URL(String(tracker), window.location.href);
+        needles.push(trackerUrl.origin + trackerUrl.pathname);
+      } catch(_) {}
+      var current = String(candidate);
+      for (var i = 0; i < 4; i += 1) {
+        for (var j = 0; j < needles.length; j += 1) {
+          if (needles[j] && current.indexOf(needles[j]) !== -1) return true;
+        }
+        try {
+          var decoded = decodeURIComponent(current);
+          if (decoded === current) break;
+          current = decoded;
+        } catch(_) {
+          break;
+        }
+      }
+      return false;
+    }
+    impressionUrl = smxWithRuntimeContext(impressionUrl);
+    clickTracker = smxWithRuntimeContext(clickTracker);
+    engagementTracker = smxWithRuntimeContext(engagementTracker);
+    injectedClickTag = smxWithRuntimeContext(injectedClickTag);
   if (impressionUrl) (new Image()).src = impressionUrl;
   if (injectedClickTag) window.clickTag = injectedClickTag;
   if (frame && injectedClickTag) {
@@ -874,7 +916,7 @@ ${omidBlock}
       var dest = (typeof data.url === 'string' && data.url) ? data.url : '';
       var resolvedClickUrl = dest || injectedClickTag || '';
       var navigateTo = resolvedClickUrl || clickTracker || '';
-      var isAlreadyTracked = clickTracker && resolvedClickUrl && resolvedClickUrl.indexOf(clickTracker) === 0;
+        var isAlreadyTracked = smxIsDuskTrackedClick(resolvedClickUrl, clickTracker);
       if (clickTracker && !isAlreadyTracked) {
         var t = smxAppendQuery(clickTracker, 'url', resolvedClickUrl || clickTracker);
         try {
@@ -1016,15 +1058,37 @@ export function buildDisplayJs({
   return `(function(){
   var creativeUrl       = ${safeCreativeUrl};
   var impressionUrl     = ${safeImpression};
-  var clickTrackerUrl   = ${safeClickTracker};
-  var engagementUrl     = ${safeEngagement};
-  var clickTag          = ${safeClickTag};
-  var W = '${w}'; var H = '${h}';
+    var clickTrackerUrl   = ${safeClickTracker};
+    var engagementUrl     = ${safeEngagement};
+    var clickTag          = ${safeClickTag};
+    var W = '${w}'; var H = '${h}';
 
   if (!creativeUrl) return;
 
-  ${RUNTIME_TRACKING_CONTEXT_JS}
-  impressionUrl = smxWithRuntimeContext(impressionUrl);
+    ${RUNTIME_TRACKING_CONTEXT_JS}
+    function smxIsDuskTrackedClick(candidate, tracker) {
+      if (!candidate || !tracker) return false;
+      var needles = [String(tracker)];
+      try {
+        var trackerUrl = new URL(String(tracker), window.location.href);
+        needles.push(trackerUrl.origin + trackerUrl.pathname);
+      } catch(_) {}
+      var current = String(candidate);
+      for (var i = 0; i < 4; i += 1) {
+        for (var j = 0; j < needles.length; j += 1) {
+          if (needles[j] && current.indexOf(needles[j]) !== -1) return true;
+        }
+        try {
+          var decoded = decodeURIComponent(current);
+          if (decoded === current) break;
+          current = decoded;
+        } catch(_) {
+          break;
+        }
+      }
+      return false;
+    }
+    impressionUrl = smxWithRuntimeContext(impressionUrl);
   clickTrackerUrl = smxWithRuntimeContext(clickTrackerUrl);
   engagementUrl = smxWithRuntimeContext(engagementUrl);
   clickTag = smxWithRuntimeContext(clickTag);
@@ -1074,7 +1138,7 @@ export function buildDisplayJs({
       var dest = (typeof data.url === 'string' && data.url) ? data.url : '';
       var resolvedClickUrl = dest || clickTag || '';
       var navigateTo = resolvedClickUrl || clickTrackerUrl || '';
-      var isAlreadyTracked = clickTrackerUrl && resolvedClickUrl && resolvedClickUrl.indexOf(clickTrackerUrl) === 0;
+        var isAlreadyTracked = smxIsDuskTrackedClick(resolvedClickUrl, clickTrackerUrl);
       if (clickTrackerUrl && !isAlreadyTracked) {
         var t = smxAppendQuery(clickTrackerUrl, 'url', resolvedClickUrl || clickTrackerUrl);
         try { fetch(t, { method: 'POST', keepalive: true, mode: 'no-cors', credentials: 'include' }); } catch(_) { (new Image()).src = t; }
@@ -1214,9 +1278,12 @@ export async function handleDisplayRoutes(ctx) {
 
     const baseUrl = resolveBaseUrl(ctx);
     const DSP_TRACKER_KEYS = [
-      'dsp', 'dom', 'purl', 'cuu', 'ifa', 'idfa', 'gadvid', 'iuid',
-      'cmpid', 'netid', 'srcpubid', 'ppos', 'trftype', 'carr',
-      'appid', 'appId', 'app_id', 'app', 'appb', 'appBundle', 'app_bundle',
+        'dsp', 'dom', 'purl', 'cuu', 'ifa', 'idfa', 'gadvid', 'iuid',
+        'cmpid', 'netid', 'srcpubid', 'ppos', 'trftype', 'carr',
+        'auction_id', 'auctionId', 'auctionid', 'ts', 'basis_ts', 'click_invalid',
+        'traffic_type', 'creative_type', 'dimensions', 'basis_campaign_id',
+        'basis_ad_id', 'source_site_id', 'domain', 'adid',
+        'appid', 'appId', 'app_id', 'app', 'appb', 'appBundle', 'app_bundle',
       'bundle', 'bundleid', 'appn', 'appne', 'appName', 'app_name',
       'excid', 'excpubid', 'excsiddmn', 'sdmn', 'sid',
       'cntlang', 'cnttitle', 'cntseries', 'cngen', 'ctxid', 'appstnm',
@@ -1281,9 +1348,12 @@ export async function handleDisplayRoutes(ctx) {
 
     const baseUrl = resolveBaseUrl(ctx);
     const DSP_TRACKER_KEYS = [
-      'dsp', 'dom', 'purl', 'cuu', 'ifa', 'idfa', 'gadvid', 'iuid',
-      'cmpid', 'netid', 'srcpubid', 'ppos', 'trftype', 'carr',
-      'appid', 'appId', 'app_id', 'app', 'appb', 'appBundle', 'app_bundle',
+        'dsp', 'dom', 'purl', 'cuu', 'ifa', 'idfa', 'gadvid', 'iuid',
+        'cmpid', 'netid', 'srcpubid', 'ppos', 'trftype', 'carr',
+        'auction_id', 'auctionId', 'auctionid', 'ts', 'basis_ts', 'click_invalid',
+        'traffic_type', 'creative_type', 'dimensions', 'basis_campaign_id',
+        'basis_ad_id', 'source_site_id', 'domain', 'adid',
+        'appid', 'appId', 'app_id', 'app', 'appb', 'appBundle', 'app_bundle',
       'bundle', 'bundleid', 'appn', 'appne', 'appName', 'app_name',
       'excid', 'excpubid', 'excsiddmn', 'sdmn',
       'sid', 'cntlang', 'cnttitle', 'cntseries', 'cngen', 'ctxid', 'appstnm',

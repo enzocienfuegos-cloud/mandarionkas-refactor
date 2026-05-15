@@ -46,7 +46,7 @@ function createFakeRes() {
   };
 }
 
-function createCtx(method, pathname, searchParams = {}, env = {}) {
+function createCtx(method, pathname, searchParams = {}, env = {}, headers = {}) {
   const url = new URL(`http://localhost${pathname}`);
   for (const [key, value] of Object.entries(searchParams)) {
     url.searchParams.set(key, value);
@@ -55,7 +55,7 @@ function createCtx(method, pathname, searchParams = {}, env = {}) {
     method,
     pathname,
     url,
-    req: { headers: { host: 'localhost' } },
+    req: { headers: { host: 'localhost', ...headers } },
     res: createFakeRes(),
     requestId: 'test-req-id',
     env,
@@ -134,6 +134,47 @@ test('click route redirects to explicit target without requiring a database', as
   assert.equal(handled, true);
   assert.equal(ctx.res.statusCode, 302);
   assert.equal(ctx.res.headers.Location, 'https://example.com/landing');
+});
+
+test('click route redirects but does not count bot user agents', async () => {
+  const pool = createFakePool();
+  const buffer = new TrackerBuffer(pool, { flushIntervalMs: 60_000, flushThreshold: 100_000 });
+  const handler = createTrackerRoutes(buffer);
+  const ctx = createCtx(
+    'GET',
+    '/v1/tags/tracker/tag-bot/click',
+    { url: 'https://example.com/landing' },
+    {},
+    { 'user-agent': 'Mozilla/5.0 Googlebot/2.1' },
+  );
+
+  const handled = await handler(ctx);
+
+  assert.equal(handled, true);
+  assert.equal(ctx.res.statusCode, 302);
+  assert.equal(ctx.res.headers.Location, 'https://example.com/landing');
+  assert.equal(buffer.pendingCount, 0);
+  await buffer.stop();
+});
+
+test('click route does not count prefetch requests', async () => {
+  const pool = createFakePool();
+  const buffer = new TrackerBuffer(pool, { flushIntervalMs: 60_000, flushThreshold: 100_000 });
+  const handler = createTrackerRoutes(buffer);
+  const ctx = createCtx(
+    'GET',
+    '/v1/tags/tracker/tag-prefetch/click',
+    { url: 'https://example.com/landing' },
+    {},
+    { 'sec-purpose': 'prefetch' },
+  );
+
+  const handled = await handler(ctx);
+
+  assert.equal(handled, true);
+  assert.equal(ctx.res.statusCode, 302);
+  assert.equal(buffer.pendingCount, 0);
+  await buffer.stop();
 });
 
 test('tracking context falls back to referer when DSP domain macros are unresolved', () => {

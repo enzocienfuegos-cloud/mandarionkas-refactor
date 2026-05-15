@@ -3,6 +3,9 @@ import { logWarn } from '../../../lib/logger.mjs';
 const CONNECTION_COLUMNS_CHECK_TTL_MS = 60_000;
 let connectionColumnsReady = false;
 let connectionColumnsCheckedAt = 0;
+const BASIS_MACRO_COLUMNS_CHECK_TTL_MS = 60_000;
+let basisMacroColumnsReady = false;
+let basisMacroColumnsCheckedAt = 0;
 
 async function hasConnectionColumns(pool) {
   if (connectionColumnsReady) return true;
@@ -34,6 +37,41 @@ async function hasConnectionColumns(pool) {
   }
 }
 
+async function hasBasisMacroColumns(pool) {
+  if (basisMacroColumnsReady) return true;
+
+  const now = Date.now();
+  if (basisMacroColumnsCheckedAt && now - basisMacroColumnsCheckedAt < BASIS_MACRO_COLUMNS_CHECK_TTL_MS) {
+    return false;
+  }
+  basisMacroColumnsCheckedAt = now;
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'impression_events'
+         AND column_name IN (
+           'auction_id',
+           'basis_ts',
+           'traffic_type',
+           'creative_type',
+           'dimensions',
+           'ifa',
+           'basis_campaign_id',
+           'basis_ad_id',
+           'source_site_id',
+           'domain'
+         )`,
+    );
+    basisMacroColumnsReady = Number(rows[0]?.count ?? 0) === 10;
+    return basisMacroColumnsReady;
+  } catch (_) {
+    return false;
+  }
+}
+
 export async function resolveTagWorkspaceId(pool, tagId) {
   if (!pool || !tagId) return null;
   try {
@@ -57,13 +95,16 @@ export function queueImpressionEventWrite(pool, payload) {
     appBundle, appName, pagePosition, contentLanguage, contentTitle, contentSeries,
     carrier, appStoreName, contentGenre, contextualIds, ipFingerprint,
     sfTz, sfLang, sfScr, sfTouch, sfMem, sfCpu,
-    connectionType, effectiveConnectionType, connectionDownlink, connectionRtt, connectionSaveData,
-    inferredContext,
-    siteDomain, referer,
-  } = payload;
+      connectionType, effectiveConnectionType, connectionDownlink, connectionRtt, connectionSaveData,
+      auctionId, basisTs, trafficType, creativeType, dimensions, ifa,
+      basisCampaignId, basisAdId, sourceSiteId, domain,
+      inferredContext,
+      siteDomain, referer,
+    } = payload;
 
-  (async () => {
-    const supportsConnectionColumns = await hasConnectionColumns(pool);
+    (async () => {
+      const supportsConnectionColumns = await hasConnectionColumns(pool);
+      const supportsBasisMacroColumns = await hasBasisMacroColumns(pool);
     const columns = [
       'tag_id', 'workspace_id', 'creative_id', 'creative_size_variant_id', 'ip', 'user_agent', 'country', 'region', 'city', 'site_domain', 'referer',
       'device_id', 'device_type', 'device_model', 'browser', 'os', 'network_id', 'source_publisher_id',
@@ -85,7 +126,7 @@ export function queueImpressionEventWrite(pool, payload) {
       sfMem || null, sfCpu || null,
     ];
 
-    if (supportsConnectionColumns) {
+      if (supportsConnectionColumns) {
       columns.push('connection_type', 'effective_connection_type', 'connection_downlink_mbps', 'connection_rtt_ms', 'connection_save_data');
       values.push(
         connectionType || null,
@@ -94,7 +135,34 @@ export function queueImpressionEventWrite(pool, payload) {
         connectionRtt || null,
         connectionSaveData !== null && connectionSaveData !== undefined ? connectionSaveData : null,
       );
-    }
+      }
+
+      if (supportsBasisMacroColumns) {
+        columns.push(
+          'auction_id',
+          'basis_ts',
+          'traffic_type',
+          'creative_type',
+          'dimensions',
+          'ifa',
+          'basis_campaign_id',
+          'basis_ad_id',
+          'source_site_id',
+          'domain',
+        );
+        values.push(
+          auctionId || null,
+          basisTs || null,
+          trafficType || null,
+          creativeType || null,
+          dimensions || null,
+          ifa || null,
+          basisCampaignId || null,
+          basisAdId || null,
+          sourceSiteId || null,
+          domain || null,
+        );
+      }
 
     columns.push('inferred_context');
     values.push(inferredContext || null);

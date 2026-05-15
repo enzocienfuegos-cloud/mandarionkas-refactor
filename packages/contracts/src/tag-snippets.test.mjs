@@ -67,6 +67,8 @@ test('displayHtmlUrl must carry DSP macros for Basis', () => {
   assert.ok(displayUrl.includes('cuu='), 'Basis display URL must carry click macro');
   assert.ok(displayUrl.includes('dsp=Basis'), 'Basis display URL must carry dsp param');
   assert.ok(displayUrl.includes('appid={appId}'), 'Basis display URL must carry app id macro for app inventory reporting');
+  assert.ok(displayUrl.includes('auction_id={auctionId}'), 'Basis display URL must carry auction id macro for reconciliation');
+  assert.ok(displayUrl.includes('click_invalid={clickInvalid}'), 'Basis display URL must carry click validity macro for click filtering');
 });
 
 test('displayHtmlUrl must carry DSP macros for TTD', () => {
