@@ -122,17 +122,29 @@ function paintScratchCover(
     return;
   }
 
-  const image = new Image();
-  image.crossOrigin = 'anonymous';
-  image.onload = () => {
+  const renderImage = (image: HTMLImageElement) => {
     ctx.clearRect(0, 0, width, height);
     ctx.filter = coverBlur > 0 ? `blur(${Math.max(0, coverBlur)}px)` : 'none';
     ctx.drawImage(image, 0, 0, width, height);
     ctx.filter = 'none';
     onReady?.();
   };
-  image.onerror = fallback;
-  image.src = coverImage;
+
+  const loadImage = (useCrossOrigin: boolean) => {
+    const image = new Image();
+    if (useCrossOrigin) image.crossOrigin = 'anonymous';
+    image.onload = () => renderImage(image);
+    image.onerror = () => {
+      if (useCrossOrigin) {
+        loadImage(false);
+        return;
+      }
+      fallback();
+    };
+    image.src = coverImage;
+  };
+
+  loadImage(true);
 }
 
 function eraseScratch(canvas: HTMLCanvasElement, x: number, y: number, radius: number): void {

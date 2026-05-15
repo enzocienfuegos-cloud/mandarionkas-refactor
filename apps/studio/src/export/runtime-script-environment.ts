@@ -150,18 +150,30 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
       return;
     }
 
-    const image = new Image();
-    image.crossOrigin = 'anonymous';
-    image.onload = () => {
+    function renderImage(image) {
       ctx.clearRect(0, 0, width, height);
       const blur = Math.max(0, Number(coverBlur || 0));
       ctx.filter = blur > 0 ? 'blur(' + blur + 'px)' : 'none';
       ctx.drawImage(image, 0, 0, width, height);
       ctx.filter = 'none';
       if (onReady) onReady();
-    };
-    image.onerror = fallback;
-    image.src = coverImage;
+    }
+
+    function loadImage(useCrossOrigin) {
+      const image = new Image();
+      if (useCrossOrigin) image.crossOrigin = 'anonymous';
+      image.onload = () => renderImage(image);
+      image.onerror = () => {
+        if (useCrossOrigin) {
+          loadImage(false);
+          return;
+        }
+        fallback();
+      };
+      image.src = coverImage;
+    }
+
+    loadImage(true);
   }
 
   function eraseScratch(canvas, x, y, radius) {
