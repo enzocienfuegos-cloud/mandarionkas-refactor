@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { assetHasSourceUrl, resolveAssetDeliveryUrl } from '../../assets/policy';
 import type { AssetRecord } from '../../assets/types';
+import { useStudioStore } from '../../core/store/use-studio-store';
 import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { usePlatformSnapshot } from '../../platform/runtime';
@@ -43,12 +45,13 @@ function useImageAssets(): AssetRecord[] {
 export function ImageInspector({ widget }: { widget: WidgetNode }): JSX.Element {
   const { updateWidgetProps } = useWidgetActions();
   const assets = useImageAssets();
+  const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
   const linkedAssetId = useMemo(() => {
     const explicitAssetId = String(widget.props.assetId ?? '').trim();
     if (explicitAssetId) return explicitAssetId;
     const currentSrc = String(widget.props.src ?? '').trim();
-    return assets.find((asset) => asset.src === currentSrc)?.id ?? '';
-  }, [assets, widget.props.assetId, widget.props.src]);
+    return assets.find((asset) => assetHasSourceUrl(asset, currentSrc, targetChannel))?.id ?? '';
+  }, [assets, targetChannel, widget.props.assetId, widget.props.src]);
 
   return (
     <section className="section section-premium">
@@ -72,7 +75,12 @@ export function ImageInspector({ widget }: { widget: WidgetNode }): JSX.Element 
                 updateWidgetProps(
                   widget.id,
                   asset
-                    ? { assetId: asset.id, src: asset.src, alt: asset.name }
+                    ? {
+                        assetId: asset.id,
+                        src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+                        assetQualityPreference: asset.qualityPreference ?? 'auto',
+                        alt: asset.name,
+                      }
                     : { assetId: '', src: '' },
                 );
               }}

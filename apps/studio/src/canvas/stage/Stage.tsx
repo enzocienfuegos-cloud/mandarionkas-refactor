@@ -21,6 +21,7 @@ import { getLiveWidgetFrame } from '../../domain/document/timeline';
 import { useDocumentActions } from '../../hooks/use-studio-actions';
 import { getCapability } from '../../widgets/registry/widget-definition';
 import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
+import { widgetAcceptsAssetSwap } from '../../app/shell/left-rail/asset-controller-helpers';
 import {
   isStageInteractiveOverlayTarget,
   isStageWidgetTarget,
@@ -227,7 +228,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
   const { beginToolbarDrag, endToolbarDrag, onToolbarPointerMove, toolbarStyle } = useStageToolbarDrag(workspaceViewport, toolbarBounds);
 
   const openAssetPicker = (widget: WidgetNode) => {
-    if (!getCapability(getWidgetDefinition(widget.type), 'acceptsAssetSwap')) return;
+    if (!widgetAcceptsAssetSwap(widget)) return;
     widgetActions.setActiveWidget(widget.id);
     onOpenAssetLibrary();
   };

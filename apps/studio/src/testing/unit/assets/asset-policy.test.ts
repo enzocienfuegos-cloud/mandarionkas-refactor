@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assetViolatesChannelPolicy, getAssetOptimizationPolicy, resolveAssetDeliveryUrl, resolveAssetQualityPreference, selectAssetDerivative } from '../../../assets/policy';
+import { assetHasSourceUrl, assetViolatesChannelPolicy, getAssetOptimizationPolicy, resolveAssetDeliveryUrl, resolveAssetQualityPreference, selectAssetDerivative } from '../../../assets/policy';
 import type { AssetRecord } from '../../../assets/types';
 
 function buildImageAsset(): AssetRecord {
@@ -63,6 +63,13 @@ describe('asset policy', () => {
     expect(selectAssetDerivative(image, 'mraid')?.src).toContain('hero-low');
     expect(resolveAssetDeliveryUrl(image, 'generic-html5')).toContain('hero-mid');
     expect(resolveAssetDeliveryUrl(image, 'generic-html5', 'high')).toContain('hero-high');
+  });
+
+  it('matches stored widget sources against delivery and original asset urls', () => {
+    const image = buildImageAsset();
+    expect(assetHasSourceUrl(image, 'https://cdn.example.com/hero-mid.webp', 'generic-html5')).toBe(true);
+    expect(assetHasSourceUrl(image, 'https://cdn.example.com/original.jpg', 'generic-html5')).toBe(true);
+    expect(assetHasSourceUrl(image, 'https://cdn.example.com/unknown.jpg', 'generic-html5')).toBe(false);
   });
 
   it('flags assets that violate channel budgets', () => {

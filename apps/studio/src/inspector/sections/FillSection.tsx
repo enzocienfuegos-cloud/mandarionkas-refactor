@@ -1,10 +1,12 @@
 import { ColorControl } from '../../shared/ui/ColorControl';
 import { useEffect, useMemo, useState } from 'react';
+import { assetHasSourceUrl, resolveAssetDeliveryUrl } from '../../assets/policy';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import type { AssetRecord } from '../../assets/types';
 import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
+import { useStudioStore } from '../../core/store/use-studio-store';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { Button } from '../../shared/ui/Button';
 import { getCapability } from '../../widgets/registry/widget-definition';
@@ -19,6 +21,7 @@ function hasAny(keys: Set<string>, targets: string[]): boolean {
 export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
   const widgetActions = useWidgetActions();
   const platform = usePlatformSnapshot();
+  const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
   const {
     baseWidget,
     inheritedSharedBaseWidget,
@@ -63,6 +66,12 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
     () => assets.filter((asset) => (acceptsVideoAsset ? asset.kind === 'video' : acceptsImageAsset ? asset.kind === 'image' : false)),
     [acceptsImageAsset, acceptsVideoAsset, assets],
   );
+  const linkedAssetId = useMemo(() => {
+    const explicitAssetId = String(widget.props.assetId ?? '').trim();
+    if (explicitAssetId) return explicitAssetId;
+    const currentSrc = String(widget.props.src ?? '').trim();
+    return eligibleAssets.find((asset) => assetHasSourceUrl(asset, currentSrc, targetChannel))?.id ?? '';
+  }, [eligibleAssets, targetChannel, widget.props.assetId, widget.props.src]);
   const resetTarget = isSharedLayerClone ? inheritedSharedBaseWidget : baseWidget;
   const hasFillSectionOverride = hasAny(localVariantStyleOverrideKeys, ['backgroundColor', 'accentColor', 'fit'])
     || hasAny(localVariantPropsOverrideKeys, ['src', 'assetId', 'alt', 'posterSrc'])
@@ -167,13 +176,19 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
               }))}
             </label>
             <div className="asset-inline-actions">
-              <select value={String(widget.props.assetId ?? '')} onChange={(event) => {
+              <select value={linkedAssetId} onChange={(event) => {
               const assetId = event.target.value;
               const asset = eligibleAssets.find((item) => item.id === assetId);
               widgetActions.updateWidgetProps(
                 widget.id,
                 asset
-                  ? { assetId: asset.id, src: asset.src, alt: asset.name, posterSrc: asset.posterSrc ?? widget.props.posterSrc }
+                  ? {
+                      assetId: asset.id,
+                      src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+                      assetQualityPreference: asset.qualityPreference ?? 'auto',
+                      alt: asset.name,
+                      posterSrc: asset.derivatives?.poster?.src ?? asset.posterSrc ?? widget.props.posterSrc,
+                    }
                   : { assetId: '', src: '' },
               );
             }}>

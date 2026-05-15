@@ -5,6 +5,7 @@ import { SurfaceButton } from '../../../shared/ui/SurfaceButton';
 import { Tooltip } from '../../../shared/ui/Tooltip';
 import { getCapability } from '../../../widgets/registry/widget-definition';
 import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
+import { widgetAcceptsAssetSwap } from '../../../app/shell/left-rail/asset-controller-helpers';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 
 type StageSelectionToolbarProps = {
@@ -58,8 +59,7 @@ function IconButton({ label, danger = false, disabled = false, placeholder = fal
 }
 
 function supportsMediaAssetLibrary(widget: WidgetNode): boolean {
-  const definition = getWidgetDefinition(widget.type);
-  return Boolean(getCapability(definition, 'acceptsImageAsset') || getCapability(definition, 'acceptsVideoAsset'));
+  return widgetAcceptsAssetSwap(widget);
 }
 
 export const StageSelectionToolbar = forwardRef<HTMLDivElement, StageSelectionToolbarProps>(function StageSelectionToolbar({

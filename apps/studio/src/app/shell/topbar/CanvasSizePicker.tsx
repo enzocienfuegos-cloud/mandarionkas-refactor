@@ -71,7 +71,6 @@ export function CanvasSizePicker({
   function applyCustomSize(): void {
     const nextWidth = Math.max(1, Number(draftWidth) || width);
     const nextHeight = Math.max(1, Number(draftHeight) || height);
-    onPresetChange('custom');
     onCustomSize(nextWidth, nextHeight);
   }
 
