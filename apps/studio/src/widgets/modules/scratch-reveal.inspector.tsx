@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { assetHasSourceUrl, resolveAssetDeliveryUrl } from '../../assets/policy';
 import type { WidgetNode } from '../../domain/document/types';
 import type { AssetRecord } from '../../assets/types';
+import { useStudioStore } from '../../core/store/use-studio-store';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { usePlatformSnapshot } from '../../platform/runtime';
@@ -11,6 +13,7 @@ import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.Element {
   const widgetActions = useWidgetActions();
   const platform = usePlatformSnapshot();
+  const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
   const [assets, setAssets] = useState<AssetRecord[]>([]);
 
   useEffect(() => {
@@ -37,10 +40,10 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
   }, [platform.session.isAuthenticated, platform.session.sessionId]);
 
   const linkedBeforeAssetId = String(widget.props.beforeAssetId ?? '').trim()
-    || assets.find((asset) => asset.src === String(widget.props.beforeImage ?? '').trim())?.id
+    || assets.find((asset) => assetHasSourceUrl(asset, String(widget.props.beforeImage ?? '').trim(), targetChannel))?.id
     || '';
   const linkedAfterAssetId = String(widget.props.afterAssetId ?? '').trim()
-    || assets.find((asset) => asset.src === String(widget.props.afterImage ?? '').trim())?.id
+    || assets.find((asset) => assetHasSourceUrl(asset, String(widget.props.afterImage ?? '').trim(), targetChannel))?.id
     || '';
 
   return (
@@ -66,7 +69,10 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
             widgetActions.updateWidgetProps(
               widget.id,
               asset
-                ? { beforeAssetId: asset.id, beforeImage: asset.src }
+                ? {
+                    beforeAssetId: asset.id,
+                    beforeImage: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+                  }
                 : { beforeAssetId: '', beforeImage: '' },
             );
           }}>
@@ -81,7 +87,10 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
             widgetActions.updateWidgetProps(
               widget.id,
               asset
-                ? { afterAssetId: asset.id, afterImage: asset.src }
+                ? {
+                    afterAssetId: asset.id,
+                    afterImage: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+                  }
                 : { afterAssetId: '', afterImage: '' },
             );
           }}>

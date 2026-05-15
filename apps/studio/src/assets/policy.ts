@@ -125,6 +125,32 @@ export function resolveAssetDeliveryUrl(
   return derived?.src ?? asset.optimizedUrl ?? asset.publicUrl ?? asset.src;
 }
 
+export function assetHasSourceUrl(
+  asset: AssetRecord,
+  sourceUrl: string,
+  targetChannel: ReleaseTarget,
+  preferredQuality: AssetQualityPreference = asset.qualityPreference ?? 'auto',
+): boolean {
+  const normalized = sourceUrl.trim();
+  if (!normalized) return false;
+
+  const candidates = new Set([
+    resolveAssetDeliveryUrl(asset, targetChannel, preferredQuality),
+    asset.optimizedUrl,
+    asset.publicUrl,
+    asset.src,
+    asset.posterSrc,
+    asset.derivatives?.original?.src,
+    asset.derivatives?.low?.src,
+    asset.derivatives?.mid?.src,
+    asset.derivatives?.high?.src,
+    asset.derivatives?.thumbnail?.src,
+    asset.derivatives?.poster?.src,
+  ].map((value) => value?.trim()).filter(Boolean));
+
+  return candidates.has(normalized);
+}
+
 export function assetViolatesChannelPolicy(asset: AssetRecord, targetChannel: ReleaseTarget): string[] {
   const policy = getAssetOptimizationPolicy(targetChannel);
   const issues: string[] = [];
