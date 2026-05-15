@@ -102,6 +102,10 @@ function addTagScopeFilters(params, conditions, alias, campaignId, tagIds, adver
 function addImpressionScopeFilters(params, conditions, tagAlias, eventAlias, campaignId, tagIds, advertiserId = '') {
   conditions.push(`${tagAlias}.workspace_id = ${eventAlias}.workspace_id`);
   conditions.push(`${tagAlias}.id = ${eventAlias}.tag_id`);
+  conditions.push(`NOT (
+    COALESCE(${eventAlias}.source_site_id, '') = '12345'
+    OR COALESCE(${eventAlias}.referer, '') ILIKE '%sitescout.com/test%'
+  )`);
   if (campaignId) {
     params.push(campaignId);
     conditions.push(`${tagAlias}.campaign_id = $${params.length}`);
@@ -1545,6 +1549,10 @@ export async function getWorkspaceAppBreakdown(pool, workspaceId, opts = {}) {
                OR COALESCE(ie_match.app_bundle, '') <> ''
                OR COALESCE(ie_match.app_id, '') <> ''
              )
+             AND NOT (
+               COALESCE(ie_match.source_site_id, '') = '12345'
+               OR COALESCE(ie_match.referer, '') ILIKE '%sitescout.com/test%'
+             )
            ORDER BY ie_match.timestamp DESC
            LIMIT 1
          ) latest_impression ON true
@@ -1797,6 +1805,10 @@ async function getWorkspaceAllocatedCreativeRows(pool, workspaceId, opts = {}) {
         AND sd.date = (ie.timestamp AT TIME ZONE ${timezoneRef})::date
        WHERE ie.workspace_id = $1
          AND COALESCE(ie.creative_id, '') <> ''
+         AND NOT (
+           COALESCE(ie.source_site_id, '') = '12345'
+           OR COALESCE(ie.referer, '') ILIKE '%sitescout.com/test%'
+         )
        GROUP BY ie.tag_id, (ie.timestamp AT TIME ZONE ${timezoneRef})::date, ie.creative_id, COALESCE(ie.creative_size_variant_id, '')
      ),
      exact_impression_totals AS (
@@ -1823,6 +1835,10 @@ async function getWorkspaceAllocatedCreativeRows(pool, workspaceId, opts = {}) {
         AND sd.date = (ce.timestamp AT TIME ZONE ${timezoneRef})::date
        WHERE ce.workspace_id = $1
          AND COALESCE(ce.creative_id, '') <> ''
+         AND NOT (
+           COALESCE(ce.source_site_id, '') = '12345'
+           OR COALESCE(ce.referer, '') ILIKE '%sitescout.com/test%'
+         )
        GROUP BY ce.tag_id, (ce.timestamp AT TIME ZONE ${timezoneRef})::date, ce.creative_id, COALESCE(ce.creative_size_variant_id, '')
      ),
      exact_click_totals AS (
