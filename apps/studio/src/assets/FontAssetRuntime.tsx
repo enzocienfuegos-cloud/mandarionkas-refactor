@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
 import { listAssets } from '../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../repositories/asset/events';
-import type { AssetRecord } from './types';
 import { usePlatformSnapshot } from '../platform/runtime';
-import { buildFontAssetCss, resolveFontAssetFamily } from './font-family';
+import { buildFontAssetCss } from './font-family';
 
 export function FontAssetRuntime(): JSX.Element | null {
   const platform = usePlatformSnapshot();

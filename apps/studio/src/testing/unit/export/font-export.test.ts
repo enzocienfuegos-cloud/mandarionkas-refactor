@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../../../domain/document/factories';
 import { buildPortableProjectExport } from '../../../export/portable';
 import { renderTextExport } from '../../../widgets/registry/base-exporters';
+import { buildFontAssetCss, resolveFontAssetFamily } from '../../../assets/font-family';
 
 describe('font export support', () => {
   it('includes font-family in exported text widget styles', () => {
@@ -73,5 +74,29 @@ describe('font export support', () => {
     const portable = buildPortableProjectExport(state);
 
     expect(portable.assets.some((asset) => asset.kind === 'font' && asset.src === 'https://cdn.example.com/headline-sans.woff2')).toBe(true);
+  });
+
+  it('emits backward-compatible font-family aliases for runtime font loading', () => {
+    const css = buildFontAssetCss({
+      id: 'asset-font-1',
+      name: 'Headline Sans',
+      kind: 'font',
+      src: 'https://cdn.example.com/headline-sans.woff2',
+      publicUrl: 'https://cdn.example.com/headline-sans.woff2',
+      createdAt: '2026-05-15T12:00:00.000Z',
+      fontFamily: 'Headline Sans',
+    } as any);
+
+    expect(css).toContain(`font-family:"${resolveFontAssetFamily({
+      id: 'asset-font-1',
+      name: 'Headline Sans',
+      kind: 'font',
+      src: 'https://cdn.example.com/headline-sans.woff2',
+      publicUrl: 'https://cdn.example.com/headline-sans.woff2',
+      createdAt: '2026-05-15T12:00:00.000Z',
+      fontFamily: 'Headline Sans',
+    } as any)}"`);
+    expect(css).toContain('font-family:"SMX_Headline_Sans_assetf"');
+    expect(css).toContain('font-family:"SMX_Headline_Sans_asset-"');
   });
 });

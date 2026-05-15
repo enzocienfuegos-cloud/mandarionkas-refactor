@@ -164,7 +164,7 @@ export function assignAssetToWidget({
   }
 
   if (getCapability(definition, 'acceptsFontAsset')) {
-    widgetActions.updateWidgetProps(primaryWidget.id, { fontAssetId: asset.id, fontAssetSrc: asset.src });
+    widgetActions.updateWidgetProps(primaryWidget.id, { fontAssetId: asset.id, fontAssetSrc: asset.publicUrl ?? asset.src });
     widgetActions.updateWidgetStyle(primaryWidget.id, { fontFamily: resolveFontAssetFamily(asset) });
   }
 }
