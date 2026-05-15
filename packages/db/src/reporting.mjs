@@ -258,6 +258,36 @@ function addIdentityBreakdownFilters(params, conditions, alias, opts = {}) {
   }
 }
 
+async function getWorkspaceRawCampaignSpendBreakdown(pool, workspaceId, opts = {}) {
+  const { dateFrom, dateTo, advertiserId = '', campaignId = '', tagIds: rawTagIds = [], tagId = '', channel = '' } = opts;
+  const tagIds = normalizeIdList(rawTagIds.length ? rawTagIds : tagId);
+  const params = [workspaceId];
+  const conditions = ['ie.workspace_id = $1'];
+  addImpressionScopeFilters(params, conditions, 't', 'ie', campaignId, tagIds, advertiserId);
+  addTagChannelFilter(conditions, 't', channel);
+  addTimestampFilters(params, conditions, 'ie', dateFrom, dateTo, opts.timezone);
+
+  const { rows } = await pool.query(
+    `SELECT
+       c.id,
+       c.name,
+       c.status,
+       c.budget,
+       c.impression_goal,
+       c.metadata AS campaign_metadata,
+       COUNT(*)::bigint AS impressions,
+       0::numeric AS spend
+     FROM impression_events ie
+     JOIN ad_tags t ON t.id = ie.tag_id
+     LEFT JOIN campaigns c ON c.id = t.campaign_id AND c.workspace_id = t.workspace_id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY c.id, c.name, c.status, c.budget, c.impression_goal, c.metadata`,
+    params,
+  );
+
+  return rows.map((row) => withSpendMetrics(row));
+}
+
 function identityKeyExpression(alias) {
   return `COALESCE(
     NULLIF(
@@ -841,25 +871,48 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
       summaryParams,
     );
   } else {
-    const summaryConditions = ['t.workspace_id = $1'];
-    addTagScopeFilters(summaryParams, summaryConditions, 't', campaignId, tagIds, advertiserId);
+    const summaryConditions = ['ie.workspace_id = $1'];
+    addImpressionScopeFilters(summaryParams, summaryConditions, 't', 'ie', campaignId, tagIds, advertiserId);
     addTagChannelFilter(summaryConditions, 't', channel);
-    addDateFilters(summaryParams, summaryConditions, 'ds', dateFrom, dateTo);
+    addTimestampFilters(summaryParams, summaryConditions, 'ie', dateFrom, dateTo, opts.timezone);
+
+    summaryParams.push(workspaceId);
+    const clickWorkspaceRef = `$${summaryParams.length}`;
+    const clickConditions = [`ce.workspace_id = ${clickWorkspaceRef}`];
+    addImpressionScopeFilters(summaryParams, clickConditions, 't_click', 'ce', campaignId, tagIds, advertiserId);
+    addTagChannelFilter(clickConditions, 't_click', channel);
+    addTimestampFilters(summaryParams, clickConditions, 'ce', dateFrom, dateTo, opts.timezone);
 
     summaryQuery = pool.query(
-      `SELECT
-         COALESCE(SUM(ds.impressions), 0)::bigint AS total_impressions,
-         COALESCE(SUM(ds.clicks), 0)::bigint AS total_clicks,
-         COALESCE(SUM(ds.spend), 0) AS total_spend,
-         CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
-           THEN ROUND(COALESCE(SUM(ds.clicks), 0)::NUMERIC / SUM(ds.impressions) * 100, 4)
+      `WITH impressions AS (
+         SELECT
+           COUNT(*)::bigint AS total_impressions,
+           COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::bigint AS viewable_imps,
+           COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0)::bigint AS measured_imps
+         FROM impression_events ie
+         JOIN ad_tags t ON t.id = ie.tag_id
+         WHERE ${summaryConditions.join(' AND ')}
+       ),
+       clicks AS (
+         SELECT COUNT(*)::bigint AS total_clicks
+         FROM click_events ce
+         JOIN ad_tags t_click ON t_click.id = ce.tag_id
+         WHERE ${clickConditions.join(' AND ')}
+       )
+       SELECT
+         COALESCE(i.total_impressions, 0)::bigint AS total_impressions,
+         COALESCE(c.total_clicks, 0)::bigint AS total_clicks,
+         0::numeric AS total_spend,
+         COALESCE(i.viewable_imps, 0)::bigint AS viewable_imps,
+         COALESCE(i.measured_imps, 0)::bigint AS measured_imps,
+         CASE WHEN COALESCE(i.total_impressions, 0) > 0
+           THEN ROUND(COALESCE(c.total_clicks, 0)::NUMERIC / i.total_impressions * 100, 4)
            ELSE 0 END AS avg_ctr,
-         CASE WHEN COALESCE(SUM(ds.impressions), 0) > 0
-           THEN 100
+         CASE WHEN COALESCE(i.total_impressions, 0) > 0
+           THEN ROUND(COALESCE(i.measured_imps, 0)::NUMERIC / i.total_impressions * 100, 4)
            ELSE 0 END AS measurable_rate
-       FROM tag_daily_stats ds
-       JOIN ad_tags t ON t.id = ds.tag_id
-       WHERE ${summaryConditions.join(' AND ')}`,
+       FROM impressions i
+       CROSS JOIN clicks c`,
       summaryParams,
     );
   }
@@ -983,7 +1036,15 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   const frequency = frequencyRes.rows[0] ?? {};
   const activeCampaigns = activeCampaignsRes.rows[0] ?? {};
   const activeTags = activeTagsRes.rows[0] ?? {};
-  const spendTotals = spendBreakdown.reduce((accumulator, row) => ({
+  const totalImpressions = Number(summary.total_impressions ?? 0);
+  const aggregateSpendTotal = spendBreakdown.reduce(
+    (sum, row) => sum + Number(row.spend_without_margin ?? row.spend ?? 0),
+    0,
+  );
+  const spendRows = aggregateSpendTotal > 0 || totalImpressions <= 0
+    ? spendBreakdown
+    : await getWorkspaceRawCampaignSpendBreakdown(pool, workspaceId, opts);
+  const spendTotals = spendRows.reduce((accumulator, row) => ({
     mediaSpend: accumulator.mediaSpend + Number(row.media_spend ?? 0),
     servingFeeSpend: accumulator.servingFeeSpend + Number(row.serving_fee_spend ?? 0),
     marginSpend: accumulator.marginSpend + Number(row.margin_spend ?? 0),
@@ -996,7 +1057,6 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     spendWithoutMargin: 0,
     spendWithMargin: 0,
   });
-  const totalImpressions = Number(summary.total_impressions ?? 0);
   const videoStarts = Number(engagement.video_starts ?? 0);
   const videoCompletions = Number(engagement.video_completions ?? 0);
   const viewableCount = Math.min(
