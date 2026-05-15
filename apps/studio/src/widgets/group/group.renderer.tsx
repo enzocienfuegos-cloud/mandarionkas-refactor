@@ -142,51 +142,65 @@ function renderDefaultGroup(node: WidgetNode, ctx: RenderContext): JSX.Element {
   );
 }
 
+function renderScratchCoverNode(
+  node: WidgetNode,
+  rootFrame: WidgetNode['frame'],
+  ctx: RenderContext,
+  visited = new Set<string>(),
+): JSX.Element[] {
+  if (visited.has(node.id) || !isWidgetVisibleAt(node, ctx.playheadMs)) return [];
+  visited.add(node.id);
+
+  if (node.type === 'group' && node.childIds?.length) {
+    return node.childIds
+      .map((childId) => ctx.widgetsById[childId])
+      .filter((child): child is WidgetNode => Boolean(child))
+      .sort((left, right) => left.zIndex - right.zIndex)
+      .flatMap((child) => renderScratchCoverNode(child, rootFrame, ctx, visited));
+  }
+
+  const liveFrame = getLiveWidgetFrame(node, ctx.playheadMs);
+  const childOpacity = getLiveWidgetOpacity(node, ctx.playheadMs);
+  return [
+    (
+      <div
+        key={node.id}
+        style={{
+          position: 'absolute',
+          left: liveFrame.x - rootFrame.x,
+          top: liveFrame.y - rootFrame.y,
+          width: liveFrame.width,
+          height: liveFrame.height,
+          opacity: childOpacity,
+          zIndex: node.zIndex,
+          transform: `rotate(${liveFrame.rotation}deg)`,
+          transformOrigin: 'center',
+          pointerEvents: 'none',
+        }}
+      >
+        {renderWidgetContents(
+          node,
+          {
+            ...ctx,
+            hovered: false,
+            active: false,
+          },
+        )}
+      </div>
+    ),
+  ];
+}
+
 function GroupScratchCoverChildren({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element | null {
   const childWidgets = (node.childIds ?? [])
     .map((childId) => ctx.widgetsById[childId])
     .filter((child): child is WidgetNode => Boolean(child))
-    .filter((child) => isWidgetVisibleAt(child, ctx.playheadMs))
     .sort((left, right) => left.zIndex - right.zIndex);
 
-  if (!childWidgets.length) return null;
+  const scratchNodes = childWidgets.flatMap((child) => renderScratchCoverNode(child, node.frame, ctx));
+  if (!scratchNodes.length) return null;
 
-  return (
-    <>
-      {childWidgets.map((child) => {
-        const liveFrame = getLiveWidgetFrame(child, ctx.playheadMs);
-        const relativeLeft = liveFrame.x - node.frame.x;
-        const relativeTop = liveFrame.y - node.frame.y;
-        const childOpacity = getLiveWidgetOpacity(child, ctx.playheadMs);
-        return (
-          <div
-            key={child.id}
-            style={{
-              position: 'absolute',
-              left: relativeLeft,
-              top: relativeTop,
-              width: liveFrame.width,
-              height: liveFrame.height,
-              opacity: childOpacity,
-              zIndex: child.zIndex,
-              transform: `rotate(${liveFrame.rotation}deg)`,
-              transformOrigin: 'center',
-              pointerEvents: 'none',
-            }}
-          >
-            {renderWidgetContents(
-              child,
-              {
-                ...ctx,
-                hovered: false,
-                active: false,
-              },
-            )}
-          </div>
-        );
-      })}
-    </>
-  );
+  return <>{scratchNodes}</>;
 }
 
 function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {

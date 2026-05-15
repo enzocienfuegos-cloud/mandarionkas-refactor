@@ -11,36 +11,60 @@ function renderGroupScratchChildren(
   baseFrame: WidgetNode['frame'],
 ): string {
   const resolvedWidgets = buildResolvedWidgetsById(state.document);
-  const children = (node.childIds ?? [])
-    .map((childId) => resolvedWidgets[childId])
-    .filter((child): child is WidgetNode => Boolean(child))
-    .filter((child) => !child.hidden)
-    .sort((left, right) => left.zIndex - right.zIndex);
+  function renderNodeTree(current: WidgetNode, visited = new Set<string>()): string[] {
+    if (visited.has(current.id) || current.hidden) return [];
+    visited.add(current.id);
 
-  return children.map((child) => {
+    if (current.type === 'group' && current.childIds?.length) {
+      return current.childIds
+        .map((childId) => resolvedWidgets[childId])
+        .filter((child): child is WidgetNode => Boolean(child))
+        .sort((left, right) => left.zIndex - right.zIndex)
+        .flatMap((child) => renderNodeTree(child, visited));
+    }
+
     const relativeChild: WidgetNode = {
-      ...child,
+      ...current,
       frame: {
-        ...child.frame,
-        x: child.frame.x - baseFrame.x,
-        y: child.frame.y - baseFrame.y,
+        ...current.frame,
+        x: current.frame.x - baseFrame.x,
+        y: current.frame.y - baseFrame.y,
       },
     };
     const definition = getWidgetDefinition(relativeChild.type);
     if (definition.renderExport) {
-      return definition.renderExport(relativeChild, state, assetPathMap);
+      return [definition.renderExport(relativeChild, state, assetPathMap)];
     }
-    return renderGenericExport(relativeChild, relativeChild.name, relativeChild.type);
-  }).join('\n');
+    return [renderGenericExport(relativeChild, relativeChild.name, relativeChild.type)];
+  }
+
+  return (node.childIds ?? [])
+    .map((childId) => resolvedWidgets[childId])
+    .filter((child): child is WidgetNode => Boolean(child))
+    .sort((left, right) => left.zIndex - right.zIndex)
+    .flatMap((child) => renderNodeTree(child))
+    .join('\n');
 }
 
 function resolveScratchGroupExportFrame(node: WidgetNode, state: StudioState): WidgetNode['frame'] {
   const resolvedWidgets = buildResolvedWidgetsById(state.document);
   const baseFrame = node.frame;
+  function collectFrames(current: WidgetNode, visited = new Set<string>()): WidgetNode['frame'][] {
+    if (visited.has(current.id) || current.hidden) return [];
+    visited.add(current.id);
+    if (current.type === 'group' && current.childIds?.length) {
+      return current.childIds
+        .map((childId) => resolvedWidgets[childId])
+        .filter((child): child is WidgetNode => Boolean(child))
+        .flatMap((child) => collectFrames(child, visited));
+    }
+    return [current.frame];
+  }
+
   const childFrames = (node.childIds ?? [])
     .map((childId) => resolvedWidgets[childId])
-    .filter((child): child is WidgetNode => Boolean(child) && !child.hidden)
-    .map((child) => child.frame);
+    .filter((child): child is WidgetNode => Boolean(child))
+    .flatMap((child) => collectFrames(child));
 
   if (!childFrames.length) return baseFrame;
 
