@@ -70,7 +70,9 @@ export function sortAssets(assets: AssetRecord[], mode: AssetSortMode): AssetRec
 
 export function widgetAcceptsAssetSwap(primaryWidget: WidgetNode | undefined): boolean {
   return primaryWidget
-    ? primaryWidget.type === 'scratch-reveal' || Boolean(getCapability(getWidgetDefinition(primaryWidget.type), 'acceptsAssetSwap'))
+    ? primaryWidget.type === 'scratch-reveal'
+      || (primaryWidget.type === 'group' && Boolean(primaryWidget.props.scratchEnabled))
+      || Boolean(getCapability(getWidgetDefinition(primaryWidget.type), 'acceptsAssetSwap'))
     : false;
 }
 
@@ -90,7 +92,8 @@ export function assignAssetToWidget({
   if (!primaryWidget) return;
   const definition = getWidgetDefinition(primaryWidget.type);
   const supportsScratchRevealImage = primaryWidget.type === 'scratch-reveal' && asset.kind === 'image';
-  if (!supportsScratchRevealImage && !acceptsAssetKind(definition, asset.kind as 'image' | 'video' | 'font')) return;
+  const supportsScratchGroupImage = primaryWidget.type === 'group' && Boolean(primaryWidget.props.scratchEnabled) && asset.kind === 'image';
+  if (!supportsScratchRevealImage && !supportsScratchGroupImage && !acceptsAssetKind(definition, asset.kind as 'image' | 'video' | 'font')) return;
 
   const resolvedSrc = resolveAssetPreviewUrl(asset);
   if (primaryWidget.type === 'scratch-reveal') {
@@ -101,6 +104,15 @@ export function assignAssetToWidget({
       : !currentBefore
         ? { beforeAssetId: asset.id, beforeImage: resolvedSrc }
         : { afterAssetId: asset.id, afterImage: resolvedSrc });
+    return;
+  }
+
+  if (primaryWidget.type === 'group' && supportsScratchGroupImage) {
+    widgetActions.updateWidgetProps(primaryWidget.id, {
+      scratchCoverAssetId: asset.id,
+      beforeAssetId: asset.id,
+      beforeImage: resolvedSrc,
+    });
     return;
   }
 

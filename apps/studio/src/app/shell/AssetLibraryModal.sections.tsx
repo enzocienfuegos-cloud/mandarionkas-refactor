@@ -193,8 +193,16 @@ export function AssetLibraryToolbar({
   function applyTargetedAsset(asset: AssetRecord | undefined): boolean {
     if (!asset || asset.kind !== 'image') return false;
     const primaryWidget = assetController.primaryWidget;
-    if (primaryWidget?.type !== 'scratch-reveal') return false;
     const resolvedSrc = assetController.resolveAssetPreviewUrl(asset);
+    if (primaryWidget?.type === 'group' && request?.target === 'group-scratch-cover') {
+      assetController.widgetActions.updateWidgetProps(primaryWidget.id, {
+        scratchCoverAssetId: asset.id,
+        beforeAssetId: asset.id,
+        beforeImage: resolvedSrc,
+      });
+      return true;
+    }
+    if (primaryWidget?.type !== 'scratch-reveal') return false;
     if (request?.target === 'scratch-cover') {
       assetController.widgetActions.updateWidgetProps(primaryWidget.id, {
         beforeAssetId: asset.id,
@@ -439,8 +447,16 @@ export function AssetLibraryFilesSection({
   function applyTargetedAsset(asset: AssetRecord): boolean {
     if (asset.kind !== 'image') return false;
     const primaryWidget = assetController.primaryWidget;
-    if (primaryWidget?.type !== 'scratch-reveal') return false;
     const resolvedSrc = assetController.resolveAssetPreviewUrl(asset);
+    if (primaryWidget?.type === 'group' && request?.target === 'group-scratch-cover') {
+      assetController.widgetActions.updateWidgetProps(primaryWidget.id, {
+        scratchCoverAssetId: asset.id,
+        beforeAssetId: asset.id,
+        beforeImage: resolvedSrc,
+      });
+      return true;
+    }
+    if (primaryWidget?.type !== 'scratch-reveal') return false;
     if (request?.target === 'scratch-cover') {
       assetController.widgetActions.updateWidgetProps(primaryWidget.id, {
         beforeAssetId: asset.id,

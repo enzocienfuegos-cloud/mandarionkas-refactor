@@ -1,8 +1,10 @@
+import { createElement } from 'react';
 import { createId } from '../../domain/document/factories';
 import { renderGroupWidget } from './group.renderer';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
-import { renderGenericExport } from '../registry/export-helpers';
 import { GroupThumb } from '../registry/widget-thumbnails';
+import { GroupInspector } from './group.inspector';
+import { renderGroupExport } from './group.export';
 
 export const groupDefinition: WidgetDefinition = {
   type: 'group',
@@ -16,7 +18,17 @@ export const groupDefinition: WidgetDefinition = {
     sceneId,
     zIndex,
     frame: { x: 80, y: 80, width: 240, height: 160, rotation: 0 },
-    props: { title: 'Group' },
+    props: {
+      title: 'Group',
+      scratchEnabled: false,
+      coverLabel: 'Scratch to reveal',
+      beforeImage: '',
+      beforeAssetId: '',
+      scratchCoverAssetId: '',
+      coverBlur: 0,
+      scratchRadius: 22,
+      autoRevealThresholdPercent: 10,
+    },
     style: { backgroundColor: 'transparent', accentColor: '#8b5cf6', color: '#ffffff' },
     timeline: { startMs: 0, endMs: 15000 },
     childIds: [],
@@ -27,7 +39,7 @@ export const groupDefinition: WidgetDefinition = {
     { id: 'behavior', label: 'Behavior', panels: ['conditions', 'actions', 'states', 'keyframes'] },
   ]),
   inspectorTitle: 'Group settings',
-  inspectorFields: [{ key: 'title', label: 'Title' }],
+  renderInspector: (widget) => createElement(GroupInspector, { widget }),
   capabilities: {
     hasAccentColor: true,
     exposesActions: true,
@@ -35,6 +47,6 @@ export const groupDefinition: WidgetDefinition = {
     hasTitleVariant: true,
   },
   renderStage: renderGroupWidget,
-  renderExport: (node) => renderGenericExport(node, node.name, 'Group'),
+  renderExport: (node) => renderGroupExport(node),
   renderLabel: (node) => node.name,
 };

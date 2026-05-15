@@ -66,7 +66,7 @@ export function analyzeRuntimeCapabilities(document: PortableExportProject): Run
     widget.interactions.some((interaction) => !interaction.disabled && INTERACTIVE_ACTION_TYPES.has(interaction.type)),
   ) || document.interactions.some((interaction) => !interaction.disabled && INTERACTIVE_ACTION_TYPES.has(interaction.type));
   const hasWeather = widgets.some((widget) => WEATHER_WIDGET_TYPES.has(widget.type));
-  const hasScratchReveal = widgets.some((widget) => SCRATCH_WIDGET_TYPES.has(widget.type));
+  const hasScratchReveal = widgets.some((widget) => SCRATCH_WIDGET_TYPES.has(widget.type) || (widget.type === 'group' && Boolean(widget.props?.scratchEnabled)));
   const hasCountdown = widgets.some((widget) => COUNTDOWN_WIDGET_TYPES.has(widget.type));
   const hasTimelineAnimations = widgets.some((widget) => (widget.timeline.keyframes?.length ?? 0) > 0);
 

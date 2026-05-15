@@ -92,6 +92,31 @@ describe('runtime tree shake', () => {
     expect(script).toContain('Submitting…');
   });
 
+  it('includes the scratch runtime when a scratch-enabled group exists', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'gam-html5';
+    state.document.widgets.group_1 = {
+      id: 'group_1',
+      type: 'group',
+      name: 'Scratch group',
+      sceneId,
+      zIndex: 3,
+      frame: { x: 0, y: 0, width: 220, height: 160, rotation: 0 },
+      style: {},
+      props: { title: 'Scratch group', scratchEnabled: true, beforeImage: 'https://cdn.example.com/cover.png' },
+      timeline: { startMs: 0, endMs: 1000 },
+      childIds: [],
+    } as any;
+    state.document.scenes[0].widgetIds.push('group_1');
+
+    const adapter = buildGamHtml5Adapter(state);
+    const script = compileRuntime(adapter.portableProject, adapter);
+
+    expect(script).toContain('initScratchReveal');
+    expect(script).toContain('data-scratch-canvas');
+  });
+
   it('includes the timeline runtime only when widgets define keyframes', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;

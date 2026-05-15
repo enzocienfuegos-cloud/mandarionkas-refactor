@@ -42,6 +42,8 @@ export function AssetLibraryModal({ onClose, request }: AssetLibraryModalProps):
               ? 'Choose the cover image for the selected scratch widget.'
               : request?.target === 'scratch-reveal'
                 ? 'Choose the reveal image for the selected scratch widget.'
+                : request?.target === 'group-scratch-cover'
+                  ? 'Choose the scratch cover image for the selected group.'
                 : 'Reuse, replace, upload, organize.'}
           </span>
         </div>

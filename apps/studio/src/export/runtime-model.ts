@@ -77,6 +77,12 @@ function inferWidgetGestures(widget: PortableExportWidget): ExportRuntimeGesture
       gestures.add('drag');
       gestures.add('scratch');
       break;
+    case 'group':
+      if (widget.props?.scratchEnabled) {
+        gestures.add('drag');
+        gestures.add('scratch');
+      }
+      break;
     case 'interactive-gallery':
     case 'image-carousel':
     case 'shoppable-sidebar':
