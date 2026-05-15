@@ -422,87 +422,6 @@ function toNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-type StatsFallbackRow = Partial<CampaignBreakdownRow & TagBreakdownRow & CreativeBreakdownRow>;
-type StatsFallbackTotals = {
-  impressions: number;
-  clicks: number;
-  spend: number;
-  spendWithMargin: number;
-  mediaSpend: number;
-  servingFees: number;
-  margin: number;
-  viewable: number;
-  measured: number;
-};
-
-function sumRowsForStats(rows: Array<Partial<CampaignBreakdownRow & TagBreakdownRow & CreativeBreakdownRow>> = []) {
-  return rows.reduce<StatsFallbackTotals>((accumulator, row) => {
-    const impressions = toNumber(row.impressions);
-    const clicks = toNumber(row.clicks);
-    const spend = resolveRowSpend(row, 'without_margin');
-    const spendWithMargin = resolveRowSpend(row, 'with_margin');
-    const viewable = toNumber(row.viewable_imps);
-    const measured = toNumber(row.measured_imps);
-    return {
-      impressions: accumulator.impressions + impressions,
-      clicks: accumulator.clicks + clicks,
-      spend: accumulator.spend + spend,
-      spendWithMargin: accumulator.spendWithMargin + spendWithMargin,
-      mediaSpend: accumulator.mediaSpend + toNumber(row.media_spend),
-      servingFees: accumulator.servingFees + toNumber(row.serving_fee_spend),
-      margin: accumulator.margin + toNumber(row.margin_spend),
-      viewable: accumulator.viewable + viewable,
-      measured: accumulator.measured + measured,
-    };
-  }, {
-    impressions: 0,
-    clicks: 0,
-    spend: 0,
-    spendWithMargin: 0,
-    mediaSpend: 0,
-    servingFees: 0,
-    margin: 0,
-    viewable: 0,
-    measured: 0,
-  });
-}
-
-function resolveStatsWithBreakdownFallback(
-  stats: WorkspaceStats,
-  sources: Array<StatsFallbackRow[] | undefined>,
-): WorkspaceStats {
-  const hasPrimaryMetrics = toNumber(stats.total_impressions) > 0
-    || toNumber(stats.total_clicks) > 0
-    || toNumber(stats.total_spend) > 0
-    || toNumber(stats.total_spend_without_margin) > 0;
-  if (hasPrimaryMetrics) return stats;
-
-  for (const source of sources) {
-    const totals = sumRowsForStats(source ?? []);
-    if (totals.impressions <= 0 && totals.clicks <= 0 && totals.spend <= 0) continue;
-    const measured = totals.measured > 0 ? totals.measured : totals.impressions;
-    return {
-      ...stats,
-      total_impressions: totals.impressions,
-      total_clicks: totals.clicks,
-      avg_ctr: totals.impressions > 0 ? Number(((totals.clicks / totals.impressions) * 100).toFixed(4)) : 0,
-      total_spend: totals.spend,
-      total_spend_without_margin: totals.spend,
-      total_spend_with_margin: totals.spendWithMargin || totals.spend,
-      total_media_spend: totals.mediaSpend,
-      total_serving_fees: totals.servingFees,
-      total_margin: totals.margin,
-      total_viewable_impressions: totals.viewable,
-      total_measured_impressions: measured,
-      total_undetermined_impressions: Math.max(totals.impressions - measured, 0),
-      measurable_rate: totals.impressions > 0 ? Number(((measured / totals.impressions) * 100).toFixed(4)) : 0,
-      viewability_rate: measured > 0 ? Number(((totals.viewable / measured) * 100).toFixed(4)) : 0,
-    };
-  }
-
-  return stats;
-}
-
 function formatCount(value: number) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
@@ -615,6 +534,7 @@ function buildKpis(
   timeline: TimelineRow[],
   presets: IdentitySegmentPresetRow[],
   spendView: SpendView,
+  periodScope: string,
 ): ReportingKpi[] {
   const impressionsSeries = timeline.map((row) => toNumber(row.impressions));
   const clicksSeries = timeline.map((row) => toNumber(row.clicks));
@@ -630,8 +550,8 @@ function buildKpis(
   );
   const spendValue = resolveWorkspaceSpend(stats, spendView);
   const spendHelper = spendView === 'with_margin'
-    ? `Includes ${formatMoney(toNumber(stats.total_margin))} margin on top of ${formatMoney(toNumber(stats.total_spend_without_margin ?? stats.total_spend))} net spend.`
-    : `Net of margin. Serving fees in scope: ${formatMoney(toNumber(stats.total_serving_fees))}.`;
+    ? `${periodScope}. Includes ${formatMoney(toNumber(stats.total_margin))} margin on top of ${formatMoney(toNumber(stats.total_spend_without_margin ?? stats.total_spend))} net spend.`
+    : `${periodScope}. Net of margin. Serving fees in scope: ${formatMoney(toNumber(stats.total_serving_fees))}.`;
   const spendKpi: ReportingKpi = {
     id: spendView === 'with_margin' ? 'spend-with-margin' : 'spend-without-margin',
     label: spendView === 'with_margin' ? 'Spend with margin' : 'Spend without margin',
@@ -660,10 +580,10 @@ function buildKpis(
 
   if (mode === 'display') {
     return [
-      withDelta('Impressions', formatCount(stats.total_impressions), 'impressions', 'fuchsia', impressionsSeries, 'Served display inventory'),
-      withDelta('Clicks', formatCount(stats.total_clicks), 'clicks', 'fuchsia', clicksSeries, 'Response volume'),
-      withDelta('CTR', formatPercent(stats.avg_ctr), 'ctr', 'violet', ctrSeries, 'Click efficiency'),
-      withDelta('Viewability', formatPercent(stats.viewability_rate), 'viewability', 'blue', viewabilitySeries, 'Measured delivery quality'),
+      withDelta('Impressions', formatCount(stats.total_impressions), 'impressions', 'fuchsia', impressionsSeries, `${periodScope}. Served display inventory`),
+      withDelta('Clicks', formatCount(stats.total_clicks), 'clicks', 'fuchsia', clicksSeries, `${periodScope}. Response volume`),
+      withDelta('CTR', formatPercent(stats.avg_ctr), 'ctr', 'violet', ctrSeries, `${periodScope}. Click efficiency`),
+      withDelta('Viewability', formatPercent(stats.viewability_rate), 'viewability', 'blue', viewabilitySeries, `${periodScope}. Measured delivery quality`),
       spendKpi,
       {
         id: 'attention-time',
@@ -671,7 +591,7 @@ function buildKpis(
         value: formatDurationMs(attentionDurationMs),
         tone: 'amber',
         icon: 'attention',
-        helper: 'Accumulated in-view or hover duration',
+        helper: `${periodScope}. Accumulated in-view or hover duration`,
       },
       {
         id: 'engagement-rate',
@@ -679,7 +599,7 @@ function buildKpis(
         value: formatPercent(stats.engagement_rate),
         tone: 'amber',
         icon: 'attention',
-        helper: 'Rich media interaction rate',
+        helper: `${periodScope}. Rich media interaction rate`,
       },
       {
         id: 'active-campaigns',
@@ -687,7 +607,7 @@ function buildKpis(
         value: formatCount(stats.active_campaigns),
         tone: 'slate',
         icon: 'campaign',
-        helper: 'Live display campaigns',
+        helper: `${periodScope}. Live display campaigns`,
       },
       {
         id: 'active-tags',
@@ -695,7 +615,7 @@ function buildKpis(
         value: formatCount(stats.active_tags),
         tone: 'slate',
         icon: 'tag',
-        helper: 'Firing tags in scope',
+        helper: `${periodScope}. Firing tags in scope`,
       },
     ];
   }
@@ -1019,16 +939,20 @@ export function useReportingData({
   const [state, setState] = useState<HookState>(INITIAL_STATE);
   const requestSequence = useRef(0);
 
+  const effectiveDateRange = useMemo(
+    () => resolveEffectiveDateRange(dateRange, customDateRange, timezone),
+    [customDateRange, dateRange, timezone],
+  );
+
   const query = useMemo(() => {
-    const { dateFrom, dateTo } = resolveEffectiveDateRange(dateRange, customDateRange, timezone);
     const channel = mode === 'video'
       ? 'video'
       : mode === 'display'
         ? 'display'
         : undefined;
     return buildQuery({
-      dateFrom,
-      dateTo,
+      dateFrom: effectiveDateRange.dateFrom,
+      dateTo: effectiveDateRange.dateTo,
       advertiserId: advertiserId || undefined,
       campaignId: campaignId || undefined,
       tagId: tagId || undefined,
@@ -1037,7 +961,7 @@ export function useReportingData({
       granularity: timeGranularity,
       timezone,
     });
-  }, [advertiserId, campaignId, creativeId, customDateRange, dateRange, mode, tagId, timeGranularity, timezone]);
+  }, [advertiserId, campaignId, creativeId, effectiveDateRange.dateFrom, effectiveDateRange.dateTo, mode, tagId, timeGranularity, timezone]);
 
   const reload = useCallback(async (options: ReportingReloadOptions = {}) => {
     const { force = false, silent = false } = options;
@@ -1082,12 +1006,10 @@ export function useReportingData({
         creatives,
       } = payloads;
 
-      const stats = resolveStatsWithBreakdownFallback(workspacePayload.stats, [
-        campaignPayload.breakdown,
-        tagPayload.breakdown,
-        creativePayload.breakdown,
-        variantPayload.breakdown,
-      ]);
+      const stats = workspacePayload.stats;
+      const periodScope = effectiveDateRange.dateFrom === effectiveDateRange.dateTo
+        ? 'Selected day total'
+        : 'Selected range total';
       const timeline = workspacePayload.timeline ?? [];
       const campaignRows = (campaignPayload.breakdown ?? [])
         .map<CampaignPerformanceRow>((row) => ({
@@ -1345,7 +1267,7 @@ export function useReportingData({
           .map<[string, SelectOption]>((creative) => [creative.id, { value: creative.id, label: creative.name }]),
       ]);
 
-      const kpis = buildKpis(mode, stats, timeline, identitySegmentPayload.breakdown ?? [], spendView);
+      const kpis = buildKpis(mode, stats, timeline, identitySegmentPayload.breakdown ?? [], spendView, periodScope);
       const trend = buildTrend(mode, timeline, stats);
       const recommendations = buildRecommendations(mode, stats, trackerHealth, identitySegmentPayload.breakdown ?? []);
 
