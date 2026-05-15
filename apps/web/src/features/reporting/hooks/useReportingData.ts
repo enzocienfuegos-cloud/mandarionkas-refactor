@@ -283,49 +283,37 @@ async function fetchReportingPayloads(query: string, expandedQuery: string): Pro
     campaignPayload,
     tagPayload,
     creativePayload,
-  ] = await Promise.all([
-    fetchJson<{ stats: WorkspaceStats; timeline: TimelineRow[] }>(`/v1/reporting/workspace${query}`),
-    fetchJson<{ breakdown: CampaignBreakdownRow[] }>(`/v1/reporting/workspace/campaign-breakdown${query}`),
-    fetchJson<{ breakdown: TagBreakdownRow[] }>(`/v1/reporting/workspace/tag-breakdown${query}`),
-    fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/creative-breakdown${query}`),
-  ]);
-
-  const [
     variantPayload,
     regionPayload,
     sitePayload,
     appPayload,
-  ] = await Promise.all([
-    fetchJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/variant-breakdown${query}`),
-    fetchJson<{ breakdown: RegionBreakdownRow[] }>(`/v1/reporting/workspace/region-breakdown${query}`),
-    fetchJson<{ breakdown: SiteBreakdownRow[] }>(`/v1/reporting/workspace/site-breakdown${expandedQuery}`),
-    fetchJson<{ breakdown: AppBreakdownRow[] }>(`/v1/reporting/workspace/app-breakdown${expandedQuery}`),
-  ]);
-
-  const [
     trackerPayload,
     identityFrequencyPayload,
     identitySegmentPayload,
     identityKeyPayload,
-  ] = await Promise.all([
-    fetchJson<{ breakdown: TrackerBreakdownRow[] }>(`/v1/reporting/workspace/tracker-breakdown${query}`),
-    fetchJson<{ breakdown: IdentityFrequencyApiRow[] }>(`/v1/reporting/workspace/identity-frequency-buckets${query}`),
-    fetchJson<{ breakdown: IdentitySegmentPresetRow[] }>(`/v1/reporting/workspace/identity-segment-presets${query}`),
-    fetchJson<{ breakdown: IdentityKeyBreakdownRow[] }>(`/v1/reporting/workspace/identity-key-breakdown${query}`),
-  ]);
-
-  const [
     identityAttributionPayload,
     contextSnapshotPayload,
     campaignListPayload,
     tags,
     creatives,
   ] = await Promise.all([
-    fetchJson<{ breakdown: IdentityAttributionApiRow[] }>(`/v1/reporting/workspace/identity-attribution-windows${query}`),
-    fetchJson<ContextSnapshotRow>(`/v1/reporting/workspace/context-snapshot${query}`).catch(() => EMPTY_CONTEXT_SNAPSHOT),
-    fetchJson<{ campaigns: CampaignOption[] }>(`/v1/campaigns?scope=all&limit=500`),
-    loadTags({ scope: 'all', limit: 500 }),
-    loadCreatives({ scope: 'all', limit: 500 }),
+    fetchJson<{ stats: WorkspaceStats; timeline: TimelineRow[] }>(`/v1/reporting/workspace${query}`),
+    fetchOptionalJson<{ breakdown: CampaignBreakdownRow[] }>(`/v1/reporting/workspace/campaign-breakdown${query}`, { breakdown: [] }),
+    fetchOptionalJson<{ breakdown: TagBreakdownRow[] }>(`/v1/reporting/workspace/tag-breakdown${query}`, { breakdown: [] }),
+    fetchOptionalJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/creative-breakdown${query}`, { breakdown: [] }),
+    fetchOptionalJson<{ breakdown: CreativeBreakdownRow[] }>(`/v1/reporting/workspace/variant-breakdown${query}`, { breakdown: [] }),
+    fetchOptionalJson<{ breakdown: RegionBreakdownRow[] }>(`/v1/reporting/workspace/region-breakdown${query}`, { breakdown: [] }),
+    fetchOptionalJson<{ breakdown: SiteBreakdownRow[] }>(`/v1/reporting/workspace/site-breakdown${expandedQuery}`, { breakdown: [] }),
+    fetchOptionalJson<{ breakdown: AppBreakdownRow[] }>(`/v1/reporting/workspace/app-breakdown${expandedQuery}`, { breakdown: [] }),
+    fetchOptionalJson<{ breakdown: TrackerBreakdownRow[] }>(`/v1/reporting/workspace/tracker-breakdown${query}`, { breakdown: [] }),
+    fetchOptionalJson<{ breakdown: IdentityFrequencyApiRow[] }>(`/v1/reporting/workspace/identity-frequency-buckets${query}`, { breakdown: [] }),
+    fetchOptionalJson<{ breakdown: IdentitySegmentPresetRow[] }>(`/v1/reporting/workspace/identity-segment-presets${query}`, { breakdown: [] }),
+    fetchOptionalJson<{ breakdown: IdentityKeyBreakdownRow[] }>(`/v1/reporting/workspace/identity-key-breakdown${query}`, { breakdown: [] }),
+    fetchOptionalJson<{ breakdown: IdentityAttributionApiRow[] }>(`/v1/reporting/workspace/identity-attribution-windows${query}`, { breakdown: [] }),
+    fetchOptionalJson<ContextSnapshotRow>(`/v1/reporting/workspace/context-snapshot${query}`, EMPTY_CONTEXT_SNAPSHOT),
+    fetchOptionalJson<{ campaigns: CampaignOption[] }>(`/v1/campaigns?scope=all&limit=500`, { campaigns: [] }),
+    loadTags({ scope: 'all', limit: 500 }).catch(() => []),
+    loadCreatives({ scope: 'all', limit: 500 }).catch(() => []),
   ]);
 
   return {
@@ -359,6 +347,14 @@ async function fetchJson<T>(url: string): Promise<T> {
     throw new Error(message || `Request failed (${response.status})`);
   }
   return response.json() as Promise<T>;
+}
+
+async function fetchOptionalJson<T>(url: string, fallback: T): Promise<T> {
+  try {
+    return await fetchJson<T>(url);
+  } catch {
+    return fallback;
+  }
 }
 
 function buildQuery(params: Record<string, string | undefined>) {
