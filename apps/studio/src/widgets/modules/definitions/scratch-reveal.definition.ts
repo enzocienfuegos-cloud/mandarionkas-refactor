@@ -18,7 +18,7 @@ export const ScratchRevealDefinition = createModuleDefinition({
     revealLabel: '20% off today',
     beforeImage: '',
     afterImage: '',
-    coverBlur: 6,
+    coverBlur: 0,
     scratchRadius: 22,
   },
   renderInspector: (widget) => createElement(ScratchRevealInspector, { widget }),

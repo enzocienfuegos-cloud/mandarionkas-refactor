@@ -154,11 +154,10 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     image.crossOrigin = 'anonymous';
     image.onload = () => {
       ctx.clearRect(0, 0, width, height);
-      ctx.filter = 'blur(' + Math.max(0, Number(coverBlur || 0)) + 'px)';
+      const blur = Math.max(0, Number(coverBlur || 0));
+      ctx.filter = blur > 0 ? 'blur(' + blur + 'px)' : 'none';
       ctx.drawImage(image, 0, 0, width, height);
       ctx.filter = 'none';
-      ctx.fillStyle = 'rgba(17,24,39,0.25)';
-      ctx.fillRect(0, 0, width, height);
       if (onReady) onReady();
     };
     image.onerror = fallback;
@@ -220,16 +219,8 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     });
     canvas.addEventListener('pointermove', (event) => {
       event.preventDefault();
-      if (event.pointerType === 'mouse') {
-        scratchAtEvent(event);
-        return;
-      }
       if (!state.pointerActive) return;
       scratchAtEvent(event);
-    });
-    canvas.addEventListener('pointerenter', (event) => {
-      event.preventDefault();
-      if (event.pointerType === 'mouse') scratchAtEvent(event);
     });
     canvas.addEventListener('pointerup', (event) => {
       state.pointerActive = false;

@@ -3,17 +3,12 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
-import { getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
+import { getAccent, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
 
-const scratchRevealBodyStyle: CSSProperties = {
-  ...moduleBody,
-  justifyContent: 'center',
-};
-
-const scratchRevealViewportBaseStyle: CSSProperties = {
+const scratchRevealShellBaseStyle: CSSProperties = {
   position: 'relative',
-  flex: 1,
-  borderRadius: 12,
+  width: '100%',
+  height: '100%',
   overflow: 'hidden',
 };
 
@@ -25,6 +20,20 @@ const scratchRevealMediaStyle: CSSProperties = {
   objectFit: 'cover',
 };
 
+const scratchRevealTitleStyle: CSSProperties = {
+  position: 'absolute',
+  top: 12,
+  left: 12,
+  right: 12,
+  zIndex: 2,
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: '.04em',
+  textTransform: 'uppercase',
+  textShadow: '0 2px 14px rgba(15, 23, 42, 0.65)',
+  pointerEvents: 'none',
+};
+
 const scratchRevealLabelBaseStyle: CSSProperties = {
   position: 'absolute',
   inset: 0,
@@ -34,11 +43,14 @@ const scratchRevealLabelBaseStyle: CSSProperties = {
   fontSize: 22,
   textAlign: 'center',
   padding: 16,
+  textShadow: '0 2px 14px rgba(15, 23, 42, 0.5)',
+  pointerEvents: 'none',
 };
 
 const scratchRevealCanvasBaseStyle: CSSProperties = {
   position: 'absolute',
   inset: 0,
+  zIndex: 1,
   width: '100%',
   height: '100%',
   cursor: 'crosshair',
@@ -54,19 +66,22 @@ const scratchRevealFooterStyle: CSSProperties = {
   left: 12,
   right: 12,
   bottom: 12,
+  zIndex: 2,
   display: 'flex',
   flexDirection: 'column',
   gap: 6,
   pointerEvents: 'none',
+  textShadow: '0 2px 14px rgba(15, 23, 42, 0.65)',
 };
 
 const scratchRevealCoverLabelStyle: CSSProperties = {
   fontSize: 12,
 };
 
-function buildScratchRevealViewportStyle(background: string): CSSProperties {
+function buildScratchRevealShellStyle(node: WidgetNode, ctx: RenderContext, background: string): CSSProperties {
   return {
-    ...scratchRevealViewportBaseStyle,
+    ...moduleShell(node, ctx),
+    ...scratchRevealShellBaseStyle,
     background,
   };
 }
@@ -92,7 +107,6 @@ function paintScratchCover(
   ctx.clearRect(0, 0, width, height);
   const theme = typeof window !== 'undefined' ? window.getComputedStyle(document.documentElement) : null;
   const fallbackSurface = theme?.getPropertyValue('--surface-card-muted').trim() || 'hsl(210 40% 98%)';
-  const overlayScrim = theme?.getPropertyValue('--surface-shell-overlay').trim() || 'hsl(217 33% 17% / 0.25)';
 
   const fallback = () => {
     ctx.clearRect(0, 0, width, height);
@@ -112,11 +126,9 @@ function paintScratchCover(
   image.crossOrigin = 'anonymous';
   image.onload = () => {
     ctx.clearRect(0, 0, width, height);
-    ctx.filter = `blur(${Math.max(0, coverBlur)}px)`;
+    ctx.filter = coverBlur > 0 ? `blur(${Math.max(0, coverBlur)}px)` : 'none';
     ctx.drawImage(image, 0, 0, width, height);
     ctx.filter = 'none';
-    ctx.fillStyle = overlayScrim;
-    ctx.fillRect(0, 0, width, height);
     onReady?.();
   };
   image.onerror = fallback;
@@ -139,11 +151,12 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pointerActiveRef = useRef(false);
   const [coverReady, setCoverReady] = useState(false);
+  const title = String(node.props.title ?? node.name);
   const coverLabel = String(node.props.coverLabel ?? 'Scratch to reveal');
   const revealLabel = String(node.props.revealLabel ?? '20% off today');
   const beforeImage = String(node.props.beforeImage ?? '');
   const afterImage = String(node.props.afterImage ?? '');
-  const coverBlur = Number(node.props.coverBlur ?? 6);
+  const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
 
   useEffect(() => {
@@ -173,52 +186,40 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   ), [afterImage, accent]);
 
   return (
-    <div style={moduleShell(node, ctx)}>
-      <div style={moduleHeader(node)}>{String(node.props.title ?? node.name)}</div>
-      <div style={scratchRevealBodyStyle}>
-        <div style={buildScratchRevealViewportStyle(revealBackground ?? 'var(--neutral-slate-900)')}>
-          {afterImage ? <img src={afterImage} alt={revealLabel} style={scratchRevealMediaStyle} /> : null}
-          <div style={scratchRevealLabelBaseStyle}>{revealLabel}</div>
-          <canvas
-            ref={canvasRef}
-            style={buildScratchRevealCanvasStyle(coverReady)}
-            onPointerDown={(event) => {
-              if (!event.isPrimary) return;
-              event.preventDefault();
-              event.stopPropagation();
-              pointerActiveRef.current = true;
-              event.currentTarget.setPointerCapture?.(event.pointerId);
-              scratchAtEvent(event);
-            }}
-            onPointerMove={(event) => {
-              event.preventDefault();
-              if (event.pointerType === 'mouse') {
-                scratchAtEvent(event);
-                return;
-              }
-              if (!pointerActiveRef.current) return;
-              scratchAtEvent(event);
-            }}
-            onPointerEnter={(event) => {
-              event.preventDefault();
-              if (event.pointerType === 'mouse') scratchAtEvent(event);
-            }}
-            onPointerUp={(event) => {
-              pointerActiveRef.current = false;
-              event.currentTarget.releasePointerCapture?.(event.pointerId);
-            }}
-            onPointerCancel={(event) => {
-              pointerActiveRef.current = false;
-              event.currentTarget.releasePointerCapture?.(event.pointerId);
-            }}
-            onLostPointerCapture={() => {
-              pointerActiveRef.current = false;
-            }}
-          />
-          <div style={scratchRevealFooterStyle}>
-            <div style={scratchRevealCoverLabelStyle}>{coverLabel}</div>
-          </div>
-        </div>
+    <div style={buildScratchRevealShellStyle(node, ctx, revealBackground ?? 'var(--neutral-slate-900)')}>
+      {afterImage ? <img src={afterImage} alt={revealLabel} style={scratchRevealMediaStyle} /> : null}
+      <div style={scratchRevealTitleStyle}>{title}</div>
+      <div style={scratchRevealLabelBaseStyle}>{revealLabel}</div>
+      <canvas
+        ref={canvasRef}
+        style={buildScratchRevealCanvasStyle(coverReady)}
+        onPointerDown={(event) => {
+          if (!event.isPrimary) return;
+          event.preventDefault();
+          event.stopPropagation();
+          pointerActiveRef.current = true;
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+          scratchAtEvent(event);
+        }}
+        onPointerMove={(event) => {
+          event.preventDefault();
+          if (!pointerActiveRef.current) return;
+          scratchAtEvent(event);
+        }}
+        onPointerUp={(event) => {
+          pointerActiveRef.current = false;
+          event.currentTarget.releasePointerCapture?.(event.pointerId);
+        }}
+        onPointerCancel={(event) => {
+          pointerActiveRef.current = false;
+          event.currentTarget.releasePointerCapture?.(event.pointerId);
+        }}
+        onLostPointerCapture={() => {
+          pointerActiveRef.current = false;
+        }}
+      />
+      <div style={scratchRevealFooterStyle}>
+        <div style={scratchRevealCoverLabelStyle}>{coverLabel}</div>
       </div>
     </div>
   );

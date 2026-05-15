@@ -103,7 +103,7 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
         </div>
         <div>
           <label>Cover blur</label>
-          <input type="number" step="1" value={String(widget.props.coverBlur ?? 6)} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { coverBlur: Number(event.target.value) })} />
+          <input type="number" step="1" value={String(widget.props.coverBlur ?? 0)} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { coverBlur: Number(event.target.value) })} />
         </div>
         <div>
           <label>Scratch radius</label>
