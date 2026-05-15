@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from 'react';
 import { useLeftRailController } from './left-rail/use-left-rail-controller';
 import { useAssetLibraryController, formatAssetMeta, type FolderTreeNode } from './left-rail/use-asset-library-controller';
 import type { AssetRecord } from '../../assets/types';
+import { resolveFontAssetFamily } from '../../assets/font-family';
 import { Button } from '../../shared/ui/Button';
 import { IconButton } from '../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
@@ -17,6 +18,7 @@ function buildAssetModalUploadProgressStyle(progress: number): CSSProperties {
 function AssetThumb({ asset }: { asset: AssetRecord }): JSX.Element {
   if (asset.kind === 'image') return <img src={asset.src} alt={asset.name} className="asset-browser-thumb" draggable={false} />;
   if (asset.kind === 'video') return <video src={asset.src} poster={asset.posterSrc} className="asset-browser-thumb" muted playsInline preload="metadata" draggable={false} />;
+  if (asset.kind === 'font') return <div className="asset-browser-thumb asset-browser-thumb--fallback" style={{ fontFamily: resolveFontAssetFamily(asset), fontSize: 24, fontWeight: 800 }}>Aa</div>;
   return <div className="asset-browser-thumb asset-browser-thumb--fallback">{asset.kind.toUpperCase()}</div>;
 }
 
@@ -38,6 +40,23 @@ function AssetDetailMedia({
         loop
         playsInline
       />
+    );
+  }
+
+  if (asset.kind === 'font') {
+    return (
+      <div
+        className="asset-detail-img"
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          fontFamily: resolveFontAssetFamily(asset),
+          fontSize: 40,
+          fontWeight: 800,
+        }}
+      >
+        Aa
+      </div>
     );
   }
 
@@ -437,9 +456,17 @@ export function AssetLibraryFilesSection({
               key={asset.id}
               role="button"
               tabIndex={0}
-              draggable={asset.kind === 'image' || asset.kind === 'video'}
-              className={`asset-browser-card ${isSelected ? 'is-selected' : ''} ${editingAssetId === asset.id ? 'is-renaming' : ''} ${(asset.kind === 'image' || asset.kind === 'video') ? 'is-draggable' : ''}`}
-              onClick={(e) => lib.toggleAssetSelection(asset.id, e.metaKey || e.ctrlKey, e.shiftKey)}
+              draggable={asset.kind === 'image' || asset.kind === 'video' || asset.kind === 'font'}
+              className={`asset-browser-card ${isSelected ? 'is-selected' : ''} ${editingAssetId === asset.id ? 'is-renaming' : ''} ${(asset.kind === 'image' || asset.kind === 'video' || asset.kind === 'font') ? 'is-draggable' : ''}`}
+              onClick={(e) => {
+                lib.toggleAssetSelection(asset.id, e.metaKey || e.ctrlKey, e.shiftKey);
+                if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+                assetController.setSelectedAssetId(asset.id);
+                if (lib.isCompatibleWithSelection(asset)) {
+                  assetController.assignAsset(asset);
+                  onClose();
+                }
+              }}
               onDoubleClick={() => {
                 assetController.setSelectedAssetId(asset.id);
                 if (lib.isCompatibleWithSelection(asset)) {

@@ -157,6 +157,7 @@ function rewriteWidgetProps(
 ): Record<string, unknown> {
   return {
     ...props,
+    fontAssetSrc: typeof props.fontAssetSrc === 'string' ? rewriteStringValue(props.fontAssetSrc, map) : props.fontAssetSrc,
     src: typeof props.src === 'string' ? rewriteStringValue(props.src, map) : props.src,
     posterSrc: typeof props.posterSrc === 'string' ? rewriteStringValue(props.posterSrc, map) : props.posterSrc,
     imageSrc: typeof props.imageSrc === 'string' ? rewriteStringValue(props.imageSrc, map) : props.imageSrc,

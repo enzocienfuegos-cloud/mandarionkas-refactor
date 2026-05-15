@@ -48,6 +48,7 @@ export function getBaseWidgetStyle(node: WidgetNode): string {
     `border-radius:${Number(style.borderRadius ?? 12)}px`,
     `background:${escapeHtml(style.backgroundColor ?? 'transparent')}`,
     `color:${escapeHtml(style.color ?? '#ffffff')}`,
+    `font-family:${escapeHtml(style.fontFamily ?? 'inherit')}`,
     `font-size:${Number(style.fontSize ?? 18)}px`,
     `font-weight:${Number(style.fontWeight ?? 700)}`,
     `border:1px solid ${escapeHtml(style.borderColor ?? 'rgba(255,255,255,0.14)')}`,
