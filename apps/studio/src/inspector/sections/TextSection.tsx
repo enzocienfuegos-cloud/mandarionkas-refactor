@@ -212,8 +212,11 @@ export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
               <option value="">No linked font</option>
               {fontAssets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
             </select>
-            <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Browse fonts</Button>
+            <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Install font</Button>
           </div>
+          <small className="muted">
+            Upload/install the font in the asset library first, then select it here from the dropdown.
+          </small>
         </div>
       </div>
     </section>

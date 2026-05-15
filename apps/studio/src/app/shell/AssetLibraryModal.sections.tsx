@@ -250,7 +250,7 @@ export function AssetLibraryToolbar({
             variant="ghost"
             size="sm"
             className="compact-action"
-            disabled={!lib.canUseOnSelection || !assetController.selectedAsset}
+            disabled={!lib.canUseOnSelection || !assetController.selectedAsset || assetController.selectedAsset.kind === 'font'}
             onClick={() => {
               if (!assetController.selectedAsset) return;
               assetController.assignAsset(assetController.selectedAsset);
@@ -426,6 +426,7 @@ export function AssetLibraryFilesSection({
     assetController.setSelectedAssetId(asset.id);
 
     if (options.additive || options.range) return;
+    if (asset.kind === 'font') return;
     if (!lib.isCompatibleWithSelection(asset)) return;
 
     assetController.assignAsset(asset);
@@ -464,6 +465,11 @@ export function AssetLibraryFilesSection({
           <div className="asset-detail-preview">
             <AssetDetailMedia asset={selectedAsset} previewUrl={assetController.resolveAssetPreviewUrl(selectedAsset)} />
           </div>
+          {selectedAsset.kind === 'font' ? (
+            <small className="muted">
+              Font installed in Studio. Choose it from the widget&apos;s `Font asset` dropdown after closing this library.
+            </small>
+          ) : null}
         </div>
       ) : null}
       <div className={`asset-browser-grid ${lib.selectedAssetIds.length > 0 ? 'is-selecting' : ''}`.trim()}>
