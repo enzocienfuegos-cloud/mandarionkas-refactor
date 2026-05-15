@@ -14,6 +14,7 @@ type StageSelectionToolbarProps = {
   uploadDisabled: boolean;
   onToggleVisibility: () => void;
   onToggleLock: () => void;
+  onUngroup: () => void;
   onDuplicate: () => void;
   onMoveBackward: () => void;
   onMoveForward: () => void;
@@ -68,6 +69,7 @@ export const StageSelectionToolbar = forwardRef<HTMLDivElement, StageSelectionTo
   uploadDisabled,
   onToggleVisibility,
   onToggleLock,
+  onUngroup,
   onDuplicate,
   onMoveBackward,
   onMoveForward,
@@ -85,6 +87,7 @@ export const StageSelectionToolbar = forwardRef<HTMLDivElement, StageSelectionTo
   };
   const definition = getWidgetDefinition(widget.type);
   const acceptsVideoAsset = Boolean(getCapability(definition, 'acceptsVideoAsset'));
+  const canUngroup = Boolean(widget.parentId || getCapability(definition, 'isContainer'));
 
   return (
     <div
@@ -100,6 +103,11 @@ export const StageSelectionToolbar = forwardRef<HTMLDivElement, StageSelectionTo
       <IconButton label={widget.locked ? 'Unlock widget' : 'Lock widget'} onClick={onToggleLock}>
         <StudioIcon icon={widget.locked ? StudioIcons.lock : StudioIcons.lockOpen} size={14} />
       </IconButton>
+      {canUngroup ? (
+        <IconButton label="Ungroup selection" onClick={onUngroup}>
+          <StudioIcon icon={StudioIcons.layers} size={14} />
+        </IconButton>
+      ) : null}
       {supportsMediaAssetLibrary(widget) ? (
         <>
           <IconButton label={acceptsVideoAsset ? 'Replace video from library' : 'Replace image from library'} disabled={uploadDisabled} onClick={onUploadAsset}>

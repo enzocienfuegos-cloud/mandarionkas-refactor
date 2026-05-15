@@ -348,6 +348,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
           uploadDisabled={!canCreateAssets}
           onToggleVisibility={() => widgetActions.toggleWidgetHidden(selectedWidget.id)}
           onToggleLock={() => widgetActions.toggleWidgetLocked(selectedWidget.id)}
+          onUngroup={() => widgetActions.ungroupSelected()}
           onDuplicate={() => widgetActions.duplicateSelected()}
           onMoveBackward={() => widgetActions.reorderWidget(selectedWidget.id, 'backward')}
           onMoveForward={() => widgetActions.reorderWidget(selectedWidget.id, 'forward')}
