@@ -1,7 +1,7 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChevronDown, Search, X } from '../icons';
 import { cn } from '../cn';
-import { Button, IconButton } from './Button';
+import { Button } from './Button';
 import { Input } from './Input';
 import { Popover } from './Popover';
 
@@ -37,6 +37,7 @@ export function FilterBar({
   className,
 }: FilterBarProps) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [optionSearch, setOptionSearch] = useState<Record<string, string>>({});
   const anchorRefs = useMemo(
     () => Object.fromEntries(pills.map((pill) => [pill.id, React.createRef<HTMLButtonElement>()])),
     [pills],
@@ -49,6 +50,14 @@ export function FilterBar({
           const selectedOption = pill.options.find((option) => option.value === pill.value) ?? pill.options[0];
           const isActive = !isDefaultValue(pill);
           const anchorRef = anchorRefs[pill.id];
+          const query = optionSearch[pill.id]?.trim().toLowerCase() ?? '';
+          const filteredOptions = query
+            ? pill.options.filter((option) => (
+                option.label.toLowerCase().includes(query)
+                || option.value.toLowerCase().includes(query)
+              ))
+            : pill.options;
+          const isSearchable = pill.options.length > 8;
 
           return (
             <div key={pill.id} className="relative">
@@ -65,7 +74,10 @@ export function FilterBar({
                 <button
                   ref={anchorRef}
                   type="button"
-                  onClick={() => setOpenId((current) => current === pill.id ? null : pill.id)}
+                  onClick={() => {
+                    setOpenId((current) => current === pill.id ? null : pill.id);
+                    setOptionSearch((current) => ({ ...current, [pill.id]: '' }));
+                  }}
                   className="inline-flex flex-1 items-center gap-2 px-4 text-sm font-medium text-[color:var(--dusk-text-secondary)] hover:text-[color:var(--dusk-text-primary)]"
                   aria-expanded={openId === pill.id}
                   aria-haspopup="dialog"
@@ -93,38 +105,59 @@ export function FilterBar({
                 open={openId === pill.id}
                 anchorRef={anchorRef}
                 onClose={() => setOpenId(null)}
+                className="w-[min(28rem,calc(100vw-2rem))]"
               >
-                <div className="space-y-1">
-                  {pill.options.map((option) => {
-                    const checked = option.value === pill.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => {
-                          pill.onChange(option.value);
-                          setOpenId(null);
-                        }}
-                        className={cn(
-                          'flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm',
-                          checked
-                            ? 'bg-[color:var(--dusk-surface-active)] text-[color:var(--dusk-text-primary)]'
-                            : 'text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]',
-                        )}
-                      >
-                        <span
+                <div className="space-y-2">
+                  {isSearchable ? (
+                    <Input
+                      inputSize="sm"
+                      value={optionSearch[pill.id] ?? ''}
+                      onChange={(event) => {
+                        setOptionSearch((current) => ({ ...current, [pill.id]: event.target.value }));
+                      }}
+                      placeholder={`Search ${pill.label.toLowerCase()}...`}
+                      autoFocus
+                    />
+                  ) : null}
+
+                  <div className="max-h-[min(24rem,calc(100vh-12rem))] space-y-1 overflow-y-auto pr-1">
+                    {filteredOptions.map((option) => {
+                      const checked = option.value === pill.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            pill.onChange(option.value);
+                            setOpenId(null);
+                          }}
                           className={cn(
-                            'h-4 w-4 rounded-full border',
+                            'flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm',
                             checked
-                              ? 'border-brand-500 bg-brand-500 shadow-brand'
-                              : 'border-[color:var(--dusk-border-default)] bg-surface-1',
+                              ? 'bg-[color:var(--dusk-surface-active)] text-[color:var(--dusk-text-primary)]'
+                              : 'text-[color:var(--dusk-text-secondary)] hover:bg-surface-hover hover:text-[color:var(--dusk-text-primary)]',
                           )}
-                          aria-hidden
-                        />
-                        <span>{option.label}</span>
-                      </button>
-                    );
-                  })}
+                        >
+                          <span
+                            className={cn(
+                              'h-4 w-4 rounded-full border',
+                              checked
+                                ? 'border-brand-500 bg-brand-500 shadow-brand'
+                                : 'border-[color:var(--dusk-border-default)] bg-surface-1',
+                            )}
+                            aria-hidden
+                          />
+                          <span className="min-w-0 flex-1 truncate" title={option.label}>{option.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {filteredOptions.length === 0 ? (
+                    <div className="rounded-xl border border-[color:var(--dusk-border-subtle)] bg-surface-2 px-3 py-3 text-sm text-[color:var(--dusk-text-muted)]">
+                      No {pill.label.toLowerCase()} matches "{optionSearch[pill.id]}".
+                    </div>
+                  ) : null}
                 </div>
               </Popover>
             </div>

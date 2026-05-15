@@ -323,9 +323,9 @@ async function fetchReportingPayloads(query: string, expandedQuery: string): Pro
   ] = await Promise.all([
     fetchJson<{ breakdown: IdentityAttributionApiRow[] }>(`/v1/reporting/workspace/identity-attribution-windows${query}`),
     fetchJson<ContextSnapshotRow>(`/v1/reporting/workspace/context-snapshot${query}`).catch(() => EMPTY_CONTEXT_SNAPSHOT),
-    fetchJson<{ campaigns: CampaignOption[] }>(`/v1/campaigns?scope=all`),
-    loadTags({ scope: 'all' }),
-    loadCreatives(),
+    fetchJson<{ campaigns: CampaignOption[] }>(`/v1/campaigns?scope=all&limit=500`),
+    loadTags({ scope: 'all', limit: 500 }),
+    loadCreatives({ scope: 'all', limit: 500 }),
   ]);
 
   return {

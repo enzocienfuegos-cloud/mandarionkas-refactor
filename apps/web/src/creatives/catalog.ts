@@ -102,6 +102,8 @@ export interface TagOption {
   id: string;
   workspaceId?: string | null;
   workspaceName?: string | null;
+  campaignId?: string | null;
+  campaignName?: string | null;
   name: string;
   format: 'VAST' | 'display' | 'native';
   status: 'active' | 'paused' | 'archived' | 'draft';
@@ -181,19 +183,26 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-function buildQuery(params: Record<string, string | null | undefined>) {
+function buildQuery(params: Record<string, string | number | null | undefined>) {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
-    if (value != null && value !== '') query.set(key, value);
+    if (value != null && value !== '') query.set(key, String(value));
   });
   const text = query.toString();
   return text ? `?${text}` : '';
 }
 
-export async function loadCreatives(input: { scope?: 'all'; workspaceId?: string } = {}): Promise<Creative[]> {
+export async function loadCreatives(input: {
+  scope?: 'all';
+  workspaceId?: string;
+  limit?: number;
+  search?: string;
+} = {}): Promise<Creative[]> {
   const payload = await fetchJson<{ creatives: Creative[] }>(`/v1/creatives${buildQuery({
     scope: input.scope,
     workspaceId: input.workspaceId,
+    limit: input.limit,
+    search: input.search,
     includeLatestVersion: '1',
   })}`);
   return payload.creatives ?? [];
@@ -286,7 +295,12 @@ export async function regenerateVideoRenditions(versionId: string): Promise<Vide
   return payload.renditions ?? [];
 }
 
-export async function loadCreativesWithLatestVersion(input: { scope?: 'all'; workspaceId?: string } = {}) {
+export async function loadCreativesWithLatestVersion(input: {
+  scope?: 'all';
+  workspaceId?: string;
+  limit?: number;
+  search?: string;
+} = {}) {
   const creatives = await loadCreatives(input);
   return {
     creatives,
@@ -310,10 +324,19 @@ export async function loadCreativeIngestion(ingestionId: string, input: { worksp
   return payload.ingestion;
 }
 
-export async function loadTags(input: { scope?: 'all'; workspaceId?: string } = {}): Promise<TagOption[]> {
+export async function loadTags(input: {
+  scope?: 'all';
+  workspaceId?: string;
+  campaignId?: string;
+  limit?: number;
+  search?: string;
+} = {}): Promise<TagOption[]> {
   const payload = await fetchJson<{ tags: TagOption[] }>(`/v1/tags${buildQuery({
     scope: input.scope,
     workspaceId: input.workspaceId,
+    campaignId: input.campaignId,
+    limit: input.limit,
+    search: input.search,
   })}`);
   return payload.tags ?? [];
 }
