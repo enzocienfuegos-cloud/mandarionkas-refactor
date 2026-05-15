@@ -79,6 +79,7 @@ export function StageSurface({
   const transitionDuration = Math.max(120, sceneTransitionDurationMs);
 
   function isCoveredByScratchGroup(widget: WidgetNode): boolean {
+    if (!previewMode) return false;
     let currentParentId = widget.parentId;
     while (currentParentId) {
       const parent = widgetsById[currentParentId];
