@@ -7,6 +7,7 @@ import {
   EXPORT_RUNTIME_INTERACTIVE_SECTION,
   EXPORT_RUNTIME_MAP_SECTION,
   EXPORT_RUNTIME_SCRATCH_SECTION,
+  EXPORT_RUNTIME_TIMELINE_SECTION,
   EXPORT_RUNTIME_WEATHER_SECTION,
 } from './runtime-script-sections';
 
@@ -17,6 +18,7 @@ type RuntimeCapabilities = {
   hasWeather: boolean;
   hasScratchReveal: boolean;
   hasCountdown: boolean;
+  hasTimelineAnimations: boolean;
 };
 
 const MAP_WIDGET_TYPES = new Set<string>(['dynamic-map', 'leaflet-map']);
@@ -66,6 +68,7 @@ export function analyzeRuntimeCapabilities(document: PortableExportProject): Run
   const hasWeather = widgets.some((widget) => WEATHER_WIDGET_TYPES.has(widget.type));
   const hasScratchReveal = widgets.some((widget) => SCRATCH_WIDGET_TYPES.has(widget.type));
   const hasCountdown = widgets.some((widget) => COUNTDOWN_WIDGET_TYPES.has(widget.type));
+  const hasTimelineAnimations = widgets.some((widget) => (widget.timeline.keyframes?.length ?? 0) > 0);
 
   return {
     hasMap,
@@ -74,6 +77,7 @@ export function analyzeRuntimeCapabilities(document: PortableExportProject): Run
     hasWeather,
     hasScratchReveal,
     hasCountdown,
+    hasTimelineAnimations,
   };
 }
 
@@ -86,6 +90,7 @@ export function compileRuntime(document: PortableExportProject, adapter: ExportH
   if (capabilities.hasWeather) sections.push(EXPORT_RUNTIME_WEATHER_SECTION);
   if (capabilities.hasScratchReveal) sections.push(EXPORT_RUNTIME_SCRATCH_SECTION);
   if (capabilities.hasCountdown) sections.push(EXPORT_RUNTIME_COUNTDOWN_SECTION);
+  if (capabilities.hasTimelineAnimations) sections.push(EXPORT_RUNTIME_TIMELINE_SECTION);
   return buildExportRuntimeScript(adapter, sections.join('\n'));
 }
 

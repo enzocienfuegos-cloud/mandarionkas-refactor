@@ -1,5 +1,84 @@
 export const EXPORT_RUNTIME_ENVIRONMENT_SECTION = ``;
 
+export const EXPORT_RUNTIME_TIMELINE_SECTION = `
+  function applyTimelineEasing(progress, easing) {
+    const clamped = Math.max(0, Math.min(1, progress));
+    if (easing === 'ease-in') return clamped * clamped;
+    if (easing === 'ease-out') return 1 - (1 - clamped) * (1 - clamped);
+    if (easing === 'ease-in-out') return clamped < 0.5 ? 2 * clamped * clamped : 1 - Math.pow(-2 * clamped + 2, 2) / 2;
+    return clamped;
+  }
+
+  function getWidgetTrackValue(widget, property, playheadMs, fallback) {
+    const keyframes = widget && widget.timeline && Array.isArray(widget.timeline.keyframes) ? widget.timeline.keyframes : [];
+    const track = keyframes
+      .filter((item) => item && item.property === property)
+      .sort((left, right) => Number(left.atMs || 0) - Number(right.atMs || 0));
+    if (!track.length) return fallback;
+    const before = [...track].reverse().find((item) => Number(item.atMs || 0) <= playheadMs) || track[0];
+    const after = track.find((item) => Number(item.atMs || 0) >= playheadMs) || track[track.length - 1];
+    if (!before || !after) return fallback;
+    if (Number(after.atMs || 0) === Number(before.atMs || 0)) return Number(before.value ?? fallback);
+    const progress = (playheadMs - Number(before.atMs || 0)) / Math.max(1, Number(after.atMs || 0) - Number(before.atMs || 0));
+    const eased = applyTimelineEasing(progress, after.easing || 'linear');
+    return Number(before.value ?? fallback) + (Number(after.value ?? fallback) - Number(before.value ?? fallback)) * eased;
+  }
+
+  function syncTimelineAnimatedWidgets(sceneRuntime, elapsedMs) {
+    if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets)) return;
+    sceneRuntime.widgets.forEach((widget) => {
+      if (!widget || !widget.timeline || !Array.isArray(widget.timeline.keyframes) || !widget.timeline.keyframes.length) return;
+      const node = document.querySelector('[data-widget-id="' + widget.id + '"]');
+      if (!node) return;
+      const frame = widget.frame || {};
+      const style = node.style;
+      if (!node.getAttribute('data-smx-base-opacity')) {
+        node.setAttribute('data-smx-base-opacity', style.opacity || '1');
+      }
+      style.left = String(getWidgetTrackValue(widget, 'x', elapsedMs, Number(frame.x || 0))) + 'px';
+      style.top = String(getWidgetTrackValue(widget, 'y', elapsedMs, Number(frame.y || 0))) + 'px';
+      style.width = String(getWidgetTrackValue(widget, 'width', elapsedMs, Number(frame.width || 0))) + 'px';
+      style.height = String(getWidgetTrackValue(widget, 'height', elapsedMs, Number(frame.height || 0))) + 'px';
+      style.opacity = String(getWidgetTrackValue(widget, 'opacity', elapsedMs, Number(node.getAttribute('data-smx-base-opacity') || 1)));
+    });
+  }
+
+  let smxTimelineFrame = 0;
+  function stopWidgetTimelineLoop() {
+    if (!smxTimelineFrame) return;
+    window.cancelAnimationFrame(smxTimelineFrame);
+    smxTimelineFrame = 0;
+  }
+
+  function startWidgetTimelineLoop(sceneIndex) {
+    stopWidgetTimelineLoop();
+    const sceneRuntime = getRuntimeScene(sceneIndex);
+    if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !sceneRuntime.widgets.some((widget) => widget && widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length)) return;
+    const startedAt = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+    const durationMs = Math.max(0, Number(sceneRuntime.durationMs || 0));
+
+    function tick(now) {
+      const currentNow = typeof now === 'number' ? now : (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
+      const elapsedMs = Math.max(0, Math.min(durationMs || 0, Math.round(currentNow - startedAt)));
+      syncTimelineAnimatedWidgets(sceneRuntime, elapsedMs);
+      if (elapsedMs >= durationMs) {
+        smxTimelineFrame = 0;
+        return;
+      }
+      smxTimelineFrame = window.requestAnimationFrame(tick);
+    }
+
+    syncTimelineAnimatedWidgets(sceneRuntime, 0);
+    smxTimelineFrame = window.requestAnimationFrame(tick);
+  }
+
+  const smxBaseShowScene = showScene;
+  showScene = function patchedShowScene(index) {
+    smxBaseShowScene(index);
+    startWidgetTimelineLoop(activeSceneIndex);
+  };
+`;
+
 export const EXPORT_RUNTIME_WEATHER_SECTION = `
   function resolveWeatherCondition(code) {
     if (code === 0) return 'Clear';
