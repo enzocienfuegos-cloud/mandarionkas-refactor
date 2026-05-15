@@ -205,6 +205,18 @@
   gap: var(--space-1);
 }
 
+.timeline-group-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+.timeline-group-actions .ghost {
+  min-height: 32px;
+}
+
 .timeline-title-copy small {
   color: var(--text-muted-faint);
   font-size: var(--font-size-xs);

@@ -150,6 +150,24 @@ export function TimelineHeader({
         <div className="timeline-title-copy">
           <strong>Timeline</strong>
           <small>{displayedCount} track{displayedCount === 1 ? '' : 's'} · Scene {activeSceneIndex + 1} of {Math.max(1, scenes.length)} · {selectedCount} selected</small>
+          <div className="timeline-group-actions">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onGroupSelection}
+              disabled={!canGroupSelection}
+            >
+              Group
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onUngroupSelection}
+              disabled={!canUngroupSelection}
+            >
+              Ungroup
+            </Button>
+          </div>
         </div>
       </div>
       <div className="timeline-controls">
@@ -237,28 +255,6 @@ export function TimelineHeader({
             onClick={onZoomIn}
           />
         </div>
-
-        <div className="timeline-ctrl-divider" aria-hidden="true" />
-
-        <div className="timeline-ctrl-group">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onGroupSelection}
-            disabled={!canGroupSelection}
-          >
-            Group
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onUngroupSelection}
-            disabled={!canUngroupSelection}
-          >
-            Ungroup
-          </Button>
-        </div>
-
         <div className="timeline-ctrl-divider" aria-hidden="true" />
 
         <div className="timeline-ctrl-group timeline-ctrl-group--duration">
