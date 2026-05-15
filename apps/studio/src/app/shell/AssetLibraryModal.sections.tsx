@@ -395,6 +395,24 @@ export function AssetLibraryFilesSection({
     await assetController.renameAssetById(assetId, trimmed);
   }
 
+  function handleAssetCardActivation(
+    asset: AssetRecord,
+    options: {
+      additive?: boolean;
+      range?: boolean;
+      closeOnApply?: boolean;
+    } = {},
+  ): void {
+    lib.toggleAssetSelection(asset.id, Boolean(options.additive), Boolean(options.range));
+    assetController.setSelectedAssetId(asset.id);
+
+    if (options.additive || options.range) return;
+    if (!lib.isCompatibleWithSelection(asset)) return;
+
+    assetController.assignAsset(asset);
+    if (options.closeOnApply ?? true) onClose();
+  }
+
   return (
     <div className="asset-library-browser-section">
       <div className="asset-library-browser-section-head">Files</div>
@@ -439,18 +457,14 @@ export function AssetLibraryFilesSection({
               tabIndex={0}
               draggable={asset.kind === 'image' || asset.kind === 'video'}
               className={`asset-browser-card ${isSelected ? 'is-selected' : ''} ${editingAssetId === asset.id ? 'is-renaming' : ''} ${(asset.kind === 'image' || asset.kind === 'video') ? 'is-draggable' : ''}`}
-              onClick={(e) => lib.toggleAssetSelection(asset.id, e.metaKey || e.ctrlKey, e.shiftKey)}
+              onClick={(e) => handleAssetCardActivation(asset, { additive: e.metaKey || e.ctrlKey, range: e.shiftKey })}
               onDoubleClick={() => {
-                assetController.setSelectedAssetId(asset.id);
-                if (lib.isCompatibleWithSelection(asset)) {
-                  assetController.assignAsset(asset);
-                  onClose();
-                }
+                handleAssetCardActivation(asset, { closeOnApply: true });
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  lib.toggleAssetSelection(asset.id, e.metaKey || e.ctrlKey, e.shiftKey);
+                  handleAssetCardActivation(asset, { additive: e.metaKey || e.ctrlKey, range: e.shiftKey });
                 }
               }}
               onDragStart={(e) => lib.handleDragStart(e, asset)}
