@@ -71,6 +71,26 @@ describe('widget reducer slices', () => {
     expect(outerGroup?.childIds).toEqual([firstGroupId, imageId]);
   });
 
+  it('ungroups the parent group even when a child layer is selected', () => {
+    let state = createInitialState();
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'text' });
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'shape' });
+    const [textId, shapeId] = Object.keys(state.document.widgets);
+    state = reduceBySlices(state, { type: 'SELECT_WIDGETS', widgetIds: [textId, shapeId], primaryWidgetId: textId });
+    state = reduceBySlices(state, { type: 'GROUP_SELECTED_WIDGETS' });
+
+    const groupId = Object.values(state.document.widgets).find((widget) => widget.type === 'group')?.id ?? '';
+    expect(groupId).toBeTruthy();
+
+    state = reduceBySlices(state, { type: 'SELECT_WIDGET', widgetId: textId });
+    state = reduceBySlices(state, { type: 'UNGROUP_SELECTED_WIDGETS' });
+
+    expect(state.document.widgets[groupId]).toBeUndefined();
+    expect(state.document.widgets[textId]?.parentId).toBeUndefined();
+    expect(state.document.widgets[shapeId]?.parentId).toBeUndefined();
+    expect(state.document.selection.widgetIds.sort()).toEqual([textId, shapeId].sort());
+  });
+
   it('toggles group visibility and locking across the whole grouped tree', () => {
     let state = createInitialState();
     state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'text' });

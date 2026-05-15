@@ -54,7 +54,7 @@ export function LayersSection({ controller }: { controller: LeftRailController }
   useVirtualWindowPadding(layerTreeRef, virtualLayers.paddingStart, virtualLayers.paddingEnd);
   const selectedCount = selectedIds.length;
   const groupableCount = selectedWidgets.filter((widget) => !widget.parentId).length;
-  const ungroupableCount = selectedWidgets.filter((widget) => Boolean(getCapability(getWidgetDefinition(widget.type), 'isContainer'))).length;
+  const ungroupableCount = selectedWidgets.filter((widget) => Boolean(getCapability(getWidgetDefinition(widget.type), 'isContainer')) || Boolean(widget.parentId)).length;
 
   function toggleGroup(widgetId: string): void {
     setCollapsedGroupIds((current) => {

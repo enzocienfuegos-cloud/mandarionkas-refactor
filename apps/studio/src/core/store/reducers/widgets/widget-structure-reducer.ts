@@ -38,7 +38,16 @@ export function widgetStructureReducer(state: StudioState, command: StudioComman
       });
     }
     case 'UNGROUP_SELECTED_WIDGETS': {
-      const selectedGroups = getSelectedWidgets(state).filter((widget) => getCapability(getWidgetDefinition(widget.type), 'isContainer'));
+      const widgetsById = state.document.widgets;
+      const selectedGroupIds = new Set<string>();
+      getSelectedWidgets(state).forEach((widget) => {
+        let current: WidgetNode | undefined = widgetsById[widget.id] ?? widget;
+        while (current) {
+          if (getCapability(getWidgetDefinition(current.type), 'isContainer')) selectedGroupIds.add(current.id);
+          current = current.parentId ? widgetsById[current.parentId] : undefined;
+        }
+      });
+      const selectedGroups = [...selectedGroupIds].map((groupId) => widgetsById[groupId]).filter(Boolean);
       if (!selectedGroups.length) return state;
       const widgets = { ...state.document.widgets };
       const selectionIds: string[] = [];
