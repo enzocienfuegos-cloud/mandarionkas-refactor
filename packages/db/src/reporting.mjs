@@ -947,7 +947,8 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   addCreativeEventFilters(durationParams, durationConditions, 'ie', creativeId, variantId);
   const durationQuery = pool.query(
     `SELECT
-       COALESCE(COUNT(DISTINCT ie.device_id), 0)::bigint AS unique_device_ids
+       COALESCE(COUNT(DISTINCT ie.device_id), 0)::bigint AS unique_device_ids,
+       COALESCE(SUM(COALESCE(ie.viewability_duration_ms, 0)), 0)::bigint AS raw_in_view_duration_ms
      FROM impression_events ie
      JOIN ad_tags t ON t.id = ie.tag_id
      WHERE ${durationConditions.join(' AND ')}`,
@@ -1059,9 +1060,15 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   });
   const videoStarts = Number(engagement.video_starts ?? 0);
   const videoCompletions = Number(engagement.video_completions ?? 0);
-  const viewableCount = Math.min(
-    Number(hasCreativeScope ? summary.viewable_imps ?? 0 : engagement.viewable_count ?? 0),
+  const measuredCount = Math.min(
+    Number(summary.measured_imps ?? totalImpressions),
     totalImpressions,
+  );
+  const viewabilityDenominator = measuredCount > 0 ? measuredCount : totalImpressions;
+  const viewableCount = Math.min(Number(summary.viewable_imps ?? 0), viewabilityDenominator);
+  const inViewDurationMs = Math.max(
+    Number(engagement.total_in_view_duration_ms ?? 0),
+    Number(duration.raw_in_view_duration_ms ?? 0),
   );
   const uniqueIdentityCount = Math.max(
     Number(frequency.unique_identities ?? 0),
@@ -1083,10 +1090,10 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     total_spend_without_margin: Number(spendTotals.spendWithoutMargin.toFixed(4)),
     total_spend_with_margin: Number(spendTotals.spendWithMargin.toFixed(4)),
     total_viewable_impressions: viewableCount,
-    total_measured_impressions: totalImpressions,
-    total_undetermined_impressions: 0,
-    measurable_rate: Number(summary.measurable_rate ?? 0),
-    viewability_rate: totalImpressions > 0 ? Number(((viewableCount / totalImpressions) * 100).toFixed(4)) : 0,
+    total_measured_impressions: measuredCount,
+    total_undetermined_impressions: Math.max(totalImpressions - measuredCount, 0),
+    measurable_rate: totalImpressions > 0 ? Number(((measuredCount / totalImpressions) * 100).toFixed(4)) : 0,
+    viewability_rate: viewabilityDenominator > 0 ? Number(((viewableCount / viewabilityDenominator) * 100).toFixed(4)) : 0,
     avg_ctr: Number(summary.avg_ctr ?? 0),
     total_engagements: Number(engagement.total_engagements ?? 0),
     engagement_rate: totalImpressions > 0 ? Number(((Number(engagement.total_engagements ?? 0) / totalImpressions) * 100).toFixed(4)) : 0,
@@ -1097,7 +1104,7 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
     video_third_quartile: Number(engagement.video_third_quartile ?? 0),
     video_completions: videoCompletions,
     video_completion_rate: videoStarts > 0 ? Number(((videoCompletions / videoStarts) * 100).toFixed(4)) : 0,
-    total_in_view_duration_ms: Number(engagement.total_in_view_duration_ms ?? 0),
+    total_in_view_duration_ms: inViewDurationMs,
     total_identities: uniqueIdentityCount,
     avg_identity_frequency: avgIdentityFrequency,
     avg_identity_clicks: 0,

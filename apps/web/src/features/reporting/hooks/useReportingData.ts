@@ -539,6 +539,10 @@ function buildKpis(
   const highFrequencyUsers = presets.find((row) => row.preset === 'high_frequency_exposed')?.identity_count ?? 0;
   const exportableAudiences = presets.filter((row) => row.identity_count > 0).length;
   const identityCoverage = stats.total_impressions > 0 ? (stats.total_identities / stats.total_impressions) * 100 : 0;
+  const attentionDurationMs = Math.max(
+    toNumber(stats.total_hover_duration_ms),
+    toNumber(stats.total_in_view_duration_ms),
+  );
   const spendValue = resolveWorkspaceSpend(stats, spendView);
   const spendHelper = spendView === 'with_margin'
     ? `Includes ${formatMoney(toNumber(stats.total_margin))} margin on top of ${formatMoney(toNumber(stats.total_spend_without_margin ?? stats.total_spend))} net spend.`
@@ -579,10 +583,10 @@ function buildKpis(
       {
         id: 'attention-time',
         label: 'Attention time',
-        value: formatDurationMs(stats.total_hover_duration_ms),
+        value: formatDurationMs(attentionDurationMs),
         tone: 'amber',
         icon: 'attention',
-        helper: 'Accumulated hover duration',
+        helper: 'Accumulated in-view or hover duration',
       },
       {
         id: 'engagement-rate',
