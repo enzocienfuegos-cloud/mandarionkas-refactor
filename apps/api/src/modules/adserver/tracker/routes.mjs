@@ -114,7 +114,7 @@ function extractBasisMacroContext(p) {
     dimensions: normalizeResolvedTrackingValue(p.get('dimensions') || p.get('cresze') || '') || null,
     ifa: normalizeResolvedTrackingValue(p.get('ifa') || p.get('idfa') || p.get('gadvid') || p.get('googleAdvertisingId') || '') || null,
     basisCampaignId: normalizeResolvedTrackingValue(p.get('basis_campaign_id') || p.get('cmpid') || p.get('campaignId') || '') || null,
-    basisAdId: normalizeResolvedTrackingValue(p.get('basis_ad_id') || p.get('adid') || p.get('adId') || '') || null,
+    basisAdId: normalizeResolvedTrackingValue(p.get('basis_ad_id') || p.get('ad_id') || p.get('adid') || p.get('adId') || '') || null,
     sourceSiteId: normalizeResolvedTrackingValue(p.get('source_site_id') || p.get('sourceSiteId') || p.get('sid') || p.get('siteid') || '') || null,
     domain: domain || null,
   };

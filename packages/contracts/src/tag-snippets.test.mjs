@@ -68,7 +68,13 @@ test('displayHtmlUrl must carry DSP macros for Basis', () => {
   assert.ok(displayUrl.includes('dsp=Basis'), 'Basis display URL must carry dsp param');
   assert.ok(displayUrl.includes('appid={appId}'), 'Basis display URL must carry app id macro for app inventory reporting');
   assert.ok(displayUrl.includes('auction_id={auctionId}'), 'Basis display URL must carry auction id macro for reconciliation');
+  assert.ok(displayUrl.includes('ts={ts}'), 'Basis display URL must carry timestamp/cachebuster macro');
+  assert.ok(displayUrl.includes('dimensions={dimensions}'), 'Basis display URL must carry dimensions macro');
+  assert.ok(displayUrl.includes('creative_type={creativeType}'), 'Basis display URL must carry creative type macro');
+  assert.ok(displayUrl.includes('ad_id={adId}'), 'Basis display URL must carry ad id macro');
   assert.ok(displayUrl.includes('click_invalid={clickInvalid}'), 'Basis display URL must carry click validity macro for click filtering');
+  assert.ok(displayUrl.includes('gdpr=${GDPR}'), 'Basis display URL must use the OpenRTB GDPR macro form');
+  assert.ok(!displayUrl.includes('cs_gdpr'), 'Basis display URL should not duplicate GDPR params');
 });
 
 test('displayHtmlUrl must carry DSP macros for TTD', () => {

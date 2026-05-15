@@ -87,7 +87,7 @@ export async function resolveTagWorkspaceId(pool, tagId) {
 }
 
 export function queueImpressionEventWrite(pool, payload) {
-  if (!pool) return;
+  if (!pool) return Promise.resolve(false);
   const {
     tagId, workspaceId, creativeId, creativeSizeVariantId, remoteIp, userAgent, country, region, city,
     deviceId, deviceType, deviceModel, browser, os, networkId, sourcePublisherId,
@@ -102,7 +102,7 @@ export function queueImpressionEventWrite(pool, payload) {
       siteDomain, referer,
     } = payload;
 
-    (async () => {
+  return (async () => {
       const supportsConnectionColumns = await hasConnectionColumns(pool);
       const supportsBasisMacroColumns = await hasBasisMacroColumns(pool);
     const columns = [
@@ -177,10 +177,14 @@ export function queueImpressionEventWrite(pool, payload) {
        VALUES (${placeholders.join(', ')})`,
       values,
     );
-  })().catch((err) => logWarn({
+    return true;
+  })().catch((err) => {
+    logWarn({
     service: 'smx-tracker-service',
     fn: 'queueImpressionEventWrite',
     tagId,
     message: err?.message,
-  }));
+    });
+    return false;
+  });
 }

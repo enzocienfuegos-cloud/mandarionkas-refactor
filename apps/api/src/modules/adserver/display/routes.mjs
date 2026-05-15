@@ -9,10 +9,11 @@ import { wrapTrackedClickUrlWithDspMacro } from '../../../../../../packages/cont
 import { sanitizeClickTagRuntimeInHtml } from '../../../../../../packages/contracts/src/html5-detector.mjs';
 import { resolveDeviceId } from '../../../lib/device-id.mjs';
 import { hashIp } from '../../../lib/ip-fingerprint.mjs';
-import { logWarn } from '../../../lib/logger.mjs';
+import { logInfo, logWarn } from '../../../lib/logger.mjs';
 import { queueImpressionEventWrite, resolveTagWorkspaceId } from '../tracker/service.mjs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const BOT_UA_REGEX = /bot|crawler|spider|preview|fetch|scanner|validator|monitor|headless|phantom|selenium|chrome-lighthouse|googleweblight|pagespeed|lighthouse|facebookexternalhit|slurp|curl|wget/i;
 const R2_REGION = 'auto';
 let cachedR2Client = null;
 let cachedR2Key = '';
@@ -29,8 +30,22 @@ function decodeStringSafe(value) {
 }
 
 function readHeader(req, name) {
-  const value = req?.headers?.[name];
+  const value = req?.headers?.[name] ?? req?.headers?.[String(name).toLowerCase()];
   return Array.isArray(value) ? trimText(value[0] || '') : trimText(value || '');
+}
+
+function isPrefetchRequest(req) {
+  const purpose = readHeader(req, 'purpose').toLowerCase();
+  const secPurpose = readHeader(req, 'sec-purpose').toLowerCase();
+  const xMoz = readHeader(req, 'x-moz').toLowerCase();
+  return purpose === 'prefetch' || secPurpose.includes('prefetch') || xMoz === 'prefetch';
+}
+
+function classifyFilteredImpression(req) {
+  const userAgent = readHeader(req, 'user-agent');
+  if (isPrefetchRequest(req)) return { filtered: true, reason: 'prefetch', userAgent };
+  if (BOT_UA_REGEX.test(userAgent)) return { filtered: true, reason: 'bot', userAgent };
+  return { filtered: false, reason: '', userAgent };
 }
 
 function trimQuotedHeader(value) {
@@ -278,7 +293,7 @@ function extractBasisMacroContext(p) {
     dimensions: normalizeResolvedTrackingValue(p.get('dimensions') || p.get('cresze') || '') || null,
     ifa: normalizeResolvedTrackingValue(p.get('ifa') || p.get('idfa') || p.get('gadvid') || p.get('googleAdvertisingId') || '') || null,
     basisCampaignId: normalizeResolvedTrackingValue(p.get('basis_campaign_id') || p.get('cmpid') || p.get('campaignId') || '') || null,
-    basisAdId: normalizeResolvedTrackingValue(p.get('basis_ad_id') || p.get('adid') || p.get('adId') || '') || null,
+    basisAdId: normalizeResolvedTrackingValue(p.get('basis_ad_id') || p.get('ad_id') || p.get('adid') || p.get('adId') || '') || null,
     sourceSiteId: normalizeResolvedTrackingValue(p.get('source_site_id') || p.get('sourceSiteId') || p.get('sid') || p.get('siteid') || '') || null,
     domain: domain || null,
   };
@@ -288,16 +303,23 @@ function queueDisplayFirstHopImpression(ctx, pool, tagId, row) {
   const { req, res, url, env, requestId, trackerBuffer } = ctx;
   if (!pool || !tagId || !row || url.searchParams.get('smx_no_imp') === '1') return null;
 
+  const filteredImpression = classifyFilteredImpression(req);
+  if (filteredImpression.filtered) {
+    logInfo({
+      service: 'smx-display-first-hop',
+      event: 'impression_filtered',
+      requestId,
+      tagId,
+      reason: filteredImpression.reason,
+      userAgent: filteredImpression.userAgent,
+    });
+    return null;
+  }
+
   const { deviceId, cookie } = resolveDeviceId(req, env);
   if (cookie) res.setHeader('Set-Cookie', cookie);
 
   (async () => {
-    if (trackerBuffer) {
-      trackerBuffer.addImpression(tagId);
-    } else {
-      await recordImpression(pool, tagId);
-    }
-
     const workspaceId = await resolveTagWorkspaceIdCached(pool, tagId);
     if (!workspaceId) return;
 
@@ -381,7 +403,7 @@ function queueDisplayFirstHopImpression(ctx, pool, tagId, row) {
       appName,
     });
 
-    queueImpressionEventWrite(pool, {
+    const rawEventWritten = await queueImpressionEventWrite(pool, {
       tagId,
       workspaceId,
       creativeId,
@@ -430,6 +452,13 @@ function queueDisplayFirstHopImpression(ctx, pool, tagId, row) {
       ...basisMacroContext,
       inferredContext: inferredContext || 'unknown',
     });
+    if (!rawEventWritten) return;
+
+    if (trackerBuffer) {
+      trackerBuffer.addImpression(tagId);
+    } else {
+      await recordImpression(pool, tagId);
+    }
   })().catch((err) => logWarn({
     service: 'smx-display-first-hop',
     fn: 'queueDisplayFirstHopImpression',
