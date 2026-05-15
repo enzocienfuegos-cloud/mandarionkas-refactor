@@ -30,6 +30,28 @@ function trimText(value) {
   return String(value ?? '').trim();
 }
 
+export function pickWeightedVastBinding(rows, random = Math.random) {
+  const candidates = (Array.isArray(rows) ? rows : [])
+    .filter((row) => row && String(row.status || '').toLowerCase() === 'active')
+    .map((row) => ({
+      ...row,
+      weight: Math.max(1, Number(row.weight) || 1),
+    }));
+
+  if (!candidates.length) return null;
+  if (candidates.length === 1) return candidates[0];
+
+  const totalWeight = candidates.reduce((sum, row) => sum + row.weight, 0);
+  let cursor = Math.max(0, Math.min(0.999999999, Number(random()) || 0)) * totalWeight;
+
+  for (const row of candidates) {
+    cursor -= row.weight;
+    if (cursor < 0) return row;
+  }
+
+  return candidates[candidates.length - 1];
+}
+
 function normalizeProfile(value, fallback = 'default') {
   const normalized = trimText(value).toLowerCase();
   if (normalized === 'basis') return 'basis';
@@ -617,7 +639,7 @@ export async function resolveVastChain({ url, maxDepth = 10 }) {
   };
 }
 
-async function getTagContext(pool, tagId) {
+async function getTagContext(pool, tagId, { rotate = true } = {}) {
   const hasMetadataColumn = await tagFormatConfigHasMetadataColumn(pool);
   const { rows } = await pool.query(
     `SELECT t.id, t.workspace_id, t.campaign_id, t.name, t.format, t.status,
@@ -656,11 +678,13 @@ async function getTagContext(pool, tagId) {
      WHERE b.workspace_id = $1
        AND b.tag_id = $2
        AND b.status = 'active'
-     ORDER BY b.weight DESC, b.created_at ASC`,
+     ORDER BY b.created_at ASC`,
     [tag.workspace_id, tagId],
   );
 
-  const selectedBinding = bindingRows[0] ?? null;
+  const selectedBinding = rotate
+    ? pickWeightedVastBinding(bindingRows)
+    : bindingRows[0] ?? null;
   const renditions = selectedBinding
     ? await listVideoRenditions(pool, tag.workspace_id, selectedBinding.creative_version_id)
     : [];
@@ -952,7 +976,7 @@ export async function queueStaticVastPublish(pool, { tagId, baseUrl, trigger = '
 }
 
 export async function getStaticVastXml(pool, { tagId, profile = 'default', baseUrl }) {
-  const ctx = await getTagContext(pool, tagId);
+  const ctx = await getTagContext(pool, tagId, { rotate: false });
   if (!ctx) return null;
   const currentState = parseStaticDeliveryMetadata(ctx.tag.format_metadata);
   const normalizedProfile = normalizeStaticProfile(profile);
@@ -969,19 +993,19 @@ export async function getStaticVastXml(pool, { tagId, profile = 'default', baseU
 }
 
 export async function getLiveVastXml(pool, { tagId, profile = 'default', baseUrl }) {
-  const ctx = await getTagContext(pool, tagId);
+  const ctx = await getTagContext(pool, tagId, { rotate: true });
   if (!ctx) return null;
   return buildLiveXmlForTagContext(ctx, { profile, baseUrl });
 }
 
 export async function getTagClickDestination(pool, tagId) {
-  const ctx = await getTagContext(pool, tagId);
+  const ctx = await getTagContext(pool, tagId, { rotate: false });
   if (!ctx) return null;
   return trimText(ctx.tag.click_url || ctx.selectedBinding?.creative_click_url) || null;
 }
 
 export async function getVastDeliveryDiagnostics(pool, { tagId, baseUrl }) {
-  const ctx = await getTagContext(pool, tagId);
+  const ctx = await getTagContext(pool, tagId, { rotate: false });
   if (!ctx) return null;
 
   const selectedCampaignDsp = readCampaignDsp(ctx.tag.campaign_metadata);
