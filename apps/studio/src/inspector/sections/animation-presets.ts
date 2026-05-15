@@ -1,13 +1,14 @@
 import { createId } from '../../domain/document/factories';
 import type { KeyframeNode, WidgetNode } from '../../domain/document/types';
 
-export type SupportedAnimationPreset = 'appear' | 'fade-up' | 'pulse';
+export type SupportedAnimationPreset = 'appear' | 'fade-up' | 'fade-out' | 'pulse';
 
 export const ANIMATION_PRESET_WIDGET_TYPES = new Set<WidgetNode['type']>([
   'text',
   'image',
   'cta',
   'buttons',
+  'group',
 ]);
 
 export function supportsAnimationPresets(widget: WidgetNode): boolean {
@@ -51,6 +52,16 @@ export function applyAnimationPreset(widget: WidgetNode, preset: SupportedAnimat
         buildKeyframe('y', startMs, baseY + 24),
         buildKeyframe('y', startMs + durationMs, baseY, 'ease-out'),
       ], ['opacity', 'y']),
+      stylePatch: { animationPreset: preset },
+    };
+  }
+
+  if (preset === 'fade-out') {
+    return {
+      keyframes: replacePresetTracks(existing, [
+        buildKeyframe('opacity', Math.max(startMs, endMs - durationMs), baseOpacity),
+        buildKeyframe('opacity', endMs, 0, 'ease-in'),
+      ], ['opacity']),
       stylePatch: { animationPreset: preset },
     };
   }

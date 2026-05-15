@@ -7,7 +7,7 @@ import { getWidgetDefinition } from '../../../../widgets/registry/widget-registr
 export function widgetStructureReducer(state: StudioState, command: StudioCommand): StudioState {
   switch (command.type) {
     case 'GROUP_SELECTED_WIDGETS': {
-      const selected = getSelectedWidgets(state).filter((widget) => !getCapability(getWidgetDefinition(widget.type), 'isContainer') && !widget.parentId);
+      const selected = getSelectedWidgets(state).filter((widget) => !widget.parentId);
       const scene = currentScene(state);
       if (!scene || selected.length < 2) return state;
       const widgets = { ...state.document.widgets };

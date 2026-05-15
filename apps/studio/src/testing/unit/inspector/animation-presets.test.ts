@@ -17,11 +17,12 @@ function createWidget(type: WidgetNode['type']): WidgetNode {
 }
 
 describe('animation presets', () => {
-  it('supports presets for text, image, cta, and buttons widgets', () => {
+  it('supports presets for text, image, cta, buttons, and group widgets', () => {
     expect(supportsAnimationPresets(createWidget('text'))).toBe(true);
     expect(supportsAnimationPresets(createWidget('image'))).toBe(true);
     expect(supportsAnimationPresets(createWidget('cta'))).toBe(true);
     expect(supportsAnimationPresets(createWidget('buttons'))).toBe(true);
+    expect(supportsAnimationPresets(createWidget('group'))).toBe(true);
     expect(supportsAnimationPresets(createWidget('scratch-reveal'))).toBe(false);
   });
 
@@ -48,5 +49,15 @@ describe('animation presets', () => {
     expect(keyframes).toHaveLength(3);
     expect(keyframes.every((item) => item.property === 'opacity')).toBe(true);
     expect(keyframes[1]?.value).toBeLessThan(1);
+  });
+
+  it('builds fade-out keyframes toward the end of the widget timeline', () => {
+    const { keyframes, stylePatch } = applyAnimationPreset(createWidget('group'), 'fade-out');
+
+    expect(stylePatch.animationPreset).toBe('fade-out');
+    expect(keyframes).toHaveLength(2);
+    expect(keyframes.map((item) => item.property)).toEqual(['opacity', 'opacity']);
+    expect(keyframes[0]?.atMs).toBeLessThan(keyframes[1]?.atMs ?? 0);
+    expect(keyframes[1]?.value).toBe(0);
   });
 });

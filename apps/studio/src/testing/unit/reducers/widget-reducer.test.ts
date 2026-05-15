@@ -49,6 +49,28 @@ describe('widget reducer slices', () => {
     expect(groups[0].childIds?.length).toBe(2);
   });
 
+  it('groups an existing group together with another top-level widget', () => {
+    let state = createInitialState();
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'text' });
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'shape' });
+    const [textId, shapeId] = Object.keys(state.document.widgets);
+    state = reduceBySlices(state, { type: 'SELECT_WIDGETS', widgetIds: [textId, shapeId], primaryWidgetId: textId });
+    state = reduceBySlices(state, { type: 'GROUP_SELECTED_WIDGETS' });
+
+    const firstGroupId = Object.values(state.document.widgets).find((widget) => widget.type === 'group')?.id;
+    expect(firstGroupId).toBeTruthy();
+
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'image' });
+    const imageId = Object.keys(state.document.widgets).find((id) => ![textId, shapeId, firstGroupId].includes(id)) ?? '';
+    state = reduceBySlices(state, { type: 'SELECT_WIDGETS', widgetIds: [firstGroupId ?? '', imageId], primaryWidgetId: firstGroupId });
+    state = reduceBySlices(state, { type: 'GROUP_SELECTED_WIDGETS' });
+
+    const groups = Object.values(state.document.widgets).filter((widget) => widget.type === 'group');
+    expect(groups).toHaveLength(2);
+    const outerGroup = groups.find((widget) => widget.id !== firstGroupId);
+    expect(outerGroup?.childIds).toEqual([firstGroupId, imageId]);
+  });
+
   it('toggles group visibility and locking across the whole grouped tree', () => {
     let state = createInitialState();
     state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'text' });

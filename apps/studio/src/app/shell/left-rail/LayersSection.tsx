@@ -53,6 +53,8 @@ export function LayersSection({ controller }: { controller: LeftRailController }
   });
   useVirtualWindowPadding(layerTreeRef, virtualLayers.paddingStart, virtualLayers.paddingEnd);
   const selectedCount = selectedIds.length;
+  const groupableCount = selectedWidgets.filter((widget) => !widget.parentId).length;
+  const ungroupableCount = selectedWidgets.filter((widget) => Boolean(getCapability(getWidgetDefinition(widget.type), 'isContainer'))).length;
 
   function toggleGroup(widgetId: string): void {
     setCollapsedGroupIds((current) => {
@@ -207,8 +209,8 @@ export function LayersSection({ controller }: { controller: LeftRailController }
         <div className="pill">{selectedCount} selected</div>
       </div>
       <div className="field-stack rail-action-grid section-offset-bottom-lg">
-        <Button className="left-button compact-action" size="sm" onClick={() => widgetActions.groupSelected()} disabled={selectedIds.length < 2}>Group</Button>
-        <Button className="left-button compact-action" size="sm" onClick={() => widgetActions.ungroupSelected()} disabled={!selectedIds.length}>Ungroup</Button>
+        <Button className="left-button compact-action" size="sm" onClick={() => widgetActions.groupSelected()} disabled={groupableCount < 2}>Group</Button>
+        <Button className="left-button compact-action" size="sm" onClick={() => widgetActions.ungroupSelected()} disabled={!ungroupableCount}>Ungroup</Button>
       </div>
 
       <div className="left-card left-card--section left-card-grid layer-scene-card">

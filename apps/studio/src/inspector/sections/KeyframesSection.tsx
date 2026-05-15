@@ -31,6 +31,7 @@ export function KeyframesSection({ widget, playheadMs }: { widget: WidgetNode; p
             <div className="inline-actions">
               <Button size="sm" onClick={() => handleApplyPreset('appear')}>Appear</Button>
               <Button size="sm" onClick={() => handleApplyPreset('fade-up')}>Fade up</Button>
+              <Button size="sm" onClick={() => handleApplyPreset('fade-out')}>Fade out</Button>
               <Button size="sm" onClick={() => handleApplyPreset('pulse')}>Pulse</Button>
             </div>
           </Tile>
