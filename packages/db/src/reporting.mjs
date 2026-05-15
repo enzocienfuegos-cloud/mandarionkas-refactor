@@ -921,20 +921,38 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   const engagementConditions = ['t.workspace_id = $1'];
   addTagScopeFilters(engagementParams, engagementConditions, 't', campaignId, tagIds, advertiserId);
   addTagChannelFilter(engagementConditions, 't', channel);
-  addDateFilters(engagementParams, engagementConditions, 'es', dateFrom, dateTo);
+  addDateFilters(engagementParams, engagementConditions, 'e', dateFrom, dateTo);
   const engagementQuery = pool.query(
-    `SELECT
-       COALESCE(SUM(CASE WHEN es.event_type = 'hover_end' THEN es.event_count ELSE 0 END), 0)::bigint AS total_engagements,
-       COALESCE(SUM(CASE WHEN es.event_type = 'hover_end' THEN es.total_duration_ms ELSE 0 END), 0)::bigint AS total_hover_duration_ms,
-       COALESCE(SUM(CASE WHEN es.event_type = 'viewable' THEN es.event_count ELSE 0 END), 0)::bigint AS viewable_count,
-       COALESCE(SUM(CASE WHEN es.event_type = 'viewable' THEN es.total_duration_ms ELSE 0 END), 0)::bigint AS total_in_view_duration_ms,
-       COALESCE(SUM(CASE WHEN es.event_type = 'start' THEN es.event_count ELSE 0 END), 0)::bigint AS video_starts,
-       COALESCE(SUM(CASE WHEN es.event_type = 'firstQuartile' THEN es.event_count ELSE 0 END), 0)::bigint AS video_first_quartile,
-       COALESCE(SUM(CASE WHEN es.event_type = 'midpoint' THEN es.event_count ELSE 0 END), 0)::bigint AS video_midpoint,
-       COALESCE(SUM(CASE WHEN es.event_type = 'thirdQuartile' THEN es.event_count ELSE 0 END), 0)::bigint AS video_third_quartile,
-       COALESCE(SUM(CASE WHEN es.event_type = 'complete' THEN es.event_count ELSE 0 END), 0)::bigint AS video_completions
-     FROM tag_engagement_daily_stats es
-     JOIN ad_tags t ON t.id = es.tag_id
+    `WITH engagement_events AS (
+       SELECT
+         tag_id,
+         date,
+         event_type,
+         event_count,
+         total_duration_ms
+       FROM tag_engagement_daily_stats
+       UNION ALL
+       SELECT
+         tag_id,
+         event_date AS date,
+         event_type,
+         event_count,
+         duration_ms AS total_duration_ms
+       FROM tracker_engagement_staging
+       WHERE flushed = FALSE
+     )
+     SELECT
+       COALESCE(SUM(CASE WHEN e.event_type = 'hover_end' THEN e.event_count ELSE 0 END), 0)::bigint AS total_engagements,
+       COALESCE(SUM(CASE WHEN e.event_type = 'hover_end' THEN e.total_duration_ms ELSE 0 END), 0)::bigint AS total_hover_duration_ms,
+       COALESCE(SUM(CASE WHEN e.event_type = 'viewable' THEN e.event_count ELSE 0 END), 0)::bigint AS viewable_count,
+       COALESCE(SUM(CASE WHEN e.event_type = 'viewable' THEN e.total_duration_ms ELSE 0 END), 0)::bigint AS total_in_view_duration_ms,
+       COALESCE(SUM(CASE WHEN e.event_type = 'start' THEN e.event_count ELSE 0 END), 0)::bigint AS video_starts,
+       COALESCE(SUM(CASE WHEN e.event_type = 'firstQuartile' THEN e.event_count ELSE 0 END), 0)::bigint AS video_first_quartile,
+       COALESCE(SUM(CASE WHEN e.event_type = 'midpoint' THEN e.event_count ELSE 0 END), 0)::bigint AS video_midpoint,
+       COALESCE(SUM(CASE WHEN e.event_type = 'thirdQuartile' THEN e.event_count ELSE 0 END), 0)::bigint AS video_third_quartile,
+       COALESCE(SUM(CASE WHEN e.event_type = 'complete' THEN e.event_count ELSE 0 END), 0)::bigint AS video_completions
+     FROM engagement_events e
+     JOIN ad_tags t ON t.id = e.tag_id
      WHERE ${engagementConditions.join(' AND ')}`,
     engagementParams,
   );
@@ -1060,12 +1078,13 @@ export async function getWorkspaceOverview(pool, workspaceId, opts = {}) {
   });
   const videoStarts = Number(engagement.video_starts ?? 0);
   const videoCompletions = Number(engagement.video_completions ?? 0);
-  const measuredCount = Math.min(
-    Number(summary.measured_imps ?? totalImpressions),
-    totalImpressions,
-  );
+  const rawMeasuredCount = Number(summary.measured_imps ?? 0);
+  const measuredCount = Math.min(rawMeasuredCount > 0 ? rawMeasuredCount : totalImpressions, totalImpressions);
   const viewabilityDenominator = measuredCount > 0 ? measuredCount : totalImpressions;
-  const viewableCount = Math.min(Number(summary.viewable_imps ?? 0), viewabilityDenominator);
+  const viewableCount = Math.min(
+    Math.max(Number(summary.viewable_imps ?? 0), Number(engagement.viewable_count ?? 0)),
+    viewabilityDenominator,
+  );
   const inViewDurationMs = Math.max(
     Number(engagement.total_in_view_duration_ms ?? 0),
     Number(duration.raw_in_view_duration_ms ?? 0),
