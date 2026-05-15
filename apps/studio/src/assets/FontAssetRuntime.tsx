@@ -3,21 +3,7 @@ import { listAssets } from '../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../repositories/asset/events';
 import type { AssetRecord } from './types';
 import { usePlatformSnapshot } from '../platform/runtime';
-
-function fontFamilyName(asset: AssetRecord): string {
-  const base = (asset.fontFamily ?? asset.name ?? 'Custom Font').replace(/\.[^.]+$/, '').trim() || 'Custom Font';
-  return `SMX_${base.replace(/[^a-zA-Z0-9]+/g, '_')}_${asset.id.slice(0, 6)}`;
-}
-
-function buildFontFaceCss(asset: AssetRecord): string {
-  const family = fontFamilyName(asset);
-  const src = asset.publicUrl ?? asset.src;
-  return `@font-face{font-family:"${family}";src:url("${src}");font-display:swap;}`;
-}
-
-export function resolveFontAssetFamily(asset: AssetRecord): string {
-  return fontFamilyName(asset);
-}
+import { buildFontAssetCss, resolveFontAssetFamily } from './font-family';
 
 export function FontAssetRuntime(): JSX.Element | null {
   const platform = usePlatformSnapshot();
@@ -42,7 +28,7 @@ export function FontAssetRuntime(): JSX.Element | null {
             styleEl.id = styleId;
             document.head.appendChild(styleEl);
           }
-          styleEl.textContent = fontAssets.map(buildFontFaceCss).join('\n');
+          styleEl.textContent = fontAssets.map(buildFontAssetCss).join('\n');
         })
         .catch(() => {
           if (cancelled) return;

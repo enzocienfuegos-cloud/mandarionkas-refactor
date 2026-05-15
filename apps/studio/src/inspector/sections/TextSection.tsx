@@ -5,7 +5,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import type { AssetRecord } from '../../assets/types';
-import { resolveFontAssetFamily } from '../../assets/FontAssetRuntime';
+import { resolveFontAssetFamily } from '../../assets/font-family';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { Button } from '../../shared/ui/Button';
 import { badgeStateFromInheritance, useWidgetInheritance, type InheritanceBadgeState } from '../use-widget-inheritance';
@@ -206,7 +206,7 @@ export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
                 updateWidgetProps(widget.id, { fontAssetId: '', fontAssetSrc: '' });
                 return;
               }
-              updateWidgetProps(widget.id, { fontAssetId: asset.id, fontAssetSrc: asset.src });
+              updateWidgetProps(widget.id, { fontAssetId: asset.id, fontAssetSrc: asset.publicUrl ?? asset.src });
               updateWidgetStyle(widget.id, { fontFamily: resolveFontAssetFamily(asset) });
             }}>
               <option value="">No linked font</option>

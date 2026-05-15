@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { assignAssetToWidget, widgetAcceptsAssetSwap } from '../../../app/shell/left-rail/asset-controller-helpers';
 import type { AssetRecord } from '../../../assets/types';
+import { resolveFontAssetFamily } from '../../../assets/font-family';
 import type { WidgetNode } from '../../../domain/document/types';
 
 function createImageAsset(): AssetRecord {
@@ -110,7 +111,7 @@ describe('asset controller helpers', () => {
       fontAssetSrc: 'https://cdn.example.com/headline-sans.woff2',
     });
     expect(updateWidgetStyle).toHaveBeenCalledWith('widget-text', {
-      fontFamily: 'SMX_Headline_Sans_asset-',
+      fontFamily: resolveFontAssetFamily(createFontAsset()),
     });
   });
 });
