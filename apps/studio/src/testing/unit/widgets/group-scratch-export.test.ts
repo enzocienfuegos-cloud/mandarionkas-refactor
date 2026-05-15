@@ -108,6 +108,18 @@ describe('group scratch export', () => {
     expect(html).toContain('data-scratch-canvas');
   });
 
+  it('expands the scratch group export frame when children extend outside the original group bounds', () => {
+    const state = createState();
+    state.document.widgets.group_1.frame = { x: 40, y: 60, width: 120, height: 80, rotation: 0 };
+    state.document.widgets.text_1.frame = { x: 12, y: 16, width: 220, height: 48, rotation: 0 };
+    const html = renderGroupExport(state.document.widgets.group_1, state);
+
+    expect(html).toContain('left:12px');
+    expect(html).toContain('top:16px');
+    expect(html).toContain('width:220px');
+    expect(html).toContain('height:124px');
+  });
+
   it('falls back to the regular group export when scratch is disabled', () => {
     const html = renderGroupExport(createGroupWidget({ scratchEnabled: false }));
 

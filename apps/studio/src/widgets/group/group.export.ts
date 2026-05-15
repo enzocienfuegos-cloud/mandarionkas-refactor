@@ -8,6 +8,7 @@ function renderGroupScratchChildren(
   node: WidgetNode,
   state: StudioState,
   assetPathMap: Record<string, string>,
+  baseFrame: WidgetNode['frame'],
 ): string {
   const resolvedWidgets = buildResolvedWidgetsById(state.document);
   const children = (node.childIds ?? [])
@@ -21,8 +22,8 @@ function renderGroupScratchChildren(
       ...child,
       frame: {
         ...child.frame,
-        x: child.frame.x - node.frame.x,
-        y: child.frame.y - node.frame.y,
+        x: child.frame.x - baseFrame.x,
+        y: child.frame.y - baseFrame.y,
       },
     };
     const definition = getWidgetDefinition(relativeChild.type);
@@ -31,6 +32,30 @@ function renderGroupScratchChildren(
     }
     return renderGenericExport(relativeChild, relativeChild.name, relativeChild.type);
   }).join('\n');
+}
+
+function resolveScratchGroupExportFrame(node: WidgetNode, state: StudioState): WidgetNode['frame'] {
+  const resolvedWidgets = buildResolvedWidgetsById(state.document);
+  const baseFrame = node.frame;
+  const childFrames = (node.childIds ?? [])
+    .map((childId) => resolvedWidgets[childId])
+    .filter((child): child is WidgetNode => Boolean(child) && !child.hidden)
+    .map((child) => child.frame);
+
+  if (!childFrames.length) return baseFrame;
+
+  const minX = Math.min(baseFrame.x, ...childFrames.map((frame) => frame.x));
+  const minY = Math.min(baseFrame.y, ...childFrames.map((frame) => frame.y));
+  const maxX = Math.max(baseFrame.x + baseFrame.width, ...childFrames.map((frame) => frame.x + frame.width));
+  const maxY = Math.max(baseFrame.y + baseFrame.height, ...childFrames.map((frame) => frame.y + frame.height));
+
+  return {
+    ...baseFrame,
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
 }
 
 export function renderGroupExport(
@@ -44,16 +69,17 @@ export function renderGroupExport(
 
   const style = node.style ?? {};
   const accent = String(style.accentColor ?? exportPalette.orange);
+  const frame = resolveScratchGroupExportFrame(node, state);
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
   const autoRevealThresholdPercent = Math.max(0, Math.min(100, Number(node.props.autoRevealThresholdPercent ?? 10)));
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
   const base = [
     `position:absolute`,
-    `left:${node.frame.x}px`,
-    `top:${node.frame.y}px`,
-    `width:${node.frame.width}px`,
-    `height:${node.frame.height}px`,
-    `transform:rotate(${node.frame.rotation}deg)`,
+    `left:${frame.x}px`,
+    `top:${frame.y}px`,
+    `width:${frame.width}px`,
+    `height:${frame.height}px`,
+    `transform:rotate(${frame.rotation}deg)`,
     `opacity:${Number(style.opacity ?? 1)}`,
     `overflow:hidden`,
     `box-sizing:border-box`,
@@ -79,7 +105,7 @@ export function renderGroupExport(
         data-scratch-mask-target
         style="position:absolute;inset:0;pointer-events:none;${coverBlur > 0 ? `filter:blur(${coverBlur}px);` : ''}"
       >
-        ${renderGroupScratchChildren(node, state, assetPathMap)}
+        ${renderGroupScratchChildren(node, state, assetPathMap, frame)}
       </div>
       <canvas data-scratch-canvas style="position:absolute;inset:0;z-index:1;width:100%;height:100%;cursor:crosshair;touch-action:none;outline:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"></canvas>
     </div>

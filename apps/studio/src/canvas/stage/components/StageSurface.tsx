@@ -1,7 +1,7 @@
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import type { CSSProperties } from 'react';
 import { getLiveWidgetFrame, getLiveWidgetOpacity } from '../../../domain/document/timeline';
-import type { WidgetNode } from '../../../domain/document/types';
+import type { WidgetFrame, WidgetNode } from '../../../domain/document/types';
 import type { ResizeHandle } from '../use-stage-controller';
 import { StageWidget } from './StageWidget';
 import { StageDropPreviewOverlay } from './StageDropPreviewOverlay';
@@ -90,6 +90,36 @@ export function StageSurface({
     return false;
   }
 
+  function resolveScratchGroupFrame(widget: WidgetNode, visited = new Set<string>()): WidgetFrame {
+    if (visited.has(widget.id)) {
+      return liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
+    }
+    visited.add(widget.id);
+    const baseFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
+    const childFrames = (widget.childIds ?? [])
+      .map((childId) => widgetsById[childId])
+      .filter((child): child is WidgetNode => Boolean(child) && isWidgetVisible(child.id))
+      .map((child) => {
+        if (child.childIds?.length) return resolveScratchGroupFrame(child, visited);
+        return liveFrameById[child.id] ?? getLiveWidgetFrame(child, playheadMs);
+      });
+
+    if (!childFrames.length) return baseFrame;
+
+    const minX = Math.min(baseFrame.x, ...childFrames.map((frame) => frame.x));
+    const minY = Math.min(baseFrame.y, ...childFrames.map((frame) => frame.y));
+    const maxX = Math.max(baseFrame.x + baseFrame.width, ...childFrames.map((frame) => frame.x + frame.width));
+    const maxY = Math.max(baseFrame.y + baseFrame.height, ...childFrames.map((frame) => frame.y + frame.height));
+
+    return {
+      ...baseFrame,
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+  }
+
   function buildStageSurfaceStyle(): CSSProperties {
     return {
       width: canvas.width,
@@ -126,32 +156,35 @@ export function StageSurface({
       style={buildStageSurfaceStyle()}
     >
       {widgets.map((widget) => {
-        const frame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
+        const frame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
+          ? resolveScratchGroupFrame(widget)
+          : liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
         if (!isWidgetVisible(widget.id)) return null;
         if (isCoveredByScratchGroup(widget)) return null;
+        const renderNode = frame === widget.frame ? widget : { ...widget, frame };
 
         return (
           <StageWidget
             key={widget.id}
-            node={widget}
+            node={renderNode}
             stateRef={stateRef}
             widgetsById={widgetsById}
             selected={selectedIds.includes(widget.id) && !previewMode}
             primary={selectedIds[0] === widget.id && !previewMode}
             frame={frame}
-            opacity={getLiveWidgetOpacity(widget, playheadMs)}
+            opacity={getLiveWidgetOpacity(renderNode, playheadMs)}
             showBadge={showWidgetBadges}
             previewMode={previewMode}
             editModeWireframe={editModeWireframe}
             playheadMs={playheadMs}
             sceneDurationMs={sceneDurationMs}
-            hovered={hoveredWidgetId === widget.id}
-            active={activeWidgetId === widget.id}
+            hovered={hoveredWidgetId === renderNode.id}
+            active={activeWidgetId === renderNode.id}
             onSetActiveWidget={onSetActiveWidget}
             onSetHoveredWidget={onSetHoveredWidget}
             onExecuteAction={onExecuteAction}
-            onWidgetPointerDown={(event) => onWidgetPointerDown(event, widget.id, Boolean(widget.locked))}
-            onResizePointerDown={(event, handle) => onResizePointerDown(event, widget.id, Boolean(widget.locked), handle)}
+            onWidgetPointerDown={(event) => onWidgetPointerDown(event, renderNode.id, Boolean(renderNode.locked))}
+            onResizePointerDown={(event, handle) => onResizePointerDown(event, renderNode.id, Boolean(renderNode.locked), handle)}
           />
         );
       })}
