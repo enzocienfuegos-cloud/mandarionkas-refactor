@@ -1,7 +1,13 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { restoreSession } from './auth-service';
 import { usePlatformSnapshot } from './runtime';
 import { getPlatformServices } from './services';
+import { loadAutosaveDraft } from '../repositories/document';
+import { loadProject } from '../repositories/project';
+import { replaceStudioState } from '../core/store/studio-store';
+import { syncDocumentCanvasToVariant } from '../domain/document/canvas-variants';
+import { readEditorSessionSnapshot } from '../app/shell/editor-session-storage';
+import { EditorSessionPersistenceGate } from '../app/shell/EditorSessionPersistenceGate';
 
 const LoginScreen = lazy(async () => {
   const module = await import('./LoginScreen');
@@ -57,6 +63,7 @@ export function PlatformShell(): JSX.Element {
   const isAuthenticated = snapshot.session.isAuthenticated;
   const [route, setRoute] = useState<PlatformRoute>(readRouteFromHash);
   const [isRestoringSession, setIsRestoringSession] = useState(true);
+  const editorResumeRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,8 +104,53 @@ export function PlatformShell(): JSX.Element {
     void getPlatformServices().setActiveClient(route.clientId);
   }, [route, snapshot.session.activeClientId, isRestoringSession]);
 
+  useEffect(() => {
+    if (isRestoringSession || !isAuthenticated || route.kind !== 'editor' || editorResumeRef.current) return;
+    editorResumeRef.current = true;
+    let cancelled = false;
+
+    void (async () => {
+      const resumeSnapshot = readEditorSessionSnapshot();
+      const draft = await loadAutosaveDraft();
+      if (cancelled) return;
+
+      const resumeClientId = draft?.document.metadata.platform?.clientId ?? resumeSnapshot?.clientId;
+      if (resumeClientId && snapshot.session.activeClientId !== resumeClientId) {
+        await getPlatformServices().setActiveClient(resumeClientId);
+      }
+      if (cancelled) return;
+
+      if (draft) {
+        replaceStudioState(draft);
+        return;
+      }
+
+      if (!resumeSnapshot?.projectId) return;
+      const loaded = await loadProject(resumeSnapshot.projectId);
+      if (!loaded || cancelled) return;
+
+      const restored = resumeSnapshot.canvasVariantId && loaded.document.canvasVariants.some((variant) => variant.id === resumeSnapshot.canvasVariantId)
+        ? {
+            ...loaded,
+            document: syncDocumentCanvasToVariant({
+              ...loaded.document,
+              activeCanvasVariantId: resumeSnapshot.canvasVariantId,
+            }),
+            ui: { ...loaded.ui, activeProjectId: resumeSnapshot.projectId },
+          }
+        : { ...loaded, ui: { ...loaded.ui, activeProjectId: resumeSnapshot.projectId } };
+
+      replaceStudioState(restored);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, isRestoringSession, route.kind, snapshot.session.activeClientId]);
+
   return (
     <Suspense fallback={<div className="platform-loading-shell">Loading studio…</div>}>
+      <EditorSessionPersistenceGate enabled={!isRestoringSession && isAuthenticated && route.kind === 'editor'} />
       {isRestoringSession
         ? <div className="platform-loading-shell">Loading studio…</div>
         : !isAuthenticated

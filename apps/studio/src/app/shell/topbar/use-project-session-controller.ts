@@ -8,7 +8,7 @@ import { getProjectRepositoryMode, setProjectRepositoryMode } from '../../../rep
 import type { ProjectStarterId } from './project-starters';
 import { createPersistenceSignature, createPersistenceSnapshot } from '../../../core/persistence/persistence-snapshot';
 
-export function useProjectSessionController(snapshot: TopBarStudioSnapshot, workspace: Pick<WorkspaceController, 'activeClientId' | 'clients' | 'canCreateProjects'>): ProjectSessionController {
+export function useProjectSessionController(snapshot: TopBarStudioSnapshot, workspace: Pick<WorkspaceController, 'activeClientId' | 'clients' | 'canCreateProjects' | 'handleActiveClientChange'>): ProjectSessionController {
   const [projectTick, setProjectTick] = useState(0);
   const [newProjectName, setNewProjectName] = useState('');
   const [projects, setProjects] = useState<ProjectSessionController['projects']>([]);
@@ -200,6 +200,10 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
   }
 
   async function handleLoadProject(projectId: string): Promise<void> {
+    const projectSummary = projects.find((item) => item.id === projectId);
+    if (projectSummary?.clientId && workspace.activeClientId !== projectSummary.clientId) {
+      await workspace.handleActiveClientChange(projectSummary.clientId);
+    }
     const loaded = await loadProject(projectId);
     if (!loaded) return;
     sessionActions.replaceState({ ...loaded, ui: { ...loaded.ui, activeProjectId: projectId } });
@@ -238,6 +242,10 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     if (!snapshot.activeProjectId || !versionId) return;
     const restored = await loadProjectVersion(snapshot.activeProjectId, versionId);
     if (!restored) return;
+    const restoredClientId = restored.document.metadata.platform?.clientId;
+    if (restoredClientId && workspace.activeClientId !== restoredClientId) {
+      await workspace.handleActiveClientChange(restoredClientId);
+    }
     sessionActions.replaceState({
       ...restored,
       document: {
@@ -257,6 +265,10 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     if (!draft) {
       setAutosaveAvailable(false);
       return;
+    }
+    const draftClientId = draft.document.metadata.platform?.clientId;
+    if (draftClientId && workspace.activeClientId !== draftClientId) {
+      await workspace.handleActiveClientChange(draftClientId);
     }
     sessionActions.replaceState(draft);
     setSuppressedAutosaveSignature(undefined);

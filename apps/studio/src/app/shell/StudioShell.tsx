@@ -19,7 +19,7 @@ import {
 } from './use-shell-layout';
 import { useShellResize } from './use-shell-resize';
 import { registerBuiltins } from '../../widgets/registry/register-builtins';
-import { subscribeToOpenAssetLibrary } from '../../shared/asset-library-events';
+import { subscribeToOpenAssetLibrary, type AssetLibraryOpenRequest } from '../../shared/asset-library-events';
 
 registerBuiltins();
 
@@ -37,6 +37,7 @@ type StudioShellProps = {
 export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Element {
   const [layout, setLayout] = useShellLayout();
   const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
+  const [assetLibraryRequest, setAssetLibraryRequest] = useState<AssetLibraryOpenRequest | undefined>(undefined);
   const [brandKitDrawerOpen, setBrandKitDrawerOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const resize = useShellResize();
@@ -50,7 +51,10 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
   } = layout;
 
   useEffect(() => {
-    return subscribeToOpenAssetLibrary(() => setAssetLibraryOpen(true));
+    return subscribeToOpenAssetLibrary((request) => {
+      setAssetLibraryRequest(request);
+      setAssetLibraryOpen(true);
+    });
   }, []);
 
   const handleLeftRailResizeStart = useCallback((startX: number, edge: 'left' | 'right') => {
@@ -107,7 +111,10 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
     >
       <TopBar
         onOpenWorkspaceHub={onOpenWorkspaceHub}
-        onOpenAssetLibrary={() => setAssetLibraryOpen(true)}
+        onOpenAssetLibrary={() => {
+          setAssetLibraryRequest(undefined);
+          setAssetLibraryOpen(true);
+        }}
         onOpenBrandKitDrawer={() => setBrandKitDrawerOpen(true)}
       />
       {!leftRailHidden ? (
@@ -117,7 +124,10 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
           onResizeStart={handleLeftRailResizeStart}
         />
       ) : null}
-      <Workspace onOpenAssetLibrary={() => setAssetLibraryOpen(true)} />
+      <Workspace onOpenAssetLibrary={() => {
+        setAssetLibraryRequest(undefined);
+        setAssetLibraryOpen(true);
+      }} />
       {!rightInspectorHidden ? (
         <RightInspector
           onToggleCollapse={() => setLayout((current) => ({ ...current, rightInspectorHidden: true }))}
@@ -165,7 +175,13 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
       ) : null}
       {assetLibraryOpen ? (
         <Suspense fallback={null}>
-          <AssetLibraryModal onClose={() => setAssetLibraryOpen(false)} />
+          <AssetLibraryModal
+            request={assetLibraryRequest}
+            onClose={() => {
+              setAssetLibraryOpen(false);
+              setAssetLibraryRequest(undefined);
+            }}
+          />
         </Suspense>
       ) : null}
       {brandKitDrawerOpen ? (

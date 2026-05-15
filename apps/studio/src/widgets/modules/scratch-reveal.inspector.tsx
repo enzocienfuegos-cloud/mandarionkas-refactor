@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { assetHasSourceUrl, resolveAssetDeliveryUrl } from '../../assets/policy';
+import { assetHasSourceUrl } from '../../assets/policy';
+import type { ReleaseTarget } from '../../domain/document/types';
 import type { WidgetNode } from '../../domain/document/types';
 import type { AssetRecord } from '../../assets/types';
 import { useStudioStore } from '../../core/store/use-studio-store';
@@ -10,10 +11,60 @@ import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { Button } from '../../shared/ui/Button';
 import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
+function resolveLinkedImageAsset(assets: AssetRecord[], assetId: string, imageUrl: string, targetChannel: ReleaseTarget): AssetRecord | undefined {
+  return assets.find((asset) => asset.id === assetId)
+    ?? assets.find((asset) => assetHasSourceUrl(asset, imageUrl, targetChannel));
+}
+
+function ScratchImageSlot({
+  label,
+  imageUrl,
+  asset,
+  emptyLabel,
+  onChoose,
+  onClear,
+}: {
+  label: string;
+  imageUrl: string;
+  asset?: AssetRecord;
+  emptyLabel: string;
+  onChoose: () => void;
+  onClear: () => void;
+}): JSX.Element {
+  return (
+    <div className="field-stack">
+      <label>{label}</label>
+      {imageUrl ? (
+        <div className="asset-detail-card">
+          <div className="asset-detail-preview">
+            <img className="asset-detail-img" src={imageUrl} alt={asset?.name ?? label} />
+          </div>
+          <div className="meta-line asset-detail-head">
+            <div className="asset-detail-title">
+              <strong>{asset?.name ?? 'Selected image'}</strong>
+              <small>{imageUrl}</small>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <small className="muted">{emptyLabel}</small>
+      )}
+      <div className="asset-inline-actions">
+        <Button size="sm" className="left-button compact-action" onClick={onChoose}>
+          Choose from library
+        </Button>
+        <Button variant="ghost" size="sm" className="compact-action" onClick={onClear} disabled={!imageUrl}>
+          Clear
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.Element {
   const widgetActions = useWidgetActions();
   const platform = usePlatformSnapshot();
-  const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
+  const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel) as ReleaseTarget;
   const [assets, setAssets] = useState<AssetRecord[]>([]);
 
   useEffect(() => {
@@ -39,12 +90,10 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
     };
   }, [platform.session.isAuthenticated, platform.session.sessionId]);
 
-  const linkedBeforeAssetId = String(widget.props.beforeAssetId ?? '').trim()
-    || assets.find((asset) => assetHasSourceUrl(asset, String(widget.props.beforeImage ?? '').trim(), targetChannel))?.id
-    || '';
-  const linkedAfterAssetId = String(widget.props.afterAssetId ?? '').trim()
-    || assets.find((asset) => assetHasSourceUrl(asset, String(widget.props.afterImage ?? '').trim(), targetChannel))?.id
-    || '';
+  const beforeImage = String(widget.props.beforeImage ?? '').trim();
+  const afterImage = String(widget.props.afterImage ?? '').trim();
+  const linkedBeforeAsset = resolveLinkedImageAsset(assets, String(widget.props.beforeAssetId ?? '').trim(), beforeImage, targetChannel);
+  const linkedAfterAsset = resolveLinkedImageAsset(assets, String(widget.props.afterAssetId ?? '').trim(), afterImage, targetChannel);
 
   return (
     <section className="section section-premium">
@@ -62,45 +111,22 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
           <label>Reveal label</label>
           <input value={String(widget.props.revealLabel ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { revealLabel: event.target.value })} />
         </div>
-        <div>
-          <label>Cover image</label>
-          <select value={linkedBeforeAssetId} onChange={(event) => {
-            const asset = assets.find((item) => item.id === event.target.value);
-            widgetActions.updateWidgetProps(
-              widget.id,
-              asset
-                ? {
-                    beforeAssetId: asset.id,
-                    beforeImage: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
-                  }
-                : { beforeAssetId: '', beforeImage: '' },
-            );
-          }}>
-            <option value="">No image</option>
-            {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label>Reveal image</label>
-          <select value={linkedAfterAssetId} onChange={(event) => {
-            const asset = assets.find((item) => item.id === event.target.value);
-            widgetActions.updateWidgetProps(
-              widget.id,
-              asset
-                ? {
-                    afterAssetId: asset.id,
-                    afterImage: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
-                  }
-                : { afterAssetId: '', afterImage: '' },
-            );
-          }}>
-            <option value="">No image</option>
-            {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
-          </select>
-        </div>
-        <div className="asset-inline-actions">
-          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
-        </div>
+        <ScratchImageSlot
+          label="Cover image"
+          imageUrl={beforeImage}
+          asset={linkedBeforeAsset}
+          emptyLabel="No cover image selected yet."
+          onChoose={() => requestOpenAssetLibrary({ target: 'scratch-cover' })}
+          onClear={() => widgetActions.updateWidgetProps(widget.id, { beforeAssetId: '', beforeImage: '' })}
+        />
+        <ScratchImageSlot
+          label="Reveal image"
+          imageUrl={afterImage}
+          asset={linkedAfterAsset}
+          emptyLabel="No reveal image selected yet."
+          onChoose={() => requestOpenAssetLibrary({ target: 'scratch-reveal' })}
+          onClear={() => widgetActions.updateWidgetProps(widget.id, { afterAssetId: '', afterImage: '' })}
+        />
         <div>
           <label>Cover blur</label>
           <input type="number" step="1" value={String(widget.props.coverBlur ?? 0)} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { coverBlur: Number(event.target.value) })} />

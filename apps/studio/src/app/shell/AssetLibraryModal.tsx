@@ -2,12 +2,14 @@ import { useLeftRailController } from './left-rail/use-left-rail-controller';
 import { useAssetLibraryController } from './left-rail/use-asset-library-controller';
 import { Button } from '../../shared/ui/Button';
 import { AssetLibraryFilesSection, AssetLibraryFoldersSection, AssetLibrarySidebar, AssetLibraryToolbar } from './AssetLibraryModal.sections';
+import type { AssetLibraryOpenRequest } from '../../shared/asset-library-events';
 
 type AssetLibraryModalProps = {
   onClose: () => void;
+  request?: AssetLibraryOpenRequest;
 };
 
-export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Element {
+export function AssetLibraryModal({ onClose, request }: AssetLibraryModalProps): JSX.Element {
   const assetController = useLeftRailController();
   const lib = useAssetLibraryController(assetController);
 
@@ -35,14 +37,20 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
         {/* Header */}
         <div className="asset-library-browser-header">
           <strong>Assets</strong>
-          <span className="muted">Reuse, replace, upload, organize.</span>
+          <span className="muted">
+            {request?.target === 'scratch-cover'
+              ? 'Choose the cover image for the selected scratch widget.'
+              : request?.target === 'scratch-reveal'
+                ? 'Choose the reveal image for the selected scratch widget.'
+                : 'Reuse, replace, upload, organize.'}
+          </span>
         </div>
 
         <div className="asset-library-browser-body">
           <AssetLibrarySidebar lib={lib} />
 
           <section className="asset-library-browser-main">
-            <AssetLibraryToolbar assetController={assetController} lib={lib} onClose={onClose} />
+            <AssetLibraryToolbar assetController={assetController} lib={lib} onClose={onClose} request={request} />
 
             {/* Bulk selection */}
             <div className="asset-library-browser-section">
@@ -109,7 +117,7 @@ export function AssetLibraryModal({ onClose }: AssetLibraryModalProps): JSX.Elem
 
             <AssetLibraryFoldersSection assetController={assetController} lib={lib} />
 
-            <AssetLibraryFilesSection assetController={assetController} lib={lib} onClose={onClose} />
+            <AssetLibraryFilesSection assetController={assetController} lib={lib} onClose={onClose} request={request} />
           </section>
         </div>
       </div>

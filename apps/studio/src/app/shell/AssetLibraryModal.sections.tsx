@@ -3,6 +3,7 @@ import { useLeftRailController } from './left-rail/use-left-rail-controller';
 import { useAssetLibraryController, formatAssetMeta, type FolderTreeNode } from './left-rail/use-asset-library-controller';
 import type { AssetRecord } from '../../assets/types';
 import { resolveFontAssetFamily } from '../../assets/font-family';
+import type { AssetLibraryOpenRequest } from '../../shared/asset-library-events';
 import { Button } from '../../shared/ui/Button';
 import { IconButton } from '../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
@@ -182,11 +183,35 @@ export function AssetLibraryToolbar({
   assetController,
   lib,
   onClose,
+  request,
 }: {
   assetController: AssetController;
   lib: AssetLibraryController;
   onClose: () => void;
+  request?: AssetLibraryOpenRequest;
 }): JSX.Element {
+  function applyTargetedAsset(asset: AssetRecord | undefined): boolean {
+    if (!asset || asset.kind !== 'image') return false;
+    const primaryWidget = assetController.primaryWidget;
+    if (primaryWidget?.type !== 'scratch-reveal') return false;
+    const resolvedSrc = assetController.resolveAssetPreviewUrl(asset);
+    if (request?.target === 'scratch-cover') {
+      assetController.widgetActions.updateWidgetProps(primaryWidget.id, {
+        beforeAssetId: asset.id,
+        beforeImage: resolvedSrc,
+      });
+      return true;
+    }
+    if (request?.target === 'scratch-reveal') {
+      assetController.widgetActions.updateWidgetProps(primaryWidget.id, {
+        afterAssetId: asset.id,
+        afterImage: resolvedSrc,
+      });
+      return true;
+    }
+    return false;
+  }
+
   return (
     <div className="asset-library-browser-toolbar">
       <div className="asset-library-browser-title">
@@ -253,7 +278,9 @@ export function AssetLibraryToolbar({
             disabled={!lib.canUseOnSelection || !assetController.selectedAsset || assetController.selectedAsset.kind === 'font'}
             onClick={() => {
               if (!assetController.selectedAsset) return;
-              assetController.assignAsset(assetController.selectedAsset);
+              if (!applyTargetedAsset(assetController.selectedAsset)) {
+                assetController.assignAsset(assetController.selectedAsset);
+              }
               onClose();
             }}
           >
@@ -398,14 +425,38 @@ export function AssetLibraryFilesSection({
   assetController,
   lib,
   onClose,
+  request,
 }: {
   assetController: AssetController;
   lib: AssetLibraryController;
   onClose: () => void;
+  request?: AssetLibraryOpenRequest;
 }): JSX.Element {
   const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
   const [editingAssetName, setEditingAssetName] = useState('');
   const selectedAsset = assetController.selectedAsset;
+
+  function applyTargetedAsset(asset: AssetRecord): boolean {
+    if (asset.kind !== 'image') return false;
+    const primaryWidget = assetController.primaryWidget;
+    if (primaryWidget?.type !== 'scratch-reveal') return false;
+    const resolvedSrc = assetController.resolveAssetPreviewUrl(asset);
+    if (request?.target === 'scratch-cover') {
+      assetController.widgetActions.updateWidgetProps(primaryWidget.id, {
+        beforeAssetId: asset.id,
+        beforeImage: resolvedSrc,
+      });
+      return true;
+    }
+    if (request?.target === 'scratch-reveal') {
+      assetController.widgetActions.updateWidgetProps(primaryWidget.id, {
+        afterAssetId: asset.id,
+        afterImage: resolvedSrc,
+      });
+      return true;
+    }
+    return false;
+  }
 
   async function commitAssetRename(assetId: string, originalName: string): Promise<void> {
     const trimmed = editingAssetName.trim();
@@ -429,7 +480,9 @@ export function AssetLibraryFilesSection({
     if (asset.kind === 'font') return;
     if (!lib.isCompatibleWithSelection(asset)) return;
 
-    assetController.assignAsset(asset);
+    if (!applyTargetedAsset(asset)) {
+      assetController.assignAsset(asset);
+    }
     if (options.closeOnApply ?? true) onClose();
   }
 
