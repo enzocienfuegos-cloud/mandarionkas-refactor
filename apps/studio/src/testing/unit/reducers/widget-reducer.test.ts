@@ -49,6 +49,61 @@ describe('widget reducer slices', () => {
     expect(groups[0].childIds?.length).toBe(2);
   });
 
+  it('toggles group visibility and locking across the whole grouped tree', () => {
+    let state = createInitialState();
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'text' });
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'shape' });
+    const [textId, shapeId] = Object.keys(state.document.widgets);
+    const sceneId = state.document.scenes[0].id;
+
+    state.document.widgets.group_root = {
+      id: 'group_root',
+      type: 'group',
+      name: 'Root group',
+      sceneId,
+      zIndex: 2,
+      frame: { x: 0, y: 0, width: 120, height: 120, rotation: 0 },
+      props: {},
+      style: {},
+      timeline: { startMs: 0, endMs: 1000 },
+      childIds: [textId, 'group_child'],
+    };
+    state.document.widgets.group_child = {
+      id: 'group_child',
+      type: 'group',
+      name: 'Nested group',
+      sceneId,
+      zIndex: 3,
+      frame: { x: 0, y: 0, width: 100, height: 100, rotation: 0 },
+      props: {},
+      style: {},
+      timeline: { startMs: 0, endMs: 1000 },
+      childIds: [shapeId],
+      parentId: 'group_root',
+    };
+    state.document.widgets[textId] = { ...state.document.widgets[textId], parentId: 'group_root' };
+    state.document.widgets[shapeId] = { ...state.document.widgets[shapeId], parentId: 'group_child' };
+    state.document.scenes[0].widgetIds = [...state.document.scenes[0].widgetIds, 'group_root', 'group_child'];
+
+    state = reduceBySlices(state, { type: 'TOGGLE_WIDGET_HIDDEN', widgetId: 'group_root' });
+    expect(state.document.widgets.group_root?.hidden).toBe(true);
+    expect(state.document.widgets[textId]?.hidden).toBe(true);
+    expect(state.document.widgets.group_child?.hidden).toBe(true);
+    expect(state.document.widgets[shapeId]?.hidden).toBe(true);
+
+    state = reduceBySlices(state, { type: 'TOGGLE_WIDGET_HIDDEN', widgetId: 'group_root' });
+    expect(state.document.widgets.group_root?.hidden).toBe(false);
+    expect(state.document.widgets[textId]?.hidden).toBe(false);
+    expect(state.document.widgets.group_child?.hidden).toBe(false);
+    expect(state.document.widgets[shapeId]?.hidden).toBe(false);
+
+    state = reduceBySlices(state, { type: 'TOGGLE_WIDGET_LOCKED', widgetId: 'group_root' });
+    expect(state.document.widgets.group_root?.locked).toBe(true);
+    expect(state.document.widgets[textId]?.locked).toBe(true);
+    expect(state.document.widgets.group_child?.locked).toBe(true);
+    expect(state.document.widgets[shapeId]?.locked).toBe(true);
+  });
+
   it('stores local frame overrides on non-master canvas variants', () => {
     let state = createInitialState({ canvasPresetId: 'wide-skyscraper' });
     state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'text' });

@@ -9,6 +9,32 @@ import { getCapability } from '../../../widgets/registry/widget-definition';
 import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
 import { buildLayerOutline, flattenVisibleLayerIds, flattenVisibleLayerItems, getWidgetReorderSteps, type LayerOutlineItem } from './layer-outline';
 
+type AggregateState = 'on' | 'off' | 'mixed';
+
+function collectOutlineWidgets(item: LayerOutlineItem): LayerOutlineItem['widget'][] {
+  return [item.widget, ...item.children.flatMap((child) => collectOutlineWidgets(child))];
+}
+
+function getAggregateToggleState(item: LayerOutlineItem, field: 'hidden' | 'locked'): AggregateState {
+  const widgets = collectOutlineWidgets(item);
+  const values = widgets.map((widget) => Boolean(widget[field]));
+  if (values.every((value) => value)) return 'on';
+  if (values.every((value) => !value)) return 'off';
+  return 'mixed';
+}
+
+function describeVisibilityState(state: AggregateState): string {
+  if (state === 'on') return 'Hidden';
+  if (state === 'mixed') return 'Partially hidden';
+  return 'Visible';
+}
+
+function describeLockState(state: AggregateState): string {
+  if (state === 'on') return 'Locked';
+  if (state === 'mixed') return 'Partially locked';
+  return 'Unlocked';
+}
+
 export function LayersSection({ controller }: { controller: LeftRailController }): JSX.Element {
   const { widgetActions, selectedIds, nodes, scenes, activeSceneId, scene, sceneActions } = controller;
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
@@ -53,6 +79,10 @@ export function LayersSection({ controller }: { controller: LeftRailController }
     const isSelected = selectedIds.includes(item.widget.id);
     const isGroup = Boolean(getCapability(definition, 'isContainer')) && item.children.length > 0;
     const isCollapsed = collapsedGroupIds.has(item.widget.id);
+    const visibilityState = isGroup ? getAggregateToggleState(item, 'hidden') : (item.widget.hidden ? 'on' : 'off');
+    const lockState = isGroup ? getAggregateToggleState(item, 'locked') : (item.widget.locked ? 'on' : 'off');
+    const canShowGroup = visibilityState === 'on';
+    const canUnlockGroup = lockState === 'on';
     const rowStyle = { '--layer-depth': item.depth } as CSSProperties;
 
     return (
@@ -135,9 +165,9 @@ export function LayersSection({ controller }: { controller: LeftRailController }
               <small className="muted">
                 {item.widget.type}
                 {' · '}
-                {item.widget.hidden ? 'Hidden' : 'Visible'}
+                {describeVisibilityState(visibilityState)}
                 {' · '}
-                {item.widget.locked ? 'Locked' : 'Unlocked'}
+                {describeLockState(lockState)}
                 {item.widget.sharedLayerId ? ' · Shared' : ''}
               </small>
             </div>
@@ -145,8 +175,8 @@ export function LayersSection({ controller }: { controller: LeftRailController }
           <div className="layer-row__actions">
             <IconButton
               size="sm"
-              label={item.widget.hidden ? 'Show layer' : 'Hide layer'}
-              icon={<StudioIcon icon={item.widget.hidden ? StudioIcons.eyeOff : StudioIcons.eye} size={14} />}
+              label={isGroup ? (canShowGroup ? 'Show group' : 'Hide group') : (item.widget.hidden ? 'Show layer' : 'Hide layer')}
+              icon={<StudioIcon icon={visibilityState === 'on' ? StudioIcons.eyeOff : StudioIcons.eye} size={14} />}
               onClick={(event) => {
                 event.stopPropagation();
                 widgetActions.toggleWidgetHidden(item.widget.id);
@@ -154,8 +184,8 @@ export function LayersSection({ controller }: { controller: LeftRailController }
             />
             <IconButton
               size="sm"
-              label={item.widget.locked ? 'Unlock layer' : 'Lock layer'}
-              icon={<StudioIcon icon={item.widget.locked ? StudioIcons.lock : StudioIcons.lockOpen} size={14} />}
+              label={isGroup ? (canUnlockGroup ? 'Unlock group' : 'Lock group') : (item.widget.locked ? 'Unlock layer' : 'Lock layer')}
+              icon={<StudioIcon icon={lockState === 'on' ? StudioIcons.lock : StudioIcons.lockOpen} size={14} />}
               onClick={(event) => {
                 event.stopPropagation();
                 widgetActions.toggleWidgetLocked(item.widget.id);
