@@ -297,6 +297,27 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     return (cleared / Math.max(1, progressCanvas.width * progressCanvas.height)) * 100;
   }
 
+  function initializeScratchMask(canvas) {
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function applyScratchMask(maskTarget, maskCanvas) {
+    if (!maskTarget || !maskCanvas) return;
+    const dataUrl = maskCanvas.toDataURL('image/png');
+    maskTarget.style.webkitMaskImage = 'url("' + dataUrl + '")';
+    maskTarget.style.maskImage = 'url("' + dataUrl + '")';
+    maskTarget.style.webkitMaskSize = '100% 100%';
+    maskTarget.style.maskSize = '100% 100%';
+    maskTarget.style.webkitMaskRepeat = 'no-repeat';
+    maskTarget.style.maskRepeat = 'no-repeat';
+    maskTarget.style.webkitMaskPosition = 'center';
+    maskTarget.style.maskPosition = 'center';
+  }
+
   function playScratchRevealRevealAnimation(node, preset, durationMs, delayMs) {
     if (!node || !preset || preset === 'none' || typeof node.animate !== 'function') return;
     node.getAnimations?.().forEach((animation) => animation.cancel());
@@ -315,6 +336,7 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     const canvas = root?.querySelector('[data-scratch-canvas]');
     if (!canvas) return;
     const revealMedia = root.querySelector('[data-scratch-reveal-media]');
+    const maskTarget = root.querySelector('[data-scratch-mask-target]');
     const accent = root.getAttribute('data-scratch-accent') || '#f97316';
     const coverImage = root.getAttribute('data-scratch-cover-image') || '';
     const coverBlur = Number(root.getAttribute('data-scratch-cover-blur') || 0);
@@ -332,6 +354,13 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
       state.progressCanvas = createScratchProgressCanvas(canvas.width, canvas.height);
       state.completed = false;
       revealMedia?.getAnimations?.().forEach((animation) => animation.cancel());
+      if (maskTarget) {
+        maskTarget.style.opacity = '1';
+        initializeScratchMask(canvas);
+        applyScratchMask(maskTarget, canvas);
+        canvas.style.opacity = '0';
+        return;
+      }
       paintScratchCover(canvas, coverImage, coverBlur, accent, () => {
         canvas.style.opacity = '1';
       });
@@ -343,10 +372,16 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
       const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width;
       const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height;
       eraseScratch(canvas, x, y, scratchRadius);
+      if (maskTarget) applyScratchMask(maskTarget, canvas);
       if (!state.progressCanvas || autoRevealThreshold <= 0) return;
       const clearedPercent = eraseScratchProgress(state.progressCanvas, x, y, scratchRadius, canvas.width, canvas.height);
       if (clearedPercent < autoRevealThreshold) return;
       state.completed = true;
+      if (maskTarget) {
+        maskTarget.style.opacity = '0';
+        maskTarget.style.webkitMaskImage = 'none';
+        maskTarget.style.maskImage = 'none';
+      }
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);

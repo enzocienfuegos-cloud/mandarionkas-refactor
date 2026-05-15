@@ -12,6 +12,7 @@ export type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
   canvas: { width: number; height: number; backgroundColor: string };
   widgets: WidgetNode[];
+  widgetsById: Record<string, WidgetNode>;
   selectedIds: string[];
   previewMode: boolean;
   editModeWireframe: boolean;
@@ -45,6 +46,7 @@ export function StageSurface({
   stageRef,
   canvas,
   widgets,
+  widgetsById,
   selectedIds,
   previewMode,
   editModeWireframe,
@@ -75,6 +77,17 @@ export function StageSurface({
 }: StageSurfaceProps): JSX.Element {
   const stageDropActive = Boolean(dropPreview);
   const transitionDuration = Math.max(120, sceneTransitionDurationMs);
+
+  function isCoveredByScratchGroup(widget: WidgetNode): boolean {
+    let currentParentId = widget.parentId;
+    while (currentParentId) {
+      const parent = widgetsById[currentParentId];
+      if (!parent) return false;
+      if (parent.type === 'group' && Boolean(parent.props.scratchEnabled)) return true;
+      currentParentId = parent.parentId;
+    }
+    return false;
+  }
 
   function buildStageSurfaceStyle(): CSSProperties {
     return {
@@ -114,12 +127,14 @@ export function StageSurface({
       {widgets.map((widget) => {
         const frame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
         if (!isWidgetVisible(widget.id)) return null;
+        if (isCoveredByScratchGroup(widget)) return null;
 
         return (
           <StageWidget
             key={widget.id}
             node={widget}
             stateRef={stateRef}
+            widgetsById={widgetsById}
             selected={selectedIds.includes(widget.id) && !previewMode}
             primary={selectedIds[0] === widget.id && !previewMode}
             frame={frame}

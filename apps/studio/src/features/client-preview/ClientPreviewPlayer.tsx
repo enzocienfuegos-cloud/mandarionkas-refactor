@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { StageSurface } from '../../canvas/stage/components/StageSurface';
+import { buildResolvedWidgetsById } from '../../domain/document/canvas-variants';
 import { isWidgetVisibleAt } from '../../domain/document/timeline';
 import type { StudioState, WidgetNode } from '../../domain/document/types';
 import { Button } from '../../shared/ui/Button';
@@ -39,9 +40,10 @@ export function ClientPreviewPlayer({
   const [playbackBounds, setPlaybackBounds] = useState({ width: 0, height: 0 });
   const scene = state.document.scenes[sceneIndex] ?? state.document.scenes[0];
   const canvas = state.document.canvas;
+  const widgetsById = useMemo(() => buildResolvedWidgetsById(state.document), [state.document]);
   const widgets = useMemo(
-    () => scene.widgetIds.map((id) => state.document.widgets[id]).filter(Boolean) as WidgetNode[],
-    [scene.widgetIds, state.document.widgets],
+    () => scene.widgetIds.map((id) => widgetsById[id]).filter(Boolean) as WidgetNode[],
+    [scene.widgetIds, widgetsById],
   );
   const visibleThreads = threads.filter((thread) => thread.pin?.sceneIndex === sceneIndex);
 
@@ -122,6 +124,7 @@ export function ClientPreviewPlayer({
               stageRef={stageRef}
               canvas={canvas}
               widgets={widgets}
+              widgetsById={widgetsById}
               selectedIds={[]}
               previewMode
               editModeWireframe={false}

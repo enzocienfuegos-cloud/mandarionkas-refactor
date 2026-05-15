@@ -47,6 +47,6 @@ export const groupDefinition: WidgetDefinition = {
     hasTitleVariant: true,
   },
   renderStage: renderGroupWidget,
-  renderExport: (node) => renderGroupExport(node),
+  renderExport: (node, state, assetPathMap) => renderGroupExport(node, state, assetPathMap),
   renderLabel: (node) => node.name,
 };

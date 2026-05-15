@@ -107,7 +107,16 @@ export function renderWidgetThumbnail(
   if (preferWireframe && widget.renderWireframe) {
     return (
       <div className="widget-library-wireframe-thumb">
-        {widget.renderWireframe(widget.defaults('preview-scene', 0), { previewMode: false, playheadMs: 0, sceneDurationMs: 15000, hovered: false, active: false, triggerWidgetAction: () => undefined, executeAction: () => undefined })}
+        {widget.renderWireframe(widget.defaults('preview-scene', 0), {
+          previewMode: false,
+          playheadMs: 0,
+          sceneDurationMs: 15000,
+          hovered: false,
+          active: false,
+          widgetsById: {},
+          triggerWidgetAction: () => undefined,
+          executeAction: () => undefined,
+        })}
       </div>
     );
   }

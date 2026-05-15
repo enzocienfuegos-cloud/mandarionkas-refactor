@@ -72,7 +72,6 @@ export function isAssetCompatibleWithSelection(
   const primaryWidget = assetController.primaryWidget;
   if (!asset || !assetController.selectedWidgetAcceptsAsset || !primaryWidget) return false;
   if (primaryWidget.type === 'scratch-reveal') return asset.kind === 'image';
-  if (primaryWidget.type === 'group' && primaryWidget.props.scratchEnabled) return asset.kind === 'image';
   return acceptsAssetKind(getWidgetDefinition(primaryWidget.type), asset.kind as 'image' | 'video' | 'font');
 }
 

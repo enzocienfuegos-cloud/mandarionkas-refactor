@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { WidgetNode } from '../../../domain/document/types';
+import type { StudioState, WidgetNode } from '../../../domain/document/types';
 import { renderGroupExport } from '../../../widgets/group/group.export';
 
 function createGroupWidget(props: Partial<WidgetNode['props']> = {}): WidgetNode {
@@ -19,8 +19,6 @@ function createGroupWidget(props: Partial<WidgetNode['props']> = {}): WidgetNode
     props: {
       title: 'Scratch group',
       scratchEnabled: true,
-      coverLabel: 'Scratch to reveal',
-      beforeImage: 'https://cdn.example.com/cover.png',
       scratchRadius: 24,
       autoRevealThresholdPercent: 10,
       ...props,
@@ -30,14 +28,83 @@ function createGroupWidget(props: Partial<WidgetNode['props']> = {}): WidgetNode
   };
 }
 
+function createState(): StudioState {
+  const group = createGroupWidget();
+  const text: WidgetNode = {
+    id: 'text_1',
+    type: 'text',
+    name: 'Text',
+    sceneId: 'scene_1',
+    zIndex: 1,
+    parentId: 'group_1',
+    frame: { x: 12, y: 16, width: 140, height: 48, rotation: 0 },
+    props: { text: 'Scratch me first' },
+    style: { color: '#ffffff', fontSize: 24, fontWeight: 700 },
+    timeline: { startMs: 0, endMs: 1000 },
+  };
+  const cta: WidgetNode = {
+    id: 'cta_1',
+    type: 'cta',
+    name: 'CTA',
+    sceneId: 'scene_1',
+    zIndex: 2,
+    parentId: 'group_1',
+    frame: { x: 24, y: 92, width: 120, height: 36, rotation: 0 },
+    props: { text: 'Shop now', url: 'https://example.com' },
+    style: { color: '#10161c', backgroundColor: '#ffd400', fontSize: 16, fontWeight: 700 },
+    timeline: { startMs: 0, endMs: 1000 },
+  };
+
+  return {
+    document: {
+      id: 'doc_1',
+      name: 'Scratch export',
+      version: 1,
+      canvas: { width: 320, height: 480, backgroundColor: '#000000' },
+      canvasVariants: [{ id: 'cv_1', label: '320×480', width: 320, height: 480, backgroundColor: '#000000', isMaster: true, presetId: 'custom' }],
+      activeCanvasVariantId: 'cv_1',
+      widgetOverrides: {},
+      sharedLayers: {},
+      scenes: [{ id: 'scene_1', name: 'Scene 1', order: 0, widgetIds: ['group_1', 'text_1', 'cta_1'], durationMs: 1000 }],
+      widgets: {
+        group_1: group,
+        text_1: text,
+        cta_1: cta,
+      },
+      actions: {},
+      feeds: { custom: [] as never[] } as StudioState['document']['feeds'],
+      collaboration: { comments: [], approvals: [] },
+      selection: { widgetIds: ['group_1'], activeSceneId: 'scene_1', primaryWidgetId: 'group_1' },
+      metadata: { dirty: false, release: { targetChannel: 'generic-html5', qaStatus: 'draft' } },
+    },
+    ui: {
+      zoom: 1,
+      playheadMs: 0,
+      isPlaying: false,
+      previewMode: false,
+      previewContext: 'none',
+      editModeWireframe: false,
+      activeVariant: 'default',
+      activeFeedSource: 'custom',
+      activeFeedRecordId: '',
+      activeLeftTab: 'widgets',
+      stageBackdrop: 'dark',
+      showStageRulers: false,
+      showWidgetBadges: false,
+    },
+  };
+}
+
 describe('group scratch export', () => {
   it('renders a scratch shell when the group is scratch-enabled', () => {
-    const html = renderGroupExport(createGroupWidget());
+    const html = renderGroupExport(createGroupWidget(), createState());
 
     expect(html).toContain('widget-group-scratch');
     expect(html).toContain('class="scratch-reveal-shell"');
-    expect(html).toContain('data-scratch-cover-image="https://cdn.example.com/cover.png"');
+    expect(html).toContain('data-scratch-mask-target');
     expect(html).toContain('data-scratch-auto-reveal-threshold="10"');
+    expect(html).toContain('Scratch me first');
+    expect(html).toContain('Shop now');
     expect(html).toContain('data-scratch-canvas');
   });
 

@@ -12,6 +12,7 @@ const showDebugWidgetTags = import.meta.env.DEV && import.meta.env.VITE_SHOW_WID
 type StageWidgetProps = {
   node: WidgetNode;
   stateRef: React.MutableRefObject<StudioState>;
+  widgetsById: Record<string, WidgetNode>;
   frame: WidgetFrame;
   selected: boolean;
   primary: boolean;
@@ -33,6 +34,7 @@ type StageWidgetProps = {
 export const StageWidget = memo(function StageWidget({
   node,
   stateRef,
+  widgetsById,
   frame,
   selected,
   primary,
@@ -88,7 +90,20 @@ export const StageWidget = memo(function StageWidget({
       style={widgetStyle}
     >
       <div className="stage-widget-content" style={widgetContentStyle}>
-        {renderWidgetContents(node, { previewMode, playheadMs, sceneDurationMs, hovered, active, triggerWidgetAction, executeAction: onExecuteAction }, { wireframe: useWireframe })}
+        {renderWidgetContents(
+          node,
+          {
+            previewMode,
+            playheadMs,
+            sceneDurationMs,
+            hovered,
+            active,
+            widgetsById,
+            triggerWidgetAction,
+            executeAction: onExecuteAction,
+          },
+          { wireframe: useWireframe },
+        )}
       </div>
       {!previewMode && showBadge && !useWireframe && showDebugWidgetTags ? <div className="edit-mode-label">{node.type} · {node.name}</div> : null}
       {selected ? <SelectionOverlay primary={primary} onResizePointerDown={onResizePointerDown} /> : null}
@@ -123,6 +138,7 @@ function buildStageWidgetContentStyle(previewMode: boolean): CSSProperties {
 function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProps): boolean {
   return previous.node === next.node
     && previous.stateRef === next.stateRef
+    && previous.widgetsById === next.widgetsById
     && previous.frame === next.frame
     && previous.selected === next.selected
     && previous.primary === next.primary
