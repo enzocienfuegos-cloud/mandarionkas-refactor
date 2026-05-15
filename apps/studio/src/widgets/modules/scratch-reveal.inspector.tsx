@@ -36,6 +36,13 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
     };
   }, [platform.session.isAuthenticated, platform.session.sessionId]);
 
+  const linkedBeforeAssetId = String(widget.props.beforeAssetId ?? '').trim()
+    || assets.find((asset) => asset.src === String(widget.props.beforeImage ?? '').trim())?.id
+    || '';
+  const linkedAfterAssetId = String(widget.props.afterAssetId ?? '').trim()
+    || assets.find((asset) => asset.src === String(widget.props.afterImage ?? '').trim())?.id
+    || '';
+
   return (
     <section className="section section-premium">
       <h3>Scratch & reveal</h3>
@@ -54,16 +61,32 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
         </div>
         <div>
           <label>Cover image</label>
-          <select value={String(widget.props.beforeImage ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { beforeImage: event.target.value })}>
+          <select value={linkedBeforeAssetId} onChange={(event) => {
+            const asset = assets.find((item) => item.id === event.target.value);
+            widgetActions.updateWidgetProps(
+              widget.id,
+              asset
+                ? { beforeAssetId: asset.id, beforeImage: asset.src }
+                : { beforeAssetId: '', beforeImage: '' },
+            );
+          }}>
             <option value="">No image</option>
-            {assets.map((asset) => <option key={asset.id} value={asset.src}>{asset.name}</option>)}
+            {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
           </select>
         </div>
         <div>
           <label>Reveal image</label>
-          <select value={String(widget.props.afterImage ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { afterImage: event.target.value })}>
+          <select value={linkedAfterAssetId} onChange={(event) => {
+            const asset = assets.find((item) => item.id === event.target.value);
+            widgetActions.updateWidgetProps(
+              widget.id,
+              asset
+                ? { afterAssetId: asset.id, afterImage: asset.src }
+                : { afterAssetId: '', afterImage: '' },
+            );
+          }}>
             <option value="">No image</option>
-            {assets.map((asset) => <option key={asset.id} value={asset.src}>{asset.name}</option>)}
+            {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
           </select>
         </div>
         <div className="asset-inline-actions">

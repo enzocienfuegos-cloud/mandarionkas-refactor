@@ -17,7 +17,7 @@ export type { ResizeHandle } from './stage-types';
 
 function isCompatibleAssetTarget(widgetType: string | undefined, assetKind: AssetLibraryDragPayload['assetKind']): boolean {
   if (!widgetType) return false;
-  if (assetKind === 'image') return widgetType === 'image' || widgetType === 'hero-image';
+  if (assetKind === 'image') return widgetType === 'image' || widgetType === 'hero-image' || widgetType === 'scratch-reveal';
   if (assetKind === 'video') return widgetType === 'video-hero' || widgetType === 'interactive-video';
   return false;
 }
@@ -38,7 +38,18 @@ function resolveWidgetTypeForAsset(assetKind: AssetLibraryDragPayload['assetKind
   return null;
 }
 
-function buildAssetWidgetProps(payload: AssetLibraryDragPayload, currentProps?: Record<string, unknown>) {
+function buildAssetWidgetProps(
+  payload: AssetLibraryDragPayload,
+  widgetType?: string,
+  currentProps?: Record<string, unknown>,
+) {
+  if (payload.assetKind === 'image' && widgetType === 'scratch-reveal') {
+    const currentAfter = String(currentProps?.afterImage ?? '').trim();
+    const currentBefore = String(currentProps?.beforeImage ?? '').trim();
+    if (!currentAfter) return { afterAssetId: payload.assetId, afterImage: payload.assetSrc };
+    if (!currentBefore) return { beforeAssetId: payload.assetId, beforeImage: payload.assetSrc };
+    return { afterAssetId: payload.assetId, afterImage: payload.assetSrc };
+  }
   if (payload.assetKind === 'image') return { src: payload.assetSrc, assetId: payload.assetId, alt: payload.assetName };
   if (payload.assetKind === 'video') return { src: payload.assetSrc, assetId: payload.assetId, posterSrc: payload.assetPosterSrc ?? currentProps?.posterSrc };
   return null;
@@ -120,7 +131,7 @@ export function useStageController(workspaceRef: React.RefObject<HTMLDivElement>
         .filter(Boolean)
         .sort((a, b) => a.zIndex - b.zIndex);
       const targetWidget = findAssetDropTarget(preview.clampedPoint, sceneWidgets, preview.payload.assetKind);
-      const props = buildAssetWidgetProps(preview.payload, targetWidget?.props);
+      const props = buildAssetWidgetProps(preview.payload, targetWidget?.type, targetWidget?.props);
       if (targetWidget && props) {
         widgetActions.updateWidgetProps(targetWidget.id, props);
         widgetActions.selectWidget(targetWidget.id);

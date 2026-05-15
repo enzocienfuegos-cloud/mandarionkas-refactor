@@ -1,9 +1,11 @@
+import { createElement } from 'react';
 import { createId } from '../../domain/document/factories';
 import { renderImageWidget } from './image.renderer';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
 import { renderImageExport } from '../registry/base-exporters';
 import { ImageThumb } from '../registry/widget-thumbnails';
 import { defaultsFromWidgetSchema, defineWidgetSchema } from '../../domain/widget-schema';
+import { ImageInspector } from './image.inspector';
 
 const imageSchema = defineWidgetSchema({
   version: 1,
@@ -40,6 +42,7 @@ export const imageDefinition: WidgetDefinition = {
   ]),
   inspectorTitle: 'Image source',
   inspectorFields: [{ key: 'src', label: 'Source URL' }, { key: 'alt', label: 'Alt text' }],
+  renderInspector: (widget) => createElement(ImageInspector, { widget }),
   schema: imageSchema,
   capabilities: {
     acceptsImageAsset: true,
