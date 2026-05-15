@@ -229,6 +229,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
 
   const openAssetPicker = (widget: WidgetNode) => {
     if (!widgetAcceptsAssetSwap(widget)) return;
+    widgetActions.selectWidget(widget.id);
     widgetActions.setActiveWidget(widget.id);
     onOpenAssetLibrary();
   };

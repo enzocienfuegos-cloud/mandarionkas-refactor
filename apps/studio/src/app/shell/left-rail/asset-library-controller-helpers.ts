@@ -70,12 +70,9 @@ export function isAssetCompatibleWithSelection(
   assetController: Pick<LeftRailController, 'primaryWidget' | 'selectedWidgetAcceptsAsset'>,
 ): boolean {
   const primaryWidget = assetController.primaryWidget;
-  return Boolean(
-    asset &&
-      assetController.selectedWidgetAcceptsAsset &&
-      primaryWidget &&
-      acceptsAssetKind(getWidgetDefinition(primaryWidget.type), asset.kind as 'image' | 'video' | 'font'),
-  );
+  if (!asset || !assetController.selectedWidgetAcceptsAsset || !primaryWidget) return false;
+  if (primaryWidget.type === 'scratch-reveal') return asset.kind === 'image';
+  return acceptsAssetKind(getWidgetDefinition(primaryWidget.type), asset.kind as 'image' | 'video' | 'font');
 }
 
 export function getReprocessCounts(visibleAssets: AssetRecord[], selectedAssetIds: string[]): {
