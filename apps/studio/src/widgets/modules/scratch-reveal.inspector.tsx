@@ -143,6 +143,17 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
             onChange={(event) => widgetActions.updateWidgetProps(widget.id, { revealAnimationDurationMs: Number(event.target.value) })}
           />
         </div>
+        <div>
+          <label>Reveal delay ms</label>
+          <input
+            type="number"
+            step="50"
+            min="0"
+            max="3000"
+            value={String(widget.props.revealAnimationDelayMs ?? 0)}
+            onChange={(event) => widgetActions.updateWidgetProps(widget.id, { revealAnimationDelayMs: Number(event.target.value) })}
+          />
+        </div>
       </div>
     </section>
   );

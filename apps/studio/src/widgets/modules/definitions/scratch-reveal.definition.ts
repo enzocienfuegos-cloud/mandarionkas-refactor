@@ -23,6 +23,7 @@ export const ScratchRevealDefinition = createModuleDefinition({
     autoRevealThresholdPercent: 10,
     revealAnimationPreset: 'none',
     revealAnimationDurationMs: 700,
+    revealAnimationDelayMs: 0,
   },
   renderInspector: (widget) => createElement(ScratchRevealInspector, { widget }),
   style: { backgroundColor: '#111827', accentColor: '#f97316', color: '#ffffff' },

@@ -26,17 +26,19 @@ function runScratchRevealRevealAnimation(
   node: HTMLImageElement | null,
   preset: ScratchRevealAnimationPreset,
   durationMs: number,
+  delayMs: number,
 ): void {
   if (!node || preset === 'none' || typeof node.animate !== 'function') return;
   node.getAnimations?.().forEach((animation) => animation.cancel());
   const duration = Math.max(150, Math.min(3000, Number(durationMs || 700)));
+  const delay = Math.max(0, Math.min(3000, Number(delayMs || 0)));
   const keyframes =
     preset === 'appear'
       ? [{ opacity: 0 }, { opacity: 1 }]
       : preset === 'fade-up'
         ? [{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'translateY(0px)' }]
         : [{ opacity: 0.35, transform: 'scale(0.92)' }, { opacity: 1, transform: 'scale(1)' }];
-  node.animate(keyframes, { duration, easing: 'ease-out' });
+  node.animate(keyframes, { duration, delay, easing: 'ease-out', fill: 'backwards' });
 }
 
 const scratchRevealTitleStyle: CSSProperties = {
@@ -243,6 +245,7 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   const autoRevealThresholdPercent = Math.max(0, Math.min(100, Number(node.props.autoRevealThresholdPercent ?? 10)));
   const revealAnimationPreset = String(node.props.revealAnimationPreset ?? 'none') as ScratchRevealAnimationPreset;
   const revealAnimationDurationMs = Math.max(150, Math.min(3000, Number(node.props.revealAnimationDurationMs ?? 700)));
+  const revealAnimationDelayMs = Math.max(0, Math.min(3000, Number(node.props.revealAnimationDelayMs ?? 0)));
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -279,8 +282,8 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
 
   useEffect(() => {
     if (!revealAnimationTick || !afterImage) return;
-    runScratchRevealRevealAnimation(revealMediaRef.current, revealAnimationPreset, revealAnimationDurationMs);
-  }, [afterImage, revealAnimationDurationMs, revealAnimationPreset, revealAnimationTick]);
+    runScratchRevealRevealAnimation(revealMediaRef.current, revealAnimationPreset, revealAnimationDurationMs, revealAnimationDelayMs);
+  }, [afterImage, revealAnimationDelayMs, revealAnimationDurationMs, revealAnimationPreset, revealAnimationTick]);
 
   const scratchAtEvent = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;

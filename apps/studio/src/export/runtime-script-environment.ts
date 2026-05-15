@@ -297,17 +297,18 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     return (cleared / Math.max(1, progressCanvas.width * progressCanvas.height)) * 100;
   }
 
-  function playScratchRevealRevealAnimation(node, preset, durationMs) {
+  function playScratchRevealRevealAnimation(node, preset, durationMs, delayMs) {
     if (!node || !preset || preset === 'none' || typeof node.animate !== 'function') return;
     node.getAnimations?.().forEach((animation) => animation.cancel());
     const duration = Math.max(150, Math.min(3000, Number(durationMs || 700)));
+    const delay = Math.max(0, Math.min(3000, Number(delayMs || 0)));
     const keyframes =
       preset === 'appear'
         ? [{ opacity: 0 }, { opacity: 1 }]
         : preset === 'fade-up'
           ? [{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'translateY(0px)' }]
           : [{ opacity: 0.35, transform: 'scale(0.92)' }, { opacity: 1, transform: 'scale(1)' }];
-    node.animate(keyframes, { duration, easing: 'ease-out' });
+    node.animate(keyframes, { duration, delay, easing: 'ease-out', fill: 'backwards' });
   }
 
   function initScratchReveal(root) {
@@ -321,6 +322,7 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     const autoRevealThreshold = Math.max(0, Math.min(100, Number(root.getAttribute('data-scratch-auto-reveal-threshold') || 10)));
     const revealAnimationPreset = root.getAttribute('data-scratch-reveal-animation') || 'none';
     const revealAnimationDuration = Number(root.getAttribute('data-scratch-reveal-animation-duration') || 700);
+    const revealAnimationDelay = Number(root.getAttribute('data-scratch-reveal-animation-delay') || 0);
     const state = { pointerActive: false, completed: false, progressCanvas: null };
 
     function syncCanvasSize() {
@@ -348,7 +350,7 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      playScratchRevealRevealAnimation(revealMedia, revealAnimationPreset, revealAnimationDuration);
+      playScratchRevealRevealAnimation(revealMedia, revealAnimationPreset, revealAnimationDuration, revealAnimationDelay);
     }
 
     canvas.style.opacity = '0';
