@@ -109,6 +109,17 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
           <label>Scratch radius</label>
           <input type="number" step="1" value={String(widget.props.scratchRadius ?? 22)} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { scratchRadius: Number(event.target.value) })} />
         </div>
+        <div>
+          <label>Auto reveal %</label>
+          <input
+            type="number"
+            step="1"
+            min="0"
+            max="100"
+            value={String(widget.props.autoRevealThresholdPercent ?? 10)}
+            onChange={(event) => widgetActions.updateWidgetProps(widget.id, { autoRevealThresholdPercent: Number(event.target.value) })}
+          />
+        </div>
       </div>
     </section>
   );

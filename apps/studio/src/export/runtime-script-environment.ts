@@ -129,6 +129,17 @@ export const EXPORT_RUNTIME_WEATHER_SECTION = `
 `;
 
 export const EXPORT_RUNTIME_SCRATCH_SECTION = `
+  function createScratchProgressCanvas(width, height) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(16, Math.min(96, Math.round(width / 4)));
+    canvas.height = Math.max(16, Math.min(96, Math.round(height / 4)));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
   function paintScratchCover(canvas, coverImage, coverBlur, accent, onReady) {
     const ctx = canvas?.getContext('2d');
     if (!ctx) return;
@@ -187,6 +198,26 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     ctx.restore();
   }
 
+  function eraseScratchProgress(progressCanvas, x, y, radius, sourceWidth, sourceHeight) {
+    const ctx = progressCanvas?.getContext('2d');
+    if (!ctx) return 0;
+    const scaleX = progressCanvas.width / Math.max(1, sourceWidth);
+    const scaleY = progressCanvas.height / Math.max(1, sourceHeight);
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(x * scaleX, y * scaleY, radius * Math.max(scaleX, scaleY), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    const pixels = ctx.getImageData(0, 0, progressCanvas.width, progressCanvas.height).data;
+    let cleared = 0;
+    for (let index = 3; index < pixels.length; index += 4) {
+      if (pixels[index] === 0) cleared += 1;
+    }
+    return (cleared / Math.max(1, progressCanvas.width * progressCanvas.height)) * 100;
+  }
+
   function initScratchReveal(root) {
     const canvas = root?.querySelector('[data-scratch-canvas]');
     if (!canvas) return;
@@ -194,22 +225,33 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     const coverImage = root.getAttribute('data-scratch-cover-image') || '';
     const coverBlur = Number(root.getAttribute('data-scratch-cover-blur') || 0);
     const scratchRadius = Math.max(8, Number(root.getAttribute('data-scratch-radius') || 22));
-    const state = { pointerActive: false };
+    const autoRevealThreshold = Math.max(0, Math.min(100, Number(root.getAttribute('data-scratch-auto-reveal-threshold') || 10)));
+    const state = { pointerActive: false, completed: false, progressCanvas: null };
 
     function syncCanvasSize() {
       const rect = canvas.getBoundingClientRect();
       canvas.width = Math.max(1, Math.round(rect.width));
       canvas.height = Math.max(1, Math.round(rect.height));
+      state.progressCanvas = createScratchProgressCanvas(canvas.width, canvas.height);
+      state.completed = false;
       paintScratchCover(canvas, coverImage, coverBlur, accent, () => {
         canvas.style.opacity = '1';
       });
     }
 
     function scratchAtEvent(event) {
+      if (state.completed) return;
       const rect = canvas.getBoundingClientRect();
       const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width;
       const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height;
       eraseScratch(canvas, x, y, scratchRadius);
+      if (!state.progressCanvas || autoRevealThreshold <= 0) return;
+      const clearedPercent = eraseScratchProgress(state.progressCanvas, x, y, scratchRadius, canvas.width, canvas.height);
+      if (clearedPercent < autoRevealThreshold) return;
+      state.completed = true;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
     canvas.style.opacity = '0';

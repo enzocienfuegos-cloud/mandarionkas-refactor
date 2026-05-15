@@ -35,6 +35,7 @@ describe('scratch reveal export', () => {
 
     expect(html).toContain('class="scratch-reveal-shell"');
     expect(html).toContain('data-scratch-cover-blur="0"');
+    expect(html).toContain('data-scratch-auto-reveal-threshold="10"');
     expect(html).toContain('style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;');
     expect(html).toContain('data-scratch-canvas style="position:absolute;inset:0;z-index:1;');
   });
@@ -43,5 +44,11 @@ describe('scratch reveal export', () => {
     const html = renderScratchRevealExport(createScratchRevealWidget({ coverBlur: 9 }));
 
     expect(html).toContain('data-scratch-cover-blur="9"');
+  });
+
+  it('preserves explicit auto reveal threshold values when configured', () => {
+    const html = renderScratchRevealExport(createScratchRevealWidget({ autoRevealThresholdPercent: 25 }));
+
+    expect(html).toContain('data-scratch-auto-reveal-threshold="25"');
   });
 });
