@@ -1,6 +1,5 @@
 import { getPool } from '@smx/db/src/pool.mjs';
 import geoip from 'geoip-lite';
-import { inferContext } from '@smx/db/src/context-classifier.mjs';
 import { recordImpression } from '@smx/db/src/tracking.mjs';
 import { parseBrowserFromUA, parseDeviceTypeFromUA, parseOsFromUA } from '@smx/db/src/ua-parser.mjs';
 import { recordFrequencyCapImpression } from '@smx/db/src/frequency-cap.mjs';
@@ -17,6 +16,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const R2_REGION = 'auto';
 let cachedR2Client = null;
 let cachedR2Key = '';
+const WORKSPACE_CACHE_TTL_MS = 5 * 60 * 1000;
+const workspaceIdByTag = new Map();
 
 function trimText(value) {
   return String(value ?? '').trim();
@@ -247,17 +248,39 @@ function getDatabasePool(env) {
   return cs ? getPool(cs) : null;
 }
 
+async function resolveTagWorkspaceIdCached(pool, tagId) {
+  const cached = workspaceIdByTag.get(tagId);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) return cached.workspaceId;
+
+  const workspaceId = await resolveTagWorkspaceId(pool, tagId);
+  if (workspaceId) {
+    workspaceIdByTag.set(tagId, { workspaceId, expiresAt: now + WORKSPACE_CACHE_TTL_MS });
+  }
+  return workspaceId;
+}
+
+function inferDisplayContext({ siteDomain, referer, appId, appBundle, appName }) {
+  if (appId || appBundle || appName) return 'app';
+  if (siteDomain || referer) return 'web';
+  return 'unknown';
+}
+
 function queueDisplayFirstHopImpression(ctx, pool, tagId, row) {
-  const { req, res, url, env, requestId } = ctx;
+  const { req, res, url, env, requestId, trackerBuffer } = ctx;
   if (!pool || !tagId || !row || url.searchParams.get('smx_no_imp') === '1') return null;
 
   const { deviceId, cookie } = resolveDeviceId(req, env);
   if (cookie) res.setHeader('Set-Cookie', cookie);
 
   (async () => {
-    await recordImpression(pool, tagId);
+    if (trackerBuffer) {
+      trackerBuffer.addImpression(tagId);
+    } else {
+      await recordImpression(pool, tagId);
+    }
 
-    const workspaceId = await resolveTagWorkspaceId(pool, tagId);
+    const workspaceId = await resolveTagWorkspaceIdCached(pool, tagId);
     if (!workspaceId) return;
 
     if (deviceId) {
@@ -331,13 +354,13 @@ function queueDisplayFirstHopImpression(ctx, pool, tagId, row) {
     const connectionRtt = p.get('sf_conn_rtt') ? Number.parseInt(p.get('sf_conn_rtt'), 10) || null : null;
     const connectionSaveData = p.get('sf_conn_save_data') === '1' ? true : p.get('sf_conn_save_data') === '0' ? false : null;
 
-    const inferredContext = await inferContext(pool, {
+    const inferredContext = inferDisplayContext({
       siteDomain: trackingContext.siteDomain,
       referer: trackingContext.referer,
+      appId,
       appBundle,
       appName,
-      contentGenre,
-    }).catch(() => 'unknown');
+    });
 
     queueImpressionEventWrite(pool, {
       tagId,

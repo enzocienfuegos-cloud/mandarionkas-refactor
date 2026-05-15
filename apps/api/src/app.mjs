@@ -128,7 +128,7 @@ export function createApp() {
       return;
     }
 
-    const ctx = { method, pathname, url, req, res, body, requestId, env, warnings };
+    const ctx = { method, pathname, url, req, res, body, requestId, env, warnings, trackerBuffer };
 
     let handled = false;
     try {
