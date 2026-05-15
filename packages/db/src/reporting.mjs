@@ -1741,39 +1741,34 @@ async function getWorkspaceAllocatedCreativeRows(pool, workspaceId, opts = {}) {
          COALESCE(eit.tag_exact_undetermined_imps, 0)::numeric AS tag_exact_undetermined_imps,
          COALESCE(ect.tag_exact_clicks, 0)::numeric AS tag_exact_clicks,
          CASE
-           WHEN br.tag_impressions > 0 AND COALESCE(eit.tag_exact_impressions, 0) > br.tag_impressions AND COALESCE(eit.tag_exact_impressions, 0) > 0
-             THEN COALESCE(ei.exact_impressions, 0)::numeric * (br.tag_impressions / eit.tag_exact_impressions)
-           ELSE COALESCE(ei.exact_impressions, 0)::numeric
-             + GREATEST(br.tag_impressions - COALESCE(eit.tag_exact_impressions, 0), 0)
-               * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
+           WHEN COALESCE(eit.tag_exact_impressions, 0) > 0
+             THEN COALESCE(ei.exact_impressions, 0)::numeric
+           ELSE br.tag_impressions
+             * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
          END AS resolved_impressions,
          CASE
-           WHEN br.tag_clicks > 0 AND COALESCE(ect.tag_exact_clicks, 0) > br.tag_clicks AND COALESCE(ect.tag_exact_clicks, 0) > 0
-             THEN COALESCE(ec.exact_clicks, 0)::numeric * (br.tag_clicks / ect.tag_exact_clicks)
-           ELSE COALESCE(ec.exact_clicks, 0)::numeric
-             + GREATEST(br.tag_clicks - COALESCE(ect.tag_exact_clicks, 0), 0)
-               * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
+           WHEN COALESCE(ect.tag_exact_clicks, 0) > 0
+             THEN COALESCE(ec.exact_clicks, 0)::numeric
+           ELSE br.tag_clicks
+             * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
          END AS resolved_clicks,
          CASE
-           WHEN br.tag_viewable_imps > 0 AND COALESCE(eit.tag_exact_viewable_imps, 0) > br.tag_viewable_imps AND COALESCE(eit.tag_exact_viewable_imps, 0) > 0
-             THEN COALESCE(ei.exact_viewable_imps, 0)::numeric * (br.tag_viewable_imps / eit.tag_exact_viewable_imps)
-           ELSE COALESCE(ei.exact_viewable_imps, 0)::numeric
-             + GREATEST(br.tag_viewable_imps - COALESCE(eit.tag_exact_viewable_imps, 0), 0)
-               * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
+           WHEN COALESCE(eit.tag_exact_impressions, 0) > 0
+             THEN COALESCE(ei.exact_viewable_imps, 0)::numeric
+           ELSE br.tag_viewable_imps
+             * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
          END AS resolved_viewable_imps,
          CASE
-           WHEN br.tag_measured_imps > 0 AND COALESCE(eit.tag_exact_measured_imps, 0) > br.tag_measured_imps AND COALESCE(eit.tag_exact_measured_imps, 0) > 0
-             THEN COALESCE(ei.exact_measured_imps, 0)::numeric * (br.tag_measured_imps / eit.tag_exact_measured_imps)
-           ELSE COALESCE(ei.exact_measured_imps, 0)::numeric
-             + GREATEST(br.tag_measured_imps - COALESCE(eit.tag_exact_measured_imps, 0), 0)
-               * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
+           WHEN COALESCE(eit.tag_exact_impressions, 0) > 0
+             THEN COALESCE(ei.exact_measured_imps, 0)::numeric
+           ELSE br.tag_measured_imps
+             * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
          END AS resolved_measured_imps,
          CASE
-           WHEN br.tag_undetermined_imps > 0 AND COALESCE(eit.tag_exact_undetermined_imps, 0) > br.tag_undetermined_imps AND COALESCE(eit.tag_exact_undetermined_imps, 0) > 0
-             THEN COALESCE(ei.exact_undetermined_imps, 0)::numeric * (br.tag_undetermined_imps / eit.tag_exact_undetermined_imps)
-           ELSE COALESCE(ei.exact_undetermined_imps, 0)::numeric
-             + GREATEST(br.tag_undetermined_imps - COALESCE(eit.tag_exact_undetermined_imps, 0), 0)
-               * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
+           WHEN COALESCE(eit.tag_exact_impressions, 0) > 0
+             THEN COALESCE(ei.exact_undetermined_imps, 0)::numeric
+           ELSE br.tag_undetermined_imps
+             * CASE WHEN br.total_binding_weight > 0 THEN br.binding_weight / br.total_binding_weight ELSE 0 END
          END AS resolved_undetermined_imps
        FROM binding_roster br
        LEFT JOIN exact_impression_counts ei
