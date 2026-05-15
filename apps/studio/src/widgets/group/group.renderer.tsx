@@ -34,20 +34,6 @@ const scratchEditorOverlayStyle: CSSProperties = {
   pointerEvents: 'none',
 };
 
-const scratchEditorBadgeStyle: CSSProperties = {
-  position: 'absolute',
-  top: 10,
-  left: 10,
-  padding: '4px 8px',
-  borderRadius: 999,
-  background: 'rgba(15, 23, 42, 0.88)',
-  color: '#f97316',
-  fontSize: 11,
-  fontWeight: 800,
-  letterSpacing: '.04em',
-  textTransform: 'uppercase',
-};
-
 const scratchPointerLayerStyle: CSSProperties = {
   position: 'absolute',
   inset: 0,
@@ -306,11 +292,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
 export function renderGroupWidget(node: WidgetNode, ctx: RenderContext): JSX.Element {
   if (node.props.scratchEnabled) {
     if (!ctx.previewMode) {
-      return (
-        <div style={scratchEditorOverlayStyle}>
-          <div style={scratchEditorBadgeStyle}>Scratch group</div>
-        </div>
-      );
+      return <div style={scratchEditorOverlayStyle} />;
     }
     return <ScratchGroupRenderer node={node} ctx={ctx} />;
   }
