@@ -6,7 +6,9 @@
   position: relative;
   background: var(--surface-3); }
 .bottom-timeline { grid-area: timeline;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   min-height: 0;
   border-top: 1px solid var(--white-a-06);
   background: var(--gradient-timeline-surface);

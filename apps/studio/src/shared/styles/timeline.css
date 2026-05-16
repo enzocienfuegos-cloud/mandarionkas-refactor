@@ -16,8 +16,12 @@
   flex-wrap: wrap;
 }
 .timeline-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   padding: 0 0 10px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
 }
 .timeline-grid-shell {
   position: relative;
