@@ -1,38 +1,62 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { listAssets } from '../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../repositories/asset/events';
 import { usePlatformSnapshot } from '../platform/runtime';
-import { buildFontAssetCss } from './font-family';
+import { useStudioStore } from '../core/store/use-studio-store';
+import { buildFontAssetCss, buildFontFaceCss } from './font-family';
 
 export function FontAssetRuntime(): JSX.Element | null {
   const platform = usePlatformSnapshot();
+  const linkedFonts = useStudioStore((state) => Object.values(state.document.widgets)
+    .map((widget) => {
+      const family = String(widget.style.fontFamily ?? '').trim();
+      const src = String(widget.props.fontAssetSrc ?? '').trim();
+      return family && src ? { family, src } : null;
+    })
+    .filter((value): value is { family: string; src: string } => Boolean(value)));
+
+  const linkedFontCss = useMemo(() => {
+    const seen = new Set<string>();
+    return linkedFonts
+      .filter(({ family, src }) => {
+        const key = `${family}::${src}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map(({ family, src }) => buildFontFaceCss(family, src))
+      .join('\n');
+  }, [linkedFonts]);
 
   useEffect(() => {
-    if (!platform.session.isAuthenticated || !platform.session.sessionId) {
-      const existing = document.getElementById('smx-runtime-font-assets');
-      if (existing) existing.textContent = '';
-      return;
-    }
     let cancelled = false;
     const styleId = 'smx-runtime-font-assets';
+
+    const writeCss = (assetCss: string) => {
+      let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = styleId;
+        document.head.appendChild(styleEl);
+      }
+      styleEl.textContent = [assetCss, linkedFontCss].filter(Boolean).join('\n');
+    };
+
+    if (!platform.session.isAuthenticated || !platform.session.sessionId) {
+      writeCss('');
+      return;
+    }
 
     const syncFonts = () => {
       void listAssets()
         .then((assets) => {
           if (cancelled) return;
           const fontAssets = assets.filter((asset) => asset.kind === 'font');
-          let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
-          if (!styleEl) {
-            styleEl = document.createElement('style');
-            styleEl.id = styleId;
-            document.head.appendChild(styleEl);
-          }
-          styleEl.textContent = fontAssets.map(buildFontAssetCss).join('\n');
+          writeCss(fontAssets.map(buildFontAssetCss).join('\n'));
         })
         .catch(() => {
           if (cancelled) return;
-          const existing = document.getElementById(styleId);
-          if (existing) existing.textContent = '';
+          writeCss('');
         });
     };
 
@@ -42,7 +66,7 @@ export function FontAssetRuntime(): JSX.Element | null {
       cancelled = true;
       unsubscribe();
     };
-  }, [platform.session.isAuthenticated, platform.session.sessionId]);
+  }, [linkedFontCss, platform.session.isAuthenticated, platform.session.sessionId]);
 
   return null;
 }

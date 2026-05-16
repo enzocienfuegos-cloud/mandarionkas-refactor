@@ -9,6 +9,11 @@ function fontFormatFromSrc(src: string): string | null {
   return null;
 }
 
+export function buildFontFaceCss(family: string, src: string): string {
+  const format = fontFormatFromSrc(src);
+  return `@font-face{font-family:"${family}";src:url("${src}")${format ? ` format("${format}")` : ''};font-display:swap;font-style:normal;font-weight:400;}`;
+}
+
 function fontFamilyName(asset: AssetRecord): string {
   const base = (asset.fontFamily ?? asset.name ?? 'Custom Font').replace(/\.[^.]+$/, '').trim() || 'Custom Font';
   const safeId = asset.id.replace(/[^a-zA-Z0-9]+/g, '');
@@ -40,8 +45,7 @@ export function resolveFontAssetFamilyAliases(asset: AssetRecord): string[] {
 
 export function buildFontAssetCss(asset: AssetRecord): string {
   const src = asset.publicUrl ?? asset.src;
-  const format = fontFormatFromSrc(src);
   return resolveFontAssetFamilyAliases(asset)
-    .map((family) => `@font-face{font-family:"${family}";src:url("${src}")${format ? ` format("${format}")` : ''};font-display:swap;font-style:normal;font-weight:400;}`)
+    .map((family) => buildFontFaceCss(family, src))
     .join('');
 }

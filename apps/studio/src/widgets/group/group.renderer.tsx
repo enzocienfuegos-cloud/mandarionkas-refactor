@@ -204,6 +204,7 @@ function GroupScratchCoverChildren({ node, ctx }: { node: WidgetNode; ctx: Rende
 }
 
 function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const progressCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pointerActiveRef = useRef(false);
@@ -223,9 +224,10 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
 
   const resetScratchMask = () => {
     const canvas = maskCanvasRef.current;
+    const shell = shellRef.current;
     if (!canvas) return;
-    const width = Math.max(1, Math.round(canvas.clientWidth));
-    const height = Math.max(1, Math.round(canvas.clientHeight));
+    const width = Math.max(1, Math.round(shell?.clientWidth ?? node.frame.width ?? 1));
+    const height = Math.max(1, Math.round(shell?.clientHeight ?? node.frame.height ?? 1));
     canvas.width = width;
     canvas.height = height;
     initializeScratchMask(canvas);
@@ -263,7 +265,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   };
 
   return (
-    <div style={scratchShellStyle}>
+    <div ref={shellRef} style={scratchShellStyle}>
       <canvas ref={maskCanvasRef} style={{ display: 'none' }} aria-hidden="true" />
       {!scratchCompleted && maskUrl ? (
         <div style={buildScratchMaskStyle(maskUrl, coverBlur)}>
