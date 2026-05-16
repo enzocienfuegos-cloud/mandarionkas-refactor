@@ -51,6 +51,21 @@ describe('animation presets', () => {
     expect(keyframes[1]?.value).toBeLessThan(1);
   });
 
+  it('replaces previous preset-managed tracks when switching templates', () => {
+    const widget = createWidget('cta');
+    const fadeUp = applyAnimationPreset(widget, 'fade-up');
+    const widgetWithPreset: WidgetNode = {
+      ...widget,
+      style: { ...widget.style, ...fadeUp.stylePatch },
+      timeline: { ...widget.timeline, keyframes: fadeUp.keyframes },
+    };
+
+    const pulse = applyAnimationPreset(widgetWithPreset, 'pulse');
+
+    expect(pulse.keyframes).toHaveLength(3);
+    expect(pulse.keyframes.every((item) => item.property === 'opacity')).toBe(true);
+  });
+
   it('builds fade-out keyframes toward the end of the widget timeline', () => {
     const { keyframes, stylePatch } = applyAnimationPreset(createWidget('group'), 'fade-out');
 

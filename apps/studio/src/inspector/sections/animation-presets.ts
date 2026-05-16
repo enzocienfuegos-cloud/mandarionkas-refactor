@@ -75,6 +75,8 @@ function buildKeyframe(property: KeyframeNode['property'], atMs: number, value: 
   return { id: createId('kf'), property, atMs, value, easing };
 }
 
+const PRESET_TRACKS: Array<KeyframeNode['property']> = ['opacity', 'y'];
+
 function replacePresetTracks(existing: KeyframeNode[], replacement: KeyframeNode[], tracks: Array<KeyframeNode['property']>): KeyframeNode[] {
   return [
     ...existing.filter((item) => !tracks.includes(item.property)),
@@ -106,7 +108,7 @@ export function applyAnimationPreset(widget: WidgetNode, preset: SupportedAnimat
       keyframes: replacePresetTracks(existing, [
         buildKeyframe('opacity', delayedStartMs, 0),
         buildKeyframe('opacity', Math.min(endMs, delayedStartMs + durationMs), baseOpacity, 'ease-out'),
-      ], ['opacity']),
+      ], PRESET_TRACKS),
       stylePatch,
     };
   }
@@ -118,7 +120,7 @@ export function applyAnimationPreset(widget: WidgetNode, preset: SupportedAnimat
         buildKeyframe('opacity', Math.min(endMs, delayedStartMs + durationMs), baseOpacity, 'ease-out'),
         buildKeyframe('y', delayedStartMs, baseY + distancePx),
         buildKeyframe('y', Math.min(endMs, delayedStartMs + durationMs), baseY, 'ease-out'),
-      ], ['opacity', 'y']),
+      ], PRESET_TRACKS),
       stylePatch,
     };
   }
@@ -129,18 +131,18 @@ export function applyAnimationPreset(widget: WidgetNode, preset: SupportedAnimat
       keyframes: replacePresetTracks(existing, [
         buildKeyframe('opacity', fadeOutStartMs, baseOpacity),
         buildKeyframe('opacity', endMs, 0, 'ease-in'),
-      ], ['opacity']),
+      ], PRESET_TRACKS),
       stylePatch,
     };
   }
 
   const pulseDipOpacity = clamp(baseOpacity - intensity * 0.45, 0.15, baseOpacity);
-  return {
-    keyframes: replacePresetTracks(existing, [
-      buildKeyframe('opacity', delayedStartMs, baseOpacity),
-      buildKeyframe('opacity', Math.min(endMs, delayedStartMs + Math.round(durationMs * 0.4)), pulseDipOpacity, 'ease-in-out'),
-      buildKeyframe('opacity', Math.min(endMs, delayedStartMs + durationMs), baseOpacity, 'ease-in-out'),
-    ], ['opacity']),
-    stylePatch,
-  };
+    return {
+      keyframes: replacePresetTracks(existing, [
+        buildKeyframe('opacity', delayedStartMs, baseOpacity),
+        buildKeyframe('opacity', Math.min(endMs, delayedStartMs + Math.round(durationMs * 0.4)), pulseDipOpacity, 'ease-in-out'),
+        buildKeyframe('opacity', Math.min(endMs, delayedStartMs + durationMs), baseOpacity, 'ease-in-out'),
+    ], PRESET_TRACKS),
+      stylePatch,
+    };
 }

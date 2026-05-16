@@ -2,6 +2,7 @@ import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import type { CSSProperties } from 'react';
 import { getLiveWidgetFrame, getLiveWidgetOpacity } from '../../../domain/document/timeline';
 import type { WidgetFrame, WidgetNode } from '../../../domain/document/types';
+import { getAnimationPresetConfig } from '../../../inspector/sections/animation-presets';
 import type { ResizeHandle } from '../use-stage-controller';
 import { StageWidget } from './StageWidget';
 import { StageDropPreviewOverlay } from './StageDropPreviewOverlay';
@@ -156,12 +157,19 @@ export function StageSurface({
       style={buildStageSurfaceStyle()}
     >
       {widgets.map((widget) => {
+        const selectedInEditor = !previewMode && selectedIds.includes(widget.id);
+        const animationTemplateActive = selectedInEditor && Boolean(getAnimationPresetConfig(widget).preset);
         const frame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
           ? resolveScratchGroupFrame(widget)
-          : liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
+          : animationTemplateActive
+            ? widget.frame
+            : liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
         if (!isWidgetVisible(widget.id)) return null;
         if (isCoveredByScratchGroup(widget)) return null;
         const renderNode = frame === widget.frame ? widget : { ...widget, frame };
+        const opacity = animationTemplateActive
+          ? Number(widget.style.opacity ?? 1)
+          : getLiveWidgetOpacity(renderNode, playheadMs);
 
         return (
           <StageWidget
@@ -172,7 +180,7 @@ export function StageSurface({
             selected={selectedIds.includes(widget.id) && !previewMode}
             primary={selectedIds[0] === widget.id && !previewMode}
             frame={frame}
-            opacity={getLiveWidgetOpacity(renderNode, playheadMs)}
+            opacity={opacity}
             showBadge={showWidgetBadges}
             previewMode={previewMode}
             editModeWireframe={editModeWireframe}
