@@ -167,12 +167,13 @@ function buildBundleFromPreparedAssets(
   input: PreparedExportBundleInput,
 ): ExportBundle {
   const { portableProject, localizedPortableProject, assetPlan, assetFiles } = input;
-  const runtimeModel = buildExportRuntimeModelFromPortable(portableProject);
   const adapter = buildChannelAdapter(state);
   const remoteFetchPlan = buildRemoteAssetFetchPlan(assetPlan);
   const localizedAdapter = adapter.adapter === 'playable-ad'
     ? { ...adapter, playableProject: localizedPortableProject }
     : { ...adapter, portableProject: localizedPortableProject };
+  const runtimeProject = localizedAdapter.adapter === 'playable-ad' ? localizedAdapter.playableProject : localizedAdapter.portableProject;
+  const runtimeModel = buildExportRuntimeModelFromPortable(runtimeProject);
   const html = localizedAdapter.adapter === 'playable-ad'
     ? buildPlayableSingleFileHtml(state, localizedAdapter as PlayableExportAdapterResult, {})
     : localizedAdapter.adapter === 'vast-simid'
@@ -180,8 +181,7 @@ function buildBundleFromPreparedAssets(
       : buildChannelHtml(state, localizedAdapter as any);
   const packagingPlan = buildExportPackagingPlan(localizedAdapter);
   const exitConfig = buildExportExitConfig(localizedAdapter);
-  const runtimeProject = adapter.adapter === 'playable-ad' ? adapter.playableProject : adapter.portableProject;
-  const runtimeScript = compileRuntime(runtimeProject, adapter);
+  const runtimeScript = compileRuntime(runtimeProject, localizedAdapter as any);
   const staticBundleFiles: ExportBundleFile[] = [
     { path: 'index.html', mime: 'text/html;charset=utf-8', content: html },
     ...(localizedAdapter.adapter === 'vast-simid'

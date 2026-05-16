@@ -49,7 +49,30 @@ export type ExportRuntimeModel = {
   canvas: PortableExportProject['canvas'];
   scenes: ExportRuntimeScene[];
   interactions: ExportRuntimeInteraction[];
+  fontFaces: Array<{
+    family: string;
+    src: string;
+  }>;
 };
+
+function collectRuntimeFontFaces(project: PortableExportProject): ExportRuntimeModel['fontFaces'] {
+  const seen = new Set<string>();
+  const fontFaces: ExportRuntimeModel['fontFaces'] = [];
+
+  project.scenes.forEach((scene) => {
+    scene.widgets.forEach((widget) => {
+      const family = typeof widget.style.fontFamily === 'string' ? widget.style.fontFamily.trim() : '';
+      const src = typeof widget.props.fontAssetSrc === 'string' ? widget.props.fontAssetSrc.trim() : '';
+      if (!family || !src) return;
+      const key = `${family}::${src}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      fontFaces.push({ family, src });
+    });
+  });
+
+  return fontFaces;
+}
 
 function inferWidgetGestures(widget: PortableExportWidget): ExportRuntimeGesture[] {
   const gestures = new Set<ExportRuntimeGesture>();
@@ -148,6 +171,7 @@ export function buildExportRuntimeModelFromPortable(project: PortableExportProje
     canvas: project.canvas,
     scenes,
     interactions: project.scenes.flatMap(buildRuntimeInteractions),
+    fontFaces: collectRuntimeFontFaces(project),
   };
 }
 

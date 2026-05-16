@@ -20,6 +20,8 @@ const BANNER_BASE_CSS = `
   html[data-mraid-ready="true"] .banner-shell[data-adapter="mraid"] { width: 100%; height: 100%; }
   .banner-stage { width: 100%; height: 100%; position: relative; overflow: hidden; }
   .scene { display: none; }
+  .widget-layer { pointer-events: none; }
+  .widget-layer > * { pointer-events: auto; }
   button.widget-cta:hover { filter: brightness(1.05); }
 `.trim();
 

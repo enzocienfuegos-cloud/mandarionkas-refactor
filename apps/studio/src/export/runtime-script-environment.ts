@@ -1,5 +1,32 @@
 export const EXPORT_RUNTIME_ENVIRONMENT_SECTION = ``;
 
+export const EXPORT_RUNTIME_FONTS_SECTION = `
+  function inferRuntimeFontFormat(src) {
+    const normalized = String(src || '').toLowerCase();
+    if (normalized.includes('.woff2')) return 'woff2';
+    if (normalized.includes('.woff')) return 'woff';
+    if (normalized.includes('.ttf')) return 'truetype';
+    if (normalized.includes('.otf')) return 'opentype';
+    return '';
+  }
+
+  function ensureRuntimeFontFaces() {
+    if (!runtime || !Array.isArray(runtime.fontFaces) || !runtime.fontFaces.length) return;
+    const styleId = 'smx-runtime-font-faces';
+    if (document.getElementById(styleId)) return;
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = runtime.fontFaces.map((fontFace) => {
+      if (!fontFace || !fontFace.family || !fontFace.src) return '';
+      const format = inferRuntimeFontFormat(fontFace.src);
+      return '@font-face{font-family:"' + String(fontFace.family).replace(/"/g, '\\"') + '";src:url("' + String(fontFace.src).replace(/"/g, '\\"') + '")' + (format ? ' format("' + format + '")' : '') + ';font-display:swap;font-style:normal;font-weight:400;}';
+    }).join('\\n');
+    document.head.appendChild(style);
+  }
+
+  ensureRuntimeFontFaces();
+`;
+
 export const EXPORT_RUNTIME_TIMELINE_SECTION = `
   function applyTimelineEasing(progress, easing) {
     const clamped = Math.max(0, Math.min(1, progress));

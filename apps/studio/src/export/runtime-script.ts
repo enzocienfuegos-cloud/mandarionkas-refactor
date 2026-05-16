@@ -4,6 +4,7 @@ import type { PortableExportProject, PortableExportWidget } from './portable';
 import {
   EXPORT_RUNTIME_COUNTDOWN_SECTION,
   EXPORT_RUNTIME_ENVIRONMENT_SECTION,
+  EXPORT_RUNTIME_FONTS_SECTION,
   EXPORT_RUNTIME_INTERACTIVE_SECTION,
   EXPORT_RUNTIME_MAP_SECTION,
   EXPORT_RUNTIME_SCRATCH_SECTION,
@@ -15,6 +16,7 @@ type RuntimeCapabilities = {
   hasMap: boolean;
   hasInteractive: boolean;
   hasEnvironment: true;
+  hasFontFaces: boolean;
   hasWeather: boolean;
   hasScratchReveal: boolean;
   hasCountdown: boolean;
@@ -69,11 +71,13 @@ export function analyzeRuntimeCapabilities(document: PortableExportProject): Run
   const hasScratchReveal = widgets.some((widget) => SCRATCH_WIDGET_TYPES.has(widget.type) || (widget.type === 'group' && Boolean(widget.props?.scratchEnabled)));
   const hasCountdown = widgets.some((widget) => COUNTDOWN_WIDGET_TYPES.has(widget.type));
   const hasTimelineAnimations = widgets.some((widget) => (widget.timeline.keyframes?.length ?? 0) > 0);
+  const hasFontFaces = widgets.some((widget) => typeof widget.props?.fontAssetSrc === 'string' && widget.props.fontAssetSrc.trim().length > 0);
 
   return {
     hasMap,
     hasInteractive: hasInteractiveWidget || hasInteractiveAction,
     hasEnvironment: true,
+    hasFontFaces,
     hasWeather,
     hasScratchReveal,
     hasCountdown,
@@ -87,6 +91,7 @@ export function compileRuntime(document: PortableExportProject, adapter: ExportH
   if (capabilities.hasMap) sections.push(EXPORT_RUNTIME_MAP_SECTION);
   if (capabilities.hasInteractive) sections.push(EXPORT_RUNTIME_INTERACTIVE_SECTION);
   if (capabilities.hasEnvironment) sections.push(EXPORT_RUNTIME_ENVIRONMENT_SECTION);
+  if (capabilities.hasFontFaces) sections.push(EXPORT_RUNTIME_FONTS_SECTION);
   if (capabilities.hasWeather) sections.push(EXPORT_RUNTIME_WEATHER_SECTION);
   if (capabilities.hasScratchReveal) sections.push(EXPORT_RUNTIME_SCRATCH_SECTION);
   if (capabilities.hasCountdown) sections.push(EXPORT_RUNTIME_COUNTDOWN_SECTION);

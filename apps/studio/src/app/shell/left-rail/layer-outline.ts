@@ -70,15 +70,24 @@ export function getWidgetReorderSteps(
   draggedId: string,
   targetId: string,
 ): Array<'forward' | 'backward'> {
+  const displayIds = [...widgetIds].reverse();
   const fromIndex = widgetIds.indexOf(draggedId);
-  const targetIndex = widgetIds.indexOf(targetId);
-  if (fromIndex === -1 || targetIndex === -1 || fromIndex === targetIndex) return [];
+  const displayFromIndex = displayIds.indexOf(draggedId);
+  const displayTargetIndex = displayIds.indexOf(targetId);
+  if (fromIndex === -1 || displayFromIndex === -1 || displayTargetIndex === -1 || draggedId === targetId) return [];
 
-  const remaining = widgetIds.filter((widgetId) => widgetId !== draggedId);
-  const destinationIndex = remaining.indexOf(targetId);
+  const remainingDisplayIds = displayIds.filter((widgetId) => widgetId !== draggedId);
+  const destinationIndex = remainingDisplayIds.indexOf(targetId);
   if (destinationIndex === -1) return [];
 
-  const delta = destinationIndex - fromIndex;
+  const nextDisplayIds = [
+    ...remainingDisplayIds.slice(0, destinationIndex),
+    draggedId,
+    ...remainingDisplayIds.slice(destinationIndex),
+  ];
+  const nextSceneIds = [...nextDisplayIds].reverse();
+  const nextIndex = nextSceneIds.indexOf(draggedId);
+  const delta = nextIndex - fromIndex;
   if (delta === 0) return [];
 
   const direction = delta > 0 ? 'forward' : 'backward';

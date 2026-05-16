@@ -100,8 +100,8 @@ describe('layer outline helpers', () => {
   });
 
   it('returns reorder steps that place the dragged widget before the drop target', () => {
-    expect(getWidgetReorderSteps(['a', 'b', 'c', 'd'], 'a', 'd')).toEqual(['forward', 'forward']);
-    expect(getWidgetReorderSteps(['a', 'b', 'c', 'd'], 'd', 'b')).toEqual(['backward', 'backward']);
+    expect(getWidgetReorderSteps(['a', 'b', 'c', 'd'], 'a', 'd')).toEqual(['forward', 'forward', 'forward']);
+    expect(getWidgetReorderSteps(['a', 'b', 'c', 'd'], 'd', 'b')).toEqual(['backward']);
     expect(getWidgetReorderSteps(['a', 'b', 'c'], 'b', 'b')).toEqual([]);
   });
 });
