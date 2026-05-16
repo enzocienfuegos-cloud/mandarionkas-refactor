@@ -5,6 +5,7 @@ import { LeftRail } from './LeftRail';
 import { Workspace } from './Workspace';
 import { RightInspector } from '../../inspector/RightInspector';
 import { BottomTimeline } from '../../timeline/BottomTimeline';
+import { useStudioStore } from '../../core/store/use-studio-store';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { SurfaceButton } from '../../shared/ui/SurfaceButton';
 import { PreflightTray } from './PreflightTray';
@@ -49,6 +50,11 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
     rightInspectorHidden,
     timelineHidden,
   } = layout;
+  const activeSceneWidgetCount = useStudioStore((state) => {
+    const activeScene = state.document.scenes.find((scene) => scene.id === state.document.selection.activeSceneId)
+      ?? state.document.scenes[0];
+    return activeScene?.widgetIds.length ?? 0;
+  });
 
   useEffect(() => {
     return subscribeToOpenAssetLibrary((request) => {
@@ -98,10 +104,12 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
     });
   }, [resize, setLayout, timelineHeight]);
 
+  const compactTimelineHeight = clamp(84 + activeSceneWidgetCount * 34, TIMELINE_MIN_HEIGHT, TIMELINE_MAX_HEIGHT);
+  const effectiveTimelineHeight = timelineHidden ? 0 : Math.min(timelineHeight, compactTimelineHeight);
   const shellStyle = {
     '--shell-left-w': leftRailHidden ? '0px' : `${leftRailWidth}px`,
     '--shell-right-w': rightInspectorHidden ? '0px' : `${rightInspectorWidth}px`,
-    '--shell-bottom-h': timelineHidden ? '0px' : `${timelineHeight}px`,
+    '--shell-bottom-h': `${effectiveTimelineHeight}px`,
   } as CSSProperties;
 
   return (

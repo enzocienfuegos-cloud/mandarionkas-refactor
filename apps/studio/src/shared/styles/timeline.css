@@ -26,7 +26,7 @@
 }
 .timeline-grid-shell {
   position: relative;
-  min-height: 144px;
+  min-height: 112px;
   width: var(--timeline-grid-shell-width, auto);
   --timeline-playhead-left: 0px;
   overflow-anchor: none;
@@ -97,9 +97,9 @@
 .timeline-rows {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding-top: var(--space-3);
-  padding-bottom: var(--space-4);
+  gap: 2px;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-3);
   overflow-anchor: none;
 }
 
@@ -156,7 +156,7 @@
 .timeline-row {
   display: grid;
   align-items: center;
-  min-height: 38px;
+  min-height: 34px;
   border-bottom: 0;
   border-radius: var(--radius-xl);
   overflow: visible;
@@ -177,7 +177,7 @@
   gap: var(--space-1);
   width: 200px;
   flex-shrink: 0;
-  padding-block: var(--space-3);
+  padding-block: var(--space-2);
   padding-inline-end: var(--space-4);
   padding-inline-start: var(--timeline-meta-indent, 16px);
   border-right: 1px solid var(--white-a-08);
@@ -186,7 +186,7 @@
 .timeline-track {
   position: relative;
   width: var(--timeline-track-width, auto);
-  height: 38px;
+  height: 34px;
   background: var(--gradient-timeline-stripes);
   border-left: 1px solid var(--white-a-04);
   contain: layout paint;
@@ -249,8 +249,8 @@
   justify-content: center;
   color: var(--layer-bar-text, rgba(232, 240, 255, 0.97));
   font-weight: 700;
-  top: 8px;
-  height: 22px;
+  top: 7px;
+  height: 20px;
   touch-action: none;
   border-radius: var(--radius-pill);
   background: var(--layer-bar-bg, linear-gradient(90deg, var(--bg-selected-bright), var(--accent-2-a-92)));

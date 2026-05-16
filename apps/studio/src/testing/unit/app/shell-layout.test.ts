@@ -25,7 +25,7 @@ describe('shell layout persistence', () => {
     expect(normalized).toEqual({
       leftRailWidth: 520,
       rightInspectorWidth: 280,
-      timelineHeight: 160,
+      timelineHeight: 140,
       leftRailHidden: true,
       rightInspectorHidden: false,
       timelineHidden: true,

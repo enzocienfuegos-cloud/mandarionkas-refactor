@@ -73,6 +73,21 @@ describe('timeline helpers', () => {
     expect(isWidgetVisibleAt(excludedWidget, 5000)).toBe(true);
   });
 
+  it('keeps timeline-excluded widgets static instead of replaying managed motion tracks', () => {
+    const excludedWidget = {
+      ...widget,
+      frame: { ...widget.frame, x: 24 },
+      style: { opacity: 0.72 },
+      timeline: {
+        ...widget.timeline,
+        excluded: true,
+      },
+    } as any;
+
+    expect(getLiveWidgetFrame(excludedWidget, 500).x).toBe(24);
+    expect(getLiveWidgetOpacity(excludedWidget, 500)).toBeCloseTo(0.72);
+  });
+
   it('derives grid step from zoom', () => {
     expect(getTimelineGridStepMs(0.5)).toBe(1000);
     expect(getTimelineGridStepMs(1)).toBe(500);

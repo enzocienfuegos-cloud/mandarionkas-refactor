@@ -149,25 +149,7 @@ export function TimelineHeader({
         />
         <div className="timeline-title-copy">
           <strong>Timeline</strong>
-          <small>{displayedCount} track{displayedCount === 1 ? '' : 's'} · Scene {activeSceneIndex + 1} of {Math.max(1, scenes.length)} · {selectedCount} selected</small>
-          <div className="timeline-group-actions">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onGroupSelection}
-              disabled={!canGroupSelection}
-            >
-              Group
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onUngroupSelection}
-              disabled={!canUngroupSelection}
-            >
-              Ungroup
-            </Button>
-          </div>
+          <small>{displayedCount} track{displayedCount === 1 ? '' : 's'} · {selectedCount} selected</small>
         </div>
       </div>
       <div className="timeline-controls">
@@ -304,6 +286,14 @@ export function TimelineHeader({
             />
             {optionsOpen ? (
               <div className="timeline-options-popover panel" role="menu" aria-label="Timeline options">
+                <button type="button" className="timeline-options-item" role="menuitem" disabled={!canGroupSelection} onClick={() => { onGroupSelection(); setOptionsOpen(false); }}>
+                  <span>Group selection</span>
+                  <span className="pill">{canGroupSelection ? 'Ready' : 'Need 2+'}</span>
+                </button>
+                <button type="button" className="timeline-options-item" role="menuitem" disabled={!canUngroupSelection} onClick={() => { onUngroupSelection(); setOptionsOpen(false); }}>
+                  <span>Ungroup selection</span>
+                  <span className="pill">{canUngroupSelection ? 'Ready' : 'None'}</span>
+                </button>
                 <button type="button" className="timeline-options-item" role="menuitemcheckbox" aria-checked={snapEnabled} onClick={() => { onToggleSnap(); setOptionsOpen(false); }}>
                   <span>Snap {snapEnabled ? `${snapStepMs}ms` : 'off'}</span>
                   <span className="pill">{snapEnabled ? 'On' : 'Off'}</span>

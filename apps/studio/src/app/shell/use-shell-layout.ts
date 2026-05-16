@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { readScopedStorageItem, writeScopedStorageItem } from '../../shared/browser/storage';
 
-export const SHELL_LAYOUT_STORAGE_KEY = 'smx.studio.shell.layout.v1';
+export const SHELL_LAYOUT_STORAGE_KEY = 'smx.studio.shell.layout.v2';
 
 export type ShellLayout = {
   leftRailWidth: number;
@@ -15,7 +15,7 @@ export type ShellLayout = {
 export const DEFAULT_SHELL_LAYOUT: ShellLayout = {
   leftRailWidth: 288,
   rightInspectorWidth: 328,
-  timelineHeight: 260,
+  timelineHeight: 220,
   leftRailHidden: false,
   rightInspectorHidden: false,
   timelineHidden: false,
@@ -25,8 +25,8 @@ export const LEFT_RAIL_MIN_WIDTH = 200;
 export const LEFT_RAIL_MAX_WIDTH = 520;
 export const RIGHT_INSPECTOR_MIN_WIDTH = 280;
 export const RIGHT_INSPECTOR_MAX_WIDTH = 520;
-export const TIMELINE_MIN_HEIGHT = 160;
-export const TIMELINE_MAX_HEIGHT = 520;
+export const TIMELINE_MIN_HEIGHT = 140;
+export const TIMELINE_MAX_HEIGHT = 480;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
