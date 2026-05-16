@@ -2,6 +2,7 @@ import { createHistoryManager } from '../history/history-manager';
 import { createStore } from './create-store';
 import type { StudioCommand } from '../commands/types';
 import { createInitialState } from '../../domain/document/factories';
+import { normalizeStudioState } from '../../domain/document/normalize-state';
 import type { StudioState } from '../../domain/document/types';
 import { runActionEffects } from '../../actions/action-effects';
 import { getVideoEffectContext } from '../../widgets/video/effect-registry';
@@ -76,6 +77,7 @@ export const studioStore = createStore<StudioState, StudioCommand>({
 
 
 export function replaceStudioState(nextState: StudioState): void {
-  history.reset(nextState);
-  studioStore.replaceState(nextState);
+  const normalized = normalizeStudioState(nextState);
+  history.reset(normalized);
+  studioStore.replaceState(normalized);
 }

@@ -1,6 +1,7 @@
 import { createInitialState } from './factories';
 import { createCanvasVariantFromCanvas, ensureSingleMasterVariant, syncDocumentCanvasToVariant } from './canvas-variants';
-import type { FeedCatalog, StudioState } from './types';
+import type { FeedCatalog, StudioState, WidgetHoverMotion, WidgetMotion, WidgetNode } from './types';
+import { buildWidgetHoverMotion, buildWidgetMotion } from '../../motion/motion-model';
 
 function normalizeFeeds(feeds: StudioState['document']['feeds'] | undefined): FeedCatalog {
   const defaults = createInitialState().document.feeds;
@@ -10,6 +11,48 @@ function normalizeFeeds(feeds: StudioState['document']['feeds'] | undefined): Fe
     location: feeds?.location ?? defaults.location,
     custom: feeds?.custom ?? defaults.custom,
   };
+}
+
+function resolveNormalizedMotion(widget: WidgetNode): WidgetMotion | undefined {
+  if (widget.motion?.templateId) {
+    return buildWidgetMotion(widget.motion.templateId, widget.motion.config);
+  }
+  const templateId = typeof widget.style.animationPreset === 'string' ? widget.style.animationPreset : '';
+  if (!templateId) return undefined;
+  return buildWidgetMotion(templateId, {
+    durationMs: Number(widget.style.animationDurationMs ?? undefined),
+    delayMs: Number(widget.style.animationDelayMs ?? undefined),
+    distancePx: Number(widget.style.animationDistancePx ?? undefined),
+    intensity: Number(widget.style.animationIntensity ?? undefined),
+    repeatMode: String(widget.style.animationRepeatMode ?? 'once'),
+  });
+}
+
+function resolveNormalizedHoverMotion(widget: WidgetNode): WidgetHoverMotion | undefined {
+  if (widget.hoverMotion?.templateId) {
+    return buildWidgetHoverMotion(widget.hoverMotion.templateId, widget.hoverMotion.config);
+  }
+  const templateId = typeof widget.style.hoverMotionPreset === 'string' ? widget.style.hoverMotionPreset : '';
+  if (!templateId || templateId === 'none') return undefined;
+  return buildWidgetHoverMotion(templateId, {
+    durationMs: Number(widget.style.hoverMotionDurationMs ?? undefined),
+    distancePx: Number(widget.style.hoverMotionDistancePx ?? undefined),
+    scale: Number(widget.style.hoverMotionScale ?? undefined),
+  });
+}
+
+function normalizeWidgets(widgets: StudioState['document']['widgets'] | undefined): StudioState['document']['widgets'] {
+  if (!widgets) return {};
+  return Object.fromEntries(
+    Object.entries(widgets).map(([widgetId, widget]) => [
+      widgetId,
+      {
+        ...widget,
+        motion: resolveNormalizedMotion(widget),
+        hoverMotion: resolveNormalizedHoverMotion(widget),
+      },
+    ]),
+  );
 }
 
 export function normalizeStudioState(raw: StudioState): StudioState {
@@ -47,6 +90,7 @@ export function normalizeStudioState(raw: StudioState): StudioState {
       canvasVariants,
       activeCanvasVariantId,
       widgetOverrides: raw.document.widgetOverrides ?? {},
+      widgets: normalizeWidgets(raw.document.widgets),
       sharedLayers: raw.document.sharedLayers ?? {},
       feeds: normalizeFeeds(raw.document.feeds),
       selection: {

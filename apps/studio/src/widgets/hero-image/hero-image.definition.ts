@@ -44,6 +44,8 @@ export const heroImageDefinition: WidgetDefinition = {
     },
   ],
   capabilities: {
+    supportsMotion: true,
+    supportsHoverMotion: true,
     acceptsImageAsset: true,
     acceptsAssetSwap: true,
     hasFill: true,

@@ -3,8 +3,6 @@ import type { WidgetCapabilities } from '../widgets/registry/widget-definition';
 import { getWidgetDefinition } from '../widgets/registry/widget-registry';
 import type { MotionTemplate } from './motion-template-contract';
 
-const LEGACY_MOTION_WIDGET_TYPES = new Set<WidgetNode['type']>(['text', 'image', 'cta', 'buttons', 'group']);
-
 function supportsWidgetCapability(
   widget: Pick<WidgetNode, 'type'>,
   capabilityKey: 'supportsMotion' | 'supportsHoverMotion',
@@ -12,8 +10,7 @@ function supportsWidgetCapability(
   const definition = getWidgetDefinition(widget.type);
   const capabilities = definition.capabilities;
   const explicit = capabilityKey === 'supportsHoverMotion' ? capabilities?.supportsHoverMotion : capabilities?.supportsMotion;
-  if (typeof explicit === 'boolean') return explicit;
-  return LEGACY_MOTION_WIDGET_TYPES.has(widget.type);
+  return explicit === true;
 }
 
 export function widgetSupportsMotion(widget: Pick<WidgetNode, 'type'>, template?: MotionTemplate): boolean {

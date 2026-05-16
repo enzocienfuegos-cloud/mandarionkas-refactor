@@ -43,6 +43,8 @@ export const shapeDefinition: WidgetDefinition = {
     },
   ],
   capabilities: {
+    supportsMotion: true,
+    supportsHoverMotion: true,
     hasFill: true,
     exposesActions: true,
   },

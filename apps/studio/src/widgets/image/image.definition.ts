@@ -45,6 +45,8 @@ export const imageDefinition: WidgetDefinition = {
   renderInspector: (widget) => createElement(ImageInspector, { widget }),
   schema: imageSchema,
   capabilities: {
+    supportsMotion: true,
+    supportsHoverMotion: true,
     acceptsImageAsset: true,
     acceptsAssetSwap: true,
     hasFill: true,

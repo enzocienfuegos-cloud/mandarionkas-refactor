@@ -35,6 +35,8 @@ export const textDefinition: WidgetDefinition = {
     { id: 'data', label: 'Data', panels: ['data-bindings', 'variants'] },
   ]),
   capabilities: {
+    supportsMotion: true,
+    supportsHoverMotion: true,
     acceptsFontAsset: true,
     acceptsAssetSwap: true,
     exposesActions: true,

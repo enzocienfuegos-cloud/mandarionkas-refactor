@@ -13,6 +13,10 @@ export const ButtonsDefinition = createModuleDefinition({
   props: BUTTONS_DEFAULT_PROPS,
   inspectorFields: [{ key: 'title' }, { key: 'primaryLabel', label: 'Primary label' }, { key: 'secondaryLabel', label: 'Secondary label' }, { key: 'orientation' }],
   style: { backgroundColor: '#0f766e', accentColor: '#67e8f9', color: '#ffffff' },
+  capabilities: {
+    supportsMotion: true,
+    supportsHoverMotion: true,
+  },
   renderStage: renderButtonsStage,
   renderExport: (node) => renderButtonsExport(node),
 });

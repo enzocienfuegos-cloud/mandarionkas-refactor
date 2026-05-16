@@ -50,6 +50,8 @@ export const badgeDefinition: WidgetDefinition = {
   ],
   schema: badgeSchema,
   capabilities: {
+    supportsMotion: true,
+    supportsHoverMotion: true,
     acceptsFontAsset: true,
     acceptsAssetSwap: true,
     exposesActions: true,
