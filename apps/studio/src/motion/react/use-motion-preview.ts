@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { MotionConfig, MotionTemplate } from '../motion-template-contract';
 
@@ -21,24 +21,50 @@ export function useMotionPreview({
   active = false,
   scrubTimeMs,
 }: UseMotionPreviewOptions): void {
-  useEffect(() => {
+  const animationRef = useRef<Animation | null>(null);
+  const configSignature = JSON.stringify(config ?? null);
+
+  useLayoutEffect(() => {
     const node = ref.current;
-    if (!node || !template || !config || typeof node.animate !== 'function') return;
+    const currentAnimation = animationRef.current;
+    if (!node || !template || !config || typeof node.animate !== 'function') {
+      currentAnimation?.cancel();
+      animationRef.current = null;
+      return;
+    }
+
+    currentAnimation?.cancel();
     const animation = node.animate(
       template.buildWAAPIKeyframes(config, baseOpacity, baseTransform),
       template.buildWAAPIOptions(config),
     );
+    animation.pause();
+    animationRef.current = animation;
+
+    return () => {
+      animation.cancel();
+      if (animationRef.current === animation) {
+        animationRef.current = null;
+      }
+    };
+  }, [baseOpacity, baseTransform, configSignature, ref, template]);
+
+  useLayoutEffect(() => {
+    const animation = animationRef.current;
+    if (!animation) return;
 
     if (typeof scrubTimeMs === 'number') {
       animation.pause();
       animation.currentTime = Math.max(0, scrubTimeMs);
-    } else if (!active) {
-      animation.cancel();
-      return undefined;
+      return;
     }
 
-    return () => {
-      animation.cancel();
-    };
-  }, [active, baseOpacity, baseTransform, config, ref, scrubTimeMs, template]);
+    if (active) {
+      animation.play();
+      return;
+    }
+
+    animation.pause();
+    animation.currentTime = 0;
+  }, [active, scrubTimeMs, template]);
 }
