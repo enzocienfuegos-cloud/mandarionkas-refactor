@@ -62,6 +62,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
   const documentActions = useDocumentActions();
   const {
     stageState,
+    playheadMs,
     fullStateRef,
     marquee,
     sceneTransitionActive,
@@ -94,7 +95,6 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     widgetsById,
     selectedIds,
     zoom,
-    playheadMs,
     previewMode,
     previewContext,
     editModeWireframe,

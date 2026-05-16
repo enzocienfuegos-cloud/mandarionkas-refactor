@@ -169,6 +169,7 @@ export function useStageController(workspaceRef: React.RefObject<HTMLDivElement>
 
   return {
     stageState,
+    playheadMs,
     fullStateRef,
     interaction,
     marquee,
