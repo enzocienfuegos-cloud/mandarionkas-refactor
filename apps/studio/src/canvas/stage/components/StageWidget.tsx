@@ -1,10 +1,11 @@
-import { memo, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { memo, useEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { getWidgetActions } from '../../../actions/runtime';
 import { renderWidgetContents } from '../render-widget';
 import type { ActionNode, WidgetFrame, WidgetNode, StudioState } from '../../../domain/document/types';
 import type { ResizeHandle } from '../use-stage-controller';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 import { isNativeStageDragWidgetType } from '../../../domain/document/widget-type-groups';
+import { getAnimationPresetConfig } from '../../../inspector/sections/animation-presets';
 
 const HANDLE_SIZE = 10;
 const showDebugWidgetTags = import.meta.env.DEV && import.meta.env.VITE_SHOW_WIDGET_TAGS === 'true';
@@ -54,6 +55,7 @@ export const StageWidget = memo(function StageWidget({
 }: StageWidgetProps): JSX.Element {
   const managesNativeDrag = isNativeStageDragWidgetType(node.type);
   const useWireframe = !previewMode && editModeWireframe && !selected && !active && !hovered;
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerWidgetAction = (trigger: ActionNode['trigger'], _metadata?: Record<string, unknown>) => {
     if (!previewMode) return;
     const actions = getWidgetActions(stateRef.current, node.id, trigger);
@@ -67,8 +69,60 @@ export const StageWidget = memo(function StageWidget({
   });
   const widgetContentStyle = buildStageWidgetContentStyle(previewMode);
 
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || previewMode || !selected || useWireframe || typeof root.animate !== 'function') return;
+    const config = getAnimationPresetConfig(node);
+    if (!config.preset) return;
+
+    root.getAnimations?.().forEach((animation) => animation.cancel());
+    const baseTransform = `rotate(${frame.rotation}deg)`;
+    const baseOpacity = opacity;
+    const distancePx = Math.max(0, config.distancePx);
+    const pulseOpacity = Math.max(0.15, baseOpacity - config.intensity * 0.45);
+    const holdOffset = config.preset === 'fade-out' ? 0.45 : 0.58;
+    const keyframes =
+      config.preset === 'appear'
+        ? [
+            { opacity: 0, transform: baseTransform, offset: 0 },
+            { opacity: baseOpacity, transform: baseTransform, offset: holdOffset },
+            { opacity: baseOpacity, transform: baseTransform, offset: 1 },
+          ]
+        : config.preset === 'fade-up'
+          ? [
+              { opacity: 0, transform: `${baseTransform} translateY(${distancePx}px)`, offset: 0 },
+              { opacity: baseOpacity, transform: baseTransform, offset: holdOffset },
+              { opacity: baseOpacity, transform: baseTransform, offset: 1 },
+            ]
+          : config.preset === 'fade-out'
+            ? [
+                { opacity: baseOpacity, transform: baseTransform, offset: 0 },
+                { opacity: baseOpacity, transform: baseTransform, offset: holdOffset },
+                { opacity: 0, transform: baseTransform, offset: 1 },
+              ]
+            : [
+                { opacity: baseOpacity, transform: baseTransform, offset: 0 },
+                { opacity: pulseOpacity, transform: baseTransform, offset: 0.4 },
+                { opacity: baseOpacity, transform: baseTransform, offset: 1 },
+              ];
+
+    const duration = Math.max(300, Number(config.durationMs || 700));
+    const idlePaddingMs = config.preset === 'pulse' ? 220 : 420;
+    const animation = root.animate(keyframes, {
+      duration: duration + idlePaddingMs,
+      delay: Math.max(0, Number(config.delayMs || 0)),
+      easing: config.preset === 'pulse' ? 'ease-in-out' : 'ease-out',
+      iterations: Number.POSITIVE_INFINITY,
+    });
+
+    return () => {
+      animation.cancel();
+    };
+  }, [frame.rotation, node, opacity, previewMode, selected, useWireframe]);
+
   return (
     <div
+      ref={rootRef}
       className={`stage-widget stage-widget--${node.type} ${selected ? 'is-selected' : ''} ${primary ? 'is-primary' : ''} ${hovered ? 'is-hovered' : ''} ${active ? 'is-active' : ''} ${previewMode ? 'is-preview-mode' : 'is-edit-mode'} ${useWireframe ? 'is-wireframe-mode' : ''}`}
       {...createStageInteractionProps(STAGE_INTERACTION.widget)}
       onPointerDown={(event) => {
