@@ -18,6 +18,7 @@ export function createPersistenceSnapshot(state: StudioState): StudioState {
       previewMode: false,
       hoveredWidgetId: undefined,
       activeWidgetId: undefined,
+      inspectorFocus: undefined,
       lastTriggeredActionLabel: undefined,
     },
   };

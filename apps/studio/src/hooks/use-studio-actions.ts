@@ -117,6 +117,7 @@ export function useUiActions() {
     setStageBackdrop: (stageBackdrop: import('../domain/document/types').StudioState['ui']['stageBackdrop']) => dispatch({ type: 'SET_STAGE_BACKDROP', stageBackdrop }),
     setStageRulers: (enabled: boolean) => dispatch({ type: 'SET_STAGE_RULERS', enabled }),
     setWidgetBadgesVisibility: (enabled: boolean) => dispatch({ type: 'SET_WIDGET_BADGES_VISIBILITY', enabled }),
+    setInspectorFocus: (focus: { widgetId?: string; tab?: 'basics' | 'behavior' | 'data'; keyframeId?: string }) => dispatch({ type: 'SET_INSPECTOR_FOCUS', ...focus }),
     undo: () => dispatch({ type: 'UNDO' }),
     redo: () => dispatch({ type: 'REDO' }),
   }), []);

@@ -12,6 +12,7 @@ describe('persistence snapshot', () => {
     state = reduceBySlices(state, { type: 'SET_PLAYHEAD', playheadMs: 920 });
     state = reduceBySlices(state, { type: 'SET_HOVERED_WIDGET', widgetId: 'widget_1' });
     state = reduceBySlices(state, { type: 'SET_ACTIVE_WIDGET', widgetId: 'widget_2' });
+    state = reduceBySlices(state, { type: 'SET_INSPECTOR_FOCUS', widgetId: 'widget_1', tab: 'behavior', keyframeId: 'kf_1' });
 
     const snapshot = createPersistenceSnapshot(state);
 
@@ -21,6 +22,7 @@ describe('persistence snapshot', () => {
     expect(snapshot.ui.playheadMs).toBe(0);
     expect(snapshot.ui.hoveredWidgetId).toBeUndefined();
     expect(snapshot.ui.activeWidgetId).toBeUndefined();
+    expect(snapshot.ui.inspectorFocus).toBeUndefined();
   });
 
   it('keeps the persistence signature stable across runtime-only changes', () => {

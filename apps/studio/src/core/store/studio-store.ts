@@ -20,6 +20,7 @@ function shouldRecordHistory(command: StudioCommand): boolean {
     case 'SET_STAGE_BACKDROP':
     case 'SET_STAGE_RULERS':
     case 'SET_ACTIVE_VARIANT':
+    case 'SET_INSPECTOR_FOCUS':
     case 'SET_ACTIVE_FEED_SOURCE':
     case 'SET_ACTIVE_FEED_RECORD':
     case 'SET_HOVERED_WIDGET':

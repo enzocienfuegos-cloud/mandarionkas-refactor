@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useTimelineActions, useWidgetActions } from '../../hooks/use-studio-actions';
 import type { WidgetNode } from '../../domain/document/types';
 import { Button } from '../../shared/ui/Button';
@@ -5,17 +6,31 @@ import { Tile } from '../../shared/ui/Tile';
 import { KEYFRAME_PROPERTIES } from './widget-inspector-shared';
 import { applyAnimationPreset, supportsAnimationPresets, type SupportedAnimationPreset } from './animation-presets';
 
-export function KeyframesSection({ widget, playheadMs }: { widget: WidgetNode; playheadMs: number }): JSX.Element {
+export function KeyframesSection({
+  widget,
+  playheadMs,
+  focusedKeyframeId,
+}: {
+  widget: WidgetNode;
+  playheadMs: number;
+  focusedKeyframeId?: string;
+}): JSX.Element {
   const { addKeyframe, setPlayhead, setWidgetKeyframes, removeKeyframe, updateKeyframe } = useTimelineActions();
   const { updateWidgetStyle } = useWidgetActions();
   const keyframes = widget.timeline.keyframes ?? [];
   const activePreset = typeof widget.style.animationPreset === 'string' ? widget.style.animationPreset : '';
+  const focusedKeyframeRef = useRef<HTMLDivElement | null>(null);
 
   const handleApplyPreset = (preset: SupportedAnimationPreset) => {
     const { keyframes: nextKeyframes, stylePatch } = applyAnimationPreset(widget, preset);
     setWidgetKeyframes(widget.id, nextKeyframes);
     updateWidgetStyle(widget.id, stylePatch);
   };
+
+  useEffect(() => {
+    if (!focusedKeyframeId || !focusedKeyframeRef.current) return;
+    focusedKeyframeRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [focusedKeyframeId]);
 
   return (
     <section className="section section-premium">
@@ -50,7 +65,11 @@ export function KeyframesSection({ widget, playheadMs }: { widget: WidgetNode; p
           ))}
         </div>
         {keyframes.map((keyframe) => (
-          <Tile key={keyframe.id}>
+          <Tile
+            key={keyframe.id}
+            ref={keyframe.id === focusedKeyframeId ? focusedKeyframeRef : undefined}
+            className={keyframe.id === focusedKeyframeId ? 'is-focused-keyframe' : undefined}
+          >
             <div className="meta-line">
               <span className="pill">{keyframe.property}</span>
               <Button variant="ghost" size="sm" onClick={() => setPlayhead(keyframe.atMs)}>Go to keyframe</Button>

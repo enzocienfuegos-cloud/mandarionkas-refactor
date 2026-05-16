@@ -58,6 +58,7 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
   const state = useStudioStore((current) => current);
   const widget = useStudioStore((current) => resolveWidgetForCanvasVariant(current.document, current.document.widgets[widgetId]));
   const storePlayheadMs = useStudioStore((state) => state.ui.playheadMs);
+  const inspectorFocus = useStudioStore((state) => state.ui.inspectorFocus);
   const playheadMs = usePlaybackMsThrottled(storePlayheadMs);
   const actions = useStudioStore((state) => Object.values(state.document.actions).filter((action) => action.widgetId === widgetId));
   const { updateWidgetName } = useWidgetActions();
@@ -74,6 +75,13 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
       setTab(tabs[0].id);
     }
   }, [tab, tabs]);
+
+  useEffect(() => {
+    if (!widget || inspectorFocus?.widgetId !== widget.id) return;
+    if (inspectorFocus.tab && tabs.some((item) => item.id === inspectorFocus.tab) && inspectorFocus.tab !== tab) {
+      setTab(inspectorFocus.tab);
+    }
+  }, [inspectorFocus, tab, tabs, widget]);
 
   if (!widget || !definition) return <DocumentInspectorPanel />;
 
@@ -96,7 +104,14 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
       {activeTab ? (
         <section className="inspector-tab-panel" role="tabpanel" id={`widget-inspector-panel-${activeTab.id}`} aria-labelledby={`widget-inspector-tab-${activeTab.id}`}>
           {activeTab.panels.map((panelKey, index) => {
-            const panel = renderWidgetInspectorPanel(panelKey, { widget, definition, state, playheadMs, actions });
+            const panel = renderWidgetInspectorPanel(panelKey, {
+              widget,
+              definition,
+              state,
+              playheadMs,
+              actions,
+              focusedKeyframeId: inspectorFocus?.widgetId === widget.id ? inspectorFocus.keyframeId : undefined,
+            });
             if (!panel) return null;
             const meta = getWidgetInspectorPanelMeta(panelKey);
             const shouldOpen = meta.defaultOpen ?? (activeTab.id === 'basics' && index === 0);

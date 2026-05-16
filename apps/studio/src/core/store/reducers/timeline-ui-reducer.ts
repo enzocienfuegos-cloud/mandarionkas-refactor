@@ -45,6 +45,16 @@ export function timelineUiReducer(state: StudioState, command: StudioCommand): S
       return { ...state, ui: { ...state.ui, showStageRulers: command.enabled } };
     case 'SET_WIDGET_BADGES_VISIBILITY':
       return { ...state, ui: { ...state.ui, showWidgetBadges: command.enabled } };
+    case 'SET_INSPECTOR_FOCUS':
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          inspectorFocus: command.widgetId || command.tab || command.keyframeId
+            ? { widgetId: command.widgetId, tab: command.tab, keyframeId: command.keyframeId }
+            : undefined,
+        },
+      };
     case 'SET_HOVERED_WIDGET':
       return { ...state, ui: { ...state.ui, hoveredWidgetId: command.widgetId } };
     case 'SET_ACTIVE_WIDGET':

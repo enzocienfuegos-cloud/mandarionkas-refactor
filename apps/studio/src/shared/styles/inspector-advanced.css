@@ -255,3 +255,9 @@
   display: block;
   white-space: normal;
 }
+
+.tile.is-focused-keyframe {
+  border-color: var(--focus-a-35);
+  box-shadow: 0 0 0 1px var(--focus-a-18), var(--shadow-card-soft);
+  background: linear-gradient(180deg, var(--focus-a-08), var(--white-a-02));
+}

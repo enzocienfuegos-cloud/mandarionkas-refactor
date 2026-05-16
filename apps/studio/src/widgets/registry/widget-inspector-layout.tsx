@@ -20,6 +20,7 @@ export type WidgetInspectorRenderContext = {
   state: StudioState;
   playheadMs: number;
   actions: ActionNode[];
+  focusedKeyframeId?: string;
 };
 
 type WidgetInspectorPanelMeta = {
@@ -111,7 +112,7 @@ function renderWidgetFieldPanel({ widget, definition }: Pick<WidgetInspectorRend
 }
 
 export function renderWidgetInspectorPanel(key: WidgetInspectorPanelKey, context: WidgetInspectorRenderContext): JSX.Element | null {
-  const { widget, definition, playheadMs, actions } = context;
+  const { widget, definition, playheadMs, actions, focusedKeyframeId } = context;
 
   switch (key) {
     case 'position-size':
@@ -133,7 +134,7 @@ export function renderWidgetInspectorPanel(key: WidgetInspectorPanelKey, context
     case 'states':
       return <StatesSection widget={widget} />;
     case 'keyframes':
-      return <KeyframesSection widget={widget} playheadMs={playheadMs} />;
+      return <KeyframesSection widget={widget} playheadMs={playheadMs} focusedKeyframeId={focusedKeyframeId} />;
     case 'data-bindings':
       return <DataBindingsSection widget={widget} />;
     case 'variants':

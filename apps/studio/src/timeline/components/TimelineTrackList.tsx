@@ -26,6 +26,7 @@ export function TimelineTrackList({
   onScrubStart,
   onAddKeyframe,
   onJumpToMs,
+  onFocusKeyframe,
   availableKeyframeProperties,
 }: {
   scrollContainerRef: RefObject<HTMLDivElement>;
@@ -47,6 +48,7 @@ export function TimelineTrackList({
   onScrubStart: (clientX: number, startMs?: number) => void;
   onAddKeyframe: (widgetId: string, property: KeyframeProperty) => void;
   onJumpToMs: (ms: number) => void;
+  onFocusKeyframe: (widgetId: string, keyframeId: string, atMs: number) => void;
   availableKeyframeProperties: KeyframeProperty[];
 }): JSX.Element {
   const rowsRef = useRef<HTMLDivElement>(null);
@@ -93,6 +95,7 @@ export function TimelineTrackList({
             onScrubStart={onScrubStart}
             onAddKeyframe={onAddKeyframe}
             onJumpToMs={onJumpToMs}
+            onFocusKeyframe={onFocusKeyframe}
             availableKeyframeProperties={availableKeyframeProperties}
           />
         );

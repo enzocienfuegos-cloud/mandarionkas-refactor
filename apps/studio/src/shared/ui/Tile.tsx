@@ -1,15 +1,19 @@
-import type { ReactNode } from 'react';
+import { forwardRef, type ReactNode } from 'react';
 
 type TileTone = 'neutral' | 'success' | 'warning' | 'danger';
 
-export function Tile({
-  tone = 'neutral',
-  className = '',
-  children,
-}: {
+type TileProps = {
   tone?: TileTone;
   className?: string;
   children: ReactNode;
-}): JSX.Element {
-  return <div className={`tile tile--${tone} ${className}`.trim()}>{children}</div>;
-}
+};
+
+export const Tile = forwardRef<HTMLDivElement, TileProps>(({
+  tone = 'neutral',
+  className = '',
+  children,
+}, ref): JSX.Element => {
+  return <div ref={ref} className={`tile tile--${tone} ${className}`.trim()}>{children}</div>;
+});
+
+Tile.displayName = 'Tile';

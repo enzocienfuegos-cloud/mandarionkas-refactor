@@ -434,6 +434,11 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
             onScrubStart={beginPlayheadDrag}
             onAddKeyframe={(widgetId, property) => timelineActions.addKeyframe(widgetId, property, playheadRef.current)}
             onJumpToMs={seekPlayheadImmediate}
+            onFocusKeyframe={(widgetId, keyframeId, atMs) => {
+              widgetActions.selectWidget(widgetId);
+              seekPlayheadImmediate(atMs);
+              uiActions.setInspectorFocus({ widgetId, tab: 'behavior', keyframeId });
+            }}
             availableKeyframeProperties={KEYFRAME_PROPERTIES}
           />
         </div>

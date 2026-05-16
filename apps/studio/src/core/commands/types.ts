@@ -42,6 +42,7 @@ export type StudioCommand =
   | { type: 'SET_STAGE_BACKDROP'; stageBackdrop: import('../../domain/document/types').StudioState['ui']['stageBackdrop'] }
   | { type: 'SET_STAGE_RULERS'; enabled: boolean }
   | { type: 'SET_WIDGET_BADGES_VISIBILITY'; enabled: boolean }
+  | { type: 'SET_INSPECTOR_FOCUS'; widgetId?: string; tab?: 'basics' | 'behavior' | 'data'; keyframeId?: string }
   | { type: 'SET_ACTIVE_VARIANT'; variant: VariantName }
   | { type: 'SET_ACTIVE_FEED_SOURCE'; source: BindingSource }
   | { type: 'SET_ACTIVE_FEED_RECORD'; recordId: string }

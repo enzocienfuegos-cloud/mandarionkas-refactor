@@ -134,6 +134,7 @@ export function createInitialUiState(): StudioState['ui'] {
     stageBackdrop: 'dark',
     showStageRulers: true,
     showWidgetBadges: false,
+    inspectorFocus: undefined,
   };
 }
 

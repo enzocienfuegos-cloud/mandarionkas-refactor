@@ -74,7 +74,7 @@ describe('timeline display rows', () => {
     expect(rows.map((row) => row.widget.id)).toEqual(['group_1', 'child_front', 'child_back']);
   });
 
-  it('omits layers excluded from timeline rows', () => {
+  it('keeps excluded layers in the list while removing only their time track', () => {
     const rows = buildTimelineDisplayRows([
       {
         id: 'visible',
@@ -100,6 +100,7 @@ describe('timeline display rows', () => {
       },
     ] as any, [], new Set());
 
-    expect(rows.map((row) => row.widget.id)).toEqual(['visible']);
+    expect(rows.map((row) => row.widget.id)).toEqual(['excluded', 'visible']);
+    expect(rows.find((row) => row.widget.id === 'excluded')?.widget.timeline.excluded).toBe(true);
   });
 });
