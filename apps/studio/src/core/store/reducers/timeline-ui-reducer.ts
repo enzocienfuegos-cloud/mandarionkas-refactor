@@ -21,7 +21,16 @@ export function timelineUiReducer(state: StudioState, command: StudioCommand): S
       return { ...state, ui: { ...state.ui, playheadMs: Math.max(0, Math.min(max, command.playheadMs)) } };
     }
     case 'SET_PREVIEW_MODE':
-      return { ...state, ui: { ...state.ui, previewMode: command.previewMode, isPlaying: command.previewMode ? state.ui.isPlaying : false, activeWidgetId: undefined } };
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          previewMode: command.previewMode,
+          playheadMs: command.previewMode ? 0 : state.ui.playheadMs,
+          isPlaying: command.previewMode ? true : false,
+          activeWidgetId: undefined,
+        },
+      };
     case 'SET_PREVIEW_CONTEXT':
       return { ...state, ui: { ...state.ui, previewContext: command.previewContext } };
     case 'SET_EDIT_MODE_WIREFRAME':

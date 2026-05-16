@@ -5,6 +5,7 @@ import { isWidgetVisibleAt } from '../../domain/document/timeline';
 import type { StudioState, WidgetNode } from '../../domain/document/types';
 import { Button } from '../../shared/ui/Button';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
+import { isEditableShortcutTarget } from '../../app/shell/use-keyboard-shortcuts';
 import type { ClientPreviewThread } from './types';
 
 function formatPlaybackTime(ms: number): string {
@@ -54,7 +55,7 @@ export function ClientPreviewPlayer({
   useEffect(() => {
     setPlayheadMs(0);
     playheadRef.current = 0;
-    setIsPlaying(false);
+    setIsPlaying(true);
   }, [scene.id]);
 
   useEffect(() => {
@@ -104,6 +105,25 @@ export function ClientPreviewPlayer({
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [isPlaying, scene.durationMs]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isEditableShortcutTarget(event.target)) return;
+      if (event.code !== 'Space' && event.key !== ' ') return;
+      event.preventDefault();
+      setIsPlaying((current) => {
+        if (current) return false;
+        if (playheadRef.current >= scene.durationMs) {
+          playheadRef.current = 0;
+          setPlayheadMs(0);
+        }
+        return true;
+      });
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [scene.durationMs]);
 
   return (
     <div ref={hostRef} className="cp-stage">
@@ -180,7 +200,10 @@ export function ClientPreviewPlayer({
             type="button"
             className="cp-play-btn"
             onClick={() => {
-              if (playheadMs >= scene.durationMs) setPlayheadMs(0);
+              if (playheadMs >= scene.durationMs) {
+                playheadRef.current = 0;
+                setPlayheadMs(0);
+              }
               setIsPlaying((current) => !current);
             }}
           >

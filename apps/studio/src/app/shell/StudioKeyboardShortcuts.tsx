@@ -2,6 +2,7 @@ import { Suspense, lazy, useMemo } from 'react';
 import { triggerExportZipBundleResolved } from '../../export/engine';
 import type { StudioState } from '../../domain/document/types';
 import { useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { useTimelineActions } from '../../hooks/use-studio-actions';
 import { useToast } from '../../shared/ui/ToastProvider';
 import { clampZoom } from '../../canvas/stage/controllers/stage-viewport';
 import { buildWidgetClipboardPayload, getWidgetClipboardPayload, setWidgetClipboardPayload } from '../../canvas/stage/widget-clipboard';
@@ -79,15 +80,18 @@ export function StudioKeyboardShortcuts({
 }): JSX.Element | null {
   const controller = useTopBarController();
   const uiActions = useUiActions();
+  const timelineActions = useTimelineActions();
   const widgetActions = useWidgetActions();
   const { pushToast } = useToast();
   const stateRef = useStudioStoreRef((state) => state);
-  const { previewMode, previewContext, editModeWireframe, zoom, canvas } = useStudioStore((state) => ({
+  const { previewMode, previewContext, editModeWireframe, zoom, canvas, isPlaying, playheadMs } = useStudioStore((state) => ({
     previewMode: state.ui.previewMode,
     previewContext: state.ui.previewContext,
     editModeWireframe: state.ui.editModeWireframe,
     zoom: state.ui.zoom,
     canvas: state.document.canvas,
+    isPlaying: state.ui.isPlaying,
+    playheadMs: state.ui.playheadMs,
   }), shallowEqual);
 
   const bindings = useMemo<ShortcutBinding[]>(() => {
@@ -158,6 +162,23 @@ export function StudioKeyboardShortcuts({
       widgetActions.reorderWidget(widgetId, direction);
     };
 
+    const togglePlayback = () => {
+      const state = stateRef.current;
+      const activeScene = state.document.scenes.find((item) => item.id === state.document.selection.activeSceneId) ?? state.document.scenes[0];
+      if (!state.ui.previewMode) {
+        uiActions.setPreviewMode(true);
+        return;
+      }
+      if (state.ui.isPlaying) {
+        timelineActions.setPlaying(false);
+        return;
+      }
+      if (state.ui.playheadMs >= activeScene.durationMs) {
+        timelineActions.setPlayhead(0);
+      }
+      timelineActions.setPlaying(true);
+    };
+
     return [
       { combo: 'cmd+z', action: () => uiActions.undo(), enabled: () => !open },
       { combo: 'cmd+shift+z', action: () => uiActions.redo(), enabled: () => !open },
@@ -186,6 +207,7 @@ export function StudioKeyboardShortcuts({
       { combo: 'shift+arrowright', action: () => nudgeSelection(10, 0), enabled: () => !open && !previewMode && stateRef.current.document.selection.widgetIds.length > 0, allowRepeat: true },
       { combo: 'tab', action: () => cycleSelection('forward'), enabled: () => !open, allowRepeat: true },
       { combo: 'shift+tab', action: () => cycleSelection('backward'), enabled: () => !open, allowRepeat: true },
+      { combo: 'space', action: () => togglePlayback(), enabled: () => !open },
       { combo: 'w', action: () => uiActions.setEditModeWireframe(!editModeWireframe), enabled: () => !open && !previewMode },
       { combo: 'cmd+0', action: () => {
         const workspace = document.querySelector('.workspace-shell');
@@ -199,7 +221,7 @@ export function StudioKeyboardShortcuts({
       { combo: 'cmd+e', action: () => runExport(), enabled: () => !open },
       { combo: '?', action: () => onOpenChange(true), enabled: () => !open },
     ];
-  }, [canvas, controller.projectSession, controller.workspace.canSaveProjects, editModeWireframe, onOpenChange, open, previewContext, previewMode, pushToast, stateRef, uiActions, widgetActions, zoom]);
+  }, [canvas, controller.projectSession, controller.workspace.canSaveProjects, editModeWireframe, isPlaying, onOpenChange, open, playheadMs, previewContext, previewMode, pushToast, stateRef, timelineActions, uiActions, widgetActions, zoom]);
 
   useKeyboardShortcuts(bindings);
 

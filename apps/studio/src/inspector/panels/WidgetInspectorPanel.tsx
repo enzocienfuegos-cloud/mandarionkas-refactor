@@ -7,22 +7,10 @@ import { resolveWidgetForCanvasVariant } from '../../domain/document/canvas-vari
 import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
 import { DocumentInspectorPanel } from './DocumentInspectorPanel';
 import { getWidgetBehaviorPanelCount, getWidgetInspectorPanelMeta, getWidgetInspectorTabs, renderWidgetInspectorPanel } from '../../widgets/registry/widget-inspector-layout';
-import { getCapability, type WidgetDefinition, type WidgetInspectorPanelKey, type WidgetInspectorTabId } from '../../widgets/registry/widget-definition';
+import type { WidgetDefinition, WidgetInspectorPanelKey, WidgetInspectorTabId } from '../../widgets/registry/widget-definition';
 import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
 
 const EMPTY_TABS: ReturnType<typeof getWidgetInspectorTabs> = [];
-
-function buildInspectorHeroPills(definition: WidgetDefinition, widget: NonNullable<ReturnType<typeof resolveWidgetForCanvasVariant>>): string[] {
-  const pills: string[] = [];
-  pills.push(definition.category);
-  if (getCapability(definition, 'isInteractive')) pills.push('Interactive');
-  if (getCapability(definition, 'isMedia')) pills.push('Media');
-  if (getCapability(definition, 'acceptsAssetSwap')) pills.push('Asset swap');
-  if (definition.mraidCompatibility === 'supported') pills.push('MRAID ready');
-  if (definition.mraidCompatibility === 'warning') pills.push('MRAID review');
-  pills.push(`${Math.round(widget.frame.width)}×${Math.round(widget.frame.height)}`);
-  return pills.slice(0, 4);
-}
 
 function WidgetInspectorAccordion({
   widgetType,
@@ -89,31 +77,11 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
 
   if (!widget || !definition) return <DocumentInspectorPanel />;
 
-  const heroPills = buildInspectorHeroPills(definition, widget);
-
   return (
     <>
-      <section className="section section-premium inspector-widget-hero">
-        <div className="section-heading-row">
-          <div>
-            <div className="left-title">Widget focus</div>
-            <h3>{definition.label}</h3>
-            <small className="muted">{definition.description ?? 'Core editing controls for this module stay anchored at the top.'}</small>
-          </div>
-          <div className="inspector-widget-hero__meta">
-            <span className="pill">{widget.type}</span>
-            <span className="pill">{tabs.length} tabs</span>
-          </div>
-        </div>
-        <div className="inspector-widget-hero__pills">
-          {heroPills.map((item) => (
-            <span key={item} className="pill">{item}</span>
-          ))}
-        </div>
-        <div>
-          <label>Name</label>
-          <input value={widget.name} onChange={(event) => updateWidgetName(widget.id, event.target.value)} />
-        </div>
+      <section className="section">
+        <label>Name</label>
+        <input value={widget.name} onChange={(event) => updateWidgetName(widget.id, event.target.value)} />
       </section>
 
       <Tabs

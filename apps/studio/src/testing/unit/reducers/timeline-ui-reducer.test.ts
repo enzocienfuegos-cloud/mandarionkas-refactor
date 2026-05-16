@@ -47,6 +47,24 @@ describe('timelineUiReducer', () => {
     expect(next.ui.activeWidgetId).toBeUndefined();
   });
 
+  it('rewinds and autoplays when preview mode is enabled', () => {
+    const base = createInitialState();
+    const state = {
+      ...base,
+      ui: {
+        ...base.ui,
+        playheadMs: 920,
+        isPlaying: false,
+        activeWidgetId: 'w1',
+      },
+    };
+    const next = timelineUiReducer(state, { type: 'SET_PREVIEW_MODE', previewMode: true });
+    expect(next.ui.previewMode).toBe(true);
+    expect(next.ui.playheadMs).toBe(0);
+    expect(next.ui.isPlaying).toBe(true);
+    expect(next.ui.activeWidgetId).toBeUndefined();
+  });
+
   it('clamps added keyframes to the scene duration', () => {
     const state = createStateWithWidget();
     const next = timelineUiReducer(state, { type: 'ADD_KEYFRAME', widgetId: 'widget_1', property: 'opacity', atMs: 999999 });
