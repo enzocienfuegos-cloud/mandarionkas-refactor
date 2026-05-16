@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { renderWidgetContents } from '../../canvas/stage/render-widget';
 import { getLiveWidgetFrame, getLiveWidgetOpacity, isWidgetVisibleAt } from '../../domain/document/timeline';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
+import { buildScratchGroupCoverDataUrl } from './group-scratch-cover';
 
 const groupBaseStyle: CSSProperties = {
   width: '100%',
@@ -34,9 +34,11 @@ const scratchEditorOverlayStyle: CSSProperties = {
   pointerEvents: 'none',
 };
 
-const scratchPointerLayerStyle: CSSProperties = {
+const scratchCanvasStyle: CSSProperties = {
   position: 'absolute',
   inset: 0,
+  width: '100%',
+  height: '100%',
   zIndex: 2,
   cursor: 'crosshair',
   touchAction: 'none',
@@ -44,22 +46,6 @@ const scratchPointerLayerStyle: CSSProperties = {
   background: 'transparent',
   WebkitTapHighlightColor: 'transparent',
   userSelect: 'none',
-};
-
-const scratchMaskCanvasStyle: CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  width: '100%',
-  height: '100%',
-  opacity: 0,
-  pointerEvents: 'none',
-};
-
-const coverCompositionStyle: CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  zIndex: 1,
-  pointerEvents: 'none',
 };
 
 function createScratchProgressCanvas(width: number, height: number): HTMLCanvasElement | null {
@@ -72,14 +58,6 @@ function createScratchProgressCanvas(width: number, height: number): HTMLCanvasE
   ctx.fillStyle = 'black';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   return canvas;
-}
-
-function initializeScratchMask(canvas: HTMLCanvasElement): void {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'black';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 function eraseScratch(canvas: HTMLCanvasElement, x: number, y: number, radius: number): void {
@@ -120,21 +98,6 @@ function eraseScratchProgress(
   return (cleared / Math.max(1, progressCanvas.width * progressCanvas.height)) * 100;
 }
 
-function buildScratchMaskStyle(maskUrl: string, blur: number): CSSProperties {
-  return {
-    ...coverCompositionStyle,
-    filter: blur > 0 ? `blur(${blur}px)` : 'none',
-    WebkitMaskImage: `url("${maskUrl}")`,
-    maskImage: `url("${maskUrl}")`,
-    WebkitMaskSize: '100% 100%',
-    maskSize: '100% 100%',
-    WebkitMaskRepeat: 'no-repeat',
-    maskRepeat: 'no-repeat',
-    WebkitMaskPosition: 'center',
-    maskPosition: 'center',
-  };
-}
-
 function renderDefaultGroup(node: WidgetNode, ctx: RenderContext): JSX.Element {
   return (
     <div
@@ -151,67 +114,6 @@ function renderDefaultGroup(node: WidgetNode, ctx: RenderContext): JSX.Element {
   );
 }
 
-function renderScratchCoverNode(
-  node: WidgetNode,
-  rootFrame: WidgetNode['frame'],
-  ctx: RenderContext,
-  visited = new Set<string>(),
-): JSX.Element[] {
-  if (visited.has(node.id) || !isWidgetVisibleAt(node, ctx.playheadMs)) return [];
-  visited.add(node.id);
-
-  if (node.type === 'group' && node.childIds?.length) {
-    return node.childIds
-      .map((childId) => ctx.widgetsById[childId])
-      .filter((child): child is WidgetNode => Boolean(child))
-      .sort((left, right) => left.zIndex - right.zIndex)
-      .flatMap((child) => renderScratchCoverNode(child, rootFrame, ctx, visited));
-  }
-
-  const liveFrame = getLiveWidgetFrame(node, ctx.playheadMs);
-  const childOpacity = getLiveWidgetOpacity(node, ctx.playheadMs);
-  return [
-    (
-      <div
-        key={node.id}
-        style={{
-          position: 'absolute',
-          left: liveFrame.x - rootFrame.x,
-          top: liveFrame.y - rootFrame.y,
-          width: liveFrame.width,
-          height: liveFrame.height,
-          opacity: childOpacity,
-          zIndex: node.zIndex,
-          transform: `rotate(${liveFrame.rotation}deg)`,
-          transformOrigin: 'center',
-          pointerEvents: 'none',
-        }}
-      >
-        {renderWidgetContents(
-          node,
-          {
-            ...ctx,
-            hovered: false,
-            active: false,
-          },
-        )}
-      </div>
-    ),
-  ];
-}
-
-function GroupScratchCoverChildren({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element | null {
-  const childWidgets = (node.childIds ?? [])
-    .map((childId) => ctx.widgetsById[childId])
-    .filter((child): child is WidgetNode => Boolean(child))
-    .sort((left, right) => left.zIndex - right.zIndex);
-
-  const scratchNodes = childWidgets.flatMap((child) => renderScratchCoverNode(child, node.frame, ctx));
-  if (!scratchNodes.length) return null;
-
-  return <>{scratchNodes}</>;
-}
-
 function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -219,17 +121,22 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const pointerActiveRef = useRef(false);
   const previousPreviewModeRef = useRef(ctx.previewMode);
   const previousPlayheadRef = useRef(ctx.playheadMs);
-  const [maskUrl, setMaskUrl] = useState('');
   const [scratchCompleted, setScratchCompleted] = useState(false);
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
   const autoRevealThresholdPercent = Math.max(0, Math.min(100, Number(node.props.autoRevealThresholdPercent ?? 10)));
-  const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
 
-  const syncMaskPreview = () => {
-    const canvas = maskCanvasRef.current;
-    if (!canvas) return;
-    setMaskUrl(canvas.toDataURL('image/png'));
-  };
+  const scratchCoverImage = useMemo(() => {
+    if (!ctx.state) return '';
+    return buildScratchGroupCoverDataUrl({
+      node,
+      state: ctx.state,
+      widgetsById: ctx.widgetsById,
+      rootFrame: node.frame,
+      resolveFrame: (widget) => getLiveWidgetFrame(widget, ctx.playheadMs),
+      resolveOpacity: (widget) => getLiveWidgetOpacity(widget, ctx.playheadMs),
+      shouldIncludeWidget: (widget) => isWidgetVisibleAt(widget, ctx.playheadMs),
+    });
+  }, [ctx.playheadMs, ctx.state, ctx.widgetsById, node]);
 
   const resetScratchMask = () => {
     const canvas = maskCanvasRef.current;
@@ -239,15 +146,37 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     const height = Math.max(1, Math.round(shell?.clientHeight ?? node.frame.height ?? 1));
     canvas.width = width;
     canvas.height = height;
-    initializeScratchMask(canvas);
     progressCanvasRef.current = createScratchProgressCanvas(width, height);
     setScratchCompleted(false);
-    syncMaskPreview();
+    const ctx2d = canvas.getContext('2d');
+    if (!ctx2d) return;
+    ctx2d.clearRect(0, 0, width, height);
+    if (!scratchCoverImage) return;
+
+    const paint = () => {
+      const image = new Image();
+      image.onload = () => {
+        ctx2d.clearRect(0, 0, width, height);
+        ctx2d.drawImage(image, 0, 0, width, height);
+      };
+      image.onerror = () => {
+        ctx2d.clearRect(0, 0, width, height);
+        ctx2d.fillStyle = 'rgba(148,163,184,0.9)';
+        ctx2d.fillRect(0, 0, width, height);
+      };
+      image.src = scratchCoverImage;
+    };
+
+    if (typeof document !== 'undefined' && 'fonts' in document) {
+      void (document as Document & { fonts: FontFaceSet }).fonts.ready.then(paint);
+      return;
+    }
+    paint();
   };
 
   useEffect(() => {
     resetScratchMask();
-  }, [node.frame.width, node.frame.height, ctx.previewMode]);
+  }, [ctx.previewMode, node.frame.height, node.frame.width, scratchCoverImage]);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -255,7 +184,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     const observer = new ResizeObserver(() => resetScratchMask());
     observer.observe(shell);
     return () => observer.disconnect();
-  }, [ctx.previewMode, node.id]);
+  }, [ctx.previewMode, node.id, scratchCoverImage]);
 
   useEffect(() => {
     const enteredPreview = ctx.previewMode && !previousPreviewModeRef.current;
@@ -273,7 +202,6 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width;
     const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height;
     eraseScratch(canvas, x, y, scratchRadius);
-    syncMaskPreview();
     const progressCanvas = progressCanvasRef.current;
     if (!progressCanvas || autoRevealThresholdPercent <= 0) return;
     const clearedPercent = eraseScratchProgress(progressCanvas, x, y, scratchRadius, canvas.width, canvas.height);
@@ -283,15 +211,9 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
 
   return (
     <div ref={shellRef} style={scratchShellStyle}>
-      <canvas ref={maskCanvasRef} style={scratchMaskCanvasStyle} aria-hidden="true" />
-      {!scratchCompleted && maskUrl ? (
-        <div style={buildScratchMaskStyle(maskUrl, coverBlur)}>
-          <GroupScratchCoverChildren node={node} ctx={ctx} />
-        </div>
-      ) : null}
       {!scratchCompleted ? (
         <div
-          style={scratchPointerLayerStyle}
+          style={scratchCanvasStyle}
           onPointerDown={(event) => {
             if (!event.isPrimary) return;
             event.preventDefault();
@@ -316,7 +238,9 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
           onLostPointerCapture={() => {
             pointerActiveRef.current = false;
           }}
-        />
+        >
+          <canvas ref={maskCanvasRef} style={{ width: '100%', height: '100%', display: 'block' }} aria-hidden="true" />
+        </div>
       ) : null}
     </div>
   );

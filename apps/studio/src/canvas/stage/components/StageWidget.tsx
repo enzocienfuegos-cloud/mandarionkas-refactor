@@ -99,6 +99,7 @@ export const StageWidget = memo(function StageWidget({
             hovered,
             active,
             widgetsById,
+            state: stateRef.current,
             triggerWidgetAction,
             executeAction: onExecuteAction,
           },

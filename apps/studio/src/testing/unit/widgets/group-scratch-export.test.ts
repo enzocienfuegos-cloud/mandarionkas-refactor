@@ -101,10 +101,8 @@ describe('group scratch export', () => {
 
     expect(html).toContain('widget-group-scratch');
     expect(html).toContain('class="scratch-reveal-shell"');
-    expect(html).toContain('data-scratch-mask-target');
+    expect(html).toContain('data-scratch-cover-image="data:image/svg+xml');
     expect(html).toContain('data-scratch-auto-reveal-threshold="10"');
-    expect(html).toContain('Scratch me first');
-    expect(html).toContain('Shop now');
     expect(html).toContain('data-scratch-canvas');
   });
 
