@@ -4,7 +4,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import { Button } from '../../shared/ui/Button';
 import { Tile } from '../../shared/ui/Tile';
 import { KEYFRAME_PROPERTIES } from './widget-inspector-shared';
-import { applyAnimationPreset, supportsAnimationPresets, type SupportedAnimationPreset } from './animation-presets';
+import { applyAnimationPreset, getAnimationPresetConfig, supportsAnimationPresets, type SupportedAnimationPreset } from './animation-presets';
 
 export function KeyframesSection({
   widget,
@@ -18,13 +18,31 @@ export function KeyframesSection({
   const { addKeyframe, setPlayhead, setWidgetKeyframes, removeKeyframe, updateKeyframe } = useTimelineActions();
   const { updateWidgetStyle } = useWidgetActions();
   const keyframes = widget.timeline.keyframes ?? [];
-  const activePreset = typeof widget.style.animationPreset === 'string' ? widget.style.animationPreset : '';
+  const animationConfig = getAnimationPresetConfig(widget);
+  const activePreset = animationConfig.preset;
   const focusedKeyframeRef = useRef<HTMLDivElement | null>(null);
 
   const handleApplyPreset = (preset: SupportedAnimationPreset) => {
     const { keyframes: nextKeyframes, stylePatch } = applyAnimationPreset(widget, preset);
     setWidgetKeyframes(widget.id, nextKeyframes);
     updateWidgetStyle(widget.id, stylePatch);
+  };
+
+  const handleAnimationConfigChange = (patch: Record<string, unknown>) => {
+    const nextWidget: WidgetNode = { ...widget, style: { ...widget.style, ...patch } };
+    updateWidgetStyle(widget.id, patch);
+    if (!activePreset) return;
+    const { keyframes: nextKeyframes, stylePatch } = applyAnimationPreset(nextWidget, activePreset);
+    setWidgetKeyframes(widget.id, nextKeyframes);
+    updateWidgetStyle(widget.id, stylePatch);
+  };
+
+  const handlePresetSelection = (value: string) => {
+    if (value === 'appear' || value === 'fade-up' || value === 'fade-out' || value === 'pulse') {
+      handleApplyPreset(value);
+      return;
+    }
+    updateWidgetStyle(widget.id, { animationPreset: '' });
   };
 
   useEffect(() => {
@@ -39,15 +57,66 @@ export function KeyframesSection({
         {supportsAnimationPresets(widget) ? (
           <Tile>
             <div className="meta-line">
-              <span className="pill">Animation presets</span>
-              {activePreset ? <span className="pill">Active {activePreset}</span> : null}
+              <span className="pill">Animation template</span>
+              {activePreset ? <span className="pill">Active {activePreset}</span> : <span className="pill">No template</span>}
             </div>
-            <small className="muted">Quick presets write timeline keyframes for this widget. You can still fine-tune them below afterward.</small>
+            <small className="muted">Choose a motion template and tune it here. Studio writes editable keyframes for you so you only fine-tune when you want to.</small>
+            <div className="fields-grid">
+              <div>
+                <label>Preset</label>
+                <select value={activePreset} onChange={(event) => handlePresetSelection(event.target.value)}>
+                  <option value="">Custom / none</option>
+                  <option value="appear">Appear</option>
+                  <option value="fade-up">Fade up</option>
+                  <option value="fade-out">Fade out</option>
+                  <option value="pulse">Pulse</option>
+                </select>
+              </div>
+              <div>
+                <label>Duration ms</label>
+                <input
+                  type="number"
+                  min={120}
+                  step={20}
+                  value={animationConfig.durationMs}
+                  onChange={(event) => handleAnimationConfigChange({ animationDurationMs: Number(event.target.value) })}
+                />
+              </div>
+              <div>
+                <label>Delay ms</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={20}
+                  value={animationConfig.delayMs}
+                  onChange={(event) => handleAnimationConfigChange({ animationDelayMs: Number(event.target.value) })}
+                />
+              </div>
+              <div>
+                <label>Distance px</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={2}
+                  value={animationConfig.distancePx}
+                  onChange={(event) => handleAnimationConfigChange({ animationDistancePx: Number(event.target.value) })}
+                />
+              </div>
+              <div>
+                <label>Intensity</label>
+                <input
+                  type="number"
+                  min={0.1}
+                  max={1}
+                  step={0.05}
+                  value={animationConfig.intensity}
+                  onChange={(event) => handleAnimationConfigChange({ animationIntensity: Number(event.target.value) })}
+                />
+              </div>
+            </div>
             <div className="inline-actions">
-              <Button size="sm" onClick={() => handleApplyPreset('appear')}>Appear</Button>
-              <Button size="sm" onClick={() => handleApplyPreset('fade-up')}>Fade up</Button>
-              <Button size="sm" onClick={() => handleApplyPreset('fade-out')}>Fade out</Button>
-              <Button size="sm" onClick={() => handleApplyPreset('pulse')}>Pulse</Button>
+              <Button size="sm" onClick={() => handleApplyPreset(activePreset || 'appear')}>{activePreset ? 'Refresh template' : 'Apply template'}</Button>
+              <Button size="sm" variant="ghost" onClick={() => handlePresetSelection('')}>Leave as custom</Button>
             </div>
           </Tile>
         ) : null}

@@ -7,6 +7,7 @@ import {
   EXPORT_RUNTIME_FONTS_SECTION,
   EXPORT_RUNTIME_INTERACTIVE_SECTION,
   EXPORT_RUNTIME_MAP_SECTION,
+  EXPORT_RUNTIME_MOTION_SECTION,
   EXPORT_RUNTIME_SCRATCH_SECTION,
   EXPORT_RUNTIME_TIMELINE_SECTION,
   EXPORT_RUNTIME_WEATHER_SECTION,
@@ -17,6 +18,7 @@ type RuntimeCapabilities = {
   hasInteractive: boolean;
   hasEnvironment: true;
   hasFontFaces: boolean;
+  hasHoverMotion: boolean;
   hasWeather: boolean;
   hasScratchReveal: boolean;
   hasCountdown: boolean;
@@ -72,12 +74,17 @@ export function analyzeRuntimeCapabilities(document: PortableExportProject): Run
   const hasCountdown = widgets.some((widget) => COUNTDOWN_WIDGET_TYPES.has(widget.type));
   const hasTimelineAnimations = widgets.some((widget) => (widget.timeline.keyframes?.length ?? 0) > 0);
   const hasFontFaces = widgets.some((widget) => typeof widget.props?.fontAssetSrc === 'string' && widget.props.fontAssetSrc.trim().length > 0);
+  const hasHoverMotion = widgets.some((widget) => {
+    const preset = String(widget.style?.hoverMotionPreset ?? 'none');
+    return preset === 'lift' || preset === 'zoom' || preset === 'pulse';
+  });
 
   return {
     hasMap,
     hasInteractive: hasInteractiveWidget || hasInteractiveAction,
     hasEnvironment: true,
     hasFontFaces,
+    hasHoverMotion,
     hasWeather,
     hasScratchReveal,
     hasCountdown,
@@ -92,6 +99,7 @@ export function compileRuntime(document: PortableExportProject, adapter: ExportH
   if (capabilities.hasInteractive) sections.push(EXPORT_RUNTIME_INTERACTIVE_SECTION);
   if (capabilities.hasEnvironment) sections.push(EXPORT_RUNTIME_ENVIRONMENT_SECTION);
   if (capabilities.hasFontFaces) sections.push(EXPORT_RUNTIME_FONTS_SECTION);
+  if (capabilities.hasHoverMotion) sections.push(EXPORT_RUNTIME_MOTION_SECTION);
   if (capabilities.hasWeather) sections.push(EXPORT_RUNTIME_WEATHER_SECTION);
   if (capabilities.hasScratchReveal) sections.push(EXPORT_RUNTIME_SCRATCH_SECTION);
   if (capabilities.hasCountdown) sections.push(EXPORT_RUNTIME_COUNTDOWN_SECTION);

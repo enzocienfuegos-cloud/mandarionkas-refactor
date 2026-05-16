@@ -59,7 +59,12 @@ export const StageWidget = memo(function StageWidget({
     const actions = getWidgetActions(stateRef.current, node.id, trigger);
     actions.forEach((action) => onExecuteAction(action.id));
   };
-  const widgetStyle = buildStageWidgetStyle(frame, opacity, node.zIndex, previewMode && !managesNativeDrag);
+  const widgetStyle = buildStageWidgetStyle(node, frame, opacity, node.zIndex, {
+    interactiveInPreview: previewMode && !managesNativeDrag,
+    previewMode,
+    hovered,
+    active,
+  });
   const widgetContentStyle = buildStageWidgetContentStyle(previewMode);
 
   return (
@@ -113,12 +118,33 @@ export const StageWidget = memo(function StageWidget({
 }, stageWidgetPropsEqual);
 
 function buildStageWidgetStyle(
+  node: WidgetNode,
   frame: WidgetFrame,
   opacity: number,
   zIndex: number,
-  interactiveInPreview: boolean,
+  {
+    interactiveInPreview,
+    previewMode,
+    hovered,
+    active,
+  }: {
+    interactiveInPreview: boolean;
+    previewMode: boolean;
+    hovered: boolean;
+    active: boolean;
+  },
 ): CSSProperties {
-  return {
+  const rotationTransform = `rotate(${frame.rotation}deg)`;
+  const hoverMotionPreset = String(node.style.hoverMotionPreset ?? 'none');
+  const hoverMotionDurationMs = Math.max(120, Number(node.style.hoverMotionDurationMs ?? 240));
+  const hoverMotionDistancePx = Math.max(0, Number(node.style.hoverMotionDistancePx ?? 12));
+  const hoverMotionScale = Math.max(1, Number(node.style.hoverMotionScale ?? 1.04));
+  const isHoverMotionActive = previewMode && (hovered || active) && hoverMotionPreset !== 'none';
+  const hoverTransform = hoverMotionPreset === 'zoom'
+    ? `${rotationTransform} scale(${hoverMotionScale})`
+    : `${rotationTransform} translateY(-${hoverMotionDistancePx}px) scale(${hoverMotionScale})`;
+
+  const style: CSSProperties & Record<string, string | number | undefined> = {
     left: frame.x,
     top: frame.y,
     width: frame.width,
@@ -126,8 +152,21 @@ function buildStageWidgetStyle(
     opacity,
     zIndex,
     cursor: interactiveInPreview ? 'pointer' : 'default',
-    transform: `rotate(${frame.rotation}deg)`,
+    transform: hoverMotionPreset === 'pulse'
+      ? rotationTransform
+      : isHoverMotionActive
+        ? hoverTransform
+        : rotationTransform,
+    transition: previewMode && hoverMotionPreset !== 'none'
+      ? `transform ${hoverMotionDurationMs}ms ease, box-shadow ${hoverMotionDurationMs}ms ease, filter ${hoverMotionDurationMs}ms ease, opacity ${hoverMotionDurationMs}ms ease`
+      : undefined,
+    animation: previewMode && hoverMotionPreset === 'pulse' && isHoverMotionActive
+      ? `smx-stage-hover-pulse ${hoverMotionDurationMs}ms ease-in-out infinite`
+      : undefined,
+    '--smx-motion-base-transform': rotationTransform,
+    '--smx-motion-hover-transform': hoverTransform,
   };
+  return style;
 }
 
 function buildStageWidgetContentStyle(previewMode: boolean): CSSProperties {

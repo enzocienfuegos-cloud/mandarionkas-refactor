@@ -27,6 +27,96 @@ export const EXPORT_RUNTIME_FONTS_SECTION = `
   ensureRuntimeFontFaces();
 `;
 
+export const EXPORT_RUNTIME_MOTION_SECTION = `
+  function createRuntimeWidgetIndex() {
+    if (!runtime || !Array.isArray(runtime.scenes)) return {};
+    return runtime.scenes.reduce((acc, scene) => {
+      if (!scene || !Array.isArray(scene.widgets)) return acc;
+      scene.widgets.forEach((widget) => {
+        if (widget && widget.id) acc[widget.id] = widget;
+      });
+      return acc;
+    }, {});
+  }
+
+  function ensureRuntimeMotionStyleTag() {
+    const styleId = 'smx-runtime-motion-styles';
+    if (document.getElementById(styleId)) return;
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = '@keyframes smx-runtime-hover-pulse{0%,100%{transform:var(--smx-motion-base-transform);}50%{transform:var(--smx-motion-hover-transform);}}';
+    document.head.appendChild(style);
+  }
+
+  function resolveRuntimeHoverMotionConfig(widget) {
+    const style = widget && widget.style ? widget.style : {};
+    const preset = String(style.hoverMotionPreset || 'none');
+    return {
+      preset: preset === 'lift' || preset === 'zoom' || preset === 'pulse' ? preset : 'none',
+      durationMs: Math.max(120, Number(style.hoverMotionDurationMs || 240)),
+      distancePx: Math.max(0, Number(style.hoverMotionDistancePx || 12)),
+      scale: Math.max(1, Number(style.hoverMotionScale || 1.04)),
+    };
+  }
+
+  function resolveRuntimeTransforms(widget) {
+    const config = resolveRuntimeHoverMotionConfig(widget);
+    const rotation = Number(widget && widget.frame ? widget.frame.rotation || 0 : 0);
+    const baseTransform = 'rotate(' + rotation + 'deg)';
+    const hoverTransform = config.preset === 'zoom'
+      ? baseTransform + ' scale(' + config.scale + ')'
+      : baseTransform + ' translateY(-' + config.distancePx + 'px) scale(' + config.scale + ')';
+    return { config, baseTransform, hoverTransform };
+  }
+
+  function applyRuntimeHoverMotion() {
+    const widgetsById = createRuntimeWidgetIndex();
+    const widgetIds = Object.keys(widgetsById);
+    if (!widgetIds.length) return;
+    ensureRuntimeMotionStyleTag();
+    widgetIds.forEach((widgetId) => {
+      const widget = widgetsById[widgetId];
+      const node = document.querySelector('[data-widget-id="' + widgetId + '"]');
+      if (!node || node.getAttribute('data-smx-hover-motion-bound') === 'true') return;
+      const motion = resolveRuntimeTransforms(widget);
+      if (motion.config.preset === 'none') return;
+      node.setAttribute('data-smx-hover-motion-bound', 'true');
+      node.style.setProperty('--smx-motion-base-transform', motion.baseTransform);
+      node.style.setProperty('--smx-motion-hover-transform', motion.hoverTransform);
+      node.style.transform = motion.baseTransform;
+      node.style.transition = 'transform ' + motion.config.durationMs + 'ms ease, box-shadow ' + motion.config.durationMs + 'ms ease, filter ' + motion.config.durationMs + 'ms ease, opacity ' + motion.config.durationMs + 'ms ease';
+
+      const activate = () => {
+        if (motion.config.preset === 'pulse') {
+          node.style.animation = 'smx-runtime-hover-pulse ' + motion.config.durationMs + 'ms ease-in-out infinite';
+          node.style.transform = motion.baseTransform;
+          return;
+        }
+        node.style.animation = 'none';
+        node.style.transform = motion.hoverTransform;
+      };
+
+      const deactivate = () => {
+        node.style.animation = 'none';
+        node.style.transform = motion.baseTransform;
+      };
+
+      node.addEventListener('pointerenter', activate);
+      node.addEventListener('pointerleave', deactivate);
+      node.addEventListener('focus', activate);
+      node.addEventListener('blur', deactivate);
+    });
+  }
+
+  applyRuntimeHoverMotion();
+
+  const smxBaseShowSceneForMotion = showScene;
+  showScene = function patchedShowSceneForMotion(index) {
+    smxBaseShowSceneForMotion(index);
+    applyRuntimeHoverMotion();
+  };
+`;
+
 export const EXPORT_RUNTIME_TIMELINE_SECTION = `
   function applyTimelineEasing(progress, easing) {
     const clamped = Math.max(0, Math.min(1, progress));

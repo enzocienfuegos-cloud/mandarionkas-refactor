@@ -149,6 +149,30 @@ describe('runtime tree shake', () => {
     expect(script).toContain('patchedShowScene');
   });
 
+  it('includes hover motion runtime only when widgets opt into hover motion presets', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'gam-html5';
+    state.document.widgets.image_1 = {
+      id: 'image_1',
+      type: 'image',
+      name: 'Hero',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 300, height: 160, rotation: 0 },
+      style: { hoverMotionPreset: 'lift', hoverMotionDurationMs: 320, hoverMotionDistancePx: 14, hoverMotionScale: 1.06 },
+      props: { src: 'https://cdn.example.com/hero.png', alt: 'Hero' },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('image_1');
+
+    const adapter = buildGamHtml5Adapter(state);
+    const script = compileRuntime(adapter.portableProject, adapter);
+
+    expect(script).toContain('applyRuntimeHoverMotion');
+    expect(script).toContain('smx-runtime-hover-pulse');
+  });
+
   it('always includes environment scene management and keeps full runtime sections present when needed', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;

@@ -127,6 +127,10 @@
   touch-action: manipulation;
   transition: transform  var(--motion-base) ease, box-shadow var(--motion-base) ease, filter var(--motion-base) ease, opacity var(--motion-base) ease;
 }
+@keyframes smx-stage-hover-pulse {
+  0%, 100% { transform: var(--smx-motion-base-transform); }
+  50% { transform: var(--smx-motion-hover-transform); }
+}
 .stage-widget-content {
   width: 100%;
   height: 100%;

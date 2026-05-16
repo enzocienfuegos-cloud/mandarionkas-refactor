@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WidgetNode } from '../../../domain/document/types';
-import { applyAnimationPreset, supportsAnimationPresets } from '../../../inspector/sections/animation-presets';
+import { applyAnimationPreset, getAnimationPresetConfig, getHoverMotionConfig, supportsAnimationPresets } from '../../../inspector/sections/animation-presets';
 
 function createWidget(type: WidgetNode['type']): WidgetNode {
   return {
@@ -59,5 +59,49 @@ describe('animation presets', () => {
     expect(keyframes.map((item) => item.property)).toEqual(['opacity', 'opacity']);
     expect(keyframes[0]?.atMs).toBeLessThan(keyframes[1]?.atMs ?? 0);
     expect(keyframes[1]?.value).toBe(0);
+  });
+
+  it('reads adjustable motion settings from widget style and applies them to generated keyframes', () => {
+    const widget = createWidget('text');
+    widget.style.animationDurationMs = 1200;
+    widget.style.animationDelayMs = 180;
+    widget.style.animationDistancePx = 36;
+    widget.style.animationIntensity = 0.8;
+
+    const config = getAnimationPresetConfig(widget);
+    const { keyframes, stylePatch } = applyAnimationPreset(widget, 'fade-up');
+
+    expect(config.durationMs).toBe(1200);
+    expect(config.delayMs).toBe(180);
+    expect(config.distancePx).toBe(36);
+    expect(config.intensity).toBe(0.8);
+    expect(stylePatch.animationDurationMs).toBe(1200);
+    expect(stylePatch.animationDelayMs).toBe(180);
+    expect(stylePatch.animationDistancePx).toBe(36);
+    expect(keyframes.find((item) => item.property === 'opacity')?.atMs).toBe(480);
+    expect(keyframes.find((item) => item.property === 'y')?.value).toBe(116);
+  });
+
+  it('reads hover motion settings with safe defaults', () => {
+    const widget = createWidget('image');
+
+    expect(getHoverMotionConfig(widget)).toEqual({
+      preset: 'none',
+      durationMs: 240,
+      distancePx: 12,
+      scale: 1.04,
+    });
+
+    widget.style.hoverMotionPreset = 'zoom';
+    widget.style.hoverMotionDurationMs = 420;
+    widget.style.hoverMotionDistancePx = 22;
+    widget.style.hoverMotionScale = 1.12;
+
+    expect(getHoverMotionConfig(widget)).toEqual({
+      preset: 'zoom',
+      durationMs: 420,
+      distancePx: 22,
+      scale: 1.12,
+    });
   });
 });
