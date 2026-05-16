@@ -47,8 +47,8 @@ describe('layer outline helpers', () => {
       { image_1: image, group_1: group, text_1: text },
     );
 
-    expect(outline.map((item) => item.widget.id)).toEqual(['image_1', 'group_1']);
-    expect(outline[1]?.children.map((item) => item.widget.id)).toEqual(['text_1']);
+    expect(outline.map((item) => item.widget.id)).toEqual(['group_1', 'image_1']);
+    expect(outline[0]?.children.map((item) => item.widget.id)).toEqual(['text_1']);
   });
 
   it('flattens only expanded items into visible order', () => {
@@ -95,8 +95,8 @@ describe('layer outline helpers', () => {
       },
     );
 
-    expect(flattenVisibleLayerIds(outline, new Set())).toEqual(['group_1', 'text_1', 'image_1']);
-    expect(flattenVisibleLayerIds(outline, new Set(['group_1']))).toEqual(['group_1', 'image_1']);
+    expect(flattenVisibleLayerIds(outline, new Set())).toEqual(['image_1', 'group_1', 'text_1']);
+    expect(flattenVisibleLayerIds(outline, new Set(['group_1']))).toEqual(['image_1', 'group_1']);
   });
 
   it('returns reorder steps that place the dragged widget before the drop target', () => {

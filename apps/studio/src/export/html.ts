@@ -1,6 +1,7 @@
 import { getActiveFeedRecord } from '../domain/document/resolvers';
 import type { StudioState } from '../domain/document/types';
 import { buildResolvedWidgetsById } from '../domain/document/canvas-variants';
+import { buildFontFaceCss } from '../assets/font-family';
 import { renderWidgetExport } from '../widgets/modules/export-registry';
 import type { GamHtml5AdapterResult, GenericHtml5AdapterResult, GoogleDisplayAdapterResult, MraidAdapterResult, PlayableExportAdapterResult, VastSimidAdapterResult } from './adapters';
 import { buildExportAssetPathMap, buildExportAssetPlan } from './assets';
@@ -40,6 +41,64 @@ function widgetHtml(node: PortableExportWidget, state: StudioState, assetPathMap
   });
 }
 
+function resolveExportFontSrc(src: unknown, assetPathMap?: Record<string, string>): string | null {
+  if (typeof src !== 'string') return null;
+  const trimmed = src.trim();
+  if (!trimmed) return null;
+  return assetPathMap?.[trimmed] ?? trimmed;
+}
+
+function inferFontMimeType(src: string): string {
+  const normalized = src.toLowerCase();
+  if (normalized.includes('.woff2')) return 'font/woff2';
+  if (normalized.includes('.woff')) return 'font/woff';
+  if (normalized.includes('.ttf')) return 'font/ttf';
+  if (normalized.includes('.otf')) return 'font/otf';
+  return 'font/woff2';
+}
+
+function collectPortableFonts(
+  project: ReturnType<typeof buildPortableProjectExport>,
+  assetPathMap?: Record<string, string>,
+): Array<{ family: string; src: string }> {
+  const seen = new Set<string>();
+  const fonts: Array<{ family: string; src: string }> = [];
+
+  project.scenes.forEach((scene) => {
+    scene.widgets.forEach((widget) => {
+      const family = typeof widget.style.fontFamily === 'string' ? widget.style.fontFamily.trim() : '';
+      const src = resolveExportFontSrc(widget.props.fontAssetSrc, assetPathMap);
+      if (!family || !src) return;
+      const key = `${family}::${src}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      fonts.push({ family, src });
+    });
+  });
+
+  return fonts;
+}
+
+function buildPortableFontFaceCss(
+  project: ReturnType<typeof buildPortableProjectExport>,
+  assetPathMap?: Record<string, string>,
+): string {
+  return collectPortableFonts(project, assetPathMap)
+    .map(({ family, src }) => buildFontFaceCss(family, src))
+    .join('\n');
+}
+
+function buildPortableFontPreloadLinks(
+  project: ReturnType<typeof buildPortableProjectExport>,
+  assetPathMap?: Record<string, string>,
+): string {
+  return collectPortableFonts(project, assetPathMap)
+    .map(({ src }) => src)
+    .filter((src, index, items) => items.indexOf(src) === index)
+    .map((src) => `<link rel="preload" href="${escapeHtml(src)}" as="font" type="${escapeHtml(inferFontMimeType(src))}" crossorigin />`)
+    .join('\n');
+}
+
 function sceneHtml(
   scene: PortableExportScene,
   canvas: { width: number; height: number; backgroundColor: string },
@@ -64,7 +123,7 @@ function sceneHtml(
     .sort((a, b) => a.zIndex - b.zIndex);
   return `
     <section class="scene" data-scene-id="${scene.id}" data-scene-order="${scene.order}" style="position:absolute;inset:0;width:${canvas.width}px;height:${canvas.height}px;background:${escapeHtml(canvas.backgroundColor)};overflow:hidden;display:${visibleByDefault ? 'block' : 'none'};">
-      ${widgets.map((widget) => widgetHtml(widget, state, assetPathMap)).join('\n')}
+      ${widgets.map((widget) => `<div class="widget-layer" data-widget-layer-id="${widget.id}" style="position:absolute;inset:0;z-index:${widget.zIndex};">${widgetHtml(widget, state, assetPathMap)}</div>`).join('\n')}
     </section>
   `;
 }
@@ -75,13 +134,17 @@ export function buildStandaloneHtml(state: StudioState): string {
   const portableProject = buildPortableProjectExport(state);
   const assetPathMap = buildExportAssetPathMap(buildExportAssetPlan(portableProject));
   const orderedScenes = [...portableProject.scenes].sort((a, b) => a.order - b.order);
+  const exportFontCss = buildPortableFontFaceCss(portableProject, assetPathMap);
+  const fontPreloads = buildPortableFontPreloadLinks(portableProject, assetPathMap);
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(state.document.name || 'SMX Export')}</title>
+  ${fontPreloads}
   <style>
+    ${exportFontCss}
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Inter, Arial, sans-serif; background: #0b1120; color: #e5e7eb; }
@@ -311,6 +374,8 @@ export function buildPlayableSingleFileHtml(
   const orderedScenes = [...adapter.playableProject.scenes].sort((left, right) => left.order - right.order);
   const runtimeScript = compileRuntime(getRuntimeProject(adapter), adapter);
   const exitBootstrap = buildExitBootstrap(adapter);
+  const exportFontCss = buildPortableFontFaceCss(adapter.playableProject, resolvedAssetPathMap);
+  const fontPreloads = buildPortableFontPreloadLinks(adapter.playableProject, resolvedAssetPathMap);
 
   return `<!doctype html>
 <html lang="en">
@@ -318,7 +383,9 @@ export function buildPlayableSingleFileHtml(
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>${escapeHtml(documentName)}</title>
+  ${fontPreloads}
   <style>
+    ${exportFontCss}
     ${BANNER_BASE_CSS}
     html, body { width: 100%; height: 100%; overflow: hidden; touch-action: none; }
     .banner-shell { width: 100%; height: 100%; background: ${escapeHtml(canvas.backgroundColor)}; }
@@ -356,6 +423,8 @@ export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter)
   const exitBootstrap = buildExitBootstrap(adapter);
   const canvas = nonPlayableAdapter.portableProject.canvas;
   const documentName = nonPlayableAdapter.portableProject.name || state.document.name || 'SMX Export';
+  const exportFontCss = buildPortableFontFaceCss(nonPlayableAdapter.portableProject, assetPathMap);
+  const fontPreloads = buildPortableFontPreloadLinks(nonPlayableAdapter.portableProject, assetPathMap);
 
   return `<!doctype html>
 <html lang="en">
@@ -363,7 +432,9 @@ export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter)
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(documentName)}</title>
+  ${fontPreloads}
   <style>
+    ${exportFontCss}
     ${BANNER_BASE_CSS}
     .banner-shell { width: ${canvas.width}px; height: ${canvas.height}px; background: ${escapeHtml(canvas.backgroundColor)}; }
   </style>

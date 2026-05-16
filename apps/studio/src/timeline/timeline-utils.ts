@@ -55,7 +55,9 @@ export function buildTimelineDisplayRows(
 ): TimelineDisplayRow[] {
   const widgetMap = new Map(widgets.map((widget) => [widget.id, widget]));
   const orderMap = new Map(widgets.map((widget, index) => [widget.id, index]));
-  const roots = widgets.filter((widget) => !widget.parentId);
+  const roots = widgets
+    .filter((widget) => !widget.parentId)
+    .sort((left, right) => (orderMap.get(right.id) ?? 0) - (orderMap.get(left.id) ?? 0));
   const rows: TimelineDisplayRow[] = [];
 
   const shouldIncludeRow = (row: TimelineDisplayRow): boolean => {
@@ -68,7 +70,7 @@ export function buildTimelineDisplayRows(
     const childIds = (widget.childIds ?? [])
       .map((childId) => widgetMap.get(childId))
       .filter(Boolean)
-      .sort((a, b) => (orderMap.get(a!.id) ?? 0) - (orderMap.get(b!.id) ?? 0)) as TimelineWidget[];
+      .sort((left, right) => (orderMap.get(right!.id) ?? 0) - (orderMap.get(left!.id) ?? 0)) as TimelineWidget[];
     const row: TimelineDisplayRow = {
       widget,
       timing: { startMs: widget.timeline.startMs, endMs: widget.timeline.endMs },

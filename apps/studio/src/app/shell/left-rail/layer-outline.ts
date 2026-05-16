@@ -11,9 +11,10 @@ export function buildLayerOutline(
   nodes: Record<string, WidgetNode | undefined>,
 ): LayerOutlineItem[] {
   const visited = new Set<string>();
+  const orderedWidgetIds = [...scene.widgetIds].reverse();
 
   function buildChildren(parentId: string | undefined, depth: number): LayerOutlineItem[] {
-    return scene.widgetIds
+    return orderedWidgetIds
       .map((widgetId) => nodes[widgetId])
       .filter((widget): widget is WidgetNode => Boolean(widget))
       .filter((widget) => widget.parentId === parentId)
