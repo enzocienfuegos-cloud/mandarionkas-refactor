@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WidgetNode } from '../../../domain/document/types';
-import { applyAnimationPreset, getAnimationPresetConfig, getHoverMotionConfig, supportsAnimationPresets } from '../../../inspector/sections/animation-presets';
+import { applyAnimationPreset, getAnimationPresetConfig, getAnimationPresetPreviewState, getHoverMotionConfig, supportsAnimationPresets } from '../../../inspector/sections/animation-presets';
 
 function createWidget(type: WidgetNode['type']): WidgetNode {
   return {
@@ -82,6 +82,7 @@ describe('animation presets', () => {
     widget.style.animationDelayMs = 180;
     widget.style.animationDistancePx = 36;
     widget.style.animationIntensity = 0.8;
+    widget.style.animationRepeatMode = 'repeat';
 
     const config = getAnimationPresetConfig(widget);
     const { keyframes, stylePatch } = applyAnimationPreset(widget, 'fade-up');
@@ -90,11 +91,31 @@ describe('animation presets', () => {
     expect(config.delayMs).toBe(180);
     expect(config.distancePx).toBe(36);
     expect(config.intensity).toBe(0.8);
+    expect(config.repeatMode).toBe('repeat');
     expect(stylePatch.animationDurationMs).toBe(1200);
     expect(stylePatch.animationDelayMs).toBe(180);
     expect(stylePatch.animationDistancePx).toBe(36);
+    expect(stylePatch.animationRepeatMode).toBe('repeat');
     expect(keyframes.find((item) => item.property === 'opacity')?.atMs).toBe(480);
     expect(keyframes.find((item) => item.property === 'y')?.value).toBe(116);
+  });
+
+  it('derives preview state for a fade-up preset from the playhead', () => {
+    const widget = createWidget('text');
+    widget.style.animationPreset = 'fade-up';
+    widget.style.animationDurationMs = 1000;
+    widget.style.animationDistancePx = 40;
+
+    const stateAtStart = getAnimationPresetPreviewState(widget, 300);
+    const stateMid = getAnimationPresetPreviewState(widget, 800);
+    const stateEnd = getAnimationPresetPreviewState(widget, 1400);
+
+    expect(stateAtStart?.opacity).toBe(0);
+    expect(stateAtStart?.frame.y).toBe(120);
+    expect((stateMid?.opacity ?? 0) > 0).toBe(true);
+    expect((stateMid?.frame.y ?? 0) < 120).toBe(true);
+    expect(stateEnd?.opacity).toBe(1);
+    expect(stateEnd?.frame.y).toBe(80);
   });
 
   it('reads hover motion settings with safe defaults', () => {

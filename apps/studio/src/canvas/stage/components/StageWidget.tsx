@@ -112,7 +112,8 @@ export const StageWidget = memo(function StageWidget({
       duration: duration + idlePaddingMs,
       delay: Math.max(0, Number(config.delayMs || 0)),
       easing: config.preset === 'pulse' ? 'ease-in-out' : 'ease-out',
-      iterations: Number.POSITIVE_INFINITY,
+      iterations: config.repeatMode === 'repeat' ? Number.POSITIVE_INFINITY : 1,
+      fill: config.repeatMode === 'repeat' ? 'none' : 'both',
     });
 
     return () => {

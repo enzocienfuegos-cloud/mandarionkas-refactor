@@ -141,6 +141,83 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     return Number(before.value ?? fallback) + (Number(after.value ?? fallback) - Number(before.value ?? fallback)) * eased;
   }
 
+  function resolveRuntimeAnimationPresetConfig(widget) {
+    const style = widget && widget.style ? widget.style : {};
+    const preset = String(style.animationPreset || '');
+    return {
+      preset: preset === 'appear' || preset === 'fade-up' || preset === 'fade-out' || preset === 'pulse' ? preset : '',
+      durationMs: Math.max(120, Number(style.animationDurationMs || (preset === 'pulse' ? 900 : 700))),
+      delayMs: Math.max(0, Number(style.animationDelayMs || 0)),
+      distancePx: Math.max(0, Number(style.animationDistancePx || 24)),
+      intensity: Math.max(0.1, Math.min(1, Number(style.animationIntensity || 0.55))),
+      repeatMode: String(style.animationRepeatMode || 'once') === 'repeat' ? 'repeat' : 'once',
+    };
+  }
+
+  function getRuntimeAnimationPresetState(widget, elapsedMs) {
+    const config = resolveRuntimeAnimationPresetConfig(widget);
+    if (!config.preset) return null;
+    const frame = widget && widget.frame ? widget.frame : {};
+    const timeline = widget && widget.timeline ? widget.timeline : {};
+    const startMs = Number(timeline.startMs || 0);
+    const endMs = Number(timeline.endMs || startMs + config.durationMs);
+    const durationMs = Math.max(120, Math.min(Math.max(0, endMs - startMs) || config.durationMs, config.durationMs));
+    const baseOpacity = Number(widget && widget.style ? widget.style.opacity ?? 1 : 1);
+    const anchorMs = config.preset === 'fade-out'
+      ? Math.max(startMs, endMs - durationMs)
+      : startMs + config.delayMs;
+
+    function resolveProgress(nowMs) {
+      const elapsedFromAnchor = nowMs - anchorMs;
+      if (config.repeatMode === 'repeat') {
+        const normalized = ((elapsedFromAnchor % durationMs) + durationMs) % durationMs;
+        return Math.max(0, Math.min(1, normalized / durationMs));
+      }
+      return Math.max(0, Math.min(1, elapsedFromAnchor / durationMs));
+    }
+
+    if (config.repeatMode === 'once' && elapsedMs < anchorMs) {
+      if (config.preset === 'appear') return { opacity: 0, y: Number(frame.y || 0) };
+      if (config.preset === 'fade-up') return { opacity: 0, y: Number(frame.y || 0) + config.distancePx };
+      return { opacity: baseOpacity, y: Number(frame.y || 0) };
+    }
+
+    const progress = resolveProgress(elapsedMs);
+    if (config.preset === 'appear') {
+      return {
+        opacity: baseOpacity * applyTimelineEasing(progress, 'ease-out'),
+        y: Number(frame.y || 0),
+      };
+    }
+
+    if (config.preset === 'fade-up') {
+      const eased = applyTimelineEasing(progress, 'ease-out');
+      return {
+        opacity: baseOpacity * eased,
+        y: Number(frame.y || 0) + config.distancePx * (1 - eased),
+      };
+    }
+
+    if (config.preset === 'fade-out') {
+      if (config.repeatMode === 'once' && elapsedMs < anchorMs) {
+        return { opacity: baseOpacity, y: Number(frame.y || 0) };
+      }
+      return {
+        opacity: baseOpacity * (1 - applyTimelineEasing(progress, 'ease-in')),
+        y: Number(frame.y || 0),
+      };
+    }
+
+    const pulseOpacity = Math.max(0.15, Math.min(baseOpacity, baseOpacity - config.intensity * 0.45));
+    const pulseMix = progress <= 0.5
+      ? applyTimelineEasing(progress / 0.5, 'ease-in-out')
+      : applyTimelineEasing((1 - progress) / 0.5, 'ease-in-out');
+    return {
+      opacity: pulseOpacity + (baseOpacity - pulseOpacity) * pulseMix,
+      y: Number(frame.y || 0),
+    };
+  }
+
   function syncTimelineAnimatedWidgets(sceneRuntime, elapsedMs) {
     if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets)) return;
     sceneRuntime.widgets.forEach((widget) => {
@@ -152,11 +229,12 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
       if (!node.getAttribute('data-smx-base-opacity')) {
         node.setAttribute('data-smx-base-opacity', style.opacity || '1');
       }
+      const templateState = getRuntimeAnimationPresetState(widget, elapsedMs);
       style.left = String(getWidgetTrackValue(widget, 'x', elapsedMs, Number(frame.x || 0))) + 'px';
-      style.top = String(getWidgetTrackValue(widget, 'y', elapsedMs, Number(frame.y || 0))) + 'px';
+      style.top = String(templateState ? templateState.y : getWidgetTrackValue(widget, 'y', elapsedMs, Number(frame.y || 0))) + 'px';
       style.width = String(getWidgetTrackValue(widget, 'width', elapsedMs, Number(frame.width || 0))) + 'px';
       style.height = String(getWidgetTrackValue(widget, 'height', elapsedMs, Number(frame.height || 0))) + 'px';
-      style.opacity = String(getWidgetTrackValue(widget, 'opacity', elapsedMs, Number(node.getAttribute('data-smx-base-opacity') || 1)));
+      style.opacity = String(templateState ? templateState.opacity : getWidgetTrackValue(widget, 'opacity', elapsedMs, Number(node.getAttribute('data-smx-base-opacity') || 1)));
     });
   }
 

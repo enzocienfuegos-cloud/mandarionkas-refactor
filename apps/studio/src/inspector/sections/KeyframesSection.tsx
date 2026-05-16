@@ -93,6 +93,16 @@ export function KeyframesSection({
                 />
               </div>
               <div>
+                <label>Repeat</label>
+                <select
+                  value={animationConfig.repeatMode}
+                  onChange={(event) => handleAnimationConfigChange({ animationRepeatMode: event.target.value === 'repeat' ? 'repeat' : 'once' })}
+                >
+                  <option value="once">Play once</option>
+                  <option value="repeat">Repeat</option>
+                </select>
+              </div>
+              <div>
                 <label>Distance px</label>
                 <input
                   type="number"
