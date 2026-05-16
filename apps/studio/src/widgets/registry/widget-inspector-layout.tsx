@@ -4,12 +4,14 @@ import { TextSection } from '../../inspector/sections/TextSection';
 import { ModuleConfigSection } from '../../inspector/sections/ModuleConfigSection';
 import { FillSection } from '../../inspector/sections/FillSection';
 import { TimingSection } from '../../inspector/sections/TimingSection';
+import { MotionSection } from '../../inspector/sections/MotionSection';
 import { StatesSection } from '../../inspector/sections/StatesSection';
 import { DataBindingsSection } from '../../inspector/sections/DataBindingsSection';
 import { VariantsSection } from '../../inspector/sections/VariantsSection';
 import { ConditionsSection } from '../../inspector/sections/ConditionsSection';
 import { ActionsSection } from '../../inspector/sections/ActionsSection';
 import { KeyframesSection } from '../../inspector/sections/KeyframesSection';
+import { supportsAnimationPresets, supportsHoverPresets } from '../../inspector/sections/animation-presets';
 import type { WidgetDefinition, WidgetInspectorPanelKey, WidgetInspectorTabSpec } from './widget-definition';
 import { resolveInspectorSectionVisibility, resolveInspectorTabs } from './widget-definition';
 import { WidgetFieldInspectorSection } from './widget-field-inspector';
@@ -61,9 +63,29 @@ export function getWidgetInspectorTabs(definition: WidgetDefinition, widget?: Wi
   return resolveInspectorTabs(definition)
     .map((tab) => ({
       ...tab,
-      panels: tab.panels.filter((panelKey) => isPanelVisible(definition, panelKey, widget, state)),
+      panels: injectMotionPanel(
+        tab,
+        widget,
+        tab.panels.filter((panelKey) => isPanelVisible(definition, panelKey, widget, state)),
+      ),
     }))
     .filter((tab) => tab.panels.length > 0);
+}
+
+function injectMotionPanel(
+  tab: WidgetInspectorTabSpec,
+  widget: WidgetNode | undefined,
+  panels: WidgetInspectorPanelKey[],
+): WidgetInspectorPanelKey[] {
+  if (tab.id !== 'behavior' || !widget) return panels;
+  const shouldShowMotion = supportsAnimationPresets(widget) || supportsHoverPresets(widget);
+  if (!shouldShowMotion || panels.includes('motion')) return panels;
+  const statesIndex = panels.indexOf('states');
+  const keyframesIndex = panels.indexOf('keyframes');
+  const insertionIndex = statesIndex >= 0 ? statesIndex : keyframesIndex >= 0 ? keyframesIndex : panels.length;
+  const nextPanels = panels.slice();
+  nextPanels.splice(insertionIndex, 0, 'motion');
+  return nextPanels;
 }
 
 export function getWidgetBehaviorPanelCount(definition: WidgetDefinition, widget?: WidgetNode, state?: StudioState): number {
@@ -90,6 +112,8 @@ export function getWidgetInspectorPanelMeta(key: WidgetInspectorPanelKey): Widge
       return { title: 'Conditions', subtitle: 'Rules that control when this widget reacts' };
     case 'actions':
       return { title: 'Actions', subtitle: 'Interaction handlers and linked behaviors' };
+    case 'motion':
+      return { title: 'Motion', subtitle: 'Template-driven entrance, loop and hover animation' };
     case 'states':
       return { title: 'States', subtitle: 'State variants and interaction-driven presentation' };
     case 'keyframes':
@@ -131,6 +155,8 @@ export function renderWidgetInspectorPanel(key: WidgetInspectorPanelKey, context
       return <ConditionsSection widget={widget} />;
     case 'actions':
       return <ActionsSection widget={widget} actions={actions} />;
+    case 'motion':
+      return <MotionSection widget={widget} />;
     case 'states':
       return <StatesSection widget={widget} />;
     case 'keyframes':

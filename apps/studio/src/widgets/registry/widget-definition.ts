@@ -26,6 +26,7 @@ export type WidgetInspectorPanelKey =
   | 'timing'
   | 'conditions'
   | 'actions'
+  | 'motion'
   | 'states'
   | 'keyframes'
   | 'data-bindings'

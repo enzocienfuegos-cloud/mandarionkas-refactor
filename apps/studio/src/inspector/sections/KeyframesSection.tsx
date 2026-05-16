@@ -1,13 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { useTimelineActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { useTimelineActions } from '../../hooks/use-studio-actions';
 import type { WidgetNode } from '../../domain/document/types';
 import { Button } from '../../shared/ui/Button';
 import { Tile } from '../../shared/ui/Tile';
-import { MotionConfigFields } from '../../motion/react/MotionConfigFields';
-import { MotionTemplateGallery } from '../../motion/react/MotionTemplateGallery';
 import { KEYFRAME_PROPERTIES } from './widget-inspector-shared';
-import { applyAnimationPreset, getAnimationPresetConfig, getAvailableAnimationTemplates, stripPresetManagedKeyframes, supportsAnimationPresets, type SupportedAnimationPreset } from './animation-presets';
-import { buildLegacyMotionStylePatch, buildWidgetMotion } from '../../motion/motion-model';
+import { getAnimationPresetConfig, stripPresetManagedKeyframes } from './animation-presets';
 
 export function KeyframesSection({
   widget,
@@ -19,40 +16,11 @@ export function KeyframesSection({
   focusedKeyframeId?: string;
 }): JSX.Element {
   const { addKeyframe, setPlayhead, setWidgetKeyframes, removeKeyframe, updateKeyframe } = useTimelineActions();
-  const { updateWidgetMotion, updateWidgetStyle } = useWidgetActions();
   const animationConfig = getAnimationPresetConfig(widget);
   const activePreset = animationConfig.preset;
   const keyframes = widget.timeline.keyframes ?? [];
   const visibleKeyframes = activePreset ? stripPresetManagedKeyframes(keyframes) : keyframes;
   const focusedKeyframeRef = useRef<HTMLDivElement | null>(null);
-  const templates = getAvailableAnimationTemplates(widget);
-
-  const handleApplyPreset = (preset: SupportedAnimationPreset) => {
-    const { keyframes: nextKeyframes, stylePatch, motion } = applyAnimationPreset(widget, preset);
-    setWidgetKeyframes(widget.id, nextKeyframes);
-    updateWidgetMotion(widget.id, motion);
-    updateWidgetStyle(widget.id, stylePatch);
-  };
-
-  const handleAnimationConfigChange = (patch: Record<string, unknown>) => {
-    if (!activePreset) return;
-    const nextMotion = buildWidgetMotion(activePreset, {
-      ...(widget.motion?.config ?? {}),
-      ...(patch as Record<string, number | string>),
-    });
-    updateWidgetMotion(widget.id, nextMotion);
-    updateWidgetStyle(widget.id, buildLegacyMotionStylePatch(nextMotion));
-  };
-
-  const handlePresetSelection = (value: string | null) => {
-    if (templates.some((template) => template.id === value)) {
-      handleApplyPreset(value as SupportedAnimationPreset);
-      return;
-    }
-    setWidgetKeyframes(widget.id, stripPresetManagedKeyframes(widget.timeline.keyframes ?? []));
-    updateWidgetMotion(widget.id, undefined);
-    updateWidgetStyle(widget.id, buildLegacyMotionStylePatch(undefined));
-  };
 
   useEffect(() => {
     if (!focusedKeyframeId || !focusedKeyframeRef.current) return;
@@ -63,32 +31,6 @@ export function KeyframesSection({
     <section className="section section-premium">
       <h3>Keyframes</h3>
       <div className="field-stack">
-        {supportsAnimationPresets(widget) ? (
-          <Tile>
-            <div className="meta-line">
-              <span className="pill">Motion template</span>
-              {activePreset ? <span className="pill">Active {activePreset}</span> : <span className="pill">No template</span>}
-            </div>
-            <small className="muted">Choose one motion template per widget. Entrance and loop motion now live in a dedicated slot instead of fabricating extra timeline tracks.</small>
-            <MotionTemplateGallery
-              templates={templates}
-              selectedTemplateId={activePreset || null}
-              configByTemplateId={activePreset ? { [activePreset]: widget.motion?.config ?? {} } : undefined}
-              onSelect={handlePresetSelection}
-            />
-            {activePreset && widget.motion && templates.some((template) => template.id === activePreset) ? (
-              <MotionConfigFields
-                template={templates.find((template) => template.id === activePreset)!}
-                config={widget.motion.config}
-                onChange={handleAnimationConfigChange}
-              />
-            ) : null}
-            <div className="inline-actions">
-              <Button size="sm" onClick={() => handleApplyPreset((activePreset || 'appear') as SupportedAnimationPreset)}>{activePreset ? 'Re-apply template' : 'Apply template'}</Button>
-              <Button size="sm" variant="ghost" onClick={() => handlePresetSelection('')}>Clear template</Button>
-            </div>
-          </Tile>
-        ) : null}
         <Tile>
           <div className="meta-line">
             <span className="pill">Playhead {playheadMs}ms</span>
@@ -97,7 +39,7 @@ export function KeyframesSection({
           </div>
           <small className="muted">
             {activePreset
-              ? 'This widget is using a single restricted animation template. Switch the preset to Custom / none if you want to edit manual keyframes.'
+              ? 'This widget is using a motion template. Manual keyframes here stay focused on timeline-driven properties rather than preset motion.'
               : 'The timeline is now the primary animation surface. Use the row-level keyframe pills below to jump around, and use this panel to fine-tune exact values.'}
           </small>
         </Tile>
