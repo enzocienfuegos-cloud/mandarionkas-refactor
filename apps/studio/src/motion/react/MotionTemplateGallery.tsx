@@ -31,11 +31,16 @@ function MotionGalleryTile({
   });
 
   return (
-    <button type="button" ref={ref} className={`motion-gallery-tile ${selected ? 'is-selected' : ''}`} onClick={onClick}>
+    <button
+      type="button"
+      ref={ref}
+      className={`motion-gallery-tile ${selected ? 'is-selected' : ''}`}
+      onClick={onClick}
+      title={template.description ?? template.label}
+    >
       <div className="motion-gallery-tile__preview">{template.thumbnail(config)}</div>
       <div className="motion-gallery-tile__meta">
         <strong>{template.label}</strong>
-        {template.description ? <small>{template.description}</small> : null}
       </div>
     </button>
   );

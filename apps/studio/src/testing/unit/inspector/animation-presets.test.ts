@@ -23,7 +23,7 @@ describe('animation presets', () => {
     expect(supportsAnimationPresets(createWidget('image'))).toBe(true);
     expect(supportsAnimationPresets(createWidget('cta'))).toBe(true);
     expect(supportsAnimationPresets(createWidget('buttons'))).toBe(true);
-    expect(supportsAnimationPresets(createWidget('group'))).toBe(true);
+    expect(supportsAnimationPresets(createWidget('group'))).toBe(false);
     expect(supportsAnimationPresets(createWidget('scratch-reveal'))).toBe(false);
   });
 

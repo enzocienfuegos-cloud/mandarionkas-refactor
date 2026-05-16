@@ -286,51 +286,67 @@
 }
 .motion-gallery-grid {
   display: grid;
-  gap: var(--space-4);
-  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 }
 .motion-gallery-tile {
-  display: grid;
-  gap: var(--space-3);
-  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 8px;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-xl);
   background: linear-gradient(180deg, var(--bg-overlay-low), var(--bg-overlay));
-  text-align: left;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--motion-duration-fast) var(--motion-ease-out),
+    box-shadow var(--motion-duration-fast) var(--motion-ease-out);
+}
+.motion-gallery-tile:hover {
+  border-color: var(--border-strong);
 }
 .motion-gallery-tile.is-selected {
   border-color: var(--accent-a-55);
   box-shadow: 0 0 0 1px var(--accent-a-35) inset;
 }
 .motion-gallery-tile__preview {
-  min-height: 88px;
+  height: 64px;
   overflow: hidden;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-xl);
   background:
     radial-gradient(circle at top, var(--accent-a-10), transparent 58%),
     linear-gradient(180deg, var(--bg-canvas), var(--bg-overlay-low));
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-lg);
 }
 .motion-gallery-tile__meta {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 18px;
+}
+.motion-gallery-tile__meta strong {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  line-height: 1;
 }
 .motion-gallery-tile__meta small {
-  color: var(--text-secondary);
-  line-height: 1.35;
+  display: none;
 }
 .motion-thumbnail-shell {
   display: grid;
   place-items: center;
   width: 100%;
-  min-height: 88px;
+  height: 64px;
 }
 .motion-thumbnail-node {
   display: grid;
   place-items: center;
-  min-width: 68px;
-  min-height: 68px;
-  padding: 12px;
+  min-width: 52px;
+  min-height: 52px;
+  padding: 10px;
   border-radius: var(--radius-2xl);
   background: linear-gradient(135deg, var(--accent-a-35), var(--accent-a-12));
   color: var(--text-primary);
@@ -338,4 +354,12 @@
   font-weight: 700;
   text-align: center;
   box-shadow: 0 12px 24px var(--black-a-18);
+}
+.motion-config-fields-wrap {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border-soft);
+}
+.motion-config-fields-wrap .fields-grid {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 }

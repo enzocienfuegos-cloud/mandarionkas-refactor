@@ -65,16 +65,21 @@ export function MotionSection({ widget }: { widget: WidgetNode }): JSX.Element |
               emptyLabel="No motion template"
             />
             {activeEntranceTemplate && widget.motion ? (
-              <MotionConfigFields
-                template={activeEntranceTemplate}
-                config={widget.motion.config}
-                onChange={(patch) => {
-                  const nextMotion = buildWidgetMotion(activeEntranceTemplate.id, { ...widget.motion?.config, ...patch });
-                  setWidgetKeyframes(widget.id, rebuildWidgetMotionKeyframes(widget, nextMotion, widget.timeline.keyframes ?? []));
-                  updateWidgetMotion(widget.id, nextMotion);
-                  updateWidgetStyle(widget.id, buildLegacyMotionStylePatch(nextMotion));
-                }}
-              />
+              <div className="motion-config-fields-wrap">
+                <div className="meta-line">
+                  <span className="pill pill-strong">Configure {activeEntranceTemplate.label}</span>
+                </div>
+                <MotionConfigFields
+                  template={activeEntranceTemplate}
+                  config={widget.motion.config}
+                  onChange={(patch) => {
+                    const nextMotion = buildWidgetMotion(activeEntranceTemplate.id, { ...widget.motion?.config, ...patch });
+                    setWidgetKeyframes(widget.id, rebuildWidgetMotionKeyframes(widget, nextMotion, widget.timeline.keyframes ?? []));
+                    updateWidgetMotion(widget.id, nextMotion);
+                    updateWidgetStyle(widget.id, buildLegacyMotionStylePatch(nextMotion));
+                  }}
+                />
+              </div>
             ) : null}
           </Tile>
         ) : null}
@@ -98,15 +103,20 @@ export function MotionSection({ widget }: { widget: WidgetNode }): JSX.Element |
               emptyLabel="No hover motion"
             />
             {activeHoverTemplate && widget.hoverMotion ? (
-              <MotionConfigFields
-                template={activeHoverTemplate}
-                config={widget.hoverMotion.config}
-                onChange={(patch) => {
-                  const nextHoverMotion = buildWidgetHoverMotion(activeHoverTemplate.id, { ...widget.hoverMotion?.config, ...patch });
-                  updateWidgetHoverMotion(widget.id, nextHoverMotion);
-                  updateWidgetStyle(widget.id, buildLegacyHoverMotionStylePatch(nextHoverMotion));
-                }}
-              />
+              <div className="motion-config-fields-wrap">
+                <div className="meta-line">
+                  <span className="pill pill-strong">Configure {activeHoverTemplate.label}</span>
+                </div>
+                <MotionConfigFields
+                  template={activeHoverTemplate}
+                  config={widget.hoverMotion.config}
+                  onChange={(patch) => {
+                    const nextHoverMotion = buildWidgetHoverMotion(activeHoverTemplate.id, { ...widget.hoverMotion?.config, ...patch });
+                    updateWidgetHoverMotion(widget.id, nextHoverMotion);
+                    updateWidgetStyle(widget.id, buildLegacyHoverMotionStylePatch(nextHoverMotion));
+                  }}
+                />
+              </div>
             ) : null}
           </Tile>
         ) : null}

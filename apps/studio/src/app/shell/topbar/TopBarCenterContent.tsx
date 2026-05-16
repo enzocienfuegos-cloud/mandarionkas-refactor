@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { SegmentedControl } from '../../../shared/ui/SegmentedControl';
+import { Button } from '../../../shared/ui/Button';
 import { IconButton } from '../../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { useToast } from '../../../shared/ui/ToastProvider';
@@ -110,13 +111,22 @@ export function TopBarCenterContent({
             uiActions.setPreviewMode(false);
             return;
           }
-          setPreviewLauncherOpen(true);
+          uiActions.setPreviewMode(true);
         }}
         options={[
           { id: 'edit', label: 'Edit' },
           { id: 'preview', label: 'Preview' },
         ]}
       />
+
+      <Button
+        variant="ghost"
+        size="sm"
+        iconBefore={<StudioIcon icon={StudioIcons.externalLink} size={14} />}
+        onClick={() => setPreviewLauncherOpen(true)}
+      >
+        Share for review
+      </Button>
 
       <div className="top-zoom-control top-center-collapsible">
         <IconButton
@@ -188,13 +198,8 @@ export function TopBarCenterContent({
         <PreviewLaunchModal
           previewUrl={previewUrl}
           onClose={() => setPreviewLauncherOpen(false)}
-          onOpenCanvasPreview={() => {
-            uiActions.setPreviewMode(true);
-            setPreviewLauncherOpen(false);
-          }}
           onOpenClientPreview={() => {
             const nextPreviewUrl = prepareClientPreviewLink();
-            uiActions.setPreviewMode(true);
             setPreviewLauncherOpen(false);
             window.open(nextPreviewUrl, '_blank', 'noopener,noreferrer');
           }}

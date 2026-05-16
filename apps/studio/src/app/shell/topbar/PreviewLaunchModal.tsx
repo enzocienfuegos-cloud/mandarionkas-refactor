@@ -16,13 +16,11 @@ function getFocusableElements(container: HTMLElement | null): HTMLElement[] {
 export function PreviewLaunchModal({
   previewUrl,
   onClose,
-  onOpenCanvasPreview,
   onOpenClientPreview,
   onCopyClientPreviewLink,
 }: {
   previewUrl: string;
   onClose(): void;
-  onOpenCanvasPreview(): void;
   onOpenClientPreview(): void;
   onCopyClientPreviewLink(): void;
 }): JSX.Element {
@@ -82,9 +80,9 @@ export function PreviewLaunchModal({
       <div ref={cardRef} className="preview-launch-modal-card" onClick={(event) => event.stopPropagation()}>
         <div className="preview-launch-modal-header">
           <div className="preview-launch-modal-copy">
-            <span className="preview-launch-modal-eyebrow">Preview flow</span>
-            <h2 id="preview-launch-modal-title">Review this creative</h2>
-            <p>Open the in-editor canvas preview or launch the public client review experience in a new tab.</p>
+            <span className="preview-launch-modal-eyebrow">Share for review</span>
+            <h2 id="preview-launch-modal-title">Public preview link</h2>
+            <p>Open the standalone client review view in a new tab, or copy the link to share via email or chat.</p>
           </div>
           <IconButton
             variant="ghost"
@@ -95,44 +93,23 @@ export function PreviewLaunchModal({
           />
         </div>
 
-        <div className="preview-launch-modal-grid">
-          <section className="preview-launch-modal-panel">
-            <span className="preview-launch-modal-panel__label">Inside Studio</span>
-            <strong>Canvas preview</strong>
-            <p>Stay in the editor, hide editing chrome, and play the current scene in place.</p>
-            <Button
-              variant="secondary"
-              size="lg"
-              iconBefore={<StudioIcon icon={StudioIcons.play} size={14} />}
-              onClick={onOpenCanvasPreview}
-            >
-              Open canvas preview
-            </Button>
-          </section>
-
-          <section className="preview-launch-modal-panel preview-launch-modal-panel--accent">
-            <span className="preview-launch-modal-panel__label">For client review</span>
-            <strong>Public preview</strong>
-            <p>Open the standalone review view with comments, scene navigation, and the white MandaRion header.</p>
-            <div className="preview-launch-modal-actions">
-              <Button
-                variant="primary"
-                size="lg"
-                iconBefore={<StudioIcon icon={StudioIcons.externalLink} size={14} />}
-                onClick={onOpenClientPreview}
-              >
-                Open public preview
-              </Button>
-              <Button
-                variant="ghost"
-                size="lg"
-                iconBefore={<StudioIcon icon={StudioIcons.copy} size={14} />}
-                onClick={onCopyClientPreviewLink}
-              >
-                Copy link
-              </Button>
-            </div>
-          </section>
+        <div className="preview-launch-modal-actions">
+          <Button
+            variant="primary"
+            size="lg"
+            iconBefore={<StudioIcon icon={StudioIcons.externalLink} size={14} />}
+            onClick={onOpenClientPreview}
+          >
+            Open public preview
+          </Button>
+          <Button
+            variant="ghost"
+            size="lg"
+            iconBefore={<StudioIcon icon={StudioIcons.copy} size={14} />}
+            onClick={onCopyClientPreviewLink}
+          >
+            Copy link
+          </Button>
         </div>
 
         <div className="preview-launch-modal-link">
@@ -156,6 +133,10 @@ export function PreviewLaunchModal({
               Select
             </Button>
           </div>
+        </div>
+
+        <div className="preview-launch-modal-hint">
+          <small>To preview inline while editing, use the Play button on the timeline below.</small>
         </div>
       </div>
     </div>,

@@ -92,6 +92,42 @@ describe('normalizeStudioState', () => {
   it('uses explicit widget capability flags for motion support', () => {
     expect(widgetSupportsMotion({ type: 'text' })).toBe(true);
     expect(widgetSupportsHoverMotion({ type: 'buttons' })).toBe(true);
+    expect(widgetSupportsMotion({ type: 'group' })).toBe(false);
     expect(widgetSupportsMotion({ type: 'scratch-reveal' })).toBe(false);
+  });
+
+  it('strips motion from group widgets because groups do not support motion', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0]?.id ?? 'scene_1';
+
+    state.document.widgets.group_1 = {
+      id: 'group_1',
+      type: 'group',
+      name: 'Group',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 24, y: 32, width: 240, height: 140, rotation: 0 },
+      props: { title: 'Group' },
+      style: { animationPreset: 'fade-up', animationDurationMs: 700, animationDistancePx: 24 },
+      motion: {
+        templateId: 'fade-up',
+        config: { durationMs: 700, delayMs: 0, distancePx: 24, intensity: 0.55, repeatMode: 'once' },
+      },
+      timeline: {
+        startMs: 0,
+        endMs: 15000,
+        keyframes: [
+          { id: 'kf_1', property: 'opacity', atMs: 0, value: 0, easing: 'linear', managedBy: 'motion:fade-up' },
+          { id: 'kf_2', property: 'y', atMs: 700, value: 56, easing: 'ease-out', managedBy: 'motion:fade-up' },
+        ],
+      },
+      childIds: [],
+    };
+
+    const normalized = normalizeStudioState(state);
+    const group = normalized.document.widgets.group_1;
+
+    expect(group?.motion).toBeUndefined();
+    expect((group?.timeline.keyframes ?? []).filter((keyframe) => keyframe.managedBy?.startsWith('motion:'))).toHaveLength(0);
   });
 });

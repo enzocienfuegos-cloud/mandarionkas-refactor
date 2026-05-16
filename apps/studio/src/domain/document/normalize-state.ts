@@ -2,6 +2,7 @@ import { createInitialState } from './factories';
 import { createCanvasVariantFromCanvas, ensureSingleMasterVariant, syncDocumentCanvasToVariant } from './canvas-variants';
 import type { FeedCatalog, StudioState, WidgetHoverMotion, WidgetMotion, WidgetNode } from './types';
 import { buildWidgetHoverMotion, buildWidgetMotion } from '../../motion/motion-model';
+import { widgetSupportsMotion } from '../../motion/motion-widget-compatibility';
 import { rebuildWidgetMotionKeyframes } from '../../motion/motion-template-keyframes';
 
 function normalizeFeeds(feeds: StudioState['document']['feeds'] | undefined): FeedCatalog {
@@ -15,6 +16,7 @@ function normalizeFeeds(feeds: StudioState['document']['feeds'] | undefined): Fe
 }
 
 function resolveNormalizedMotion(widget: WidgetNode): WidgetMotion | undefined {
+  if (!widgetSupportsMotion(widget)) return undefined;
   if (widget.motion?.templateId) {
     return buildWidgetMotion(widget.motion.templateId, widget.motion.config);
   }

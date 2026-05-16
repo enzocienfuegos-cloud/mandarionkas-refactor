@@ -41,8 +41,8 @@ export const groupDefinition: WidgetDefinition = {
   inspectorTitle: 'Group settings',
   renderInspector: (widget) => createElement(GroupInspector, { widget }),
   capabilities: {
-    supportsMotion: true,
-    supportsHoverMotion: true,
+    supportsMotion: false,
+    supportsHoverMotion: false,
     hasAccentColor: true,
     exposesActions: true,
     isContainer: true,
