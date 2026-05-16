@@ -14,6 +14,12 @@ type MotionLayerProps = HTMLAttributes<HTMLDivElement> & {
   style?: CSSProperties;
 };
 
+const MOTION_TARGET_STYLE: CSSProperties = {
+  width: '100%',
+  height: '100%',
+  willChange: 'transform, opacity',
+};
+
 export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function MotionLayer(
   {
     widget,
@@ -30,13 +36,18 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
 ): JSX.Element {
   const innerRef = useRef<HTMLDivElement | null>(null);
   const motion = resolveWidgetMotion(widget);
-  const baseTransform = useMemo(() => `rotate(${widget.frame.rotation}deg)`, [widget.frame.rotation]);
+  const baseTransform = useMemo(() => '', []);
   const playbackMode: 'free' | 'scrub' | 'idle' = previewMode
     ? (isPlaying ? 'free' : 'scrub')
     : (selected ? 'free' : 'idle');
   const scrubTimeMs = playbackMode === 'scrub'
     ? resolveWidgetMotionCurrentTime(widget, playheadMs)
     : null;
+  const outerStyle = useMemo(() => {
+    if (!style || !motion) return style;
+    const { opacity: _opacity, ...rest } = style;
+    return rest;
+  }, [motion, style]);
 
   useMotionPreview({
     ref: innerRef,
@@ -51,15 +62,12 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
   return (
     <div
       {...props}
-      ref={(node) => {
-        innerRef.current = node;
-        if (!forwardedRef) return;
-        if (typeof forwardedRef === 'function') forwardedRef(node);
-        else forwardedRef.current = node;
-      }}
-      style={style}
+      ref={forwardedRef}
+      style={outerStyle}
     >
-      {children}
+      <div ref={innerRef} style={MOTION_TARGET_STYLE}>
+        {children}
+      </div>
     </div>
   );
 });
