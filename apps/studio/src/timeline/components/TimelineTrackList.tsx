@@ -4,6 +4,7 @@ import { useVirtualWindow, useVirtualWindowPadding } from '../../shared/hooks/us
 import { TimelineEmptyState } from './TimelineEmptyState';
 import { TimelineTrackRow } from './TimelineTrackRow';
 import type { TimelineDragState, TimelineDisplayRow } from '../types';
+import type { KeyframeProperty } from '../../domain/document/types';
 
 export function TimelineTrackList({
   scrollContainerRef,
@@ -23,6 +24,9 @@ export function TimelineTrackList({
   onToggleGroupCollapse,
   onDragStart,
   onScrubStart,
+  onAddKeyframe,
+  onJumpToMs,
+  availableKeyframeProperties,
 }: {
   scrollContainerRef: RefObject<HTMLDivElement>;
   displayedWidgets: TimelineDisplayRow[];
@@ -41,6 +45,9 @@ export function TimelineTrackList({
   onToggleGroupCollapse: (widgetId: string) => void;
   onDragStart: (drag: Exclude<TimelineDragState, null>) => void;
   onScrubStart: (clientX: number, startMs?: number) => void;
+  onAddKeyframe: (widgetId: string, property: KeyframeProperty) => void;
+  onJumpToMs: (ms: number) => void;
+  availableKeyframeProperties: KeyframeProperty[];
 }): JSX.Element {
   const rowsRef = useRef<HTMLDivElement>(null);
   const virtualRows = useVirtualWindow(displayedWidgets, {
@@ -84,6 +91,9 @@ export function TimelineTrackList({
             onToggleGroupCollapse={row.isGroup ? onToggleGroupCollapse : undefined}
             onDragStart={onDragStart}
             onScrubStart={onScrubStart}
+            onAddKeyframe={onAddKeyframe}
+            onJumpToMs={onJumpToMs}
+            availableKeyframeProperties={availableKeyframeProperties}
           />
         );
       })}

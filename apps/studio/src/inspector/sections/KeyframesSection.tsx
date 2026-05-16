@@ -36,8 +36,14 @@ export function KeyframesSection({ widget, playheadMs }: { widget: WidgetNode; p
             </div>
           </Tile>
         ) : null}
-        <div className="meta-line"><span className="pill">Playhead {playheadMs}ms</span><span className="pill">Tracks {new Set(keyframes.map((item) => item.property)).size}</span><span className="pill">Total {keyframes.length}</span></div>
-        <small className="muted">Easing and markers are now isolated in their own section component, which makes the inspector panel much easier to evolve.</small>
+        <Tile>
+          <div className="meta-line">
+            <span className="pill">Playhead {playheadMs}ms</span>
+            <span className="pill">Tracks {new Set(keyframes.map((item) => item.property)).size}</span>
+            <span className="pill">Total {keyframes.length}</span>
+          </div>
+          <small className="muted">The timeline is now the primary animation surface. Use the row-level keyframe pills below to jump around, and use this panel to fine-tune exact values.</small>
+        </Tile>
         <div className="inline-actions">
           {KEYFRAME_PROPERTIES.map((property) => (
             <Button key={property} size="sm" onClick={() => addKeyframe(widget.id, property, playheadMs)}>+ {property}</Button>

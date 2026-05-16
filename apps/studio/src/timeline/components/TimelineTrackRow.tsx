@@ -5,6 +5,7 @@ import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { TimelineRowNameEditor } from './TimelineRowNameEditor';
 import { clamp, formatTime } from '../timeline-utils';
 import type { TimelineDragState, TimelineDisplayRow } from '../types';
+import type { KeyframeProperty } from '../../domain/document/types';
 
 function buildTimelineKeyframeStyle(left: number): CSSProperties {
   return { '--timeline-keyframe-left': `${left}px` } as CSSProperties;
@@ -26,6 +27,9 @@ function TimelineTrackRowComponent({
   onToggleGroupCollapse,
   onDragStart,
   onScrubStart,
+  onAddKeyframe,
+  onJumpToMs,
+  availableKeyframeProperties,
 }: {
   row: TimelineDisplayRow;
   layerIndex: number;
@@ -42,6 +46,9 @@ function TimelineTrackRowComponent({
   onToggleGroupCollapse?: (widgetId: string) => void;
   onDragStart: (drag: Exclude<TimelineDragState, null>) => void;
   onScrubStart: (clientX: number, startMs?: number) => void;
+  onAddKeyframe: (widgetId: string, property: KeyframeProperty) => void;
+  onJumpToMs: (ms: number) => void;
+  availableKeyframeProperties: KeyframeProperty[];
 }): JSX.Element {
   const { widget, timing, keyframes, depth, isGroup, childCount, isCollapsed } = row;
   const definition = getWidgetDefinition(widget.type);
@@ -56,6 +63,14 @@ function TimelineTrackRowComponent({
     '--timeline-bar-width': `${barWidth}px`,
     '--timeline-group-badge-left': `${barLeft + Math.min(barWidth + 10, 140)}px`,
   } as CSSProperties;
+  const keyframesByProperty = keyframes.reduce<Record<string, number>>((acc, keyframe) => {
+    acc[keyframe.property] = (acc[keyframe.property] ?? 0) + 1;
+    return acc;
+  }, {});
+  const firstKeyframeByProperty = keyframes.reduce<Record<string, number>>((acc, keyframe) => {
+    acc[keyframe.property] = acc[keyframe.property] === undefined ? keyframe.atMs : Math.min(acc[keyframe.property], keyframe.atMs);
+    return acc;
+  }, {});
 
   function scrubFromTrack(trackElement: HTMLDivElement, clientX: number): void {
     const bounds = trackElement.getBoundingClientRect();
@@ -158,6 +173,38 @@ function TimelineTrackRowComponent({
             <div className="timeline-row-badges">
               <span className="timeline-row-badge">Start {formatTime(timing.startMs)}</span>
               <span className="timeline-row-badge">Length {formatTime(durationMs)}</span>
+              {keyframes.length ? <span className="timeline-row-badge">Keys {keyframes.length}</span> : null}
+            </div>
+            <div className="timeline-row-keyframes">
+              {keyframes.length ? (
+                Object.entries(keyframesByProperty).map(([property, count]) => (
+                  <button
+                    key={property}
+                    type="button"
+                    className={`timeline-keyframe-pill property-${property}`.trim()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onJumpToMs(firstKeyframeByProperty[property] ?? 0);
+                    }}
+                  >
+                    {property} {count}
+                  </button>
+                ))
+              ) : (
+                <span className="timeline-row-keyframes__empty">No keyframes yet</span>
+              )}
+              <div className="timeline-keyframe-quick-actions" onClick={(event) => event.stopPropagation()}>
+                {availableKeyframeProperties.map((property) => (
+                  <button
+                    key={property}
+                    type="button"
+                    className="timeline-keyframe-add"
+                    onClick={() => onAddKeyframe(widget.id, property)}
+                  >
+                    + {property}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

@@ -15,6 +15,7 @@ import { useTimelinePlayhead } from './use-timeline-playhead';
 import { useTimelineZoom } from './use-timeline-zoom';
 import { getCapability } from '../widgets/registry/widget-definition';
 import { getWidgetDefinition } from '../widgets/registry/widget-registry';
+import { KEYFRAME_PROPERTIES } from '../inspector/sections/widget-inspector-shared';
 
 type StickySnapDrag = Exclude<Exclude<TimelineDragState, null>, { mode: 'playhead' }>;
 
@@ -346,6 +347,18 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
     setDragState({ mode: 'playhead', originX: clientX, startMs });
   }
 
+  function toggleTimelinePlayback(): void {
+    uiActions.setPreviewMode(true);
+    if (isPlaying) {
+      timelineActions.setPlaying(false);
+      return;
+    }
+    if (playheadRef.current >= scene.durationMs) {
+      seekPlayheadImmediate(0);
+    }
+    timelineActions.setPlaying(true);
+  }
+
   return (
     <section className={`bottom-timeline ${isPlaying ? 'is-playing' : ''} ${drag ? 'is-pointer-dragging' : ''} ${drag?.mode === 'trim-start' || drag?.mode === 'trim-end' ? 'is-trimming' : ''}`.trim()}>
       <TimelineHeader
@@ -364,11 +377,8 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
         timelineZoom={timelineZoom}
         onResizeStart={onResizeStart}
         onToggleCollapse={onToggleCollapse}
-        onTogglePlay={() => {
-          uiActions.setPreviewMode(true);
-          timelineActions.setPlaying(!isPlaying);
-        }}
-        onResetPlayhead={() => timelineActions.setPlayhead(0)}
+        onTogglePlay={toggleTimelinePlayback}
+        onResetPlayhead={() => seekPlayheadImmediate(0)}
         onPreviousScene={() => sceneActions.previousScene()}
         onNextScene={() => sceneActions.nextScene()}
         onSelectScene={(sceneId) => sceneActions.selectScene(sceneId)}
@@ -422,6 +432,9 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
             onToggleGroupCollapse={(widgetId) => setCollapsedGroupIds((current) => current.includes(widgetId) ? current.filter((id) => id !== widgetId) : [...current, widgetId])}
             onDragStart={(nextDrag) => setDragState(nextDrag)}
             onScrubStart={beginPlayheadDrag}
+            onAddKeyframe={(widgetId, property) => timelineActions.addKeyframe(widgetId, property, playheadRef.current)}
+            onJumpToMs={seekPlayheadImmediate}
+            availableKeyframeProperties={KEYFRAME_PROPERTIES}
           />
         </div>
       </div>
