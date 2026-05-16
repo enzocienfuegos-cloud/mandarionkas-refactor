@@ -46,6 +46,15 @@ const scratchPointerLayerStyle: CSSProperties = {
   userSelect: 'none',
 };
 
+const scratchMaskCanvasStyle: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  width: '100%',
+  height: '100%',
+  opacity: 0,
+  pointerEvents: 'none',
+};
+
 const coverCompositionStyle: CSSProperties = {
   position: 'absolute',
   inset: 0,
@@ -241,6 +250,14 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   }, [node.frame.width, node.frame.height, ctx.previewMode]);
 
   useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(() => resetScratchMask());
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, [ctx.previewMode, node.id]);
+
+  useEffect(() => {
     const enteredPreview = ctx.previewMode && !previousPreviewModeRef.current;
     const rewoundToStart = ctx.previewMode && ctx.playheadMs === 0 && previousPlayheadRef.current > 0;
     previousPreviewModeRef.current = ctx.previewMode;
@@ -266,7 +283,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
 
   return (
     <div ref={shellRef} style={scratchShellStyle}>
-      <canvas ref={maskCanvasRef} style={{ display: 'none' }} aria-hidden="true" />
+      <canvas ref={maskCanvasRef} style={scratchMaskCanvasStyle} aria-hidden="true" />
       {!scratchCompleted && maskUrl ? (
         <div style={buildScratchMaskStyle(maskUrl, coverBlur)}>
           <GroupScratchCoverChildren node={node} ctx={ctx} />

@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { buildResolvedWidgetsById } from '../domain/document/canvas-variants';
 import { listAssets } from '../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../repositories/asset/events';
 import { usePlatformSnapshot } from '../platform/runtime';
@@ -7,7 +8,7 @@ import { buildFontAssetCss, buildFontFaceCss } from './font-family';
 
 export function FontAssetRuntime(): JSX.Element | null {
   const platform = usePlatformSnapshot();
-  const linkedFonts = useStudioStore((state) => Object.values(state.document.widgets)
+  const linkedFonts = useStudioStore((state) => Object.values(buildResolvedWidgetsById(state.document))
     .map((widget) => {
       const family = String(widget.style.fontFamily ?? '').trim();
       const src = String(widget.props.fontAssetSrc ?? '').trim();
