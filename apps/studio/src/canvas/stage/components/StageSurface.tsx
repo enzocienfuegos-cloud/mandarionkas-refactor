@@ -2,7 +2,7 @@ import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import type { CSSProperties } from 'react';
 import { getLiveWidgetFrame, getLiveWidgetOpacity } from '../../../domain/document/timeline';
 import type { WidgetFrame, WidgetNode } from '../../../domain/document/types';
-import { getAnimationPresetConfig, getAnimationPresetPreviewState } from '../../../inspector/sections/animation-presets';
+import { getAnimationPresetConfig } from '../../../inspector/sections/animation-presets';
 import type { ResizeHandle } from '../use-stage-controller';
 import { StageWidget } from './StageWidget';
 import { StageDropPreviewOverlay } from './StageDropPreviewOverlay';
@@ -165,12 +165,9 @@ export function StageSurface({
         const selectedInEditor = !previewMode && selectedIds.includes(widget.id);
         const animationTemplateConfig = resolveTemplateConfig(widget);
         const animationTemplateActive = selectedInEditor && Boolean(animationTemplateConfig);
-        const previewAnimationState = previewMode && animationTemplateConfig ? getAnimationPresetPreviewState(widget, playheadMs) : null;
         const liveFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
         const frame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
           ? resolveScratchGroupFrame(widget)
-          : previewAnimationState
-            ? previewAnimationState.frame
           : animationTemplateActive
             ? {
                 ...liveFrame,
@@ -182,8 +179,8 @@ export function StageSurface({
         const renderNode = frame === widget.frame ? widget : { ...widget, frame };
         const opacity = animationTemplateActive
           ? Number(widget.style.opacity ?? 1)
-          : previewAnimationState
-            ? previewAnimationState.opacity
+          : previewMode && animationTemplateConfig
+            ? Number(widget.style.opacity ?? 1)
           : getLiveWidgetOpacity(renderNode, playheadMs);
 
         return (

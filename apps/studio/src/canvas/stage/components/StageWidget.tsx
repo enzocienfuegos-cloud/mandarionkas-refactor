@@ -71,7 +71,7 @@ export const StageWidget = memo(function StageWidget({
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root || previewMode || !selected || useWireframe || typeof root.animate !== 'function') return;
+    if (!root || useWireframe || typeof root.animate !== 'function') return;
     const config = getAnimationPresetConfig(node);
     if (!config.preset) return;
 
@@ -108,6 +108,35 @@ export const StageWidget = memo(function StageWidget({
 
     const duration = Math.max(300, Number(config.durationMs || 700));
     const idlePaddingMs = config.preset === 'pulse' ? 220 : 420;
+    if (previewMode) {
+      const animation = root.animate(keyframes, {
+        duration,
+        delay: Math.max(0, Number(config.delayMs || 0)),
+        easing: config.preset === 'pulse' ? 'ease-in-out' : 'ease-out',
+        iterations: config.repeatMode === 'repeat' ? Number.POSITIVE_INFINITY : 1,
+        fill: 'both',
+      });
+      animation.pause();
+
+      const startMs = Math.max(0, Number(node.timeline.startMs ?? 0));
+      const endMs = Math.max(startMs + 100, Number(node.timeline.endMs ?? startMs + duration));
+      const anchorMs = config.preset === 'fade-out'
+        ? Math.max(startMs, endMs - duration)
+        : startMs;
+      const totalCycleMs = duration + Math.max(0, Number(config.delayMs || 0));
+      const elapsedMs = playheadMs - anchorMs;
+      const currentTime = config.repeatMode === 'repeat'
+        ? (((elapsedMs % totalCycleMs) + totalCycleMs) % totalCycleMs)
+        : Math.max(0, Math.min(totalCycleMs, elapsedMs));
+      animation.currentTime = currentTime;
+
+      return () => {
+        animation.cancel();
+      };
+    }
+
+    if (!selected) return;
+
     const animation = root.animate(keyframes, {
       duration: duration + idlePaddingMs,
       delay: Math.max(0, Number(config.delayMs || 0)),
@@ -119,7 +148,7 @@ export const StageWidget = memo(function StageWidget({
     return () => {
       animation.cancel();
     };
-  }, [frame.rotation, node, opacity, previewMode, selected, useWireframe]);
+  }, [frame.rotation, node, opacity, playheadMs, previewMode, selected, useWireframe]);
 
   return (
     <div
