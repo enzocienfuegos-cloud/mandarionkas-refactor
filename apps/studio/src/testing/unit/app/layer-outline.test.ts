@@ -104,4 +104,11 @@ describe('layer outline helpers', () => {
     expect(getWidgetReorderSteps(['a', 'b', 'c', 'd'], 'd', 'b')).toEqual(['backward']);
     expect(getWidgetReorderSteps(['a', 'b', 'c'], 'b', 'b')).toEqual([]);
   });
+
+  it('treats the first visible layer as the highest-priority layer when reordering', () => {
+    const sceneOrder = ['background', 'body', 'cta', 'logo'];
+
+    expect(getWidgetReorderSteps(sceneOrder, 'background', 'logo')).toEqual(['forward', 'forward', 'forward']);
+    expect(getWidgetReorderSteps(sceneOrder, 'logo', 'body')).toEqual(['backward']);
+  });
 });

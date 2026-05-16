@@ -141,9 +141,6 @@
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
-.stage-widget.is-selected {
-  z-index: var(--z-selection);
-}
 .stage-surface.is-edit-mode {
   background-image: var(--gradient-stage-wireframe-fill);
 }
