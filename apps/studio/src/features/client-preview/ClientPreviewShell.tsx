@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '../../shared/ui/Button';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { ClientPreviewCommentBar } from './ClientPreviewCommentBar';
+import { ClientPreviewFontRuntime } from './ClientPreviewFontRuntime';
 import { ClientPreviewPlayer } from './ClientPreviewPlayer';
 import { loadClientPreviewProject } from './project-loader';
 import { useClientPreview } from './use-client-preview';
@@ -87,6 +88,7 @@ export function ClientPreviewShell({
 
   return (
     <div className="client-preview-shell">
+      <ClientPreviewFontRuntime state={project.state} />
       <header className="cp-topbar">
         <div className="cp-topbar-brand">
           <img
