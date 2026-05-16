@@ -111,7 +111,6 @@ export function computeWidgetMotionState(
   widget: WidgetNode,
   playheadMs: number,
   baseOpacity: number,
-  baseTransform: string,
 ): MotionFrameState | null {
   const selection = resolveWidgetMotion(widget);
   if (!selection) return null;
@@ -121,7 +120,7 @@ export function computeWidgetMotionState(
     config: selection.config,
     category: selection.template.category,
   });
-  return selection.template.computeState(selection.config, elapsedMs, baseOpacity, baseTransform);
+  return selection.template.computeState(selection.config, elapsedMs, baseOpacity);
 }
 
 export function resolveWidgetMotionCurrentTime(widget: WidgetNode, playheadMs: number): number | null {

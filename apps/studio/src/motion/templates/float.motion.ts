@@ -1,5 +1,5 @@
 import { createElement } from 'react';
-import { mergeTransforms, normalizeLoopProgress, readConfigNumber } from '../motion-engine';
+import { normalizeLoopProgress, readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
@@ -16,24 +16,27 @@ const floatTemplate: MotionTemplate = {
     { key: 'delayMs', label: 'Start delay', kind: 'number', min: 0, max: 3000, step: 50, unit: 'ms', defaultValue: 0 },
   ],
   defaults,
-  computeState: (config, elapsedMs, baseOpacity, baseTransform) => {
+  computeState: (config, elapsedMs, baseOpacity) => {
     const delayMs = readConfigNumber(config, 'delayMs', defaults.delayMs);
-    if (elapsedMs < delayMs) return { transform: baseTransform, opacity: baseOpacity };
-    const progress = normalizeLoopProgress(elapsedMs - delayMs, readConfigNumber(config, 'durationMs', defaults.durationMs));
+    if (elapsedMs < delayMs) return { transform: '', opacity: baseOpacity };
+    const progress = normalizeLoopProgress(
+      elapsedMs - delayMs,
+      readConfigNumber(config, 'durationMs', defaults.durationMs),
+    );
     const wave = Math.sin(progress * 2 * Math.PI);
     const distancePx = readConfigNumber(config, 'distancePx', defaults.distancePx);
     return {
-      transform: mergeTransforms(baseTransform, `translateY(${(wave * distancePx).toFixed(2)}px)`),
+      transform: `translateY(${(wave * distancePx).toFixed(2)}px)`,
       opacity: baseOpacity,
     };
   },
-  buildWAAPIKeyframes: (config, baseOpacity, baseTransform) => {
+  buildWAAPIKeyframes: (config, baseOpacity) => {
     const distancePx = readConfigNumber(config, 'distancePx', defaults.distancePx);
     return Array.from({ length: 9 }, (_, index) => {
       const progress = index / 8;
       const wave = Math.sin(progress * 2 * Math.PI);
       return {
-        transform: mergeTransforms(baseTransform, `translateY(${(wave * distancePx).toFixed(2)}px)`),
+        transform: `translateY(${(wave * distancePx).toFixed(2)}px)`,
         opacity: baseOpacity,
         offset: progress,
       };

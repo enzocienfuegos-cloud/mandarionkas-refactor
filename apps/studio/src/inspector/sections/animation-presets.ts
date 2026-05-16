@@ -180,7 +180,7 @@ export function getAnimationPresetPreviewState(
   widget: WidgetNode,
   playheadMs: number,
 ): { frame: WidgetNode['frame']; opacity: number } | null {
-  const state = computeWidgetMotionState(widget, playheadMs, Number(widget.style.opacity ?? 1), `rotate(${widget.frame.rotation}deg)`);
+  const state = computeWidgetMotionState(widget, playheadMs, Number(widget.style.opacity ?? 1));
   if (!state) return null;
   const offset = extractTranslateOffset(state.transform);
   return {

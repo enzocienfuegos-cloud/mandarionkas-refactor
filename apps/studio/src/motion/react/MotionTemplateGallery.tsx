@@ -27,7 +27,6 @@ function MotionGalleryTile({
     template,
     config,
     baseOpacity: 1,
-    baseTransform: 'rotate(0deg)',
     active: true,
   });
 

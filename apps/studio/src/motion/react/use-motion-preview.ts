@@ -7,7 +7,6 @@ type UseMotionPreviewOptions = {
   template?: MotionTemplate;
   config?: MotionConfig;
   baseOpacity?: number;
-  baseTransform?: string;
   active?: boolean;
   scrubTimeMs?: number | null;
 };
@@ -17,7 +16,6 @@ export function useMotionPreview({
   template,
   config,
   baseOpacity = 1,
-  baseTransform = 'rotate(0deg)',
   active = false,
   scrubTimeMs,
 }: UseMotionPreviewOptions): void {
@@ -35,7 +33,7 @@ export function useMotionPreview({
 
     currentAnimation?.cancel();
     const animation = node.animate(
-      template.buildWAAPIKeyframes(config, baseOpacity, baseTransform),
+      template.buildWAAPIKeyframes(config, baseOpacity),
       template.buildWAAPIOptions(config),
     );
     animation.pause();
@@ -47,7 +45,7 @@ export function useMotionPreview({
         animationRef.current = null;
       }
     };
-  }, [baseOpacity, baseTransform, configSignature, ref, template]);
+  }, [baseOpacity, configSignature, ref, template]);
 
   useLayoutEffect(() => {
     const animation = animationRef.current;

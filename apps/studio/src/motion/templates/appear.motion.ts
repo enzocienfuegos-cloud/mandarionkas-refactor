@@ -15,20 +15,20 @@ const appearTemplate: MotionTemplate = {
     { key: 'delayMs', label: 'Delay', kind: 'number', min: 0, max: 6000, step: 20, unit: 'ms', defaultValue: 0 },
   ],
   defaults,
-  computeState: (config, elapsedMs, baseOpacity, baseTransform) => {
+  computeState: (config, elapsedMs, baseOpacity) => {
     const progress = normalizeOneShotProgress(
       elapsedMs,
       readConfigNumber(config, 'delayMs', defaults.delayMs),
       readConfigNumber(config, 'durationMs', defaults.durationMs),
     );
     return {
-      transform: baseTransform,
+      transform: '',
       opacity: baseOpacity * applyEasing(progress, 'ease-out'),
     };
   },
-  buildWAAPIKeyframes: (_config, baseOpacity, baseTransform) => [
-    { transform: baseTransform, opacity: 0, offset: 0 },
-    { transform: baseTransform, opacity: baseOpacity, offset: 1 },
+  buildWAAPIKeyframes: (_config, baseOpacity) => [
+    { opacity: 0, offset: 0 },
+    { opacity: baseOpacity, offset: 1 },
   ],
   buildWAAPIOptions: (config) => ({
     duration: readConfigNumber(config, 'durationMs', defaults.durationMs),

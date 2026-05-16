@@ -54,7 +54,6 @@ function Harness({
     template: appearTemplate,
     config: { durationMs: 700, delayMs: 0 },
     baseOpacity: 1,
-    baseTransform: 'rotate(0deg)',
     active,
     scrubTimeMs,
   });

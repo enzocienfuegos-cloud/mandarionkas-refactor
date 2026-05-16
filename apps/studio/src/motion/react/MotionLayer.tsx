@@ -36,7 +36,6 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
 ): JSX.Element {
   const innerRef = useRef<HTMLDivElement | null>(null);
   const motion = resolveWidgetMotion(widget);
-  const baseTransform = useMemo(() => '', []);
   const playbackMode: 'free' | 'scrub' | 'idle' = previewMode
     ? (isPlaying ? 'free' : 'scrub')
     : (selected ? 'free' : 'idle');
@@ -54,7 +53,6 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
     template: motion?.template,
     config: motion?.config,
     baseOpacity: opacity,
-    baseTransform,
     active: playbackMode === 'free',
     scrubTimeMs,
   });

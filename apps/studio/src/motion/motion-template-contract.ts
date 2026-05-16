@@ -25,6 +25,9 @@ export type MotionConfigField =
     };
 
 export type MotionFrameState = {
+  /** Transform a aplicar AL TARGET INTERNO de MotionLayer.
+   *  NO incluye rotation del widget (eso vive en el outer wrapper).
+   *  Puede ser '' si el template no aplica transform (ej. appear, pulse). */
   transform: string;
   opacity: number;
 };
@@ -40,15 +43,13 @@ export type MotionTemplate = {
     config: MotionConfig,
     elapsedMs: number,
     baseOpacity: number,
-    baseTransform: string,
   ) => MotionFrameState;
   buildWAAPIKeyframes: (
     config: MotionConfig,
     baseOpacity: number,
-    baseTransform: string,
   ) => Keyframe[];
   buildWAAPIOptions: (config: MotionConfig) => KeyframeAnimationOptions;
-  thumbnail: (config: MotionConfig) => JSX.Element;
+  thumbnail: (config?: MotionConfig) => JSX.Element;
   supportsWidgetType?: (type: WidgetType, capabilities: WidgetCapabilities | undefined) => boolean;
 };
 

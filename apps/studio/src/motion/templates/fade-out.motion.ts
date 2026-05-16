@@ -1,5 +1,5 @@
 import { createElement } from 'react';
-import { applyEasing, readConfigNumber } from '../motion-engine';
+import { applyEasing, normalizeOneShotProgress, readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
@@ -9,22 +9,26 @@ const fadeOutTemplate: MotionTemplate = {
   id: 'fade-out',
   label: 'Fade out',
   category: 'exit',
-  description: 'Fades away at the end of the widget window.',
+  description: 'Fade out at the end of the scene.',
   fields: [
     { key: 'durationMs', label: 'Duration', kind: 'number', min: 120, max: 4000, step: 20, unit: 'ms', defaultValue: 700 },
   ],
   defaults,
-  computeState: (config, elapsedMs, baseOpacity, baseTransform) => {
-    const durationMs = readConfigNumber(config, 'durationMs', defaults.durationMs);
-    const eased = applyEasing(Math.max(0, Math.min(1, elapsedMs / durationMs)), 'ease-in');
+  computeState: (config, elapsedMs, baseOpacity) => {
+    const progress = normalizeOneShotProgress(
+      elapsedMs,
+      0,
+      readConfigNumber(config, 'durationMs', defaults.durationMs),
+    );
+    const eased = applyEasing(progress, 'ease-in');
     return {
-      transform: baseTransform,
+      transform: '',
       opacity: baseOpacity * (1 - eased),
     };
   },
-  buildWAAPIKeyframes: (_config, baseOpacity, baseTransform) => [
-    { transform: baseTransform, opacity: baseOpacity, offset: 0 },
-    { transform: baseTransform, opacity: 0, offset: 1 },
+  buildWAAPIKeyframes: (_config, baseOpacity) => [
+    { opacity: baseOpacity, offset: 0 },
+    { opacity: 0, offset: 1 },
   ],
   buildWAAPIOptions: (config) => ({
     duration: readConfigNumber(config, 'durationMs', defaults.durationMs),

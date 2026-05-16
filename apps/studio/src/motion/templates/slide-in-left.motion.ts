@@ -1,34 +1,41 @@
 import { createElement } from 'react';
-import { applyEasing, mergeTransforms, normalizeOneShotProgress, readConfigNumber } from '../motion-engine';
+import { applyEasing, normalizeOneShotProgress, readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
-const defaults = { durationMs: 700, delayMs: 0, distancePx: 36 };
+const defaults = { durationMs: 700, delayMs: 0, distancePx: 80 };
 
 const slideInLeftTemplate: MotionTemplate = {
   id: 'slide-in-left',
-  label: 'Slide in left',
+  label: 'Slide in from left',
   category: 'entrance',
-  description: 'Slides in from the left without fading.',
+  description: 'Slide in from the left edge.',
   fields: [
     { key: 'durationMs', label: 'Duration', kind: 'number', min: 120, max: 4000, step: 20, unit: 'ms', defaultValue: 700 },
     { key: 'delayMs', label: 'Delay', kind: 'number', min: 0, max: 6000, step: 20, unit: 'ms', defaultValue: 0 },
-    { key: 'distancePx', label: 'Distance', kind: 'number', min: 0, max: 200, step: 2, unit: 'px', defaultValue: 36 },
+    { key: 'distancePx', label: 'Distance', kind: 'number', min: 0, max: 400, step: 4, unit: 'px', defaultValue: 80 },
   ],
   defaults,
-  computeState: (config, elapsedMs, baseOpacity, baseTransform) => {
-    const progress = normalizeOneShotProgress(elapsedMs, readConfigNumber(config, 'delayMs', defaults.delayMs), readConfigNumber(config, 'durationMs', defaults.durationMs));
-    const eased = applyEasing(progress, 'ease-out');
+  computeState: (config, elapsedMs, baseOpacity) => {
     const distancePx = readConfigNumber(config, 'distancePx', defaults.distancePx);
+    const progress = normalizeOneShotProgress(
+      elapsedMs,
+      readConfigNumber(config, 'delayMs', defaults.delayMs),
+      readConfigNumber(config, 'durationMs', defaults.durationMs),
+    );
+    const eased = applyEasing(progress, 'ease-out');
     return {
-      transform: mergeTransforms(baseTransform, `translateX(${(-distancePx * (1 - eased)).toFixed(2)}px)`),
+      transform: `translateX(${(-distancePx * (1 - eased)).toFixed(2)}px)`,
       opacity: baseOpacity,
     };
   },
-  buildWAAPIKeyframes: (config, baseOpacity, baseTransform) => [
-    { transform: mergeTransforms(baseTransform, `translateX(-${readConfigNumber(config, 'distancePx', defaults.distancePx)}px)`), opacity: baseOpacity, offset: 0 },
-    { transform: baseTransform, opacity: baseOpacity, offset: 1 },
-  ],
+  buildWAAPIKeyframes: (config, baseOpacity) => {
+    const distancePx = readConfigNumber(config, 'distancePx', defaults.distancePx);
+    return [
+      { transform: `translateX(-${distancePx}px)`, opacity: baseOpacity, offset: 0 },
+      { transform: 'translateX(0px)', opacity: baseOpacity, offset: 1 },
+    ];
+  },
   buildWAAPIOptions: (config) => ({
     duration: readConfigNumber(config, 'durationMs', defaults.durationMs),
     delay: readConfigNumber(config, 'delayMs', defaults.delayMs),
@@ -36,7 +43,7 @@ const slideInLeftTemplate: MotionTemplate = {
     iterations: 1,
     fill: 'both',
   }),
-  thumbnail: () => createElement(MotionThumbnail, { label: 'Left' }),
+  thumbnail: () => createElement(MotionThumbnail, { label: 'Slide ←' }),
 };
 
 export default slideInLeftTemplate;

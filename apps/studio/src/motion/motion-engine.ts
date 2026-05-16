@@ -77,7 +77,3 @@ export function resolveMotionElapsedMs({ playheadMs, timeline, config, category 
 
   return playheadMs - startMs;
 }
-
-export function mergeTransforms(baseTransform: string, extraTransform: string): string {
-  return extraTransform.trim().length ? `${baseTransform} ${extraTransform}`.trim() : baseTransform;
-}
