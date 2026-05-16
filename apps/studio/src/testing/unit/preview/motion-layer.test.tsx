@@ -81,6 +81,34 @@ describe('MotionLayer DOM structure', () => {
     expect(inner.props.style).toEqual(expect.objectContaining({ opacity: 1 }));
   });
 
+  it('keeps the resting end-state even when the widget is selected in editor mode', () => {
+    const widget = createMotionWidget();
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(
+        <MotionLayer
+          widget={widget}
+          playheadMs={0}
+          previewMode={false}
+          isPlaying={false}
+          selected
+          opacity={1}
+        >
+          <span>child</span>
+        </MotionLayer>,
+      );
+    });
+
+    const tree = renderer!.toJSON();
+    expect(tree).toBeTruthy();
+    if (!tree || Array.isArray(tree)) return;
+    const inner = tree.children?.[0];
+    expect(inner).toBeTruthy();
+    if (!inner || typeof inner === 'string' || Array.isArray(inner)) return;
+    expect(inner.props.style).toEqual(expect.objectContaining({ opacity: 1 }));
+  });
+
   it('derives preview motion state from the playhead during scene playback', () => {
     const widget = createMotionWidget();
 
