@@ -2,6 +2,13 @@ import type { ActionNode, ActionTrigger, ActionType, BindingSource, KeyframeEasi
 
 export type WidgetCreatePlacement = { x: number; y: number; anchor?: 'center' | 'top-left' };
 export type WidgetClipboardPayload = { widgets: WidgetNode[]; actions: ActionNode[] };
+export type WidgetPropertyClipboardPayload = {
+  widgetType: WidgetType;
+  widgetName: string;
+  props: Record<string, unknown>;
+  style: Record<string, unknown>;
+  copiedAt: string;
+};
 
 export type StudioCommand =
   | { type: 'CREATE_WIDGET'; widgetType: WidgetType; placement?: WidgetCreatePlacement; initialProps?: Record<string, unknown>; initialStyle?: Record<string, unknown> }
@@ -26,6 +33,7 @@ export type StudioCommand =
   | { type: 'DELETE_SELECTED_WIDGETS' }
   | { type: 'DUPLICATE_SELECTED_WIDGETS' }
   | { type: 'PASTE_WIDGET_CLIPBOARD'; clipboard: WidgetClipboardPayload }
+  | { type: 'APPLY_WIDGET_PROPERTY_CLIPBOARD'; widgetId: string; clipboard: WidgetPropertyClipboardPayload }
   | { type: 'GROUP_SELECTED_WIDGETS' }
   | { type: 'UNGROUP_SELECTED_WIDGETS' }
   | { type: 'CONVERT_WIDGET_TO_SHARED_LAYER'; widgetId: string }

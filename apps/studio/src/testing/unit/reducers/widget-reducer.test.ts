@@ -351,4 +351,51 @@ describe('widget reducer slices', () => {
 
     expect(state.document.sharedLayers[sharedLayer?.id ?? '']?.perSceneOverrides[secondSceneId]).toBeUndefined();
   });
+
+  it('pastes full properties when the clipboard comes from the same widget type', () => {
+    let state = createInitialState();
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'image' });
+    const widgetId = Object.keys(state.document.widgets)[0];
+
+    state = reduceBySlices(state, {
+      type: 'APPLY_WIDGET_PROPERTY_CLIPBOARD',
+      widgetId,
+      clipboard: {
+        widgetType: 'image',
+        widgetName: 'Hero source',
+        props: { src: 'https://cdn.example.com/hero.png', assetId: 'asset_1' },
+        style: { borderRadius: 24, opacity: 0.6, animationPreset: 'appear' },
+        copiedAt: '2026-05-15T00:00:00.000Z',
+      },
+    });
+
+    expect(state.document.widgets[widgetId]?.props.src).toBe('https://cdn.example.com/hero.png');
+    expect(state.document.widgets[widgetId]?.props.assetId).toBe('asset_1');
+    expect(state.document.widgets[widgetId]?.style.borderRadius).toBe(24);
+    expect(state.document.widgets[widgetId]?.style.animationPreset).toBe('appear');
+  });
+
+  it('pastes only shared style when the clipboard comes from a different widget type', () => {
+    let state = createInitialState();
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'text' });
+    const widgetId = Object.keys(state.document.widgets)[0];
+    const originalProps = { ...state.document.widgets[widgetId].props };
+
+    state = reduceBySlices(state, {
+      type: 'APPLY_WIDGET_PROPERTY_CLIPBOARD',
+      widgetId,
+      clipboard: {
+        widgetType: 'image',
+        widgetName: 'Hero image',
+        props: { src: 'https://cdn.example.com/hero.png', assetId: 'asset_2' },
+        style: { opacity: 0.45, color: '#ffcc00' },
+        copiedAt: '2026-05-15T00:00:00.000Z',
+      },
+    });
+
+    expect(state.document.widgets[widgetId]?.props).toEqual(originalProps);
+    expect(state.document.widgets[widgetId]?.style.opacity).toBe(0.45);
+    expect(state.document.widgets[widgetId]?.style.color).toBe('#ffcc00');
+    expect((state.document.widgets[widgetId]?.props as Record<string, unknown>).src).toBeUndefined();
+  });
 });

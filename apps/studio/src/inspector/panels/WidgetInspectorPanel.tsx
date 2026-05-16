@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useStudioStore } from '../../core/store/use-studio-store';
-import { useWidgetActions } from '../../hooks/use-studio-actions';
+import { useTimelineActions, useWidgetActions } from '../../hooks/use-studio-actions';
 import { Tabs } from '../../shared/ui/Tabs';
 import { getAccordionOpenState, setAccordionOpenState } from '../inspector-preferences';
 import { resolveWidgetForCanvasVariant } from '../../domain/document/canvas-variants';
@@ -9,6 +9,14 @@ import { DocumentInspectorPanel } from './DocumentInspectorPanel';
 import { getWidgetBehaviorPanelCount, getWidgetInspectorPanelMeta, getWidgetInspectorTabs, renderWidgetInspectorPanel } from '../../widgets/registry/widget-inspector-layout';
 import type { WidgetDefinition, WidgetInspectorPanelKey, WidgetInspectorTabId } from '../../widgets/registry/widget-definition';
 import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
+import { Button } from '../../shared/ui/Button';
+import { applyAnimationPreset, supportsAnimationPresets } from '../sections/animation-presets';
+import {
+  buildWidgetPropertyClipboardPayload,
+  getWidgetPropertyClipboardPayload,
+  setWidgetPropertyClipboardPayload,
+  subscribeToWidgetPropertyClipboard,
+} from '../widget-properties-clipboard';
 
 const EMPTY_TABS: ReturnType<typeof getWidgetInspectorTabs> = [];
 
@@ -61,13 +69,16 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
   const inspectorFocus = useStudioStore((state) => state.ui.inspectorFocus);
   const playheadMs = usePlaybackMsThrottled(storePlayheadMs);
   const actions = useStudioStore((state) => Object.values(state.document.actions).filter((action) => action.widgetId === widgetId));
-  const { updateWidgetName } = useWidgetActions();
+  const { updateWidgetName, applyPropertyClipboard } = useWidgetActions();
+  const { setWidgetKeyframes } = useTimelineActions();
   const [tab, setTab] = useState<WidgetInspectorTabId>('basics');
+  const [propertyClipboard, setPropertyClipboard] = useState(() => getWidgetPropertyClipboardPayload());
 
   const definition = useMemo<WidgetDefinition | null>(() => (widget ? getWidgetDefinition(widget.type) : null), [widget]);
   const tabs = useMemo(() => (definition && widget ? getWidgetInspectorTabs(definition, widget, state) : EMPTY_TABS), [definition, state, widget]);
   const activeTab = tabs.find((item) => item.id === tab) ?? tabs[0] ?? null;
   const behaviorPanelCount = definition && widget ? getWidgetBehaviorPanelCount(definition, widget, state) : 0;
+  const sameTypeClipboard = widget && propertyClipboard ? propertyClipboard.widgetType === widget.type : false;
 
   useEffect(() => {
     if (!tabs.length) return;
@@ -83,13 +94,51 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
     }
   }, [inspectorFocus, tab, tabs, widget]);
 
+  useEffect(() => subscribeToWidgetPropertyClipboard(() => {
+    setPropertyClipboard(getWidgetPropertyClipboardPayload());
+  }), []);
+
   if (!widget || !definition) return <DocumentInspectorPanel />;
+
+  const handleCopyProperties = () => {
+    setWidgetPropertyClipboardPayload(buildWidgetPropertyClipboardPayload(widget));
+  };
+
+  const handlePasteProperties = () => {
+    if (!propertyClipboard) return;
+    applyPropertyClipboard(widget.id, propertyClipboard);
+    if (!supportsAnimationPresets(widget)) return;
+    const nextWidget = {
+      ...widget,
+      props: propertyClipboard.widgetType === widget.type ? { ...propertyClipboard.props } : widget.props,
+      style: propertyClipboard.widgetType === widget.type ? { ...propertyClipboard.style } : { ...widget.style, ...propertyClipboard.style },
+    };
+    const preset = typeof nextWidget.style.animationPreset === 'string' ? nextWidget.style.animationPreset : '';
+    if (preset !== 'appear' && preset !== 'fade-up' && preset !== 'fade-out' && preset !== 'pulse') return;
+    const { keyframes } = applyAnimationPreset(nextWidget, preset);
+    setWidgetKeyframes(widget.id, keyframes);
+  };
 
   return (
     <>
       <section className="section">
         <label>Name</label>
         <input value={widget.name} onChange={(event) => updateWidgetName(widget.id, event.target.value)} />
+        <div className="asset-inline-actions inspector-spaced-stack">
+          <Button size="sm" className="left-button compact-action" onClick={handleCopyProperties}>
+            Copy properties
+          </Button>
+          <Button size="sm" className="compact-action" disabled={!propertyClipboard} onClick={handlePasteProperties}>
+            Paste properties
+          </Button>
+        </div>
+        {propertyClipboard ? (
+          <small className="muted">
+            {sameTypeClipboard
+              ? `Ready to paste full properties from ${propertyClipboard.widgetName}.`
+              : `Ready to paste shared style from ${propertyClipboard.widgetName}. Full module settings only paste into another ${propertyClipboard.widgetType}.`}
+          </small>
+        ) : null}
       </section>
 
       <Tabs

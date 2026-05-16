@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { replaceStudioState, studioStore } from '../core/store/studio-store';
-import type { WidgetClipboardPayload } from '../core/commands/types';
+import type { WidgetClipboardPayload, WidgetPropertyClipboardPayload } from '../core/commands/types';
 import type {
   ActionNode,
   ApprovalStatus,
@@ -76,6 +76,7 @@ export function useWidgetActions() {
     convertWidgetToSharedLayer: (widgetId: string) => dispatch({ type: 'CONVERT_WIDGET_TO_SHARED_LAYER', widgetId }),
     duplicateSelected: () => dispatch({ type: 'DUPLICATE_SELECTED_WIDGETS' }),
     pasteClipboard: (clipboard: WidgetClipboardPayload) => dispatch({ type: 'PASTE_WIDGET_CLIPBOARD', clipboard }),
+    applyPropertyClipboard: (widgetId: string, clipboard: WidgetPropertyClipboardPayload) => dispatch({ type: 'APPLY_WIDGET_PROPERTY_CLIPBOARD', widgetId, clipboard }),
     deleteSelected: () => dispatch({ type: 'DELETE_SELECTED_WIDGETS' }),
     setActiveWidget: (widgetId?: string) => dispatch({ type: 'SET_ACTIVE_WIDGET', widgetId }),
     executeAction: (actionId: string) => dispatch({ type: 'EXECUTE_ACTION', actionId }),

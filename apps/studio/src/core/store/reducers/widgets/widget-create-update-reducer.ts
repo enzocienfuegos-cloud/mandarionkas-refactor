@@ -169,6 +169,67 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
         },
       });
     }
+    case 'APPLY_WIDGET_PROPERTY_CLIPBOARD': {
+      const resolvedWidgets = buildResolvedWidgetsById(state.document);
+      const target = resolvedWidgets[command.widgetId];
+      if (!target) return state;
+      const rawTarget = state.document.widgets[command.widgetId];
+      const sameType = target.type === command.clipboard.widgetType;
+      const nextProps = sameType ? { ...command.clipboard.props } : target.props;
+      const nextStyle = sameType ? { ...command.clipboard.style } : { ...target.style, ...command.clipboard.style };
+
+      if (rawTarget?.sharedLayerId) {
+        const sharedLayer = state.document.sharedLayers[rawTarget.sharedLayerId];
+        if (sharedLayer && sharedLayer.baseWidgetId !== rawTarget.id) {
+          let nextSharedLayers = state.document.sharedLayers;
+          if (sameType) nextSharedLayers = writeSharedSceneObjectOverride(state, command.widgetId, 'props', nextProps);
+          const intermediateState = nextSharedLayers === state.document.sharedLayers
+            ? state
+            : { ...state, document: { ...state.document, sharedLayers: nextSharedLayers } };
+          return withDirty({
+            ...intermediateState,
+            document: {
+              ...intermediateState.document,
+              sharedLayers: writeSharedSceneObjectOverride(intermediateState, command.widgetId, 'style', nextStyle),
+            },
+          });
+        }
+      }
+
+      if (isMasterVariant(state)) {
+        const baseTarget = state.document.widgets[command.widgetId];
+        if (!baseTarget) return state;
+        return withDirty({
+          ...state,
+          document: {
+            ...state.document,
+            widgets: {
+              ...state.document.widgets,
+              [baseTarget.id]: {
+                ...baseTarget,
+                props: sameType ? nextProps : baseTarget.props,
+                style: nextStyle,
+              },
+            },
+          },
+        });
+      }
+
+      const nextDocument = {
+        ...state.document,
+        widgetOverrides: sameType
+          ? writeObjectOverride(state, command.widgetId, 'props', nextProps)
+          : state.document.widgetOverrides,
+      };
+      const intermediateState = sameType ? { ...state, document: nextDocument } : state;
+      return withDirty({
+        ...intermediateState,
+        document: {
+          ...intermediateState.document,
+          widgetOverrides: writeObjectOverride(intermediateState, command.widgetId, 'style', nextStyle),
+        },
+      });
+    }
     case 'UPDATE_WIDGET_BINDING': {
       const target = state.document.widgets[command.widgetId];
       if (!target) return state;
