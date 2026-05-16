@@ -353,8 +353,8 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
           onToggleLock={() => widgetActions.toggleWidgetLocked(selectedWidget.id)}
           onUngroup={() => widgetActions.ungroupSelected()}
           onDuplicate={() => widgetActions.duplicateSelected()}
-          onMoveBackward={() => widgetActions.reorderWidget(selectedWidget.id, 'backward')}
-          onMoveForward={() => widgetActions.reorderWidget(selectedWidget.id, 'forward')}
+          onMoveBackward={() => widgetActions.reorderWidget(selectedWidget.id, 'back')}
+          onMoveForward={() => widgetActions.reorderWidget(selectedWidget.id, 'front')}
           onUploadAsset={() => openAssetPicker(selectedWidget)}
           onOpenAssetLibrary={onOpenAssetLibrary}
           onDelete={() => widgetActions.deleteSelected()}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { getLiveWidgetFrame, getLiveWidgetOpacity, isWidgetVisibleAt } from '../../domain/document/timeline';
+import { isWidgetVisibleAt } from '../../domain/document/timeline';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
@@ -152,21 +152,21 @@ function renderScratchCoverNode(
       .flatMap((child) => renderScratchCoverNode(child, rootFrame, ctx, visited));
   }
 
-  const liveFrame = getLiveWidgetFrame(node, ctx.playheadMs);
-  const childOpacity = getLiveWidgetOpacity(node, ctx.playheadMs);
+  const staticFrame = node.frame;
+  const childOpacity = Number(node.style.opacity ?? 1);
   return [
     (
       <div
         key={node.id}
         style={{
           position: 'absolute',
-          left: liveFrame.x - rootFrame.x,
-          top: liveFrame.y - rootFrame.y,
-          width: liveFrame.width,
-          height: liveFrame.height,
+          left: staticFrame.x - rootFrame.x,
+          top: staticFrame.y - rootFrame.y,
+          width: staticFrame.width,
+          height: staticFrame.height,
           opacity: childOpacity,
           zIndex: node.zIndex,
-          transform: `rotate(${liveFrame.rotation}deg)`,
+          transform: `rotate(${staticFrame.rotation}deg)`,
           transformOrigin: 'center',
           pointerEvents: 'none',
         }}

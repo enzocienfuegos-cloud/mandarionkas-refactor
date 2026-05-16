@@ -91,6 +91,23 @@ describe('widget reducer slices', () => {
     expect(state.document.selection.widgetIds.sort()).toEqual([textId, shapeId].sort());
   });
 
+  it('moves layers all the way to the front or back when requested', () => {
+    let state = createInitialState();
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'text' });
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'shape' });
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'image' });
+
+    const [textId, shapeId, imageId] = state.document.scenes[0].widgetIds;
+
+    state = reduceBySlices(state, { type: 'REORDER_WIDGET', widgetId: textId, direction: 'front' });
+    expect(state.document.scenes[0].widgetIds).toEqual([shapeId, imageId, textId]);
+    expect(state.document.widgets[textId]?.zIndex).toBe(2);
+
+    state = reduceBySlices(state, { type: 'REORDER_WIDGET', widgetId: textId, direction: 'back' });
+    expect(state.document.scenes[0].widgetIds).toEqual([textId, shapeId, imageId]);
+    expect(state.document.widgets[textId]?.zIndex).toBe(0);
+  });
+
   it('toggles group visibility and locking across the whole grouped tree', () => {
     let state = createInitialState();
     state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'text' });

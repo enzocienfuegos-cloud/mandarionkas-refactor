@@ -37,7 +37,7 @@ export function TimelineTrackList({
   onToggleWidgetHidden: (widgetId: string) => void;
   onToggleWidgetLocked: (widgetId: string) => void;
   onUpdateWidgetName: (widgetId: string, nextName: string) => void;
-  onReorderWidget: (widgetId: string, direction: 'forward' | 'backward') => void;
+  onReorderWidget: (widgetId: string, direction: 'forward' | 'backward' | 'front' | 'back') => void;
   onToggleGroupCollapse: (widgetId: string) => void;
   onDragStart: (drag: Exclude<TimelineDragState, null>) => void;
   onScrubStart: (clientX: number, startMs?: number) => void;

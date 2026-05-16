@@ -38,7 +38,7 @@ function TimelineTrackRowComponent({
   onToggleWidgetHidden: (widgetId: string) => void;
   onToggleWidgetLocked: (widgetId: string) => void;
   onRename: (widgetId: string, nextName: string) => void;
-  onReorderWidget: (widgetId: string, direction: 'forward' | 'backward') => void;
+  onReorderWidget: (widgetId: string, direction: 'forward' | 'backward' | 'front' | 'back') => void;
   onToggleGroupCollapse?: (widgetId: string) => void;
   onDragStart: (drag: Exclude<TimelineDragState, null>) => void;
   onScrubStart: (clientX: number, startMs?: number) => void;
@@ -166,26 +166,26 @@ function TimelineTrackRowComponent({
               variant="ghost"
               size="sm"
               className="timeline-order-button timeline-order-button--up"
-              label="Bring forward"
+              label="Bring to front"
               tooltipPlacement="bottom"
               tooltipDelay={220}
               icon={<StudioIcon icon={StudioIcons.chevronUp} size={12} />}
               onClick={(event) => {
                 event.stopPropagation();
-                onReorderWidget(widget.id, 'forward');
+                onReorderWidget(widget.id, 'front');
               }}
             />
             <IconButton
               variant="ghost"
               size="sm"
               className="timeline-order-button timeline-order-button--down"
-              label="Send backward"
+              label="Send to back"
               tooltipPlacement="bottom"
               tooltipDelay={220}
               icon={<StudioIcon icon={StudioIcons.chevronDown} size={12} />}
               onClick={(event) => {
                 event.stopPropagation();
-                onReorderWidget(widget.id, 'backward');
+                onReorderWidget(widget.id, 'back');
               }}
             />
           </div>

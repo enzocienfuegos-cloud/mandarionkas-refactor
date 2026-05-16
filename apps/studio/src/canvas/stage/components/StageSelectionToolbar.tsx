@@ -118,13 +118,13 @@ export const StageSelectionToolbar = forwardRef<HTMLDivElement, StageSelectionTo
           </IconButton>
         </>
       ) : null}
-      <IconButton label="Send layer backward" onClick={onMoveBackward}>
+      <IconButton label="Send layer to back" onClick={onMoveBackward}>
         <StudioIcon icon={StudioIcons.arrowDownToLine} size={14} />
       </IconButton>
       <IconButton label="Duplicate widget" onClick={onDuplicate}>
         <StudioIcon icon={StudioIcons.copy} size={14} />
       </IconButton>
-      <IconButton label="Bring layer forward" onClick={onMoveForward}>
+      <IconButton label="Bring layer to front" onClick={onMoveForward}>
         <StudioIcon icon={StudioIcons.arrowUpToLine} size={14} />
       </IconButton>
       <IconButton label="Delete widget" danger onClick={onDelete}>

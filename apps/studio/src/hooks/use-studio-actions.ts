@@ -70,7 +70,7 @@ export function useWidgetActions() {
     updateWidgetConditions: (widgetId: string, patch: Record<string, unknown>) => dispatch({ type: 'UPDATE_WIDGET_CONDITIONS', widgetId, patch }),
     toggleWidgetHidden: (widgetId: string) => dispatch({ type: 'TOGGLE_WIDGET_HIDDEN', widgetId }),
     toggleWidgetLocked: (widgetId: string) => dispatch({ type: 'TOGGLE_WIDGET_LOCKED', widgetId }),
-    reorderWidget: (widgetId: string, direction: 'forward' | 'backward') => dispatch({ type: 'REORDER_WIDGET', widgetId, direction }),
+    reorderWidget: (widgetId: string, direction: 'forward' | 'backward' | 'front' | 'back') => dispatch({ type: 'REORDER_WIDGET', widgetId, direction }),
     groupSelected: () => dispatch({ type: 'GROUP_SELECTED_WIDGETS' }),
     ungroupSelected: () => dispatch({ type: 'UNGROUP_SELECTED_WIDGETS' }),
     convertWidgetToSharedLayer: (widgetId: string) => dispatch({ type: 'CONVERT_WIDGET_TO_SHARED_LAYER', widgetId }),
