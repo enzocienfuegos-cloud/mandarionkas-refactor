@@ -1,6 +1,7 @@
 import { createInitialState } from './factories';
 import { createCanvasVariantFromCanvas, ensureSingleMasterVariant, syncDocumentCanvasToVariant } from './canvas-variants';
 import type { FeedCatalog, StudioState, WidgetHoverMotion, WidgetMotion, WidgetNode } from './types';
+import { stripMotionManagedKeyframes } from '../../motion/motion-managed-keyframes';
 import { buildWidgetHoverMotion, buildWidgetMotion } from '../../motion/motion-model';
 
 function normalizeFeeds(feeds: StudioState['document']['feeds'] | undefined): FeedCatalog {
@@ -44,14 +45,20 @@ function resolveNormalizedHoverMotion(widget: WidgetNode): WidgetHoverMotion | u
 function normalizeWidgets(widgets: StudioState['document']['widgets'] | undefined): StudioState['document']['widgets'] {
   if (!widgets) return {};
   return Object.fromEntries(
-    Object.entries(widgets).map(([widgetId, widget]) => [
-      widgetId,
-      {
-        ...widget,
-        motion: resolveNormalizedMotion(widget),
-        hoverMotion: resolveNormalizedHoverMotion(widget),
-      },
-    ]),
+    Object.entries(widgets).map(([widgetId, widget]) => {
+      const motion = resolveNormalizedMotion(widget);
+      return [
+        widgetId,
+        {
+          ...widget,
+          motion,
+          hoverMotion: resolveNormalizedHoverMotion(widget),
+          timeline: motion
+            ? { ...widget.timeline, keyframes: stripMotionManagedKeyframes(widget.timeline.keyframes ?? []) }
+            : widget.timeline,
+        },
+      ];
+    }),
   );
 }
 

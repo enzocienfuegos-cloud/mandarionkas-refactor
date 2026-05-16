@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { useTimelineActions } from '../../hooks/use-studio-actions';
 import type { WidgetNode } from '../../domain/document/types';
+import { stripMotionManagedKeyframes } from '../../motion/motion-managed-keyframes';
 import { Button } from '../../shared/ui/Button';
 import { Tile } from '../../shared/ui/Tile';
 import { KEYFRAME_PROPERTIES } from './widget-inspector-shared';
-import { getAnimationPresetConfig, stripPresetManagedKeyframes } from './animation-presets';
+import { getAnimationPresetConfig } from './animation-presets';
 
 export function KeyframesSection({
   widget,
@@ -15,11 +16,11 @@ export function KeyframesSection({
   playheadMs: number;
   focusedKeyframeId?: string;
 }): JSX.Element {
-  const { addKeyframe, setPlayhead, setWidgetKeyframes, removeKeyframe, updateKeyframe } = useTimelineActions();
+  const { addKeyframe, setPlayhead, removeKeyframe, updateKeyframe } = useTimelineActions();
   const animationConfig = getAnimationPresetConfig(widget);
   const activePreset = animationConfig.preset;
   const keyframes = widget.timeline.keyframes ?? [];
-  const visibleKeyframes = activePreset ? stripPresetManagedKeyframes(keyframes) : keyframes;
+  const visibleKeyframes = activePreset ? stripMotionManagedKeyframes(keyframes) : keyframes;
   const focusedKeyframeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 import type { WidgetNode } from '../../domain/document/types';
-import { useWidgetActions } from '../../hooks/use-studio-actions';
+import { useTimelineActions, useWidgetActions } from '../../hooks/use-studio-actions';
+import { stripMotionManagedKeyframes } from '../../motion/motion-managed-keyframes';
 import { buildLegacyHoverMotionStylePatch, buildLegacyMotionStylePatch, buildWidgetHoverMotion, buildWidgetMotion } from '../../motion/motion-model';
 import { MotionConfigFields } from '../../motion/react/MotionConfigFields';
 import { MotionTemplateGallery } from '../../motion/react/MotionTemplateGallery';
@@ -17,6 +18,7 @@ import {
 
 export function MotionSection({ widget }: { widget: WidgetNode }): JSX.Element | null {
   const { updateWidgetMotion, updateWidgetHoverMotion, updateWidgetStyle } = useWidgetActions();
+  const { setWidgetKeyframes } = useTimelineActions();
   const supportsEntranceMotion = supportsAnimationPresets(widget);
   const supportsHoverMotion = supportsHoverPresets(widget);
 
@@ -50,11 +52,13 @@ export function MotionSection({ widget }: { widget: WidgetNode }): JSX.Element |
               configByTemplateId={widget.motion?.templateId ? { [widget.motion.templateId]: widget.motion.config } : undefined}
               onSelect={(templateId) => {
                 if (!templateId) {
+                  setWidgetKeyframes(widget.id, stripMotionManagedKeyframes(widget.timeline.keyframes ?? []));
                   updateWidgetMotion(widget.id, undefined);
                   updateWidgetStyle(widget.id, buildLegacyMotionStylePatch(undefined));
                   return;
                 }
                 const { stylePatch, motion } = applyAnimationPreset(widget, templateId as Parameters<typeof applyAnimationPreset>[1]);
+                setWidgetKeyframes(widget.id, stripMotionManagedKeyframes(widget.timeline.keyframes ?? []));
                 updateWidgetMotion(widget.id, motion);
                 updateWidgetStyle(widget.id, stylePatch);
               }}
@@ -66,6 +70,7 @@ export function MotionSection({ widget }: { widget: WidgetNode }): JSX.Element |
                 config={widget.motion.config}
                 onChange={(patch) => {
                   const nextMotion = buildWidgetMotion(activeEntranceTemplate.id, { ...widget.motion?.config, ...patch });
+                  setWidgetKeyframes(widget.id, stripMotionManagedKeyframes(widget.timeline.keyframes ?? []));
                   updateWidgetMotion(widget.id, nextMotion);
                   updateWidgetStyle(widget.id, buildLegacyMotionStylePatch(nextMotion));
                 }}

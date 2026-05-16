@@ -8,6 +8,7 @@ import {
   resolveWidgetHoverMotion,
   resolveWidgetMotion,
 } from '../../motion/motion-model';
+import { stripMotionManagedKeyframes } from '../../motion/motion-managed-keyframes';
 import { listHoverMotionTemplates, listMotionTemplates } from '../../motion/motion-registry';
 import { widgetSupportsHoverMotion, widgetSupportsMotion } from '../../motion/motion-widget-compatibility';
 
@@ -57,8 +58,6 @@ const DEFAULT_HOVER_CONFIG: Omit<HoverMotionConfig, 'preset'> = {
 };
 
 export const ANIMATION_PRESET_WIDGET_TYPES = new Set<WidgetNode['type']>(['text', 'image', 'cta', 'buttons', 'group']);
-export const PRESET_TRACKS: Array<KeyframeNode['property']> = ['opacity', 'y'];
-
 export function supportsAnimationPresets(widget: WidgetNode): boolean {
   return widgetSupportsMotion(widget);
 }
@@ -117,12 +116,6 @@ export function getHoverMotionConfig(widget: WidgetNode): HoverMotionConfig {
   };
 }
 
-export function stripPresetManagedKeyframes(keyframes: KeyframeNode[] = []): KeyframeNode[] {
-  return keyframes
-    .filter((item) => !PRESET_TRACKS.includes(item.property))
-    .sort((left, right) => left.atMs - right.atMs);
-}
-
 export function applyAnimationPreset(
   widget: WidgetNode,
   preset: SupportedAnimationPreset,
@@ -140,7 +133,7 @@ export function applyAnimationPreset(
     repeatMode: currentConfig.repeatMode,
   });
   return {
-    keyframes: stripPresetManagedKeyframes(widget.timeline.keyframes ?? []),
+    keyframes: stripMotionManagedKeyframes(widget.timeline.keyframes ?? []),
     stylePatch: buildLegacyMotionStylePatch(motion),
     motion,
   };

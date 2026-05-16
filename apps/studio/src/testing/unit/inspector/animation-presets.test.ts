@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { WidgetNode } from '../../../domain/document/types';
 import { applyAnimationPreset, getAnimationPresetConfig, getAnimationPresetPreviewState, getHoverMotionConfig, supportsAnimationPresets } from '../../../inspector/sections/animation-presets';
+import { stripMotionManagedKeyframes } from '../../../motion/motion-managed-keyframes';
 
 function createWidget(type: WidgetNode['type']): WidgetNode {
   return {
@@ -63,6 +64,20 @@ describe('animation presets', () => {
 
     expect(pulse.keyframes).toHaveLength(1);
     expect(pulse.keyframes[0]?.property).toBe('x');
+  });
+
+  it('strips only motion-managed tracks when removing a template', () => {
+    const widget = createWidget('text');
+    widget.timeline.keyframes = [
+      { id: 'kf_1', property: 'opacity', atMs: 300, value: 0.2, easing: 'linear' },
+      { id: 'kf_2', property: 'y', atMs: 500, value: 104, easing: 'ease-out' },
+      { id: 'kf_3', property: 'x', atMs: 500, value: 64, easing: 'ease-out' },
+    ];
+
+    const keyframes = stripMotionManagedKeyframes(widget.timeline.keyframes);
+
+    expect(keyframes).toHaveLength(1);
+    expect(keyframes[0]?.property).toBe('x');
   });
 
   it('stores fade-out as a single template without creating timeline keyframes', () => {

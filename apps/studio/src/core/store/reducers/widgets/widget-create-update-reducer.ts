@@ -1,6 +1,7 @@
 import type { StudioCommand } from '../../../commands/types';
 import type { StudioState } from '../../../../domain/document/types';
 import { buildResolvedWidgetsById, resolveWidgetForCanvasVariant } from '../../../../domain/document/canvas-variants';
+import { stripMotionManagedKeyframes } from '../../../../motion/motion-managed-keyframes';
 import { currentScene, getPlacedFrameForPoint, getSmartPlacedFrame, getWidgetDefinition, withDirty } from './shared';
 
 function isMasterVariant(state: StudioState): boolean {
@@ -181,6 +182,9 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
             [target.id]: {
               ...target,
               motion: command.motion ? { ...command.motion, config: { ...command.motion.config } } : undefined,
+              timeline: command.motion
+                ? { ...target.timeline, keyframes: stripMotionManagedKeyframes(target.timeline.keyframes ?? []) }
+                : target.timeline,
             },
           },
         },
@@ -247,6 +251,9 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
                 style: nextStyle,
                 motion: nextMotion,
                 hoverMotion: nextHoverMotion,
+                timeline: nextMotion
+                  ? { ...baseTarget.timeline, keyframes: stripMotionManagedKeyframes(baseTarget.timeline.keyframes ?? []) }
+                  : baseTarget.timeline,
               },
             },
           },

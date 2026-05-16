@@ -54,6 +54,39 @@ describe('normalizeStudioState', () => {
     });
   });
 
+  it('strips legacy motion-managed keyframes when motion is normalized', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0]?.id ?? 'scene_1';
+
+    state.document.widgets.hero = {
+      id: 'hero',
+      type: 'image',
+      name: 'Hero',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 24, y: 32, width: 240, height: 140, rotation: 0 },
+      props: { src: '' },
+      style: {
+        animationPreset: 'fade-up',
+      },
+      timeline: {
+        startMs: 0,
+        endMs: 15000,
+        keyframes: [
+          { id: 'kf_opacity', property: 'opacity', atMs: 0, value: 0, easing: 'linear' },
+          { id: 'kf_y', property: 'y', atMs: 0, value: 48, easing: 'ease-out' },
+          { id: 'kf_x', property: 'x', atMs: 400, value: 42, easing: 'ease-out' },
+        ],
+      },
+    };
+
+    const normalized = normalizeStudioState(state);
+    const keyframes = normalized.document.widgets.hero?.timeline.keyframes ?? [];
+
+    expect(keyframes).toHaveLength(1);
+    expect(keyframes[0]?.property).toBe('x');
+  });
+
   it('uses explicit widget capability flags for motion support', () => {
     expect(widgetSupportsMotion({ type: 'text' })).toBe(true);
     expect(widgetSupportsHoverMotion({ type: 'buttons' })).toBe(true);
