@@ -79,6 +79,11 @@ export function StageSurface({
   const stageDropActive = Boolean(dropPreview);
   const transitionDuration = Math.max(120, sceneTransitionDurationMs);
 
+  function resolveTemplateConfig(widget: WidgetNode) {
+    const config = getAnimationPresetConfig(widget);
+    return config.preset ? config : null;
+  }
+
   function isCoveredByScratchGroup(widget: WidgetNode): boolean {
     if (!previewMode) return false;
     let currentParentId = widget.parentId;
@@ -158,17 +163,29 @@ export function StageSurface({
     >
       {widgets.map((widget) => {
         const selectedInEditor = !previewMode && selectedIds.includes(widget.id);
-        const animationTemplateActive = selectedInEditor && Boolean(getAnimationPresetConfig(widget).preset);
+        const animationTemplateConfig = resolveTemplateConfig(widget);
+        const animationTemplateActive = selectedInEditor && Boolean(animationTemplateConfig);
+        const liveFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
         const frame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
           ? resolveScratchGroupFrame(widget)
+          : previewMode && animationTemplateConfig
+            ? {
+                ...liveFrame,
+                y: animationTemplateConfig.preset === 'fade-up' ? widget.frame.y : liveFrame.y,
+              }
           : animationTemplateActive
-            ? widget.frame
-            : liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
+            ? {
+                ...liveFrame,
+                y: animationTemplateConfig?.preset === 'fade-up' ? widget.frame.y : liveFrame.y,
+              }
+            : liveFrame;
         if (!isWidgetVisible(widget.id)) return null;
         if (isCoveredByScratchGroup(widget)) return null;
         const renderNode = frame === widget.frame ? widget : { ...widget, frame };
         const opacity = animationTemplateActive
           ? Number(widget.style.opacity ?? 1)
+          : previewMode && animationTemplateConfig
+            ? Number(widget.style.opacity ?? 1)
           : getLiveWidgetOpacity(renderNode, playheadMs);
 
         return (
