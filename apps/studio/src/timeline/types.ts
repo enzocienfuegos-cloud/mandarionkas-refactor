@@ -23,6 +23,7 @@ export type TimelineWidget = {
   timeline: {
     startMs: number;
     endMs: number;
+    excluded?: boolean;
     keyframes?: TimelineKeyframe[];
   };
 };

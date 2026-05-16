@@ -73,4 +73,33 @@ describe('timeline display rows', () => {
 
     expect(rows.map((row) => row.widget.id)).toEqual(['group_1', 'child_front', 'child_back']);
   });
+
+  it('omits layers excluded from timeline rows', () => {
+    const rows = buildTimelineDisplayRows([
+      {
+        id: 'visible',
+        type: 'text',
+        name: 'Visible',
+        sceneId: 'scene_1',
+        zIndex: 1,
+        frame: { x: 0, y: 0, width: 10, height: 10, rotation: 0 },
+        props: {},
+        style: {},
+        timeline: { startMs: 0, endMs: 1000 },
+      },
+      {
+        id: 'excluded',
+        type: 'image',
+        name: 'Excluded',
+        sceneId: 'scene_1',
+        zIndex: 0,
+        frame: { x: 0, y: 0, width: 10, height: 10, rotation: 0 },
+        props: {},
+        style: {},
+        timeline: { startMs: 0, endMs: 1000, excluded: true },
+      },
+    ] as any, [], new Set());
+
+    expect(rows.map((row) => row.widget.id)).toEqual(['visible']);
+  });
 });

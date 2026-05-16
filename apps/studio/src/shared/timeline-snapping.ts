@@ -18,6 +18,7 @@ type SnapTimelineWidget = {
   timeline: {
     startMs: number;
     endMs: number;
+    excluded?: boolean;
     keyframes?: Array<{ id: string; property: string; atMs: number }>;
   };
 };
@@ -45,6 +46,7 @@ export function buildTimelineSnapTargets(
 
   widgets.forEach((widget) => {
     if (widget.id === options.excludeWidgetId) return;
+    if (widget.timeline.excluded) return;
     targets.push({ ms: widget.timeline.startMs, kind: 'start', widgetId: widget.id, label: `${widget.name} start` });
     targets.push({ ms: widget.timeline.endMs, kind: 'end', widgetId: widget.id, label: `${widget.name} end` });
     (widget.timeline.keyframes ?? []).forEach((keyframe) => {

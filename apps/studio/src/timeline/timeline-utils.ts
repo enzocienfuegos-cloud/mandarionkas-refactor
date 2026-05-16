@@ -66,6 +66,7 @@ export function buildTimelineDisplayRows(
   };
 
   const visit = (widget: TimelineWidget, depth: number, ancestorIds: string[]) => {
+    if (widget.timeline.excluded) return;
     const isGroup = Boolean(getCapability(getWidgetDefinition(widget.type), 'isContainer'));
     const childIds = (widget.childIds ?? [])
       .map((childId) => widgetMap.get(childId))
@@ -83,7 +84,7 @@ export function buildTimelineDisplayRows(
       isCollapsed: isGroup && collapsedGroupIds.has(widget.id),
     };
 
-    if (shouldIncludeRow(row)) rows.push(row);
+    if (!widget.timeline.excluded && shouldIncludeRow(row)) rows.push(row);
     if (row.isCollapsed) return;
 
     childIds.forEach((child) => visit(child, depth + 1, [...ancestorIds, widget.id]));
