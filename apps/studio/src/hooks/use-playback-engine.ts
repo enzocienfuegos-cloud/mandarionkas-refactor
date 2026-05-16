@@ -96,3 +96,30 @@ export function usePlaybackMsThrottled(fallbackMs: number): number {
 
   return Number.isFinite(value) ? value : fallbackMs;
 }
+
+export function usePlaybackMsLive(fallbackMs: number): number {
+  const [value, setValue] = useState(() => {
+    const initial = playbackEngine.getCurrentMs();
+    return Number.isFinite(initial) ? initial : fallbackMs;
+  });
+  const fallbackRef = useRef(fallbackMs);
+
+  useEffect(() => {
+    fallbackRef.current = fallbackMs;
+    const current = playbackEngine.getCurrentMs();
+    if (!Number.isFinite(current)) {
+      setValue(fallbackMs);
+    }
+  }, [fallbackMs]);
+
+  useEffect(() => {
+    const sync = (nextMs: number) => {
+      setValue(Number.isFinite(nextMs) ? nextMs : fallbackRef.current);
+    };
+
+    sync(playbackEngine.getCurrentMs());
+    return playbackEngine.subscribeDom(sync);
+  }, []);
+
+  return Number.isFinite(value) ? value : fallbackMs;
+}
